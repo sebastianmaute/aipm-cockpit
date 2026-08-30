@@ -304,21 +304,41 @@ export function SavingPausedBanner({
   // returns before the dialog can render, and a hook behind it would break the
   // rules of hooks the first time a banner was dismissed.
   const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false);
-  const isDestructive = cause.kind === "destructive";
   const { countText, bannerKey, bannerAriaKey } =
     cause.kind === "destructive" ? destructiveCopy(lang, cause) : truncationCopy(lang, cause);
-  const saveLabel = t(lang, isDestructive ? "storageDestructiveSaveAnyway" : "documentsTruncatedSaveAnyway");
+  // ★★ THREE trigger labels, not two. The wipe tier used to borrow the mass
+  // deletion's "Save this deletion" while its own count line and dialog title
+  // both said WIPE — the one control committing to the larger loss was the one
+  // understating it.
+  // ★ It stays distinct from `storageDestructiveWipeSaveAnyway`, the wipe
+  // dialog's commit button: that dialog opens OVER this banner, so the two are
+  // on screen together and sharing a name is the duplicate-name defect the whole
+  // rest of this file is about.
+  const saveLabel =
+    cause.kind !== "destructive"
+      ? t(lang, "documentsTruncatedSaveAnyway")
+      : cause.fullWipe
+        ? t(lang, "storageDestructiveWipeBannerSaveAnyway")
+        : t(lang, "storageDestructiveSaveAnyway");
   const askThenSave = async () => {
     if (cause.kind === "destructive") {
+      // ★★ RECOMPUTED inside the narrowed branch rather than reusing the
+      // `countText` above. `cause.kind` narrows `cause`; it does NOT narrow a
+      // separately-computed value, so the outer `countText` stays `string | null`
+      // (the truncation arm may have no magnitude to name) and interpolating it
+      // here would eventually render the literal text "null" into a dialog whose
+      // confirm permanently discards data. `destructiveCopy` returns a
+      // non-nullable `countText`, so this is impossible at the TYPE level — not
+      // asserted away with a `!`, which would only hide the same union.
+      const { countText: destructiveCountText } = destructiveCopy(lang, cause);
       const ok = await confirm({
         title: t(lang, "storageDestructiveConfirmTitle"),
-        message: `${countText}\n\n${t(lang, "storageDestructiveConfirmBody")}`,
+        message: `${destructiveCountText}\n\n${t(lang, "storageDestructiveConfirmBody")}`,
         // ★★ NOT the trigger's own label. `ConfirmDialog` renders this as a
         // button while the banner stays mounted behind the open dialog, so
         // reusing `storageDestructiveSaveAnyway` would put two identically-named
         // buttons on screen — the SAME defect the wipe branch below avoids, one
-        // tier down. (`documentsTruncatedSaveAnyway` on the truncation arm still
-        // does exactly this; it predates the slice — `docs/open-followups.md`.)
+        // tier down.
         confirmLabel: t(lang, "storageDestructiveConfirmSaveAnyway"),
       });
       if (ok) onSaveAnyway();
@@ -329,7 +349,14 @@ export function SavingPausedBanner({
       title: t(lang, "documentsTruncatedConfirmTitle"),
       // The dialog renders `whitespace-pre-line`, so the count leads its own line.
       message: countText ? `${countText}\n\n${body}` : body,
-      confirmLabel: t(lang, "documentsTruncatedSaveAnyway"),
+      // ★★ FIXED HERE: this arm passed `documentsTruncatedSaveAnyway` — its own
+      // trigger's string — so the banner's trigger and the dialog's commit button
+      // carried the identical accessible name while both were on screen (WCAG
+      // 2.4.6). The dialog comes from `ConfirmProvider`, so the banner never
+      // unmounts behind it. The two labels must STAY distinct: the axe gate
+      // provably cannot see a duplicate accessible name in any view at any seed
+      // size, so only `notifications.test.tsx` guards this.
+      confirmLabel: t(lang, "documentsTruncatedConfirmSaveAnyway"),
     });
     if (ok) onSaveAnyway();
   };
@@ -387,7 +414,7 @@ export function SavingPausedBanner({
           title={t(lang, "storageDestructiveWipeConfirmTitle")}
           message={t(lang, "storageDestructiveWipeConfirmBody")}
           confirmValue={t(lang, "storageDestructiveWipeConfirmValue")}
-          // ★★ A SEPARATE KEY from the banner trigger's `storageDestructiveSaveAnyway`,
+          // ★★ A SEPARATE KEY from the banner trigger's `storageDestructiveWipeBannerSaveAnyway`,
           // deliberately. The trigger stays mounted behind the open dialog, so sharing
           // the string would put two buttons with the SAME accessible name on screen at
           // once — the duplicate-name defect the axe gate provably cannot catch, and the

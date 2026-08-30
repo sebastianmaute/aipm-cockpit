@@ -120,14 +120,25 @@ describe("task-manager → truncation banner mount", () => {
 
   it("wires the primary action to allowIncompleteSave, not to the dismiss handler", async () => {
     await mountApp();
-    fireEvent.click(within(banner() as HTMLElement).getByRole("button", { name: "Save anyway" }));
+    fireEvent.click(
+      within(banner() as HTMLElement).getByRole("button", { name: t("en-US", "documentsTruncatedSaveAnyway") }),
+    );
 
     // Real ConfirmProvider is in the tree, so the gate is exercised end to end.
-    await screen.findByText("Save anyway?");
+    // ★ Named, because the guided tour's welcome dialog is mounted too.
+    const dialog = await screen.findByRole("dialog", { name: t("en-US", "documentsTruncatedConfirmTitle") });
     expect(override.allowIncompleteSave).not.toHaveBeenCalled();
 
-    const confirms = screen.getAllByRole("button", { name: "Save anyway" });
-    fireEvent.click(confirms[confirms.length - 1]);
+    // ★★ NAMES THE BUTTON IT COMMITS WITH, and this replaced a
+    // `getAllByRole("button", { name: "Save anyway" })` that clicked the LAST
+    // match. That form existed only because the trigger and the confirm's commit
+    // shared one accessible name — the WCAG 2.4.6 defect fixed in
+    // `notifications.tsx` this same slice — so the test could not say which
+    // control it meant and depended on DOM order to reach the right one. Now the
+    // commit carries `documentsTruncatedConfirmSaveAnyway`, this is scoped to the
+    // dialog and names it. Strictly stronger: the old form would have passed
+    // against a click on the trigger had the order gone the other way.
+    fireEvent.click(within(dialog).getByRole("button", { name: t("en-US", "documentsTruncatedConfirmSaveAnyway") }));
     await waitFor(() => expect(override.allowIncompleteSave).toHaveBeenCalledTimes(1));
     // ...and it did NOT merely hide itself: the guard is what resolves this.
     expect(banner()).not.toBeNull();
@@ -240,9 +251,13 @@ describe("task-manager → truncation banner mount", () => {
   it("stops reporting storage as healthy while saving is paused", async () => {
     // ★ `storageOk` must fold in `loadWasIncomplete`. Reporting healthy while
     // nothing is being written is the WRONG signal, not merely a missing one.
-    // The control for this assertion is the clean-load test below, which proves
-    // this harness DOES reach `storageReady: true` once a load lands — without
-    // it, "never true" would be satisfied by a mount that never got that far.
+    // The control for this assertion is "shows neither the banner nor the
+    // paused indicator on a clean load, and reports healthy", which proves this
+    // harness DOES reach `storageReady: true` once a load lands — without it,
+    // "never true" would be satisfied by a mount that never got that far.
+    // ★ Named, not positioned: the sibling of this comment in the
+    // destructive-refusal describe said "the describe above" and pointed at the
+    // wrong test. A relative pointer rots on the next insertion.
     await mountApp();
     await waitFor(() => expect(footerSeen.storageReady.length).toBeGreaterThan(0));
     expect(footerSeen.storageReady.some((v) => v === true)).toBe(false);
@@ -356,7 +371,14 @@ describe("task-manager → destructive-refusal banner mount", () => {
     };
     await mountApp();
     fireEvent.click(
-      within(destructiveBanner() as HTMLElement).getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }),
+      // ★ The WIPE tier's own trigger label. It used to be
+      // `storageDestructiveSaveAnyway` ("Save this deletion"), shared with the mass
+      // deletion, while this banner's count line and dialog title both said WIPE;
+      // the wipe tier now renders `storageDestructiveWipeBannerSaveAnyway`. Only the
+      // EXPECTED STRING moved — the query is still `getByRole` scoped to the
+      // destructive banner, so a component that dropped the wipe trigger entirely
+      // still fails here.
+      within(destructiveBanner() as HTMLElement).getByRole("button", { name: t("en-US", "storageDestructiveWipeBannerSaveAnyway") }),
     );
 
     // The heavy tier, found by the title only it carries. Nothing here mocks
@@ -397,9 +419,17 @@ describe("task-manager → destructive-refusal banner mount", () => {
 
   it("stops reporting storage as healthy while a refusal stands", async () => {
     // ★ `storageOk` must fold in the destructive refusal too, not only
-    // `loadWasIncomplete`. The control is the clean-load test in the describe
-    // above, which proves this harness DOES reach `storageReady: true` — without
-    // it, "never true" would be satisfied by a mount that never got that far.
+    // `loadWasIncomplete`. The control is "shows neither the destructive banner
+    // nor the paused indicator with no refusal standing", which stages THIS
+    // describe's `beforeEach` minus the refusal and proves the harness DOES
+    // reach `storageReady: true` — without it, "never true" would be satisfied
+    // by a mount that never got that far.
+    // ★★ Cited by NAME, not by position: this pointed at "the clean-load test
+    // in the describe above" and was wrong, because that test does NOT run
+    // under this describe's `beforeEach` and replaces `override.value`
+    // wholesale, so it cannot speak for the staging used here. A relative
+    // pointer is what made the comment wrong; a line number would rot the same
+    // way on the next insertion.
     await mountApp();
     await waitFor(() => expect(footerSeen.storageReady.length).toBeGreaterThan(0));
     expect(footerSeen.storageReady.some((v) => v === true)).toBe(false);

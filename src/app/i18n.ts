@@ -2836,6 +2836,12 @@ const enUS = {
   documentsTruncatedBlocksCount: "{0} blocks in stored documents could not be opened.",
   documentsTruncatedConfirmTitle: "Save anyway?",
   documentsTruncatedConfirmBody: "This overwrites your saved project with only the data the app could open. Whatever it could not open is not in the app, and saving loses it for good.",
+  // ★★ NOT `documentsTruncatedSaveAnyway`, for the same reason as both destructive
+  // pairs below: `ConfirmDialog` renders this as a button while the banner's own
+  // trigger stays mounted behind it (the dialog comes from `ConfirmProvider`), so
+  // sharing the string put two identically-named buttons on screen at once. It also
+  // names what the commit actually does, which "Save anyway" never did.
+  documentsTruncatedConfirmSaveAnyway: "Discard the unopened data",
   storageSavingPaused: "Saving paused",
   storageSavingPausedAction: "Saving paused - show how to resolve it",
   knowledgeModuleDesc: "A single place to see and manage every knowledge link — documents, Confluence pages, and web URLs — across the project.",
@@ -3910,6 +3916,12 @@ const enUS = {
   // would put two buttons with the same accessible name on screen at once — the
   // duplicate-name defect the axe gate provably cannot see.
   storageDestructiveWipeSaveAnyway: "Save this wipe",
+  // ★★ The BANNER TRIGGER for the wipe tier — a THIRD string, not a swap. The wipe
+  // tier used to reuse `storageDestructiveSaveAnyway` ("Save this deletion") while
+  // its count line and its dialog title both said WIPE, so the button understated
+  // what it was about to commit. It cannot take `storageDestructiveWipeSaveAnyway`
+  // either: that is the dialog's commit, and the dialog opens OVER this banner.
+  storageDestructiveWipeBannerSaveAnyway: "Save this full wipe",
   historyRestoreNothing: "Nothing to restore — this version has no differences from the current project (it may be an empty snapshot).",
   historyRestoreNothingManaged: "Nothing to restore — every change in this version is document history, which is managed per document.",
   projectsSwitch: "Switch project",

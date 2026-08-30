@@ -455,6 +455,35 @@ describe("SavingPausedBanner", () => {
     expect(screen.getByRole("button", { name: t("en-US", "documentsTruncatedSaveAnyway") })).toBeInTheDocument();
   });
 
+  it("gives the TRUNCATION confirm's commit button a name the banner trigger does not share", async () => {
+    // ★★★ The mirror of the destructive-arm test below, and the arm that actually
+    // shipped the defect: this branch passed `documentsTruncatedSaveAnyway` — its
+    // OWN trigger's string — as `confirmLabel`. `ConfirmDialog` renders that as a
+    // button, and the dialog comes from `ConfirmProvider`, so the banner never
+    // unmounts behind it: two buttons carried the identical accessible name at the
+    // same time, one opening an irreversible gate and one committing it (WCAG
+    // 2.4.6). The axe gate provably cannot see a duplicate accessible name in any
+    // view at any seed size, so this test is the only detector there will ever be.
+    // ★ This file mocks the whole `./confirm-dialog` module, so the real dialog can
+    // never render here and the options object it was handed is the ONLY available
+    // observable — same reasoning as the destructive test.
+    render(
+      <SavingPausedBanner
+        lang="en-US"
+        cause={{ kind: "truncation", truncation: { entries: 3, blocks: 0 }, decodeFailureCount: 0, malformedQuoteCount: 0 }}
+        dismissed={false}
+        hasFooterIndicator
+        onSaveAnyway={vi.fn()}
+        onDismiss={vi.fn()}
+        onReopen={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "documentsTruncatedSaveAnyway") }));
+    await waitFor(() => expect(confirmState.calls).toBe(1));
+    expect(confirmState.lastOpts?.confirmLabel).not.toBe(t("en-US", "documentsTruncatedSaveAnyway"));
+    expect(confirmState.lastOpts?.confirmLabel).toBe(t("en-US", "documentsTruncatedConfirmSaveAnyway"));
+  });
+
   // ── The DESTRUCTIVE cause (the refused mass-deletion / full-wipe save) ──
   //
   // ★★ No `ConfirmProvider` is mounted, and mounting one would prove nothing:
@@ -496,9 +525,42 @@ describe("SavingPausedBanner", () => {
   it("names a full wipe without arithmetic, and NOT as an N-of-M count", () => {
     // ★★ The negative is the half that matters: a branch that rendered both
     // lines, or that always rendered the count, passes the positive alone.
+    // ★★★ DERIVED FROM THE STRING TABLE, never a quoted English literal. The
+    // literal it replaces (`/\d+ of \d+ records would be removed/i`) was the
+    // then-current wording of `storageDestructiveCount`, so any reword of that
+    // key would have left this negative matching NOTHING and passing for the
+    // wrong reason — the exact failure that already cost this branch a red
+    // elsewhere, where four literal-matching assertions went red and two went
+    // silently vacuous. Passing the wipe's OWN numbers makes the asserted-absent
+    // string exactly the true-but-useless "900 of 900" this copy refuses.
     renderDestructive({ cause: FULL_WIPE });
     expect(screen.getByText(t("en-US", "storageDestructiveWipeCount"))).toBeInTheDocument();
-    expect(screen.queryByText(/\d+ of \d+ records would be removed/i)).toBeNull();
+    expect(
+      screen.queryByText(
+        t("en-US", "storageDestructiveCount", FULL_WIPE.prevRecords - FULL_WIPE.curRecords, FULL_WIPE.prevRecords),
+      ),
+    ).toBeNull();
+  });
+
+  it("names the WIPE on the wipe tier's trigger, not the mass deletion's label", () => {
+    // ★★ The wipe tier used to render `storageDestructiveSaveAnyway` ("Save this
+    // deletion") while its count line and its dialog title both said WIPE — the
+    // one control committing to the larger loss understated it.
+    // ★ The negative is the half that pins the fix: the mass-deletion label must
+    // be ABSENT here, or a component rendering both (or reverting to the shared
+    // string, which still contains no wipe wording) would pass the positive.
+    // ★ And distinct from the dialog's own commit button, which mounts over this
+    // banner — `storageDestructiveWipeSaveAnyway` is pinned separately below.
+    renderDestructive({ cause: FULL_WIPE });
+    expect(
+      screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeBannerSaveAnyway") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }),
+    ).toBeNull();
+    expect(t("en-US", "storageDestructiveWipeBannerSaveAnyway")).not.toBe(
+      t("en-US", "storageDestructiveWipeSaveAnyway"),
+    );
   });
 
   it("routes a refused mass deletion through the LIGHT confirm tier", async () => {
@@ -529,7 +591,7 @@ describe("SavingPausedBanner", () => {
   it("routes a refused FULL WIPE through the HEAVY type-to-confirm tier", () => {
     const onSaveAnyway = vi.fn();
     renderDestructive({ cause: FULL_WIPE, onSaveAnyway });
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeBannerSaveAnyway") }));
     // The negative: the shared ConfirmDialog was NOT used for this tier.
     expect(confirmState.calls).toBe(0);
     fireEvent.change(screen.getByRole("textbox"), {
@@ -545,7 +607,7 @@ describe("SavingPausedBanner", () => {
     // commit fired on any keystroke would pass the tier test above.
     const onSaveAnyway = vi.fn();
     renderDestructive({ cause: FULL_WIPE, onSaveAnyway });
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeBannerSaveAnyway") }));
     const commit = screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeSaveAnyway") });
     expect(commit).toBeDisabled();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "yes" } });
@@ -561,7 +623,7 @@ describe("SavingPausedBanner", () => {
   it("leaves the refusal standing when the wipe confirm is cancelled", () => {
     const onSaveAnyway = vi.fn();
     renderDestructive({ cause: FULL_WIPE, onSaveAnyway });
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeBannerSaveAnyway") }));
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
     expect(onSaveAnyway).not.toHaveBeenCalled();
     expect(screen.queryByRole("textbox")).toBeNull();
