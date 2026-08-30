@@ -31,6 +31,14 @@ export interface SaveGuardVerdict {
    *  project emptying itself is legitimate often enough that refusing it would
    *  be worse, and rare enough to be worth recording. */
   forensic: boolean;
+  /** WHICH invariant refused, so the recourse surface can pick its confirm
+   *  tier. `null` whenever `refuse` is false.
+   *
+   *  ★ `"full-wipe"` wins when BOTH hold, which is the common case — emptying a
+   *  multi-collection project is a mass deletion too. It is the larger loss and
+   *  it selects the heavier type-to-confirm tier, so reporting `"mass-delete"`
+   *  here would silently downgrade friction on the case that most needs it. */
+  refusedBy: "full-wipe" | "mass-delete" | null;
 }
 
 /** L3 + Layer B, the two invariants at the persistence choke point.
@@ -47,6 +55,8 @@ export function evaluateSaveGuard(input: SaveGuardInput): SaveGuardVerdict {
   const { prevCollections, prevRecords, curCollections, curRecords, allowDestructive } = input;
   const fullWipe = curCollections === 0 && prevCollections >= 2;
   const massDelete = isMassDeletion(prevRecords, curRecords);
-  if ((fullWipe || massDelete) && !allowDestructive) return { refuse: true, forensic: false };
-  return { refuse: false, forensic: curCollections === 0 && prevCollections === 1 };
+  if ((fullWipe || massDelete) && !allowDestructive) {
+    return { refuse: true, forensic: false, refusedBy: fullWipe ? "full-wipe" : "mass-delete" };
+  }
+  return { refuse: false, forensic: curCollections === 0 && prevCollections === 1, refusedBy: null };
 }
