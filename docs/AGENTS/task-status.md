@@ -49,7 +49,7 @@ tsc, lint and every sweep below green — only `field-groups.test.ts` pins it. �
 capture routes that CONSULT that constant: `grep -rn "TASK_UNDO_GROUPS" src/app --include=*.ts
 --include=*.tsx | grep -v "\.test\."` returns the declaration plus TWO read sites —
 `use-task-submit.ts`, and `use-bulk-operations.ts`, which passes it as the `groups` argument of
-`buildBulkFieldEdits`. See `docs/open-followups.md` §180 for the bulk-undo gap filed on this route.
+`buildBulkFieldEdits`.
 
 ## Prohibitions — do not route one path through another
 
