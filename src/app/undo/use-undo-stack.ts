@@ -732,7 +732,10 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
       setter((prev) => prev.map((r) => (r.id === id ? stamp({ ...r, ...patch }) : r)));
     // Mutually-recursive, reusable undo↔redo runners (function decls hoist).
     // ★★ NEITHER DIRECTION ARMS THE DESTRUCTIVE BYPASS, and that is deliberate
-    // (§295), not an oversight — `runRedo` is the third redo path in this file
+    // (§295), not an oversight — this `runRedo` is one of several in the file
+    // (the others live in `fragmentUndoRunner`, `fieldRowsRunner` and
+    // `compositeUndoRunner`; enumerate with
+    // `grep -n "const runRedo\|function runRedo" src/app/undo/use-undo-stack.ts`)
     // and the easiest to mistake for a missing arm. `merge` is `prev.map(...)`,
     // a map over the rows that already exist, so it can rewrite a row but never
     // drop one; the array length is invariant in both directions. Arming here

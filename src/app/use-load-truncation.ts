@@ -549,9 +549,19 @@ export function useLoadTruncation(
   // the authorisation was for.
   // ★★ The cost is deliberate and is the safe direction. After "Save anyway"
   // the legitimate bulk delete is re-evaluated by Layer B and may be refused —
-  // but that refusal is VISIBLE (the `storageRefusedWipe` toast), persists
-  // nothing, and is recoverable by reloading or by redoing the bulk op, whereas
-  // the leak it replaces is a silent, unrecoverable mass deletion.
+  // but that refusal is VISIBLE, persists nothing, and is recoverable by
+  // reloading or by redoing the bulk op, whereas the leak it replaces is a
+  // silent, unrecoverable mass deletion.
+  // ★★ VISIBLE VIA THE BANNER, NOT THE TOAST — do not restore the older wording
+  // that named `storageRefusedWipe` as the surface. That toast is ANNOUNCEMENT
+  // only and fires at most once per refusal episode: the save effect guards it
+  // with `!refusalWasStanding` (`use-storage-backend.ts`), so every later
+  // re-refusal against unchanged baselines is silent, and its action merely
+  // REVEALS the banner rather than carrying anything. What persists is the
+  // `SavingPausedBanner` `task-manager.tsx` renders while `destructiveRefusal
+  // !== null`, plus `SidebarFooter`'s `savingPaused` indicator. A reader who
+  // takes the toast for the durable surface concludes that a dismissed or
+  // missed toast leaves the user with nothing, which is the opposite of true.
   // ★ `flushCurrent`/`guardedWrite` below deliberately do NOT spend it: an
   // explicit bulk op always mutates the workspace, so the save effect runs and
   // the branch above catches every armed bypass. Spending it from a background

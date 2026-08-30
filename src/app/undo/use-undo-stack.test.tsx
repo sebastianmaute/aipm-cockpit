@@ -514,6 +514,13 @@ describe("useUndoStack", () => {
     // ★ The leak class §294 is about: arming on EVERY redo would hand a
     // one-shot destructive bypass to an ordinary bulk-edit redo, and the next
     // unrelated save would spend it.
+    // ★★ THE POSITIVE CONTROLS BELOW ARE WHAT MAKE THE ABSENCE MEAN ANYTHING.
+    // `allowDestructiveSave` is also un-called by a fixture that never reaches
+    // the redo path at all — a mis-shaped capture, an empty before-image
+    // (`capture` RETURNS EARLY on `images.length === 0`), a redo stack the undo
+    // never filled — so the array assertions prove the round trip demonstrably
+    // ran and the un-armed verdict is about behaviour, not about nothing having
+    // happened.
     const allowDestructiveSave = vi.fn();
     const deps = makeDeps({ allowDestructiveSave });
     const { result } = renderHook(() => useUndoStack(deps));
@@ -524,7 +531,9 @@ describe("useUndoStack", () => {
       result.current.capture({ setter, kind: "task.updated", edited: [{ id: 1, name: "before" }], fromArray: [{ id: 1, name: "before" }] });
     });
     act(() => { result.current.undo(); });
+    expect(arr).toEqual([{ id: 1, name: "before" }]);   // control: the undo really applied
     act(() => { result.current.redo(); });
+    expect(arr).toEqual([{ id: 1, name: "after" }]);    // control: the redo really applied
     expect(allowDestructiveSave).not.toHaveBeenCalled();
   });
 
@@ -548,6 +557,65 @@ describe("useUndoStack", () => {
     // ★ Composites arm because a FRAGMENT arms — `compositeUndoRunner` composes
     // the fragment redos and needs no check of its own. Do not add one.
     expect(allowDestructiveSave).toHaveBeenCalled();
+  });
+
+  // ── The two DELIBERATELY UNARMED runners (§295). Each carries a source comment
+  // saying it is unarmed on purpose; until now nothing held either to it, so
+  // adding an `arm?.()` to `fieldRowsRunner` or to `captureFieldEdit`'s `runRedo`
+  // was green everywhere — a comment claiming protection with nothing behind it.
+  // ★★ THE `arr.length` ASSERTION IS THE POINT, not the un-called spy. Both
+  // runners are unarmed because their redo is a `prev.map(...)`: a map rewrites
+  // rows in place and cannot shorten the array, so no direction of either runner
+  // ever removes a row and there is nothing for a destructive-save bypass to
+  // authorise. Pinning the length pins THAT — the premise. If someone later
+  // reshapes one of these redos into something that can drop a row, the length
+  // assertion goes red and says the premise is gone, which is the moment an arm
+  // becomes necessary. A test asserting only `not.toHaveBeenCalled()` would stay
+  // green through that change and then start failing much later, for a missing
+  // arm that had become correct — the wrong signal at the wrong time.
+  it("does not arm on a captureFieldEdit redo, and cannot: the merge is a map", () => {
+    const allowDestructiveSave = vi.fn();
+    const deps = makeDeps({ allowDestructiveSave });
+    const { result } = renderHook(() => useUndoStack(deps));
+    let arr: readonly Row[] = [{ id: 1, name: "after" }, { id: 2, name: "untouched" }];
+    const setter = (u: SetStateAction<readonly Row[]>) => { arr = typeof u === "function" ? u(arr) : u; };
+
+    act(() => {
+      result.current.captureFieldEdit<Row>({
+        setter, kind: "task.updated", id: 1,
+        before: { name: "before" }, after: { name: "after" },
+      });
+    });
+    act(() => { result.current.undo(); });
+    expect(arr).toEqual([{ id: 1, name: "before" }, { id: 2, name: "untouched" }]);
+    act(() => { result.current.redo(); });
+    expect(arr).toEqual([{ id: 1, name: "after" }, { id: 2, name: "untouched" }]);  // control: the redo really applied
+    expect(arr).toHaveLength(2);                                                     // the premise: a map cannot shorten
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+  });
+
+  it("does not arm on a captureFieldRows redo, and cannot: the restore is a map", () => {
+    const allowDestructiveSave = vi.fn();
+    const deps = makeDeps({ allowDestructiveSave });
+    const { result } = renderHook(() => useUndoStack(deps));
+    let arr: readonly Row[] = [{ id: 1, name: "after" }, { id: 2, name: "after" }];
+    const setter = (u: SetStateAction<readonly Row[]>) => { arr = typeof u === "function" ? u(arr) : u; };
+
+    act(() => {
+      result.current.captureFieldRows<Row>({
+        setter, kind: "bulk.edit", entityKey: "raid",
+        edits: [
+          { id: 1, before: { name: "before" }, after: { name: "after" } },
+          { id: 2, before: { name: "before" }, after: { name: "after" } },
+        ],
+      });
+    });
+    act(() => { result.current.undo(); });
+    expect(arr).toEqual([{ id: 1, name: "before" }, { id: 2, name: "before" }]);
+    act(() => { result.current.redo(); });
+    expect(arr).toEqual([{ id: 1, name: "after" }, { id: 2, name: "after" }]);  // control: the redo really applied
+    expect(arr).toHaveLength(2);                                                 // the premise: a map cannot shorten
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
   });
 });
 
