@@ -65,6 +65,11 @@ describe("AiSection", () => {
     expect(last.ai.apiKey).toBe("sk-test");
   });
 
+  it("exposes the AI Assistant section as a named group", () => {
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(screen.getByRole("group", { name: t("en-US", "aiAssistant") })).toBeInTheDocument();
+  });
+
   it("shows the consent-required notice when consent not yet accepted", () => {
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
     expect(screen.getByText(t("en-US", "aiConsentRequired"))).toBeInTheDocument();
