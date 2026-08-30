@@ -438,11 +438,13 @@ function CategoryTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport
         <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
               <SortResizeTh {...th} label={t(lang, "raidReportByCategory")} sortCol="name" resizeCol="label" width={w.label} />
-              {/* Only "Open" collides — StatusTable's own Open column, in the
-                  same summary view. "Closed"/"Overdue" share their label with
-                  no other co-rendered header, so per AGENTS.md they stay bare:
-                  a nameContext here would only add noise for every
-                  screen-reader user. */}
+              {/* `grep -n raidReportColOpen src/app/raid-report-panel.tsx` returns
+                  three hits, but only StatusTable's is another CONTROL named
+                  Open, in the same summary view — AgingTable's is a plain
+                  <th> with no sort button, so it cannot trip 2.4.6.
+                  "Closed"/"Overdue" share their label with no other co-rendered
+                  control, so per AGENTS.md they stay bare: a nameContext here
+                  would only add noise for every screen-reader user. */}
               <SortResizeTh {...th} label={t(lang, "raidReportColOpen")} nameContext={t(lang, "raidReportByCategory")} sortCol="open" width={w.open} align="right" />
               <SortResizeTh {...th} label={t(lang, "raidReportColClosed")} sortCol="closed" width={w.closed} align="right" />
               <SortResizeTh {...th} label={t(lang, "raidReportColOverdue")} sortCol="overdue" width={w.overdue} align="right" />

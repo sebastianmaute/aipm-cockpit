@@ -183,13 +183,15 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   return (
     <div className="mb-4" role="group" aria-labelledby={aiHeadingId}>
       <span className="mb-1 flex items-center gap-1">
-        {/* The tooltip trigger sits BESIDE the labelling <p>, not inside it —
+        {/* The tooltip trigger sits BESIDE the labelling <span>, not inside it —
             it is a role="button" span, so nesting it in the aria-labelledby
             target would fold its own name into the group's, same landmine as
-            an interactive control inside a <label>. */}
-        <p id={aiHeadingId} className="text-sm font-medium text-foreground">
+            an interactive control inside a <label>. A <p> here is invalid
+            content model (a <span> accepts phrasing content only) — <span>
+            carries the same id without the violation. */}
+        <span id={aiHeadingId} className="text-sm font-medium text-foreground">
           {t(lang, "aiAssistant")}
-        </p>
+        </span>
         <InfoTooltip text={t(lang, "aiAssistantTooltip")} />
       </span>
       <label className="mt-2 flex items-center gap-2">
