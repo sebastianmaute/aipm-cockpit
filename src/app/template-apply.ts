@@ -239,23 +239,73 @@ export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
   return out;
 }
 
-/** Append an already-remapped seed onto a workspace, non-destructively. Pure. */
+/** The four allow-list passes, applied to a whole seed. Tasks and milestones
+ *  share `allowListRich` (description + note log); RAID adds `mitigation` and
+ *  changes add `impactDescription` + `resolutionNotes`.
+ *  ★ Stakeholders, budgets and resources carry no rich HTML field, so they are
+ *  deliberately absent rather than overlooked — `Stakeholder.notes` and
+ *  `Resource.notes` (`types.ts`) are plain free text and `BudgetBucket` has no
+ *  notes field at all. `AI_RICH_FIELDS` in `ai-rich-text.ts` corroborates from
+ *  the other direction: it names the entities that DO carry a rich field
+ *  outside a note log — raid, change, milestone (`Task.description` is handled
+ *  separately, via `sanitizeAiRichText` directly, so it is not a fourth key
+ *  there) — and none of the three absentees here is among them. */
+function allowListSeed(seed: TemplateSeed): TemplateSeed {
+  let out = seed;
+  if (out.tasks) out = { ...out, tasks: out.tasks.map(allowListRich) };
+  // RAID has no equivalent single-item re-sanitizer exported from
+  // `templates.ts` for this to run alongside, so this only layers the
+  // allow-list onto `description`/`mitigation`/`noteLog` — it does not
+  // re-validate the rest of the row.
+  if (out.raid) out = { ...out, raid: out.raid.map(allowListRaid) };
+  if (out.changes) out = { ...out, changes: out.changes.map(allowListChange) };
+  // ★★ Milestones carry NO note log but DO carry a rich `description` —
+  // `sanitizeMilestone` upgrades it through the same `sanitizeRichText`/
+  // `RICH_SINK` pair inside the DOM-free graph and cannot allow-list it, so it
+  // is the fourth seeded ENTITY and belongs here exactly as the other three do.
+  // ★ ENTITY, not field — it is the tenth allow-listed rich FIELD (and the
+  // seventh that is not a note log). The two counts differ because three
+  // entities carry more than one rich field each, and an earlier revision of
+  // this line said "fourth seeded rich field", which contradicts §36(a)'s
+  // table. It was missed on the first cut because the scope was framed as "the
+  // note-log entities", which is a property of the CARRY (§168) and not of
+  // this allow-list — the two have different footprints and the entity list
+  // must be derived from "what is rich", never from "what has a note log".
+  if (out.milestones) out = { ...out, milestones: out.milestones.map(allowListRich) };
+  return out;
+}
+
+/** ★★★ THE ALLOW-LIST RUNS HERE, not in `applyTemplate`, and that placement is
+ *  the whole of open-followups §288. `applyTemplate` and the AI-seed branch of
+ *  `buildNewProjectWorkspace` end in the IDENTICAL `appendSeed(…, remapSeed(…))`
+ *  tail; the four passes used to sit above only the template one, so a seed the
+ *  model produced reached a workspace with no allow-list pass at all.
+ *  ★★ Fixing it at the PRODUCER (`proposalToSeed`) was rejected for the reason
+ *  the §228 comment in this same file already gives about fixing at save: apply
+ *  is the only ingress into a workspace, so a producer-side fix leaves every
+ *  other seed source — including one added tomorrow — unprotected.
+ *  ★★ The passes are IDEMPOTENT and must stay so: an AI task already met
+ *  `sanitizeAiRichText` in `buildSeedTask` and now meets `allowListRich` too.
+ *  `allowListNoteLog` re-derives `text` from the html at every boundary, so it
+ *  is idempotent by construction; `sanitizeRichHtml` is idempotent under its
+ *  default configuration (pinned in `sanitize-html.test.ts`). */
 export function appendSeed(ws: Workspace, seed: TemplateSeed): Workspace {
+  const allowed = allowListSeed(seed);
   return {
     ...ws,
-    tasks: seed.tasks ? [...ws.tasks, ...seed.tasks] : ws.tasks,
-    milestones: seed.milestones
-      ? [...(ws.milestones ?? []), ...seed.milestones]
+    tasks: allowed.tasks ? [...ws.tasks, ...allowed.tasks] : ws.tasks,
+    milestones: allowed.milestones
+      ? [...(ws.milestones ?? []), ...allowed.milestones]
       : ws.milestones,
-    raid: seed.raid ? [...ws.raid, ...seed.raid] : ws.raid,
-    changes: seed.changes
-      ? [...(ws.changes ?? []), ...seed.changes]
+    raid: allowed.raid ? [...ws.raid, ...allowed.raid] : ws.raid,
+    changes: allowed.changes
+      ? [...(ws.changes ?? []), ...allowed.changes]
       : ws.changes,
-    stakeholders: seed.stakeholders
-      ? [...(ws.stakeholders ?? []), ...seed.stakeholders]
+    stakeholders: allowed.stakeholders
+      ? [...(ws.stakeholders ?? []), ...allowed.stakeholders]
       : ws.stakeholders,
-    budgets: seed.budgets ? [...(ws.budgets ?? []), ...seed.budgets] : ws.budgets,
-    resources: seed.resources ? [...(ws.resources ?? []), ...seed.resources] : ws.resources,
+    budgets: allowed.budgets ? [...(ws.budgets ?? []), ...allowed.budgets] : ws.budgets,
+    resources: allowed.resources ? [...(ws.resources ?? []), ...allowed.resources] : ws.resources,
   };
 }
 
@@ -287,44 +337,19 @@ export function applyTemplate(
   //   `migrateTask` backfills a replacement from `lastUpdateDate` — so the
   //   applied task still carries a `createdDate`, just not the one that was
   //   captured. ★★ NINE, NOT TEN, AND `noteLog` IS NO LONGER AMONG THEM — it is
-  //   CARRIED as of §168, and allow-listed a dozen lines below in this very file.
-  //   Leaving it on this list contradicted the `allowListRich` docstring
-  //   underneath it. The load path already dropped all nine; this makes the two
+  //   CARRIED as of §168, and allow-listed inside `appendSeed` (§288 moved the
+  //   pass there from this function — see `allowListSeed`'s docstring above).
+  //   Leaving it on this list contradicted the `allowListRich` docstring.
+  //   The load path already dropped all nine; this makes the two
   //   agree. It also stops a per-row external link being CLONED — two local
   //   tasks pointing at one Jira issue is not a template.
-  let seed = tpl.seed.tasks
+  const seed = tpl.seed.tasks
     ? {
         ...tpl.seed,
         tasks: tpl.seed.tasks
           .map(sanitizeSeedTask)
-          .filter((x): x is Task => x !== null)
-          // ★★ The allow-list pass — see the docstring above `allowListRich`.
-          .map(allowListRich),
+          .filter((x): x is Task => x !== null),
       }
     : tpl.seed;
-  // RAID has no equivalent single-item re-sanitizer exported from
-  // `templates.ts` for `applyTemplate` to run here, so this only layers the
-  // allow-list onto `description`/`mitigation`/`noteLog` — it does not
-  // re-validate the rest of the row.
-  if (seed.raid) {
-    seed = { ...seed, raid: seed.raid.map(allowListRaid) };
-  }
-  if (seed.changes) {
-    seed = { ...seed, changes: seed.changes.map(allowListChange) };
-  }
-  // ★★ Milestones carry NO note log but DO carry a rich `description` —
-  // `sanitizeMilestone` upgrades it through the same `sanitizeRichText`/
-  // `RICH_SINK` pair inside the DOM-free graph and cannot allow-list it, so it
-  // is the fourth seeded ENTITY and belongs here exactly as the other three do.
-  // ★ ENTITY, not field — it is the tenth allow-listed rich FIELD (and the
-  // seventh that is not a note log). The two counts differ because three
-  // entities carry more than one rich field each, and an earlier revision of
-  // this line said "fourth seeded rich field", which contradicts §36(a)'s table. It was missed on the first cut because the scope was framed as "the
-  // note-log entities", which is a property of the CARRY (§168) and not of this
-  // allow-list — the two have different footprints and the entity list must be
-  // derived from "what is rich", never from "what has a note log".
-  if (seed.milestones) {
-    seed = { ...seed, milestones: seed.milestones.map(allowListRich) };
-  }
   return appendSeed(base, remapSeed(ws, seed));
 }
