@@ -358,6 +358,26 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   // Save workspace to backend on change (debounced 500ms)
   useEffect(() => {
+    // ★★★ §294 — READ THE ONE-SHOT ONCE, HERE, AND CLEAR IT. Every path below
+    // therefore spends the arm BY CONSTRUCTION, and the reader's question at a
+    // new early return becomes "does this path USE `armed`", which cannot be
+    // skipped. Spending it used to be decided by hand at each return: two
+    // returns decided it and three left it by accident, and nothing checked
+    // either.
+    // ★★★ THIS IS A REFACTOR, NOT A FIX — it changes no behaviour on any
+    // currently reachable path, and no test can tell the two arrangements
+    // apart. The truncation and suppress returns already spent the arm; the
+    // refusal branch has nothing to spend (`evaluateSaveGuard` refuses only
+    // when `!allowDestructive`, so reaching it implies the arm was false);
+    // nothing arms before hydration; a popout returns above the guard. The
+    // value is prospective: a return added below this line cannot leak.
+    // ★★ TOPMOST IS THE ONLY PLACEMENT WORTH HAVING. `allowDestructiveRef` is
+    // read by nothing outside `use-destructive-save-guard.ts` — the other save
+    // paths (`guardedWrite`, `flushCurrent` in use-load-truncation.ts) never
+    // consult it — so an arm can only ever be consumed HERE. Anywhere lower
+    // leaves the returns above it as exactly the hand-decided cases §294 is
+    // about.
+    const armed = destructive.consumeArm();
     if (!args.hydrated) return;
     // Single-writer rule: the main window owns persistence. ★★★ A popout does
     // NOT save and does NOT forward edits — `canSend = !args.isPopout` below
@@ -402,7 +422,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   can be an arbitrary WALL-CLOCK time away. An earlier revision put the phrase "hours
       //   afterwards" in §294's mouth; §294 says neither, and now states both halves itself
       //   (docs/open-followups.md §294, "Consequence").
-      destructive.consumeArm();
+      // ★ The spend that used to sit here is now at the TOP of this effect, so
+      // this branch spends by construction like every other. The resync
+      // rationale above is unchanged and still the reason it is SAFE to spend.
       return;
     }
     // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends): L3 and
@@ -412,8 +434,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   data, so a reload restores it.
     // ★★ §103: an AUTOMATIC save must never commit a truncated load — the excess documents
     // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
-    if (!mayCommitAfterIncompleteLoad()) { destructive.consumeArm(); return; } // ★★★ SPEND the bypass here too — a sticky guard would otherwise carry it for hours (use-load-truncation.ts).
-    const verdict = destructive.evaluate(curCollections, curRecords, destructive.consumeArm());
+    if (!mayCommitAfterIncompleteLoad()) { return; } // ★★★ The bypass is ALREADY SPENT — at the top of this effect, not here. It has to be: this guard is STICKY, so an arm surviving the return would be carried for hours (use-load-truncation.ts). That is why the hoist above is safe for this return and not merely tidier.
+    const verdict = destructive.evaluate(curCollections, curRecords, armed);
     if (verdict.refuse) {
       recordDataLossEvent({ path: "save-effect", prevCollections: destructive.readBaselines().collections, nextCollections: curCollections, refused: true });
       emitToast("info", t(langRef.current, "storageRefusedWipe"));
