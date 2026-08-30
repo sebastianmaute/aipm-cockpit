@@ -231,6 +231,86 @@ describe("useJiraSync — handleJiraSync", () => {
     expect(updated.completedDate).toBeFalsy();  // stale completedDate cleared (invariant holds)
   });
 
+  /** PER-SITE COVER for the NORMAL pull arm's transition (`statusActivityKind`
+   *  at the `else if (remoteChanged)` branch of `use-jira-sync.ts`). This file
+   *  has four pair-writing sites, so the file-granular census in
+   *  `status-activity-census.test.ts` is satisfied by any ONE of them and can
+   *  never protect this one — deleting its log line alone ships green.
+   *
+   *  ★ The actor is `"integration"`, not `"user"`: Jira authored the change,
+   *  whatever gesture started the run. */
+  it("pull path: logs an integration-actored completion when Jira closed the issue", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    const remoteIssue = {
+      key: "TEST-1",
+      fields: {
+        summary: "Closed remotely",
+        updated: "2026-05-10T00:00:00",
+        status: { statusCategory: { key: "done" } },
+      },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
+      taskName: "Closed remotely",
+      status: "Done",
+      completedDate: "2026-05-09",
+      jiraIssueType: "Task",
+    });
+    const localTask = makeTask({
+      id: 1,
+      jiraKey: "TEST-1",
+      taskName: "Was open",
+      status: "In Progress",
+      lastSyncedAt: "2026-01-01T00:00:00",
+    });
+
+    const { result } = renderSync([localTask]);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(logActivityAs).toHaveBeenCalledWith(
+      "integration", "task.completed", 1, "Closed remotely",
+    );
+  });
+
+  it("pull path: logs no transition when the pull leaves delivered-ness unchanged", async () => {
+    // Control for the block above: the SAME pull arm runs and the row really is
+    // rewritten (the name changes), but neither side is delivered. Without it,
+    // an arm that logged a completion on every pull would satisfy the block
+    // above. Deliberately asserts only the transition kinds — `jira.sync` is
+    // logged on this path either way.
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    const remoteIssue = {
+      key: "TEST-1",
+      fields: {
+        summary: "Renamed only",
+        updated: "2026-05-10T00:00:00",
+        status: { statusCategory: { key: "indeterminate" } },
+      },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
+      taskName: "Renamed only",
+      status: "In Progress",
+      completedDate: undefined,
+      jiraIssueType: "Task",
+    });
+    const localTask = makeTask({
+      id: 1,
+      jiraKey: "TEST-1",
+      taskName: "Was open",
+      status: "To Do",
+      lastSyncedAt: "2026-01-01T00:00:00",
+    });
+
+    const { result } = renderSync([localTask]);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(result.current.currentTasks[0].taskName).toBe("Renamed only");
+    const kinds = logActivityAs.mock.calls.map(([, kind]) => kind as string);
+    expect(kinds).not.toContain("task.completed");
+    expect(kinds).not.toContain("task.reopened");
+  });
+
   it("push path: local changes newer than lastSync + remote not changed → updateIssue called", async () => {
     (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
     const remoteIssue = {
@@ -645,6 +725,81 @@ describe("read-only project sync", () => {
     await act(async () => { await result.current.handleJiraSync(); });
 
     expect(jiraApi.updateIssue).toHaveBeenCalled();
+  });
+
+  /** PER-SITE COVER for the READ-ONLY pull arm's transition — a SEPARATE call
+   *  site from the normal pull arm above, reached only when
+   *  `isReadOnlyIssue(row.jiraKey, jiraCfg)` is true, so the normal-arm blocks
+   *  are no evidence for it and vice versa. `roSettings` marks `OPS` read-only,
+   *  which is why the fixture's key is `OPS-1` and not `LOP-1`. */
+  it("logs an integration-actored completion when a read-only project closes the issue", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project in (LOP, OPS)");
+    const remoteIssue = {
+      key: "OPS-1",
+      fields: {
+        summary: "closed remotely",
+        updated: "2026-05-10T00:00:00", // AFTER lastSyncedAt → remoteChanged
+        status: { statusCategory: { key: "done" } },
+      },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
+      taskName: "closed remotely",
+      status: "Done",
+      completedDate: "2026-05-09",
+      jiraIssueType: "Task",
+    });
+    const localTask = makeTask({
+      id: 1,
+      jiraKey: "OPS-1",
+      taskName: "was open",
+      status: "In Progress",
+      lastSyncedAt: "2026-01-01T00:00:00",
+    });
+
+    const { result } = renderSync([localTask], roSettings);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(jiraApi.updateIssue).not.toHaveBeenCalled(); // proves the read-only arm ran
+    expect(logActivityAs).toHaveBeenCalledWith(
+      "integration", "task.completed", 1, "closed remotely",
+    );
+  });
+
+  it("logs no transition when a read-only pull leaves delivered-ness unchanged", async () => {
+    // Control for the block above, on the same arm: the row is genuinely
+    // rewritten (name changes) but neither side is delivered.
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project in (LOP, OPS)");
+    const remoteIssue = {
+      key: "OPS-1",
+      fields: {
+        summary: "renamed only",
+        updated: "2026-05-10T00:00:00",
+        status: { statusCategory: { key: "indeterminate" } },
+      },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
+      taskName: "renamed only",
+      status: "In Progress",
+      completedDate: undefined,
+      jiraIssueType: "Task",
+    });
+    const localTask = makeTask({
+      id: 1,
+      jiraKey: "OPS-1",
+      taskName: "was open",
+      status: "To Do",
+      lastSyncedAt: "2026-01-01T00:00:00",
+    });
+
+    const { result } = renderSync([localTask], roSettings);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(result.current.currentTasks[0].taskName).toBe("renamed only");
+    const kinds = logActivityAs.mock.calls.map(([, kind]) => kind as string);
+    expect(kinds).not.toContain("task.completed");
+    expect(kinds).not.toContain("task.reopened");
   });
 });
 

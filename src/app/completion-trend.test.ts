@@ -542,3 +542,63 @@ describe("numerator from task data", () => {
     expect(out).toHaveLength(2);
   });
 });
+
+/** A MISSED `task.completed` WRITER CAN COST THE WHOLE CHART, not just an audit
+ *  row — which is the consequence three separate prose claims used to deny
+ *  ("costs an AUDIT ENTRY and can never move a metric", in `task-status.ts`,
+ *  `status-activity-census.test.ts` and `docs/AGENTS/activity-log.md`, all now
+ *  corrected). The block above pins that a completion-only day SEEDS; this pair
+ *  pins what its absence costs, which is the stronger and more surprising half:
+ *  the series falls under the `days.length < 2` floor and renders NOTHING.
+ *
+ *  ★★ This is also the cheapest guard against someone "tidying" `task.completed`
+ *  / `task.reopened` out of `COUNT_KINDS` on the strength of that false claim —
+ *  they carry no `dTotal` arm, so they look inert to a reader who has not traced
+ *  the seeding job.
+ *
+ *  ★★ MUTATION-PROVED 2026-08-30, mutant run and reverted: removing
+ *  `"task.completed"` from `COUNT_KINDS` in `completion-trend.ts` turns the
+ *  positive block RED (`expected [] to have a length of 2 but got +0`) while the
+ *  absence block below stays GREEN — which is exactly what makes the second a
+ *  CONTROL for the first rather than evidence of its own. */
+describe("a completion-only day is what keeps the series above the two-day floor", () => {
+  const task = (id: number, completedDate?: string) =>
+    ({
+      id,
+      taskName: `T${id}`,
+      status: completedDate ? "Done" : "To Do",
+      completedDate,
+    }) as unknown as Task;
+
+  const tasks = [task(1, "2026-06-10"), task(2)];
+  const created = evArgs("2026-06-12T09:00:00.000Z", "task.created", [2, "T2"]);
+  const completed = evArgs("2026-06-10T09:00:00.000Z", "task.completed", [1, "T1"]);
+
+  test("plots two points when the completion entry is present", () => {
+    const out = computeCompletionTrend({
+      snapshots: [],
+      activity: [completed, created],
+      tasks,
+      currentDone: 1,
+      currentTotal: 2,
+      today: "2026-06-21",
+    });
+    expect(out).toHaveLength(2);
+  });
+
+  test("plots nothing at all when the completion entry is missing", () => {
+    // Control for the block above: identical tasks and numerator, one fewer
+    // activity row. The numerator cannot tell the two cases apart — it reduces
+    // over `tasks` — so only the SEEDING job of `COUNT_KINDS` explains the
+    // difference, and a chart that renders is the only signal a user would get.
+    const out = computeCompletionTrend({
+      snapshots: [],
+      activity: [created],
+      tasks,
+      currentDone: 1,
+      currentTotal: 2,
+      today: "2026-06-21",
+    });
+    expect(out).toEqual([]);
+  });
+});

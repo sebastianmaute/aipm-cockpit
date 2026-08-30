@@ -120,12 +120,29 @@ export function statusSortIndex(status: string): number {
  *    which is the precise confusion `task-closed.ts` was split to prevent. Only
  *    delivery — a `completedDate` — is a completion.
  *
- *  ★★ The trend does NOT consume what this decides. The numerator is read from
- *    `completedDate` (see `completion-trend.ts`), so a writer that forgets to
- *    log costs an AUDIT ENTRY and can never move a metric. That split is
- *    deliberate: it is what makes the census in
- *    `status-activity-census.test.ts` a convenience rather than a load-bearing
- *    correctness gate. */
+ *  ★★★ THE NUMERATOR IS SAFE; THE SERIES IS NOT — AND AN EARLIER REVISION HERE
+ *    CLAIMED BOTH. It read "a writer that forgets to log costs an AUDIT ENTRY
+ *    and can never move a metric", and the second half is FALSE. Only the
+ *    numerator half holds: `deliveredBy` (`completion-trend.ts`) reduces over
+ *    `tasks` alone, so no missing entry can move it. But both kinds returned
+ *    here are members of `COUNT_KINDS`, and that set does TWO jobs — it admits
+ *    an entry past the `continue` guard AND it decides which days SEED a point.
+ *    A completion contributes `dTotal` 0 and still seeds its day, so a missed
+ *    writer changes which days the reconstructed sparkline plots, and can drop
+ *    it under the `days.length < 2` floor, rendering NO chart at all.
+ *    Measured 2026-08-30 against the real module via `npx vite-node`, not
+ *    reasoned: one task delivered 06-10, `currentDone` 1, `currentTotal` 2,
+ *    today 06-21 gives `[06-10 → 100, 06-12 → 50]` with the `task.completed`
+ *    entry present and `[]` with it removed. Pinned by the "a completion-only
+ *    day" pair in `completion-trend.test.ts`.
+ *
+ *  ★★ The census in `status-activity-census.test.ts` is still a convenience
+ *    rather than a load-bearing correctness gate — but NOT on that leg. It is
+ *    FILE-GRANULAR: a file holding several status writers passes on any ONE of
+ *    them, which is how `use-jira-sync.ts`'s conflict path could have stayed
+ *    silent behind a green run while its two pull sites were adopted. Per-site
+ *    tests are the only cover, and the census file states the same two reasons
+ *    (granularity and spelling) in full. */
 export function statusActivityKind(
   before: Pick<Task, "completedDate">,
   after: Pick<Task, "completedDate">,

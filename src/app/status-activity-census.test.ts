@@ -18,9 +18,14 @@
 //     `await backend.load()` with a facade helper, the load site vanished from
 //     its scan, and it only went red because the ratio it counts happened to
 //     go unbalanced. A rename here has no ratio to save it.
-//   - It gates the AUDIT LOG only. The completion-trend numerator is read from
-//     `completedDate`, not from these entries, so a miss here costs an audit
-//     record and can never move a metric.
+//   - It gates the AUDIT LOG only — but do NOT read that as "a miss here can
+//     never move a metric", which is what this bullet used to say and is false.
+//     The completion-trend NUMERATOR is safe: `deliveredBy` reduces over
+//     `tasks`, never over these entries. The SERIES is not. Both kinds are
+//     members of `COUNT_KINDS`, which also decides which days SEED a point, so
+//     a missed writer drops a completion-only day and can take the chart under
+//     the `days.length < 2` floor entirely. That leg is NOT why this gate is a
+//     convenience — the two bullets above are, and they are each sufficient.
 //
 // ★ ANTI-VACUITY, observed 2026-08-30 — both mutants were run and reverted:
 //   - Deleting both `const kind = statusActivityKind(...)` lines and both

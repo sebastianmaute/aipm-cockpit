@@ -279,6 +279,70 @@ describe("useBulkOperations", () => {
       ]);
     });
 
+    /** PER-SITE COVER for the bulk-edit transition (`statusActivityKind` in
+     *  `use-bulk-operations.ts`). The file-granular census cannot see this
+     *  site: it matches on the PRESENCE of `applyStatusChange(` and
+     *  `statusActivityKind(` in the file, and deleting the
+     *  `logActivityRef.current(transition, …)` line alone leaves BOTH anchors
+     *  standing — so that regression ships green. Bulk edit writes the most
+     *  rows of any adopted surface, so it is the highest-blast-radius site.
+     *
+     *  ★ PER ROW, not once per batch — `activityTaskCompleted` names ONE task —
+     *  which is why the fixture selects TWO rows and asserts both entries. A
+     *  once-per-batch emitter would satisfy a one-row fixture. */
+    function seedTwoOpenTasks(result: ReturnType<typeof renderBulk>["result"]) {
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Task A", status: "To Do", priority: "Medium",
+            assignee: "", assigneeEmail: "", dueDate: "2026-06-01", blockers: "",
+            description: "", inquiriesSent: 0, lastUpdateDate: "2026-05-20",
+            localModifiedAt: "2026-05-20T00:00:00.000Z" },
+          { id: 2, taskName: "Task B", status: "To Do", priority: "Medium",
+            assignee: "", assigneeEmail: "", dueDate: "2026-06-01", blockers: "",
+            description: "", inquiriesSent: 0, lastUpdateDate: "2026-05-20",
+            localModifiedAt: "2026-05-20T00:00:00.000Z" },
+        ] as unknown as Task[]);
+      });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      act(() => { result.current.bulk.onToggleSelect(2); });
+    }
+
+    it("logs one completion per row when a bulk edit sets the status to Done", () => {
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ logActivity });
+      seedTwoOpenTasks(result);
+      act(() => {
+        result.current.taskForm.setBulkEdit(prev => ({
+          ...prev,
+          enabled: { ...prev.enabled, status: true },
+          status: "Done",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+      expect(logActivity).toHaveBeenCalledWith("task.completed", 1, "Task A");
+      expect(logActivity).toHaveBeenCalledWith("task.completed", 2, "Task B");
+    });
+
+    it("logs no transition when a bulk edit changes a non-status field", () => {
+      // Control for the block above: same two selected rows, same apply path,
+      // a field that cannot move delivered-ness. Without it, an emitter that
+      // logged a completion on EVERY bulk apply would satisfy the block above.
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ logActivity });
+      seedTwoOpenTasks(result);
+      act(() => {
+        result.current.taskForm.setBulkEdit(prev => ({
+          ...prev,
+          enabled: { ...prev.enabled, priority: true },
+          priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+      expect(logActivity).not.toHaveBeenCalledWith(
+        "task.completed", expect.anything(), expect.anything(),
+      );
+    });
+
     // GUARD 2 of 2 — what a STALE selection can REACH. Guard 1 stops select-all
     // picking up a hidden row; this stops a row selected WHILE VISIBLE from
     // being written after a later filter change hid it. The filter change is

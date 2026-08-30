@@ -270,6 +270,45 @@ describe("useTaskSubmit — edit branch", () => {
     expect(setEditingId).toHaveBeenCalledWith(null);
     expect(logActivity).toHaveBeenCalledWith("task.updated", 1, "New Name");
   });
+
+  /** PER-SITE COVER for the form-save transition (`statusActivityKind` in
+   *  `use-task-submit.ts`). The file-granular census in
+   *  `status-activity-census.test.ts` cannot see this site — the file would keep
+   *  passing with the log line deleted — and neither can the axe or coverage
+   *  gates, so these two blocks are the only detector.
+   *
+   *  ★ Only the EDIT branch can decide a transition; the create branch has no
+   *  before-row, which is why both blocks pass `editingId` + a matching
+   *  `tasksRef`. */
+  it("logs a completion when the form save moves the edited task to Done", () => {
+    const logActivity = vi.fn();
+    const existing = makeTask({ id: 1, taskName: "Old", status: "In Progress" });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        logActivity, editingId: 1, tasks: [existing],
+        tasksRef: { current: [existing] },
+        form: { ...validForm(), taskName: "Old", status: "Done" },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    expect(logActivity).toHaveBeenCalledWith("task.completed", 1, "Old");
+  });
+
+  it("logs a reopening when the form save moves the edited task off Done", () => {
+    const logActivity = vi.fn();
+    const existing = makeTask({
+      id: 1, taskName: "Old", status: "Done", completedDate: "2030-01-01",
+    });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        logActivity, editingId: 1, tasks: [existing],
+        tasksRef: { current: [existing] },
+        form: { ...validForm(), taskName: "Old", status: "In Progress" },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    expect(logActivity).toHaveBeenCalledWith("task.reopened", 1, "Old");
+  });
 });
 
 describe("useTaskSubmit — new task: id, startDate clamp, push-to-jira", () => {

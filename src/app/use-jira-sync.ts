@@ -163,6 +163,21 @@ export function useJiraSync(args: UseJiraSyncArgs) {
             // docs/AGENTS/task-status.md. `issueToTaskFields` derives `status`
             // and `completedDate` from ONE `statusKey` read, so the patch's
             // pair is already coherent and the comparison needs nothing more.
+            // ★★ LOGGED INSIDE THE LOOP, BEFORE THE COMMIT — the opposite of
+            // the conflict path below, and deliberately so rather than by
+            // oversight. Both pull arms accumulate into `next` and the loop
+            // commits ONCE (`setTasks(next)` after it), so there is no
+            // per-iteration write for a log to get ahead of: either the whole
+            // batch lands or none of it does. The only throwing calls between
+            // here and that commit are the push arm's `updateIssue` /
+            // `transitionIssueTo`, and its own `catch` keeps the row and
+            // carries on, so nothing can abandon the batch. Buffering these
+            // transitions to emit them after the commit would REORDER the audit
+            // trail (they currently precede the `jira.sync` summary) and add a
+            // list that can silently diverge from the committed rows — a real
+            // defect surface bought to close a hazard no path can reach. If a
+            // future edit adds an early `return`/`throw` between this line and
+            // that commit, this reasoning dies with it: buffer then.
             const transition = statusActivityKind(row, { completedDate: patch.completedDate });
             if (transition) {
               args.logActivityAs("integration", transition, row.id, patch.taskName ?? row.taskName);
@@ -272,9 +287,11 @@ export function useJiraSync(args: UseJiraSyncArgs) {
             jiraIssueType: patch.jiraIssueType ?? row.jiraIssueType,
             lastSyncedAt: syncStamp,
           });
-          // Same rule as the read-only pull above: OBSERVE the transition, never
-          // route this arm through `applyStatusChange` (it would overwrite
-          // Jira's real resolution date with `today`).
+          // Same two rules as the read-only pull above: OBSERVE the transition,
+          // never route this arm through `applyStatusChange` (it would overwrite
+          // Jira's real resolution date with `today`); and log inside the loop,
+          // because this arm shares that one's single-commit shape — the note
+          // there carries the argument and the condition that would void it.
           const transition = statusActivityKind(row, { completedDate: patch.completedDate });
           if (transition) {
             args.logActivityAs("integration", transition, row.id, patch.taskName ?? row.taskName);
@@ -485,19 +502,30 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       tasksRef.current = next;
       setTasks(next);
 
-      // ★★★ The FIFTH status writer in the app, and one no FILE-granular
-      //   census could ever catch: a census asserting "this file calls
-      //   statusActivityKind somewhere" is already satisfied by the two pull
-      //   sites above, so this site could stay silent forever behind a green
-      //   run. Its own tests in use-jira-sync.test.tsx are the only cover.
-      //   `original` is a real before-row (the `find` at the top of the loop)
-      //   and `merged` is the committed after-row, so this is a genuine
-      //   transition with both ends in hand.
+      // ★★★ THE CONFLICT MERGE — one of the five pair-writers listed in
+      //   docs/AGENTS/task-status.md ("The five writers, and the mechanism each
+      //   holds the pair by"), where it is the THIRD entry. An earlier revision
+      //   of this comment called it "the FIFTH status writer in the app", which
+      //   invented a second numbering for the same population; cite the list,
+      //   never an ordinal of your own.
+      //   It is also the site no FILE-granular census could ever catch: a
+      //   census asserting "this file calls statusActivityKind somewhere" is
+      //   already satisfied by the two pull sites above, so this one could stay
+      //   silent forever behind a green run. Its own tests in
+      //   use-jira-sync.test.tsx are the only cover. `original` is a real
+      //   before-row (the `find` at the top of the loop) and `merged` is the
+      //   committed after-row, so this is a genuine transition with both ends
+      //   in hand.
       // ★★ OBSERVES the transition; it does not write one. Routing it through
       //   `applyStatusChange` would stamp `today` over the resolution date the
       //   merge just picked — the same prohibition the pull sites carry.
-      // ★ Logged AFTER the write, so a `continue` from the push-failure catch
-      //   above cannot record a transition that never reached the workspace.
+      // ★★ Logged AFTER the write — A CLAIM ABOUT THIS PATH ONLY, and the
+      //   earlier revision stated it as though it governed the file. It does
+      //   not, and cannot: this loop COMMITS PER ITERATION (`setTasks(next)` a
+      //   few lines up), so an early `continue` past a log really would strand
+      //   an entry describing a row the workspace never received. The two PULL
+      //   arms have the opposite shape and log inside their loop on purpose —
+      //   see the note at the read-only pull arm for why that is safe there.
       const transition = statusActivityKind(original, merged);
       if (transition) {
         args.logActivityAs("integration", transition, original.id, merged.taskName);

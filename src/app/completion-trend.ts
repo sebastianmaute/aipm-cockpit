@@ -227,24 +227,35 @@ function reconstructFromActivity(
   //   to these two. A reverted edit seeds a point carrying no information; a
   //   completion seeds one carrying the only information this chart is about.
   //
-  // ★★ NO CLAMP, DELIBERATELY. The numerator is read from live task fields
-  //   while the denominator is reconstructed from an activity ring that caps
-  //   and forgets (`ACTIVITY_MAX_ENTRIES`), so a stale `total` CAN sit under
-  //   `done`. The raw counts never leave this function — `endState` is local
-  //   and each pair is rendered through `clampPctFromCounts` into a
-  //   `CompletionPoint`, which carries only `label` and `percent` — so a
-  //   `Math.max(total, done)` here would be dead code a later reader mistakes
-  //   for load-bearing, which is what the `typeof kind === "string"` note in
-  //   `reversedForwardDelta` warns about.
-  // ★★★ DO NOT restate the old justification for that, which was FALSE:
-  //   "`clampPctFromCounts` already returns 100 for `done > total`" does not
-  //   hold when `total` is 0. Its FIRST line is `if (total <= 0) return 0`, and
-  //   `endState` floors `total` at 0, so a positive `done` against a
-  //   walked-to-zero total renders 0%, not 100%. Measured, not reasoned: one
-  //   task delivered 06-10 plus two later `task.created` days gives
-  //   `[06-10 → 0, 06-12 → 100, 06-14 → 50]`. The NO-CLAMP conclusion survives
-  //   anyway — 0% is a benign reading of a forgotten prefix, and clamping
-  //   `total` up to `done` would print a confident 100% there instead.
+  // ★★★ NO CLAMP, DELIBERATELY — AND *NOT* BECAUSE A CLAMP WOULD DO NOTHING.
+  //   Two successive revisions of this note contradicted each other in place:
+  //   the first called a `Math.max(total, done)` here "dead code a later reader
+  //   mistakes for load-bearing", the second correctly observed that
+  //   `clampPctFromCounts` returns 0 when `total <= 0`. Both cannot hold, and
+  //   the second is the true one — the clamp is a BEHAVIOUR CHANGE, and a bad
+  //   one. Do not reinstate the dead-code wording; it reads as permission.
+  //   The numerator is read from live task fields while the denominator is
+  //   reconstructed from an activity ring that caps and forgets
+  //   (`ACTIVITY_MAX_ENTRIES`), so a stale `total` CAN sit under `done` — and
+  //   the backward walk can drive it to 0 outright while `deliveredBy` stays
+  //   positive. `clampPctFromCounts` opens with `if (total <= 0) return 0` and
+  //   `endState` floors `total` at 0, so that day renders 0%. Clamping `total`
+  //   up to `done` makes `total === done`, which renders 100%.
+  // ★★ MEASURED 2026-08-30 by mutating the `endState[i] = …` line below to
+  //   `Math.max(Math.max(0, total), Math.max(0, done))` and re-running the
+  //   fixture through `npx vite-node`, then reverting — not reasoned. One task
+  //   delivered 06-10 plus `task.created` days 06-12 and 06-14, `currentDone`
+  //   1, `currentTotal` 2, today 06-21: as shipped
+  //   `[06-10 → 0, 06-12 → 100, 06-14 → 50]`; with the clamp
+  //   `[06-10 → 100, 06-12 → 100, 06-14 → 50]`.
+  //   So the real question is WHICH WRONG NUMBER IS SAFER, and 0% wins: it is a
+  //   benign reading of a prefix the ring has forgotten, while a confident 100%
+  //   asserts the project was finished on a day it was not.
+  // ★ The "raw counts never leave this function" fact is TRUE and worth
+  //   keeping, it is simply not an argument that the clamp is inert: `endState`
+  //   is local and each pair is rendered through `clampPctFromCounts` into a
+  //   `CompletionPoint` carrying only `label` and `percent`, so no consumer
+  //   ever sees a `done > total` pair and none has to defend against one.
   // ★★ THE NUMERATOR IS EXACT ONLY FOR TASKS STILL PRESENT. A row delivered on
   //   day D and later DELETED, or REOPENED (`applyStatusChange` writes
   //   `completedDate: ""` for any non-Done status), drops out of every

@@ -236,15 +236,30 @@ it has no table of its own, NOT because it sits outside the workspace.
   → the definition in `task-status.ts` plus SIX consuming files: `use-task-submit.ts`,
   `use-task-row-handlers.ts`, `use-bulk-operations.ts`, `use-action-center-handlers.ts`,
   `use-chat-dispatcher.ts` and `use-jira-sync.ts`.
-  ★★ **A MISSED WRITER COSTS AN AUDIT ENTRY AND NEVER A METRIC.** The trend does NOT consume these two
-  as a numerator — `deliveredBy` reads `completedDate` off task data (see below) — so their only
-  metric-side job stays the seeding one. That is the whole reason the audit trail needs its own coverage:
-  nothing on the chart will ever go wrong to tell you a surface stopped logging.
-  ★ And a FILE-granular census — a gate asserting that each status-writing file calls
-  `statusActivityKind` somewhere — would not be that coverage either, so do not plan one and call the
-  problem solved. A file with several write sites passes on any one of them: `use-jira-sync.ts` has four
-  and its conflict-resolution path was silent while its two pull sites were adopted. Per-site coverage is
-  per-site tests, and nothing else.
+  ★★★ **A MISSED WRITER COSTS AN AUDIT ENTRY *AND* CAN MOVE THE CHART — and this line used to deny the
+  second half.** It read "A MISSED WRITER COSTS AN AUDIT ENTRY AND NEVER A METRIC", then contradicted
+  itself one clause later by conceding "their only metric-side job stays the seeding one". Seeding IS a
+  metric effect. What is true: the **numerator** cannot be moved by a missed writer, because `deliveredBy`
+  reduces over `tasks` and never over these entries. What is false: that nothing else can. Both kinds sit
+  in `COUNT_KINDS`, which both ADMITS an entry past the `continue` guard and decides which days SEED a
+  point — so a missed writer changes which days the reconstructed sparkline plots, and can drop it under
+  the `days.length < 2` floor, rendering no chart at all.
+  ★★ Measured 2026-08-30 against the real module with `npx vite-node`, not reasoned — two probes, because
+  the effect is not merely additive. (1) One task delivered 06-10, `currentDone` 1, `currentTotal` 2,
+  today 06-21: activity `[task.completed 06-10, task.created 06-12]` → `[06-10 → 100, 06-12 → 50]`;
+  drop the completion entry → `[]`. (2) Two tasks delivered 06-10 and 06-15 against two `task.created`
+  days 06-08/06-09, `currentDone` 2, `currentTotal` 4: without completion writers →
+  `[06-08 → 0, 06-09 → 50]`, with them → `[06-08 → 0, 06-09 → 0, 06-15 → 50]`. `06-09` MOVES, because
+  the last plotted point keeps `currentDone` by design and seeding a later day demotes 06-09 to history,
+  where `deliveredBy` correctly reports 0 delivered. The new value is the CORRECT one — this is an
+  accuracy improvement, not a regression — but it is a user-visible change on the default file-mode path.
+  Pinned by the "a completion-only day" pair in `completion-trend.test.ts`.
+  ★★ **A FILE-granular census is not that coverage — and one now EXISTS, so "do not plan one" (what this
+  said) is stale.** `status-activity-census.test.ts` shipped in `9bf06d3b` and its own header states the
+  two reasons it is a convenience: it is file-granular, and it matches on spelling. A file with several
+  write sites passes on any one of them — `use-jira-sync.ts` has four, and its conflict-resolution path
+  could have stayed silent while its two pull sites carried the file. Per-site coverage is per-site
+  tests, and nothing else.
   ★★ **THAT USED TO MEAN THE TREND'S NUMERATOR WAS FED BY NOTHING, AND IT NO LONGER DOES.** This line
   read "the trend's `dDone` term is fed by NOTHING, so the reconstruction path moves only on totals" —
   `dDone` does not exist any more. The numerator is READ from task data (`deliveredBy` in
