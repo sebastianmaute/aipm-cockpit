@@ -46,11 +46,10 @@ date is CLEARED instead (status wins there — Cancelled is closed, never delive
 the live row, and holds the pair only because `TASK_UNDO_GROUPS` (`undo/field-groups.ts`) forces
 `status` and `completedDate` into ONE entry; delete that array row and the invariant breaks with
 tsc, lint and every sweep below green — only `field-groups.test.ts` pins it. ★★ And only on the
-capture route that CONSULTS that constant: `grep -rn "TASK_UNDO_GROUPS" src/app --include=*.ts
---include=*.tsx | grep -v "\.test\."` returns the declaration plus ONE read site
-(`use-task-submit.ts`), while the task BULK-EDIT route goes through `buildBulkFieldEdits`, which
-takes no `FieldGroup` at all — so a bulk undo can restore one half alone GIVEN an already-split
-stored row (`docs/open-followups.md` §180, which is that gap).
+capture routes that CONSULT that constant: `grep -rn "TASK_UNDO_GROUPS" src/app --include=*.ts
+--include=*.tsx | grep -v "\.test\."` returns the declaration plus TWO read sites —
+`use-task-submit.ts`, and `use-bulk-operations.ts`, which passes it as the `groups` argument of
+`buildBulkFieldEdits`.
 
 ## Prohibitions — do not route one path through another
 

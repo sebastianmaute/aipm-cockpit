@@ -31,6 +31,7 @@ import {
   statusToCsv,
 } from "./storage";
 import { descriptionTextWithBreaks } from "./rich-text-projection";
+import { contactDisplay } from "./contact-display";
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
 import { linkKindOf, type KnowledgeItem } from "./document-link";
 import type { Insight } from "./insights/insight";
@@ -273,7 +274,7 @@ function projectSection(p: ProjectMeta, lang: Lang): ExportSection {
     if (key === "contactPersons") {
       const persons = raw as ProjectMeta["contactPersons"];
       if (persons.length === 0) continue;
-      value = persons.map((cp) => `${cp.name} <${cp.email}>`).join(", ");
+      value = persons.map(contactDisplay).join(", ");
     } else if (key === "knowledgeLinks") {
       const links = raw as KnowledgeLink[];
       if (links.length === 0) continue;

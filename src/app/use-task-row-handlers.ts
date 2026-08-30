@@ -10,7 +10,7 @@ import { sanitizeRichHtml } from "./sanitize-html";
 import { plainTextToHtml, type CommSendRequest } from "./comm-send";
 import { greetingName } from "./contacts";
 import { loadJiraApi } from "./use-jira-sync";
-import { applyStatusChange } from "./task-status";
+import { applyStatusChange, statusActivityKind } from "./task-status";
 import { laneKeyOf, type KanbanLane } from "./task-kanban";
 import type { ActivityKind } from "./activity-log";
 import type { Task, TaskStatus, Resource } from "./types";
@@ -235,19 +235,38 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
             : row,
         ),
       );
-      // Jira-synced tasks are read-only — no undo entry for a no-op, nor when
-      // the status didn't actually change (e.g. re-selecting the same value).
-      if (prevRow && !prevRow.jiraKey && prevRow.status !== next) {
+      // Jira-synced tasks are read-only, so neither branch below fires for one.
+      if (prevRow && !prevRow.jiraKey) {
         const after = applyStatusChange(prevRow, next, today);
-        captureFieldEdit?.({
-          setter: setTasks,
-          kind: "task.updated",
-          id,
-          before: { status: prevRow.status, completedDate: prevRow.completedDate },
-          after: { status: after.status, completedDate: after.completedDate },
-          stampField: "localModifiedAt",
-          name: prevRow.taskName,
-        });
+        // No undo entry when the status didn't actually change (e.g.
+        // re-selecting the same value): there is nothing for the user to revert
+        // to that they did not already have.
+        if (prevRow.status !== next) {
+          captureFieldEdit?.({
+            setter: setTasks,
+            kind: "task.updated",
+            id,
+            before: { status: prevRow.status, completedDate: prevRow.completedDate },
+            after: { status: after.status, completedDate: after.completedDate },
+            stampField: "localModifiedAt",
+            name: prevRow.taskName,
+          });
+        }
+        // ★★ THE TRANSITION CHECK IS DELIBERATELY *NOT* GATED ON
+        //   `prevRow.status !== next`, and it used to be. The setter above
+        //   writes unconditionally for a non-synced row, so a row whose
+        //   `status`/`completedDate` pair is already SPLIT — a state
+        //   `migrateTask` deliberately does not repair, see
+        //   docs/AGENTS/task-status.md — has its `completedDate` cleared by
+        //   `applyStatusChange` even when the selected status equals the
+        //   current one. Under the old gate that real write produced no audit
+        //   entry at all. `statusActivityKind` compares DELIVERED-ness, not
+        //   status, so it is already the right no-op test on its own: an
+        //   unsplit row re-selected at its own status returns `null` here.
+        //   Low reachability (a `<select>` onChange rarely fires for the value
+        //   already displayed) but the write is real either way.
+        const kind = statusActivityKind(prevRow, after);
+        if (kind) logActivityRef.current(kind, id, prevRow.taskName);
       }
     },
     [today, setTasks, tasksRef, captureFieldEdit],
@@ -317,6 +336,8 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         stampField: "localModifiedAt",
         name: prevRow.taskName,
       });
+      const kind = statusActivityKind(prevRow, after);
+      if (kind) logActivityRef.current(kind, id, prevRow.taskName);
     },
     [today, setTasks, tasksRef, captureFieldEdit, resourcesById],
   );

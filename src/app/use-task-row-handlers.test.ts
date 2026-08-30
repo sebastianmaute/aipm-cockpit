@@ -803,3 +803,105 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
     expect(restored?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
   });
 });
+
+/** open-followups §235: the inline status `<select>` and the Kanban swimlane drop
+ *  are the two fastest ways to complete a task, and neither wrote an activity
+ *  entry — while pressing Undo on that same change DID write one ("undo").
+ *
+ *  ★★ MUTATION-PROVED PER ROUTE, and the two routes were mutated SEPARATELY so
+ *  each positive block is evidence for its OWN call site. Observed:
+ *  - Mutant E (delete the `statusActivityKind` pair from `onStatusChange` only):
+ *    the two inline-select blocks FAILED; the swimlane block PASSED.
+ *  - Mutant F (delete it from `onSwimlaneDrop` only): the swimlane block FAILED;
+ *    both inline blocks PASSED.
+ *  The "writes no transition entry" block passed under BOTH mutants and against
+ *  the unfixed code — that is what makes it a control rather than evidence: it
+ *  only becomes meaningful once the three positive blocks are green. */
+describe("useTaskRowHandlers — status transitions reach the activity log", () => {
+  it("logs a completion when the inline select moves a task to Done", () => {
+    const logActivity = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1, status: "In Progress" })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ logActivity, tasksRef })),
+    );
+    act(() => result.current.onStatusChange(1, "Done"));
+    expect(logActivity).toHaveBeenCalledWith("task.completed", 1, "Test task");
+  });
+
+  it("logs a reopening when the inline select moves a task off Done", () => {
+    const logActivity = vi.fn();
+    const tasksRef = {
+      current: [makeTask({ id: 1, status: "Done", completedDate: "2030-01-01" })],
+    };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ logActivity, tasksRef })),
+    );
+    act(() => result.current.onStatusChange(1, "In Progress"));
+    expect(logActivity).toHaveBeenCalledWith("task.reopened", 1, "Test task");
+  });
+
+  it("writes no transition entry when delivered-ness does not change", () => {
+    // ★ THIS IS THE ABSENCE ASSERTION, and the two positive blocks above are
+    // its CONTROLS. A block whose
+    // whole content is `not.toHaveBeenCalledWith` cannot be its own control. On
+    // its own it is satisfied by a handler that logs nothing ever; it only
+    // carries information once the two blocks above are green.
+    const logActivity = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1, status: "To Do" })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ logActivity, tasksRef })),
+    );
+    act(() => result.current.onStatusChange(1, "In Progress"));
+    expect(logActivity).not.toHaveBeenCalledWith("task.completed", 1, "Test task");
+  });
+
+  it("logs a completion when a swimlane drop moves a task to Done", () => {
+    const logActivity = vi.fn();
+    const tasksRef = {
+      current: [makeTask({ id: 1, status: "To Do", assignee: "", resourceId: undefined })],
+    };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ logActivity, tasksRef })),
+    );
+    act(() =>
+      result.current.onSwimlaneDrop(
+        1,
+        { key: "res:7", label: "Anna Jordan", resourceId: 7 },
+        "Done",
+      ),
+    );
+    expect(logActivity).toHaveBeenCalledWith("task.completed", 1, "Test task");
+  });
+
+  // ★★ A SPLIT PAIR RE-SELECTED AT ITS OWN STATUS IS A REAL WRITE. The setter in
+  // `onStatusChange` runs unconditionally for a non-synced row, so
+  // `applyStatusChange` clears the stray `completedDate` — while the transition
+  // log used to sit behind a `prevRow.status !== next` gate and stayed silent.
+  // The fixture is a state `migrateTask` deliberately does not repair: status
+  // "To Do" carrying a `completedDate`.
+  it("logs a reopening when re-selecting the current status clears a split completedDate", () => {
+    const logActivity = vi.fn();
+    const tasksRef = {
+      current: [makeTask({ id: 1, status: "To Do", completedDate: "2030-01-01" })],
+    };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ logActivity, tasksRef })),
+    );
+    act(() => result.current.onStatusChange(1, "To Do"));
+    expect(logActivity).toHaveBeenCalledWith("task.reopened", 1, "Test task");
+  });
+
+  // Control for the block above, pinning that dropping the gate did NOT make the
+  // handler chatty: an UNSPLIT row re-selected at its own status still logs
+  // nothing, because `statusActivityKind` compares delivered-ness rather than
+  // status and returns null for it.
+  it("still writes nothing when an unsplit row is re-selected at its own status", () => {
+    const logActivity = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1, status: "To Do" })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ logActivity, tasksRef })),
+    );
+    act(() => result.current.onStatusChange(1, "To Do"));
+    expect(logActivity).not.toHaveBeenCalled();
+  });
+});

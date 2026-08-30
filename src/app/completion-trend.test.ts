@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { computeCompletionTrend, MAX_POINTS } from "./completion-trend";
 import type { SnapshotRecord } from "./snapshot";
 import type { ActivityEntry } from "./activity-log";
+import type { Task } from "./types";
 
 function snap(capturedAt: string, pct: number): SnapshotRecord {
   return {
@@ -18,11 +19,54 @@ function ev(timestamp: string, kind: ActivityEntry["kind"]): ActivityEntry {
   return { id: String(nextId++), timestamp, kind, args: [] };
 }
 
+/** `n` tasks delivered long BEFORE any plotted day, so `deliveredBy` returns the
+ *  same numerator on every point of the window.
+ *
+ *  ★★★ WHY THIS AND NOT `tasks: []`: it reproduces the CONSTANT numerator the
+ *  denominator blocks below were written against, so every one of their
+ *  expectations stays byte-identical across the numerator change. `tasks: []`
+ *  zeroes every historical point, and each of those blocks would have to be
+ *  rewritten to a zeroed series. Re-measured 2026-08-30, mutant applied and
+ *  reverted: replacing all FIVE `doneBefore(2)` call sites in this file with an
+ *  empty array runs 17 failed / 18 passed out of 35. Reproduce with
+ *    npx vitest run --maxWorkers=1 src/app/completion-trend.test.ts src/app/completion-trend.property.test.ts
+ *
+ *  ★★★ BOTH FIGURES IN THAT SENTENCE WERE WRONG BEFORE, AND EACH WAS WRONG A
+ *  DIFFERENT WAY — which is why neither is worth trusting without the command.
+ *  "six" came from a bare grep for the call, and that grep MATCHES ITS OWN
+ *  PROSE. It printed five real sites at `411702b8` and at every commit since,
+ *  so "six" was never true, not even on the day it was written. For "15
+ *  passed": 17 + 15 = 32 against a population that is now 35, so the sum alone
+ *  refutes it. Count the code sites with a grep that drops the comment lines:
+ *    grep -n "doneBefore(2)" src/app/completion-trend.test.ts | grep -vE "^[0-9]+: *(\*|//)"
+ *
+ *  ★★★ AN EARLIER REVISION OF THIS DOCSTRING CLAIMED `tasks: []` WOULD MAKE
+ *  "subtracts N, not 1" (§163) AND "reverses N, not 1" (§166) PASS WHILE
+ *  DETECTING NOTHING, under a "measured, not reasoned" banner. That is FALSE
+ *  and it was reasoned: both are `expect(withN(8)).not.toEqual(withN(1))`, so
+ *  two collapsed-to-identical arrays FAIL the assertion — they go RED loudly,
+ *  they do not pass silently. Both appear by name in the 17 above. The mutant
+ *  record at the foot of this file is the true measurement, and it and the old
+ *  claim could not both hold: mutant A is behaviourally `tasks: []` for these
+ *  fixtures, and it KILLED most of the §163/§166 block. */
+function doneBefore(n: number): Task[] {
+  return Array.from(
+    { length: n },
+    (_, i) =>
+      ({
+        id: i + 1,
+        taskName: `T${i + 1}`,
+        status: "Done",
+        completedDate: "2026-01-01",
+      }) as unknown as Task,
+  );
+}
+
 describe("computeCompletionTrend", () => {
   test("prefers snapshots when >= 2 (exact pctComplete, log ignored)", () => {
     const snapshots = [snap("2026-06-10T00:00:00.000Z", 20), snap("2026-06-14T00:00:00.000Z", 55)];
     const activity = [ev("2026-06-12T00:00:00.000Z", "task.completed")];
-    const out = computeCompletionTrend({ snapshots, activity, currentDone: 9, currentTotal: 10, today: "2026-06-21" });
+    const out = computeCompletionTrend({ snapshots, activity, tasks: [], currentDone: 9, currentTotal: 10, today: "2026-06-21" });
     expect(out.map((p) => p.percent)).toEqual([20, 55]);
     expect(out[1].label).toBe("06-14");
   });
@@ -32,30 +76,51 @@ describe("computeCompletionTrend", () => {
       ev("2026-06-18T09:00:00.000Z", "task.completed"),
       ev("2026-06-20T09:00:00.000Z", "task.completed"),
     ];
-    const out = computeCompletionTrend({ snapshots: [], activity, currentDone: 6, currentTotal: 10, today: "2026-06-21" });
+    // The two completions are now BACKED BY TASK DATA rather than inferred from
+    // the events: five delivered by 06-18, a sixth on 06-20. Same series as
+    // before, read from a different source.
+    const tasks: Task[] = [
+      ...doneBefore(5),
+      { id: 6, taskName: "T6", status: "Done", completedDate: "2026-06-20" } as unknown as Task,
+    ];
+    const out = computeCompletionTrend({ snapshots: [], activity, tasks, currentDone: 6, currentTotal: 10, today: "2026-06-21" });
     expect(out.map((p) => p.percent)).toEqual([50, 60]);
     expect(out.map((p) => p.label)).toEqual(["06-18", "06-20"]);
   });
 
-  test("created/deleted shift total; reopened decrements done", () => {
+  // ★★ WAS "created/deleted shift total; reopened decrements done", and the
+  //   `reopened` half is DELETED rather than weakened: `dDone` no longer exists,
+  //   so a `task.reopened` row moves no count and that claim is simply false
+  //   now. Its replacement — a numerator that tracks delivery — is pinned by the
+  //   "numerator from task data" block at the foot of this file. What survives
+  //   here is the DENOMINATOR claim, and the fixture now makes it observable:
+  //   the old one asserted [60, 50] off a fixture whose total never moved
+  //   between the two plotted days, so it could not have caught a broken
+  //   `task.created` arm either.
+  test("a create shifts the total, so the earlier day divides by less", () => {
     const activity = [
       ev("2026-06-15T09:00:00.000Z", "task.created"),
-      ev("2026-06-17T09:00:00.000Z", "task.reopened"),
+      ev("2026-06-17T09:00:00.000Z", "task.created"),
     ];
-    const out = computeCompletionTrend({ snapshots: [], activity, currentDone: 5, currentTotal: 10, today: "2026-06-21" });
-    expect(out.map((p) => p.percent)).toEqual([60, 50]);
+    const out = computeCompletionTrend({
+      snapshots: [], activity, tasks: doneBefore(5),
+      currentDone: 5, currentTotal: 10, today: "2026-06-21",
+    });
+    // 06-17 is the last point and reads the live counts, 5/10 = 50. Walking
+    // back over its +1 leaves 9 as the 06-15 denominator: 5/9 = 56.
+    expect(out.map((p) => p.percent)).toEqual([56, 50]);
   });
 
   test("fewer than 2 points -> empty", () => {
-    expect(computeCompletionTrend({ snapshots: [], activity: [], currentDone: 0, currentTotal: 0, today: "2026-06-21" })).toEqual([]);
-    expect(computeCompletionTrend({ snapshots: [snap("2026-06-10T00:00:00.000Z", 20)], activity: [], currentDone: 1, currentTotal: 5, today: "2026-06-21" })).toEqual([]);
+    expect(computeCompletionTrend({ snapshots: [], activity: [], tasks: [], currentDone: 0, currentTotal: 0, today: "2026-06-21" })).toEqual([]);
+    expect(computeCompletionTrend({ snapshots: [snap("2026-06-10T00:00:00.000Z", 20)], activity: [], tasks: [], currentDone: 1, currentTotal: 5, today: "2026-06-21" })).toEqual([]);
   });
 
   test("caps to the trailing MAX_POINTS", () => {
     const snapshots = Array.from({ length: MAX_POINTS + 5 }, (_, i) =>
       snap(`2026-06-${String(i + 1).padStart(2, "0")}T00:00:00.000Z`, i),
     );
-    const out = computeCompletionTrend({ snapshots, activity: [], currentDone: 1, currentTotal: 2, today: "2026-06-30" });
+    const out = computeCompletionTrend({ snapshots, activity: [], tasks: [], currentDone: 1, currentTotal: 2, today: "2026-06-30" });
     expect(out.length).toBe(MAX_POINTS);
     expect(out[out.length - 1].label).toBe(`06-${MAX_POINTS + 5}`);
   });
@@ -65,7 +130,7 @@ describe("computeCompletionTrend", () => {
       ev("2026-06-18T09:00:00.000Z", "task.deleted"),
       ev("2026-06-20T09:00:00.000Z", "task.deleted"),
     ];
-    const out = computeCompletionTrend({ snapshots: [], activity, currentDone: 0, currentTotal: 0, today: "2026-06-21" });
+    const out = computeCompletionTrend({ snapshots: [], activity, tasks: [], currentDone: 0, currentTotal: 0, today: "2026-06-21" });
     expect(out.every((p) => p.percent === 0)).toBe(true);
   });
 
@@ -76,7 +141,7 @@ describe("computeCompletionTrend", () => {
       ev("2027-01-01T09:00:00.000Z", "task.completed"),
       ev("2026-06-20T09:00:00.000Z", "task.completed"),
     ];
-    const out = computeCompletionTrend({ snapshots: [], activity, currentDone: 6, currentTotal: 10, today: "2026-06-21" });
+    const out = computeCompletionTrend({ snapshots: [], activity, tasks: [], currentDone: 6, currentTotal: 10, today: "2026-06-21" });
     expect(out.map((p) => p.label)).toEqual(["06-18", "06-20"]);
   });
 });
@@ -94,7 +159,13 @@ function evArgs(
 describe("bulk.delete counts against the denominator (§163)", () => {
   // The reconstruction only runs with FEWER THAN TWO snapshots, so every case
   // here passes `snapshots: []` — this is the no-Turso / new-project path.
-  const BASE = { snapshots: [], currentDone: 2, currentTotal: 2, today: "2026-06-21" } as const;
+  // `doneBefore(2)`, NOT `tasks: []`: see the helper. An empty task list
+  // zeroes every historical point, so "subtracts N, not 1" below would compare
+  // `[0, 0, 100]` with itself — and that `.not.toEqual` then goes RED, it does
+  // not pass vacuously. Every expectation in this describe would need
+  // rewriting to the zeroed series; keeping the numerator constant is what
+  // makes them all still readable as claims about the DENOMINATOR.
+  const BASE = { snapshots: [], tasks: doneBefore(2), currentDone: 2, currentTotal: 2, today: "2026-06-21" } as const;
 
   // ★★★ THE REGRESSION ITSELF. Two creates then a mass delete of 8, ending at
   //   2 done / 2 total. Walking back must restore a denominator of 9 and 10 on
@@ -180,7 +251,7 @@ describe("undo/redo reverse the denominator they moved (§166)", () => {
     ev("2026-06-18T09:00:00.000Z", "task.created"),
     evArgs("2026-06-20T09:00:00.000Z", "bulk.delete", [8]),
   ] as const;
-  const RESTORED = { snapshots: [], currentDone: 2, currentTotal: 10, today: "2026-06-21" } as const;
+  const RESTORED = { snapshots: [], tasks: doneBefore(2), currentDone: 2, currentTotal: 10, today: "2026-06-21" } as const;
 
   // ★★★ THE REGRESSION ITSELF, and note the DIRECTION — §166's own prose said
   //   the curve "sits above the truth" and that is backwards (corrected there in
@@ -209,7 +280,7 @@ describe("undo/redo reverse the denominator they moved (§166)", () => {
   //   only taught the walk about `undo` reads this log as +8 and inflates.
   test("undo then redo cancels back to the plain-delete series", () => {
     const withPair = computeCompletionTrend({
-      snapshots: [], currentDone: 2, currentTotal: 2, today: "2026-06-21",
+      snapshots: [], tasks: doneBefore(2), currentDone: 2, currentTotal: 2, today: "2026-06-21",
       activity: [
         ...PREFIX,
         evArgs("2026-06-20T10:00:00.000Z", "undo", [8, "task.deleted", 8]),
@@ -217,7 +288,7 @@ describe("undo/redo reverse the denominator they moved (§166)", () => {
       ],
     });
     const bare = computeCompletionTrend({
-      snapshots: [], currentDone: 2, currentTotal: 2, today: "2026-06-21",
+      snapshots: [], tasks: doneBefore(2), currentDone: 2, currentTotal: 2, today: "2026-06-21",
       activity: [...PREFIX],
     });
     expect(withPair.map((p) => p.percent)).toEqual(bare.map((p) => p.percent));
@@ -311,7 +382,7 @@ describe("undo/redo reverse the denominator they moved (§166)", () => {
       evArgs("2026-06-20T09:00:00.000Z", "undo", [1, "task.created", 1]),
     ];
     const out = computeCompletionTrend({
-      snapshots: [], currentDone: 1, currentTotal: 4, today: "2026-06-21", activity,
+      snapshots: [], tasks: doneBefore(1), currentDone: 1, currentTotal: 4, today: "2026-06-21", activity,
     });
     // Day 06-20 nets −1, so the walk restores a total of 5 on 06-18 (not 3, the
     // answer a table that ignored `task.created` would give).
@@ -358,7 +429,7 @@ describe("undo/redo reverse the denominator they moved (§166)", () => {
   //   why an inflated series here looks plausible instead of broken.
   test("a dedup with NO undo still moves the denominator", () => {
     const out = computeCompletionTrend({
-      snapshots: [], currentDone: 2, currentTotal: 2, today: "2026-06-21",
+      snapshots: [], tasks: doneBefore(2), currentDone: 2, currentTotal: 2, today: "2026-06-21",
       activity: [
         ev("2026-06-16T09:00:00.000Z", "task.created"),
         ev("2026-06-18T09:00:00.000Z", "task.created"),
@@ -378,5 +449,180 @@ describe("undo/redo reverse the denominator they moved (§166)", () => {
         activity: [...PREFIX, evArgs("2026-06-20T10:00:00.000Z", "undo", [n, "task.deleted", n])],
       }).map((p) => p.percent);
     expect(withN(8)).not.toEqual(withN(1));
+  });
+});
+
+/** ★★ MUTATION-PROVED, and these are the OBSERVED results, not predictions.
+ *  Each mutant was applied alone to `completion-trend.ts` and reverted after.
+ *
+ *  ★★★ ALL FOUR RE-MEASURED 2026-08-30 UNDER ONE COMMAND. The command is
+ *    npx vitest run --maxWorkers=1 src/app/completion-trend.test.ts src/app/completion-trend.property.test.ts
+ *  and its population is 35 (34 here + 1 in the property file). ANY tally below
+ *  whose two halves do not sum to 35 is stale by construction.
+ *  A drifting FAILED count is the dangerous one and C had it: adding a test
+ *  that a mutant also kills raises the number silently, and nothing re-runs
+ *  these. Re-run the command, do not adjust a figure by reasoning.
+ *
+ *  A — `deliveredBy`'s `t.completedDate <= day` replaced by `false`:
+ *      21 failed / 14 passed. Killed "moves the earlier point …" as intended,
+ *      AND most of the §163/§166 block, because `doneBefore` makes their
+ *      numerator real. That breadth is the point: with `tasks: []` those would
+ *      have survived, which is how a vacuous fixture announces itself.
+ *  B — the last-point branch flattened to `deliveredBy(days[i].day)`:
+ *      EXACTLY 1 failed / 34 passed — "keeps the LAST point on currentDone …".
+ *      Nothing else reads that branch, so the block is the sole guard of it.
+ *  C — `"task.completed"` removed from `COUNT_KINDS`:
+ *      4 failed / 31 passed. Killed "seeds a day carrying
+ *      only a completion …" as intended; two more are the seeding claims in
+ *      the first describe; the FOURTH is "plots two points when the completion
+ *      entry is present", from the completion-only pair at the foot of this
+ *      file. ★★ The sum check
+ *      is USELESS here — 3 + 32 and 4 + 31 both total 35 — so a FAILED count
+ *      recorded without its passed half has no self-check at all. Record both.
+ *  D — `deliveredBy` replaced by `tasks.length` (ignore the day, count
+ *      everything): 2 failed / 33 passed — "falls back to activity-log reconstruction …"
+ *      and "leaves the earlier point at zero …". This is the mutant that was
+ *      MISSING when A/B/C were recorded, and it matters because A/B/C leave
+ *      the "always counts everything" direction unexercised: the zero control
+ *      passes under A for the WRONG reason (A makes every numerator 0, and 0
+ *      is what that block expects), so on its own it certifies nothing. D is
+ *      what proves the pair constrains the implementation from both sides.
+ *      Observed 2026-08-30, not predicted. */
+describe("numerator from task data", () => {
+  const task = (id: number, completedDate?: string) =>
+    ({
+      id,
+      taskName: `T${id}`,
+      status: completedDate ? "Done" : "To Do",
+      completedDate,
+    }) as unknown as Task;
+
+  // Two days seeded by task.created events, so the denominator moves and the
+  // series has the >= 2 days it needs to render at all.
+  const activity = [
+    evArgs("2026-06-10T09:00:00.000Z", "task.created", [1, "T1"]),
+    evArgs("2026-06-12T09:00:00.000Z", "task.created", [2, "T2"]),
+  ];
+
+  test("moves the earlier point when a task was already delivered on that day", () => {
+    const out = computeCompletionTrend({
+      snapshots: [],
+      activity,
+      tasks: [task(1, "2026-06-10"), task(2)],
+      currentDone: 1,
+      currentTotal: 2,
+      today: "2026-06-21",
+    });
+    // Day 2026-06-10: one task delivered on or before that day, denominator
+    // walked back to 1 => 100%.
+    expect(out[0].percent).toBe(100);
+  });
+
+  test("leaves the earlier point at zero when nothing was delivered by then", () => {
+    // Positive control for the block above: same shape, no completedDate in
+    // range, so a numerator that ignored `tasks` entirely could not satisfy
+    // both blocks.
+    const out = computeCompletionTrend({
+      snapshots: [],
+      activity,
+      tasks: [task(1, "2026-06-20"), task(2)],
+      currentDone: 1,
+      currentTotal: 2,
+      today: "2026-06-21",
+    });
+    expect(out[0].percent).toBe(0);
+  });
+
+  test("keeps the LAST point on currentDone so it agrees with the tile above it", () => {
+    // The last plotted day's end state IS "now" by construction — the walk
+    // seeds `total` from currentTotal. Deriving the last numerator from
+    // `tasks` instead would disagree with the completion tile whenever the
+    // last activity day is older than today.
+    const out = computeCompletionTrend({
+      snapshots: [],
+      activity,
+      tasks: [task(1, "2026-06-10"), task(2)],
+      currentDone: 2,
+      currentTotal: 2,
+      today: "2026-06-21",
+    });
+    expect(out[out.length - 1].percent).toBe(100);
+  });
+
+  test("seeds a day carrying only a completion, with no denominator move", () => {
+    const out = computeCompletionTrend({
+      snapshots: [],
+      activity: [
+        evArgs("2026-06-10T09:00:00.000Z", "task.created", [1, "T1"]),
+        evArgs("2026-06-15T09:00:00.000Z", "task.completed", [1, "T1"]),
+      ],
+      tasks: [task(1, "2026-06-15")],
+      currentDone: 1,
+      currentTotal: 1,
+      today: "2026-06-21",
+    });
+    // Two days, not one: 06-15 contributes no dTotal but must still seed, or
+    // the completion is invisible in the series.
+    expect(out).toHaveLength(2);
+  });
+});
+
+/** A MISSED `task.completed` WRITER CAN COST THE WHOLE CHART, not just an audit
+ *  row — which is the consequence three separate prose claims used to deny
+ *  ("costs an AUDIT ENTRY and can never move a metric", in `task-status.ts`,
+ *  `status-activity-census.test.ts` and `docs/AGENTS/activity-log.md`, all now
+ *  corrected). The block above pins that a completion-only day SEEDS; this pair
+ *  pins what its absence costs, which is the stronger and more surprising half:
+ *  the series falls under the `days.length < 2` floor and renders NOTHING.
+ *
+ *  ★★ This is also the cheapest guard against someone "tidying" `task.completed`
+ *  / `task.reopened` out of `COUNT_KINDS` on the strength of that false claim —
+ *  they carry no `dTotal` arm, so they look inert to a reader who has not traced
+ *  the seeding job.
+ *
+ *  ★★ MUTATION-PROVED 2026-08-30, mutant run and reverted: removing
+ *  `"task.completed"` from `COUNT_KINDS` in `completion-trend.ts` turns the
+ *  positive block RED (`expected [] to have a length of 2 but got +0`) while the
+ *  absence block below stays GREEN — which is exactly what makes the second a
+ *  CONTROL for the first rather than evidence of its own. */
+describe("a completion-only day is what keeps the series above the two-day floor", () => {
+  const task = (id: number, completedDate?: string) =>
+    ({
+      id,
+      taskName: `T${id}`,
+      status: completedDate ? "Done" : "To Do",
+      completedDate,
+    }) as unknown as Task;
+
+  const tasks = [task(1, "2026-06-10"), task(2)];
+  const created = evArgs("2026-06-12T09:00:00.000Z", "task.created", [2, "T2"]);
+  const completed = evArgs("2026-06-10T09:00:00.000Z", "task.completed", [1, "T1"]);
+
+  test("plots two points when the completion entry is present", () => {
+    const out = computeCompletionTrend({
+      snapshots: [],
+      activity: [completed, created],
+      tasks,
+      currentDone: 1,
+      currentTotal: 2,
+      today: "2026-06-21",
+    });
+    expect(out).toHaveLength(2);
+  });
+
+  test("plots nothing at all when the completion entry is missing", () => {
+    // Control for the block above: identical tasks and numerator, one fewer
+    // activity row. The numerator cannot tell the two cases apart — it reduces
+    // over `tasks` — so only the SEEDING job of `COUNT_KINDS` explains the
+    // difference, and a chart that renders is the only signal a user would get.
+    const out = computeCompletionTrend({
+      snapshots: [],
+      activity: [created],
+      tasks,
+      currentDone: 1,
+      currentTotal: 2,
+      today: "2026-06-21",
+    });
+    expect(out).toEqual([]);
   });
 });

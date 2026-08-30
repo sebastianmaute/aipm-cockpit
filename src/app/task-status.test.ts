@@ -7,6 +7,7 @@ import {
   statusSortIndex,
   reconcileStatusFromDate,
   countSplitTaskPairs,
+  statusActivityKind,
 } from "./task-status";
 import { TASK_STATUSES, type Task, type TaskStatus } from "./types";
 
@@ -275,5 +276,48 @@ describe("countSplitTaskPairs", () => {
     ];
     expect(countSplitTaskPairs(tasks)).toBe(2);
     expect(countSplitTaskPairs([])).toBe(0);
+  });
+});
+
+describe("statusActivityKind", () => {
+  const t = (status: TaskStatus, completedDate?: string) =>
+    ({ id: 1, taskName: "T", status, completedDate }) as unknown as Task;
+
+  it("reports a completion when the task becomes delivered", () => {
+    expect(statusActivityKind(t("In Progress"), t("Done", "2026-06-10"))).toBe("task.completed");
+  });
+
+  it("reports a reopening when the task stops being delivered", () => {
+    expect(statusActivityKind(t("Done", "2026-06-10"), t("In Progress"))).toBe("task.reopened");
+  });
+
+  it("reports nothing when delivered-ness did not change", () => {
+    expect(statusActivityKind(t("To Do"), t("In Progress"))).toBeNull();
+  });
+
+  it("treats a move to Cancelled as no transition", () => {
+    // Cancelled is CLOSED but never DELIVERED. Using isTaskClosed here instead
+    // of isTaskDelivered would report a completion for cancelled work — the
+    // exact confusion task-closed.ts exists to prevent.
+    //
+    // Mutation-checked (swapping both isTaskDelivered calls for isTaskClosed):
+    // this block fails, along with the next two below — the one mutant kills
+    // all three at once (isTaskClosed treats Cancelled as equivalent to Done
+    // on both sides of the comparison), so none of the three is pinned in
+    // isolation by this mutant alone.
+    expect(statusActivityKind(t("In Progress"), t("Cancelled"))).toBeNull();
+  });
+
+  it("treats a move OFF Cancelled as no transition either", () => {
+    // Positive control for the block above: a single-direction guard would
+    // satisfy one of these two and not the other. See the mutation note above.
+    expect(statusActivityKind(t("Cancelled"), t("In Progress"))).toBeNull();
+  });
+
+  it("reports a completion when a Cancelled task is delivered instead", () => {
+    // Also killed by the isTaskClosed mutant above: isTaskClosed(Cancelled)
+    // and isTaskClosed(Done) are both true, so the mutant reads this as no
+    // transition instead of a completion.
+    expect(statusActivityKind(t("Cancelled"), t("Done", "2026-06-10"))).toBe("task.completed");
   });
 });
