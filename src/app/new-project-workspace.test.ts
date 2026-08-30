@@ -182,6 +182,13 @@ describe("appendSeed — the allow-list is idempotent (§288)", () => {
   // on a second application" stayed GREEN under that mutant (a no-op
   // pass-through is trivially idempotent), which is exactly why the
   // anti-vacuity test exists beside it.
+  // ★★ STATED PLAINLY: that leaves "produces identical bytes on a second
+  // application" backed by NO mutant — it is UNPROVED, not mutation-proved.
+  // Killing it needs a NON-IDEMPOTENT allow-list, which no single-token edit
+  // to `allowListSeed` produces; the mutation would have to go into
+  // `sanitizeRichHtml` itself. Recorded rather than left to be inferred from
+  // the green run, because an assertion nobody has tried to break reads
+  // exactly like one that survived an attempt.
 
   // ★★★ THIS IS A PRECONDITION OF THE FIX, NOT A NICE-TO-HAVE. An AI-seeded
   // task already met `sanitizeAiRichText` in `buildSeedTask` and now meets
