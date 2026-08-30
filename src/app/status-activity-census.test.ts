@@ -18,12 +18,9 @@
 //     `await backend.load()` with a facade helper, the load site vanished from
 //     its scan, and it only went red because the ratio it counts happened to
 //     go unbalanced. A rename here has no ratio to save it.
-//   - ★★★ IT DOES NOT SEE THE WHOLE WRITER POPULATION, and this list used to
-//     stop one bullet above, so a green run read as covering all of it.
-//     `docs/AGENTS/task-status.md` documents FIVE writers of the
-//     status/completedDate pair. WRITER_ANCHORS spells TWO of them, and
-//     `writerFiles()` walks APP_DIR with a NON-RECURSIVE readdirSync, so a
-//     whole subdirectory of writers is invisible — widening the anchors alone
+//   - ★★★ IT DOES NOT SEE THE WHOLE WRITER POPULATION.
+//     `writerFiles()` walks APP_DIR with a NON-RECURSIVE readdirSync, so
+//     `src/app/undo/` is invisible — widening the anchors alone
 //     would not reach it. The two outside are:
 //       * Undo/redo restore (runUndo/runRedo in src/app/undo/use-undo-stack.ts).
 //         TASK_UNDO_GROUPS pairs "status" with "completedDate" as its FIRST
@@ -46,7 +43,8 @@
 //     members of `COUNT_KINDS`, which also decides which days SEED a point, so
 //     a missed writer drops a completion-only day and can take the chart under
 //     the `days.length < 2` floor entirely. That leg is NOT why this gate is a
-//     convenience — the two bullets above are, and they are each sufficient.
+//     convenience — the FILE-GRANULARITY and SPELLING bullets are, and they
+//     are each sufficient.
 //
 // ★ ANTI-VACUITY, observed 2026-08-30 — both mutants were run and reverted:
 //   - Deleting both `const kind = statusActivityKind(...)` lines and both

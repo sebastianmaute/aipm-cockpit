@@ -34,13 +34,10 @@ function ev(timestamp: string, kind: ActivityEntry["kind"]): ActivityEntry {
  *  ★★★ BOTH FIGURES IN THAT SENTENCE WERE WRONG BEFORE, AND EACH WAS WRONG A
  *  DIFFERENT WAY — which is why neither is worth trusting without the command.
  *  "six" came from a bare grep for the call, and that grep MATCHES ITS OWN
- *  PROSE: this docstring and the `BASE` comment further down both name it, so
- *  a raw count reads two higher than the code. It printed five real sites at
- *  `411702b8` and at every commit since, so "six" was never true, not even on
- *  the day it was written. "15 passed" WAS true when written and then drifted —
- *  tests were added, and 17 + 15 = 32 against a population that is now 35, so
- *  the sum alone refutes it. Count the code sites with a grep that drops the
- *  comment lines:
+ *  PROSE. It printed five real sites at `411702b8` and at every commit since,
+ *  so "six" was never true, not even on the day it was written. For "15
+ *  passed": 17 + 15 = 32 against a population that is now 35, so the sum alone
+ *  refutes it. Count the code sites with a grep that drops the comment lines:
  *    grep -n "doneBefore(2)" src/app/completion-trend.test.ts | grep -vE "^[0-9]+: *(\*|//)"
  *
  *  ★★★ AN EARLIER REVISION OF THIS DOCSTRING CLAIMED `tasks: []` WOULD MAKE
@@ -470,9 +467,9 @@ describe("undo/redo reverse the denominator they moved (§166)", () => {
  *
  *  A — `deliveredBy`'s `t.completedDate <= day` replaced by `false`:
  *      21 failed / 14 passed (was recorded as 21/11). Killed "moves the earlier point …" as intended,
- *      AND every §163/§166 case, because `doneBefore` makes their numerator
- *      real. That breadth is the point: with `tasks: []` those 20 would have
- *      survived, which is how a vacuous fixture announces itself.
+ *      AND most of the §163/§166 block, because `doneBefore` makes their
+ *      numerator real. That breadth is the point: with `tasks: []` those would
+ *      have survived, which is how a vacuous fixture announces itself.
  *  B — the last-point branch flattened to `deliveredBy(days[i].day)`:
  *      EXACTLY 1 failed / 34 passed — "keeps the LAST point on currentDone …".
  *      Nothing else reads that branch, so the block is the sole guard of it.

@@ -341,10 +341,8 @@ describe("useBulkOperations", () => {
       // ★★ BOTH kinds, not just the one the sibling block asserts on. Narrowed
       //   to `task.completed` alone, this passes against an emitter that fires
       //   `task.reopened` unconditionally — the failure mode an absence
-      //   assertion exists to exclude. The equivalent block in
-      //   `use-task-row-handlers.test.ts` is backstopped by a later
-      //   `not.toHaveBeenCalled()`; this one has no backstop, and cannot have a
-      //   blanket one, because a non-status bulk edit legitimately logs
+      //   assertion exists to exclude. This one has no backstop, and cannot
+      //   have a blanket one, because a non-status bulk edit legitimately logs
       //   `bulk.edit`. Enumerating the two kinds is the only shape that works
       //   here. The positive control is the block directly above.
       for (const kind of ["task.completed", "task.reopened"] as const) {
