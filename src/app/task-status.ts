@@ -1,5 +1,6 @@
 // src/app/task-status.ts — pure, i18n-free task workflow-status engine.
 import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
+import { isTaskDelivered } from "./task-closed";
 
 const STATUS_SET = new Set<string>(TASK_STATUSES);
 
@@ -110,4 +111,27 @@ export function countSplitTaskPairs(tasks: readonly Task[]): number {
 export function statusSortIndex(status: string): number {
   const i = TASK_STATUSES.indexOf(status as TaskStatus);
   return i === -1 ? TASK_STATUSES.length : i;
+}
+
+/** Which activity kind a status write should record, or `null` for none.
+ *
+ *  ★★★ DELIVERED, NOT CLOSED. `isTaskClosed` is Done OR Cancelled; cancelling a
+ *    task would then report as a COMPLETION and un-cancelling as a REOPENING,
+ *    which is the precise confusion `task-closed.ts` was split to prevent. Only
+ *    delivery — a `completedDate` — is a completion.
+ *
+ *  ★★ The trend does NOT consume what this decides. The numerator is read from
+ *    `completedDate` (see `completion-trend.ts`), so a writer that forgets to
+ *    log costs an AUDIT ENTRY and can never move a metric. That split is
+ *    deliberate: it is what makes the census in
+ *    `status-activity-census.test.ts` a convenience rather than a load-bearing
+ *    correctness gate. */
+export function statusActivityKind(
+  before: Pick<Task, "completedDate">,
+  after: Pick<Task, "completedDate">,
+): "task.completed" | "task.reopened" | null {
+  const was = isTaskDelivered(before);
+  const now = isTaskDelivered(after);
+  if (was === now) return null;
+  return now ? "task.completed" : "task.reopened";
 }
