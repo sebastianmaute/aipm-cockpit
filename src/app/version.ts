@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.266.0";
-export const APP_BUILD_DATE = "2026-08-30"; // 0.266.0: seed allow-listing and handle-commit ordering (VanderMeer)
+export const APP_VERSION = "0.267.0";
+export const APP_BUILD_DATE = "2026-08-30"; // 0.267.0: completion-trend numerator, status audit trail, contact export (Nagamatsu)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.266.x line is "VanderMeer" (Jeff VanderMeer, American SF/weird-fiction
+ *  0.267.x line is "Nagamatsu" (Sequoia Nagamatsu, American SF author).
+ *  0.266.x was "VanderMeer" (Jeff VanderMeer, American SF/weird-fiction
  *  author). ★★ REUSED: 0.96.0 also ran under this name — permitted by the same
  *  uniqueness-per-MINOR-LINE rule spelled out below, and recorded here so that a
  *  bare `grep -rn "VanderMeer" CHANGELOG.md` hit is not read as the name being
@@ -77,7 +78,7 @@ export const APP_BUILD_DATE = "2026-08-30"; // 0.266.0: seed allow-listing and h
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "VanderMeer";
+export const APP_MILESTONE = "Nagamatsu";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
