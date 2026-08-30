@@ -345,8 +345,12 @@ describe("note-log text re-derivation against the real sanitizer (§286, seventh
   // in a different way and ALL of them project to the empty string, so an unconditional
   // re-derivation overwrites a good captured text with "" and the `if (!text) continue`
   // below it then DROPS the entry entirely — losing its timestamp and author too. One
-  // it() each, because they are three independent claims about three different shapes:
-  // a mutant that only fixes one must not be able to hide behind the other two.
+  // it() per claim per shape, because they are three independent claims about three
+  // different shapes: a mutant that only fixes one must not be able to hide behind the
+  // other two. And survival and text are two independently-provable claims about ONE
+  // shape — vitest aborts at the first failing hard assertion, so a text assertion
+  // sharing a block with the length one is unproved whenever that one fails (the same
+  // reason the anti-vacuity it() above stands on its own).
   const EMPTY_PROJECTIONS: ReadonlyArray<readonly [string, string]> = [
     ["a bare horizontal rule (survives sanitising, projects to nothing)", "<hr>"],
     ["a paragraph holding only a line break", "<p><br></p>"],
@@ -354,10 +358,14 @@ describe("note-log text re-derivation against the real sanitizer (§286, seventh
   ];
 
   for (const [label, html] of EMPTY_PROJECTIONS) {
-    it(`keeps the entry and its captured text when the html is ${label}`, () => {
-      const out = one(html, "Screenshot of the risk register");
-      expect(out).toHaveLength(1);
-      expect(out[0].text).toBe("Screenshot of the risk register");
+    it(`keeps the entry when the html is ${label}`, () => {
+      expect(one(html, "Screenshot of the risk register")).toHaveLength(1);
+    });
+
+    it(`keeps the captured text when the html is ${label}`, () => {
+      expect(one(html, "Screenshot of the risk register")[0]?.text).toBe(
+        "Screenshot of the risk register",
+      );
     });
   }
 

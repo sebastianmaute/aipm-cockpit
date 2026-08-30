@@ -3120,6 +3120,10 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     diag: {
       dropped?: number;
       unterminated?: boolean;
+      /** The count behind the quoting HOLD (as opposed to `unterminated`, which
+       *  is a sentence only). Present so a test can drive the one signal
+       *  `reportImportFor`'s second argument gates. */
+      malformed?: number;
       /** Per-section attribution (§152). Absent on JSON/Turso backends, which
        *  is why it is optional here rather than defaulted to an empty object —
        *  an empty object and an absent field must reach the reporter as
@@ -3132,6 +3136,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
       load: vi.fn(async () => {
         b.lastImportDroppedRows = diag.dropped;
         b.lastImportUnterminatedQuote = diag.unterminated;
+        b.lastImportMalformedQuotes = diag.malformed;
         b.lastImportDroppedBySection = diag.bySection;
         return emptyWorkspace();
       }),
@@ -3140,6 +3145,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
       describe: vi.fn().mockResolvedValue("f.csv"),
       lastImportDroppedRows: undefined as number | undefined,
       lastImportUnterminatedQuote: undefined as boolean | undefined,
+      lastImportMalformedQuotes: undefined as number | undefined,
       lastImportDroppedBySection: undefined as Partial<Record<string, number>> | undefined,
     };
     return b;
@@ -3436,6 +3442,83 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     expect(result.current.tasks).toHaveLength(1);
     // Nothing else toasts on this exit, so the diagnostic is the survivor.
     expect(survivingToast()).toContain("6 invalid row(s)");
+  });
+
+  // ── `reportImportFor`'s SECOND ARGUMENT, pinned AT THE CALL SITE ───────────
+  // ★★★ `use-load-truncation.test.ts` pins the OP at both argument values, and
+  // that is a claim about the OP, not about what this CALLER passes. A mutant
+  // hardcoding the argument passed the whole suite: the decline test above
+  // asserts only that a toast fired, which is true at either value because the
+  // diagnostics half is unconditional. These two read the HOLD instead, via
+  // `loadWasIncomplete` — the only observable the argument moves.
+  // ★★ ONE MUTANT EACH, NOT BOTH. Hardcoding `true` raises the hold on the
+  // decline exit and kills the FIRST test only (it is the correct value on the
+  // accept exit); hardcoding `false` kills the SECOND only. Neither test proves
+  // the other's half, which is why both are owed.
+  // ★ SPLIT INTO TWO `it()`s on purpose: vitest aborts at the first failing hard
+  // assertion, so one block holding both claims would leave the second
+  // unexecuted — and therefore unproved — under whichever mutant killed the
+  // first. The sibling decline pair above is split for the same reason.
+  // ★ The two bodies differ in ONE input, the confirm answer, so the pair
+  // isolates exactly what the argument tracks.
+
+  it("does NOT raise the quoting hold when the user DECLINES the overwrite", async () => {
+    // §287: the handle is bound INSIDE the accept branch, so a declined open
+    // leaves the backend on the user's previous file. Halting autosave there
+    // pauses an untouched project all session over a file never opened.
+    const b = makeImportBackend();
+    // The MOUNT load seeds a live task so the confirm is reached at all — with
+    // no live tasks the handler applies unconditionally and the decline branch
+    // is never entered.
+    b.load.mockImplementationOnce(
+      async () => ({ ...emptyWorkspace(), tasks: [{ id: 1, taskName: "Live" }] }) as never,
+    );
+    createBackendMock.mockReturnValue(b);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasIncomplete).toBe(false); // control: not already raised
+
+    b.load.mockImplementationOnce(async () => {
+      b.lastImportMalformedQuotes = 3;
+      return emptyWorkspace();
+    });
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    expect(window.confirm).toHaveBeenCalled();    // control: the decline really happened
+    expect(result.current.tasks).toHaveLength(1); // control: the live workspace survived
+    // ★ POSITIVE CONTROL, and the load-bearing one: it proves the fixture
+    //   published a malformed count at all. Without it "the hold is down" is
+    //   equally satisfied by a load that reported nothing, and the test would
+    //   pass against a `reportImportFor` that had stopped reading the field.
+    expect(survivingToast()).toContain("breaks CSV quoting rules");
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("DOES raise the quoting hold when the user ACCEPTS the overwrite", async () => {
+    const b = makeImportBackend();
+    b.load.mockImplementationOnce(
+      async () => ({ ...emptyWorkspace(), tasks: [{ id: 1, taskName: "Live" }] }) as never,
+    );
+    createBackendMock.mockReturnValue(b);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasIncomplete).toBe(false); // control: not already raised
+
+    b.load.mockImplementationOnce(async () => {
+      b.lastImportMalformedQuotes = 3;
+      return emptyWorkspace();
+    });
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    expect(window.confirm).toHaveBeenCalled();    // control: the confirm was reached
+    expect(result.current.tasks).toHaveLength(0); // control: the opened file was applied
+    expect(result.current.loadWasIncomplete).toBe(true);
   });
 
   it("switchToTursoProject reports the target's unbalanced quotes", async () => {

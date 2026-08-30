@@ -360,7 +360,17 @@ describe("useLoadTruncation — reportImportFor", () => {
     showToast.mockClear();
     act(() => { result.current.truncationOps.refuseWrite(); });
     expect(showToast).toHaveBeenCalledTimes(1);
-    expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importMalformedQuotesWarning", 3));
+    // ★★ TWO SENTENCES NOW, and this expectation was UPDATED rather than loosened.
+    // The malformed-quotes string used to carry "Saving is paused until you confirm."
+    // baked in. §287 made the hold conditional, so that sentence became false on the
+    // declined-overwrite exit and was split into `importMalformedQuotesPaused`, pushed
+    // only where the pause is real. THIS path is the refusal itself, so it is real here
+    // and both sentences must appear — asserting only the first would let a regression
+    // that stopped telling the user why their save was refused pass unnoticed.
+    expect(showToast).toHaveBeenLastCalledWith(
+      "error",
+      `${t("en-US", "importMalformedQuotesWarning", 3)} ${t("en-US", "importMalformedQuotesPaused")}`,
+    );
   });
 
   // ★ The nonce is what lets the banner's re-show reconcile see this cause at
@@ -414,6 +424,30 @@ describe("useLoadTruncation — reportImportFor", () => {
     expect(result.current.mayCommitAfterIncompleteLoad()).toBe(true);
   });
 
+  it("does NOT claim saving is paused when it has not raised the hold", () => {
+    // ★★★ THE MESSAGE MUST NOT OUTLIVE THE BEHAVIOUR IT DESCRIBES. Until §287 the
+    // malformed-quotes warning ended "Saving is paused until you confirm." as one baked-in
+    // string, and that was true because every caller raised the hold. Making the raise
+    // conditional turned it into a falsehood on this exit: the app told the user saving
+    // was paused while deliberately leaving it running. Mutant: pushing
+    // `importMalformedQuotesPaused` unconditionally in `reportImportDiagnostics`, or
+    // folding the two strings back into one.
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 }), false); });
+    expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importMalformedQuotesWarning", 2));
+  });
+
+  it("DOES claim saving is paused when it raises the hold", () => {
+    // ★★ Its own it(), and the positive control for the one above: a build that
+    // simply stopped emitting the pause sentence anywhere would satisfy that assertion
+    // perfectly while losing the user the reason their save stopped working.
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 }), true); });
+    expect(showToast).toHaveBeenLastCalledWith(
+      "error",
+      `${t("en-US", "importMalformedQuotesWarning", 2)} ${t("en-US", "importMalformedQuotesPaused")}`,
+    );
+  });
   it("still reports the import diagnostics when it does not raise the hold", () => {
     // ★★ Separate it(), and the anti-vacuity control for the one above: a
     // `reportImportFor` that did NOTHING AT ALL on the unbound path would satisfy

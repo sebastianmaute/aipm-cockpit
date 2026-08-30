@@ -22269,13 +22269,9 @@ sanitiser on six write paths, which is why it is filed rather than done inside a
 
 ## 287. Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — CLOSED 2026-08-30
 
-**Status:** CLOSED 2026-08-30 by `5b311e66` (extract `loadFrom`) · `4a98d9c9` (the fix). `openFile()` now RETURNS the picked handle instead of persisting it, `loadFromHandleForBackend` reads through an explicit handle without consulting or touching stored state, and `setBackendFileHandle` runs INSIDE the accept branch — so there is no window in which storage points somewhere the user has not agreed to. Verified by `npx vitest run --maxWorkers=1 src/app/use-storage-backend.test.tsx
-src/app/local-file-backend.test.ts src/app/use-load-truncation.test.ts`.
+**Status:** CLOSED 2026-08-30 by `5b311e66` (extract `loadFrom`) · `4a98d9c9` (the fix). `openFile()` now RETURNS the picked handle instead of persisting it, `loadFromHandleForBackend` reads through an explicit handle without consulting or touching stored state, and `setBackendFileHandle` runs INSIDE the accept branch — so there is no window in which storage points somewhere the user has not agreed to. Verified by `npx vitest run --maxWorkers=1 src/app/use-storage-backend.test.tsx src/app/local-file-backend.test.ts src/app/use-load-truncation.test.ts`.
 ★★★ ALL THREE FILES ARE LOAD-BEARING AND AN EARLIER WITNESS HERE NAMED ONLY THE FIRST,
-which was the weakest of the three. `use-storage-backend.test.tsx` mocks `./storage`
-wholesale, so its assertions are claims about the CALLER and they pass UNCHANGED against
-the pre-fix backend — pre-fix nothing called `setBackendFileHandle` on any path, because
-the bind lived inside `openFile()`. Measured: restoring `openFile()`'s `idbSet` leaves that
+which was the weakest of the three. Measured: restoring `openFile()`'s `idbSet` leaves that
 whole file green and reddens only `local-file-backend.test.ts`, which is why the second
 file is here. The third is here because closing this entry BROKE it — the census in
 `use-load-truncation.test.ts` counts load sites by spelling, and replacing `backend.load()`
@@ -22296,12 +22292,9 @@ add-existing-project flow still commits immediately, because adoption is the int
 no confirm to lose.
 
 ★★ **EVERYTHING FROM HERE DOWN IS THE DEFECT AS FILED, NOT THE TREE TODAY** — the three paragraphs
-above describe the closure, this is the record of what was wrong. The fix landed 2026-08-30, so:
-`openFile()` no longer ends `await idbSet(...)` — it ends `return handle;` and persists nothing — and
-the bind runs inside the accept branch, so the stale-label state described next can no longer occur;
-the first reproduce command below now prints a docstring rather than the code it was written to show;
-and the closing **Fix shape** paragraph records what was WANTED at filing time, not work still owed.
-All of it is left as the record.
+above describe the closure, this is the record of what was wrong. The fix landed 2026-08-30, so the
+stale-label state described next can no longer occur, and the closing **Fix shape** paragraph records
+what was WANTED at filing time, not work still owed. All of it is left as the record.
 
 ★★ **THE UI ALSO KEEPS SHOWING THE OLD FILENAME, which is what makes this hard to notice.**
 `refreshBackendStatus()` runs only inside the accept branch, alongside `suppressNextSaveRef.current =
@@ -22920,6 +22913,12 @@ reading the core.** The `.slice(0, MAX_NOTE_HTML)` is applied to the RESULT of t
 closing line of that expression). So it cannot shrink what either trigger sees, and reasoning "the
 core caps at 20 000, so the 161 024 ceiling is unreachable" is wrong in both directions at once.
 
+★ A third observable divergence from the same injection: `sanitizeRichText` ends
+`htmlTextLength(html) === 0 ? "" : html` (`grep -n "htmlTextLength(html)" src/app/rich-text-plain.ts`),
+so on the seed route an entry whose body is visually empty — a bare rule, an image-only paragraph —
+comes back with an EMPTY `html` where the canonical `sanitizeRichHtml` keeps the markup, the entry
+itself surviving either way on its captured `text`.
+
 **Two further loss directions the §286 table does not list, both NET-NEUTRAL.** Adopting the core
 means the template route now also:
 
@@ -22933,11 +22932,6 @@ load (`sanitizeRichFields` calls `sanitizeNoteLog`) and on the CSV / Markdown / 
 merely move EARLIER. ★★ State the bound with it: "net-neutral" is about the end state, not about every
 observable moment. Before this branch such entries survived apply and lived in memory until the next
 load. A user who applied a template and read the notes without reloading would have seen them.
-
-★ **Filed as ONE entry, not three, deliberately.** All three items are the residue of one adoption on
-one call path, and a reader arriving from §286 wants the whole of what that adoption did in one place.
-Splitting the two net-neutral rows into their own number would give them a heading that reads as an
-open defect, which is precisely what they are not.
 
 ★★ **Fix shape, if wanted — and "make the sentence true" is not one.** Do NOT loosen a cap in
 `sanitizeRichText`, and do NOT slice raw html before sanitising to keep it under a trigger: both

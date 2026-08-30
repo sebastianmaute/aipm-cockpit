@@ -441,7 +441,8 @@ const enUS = {
   // undecidable, and a message claiming it would be a guess dressed as a fact.
   // ★ A complete sentence: `reportImportDiagnostics` joins the applicable
   // warnings with a single space.
-  importMalformedQuotesWarning: "The file breaks CSV quoting rules in {0} place(s), so it may not have been read correctly. Saving is paused until you confirm.",
+  importMalformedQuotesWarning: "The file breaks CSV quoting rules in {0} place(s), so it may not have been read correctly.",
+  importMalformedQuotesPaused: "Saving is paused until you confirm.",
   // ★ The bare magnitude, for the persistent banner and the "Save anyway"
   // confirm — the pattern `documentsUnreadableWarning` / `documentsUnreadableCount`
   // already sets: the *Warning form carries "Saving is paused" because a toast is

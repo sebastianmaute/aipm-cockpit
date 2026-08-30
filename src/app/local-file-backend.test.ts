@@ -239,6 +239,21 @@ describe("LocalFileBackend load() import diagnostics", () => {
 // suite still green. This file is where it is detectable, because only here does the
 // real backend run.
 describe("LocalFileBackend.openFile does not commit the handle (§287)", () => {
+  // ★★★ THIS HOOK IS NOT DECORATION — WITHOUT IT THIS BLOCK FAILS ON A SHUFFLED RUN.
+  // `idbGetError` is MODULE-scoped, and the sibling describe below leaves it SET on its
+  // last test (the rethrow case) with no afterEach to clear it. Every test here reaches
+  // `readHandle()` -> `getHandle()` -> `idbGet`, so if that sibling runs first the mock
+  // throws and all three of these error out. vitest shuffles top-level describes against
+  // each other, so the order is a function of the seed: MEASURED, not reasoned — seed 1
+  // (which is what CI's blocking `unit-tests-shuffled` job pins) happens to keep source
+  // order and passes, while `--sequence.seed=3` reorders and fails two of these three.
+  // The weekly random-seed job would have found it eventually; open-followups §75 is the
+  // record of this class. A describe that mutates module state owes an afterEach or every
+  // sibling owes a beforeEach; this file chose the latter, so a NEW describe here needs one.
+  beforeEach(() => {
+    kv.clear();
+    idbGetError.current = null;
+  });
   it("leaves the active handle untouched", async () => {
     const be = new LocalFileBackend("local-csv");
     const current = fakeHandle({ text: "" });

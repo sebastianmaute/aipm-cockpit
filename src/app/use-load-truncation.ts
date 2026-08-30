@@ -624,6 +624,13 @@ export function useLoadTruncation(
       | "lastImportUnterminatedQuote"
       | "lastImportMalformedQuotes"
     >,
+    // ★★★ WHETHER THE CALLER IS ABOUT TO RAISE THE QUOTING HOLD. It decides ONE sentence,
+    // and getting it wrong states a falsehood about the user's own data: the malformed-quotes
+    // warning used to END with "Saving is paused until you confirm." baked in, true while every
+    // caller raised the hold, and §287 made the raise conditional — so the declined-overwrite
+    // exit announced a pause it had deliberately not applied. Only the CONSEQUENCE is gated; the
+    // FACT is always shown, which is why the string was SPLIT rather than suppressed whole.
+    holdWillBeRaised: boolean,
   ) => {
     const dropped = backend.lastImportDroppedRows ?? 0;
     const parts: string[] = [];
@@ -653,7 +660,10 @@ export function useLoadTruncation(
     // the two above — those rows are absent, these are present but possibly
     // mis-parsed — so it is added, never substituted.
     const malformed = backend.lastImportMalformedQuotes ?? 0;
-    if (malformed > 0) parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
+    if (malformed > 0) {
+      parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
+      if (holdWillBeRaised) parts.push(t(langRef.current, "importMalformedQuotesPaused"));
+    }
     if (parts.length > 0) showToast("error", parts.join(" "));
   };
 
@@ -676,22 +686,10 @@ export function useLoadTruncation(
       // DIFFERENT state behaviour over the same sentences: this one both raises
       // AND lowers, that one raises only. Keeping the state change out here is
       // what lets the sentence be shared while the direction is not.
-      //
-      // ★★★ AN EARLIER REVISION OF THIS COMMENT GAVE THE WRONG REASON AND THE
-      // WRONG BEHAVIOUR. It said the import-only path "must NOT touch the hold
-      // — it applies rows into an existing workspace rather than replacing it,
-      // so no save of ITS backing file is pending." That was false at the time,
-      // because `LocalFileBackend.openFile()` then ended `await idbSet(this.idbKey,
-      // handle)`, re-pointing the ACTIVE backend at the file it just read, so the
-      // next debounced save wrote the merged workspace straight back over it.
-      // ★★★ THAT PREMISE IS GONE AS OF §287 AND THE CONCLUSION SURVIVES ONLY IN
-      // PART. `openFile()` no longer persists anything; the commit happens inside the
-      // accept branch. So a save of the loaded file is pending on ACCEPT and not on
-      // DECLINE, which is why `reportImportFor` now takes
-      // `backendNowPointsAtLoadedFile` rather than assuming it. A toast-only op on the
-      // ACCEPT path would still re-open the very hole this cause was added to close.
       reportMalformedQuotes(backend);
-      reportImportDiagnostics(backend);
+      // ★ `true`: this op raises the hold whenever the count is positive, and the
+      // sentence is only pushed when it is positive, so the two cannot disagree.
+      reportImportDiagnostics(backend, true);
     },
     raiseDecodeFailuresFor: (backend) => {
       // ★ The RAISE-ONLY gate, and the only line that differs from the shared
@@ -707,7 +705,7 @@ export function useLoadTruncation(
       // ★ Sentences first, state second — the reverse of `reportFor`'s ordering
       // note and for the same single-slot reason read from the other end: the
       // raise below shows nothing, so nothing can overwrite this toast.
-      reportImportDiagnostics(backend);
+      reportImportDiagnostics(backend, backendNowPointsAtLoadedFile);
       // ★★★ THE DIAGNOSTICS ABOVE ARE UNCONDITIONAL, THE HOLD BELOW IS NOT. See the
       // member's doc: a load the backend was never bound to cannot be overwritten by a
       // pending save, so raising there refuses saves of a project that is not at risk.
@@ -766,7 +764,11 @@ export function useLoadTruncation(
       const parts: string[] = [];
       if (last) parts.push(truncationText(last.entries, last.blocks));
       if (decoded > 0) parts.push(t(langRef.current, "documentsUnreadableWarning", decoded));
-      if (malformed > 0) parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
+      // ★★ UNCONDITIONAL HERE, unlike in `reportImportDiagnostics`: this is the REFUSAL path — the user asked to write and was declined, so the pause is not a prediction but what just happened.
+      if (malformed > 0) {
+        parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
+        parts.push(t(langRef.current, "importMalformedQuotesPaused"));
+      }
       if (parts.length > 0) showToast("error", parts.join(" "));
     },
     guardedWrite: async (backend, ws) => {

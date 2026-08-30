@@ -84,10 +84,9 @@ function escapeForHtml(s: string): string {
 /**
  * Accept only well-formed note entries from untrusted JSON. An entry with an
  * empty text AND no usable html is dropped. Every returned entry is
- * guaranteed a unique numeric `id` and a sanitized `html` body — a legacy
- * text-only entry gets one synthesized from its (escaped) text, and a
- * legacy entry with no `id` gets one minted (max-seen + 1), so upgrading old
- * data never throws and never collides ids.
+ * guaranteed a unique numeric `id` — a legacy entry with no `id` gets one
+ * minted (max-seen + 1), so upgrading old data never throws and never
+ * collides ids.
  *
  * ★★ A missing or duplicate `id` is MINTED, never dropped. Legacy entries with
  * no id exist — that is what the canonical repair was written for — and the
@@ -141,15 +140,6 @@ export function sanitizeNoteLogWith(raw: unknown, ops: NoteLogHtmlOps): NoteLogE
     // standing. Re-deriving only when the projection is non-empty keeps the seed rule's
     // intent (html wins where the two DISAGREE) and restores the old rule's floor (an
     // entry is never destroyed by a projection that says nothing).
-    //
-    // ★ DO NOT restate the old "the direction was MEASURED, not argued" claim that
-    // stood here. It cited three suites passing unedited, and a cold review showed all
-    // three are green under BOTH rules by construction: no `note-log.test.ts` fixture
-    // reaching this function carries a non-empty `html` at all, so the branch condition
-    // is never taken; every sample entry in the golden workspace already agrees with
-    // its own projection; and the seed validator always re-projected, so its suite
-    // needing no flip is a tautology. Passing suites proved only that nothing COVERED
-    // the change — which is exactly why the deletion above shipped green.
     const projected = hasHtml ? cleanText(ops.toText(html), MAX_NOTE_TEXT) : "";
     if (projected) text = projected;
 

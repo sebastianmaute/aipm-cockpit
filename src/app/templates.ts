@@ -126,18 +126,7 @@ function sanitizeSeedNoteLog(raw: unknown): NoteLogEntry[] | undefined {
   // because this file is DOM-free by contract (sample-generator import graph).
   // FIVE of the six divergences open-followups §286 recorded are gone; the
   // policy lives once, in note-log-policy.ts.
-  // ★★★ THE HTML-CAP ROW IS NOT ONE OF THE FIVE — it is a SECOND FORCED
-  // difference, the same class as the DOM boundary itself, and NOT an unforced
-  // one that was closed. `sanitizeRichHtml` never degrades; the only DOM-free
-  // cleaner reachable from here is `sanitizeRichText`, whose caps are intrinsic
-  // to it. So the two routes are now BOUNDED on both sides (the shared core
-  // slices to `MAX_NOTE_HTML`) but are NOT IDENTICAL: past 5 000 visible
-  // characters (`capHtmlText` against TEXTAREA_MAX) or 161 024 raw ones
-  // (TEXTAREA_MAX * 32 + 1024, `richByteCeiling`) a captured note flattens to
-  // PLAIN TEXT here and stays rich HTML on every other route. The core's
-  // `MAX_NOTE_HTML` slice runs AFTER this injection, so it cannot shrink what
-  // either trigger sees — the visible-text one fires well inside the 20 000-char
-  // band the core lets through. Tracked as open-followups §298; do NOT close it
+  // Tracked as open-followups §298; do NOT close it
   // by loosening a cap or slicing raw html before sanitising, which would
   // manufacture parity by weakening the boundary this carry exists to enforce.
   const out = sanitizeNoteLogWith(raw, {

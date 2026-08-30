@@ -11,7 +11,7 @@ import type {
 import { resourceDisplayName } from "./resource-foundation";
 import { mintIds, type MintKind } from "./id-mint-session";
 import { sanitizeRichHtml } from "./sanitize-html";
-import { htmlPlainProjection, sanitizeRichText } from "./rich-text-plain";
+import { htmlPlainProjection, sanitizeRichText, htmlTextLength } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 import { TEXTAREA_MAX } from "./sanitize";
 
@@ -98,10 +98,24 @@ function remapDeps(
  * ★★ This is `sanitizeAiRichText`'s (`ai-rich-text.ts`) trailing re-run, copied
  * deliberately — same defect, same repair, same two constants. `TEXTAREA_MAX`
  * and `RICH_SINK` are the SAME ones that boundary uses ON PURPOSE: both guard
- * the same rich entity fields on their way into the same six write paths, so
+ * the same rich ENTITY fields on their way into the same six write paths, so
  * picking a different cap or sink here would let the two boundaries drift and
  * store bytes one of them would have refused. Do not "tidy" either into a local
  * constant.
+ *
+ * ★★★ "ENTITY FIELDS" IS LITERAL AND EXCLUDES NOTE-LOG HTML, WHICH IS WHY
+ * `allowListNoteLog` DOES NOT CALL THIS. The parity argument above rests on both
+ * boundaries guarding the SAME fields, and `AI_RICH_FIELDS` covers RAID
+ * description/mitigation, Change description/impactDescription/resolutionNotes and
+ * Milestone description — a note entry's `html` is not among them. Its canonical
+ * route (`sanitizeNoteLog`) caps at `MAX_NOTE_HTML`, a flat 20 000-character html
+ * bound with NO visible-text cap and no degrade-to-plain. `TEXTAREA_MAX` is 5 000
+ * VISIBLE characters and `sanitizeRichText` flattens past it, so routing note html
+ * through here silently turned any long rich note into plain text on apply — a
+ * loss the canonical route does not have. MEASURED, not reasoned: a 6 000-character
+ * bolded paragraph keeps its `<strong>` through `sanitizeRichHtml` and loses it
+ * through this composition. That was shipped by the commit that introduced this
+ * helper and caught in review; see §298 for the sibling divergence on the seed route.
  *
  * ★ Note what the re-run does NOT do: it is the empty rule and the cap, not a
  * second allow-list, and it cannot recognise less than the pass above it keeps
@@ -122,8 +136,17 @@ function allowListNoteLog(noteLog: NoteLogEntry[] | undefined): NoteLogEntry[] |
   // ★ Same rule `sanitizeSeedNoteLog` states on the way in: the html is the
   // source of truth and `text` is derived from it, at every boundary that
   // rewrites the html.
+  // ★★★ THE EMPTY RULE WITHOUT THE CAP, and the split is deliberate — see the
+  // carve-out on `allowListField`. Note html must NOT meet `TEXTAREA_MAX`: that is a
+  // 5 000-VISIBLE-character bound that degrades to plain text, while this field's
+  // canonical route caps at `MAX_NOTE_HTML` (20 000 html chars, no degrade). Calling
+  // the shared helper here flattened long rich notes on apply. The phantom-`<p></p>`
+  // half still applies though — an allow-listed body whose only content was a
+  // disallowed element leaves its wrapper standing — so the empty rule is applied
+  // directly via `htmlTextLength`, which is the same test `sanitizeRichText` ends on.
   return noteLog?.map((n) => {
-    const html = allowListField(n.html);
+    const cleaned = sanitizeRichHtml(n.html);
+    const html = htmlTextLength(cleaned) === 0 ? "" : cleaned;
     return { ...n, html, text: htmlPlainProjection(html) };
   });
 }

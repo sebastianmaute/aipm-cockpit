@@ -320,6 +320,58 @@ describe("applyTemplate allow-lists the seed's rich fields", () => {
     expect(ws.raid[0].mitigation).toContain("<p>ok</p>");
   });
 
+  it("empties a change impact description whose only content was a disallowed element", () => {
+    // ★★★ THIS SITE HAD NO KILLING MUTANT and the block comment above claimed the
+    // enumeration was complete. Reverting `allowListChange`'s `impactDescription` site to
+    // a bare `sanitizeRichHtml` passed the whole suite: the only other test touching this
+    // field asserts `not.toContain("script")` + `toContain("ok")`, and a bare allow-list
+    // satisfies both. Mutant: that site alone — it is separate from `resolutionNotes`
+    // beside it, so neither can stand in for the other.
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({ changes: [mkChange({ impactDescription: "<p><script>x</script></p>" })] }),
+      { includeSeed: true },
+    );
+    expect((ws.changes ?? [])[0].impactDescription).toBe("");
+  });
+
+  it("keeps a change impact description that still has visible text after the allow-list", () => {
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({ changes: [mkChange({ impactDescription: "<p>ok</p><img src=a>" })] }),
+      { includeSeed: true },
+    );
+    expect((ws.changes ?? [])[0].impactDescription).toContain("<p>ok</p>");
+  });
+
+  it("does NOT flatten a long rich note-log entry to plain text", () => {
+    // ★★★ THE NOTE-LOG SITE IS NOT THE ENTITY-FIELD SITE, and routing it through
+    // the shared helper was a real loss shipped by the commit that added the helper.
+    // `TEXTAREA_MAX` is 5 000 VISIBLE characters and `sanitizeRichText` DEGRADES past it,
+    // while a note's canonical route caps at `MAX_NOTE_HTML` (20 000 html chars) and never
+    // degrades. So a long bolded note kept its markup on every other path and lost it on
+    // apply. Mutant: `allowListNoteLog` calling `allowListField(n.html)` instead of the
+    // bare `sanitizeRichHtml` + `htmlTextLength` empty rule it uses now.
+    const longRich = "<p><strong>" + "a".repeat(6000) + "</strong></p>";
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({ raid: [mkRaid({ noteLog: [{ id: 1, timestamp: "2026-07-16T10:00:00.000Z", html: longRich, text: "seed" }] })] }),
+      { includeSeed: true },
+    );
+    expect(ws.raid[0].noteLog?.[0].html).toContain("<strong>");
+  });
+
+  it("still empties a note-log entry whose only content was a disallowed element", () => {
+    // ★★ The positive control for the one above, and the half of the shared helper's
+    // job that note html DOES still need: without this, dropping the cap could have been
+    // "fixed" by dropping the empty rule with it, and the phantom `<p></p>` would be back.
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({ raid: [mkRaid({ noteLog: [{ id: 1, timestamp: "2026-07-16T10:00:00.000Z", html: "<p><script>x</script></p>", text: "seed" }] })] }),
+      { includeSeed: true },
+    );
+    expect(ws.raid[0].noteLog?.[0].html).toBe("");
+  });
   it("empties a change resolution note whose only content was a disallowed element", () => {
     // Mutant: `allowListChange`'s `resolutionNotes` site -> bare
     // `sanitizeRichHtml`. A separate site from `impactDescription` beside it, so
