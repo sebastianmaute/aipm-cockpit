@@ -166,7 +166,7 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   // row still has to exist: without it a documents-only session produces an
   // empty diff and `writeVersion` captures NOTHING.
   { key: "documents", label: "Documents", kind: "list", nameField: "title", restorable: false },
-  { key: "documentVersions", label: "Document versions", kind: "list", restorable: false },
+  { key: "documentVersions", label: "Document versions", kind: "list", nameField: "title", restorable: false },
   { key: "settingsOverrides", label: "Project overrides", kind: "singleton" },
 ];
 
