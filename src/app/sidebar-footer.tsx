@@ -12,9 +12,13 @@ interface SidebarFooterProps {
   collapsed: boolean;
   storageDescription: string | null;
   storageReady: boolean;
-  /** A truncated load has paused saving (`use-load-truncation.ts`). */
+  /** Saving is paused by a lockout — a truncated load
+   *  (`use-load-truncation.ts`) or a withheld mass deletion
+   *  (`use-destructive-save-guard.ts`). The two cannot hold at once: the save
+   *  effect returns on the truncation lockout ABOVE the destructive guard. */
   savingPaused?: boolean;
-  /** Re-show the truncation banner, which carries the only "Save anyway". */
+  /** Re-show whichever saving-paused banner is standing; it carries the only
+   *  "save anyway" for that cause. */
   onRestoreSavingNotice?: () => void;
   isSignedIn: boolean;
   accountName: string | null;

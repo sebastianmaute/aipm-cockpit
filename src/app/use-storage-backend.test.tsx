@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "./activity-log";
 import type { Settings } from "./settings-types";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 import type { Task } from "./types";
 import type { ProjectDocument } from "./document-model";
 import type { DocVersion } from "./document-versions";
@@ -176,6 +176,23 @@ beforeEach(() => {
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const showToast = vi.fn();
+const showToastAction = vi.fn();
+
+/** The refusal announcement as the guard now emits it: an ACTION toast whose
+ *  action reveals the standing banner (it is `showToastAction`, not `showToast`).
+ *
+ *  ★★★ DERIVED FROM `t`, NEVER A QUOTED FRAGMENT. Six assertions in this file
+ *  matched the literal "blocked a sudden wipe"; the string was reworded when the
+ *  refusal grew a persistent banner, and the two failure modes are NOT
+ *  symmetrical — four went red, and two `not.toHaveBeenCalledWith` assertions
+ *  went VACUOUS, passing because nothing on earth could emit that text any more.
+ *  The vacuous pair is the dangerous half: it is what a bypass regression would
+ *  have had to defeat. Deriving the text moves all six on the next reword. */
+const refusalToastArgs = () => [
+  "info",
+  t("en-US", "storageRefusedWipe"),
+  expect.objectContaining({ labelKey: "storageSavingPausedAction" }),
+] as const;
 
 const setStorageConfigGlobal = vi.fn();
 
@@ -186,6 +203,7 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
     hydrated: true,
     isPopout: false,
     showToast,
+    showToastAction,
     setStorageConfig: setStorageConfigGlobal,
     ...overrides,
   };
@@ -2369,7 +2387,7 @@ describe("useStorageBackend — Layer 3 wipe guard (persistence choke point)", (
     vi.clearAllMocks();
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
     await act(async () => { result.current.setTasks([]); result.current.setChanges([]); }); // wipe both at once
-    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());
   });
 
   it("ALLOWS a single-collection clear (not the wipe signature)", async () => {
@@ -2379,7 +2397,7 @@ describe("useStorageBackend — Layer 3 wipe guard (persistence choke point)", (
     vi.clearAllMocks();
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
     await act(async () => { result.current.setTasks([]); }); // clear the only collection
-    expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).not.toHaveBeenCalledWith(...refusalToastArgs());
   });
 });
 
@@ -2397,7 +2415,7 @@ describe("useStorageBackend — Layer B mass-deletion guard", () => {
     vi.clearAllMocks();
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
     await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); }); // remove 19
-    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());
   });
 
   it("allowDestructiveSave() bypasses the guard for a confirmed bulk delete", async () => {
@@ -2407,7 +2425,7 @@ describe("useStorageBackend — Layer B mass-deletion guard", () => {
     vi.clearAllMocks();
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
     await act(async () => { result.current.allowDestructiveSave(); result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
-    expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).not.toHaveBeenCalledWith(...refusalToastArgs());
   });
 });
 
@@ -2580,7 +2598,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(backend.save).not.toHaveBeenCalled();
-    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());
   });
 
   it("still honours a bypass armed AFTER the truncation is resolved", async () => {
@@ -2675,7 +2693,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(backend.save).not.toHaveBeenCalled();
-    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());
   });
 
   it("still honours a bypass armed AFTER a suppressed load", async () => {
@@ -2754,6 +2772,49 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     // syntactic and the setter is reached through a hook module, so lint stayed
     // green throughout.
     expect(result.current.destructiveRefusal).toBe(standing);
+  });
+
+  // ★★★ The refusal keeps the baselines, so EVERY later save re-refuses (the
+  // test above pins exactly that). A toast fired per refusal is therefore a
+  // toast per edit, indefinitely, while the banner is already standing and
+  // saying the same thing — so the toast must fire only on a NEW refusal.
+  // ★ The NEGATIVE half is the whole test. Asserting only that the first
+  // refusal toasts passes against a version that toasts on every one.
+  it("announces a refusal with an action toast ONCE, not again on each re-refusal", async () => {
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+    showToastAction.mockClear();
+
+    // An UNARMED 19-of-20 deletion: refused, and announced.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled(); // control: the refusal really engaged
+    expect(showToastAction).toHaveBeenCalledTimes(1);
+    // ★ The ACTION is asserted, not just the text: the point of the swap from
+    // `showToast` is that the toast carries a route back to the banner. A toast
+    // with the right words and no action is the defect this replaced.
+    const [kind, text, action] = showToastAction.mock.calls[0] as [string, string, { labelKey: string; run: () => void }];
+    expect(kind).toBe("info");
+    expect(text).toBe(t("en-US", "storageRefusedWipe"));
+    expect(action.labelKey).toBe("storageSavingPausedAction");
+    // ...and it REVEALS the banner rather than performing the deletion. Running
+    // it must not arm anything: the refusal has to still stand afterwards.
+    await act(async () => { action.run(); });
+    expect(result.current.destructiveRefusal).not.toBeNull();
+
+    // A second, entirely harmless edit. The baselines still say 20, so it is
+    // judged the same mass deletion and refused AGAIN — silently this time.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "renamed" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled(); // control: it really did re-refuse
+    expect(result.current.destructiveRefusal).toMatchObject({ prevRecords: 20, curRecords: 1 });
+    expect(showToastAction).toHaveBeenCalledTimes(1); // ← the assertion the guard exists for
   });
 
   it("commits the pending deletion when the user saves anyway", async () => {

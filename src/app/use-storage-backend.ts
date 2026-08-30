@@ -26,6 +26,7 @@ import { useTursoProjectOps } from "./use-storage-turso-ops";
 import { useFileProjectOps, useStorageFilePickerOps } from "./use-storage-file-ops";
 import { useLoadTruncation } from "./use-load-truncation";
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
+import type { ToastAction } from "./use-toast";
 import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
 export type { UseStorageBackendArgs } from "./use-storage-backend-types";
@@ -164,6 +165,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   function emitToast(kind: "info" | "error" | "success", text: string): void {
     if (!mountedRef.current) return;
     args.showToast(kind, text);
+  }
+  // ★★ A HELPER, not an inline `args.showToastAction(...)` at the call site.
+  // `react-hooks/set-state-in-effect` is BANNED and fatal under
+  // `--max-warnings=0`, and the rule is SYNTACTIC — a setState-bearing call
+  // reached through this indirection is legal inside the save effect where a
+  // bare one is not. That is exactly why `emitToast` above exists at this site.
+  function emitToastAction(kind: "info" | "error" | "success", text: string, action: ToastAction): void {
+    if (!mountedRef.current) return;
+    args.showToastAction(kind, text, action);
   }
   function emitRegistryChange(registry: ProjectsRegistry): void {
     if (!mountedRef.current) return;
@@ -435,10 +445,26 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // ★★ §103: an AUTOMATIC save must never commit a truncated load — the excess documents
     // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
     if (!mayCommitAfterIncompleteLoad()) { return; } // ★★★ The bypass is ALREADY SPENT — at the top of this effect, not here. It has to be: this guard is STICKY, so an arm surviving the return would be carried for hours (use-load-truncation.ts). That is why the hoist above is safe for this return and not merely tidier.
+    // ★ Read BEFORE `evaluate`, which is what sets the refusal. This is the
+    // effect closure's render-time value of the hook's React state, so it
+    // answers "was a refusal already standing when this save was attempted?".
+    const refusalWasStanding = destructive.refusal !== null;
     const verdict = destructive.evaluate(curCollections, curRecords, armed);
     if (verdict.refuse) {
       recordDataLossEvent({ path: "save-effect", prevCollections: destructive.readBaselines().collections, nextCollections: curCollections, refused: true });
-      emitToast("info", t(langRef.current, "storageRefusedWipe"));
+      // ★★ ONLY on a NEW refusal. The refusal keeps the baselines, so every
+      // later save re-refuses; a toast per re-refusal would be one per edit
+      // while the banner is already standing and saying the same thing.
+      // ★ The action REVEALS the banner rather than carrying the destructive
+      // action itself: a toast auto-dismisses and is single-slot, a bad host for
+      // an irreversible button — and `TypeToConfirmDialog` holds `TITLE_ID` as a
+      // MODULE constant, so a second trigger would need a second instance.
+      if (!refusalWasStanding) {
+        emitToastAction("info", t(langRef.current, "storageRefusedWipe"), {
+          labelKey: "storageSavingPausedAction",
+          run: () => args.onRevealSavingPaused?.(),
+        });
+      }
       return; // keep baselines so a later change re-evaluates
     }
     if (verdict.forensic) {

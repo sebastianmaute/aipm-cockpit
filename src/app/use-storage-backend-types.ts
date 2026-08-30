@@ -2,6 +2,7 @@ import type { Lang, t } from "./i18n";
 import type { ProjectsRegistry } from "./projects-registry";
 import type { Settings } from "./settings-types";
 import type { StorageConfig, StorageKind } from "./storage";
+import type { ToastAction } from "./use-toast";
 
 // The argument shape and the static label map for `useStorageBackend`, moved out
 // verbatim so the hook itself stays under the 800-line ratchet. No behaviour
@@ -31,6 +32,12 @@ export interface UseStorageBackendArgs {
   // source. Re-adding them here would let the broadcast and the save see
   // different arrays.
   showToast: (kind: "info" | "error" | "success", text: string) => void;
+  /** ★ The literal union rather than `ToastKind`, matching `showToast` above —
+   *  the two args are read side by side and a lone alias reads as a difference. */
+  showToastAction: (kind: "info" | "error" | "success", text: string, action: ToastAction) => void;
+  /** Reveals a dismissed saving-paused banner. The refusal toast points here
+   *  rather than carrying the destructive action itself. */
+  onRevealSavingPaused?: () => void;
   setStorageConfig: (config: StorageConfig) => void;
   /** Reports the outcome of a load/save so the caller can drive the storage
    *  status bubble + banner. `null` = success (clear any error); an error value

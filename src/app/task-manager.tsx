@@ -381,6 +381,7 @@ function TaskManagerInner() {
   const [storageError, setStorageError] = useState<{ kind: StorageErrorKind } | null>(null);
   const [storageErrorDismissed, setStorageErrorDismissed] = useState(false); // ★ §103's banner dismissal is SEPARATE and hides only the banner — the save guard stays armed (use-load-truncation.ts).
   const [truncationBannerDismissed, setTruncationBannerDismissed] = useState(false);
+  const [destructiveBannerDismissed, setDestructiveBannerDismissed] = useState(false);
   // Bridges a successful save into the version-history idle-capture timer. The
   // hook is instantiated later, so this ref is wired up via an effect below.
   const versionNotifyRef = useRef<() => void>(() => {});
@@ -441,11 +442,12 @@ function TaskManagerInner() {
   const {
     storageDescription, storageReady, workspaceLoaded, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
+    allowDestructiveSaveAnyway, destructiveRefusal,
     truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
-  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => setDestructiveBannerDismissed(false), setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
 
   // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
   // incomplete load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
@@ -2514,6 +2516,13 @@ function TaskManagerInner() {
       {!isPopout && loadWasIncomplete && (
         <SavingPausedBanner lang={lang} cause={{ kind: "truncation", truncation, decodeFailureCount, malformedQuoteCount }} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowIncompleteSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
       )}
+      {/* ★ A SIBLING of the truncation mount, never an `else` on it: the two
+          causes are mutually exclusive by the save effect's control flow, so at
+          most one of these conditions can hold and nesting them would only hide
+          that fact. */}
+      {!isPopout && destructiveRefusal !== null && (
+        <SavingPausedBanner lang={lang} cause={{ kind: "destructive", prevRecords: destructiveRefusal.prevRecords, curRecords: destructiveRefusal.curRecords, fullWipe: destructiveRefusal.fullWipe }} dismissed={destructiveBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowDestructiveSaveAnyway} onDismiss={() => setDestructiveBannerDismissed(true)} onReopen={() => setDestructiveBannerDismissed(false)} />
+      )}
     </>
   );
 
@@ -2705,8 +2714,12 @@ function TaskManagerInner() {
             lang={lang}
             collapsed={sidebarCollapsed}
             storageDescription={storageDescription}
-            storageReady={storageOk && !loadWasIncomplete}
-            savingPaused={!isPopout && loadWasIncomplete} onRestoreSavingNotice={() => setTruncationBannerDismissed(false)}
+            storageReady={storageOk && !loadWasIncomplete && destructiveRefusal === null}
+            savingPaused={!isPopout && (loadWasIncomplete || destructiveRefusal !== null)}
+            // ★ Clearing BOTH dismissals is correct, not sloppiness: the two causes
+            // cannot hold at once, so at most one banner is standing and clearing
+            // the other flag is a no-op.
+            onRestoreSavingNotice={() => { setTruncationBannerDismissed(false); setDestructiveBannerDismissed(false); }}
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
             onSignOut={() => { void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}

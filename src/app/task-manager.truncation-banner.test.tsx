@@ -256,3 +256,101 @@ describe("task-manager → truncation banner mount", () => {
     await waitFor(() => expect(footerSeen.storageReady).toContain(true), { timeout: 40000 });
   }, 45000);
 });
+
+// ── the SECOND cause: a refused destructive save ──────────────────────────────
+// ★★★ SAME SEAM, SAME REASON THIS FILE EXISTS. `notifications.test.tsx` proves
+// the banner renders the destructive cause and calls the props it is handed, and
+// `use-storage-backend.test.tsx` proves the guard raises `destructiveRefusal`
+// and that `allowDestructiveSaveAnyway` resolves it. Neither sees task-manager,
+// so deleting the JSX that mounts this cause — or wiring its `onSaveAnyway` to
+// the dismiss handler — leaves both of them green while saving is paused with
+// no exit. That is the defect measured for the truncation cause on 2026-08-07.
+//
+// ★ It lives HERE and not in `task-manager.characterization.test.tsx`: that file
+// pins the task-manager→WorkspaceSection PROP CONTRACT and mocks the shell, so
+// it cannot reach the banner mount or the real sidebar footer. This file already
+// layers per-test overrides over the real hook and renders both for real.
+/** The destructive banner, by the role and name it must announce itself with. */
+function destructiveBanner() {
+  return screen.queryByRole("alert", { name: /large deletion was withheld/i });
+}
+
+describe("task-manager → destructive-refusal banner mount", () => {
+  const REFUSAL = { prevCollections: 4, prevRecords: 900, curCollections: 1, curRecords: 53, fullWipe: false };
+  let allowAnyway: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    allowAnyway = vi.fn();
+    // ★ NO truncation. The two lockouts cannot hold at once (the save effect
+    // returns on truncation ABOVE the destructive guard), so staging both would
+    // pin a state the app cannot reach — and the truncation banner would satisfy
+    // a loosely-written query here.
+    override.value = {
+      storageReady: true,
+      truncation: null,
+      loadWasIncomplete: false,
+      allowIncompleteSave: override.allowIncompleteSave,
+      destructiveRefusal: REFUSAL,
+      allowDestructiveSaveAnyway: allowAnyway,
+    };
+  });
+
+  it("mounts the banner for a standing refusal, with the magnitude the guard reported", async () => {
+    await mountApp();
+    const el = destructiveBanner();
+    expect(el).not.toBeNull();
+    // The counts have to survive the hop — a mount wired to hardcoded zeroes
+    // renders and tells the user nothing about how much would be removed.
+    expect(within(el as HTMLElement).getByText(/847 of 900 records would be removed/i)).toBeInTheDocument();
+    // ...and it is THIS cause, not the truncation one reaching the same banner.
+    expect(banner()).toBeNull();
+  }, 45000);
+
+  it("wires the primary action to allowDestructiveSaveAnyway, not to the dismiss handler", async () => {
+    await mountApp();
+    fireEvent.click(within(destructiveBanner() as HTMLElement).getByRole("button", { name: "Save this deletion" }));
+
+    // Real ConfirmProvider in the tree, so the gate is exercised end to end.
+    await screen.findByText("Save this deletion?");
+    expect(allowAnyway).not.toHaveBeenCalled();
+
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Save this deletion?" })).getByRole("button", { name: "Remove these records" }));
+    await waitFor(() => expect(allowAnyway).toHaveBeenCalledTimes(1));
+    // ...and it did NOT merely hide itself: the guard is what resolves this, and
+    // the override holds the refusal standing, so the banner must still be up.
+    expect(destructiveBanner()).not.toBeNull();
+  }, 45000);
+
+  it("dismiss hides the banner without resolving the refusal, and the indicator brings it back", async () => {
+    await mountApp();
+    fireEvent.click(within(destructiveBanner() as HTMLElement).getByRole("button", { name: /dismiss/i }));
+
+    await waitFor(() => expect(destructiveBanner()).toBeNull());
+    expect(allowAnyway).not.toHaveBeenCalled(); // dismissing is not consenting
+
+    const control = pausedControl();
+    expect(control).not.toBeNull();
+    fireEvent.click(control as HTMLElement);
+    await waitFor(() => expect(destructiveBanner()).not.toBeNull());
+  }, 45000);
+
+  it("stops reporting storage as healthy while a refusal stands", async () => {
+    // ★ `storageOk` must fold in the destructive refusal too, not only
+    // `loadWasIncomplete`. The control is the clean-load test in the describe
+    // above, which proves this harness DOES reach `storageReady: true` — without
+    // it, "never true" would be satisfied by a mount that never got that far.
+    await mountApp();
+    await waitFor(() => expect(footerSeen.storageReady.length).toBeGreaterThan(0));
+    expect(footerSeen.storageReady.some((v) => v === true)).toBe(false);
+  }, 45000);
+
+  it("shows neither the destructive banner nor the paused indicator with no refusal standing", async () => {
+    // The negative half of every assertion above: with `destructiveRefusal` null
+    // and nothing truncated, this surface is entirely absent.
+    override.value = { ...override.value, destructiveRefusal: null };
+    await mountApp();
+    expect(destructiveBanner()).toBeNull();
+    expect(pausedControl()).toBeNull();
+    await waitFor(() => expect(footerSeen.storageReady).toContain(true), { timeout: 40000 });
+  }, 45000);
+});
