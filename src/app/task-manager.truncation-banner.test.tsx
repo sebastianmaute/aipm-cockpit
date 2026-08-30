@@ -22,6 +22,7 @@
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
+import { t } from "./i18n";
 
 // Per-test overrides layered over the REAL hook, so everything task-manager
 // needs from storage keeps working and only the truncation fields are staged.
@@ -330,6 +331,55 @@ describe("task-manager → destructive-refusal banner mount", () => {
     // ...and it did NOT merely hide itself: the guard is what resolves this, and
     // the override holds the refusal standing, so the banner must still be up.
     expect(destructiveBanner()).not.toBeNull();
+  }, 45000);
+
+  it("forwards fullWipe, so a refused FULL WIPE reaches the HEAVY type-to-confirm tier", async () => {
+    // ★★★ THIS PINS THE FLAG'S HOP, NOT THE TIER SELECTION. `notifications.test.tsx`
+    // already pins the selection: it hands `fullWipe` straight to the component as a
+    // PROP and proves `true` mounts `TypeToConfirmDialog` while `false` takes the light
+    // `ConfirmDialog`. What nothing pinned is the JOIN — task-manager BUILDS the cause
+    // object itself, and `fullWipe: destructiveRefusal.fullWipe` is the only expression
+    // carrying the guard's verdict across to the component.
+    // ★★ THE MUTANT IT KILLS: replace that one expression with a literal `false`. The
+    // whole suite stays GREEN — the component tests never go through task-manager, and
+    // every other case in this describe stages `fullWipe: false` — while in the app a
+    // genuine full wipe silently drops to the one-click confirm and the heavy tier
+    // becomes dead code. The INVERSE mutant (a literal `true`) is already caught by the
+    // light-tier test above, which awaits the mass-delete dialog's title.
+    // ★ Expected strings come from `t(...)`, not English literals: this surface has been
+    // reworded under quoted literals before, which turns such an assertion silently
+    // vacuous. `en-GB` mirrors `en-US` in `i18n.ts`, so "en-US" is right whichever of the
+    // two the shell resolves to.
+    override.value = {
+      ...override.value,
+      destructiveRefusal: { ...REFUSAL, curCollections: 0, curRecords: 0, fullWipe: true },
+    };
+    await mountApp();
+    fireEvent.click(
+      within(destructiveBanner() as HTMLElement).getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }),
+    );
+
+    // The heavy tier, found by the title only it carries. Nothing here mocks
+    // `./confirm-dialog` or `./type-to-confirm-dialog`, so both tiers are real.
+    const dialog = await screen.findByRole("dialog", { name: t("en-US", "storageDestructiveWipeConfirmTitle") });
+    // ★ It is the FRICTION that identifies the tier, not merely "a dialog opened": a
+    // phrase to type, and a commit inert until it matches.
+    const phrase = t("en-US", "storageDestructiveWipeConfirmValue");
+    const commit = within(dialog).getByRole("button", { name: t("en-US", "storageDestructiveWipeSaveAnyway") });
+    expect(commit).toBeDisabled();
+    // The negative, and the half the mutant would show instead: the light tier's dialog.
+    expect(screen.queryByText(t("en-US", "storageDestructiveConfirmTitle"))).toBeNull();
+    expect(allowAnyway).not.toHaveBeenCalled();
+
+    // ...and the heavy tier's commit reaches the SAME handler the light one does — the
+    // second half of the hop, since a wipe confirmed but never applied is still a
+    // lockout with no exit.
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: t("en-US", "typeToConfirmPrompt", phrase) }),
+      { target: { value: phrase } },
+    );
+    fireEvent.click(commit);
+    await waitFor(() => expect(allowAnyway).toHaveBeenCalledTimes(1));
   }, 45000);
 
   it("dismiss hides the banner without resolving the refusal, and the indicator brings it back", async () => {
