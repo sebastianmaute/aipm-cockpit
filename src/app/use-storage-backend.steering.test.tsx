@@ -62,6 +62,7 @@ function makeArgs(): Parameters<typeof useStorageBackend>[0] {
     isPopout: false,
     showToast: vi.fn(),
     showToastAction: vi.fn(),
+    onRevealSavingPaused: vi.fn(),
     setStorageConfig: vi.fn(),
   };
 }

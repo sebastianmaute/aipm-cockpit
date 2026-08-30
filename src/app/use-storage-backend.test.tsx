@@ -180,6 +180,12 @@ beforeEach(() => {
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const showToast = vi.fn();
 const showToastAction = vi.fn();
+/** ★★★ SUPPLIED BY `makeArgs`, and that is the whole point of it existing here.
+ *  Every test in this file omitted it, so `args.onRevealSavingPaused?.()` was a
+ *  GUARANTEED no-op and the refusal toast's only button could be gutted to
+ *  `run: () => {}` with the entire suite still green — measured, not predicted.
+ *  A test running the action without this mock asserts nothing about it. */
+const onRevealSavingPaused = vi.fn();
 
 /** The refusal announcement as the guard now emits it: an ACTION toast whose
  *  action reveals the standing banner (it is `showToastAction`, not `showToast`).
@@ -207,6 +213,7 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
     isPopout: false,
     showToast,
     showToastAction,
+    onRevealSavingPaused,
     setStorageConfig: setStorageConfigGlobal,
     ...overrides,
   };
@@ -2954,11 +2961,22 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     await act(async () => { await Promise.resolve(); });
     expect(backend.save).not.toHaveBeenCalled();
     expect(result.current.destructiveRefusal).toMatchObject({ prevRecords: 20, curRecords: 1, fullWipe: false });
-    // ★★★ IDENTITY, not equality, and this is the assertion that stops the save
-    // effect looping forever. `destructive.refusal` is one of that effect's deps,
-    // so a re-evaluation minting a fresh object re-triggers the effect, which
-    // refuses against unchanged baselines and mints another. `useDestructiveSaveGuard`
+    // ★★★ IDENTITY, not equality — this is what stops the save effect looping
+    // forever. `destructive.refusal` is one of that effect's deps, so a
+    // re-evaluation minting a fresh object re-triggers the effect, which refuses
+    // against unchanged baselines and mints another. `useDestructiveSaveGuard`
     // stops it with an `Object.is`-stable functional setter (`sameRefusal`).
+    // ★★ NOT "THE" ASSERTION — this comment claimed to be the only one and was
+    // wrong, and so was the sibling's mirror-image claim. Two tests cover the
+    // property and neither subsumes the other: "keeps a standing refusal's
+    // identity stable while nothing about it changes" in
+    // `use-destructive-save-guard.test.ts` drives the hook DIRECTLY, with no
+    // effect in the loop, so it fails on the CAUSE (a fresh object) and keeps
+    // failing even if this file ever drops the dep that turns that object into a
+    // loop. What THIS one uniquely covers is the composition: the real save
+    // effect with the real dep array, which is where the loop actually closes
+    // and the only place the OOM below is reachable. Delete either and a real
+    // gap opens.
     // ★★ THE LOOP DOES HAVE A LOUDER DETECTOR AND IT IS A BAD ONE: without the
     // guard this file dies with "Ineffective mark-compacts near heap limit",
     // which in this repo reads as machine contention (AGENTS.md documents that
@@ -3000,7 +3018,16 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     expect(action.labelKey).toBe("storageSavingPausedAction");
     // ...and it REVEALS the banner rather than performing the deletion. Running
     // it must not arm anything: the refusal has to still stand afterwards.
+    // ★★★ THE POSITIVE HALF IS THE ONE THAT PINS THE ACTION, and it did not
+    // exist before: `makeArgs` supplied no `onRevealSavingPaused`, so `run()`
+    // called `undefined?.()` and the two assertions below it ("the refusal still
+    // stands") were equally satisfied by a `run` that did NOTHING AT ALL. The
+    // mutant `run: () => {}` survived this test, this file and the whole suite.
+    // Reveal is the ONLY route from the toast back to the dismissible banner, so
+    // a silently dead button leaves a paused save with no persistent recourse.
+    onRevealSavingPaused.mockClear();
     await act(async () => { action.run(); });
+    expect(onRevealSavingPaused).toHaveBeenCalledTimes(1);
     expect(result.current.destructiveRefusal).not.toBeNull();
 
     // A second, entirely harmless edit. The baselines still say 20, so it is

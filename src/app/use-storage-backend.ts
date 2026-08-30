@@ -501,7 +501,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       if (!refusalWasStanding) {
         emitToastAction("info", t(langRef.current, "storageRefusedWipe"), {
           labelKey: "storageSavingPausedAction",
-          run: () => args.onRevealSavingPaused?.(),
+          run: () => args.onRevealSavingPaused(),
         });
       }
       return; // keep baselines so a later change re-evaluates

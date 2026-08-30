@@ -498,6 +498,37 @@ function TaskManagerInner() {
     setTruncationBannerDismissed(false);
   }
 
+  // ★★ The SAME render-time reconcile for the OTHER saving-paused cause (an
+  // effect is impossible — `set-state-in-effect` is banned and fatal). Without
+  // it the dismissal is sticky ACROSS episodes: dismiss, the refusal RESOLVES,
+  // and a later, different refusal raises the banner ALREADY HIDDEN. What is
+  // left is only the transient toast plus whichever standing hint the layout
+  // has: `hasFooterIndicator` is `layout !== "classic"`, and
+  // `SavingPausedBanner`'s dismissed branch returns null when that is true — so
+  // DEFAULT layouts fall back to the footer indicator alone, and classic to the
+  // compact re-open chip. Neither names the magnitude the banner would.
+  // ★★★ KEYED ON THE REFUSAL OBJECT, and that is exactly the right grain
+  // BECAUSE of `useDestructiveSaveGuard`'s `sameRefusal` functional setter:
+  // identity is stable for as long as one refusal stands, so a dismiss survives
+  // every re-refusal (one per edit while paused) and only a genuinely DIFFERENT
+  // refusal re-shows the banner. A key made of the COUNTS would say the same
+  // thing more weakly, and a boolean `!== null` could not see a second episode
+  // whose counts moved. Do not "simplify" it to a nonce: there is none to bump —
+  // the guard's state IS the event.
+  // ★ Resetting on the transition to `null` is deliberate, not sloppiness: the
+  // banner mounts only while `destructiveRefusal !== null`, so nothing appears
+  // when a refusal resolves — clearing the flag as the episode ENDS is precisely
+  // what leaves the NEXT one visible.
+  // ★ Seeded `null`, the guard's OWN starting value rather than the live one —
+  // it mounts in this same render (task-manager calls the hook that owns it), so
+  // null is what it really is here, and seeding from the live value is the
+  // remount-swallow shape that drops a pending report.
+  const [destructiveRefusalSeen, setDestructiveRefusalSeen] = useState<typeof destructiveRefusal>(null);
+  if (destructiveRefusal !== destructiveRefusalSeen) {
+    setDestructiveRefusalSeen(destructiveRefusal);
+    setDestructiveBannerDismissed(false);
+  }
+
   // Refresh the Turso project list (active + archived) from the shared DB. The
   // list is the source of truth in Turso mode; this is called on first load and
   // after every create/archive/restore/hard-delete. Only flips `tursoListLoaded`
