@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.265.0] - 2026-08-30 "VanderMeer"
+
+### Fixed
+
+- **Declining the "replace your tasks?" prompt when opening a file could still point the app at
+  that file, and your current project would then be saved over it.** Opening a project file asks
+  whether to replace the tasks you have open. Answering no kept your work, as it should — but the
+  app had already switched to the file you picked, while still showing the previous file's name.
+  The next automatic save then wrote your current project over a file you had just declined to
+  open. The app now switches only after you say yes.
+
 ## [0.264.1] - 2026-08-29 "Russell"
 
 ### Fixed
