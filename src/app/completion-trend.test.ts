@@ -26,8 +26,22 @@ function ev(timestamp: string, kind: ActivityEntry["kind"]): ActivityEntry {
  *  denominator blocks below were written against, so every one of their
  *  expectations stays byte-identical across the numerator change. `tasks: []`
  *  zeroes every historical point, and each of those blocks would have to be
- *  rewritten to a zeroed series. Measured: replacing all six `doneBefore(2)`
- *  call sites in this file with `[]` runs 17 failed / 15 passed.
+ *  rewritten to a zeroed series. Re-measured 2026-08-30, mutant applied and
+ *  reverted: replacing all FIVE `doneBefore(2)` call sites in this file with an
+ *  empty array runs 17 failed / 18 passed out of 35. Reproduce with
+ *    npx vitest run --maxWorkers=1 src/app/completion-trend.test.ts src/app/completion-trend.property.test.ts
+ *
+ *  ★★★ BOTH FIGURES IN THAT SENTENCE WERE WRONG BEFORE, AND EACH WAS WRONG A
+ *  DIFFERENT WAY — which is why neither is worth trusting without the command.
+ *  "six" came from a bare grep for the call, and that grep MATCHES ITS OWN
+ *  PROSE: this docstring and the `BASE` comment further down both name it, so
+ *  a raw count reads two higher than the code. It printed five real sites at
+ *  `411702b8` and at every commit since, so "six" was never true, not even on
+ *  the day it was written. "15 passed" WAS true when written and then drifted —
+ *  tests were added, and 17 + 15 = 32 against a population that is now 35, so
+ *  the sum alone refutes it. Count the code sites with a grep that drops the
+ *  comment lines:
+ *    grep -n "doneBefore(2)" src/app/completion-trend.test.ts | grep -vE "^[0-9]+: *(\*|//)"
  *
  *  ★★★ AN EARLIER REVISION OF THIS DOCSTRING CLAIMED `tasks: []` WOULD MAKE
  *  "subtracts N, not 1" (§163) AND "reverses N, not 1" (§166) PASS WHILE
@@ -444,19 +458,37 @@ describe("undo/redo reverse the denominator they moved (§166)", () => {
 /** ★★ MUTATION-PROVED, and these are the OBSERVED results, not predictions.
  *  Each mutant was applied alone to `completion-trend.ts` and reverted after.
  *
+ *  ★★★ ALL FOUR RE-MEASURED 2026-08-30 UNDER ONE COMMAND, because two of the
+ *  tallies recorded here had drifted and nothing said which. The command is
+ *    npx vitest run --maxWorkers=1 src/app/completion-trend.test.ts src/app/completion-trend.property.test.ts
+ *  and its population is 35 (34 here + 1 in the property file). ANY tally below
+ *  whose two halves do not sum to 35 is stale by construction — A and the
+ *  `doneBefore` docstring above both read 32, which is what gave them away.
+ *  A drifting FAILED count is the dangerous one and C had it: adding a test
+ *  that a mutant also kills raises the number silently, and nothing re-runs
+ *  these. Re-run the command, do not adjust a figure by reasoning.
+ *
  *  A — `deliveredBy`'s `t.completedDate <= day` replaced by `false`:
- *      21 failed / 11 passed. Killed "moves the earlier point …" as intended,
+ *      21 failed / 14 passed (was recorded as 21/11). Killed "moves the earlier point …" as intended,
  *      AND every §163/§166 case, because `doneBefore` makes their numerator
  *      real. That breadth is the point: with `tasks: []` those 20 would have
  *      survived, which is how a vacuous fixture announces itself.
  *  B — the last-point branch flattened to `deliveredBy(days[i].day)`:
- *      EXACTLY 1 failed — "keeps the LAST point on currentDone …". Nothing
- *      else reads that branch, so the block is the sole guard of it.
+ *      EXACTLY 1 failed / 34 passed — "keeps the LAST point on currentDone …".
+ *      Nothing else reads that branch, so the block is the sole guard of it.
+ *      Unchanged on re-measurement.
  *  C — `"task.completed"` removed from `COUNT_KINDS`:
- *      3 failed. Killed "seeds a day carrying only a completion …" as
- *      intended; the other two are the seeding claims in the first describe.
+ *      4 failed / 31 passed (was recorded as 3). Killed "seeds a day carrying
+ *      only a completion …" as intended; two more are the seeding claims in
+ *      the first describe; the FOURTH is "plots two points when the completion
+ *      entry is present", from the completion-only pair at the foot of this
+ *      file — a block added AFTER this record was written, whose own comment
+ *      already said this mutant turns it RED. Two comments in one file
+ *      disagreed about one mutant for a release. ★★ The sum check that caught
+ *      A is USELESS here — 3 + 32 and 4 + 31 both total 35 — so a FAILED count
+ *      recorded without its passed half has no self-check at all. Record both.
  *  D — `deliveredBy` replaced by `tasks.length` (ignore the day, count
- *      everything): 2 failed — "falls back to activity-log reconstruction …"
+ *      everything): 2 failed / 33 passed — "falls back to activity-log reconstruction …"
  *      and "leaves the earlier point at zero …". This is the mutant that was
  *      MISSING when A/B/C were recorded, and it matters because A/B/C leave
  *      the "always counts everything" direction unexercised: the zero control
@@ -560,7 +592,12 @@ describe("numerator from task data", () => {
  *  `"task.completed"` from `COUNT_KINDS` in `completion-trend.ts` turns the
  *  positive block RED (`expected [] to have a length of 2 but got +0`) while the
  *  absence block below stays GREEN — which is exactly what makes the second a
- *  CONTROL for the first rather than evidence of its own. */
+ *  CONTROL for the first rather than evidence of its own.
+ *
+ *  ★ That is mutant C in the record above, and this block is why its tally is
+ *  4 rather than the 3 recorded when the record was written: adding a block
+ *  that an existing mutant also kills raises that mutant's count, and nothing
+ *  re-runs it. Re-run C's command when you add a block here. */
 describe("a completion-only day is what keeps the series above the two-day floor", () => {
   const task = (id: number, completedDate?: string) =>
     ({
