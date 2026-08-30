@@ -527,6 +527,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | open |
 | [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--open) | The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch | found 2026-08-30, fixing the DE wipe phrase | M | open |
 | [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--open) | Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap | found 2026-08-30, fixing the DE wipe phrase | M | open |
+| [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--open) | The storage readiness indicator is never disclosed to assistive technology, in either state | found 2026-08-30, fixing the colour-only state cue | M | open |
+| [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--open) | One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint | found 2026-08-30, in the destructive-refusal fix round | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -23019,3 +23021,63 @@ to expect localisation at the other three.
 
 ★ Related: §300 covers the prompt these phrases are rendered into, and the absence of any feedback
 when what the user typed does not match.
+## 302. The storage readiness indicator is never disclosed to assistive technology, in either state — open
+
+**Status:** open — the DOM was read on 2026-08-30 (`grep -n "aria-hidden" src/app/sidebar-footer.tsx`, and
+`grep -n "describe()\|isReady()" src/app/use-storage-backend.ts`, which puts them on separate lines as
+separate calls). **Never machine-verified** in the sense that matters: no screen-reader pass has been run
+against this line, and no test asserts what it announces, because there is nothing to assert.
+
+The sidebar footer's readiness paragraph shows a coloured dot and, since the recoverable-destructive-refusal
+slice, a trailing shape marker. **Both are `aria-hidden`.** The only other content of that paragraph is
+`storageDescription`, which comes from the backend's `describe()` — a DIFFERENT call from the `isReady()`
+that decides the state — so it names the BACKEND and never its readiness.
+
+Consequence: a screen-reader user is told nothing about ready-versus-not on this line, in EITHER state. The
+visual channel was fixed in that slice (the marker is a non-colour cue, closing WCAG 1.4.1); the
+assistive-technology half was deliberately left, and this entry is that half.
+
+★★ **The slice WIDENED what the state means, which is why this is worth filing rather than shrugging at.**
+`storageReady` now folds in a truncated load and a standing destructive refusal, so the quiet state stands
+for a withheld mass deletion as well as an unconfigured backend. The one spoken disclosure that does exist —
+the `SavingPausedButton` above — covers the two lockout causes but is ABSENT for a plain not-ready backend.
+
+★★★ **The obvious fix is wrong and that is the reason this is not a five-minute change.** `storageNotReady`
+("Storage isn't configured yet — pick a file in Settings.") asserts ONE cause. Reusing it would tell a user
+whose save is paused by a truncated load or a refusal to go and pick a file, which is both false and
+actively misleading. Closing this needs a key that covers all three causes, or three keys chosen by cause —
+and the chooser has to live where all three signals are already known, which is `task-manager.tsx`, not the
+footer.
+
+## 303. One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint — open
+
+**Status:** open — measured 2026-08-30 with a temporary probe counting `logDiag` calls carrying
+`dataloss.refused`, since removed from the tree. Enumerate the record sites with
+`grep -rn "recordDataLossEvent" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`, and the
+consumers with `grep -rn "readDataLossLog" src/app --include=*.ts --include=*.tsx`.
+
+Measured counts for one destructive episode: a NEW refusal writes **2** entries; a later re-refusal at
+UNCHANGED counts adds **1**; a later re-refusal whose counts MOVED adds **2** again. So the over-report is
+**+1 per distinct refusal STATE**, not per attempt.
+
+Mechanism: `recordDataLossEvent` sits outside the `!refusalWasStanding` guard that suppresses the duplicate
+toast, and the guard's `refusal` is a dependency of the save effect while `evaluate` sets that state. A new
+refusal therefore runs the effect twice — record, mint, dependency identity changes, record again — before
+`sameRefusal` converges.
+
+★★ **NOT a data defect, and the log is not lying.** Every sibling record site fires once per call and each
+entry captures a stack, so the log is attempt-level; the second entry is a real, system-initiated save
+attempt that really was refused. Under attempt semantics it is true, merely redundant. No consumer
+aggregates — the diagnostics panel renders a timeline, the bundle builder dumps verbatim, and the window
+alias is a manual read — so nothing currently reports a wrong NUMBER to anyone.
+
+★★★ **Do NOT "fix" this by moving the record inside the `!refusalWasStanding` guard.** That also drops the
+genuine per-edit re-refusal records the log exists to keep, which is a worse loss than the duplicate. A
+`justRefused` ref inside the save effect is no better: it removes the null-to-first-refusal doubling and
+leaves the counts-changed doubling intact, producing a log whose correction rule differs per entry — harder
+to read than a uniform over-count.
+
+The only discriminator is whether `evaluate` MINTED a new refusal object or returned the standing one, and
+`evaluate` does not report that today. Closing this means changing its return in
+`use-destructive-save-guard.ts` and having the save effect record on the mint — a change to the guard's
+contract, which is why it was left rather than bodged during a fix round.
