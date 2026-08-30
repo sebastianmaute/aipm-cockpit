@@ -18115,8 +18115,11 @@ are:
   (`logActivityRef.current(kind, …)` / `logActivity(transition, …)`), so a string-literal search
   reports "declaration and consumption, no producer" over a tree that has five producers. Enumerate
   them with `grep -rn "statusActivityKind" src --include=*.ts --include=*.tsx | grep -v "\.test\."`
-  instead, which names `use-task-row-handlers.ts` · `use-task-submit.ts` · `use-bulk-operations.ts` ·
-  `use-chat-dispatcher.ts` · `use-action-center-handlers.ts` · `use-jira-sync.ts`.
+  instead, which returns SEVEN files: the DECLARATION in `task-status.ts` plus the six adopters
+  `use-task-row-handlers.ts` · `use-task-submit.ts` · `use-bulk-operations.ts` ·
+  `use-chat-dispatcher.ts` · `use-action-center-handlers.ts` · `use-jira-sync.ts`. ★ Counting the
+  files it prints as adopters therefore overstates by one — the first hit is where the helper is
+  defined, not a site that calls it.
 
 ★★ **THE PRODUCERS LANDED AND THE TREND DOES NOT CONSUME THEM — the two are not wired together, and
 this entry's closing paragraph asked the opposite question.** §163's numerator was closed on the same
