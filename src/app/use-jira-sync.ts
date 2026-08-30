@@ -303,6 +303,22 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       }
 
       // New Jira issues we didn't have locally → create.
+      // ★★ SILENT BY DESIGN, and stated because every OTHER site in this file
+      //   carries a note and this one did not — an unexplained silence reads as
+      //   an oversight. An issue that arrives ALREADY Done produces a delivered
+      //   task (`completedDate` comes straight off the patch below), and no
+      //   `task.completed` is logged for it. That is the same exemption
+      //   `status-activity-census.test.ts` records for `task-manager.tsx`'s
+      //   `handleCreateLinkedTask`: there is no before-row, so there is no
+      //   transition to classify — `statusActivityKind` compares two states and
+      //   only one exists here. Do NOT "complete the pattern" by synthesising an
+      //   undelivered before-state; that would log a completion for work that
+      //   was finished before this workspace ever heard of it.
+      // ★ The completion-trend consequence is a missing SEED, not a wrong
+      //   number: `deliveredBy` reduces over `tasks[].completedDate`, which this
+      //   row does set, so the numerator is right on every day — the day the
+      //   issue was resolved simply does not become a plotted point unless
+      //   something else moved the total on it.
       const existingKeys = new Set(list.map((r) => r.jiraKey).filter(Boolean));
       for (const issue of issues) {
         if (existingKeys.has(issue.key)) continue;

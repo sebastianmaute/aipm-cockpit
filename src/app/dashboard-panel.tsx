@@ -145,12 +145,17 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const completionSeries = useMemo(
     () =>
       computeCompletionTrend({ snapshots, activity, tasks: props.tasks, currentDone, currentTotal, today }),
-    // ★★ `props.tasks` and NOT `taskCount`, which is what the neighbouring
-    //   scalar deps and this file's own `taskCount` binding make the obvious
+    // ★★ `props.tasks` and NOT `props.tasks.length`, which is what the
+    //   neighbouring scalar deps (`snapCount`, `activityCount`) make the obvious
     //   reach. The numerator depends on `completedDate` VALUES, not on how many
     //   tasks there are: a date edited to a different past day leaves the count
     //   identical and the curve stale, and the disable below means the linter
     //   cannot catch it either.
+    // ★ This comment used to name `taskCount` as the temptation. It is not one:
+    //   `const taskCount = props.tasks.length` is declared BELOW this hook, so
+    //   naming it in this dep array is a TDZ ReferenceError at render, not a
+    //   shortcut anyone could take by accident. The reachable mistake is the
+    //   inline `.length`, which is why that is what this now warns against.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [snapCount, activityCount, props.tasks, currentDone, currentTotal, today],
   );

@@ -200,6 +200,16 @@ Two things it must ship with, or it is theatre:
 The gate covers logging, never the metric. Unit A means a missed writer costs an audit entry and can
 never produce a wrong number — which is the split the two register entries actually want.
 
+> ★★★ **RETRACTED, 2026-08-30.** The sentence directly above is half false and is kept only as the
+> record of what was designed. A missed writer cannot produce a wrong PERCENTAGE — that half holds,
+> because `deliveredBy` reduces over `tasks[].completedDate`. It CAN change the SERIES: both
+> `task.completed` and `task.reopened` are members of `COUNT_KINDS` in `completion-trend.ts`, which
+> decides which days SEED a point, so a missed writer drops a completion-only day and can take a
+> sparse project under the `days.length < 2` floor, rendering no chart at all. Retracted in the
+> shipped tree by `9fffef94`; the plan carries the same banner. The claim was propagated verbatim
+> from here into the plan and from the plan into three source files, which is the reason it is
+> corrected at its origin rather than only downstream.
+
 ---
 
 ## Unit C — shared contact display (§283)

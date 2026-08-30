@@ -338,9 +338,23 @@ describe("useBulkOperations", () => {
         }));
       });
       act(() => { result.current.bulk.applyBulkEdit(); });
-      expect(logActivity).not.toHaveBeenCalledWith(
-        "task.completed", expect.anything(), expect.anything(),
-      );
+      // ★★ BOTH kinds, not just the one the sibling block asserts on. Narrowed
+      //   to `task.completed` alone, this passes against an emitter that fires
+      //   `task.reopened` unconditionally — the failure mode an absence
+      //   assertion exists to exclude. The equivalent block in
+      //   `use-task-row-handlers.test.ts` is backstopped by a later
+      //   `not.toHaveBeenCalled()`; this one has no backstop, and cannot have a
+      //   blanket one, because a non-status bulk edit legitimately logs
+      //   `bulk.edit`. Enumerating the two kinds is the only shape that works
+      //   here. The positive control is the block directly above.
+      for (const kind of ["task.completed", "task.reopened"] as const) {
+        expect(logActivity).not.toHaveBeenCalledWith(
+          kind, expect.anything(), expect.anything(),
+        );
+      }
+      // Anti-vacuity: the apply really ran, so "silent" is a result and not an
+      // unexecuted path.
+      expect(logActivity).toHaveBeenCalledWith("bulk.edit", 2);
     });
 
     // GUARD 2 of 2 — what a STALE selection can REACH. Guard 1 stops select-all

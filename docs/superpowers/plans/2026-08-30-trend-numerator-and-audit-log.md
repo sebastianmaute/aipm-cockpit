@@ -2,9 +2,30 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> ★★★ **ONE CLAIM IN THIS PLAN WAS RETRACTED MID-EXECUTION. Read this before pasting any block below
+> into source.**
+>
+> The plan asserted, in four places, that because the trend numerator is read from `completedDate`, a
+> status writer that forgets to log "costs an audit entry and can never move a metric". **The second
+> half is false.** `task.completed` and `task.reopened` are members of `COUNT_KINDS` in
+> `completion-trend.ts`, and that set decides which days SEED a point as well as which entries survive
+> the accumulation loop — so a missed writer drops a completion-only day from the sparkline and can
+> take a sparse project back under the `days.length < 2` floor, where it renders no chart at all.
+> Only the NUMERATOR half was ever true.
+>
+> Retracted in the shipped tree by **`9fffef94`** ("fix: retract 'a missed writer can never move a
+> metric' and cover each site"), which corrected it in `docs/AGENTS/activity-log.md`,
+> `task-status.ts`, `status-activity-census.test.ts` and `completion-trend.test.ts`.
+>
+> That commit did not reach this plan, and two of the four occurrences here are literal COMMENT TEXT
+> inside prescribed code blocks — a re-executor would have pasted the retracted claim straight back
+> into source. All four are corrected in place below and each is marked; nothing else is rewritten,
+> so the plan stays the record of what was executed. `docs/superpowers/` is excluded from
+> `docs:claims:check`, so no gate would have caught this.
+
 **Goal:** Make the dashboard completion sparkline's numerator move (it is currently constant on every reconstructed day), give the inline status controls an audit-log entry, and stop the exporter emitting `Bob Jones <>` for a contact with no email.
 
-**Architecture:** The trend numerator is derived from **task data** (`completedDate`), not from a new event producer — that avoids the undo, Jira-blindness and no-backfill hazards recorded in the spec. Status-transition events are added anyway, but for the **audit log only**, so a writer that forgets to log costs an audit entry and can never produce a wrong metric. A file-granular census test makes a forgotten writer fail CI.
+**Architecture:** The trend numerator is derived from **task data** (`completedDate`), not from a new event producer — that avoids the undo, Jira-blindness and no-backfill hazards recorded in the spec. Status-transition events are added anyway, and a writer that forgets to log costs an audit entry and a plotted DAY: the numerator is safe, but both kinds sit in `COUNT_KINDS`, which decides which days seed a point. *(Corrected — this read "for the **audit log only**, so a writer that forgets to log costs an audit entry and can never produce a wrong metric"; see the retraction banner above and `9fffef94`.)* A file-granular census test makes a forgotten writer fail CI.
 
 **Tech Stack:** TypeScript, React 19, Next 16, vitest 4.1.8. No new dependencies.
 
@@ -798,12 +819,15 @@ Then append the function:
  *    which is the precise confusion `task-closed.ts` was split to prevent. Only
  *    delivery — a `completedDate` — is a completion.
  *
- *  ★★ The trend does NOT consume what this decides. The numerator is read from
- *    `completedDate` (see `completion-trend.ts`), so a writer that forgets to
- *    log costs an AUDIT ENTRY and can never move a metric. That split is
- *    deliberate: it is what makes the census in
- *    `status-activity-census.test.ts` a convenience rather than a load-bearing
- *    correctness gate. */
+ *  ★★ The trend's NUMERATOR does not consume what this decides — it is read
+ *    from `completedDate` (see `completion-trend.ts`), so a missed writer
+ *    cannot make a percentage wrong. It CAN change the SERIES: both kinds are
+ *    members of `COUNT_KINDS`, which also decides which days SEED a point, so a
+ *    status write that logs nothing drops a completion-only day and can take a
+ *    sparse project under the `days.length < 2` floor. The census in
+ *    `status-activity-census.test.ts` is a convenience for the two reasons its
+ *    own header gives — file granularity and spelling — not because a miss is
+ *    metric-free. */
 export function statusActivityKind(
   before: Pick<Task, "completedDate">,
   after: Pick<Task, "completedDate">,
@@ -814,6 +838,13 @@ export function statusActivityKind(
   return now ? "task.completed" : "task.reopened";
 }
 ```
+
+*★ **Corrected.** The second bullet of that docstring originally read "The trend does NOT consume what
+this decides. The numerator is read from `completedDate` …, so a writer that forgets to log costs an
+AUDIT ENTRY and can never move a metric. That split is deliberate: it is what makes the census in
+`status-activity-census.test.ts` a convenience rather than a load-bearing correctness gate." The second
+sentence is false and was retracted by `9fffef94`; the wording above is what the shipped
+`task-status.ts` carries. See the banner at the top of this plan.*
 
 Check for an import cycle: `task-closed.ts` imports `isTaskFinished` from `task-status.ts`, so this adds a cycle between the two modules. Both are pure and side-effect-free, and the functions are called at runtime rather than at module-evaluation time, so it resolves. Confirm with the typecheck and test run in the next step; if `isTaskDelivered` reads as `undefined` at call time, inline the one-line predicate (`!!task.completedDate`) here instead and say so in a comment.
 
@@ -1159,8 +1190,10 @@ real resolution date.
 use-action-center-handlers had no logActivity at all; task-manager threads
 logActivityUser into it, matching every other hook in that file.
 
-The trend does not consume these entries — its numerator is read from
-completedDate — so a missed writer costs an audit entry and never a metric.
+The trend's numerator does not consume these entries — it is read from
+completedDate — but the SERIES does: both kinds sit in COUNT_KINDS, which
+decides which days seed a point, so a missed writer drops a completion-only
+day from the sparkline.
 
 Closes open-followups 235.
 EOF
@@ -1206,9 +1239,12 @@ Create `src/app/status-activity-census.test.ts`:
 //   - It matches on SPELLING. Rename either anchor and this silently stops
 //     covering that family. That is not hypothetical: use-load-truncation's
 //     census counted load sites by literal spelling and a renamed load broke it.
-//   - It gates the AUDIT LOG only. The completion-trend numerator is read from
-//     `completedDate`, not from these entries, so a miss here costs an audit
-//     record and can never move a metric.
+//   - It gates the AUDIT LOG only — but do NOT read that as "a miss here can
+//     never move a metric". The completion-trend NUMERATOR is safe:
+//     `deliveredBy` reduces over `tasks`, never over these entries. The SERIES
+//     is not. Both kinds are members of `COUNT_KINDS`, which also decides which
+//     days SEED a point, so a missed writer drops a completion-only day and can
+//     take the chart under the `days.length < 2` floor entirely.
 //
 // ★ ANTI-VACUITY, measured rather than asserted: with the
 //   `if (kind) logActivityRef.current(...)` pair deleted from onStatusChange in
