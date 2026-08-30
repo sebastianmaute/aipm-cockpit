@@ -98,6 +98,30 @@ describe("sanitizeNoteLogWith — the six behaviours that used to diverge (§286
     );
     expect(out[0].authorName!.length).toBeLessThanOrEqual(MAX_AUTHOR_NAME);
   });
+
+  it("re-derives text from html even when a captured text is present", () => {
+    // ★★★ THE SEVENTH DIVERGENCE, and the one row where the SEED validator's
+    // rule wins rather than the canonical one. Canonical derived text only when
+    // the captured one was empty; the seed always re-projected, because a
+    // captured `text` can disagree with its `html` after a hand-edited template
+    // or a sink change that narrowed the html since capture. A stale projection
+    // must not outlive the html it describes.
+    const out = sanitizeNoteLogWith(
+      [{ id: 1, timestamp: ts, html: "<p>real</p>", text: "STALE" }],
+      OPS,
+    );
+    expect(out[0].text).toBe("real");
+  });
+
+  it("and the two candidate values really are distinguishable (anti-vacuity)", () => {
+    // ★★ Separate it() — vitest aborts at the first failing hard assertion.
+    // Without this, an `OPS.toText` that happened to yield "STALE" would make
+    // the assertion above pass while proving the OPPOSITE rule. Pin that the
+    // projection and the captured text are different strings, so the test
+    // above genuinely discriminates between the two rules.
+    expect(OPS.toText("<p>real</p>")).toBe("real");
+    expect(OPS.toText("<p>real</p>")).not.toBe("STALE");
+  });
 });
 
 describe("note-log-policy.ts is DOM-free", () => {

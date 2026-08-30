@@ -116,7 +116,24 @@ export function sanitizeNoteLogWith(raw: unknown, ops: NoteLogHtmlOps): NoteLogE
       : ops.sanitizeHtml(`<p>${escapeForHtml(text)}</p>`)
     ).slice(0, MAX_NOTE_HTML);
 
-    if (hasHtml && !text) text = cleanText(ops.toText(html), MAX_NOTE_TEXT);
+    // ★★★ THE HTML IS THE SOURCE OF TRUTH, so a captured `text` is RE-DERIVED
+    // and never merely defaulted. This is a SEVENTH divergence between the two
+    // validators, found by adopting the core rather than by the §286 audit,
+    // which enumerated six: the canonical validator derived text only when the
+    // captured one was empty (`hasHtml && !text`), while the seed validator
+    // always re-projected. Here the SEED rule wins, and it is the one row where
+    // canonical does not — because the seed's rationale is written down and
+    // still true: a captured `text` can disagree with its `html` after a
+    // hand-edited template, or after a sink change narrowed the html since
+    // capture, and a stale projection must not outlive the html it describes.
+    // ★★ THE DIRECTION WAS MEASURED, NOT ARGUED. Under this rule the canonical
+    // suite passes UNEDITED (`note-log.test.ts`), `template-note-carry.test.ts`
+    // needs no flip, and `golden-workspace.test.ts` byte-stability holds — so
+    // nothing canonical depended on keeping a captured text.
+    // ★ Read that as the bound it is: no TEST pinned the old behaviour, which
+    // is not the same as nothing having depended on it. The change is real for
+    // any entry whose stored `text` disagrees with its `html`.
+    if (hasHtml) text = cleanText(ops.toText(html), MAX_NOTE_TEXT);
 
     if (!text) continue;
 
