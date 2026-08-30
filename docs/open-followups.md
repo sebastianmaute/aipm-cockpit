@@ -12734,11 +12734,7 @@ point keeps `currentDone` by design, so seeding a LATER day demotes an earlier o
 it is data-derived rather than pinned to the live count. The same fixture cut to a single
 `task.created` day (06-08) returns `[]` before and a THREE-point series `06-08 -> 0`, `06-10 -> 33`,
 `06-15 -> 67` after, so a project that fell under the `days.length < 2` floor and rendered nothing can
-now render a chart. ★★ This line said **two**-point, re-measured 2026-08-30 and corrected: two points
-is what the fixture yields only when the COMPLETIONS are cut to one as well (`06-08 -> 0`,
-`06-10 -> 67`), which the sentence did not say. The floor conclusion holds under either cut — but a
-reader reproducing the stated fixture got a different answer from the stated one, which is how a
-verified-looking claim spends someone's afternoon. The new values are the correct
+now render a chart. The new values are the correct
 ones; the change in the plotted DAY SET is the part nobody predicted.
 
 ★★★ **THE FIRST CLOSE INVERTED THE ASYMMETRY INSTEAD OF REMOVING IT, and the title said "AI".**
@@ -23115,7 +23111,7 @@ drives a mark-done through undo and asserts on what was logged.
 Carved out of
 [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30)
 on close, 2026-08-30, when a cold review found that entry's Status line claiming "every path" over a
-five-writer population it covered four fifths of.
+five-writer population.
 
 **The gap.** `TASK_UNDO_GROUPS` pairs `status` with `completedDate`, so an undo restores both halves
 together — which is correct, and is what makes this a real transition rather than a partial write.

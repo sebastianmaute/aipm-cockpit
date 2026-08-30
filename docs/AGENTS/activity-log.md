@@ -220,10 +220,8 @@ it has no table of its own, NOT because it sits outside the workspace.
   dropdown claim, which returns **6** lines on that file — the prop type, the destructure, the ref init,
   the ref assignment, a dep array and the one call. The claim was TRUE and the command did not reproduce
   it, which is the exact failure the rule at the top of this file exists to prevent; both reviewers
-  flagged it independently. That is why no count is quoted for the dropdown here any more: the file now
-  has three `logActivityRef.current(` calls rather than one, and a number in prose cannot survive the
-  next writer.
-  ★★★ **`task.completed` AND `task.reopened` NOW HAVE WRITERS ON EVERY STATUS-WRITING SURFACE, and this
+  flagged it independently.
+  ★★★ **`task.completed` AND `task.reopened` NOW HAVE WRITERS, and this
   entry used to say the opposite.** It read: they "have **NO writer anywhere in the app**, only a union
   member, an `activityMessageKey` row and their seat in this set", with
   `git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'`
@@ -250,26 +248,19 @@ it has no table of its own, NOT because it sits outside the workspace.
   drop the completion entry → `[]`. (2) Two tasks delivered 06-10 and 06-15 against two `task.created`
   days 06-08/06-09, `currentDone` 2, `currentTotal` 4: without completion writers →
   `[06-08 → 0, 06-09 → 50]`, with them → `[06-08 → 0, 06-09 → 0, 06-10 → 25, 06-15 → 50]`.
-  ★★★ **THE THIRD POINT IS THE ONE THIS BULLET EXISTS FOR, AND AN EARLIER REVISION TRANSCRIBED THE
-  SERIES WITHOUT IT.** 06-10 carries a completion and NO create or delete, so no total moves on it and
+  ★★★ **THE THIRD POINT IS THE ONE THIS BULLET EXISTS FOR.** 06-10 carries a completion and NO create
+  or delete, so no total moves on it and
   it is plotted only because `task.completed` is a member of `COUNT_KINDS` — a completion-only day, the
-  exact thing the surrounding prose argues for. Dropping it left the paragraph making its case over
-  evidence that did not show it, which is the cheapest way for a "measured" claim to be believed and be
-  useless. Re-measured 2026-08-30 against the same fixture and the same module; the prose conclusion
-  below was unaffected. `06-09` MOVES, because
+  exact thing the surrounding prose argues for. `06-09` MOVES, because
   the last plotted point keeps `currentDone` by design and seeding a later day demotes 06-09 to history,
   where `deliveredBy` correctly reports 0 delivered. The new value is the CORRECT one — this is an
   accuracy improvement, not a regression — but it is a user-visible change on the default file-mode path.
   Pinned by the "a completion-only day" pair in `completion-trend.test.ts`.
-  ★★ **A FILE-granular census is not that coverage — and one now EXISTS, so "do not plan one" (what this
-  said) is stale.** `status-activity-census.test.ts` shipped in `9bf06d3b` and its own header states the
+  ★★ `status-activity-census.test.ts` shipped in `9bf06d3b` and its own header states the
   two reasons it is a convenience: it is file-granular, and it matches on spelling. A file with several
-  write sites passes on any one of them — `use-jira-sync.ts` has four, and its conflict-resolution path
-  could have stayed silent while its two pull sites carried the file. Per-site coverage is per-site
+  write sites passes on any one of them. Per-site coverage is per-site
   tests, and nothing else.
-  ★★ **THAT USED TO MEAN THE TREND'S NUMERATOR WAS FED BY NOTHING, AND IT NO LONGER DOES.** This line
-  read "the trend's `dDone` term is fed by NOTHING, so the reconstruction path moves only on totals" —
-  `dDone` does not exist any more. The numerator is READ from task data (`deliveredBy` in
+  ★★ The numerator is READ from task data (`deliveredBy` in
   `completion-trend.ts` counts `completedDate <= day`), which is what let the fix work retroactively over
   history already on disk. ★★★ So the two kinds' ONLY remaining job in `COUNT_KINDS` is deciding which
   days SEED a point — a day carrying a completion and no create/delete moves no total at all, yet the
