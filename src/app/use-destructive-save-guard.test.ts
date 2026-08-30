@@ -65,4 +65,27 @@ describe("useDestructiveSaveGuard", () => {
     rerender();
     expect(result.current.allowDestructiveSave).toBe(first);
   });
+
+  // ★★★ Identity, not equality. `use-storage-backend.ts` puts `refusal` in the save
+  // effect's dep array, so a fresh object per evaluation loops the effect forever —
+  // this test is the only thing standing between that and a heap OOM.
+  it("keeps a standing refusal's identity stable while nothing about it changes", () => {
+    const { result } = renderHook(() => useDestructiveSaveGuard());
+    act(() => { result.current.syncBaselines(3, 90); });
+    act(() => { result.current.evaluate(3, 2, false); });
+    const first = result.current.refusal;
+    expect(first).not.toBeNull();
+    act(() => { result.current.evaluate(3, 2, false); });
+    expect(result.current.refusal).toBe(first);
+  });
+
+  it("replaces the refusal when the counts change", () => {
+    const { result } = renderHook(() => useDestructiveSaveGuard());
+    act(() => { result.current.syncBaselines(3, 90); });
+    act(() => { result.current.evaluate(3, 2, false); });
+    const first = result.current.refusal;
+    act(() => { result.current.evaluate(3, 5, false); });
+    expect(result.current.refusal).not.toBe(first);
+    expect(result.current.refusal?.curRecords).toBe(5);
+  });
 });

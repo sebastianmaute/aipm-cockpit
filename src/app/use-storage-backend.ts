@@ -446,6 +446,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       recordDataLossEvent({ path: "save-effect", prevCollections: 1, nextCollections: 0, refused: false });
     }
     destructive.syncBaselines(curCollections, curRecords);
+    destructive.clearRefusal(); // a committed save resolves any standing refusal
     // Fire-and-forget save with the effect's full error handling — the .catch
     // routes every rejection to the storage-outcome/toast path, so a REJECTED
     // save never escapes unhandled.
@@ -485,8 +486,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // ★ `loadWasIncomplete` is a dep so LOWERING it (the user's "save anyway") re-runs this effect
     // and the escape actually WRITES — otherwise it no-ops until the next unrelated edit. ★★ Keep
     // the disable directive DIRECTLY below: a comment between it and the deps line silently voids it.
+    // ★ `destructive.refusal` is a dep for the SAME reason: clearing it is what
+    // `allowDestructiveSaveAnyway` does, and without the dep the authorised save
+    // would wait for an unrelated edit — with saving paused, there may not be one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, args.hydrated, args.isPopout, backend, loadWasIncomplete]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -697,7 +701,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   return {
     storageDescription, storageReady, workspaceLoaded,
     onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
-    reloadCurrentProject, allowDestructiveSave, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
+    reloadCurrentProject, allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso,
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,

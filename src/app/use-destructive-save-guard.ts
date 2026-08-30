@@ -74,6 +74,22 @@ export interface DestructiveSaveGuard {
   clearRefusal: () => void;
 }
 
+/** Two refusals describing the same standing state.
+ *
+ *  ★★★ IDENTITY STABILITY IS LOAD-BEARING, NOT AN OPTIMISATION. `use-storage-backend.ts`
+ *  lists `destructive.refusal` in the save effect's dep array, so a fresh object per
+ *  evaluation is an INFINITE LOOP: refuse -> setRefusal(new object) -> dep identity
+ *  changes -> effect re-runs -> the counts and baselines are unchanged so it refuses
+ *  again -> forever. Measured, not reasoned: before this guard, running the single
+ *  test "keeps refusing every later save while a refusal stands" in isolation on an
+ *  idle 20-core machine with 9 GB free died with "Ineffective mark-compacts near heap
+ *  limit". Do not replace the functional setter below with a plain `setRefusal(next)`. */
+function sameRefusal(a: DestructiveRefusal, b: DestructiveRefusal): boolean {
+  return a.prevCollections === b.prevCollections && a.prevRecords === b.prevRecords
+    && a.curCollections === b.curCollections && a.curRecords === b.curRecords
+    && a.fullWipe === b.fullWipe;
+}
+
 export function useDestructiveSaveGuard(): DestructiveSaveGuard {
   // Non-empty-collection count of the last observed workspace — drives the
   // Layer-3 persistence guard against a multi-collection simultaneous wipe.
@@ -119,7 +135,8 @@ export function useDestructiveSaveGuard(): DestructiveSaveGuard {
     const prevRecords = prevRecordCountRef.current;
     const verdict = evaluateSaveGuard({ prevCollections, prevRecords, curCollections, curRecords, allowDestructive: armed });
     if (verdict.refuse) {
-      setRefusal({ prevCollections, prevRecords, curCollections, curRecords, fullWipe: verdict.refusedBy === "full-wipe" });
+      const next: DestructiveRefusal = { prevCollections, prevRecords, curCollections, curRecords, fullWipe: verdict.refusedBy === "full-wipe" };
+      setRefusal((cur) => (cur !== null && sameRefusal(cur, next) ? cur : next));
     }
     return verdict;
   };

@@ -2707,6 +2707,107 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
       expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T" })] }),
     );
   });
+
+  // ── a refusal is a standing OUTAGE, not one lost save ─────────────────────
+  // ★★★ The refusal keeps the baselines ("so a later change re-evaluates"), so
+  // `prevRecords` stays at 20 while `curRecords` stays at 1 — `isMassDeletion`
+  // keeps answering true and EVERY later save re-refuses. Saving is paused
+  // until the user authorises the deletion or reloads, which is why the
+  // recourse needs a persistent surface and not only a 7-second toast.
+  it("keeps refusing every later save while a refusal stands", async () => {
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    // An UNARMED 19-of-20 deletion: refused.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();
+    // ★ toMatchObject, NOT `.not.toBeNull()` — the property did not exist before
+    // this task, and `expect(undefined).not.toBeNull()` PASSES, so the weaker
+    // form was green against a hook that exposed nothing.
+    expect(result.current.destructiveRefusal).toMatchObject({ prevRecords: 20, curRecords: 1, fullWipe: false });
+    const standing = result.current.destructiveRefusal;
+
+    // An unrelated, entirely harmless edit afterwards. The baselines still say
+    // 20, so this save is judged as the same mass deletion and refused again.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "renamed" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();
+    expect(result.current.destructiveRefusal).toMatchObject({ prevRecords: 20, curRecords: 1, fullWipe: false });
+    // ★★★ IDENTITY, not equality, and this is the assertion that stops the save
+    // effect looping forever. `destructive.refusal` is one of that effect's deps,
+    // so a re-evaluation minting a fresh object re-triggers the effect, which
+    // refuses against unchanged baselines and mints another. `useDestructiveSaveGuard`
+    // stops it with an `Object.is`-stable functional setter (`sameRefusal`).
+    // ★★ THE LOOP DOES HAVE A LOUDER DETECTOR AND IT IS A BAD ONE: without the
+    // guard this file dies with "Ineffective mark-compacts near heap limit",
+    // which in this repo reads as machine contention (AGENTS.md documents that
+    // shape) and cost a whole debugging cycle before the single-test isolation
+    // run refuted it. Assert the property, not the crash.
+    // ★ `react-hooks/set-state-in-effect` does NOT cover this. The rule is
+    // syntactic and the setter is reached through a hook module, so lint stayed
+    // green throughout.
+    expect(result.current.destructiveRefusal).toBe(standing);
+  });
+
+  it("commits the pending deletion when the user saves anyway", async () => {
+    // ★ The SAVE is the assertion, not the cleared state. Clearing alone would
+    // pass against a version that armed nothing — the point is that clearing
+    // RE-RUNS the effect, so the authorised write happens without waiting for
+    // an unrelated edit. With saving paused there may never be one.
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();
+
+    await act(async () => { result.current.allowDestructiveSaveAnyway(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T" })] }),
+    );
+    expect(result.current.destructiveRefusal).toBeNull();
+  });
+
+  it("clears a standing refusal once a save commits", async () => {
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { result.current.allowDestructiveSaveAnyway(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.destructiveRefusal).toBeNull();
+
+    // And an ordinary edit afterwards neither refuses nor re-raises it: the
+    // baselines were adopted by the commit, so 1 -> 1 is no deletion at all.
+    backend.save.mockClear();
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "later" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).toHaveBeenCalled();
+    expect(result.current.destructiveRefusal).toBeNull();
+  });
 });
 
 // ── §103: the guard must reach EVERY load and EVERY flush ────────────────────
