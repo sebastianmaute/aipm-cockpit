@@ -49,6 +49,57 @@ export interface UseChatThreadsDeps {
   confirm: ConfirmFn;
 }
 
+/** Outcome of settling a SUCCESSFUL `loadThreads()` call, shared by the
+ *  mount-fetch effect's `.then` and retryLoad's reload `.then` (§148) so the
+ *  two settle paths cannot drift apart. `stale=true` means something
+ *  (ensureThreadForSend) minted/adopted a different thread while this fetch
+ *  was in flight — the caller must MERGE `loaded` under it rather than adopt
+ *  `loaded[0]`, per the mount effect's own "MERGE, not bail" comment. */
+interface LoadSettleResult {
+  updateThreads: (prev: ChatThread[]) => ChatThread[];
+  stale: boolean;
+  next: ChatThread | null;
+}
+
+function mergeThreadsAfterLoad(
+  startedOn: string | null,
+  liveThreadId: string | null,
+  projectId: string,
+  loaded: ChatThread[],
+): LoadSettleResult {
+  if (liveThreadId !== startedOn) {
+    return {
+      updateThreads: (prev) => [
+        ...prev.filter((th) => th.projectId === projectId && !loaded.some((l) => l.id === th.id)),
+        ...loaded,
+      ],
+      stale: true,
+      next: null,
+    };
+  }
+  return { updateThreads: () => loaded, stale: false, next: loaded[0] ?? null };
+}
+
+/** Mirror of mergeThreadsAfterLoad for a FAILED `loadThreads()` call — shared
+ *  by the mount effect's `.catch` and retryLoad's reload `.catch` (§148), so
+ *  a mid-flight-minted thread's row survives a failed reload exactly as it
+ *  already survived a failed initial fetch. */
+interface FailedLoadSettleResult {
+  updateThreads: (prev: ChatThread[]) => ChatThread[];
+  stale: boolean;
+}
+
+function resetThreadsAfterFailedLoad(
+  startedOn: string | null,
+  liveThreadId: string | null,
+  projectId: string,
+): FailedLoadSettleResult {
+  if (liveThreadId !== startedOn) {
+    return { updateThreads: (prev) => prev.filter((th) => th.projectId === projectId), stale: true };
+  }
+  return { updateThreads: () => [], stale: false };
+}
+
 export function useChatThreads(deps: UseChatThreadsDeps) {
   // Destructured to locals because react-hooks/exhaustive-deps REJECTS an
   // `obj.member` dependency (AGENTS.md) — every effect below depends on these
@@ -275,41 +326,27 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         if (cancelled) return;
         setThreadsError(false);
         setLoadFailed(false);
-        if (threadIdRef.current !== startedOn) {
-          // MERGE, not bail. `loaded` cannot contain a thread minted after the
-          // fetch was issued, so assigning it verbatim would drop that row from
-          // the list, clobber `activeThreadId`, wipe history/display, and — via
-          // the threadIdRef sync effect seeing a change — abort the very send
-          // that minted it, making the user's message vanish from the UI while
-          // its row sat in Turso. Bailing outright would instead discard the
-          // server's OTHER threads, leaving the sidebar showing only the new
-          // one. So keep the locally-held rows (newest — they were created just
-          // now) ahead of the fetched ones, and leave the active thread and its
-          // history/display exactly as the adopting caller set them.
-          //
-          // ★★★ SCOPED TO THIS PROJECT. `prev` is whatever the previous project
-          // left behind — nothing resets it on a switch — so an unfiltered
-          // merge keeps ANOTHER project's rows in the sidebar and, since this
-          // branch does mark the list loaded, republishes them under this
-          // project's id. Every row carries the `projectId` it was minted or
-          // fetched under (`loadThreads` is per-project; ensureThreadForSend and
-          // the busy-persist effect both stamp it), so the ownership test is
-          // exact rather than heuristic.
-          setThreads((prev) => [
-            ...prev.filter(
-              (th) => th.projectId === projectId && !loaded.some((l) => l.id === th.id),
-            ),
-            ...loaded,
-          ]);
-          setLoadedProjectId(projectId);
-          return;
-        }
-        setThreads(loaded);
+        // MERGE, not bail, when something adopted a different thread while
+        // this fetch was in flight. `loaded` cannot contain a thread minted
+        // after the fetch was issued, so assigning it verbatim would drop
+        // that row from the list, clobber `activeThreadId`, wipe
+        // history/display, and — via the threadIdRef sync effect seeing a
+        // change — abort the very send that minted it, making the user's
+        // message vanish from the UI while its row sat in Turso. Bailing
+        // outright would instead discard the server's OTHER threads, leaving
+        // the sidebar showing only the new one. So keep the locally-held rows
+        // (newest — they were created just now) ahead of the fetched ones,
+        // and leave the active thread and its history/display exactly as the
+        // adopting caller set them. Scoped to THIS project — see
+        // mergeThreadsAfterLoad — since `prev` may hold whatever the previous
+        // project left behind (nothing resets it on a switch).
+        const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded);
+        setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
-        const next = loaded[0] ?? null;
-        setActiveThreadId(next?.id ?? null);
-        setHistory(next?.history ?? []);
-        setDisplay(next?.display ?? []);
+        if (settled.stale) return;
+        setActiveThreadId(settled.next?.id ?? null);
+        setHistory(settled.next?.history ?? []);
+        setDisplay(settled.next?.display ?? []);
       })
       .catch(() => {
         if (cancelled) return;
@@ -320,16 +357,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         // the just-minted row from the list outright while its save is already
         // on its way to Turso. A failed FETCH says nothing about a thread this
         // client just created, so leave it — and the send it belongs to — alone.
-        if (threadIdRef.current !== startedOn) {
-          // Same project scoping as the success branch's merge, and for the
-          // same reason: "leave the minted row alone" must not also mean
-          // "leave the PREVIOUS project's rows alone".
-          setThreads((prev) => prev.filter((th) => th.projectId === projectId));
-          setLoadedProjectId(projectId);
-          return;
-        }
-        setThreads([]);
+        const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId);
+        setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
+        if (settled.stale) return;
         setActiveThreadId(null);
         setHistory([]);
         setDisplay([]);
@@ -364,22 +395,34 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       return;
     }
     if (!tursoMode) return;
+    // Same mid-flight-mint guard as the mount-fetch effect (§148) — without
+    // it, a send begun between clicking Retry and this reload settling has
+    // ensureThreadForSend mint an id and move threadIdRef.current
+    // synchronously; the resolving reload's `loaded` cannot contain that row,
+    // so an unguarded settle here would drop it, move the active thread out
+    // from under the send, and (via the threadIdRef sync effect) abort it —
+    // wiping the user's just-sent message. Captured immediately before the
+    // fetch, exactly as the effect captures its own `startedOn`.
+    const startedOn = threadIdRef.current;
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
         setThreadsError(false);
         setLoadFailed(false);
-        setThreads(loaded);
+        const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded);
+        setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
-        const next = loaded[0] ?? null;
-        setActiveThreadId(next?.id ?? null);
-        setHistory(next?.history ?? []);
-        setDisplay(next?.display ?? []);
+        if (settled.stale) return;
+        setActiveThreadId(settled.next?.id ?? null);
+        setHistory(settled.next?.history ?? []);
+        setDisplay(settled.next?.display ?? []);
       })
       .catch(() => {
         setThreadsError(true);
         setLoadFailed(true);
-        setThreads([]);
+        const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId);
+        setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
+        if (settled.stale) return;
         setActiveThreadId(null);
         setHistory([]);
         setDisplay([]);

@@ -441,6 +441,106 @@ describe("useChatThreads — retryLoad re-issues EVERY failed write, not just th
 
 });
 
+// ---------------------------------------------------------------------------
+// §148: retryLoad's reload branch had NEITHER of the mount-fetch effect's
+// `startedOn` guards. The drop path: the initial fetch fails → pendingRetryRef
+// is empty (a failed FETCH has no write to replay — see retryLoad's own
+// comment) → Retry falls through to a fresh reload. A send begun between the
+// click and that reload settling calls ensureThreadForSend, which mints an id
+// and writes threadIdRef.current SYNCHRONOUSLY. The resolving reload's
+// `loaded` cannot contain that row, so the unguarded `setThreads(loaded)`
+// dropped it, `setActiveThreadId` moved the active id, and the threadIdRef
+// sync effect then aborted the in-flight send and wiped history/display —
+// the user's just-sent message vanished from the UI while its row sat in
+// Turso (or, on the .catch side, was never given a chance to save at all).
+// ---------------------------------------------------------------------------
+describe("useChatThreads — retryLoad's reload vs. a send that started first (§148)", () => {
+  it("a successful retry-reload merges under a thread minted mid-flight instead of replacing it", async () => {
+    loadThreadsMock.mockRejectedValueOnce(new Error("network down"));
+    const { result, setHistory, setDisplay } = renderChatThreads();
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+    // The initial failure's own catch branch already reset to the empty
+    // state (no mid-flight mint happened during the MOUNT fetch).
+    expect(result.current.activeThreadId).toBeNull();
+
+    let resolveRetry!: (threads: ChatThread[]) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((res) => {
+        resolveRetry = res;
+      }),
+    );
+    act(() => result.current.retryLoad());
+    // ★★★ VACUITY GUARD: confirms retryLoad reached the RELOAD branch (a
+    // pending-write retry would never call loadThreads again).
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+
+    // A send begins WHILE the retry-reload is in flight — mints a thread and
+    // moves threadIdRef.current SYNCHRONOUSLY, exactly as a real send does.
+    const sentHistory: ApiMessage[] = [{ role: "user", content: "in-flight" }];
+    const sentDisplay: DisplayItem[] = [{ kind: "user", text: "in-flight" }];
+    let mintedId: string | null = null;
+    act(() => {
+      mintedId = result.current.ensureThreadForSend(sentHistory, sentDisplay);
+    });
+    expect(mintedId).toEqual(expect.any(String));
+    // Only writes made AFTER the mint are this test's subject.
+    setHistory.mockClear();
+    setDisplay.mockClear();
+
+    resolveRetry([thread("t-server")]);
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+
+    // Positive control: the server's own thread is still present (a bail
+    // would have dropped it — this isn't merely "nothing got worse").
+    expect(result.current.threads.map((th) => th.id).sort()).toEqual(
+      [mintedId, "t-server"].sort(),
+    );
+    // The minted thread survives and stays active.
+    expect(result.current.activeThreadId).toBe(mintedId);
+    // The in-flight send's conversation is not reset out from under it, and
+    // the mid-flight-mint's own send is neither cancelled nor aborted.
+    expect(setHistory).not.toHaveBeenCalled();
+    expect(setDisplay).not.toHaveBeenCalled();
+  });
+
+  it("a FAILED retry-reload also leaves a thread minted mid-flight alone", async () => {
+    loadThreadsMock.mockRejectedValueOnce(new Error("network down"));
+    const { result, setHistory, setDisplay } = renderChatThreads();
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+    expect(result.current.activeThreadId).toBeNull();
+
+    let rejectRetry!: (reason: unknown) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((_res, rej) => {
+        rejectRetry = rej;
+      }),
+    );
+    act(() => result.current.retryLoad());
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+
+    let mintedId: string | null = null;
+    act(() => {
+      mintedId = result.current.ensureThreadForSend(
+        [{ role: "user", content: "in-flight" }],
+        [{ kind: "user", text: "in-flight" }],
+      );
+    });
+    expect(mintedId).toEqual(expect.any(String));
+    setHistory.mockClear();
+    setDisplay.mockClear();
+
+    rejectRetry(new Error("still down"));
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+
+    // Positive control: the minted row is still there — not merely "the list
+    // isn't empty for some unrelated reason".
+    expect(result.current.threads.map((th) => th.id)).toEqual([mintedId]);
+    expect(result.current.activeThreadId).toBe(mintedId);
+    expect(setHistory).not.toHaveBeenCalled();
+    expect(setDisplay).not.toHaveBeenCalled();
+  });
+});
+
 describe("useChatThreads — busy-persist effect: existing-thread name reuse", () => {
   // Stable across rerenders — see makeStableDeps' comment in the retry
   // describe block above for why fresh vi.fn()/ref identities per call would
