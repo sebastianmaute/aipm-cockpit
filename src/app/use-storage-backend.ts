@@ -123,6 +123,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // the two cannot be active at once (see that hook's header for why).
   const destructive = useDestructiveSaveGuard();
   const allowDestructiveSave = destructive.allowDestructiveSave;
+  // ★★★ THE COUNTS ACTUALLY ON DISK — as of the last COMMITTED save, or the last
+  // load/apply the suppress branch folded in. `syncBaselines` advances the guard
+  // BEFORE the debounced write, so a REJECTED write would otherwise leave the
+  // destroyed counts standing as "last committed". The `.catch` restores THIS.
+  const committedBaselineRef = useRef({ collections: 0, records: 0 });
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
   const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
 
@@ -412,6 +417,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (suppressNextSaveRef.current) {
       suppressNextSaveRef.current = false;
       destructive.syncBaselines(curCollections, curRecords); // sync baselines on a load/apply
+      // ★★ …and re-point the rejection rollback: without this a save rejecting
+      //   after a project SWITCH restores the previous project's counts onto the
+      //   new one, and if smaller a genuine wipe of it then passes unrefused.
+      committedBaselineRef.current = { collections: curCollections, records: curRecords };
       // ★★★ AND DROP ANY STANDING REFUSAL — a refusal is scoped to the workspace that
       //   raised it. The baselines it was measured against were just replaced one line up,
       //   so it now quotes magnitudes ("847 of 900 records") belonging to a project that is
@@ -501,6 +510,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // A single-collection full-empty L3 lets through — leave a forensic trail.
       recordDataLossEvent({ path: "save-effect", prevCollections: 1, nextCollections: 0, refused: false });
     }
+    // ★★★ BOTH RUN BEFORE THE WRITE; DEFERRING EITHER INTO `.then()` IS WRONG — a
+    //   rejection is undone in the `.catch` instead. Deferring `syncBaselines`
+    //   keeps the PRE-deletion baseline live across the debounce+latency window
+    //   (the arm is consumed at the top of this effect), so any edit inside it
+    //   re-runs unarmed, refuses, and the debounce cleanup cancels the very save
+    //   the user authorised. `clearRefusal` is already a no-op on that path —
+    //   `allowDestructiveSaveAnyway` clears the refusal ITSELF to re-run this effect.
     destructive.syncBaselines(curCollections, curRecords);
     destructive.clearRefusal(); // a committed save resolves any standing refusal
     // Fire-and-forget save with the effect's full error handling — the .catch
@@ -514,8 +530,24 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //    reason; do not call args.* directly here.
     const doSave = () => {
       backend.save(outgoing).then(() => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
+        committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
         emitOutcome(null);
       }).catch((err) => {
+        // ★★★ PUT THE BASELINES BACK — nothing was written, so the guard must not
+        //   believe the destroyed counts are stored. Left adopted they disarm the
+        //   lockout for good: the next save compares the destroyed workspace against
+        //   itself, cannot refuse, and leaves no banner and unwritten data.
+        //   Restoring re-evaluates the next save against what is genuinely on disk,
+        //   so the refusal is raised again. ★ NOT re-raised here — that needs a
+        //   setState from an async callback (§72) and would cancel any pending save.
+        //   ★★ COMPARE-AND-SWAP, since a later run or a load may have re-baselined
+        //   mid-flight onto a different workspace.
+        //   ★★ RESIDUAL: two saves overlapping in flight can still settle on a
+        //   never-written baseline — coordinating them is out of scope here.
+        const live = destructive.readBaselines();
+        if (live.collections === curCollections && live.records === curRecords) {
+          destructive.syncBaselines(committedBaselineRef.current.collections, committedBaselineRef.current.records);
+        }
         emitOutcome(err);
         logDiag("error", "storage.saveFailed", { message: String(err) });
         // Turso connectivity/auth failures show the persistent banner — skip the toast.
