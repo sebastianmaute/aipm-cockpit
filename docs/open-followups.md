@@ -525,6 +525,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | open |
 | [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss but not when a consumer closes it from an item's own handler | carved out of §146 on close, 2026-08-30 | M | open |
 | [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | open |
+| [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry | carved out of §235 on close, 2026-08-30 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -18101,10 +18102,34 @@ switch have neither an e2e nor any browser-level test of the round trip.
 
 **Status:** fixed 2026-08-30 on `fix/trend-numerator-and-audit-log` by `dd099c44` (the pure decision)
 · `cd4fdcc2` (the adopters) · `3e182c78` (the fifth, Jira, writer) · `9bf06d3b` (the census gate).
-Every path that writes a task's `status`/`completedDate` pair now decides whether that write was a
-completion or a reopening, through one pure helper `statusActivityKind` (`task-status.ts`), and logs
-the resulting `task.completed` / `task.reopened`. The helper compares DELIVERED-ness
-(`isTaskDelivered`), not CLOSED-ness — cancelling a task is not a completion.
+Every path that writes the pair **through `applyStatusChange` or `issueToTaskFields`** now decides
+whether that write was a completion or a reopening, through one pure helper `statusActivityKind`
+(`task-status.ts`), and logs the resulting `task.completed` / `task.reopened`. The helper compares
+DELIVERED-ness (`isTaskDelivered`), not CLOSED-ness — cancelling a task is not a completion.
+
+★★★ **THAT IS A POPULATION, NOT AN ABSOLUTE — this line said "Every path that writes a task's
+`status`/`completedDate` pair", and `docs/AGENTS/task-status.md` documents FIVE writers of that
+pair.** Two of the five are outside the fix, and they are outside it for different reasons, so read
+them separately:
+
+- **Undo/redo restore** — `runUndo` / `runRedo` in `use-undo-stack.ts` restore a before-image, and
+  `TASK_UNDO_GROUPS` carries `["status", "completedDate"]` as its FIRST group, so undoing a mark-done
+  restores both halves and genuinely flips delivered-ness. It logs `undo` / `redo` and never
+  `task.completed` / `task.reopened`. A real gap, filed as
+  [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open)
+  and deliberately NOT fixed on this branch.
+- **Template import** — `templates.ts` reaches the pair through `reconcileStatusFromDate`. That is
+  CREATION: there is no before-row, so there is no transition to classify. Defensibly exempt on
+  exactly the rationale `status-activity-census.test.ts` already records for `task-manager.tsx`'s
+  `handleCreateLinkedTask`, and therefore NOT filed.
+
+★★ **The census is structurally blind to both, and its own header now says so as a THIRD limitation**
+(it previously listed two, so a reader took a green run as covering all five). Neither writer spells a
+`WRITER_ANCHORS` pattern, and `writerFiles()` walks `src/app` NON-recursively, so `src/app/undo/` is
+never read at all — the anchors could be widened and that file would still be invisible. Reproduce the
+walk with `node -e "console.log(require('fs').readdirSync('src/app').includes('use-undo-stack.ts'))"`
+→ `false`, and the anchor gap with `grep -rn "statusActivityKind" src/app/undo/` → no match, exit 1.
+The achievement stands as a scope: five file-level writers adopted, and the two above did not.
 
 ★★ **THE TWO FENCED COMMANDS BELOW WERE ACCURATE WHEN WRITTEN AND ARE BOTH FALSE NOW.** Their
 readings are dated 2026-08-28 and are kept as the diagnosis; the current answers, re-run 2026-08-30,
@@ -23076,3 +23101,44 @@ that the names above exist, and the divergence needs a note past a cap to appear
 feeding one fixture through `sanitizeNoteLog` and `sanitizeSeedNoteLog` and asserting where they agree
 and where they do not is the only detector this will ever have — and it should PIN the difference as
 intended, not assert it away.
+
+## 299. Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry — open
+
+**Status:** open — **never machine-verified**. Nothing here has been EXECUTED; every reading below is
+of the call path, taken from the source on 2026-08-30 with these three commands:
+`grep -n -A 3 "export const TASK_UNDO_GROUPS" src/app/undo/field-groups.ts` (prints
+`["status", "completedDate"]` as the first group), `grep -rn "statusActivityKind" src/app/undo/` (no
+match, exit 1) and `grep -c 'logActivity("undo"\|logActivity("redo"' src/app/undo/use-undo-stack.ts`
+(prints 4 — the four log sites, all of which write `undo`/`redo` and nothing else). No committed test
+drives a mark-done through undo and asserts on what was logged.
+
+Carved out of
+[§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30)
+on close, 2026-08-30, when a cold review found that entry's Status line claiming "every path" over a
+five-writer population it covered four fifths of.
+
+**The gap.** `TASK_UNDO_GROUPS` pairs `status` with `completedDate`, so an undo restores both halves
+together — which is correct, and is what makes this a real transition rather than a partial write.
+Undo a mark-done and the task stops being delivered; redo it and it is delivered again. Both are
+transitions with a genuine before and after in hand, and both currently produce an `undo` / `redo`
+row and no `task.completed` / `task.reopened`.
+
+★★ **Two consequences, and the second is the one that is easy to miss.** The audit log loses the
+transition, which is the obvious half. The completion-trend SERIES can also move: both kinds are
+members of `COUNT_KINDS`, which decides which days SEED a point, so an undo that restores a task to
+undelivered leaves that day unseeded where the original completion seeded one. The NUMERATOR is safe
+either way — `deliveredBy` reduces over `tasks[].completedDate`, which the restore rewrites — so this
+is a missing point, never a wrong percentage.
+
+★★★ **Why it is NOT simply "call `statusActivityKind` in the runners".** The undo stack's log line is
+already load-bearing arithmetic: `logActivity("undo", count, ...reversedKindCounts(...))` feeds
+`reversedForwardDelta`, the THIRD delta shape in `completion-trend.ts` (neither `COUNT_KINDS` nor
+`BULK_TOTAL_KINDS` — see `docs/AGENTS/activity-log.md`). Emitting a second, separate
+`task.completed` / `task.reopened` row beside it would make the same restore count once through the
+reversal arithmetic and once through the ±1 arithmetic. Whatever the fix is, it has to decide which
+of the two owns the day, and a test has to pin that decision — this is a design question, not a
+missing call.
+
+★ **Not detectable by the census, at any anchor.** `status-activity-census.test.ts` walks `src/app`
+with a NON-recursive `readdirSync`, so `src/app/undo/` is never opened; widening `WRITER_ANCHORS`
+alone would not reach it. Its header records this as its third stated limitation.

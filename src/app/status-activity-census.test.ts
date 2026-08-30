@@ -18,6 +18,27 @@
 //     `await backend.load()` with a facade helper, the load site vanished from
 //     its scan, and it only went red because the ratio it counts happened to
 //     go unbalanced. A rename here has no ratio to save it.
+//   - ★★★ IT DOES NOT SEE THE WHOLE WRITER POPULATION, and this list used to
+//     stop one bullet above, so a green run read as covering all of it.
+//     `docs/AGENTS/task-status.md` documents FIVE writers of the
+//     status/completedDate pair. WRITER_ANCHORS spells TWO of them, and
+//     `writerFiles()` walks APP_DIR with a NON-RECURSIVE readdirSync, so a
+//     whole subdirectory of writers is invisible — widening the anchors alone
+//     would not reach it. The two outside are:
+//       * Undo/redo restore (runUndo/runRedo in src/app/undo/use-undo-stack.ts).
+//         TASK_UNDO_GROUPS pairs "status" with "completedDate" as its FIRST
+//         group, so an undo of a mark-done restores both halves and genuinely
+//         flips delivered-ness; it logs "undo"/"redo" and no transition. A real
+//         gap, filed as open-followups 299 — NOT exempt, just unreached.
+//       * Template import (templates.ts -> reconcileStatusFromDate). Creation,
+//         with no before-row and therefore no transition to classify —
+//         defensibly exempt on the same rationale the EXEMPT map records for
+//         task-manager.tsx, which is why it is not filed.
+//     Reproduce the non-recursive walk (prints `false`, while the file exists):
+//       node -e "console.log(require('fs').readdirSync('src/app').includes('use-undo-stack.ts'))"
+//       ls src/app/undo/use-undo-stack.ts
+//     and the anchor gap with `grep -rn "statusActivityKind" src/app/undo/`
+//     (no match, exit 1).
 //   - It gates the AUDIT LOG only — but do NOT read that as "a miss here can
 //     never move a metric", which is what this bullet used to say and is false.
 //     The completion-trend NUMERATOR is safe: `deliveredBy` reduces over
