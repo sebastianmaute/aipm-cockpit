@@ -525,6 +525,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | open |
 | [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss but not when a consumer closes it from an item's own handler | carved out of §146 on close, 2026-08-30 | M | open |
 | [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | open |
+| [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--open) | The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch | found 2026-08-30, fixing the DE wipe phrase | M | open |
+| [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--open) | Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap | found 2026-08-30, fixing the DE wipe phrase | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -22946,3 +22948,74 @@ that the names above exist, and the divergence needs a note past a cap to appear
 feeding one fixture through `sanitizeNoteLog` and `sanitizeSeedNoteLog` and asserting where they agree
 and where they do not is the only detector this will ever have — and it should PIN the difference as
 intended, not assert it away.
+## 300. The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch — open
+
+**Status:** open — the strings and every call site were read on 2026-08-30 with
+`grep -n "typeToConfirmPrompt:" src/app/i18n.ts src/app/i18n.de.ts` and
+`grep -rn "confirmValue=" src/app --include=*.tsx | grep -v "\.test\."` (six sites), and the
+comparison with `sed -n '36,40p' src/app/type-to-confirm-dialog.tsx`. The RENDERED sentence has never
+been exercised — no test or manual pass has read the prompt in either language, so the ambiguity
+below is derived from the strings, not observed.
+
+`TypeToConfirmDialog` interpolates the phrase into one prompt with no delimiters around it:
+
+- EN `i18n.ts` — `typeToConfirmPrompt: "Type {0} to confirm"`
+- DE `i18n.de.ts` — `typeToConfirmPrompt: "Geben Sie {0} zur Bestätigung ein"`
+
+With 0.26x's `storageDestructiveWipeConfirmValue` the German prompt reads *"Geben Sie ja, diese
+Löschung speichern zur Bestätigung ein"*. German is the worse case for a structural reason, not a
+stylistic one: the separable prefix **ein** lands immediately after the phrase, so the sentence does
+not visibly end where the phrase does, and the phrase itself contains a comma. EN has a milder
+version of the same question ("... this wipe to confirm" — is "to confirm" part of it?).
+
+★★ This was tolerable while every phrase was short and English. It became material when the
+recoverable-destructive-refusal slice added the repo's FIRST localised phrase — four words with an
+internal comma — so the entry is filed against the change that made it visible, not against the
+primitive's age.
+
+★★★ **The second half is what turns a near-miss into a dead end, and it is the half worth fixing
+first.** `matched` is bare `typed === confirmValue` — no trim, no case folding, no Unicode
+normalisation — and it gates only `disabled={!matched}`. There is no error text, no hint, and no copy
+button. A user who mistypes by one character sees a button that never enables and is told nothing.
+That is exactly how the German capitalisation defect (fixed in that slice by capitalising the noun)
+presented: not as a rejection, but as a control that appeared broken.
+
+**Why it was not fixed there.** Quoting the placeholder changes the rendered text at all six call
+sites, every one of which is a destructive confirm gate, and the finding landed mid-way through a fix
+round — this repo's highest-risk commit class. Adding mismatch feedback is a larger change to a
+shared primitive and wants its own review. ★★★ **Do NOT fix this by loosening the comparison**: two
+call sites type-to-confirm a raw project NAME (`project-empty-state.tsx`, `projects-panel.tsx`), where
+case folding would let a lowercased name match a differently-cased one — precisely the near-miss the
+gate exists to catch.
+
+## 301. Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap — open
+
+**Status:** open — enumerated on 2026-08-30 by
+`grep -rn "confirmValue=" src/app --include=*.tsx | grep -v "\.test\."`, which prints all six sites
+and is the reproduce command for the split below. Never machine-verified in the sense that matters:
+no test asserts any of these phrases in a non-EN locale, and no German pass has been run against them.
+
+Of the six `confirmValue=` call sites, exactly one is localised — the one the
+recoverable-destructive-refusal slice added (`notifications.tsx`, via
+`t(lang, "storageDestructiveWipeConfirmValue")`). Two correctly are not: they pass a project's own
+NAME, which must not be translated. The remaining three are hardcoded English:
+
+| Site | Phrase | Localisable by a string swap? |
+|---|---|---|
+| `CLEAR_TASKS_CONFIRM_PHRASE` in `tasks-section.tsx` | "yes, clear all tasks" | yes — a module constant |
+| `RESET_CONFIRM_PHRASE` in `settings-sections/general-section.tsx` | "yes, reset everything" | yes — a module constant |
+| the bulk-delete `confirmValue` in `tasks-section.tsx` | an inline template literal reading "delete N tasks" | **no** |
+
+★★ The third is what makes this more than a translation chore. It is built at render time from the
+selection count, so it is not merely un-translated but un-translat**able** by substitution: German
+needs plural agreement and a different word order, which a positional placeholder inside a phrase the
+user must type CHARACTER-FOR-CHARACTER cannot express safely. Whatever form it takes has to be stable
+enough to copy, which rules out anything concatenated at render time.
+
+**Consequence today.** A German user must type English at all three surfaces — clearing all tasks,
+bulk-deleting tasks, and resetting the application — while the destructive-save wipe gate is in
+German. That inconsistency is itself a hazard: the one gate that reads as localised teaches the user
+to expect localisation at the other three.
+
+★ Related: §300 covers the prompt these phrases are rendered into, and the absence of any feedback
+when what the user typed does not match.
