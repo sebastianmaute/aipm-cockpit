@@ -3812,7 +3812,7 @@ export const de: Record<TranslationKey, string> = {
   storageDestructiveConfirmSaveAnyway: "Diese Datensätze entfernen",
   storageDestructiveWipeConfirmTitle: "Diese vollständige Löschung speichern?",
   storageDestructiveWipeConfirmBody: "Damit werden alle Datensätze des Projekts entfernt. Falls Sie das nicht ausgelöst haben, laden Sie die Seite neu - Ihre gespeicherten Daten sind intakt.",
-  storageDestructiveWipeConfirmValue: "ja, diese löschung speichern",
+  storageDestructiveWipeConfirmValue: "ja, diese Löschung speichern",
   storageDestructiveWipeSaveAnyway: "Diese vollständige Löschung speichern",
   storageRefusedWipe: "Das Speichern ist pausiert - eine große Löschung wurde zurückgehalten. Prüfen Sie sie im Hinweis oben, oder laden Sie die Seite neu, um Ihre gespeicherten Daten wiederherzustellen.",
   historyRestoreNothing: "Nichts wiederherzustellen — diese Version unterscheidet sich nicht vom aktuellen Projekt (möglicherweise ein leerer Snapshot).",
