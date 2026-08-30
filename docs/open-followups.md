@@ -526,7 +526,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler — open | carved out of §146 on close, 2026-08-30 | M | open |
 | [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence — open | carved out of §286 on close, 2026-08-30 | M | open |
 | [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry — open | carved out of §235 on close, 2026-08-30 | M | open |
-| [§304](#304-every-export-section-header-is-a-raw-field-key-not-a-display-label) | Every export section header is a raw field key, not a display label | — | — | open |
+| [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label) | Every export section header is an untranslated raw string, not a display label | — | — | open |
 | [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates) | Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates | — | — | open |
 | [§308](#308-controlnames-and-the-collision-helpers-built-on-it-are-blind-to-three-parts-of-the-real-accessible-name) | `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name | — | — | open |
 <!-- INDEX:END -->
@@ -2025,16 +2025,22 @@ task-side comment documents, and it wants its own entry.
 **(b) `noteLog` exported as a raw JSON blob into the document formats — FIXED 2026-08-31.** `noteLog` is a
 `CSV_COLUMNS` entry (`csv-codecs-core.ts` returns `encodeNoteLog(...)`), and `export-sections.ts` maps every
 CSV column through `richCell` — where `noteLog` is correctly NOT a rich column.
-★★★ **CORRECTED — the surface was three registers and five surfaces, not the "task or RAID row" into
-"the PDF/DOCX/XLSX/PPTX tables" this entry said.** Changes carry a `noteLog` too (the same carry (a) above
-credits to §168), so it is three registers, not two; and `doc-data-section.ts`'s `resolveDataSection` is a
-SECOND consumer of `buildExportSections` — used by `doc-render-html.ts`, `doc-render-docx.ts` and
-`doc-render-pptx.ts` for a document's own embedded data sections — so the raw blob reached five surfaces
-(the four export formats plus a document's embedded table), not four.
+★★★ **CORRECTED — the surface was three registers and BOTH consumers of `buildExportSections`, not the
+"task or RAID row" into "the PDF/DOCX/XLSX/PPTX tables" this entry said.** Changes carry a `noteLog` too
+(the same carry (a) above credits to §168), so it is three registers, not two. And there are exactly two
+non-test consumers of `buildExportSections`: `export.ts` (workspace export — the four document formats
+`pdf`/`docx`/`xlsx`/`pptx`; the other two `ExportFormat` members, `csv` and `md`, take the codec path and
+never reach it) and `doc-data-section.ts`'s `resolveDataSection`, which serves a document's own embedded
+data sections and is imported by `doc-render-html.ts`, `doc-render-docx.ts` and `doc-render-pptx.ts`.
+★★ **NO SURFACE COUNT IS QUOTED HERE, AND RESTORING ONE IS A REGRESSION.** This said "five surfaces",
+which counted the export formats PER FORMAT but a document's embedded data ONCE, despite that half having
+three renderers of its own — the same population comes to 7 counted per renderer and 2 counted per data
+path. Nothing downstream depends on the number. Enumerate instead:
+`grep -rn "buildExportSections" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`.
 ★ Fixed by `projectNoteLog` (`export-sections.ts`), called from the tasks/RAID/changes section builders in
 place of the raw field: one `author · date · text` line per entry, read directly off the entity's own
 `noteLog` array (no `encodeNoteLog`/`decodeNoteLog` round trip, so no DOM dependency). Because both
-consumers share `buildExportSections`, the one change closes all five surfaces at once. `.text`, never
+consumers share `buildExportSections`, the one change closes every one of those surfaces at once. `.text`, never
 `.html`, is what feeds the cell, so no markup can reach a flat XLSX/PPTX table. Storage (CSV/Markdown/Turso)
 is untouched — that round trip stays the `encodeNoteLog` JSON blob, which is correct and byte-pinned.
 ★ Pre-existing since 0.196.0 and outside the rich-column mechanism 0.210.0 fixed.
@@ -6051,8 +6057,14 @@ mounts make a literal id a collision risk. Reproduce:
 
 ```bash
 grep -rn "<AiSection" src/app --include=*.tsx | grep -v "\.test\."   # four mount surfaces
-grep -n "role=\"group\"" src/app/settings-sections/ai-section.tsx    # both named groups, sibling + fix
+grep -n "role=\"group\"" src/app/settings-sections/ai-section.tsx    # THREE hits, see below
 ```
+★ That second grep returns **three** lines, not the two named groups — one of them is a JSX comment
+quoting the attribute to explain why the sibling block is a group and not an `<h3>`. Read the hits: the
+two markup hits are the `<div>` carrying `aria-labelledby={aiHeadingId}` (this fix) and the one carrying
+`aria-labelledby={behaviourHeadingId}` (the 2026-08-08 sibling). Narrowing the pattern to dodge the
+comment would only move the trap — the comment is worth reading, and a self-matching grep is a hazard
+this file records elsewhere.
 ★ Visual rhythm is preserved — the moved classes (`text-sm font-medium text-foreground`) land on the new
 `<p>` unchanged, so no eye-verification pass was needed for this same-classes wrapper change.
 
@@ -20925,13 +20937,25 @@ two**, so a row naming a field its records do not carry compiles, ships, and pro
 `recordLabel`'s `#${id}` fallback is the only symptom, and it looks like a record that merely has
 no name.
 
-**Five of sixteen shipped that way** and were repaired by this slice: `tasks`/`title`,
+**Five shipped that way** and were repaired by this slice: `tasks`/`title`,
 `resources`/`name`, `roles`/`name`, `absences`/`reason`, `shifts`/`label`. Every task, resource,
 role, absence and shift change in every version diff was labelled `#id`. Three were fixable by
 rename (`tasks`→`taskName`, `absences` and `shifts`→`note`); two were not — a resource composes
 two fields and a role needs a cross-slice lookup into `disciplines` and `grades` — so an optional
 `nameOf(rec, ws)` was added beside `nameField`, and `diffList` now receives BOTH workspaces so a
 REMOVED record resolves its name against the older one.
+
+★ **The denominator this sentence used to carry ("five of sixteen") was already wrong when written and
+is not worth restating.** `COLLECTION_SPECS` holds **17** `kind: "list"` specs out of 24 spec objects
+today, and held the same 17 at this branch's merge base — every one of the 17 now carries a `nameField`
+or a `nameOf`. ★★ A bare `grep -c 'kind: "list"'` reports **21**, because four of this registry's own
+comments quote the string; the file's docstring says to settle this by READING the array, and that is
+what the anchored form below does:
+
+```bash
+grep -c '^  { key: ' src/app/version-diff.ts                 # 24 spec objects
+grep -c '^  { key: .*kind: "list"' src/app/version-diff.ts   # 17 of them are lists
+```
 
 Measure the repair against the curated sample workspace:
 
@@ -23184,29 +23208,43 @@ missing call.
 with a NON-recursive `readdirSync`, so `src/app/undo/` is never opened; widening `WRITER_ANCHORS`
 alone would not reach it. Its header records this as its third stated limitation.
 
-## 304. Every export section header is a raw field key, not a display label
+## 304. Every export section header is an untranslated raw string, not a display label
 
 **Status:** open — never machine-verified by a committed probe. Found 2026-08-31 while fixing §36(b).
 
 `ExportSection.columns` (`export-sections.ts`) is commented `string[]; // header row (display
-labels)`, but every `*Section` builder assigns it directly from the entity's `*_CSV_COLUMNS` constant
-— `Array<keyof Task>` and its siblings in `csv-codecs-core.ts` — with no translation pass. So a PDF,
-DOCX, XLSX or PPTX export table renders raw storage field names as its column headers: `noteLog`,
-`dueDate`, `taskName`, and so on, for every register the exporter serves (tasks, RAID, milestones,
-changes, stakeholders, budgets, resources, roles, absences, shifts). Reproduce:
+labels)`, and NOT ONE builder puts a translated label there. So a PDF, DOCX, XLSX or PPTX export table
+renders untranslated raw strings as its column headers, in EN and DE alike.
+
+★★★ **THE DEFECT GENERALISES; THE MECHANISM DOES NOT — and this entry prescribed a mechanism-shaped
+fix that would silently miss a third of the sections.** Measured 2026-08-31: fifteen builders return an
+`ExportSection`; **ten** take `columns` from a CSV-columns constant (`CSV_COLUMNS` for tasks, the
+`*_CSV_COLUMNS` siblings in `csv-codecs-core.ts` for RAID, milestones, changes, stakeholders, budgets,
+resources, roles, absences, shifts) — those really do render storage field names, `noteLog` / `dueDate`
+/ `taskName` and the rest. The remaining **five** hand-write a literal array and are outside that
+mechanism entirely: `projectSection` and `statusSection` (`["field", "value"]`), `knowledgeItemsSection`,
+`insightsSection` and `calendarEventsSection`. They are just as untranslated, but a `keyof Task ->
+TranslationKey` map family cannot reach them — and `calendarEvents`' `"first occurrence"` is not a field
+key at all, so there is nothing for such a map to key on. Reproduce the split:
 
 ```bash
-grep -n "columns: string\[\]" src/app/export-sections.ts
-grep -n "const columns = .*_CSV_COLUMNS as unknown as string\[\]" src/app/export-sections.ts
+grep -cE "^function [a-zA-Z]+Section\(" src/app/export-sections.ts   # 15 builders
+grep -c "^  const columns = " src/app/export-sections.ts             # 10 from a CSV-columns constant
+grep -n  "columns: \[" src/app/export-sections.ts                    #  5 hand-written literals
 ```
+
+★ The narrower `grep -n "const columns = .*_CSV_COLUMNS as unknown as string\[\]"` this entry used to
+carry returns **9**, not the ten registers it listed beside it: `tasksSection` reads the UNPREFIXED
+`CSV_COLUMNS`. Use the anchored `^  const columns = ` form above, which catches all ten.
 
 Deliberately out of scope for the §36(b) fix (`projectNoteLog`, this same release): that fix projects
 one COLUMN's raw VALUE to readable text, and translating one column's HEADER while every sibling
-header in the same row stays a raw field key would read as more broken, not less — a reader would see
-one polished label beside nine raw ones and have no way to tell whether the rest were an oversight or
-a different kind of field. The fix here is a full pass, presumably a `keyof Task -> TranslationKey`
-map per entity (mirroring the `*_CSV_COLUMNS` module maps AGENTS.md already tracks for a new column),
-not a per-column patch.
+header in the same row stays raw would read as more broken, not less — a reader would see one polished
+label beside nine raw ones and have no way to tell whether the rest were an oversight or a different
+kind of field. The fix here is a full pass, and it needs BOTH shapes: a per-entity field-key → label
+map for the ten (mirroring the `*_CSV_COLUMNS` module maps AGENTS.md already tracks for a new column),
+plus five hand-written header lists translated one string at a time. A fix that ships only the first
+half leaves a third of the sections untouched while every gate stays green.
 
 ## 305. Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates
 
@@ -23217,10 +23255,19 @@ this affects. Pre-existing and general — not introduced by that fix.
 
 `version-diff-view.tsx` renders `{c.recordLabel}` bare in BOTH layouts, while the occurrence-numbered
 token `buildRowTokens` mints reaches only the `aria-label` (via `rowLabel`, at every per-row control in
-both layouts). Before §271's fix the five already-repaired slices — `tasks`/`resources`/`roles`/
-`absences`/`shifts` — were unique BY CONSTRUCTION, because `#id` is unique; naming a slice by a real
-field makes it collidable, so two records sharing that field's value now render two visually identical
-rows. A screen-reader user hears "(1)" and "(2)"; a sighted user gets nothing to tell the rows apart.
+both layouts). While a slice had no working `nameField`, its rows were unique BY CONSTRUCTION, because
+the `#id` fallback is unique; naming a slice by a real field makes it collidable, so two records sharing
+that field's value now render two visually identical rows. A screen-reader user hears "(1)" and "(2)"; a
+sighted user gets nothing to tell the rows apart.
+
+★ **Two separate enlargements, two commits — do not fold them into one.** The five slices §271 names
+(`tasks`/`resources`/`roles`/`absences`/`shifts`) became collidable in the version-restore-residue
+slice, at commit `ccb6d598` (2026-08-26, "repair five nameFields that named a field no record carries").
+§271's own fix — recorded in its Status as 2026-08-31, landed at commit `6f5c473d` (2026-08-30) — added
+`nameField: "title"` to `documentVersions` ALONE, enlarging the population by one further slice. An
+earlier revision of this paragraph re-dated the first five to the second event, contradicting the Status
+line directly above it. Re-derive both with
+`git log --format='%h %ad %s' --date=short -S'nameField: "taskName"' -- src/app/version-diff.ts`.
 
 ★ **The obvious precedent does NOT cover the visible half, and reading it as if it did would ship the
 wrong fix.** `documents-deleted-section.tsx`'s ` · #id` suffix is in that row's **`aria-label` only**;
@@ -23258,10 +23305,91 @@ names (`.replace(/\s+/g, " ")`) before comparing, while the actual collision cou
 builds its `Map` from the RAW, uncollapsed strings. So a suite can be blind to a real collision while
 satisfied it staged one.
 
-★★ **Include this sentence, it bounds the blast radius:** the error direction is UNDER-reporting only,
-never over-reporting, so no currently-green test is invalidated and this slice's Task 4 and Task 5 reds
-were genuine (5 and 7 real collisions). A reader who lacks that sentence has to re-audit every adopting
-test.
+★★★ **THE ERROR DIRECTION IS DIVERGENCE- AND CALL-SITE-DEPENDENT — BOTH UNDER- AND OVER-REPORTING ARE
+REACHABLE, and an over-report is a false RED against conformant code.** An earlier revision of this
+entry bounded the blast radius as "UNDER-reporting only, never over-reporting"; two of the three
+divergences above run the other way. `title` is DROPPED by the helper but is accname's last resort, so
+two icon-only buttons carrying DIFFERENT `title`s both read `""` here and MERGE. `aria-labelledby` is
+ignored by the helper but OUTRANKS `aria-label` in accname, so the helper reads a name the real
+computation never produces — again a possible merge of names that genuinely differ.
+
+★★★ **AND DO NOT REDUCE THAT TO "`aria-hidden` under-reports, the other two over-report" — that is the
+same mistake one level down.** `<button><span aria-hidden>Foo</span>Bar</button>` beside
+`<button>Foo<span aria-hidden>Bar</span></button>` gives EQUAL helper names (`"FooBar"`) and DIFFERENT
+real names (`"Bar"` and `"Foo"`) — an over-report from the `aria-hidden` divergence alone. That shape is
+unreachable in `report-table.tsx`'s header button, where the label is first and the glyph last, which is
+exactly the point: direction is a property of the CALL SITE, not of the divergence.
+
+★ **"No currently-green test is invalidated" still holds — but because over-reports are REDS, not
+because the error is one-directional.** A helper that merges two names which really differ turns a
+conformant test red; it cannot turn a broken one green. Under-reporting is the half that passes
+silently.
+
+★★ **This slice's Task 4 and Task 5 reds ARE genuine, and BOTH halves of the reason are needed — each
+alone rests on less than it needs.**
+
+**(1) The equality argument.** A red means the helper's names were EQUAL, so the only question is
+whether equal helper names can accompany different real names.
+
+- Task 5 (`raid-report-panel.tsx` / `resources-report.tsx` sortable headers): pre-fix the header button
+  carried no `aria-label`, so the helper name is `label` + the sort indicator while the real name is
+  `label` alone (the indicator span is `aria-hidden`). `SortHeaderButton` (`report-table.tsx`) renders
+  that indicator LAST and draws it from `{"", " ↑", " ↓"}`, and no column label ends in either glyph —
+  so equal helper names force equal indicators, hence equal labels, hence equal real names.
+- Task 4 (`projects-panel.tsx` archived rows): pre-fix the Restore / Delete-permanently buttons carried
+  no `aria-label` and no `aria-hidden` descendant, so the helper name is the raw `textContent`. Raw
+  equality implies whitespace-collapsed equality, so the helper's missing collapse cannot invent a match.
+
+**(2) The discharged proviso.** (1) holds only while no control in scope contains a descendant that
+contributes to the accessible name but NOT to `textContent` — a descendant `aria-label`, an `<img alt>`,
+an `<input value>`, or `::before`/`::after` generated content. Checked across all controls in all three
+renders on 2026-08-31: CLEAN. Three candidates turned up and each is harmless for a DIFFERENT reason,
+which is why all three are recorded — a later reader who finds a `role="img"` inside a button needs to
+know WHICH fact makes it safe:
+
+- `rag-badge.tsx`'s `RagBadge` (`role="img"` + `aria-label`) IS rendered by `resources-report.tsx`, in
+  the By-Period margin column — but inside a `<td>`, not inside any `button`-role element.
+- `report-table.tsx`'s `KpiGradientBar` (`role="img"` + `aria-label`) CAN reach a button: `Tile` renders
+  its `bar` slot inside the `<button>` it emits when `onActivate` is passed. None of the three panels
+  passes `bar`, `rag` or `onActivate`, so it is absent from all three trees — and where it does render,
+  that button carries its own `aria-label`, which outranks content in accname and is also what the
+  helper reads.
+- `report-table.tsx`'s `TableFilter` `<input>` renders in all three. It is a SIBLING of
+  `ClearableSearchInput`'s overlaid clear button, never a descendant of one.
+
+★ **One inferential step, stated rather than hidden.** The reds were observed PRE-fix; this check was
+run against the CURRENT tree. The only source delta on those three files is ADDED accessible names — a
+direct `aria-label` on the two archived-row buttons, and `nameContext` (which `SortHeaderButton` turns
+into an `aria-label`) on the report headers — which makes helper and accname agree MORE and introduces
+no accname-only descendant. Clean-now therefore implies clean-pre-fix a fortiori. That is reasoning, not
+a measurement.
+
+★★ **The scope is EVERY `button`-role control in the rendered document, not the pair each red named.**
+None of the three call sites passes `scope`, so `controlNames` queries the whole document: the measured
+`minControls` floors are 11 (`projects-panel.test.tsx`), 29 (`raid-report-panel.test.tsx`) and 46
+(`resources-report.test.tsx`). That is why the proviso had to be discharged over every control rather
+than over the colliding ones.
+
+Re-derive the proviso rather than trusting the paragraph above — list the raw-DOM candidates in the four
+files, then the components those panels render that contribute a name of their own:
+
+```bash
+# (1) raw DOM in the three panels + the shared table module
+grep -n '<img\|role="img"\|<input\|alt=' \
+  src/app/projects-panel.tsx src/app/raid-report-panel.tsx src/app/resources-report.tsx src/app/report-table.tsx
+# (2) ★★ THAT GREP IS BLIND TO A COMPONENT THAT CONTRIBUTES ONE — `<RagBadge>` carries its role="img"
+#     in rag-badge.tsx, so the panel it renders in shows no hit. Cross the app-wide list against each
+#     panel's own component tags:
+grep -rn 'role="img"' src/app --include=*.tsx | grep -v test
+for f in projects-panel raid-report-panel resources-report; do
+  echo "== $f"; grep -o '<[A-Z][A-Za-z]*' src/app/$f.tsx | sort -u; done
+# (3) generated content
+grep -n -B3 'content:' src/app/globals.css
+```
+
+For every hit the judgement step is the same, and it is the whole check: decide whether it renders
+INSIDE a `button`-role element in one of these three trees. A hit inside a `<td>`, a `<th>` or a plain
+wrapper cannot affect any control's name.
 
 ★ The fix is its own slice: computing the real name (e.g. `dom-accessibility-api`, already transitive
 via testing-library — `toolbar-order.ts`'s own docstring records why a bare import is unsafe today, see
