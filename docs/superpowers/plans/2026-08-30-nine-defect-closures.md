@@ -734,8 +734,17 @@ Expected after the fix: no output.
 
 - [ ] **Step 4: File two new entries for the deferred items**
 
-Mint numbers ONLY against `origin/main` (`git fetch origin` first) — a register number is reserved
-only once it is there.
+**Start at §304.** ★★ The register's own rule is that a number is reserved only once it is on
+`origin/main`, and by that rule §300–303 are free — but a concurrent session holds them on the
+unmerged branch `fix/recoverable-destructive-refusal`, so minting them here guarantees a conflict on
+whichever branch merges second. Two branches in this repo have already collided this way. Verified
+directly against the shared object store, not taken on trust:
+```bash
+git show fix/recoverable-destructive-refusal:docs/open-followups.md | grep -E "^## 30[0-9]\."
+```
+★ Re-run that before minting — if that branch has merged by then, `origin/main` is the authority and
+the next free number may be higher still. Skipping ahead costs nothing; colliding costs a rebase of
+a register conflict on both the table and the entry body.
 1. Export section headers are raw field keys (`noteLog`, `dueDate`) while `ExportSection.columns`
    documents itself as "display labels". Affects every register section.
 2. Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible
