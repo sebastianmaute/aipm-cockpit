@@ -803,3 +803,70 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
     expect(restored?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
   });
 });
+
+/** open-followups §235: the inline status `<select>` and the Kanban swimlane drop
+ *  are the two fastest ways to complete a task, and neither wrote an activity
+ *  entry — while pressing Undo on that same change DID write one ("undo").
+ *
+ *  ★★ MUTATION-PROVED PER ROUTE, and the two routes were mutated SEPARATELY so
+ *  each positive block is evidence for its OWN call site. Observed:
+ *  - Mutant E (delete the `statusActivityKind` pair from `onStatusChange` only):
+ *    the two inline-select blocks FAILED; the swimlane block PASSED.
+ *  - Mutant F (delete it from `onSwimlaneDrop` only): the swimlane block FAILED;
+ *    both inline blocks PASSED.
+ *  The "writes no transition entry" block passed under BOTH mutants and against
+ *  the unfixed code — that is what makes it a control rather than evidence: it
+ *  only becomes meaningful once the three positive blocks are green. */
+describe("useTaskRowHandlers — status transitions reach the activity log", () => {
+  it("logs a completion when the inline select moves a task to Done", () => {
+    const logActivity = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1, status: "In Progress" })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ logActivity, tasksRef })),
+    );
+    act(() => result.current.onStatusChange(1, "Done"));
+    expect(logActivity).toHaveBeenCalledWith("task.completed", 1, "Test task");
+  });
+
+  it("logs a reopening when the inline select moves a task off Done", () => {
+    const logActivity = vi.fn();
+    const tasksRef = {
+      current: [makeTask({ id: 1, status: "Done", completedDate: "2030-01-01" })],
+    };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ logActivity, tasksRef })),
+    );
+    act(() => result.current.onStatusChange(1, "In Progress"));
+    expect(logActivity).toHaveBeenCalledWith("task.reopened", 1, "Test task");
+  });
+
+  it("writes no transition entry when delivered-ness does not change", () => {
+    // Positive control: without it, a handler that logged nothing at all would
+    // satisfy this block, and the two above would be the only evidence.
+    const logActivity = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1, status: "To Do" })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ logActivity, tasksRef })),
+    );
+    act(() => result.current.onStatusChange(1, "In Progress"));
+    expect(logActivity).not.toHaveBeenCalledWith("task.completed", 1, "Test task");
+  });
+
+  it("logs a completion when a swimlane drop moves a task to Done", () => {
+    const logActivity = vi.fn();
+    const tasksRef = {
+      current: [makeTask({ id: 1, status: "To Do", assignee: "", resourceId: undefined })],
+    };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ logActivity, tasksRef })),
+    );
+    act(() =>
+      result.current.onSwimlaneDrop(
+        1,
+        { key: "res:7", label: "Anna Jordan", resourceId: 7 },
+        "Done",
+      ),
+    );
+    expect(logActivity).toHaveBeenCalledWith("task.completed", 1, "Test task");
+  });
+});

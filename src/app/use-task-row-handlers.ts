@@ -10,7 +10,7 @@ import { sanitizeRichHtml } from "./sanitize-html";
 import { plainTextToHtml, type CommSendRequest } from "./comm-send";
 import { greetingName } from "./contacts";
 import { loadJiraApi } from "./use-jira-sync";
-import { applyStatusChange } from "./task-status";
+import { applyStatusChange, statusActivityKind } from "./task-status";
 import { laneKeyOf, type KanbanLane } from "./task-kanban";
 import type { ActivityKind } from "./activity-log";
 import type { Task, TaskStatus, Resource } from "./types";
@@ -248,6 +248,8 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
           stampField: "localModifiedAt",
           name: prevRow.taskName,
         });
+        const kind = statusActivityKind(prevRow, after);
+        if (kind) logActivityRef.current(kind, id, prevRow.taskName);
       }
     },
     [today, setTasks, tasksRef, captureFieldEdit],
@@ -317,6 +319,8 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         stampField: "localModifiedAt",
         name: prevRow.taskName,
       });
+      const kind = statusActivityKind(prevRow, after);
+      if (kind) logActivityRef.current(kind, id, prevRow.taskName);
     },
     [today, setTasks, tasksRef, captureFieldEdit, resourcesById],
   );

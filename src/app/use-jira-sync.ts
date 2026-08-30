@@ -10,6 +10,7 @@ import type { Task } from "./types";
 import { daysUntil } from "./jira-token-status";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { mintId } from "./id-mint-session";
+import { statusActivityKind } from "./task-status";
 import { useWorkspace } from "./workspace-context";
 
 // ── Lazy-load cache ──────────────────────────────────────────────────────────
@@ -156,6 +157,16 @@ export function useJiraSync(args: UseJiraSyncArgs) {
               localModifiedAt: undefined,
               lastSyncedAt: syncStamp,
             });
+            // ★★★ OBSERVES the transition; it does not write one. Routing this
+            // arm through `applyStatusChange` would stamp `today` over Jira's
+            // REAL resolution date — the prohibition in
+            // docs/AGENTS/task-status.md. `issueToTaskFields` derives `status`
+            // and `completedDate` from ONE `statusKey` read, so the patch's
+            // pair is already coherent and the comparison needs nothing more.
+            const transition = statusActivityKind(row, { completedDate: patch.completedDate });
+            if (transition) {
+              args.logActivityAs("integration", transition, row.id, patch.taskName ?? row.taskName);
+            }
           } else {
             next.push({ ...row, lastSyncedAt: syncStamp });
           }
@@ -261,6 +272,13 @@ export function useJiraSync(args: UseJiraSyncArgs) {
             jiraIssueType: patch.jiraIssueType ?? row.jiraIssueType,
             lastSyncedAt: syncStamp,
           });
+          // Same rule as the read-only pull above: OBSERVE the transition, never
+          // route this arm through `applyStatusChange` (it would overwrite
+          // Jira's real resolution date with `today`).
+          const transition = statusActivityKind(row, { completedDate: patch.completedDate });
+          if (transition) {
+            args.logActivityAs("integration", transition, row.id, patch.taskName ?? row.taskName);
+          }
         } else {
           // No-op; refresh sync stamp.
           next.push({ ...row, lastSyncedAt: syncStamp });
