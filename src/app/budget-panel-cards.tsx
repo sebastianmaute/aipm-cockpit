@@ -134,8 +134,14 @@ export function Cci({ label, hint, scopeName, value, currency, locale, lang, rag
               every qualified name (open-followups §246). `scopeName` is the
               bucket's row TOKEN, not its raw name: two buckets may share a name.
               The project-total cards pass nothing and keep the bare hint.
-              ★ `undefined`, never `""` — an empty `aria-label` blanks the
-              accessible name rather than falling back to the hint text. */}
+              ★ `undefined`, never `""` — and NOT because an empty label would
+              blank the name: name computation SKIPS an empty or
+              whitespace-only `aria-label` and falls through to content
+              (accname step 2C). Here the mechanism is the `??` one line down:
+              `InfoTooltip` resolves its name as `label ?? text`, and `""` is
+              not nullish, so it would defeat that fallback and leave the
+              trigger's literal "i" glyph as its whole accessible name — not a
+              blanked name, a wrong one. `undefined` restores the hint. */}
           {hint ? <InfoTooltip text={hint} label={scopeName ? rowLabel(hint, scopeName) : undefined} /> : null}
         </span>
         {rag !== undefined && !unknown ? <RagBadge value={rag} lang={lang} title={label} /> : null}

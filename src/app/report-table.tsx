@@ -202,10 +202,20 @@ function SortHeaderButton({
       // visible text is always a substring of the accessible name, so no call
       // site can defeat it by passing a name that drops the label. A plain
       // "accessible name override" prop could only ask for that in prose.
-      // ★ `undefined`, never `""` — an empty `aria-label` BLANKS the accessible
-      // name rather than falling back to the button's content. Omitted unless a
-      // caller passes a context, so every existing header renders
-      // byte-identically and keeps taking its name from its visible text.
+      // ★ `undefined`, never `""` — and NOT because an empty label would blank
+      // the name: it would not. Name computation SKIPS an empty or
+      // whitespace-only `aria-label` and falls through to content (accname step
+      // 2C; the library every name query in this repo runs on guards it as
+      // `ariaLabel !== "" && compute === "name"` in
+      // `dom-accessibility-api/dist/accessible-name-and-description.js`), so
+      // `""` would compute the SAME name here while still emitting an
+      // attribute. The reason is the DOM: `undefined` omits the attribute
+      // outright, which is what makes a no-context header byte-identical to
+      // what it rendered before this prop existed — the property pinned by
+      // "leaves the accessible name bare when no nameContext is given"
+      // (report-table.test.tsx), and the only detector for it, since an
+      // unconditional label computes an identical name and keeps every
+      // name-based query in the app green.
       aria-label={nameContext ? `${label} – ${nameContext}` : undefined}
       title={title}
       className={`inline-flex items-center gap-1 ${active ? "text-[var(--table-head-accent)]" : ""} hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}
@@ -225,10 +235,18 @@ function SortHeaderButton({
   if (!hint) return button;
   // InfoTooltip is a SIBLING of the sort button (not nested), so opening the
   // tooltip never triggers the column sort.
+  // ★★ The hint rides the SAME context. The tooltip trigger is `role="button"
+  // tabIndex={0}` — a named control in its own right — so qualifying only the
+  // sort button would leave two identically-named tooltips beside two
+  // now-distinct headers, which is §246's premise one element to the right.
+  // Same `undefined`-not-`""` rule as above, for a different mechanism:
+  // InfoTooltip resolves its name as `label ?? text`, and `""` is not nullish,
+  // so an empty string would defeat that fallback and leave the trigger's
+  // literal "i" glyph as its whole accessible name.
   return (
     <span className="inline-flex items-center gap-1">
       {button}
-      <InfoTooltip text={hint} />
+      <InfoTooltip text={hint} label={nameContext ? `${hint} – ${nameContext}` : undefined} />
     </span>
   );
 }
@@ -291,7 +309,12 @@ export function SortResizeTh<K extends string>({
    *  ★ Pass the CONTEXT alone (`bucketToken`), never a pre-joined
    *  `rowLabel(label, token)` — that would repeat the label ("Role – Role – PAM").
    *  The separator is the same EN DASH `rowLabel` uses, so both surfaces read
-   *  identically. */
+   *  identically.
+   *
+   *  ★ A `hint` RIDES ALONG automatically — the InfoTooltip beside the label is
+   *  itself a named control (`role="button" tabIndex={0}`), so it takes the same
+   *  context and a caller never qualifies it separately. Do NOT pre-qualify the
+   *  `hint` string for that purpose: it would be appended twice. */
   nameContext?: string;
   sortCol: K;
   /** Resize/width key; defaults to `sortCol`. */
