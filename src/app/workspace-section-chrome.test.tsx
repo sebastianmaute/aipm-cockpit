@@ -41,4 +41,13 @@ describe("WorkspaceTabStrip", () => {
     expect(screen.queryByRole("tablist", { name: "Workspace tabs" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tablist", { name: "Workspace sub-tabs" })).not.toBeInTheDocument();
   });
+
+  it("names the collapse control without relying on title", () => {
+    // ★ `title` alone IS a valid accessible name (accname's last resort), so this
+    //   assertion passes today. The point is the ATTRIBUTE, which is what voice
+    //   control and touch AT actually reach — assert on that directly.
+    setup();
+    const btn = screen.getByRole("button", { name: "Collapse workspace" });
+    expect(btn).toHaveAttribute("aria-label");
+  });
 });

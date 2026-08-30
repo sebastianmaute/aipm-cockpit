@@ -167,6 +167,11 @@ export function WorkspaceTabStrip({
           onClick={() => setWorkspaceCollapsed((v) => !v)}
           aria-expanded={!workspaceCollapsed}
           aria-controls="workspace-panels"
+          aria-label={
+            workspaceCollapsed
+              ? t(lang, "workspaceExpand")
+              : t(lang, "workspaceCollapse")
+          }
           title={
             workspaceCollapsed
               ? t(lang, "workspaceExpand")
