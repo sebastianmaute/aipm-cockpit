@@ -43,7 +43,11 @@ export interface UseChatThreadsDeps {
   setHistory: React.Dispatch<React.SetStateAction<ApiMessage[]>>;
   setDisplay: React.Dispatch<React.SetStateAction<DisplayItem[]>>;
   /** ChatPanel's own refs — shared here so a thread switch and a project
-   *  switch can't race each other's abort of an in-flight send. */
+   *  switch can't race each other's abort of an in-flight send. `abortRef` is
+   *  ALSO read here as the live "is a send in flight" signal (non-null between
+   *  submitPrompt's start and its identity-guarded `finally`), which is what
+   *  lets retryLoad refuse to adopt a server thread over a conversation the
+   *  user is mid-send in — see its second guard. */
   cancelledRef: React.MutableRefObject<boolean>;
   abortRef: React.MutableRefObject<AbortController | null>;
   confirm: ConfirmFn;
@@ -61,13 +65,20 @@ interface LoadSettleResult {
   next: ChatThread | null;
 }
 
+/** `preserveLive` forces the merge branch even when the identity test reads
+ *  clean. The identity test asks "did threadIdRef MOVE during this fetch",
+ *  which is blind to a thread that moved BEFORE the fetch started and still
+ *  has a send streaming into it — the state a failed mount fetch's own stale
+ *  branch leaves behind. Only retryLoad passes true; see its comment for why
+ *  the mount/project-switch effect must NOT. */
 function mergeThreadsAfterLoad(
   startedOn: string | null,
   liveThreadId: string | null,
   projectId: string,
   loaded: ChatThread[],
+  preserveLive: boolean,
 ): LoadSettleResult {
-  if (liveThreadId !== startedOn) {
+  if (preserveLive || liveThreadId !== startedOn) {
     return {
       updateThreads: (prev) => [
         ...prev.filter((th) => th.projectId === projectId && !loaded.some((l) => l.id === th.id)),
@@ -93,8 +104,9 @@ function resetThreadsAfterFailedLoad(
   startedOn: string | null,
   liveThreadId: string | null,
   projectId: string,
+  preserveLive: boolean,
 ): FailedLoadSettleResult {
-  if (liveThreadId !== startedOn) {
+  if (preserveLive || liveThreadId !== startedOn) {
     return { updateThreads: (prev) => prev.filter((th) => th.projectId === projectId), stale: true };
   }
   return { updateThreads: () => [], stale: false };
@@ -340,7 +352,17 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         // adopting caller set them. Scoped to THIS project — see
         // mergeThreadsAfterLoad — since `prev` may hold whatever the previous
         // project left behind (nothing resets it on a switch).
-        const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded);
+        //
+        // ★★ `preserveLive: false` — this effect must NOT take retryLoad's
+        // in-flight-send guard. It also runs on a PROJECT SWITCH, where the
+        // pre-switch `activeThreadId` belongs to the project we are leaving:
+        // preserving it there would leave the old project's thread active and
+        // its conversation on screen under the new project, which is worse
+        // than the case the guard exists to prevent. The identity test still
+        // covers this effect's own hazard (a mint DURING this fetch), because
+        // at mount there is no earlier thread for a send to already be
+        // streaming into.
+        const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, false);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
         if (settled.stale) return;
@@ -357,7 +379,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         // the just-minted row from the list outright while its save is already
         // on its way to Turso. A failed FETCH says nothing about a thread this
         // client just created, so leave it — and the send it belongs to — alone.
-        const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId);
+        // `preserveLive: false` for the project-switch reason given above.
+        const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId, false);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
         if (settled.stale) return;
@@ -380,9 +403,15 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // and re-derives the banner from what is still outstanding, so a retry
   // that fails again keeps the banner up without dropping the others. Only
   // when nothing is pending — meaning the FAILURE ON RECORD was the initial
-  // fetch itself, whose own catch branch above already reset history/display
-  // to empty — is a reload both correct and safe: there is no live
-  // conversation left to lose.
+  // fetch itself — does retry fall through to a fresh reload.
+  //
+  // ★★★ THAT RELOAD IS NOT AUTOMATICALLY SAFE, and this comment used to say it
+  // was ("the initial fetch's catch already reset history/display to empty, so
+  // there is no live conversation left to lose"). That catch has TWO branches
+  // and only one of them resets: on its STALE branch it returns EARLY, keeping
+  // a mid-flight-minted thread active with the user's live message in
+  // history/display. So a reload here can very much have a live conversation
+  // to lose — which is exactly the ordering the two guards below cover.
   function retryLoad(): void {
     if (pendingRetryRef.current.size > 0) {
       // Snapshot before iterating: retrying re-invokes runPersist, whose
@@ -401,14 +430,58 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // synchronously; the resolving reload's `loaded` cannot contain that row,
     // so an unguarded settle here would drop it, move the active thread out
     // from under the send, and (via the threadIdRef sync effect) abort it —
-    // wiping the user's just-sent message. Captured immediately before the
-    // fetch, exactly as the effect captures its own `startedOn`.
+    // wiping the user's just-sent message.
+    //
+    // ★★ It is NOT equivalent to the effect's own `startedOn`, and this
+    // comment used to claim it was ("captured exactly as the effect captures
+    // its own"). The effect's baseline is taken before any send for that mount
+    // can exist, so it can only be null-or-the-previous-project's thread;
+    // retryLoad's can already BE a thread with a send streaming into it. That
+    // difference is the whole reason the second guard below is needed.
     const startedOn = threadIdRef.current;
+    // ★★★ SECOND GUARD — an in-flight SEND, which the identity test above
+    // cannot see. A failed mount fetch takes its own STALE branch when a send
+    // minted a thread mid-flight, leaving that thread active with the user's
+    // message on screen and the send still streaming. Retry is then clicked on
+    // a ref that has ALREADY moved, so `startedOn` equals the live id and the
+    // identity test reads clean, and an unguarded settle drops the thread,
+    // replaces the conversation and aborts the send.
+    //
+    // Read from `abortRef`, NOT from `busy`: retryLoad is non-memoized, so its
+    // `.then` closes over the `busy` local of whichever render produced the
+    // clicked instance — a stale read at settle time. A ref reads fresh.
+    //
+    // ★★ THIS DEPENDS ON submitPrompt BEING SINGLE-FLIGHT, and it is only
+    // EFFECTIVELY so: its `busy` bail is itself a render-closure read, so two
+    // dispatches in ONE tick would both pass it. Nothing reaches it that way
+    // today — every call site is a separate DOM event (React has flushed
+    // setBusy and disabled the control by then) or the one-shot `chatSeed`
+    // effect. ★★★ IF THAT EVER CHANGES, chat-panel.tsx's `finally` clears
+    // `abortRef.current` UNCONDITIONALLY, so the FIRST send's finally would
+    // empty a slot the SECOND still owns and this guard would read "idle" over
+    // a live send — the exact data loss it exists to prevent. Make that
+    // clear identity-guarded (`if (abortRef.current === controller)`) at the
+    // same time, not afterwards.
+    //
+    // Sampled at BOTH ends because either alone leaves a hole: a send that
+    // FINISHES before the reload settles still owns the conversation on screen
+    // (click-time sample catches it), and a send that STARTS after the click
+    // is in flight only at settle (settle-time sample catches it; the identity
+    // test covers that one too when it minted a thread, but not when it sent
+    // into an existing one).
+    //
+    // ★★★ IT MUST GATE THE SETTLE, NOT THE FETCH. Treating in-flight as
+    // another `stale: true` still fetches and still merges `loaded` under the
+    // live thread — only the auto-adopt of `loaded[0]` is skipped. Gating the
+    // `loadThreads` CALL instead would let a send that never settles pin the
+    // reload branch closed forever, leaving the sidebar permanently stale.
+    const sendInFlightAtClick = abortRef.current !== null;
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
         setThreadsError(false);
         setLoadFailed(false);
-        const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded);
+        const preserveLive = sendInFlightAtClick || abortRef.current !== null;
+        const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
         if (settled.stale) return;
@@ -419,7 +492,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       .catch(() => {
         setThreadsError(true);
         setLoadFailed(true);
-        const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId);
+        const preserveLive = sendInFlightAtClick || abortRef.current !== null;
+        const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
         if (settled.stale) return;
