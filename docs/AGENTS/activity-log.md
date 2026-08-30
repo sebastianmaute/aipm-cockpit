@@ -225,8 +225,15 @@ it has no table of its own, NOT because it sits outside the workspace.
   and `task.reopened` have **NO writer anywhere in the app**, only a union member, an
   `activityMessageKey` row and their seat in this set. Verify before reasoning about either:
   `git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'` →
-  only `activity-log.ts` and `completion-trend.ts`. Pre-existing, not introduced by this branch — but it
-  means the trend's `dDone` term is fed by NOTHING, so the reconstruction path moves only on totals.
+  only `activity-log.ts` and `completion-trend.ts`. Pre-existing, not introduced by this branch.
+  ★★ **THAT USED TO MEAN THE TREND'S NUMERATOR WAS FED BY NOTHING, AND IT NO LONGER DOES.** This line
+  read "the trend's `dDone` term is fed by NOTHING, so the reconstruction path moves only on totals" —
+  `dDone` does not exist any more. The numerator is READ from task data (`deliveredBy` in
+  `completion-trend.ts` counts `completedDate <= day`), which is what let the fix work retroactively over
+  history already on disk. ★★★ So the two kinds' ONLY remaining job in `COUNT_KINDS` is deciding which
+  days SEED a point — a day carrying a completion and no create/delete moves no total at all, yet the
+  percent moves on it, so removing them from the set silently DROPS every completion-only day from the
+  series. They are members with no delta arm on purpose; do not "tidy" them out.
   ★★ `bulk.delete` is STILL deliberately NOT in `COUNT_KINDS` — that set's members each move the metric
   by ±1 per entry, while one `bulk.delete` entry carries a count of N, so adding it would under-count by
   N−1. §163 closed the gap the OTHER way, as that entry said it had to be: a second set,

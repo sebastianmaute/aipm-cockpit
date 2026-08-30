@@ -1,11 +1,14 @@
 // Pure, i18n-free engine for the Dashboard completion-trend sparkline.
 // Produces a chronological series of % complete (0–100). Prefers exact Turso
-// snapshot history; falls back to reconstructing done/total from the local
-// activity log when there are fewer than two snapshots. No I/O, no clock —
-// `today`, `currentDone`, `currentTotal` are passed in.
+// snapshot history; falls back to reconstructing the series when there are
+// fewer than two snapshots. That fallback splits its two halves: the
+// DENOMINATOR is walked back through the local activity log, the NUMERATOR is
+// READ from `tasks[].completedDate`. No I/O, no clock — `today`, `tasks`,
+// `currentDone`, `currentTotal` are passed in.
 
 import type { SnapshotRecord } from "./snapshot";
 import type { ActivityEntry } from "./activity-log";
+import type { Task } from "./types";
 
 export interface CompletionPoint {
   /** Short day label "MM-DD" for tooltips/labels. */
@@ -17,6 +20,13 @@ export interface CompletionPoint {
 export interface CompletionTrendInput {
   snapshots: readonly SnapshotRecord[];
   activity: readonly ActivityEntry[];
+  /** Live task list — the numerator's source for every point but the last.
+   *
+   *  ★★ A task's `completedDate` states when it was delivered, so the historical
+   *     numerator is READ rather than reconstructed. That is what makes it work
+   *     retroactively over data already on disk: an event-producer fix would
+   *     leave the curve flat over all history already recorded. */
+  tasks: readonly Task[];
   /** Live completed-task count (model.progress.completed). */
   currentDone: number;
   /** Live IN-SCOPE task count (model.progress.inScope — total minus cancelled),
@@ -195,35 +205,36 @@ function reversedForwardDelta(args: readonly (string | number)[]): number {
   return delta;
 }
 
-type DayDelta = { day: string; dDone: number; dTotal: number };
+type DayDelta = { day: string; dTotal: number };
 
 function reconstructFromActivity(
   activity: readonly ActivityEntry[],
+  tasks: readonly Task[],
   currentDone: number,
   currentTotal: number,
   today: string,
 ): CompletionPoint[] {
-  // Per-day deltas from task events (created/deleted/bulk-delete move total;
-  // completed/reopened move done). Deleted task's done-state is unknown ->
-  // assumed not done (documented approximation).
+  // Per-day deltas from task events move the DENOMINATOR only
+  // (created/deleted/bulk-delete). The NUMERATOR is read from task data below.
   //
-  // ★★★ THE NUMERATOR IS STILL CONSTANT ACROSS EVERY RECONSTRUCTED DAY, and
-  //   §163's bulk-delete fix does not change that — only the denominator moves,
-  //   so this reconstruction is a curve about TASK COUNT, not about completion.
-  //   `dDone` is fed solely by `task.completed` / `task.reopened`, and NOTHING
-  //   in the app writes either kind: a status change to Done logs `task.updated`
-  //   from every writer. Verify before reasoning about it:
-  //     git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'
-  //   → only this file and `activity-log.ts` (the union member + its message row).
-  // ★★ IT IS NOT CLOSABLE BY READING `changes` FOR A STATUS DIFF, which is the
-  //   obvious fix and was measured before being rejected: the AI's `update_task`
-  //   logs with NO `changes` array (`use-chat-dispatcher.ts` calls
-  //   `logActivityAs?.("ai", "task.updated", id, name)`), while a form save
-  //   passes `diffFields(...)`. So a changes-based numerator would move for user
-  //   edits and not for AI ones — reintroducing exactly the user/AI asymmetry
-  //   §163 exists to remove, one metric over. Closing it needs a real
-  //   `task.completed` writer, which is a design slice. See open-followups §163.
-  const byDay = new Map<string, { dDone: number; dTotal: number }>();
+  // ★★★ `task.completed` and `task.reopened` STAY IN `COUNT_KINDS` WITH NO
+  //   DELTA ARM, AND DELETING THEM DROPS EVERY COMPLETION-ONLY DAY FROM THE
+  //   SERIES. `COUNT_KINDS` does ONE job here: deciding which days get SEEDED.
+  //   A day on which something was delivered but nothing was created or deleted
+  //   moves no `dTotal` at all, yet the percent moves on it, so it must seed.
+  // ★★ The zero-delta warning just below is about UNDO and does NOT generalise
+  //   to these two. A reverted edit seeds a point carrying no information; a
+  //   completion seeds one carrying the only information this chart is about.
+  //
+  // ★★ NO CLAMP, DELIBERATELY. The numerator is exact (task fields) and the
+  //   denominator is reconstructed from an activity ring that caps at 500
+  //   entries and forgets, so a stale `total` CAN sit under `done`. It cannot
+  //   escape: `clampPctFromCounts` already returns 100 for `done > total`, and
+  //   `CompletionPoint` exposes only `percent` — the counts never leave this
+  //   function. A `Math.max(total, done)` here would be dead code that a later
+  //   reader mistakes for load-bearing, which is exactly what the
+  //   `typeof kind === "string"` note in `reversedForwardDelta` warns about.
+  const byDay = new Map<string, number>();
   for (const e of activity) {
     // ★★ An undo/redo whose reversal decodes to 0 must fall through to `continue`
     //    and NOT seed a day: it would add a zero-delta point to the sparkline for
@@ -235,30 +246,34 @@ function reconstructFromActivity(
     if (reversal === 0 && !isBulk && !COUNT_KINDS.has(e.kind)) continue;
     const day = e.timestamp.slice(0, 10);
     if (day > today) continue; // clock-skew guard
-    const cur = byDay.get(day) ?? { dDone: 0, dTotal: 0 };
     // ★ Reversal first, then bulk: both read their delta from the entry rather
     //   than implying it from the kind, so neither can reach the ±1 chain below.
-    if (reversal !== 0) cur.dTotal += reversal;
-    else if (isBulk) cur.dTotal -= bulkTaskCount(e.args);
-    else if (e.kind === "task.created") cur.dTotal += 1;
-    else if (e.kind === "task.deleted") cur.dTotal -= 1;
-    else if (e.kind === "task.completed") cur.dDone += 1;
-    else if (e.kind === "task.reopened") cur.dDone -= 1;
-    byDay.set(day, cur);
+    let dTotal = 0;
+    if (reversal !== 0) dTotal = reversal;
+    else if (isBulk) dTotal = -bulkTaskCount(e.args);
+    else if (e.kind === "task.created") dTotal = 1;
+    else if (e.kind === "task.deleted") dTotal = -1;
+    // A completion kind falls through with dTotal 0 and STILL seeds the day.
+    byDay.set(day, (byDay.get(day) ?? 0) + dTotal);
   }
   const days: DayDelta[] = [...byDay.entries()]
-    .map(([day, d]) => ({ day, ...d }))
+    .map(([day, dTotal]) => ({ day, dTotal }))
     .sort((a, b) => a.day.localeCompare(b.day));
   if (days.length < 2) return [];
 
-  // Walk backward: the last event-day's END state = current; subtract each
-  // day's delta to get the end state of the previous day. Floor counts at 0.
+  // Walk backward for the DENOMINATOR only: the last event-day's END state =
+  // current, so subtract each day's delta to get the previous day's end state.
+  // The NUMERATOR is read from `tasks` per day — except for the last point,
+  // which stays on `currentDone` so it agrees with the completion tile rendered
+  // directly above the sparkline (see the `currentTotal` doc comment).
+  const deliveredBy = (day: string): number =>
+    tasks.reduce((n, t) => (t.completedDate && t.completedDate <= day ? n + 1 : n), 0);
+
   const endState: { done: number; total: number }[] = new Array(days.length);
-  let done = currentDone;
   let total = currentTotal;
   for (let i = days.length - 1; i >= 0; i--) {
+    const done = i === days.length - 1 ? currentDone : deliveredBy(days[i].day);
     endState[i] = { done: Math.max(0, done), total: Math.max(0, total) };
-    done -= days[i].dDone;
     total -= days[i].dTotal;
   }
   const points = days.map((d, i) => ({
@@ -271,5 +286,11 @@ function reconstructFromActivity(
 export function computeCompletionTrend(input: CompletionTrendInput): CompletionPoint[] {
   const snap = fromSnapshots(input.snapshots);
   if (snap.length >= 2) return snap;
-  return reconstructFromActivity(input.activity, input.currentDone, input.currentTotal, input.today);
+  return reconstructFromActivity(
+    input.activity,
+    input.tasks,
+    input.currentDone,
+    input.currentTotal,
+    input.today,
+  );
 }
