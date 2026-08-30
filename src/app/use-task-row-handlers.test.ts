@@ -842,9 +842,7 @@ describe("useTaskRowHandlers — status transitions reach the activity log", () 
 
   it("writes no transition entry when delivered-ness does not change", () => {
     // ★ THIS IS THE ABSENCE ASSERTION, and the two positive blocks above are
-    // its CONTROLS — not the other way round, which is what the label here used
-    // to say ("Positive control: without it, a handler that logged nothing at
-    // all would satisfy this block"). That sentence was circular: a block whose
+    // its CONTROLS. A block whose
     // whole content is `not.toHaveBeenCalledWith` cannot be its own control. On
     // its own it is satisfied by a handler that logs nothing ever; it only
     // carries information once the two blocks above are green.

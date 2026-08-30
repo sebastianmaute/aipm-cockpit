@@ -17,8 +17,7 @@ describe("contactDisplay", () => {
     // reader grepping for the defect finds a block that states it.
     // ★ It is STRICTLY SUBSUMED by the block above — `toBe("Bob Jones")` on the
     //   same input already implies this — so it cannot fail on its own and adds
-    //   no coverage. Kept for the name, not for the assertion. An earlier
-    //   comment here claimed the two could fail independently; they cannot.
+    //   no coverage. Kept for the name, not for the assertion.
     expect(contactDisplay(cp("Bob Jones", ""))).not.toContain("<>");
   });
 

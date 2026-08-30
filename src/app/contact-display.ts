@@ -17,7 +17,7 @@
 //    who deletes that input finds this comment agreeing with them. Measured
 //    2026-08-30, and cheap to re-check:
 //      grep -n "draft.email" src/app/project-form-fields.tsx
-//    prints three lines, one of them a `value={draft.email}` on an
+//    prints a `value={draft.email}` on an
 //    `<input type="email">`; and
 //      grep -n "if (!name || hasName(name)) return;" src/app/project-form-fields.tsx
 //    is the whole of that path's validation — name only.

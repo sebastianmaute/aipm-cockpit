@@ -303,9 +303,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       }
 
       // New Jira issues we didn't have locally → create.
-      // ★★ SILENT BY DESIGN, and stated because every OTHER site in this file
-      //   carries a note and this one did not — an unexplained silence reads as
-      //   an oversight. An issue that arrives ALREADY Done produces a delivered
+      // ★★ SILENT BY DESIGN. An issue that arrives ALREADY Done produces a delivered
       //   task (`completedDate` comes straight off the patch below), and no
       //   `task.completed` is logged for it. That is the same exemption
       //   `status-activity-census.test.ts` records for `task-manager.tsx`'s
@@ -520,10 +518,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
 
       // ★★★ THE CONFLICT MERGE — one of the five pair-writers listed in
       //   docs/AGENTS/task-status.md ("The five writers, and the mechanism each
-      //   holds the pair by"), where it is the THIRD entry. An earlier revision
-      //   of this comment called it "the FIFTH status writer in the app", which
-      //   invented a second numbering for the same population; cite the list,
-      //   never an ordinal of your own.
+      //   holds the pair by"), where it is the THIRD entry.
       //   It is also the site no FILE-granular census could ever catch: a
       //   census asserting "this file calls statusActivityKind somewhere" is
       //   already satisfied by the two pull sites above, so this one could stay
@@ -535,9 +530,8 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       // ★★ OBSERVES the transition; it does not write one. Routing it through
       //   `applyStatusChange` would stamp `today` over the resolution date the
       //   merge just picked — the same prohibition the pull sites carry.
-      // ★★ Logged AFTER the write — A CLAIM ABOUT THIS PATH ONLY, and the
-      //   earlier revision stated it as though it governed the file. It does
-      //   not, and cannot: this loop COMMITS PER ITERATION (`setTasks(next)` a
+      // ★★ Logged AFTER the write — A CLAIM ABOUT THIS PATH ONLY.
+      //   This loop COMMITS PER ITERATION (`setTasks(next)` a
       //   few lines up), so an early `continue` past a log really would strand
       //   an entry describing a row the workspace never received. The two PULL
       //   arms have the opposite shape and log inside their loop on purpose —

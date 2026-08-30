@@ -49,14 +49,14 @@
 // ★ ANTI-VACUITY, observed 2026-08-30 — both mutants were run and reverted:
 //   - Deleting both `const kind = statusActivityKind(...)` lines and both
 //     `if (kind) logActivityRef.current(...)` lines from
-//     `use-task-row-handlers.ts` ran 1 failed | 2 passed. The decision test
+//     `use-task-row-handlers.ts`. The decision test
 //     alone went red on `AssertionError: expected [ 'use-task-row-handlers.ts' ]
 //     to deeply equal []`. The SET test stayed GREEN, which is correct — the
 //     file still calls applyStatusChange, so it is still a writer. Note the
 //     surviving `import { … statusActivityKind }` line does NOT rescue it:
 //     DECISION requires the open paren.
 //   - Adding a commented `applyStatusChange(` to `task-closed.ts` (not a
-//     writer) ran 2 failed | 1 passed — the SET test named `task-closed.ts` as
+//     writer): the SET test named `task-closed.ts` as
 //     an unpinned arrival AND the decision test demanded a decision from it.
 //     So a new writer cannot join the population unnoticed. It also measures
 //     the thing that makes `change-log.ts`'s exemption necessary: a COMMENT
