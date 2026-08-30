@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { useCallback, useEffect, useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "./activity-log";
 import type { Settings } from "./settings-types";
@@ -13,6 +14,8 @@ import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { useBroadcastSync } from "./broadcast-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
+import { useUndoStack } from "./undo/use-undo-stack";
+import { useBulkOperations } from "./use-bulk-operations";
 
 // ── Storage mock ─────────────────────────────────────────────────────────────
 vi.mock("./storage", () => ({
@@ -220,6 +223,72 @@ function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
 
 function renderBackend(args = makeArgs()) {
   return renderHook(makeProbe(args), {
+    wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+  });
+}
+
+// ── Seam harness: the REAL undo stack + the REAL clear-all, over this hook ────
+// ★★★ THE POINT IS THAT NOTHING HERE IS A STAND-IN FOR THE BYPASS. Task 9's
+// undo-stack tests pass a `vi.fn()` as `allowDestructiveSave`, so they prove a
+// redo CALLS an arm — never that the arm reaches the guard that refused. This
+// composes `useUndoStack` + `useStorageBackend` + `useBulkOperations` so the
+// only bypass in play is the hook's own, and the only assertion that can pass
+// is one where the guard actually let the write through.
+// ★★ The three hooks are called in task-manager's ORDER, which is why the
+// ref-forward exists at all: `useUndoStack` runs BEFORE `useStorageBackend`,
+// so it cannot receive `allowDestructiveSave` by value. `task-manager.tsx`
+// solves that with a `useRef` filled by a `useEffect`; reproducing any other
+// wiring here would test a composition the app does not have.
+const logActivitySeam = vi.fn();
+const bulkHandlers = { onEdit: () => {}, onDelete: () => {}, onSendInquiry: () => {} };
+const noHolidays: ReadonlySet<string> = new Set<string>();
+const bulkSettings = { hideFinishedTasks: false } as unknown as Settings;
+const noopSetSettings = (() => {}) as unknown as React.Dispatch<React.SetStateAction<Settings>>;
+
+function makeUndoProbe(args: Parameters<typeof useStorageBackend>[0]) {
+  return function useUndoProbe() {
+    const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined);
+    const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
+    const undoApi = useUndoStack({
+      lang: "en-US",
+      logActivity: logActivitySeam,
+      showToast,
+      showToastAction,
+      allowDestructiveSave: armDestructiveForUndo,
+    });
+    const backend = useStorageBackend(args);
+    // Hoisted out of the dep array: exhaustive-deps rejects an `obj.member` dep.
+    const { allowDestructiveSave, destructiveRefusal } = backend;
+    useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; }, [allowDestructiveSave]);
+    const { tasks, setTasks } = useWorkspace();
+    const bulk = useBulkOperations({
+      lang: "en-US",
+      settings: bulkSettings,
+      setSettings: noopSetSettings,
+      handlers: bulkHandlers,
+      onCancelEdit: () => {},
+      logActivity: logActivitySeam,
+      capture: undoApi.capture,
+      captureFieldRows: undoApi.captureFieldRows,
+      commitBuckets: () => {},
+      showToast,
+      allowDestructiveSave,
+      today: "2026-01-01",
+      holidaySet: noHolidays,
+    });
+    return {
+      clearAllTasks: bulk.handleClearAll,
+      undo: undoApi.undo,
+      redo: undoApi.redo,
+      destructiveRefusal,
+      tasks,
+      setTasks,
+    };
+  };
+}
+
+function renderBackendWithUndo(args = makeArgs()) {
+  return renderHook(makeUndoProbe(args), {
     wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
   });
 }
@@ -2867,6 +2936,54 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     await act(async () => { vi.advanceTimersByTime(600); });
     await act(async () => { await Promise.resolve(); });
     expect(backend.save).toHaveBeenCalled();
+    expect(result.current.destructiveRefusal).toBeNull();
+  });
+
+  // §295's owed verification: "a test driving clear-all -> undo -> redo against
+  // evaluateSaveGuard". Task 4 pins the storage half and Task 9 the undo half;
+  // per-task checks miss the SEAM between them, which is where this bug lived.
+  //
+  // ★ IT LIVES UNDER A §103 DESCRIBE ON PURPOSE — do not "tidy" it into a §295
+  // block. `useReloadableBackend` (the 20-task fixture this needs) is declared
+  // INSIDE this describe, so moving the test without also hoisting that helper
+  // breaks it. The reporter therefore prints this as "§103 truncated-load guard
+  // > persists a redo of a clear-all", which reads as misfiled and is not.
+  it("persists a redo of a clear-all instead of refusing it", async () => {
+    const backend = useReloadableBackend();          // 20 seeded tasks
+    const { result } = renderBackendWithUndo();      // storage hook + real undo stack
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+    expect(result.current.tasks).toHaveLength(20);   // control: the seed really landed
+
+    // Clear-all: captured for undo AND armed, so this save commits.
+    await act(async () => { result.current.clearAllTasks(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).toHaveBeenCalledWith(expect.objectContaining({ tasks: [] }));
+
+    // Undo restores all 20. Not a deletion, so no arming is needed.
+    backend.save.mockClear();
+    await act(async () => { result.current.undo(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: expect.arrayContaining([expect.objectContaining({ id: 1 })]) }),
+    );
+
+    // Redo re-removes all 20 through the undo runner. Before this slice the
+    // runner armed nothing, the guard refused, and the redo was never written.
+    backend.save.mockClear();
+    await act(async () => { result.current.redo(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    // ★ Assert on the SAVE, not on the in-memory task list. The bug was that
+    // the rows vanished on screen and were never persisted, so an assertion on
+    // state alone passes against the broken tree — which is exactly how this
+    // shipped.
+    expect(backend.save).toHaveBeenCalledWith(expect.objectContaining({ tasks: [] }));
     expect(result.current.destructiveRefusal).toBeNull();
   });
 });
