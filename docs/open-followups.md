@@ -524,6 +524,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | open |
 | [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | open |
 | [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss but not when a consumer closes it from an item's own handler | carved out of §146 on close, 2026-08-30 | M | open |
+| [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -22184,7 +22185,12 @@ it, which is why this is filed rather than fixed.
 
 ★★★ **THE AUDIT FOUND SIX AND THE FIX FOUND A SEVENTH — and it is the ONE ROW where the SEED
 validator's rule wins.** The table below enumerates six, and the decision was that canonical wins on
-all six. Adopting the shared core exposed a seventh the audit had missed: canonical derived `text`
+the five of them that are UNFORCED. ★★★ IT DOES NOT WIN ON THE HTML-CAP ROW, AND CANNOT — an earlier
+revision of this sentence read "canonical wins on all six", which is the overclaim the corrected
+bullet beneath the table now states in full. That row is a SECOND FORCED difference, the same class
+as the DOM boundary this entry opens with, and the residue is tracked as
+[§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open).
+Adopting the shared core exposed a seventh the audit had missed: canonical derived `text`
 from `html` only when the captured `text` was empty (`hasHtml && !text`), while the seed ALWAYS
 re-projected. The seed rule was taken on that row, because its rationale is written down and still
 holds — a captured `text` can disagree with its `html` after a hand-edited template, or after a sink
@@ -22245,9 +22251,17 @@ test wearing an id test's name. Reproduce by reading the fixture:
 ★★ Duplicate ids pass through unchanged, and the notes window edits and deletes BY id — so two
 captured entries sharing `id: 1` make one of them unaddressable in the UI after apply.
 
-★ The html-cap divergence is a content-loss path in the opposite direction from §168: a captured note
-above the visible-text ceiling is degraded to PLAIN TEXT on the template route while the identical
-note stays rich HTML on every other route.
+★★★ **THE HTML-CAP ROW SURVIVED THE CLOSE, AND IT IS THE ONE ROW THE TABLE ABOVE MISFILES.** It sits
+under "what is NOT forced" and it is in fact FORCED — `sanitizeRichHtml` never degrades, and the only
+DOM-free cleaner `templates.ts` can reach is `sanitizeRichText`, whose caps are intrinsic to it, so
+parity was never available on this row without weakening a load-path sanitiser used app-wide. What
+the shared core DID buy is real but partial: the seed now also takes the `MAX_NOTE_HTML` slice it
+previously lacked, so both routes are BOUNDED — they are simply not IDENTICAL. The content-loss path
+this bullet originally described is therefore still live, in the opposite direction from §168: a
+captured note above the visible-text cap is degraded to PLAIN TEXT on the template route while the
+identical note stays rich HTML on every other route. Tracked as
+[§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open),
+which carries the arithmetic and the two net-neutral loss directions this table does not list.
 
 ★ Fix shape, if wanted: extract the DOM-free half of `sanitizeNoteLog` into a shared helper both call,
 leaving only the `sanitizeRichHtml` step behind the DOM boundary. That is a real refactor of a
@@ -22255,7 +22269,18 @@ sanitiser on six write paths, which is why it is filed rather than done inside a
 
 ## 287. Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — CLOSED 2026-08-30
 
-**Status:** CLOSED 2026-08-30 by `5b311e66` (extract `loadFrom`) · `4a98d9c9` (the fix). `openFile()` now RETURNS the picked handle instead of persisting it, `loadFromHandleForBackend` reads through an explicit handle without consulting or touching stored state, and `setBackendFileHandle` runs INSIDE the accept branch — so there is no window in which storage points somewhere the user has not agreed to. Verified by `npx vitest run --maxWorkers=1 src/app/use-storage-backend.test.tsx`.
+**Status:** CLOSED 2026-08-30 by `5b311e66` (extract `loadFrom`) · `4a98d9c9` (the fix). `openFile()` now RETURNS the picked handle instead of persisting it, `loadFromHandleForBackend` reads through an explicit handle without consulting or touching stored state, and `setBackendFileHandle` runs INSIDE the accept branch — so there is no window in which storage points somewhere the user has not agreed to. Verified by `npx vitest run --maxWorkers=1 src/app/use-storage-backend.test.tsx
+src/app/local-file-backend.test.ts src/app/use-load-truncation.test.ts`.
+★★★ ALL THREE FILES ARE LOAD-BEARING AND AN EARLIER WITNESS HERE NAMED ONLY THE FIRST,
+which was the weakest of the three. `use-storage-backend.test.tsx` mocks `./storage`
+wholesale, so its assertions are claims about the CALLER and they pass UNCHANGED against
+the pre-fix backend — pre-fix nothing called `setBackendFileHandle` on any path, because
+the bind lived inside `openFile()`. Measured: restoring `openFile()`'s `idbSet` leaves that
+whole file green and reddens only `local-file-backend.test.ts`, which is why the second
+file is here. The third is here because closing this entry BROKE it — the census in
+`use-load-truncation.test.ts` counts load sites by spelling, and replacing `backend.load()`
+with `loadFromHandleForBackend` made a load invisible to it while its reports remained, so
+the branch shipped a red blocking gate that this witness could not see.
 
 ★★ **THE DECLINE-PATH PROBE THIS ENTRY RECORDS AS NEVER HAVING EXISTED NOW EXISTS**, in
 `use-storage-backend.test.tsx`, with the workspace-survives half in its own `it()` — deliberately
@@ -22852,3 +22877,78 @@ control disappears — AGENTS.md carries the measurement for the sibling blind s
 test the fixer writes is the only detector this will ever have, and it must assert focus lands
 somewhere USEFUL, not merely that it is not on the trigger: `not.toHaveFocus()` passes when the
 panel never opened.
+
+## 298. The template seed's note-log html cap is a second forced difference, not a closed divergence — open
+
+**Status:** open — **never machine-verified**. The arithmetic below was derived from the source on
+2026-08-30 by reading the constants (`grep -n "RICH_BYTE_K = \|RICH_BYTE_FLOOR = \|richByteCeiling = " src/app/rich-text-plain.ts`
+and `grep -n "export const TEXTAREA_MAX" src/app/sanitize-core.ts`), and the injection asymmetry from
+`grep -n "sanitizeHtml:" src/app/templates.ts src/app/note-log.ts`, which prints one line per route.
+No committed test drives a note past either trigger through `sanitizeSeedNoteLog`, so nothing has
+EXECUTED the divergence — the reading is of the call path, not of a run.
+
+Residue of [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30),
+which closed on the strength of a shared core (`sanitizeNoteLogWith`, `note-log-policy.ts`) that both
+validators now call. FIVE of the six divergences it enumerated really are gone. The html-cap row is
+not, and both the code comment in `templates.ts` and §286's own prose asserted for a release that all
+six were — while a bullet further down §286 went on describing this exact content-loss path in the
+present tense. The two halves of one entry contradicted each other and the register read as closed.
+
+**Why it is FORCED, and therefore not a defect to "fix" by reaching parity.** `templates.ts` is
+DOM-free by contract (it sits in the sample generator's import graph), so it cannot call
+`sanitizeRichHtml`, which is the canonical route's cleaner and never degrades. The only DOM-free
+cleaner it can reach is `sanitizeRichText`, whose caps are intrinsic to it — it is a load-path
+sanitiser used across the app, so loosening them to buy parity here would weaken every other caller.
+This row belongs in the same class as the DOM boundary §286 opens by calling the ONE forced
+difference; it is the SECOND, and the table's "what is NOT forced" framing misfiles it.
+
+**What the shared core did buy, and the bound on it.** The seed now also takes the `MAX_NOTE_HTML`
+slice it previously lacked, so both routes are BOUNDED. They are not IDENTICAL. Two triggers still
+flatten a captured note to plain text on the template route alone:
+
+- **Visible-text cap.** `capHtmlText` degrades whenever the html projects to more than `TEXTAREA_MAX`
+  (5 000) visible characters. This is the one that actually bites: it fires well INSIDE the
+  20 000-character band `MAX_NOTE_HTML` lets through on the canonical route, so a ~6 KB captured note
+  — an ordinary long note, not an abuse shape — is rich HTML everywhere else and plain text here.
+- **Raw-byte ceiling.** `richByteCeiling(TEXTAREA_MAX)` is `5000 * 32 + 1024` = **161 024** characters
+  of raw html; past it `sanitizeRichText` hard-clips and hands the result to `degradeToPlain`. Only
+  markup-heavy, low-visible-text shapes reach this one without having already tripped the cap above.
+
+★★★ **THE ORDERING IS WHAT KEEPS BOTH TRIGGERS REACHABLE, and it is the easy thing to get wrong when
+reading the core.** The `.slice(0, MAX_NOTE_HTML)` is applied to the RESULT of the injected
+`sanitizeHtml`, not to its input (`grep -n "MAX_NOTE_HTML)" src/app/note-log-policy.ts` puts it on the
+closing line of that expression). So it cannot shrink what either trigger sees, and reasoning "the
+core caps at 20 000, so the 161 024 ceiling is unreachable" is wrong in both directions at once.
+
+**Two further loss directions the §286 table does not list, both NET-NEUTRAL.** Adopting the core
+means the template route now also:
+
+- **drops a note entry whose `timestamp` does not parse** (`isValidTimestamp`), where the old seed
+  validator accepted any non-empty string; and
+- **caps at `MAX_NOTE_ENTRIES`** (500 accepted entries), where the old seed was unbounded.
+
+Neither is new data loss. Canonical validation drops exactly the same entries at the next whole-object
+load (`sanitizeRichFields` calls `sanitizeNoteLog`) and on the CSV / Markdown / Turso cell paths
+(`decodeNoteLog` calls it too), so the persisted end state after one reload is unchanged; the losses
+merely move EARLIER. ★★ State the bound with it: "net-neutral" is about the end state, not about every
+observable moment. Before this branch such entries survived apply and lived in memory until the next
+load. A user who applied a template and read the notes without reloading would have seen them.
+
+★ **Filed as ONE entry, not three, deliberately.** All three items are the residue of one adoption on
+one call path, and a reader arriving from §286 wants the whole of what that adoption did in one place.
+Splitting the two net-neutral rows into their own number would give them a heading that reads as an
+open defect, which is precisely what they are not.
+
+★★ **Fix shape, if wanted — and "make the sentence true" is not one.** Do NOT loosen a cap in
+`sanitizeRichText`, and do NOT slice raw html before sanitising to keep it under a trigger: both
+manufacture parity by weakening the boundary the seed carry exists to enforce, and the second one
+feeds severed markup to a cleaner that is only safe on the clipped path because `degradeToPlain`
+flattens it. The honest options are to accept the difference as forced and documented (the state this
+entry records), or to give the core a DOM-free cleaner with canonical cap semantics — a real piece of
+work, since the caps and the plain-text upgrade in `sanitizeRichText` are the same function.
+
+★ **Nothing detects this.** No gate compares the two routes' output, `docs:symbols:check` proves only
+that the names above exist, and the divergence needs a note past a cap to appear at all. A unit test
+feeding one fixture through `sanitizeNoteLog` and `sanitizeSeedNoteLog` and asserting where they agree
+and where they do not is the only detector this will ever have — and it should PIN the difference as
+intended, not assert it away.

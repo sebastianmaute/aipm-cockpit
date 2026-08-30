@@ -11,7 +11,9 @@ import type {
 import { resourceDisplayName } from "./resource-foundation";
 import { mintIds, type MintKind } from "./id-mint-session";
 import { sanitizeRichHtml } from "./sanitize-html";
-import { htmlPlainProjection } from "./rich-text-plain";
+import { htmlPlainProjection, sanitizeRichText } from "./rich-text-plain";
+import { RICH_SINK } from "./html-start";
+import { TEXTAREA_MAX } from "./sanitize";
 
 export interface ApplyTemplateOptions {
   includeSeed: boolean;
@@ -79,6 +81,37 @@ function remapDeps(
  * function's name. A narrower list here would destroy a captured heading that
  * the classifier had already accepted as live markup.
  */
+/**
+ * Allow-list ONE rich HTML field, then RE-APPLY THE EMPTY RULE. The only way
+ * this file should reach `sanitizeRichHtml` — every rich-field site in the four
+ * `allowList*` passes below routes through here.
+ *
+ * ★★★ THE SECOND PASS IS THE POINT, AND A BARE `sanitizeRichHtml` AT A NEW SITE
+ * REINTRODUCES THE DEFECT IT CLOSES. The allow-list can EMPTY a value whose only
+ * content was a disallowed element while leaving its wrapper standing:
+ * `"<p><script>x</script></p>"` and `"<p><img src=a></p>"` both come out as
+ * `"<p></p>"` — measured, not reasoned. `"<p></p>"` is TRUTHY, so it sails
+ * through every `if (description)` gate downstream and is stored, exported and
+ * indexed as content for a field that is in fact empty. `sanitizeRichText` drops
+ * a visually-empty value, so re-running it turns the phantom back into `""`.
+ *
+ * ★★ This is `sanitizeAiRichText`'s (`ai-rich-text.ts`) trailing re-run, copied
+ * deliberately — same defect, same repair, same two constants. `TEXTAREA_MAX`
+ * and `RICH_SINK` are the SAME ones that boundary uses ON PURPOSE: both guard
+ * the same rich entity fields on their way into the same six write paths, so
+ * picking a different cap or sink here would let the two boundaries drift and
+ * store bytes one of them would have refused. Do not "tidy" either into a local
+ * constant.
+ *
+ * ★ Note what the re-run does NOT do: it is the empty rule and the cap, not a
+ * second allow-list, and it cannot recognise less than the pass above it keeps
+ * (`isHtmlStart(value, "rich")` derives its test from the same
+ * `RICH_ALLOWED_TAGS` list `sanitizeRichHtml` enforces).
+ */
+function allowListField(html: string): string {
+  return sanitizeRichText(sanitizeRichHtml(html), TEXTAREA_MAX, RICH_SINK);
+}
+
 function allowListNoteLog(noteLog: NoteLogEntry[] | undefined): NoteLogEntry[] | undefined {
   // ★★ `text` MUST be re-derived, not carried. The allow-list can remove markup
   // whose inner text the projection had already captured — `<p>ok</p><script>
@@ -90,7 +123,7 @@ function allowListNoteLog(noteLog: NoteLogEntry[] | undefined): NoteLogEntry[] |
   // source of truth and `text` is derived from it, at every boundary that
   // rewrites the html.
   return noteLog?.map((n) => {
-    const html = sanitizeRichHtml(n.html);
+    const html = allowListField(n.html);
     return { ...n, html, text: htmlPlainProjection(html) };
   });
 }
@@ -102,7 +135,7 @@ function allowListRich<T extends { description?: string; noteLog?: NoteLogEntry[
 ): T {
   return {
     ...row,
-    ...(row.description ? { description: sanitizeRichHtml(row.description) } : {}),
+    ...(row.description ? { description: allowListField(row.description) } : {}),
     ...(row.noteLog ? { noteLog: allowListNoteLog(row.noteLog) } : {}),
   };
 }
@@ -113,7 +146,7 @@ function allowListRich<T extends { description?: string; noteLog?: NoteLogEntry[
  *  caller. */
 function allowListRaid(row: RaidItem): RaidItem {
   const base = allowListRich(row);
-  return row.mitigation ? { ...base, mitigation: sanitizeRichHtml(row.mitigation) } : base;
+  return row.mitigation ? { ...base, mitigation: allowListField(row.mitigation) } : base;
 }
 
 /** Changes carry THREE rich fields beyond the note log — `description` (the
@@ -129,10 +162,10 @@ function allowListChange(row: ChangeItem): ChangeItem {
   return {
     ...base,
     ...(row.impactDescription
-      ? { impactDescription: sanitizeRichHtml(row.impactDescription) }
+      ? { impactDescription: allowListField(row.impactDescription) }
       : {}),
     ...(row.resolutionNotes
-      ? { resolutionNotes: sanitizeRichHtml(row.resolutionNotes) }
+      ? { resolutionNotes: allowListField(row.resolutionNotes) }
       : {}),
   };
 }
@@ -290,7 +323,13 @@ function allowListSeed(seed: TemplateSeed): TemplateSeed {
  *  is idempotent by construction; `sanitizeRichHtml` is idempotent under its
  *  default configuration — but read that pin's SCOPE before leaning on it:
  *  `sanitize-html.test.ts`'s "is idempotent on already-clean html" covers
- *  exactly the second-application case this relies on, and nothing wider. */
+ *  exactly the second-application case this relies on, and nothing wider.
+ *  ★ `allowListField`'s trailing `sanitizeRichText` re-run inherits the same
+ *  qualification: `rich-text-plain.test.ts`'s "is idempotent — it runs on every
+ *  load" pins `descriptionHtml` over four inputs, which is the upgrade half; the
+ *  cap and the empty rule are idempotent by construction (a value already at or
+ *  under the cap is unchanged, and `""` stays `""`), and nothing pins the
+ *  composed function end to end. */
 export function appendSeed(ws: Workspace, seed: TemplateSeed): Workspace {
   const allowed = allowListSeed(seed);
   return {

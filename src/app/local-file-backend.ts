@@ -153,10 +153,18 @@ export class LocalFileBackend implements StorageBackend {
    * that has picked a file but not yet been authorised to adopt it reads
    * through here; nothing it does can re-point the backend. `load()` is the
    * thin wrapper that supplies the STORED handle.
-   * ★★ Both diagnostic mechanisms live in this body unchanged — the `finally`
-   * publishing `lastLoadTruncation`, and the import-flag reset above the first
+   * ★★ Both diagnostic mechanisms live in this body — the `finally` publishing
+   * `lastLoadTruncation`, and the `resetLoadDiagnostics()` call above the first
    * possible exit. Adding an early return here is the shape that broke
    * `sharepoint-backend.load()`; do not add one.
+   * ★★★ THAT COVERS THIS BODY AND SAYS NOTHING ABOUT ITS CALLERS, and an earlier
+   * wording of it claimed otherwise. Splitting `load()` out (§287) put ONE exit
+   * ABOVE these resets: `load()` has to `await this.getHandle()` before it can call
+   * here, and `idbGet`/`openIdb` genuinely reject — on a missing `indexedDB` and on
+   * a store error. A rejection there would have left BOTH mechanisms carrying the
+   * PREVIOUS load's values, the exact staleness the placement below exists to
+   * prevent. `load()` therefore resets on that path too. Any future wrapper that
+   * awaits something before calling here owes the same.
    */
   async loadFrom(handle: FsHandle | null): Promise<Workspace> {
     // ★★ ONE accumulator, and every diagnostic field written on every exit.
@@ -191,10 +199,7 @@ export class LocalFileBackend implements StorageBackend {
     // and the stale value goes live. The reset placement is what makes that
     // safe to do rather than a second bug.
     const diag: ImportDiag = { droppedRows: 0 };
-    this.lastImportDroppedRows = 0;
-    this.lastImportDroppedBySection = undefined;
-    this.lastImportUnterminatedQuote = false;
-    this.lastImportMalformedQuotes = 0;
+    this.resetLoadDiagnostics();
     try {
       if (!handle) throw new StorageNotReadyError("local-file-not-picked");
       if (!(await hasGrantedPermission(handle, "read"))) {
@@ -218,8 +223,40 @@ export class LocalFileBackend implements StorageBackend {
     }
   }
 
+  /**
+   * Zero every field the two load-diagnostic mechanisms publish.
+   *
+   * ★★★ EXTRACTED SO THE ONE EXIT ABOVE `loadFrom` CAN RUN IT TOO. These four
+   * import flags plus `lastLoadTruncation` are read by `truncationOps.reportFor`
+   * to decide whether a load lost rows; a stale value is WORSE than a zero,
+   * because it raises a data-loss warning about a file that is fine. `loadFrom`
+   * calls this above its first possible exit, and `load()` calls it when handle
+   * lookup rejects before `loadFrom` is even entered.
+   * ★★ Zeroing `lastLoadTruncation` here is harmless on the `loadFrom` path — its
+   * `finally` overwrites the field on every exit, including the throwing ones.
+   */
+  private resetLoadDiagnostics(): void {
+    this.lastImportDroppedRows = 0;
+    this.lastImportDroppedBySection = undefined;
+    this.lastImportUnterminatedQuote = false;
+    this.lastImportMalformedQuotes = 0;
+    this.lastLoadTruncation = { entries: 0, blocks: 0 };
+  }
+
   async load(): Promise<Workspace> {
-    return this.loadFrom(await this.getHandle());
+    // ★★★ THE `await` IS THE POINT. It is the only exit that can be taken before
+    // `loadFrom` resets anything, so it resets on the way out rather than leaving the
+    // previous load's diagnostics standing. The original error is RETHROWN, not
+    // swallowed — a rejecting handle store is a real failure and the caller's own
+    // handler must still see it.
+    let handle: FsHandle | null;
+    try {
+      handle = await this.getHandle();
+    } catch (err) {
+      this.resetLoadDiagnostics();
+      throw err;
+    }
+    return this.loadFrom(handle);
   }
 
   async save(ws: Workspace): Promise<void> {

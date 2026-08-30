@@ -18,11 +18,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const kv = vi.hoisted(() => new Map<string, unknown>());
 
+// ★★ `idbGet` REALLY DOES REJECT in the browser — `openIdb` rejects when there is
+// no `indexedDB` at all, and on a store error. Nothing else in this file can reach
+// that path, so it gets an explicit lever rather than a contrived handle.
+const idbGetError = vi.hoisted(() => ({ current: null as Error | null }));
+
 vi.mock("./idb", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./idb")>();
   return {
     ...actual,
-    idbGet: async (key: string) => kv.get(key),
+    idbGet: async (key: string) => {
+      if (idbGetError.current) throw idbGetError.current;
+      return kv.get(key);
+    },
     idbSet: async (key: string, value: unknown) => {
       kv.set(key, value);
     },
@@ -84,6 +92,7 @@ async function loadDirty(be: LocalFileBackend): Promise<void> {
 describe("LocalFileBackend load() import diagnostics", () => {
   beforeEach(() => {
     kv.clear();
+    idbGetError.current = null;
   });
 
   // ★★ THE THREE THROWING EXITS USED TO SKIP THE IMPORT-FLAG RESET, which sat
@@ -267,5 +276,61 @@ describe("LocalFileBackend.openFile does not commit the handle (§287)", () => {
     await be.setHandle(await be.openFile());
 
     expect(await be.readHandle()).toBe(picked);
+  });
+});
+
+// ★★★ THE ONE EXIT ABOVE `loadFrom`'S RESETS. §287 split `load()` into a wrapper
+// that awaits `getHandle()` and a `loadFrom(handle)` that does the work, and the resets
+// live in `loadFrom`. So a REJECTING handle store became the first exit that could
+// happen before any reset ran, leaving the previous load's diagnostics standing — which
+// is worse than zeroes, because `truncationOps.reportFor` would then warn about lost
+// rows in a file that is perfectly fine.
+describe("LocalFileBackend.load resets diagnostics when the handle store rejects", () => {
+  beforeEach(() => {
+    kv.clear();
+    idbGetError.current = null;
+  });
+
+  it("clears the import flags a previous load left raised", async () => {
+    const be = new LocalFileBackend("local-csv");
+    await loadDirty(be);
+    expect(be.lastImportUnterminatedQuote).toBe(true); // the state this test needs to exist
+
+    idbGetError.current = new Error("indexedDB unavailable");
+    await expect(be.load()).rejects.toThrow("indexedDB unavailable");
+
+    expect(be.lastImportUnterminatedQuote).toBe(false);
+    expect(be.lastImportDroppedRows).toBe(0);
+  });
+
+  it("clears the truncation field too", async () => {
+    // ★★ Its own it(): `lastLoadTruncation` is published by a DIFFERENT mechanism
+    // (`loadFrom`'s `finally`) than the import flags above, so a fix that reset only
+    // one of the two would leave this unproved if it shared their block.
+    const be = new LocalFileBackend("local-csv");
+    await loadDirty(be);
+    // ★★★ SEEDED BY HAND, and the test was VACUOUS without it. `loadDirty`'s CSV
+    // truncates nothing, so this field was already `{0,0}` and the assertion below
+    // passed whether or not the reset ran — measured: under the pre-fix wrapper this
+    // test stayed GREEN while its sibling went red. A non-zero value is the only thing
+    // that makes it discriminate.
+    be.lastLoadTruncation = { entries: 3, blocks: 1 };
+
+    idbGetError.current = new Error("indexedDB unavailable");
+    await expect(be.load()).rejects.toThrow("indexedDB unavailable");
+
+    expect(be.lastLoadTruncation).toEqual({ entries: 0, blocks: 0 });
+  });
+
+  it("rethrows the original error rather than masking it", async () => {
+    // ★★★ THE POSITIVE CONTROL, and the one that stops the fix becoming a
+    // swallow. A `load()` that caught the rejection and resolved — or that converted it
+    // into a generic StorageNotReadyError — would satisfy both assertions above while
+    // hiding a real handle-store failure from the caller's own handler.
+    const be = new LocalFileBackend("local-csv");
+    const cause = new Error("store is closed");
+    idbGetError.current = cause;
+
+    await expect(be.load()).rejects.toBe(cause);
   });
 });

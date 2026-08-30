@@ -254,4 +254,93 @@ describe("applyTemplate allow-lists the seed's rich fields", () => {
     expect((ws.changes ?? [])[0].noteLog?.[0].html).not.toContain("script");
     expect((ws.changes ?? [])[0].noteLog?.[0].html).toContain("ok");
   });
+
+  // ★★★ THE PHANTOM `<p></p>`. The allow-list can EMPTY a value whose only
+  // content was a disallowed element while leaving the wrapper standing, and
+  // `"<p></p>"` is TRUTHY — it passes every `if (description)` gate downstream
+  // and is stored and exported as content for a field that is in fact empty.
+  // `allowListField`'s trailing `sanitizeRichText` re-applies the empty rule.
+  //
+  // ★★ EACH of the three emptiness tests below is killed by its OWN mutant —
+  // reverting THAT site's `allowListField(...)` back to a bare
+  // `sanitizeRichHtml(...)`. Three sites, three mutants, so each test proves its
+  // own site in isolation. The three positive controls are the other half and
+  // do NOT have that property: ONE mutant (making `allowListField` return `""`
+  // unconditionally) kills all three at once, so they prove the helper is not a
+  // blanket-empty collectively, not individually.
+  //
+  // ★ There is deliberately NO milestone phantom test: milestones route through
+  // `allowListRich`'s `description` site, the SAME site the task test below
+  // covers, so it would share that test's mutant and prove nothing extra.
+
+  it("empties a task description whose only content was a disallowed element", () => {
+    // Mutant: `allowListRich`'s `description` site -> bare `sanitizeRichHtml`.
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({ tasks: [mkTask("<p><script>x</script></p>")] }),
+      { includeSeed: true },
+    );
+    expect(ws.tasks[0].description).toBe("");
+  });
+
+  it("keeps a task description that still has visible text after the allow-list", () => {
+    // Positive control for the test above — without it a helper that emptied
+    // EVERY field would satisfy the emptiness assertion.
+    // Mutant: `allowListField` returning "" unconditionally (shared with the
+    // two other positive controls below, so this proves the pair, not the site).
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({ tasks: [mkTask("<p>ok</p><script>alert(1)</script>")] }),
+      { includeSeed: true },
+    );
+    expect(ws.tasks[0].description).toContain("<p>ok</p>");
+  });
+
+  it("empties a RAID mitigation whose only content was a disallowed element", () => {
+    // Mutant: `allowListRaid`'s `mitigation` site -> bare `sanitizeRichHtml`.
+    // ★ `<img>` rather than `<script>` on purpose: the two reach `"<p></p>"` by
+    // DIFFERENT routes — `<script>` is removed WITH its contents, `<img>` is
+    // merely absent from the rich allow-list and is unwrapped to nothing — and
+    // the phantom is the same either way.
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({ raid: [mkRaid({ mitigation: "<p><img src=a></p>" })] }),
+      { includeSeed: true },
+    );
+    expect(ws.raid[0].mitigation).toBe("");
+  });
+
+  it("keeps a RAID mitigation that still has visible text after the allow-list", () => {
+    // Positive control. Mutant: `allowListField` returning "" unconditionally.
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({ raid: [mkRaid({ mitigation: "<p>ok</p><img src=a>" })] }),
+      { includeSeed: true },
+    );
+    expect(ws.raid[0].mitigation).toContain("<p>ok</p>");
+  });
+
+  it("empties a change resolution note whose only content was a disallowed element", () => {
+    // Mutant: `allowListChange`'s `resolutionNotes` site -> bare
+    // `sanitizeRichHtml`. A separate site from `impactDescription` beside it, so
+    // this cannot stand in for that one.
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({ changes: [mkChange({ resolutionNotes: "<p><script>x</script></p>" })] }),
+      { includeSeed: true },
+    );
+    expect((ws.changes ?? [])[0].resolutionNotes).toBe("");
+  });
+
+  it("keeps a change resolution note that still has visible text after the allow-list", () => {
+    // Positive control. Mutant: `allowListField` returning "" unconditionally.
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({
+        changes: [mkChange({ resolutionNotes: "<p>ok</p><script>alert(1)</script>" })],
+      }),
+      { includeSeed: true },
+    );
+    expect((ws.changes ?? [])[0].resolutionNotes).toContain("<p>ok</p>");
+  });
 });
