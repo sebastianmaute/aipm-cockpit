@@ -26,7 +26,7 @@
 // local state is which modal is open and (in create mode) the chosen file
 // format for the new project.
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { type ExportFormat } from "./export";
@@ -34,6 +34,7 @@ import { type NewProjectOpts } from "./new-project-workspace";
 import { t, type Lang } from "./i18n";
 import { ProjectEditModal, ProjectModalShell } from "./project-edit-modal";
 import { type ProjectRegistryEntry } from "./projects-registry";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { type Settings } from "./settings-types";
 import { getTursoConfig } from "./turso-config";
 import { TursoProjectPicker } from "./turso-project-picker";
@@ -145,6 +146,15 @@ export function ProjectsPanel({
   const [hardDeleteTarget, setHardDeleteTarget] =
     useState<ProjectRegistryEntry | null>(null);
   const [tursoPickerOpen, setTursoPickerOpen] = useState(false);
+  // Archived-row control names (Restore / Delete permanently) collide
+  // unconditionally otherwise — every archived row emits the identical bare
+  // verb (§276). ProjectRegistryEntry.id is a string, so `useRowTokens`
+  // (constrained to `{ id: number }`) doesn't fit here; call `buildRowTokens`
+  // directly and own the memo, mirroring documents-list.tsx's string-id rows.
+  const archivedTokens = useMemo(
+    () => buildRowTokens((archivedProjects ?? []).map((p) => ({ id: p.id, name: p.name }))),
+    [archivedProjects],
+  );
 
   const isTurso = mode === "turso";
 
@@ -392,6 +402,10 @@ export function ProjectsPanel({
                         variant="secondary"
                         size="sm"
                         onClick={() => onRestore?.(p.id)}
+                        aria-label={rowLabel(
+                          t(lang, "projectsRestore"),
+                          archivedTokens.get(p.id) ?? p.name,
+                        )}
                       >
                         {t(lang, "projectsRestore")}
                       </Button>
@@ -399,6 +413,10 @@ export function ProjectsPanel({
                         variant="destructive"
                         size="sm"
                         onClick={() => setHardDeleteTarget(p)}
+                        aria-label={rowLabel(
+                          t(lang, "projectsDeletePermanently"),
+                          archivedTokens.get(p.id) ?? p.name,
+                        )}
                       >
                         {t(lang, "projectsDeletePermanently")}
                       </Button>
