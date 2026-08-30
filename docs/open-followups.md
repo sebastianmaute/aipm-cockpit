@@ -22697,9 +22697,7 @@ permutation of `target` so the killing shape is drawn on purpose rather than by 
 
 **Status:** open — Narrowed 2026-08-30 by the recoverable-destructive-refusal slice: a route that
 forgets to arm now yields a recoverable refusal (a standing banner with a working "save anyway")
-instead of a save outage whose only advice was to reload. The gap itself is unchanged — there is
-still no census over UI delete routes, `destructive-save-arming.test.ts` is untouched, and the
-proposed `DELETE_ROUTES` registry was deliberately rejected (see the slice's design doc).
+instead of a save outage whose only advice was to reload.
 Never machine-verified: no test enumerates UI delete routes, which is the entry's whole point.
 (Filed 2026-08-29 while closing §285, by reading `destructive-save-arming.test.ts`'s own
 enumeration source rather than by any gate.)
@@ -22805,13 +22803,12 @@ the effect cleared it at a consume site below `evaluateSaveGuard`. Every early r
 site was therefore a decision about whether the arm survives, and the answer had to be written out
 by hand, separately, at each one.
 
-★★★ **THAT SHAPE IS GONE. Everything below describes what this entry WAS about.** `consumeArm()` is
+★★★ **THAT SHAPE IS GONE.** `consumeArm()` is
 now the FIRST statement of the effect: the arm is read into a local (`armed`) and the ref cleared
 before any guard clause runs, so there are NO returns above the consume site and no per-return
 decision left to make. The reader's question at a new early return is "does this path USE `armed`",
 which cannot be skipped. Reproduce the placement with
 `grep -n "consumeArm\|if (!args.hydrated) return\|if (args.isPopout) return" src/app/use-storage-backend.ts`
-— `consumeArm` comes first.
 
 ★★ **The obligation is invisible at the site that creates it.** Arming happens in a panel handler
 several files away; the consume site reads as the single owner of the lifetime; and the returns above
@@ -22938,23 +22935,14 @@ path that re-applies deletions, so neither looked at it.
 ★★ **AS FILED, the undo module armed nothing** — `grep -rn "allowDestructive" src/app/undo/`
 returned zero non-test hits. It returns three today: the optional `allowDestructiveSave` dep, the
 `armDestructive` callback that reads it through `depsRef`, and the comment explaining why it is
-captured by ref, all in `use-undo-stack.ts`. The rest of this paragraph still describes the
-machinery accurately. `buildBeforeImages` in `undo-stack.ts` folds the rows an op removed into before-images
+captured by ref, all in `use-undo-stack.ts`. `buildBeforeImages` in `undo-stack.ts` folds the rows an op removed into before-images
 tagged `op: "delete"`, and the runner it builds is explicitly bidirectional — its own docstring says
 applying it "mutates state (undo OR redo) via its captured setter(s)" and returns the inverse runner.
-So a redo drives the same workspace setters the save effect watches, with no bypass armed.
+So a redo drives the same workspace setters the save effect watches.
 
 ★★ **Clear-all is the concrete case, and it is undoable by declaration.** `use-bulk-operations.ts`
 documents its `capture` dep as "a pre-op snapshot for undo (clear-all deletes, bulk-edit changes)".
-That hook DOES arm the bypass for the original clear-all. The sequence that skips the arming is:
-clear all tasks (armed, saves) → undo (restores every row) → **redo** (removes them all again,
-through the undo runner, which arms nothing). The guard then sees a full wipe or a mass deletion with
-`allowDestructive` false and refuses the save — the user's redo appears to work on screen and is
-never persisted, and the rows return on the next reload.
-
-★ **That is the same user-visible shape as the three defects this release already fixes**, reached
-through a route none of them touched: those were panel and AI delete handlers, this is the undo
-stack replaying one of them.
+That hook DOES arm the bypass for the original clear-all.
 
 ★ **Why it was filed rather than fixed at the time, and which option was taken.** The fix is not
 obviously "arm in the redo thunk" — the runner is generic over any captured array and does not know
@@ -23226,8 +23214,7 @@ alone would not reach it. Its header records this as its third stated limitation
 
 **Status:** open — the strings and every call site were read on 2026-08-30 with
 `grep -n "typeToConfirmPrompt:" src/app/i18n.ts src/app/i18n.de.ts` and
-`grep -rn "confirmValue=" src/app --include=*.tsx | grep -v "\.test\."` (six sites), and the
-comparison with `sed -n '36,40p' src/app/type-to-confirm-dialog.tsx`. The RENDERED sentence has never
+`grep -rn "confirmValue=" src/app --include=*.tsx | grep -v "\.test\."` (six sites). The RENDERED sentence has never
 been exercised — no test or manual pass has read the prompt in either language, so the ambiguity
 below is derived from the strings, not observed.
 
@@ -23325,8 +23312,7 @@ footer.
 
 **Status:** open — measured 2026-08-30 with a temporary probe counting `logDiag` calls carrying
 `dataloss.refused`, since removed from the tree. Enumerate the record sites with
-`grep -rn "recordDataLossEvent" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`, and the
-consumers with `grep -rn "readDataLossLog" src/app --include=*.ts --include=*.tsx`.
+`grep -rn "recordDataLossEvent" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`.
 
 Measured counts for one destructive episode: a NEW refusal writes **2** entries; a later re-refusal at
 UNCHANGED counts adds **1**; a later re-refusal whose counts MOVED adds **2** again. So the over-report is
