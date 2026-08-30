@@ -8,6 +8,49 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.265.0] - 2026-08-30 "Nagata"
+
+### Fixed
+
+- **Pressing Escape to close a menu or popover left the keyboard stranded at the top of the page.**
+  Opening a dropdown, filter or toolbar menu with the keyboard and then changing your mind used to
+  drop you back at the very start of the document: the next Tab restarted from the top, and arrow
+  keys in the toolbar you had been working in stopped responding altogether. Escape now returns you
+  to the control you opened the menu from, so you carry on exactly where you left off. Closing a
+  popover the other ways — clicking elsewhere on the page, or scrolling and resizing the window —
+  deliberately leaves your focus where it is, because in those cases you have either moved on
+  yourself or not asked to move at all.
+
+- **The rate card's two daily-rate columns explained the basis of the rate instead of explaining
+  themselves.** The internal /d and external /d columns both showed the same general note about how
+  rates are worked out — the same note as the Basis column beside them — so the one place you would
+  look for what a daily rate actually is told you something else. Both columns now have their own
+  explanation, matching the hourly columns next to them, and Basis keeps the note that genuinely
+  describes it.
+
+- **The budget table repeated the same two hints in every single cell.** Every period, on every role
+  row, carried its own "budgeted hours" and "actual hours" note. On a table of any size that is
+  dozens of copies of the same two sentences, and each one was a separate stop when tabbing through
+  the table — so reaching the next control meant passing through all of them. The two hints are now
+  stated once for the whole panel, which is where they belonged: they describe the columns, not the
+  individual cells.
+
+- **Controls in the budget panel and in reports did not say which bucket or which table they
+  belonged to.** With more than one budget bucket on screen, every bucket's Edit, Close and Remove
+  buttons and every one of its hint icons were labelled identically, and the three tables in Reports
+  reused the same column names — Open, Overdue, Total and the rest — with nothing to tell them apart.
+  On screen this is unambiguous, because you can see which bucket or table a control sits in. Read
+  aloud it is not: anyone using a screen reader heard a list of identical "Edit bucket" and "Open"
+  controls with no way to tell which was which. Each of these now names its bucket or its table,
+  using the same heading you can see above it, and the visible label is kept intact at the front of
+  what is announced.
+
+- **Milestones did not record when they were last changed.** Every other register stamps a
+  modification time when you edit a row; milestones alone did not, so a milestone edited five
+  minutes ago looked identical to one untouched for a year, in the app and in every export. They now
+  record it on save, and undoing an edit — a single milestone or a bulk change — refreshes it too,
+  so a reverted milestone is never left claiming a modification time its contents no longer match.
+
 ## [0.264.1] - 2026-08-29 "Russell"
 
 ### Fixed

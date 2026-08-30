@@ -6,6 +6,8 @@ import type { BudgetBucket, ResourcePlan, Role, Task } from "./types";
 import type { AddableReportId } from "./addable-reports";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
+import { controlNames } from "../test/toolbar-order";
 
 const TODAY = "2026-05-28";
 
@@ -81,7 +83,13 @@ describe("ReportsPanel — sort + filter", () => {
     const user = userEvent.setup();
     renderReports(tasks);
     const section = sectionByTitle(/By Assignee/i);
-    const header = within(section).getByRole("button", { name: /assignee/i });
+    // The QUALIFIED name, as an exact string. A bare /assignee/i now matches
+    // all eight of this table's headers ("Total – By assignee", …) and throws;
+    // widening the regex to dodge that would reintroduce the ambiguity §246
+    // removed.
+    const header = within(section).getByRole("button", {
+      name: `${t("en-US", "assignee")} – ${t("en-US", "reportsByAssignee")}`,
+    });
 
     await user.click(header); // asc by name
     expect(rowNamesIn(section)).toEqual(["Alex", "Bea", "Carl"]);
@@ -128,7 +136,9 @@ describe("ReportsPanel — sort + filter", () => {
     const groupSection = sectionByTitle(/By Group/i);
     const labelSection = sectionByTitle(/By Label/i);
 
-    const groupNameHeader = within(groupSection).getByRole("button", { name: /^Group/i });
+    const groupNameHeader = within(groupSection).getByRole("button", {
+      name: `${t("en-US", "group")} – ${t("en-US", "reportsByGroup")}`,
+    });
     await user.click(groupNameHeader);
     expect(rowNamesIn(groupSection)[0]).toBe("Backend"); // alphabetical asc
 
@@ -454,5 +464,81 @@ describe("ReportsPanel — a group card does not count cancelled work Green", ()
     // on the unfixed code — the presence assertion above would pass either way
     // once the clause exists.
     expect(screen.queryByText(/1 green/)).toBeNull();
+  });
+});
+
+describe("ReportsPanel — sortable headers are unique across the sibling tables", () => {
+  // §246: three embedded tables reusing generic column labels. The names are
+  // NOT same-purpose — "Open" in the assignee table sorts a different table
+  // from "Open" in the group table — so this is a genuine 2.4.6 failure.
+  const tasks: Task[] = [
+    makeTask({ id: 1, assignee: "Alex", group: "Backend", labels: ["urgent"] }),
+    makeTask({ id: 2, assignee: "Bea", group: "Frontend", labels: ["ui"] }),
+  ];
+
+  // ★★★ `requireCollisionSeed` CANNOT be used here, and this is measured rather
+  // than assumed: turning it on FAILS against the fixed code. That guard strips
+  // only `buildRowTokens`' " (N)" occurrence suffix, and this surface
+  // disambiguates a different way — it appends " – <section heading>", the same
+  // class as `documents-deleted-section.tsx`'s " · #id", which the helper's own
+  // docstring records as outside what it can certify. The anti-vacuity guard is
+  // therefore the assertion BELOW, which is that guard's semantics re-expressed
+  // for this disambiguator: strip the context and the collision must reappear.
+  // Do NOT "restore" requireCollisionSeed — it would go red on correct code.
+  const CONTEXT_SUFFIX = / – (By assignee|By group|By label)$/;
+
+  it("gives every sortable header a table-unique accessible name", () => {
+    const { container } = renderReports(tasks);
+    expectRowUniqueNames({
+      // MEASURED off this helper's own error, not guessed. Re-measure and BUMP
+      // this if the panel grows a control; never lower it. A floor below the
+      // true count would let a silently-empty render — or a narrowed query —
+      // read as a pass.
+      minControls: 27,
+      scope: container,
+      roles: ["button"],
+    });
+  });
+
+  // Without this the test above is VACUOUS: three tables rendering no rows, or
+  // a fixture whose columns happened not to repeat, would satisfy uniqueness
+  // trivially. This proves the fixture genuinely puts the same generic column
+  // labels on sibling tables, so the qualification is the only thing separating
+  // them — and it names them, so a table silently dropping out goes red.
+  it("seeds the collision the qualification resolves", () => {
+    const { container } = renderReports(tasks);
+    const bare = controlNames(["button"], container).map((n) => n.replace(CONTEXT_SUFFIX, ""));
+    const counts = new Map<string, number>();
+    for (const n of bare) counts.set(n, (counts.get(n) ?? 0) + 1);
+    const collides = [...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n).sort();
+    expect(collides).toEqual([
+      "Cancelled",
+      "Completed",
+      "Inquiries",
+      "Open",
+      "Overdue",
+      "Total",
+    ]);
+  });
+
+  // ★★★ POSITIVE per-table pin, and NEITHER test above can replace it. A SINGLE
+  // table losing its context is invisible to both: its bare "Open" collides
+  // with nothing (the other two are still qualified, so "Open – By group" is a
+  // different string), and stripping the suffix maps the other two onto the
+  // same "Open" the bare one already is — so the colliding set is UNCHANGED and
+  // both stay green. Measured with a mutant, not reasoned. Each table therefore
+  // needs its own qualified name asserted DIRECTLY, or that call site's
+  // forwarding is pinned by nothing at all.
+  //
+  // ★ One column label all three share, so the three assertions are genuinely
+  // parallel. The qualified name rides `aria-label`, so it carries no sort
+  // glyph and this does not depend on which column each table sorts by.
+  it("qualifies the shared column label in each of the three tables", () => {
+    renderReports(tasks);
+    for (const heading of ["reportsByAssignee", "reportsByGroup", "reportsByLabel"] as const) {
+      expect(
+        screen.getByRole("button", { name: `${t("en-US", "reportsOpen")} – ${t("en-US", heading)}` }),
+      ).toBeInTheDocument();
+    }
   });
 });

@@ -459,6 +459,11 @@ export function ReportsPanel({
         <AssigneeTable
           rows={stats.byAssignee}
           lang={lang}
+          // The SECTION HEADING, not `headerKey`/a column key: it is what a
+          // sighted user reads above the table, and it is the one vocabulary
+          // all three sibling tables can share (`AssigneeTable` has no
+          // `headerKey` at all).
+          nameContext={t(lang, "reportsByAssignee")}
           colWidths={assignee.colWidths}
           onStartResize={assigneeStartResize}
           sort={assigneeSort}
@@ -480,6 +485,7 @@ export function ReportsPanel({
         <GroupOrLabelTable
           rows={stats.byGroup}
           lang={lang}
+          nameContext={t(lang, "reportsByGroup")}
           headerKey="group"
           emptyKey="reportsNoGroups"
           colWidths={byX.colWidths}
@@ -496,6 +502,7 @@ export function ReportsPanel({
         <GroupOrLabelTable
           rows={stats.byLabel}
           lang={lang}
+          nameContext={t(lang, "reportsByLabel")}
           headerKey="labels"
           emptyKey="reportsNoLabels"
           colWidths={byX.colWidths}

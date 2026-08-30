@@ -263,29 +263,19 @@ function MilestonesPanelBody({
     // `wrote` and suppressing every save.
     const edits = buildBulkFieldEdits(rows, MILESTONE_UNDO_GROUPS);
     const wrote = new Set(edits.map((e) => e.id));
-    // NO `stampField` here, and that is now the MEASURED answer rather than an
-    // open question (open-followups §181, closed). `stampField` does not restore
-    // the prior stamp — it writes a FRESH `new Date().toISOString()` on undo AND
-    // redo, the reversal being itself a local modification.
-    // ★★ Milestones is the one register of the four where omitting it is CORRECT,
-    // and the reason is local: `Milestone` HAS an optional `localModifiedAt`, but
-    // `save` below never writes it, so this register's APPLY does not stamp
-    // either. There is no apply-time timestamp here for an undo to leave stale,
-    // so stamping on undo would CREATE a stamp the register otherwise never sets
-    // — inventing a modification time rather than correcting a false one.
-    // ★ The other three were harmonised in the same commit because their applies
-    // DO stamp: RAID because two readers (`raidLastTouch` in `insights/detect.ts`,
-    // `lastTouch` in `raid-review.ts`) make it observable, changes and
-    // stakeholders for consistency with their own apply.
-    // ★★ THE DECISION HAS SINCE BEEN MADE THAT MILESTONES SHOULD STAMP — see
-    // open-followups §289, which is OPEN and not yet implemented. Read this
-    // comment as describing what the code does TODAY and why that is coherent,
-    // NOT as an argument against changing it. ★★★ When §289 is done, the apply
-    // (`save`, below — `finalItem` is `{ ...next, id }` and never stamps) goes
-    // FIRST. Adding `stampField` here alone would produce a stamp that appears
-    // only when a user REVERSES something, which is strictly worse than the
-    // current uniform absence.
-    if (edits.length) captureFieldRows?.({ setter: setMilestones, kind: "bulk.edit", edits, entityKey: "milestone" });
+    // §289 (closed): milestones stamp `localModifiedAt` on both the apply
+    // (`save`, below) and the bulk undo, matching RAID, changes and
+    // stakeholders. `stampField` writes a FRESH ISO timestamp on undo AND redo
+    // — the reversal is itself a local modification — it does not restore the
+    // prior stamp. The apply had to land FIRST: adding this alone would give
+    // the register a modification time that appears only when a user REVERSES
+    // something. `localModifiedAt` is in `activity-log.ts`'s DEFAULT_DIFF_SKIP,
+    // so neither write adds field-change noise to the activity log.
+    // ★ This SUPERSEDES open-followups §181, which closed with the opposite
+    // answer ("milestones correct as-is") on the then-true premise that this
+    // register's apply never stamped. It does now, so §181's reasoning no
+    // longer describes this code.
+    if (edits.length) captureFieldRows?.({ setter: setMilestones, kind: "bulk.edit", edits, entityKey: "milestone", stampField: "localModifiedAt" });
     for (const { after } of rows) {
       if (wrote.has(after.id)) save(after, undefined, { suppressFieldUndo: true });
     }
@@ -337,7 +327,11 @@ function MilestonesPanelBody({
   // (id-mint race). Bulk edit omits it → id-existence fallback (unchanged).
   function save(next: Milestone, isNewIntent?: boolean, opts?: { suppressFieldUndo?: boolean }) {
     const { create, id } = resolveEntitySave(milestones, next.id, isNewIntent, () => mintId("milestone", milestones));
-    const finalItem: Milestone = { ...next, id };
+    // §289: the apply stamps, so the bulk-undo `stampField` above has a real
+    // apply-time timestamp to refresh rather than inventing one. Order matters:
+    // stamping only on undo would produce a modification time that appears ONLY
+    // when a user REVERSES something.
+    const finalItem: Milestone = { ...next, id, localModifiedAt: new Date().toISOString() };
     const previous = create ? undefined : milestones.find((m) => m.id === id);
     // Editing a row a concurrent writer already deleted: the map-replace below
     // would silently no-op. Surface it instead of dropping the edit in silence.
@@ -353,7 +347,14 @@ function MilestonesPanelBody({
       captureFieldChanges(captureFieldEdit, {
         setter: setMilestones, kind: "milestone.updated", id,
         prev: previous, next: finalItem, groups: MILESTONE_UNDO_GROUPS,
-        name: finalItem.name,
+        // §289 names THREE paths, not two: the apply, this single-row capture,
+        // and the bulk capture above. Omitting it here once the apply started
+        // stamping would CREATE the §181 defect rather than close it — undo
+        // would revert the content and leave the apply's fresh timestamp
+        // standing, on a row whose content no longer matches it.
+        // `changedFieldGroups` can never carry the field back (it is in
+        // `NEVER_CAPTURE`), so `stampField` is the only thing that refreshes it.
+        stampField: "localModifiedAt", name: finalItem.name,
       });
     }
     if (create) {

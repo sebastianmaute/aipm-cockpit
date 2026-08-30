@@ -372,7 +372,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§143](#143-the-sink-argument-is-unpinned-at-every-call-site--the-107114-class-surviving-one-level-up--conversion-complete-2026-08-16-the-type-level-guard-is-still-open) | The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CONVERSION COMPLETE 2026-08-16; the TYPE-level guard is still open | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open |
 | [§144](#144-the-new-rich-text-toolbar-is-invisible-to-every-gate-in-the-repo--closed-2026-08-12-a11y-measured) | The new rich-text toolbar is invisible to every gate in the repo | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED** 2026-08-12, a11y, measured |
 | [§145](#145-the-heroicons--lucide-react-migration--closed-2026-08-21-a-decision-measured) | The heroicons → `lucide-react` migration | — | — | **CLOSED** 2026-08-21, a decision, measured |
-| [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--open-a11y-measured) | `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` — open, a11y, measured | — | — | open |
+| [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30) | `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` | — | — | **CLOSED** 2026-08-30 (Escape only; the prescribed reason union deliberately NOT built; the activate-an-item path carved out to §297) |
 | [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--open-a11y-known-limit) | Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit | — | — | open |
 | [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--open-correctness-measured) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread — open, correctness, measured | — | — | open |
 | [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
@@ -407,7 +407,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§178](#178-a-field-patch-undo-still-reverts-a-concurrent-write-to-another-key-of-the-same-object-valued-field--closed-2026-08-29) | A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field | — | — | **CLOSED** 2026-08-29 |
 | [§179](#179-the-undoredo-delete-branch-is-not-covered-by-the-preserve-mechanism-and-a-write-through-write-between-undo-and-redo-duplicates-the-row--closed-2026-08-29) | The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row | — | — | **CLOSED** 2026-08-29 |
 | [§180](#180-buildbulkfieldedits-ignores-the-fieldgroup-invariants-so-a-field-patch-undo-can-leave-a-coupled-pair-inconsistent--closed-2026-08-29) | `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent | — | — | **CLOSED** 2026-08-29 |
-| [§181](#181-four-converted-registers-omit-stampfield-on-their-bulk-capture-while-the-tasks-bulk-edit-passes-it--closed-2026-08-29) | Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it | — | — | **CLOSED** 2026-08-29 (3 of 4; milestones correct as-is) |
+| [§181](#181-four-converted-registers-omit-stampfield-on-their-bulk-capture-while-the-tasks-bulk-edit-passes-it--closed-2026-08-29) | Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it | — | — | **CLOSED** 2026-08-29 (3 of 4; milestones deliberately left — SUPERSEDED for milestones by §289, 2026-08-30) |
 | [§182](#182-template-import-can-store-an-inconsistent-statuscompleteddate-pair-and-nothing-repairs-it--closed-2026-08-23) | Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it | — | — | **CLOSED** 2026-08-23 |
 | [§183](#183-the-jira-conflict-merge-writes-completeddate-without-status-so-accepting-the-modals-default-splits-the-pair-from-well-formed-data--closed-2026-08-23) | The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data | — | — | **CLOSED** 2026-08-23 |
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
@@ -472,7 +472,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it--closed-2026-08-25) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | **CLOSED** 2026-08-25 |
 | [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red--closed-2026-08-26) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | **CLOSED** 2026-08-26 |
 | [§245](#245-the-row-unique-names-sweep-is-bounded-by-test-names-and-a-property-based-scan-finds-far-more-surface) | The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface | row-unique-accessible-names slice (2026-08-25) | S | open |
-| [§246](#246-two-shared-primitives--infotooltip-and-sortresizeth--collide-on-accessible-name-across-the-app) | Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app | row-unique-accessible-names slice (2026-08-25) | M | open |
+| [§246](#246-two-shared-primitives--infotooltip-and-sortresizeth--collide-on-accessible-name-across-the-app--closed-2026-08-30) | Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app | row-unique-accessible-names slice (2026-08-25) | M | **CLOSED** 2026-08-30 (named surfaces only — app NOT swept; two panels carved out to §296) |
 | [§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings--closed-2026-08-27) | Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings | row-unique-accessible-names slice (2026-08-25) | S | **CLOSED** 2026-08-27 |
 | [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27) | A whole class was excluded by calling row-VARYING names a scan FALSE POSITIVE | — | — | **CLOSED** 2026-08-27 |
 | [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | open |
@@ -515,13 +515,15 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-six-ways--open) | The template seed's note-log validator diverges from the canonical one in six ways — open | — | — | open |
 | [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
 | [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--open-pre-existing) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing | found 2026-08-29 | M | open |
-| [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--open) | Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either | found 2026-08-29 | S | open |
+| [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either | found 2026-08-29 | S | **CLOSED** 2026-08-30 (all THREE paths: apply, single-row undo, bulk undo; SUPERSEDES §181) |
 | [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
 | [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
 | [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
 | [§293](#293-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open |
 | [§294](#294-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation--two-returns-decide-it-three-leave-it-by-accident-and-nothing-checks-either) | Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either | found 2026-08-29 | M | open |
 | [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | open |
+| [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | open |
+| [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss but not when a consumer closes it from an item's own handler | carved out of §146 on close, 2026-08-30 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -11374,9 +11376,21 @@ is horizontal where heroicons' is vertical (**Workload**). Found by reading path
 reasoning about names. Recorded here because the lesson outlives this entry: when swapping icon
 packages, a shared NAME is not a shared GLYPH, and no gate in this repo can tell you otherwise.
 
-## 146. `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` — open, a11y, measured
+## 146. ~~`PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body`~~ — CLOSED 2026-08-30
 
-**Status:** open — an a11y focus-restore defect, measured. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** **CLOSED** 2026-08-30 — fixed INSIDE the primitive, without the API change this entry
+prescribed. Escape now restores focus to the trigger; the other three dismiss paths still call
+`onClose` bare. Pinned by four cases in `popover-panel.test.tsx`, each mutation-proved when written;
+last executed green in the full suite (`npm run test:run`) on 2026-08-30.
+
+★★★ **THE DISMISS PATHS ARE CLOSED; THE ACTIVATE-AN-ITEM PATH IS NOT, and reading this Status alone
+would say the class is done.** A consumer that closes from its own item handler never reaches
+`closeRestoringFocus` — it calls its own `close`, the panel unmounts, and focus falls to
+`document.body`: the SAME WCAG 2.4.3 failure this entry's repro records, reached by Enter on a menu
+item instead of by Escape. Reproduce the shape with
+`grep -n "close()" src/app/document-block-gutter.tsx` (the delete, insert-kind and add-block
+handlers all fire `close()` then act). Tracked as §297; found by cold review of this entry's own
+closing branch, not by any gate.
 
 Found by a cold review of the §144(a) branch, deliberately NOT fixed there. PRE-EXISTING and app-wide:
 `PopoverPanel` has never returned focus to its trigger, and the §144(a) diff does not change that.
@@ -11414,14 +11428,36 @@ Enumerate before prescribing:
 grep -n "onClose()\|onDismiss: onClose" src/app/popover-panel.tsx
 ```
 
-### Closing it
+### How it was closed — and why NOT the way this entry prescribed
 
-Give `onClose` a reason (`"escape" | "outside" | "resize" | "scroll"`) and restore focus on
-`"escape"` only —
-the APG rule, and the only variant that distinguishes intent. That is a change to a SHARED primitive
-with many call sites, so it wants its own slice with a sweep of every consumer, not a rider on a
-single row's a11y work. ★ Until then, do not add a focus-restore to any individual consumer: one
-consumer restoring focus while its siblings do not is a worse inconsistency than the uniform gap.
+★★★ **THE REASON UNION WAS DELIBERATELY NOT BUILT. Do not re-derive it from the paragraphs above.**
+This entry prescribed giving `onClose` a reason (a four-member union) and restoring focus on the
+Escape member only, threaded out to every consumer. The behaviour shipped is exactly that; the API
+change is not. The union was rejected on this entry's OWN argument: an enumeration spread across
+every call site is precisely what lets consumers drift out of step, which is the risk the paragraphs
+above spend three stars warning about. Widening a shared primitive's contract to encode a decision
+only the primitive can make is the wrong direction — and this entry had already had to correct its
+own enumeration once, from three members to four.
+
+★ No consumer count is quoted here, deliberately: the implementing commit's message says 19 and the
+tree does not agree with it, which is what a hardcoded tally is worth. Read today's with
+
+```bash
+grep -ro "<PopoverPanel" src/app --include=*.tsx | grep -v "\.test\." | wc -l   # call sites
+grep -rl "<PopoverPanel" src/app --include=*.tsx | grep -v "\.test\." | wc -l   # files
+```
+
+`PopoverPanel` already receives `anchorRef`, so it can restore focus itself. The dismiss hook's
+Escape path now does; the outside-click, `resize` and ancestor-`scroll` listeners still call
+`onClose` bare, and MUST continue to. An outside click means the user deliberately went elsewhere,
+so pulling focus back would fight them. Scroll and resize mean the layout moved out from under the
+panel — the user never asked to leave it, and never asked to be moved either. No consumer changed,
+and none may add its own focus-restore: the uniform gap this entry warned about is now a uniform
+behaviour, which is the property worth keeping.
+
+★ Each of the three negative cases pairs its focus assertion with a panel-unmount assertion, so none
+of them can pass by the dismiss path simply never firing — the vacuous shape that would certify a
+broken listener as correct behaviour.
 
 ---
 
@@ -13727,6 +13763,11 @@ which is exactly the class §50 declined to make inside a fix round.
 ## 181. ~~Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it~~ — CLOSED 2026-08-29
 
 **Status:** **CLOSED** 2026-08-29 — settled by measuring all 116 non-test mentions, not by harmonising. THREE of the four now stamp; milestones deliberately does not, because its apply does not stamp either. Verified by `npx vitest run src/app/use-resource-planner.undo.test.tsx -t "re-stamps"`.
+★★ **SUPERSEDED FOR MILESTONES on 2026-08-30 by [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) — all FOUR registers now stamp.** The sentence above is left standing
+because it was CORRECT when written: it rested on the then-true premise that milestones' apply did
+not stamp either. §289 changed that premise (apply first, then the undo) rather than refuting this
+entry's reasoning. Read the rest of this entry as a dated record, not as a live claim about
+milestones.
 
 §50's field-patch conversion wired five PANEL bulk-edit sites to `captureFieldRows`. Exactly ONE of
 them — tasks (`use-bulk-operations.ts`) — passes `stampField: "localModifiedAt"`. RAID
@@ -18825,9 +18866,15 @@ one is mechanical to convert — the gap is in FINDING candidates, not fixing th
 
 ---
 
-## 246. Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app
+## 246. ~~Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app~~ — CLOSED 2026-08-30
 
-**Status:** open — two shared primitives colliding on accessible name across the app. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** **CLOSED** 2026-08-30 **WITH AN EXPLICIT CARVE-OUT — the app is NOT swept.** Every
+surface this entry NAMED is fixed (roles-editor, budget panel, the three reports tables) and the
+tooling to fix the rest now exists. Two further panels carry the same defect and are deliberately out
+of scope; they are filed as
+[§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open).
+Pinned by new cases in `roles-editor.test.tsx`, `budget-panel.test.tsx`, `reports.test.tsx` and
+`report-table.test.tsx`; last executed green in the full suite (`npm run test:run`) on 2026-08-30.
 
 Filed 2026-08-25, at the close of the row-unique-accessible-names slice, by probing each primitive
 with a colliding fixture. Deliberately NOT fixed here — neither collision is fixable per call site;
@@ -18871,6 +18918,69 @@ grep -rln "<InfoTooltip" src/app --include=*.tsx | grep -v "\.test\." | wc -l  #
 Where a test already scoped itself around this rather than asserting document-wide uniqueness, it is
 recorded in-code, not just here: `reports.test.tsx` and `roles-editor.test.tsx` carry comments saying
 why, and `budget-panel.test.tsx` uses a Set-based check for the same reason.
+
+### How it was closed — READ THE CARVE-OUT FIRST
+
+★★★ **THIS CLOSURE IS SCOPED TO THE SURFACES NAMED ABOVE. THE APP WAS NOT SWEPT, AND THIS ENTRY'S
+OWN TEXT GENERALISES BEYOND WHAT WAS FIXED.** The sentence "ANY view embedding two tables of the same
+shape collides on every shared column label" is still true, and a cold review of this slice found the
+same defect live in two panels nobody touched: `raid-report-panel.tsx` and `resources-report.tsx`.
+They are filed as
+[§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open)
+and are deliberately OUT OF SCOPE here. Do not read this closure as "the primitives no longer
+collide anywhere" — read it as "the four named surfaces are fixed and the mechanism to fix the rest
+now exists".
+
+**What was actually fixed, and why each took a different shape:**
+
+- **`roles-editor.tsx` — a CONTENT GAP, resolved as this entry's open question asked.** The two `/d`
+  columns and the Basis column all carried the generic `rolesRateBasisHint`. The question this entry
+  posed ("same-purpose, or a content gap?") is answered by the `/h` columns, which already had their
+  own specific hints — so the `/d` columns were left on the generic one by omission, not by design.
+  Each `/d` column now has its own hint; Basis KEEPS `rolesRateBasisHint`, which is what it actually
+  describes.
+- **`budget-panel-totals.tsx` per-cell hours hints — a REPETITION defect, fixed by DELETION.** One
+  `HoursCell` renders per period per role row, each carrying two `InfoTooltip` triggers, and
+  `InfoTooltip` is `tabIndex={0}` — so a six-period, eight-role bucket put roughly a hundred extra tab
+  stops into one table, every one announcing one of the same two sentences. There was nothing to tell
+  the copies apart, because they all say the same thing about the same two columns. The hints are
+  deleted and stated ONCE, panel-wide. ★★ **Panel-wide, NOT per-bucket, and that is the load-bearing
+  half:** rendering the legend inside the bucket map would re-create this very collision the moment a
+  second bucket exists.
+- **Eleven bucket-scoped name families in the budget panel — genuinely DIFFERENT, so QUALIFIED.**
+  Each reports a different bucket's number, so unlike the case above there is something to tell them
+  apart. ★★★ **They are qualified by the bucket's row TOKEN, never its raw name.** Two buckets may
+  legitimately share a name, so a bare-name interpolation disambiguates nothing in exactly the case
+  that matters — the general rule AGENTS.md states as "the discriminator is whether this value can
+  repeat in one rendered list". The collision fixture gives both buckets the SAME name for that
+  reason: with distinct names the test passes against a bare-name interpolation and certifies nothing.
+- **The three reports tables — a genuine 2.4.6 failure, fixed by threading context.** Each table now
+  passes its own VISIBLE section heading as a `nameContext` that `SortResizeTh` appends, so what a
+  screen reader announces is exactly the heading a sighted user reads above the table. ★★ The
+  primitive APPENDS (`${label} – ${nameContext}`) rather than overriding, which puts WCAG 2.5.3
+  containment in the type: the visible label is contained by construction, where a raw `aria-label`
+  prop could only ask for it in a docstring. The prop is REQUIRED on both table components rather
+  than optional, so tsc enumerates the call sites instead of leaving one silently un-updated.
+
+**Two findings a future reader needs, neither of them obvious from the code:**
+
+★★★ **`requireCollisionSeed` CANNOT CERTIFY THE REPORTS SURFACE — it goes RED against CORRECT code.**
+This was measured, not assumed. The guard strips only `buildRowTokens`' ` (N)` occurrence suffix, so
+it is structurally blind to any OTHER disambiguator: this surface appends ` – <heading>`, the same
+class as `documents-deleted-section.tsx`'s ` · #id` that the helper's own docstring already records
+as un-certifiable. Reaching for it here and seeing red would read as "the fix did not work". Its
+semantics are re-expressed instead as an explicit strip-and-collide assertion pinned to the exact set
+of shared column labels. ★ That assertion cannot see a SINGLE table losing its context — a bare
+"Open" strips to the same "Open" the other two do, leaving the colliding set unchanged — so a
+positive per-table assertion pins each component's forwarding directly. Proved by mutation: deleting
+`AssigneeTable`'s forwarding reds only the new test, while deleting `GroupOrLabelTable`'s (rendered
+twice) reds all three.
+
+★★★ **THE AXE GATE IS BLIND TO THIS ENTIRE CLASS, IN EVERY VIEW, AT EVERY SEED SIZE.** AGENTS.md
+carries the measurement against the installed axe-core: not one rule carrying a tag the gate requests
+flags two controls sharing an accessible name. So for every surface in this entry the unit tests are
+not merely the best detector — they are the ONLY detector that will ever exist, and deleting one
+silently removes the coverage with no gate turning red.
 
 ---
 
@@ -22200,9 +22310,23 @@ grep -c "sanitizeRichHtml\|allowList" src/app/sanitize-records.ts   # 0
 `template-apply.ts` uses, or move the allow-list into the shared seed boundary both routes cross.
 Not scoped to a template-carry slice, and it wants its own test for each entity.
 
-## 289. Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either — open
+## 289. ~~Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either~~ — CLOSED 2026-08-30
 
-**Status:** open — decided 2026-08-29 that milestones SHOULD stamp; not yet implemented. Reproduced 2026-08-29 by `grep -n "stampField" src/app/milestones-panel.tsx`, whose only two hits are inside a COMMENT (read them, do not count them — the file has ZERO code occurrences), against `grep -c "stampField" src/app/use-stakeholders.ts` → 3.
+**Status:** **CLOSED** 2026-08-30 — ALL THREE paths implemented, apply first. The save handler
+stamps, and BOTH captures pass `stampField`, so `grep -c 'stampField: "localModifiedAt"'
+src/app/milestones-panel.tsx` returns 2. Each path is pinned independently (reverting the apply reds
+only the apply test; deleting either `stampField` reds only that capture's test — the single-row one
+was mutation-checked on 2026-08-30 and fails on the `stampField` key alone, not on an earlier
+assertion); last executed green in the full suite (`npm run test:run`) on 2026-08-30.
+
+★★★ **THE FIRST CLOSURE SAID "both halves" AND SHIPPED THE THIRD PATH BROKEN — worse than leaving it
+untouched, because the apply had started stamping.** The body below enumerates THREE omissions (apply,
+single-row capture, bulk capture); the fix shape named two, the implementation did two, and the
+closure then asserted completeness against the fix shape rather than against the enumeration. For one
+commit, undoing a single milestone edit reverted the content and left the apply's fresh timestamp
+standing — precisely the defect §181 fixed for the other three registers, newly created here. Caught
+by cold review, by no gate. **Check a closure against the ENUMERATION, never against the fix shape
+derived from it.**
 
 §181 measured the four registers that omitted `stampField` on their bulk undo capture and closed
 THREE of them. Milestones was deliberately left alone, on the ground that its APPLY does not stamp
@@ -22239,6 +22363,30 @@ every export.
 absent. Wants a test on each half — the apply stamping, and the undo re-stamping — since the second
 is exactly the assertion §181 added for RAID and it needs the post-apply comparison, not a comparison
 against the seeded value.
+
+### How it was closed
+
+Implemented as prescribed, in the prescribed ORDER, which is the whole substance of this entry. The
+save handler stamps `localModifiedAt`, and only then does the bulk capture pass
+`stampField: "localModifiedAt"`. ★★ **That order is load-bearing and is the thing a future reader
+must not "simplify".** `stampField` writes a FRESH `new Date().toISOString()` on undo AND on redo —
+it does not restore a prior stamp and is not meant to. So adding it to the bulk capture alone, with
+no writer on the apply, would have given the register a modification time that appears ONLY when a
+user REVERSES something: present on exactly the rows least likely to have been touched last, which
+is strictly worse than the uniform absence it would have replaced.
+
+★ `localModifiedAt` is in the activity log's `DEFAULT_DIFF_SKIP`, so neither write adds field-change
+noise to the log.
+
+★★★ **THIS SUPERSEDES [§181](#181-four-converted-registers-omit-stampfield-on-their-bulk-capture-while-the-tasks-bulk-edit-passes-it--closed-2026-08-29), WHICH CLOSED WITH THE OPPOSITE ANSWER.** §181 concluded "milestones
+correct as-is" and left the register alone. That answer was CORRECT when it was written: it rested on
+the then-true premise that milestones' apply did not stamp either, which made an undo-only stamp an
+invention rather than a correction. This slice changed the premise rather than contradicting the
+reasoning. Do not read §181 as a live statement about milestones — read it as the record of a
+decision taken under a different tree, and do not "restore consistency" by reverting either half.
+The comment block in `milestones-panel.tsx` that argued §181's case was REPLACED rather than left
+standing, because a comment that forbids the present is a defect class this repo has already paid
+for; the separate hoisting reasoning above it is a different claim and survives untouched.
 
 ## 290. `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` — open
 
@@ -22509,3 +22657,130 @@ grep -n "clear-all deletes" src/app/use-bulk-operations.ts
 The first returns 0, the second shows the removal images a redo re-applies, the third shows clear-all
 is captured for undo. None of the three proves a redo trips the guard — that needs a test driving
 clear-all → undo → redo against `evaluateSaveGuard`, which is the verification this entry owes.
+
+## 296. Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels — open
+
+**Status:** open — the two collision sets below were verified 2026-08-30 by READING both files and
+counting rendered table instances; no committed probe asserts them, so the entry is otherwise
+**never machine-verified**. Reproduce the structure with the greps below; the counts follow from the
+instance arithmetic, not from a runtime scan.
+
+Carved out of [§246](#246-two-shared-primitives--infotooltip-and-sortresizeth--collide-on-accessible-name-across-the-app--closed-2026-08-30)
+when it closed on 2026-08-30. §246 fixed the surfaces it NAMED and stated plainly that the app was
+not swept; a cold review of that slice found the same defect live in these two panels. §246's own
+generalisation is what predicts them: **any view embedding two tables of the same shape collides on
+every shared column label**, and every sortable header in the app flows through `SortResizeTh`.
+
+### `raid-report-panel.tsx`
+
+The summary view co-renders SIX tables in one fragment — `SeverityTable`, `StatusTable`,
+`OwnerTable`, `TopOpenTable`, `CategoryTable`, `AgingTable` — for **24 rendered sort headers** with
+**6 duplicated accessible names**, each appearing twice: `raidCategoryRisk`,
+`raidCategoryAssumption`, `raidCategoryIssue`, `raidCategoryDependency`, `raidReportColTotal` (all
+five from one shared head, below) and `raidReportColOpen` (from `StatusTable` and `CategoryTable`).
+
+★★ **Reachable TWO ways, so fixing only one entry point leaves the defect live.** It is its own view
+via `workspace-section.tsx`, and it is embeddable as an addable report in `reports.tsx` — and
+`embedded` FORCES the summary view, so the embedded path always renders all six tables.
+
+### `resources-report.tsx`
+
+FIVE tables render unconditionally: `ByPeriodTable`, `ByGroupTable` (three instances — Discipline,
+Grade, Combo) and `ByResourceTable`. `resourcesCapacityDays`, `resourcesInternalCost` and
+`resourcesExternalCost` are each written in three places but RENDER **five times each** (1 + 3 + 1);
+`resourcesReportHeadcount` is written ONCE, inside `ByGroupTable`, and renders **three times**.
+
+### ★★★ The method lesson — this is the most valuable part of the entry
+
+**Enumerate by RENDERED TABLE INSTANCES PER VIEW, never by call sites per file.** Both panels are
+**leg-3 cases** under AGENTS.md's three-leg enumeration rule — "a shared per-row component handed the
+whole entity can compose a name INSIDE ITS OWN FILE, where no grep over the panel that renders it
+will ever see the string" — and here the shared component is a table HEAD rather than a row:
+
+- `RaidCountHead` is ONE `<thead>` rendered by BOTH `SeverityTable` and `OwnerTable`. Its five
+  generic labels are written once and render twice. A per-call-site grep reports one occurrence each
+  and sees NO collision at all — that is five of raid's six duplicates, invisible.
+- `ByGroupTable` is the same shape from the other direction: one component, three instances.
+  `resourcesReportHeadcount` greps as a single occurrence and renders three times.
+
+So a grep tally is not merely imprecise here, it returns the WRONG ANSWER — the count it produces is
+the count of SOURCE occurrences, and the property under test is rendered ones.
+
+```bash
+# structure, not counts: which components exist, and how many times each is rendered
+grep -nE "^function (SeverityTable|StatusTable|OwnerTable|TopOpenTable|CategoryTable|AgingTable|RaidCountHead)" src/app/raid-report-panel.tsx
+grep -n "<RaidCountHead" src/app/raid-report-panel.tsx          # 2 instances, 5 shared labels each
+grep -n "effectiveView\|embedded" src/app/raid-report-panel.tsx  # embedded FORCES summary
+grep -nE "^function (ByPeriodTable|ByGroupTable|ByResourceTable)" src/app/resources-report.tsx
+grep -n "<ByGroupTable\|<ByPeriodTable\|<ByResourceTable" src/app/resources-report.tsx
+```
+
+### Closing it
+
+The tooling now exists and did not when §246 was filed. `SortResizeTh` takes an optional
+`nameContext` which the primitive APPENDS as `${label} – ${nameContext}` — appending rather than
+overriding, so WCAG 2.5.3 containment holds by construction — and its `hint` tooltip (itself a named
+control) takes the same context automatically, so a fixer must NOT pre-qualify the hint string or it
+is appended twice. Callers passing nothing keep a byte-identical DOM.
+
+Pass each table its own VISIBLE section heading, as the reports tables now do, so the announced
+context is the heading a sighted user already reads. ★ Make the prop REQUIRED on the shared
+components rather than optional: that makes tsc enumerate the call sites, which is the only
+mechanism that reliably catches the leg-3 instances this entry is about.
+
+★★ **`requireCollisionSeed` will NOT certify this fix and will go RED against correct code** — it
+strips only `buildRowTokens`' ` (N)` occurrence suffix and is blind to a ` – <heading>` disambiguator.
+§246 records the measurement. Use an explicit strip-and-collide assertion plus a positive per-table
+assertion, as `reports.test.tsx` does.
+
+★★ **The axe gate cannot see any of this**, in either panel, at any seed size — AGENTS.md carries the
+measurement. Whatever unit test the fixer writes is the only detector this will ever have.
+
+## 297. `PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler — open
+
+**Status:** open — **never machine-verified**. The call shape below was read out of the source on
+2026-08-30 (`grep -n "close()" src/app/document-block-gutter.tsx`); no committed test asserts where
+focus lands on that path, and no gate can (see the axe note at the end).
+
+Carved out of [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30)
+when it closed on 2026-08-30. §146 fixed the DISMISS paths inside the primitive: Escape routes
+through `closeRestoringFocus`, and outside-click / resize / scroll deliberately do not, because in
+those three the user has either moved on or the layout moved out from under the panel.
+
+**The path this leaves open is the most common keyboard interaction of all: activating an item.**
+Consumers do not close the panel by dismissing it — they call their OWN `close` and then act:
+
+```
+src/app/document-block-gutter.tsx:153   onClick={() => { close(); onDelete(index); }}
+src/app/document-block-gutter.tsx:161   onPick={(type) => { const at = addAt; close(); onInsert(at, type); }}
+src/app/document-block-gutter.tsx:243   <BlockKindList … onPick={(type) => { close(); onPick(type); }} />
+```
+
+`close` is `useCallback(() => { setOpen(false); setAddAt(null); }, [])` (`:75`) — and it never goes
+through `closeRestoringFocus`, so the wrapper §146 added is not in the path at all. ★ Note `close`
+IS the primitive's `onClose` — both `PopoverPanel` mounts in this file are wired
+`onClose={close}` (`grep -n "onClose={close}" src/app/document-block-gutter.tsx` returns two
+lines); what the consumer skips is the WRAPPER, not the callback. The panel unmounts
+with focus inside it and focus falls to `document.body`: byte-for-byte the failure §146's own repro
+records, reached by Enter on a menu item rather than by Escape. WCAG 2.4.3.
+
+★★ **DO NOT FIX IT BY CALLING THE WRAPPER FROM EACH CONSUMER.** That is the shape §146 rejected for
+the dismiss paths and the reasoning carries: it puts a decision only the primitive can make into
+every call site, where it drifts. The natural fix is for the primitive to restore focus on ANY
+unmount while focus is inside it, which subsumes both this and the Escape case and makes the
+`closeRestoringFocus` wrapper redundant.
+
+★★★ **IT WOULD RE-INTRODUCE THE OUTSIDE-CLICK YANK, so do not adopt it unguarded.** Focus-on-click
+is the mousedown DEFAULT ACTION, which runs after listeners dispatch: that is precisely why
+`ToggleButton`'s
+`preventFocusSteal` works by calling `preventDefault()` on `mousedown`
+(`grep -n preventFocusSteal src/app/toggle-button.tsx`). `PopoverPanel`'s outside-click handler is
+itself a `mousedown` LISTENER, so when it runs `document.activeElement` is still inside the panel and
+an unmount-based restore would fire — yanking focus back to the trigger on a click the user aimed
+somewhere else, the exact bug §146 declined to ship.
+
+★★ **The axe gate is silent on this in every view.** No axe rule checks where focus lands after a
+control disappears — AGENTS.md carries the measurement for the sibling blind spot. Whatever unit
+test the fixer writes is the only detector this will ever have, and it must assert focus lands
+somewhere USEFUL, not merely that it is not on the trigger: `not.toHaveFocus()` passes when the
+panel never opened.

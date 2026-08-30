@@ -7,6 +7,7 @@ import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { t } from "./i18n";
 import { expectDestructiveButton, expectSecondaryButton } from "../test/button-variant";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { rowLabel } from "./row-tokens";
 import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
@@ -920,7 +921,11 @@ test("the non-destructive bucket actions render as bordered secondary buttons", 
   //    `destructive` and is asserted in the test below. Adding it back here would
   //    fail, which is the point: the two variants must not silently converge.
   for (const key of ["budgetEditBucket", "budgetClose"] as const) {
-    const btn = screen.getByRole("button", { name: t("en-US", key) });
+    // ★ Qualified, not bare: these buttons take their accessible name from an
+    //   `aria-label` carrying the bucket's row token (§246), so a bare-verb
+    //   lookup finds nothing. The base fixture has ONE bucket, so its token is
+    //   its unqualified name.
+    const btn = screen.getByRole("button", { name: rowLabel(t("en-US", key), "PAM") });
     // ★★ Word-bounded, never `toContain` — see `src/test/button-variant.ts` for
     //    why the substring form is vacuous. NOT because "every variant ends in
     //    `hover:bg-surface-muted`" (an earlier revision of this comment claimed
@@ -943,7 +948,8 @@ test("the non-destructive bucket actions render as bordered secondary buttons", 
 
 test("remove bucket renders as the destructive variant, not secondary", () => {
   render(<BudgetPanel {...props} />);
-  const btn = screen.getByRole("button", { name: t("en-US", "budgetRemoveBucket") });
+  // ★ Qualified for the same reason as the secondary-variant test above.
+  const btn = screen.getByRole("button", { name: rowLabel(t("en-US", "budgetRemoveBucket"), "PAM") });
   // ★★ Removing a bucket is the only irreversible action in that row. Rendering
   //    it identically to Edit and Close is what this pins against — the killing
   //    mutation is flipping it back to `variant="secondary"`, which loses both
@@ -1106,5 +1112,109 @@ describe("BudgetPanel — per-person booking rows", () => {
     fireEvent.click(trigger);
     const body = container.querySelector(`#${CSS.escape(trigger.getAttribute("aria-controls")!)}`)!;
     expect([...body.querySelectorAll("td")].map((td) => td.textContent)[2]).toBe("6 / 176");
+  });
+});
+
+describe("BudgetPanel — the hours hints are stated once, not per cell (§246)", () => {
+  // §246: `HoursCell` used to render an InfoTooltip on BOTH its "Budget" and its
+  // "Actual" label, and one HoursCell renders per period per role row — so a
+  // bucket table put 2 x periods x roles focusable tab stops (InfoTooltip is
+  // tabIndex={0}) into one table, every one of them announcing one of the same
+  // two sentences. The fix is DELETION plus a single panel-wide legend, not
+  // qualification: there is nothing to tell the copies apart, because they say
+  // the same thing about the same two columns.
+  //
+  // The fixture is deliberately 2 buckets x 2 roles x 2 periods. With ONE bucket
+  // a per-bucket legend is indistinguishable from a panel-wide one, and with ONE
+  // period the per-cell repetition never materialises at all.
+  const hintRoles: Role[] = [
+    { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 4, disciplineId: 1, gradeId: 2, internalRate: 100, externalRate: 150 },
+  ];
+  const twoPeriodAllocations = [
+    { roleId: 3, resourceIds: [], budgetHours: { "2026-01": 40, "2026-02": 40 }, actualHours: { "2026-01": 30, "2026-02": 35 } },
+    { roleId: 4, resourceIds: [], budgetHours: { "2026-01": 20, "2026-02": 20 }, actualHours: { "2026-01": 25, "2026-02": 25 } },
+  ];
+  const hintBuckets: BudgetBucket[] = [
+    {
+      id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01",
+      endDate: "2026-02-28", status: "open", order: 0, allocations: twoPeriodAllocations,
+    },
+    {
+      id: 2, name: "DEV", type: "tm", currency: "EUR", startDate: "2026-01-01",
+      endDate: "2026-02-28", status: "open", order: 1, allocations: twoPeriodAllocations,
+    },
+  ];
+  const budgetHint = t("en-US", "budgetBudgetHoursHint");
+  const actualHint = t("en-US", "budgetActualHoursHint");
+  const renderHints = () => render(<BudgetPanel {...props} roles={hintRoles} buckets={hintBuckets} />);
+
+  test("states the Budget-hours hint exactly once across the whole panel", () => {
+    renderHints();
+    // The load-bearing assertion, and the reason the legend lives OUTSIDE the
+    // bucket map: rendering it once per BUCKET makes this 2 on this fixture.
+    expect(screen.getAllByLabelText(budgetHint)).toHaveLength(1);
+  });
+
+  test("no hours hint is repeated inside a bucket table", () => {
+    renderHints();
+    const tables = screen.getAllByRole("table");
+    // Non-vacuity floor: both buckets must actually have rendered a table, or
+    // the loop below would pass over nothing.
+    expect(tables.length).toBeGreaterThan(1);
+    for (const table of tables) {
+      expect(within(table).queryAllByLabelText(budgetHint)).toHaveLength(0);
+      expect(within(table).queryAllByLabelText(actualHint)).toHaveLength(0);
+    }
+  });
+
+  test("states the Actual-hours hint exactly once, in the legend", () => {
+    renderHints();
+    // ★ TIGHTENED from `hintBuckets.length + 1` to 1. `budgetActualHoursHint`
+    // had a SECOND source — each bucket's "Actual hours" summary tile carried
+    // the bare hint from INSIDE the bucket map, so the count was one legend plus
+    // one tile per bucket. That tile's trigger is now qualified with the
+    // bucket's row token, so its accessible name is no longer this string and
+    // the panel-wide legend is the only unqualified instance left.
+    // ★ `getAllByLabelText` matches the WHOLE accessible name, so a qualified
+    // "<hint> – PAM" does not match here — that is what makes this 1 rather
+    // than an assertion that silently stopped counting anything.
+    // The bucket-scoped names are covered by the collision test below.
+    expect(screen.getAllByLabelText(actualHint)).toHaveLength(1);
+  });
+
+  // §246: with two buckets, EVERY control inside the bucket map renders twice —
+  // the four CCI hint triggers, the three summary-tile hints, the manual-percent
+  // hint, the role sort header and the three bucket buttons. Before this fix
+  // eleven names were shared by two controls each.
+  //
+  // ★★ `requireCollisionSeed` is ON because this test CLAIMS to cover a
+  // collision. Without it a fixture cut to one bucket would still pass and
+  // certify nothing — and it is the only guard that can catch that, since
+  // `minControls` counts CONTROLS, not buckets.
+  //
+  // ★ The floor is the MEASURED count for this fixture, not a guess. Re-measure
+  // and BUMP it if the panel grows a control; never lower it to make a run
+  // green, because a floor below the real count is what lets a silently emptied
+  // scope read as a pass. Read the real number off this helper's own error by
+  // setting the floor absurdly high.
+  // ★★★ BOTH BUCKETS ARE NAMED "PAM", and that is the whole point of this
+  // fixture rather than reusing `hintBuckets` (whose two names differ). With
+  // distinct names, interpolating a bare `bucket.name` would ALSO pass — so the
+  // test could not tell the shipped fix from the wrong one. Bucket names are
+  // free text with no uniqueness constraint, so only the `buildRowTokens`
+  // occurrence index ("PAM (1)"/"PAM (2)") actually disambiguates here.
+  const collidingBuckets: BudgetBucket[] = hintBuckets.map((b) => ({ ...b, name: "PAM" }));
+
+  test("gives every bucket-scoped control a bucket-unique accessible name", () => {
+    const { container } = render(
+      <BudgetPanel {...props} roles={hintRoles} buckets={collidingBuckets} />,
+    );
+    expectRowUniqueNames({
+      minControls: 40,
+      scope: container,
+      roles: ["button"],
+      requireCollisionSeed: true,
+    });
   });
 });

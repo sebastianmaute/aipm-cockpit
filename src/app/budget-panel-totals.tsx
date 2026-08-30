@@ -12,7 +12,6 @@ import type { ReactNode } from "react";
 import { t, type Lang } from "./i18n";
 import { RagBadge } from "./rag-badge";
 import { ratioHealth, cellHealth } from "./budget-health";
-import { InfoTooltip } from "./info-tooltip";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useCommitDraft } from "./use-commit-draft";
 
@@ -84,7 +83,7 @@ export function displayHours(v: number | undefined, readOnly: boolean | undefine
 }
 
 function HoursCell({
-  ariaPrefix, budget, actual, onBudget, onActual, budgetHint, actualHint, lang, readOnly,
+  ariaPrefix, budget, actual, onBudget, onActual, lang, readOnly,
   periodEnd, today,
 }: {
   ariaPrefix: string;
@@ -92,8 +91,6 @@ function HoursCell({
   actual: number | undefined;
   onBudget: (v: number) => void;
   onActual: (v: number) => void;
-  budgetHint: string;
-  actualHint: string;
   lang: Lang;
   // The cell badge is period-aware: a closed period with nothing booked is a
   // signal, not health. `today` is passed in (never read from the clock here)
@@ -111,16 +108,37 @@ function HoursCell({
   // unconditionally — only the handler wiring below is conditional.
   const budgetDraft = useCommitDraft(String(displayHours(budget, readOnly)), (raw) => onBudget(Number(raw) || 0));
   const actualDraft = useCommitDraft(actual === undefined ? "" : String(actual), (raw) => onActual(Number(raw) || 0));
-  // Both label spans are w-14, not w-10: "Actual" plus its tooltip overflowed
-  // the narrower box, shoving the icon flush against the input while the
-  // shorter "Plan" row kept its gap. The two rows must share one width or the
-  // inputs stop aligning — change them together.
+  // Both label spans share ONE width so the inputs beside them stay aligned —
+  // change them together or the Budget and Actual rows drift apart. `w-14` is
+  // inherited from when each label also carried an InfoTooltip that had to fit
+  // beside the word; the tooltips moved to a panel-wide legend (open-followups
+  // §246) and the width was deliberately left as-is.
+  //
+  // ★★ It is NOT free to narrow now that the icons are gone. `w-14` is the
+  // first term of both TOTAL_COL_PX and HOURS_LINE_UNITS above, and
+  // `budget-panel-people-rows.tsx` right-aligns its person figures against
+  // HOURS_LINE_UNITS — so narrowing it moves every input in the table AND
+  // strands every person figure, and jsdom has no layout to check either
+  // against.
+  //
+  // ★ `gap-0.5` came out with the icons and its removal is provably inert:
+  // column-gap needs two flex ITEMS and the span now holds a single text node
+  // (measured in Chromium on the seeded Budget view — `childElementCount: 0`,
+  // so no gap was ever drawn).
+  //
+  // ★★ `flex items-center` is LEFTOVER TOO, and do not write it up as
+  // load-bearing. The label and the input are centred against each other by the
+  // PARENT row (`flex items-center gap-1`, just below), not by anything on this
+  // span; the span's own `items-center` centres one line inside its own auto
+  // height, which is a no-op. Left in place only because removing them is a
+  // live layout change nothing here can test (jsdom has no layout); align this
+  // span with the plain `w-14` spelling in `TotalsTd` whenever the Budget view
+  // is next verified in a browser.
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-1">
-        <span className="flex w-14 items-center gap-0.5 text-[10px] text-muted-foreground">
+        <span className="flex w-14 items-center text-[10px] text-muted-foreground">
           {t(lang, "budgetCellBudget")}
-          <InfoTooltip text={budgetHint} />
         </span>
         <input
           aria-label={`budget-${ariaPrefix}`}
@@ -135,9 +153,8 @@ function HoursCell({
         />
       </div>
       <div className="flex items-center gap-1">
-        <span className="flex w-14 items-center gap-0.5 text-[10px] text-muted-foreground">
+        <span className="flex w-14 items-center text-[10px] text-muted-foreground">
           {t(lang, "budgetCellActual")}
-          <InfoTooltip text={actualHint} />
         </span>
         <input
           aria-label={`actual-${ariaPrefix}`}
@@ -178,8 +195,6 @@ export function HoursTd({
         actual={actual}
         onBudget={onBudget}
         onActual={onActual}
-        budgetHint={t(lang, "budgetBudgetHoursHint")}
-        actualHint={t(lang, "budgetActualHoursHint")}
         lang={lang}
         readOnly={readOnly}
         periodEnd={periodEnd}

@@ -65,7 +65,16 @@ export function ManualPercentCell({
   return (
     <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
       {t(lang, "budgetPercentComplete")}
-      <InfoTooltip text={t(lang, "budgetPercentCompleteHint")} />
+      {/* ★ Qualified for the same reason the input below is, and it was missed
+          when the input was fixed: the hint trigger is `role="button"`
+          `tabIndex={0}`, so it is a control in its own right and N buckets put N
+          identically-named ones on the page. It has no visible text of its own,
+          so WCAG 2.5.3 does not bind — the token is APPENDED anyway, matching
+          every other qualified name in this panel (open-followups §246). */}
+      <InfoTooltip
+        text={t(lang, "budgetPercentCompleteHint")}
+        label={rowLabel(t(lang, "budgetPercentCompleteHint"), rowToken)}
+      />
       <input
         // ★★ Bucket-UNIQUE via `rowToken`, NOT merely bucket-qualified. N
         // identical "Manual % complete" labels is a WCAG 2.4.6 failure the axe
@@ -96,7 +105,15 @@ export function ManualPercentCell({
   );
 }
 
-export function Cci({ label, hint, value, currency, locale, lang, rag, primary = "amount", unknown = false }: { label: string; hint?: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null; primary?: "amount" | "percent"; unknown?: boolean }) {
+export function Cci({ label, hint, scopeName, value, currency, locale, lang, rag, primary = "amount", unknown = false }: { label: string; hint?: string;
+  /** The bucket's WCAG 2.4.6 disambiguation token when this tile is one of N
+   *  repeated per bucket; omitted by the project-total block, which renders
+   *  exactly once and so has nothing to collide with.
+   *
+   *  ★ A TOKEN, not a raw bucket name — bucket names are free text with no
+   *  uniqueness constraint, so qualifying with one still collides when two
+   *  buckets share it. Callers pass a `buildRowTokens` (`row-tokens.ts`) value. */
+  scopeName?: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null; primary?: "amount" | "percent"; unknown?: boolean }) {
   const pct = value.percent == null ? "—" : `${value.percent.toFixed(1)}%`;
   // `unknown` means the figure could not be computed (no internal rate), NOT
   // that it computed to zero. Both figures go to "—" and the tone stays neutral:
@@ -111,7 +128,21 @@ export function Cci({ label, hint, value, currency, locale, lang, rag, primary =
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           {label}
-          {hint ? <InfoTooltip text={hint} /> : null}
+          {/* ★ APPENDED, never prefixed or replaced. The tooltip trigger has no
+              visible text of its own, so WCAG 2.5.3 does not bind here — but the
+              same append rule is used across this slice so one convention covers
+              every qualified name (open-followups §246). `scopeName` is the
+              bucket's row TOKEN, not its raw name: two buckets may share a name.
+              The project-total cards pass nothing and keep the bare hint.
+              ★ `undefined`, never `""` — and NOT because an empty label would
+              blank the name: name computation SKIPS an empty or
+              whitespace-only `aria-label` and falls through to content
+              (accname step 2C). Here the mechanism is the `??` one line down:
+              `InfoTooltip` resolves its name as `label ?? text`, and `""` is
+              not nullish, so it would defeat that fallback and leave the
+              trigger's literal "i" glyph as its whole accessible name — not a
+              blanked name, a wrong one. `undefined` restores the hint. */}
+          {hint ? <InfoTooltip text={hint} label={scopeName ? rowLabel(hint, scopeName) : undefined} /> : null}
         </span>
         {rag !== undefined && !unknown ? <RagBadge value={rag} lang={lang} title={label} /> : null}
       </div>
