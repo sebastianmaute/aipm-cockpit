@@ -512,9 +512,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
 | [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open |
 | [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass--closed-2026-08-29) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass — CLOSED 2026-08-29 | found 2026-08-29, fixed 2026-08-29 | M | **CLOSED** 2026-08-29 |
-| [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-six-ways--open) | The template seed's note-log validator diverges from the canonical one in six ways — open | — | — | open |
-| [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
-| [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--open-pre-existing) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing | found 2026-08-29 | M | open |
+| [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30) | The template seed's note-log validator diverges from the canonical one in seven ways — filed as six — CLOSED 2026-08-30 | found 2026-08-28, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
+| [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--closed-2026-08-30) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — CLOSED 2026-08-30 | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
+| [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--closed-2026-08-30) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — CLOSED 2026-08-30 | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
 | [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--open) | Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either | found 2026-08-29 | S | open |
 | [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
 | [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
@@ -22061,9 +22061,24 @@ it, which is why this is filed rather than fixed.
 
 ---
 
-## 286. The template seed's note-log validator diverges from the canonical one in six ways — open
+## 286. The template seed's note-log validator diverges from the canonical one in seven ways — filed as six — CLOSED 2026-08-30
 
-**Status:** open — a second note-log validator with six unforced divergences from `sanitizeNoteLog`. Found 2026-08-28 by a cold review of the §168 carry; reproduce by reading the two side by side (`grep -n "function sanitizeNoteLog" src/app/note-log.ts` and `grep -n "function sanitizeSeedNoteLog" src/app/templates.ts`).
+**Status:** CLOSED 2026-08-30 by `11912745` (the shared core) · `320c35ad` (both callers adopt it) · `7f9d044d` (the seventh divergence). The DOM-free half of the canonical validator is now `sanitizeNoteLogWith` (`note-log-policy.ts`), parameterised by the two DOM-dependent steps; `sanitizeNoteLog` and `sanitizeSeedNoteLog` both call it, so the seed gains the entry cap, the byte html cap, control-char stripping, timestamp validation and mint-and-dedupe. Verified by `npx vitest run --maxWorkers=1 src/app/note-log-policy.test.ts src/app/note-log.test.ts src/app/template-note-carry.test.ts src/app/golden-workspace.test.ts`. ★★ `note-log.test.ts` passes UNEDITED, which is the evidence the extracted core reproduces canonical behaviour rather than approximating it.
+
+★★★ **THE AUDIT FOUND SIX AND THE FIX FOUND A SEVENTH — and it is the ONE ROW where the SEED
+validator's rule wins.** The table below enumerates six, and the decision was that canonical wins on
+all six. Adopting the shared core exposed a seventh the audit had missed: canonical derived `text`
+from `html` only when the captured `text` was empty (`hasHtml && !text`), while the seed ALWAYS
+re-projected. The seed rule was taken on that row, because its rationale is written down and still
+holds — a captured `text` can disagree with its `html` after a hand-edited template, or after a sink
+change narrowed the html since capture, and a stale projection must not outlive the html it describes.
+★★ The DIRECTION was measured, not argued: under the seed rule `note-log.test.ts` passes unedited,
+`template-note-carry.test.ts` needs no flip, and `golden-workspace.test.ts` byte-stability holds.
+★★ State the bound with it, because the measurement does not reach as far as it looks: no test pinned
+the OLD behaviour, which is NOT the same as nothing having depended on it. The change is real for any
+stored entry whose `text` disagrees with its `html`.
+★ Both tests this slice predicted would flip pass untouched, so no assertion was weakened to reach
+this state.
 
 ★★★ **AND THE COMMIT THAT FILED IT STILL SAYS 284.** `26a66e7f`'s message reads "Filed rather than
 fixed: 284 records six unforced divergences…", which now points at "A malformed Turso meta blob is
@@ -22102,6 +22117,14 @@ log", is fixed except for exactly the legacy entries the canonical repair was wr
 test `drops an entry with no usable id or timestamp, keeping its siblings` certifies that drop as
 intended behaviour. Decide which is right before that test is read as settled.
 
+★★ **DECIDED FOR CANONICAL: the shared core MINTS**, and `sanitizeNoteLogWith`'s own docstring
+carries the reasoning. ★★★ AND THAT TEST NO LONGER DISCRIMINATES THE `id` RULE AT ALL, which is
+worth knowing before it is read as still covering one: its second fixture entry carries no
+`timestamp` either, and an unparseable timestamp is an INDEPENDENT drop that runs before any id
+handling — so the test passes under the mint rule and under the drop rule alike. It is a timestamp
+test wearing an id test's name. Reproduce by reading the fixture:
+`grep -n "no usable id or timestamp" -A 10 src/app/template-note-carry.test.ts`.
+
 ★★ Duplicate ids pass through unchanged, and the notes window edits and deletes BY id — so two
 captured entries sharing `id: 1` make one of them unaddressable in the UI after apply.
 
@@ -22113,9 +22136,22 @@ note stays rich HTML on every other route.
 leaving only the `sanitizeRichHtml` step behind the DOM boundary. That is a real refactor of a
 sanitiser on six write paths, which is why it is filed rather than done inside a bug-fix slice.
 
-## 287. Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading
+## 287. Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — CLOSED 2026-08-30
 
-**Status:** open — never machine-verified by a committed probe. The mechanism was read out of `LocalFileBackend.openFile()` on 2026-08-29 while closing §152; no test drives the decline path far enough to observe a subsequent save. Independently re-read by a cold reviewer on 2026-08-29, who confirmed the mechanism and added the `refreshBackendStatus()` half below.
+**Status:** CLOSED 2026-08-30 by `5b311e66` (extract `loadFrom`) · `4a98d9c9` (the fix). `openFile()` now RETURNS the picked handle instead of persisting it, `loadFromHandleForBackend` reads through an explicit handle without consulting or touching stored state, and `setBackendFileHandle` runs INSIDE the accept branch — so there is no window in which storage points somewhere the user has not agreed to. Verified by `npx vitest run --maxWorkers=1 src/app/use-storage-backend.test.tsx`.
+
+★★ **THE DECLINE-PATH PROBE THIS ENTRY RECORDS AS NEVER HAVING EXISTED NOW EXISTS**, in
+`use-storage-backend.test.tsx`, with the workspace-survives half in its own `it()` — deliberately
+not folded in, because vitest aborts a test at its first failing hard assertion and "setHandle was
+not called" is a claim about a MOCK while "the live tasks are still here" is the claim about the
+user's DATA. ★★ Read its mutation record for the BOUND rather than for reassurance: it names the
+mutant it is proved against — moving the bind out of the accept branch, the exact pre-fix order —
+and states that only the last assertion dies under it, so that probe proves the commit's PLACEMENT
+and nothing wider.
+★ Staging the handle in memory was considered and rejected: it reintroduces the same defect through
+a save firing during the confirm, safe today only because `window.confirm` blocks timers. The
+add-existing-project flow still commits immediately, because adoption is the intent there and it has
+no confirm to lose.
 
 ★★ **THE UI ALSO KEEPS SHOWING THE OLD FILENAME, which is what makes this hard to notice.**
 `refreshBackendStatus()` runs only inside the accept branch, alongside `suppressNextSaveRef.current =
@@ -22153,9 +22189,22 @@ user declines. The first is a behaviour change (the user picks a file only after
 their tasks); the second needs the old handle captured and re-persisted, and must survive the picker
 throwing. Neither is scoped to a diagnostics slice.
 
-## 288. The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing
+## 288. The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — CLOSED 2026-08-30
 
-**Status:** open — never machine-verified by a committed probe. Read out of `new-project-workspace.ts` and `sanitize-records.ts` on 2026-08-29 during the §168 review; no test drives a hostile model payload through `appendSeed`.
+**Status:** CLOSED 2026-08-30 by `04795d2f` (the fix) · `b7b07904` (the coverage hole a cold review found). The four rich-field allow-list passes moved OUT of `applyTemplate` and INTO `appendSeed` — the tail both seed branches share — behind a new `allowListSeed` helper, so neither branch can reach a workspace without them. The four hostile-payload assertions landed as a committed RED test (`ace9b5b9`) one commit before the fix; verified green by `npx vitest run --maxWorkers=1 src/app/new-project-workspace.test.ts`.
+
+★★ **A COLD REVIEW COULD NOT REFUTE THE FIX AND FOUND A HOLE IN ITS EVIDENCE INSTEAD**, which is the
+usual shape here. The idempotency block justified itself by the double-application hazard on the TASK
+path while no fixture carried a task — and the task path is the ONLY one where the allow-list runs
+twice, since `buildSeedTask` alone reaches `sanitizeAiRichText` while RAID, changes and milestones
+come from the upgrade-only `sanitize*Item` helpers and meet the allow-list for the first time inside
+`appendSeed`. So the suite pinned `sanitizeRichHtml` composed with itself on a raw string and claimed
+cover of a composition it never ran. `b7b07904` adds the task row and corrects two further claims:
+the mutation record's count was file-scoped without saying so, and the anti-vacuity comment claimed
+assertions pass on an empty workspace when they in fact throw.
+★ Fixing it at the PRODUCER (`proposalToSeed`) was rejected on the grounds §228 already records:
+apply is the only ingress into a workspace, so a producer-side fix leaves every other seed source
+unrepaired.
 
 Found by a cold reviewer of the §168 template-carry slice. NOT introduced by it — both branches
 predate that work — but the slice sharpened the asymmetry without naming it, which is why it is
@@ -22167,6 +22216,10 @@ recorded here rather than left to be rediscovered.
 if (opts.template)            ws = applyTemplate(ws, opts.template, …);   // allow-lists ten rich fields
 else if (opts.aiSeed && …)    ws = appendSeed(ws, remapSeed(ws, opts.aiSeed));  // does not
 ```
+
+★ That snippet is the DEFECT as filed, not the tree today: the allow-list no longer sits above the
+template branch at all — it sits in `appendSeed`, which both lines above end in. Everything below
+describes what was wrong and why, and is left as the record.
 
 `proposalToSeed` builds RAID, changes and milestones through `sanitizeRaidItem` /
 `sanitizeChangeItem` / `sanitizeMilestone`, which run `sanitizeRichText` only — a
