@@ -531,6 +531,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--open) | The storage readiness indicator is never disclosed to assistive technology, in either state | found 2026-08-30, fixing the colour-only state cue | M | open |
 | [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--open) | One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint | found 2026-08-30, in the destructive-refusal fix round | M | open |
 | [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--open) | Negative test assertions matching quoted English literals go silently vacuous on a reword | found 2026-08-30, in the destructive-refusal deletion round | M | open |
+| [§307](#307-a-destructive-save-refusal-cannot-be-staged-in-a-browser-so-the-recourse-has-never-been-seen-working--open) | A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working | found 2026-08-30, closing out the destructive-refusal slice | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -23372,3 +23373,43 @@ where it is a POSITIVE locator: it is brittle, it announces itself, and threadin
 through a test that does not otherwise need it costs more than it buys. ★ The same split governs
 `e2e/`, for a stronger reason — no spec there imports the string table, so converting one would
 introduce the suite's first dependency on `src/app/i18n` as a side effect of a copy change.
+## 307. A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working — open
+
+**Status:** open — established 2026-08-30 by reading the e2e harness, not by attempting it:
+`grep -rln "storageRefusedWipe\|storageDestructive" e2e/` returns nothing, so no spec drives a
+refusal; `grep -n "indexedDB\|addInitScript" e2e/seed.ts` shows the seed runs BEFORE the app loads;
+and `grep -rn "window.__lop" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."` finds only
+the data-loss log alias, so there is no hook to inject state at runtime. Never machine-verified, and
+that is the entry: nothing has ever driven this surface in a browser.
+
+The recoverable destructive-save refusal shipped with a manual verification owed — four checks the
+slice's own plan listed: the magnitude line, that the two saving-paused causes never render
+together, the dismiss-and-reopen chip in the CLASSIC layout, and that the toast's action reveals the
+banner rather than performing the save. None was done, because none can be done as written.
+
+★★★ **THE OBSTACLE IS STRUCTURAL, NOT EFFORT.** A refusal requires an UNARMED mass deletion or full
+wipe at RUNTIME. The e2e seed writes IndexedDB before the app loads, so a seeded workspace is simply
+the starting state and no guard ever evaluates it. Every UI bulk path arms the one-shot bypass by
+design, which is the whole point of the arming contract — so the surfaces a test can drive are
+exactly the ones that cannot produce a refusal. Staging one means adding a test-only route into
+production code whose only purpose is to defeat the guard under test.
+
+**What IS covered, so this is read at the right severity.** Three of the four are pinned by unit
+tests: the magnitude line and both confirm tiers in the banner's own suite, the exclusivity of the
+two causes at the hook boundary, and the toast's action invoking the reveal callback rather than the
+save. The banner and the footer indicator render in every axe-scanned view. What is NOT covered is
+the CLASSIC-layout chip, which has no test at any layer, and anything geometric — jsdom has no
+layout, so no existing test can see the banner's placement, its focus order among the other banners,
+or whether the footer marker shifts the line it sits on.
+
+★★ **Do NOT close this by writing a spec that stubs the refusal state.** A test that renders the
+banner from fixed props is what the unit suite already does; dressed as an e2e it would report that
+the recourse works end-to-end while never having exercised the guard, the arming, or the save. That
+is the same false-green shape the slice itself was fixing — a recourse that appears to exist and
+does not.
+
+**What closing it would take**, in the order that keeps production honest: a way to reach an unarmed
+destructive save that is not a back door — the most plausible is a delete route that legitimately
+does not arm today, which is what the UI-delete-route census entry is about — or, failing that, an
+explicit test-only capability gated the way other diagnostics are, plus a spec that drives it and
+asserts all four observables including the classic layout.
