@@ -507,14 +507,31 @@ function TaskManagerInner() {
   // `SavingPausedBanner`'s dismissed branch returns null when that is true — so
   // DEFAULT layouts fall back to the footer indicator alone, and classic to the
   // compact re-open chip. Neither names the magnitude the banner would.
-  // ★★★ KEYED ON THE REFUSAL OBJECT, and that is exactly the right grain
-  // BECAUSE of `useDestructiveSaveGuard`'s `sameRefusal` functional setter:
-  // identity is stable for as long as one refusal stands, so a dismiss survives
-  // every re-refusal (one per edit while paused) and only a genuinely DIFFERENT
-  // refusal re-shows the banner. A key made of the COUNTS would say the same
-  // thing more weakly, and a boolean `!== null` could not see a second episode
-  // whose counts moved. Do not "simplify" it to a nonce: there is none to bump —
-  // the guard's state IS the event.
+  // ★★★ KEYED ON THE REFUSAL OBJECT, and what it DEPENDS ON is
+  // `useDestructiveSaveGuard`'s `sameRefusal` functional setter: identity is
+  // stable for as long as one refusal stands, so a dismiss survives every
+  // re-refusal (one per edit while paused) and only a genuinely different
+  // refusal re-shows the banner. Lose that stability and every re-refusal
+  // re-shows a banner the user just dismissed.
+  // ★★ WHAT THE OBJECT KEY BUYS, MEASURED, IS OVER A **BOOLEAN** KEY — AND ON
+  // EXACTLY ONE INPUT. `destructiveRefusal !== null` fails only on an ESCALATION
+  // WITH NO INTERVENING NULL: the refusal never resolves, the user deletes more,
+  // `evaluate` mints a new object because the counts moved, and the boolean never
+  // flips, so a dismissed banner stays hidden while the claim it was dismissing
+  // has changed. A second EPISODE it handles fine — the resolution in between
+  // flips it. Pinned by "an ESCALATING refusal re-shows a dismissed banner while
+  // it still stands" in `task-manager.truncation-banner.test.tsx`, the only one of
+  // that file's three reconcile tests to go red under a boolean key.
+  // ★★★ A COUNTS-DERIVED KEY IS EQUIVALENT, NOT WORSE, and an earlier revision of
+  // this comment asserted the opposite of both halves — that a counts key "would
+  // say the same thing more weakly" and that a boolean "could not see a second
+  // episode whose counts moved". `sameRefusal` makes object identity ⟺ the counts
+  // tuple, so NO input separates object from counts: a faithful counts key was
+  // measured green against all 19 tests in that file. Prefer the object key
+  // because it does not restate `sameRefusal`'s field list — which would drift the
+  // day a field is added to it — NOT because it catches anything extra.
+  // ★ Do not "simplify" it to a nonce: there is none to bump — the guard's state
+  // IS the event.
   // ★ Resetting on the transition to `null` is deliberate, not sloppiness: the
   // banner mounts only while `destructiveRefusal !== null`, so nothing appears
   // when a refusal resolves — clearing the flag as the episode ENDS is precisely

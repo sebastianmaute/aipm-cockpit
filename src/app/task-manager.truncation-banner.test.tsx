@@ -417,6 +417,89 @@ describe("task-manager → destructive-refusal banner mount", () => {
     await waitFor(() => expect(destructiveBanner()).not.toBeNull());
   }, 45000);
 
+  // ── the dismissal must not outlive the episode it dismissed ────────────────
+  // ★★★ The peer of the truncation reconcile's three tests above, for the OTHER
+  // cause. `destructiveBannerDismissed` was never reset when a refusal
+  // RESOLVED, so: refuse → dismiss → the refusal clears → a later, different
+  // refusal raised the banner ALREADY HIDDEN. Saving is paused and the only
+  // things left saying so are the transient toast and the footer indicator —
+  // neither of which names the magnitude.
+  it("a DIFFERENT refusal after the first RESOLVES re-shows a dismissed banner", async () => {
+    const { rerender } = await mountApp();
+    fireEvent.click(within(destructiveBanner() as HTMLElement).getByRole("button", { name: /dismiss/i }));
+    await waitFor(() => expect(destructiveBanner()).toBeNull());
+
+    // The refusal RESOLVES (the user saved anyway, or a load re-baselined).
+    // ★ The paused control going too is the control on this step: it proves the
+    // resolution really landed rather than the banner merely staying dismissed,
+    // which is the same observable and the wrong reason.
+    override.value = { ...override.value, destructiveRefusal: null };
+    rerender(<TaskManager />);
+    await waitFor(() => expect(pausedControl()).toBeNull());
+
+    // A LATER, different refusal. Before the reconcile this arrived hidden.
+    const later = { prevCollections: 3, prevRecords: 400, curCollections: 1, curRecords: 12, fullWipe: false };
+    override.value = { ...override.value, destructiveRefusal: later };
+    rerender(<TaskManager />);
+
+    await waitFor(() => expect(destructiveBanner()).not.toBeNull());
+    // ★ And it is the NEW magnitude, not the dismissed one re-shown: a reconcile
+    // that un-hid a stale banner would satisfy the line above and mislead.
+    // ★ Derived from `t`, never quoted English — this surface has been reworded
+    // under quoted literals before, which turns such an assertion silently vacuous.
+    expect((destructiveBanner() as HTMLElement).textContent)
+      .toContain(t("en-US", "storageDestructiveCount", 388, 400));
+  }, 45000);
+
+  // ★★★ THE LOAD-BEARING HALF. The test above passes against a reconcile keyed
+  // on almost anything that moves; this is the one that says what the key may
+  // NOT be. While a refusal stands, EVERY later save re-refuses (one per edit,
+  // indefinitely — `use-storage-backend.test.tsx`'s "keeps refusing every later
+  // save while a refusal stands" pins that), and `useDestructiveSaveGuard`'s
+  // `sameRefusal` functional setter hands back the SAME object each time. So the
+  // dismissal has to survive a re-refusal, or dismissing is impossible: the
+  // banner reappears on the user's next keystroke, forever.
+  it("a re-refusal at the SAME refusal identity leaves a dismissed banner hidden", async () => {
+    const { rerender } = await mountApp();
+    fireEvent.click(within(destructiveBanner() as HTMLElement).getByRole("button", { name: /dismiss/i }));
+    await waitFor(() => expect(destructiveBanner()).toBeNull());
+
+    // A fresh hook result — a new spread object, as the real hook returns every
+    // render — carrying the SAME refusal identity, which is what `sameRefusal`
+    // guarantees for a re-refusal at unchanged counts.
+    override.value = { ...override.value };
+    rerender(<TaskManager />);
+    rerender(<TaskManager />);
+
+    expect(destructiveBanner()).toBeNull();
+    // ...and the door back is still there, so this is a hidden banner and not a
+    // resolved refusal — the two states differ only by this control.
+    expect(pausedControl()).not.toBeNull();
+  }, 45000);
+
+  // ★★★ WHAT THE OBJECT KEY BUYS OVER A BOOLEAN ONE, and the only test that can
+  // see it. A key of `destructiveRefusal !== null` passes both tests above: the
+  // resolution in the first flips it, and the re-refusal in the second does not.
+  // It fails HERE, where the refusal never resolves and the deletion simply gets
+  // WORSE — `evaluate` mints a new object because the counts moved, no null in
+  // between. The user dismissed a claim about 847 records; 890 is a different
+  // claim, and the banner is the only surface that names either.
+  it("an ESCALATING refusal re-shows a dismissed banner while it still stands", async () => {
+    const { rerender } = await mountApp();
+    expect((destructiveBanner() as HTMLElement).textContent)
+      .toContain(t("en-US", "storageDestructiveCount", 847, 900));
+    fireEvent.click(within(destructiveBanner() as HTMLElement).getByRole("button", { name: /dismiss/i }));
+    await waitFor(() => expect(destructiveBanner()).toBeNull());
+
+    // The user deletes more while saving is paused. NO intervening null.
+    override.value = { ...override.value, destructiveRefusal: { ...REFUSAL, curRecords: 10 } };
+    rerender(<TaskManager />);
+
+    await waitFor(() => expect(destructiveBanner()).not.toBeNull());
+    expect((destructiveBanner() as HTMLElement).textContent)
+      .toContain(t("en-US", "storageDestructiveCount", 890, 900));
+  }, 45000);
+
   it("stops reporting storage as healthy while a refusal stands", async () => {
     // ★ `storageOk` must fold in the destructive refusal too, not only
     // `loadWasIncomplete`. The control is "shows neither the destructive banner
