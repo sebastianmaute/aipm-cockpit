@@ -34,7 +34,7 @@ describe("SidebarFooter", () => {
   });
 
   describe("saving-paused indicator", () => {
-    // ★★★ This control is the DOOR BACK. `TruncatedLoadBanner` is dismissable
+    // ★★★ This control is the DOOR BACK. `SavingPausedBanner` is dismissable
     // and is the only surface carrying "Save anyway", so without a control that
     // re-shows it a single ✕ leaves the user editing into a session that saves
     // nothing. Everything below pins that the door exists and opens.

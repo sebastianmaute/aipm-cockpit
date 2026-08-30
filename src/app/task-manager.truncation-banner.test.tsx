@@ -7,6 +7,11 @@
 // 2026-08-07: deleting the three JSX lines that mount `TruncatedLoadBanner`
 // left the entire unit suite GREEN, and so did swapping its `onSaveAnyway` for
 // the dismiss handler — i.e. a save lockout with no exit, shipped green.
+// ★ That measurement is DATED and its name is kept as measured: the component
+// was renamed to `SavingPausedBanner` on 2026-08-30 when it grew a second cause
+// (a refused destructive save). Renaming it inside the record would claim a
+// measurement nobody took. The seam it pins is unchanged — this file still
+// mounts the real task-manager and still asserts the mount and its handlers.
 //
 // The other half of the same seam is the DISMISSAL. The banner must stay
 // dismissable (a banner you cannot clear makes the fastest way to tidy your

@@ -23,7 +23,7 @@ interface SidebarFooterProps {
 
 /**
  * ★★★ THE INDICATOR IS THE DOOR BACK, so it is a BUTTON, not a dot.
- * `TruncatedLoadBanner` is dismissable (it must be — a banner you cannot clear
+ * `SavingPausedBanner` is dismissable (it must be — a banner you cannot clear
  * makes the fastest way to tidy your screen the irreversible button), and it is
  * the only surface carrying "Save anyway". Without a control that re-shows it,
  * one ✕ leaves the user watching every later edit vanish on tab close with a
