@@ -173,6 +173,7 @@ export function TableFilter({
 // (task-manager-ui, the tasks table) deliberately keeps its own styled button.
 function SortHeaderButton({
   label,
+  nameContext,
   active,
   dir,
   onClick,
@@ -180,6 +181,9 @@ function SortHeaderButton({
   title,
 }: {
   label: string;
+  /** Disambiguating CONTEXT appended to the visible `label` to form the
+   *  accessible name. See the prop of the same name on `SortResizeTh`. */
+  nameContext?: string;
   active: boolean;
   dir: SortDir;
   onClick: () => void;
@@ -193,6 +197,26 @@ function SortHeaderButton({
     <button
       type="button"
       onClick={onClick}
+      // ★★ BUILT FROM `label`, never taken whole from the caller. That is what
+      // makes WCAG 2.5.3 (label-in-name) containment STRUCTURAL here: the
+      // visible text is always a substring of the accessible name, so no call
+      // site can defeat it by passing a name that drops the label. A plain
+      // "accessible name override" prop could only ask for that in prose.
+      // ★ `undefined`, never `""` — and NOT because an empty label would blank
+      // the name: it would not. Name computation SKIPS an empty or
+      // whitespace-only `aria-label` and falls through to content (accname step
+      // 2C; the library every name query in this repo runs on guards it as
+      // `ariaLabel !== "" && compute === "name"` in
+      // `dom-accessibility-api/dist/accessible-name-and-description.js`), so
+      // `""` would compute the SAME name here while still emitting an
+      // attribute. The reason is the DOM: `undefined` omits the attribute
+      // outright, which is what makes a no-context header byte-identical to
+      // what it rendered before this prop existed — the property pinned by
+      // "leaves the accessible name bare when no nameContext is given"
+      // (report-table.test.tsx), and the only detector for it, since an
+      // unconditional label computes an identical name and keeps every
+      // name-based query in the app green.
+      aria-label={nameContext ? `${label} – ${nameContext}` : undefined}
       title={title}
       className={`inline-flex items-center gap-1 ${active ? "text-[var(--table-head-accent)]" : ""} hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}
     >
@@ -211,10 +235,18 @@ function SortHeaderButton({
   if (!hint) return button;
   // InfoTooltip is a SIBLING of the sort button (not nested), so opening the
   // tooltip never triggers the column sort.
+  // ★★ The hint rides the SAME context. The tooltip trigger is `role="button"
+  // tabIndex={0}` — a named control in its own right — so qualifying only the
+  // sort button would leave two identically-named tooltips beside two
+  // now-distinct headers, which is §246's premise one element to the right.
+  // Same `undefined`-not-`""` rule as above, for a different mechanism:
+  // InfoTooltip resolves its name as `label ?? text`, and `""` is not nullish,
+  // so an empty string would defeat that fallback and leave the trigger's
+  // literal "i" glyph as its whole accessible name.
   return (
     <span className="inline-flex items-center gap-1">
       {button}
-      <InfoTooltip text={hint} />
+      <InfoTooltip text={hint} label={nameContext ? `${hint} – ${nameContext}` : undefined} />
     </span>
   );
 }
@@ -245,6 +277,7 @@ function SortHeaderButton({
  */
 export function SortResizeTh<K extends string>({
   label,
+  nameContext,
   sortCol,
   resizeCol,
   width,
@@ -258,6 +291,31 @@ export function SortResizeTh<K extends string>({
   stickyLeft,
 }: {
   label: string;
+  /** Disambiguating CONTEXT for this header — a bucket's row token, a sibling
+   *  table's heading. NOT a finished accessible name: the button builds its
+   *  `aria-label` as `` `${label} – ${nameContext}` ``, so the visible label is
+   *  CONTAINED in it by construction and WCAG 2.5.3 (label-in-name) cannot be
+   *  defeated from a call site. Omitting it leaves the name as the visible text.
+   *
+   *  ★★ ONLY for a panel that renders the SAME table shape more than once —
+   *  `budget-panel.tsx` renders one table per budget bucket, so its N "Role"
+   *  headers would otherwise be N controls sharing one accessible name (WCAG
+   *  2.4.6), and the axe gate cannot see it: of axe-core 4.12.1's rules, not one
+   *  carrying a tag `e2e/a11y.spec.ts` requests flags two controls sharing a
+   *  name, so a unit test is the only detector that can exist. A single-table
+   *  panel must NOT pass this — its header is already unique and a context would
+   *  only make the name longer.
+   *
+   *  ★ Pass the CONTEXT alone (`bucketToken`), never a pre-joined
+   *  `rowLabel(label, token)` — that would repeat the label ("Role – Role – PAM").
+   *  The separator is the same EN DASH `rowLabel` uses, so both surfaces read
+   *  identically.
+   *
+   *  ★ A `hint` RIDES ALONG automatically — the InfoTooltip beside the label is
+   *  itself a named control (`role="button" tabIndex={0}`), so it takes the same
+   *  context and a caller never qualifies it separately. Do NOT pre-qualify the
+   *  `hint` string for that purpose: it would be appended twice. */
+  nameContext?: string;
   sortCol: K;
   /** Resize/width key; defaults to `sortCol`. */
   resizeCol?: string;
@@ -336,6 +394,7 @@ export function SortResizeTh<K extends string>({
     >
       <SortHeaderButton
         label={label}
+        nameContext={nameContext}
         active={active}
         dir={sortDir}
         onClick={() => onSort(sortCol)}

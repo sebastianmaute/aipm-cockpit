@@ -266,11 +266,12 @@ describe("RolesEditor rate-card table", () => {
     // by its discipline / grade row context.
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Engineering / Senior` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Design / Junior` })).toBeInTheDocument();
-    // Scoped to the rate-card table's BODY, not the whole document: the header
-    // row carries three InfoTooltip hints that share one string
-    // (rolesRateBasisHint, on the two day-rate columns and the Basis column) —
-    // a genuine pre-existing WCAG 2.4.6 collision, but not this row's and not
-    // fixable without touching the shared InfoTooltip/SortResizeTh primitives.
+    // Scoped to the rate-card table's BODY, not the whole document — but only
+    // to keep this assertion about ROW identity. The header collision that
+    // originally forced the narrowing (rolesRateBasisHint shared by the two
+    // day-rate columns and the Basis column) is FIXED: §246 gave each /d column
+    // its own hint, and the whole-container pin at the bottom of this file
+    // covers the header now.
     const tbody = screen.getByRole("table").querySelector("tbody")!;
     expectRowUniqueNames({ minControls: 4, scope: tbody });
   });
@@ -361,8 +362,8 @@ describe("RolesEditor rate-card table", () => {
     expect(names.length).toBeGreaterThan(1);
     expect(new Set(names).size).toBe(names.length);
     // Scoped to the rate-card table's BODY — see the delete-button test above
-    // for why the whole document isn't used here (a pre-existing header
-    // InfoTooltip collision, out of scope for this row-level assertion).
+    // for why the whole document isn't used here (this stays a row-level
+    // assertion; the header is pinned separately at the bottom of this file).
     const tbody = screen.getByRole("table").querySelector("tbody")!;
     expectRowUniqueNames({ minControls: 4, scope: tbody });
   });
@@ -500,5 +501,22 @@ describe("RolesEditor sortable column headers", () => {
       expect(sorted()[0], "clicking " + key + " sorted a different column").toBe(own);
       expect(own).toHaveAttribute("aria-sort", "ascending");
     }
+  });
+
+  // §246: the two /d columns and Basis all carried `rolesRateBasisHint`, so
+  // three InfoTooltip triggers shared one accessible name. This is a
+  // DISTINCT-NAME regression pin, so `requireCollisionSeed` stays OFF — there
+  // is deliberately no collision left to seed.
+  //
+  // ★ 21 is the MEASURED count for this fixture (one role, one discipline, one
+  // grade), read off the helper's own floor error, not a guess. It is pinned
+  // EXACTLY rather than loosely because `roles` is passed explicitly here: a
+  // later narrowing of that array would otherwise sail past a slack floor,
+  // which is the one failure `minControls` can catch automatically. A new
+  // control in this editor turns this red with a message naming both numbers —
+  // re-measure and bump it, never lower it to get green.
+  it("gives each rate-card header tooltip its own accessible name", () => {
+    const { container } = renderEditor();
+    expectRowUniqueNames({ minControls: 21, scope: container, roles: ["button"] });
   });
 });

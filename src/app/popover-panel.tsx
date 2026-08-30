@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useDismissable } from "./use-dismissable";
 
@@ -201,9 +201,31 @@ export function PopoverPanel({
     }
   }, [autoFocus, open, pos]);
 
+  // ★★★ ESCAPE ONLY. `onClose` is invoked from FOUR places here — this dismiss
+  // hook, the outside-click `mousedown` listener, the `resize` listener and the
+  // capture-phase ancestor-`scroll` listener. Restoring focus from all four
+  // would YANK the user back to the trigger after they deliberately clicked
+  // somewhere else, which is worse than the gap this closes (open-followups
+  // §146). Scroll and resize are not the user asking to leave either: the
+  // layout moved out from under the panel.
+  // ★★ The panel is PORTALED to document.body, so on Escape the browser leaves
+  // focus on `body` and the toolbar the user came from goes arrow-dead — its
+  // roving-tabindex guard correctly refuses to act from outside the row.
+  // ★ Guarded on focus still being INSIDE the panel: any future path reaching
+  // this hook while focus sits elsewhere must not steal it.
+  // ★ Focus the anchor BEFORE closing. The anchor is outside the portal so it
+  // survives the unmount either way; restoring first avoids a frame in which
+  // `document.activeElement` is `body`.
+  const closeRestoringFocus = useCallback(() => {
+    if (panelRef.current?.contains(document.activeElement)) {
+      anchorRef.current?.focus({ preventScroll: true });
+    }
+    onClose();
+  }, [anchorRef, onClose]);
+
   // Escape goes through the dismissal stack — see `use-popover-dismiss` for
   // why this is no longer a capture-phase listener.
-  useDismissable({ open, kind: "layer", onDismiss: onClose });
+  useDismissable({ open, kind: "layer", onDismiss: closeRestoringFocus });
 
   useEffect(() => {
     if (!open) return;

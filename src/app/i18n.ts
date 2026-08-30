@@ -3262,6 +3262,8 @@ const enUS = {
   rolesGradeHint: "Seniority level used to derive the blended rate.",
   rolesInternalRateHint: "Hourly internal cost rate (EUR).",
   rolesExternalRateHint: "Hourly external/billing rate (EUR).",
+  rolesInternalRateDayHint: "Daily internal cost rate (EUR). Calculated from the hourly rate unless Days is the entry basis.",
+  rolesExternalRateDayHint: "Daily external/billing rate (EUR). Calculated from the hourly rate unless Days is the entry basis.",
   rolesRateBasisHint: "Enter either the daily rate or the hourly rate — the other is calculated from your workday hours and locked. Use the Hours/Days switch to choose which one you enter.",
   rolesRateBasis: "Entered in",
   rolesBasisHours: "Hours",

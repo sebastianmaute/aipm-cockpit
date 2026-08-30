@@ -328,4 +328,77 @@ describe("PopoverPanel", () => {
       });
     });
   });
+
+  // ★★★ THE THREE NEGATIVES ARE THE POINT. A fix that restores focus from all
+  // four dismiss paths passes the Escape case alone, and that is exactly the
+  // regression §146 warns about: yanking focus back to the trigger when the
+  // user has deliberately clicked somewhere else. Named mutant for this block:
+  // route `onDown`/`onResize`/`onScroll` through the restoring wrapper too.
+  it("returns focus to the trigger on Escape", () => {
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "trigger" });
+    fireEvent.click(trigger);
+    // autoFocus lands on the panel's first control, so focus starts INSIDE.
+    expect(screen.getByLabelText("field")).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(trigger).toHaveFocus();
+  });
+
+  // ★★★ EACH NEGATIVE IS A PAIR, and the `queryByRole` half is the load-bearing
+  // one. `not.toHaveFocus()` is an ABSENCE assertion, and an absence passes
+  // trivially when the thing under test never ran at all — a `fireEvent` that
+  // misses the listener (the capture-phase ancestor-`scroll` one, or the
+  // resize guard that only trips on a WIDTH change) leaves the panel open and
+  // focus wherever it was, which is indistinguishable from "did not steal
+  // focus". `Harness`'s `close` calls `setOpen(false)`, so a real dismiss
+  // unmounts the panel.
+  //
+  // ★★★ THE PAIR IS OPEN-THEN-GONE, NEVER GONE-ALONE, and an earlier revision
+  // of this comment claimed the second half sufficed ("asserting it is gone
+  // FIRST proves the path actually fired"). It does not: `toBeNull()` after
+  // the dismiss is indistinguishable from a panel that NEVER RENDERED. The
+  // panel is gated on `open && pos`, this file stubs `getBoundingClientRect`
+  // and `window.innerWidth` elsewhere, and a dispatched click does not move
+  // focus in jsdom (measured) — so a positioning change leaving `pos` null
+  // would satisfy BOTH assertions in all three tests and hollow out the only
+  // detector this behaviour will ever have (axe has no rule for it). The
+  // `getByRole` BEFORE the dismiss is what rules that out; it throws.
+  it("does NOT return focus to the trigger on an outside mousedown", () => {
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "trigger" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(trigger).not.toHaveFocus();
+  });
+
+  it("does NOT return focus to the trigger on a width resize", () => {
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "trigger" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    const origWidth = window.innerWidth;
+    // ★ try/finally so a leaked 500px viewport cannot reach another test in
+    // this file: the geometry tests above take `window.innerWidth` as their own
+    // restore baseline, and `test:shuffle` reorders tests WITHIN a file.
+    try {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: 500 });
+      fireEvent(window, new Event("resize"));
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: origWidth });
+    }
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(trigger).not.toHaveFocus();
+  });
+
+  it("does NOT return focus to the trigger when an ancestor scroller moves", () => {
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "trigger" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.scroll(document.body);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(trigger).not.toHaveFocus();
+  });
 });

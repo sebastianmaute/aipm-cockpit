@@ -302,8 +302,11 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       // only the undo capture, never the stamp), so an undo that does not re-stamp
       // leaves the apply's timestamp on a row whose content moved backwards and
       // both readers report a reverted item as freshly touched.
-      // ★ Milestones deliberately still does NOT stamp — its apply does not either,
-      // so there is no false timestamp there to correct (open-followups §181).
+      // ★ All four registers stamp as of open-followups §289 — milestones was
+      // the last holdout and now stamps on the apply, the single-row capture
+      // and the bulk capture alike. This comment used to record the opposite
+      // ("milestones deliberately still does NOT stamp"), which was true when
+      // §181 closed and became false without anything flagging it.
       if (edits.length) captureFieldRowsRef.current({ setter: setRaid, kind: "bulk.edit", edits, entityKey: "raid", stampField: "localModifiedAt" });
     },
     [setRaid],

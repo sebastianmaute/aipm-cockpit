@@ -2,10 +2,18 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.265.0";
-export const APP_BUILD_DATE = "2026-08-30"; // 0.265.0: seed allow-listing and handle-commit ordering (VanderMeer)
+export const APP_VERSION = "0.266.0";
+export const APP_BUILD_DATE = "2026-08-30"; // 0.266.0: seed allow-listing and handle-commit ordering (VanderMeer)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.263.x line is "Okorafor" (Nnedi Okorafor, Nigerian-American SF/fantasy
+ *  0.265.x line is "Nagata" (Linda Nagata, American SF author). ★★ REUSED:
+ *  0.75.0 also ran under this name. That is permitted — the rule below is
+ *  uniqueness per MINOR LINE, not across all history, and "Okorafor" carries
+ *  the same note — but it means a bare `grep -rn "Nagata" CHANGELOG.md`
+ *  returns a hit for a name that was nonetheless free to take. Read WHICH
+ *  minor line the hit belongs to before concluding a name is taken.
+ *  0.264.x was "Russell" (that slice's codename — no bio recorded for it here;
+ *  not asserting one now rather than guessing, per the 0.236.x note below).
+ *  0.263.x was "Okorafor" (Nnedi Okorafor, Nigerian-American SF/fantasy
  *  author). Reused: 0.223.x and 0.25.x also ran under this name.
  *  0.262.x was "Swainston" (Steph Swainston, British fantasy author).
  *  0.261.x was "Leckie" (Ann Leckie, SF author).

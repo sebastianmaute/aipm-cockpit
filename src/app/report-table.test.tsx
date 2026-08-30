@@ -493,3 +493,93 @@ describe("SortResizeTh stickyLeft", () => {
     expect(th.style.maxWidth).toBe("160px");
   });
 });
+
+// §246. Every other SortResizeTh call site in the app passes no context, so the
+// third and fifth cases here are the load-bearing ones: they pin that a
+// no-context header keeps a bare content-derived name rather than acquiring an
+// aria-label that merely repeats the visible label. Nothing else can see that.
+// An unconditional `aria-label={`${label}${nameContext ? " – " + nameContext :
+// ""}`}` computes a name IDENTICAL to the content-derived one (the sort glyph
+// is aria-hidden), so every name-based query in the whole app still resolves and
+// the entire suite stays green under it — verified by running that mutant. What
+// it falsifies is the byte-identical-DOM claim the source comment makes.
+describe("SortResizeTh nameContext", () => {
+  it("appends nameContext to the header button's accessible name", () => {
+    render(
+      <table><thead><tr>
+        <SortResizeTh
+          label="Open" sortCol="open" sortKey={null} sortDir="off"
+          onSort={() => {}} nameContext="By assignee"
+        />
+      </tr></thead></table>,
+    );
+    expect(screen.getByRole("button", { name: "Open – By assignee" })).toBeInTheDocument();
+  });
+
+  it("keeps the visible label inside the accessible name and unchanged on screen", () => {
+    render(
+      <table><thead><tr>
+        <SortResizeTh
+          label="Open" sortCol="open" sortKey={null} sortDir="off"
+          onSort={() => {}} nameContext="By assignee"
+        />
+      </tr></thead></table>,
+    );
+    const btn = screen.getByRole("button", { name: "Open – By assignee" });
+    expect(btn.textContent).toBe("Open");
+    expect(btn.getAttribute("aria-label")).toContain("Open");
+  });
+
+  it("leaves the accessible name bare when no nameContext is given", () => {
+    render(
+      <table><thead><tr>
+        <SortResizeTh label="Open" sortCol="open" sortKey={null} sortDir="off" onSort={() => {}} />
+      </tr></thead></table>,
+    );
+    const btn = screen.getByRole("button", { name: "Open" });
+    expect(btn.getAttribute("aria-label")).toBeNull();
+  });
+
+  // The hint's InfoTooltip is role="button" tabIndex={0} — a named control
+  // sitting beside the one just qualified. Left unthreaded, a panel rendering
+  // the same table shape twice WITH hints would end up with distinct header
+  // buttons and two identically-named tooltips: §246's own premise, one element
+  // to the right. No call site does that today; this pins the fix before one does.
+  it("qualifies the hint tooltip with the same context as the header button", () => {
+    render(
+      <table><thead><tr>
+        <SortResizeTh
+          label="Open" sortCol="open" sortKey={null} sortDir="off" onSort={() => {}}
+          hint="Hours still to book" nameContext="By assignee"
+        />
+      </tr></thead></table>,
+    );
+    expect(screen.getByRole("button", { name: "Open – By assignee" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Hours still to book – By assignee" }),
+    ).toBeInTheDocument();
+  });
+
+  // Every panel that passes a `hint` and NO `nameContext` needs its tooltip to
+  // keep the raw hint as its name. Unlike the button above, InfoTooltip
+  // resolves `label ?? text`, so the attribute is still PRESENT here — it just
+  // holds the bare hint.
+  // ★ No panel COUNT here on purpose (AGENTS.md's no-consumer-tally rule).
+  // Derive today's with
+  //   grep -rlzP '<SortResizeTh(?:(?!/>)[\s\S])*?hint=' src/app --include=*.tsx | grep -v test
+  // ★★ The multiline form is load-bearing. The obvious two-grep pipeline
+  // (`grep -rl "hint=" … | xargs grep -l SortResizeTh`) returns a SUPERSET —
+  // it matches a file where the two strings merely COEXIST.
+  it("leaves the hint tooltip's name bare when no nameContext is given", () => {
+    render(
+      <table><thead><tr>
+        <SortResizeTh
+          label="Open" sortCol="open" sortKey={null} sortDir="off" onSort={() => {}}
+          hint="Hours still to book"
+        />
+      </tr></thead></table>,
+    );
+    const tip = screen.getByRole("button", { name: "Hours still to book" });
+    expect(tip.getAttribute("aria-label")).toBe("Hours still to book");
+  });
+});

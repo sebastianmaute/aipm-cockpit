@@ -88,6 +88,7 @@ const ASSIGNEE_NUMERIC_COLS: readonly { key: AssigneeSortKey; labelKey: Paramete
 export function GroupOrLabelTable({
   rows,
   lang,
+  nameContext,
   headerKey,
   emptyKey,
   colWidths,
@@ -100,6 +101,19 @@ export function GroupOrLabelTable({
 }: {
   rows: GroupOrLabelRow[];
   lang: Lang;
+  /** The table's own visible heading, appended to each sortable header's
+   *  accessible name by `SortResizeTh` (which joins it as
+   *  `` `${label} – ${nameContext}` `` — pass the CONTEXT alone, never a
+   *  pre-joined string).
+   *
+   *  ★★ REQUIRED rather than optional so `tsc` is the completeness check.
+   *  `reports.tsx` renders this component twice and `AssigneeTable` once, all
+   *  three as siblings reusing the SAME generic column labels ("Open",
+   *  "Total", "Overdue"…) — so a call site that forgot to pass a context IS
+   *  the §246 defect, and the axe gate cannot see it: no axe rule under any
+   *  tag `e2e/a11y.spec.ts` requests flags two controls sharing an accessible
+   *  name. Optional here would leave that call site silently un-updated. */
+  nameContext: string;
   headerKey: "group" | "labels";
   emptyKey: "reportsNoGroups" | "reportsNoLabels";
   colWidths: Record<string, number>;
@@ -133,6 +147,7 @@ export function GroupOrLabelTable({
               <SortResizeTh
                 {...th}
                 label={t(lang, headerKey)}
+                nameContext={nameContext}
                 sortCol="name"
                 resizeCol="label"
                 width={colWidths.label}
@@ -142,6 +157,7 @@ export function GroupOrLabelTable({
                   {...th}
                   key={key}
                   label={t(lang, labelKey)}
+                  nameContext={nameContext}
                   sortCol={key}
                   width={colWidths[key]}
                   align="right"
@@ -176,6 +192,7 @@ export function GroupOrLabelTable({
 export function AssigneeTable({
   rows,
   lang,
+  nameContext,
   colWidths,
   onStartResize,
   sort,
@@ -185,6 +202,9 @@ export function AssigneeTable({
 }: {
   rows: Stats["byAssignee"];
   lang: Lang;
+  /** The table's own visible heading. REQUIRED — see the prop of the same name
+   *  on `GroupOrLabelTable` above for why, and for the join the primitive does. */
+  nameContext: string;
   colWidths: Record<ReportsAssigneeCol, number>;
   onStartResize: (col: string, e: React.MouseEvent) => void;
   sort: AssigneeSort;
@@ -213,6 +233,7 @@ export function AssigneeTable({
               <SortResizeTh
                 {...th}
                 label={t(lang, "assignee")}
+                nameContext={nameContext}
                 sortCol="assignee"
                 width={colWidths.assignee}
               />
@@ -221,6 +242,7 @@ export function AssigneeTable({
                   {...th}
                   key={key}
                   label={t(lang, labelKey)}
+                  nameContext={nameContext}
                   sortCol={key}
                   width={colWidths[key]}
                   align="right"
