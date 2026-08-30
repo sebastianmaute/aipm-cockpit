@@ -484,6 +484,24 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       );
       tasksRef.current = next;
       setTasks(next);
+
+      // ★★★ The FIFTH status writer in the app, and one no FILE-granular
+      //   census could ever catch: a census asserting "this file calls
+      //   statusActivityKind somewhere" is already satisfied by the two pull
+      //   sites above, so this site could stay silent forever behind a green
+      //   run. Its own tests in use-jira-sync.test.tsx are the only cover.
+      //   `original` is a real before-row (the `find` at the top of the loop)
+      //   and `merged` is the committed after-row, so this is a genuine
+      //   transition with both ends in hand.
+      // ★★ OBSERVES the transition; it does not write one. Routing it through
+      //   `applyStatusChange` would stamp `today` over the resolution date the
+      //   merge just picked — the same prohibition the pull sites carry.
+      // ★ Logged AFTER the write, so a `continue` from the push-failure catch
+      //   above cannot record a transition that never reached the workspace.
+      const transition = statusActivityKind(original, merged);
+      if (transition) {
+        args.logActivityAs("integration", transition, original.id, merged.taskName);
+      }
     }
 
     setJiraConflicts([]);

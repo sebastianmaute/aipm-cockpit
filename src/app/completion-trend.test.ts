@@ -22,15 +22,22 @@ function ev(timestamp: string, kind: ActivityEntry["kind"]): ActivityEntry {
 /** `n` tasks delivered long BEFORE any plotted day, so `deliveredBy` returns the
  *  same numerator on every point of the window.
  *
- *  ★★★ THE DENOMINATOR BLOCKS BELOW NEED THIS AND `tasks: []` WOULD MAKE THEM
- *  VACUOUS — measured, not reasoned. Holding the numerator constant is what
- *  leaves the DENOMINATOR as the only thing their expectations can be reading,
- *  which is the property they were written to pin. With `tasks: []` every
- *  historical point reads 0 instead, and the two assertions that compare one
- *  log against another collapse to comparing `[0, 0, x]` with itself:
- *  "subtracts N, not 1" (§163) and "reverses N, not 1" (§166) both PASS while
- *  detecting nothing. Pass `doneBefore(currentDone)` and each case reproduces
- *  its pre-change arithmetic exactly. */
+ *  ★★★ WHY THIS AND NOT `tasks: []`: it reproduces the CONSTANT numerator the
+ *  denominator blocks below were written against, so every one of their
+ *  expectations stays byte-identical across the numerator change. `tasks: []`
+ *  zeroes every historical point, and each of those blocks would have to be
+ *  rewritten to a zeroed series. Measured: replacing all six `doneBefore(2)`
+ *  call sites in this file with `[]` runs 17 failed / 15 passed.
+ *
+ *  ★★★ AN EARLIER REVISION OF THIS DOCSTRING CLAIMED `tasks: []` WOULD MAKE
+ *  "subtracts N, not 1" (§163) AND "reverses N, not 1" (§166) PASS WHILE
+ *  DETECTING NOTHING, under a "measured, not reasoned" banner. That is FALSE
+ *  and it was reasoned: both are `expect(withN(8)).not.toEqual(withN(1))`, so
+ *  two collapsed-to-identical arrays FAIL the assertion — they go RED loudly,
+ *  they do not pass silently. Both appear by name in the 17 above. The mutant
+ *  record at the foot of this file is the true measurement, and it and the old
+ *  claim could not both hold: mutant A is behaviourally `tasks: []` for these
+ *  fixtures, and it KILLED every §163/§166 case. */
 function doneBefore(n: number): Task[] {
   return Array.from(
     { length: n },
@@ -142,8 +149,11 @@ describe("bulk.delete counts against the denominator (§163)", () => {
   // The reconstruction only runs with FEWER THAN TWO snapshots, so every case
   // here passes `snapshots: []` — this is the no-Turso / new-project path.
   // `doneBefore(2)`, NOT `tasks: []`: see the helper. An empty task list
-  // zeroes every historical point and makes "subtracts N, not 1" below compare
-  // `[0, 0, 100]` with itself.
+  // zeroes every historical point, so "subtracts N, not 1" below would compare
+  // `[0, 0, 100]` with itself — and that `.not.toEqual` then goes RED, it does
+  // not pass vacuously. Every expectation in this describe would need
+  // rewriting to the zeroed series; keeping the numerator constant is what
+  // makes them all still readable as claims about the DENOMINATOR.
   const BASE = { snapshots: [], tasks: doneBefore(2), currentDone: 2, currentTotal: 2, today: "2026-06-21" } as const;
 
   // ★★★ THE REGRESSION ITSELF. Two creates then a mass delete of 8, ending at
@@ -444,7 +454,16 @@ describe("undo/redo reverse the denominator they moved (§166)", () => {
  *      else reads that branch, so the block is the sole guard of it.
  *  C — `"task.completed"` removed from `COUNT_KINDS`:
  *      3 failed. Killed "seeds a day carrying only a completion …" as
- *      intended; the other two are the seeding claims in the first describe. */
+ *      intended; the other two are the seeding claims in the first describe.
+ *  D — `deliveredBy` replaced by `tasks.length` (ignore the day, count
+ *      everything): 2 failed — "falls back to activity-log reconstruction …"
+ *      and "leaves the earlier point at zero …". This is the mutant that was
+ *      MISSING when A/B/C were recorded, and it matters because A/B/C leave
+ *      the "always counts everything" direction unexercised: the zero control
+ *      passes under A for the WRONG reason (A makes every numerator 0, and 0
+ *      is what that block expects), so on its own it certifies nothing. D is
+ *      what proves the pair constrains the implementation from both sides.
+ *      Observed 2026-08-30, not predicted. */
 describe("numerator from task data", () => {
   const task = (id: number, completedDate?: string) =>
     ({

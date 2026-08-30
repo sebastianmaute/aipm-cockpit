@@ -1003,6 +1003,73 @@ describe("useJiraSync — handleResolveConflicts", () => {
     expect(jiraApi.updateIssue).toHaveBeenCalled();
     expect(jiraApi.transitionIssueTo).not.toHaveBeenCalled();
   });
+
+  // ── The audit entry for the conflict path ─────────────────────────────────
+  // This is the app's FIFTH status writer, and no FILE-granular census could
+  // guard it: a gate asserting "this file calls statusActivityKind somewhere"
+  // is already satisfied by the two pull sites, so it would report green over
+  // a silent conflict path forever. These two blocks are the ONLY thing that
+  // can catch a regression here.
+  //
+  // MUTANT (observed, not reasoned): replacing the `if (transition) …` call in
+  // handleResolveConflicts with `void transition;` runs 1 failed | 30 passed —
+  // "logs task.completed" alone goes RED on `AssertionError: expected "vi.fn()"
+  // to be called with arguments … Number of calls: 0`, while the no-change
+  // control stays GREEN. That asymmetry is exactly why the control cannot
+  // stand alone: it passes whether the call site exists or not.
+
+  it("logs task.completed when the resolution lands on a delivered row", async () => {
+    const localTask = makeTask({
+      id: 1, jiraKey: "TEST-1", taskName: "Local name", status: "In Progress",
+      lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+    });
+    const { result } = renderSync([localTask]);
+    await setupCompletionConflict(
+      result,
+      { status: "Done", completedDate: "2026-05-09", done: true },
+      undefined,
+    );
+    vi.clearAllMocks();
+
+    const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+      taskId: 1, jiraKey: "TEST-1", picks: picksAll({ completedDate: "remote" }),
+    };
+    await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+    expect(logActivityAs).toHaveBeenCalledWith(
+      "integration", "task.completed", 1, "Local name",
+    );
+  });
+
+  it("logs no completion entry when the resolution leaves delivered-ness unchanged", async () => {
+    // Positive control. The completion ARM still runs — completedDate is the
+    // conflicting field and `completionChanged` is set — but the row was
+    // delivered before and stays delivered, so statusActivityKind returns null.
+    // A fixture whose diff never carries completedDate would pass for the wrong
+    // reason (the arm would not run at all), which setupCompletionConflict's
+    // own guard rules out.
+    const localTask = makeTask({
+      id: 1, jiraKey: "TEST-1", taskName: "Local name",
+      status: "Done", completedDate: "2026-04-01",
+      lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+    });
+    const { result } = renderSync([localTask]);
+    await setupCompletionConflict(
+      result,
+      { status: "Done", completedDate: "2026-05-09", done: true },
+      "2026-04-01",
+    );
+    vi.clearAllMocks();
+
+    const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+      taskId: 1, jiraKey: "TEST-1", picks: picksAll({ completedDate: "remote" }),
+    };
+    await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+    // The date DID move — proving the merge ran — while delivered-ness did not.
+    expect(result.current.currentTasks[0].completedDate).toBe("2026-05-09");
+    expect(logActivityAs).not.toHaveBeenCalled();
+  });
 });
 
 describe("useJiraSync — preflight, classified failures, flag sync", () => {

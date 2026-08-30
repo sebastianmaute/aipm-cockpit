@@ -146,7 +146,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     () =>
       computeCompletionTrend({ snapshots, activity, tasks: props.tasks, currentDone, currentTotal, today }),
     // ★★ `props.tasks` and NOT `taskCount`, which is what the neighbouring
-    //   scalar deps and the `taskCount` a few lines below make the obvious
+    //   scalar deps and this file's own `taskCount` binding make the obvious
     //   reach. The numerator depends on `completedDate` VALUES, not on how many
     //   tasks there are: a date edited to a different past day leaves the count
     //   identical and the curve stale, and the disable below means the linter

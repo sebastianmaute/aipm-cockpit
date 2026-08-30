@@ -211,21 +211,40 @@ it has no table of its own, NOT because it sits outside the workspace.
   `grep -n COUNT_KINDS src/app/completion-trend.ts` prints the set;
   `grep -oE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts | sort -u` prints the 21
   distinct kinds the dispatcher writes across its 23 sites, of which those two intersect the set.
-  ★★ **An AI status change to Done logs `task.updated`, NOT `task.completed`** — `update_task` stamps that
-  ONE kind whichever fields it touches, exactly as the form save does (`use-task-submit.ts`, which routes
-  the status through `logActivityChanges("task.updated", …)`), so a completion is invisible to the set. ★ The
-  INLINE status dropdown logs nothing at all — `use-task-row-handlers.ts` calls `logActivityRef.current`
-  on DELETE only: `grep -c "logActivityRef.current(" src/app/use-task-row-handlers.ts` → **1**, and the
-  `-n` form shows that one hit is the `"task.deleted"` call. A separate pre-existing coverage gap.
-  ★★ **SCOPE THE COMMAND TO THE CLAIM.** This was attached as `grep -n "logActivity"` on that file,
-  which returns **6** lines — the prop type, the destructure, the ref init, the ref assignment, a dep
-  array and the one call. The claim was TRUE and the command did not reproduce it, which is the exact
-  failure the rule at the top of this file exists to prevent; both reviewers flagged it independently.
-  Do not read the set's membership as "these four fire": `task.completed`
-  and `task.reopened` have **NO writer anywhere in the app**, only a union member, an
-  `activityMessageKey` row and their seat in this set. Verify before reasoning about either:
-  `git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'` →
-  only `activity-log.ts` and `completion-trend.ts`. Pre-existing, not introduced by this branch.
+  ★★ **An AI status change to Done still logs `task.updated`, and now logs a completion BESIDE it** —
+  `update_task` stamps that one kind whichever fields it touches, exactly as the form save does
+  (`use-task-submit.ts`, which routes the status through `logActivityChanges("task.updated", …)`), so the
+  `task.updated` entry alone remains invisible to the set; both sites now also emit the transition. Same
+  for the INLINE status dropdown, which used to log on DELETE only.
+  ★★ **SCOPE THE COMMAND TO THE CLAIM.** An earlier revision attached `grep -n "logActivity"` to the
+  dropdown claim, which returns **6** lines on that file — the prop type, the destructure, the ref init,
+  the ref assignment, a dep array and the one call. The claim was TRUE and the command did not reproduce
+  it, which is the exact failure the rule at the top of this file exists to prevent; both reviewers
+  flagged it independently. That is why no count is quoted for the dropdown here any more: the file now
+  has three `logActivityRef.current(` calls rather than one, and a number in prose cannot survive the
+  next writer.
+  ★★★ **`task.completed` AND `task.reopened` NOW HAVE WRITERS ON EVERY STATUS-WRITING SURFACE, and this
+  entry used to say the opposite.** It read: they "have **NO writer anywhere in the app**, only a union
+  member, an `activityMessageKey` row and their seat in this set", with
+  `git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'`
+  attached and an expected answer of "only `activity-log.ts` and `completion-trend.ts`". Both halves are
+  stale, and the COMMAND is the more dangerous half: the writers do not spell either literal, they call
+  the shared `statusActivityKind` decision, which returns the kind. Run today it prints THREE files —
+  `activity-log.ts`, `completion-trend.ts` and `task-status.ts` — and names not one writer. Enumerate
+  them with the helper instead:
+  `git grep -nE 'statusActivityKind' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'`
+  → the definition in `task-status.ts` plus SIX consuming files: `use-task-submit.ts`,
+  `use-task-row-handlers.ts`, `use-bulk-operations.ts`, `use-action-center-handlers.ts`,
+  `use-chat-dispatcher.ts` and `use-jira-sync.ts`.
+  ★★ **A MISSED WRITER COSTS AN AUDIT ENTRY AND NEVER A METRIC.** The trend does NOT consume these two
+  as a numerator — `deliveredBy` reads `completedDate` off task data (see below) — so their only
+  metric-side job stays the seeding one. That is the whole reason the audit trail needs its own coverage:
+  nothing on the chart will ever go wrong to tell you a surface stopped logging.
+  ★ And a FILE-granular census — a gate asserting that each status-writing file calls
+  `statusActivityKind` somewhere — would not be that coverage either, so do not plan one and call the
+  problem solved. A file with several write sites passes on any one of them: `use-jira-sync.ts` has four
+  and its conflict-resolution path was silent while its two pull sites were adopted. Per-site coverage is
+  per-site tests, and nothing else.
   ★★ **THAT USED TO MEAN THE TREND'S NUMERATOR WAS FED BY NOTHING, AND IT NO LONGER DOES.** This line
   read "the trend's `dDone` term is fed by NOTHING, so the reconstruction path moves only on totals" —
   `dDone` does not exist any more. The numerator is READ from task data (`deliveredBy` in

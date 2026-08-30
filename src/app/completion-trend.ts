@@ -8,6 +8,7 @@
 
 import type { SnapshotRecord } from "./snapshot";
 import type { ActivityEntry } from "./activity-log";
+import { isTaskDelivered } from "./task-closed";
 import type { Task } from "./types";
 
 export interface CompletionPoint {
@@ -226,14 +227,33 @@ function reconstructFromActivity(
   //   to these two. A reverted edit seeds a point carrying no information; a
   //   completion seeds one carrying the only information this chart is about.
   //
-  // ★★ NO CLAMP, DELIBERATELY. The numerator is exact (task fields) and the
-  //   denominator is reconstructed from an activity ring that caps at 500
-  //   entries and forgets, so a stale `total` CAN sit under `done`. It cannot
-  //   escape: `clampPctFromCounts` already returns 100 for `done > total`, and
-  //   `CompletionPoint` exposes only `percent` — the counts never leave this
-  //   function. A `Math.max(total, done)` here would be dead code that a later
-  //   reader mistakes for load-bearing, which is exactly what the
-  //   `typeof kind === "string"` note in `reversedForwardDelta` warns about.
+  // ★★ NO CLAMP, DELIBERATELY. The numerator is read from live task fields
+  //   while the denominator is reconstructed from an activity ring that caps
+  //   and forgets (`ACTIVITY_MAX_ENTRIES`), so a stale `total` CAN sit under
+  //   `done`. The raw counts never leave this function — `endState` is local
+  //   and each pair is rendered through `clampPctFromCounts` into a
+  //   `CompletionPoint`, which carries only `label` and `percent` — so a
+  //   `Math.max(total, done)` here would be dead code a later reader mistakes
+  //   for load-bearing, which is what the `typeof kind === "string"` note in
+  //   `reversedForwardDelta` warns about.
+  // ★★★ DO NOT restate the old justification for that, which was FALSE:
+  //   "`clampPctFromCounts` already returns 100 for `done > total`" does not
+  //   hold when `total` is 0. Its FIRST line is `if (total <= 0) return 0`, and
+  //   `endState` floors `total` at 0, so a positive `done` against a
+  //   walked-to-zero total renders 0%, not 100%. Measured, not reasoned: one
+  //   task delivered 06-10 plus two later `task.created` days gives
+  //   `[06-10 → 0, 06-12 → 100, 06-14 → 50]`. The NO-CLAMP conclusion survives
+  //   anyway — 0% is a benign reading of a forgotten prefix, and clamping
+  //   `total` up to `done` would print a confident 100% there instead.
+  // ★★ THE NUMERATOR IS EXACT ONLY FOR TASKS STILL PRESENT. A row delivered on
+  //   day D and later DELETED, or REOPENED (`applyStatusChange` writes
+  //   `completedDate: ""` for any non-Done status), drops out of every
+  //   historical numerator RETROACTIVELY while the walk still restores its
+  //   create/delete events into the denominator. Measured: 10 tasks, 5 delivered by 06-10,
+  //   all 5 bulk-deleted on 06-20 → the walk restores a total of 10 on 06-10
+  //   while `deliveredBy("2026-06-10")` returns 0, so the point reads 0% where
+  //   the truth was 50%. A documented approximation, not a regression — the
+  //   event-counted numerator this replaced read 0% there too.
   const byDay = new Map<string, number>();
   for (const e of activity) {
     // ★★ An undo/redo whose reversal decodes to 0 must fall through to `continue`
@@ -266,8 +286,28 @@ function reconstructFromActivity(
   // The NUMERATOR is read from `tasks` per day — except for the last point,
   // which stays on `currentDone` so it agrees with the completion tile rendered
   // directly above the sparkline (see the `currentTotal` doc comment).
+  // ★★ `isTaskDelivered`, never an inline `!!t.completedDate`. The repo keeps
+  //   DELIVERED ("was it completed?") and CLOSED ("will it be worked on
+  //   again?") apart on purpose — see `task-closed.ts` — and this numerator is
+  //   the canonical DELIVERED reader. The call is behaviourally identical to
+  //   the expression it replaced; what it buys is that the question is named.
+  // ★ KNOWN, UNCHANGED EDGE, and the import does NOT close it: a split row
+  //   carrying `status: "Cancelled"` beside a `completedDate` — which
+  //   `migrateTask` deliberately does not repair — is OUT of the progress
+  //   model's in-scope denominator yet counted here, so it inflates the
+  //   historical points. `isTaskDelivered` reads `completedDate` alone, so
+  //   filtering it out would need `!isTaskClosed` beside it, which would ALSO
+  //   drop every legitimately Done row. Left as-is deliberately.
+  // ★★ COST: this runs inside the backward loop over EVERY day, so the walk is
+  //   O(distinct activity days × |tasks|). `trailing()`/`MAX_POINTS` bounds the
+  //   RETURNED series, not this work — it is applied to the finished `points`
+  //   array below. Distinct days is bounded only by `ACTIVITY_MAX_ENTRIES`
+  //   (500), so the worst case is small; do not optimise it.
   const deliveredBy = (day: string): number =>
-    tasks.reduce((n, t) => (t.completedDate && t.completedDate <= day ? n + 1 : n), 0);
+    tasks.reduce(
+      (n, t) => (isTaskDelivered(t) && t.completedDate! <= day ? n + 1 : n),
+      0,
+    );
 
   const endState: { done: number; total: number }[] = new Array(days.length);
   let total = currentTotal;
