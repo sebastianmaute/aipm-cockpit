@@ -18102,9 +18102,10 @@ switch have neither an e2e nor any browser-level test of the round trip.
 
 **Status:** fixed 2026-08-30 on `fix/trend-numerator-and-audit-log` by `dd099c44` (the pure decision)
 · `cd4fdcc2` (the adopters) · `3e182c78` (the fifth, Jira, writer) · `9bf06d3b` (the census gate).
-Every path that writes the pair **through `applyStatusChange` or `issueToTaskFields`** now decides
-whether that write was a completion or a reopening, through one pure helper `statusActivityKind`
-(`task-status.ts`), and logs the resulting `task.completed` / `task.reopened`. The helper compares
+A status **transition** — a write with a before-row — now decides whether that write was a
+completion or a reopening, through one pure helper `statusActivityKind` (`task-status.ts`), and logs
+the resulting `task.completed` / `task.reopened`; a CREATION has no before-row and classifies
+nothing. The helper compares
 DELIVERED-ness (`isTaskDelivered`), not CLOSED-ness — cancelling a task is not a completion.
 
 ★★★ **THAT IS A POPULATION, NOT AN ABSOLUTE — this line said "Every path that writes a task's
@@ -18123,13 +18124,12 @@ them separately:
   exactly the rationale `status-activity-census.test.ts` already records for `task-manager.tsx`'s
   `handleCreateLinkedTask`, and therefore NOT filed.
 
-★★ **The census is structurally blind to both, and its own header now says so as a THIRD limitation**
-(it previously listed two, so a reader took a green run as covering all five). Neither writer spells a
+★★ **The census is structurally blind to both, and its own header now says so as a THIRD limitation.**
+Neither writer spells a
 `WRITER_ANCHORS` pattern, and `writerFiles()` walks `src/app` NON-recursively, so `src/app/undo/` is
 never read at all — the anchors could be widened and that file would still be invisible. Reproduce the
 walk with `node -e "console.log(require('fs').readdirSync('src/app').includes('use-undo-stack.ts'))"`
 → `false`, and the anchor gap with `grep -rn "statusActivityKind" src/app/undo/` → no match, exit 1.
-The achievement stands as a scope: five file-level writers adopted, and the two above did not.
 
 ★★ **THE TWO FENCED COMMANDS BELOW WERE ACCURATE WHEN WRITTEN AND ARE BOTH FALSE NOW.** Their
 readings are dated 2026-08-28 and are kept as the diagnosis; the current answers, re-run 2026-08-30,

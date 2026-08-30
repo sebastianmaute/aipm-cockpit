@@ -23,7 +23,7 @@ longer carries its own changelog comment.
   that went unrecorded, while pressing Undo on that same change *did* write an entry. Completing or
   reopening a task now writes an activity entry from the table, the board, the task form, bulk edit,
   the Action Center, the AI assistant and a Jira sync. Undo and Redo are the exception: they still
-  record themselves as an undo, not as the completion or reopening they turn out to be.
+  record themselves as such, not as the completion or reopening they turn out to be.
 - **A contact with no email address exported as their name followed by an empty pair of angle
   brackets** — `Bob Jones <>`. The project form had always left the brackets off in that case; the
   export now agrees with it and shows the name alone.

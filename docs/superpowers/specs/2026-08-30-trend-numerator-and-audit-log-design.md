@@ -103,6 +103,7 @@ and prose decays.
 
 The numerator is derived from **data** (`completedDate`), not from a new event producer. Event
 producers are added anyway, but for the **audit log only** — the trend does not consume them.
+★★★ RETRACTED — see the `RETRACTED, 2026-08-30` banner under "The census gate" below.
 
 **Rejected: event producers alone.** Three measured hazards, any one of which would have shipped a
 fresh instance of the bug class being fixed.
@@ -207,8 +208,7 @@ never produce a wrong number — which is the split the two register entries act
 > decides which days SEED a point, so a missed writer drops a completion-only day and can take a
 > sparse project under the `days.length < 2` floor, rendering no chart at all. Retracted in the
 > shipped tree by `9fffef94`; the plan carries the same banner. The claim was propagated verbatim
-> from here into the plan and from the plan into three source files, which is the reason it is
-> corrected at its origin rather than only downstream.
+> from here into the plan and from the plan into three source files.
 
 ---
 
