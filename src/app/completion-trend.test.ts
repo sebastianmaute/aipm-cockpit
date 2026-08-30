@@ -48,7 +48,7 @@ function ev(timestamp: string, kind: ActivityEntry["kind"]): ActivityEntry {
  *  they do not pass silently. Both appear by name in the 17 above. The mutant
  *  record at the foot of this file is the true measurement, and it and the old
  *  claim could not both hold: mutant A is behaviourally `tasks: []` for these
- *  fixtures, and it KILLED every §163/§166 case. */
+ *  fixtures, and it KILLED most of the §163/§166 block. */
 function doneBefore(n: number): Task[] {
   return Array.from(
     { length: n },
