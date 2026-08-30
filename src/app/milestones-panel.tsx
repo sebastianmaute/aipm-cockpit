@@ -347,7 +347,14 @@ function MilestonesPanelBody({
       captureFieldChanges(captureFieldEdit, {
         setter: setMilestones, kind: "milestone.updated", id,
         prev: previous, next: finalItem, groups: MILESTONE_UNDO_GROUPS,
-        name: finalItem.name,
+        // §289 names THREE paths, not two: the apply, this single-row capture,
+        // and the bulk capture above. Omitting it here once the apply started
+        // stamping would CREATE the §181 defect rather than close it — undo
+        // would revert the content and leave the apply's fresh timestamp
+        // standing, on a row whose content no longer matches it.
+        // `changedFieldGroups` can never carry the field back (it is in
+        // `NEVER_CAPTURE`), so `stampField` is the only thing that refreshes it.
+        stampField: "localModifiedAt", name: finalItem.name,
       });
     }
     if (create) {

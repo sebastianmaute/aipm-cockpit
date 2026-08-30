@@ -408,6 +408,42 @@ describe("MilestonesPanel", () => {
       }),
     );
   });
+
+  // §289's THIRD path. The bulk capture and the apply are pinned elsewhere in
+  // this file; this is the single-row one, and it is the path that would have
+  // shipped the defect §181 fixed for the other three registers: the apply now
+  // stamps unconditionally (`save`), so a capture WITHOUT `stampField` reverts
+  // the content and leaves the apply's timestamp in place.
+  //
+  // ★ What is pinned is that the capture DECLARES the field, not that a stamp
+  // equals a value — `stampField` writes a FRESH ISO string on undo AND redo
+  // rather than restoring the prior one, so there is no captured value to
+  // compare against. Mutation-checked: dropping `stampField` from the call in
+  // `milestones-panel.tsx` leaves `stampField: undefined` on every entry and
+  // this assertion fails on that key alone.
+  it("tells the single-row capture to stamp localModifiedAt on undo", () => {
+    const captureFieldEdit = vi.fn();
+    render(
+      <>
+        <Seed milestones={[m("Original", "2026-06-10", { id: 1 })]} />
+        <MilestonesPanel {...baseProps} captureFieldEdit={captureFieldEdit} />
+      </>,
+      { wrapper },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Original" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getAllByRole("textbox")[0], {
+      target: { value: "Renamed" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+
+    // ★ ANTI-VACUITY: assert the capture fired at all before reading its args,
+    // so a save path that stopped capturing cannot pass this as "no bad call".
+    expect(captureFieldEdit).toHaveBeenCalled();
+    expect(captureFieldEdit).toHaveBeenCalledWith(
+      expect.objectContaining({ stampField: "localModifiedAt" }),
+    );
+  });
 });
 
 describe("Milestones bulk edit", () => {

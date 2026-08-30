@@ -351,12 +351,23 @@ describe("PopoverPanel", () => {
   // resize guard that only trips on a WIDTH change) leaves the panel open and
   // focus wherever it was, which is indistinguishable from "did not steal
   // focus". `Harness`'s `close` calls `setOpen(false)`, so a real dismiss
-  // unmounts the panel: asserting it is gone FIRST proves the path actually
-  // fired, and only then does the focus assertion mean anything.
+  // unmounts the panel.
+  //
+  // ★★★ THE PAIR IS OPEN-THEN-GONE, NEVER GONE-ALONE, and an earlier revision
+  // of this comment claimed the second half sufficed ("asserting it is gone
+  // FIRST proves the path actually fired"). It does not: `toBeNull()` after
+  // the dismiss is indistinguishable from a panel that NEVER RENDERED. The
+  // panel is gated on `open && pos`, this file stubs `getBoundingClientRect`
+  // and `window.innerWidth` elsewhere, and a dispatched click does not move
+  // focus in jsdom (measured) — so a positioning change leaving `pos` null
+  // would satisfy BOTH assertions in all three tests and hollow out the only
+  // detector this behaviour will ever have (axe has no rule for it). The
+  // `getByRole` BEFORE the dismiss is what rules that out; it throws.
   it("does NOT return focus to the trigger on an outside mousedown", () => {
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "trigger" });
     fireEvent.click(trigger);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
     fireEvent.mouseDown(document.body);
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(trigger).not.toHaveFocus();
@@ -366,6 +377,7 @@ describe("PopoverPanel", () => {
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "trigger" });
     fireEvent.click(trigger);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
     const origWidth = window.innerWidth;
     // ★ try/finally so a leaked 500px viewport cannot reach another test in
     // this file: the geometry tests above take `window.innerWidth` as their own
@@ -384,6 +396,7 @@ describe("PopoverPanel", () => {
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "trigger" });
     fireEvent.click(trigger);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
     fireEvent.scroll(document.body);
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(trigger).not.toHaveFocus();

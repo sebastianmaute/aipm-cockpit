@@ -560,10 +560,15 @@ describe("SortResizeTh nameContext", () => {
     ).toBeInTheDocument();
   });
 
-  // The five axe-scanned panels that pass hints all pass no nameContext, so
-  // their tooltips must keep the raw hint as their name. Unlike the button
-  // above, InfoTooltip resolves `label ?? text`, so the attribute is still
-  // PRESENT here — it just holds the bare hint.
+  // Every panel that passes a `hint` and NO `nameContext` needs its tooltip to
+  // keep the raw hint as its name. Unlike the button above, InfoTooltip
+  // resolves `label ?? text`, so the attribute is still PRESENT here — it just
+  // holds the bare hint.
+  // ★ No panel COUNT here on purpose (AGENTS.md's no-consumer-tally rule): this
+  // comment said "the five axe-scanned panels" and the real figure was eight,
+  // measured the same day the sentence was written. Derive today's with
+  //   grep -rl "hint=" src/app --include=*.tsx | xargs grep -l SortResizeTh | grep -v test
+  // The sentence works with no number in it, which is why there is none.
   it("leaves the hint tooltip's name bare when no nameContext is given", () => {
     render(
       <table><thead><tr>

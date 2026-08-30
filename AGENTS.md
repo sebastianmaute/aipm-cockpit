@@ -1292,7 +1292,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   so `sortCol` must be a valid key and `onSort={click}` typechecks with no cast. ★ `resizeCol` (defaults to
   `sortCol`) + `width` are SEPARATE from `sortCol` — they diverge on the name/label column (sort key `name`,
   width/resize key `label`). `align="right"` picks the `text-right` variant; `hint` forwards to the
-  `InfoTooltip`. Byte-equivalent DOM (Reports is axe-scanned).
+  `InfoTooltip`. DOM is byte-equivalent to the hand-rolled trio it replaced ONLY while `nameContext`
+  is absent — which it is at every call site but one. ★★ `nameContext` appends ` – <context>` to the
+  header button's accessible name AND to its hint tooltip's, so a caller that passes it is no longer
+  byte-equivalent (Reports is axe-scanned, and its headers now carry an `aria-label` they did not).
+  Pass it ONLY when one view renders the SAME table shape twice — sharing a column label across two
+  embedded tables is the collision it exists for; a single table needs nothing, and qualifying it
+  adds noise to every screen reader. Building the name from `label` inside the primitive rather than
+  taking a finished string is deliberate: it puts WCAG 2.5.3 containment in the TYPE, where a call
+  site cannot defeat it.
   ★★★ **NO CONSUMER TALLY IS QUOTED HERE, AND RESTORING ONE IS A REGRESSION.** This spot carried a
   per-file breakdown plus a total, and it rotted TWICE: an early revision said "raid-report (34)" and
   omitted `resources-report` outright, and its correction ("TEN non-test files, 77 invocations",

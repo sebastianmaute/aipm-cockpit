@@ -523,6 +523,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§294](#294-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation--two-returns-decide-it-three-leave-it-by-accident-and-nothing-checks-either) | Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either | found 2026-08-29 | M | open |
 | [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | open |
 | [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | open |
+| [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss but not when a consumer closes it from an item's own handler | carved out of §146 on close, 2026-08-30 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -11381,6 +11382,15 @@ packages, a shared NAME is not a shared GLYPH, and no gate in this repo can tell
 prescribed. Escape now restores focus to the trigger; the other three dismiss paths still call
 `onClose` bare. Pinned by four cases in `popover-panel.test.tsx`, each mutation-proved when written;
 last executed green in the full suite (`npm run test:run`) on 2026-08-30.
+
+★★★ **THE DISMISS PATHS ARE CLOSED; THE ACTIVATE-AN-ITEM PATH IS NOT, and reading this Status alone
+would say the class is done.** A consumer that closes from its own item handler never reaches
+`closeRestoringFocus` — it calls its own `close`, the panel unmounts, and focus falls to
+`document.body`: the SAME WCAG 2.4.3 failure this entry's repro records, reached by Enter on a menu
+item instead of by Escape. Reproduce the shape with
+`grep -n "close()" src/app/document-block-gutter.tsx` (the delete, insert-kind and add-block
+handlers all fire `close()` then act). Tracked as §297; found by cold review of this entry's own
+closing branch, not by any gate.
 
 Found by a cold review of the §144(a) branch, deliberately NOT fixed there. PRE-EXISTING and app-wide:
 `PopoverPanel` has never returned focus to its trigger, and the §144(a) diff does not change that.
@@ -22302,11 +22312,21 @@ Not scoped to a template-carry slice, and it wants its own test for each entity.
 
 ## 289. ~~Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either~~ — CLOSED 2026-08-30
 
-**Status:** **CLOSED** 2026-08-30 — both halves implemented, apply first. The save handler now stamps
-and the bulk capture passes `stampField`, so `grep -n "stampField" src/app/milestones-panel.tsx` now
-returns a CODE occurrence rather than only the comment that explained its absence. Each half is
-pinned independently (reverting the apply reds only the apply test; deleting `stampField` reds only
-the undo test); last executed green in the full suite (`npm run test:run`) on 2026-08-30.
+**Status:** **CLOSED** 2026-08-30 — ALL THREE paths implemented, apply first. The save handler
+stamps, and BOTH captures pass `stampField`, so `grep -c 'stampField: "localModifiedAt"'
+src/app/milestones-panel.tsx` returns 2. Each path is pinned independently (reverting the apply reds
+only the apply test; deleting either `stampField` reds only that capture's test — the single-row one
+was mutation-checked on 2026-08-30 and fails on the `stampField` key alone, not on an earlier
+assertion); last executed green in the full suite (`npm run test:run`) on 2026-08-30.
+
+★★★ **THE FIRST CLOSURE SAID "both halves" AND SHIPPED THE THIRD PATH BROKEN — worse than leaving it
+untouched, because the apply had started stamping.** The body below enumerates THREE omissions (apply,
+single-row capture, bulk capture); the fix shape named two, the implementation did two, and the
+closure then asserted completeness against the fix shape rather than against the enumeration. For one
+commit, undoing a single milestone edit reverted the content and left the apply's fresh timestamp
+standing — precisely the defect §181 fixed for the other three registers, newly created here. Caught
+by cold review, by no gate. **Check a closure against the ENUMERATION, never against the fix shape
+derived from it.**
 
 §181 measured the four registers that omitted `stampField` on their bulk undo capture and closed
 THREE of them. Milestones was deliberately left alone, on the ground that its APPLY does not stamp
@@ -22715,3 +22735,42 @@ assertion, as `reports.test.tsx` does.
 
 ★★ **The axe gate cannot see any of this**, in either panel, at any seed size — AGENTS.md carries the
 measurement. Whatever unit test the fixer writes is the only detector this will ever have.
+
+## 297. `PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler — open
+
+**Status:** open — **never machine-verified**. The call shape below was read out of the source on
+2026-08-30 (`grep -n "close()" src/app/document-block-gutter.tsx`); no committed test asserts where
+focus lands on that path, and no gate can (see the axe note at the end).
+
+Carved out of [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30)
+when it closed on 2026-08-30. §146 fixed the DISMISS paths inside the primitive: Escape routes
+through `closeRestoringFocus`, and outside-click / resize / scroll deliberately do not, because in
+those three the user has either moved on or the layout moved out from under the panel.
+
+**The path this leaves open is the most common keyboard interaction of all: activating an item.**
+Consumers do not close the panel by dismissing it — they call their OWN `close` and then act:
+
+```
+src/app/document-block-gutter.tsx:153   onClick={() => { close(); onDelete(index); }}
+src/app/document-block-gutter.tsx:161   onPick={(type) => { const at = addAt; close(); onInsert(at, type); }}
+src/app/document-block-gutter.tsx:243   <BlockKindList … onPick={(type) => { close(); onPick(type); }} />
+```
+
+`close` is `useCallback(() => { setOpen(false); setAddAt(null); }, [])` (`:75`) — it never reaches
+`PopoverPanel`'s `onClose`, so the wrapper §146 added is not in the path at all. The panel unmounts
+with focus inside it and focus falls to `document.body`: byte-for-byte the failure §146's own repro
+records, reached by Enter on a menu item rather than by Escape. WCAG 2.4.3.
+
+★★ **DO NOT FIX IT BY CALLING THE WRAPPER FROM EACH CONSUMER.** That is the shape §146 rejected for
+the dismiss paths and the reasoning carries: it puts a decision only the primitive can make into
+every call site, where it drifts. The natural fix is for the primitive to restore focus on ANY
+unmount while focus is inside it, which subsumes both this and the Escape case and makes the
+`closeRestoringFocus` wrapper redundant. Check first whether that re-introduces the outside-click
+yank §146 exists to prevent — an outside MOUSEDOWN moves focus before the unmount, so the
+"focus is inside" test may already discriminate, but that is a hypothesis, not a measurement.
+
+★★ **The axe gate is silent on this in every view.** No axe rule checks where focus lands after a
+control disappears — AGENTS.md carries the measurement for the sibling blind spot. Whatever unit
+test the fixer writes is the only detector this will ever have, and it must assert focus lands
+somewhere USEFUL, not merely that it is not on the trigger: `not.toHaveFocus()` passes when the
+panel never opened.

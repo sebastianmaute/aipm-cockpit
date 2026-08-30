@@ -120,10 +120,19 @@ function HoursCell({
   // HOURS_LINE_UNITS — so narrowing it moves every input in the table AND
   // strands every person figure, and jsdom has no layout to check either
   // against.
+  //
+  // ★ `gap-0.5` came out with the icons and its removal is provably inert:
+  // column-gap needs two flex ITEMS and the span now holds a single text node
+  // (measured in Chromium on the seeded Budget view — `childElementCount: 0`,
+  // so no gap was ever drawn). `flex items-center` is NOT inert and stays: it
+  // forms the line box the input is centred against. That leaves this span one
+  // class richer than its read-only twin in `TotalsTd` below, which is plain
+  // `w-14` — they render identically today (both fixed-width, single-line), and
+  // the pair is worth keeping in step because HOURS_LINE_UNITS assumes it.
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-1">
-        <span className="flex w-14 items-center gap-0.5 text-[10px] text-muted-foreground">
+        <span className="flex w-14 items-center text-[10px] text-muted-foreground">
           {t(lang, "budgetCellBudget")}
         </span>
         <input
@@ -139,7 +148,7 @@ function HoursCell({
         />
       </div>
       <div className="flex items-center gap-1">
-        <span className="flex w-14 items-center gap-0.5 text-[10px] text-muted-foreground">
+        <span className="flex w-14 items-center text-[10px] text-muted-foreground">
           {t(lang, "budgetCellActual")}
         </span>
         <input

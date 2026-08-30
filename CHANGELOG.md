@@ -48,7 +48,8 @@ longer carries its own changelog comment.
 - **Milestones did not record when they were last changed.** Every other register stamps a
   modification time when you edit a row; milestones alone did not, so a milestone edited five
   minutes ago looked identical to one untouched for a year, in the app and in every export. They now
-  record it on save, and undoing a bulk edit records it too.
+  record it on save, and undoing an edit — a single milestone or a bulk change — refreshes it too,
+  so a reverted milestone is never left claiming a modification time its contents no longer match.
 
 ## [0.264.1] - 2026-08-29 "Russell"
 
