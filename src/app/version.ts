@@ -5,7 +5,12 @@
 export const APP_VERSION = "0.266.0";
 export const APP_BUILD_DATE = "2026-08-30"; // 0.266.0: seed allow-listing and handle-commit ordering (VanderMeer)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.265.x line is "Nagata" (Linda Nagata, American SF author). ★★ REUSED:
+ *  0.266.x line is "VanderMeer" (Jeff VanderMeer, American SF/weird-fiction
+ *  author). ★★ REUSED: 0.96.0 also ran under this name — permitted by the same
+ *  uniqueness-per-MINOR-LINE rule spelled out below, and recorded here so that a
+ *  bare `grep -rn "VanderMeer" CHANGELOG.md` hit is not read as the name being
+ *  taken. Read WHICH minor line the hit belongs to before concluding anything.
+ *  0.265.x was "Nagata" (Linda Nagata, American SF author). ★★ REUSED:
  *  0.75.0 also ran under this name. That is permitted — the rule below is
  *  uniqueness per MINOR LINE, not across all history, and "Okorafor" carries
  *  the same note — but it means a bare `grep -rn "Nagata" CHANGELOG.md`

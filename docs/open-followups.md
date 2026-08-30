@@ -11885,6 +11885,13 @@ leaves the next save writing over the picked file. An early `return` would have 
 silently; one report after the `if` covers both. ★ The re-point on decline is the WIDER defect and is
 NOT fixed here — see §287.
 
+★★ **BOTH PARAGRAPHS ABOVE ARE THE REASONING AS IT STOOD, NOT THE TREE TODAY.** §287 landed
+2026-08-30 and made their shared premise false: `openFile()` no longer persists anything — it ends
+`return handle;`, and the caller binds the picked handle only inside the accept branch — so opening a
+file no longer re-points the active backend before the confirm is answered. They are left as the
+record of why the guard clause here is inverted rather than an early `return`, which is still the
+right shape. Verify: `grep -n "async openFile" -A 6 src/app/local-file-backend.ts`
+
 **The attribution.** `ImportSectionKey` (a zero-import leaf union in `csv-codecs-sections.ts`) and
 `ImportDiag.droppedBySection`, threaded through `collectRows`, `decodeCsvSection`, `decodeMdTable`,
 `markdownToRefs` and the two task loops. `countDroppedRow` is the single writer of the breakdown AND
@@ -22262,6 +22269,14 @@ and nothing wider.
 a save firing during the confirm, safe today only because `window.confirm` blocks timers. The
 add-existing-project flow still commits immediately, because adoption is the intent there and it has
 no confirm to lose.
+
+★★ **EVERYTHING FROM HERE DOWN IS THE DEFECT AS FILED, NOT THE TREE TODAY** — the three paragraphs
+above describe the closure, this is the record of what was wrong. The fix landed 2026-08-30, so:
+`openFile()` no longer ends `await idbSet(...)` — it ends `return handle;` and persists nothing — and
+the bind runs inside the accept branch, so the stale-label state described next can no longer occur;
+the first reproduce command below now prints a docstring rather than the code it was written to show;
+and the closing **Fix shape** paragraph records what was WANTED at filing time, not work still owed.
+All of it is left as the record.
 
 ★★ **THE UI ALSO KEEPS SHOWING THE OLD FILENAME, which is what makes this hard to notice.**
 `refreshBackendStatus()` runs only inside the accept branch, alongside `suppressNextSaveRef.current =

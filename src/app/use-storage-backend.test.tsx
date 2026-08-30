@@ -3931,6 +3931,24 @@ describe("useStorageBackend — onOpenStorageFile binds the picked handle only o
 
     expect(storageMod.setBackendFileHandle).toHaveBeenCalledTimes(1);
     expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(backend, picked);
-    expect(result.current.tasks[0].taskName).toBe("From the picked file"); // the accept really applied
+  });
+
+  it("applies the opened workspace when the user accepts", async () => {
+    // ★★★ ITS OWN it(), and the sibling decline pair is split for exactly this
+    // reason — the note is stated twice in this file and was then not applied here.
+    // vitest aborts a test at its first failing hard assertion, so while this rode
+    // along beneath the two `setBackendFileHandle` expectations above it was UNPROVED
+    // whenever either of them failed. It is also a different KIND of claim: those two
+    // read a MOCK and this one reads the resulting workspace, so a regression that
+    // bound the handle correctly and applied nothing would have been reported as one
+    // failure in one place rather than as the two independent facts they are.
+    useOpenableBackend();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    expect(result.current.tasks[0].taskName).toBe("From the picked file");
   });
 });

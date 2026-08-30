@@ -116,24 +116,42 @@ export function sanitizeNoteLogWith(raw: unknown, ops: NoteLogHtmlOps): NoteLogE
       : ops.sanitizeHtml(`<p>${escapeForHtml(text)}</p>`)
     ).slice(0, MAX_NOTE_HTML);
 
-    // ★★★ THE HTML IS THE SOURCE OF TRUTH, so a captured `text` is RE-DERIVED
-    // and never merely defaulted. This is a SEVENTH divergence between the two
-    // validators, found by adopting the core rather than by the §286 audit,
-    // which enumerated six: the canonical validator derived text only when the
-    // captured one was empty (`hasHtml && !text`), while the seed validator
-    // always re-projected. Here the SEED rule wins, and it is the one row where
-    // canonical does not — because the seed's rationale is written down and
-    // still true: a captured `text` can disagree with its `html` after a
-    // hand-edited template, or after a sink change narrowed the html since
-    // capture, and a stale projection must not outlive the html it describes.
-    // ★★ THE DIRECTION WAS MEASURED, NOT ARGUED. Under this rule the canonical
-    // suite passes UNEDITED (`note-log.test.ts`), `template-note-carry.test.ts`
-    // needs no flip, and `golden-workspace.test.ts` byte-stability holds — so
-    // nothing canonical depended on keeping a captured text.
-    // ★ Read that as the bound it is: no TEST pinned the old behaviour, which
-    // is not the same as nothing having depended on it. The change is real for
-    // any entry whose stored `text` disagrees with its `html`.
-    if (hasHtml) text = cleanText(ops.toText(html), MAX_NOTE_TEXT);
+    // ★★★ THE HTML IS THE SOURCE OF TRUTH WHEN IT PROJECTS TO ANYTHING, so a captured
+    // `text` is RE-DERIVED rather than merely defaulted. This is a SEVENTH divergence
+    // between the two validators, found by adopting the core rather than by the §286
+    // audit, which enumerated six: the canonical validator derived text only when the
+    // captured one was empty (`hasHtml && !text`), while the seed validator always
+    // re-projected. Here the SEED rule wins — a captured `text` can disagree with its
+    // `html` after a hand-edited template, or after a sink change narrowed the html
+    // since capture, and a stale projection must not outlive the html it describes.
+    //
+    // ★★★ BUT ONLY WHEN THE PROJECTION IS NON-EMPTY, AND THAT GUARD IS LOAD-BEARING.
+    // The first cut of this line was an unconditional `text = cleanText(toText(html))`,
+    // and four lines below it `if (!text) continue` DROPS the entry — so any html that
+    // sanitises or projects to nothing deleted the whole entry: its timestamp, its
+    // author and the perfectly good captured text with it. Measured against the real
+    // `sanitizeRichHtml`/`htmlToText` pair, not reasoned: `<hr>` survives sanitising and
+    // projects to ""; `<p><br></p>` likewise; an image-only body sanitises to "" because
+    // `img` is not in RICH_ALLOWED_TAGS. All three entries vanished. That is a data-loss
+    // regression on the CANONICAL load path — every backend, every load — introduced by a
+    // branch whose whole purpose was to close data-loss paths.
+    //
+    // ★★ THE OLD CANONICAL RULE DID NOT HAVE THIS HOLE: it only ever ASSIGNED text
+    // when the captured one was empty, so an empty projection left the captured text
+    // standing. Re-deriving only when the projection is non-empty keeps the seed rule's
+    // intent (html wins where the two DISAGREE) and restores the old rule's floor (an
+    // entry is never destroyed by a projection that says nothing).
+    //
+    // ★ DO NOT restate the old "the direction was MEASURED, not argued" claim that
+    // stood here. It cited three suites passing unedited, and a cold review showed all
+    // three are green under BOTH rules by construction: no `note-log.test.ts` fixture
+    // reaching this function carries a non-empty `html` at all, so the branch condition
+    // is never taken; every sample entry in the golden workspace already agrees with
+    // its own projection; and the seed validator always re-projected, so its suite
+    // needing no flip is a tautology. Passing suites proved only that nothing COVERED
+    // the change — which is exactly why the deletion above shipped green.
+    const projected = hasHtml ? cleanText(ops.toText(html), MAX_NOTE_TEXT) : "";
+    if (projected) text = projected;
 
     if (!text) continue;
 

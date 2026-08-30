@@ -535,7 +535,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       if (!load) return; // Unreachable: `openFileForBackend` returned non-null above, so this IS the LocalFileBackend. The guard exists only because every facade helper is uniformly nullable.
       const loaded = await load; // ★ `reportImportFor`, NOT `reportFor` — see the report at the end of this try. This path applies tasks+raid ONLY, never the loaded documents, so raising the §103 flag would warn about documents the user still has and lowering it would clear a warning still true of the live ones. That reason is TRUNCATION-specific and never covered the import channel (§152): `droppedRows` is one workspace-wide count bumped at five sites across BOTH codec families, so the rows a malformed CSV *or Markdown* file dropped may be the very tasks and RAID applied below. ★★ COUNT THE CALL SITES, NOT THE INCREMENTS — every bump now routes through one writer, so the obvious `grep -rn "droppedRows++"` reads as a refutation of this sentence: `grep -rn "countDroppedRow(" src/app --include=*.ts | grep -v "\.test\." | grep -v "export function"` returns the five (3 CSV + 2 Markdown).
       // ★★★ A GUARD CLAUSE INVERTED ON PURPOSE, so ONE report below covers BOTH exits: the decline path needs the import report and the quoting hold every bit as much as the apply path does — a malformed file drops the same rows whichever way the confirm goes — and an early `return` above would have silently exempted it (§152). ★★ The re-point that used to happen on BOTH exits is GONE — `openFileForBackend` commits nothing now, and the handle is bound inside the accept branch below (§287).
-      if (tasks.length === 0 || window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length))) {
+      const accepted = tasks.length === 0 || window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length));
+      if (accepted) {
         suppressNextSaveRef.current = true;
         await setBackendFileHandle(backend, picked); // ★ commit the pick ONLY now (§287) — before this line the backend still points at the previous file, so a decline leaves nothing to undo.
         // Seed the session minter from the opened file so its (possibly larger)
@@ -551,7 +552,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         emitToast("info", t(langRef.current, "storageOpenedToast", loaded.tasks.length));
       }
       // ★★★ AFTER the toast above, never before: the surface is single-slot and REPLACES, so a diagnostic fired first is created and instantly discarded. The confirmation is the disposable half — it carries no remedy, and a clean import shows nothing here so it still paints. See the landmine on `TruncationOps.reportFor`.
-      truncationOps.reportImportFor(backend);
+      truncationOps.reportImportFor(backend, accepted); // ★★★ THE SECOND ARGUMENT IS THE DECISION, NOT A FORMALITY: diagnostics fire on BOTH exits, the quoting HOLD only when a pending save could actually reach the file just read — ACCEPT alone since §287, because DECLINE commits nothing and leaves the backend on the user's previous file. A bare `true` here restores a real regression (autosave of an untouched project halted all session over a file the user refused to open) and no gate would notice. Full reasoning on `TruncationOps.reportImportFor`.
     } catch (err) {
       if (err instanceof StorageNotReadyError) {
         const key =

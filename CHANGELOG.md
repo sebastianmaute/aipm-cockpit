@@ -19,6 +19,12 @@ longer carries its own changelog comment.
   The next automatic save then wrote your current project over a file you had just declined to
   open. The app now switches only after you say yes.
 
+- **Applying a project template could silently drop notes the template carried.** Templates can
+  bring dated note entries with them, and any entry whose stored record was incomplete was discarded
+  while the project was being set up — so notes that were plainly part of the template were simply
+  absent afterwards, with nothing on screen to say they had gone. Notes carried by a template now
+  come through intact.
+
 ## [0.265.0] - 2026-08-30 "Nagata"
 
 ### Fixed

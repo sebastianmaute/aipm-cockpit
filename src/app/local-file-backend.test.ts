@@ -32,6 +32,16 @@ vi.mock("./idb", async (importOriginal) => {
   };
 });
 
+// ★★★ ONLY THE PICKER IS REPLACED. `tryGrantPermission` must keep running for real,
+// because it is the half of `openFile()` that §287 deliberately LEFT in place — a mock
+// covering the whole module would make the test green whether that call survived or not.
+const pickedByUser = vi.hoisted(() => ({ current: null as unknown }));
+
+vi.mock("./fs-access", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./fs-access")>();
+  return { ...actual, pickOpenFile: async () => pickedByUser.current };
+});
+
 import type { FsHandle } from "./fs-access";
 import { LocalFileBackend } from "./local-file-backend";
 import { StorageNotReadyError } from "./workspace";
@@ -207,5 +217,55 @@ describe("LocalFileBackend load() import diagnostics", () => {
     await be.setHandle(fakeHandle({ text: "# TASKS\r\nid,taskName,blockers\r\n7,T7,\r\n" }));
     await be.load();
     expect(be.lastImportMalformedQuotes).toBe(0);
+  });
+});
+
+// ★★★ THE ONLY THING STANDING BETWEEN §287 AND A SILENT REGRESSION. The fix moved
+// the handle commit OUT of `openFile()` and into the caller's accept branch, but the
+// hook-level tests covering that branch mock `./storage` wholesale — so they assert that
+// `setBackendFileHandle` was or was not called, which is a claim about the CALLER. Those
+// tests pass unchanged against the PRE-FIX backend, because pre-fix NOTHING called that
+// helper on any path: the bind lived down here. Re-adding `await idbSet(this.idbKey,
+// handle)` to `openFile()` tomorrow would restore the data-loss bug with the whole hook
+// suite still green. This file is where it is detectable, because only here does the
+// real backend run.
+describe("LocalFileBackend.openFile does not commit the handle (§287)", () => {
+  it("leaves the active handle untouched", async () => {
+    const be = new LocalFileBackend("local-csv");
+    const current = fakeHandle({ text: "" });
+    await be.setHandle(current);
+    pickedByUser.current = fakeHandle({ text: "" });
+
+    await be.openFile();
+
+    expect(await be.readHandle()).toBe(current);
+  });
+
+  it("returns the picked handle to the caller", async () => {
+    // ★★ Separate it(), and the positive control for the one above: an `openFile()`
+    // that threw, or returned nothing, would satisfy "the active handle is untouched"
+    // perfectly while being useless. This pins that the pick still happens and that its
+    // result reaches the caller, which is the value the caller then commits.
+    const be = new LocalFileBackend("local-csv");
+    await be.setHandle(fakeHandle({ text: "" }));
+    const picked = fakeHandle({ text: "" });
+    pickedByUser.current = picked;
+
+    expect(await be.openFile()).toBe(picked);
+  });
+
+  it("commits only when the caller asks, via setHandle", async () => {
+    // ★★ The second positive control. Without it, a backend whose `setHandle` was
+    // itself broken would make the first test pass for the WRONG reason — the active
+    // handle unchanged because nothing can change it, rather than because `openFile`
+    // declines to.
+    const be = new LocalFileBackend("local-csv");
+    await be.setHandle(fakeHandle({ text: "" }));
+    const picked = fakeHandle({ text: "" });
+    pickedByUser.current = picked;
+
+    await be.setHandle(await be.openFile());
+
+    expect(await be.readHandle()).toBe(picked);
   });
 });
