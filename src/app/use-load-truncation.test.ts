@@ -321,14 +321,14 @@ describe("useLoadTruncation — reportImportFor", () => {
 
   it("reports dropped rows without raising the hold", () => {
     const { result, showToast } = render();
-    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 4 })); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 4 }), true); });
     expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importDroppedRowsWarning", 4));
     expect(result.current.loadWasIncomplete).toBe(false);
   });
 
   it("composes the same sentence join as the full report", () => {
     const { result, showToast } = render();
-    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 2, unterminated: true })); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 2, unterminated: true }), true); });
     expect(showToast).toHaveBeenLastCalledWith(
       "error",
       `${t("en-US", "importDroppedRowsWarning", 2)} ${t("en-US", "importUnbalancedQuotesWarning")}`,
@@ -337,7 +337,7 @@ describe("useLoadTruncation — reportImportFor", () => {
 
   it("stays silent on a clean import", () => {
     const { result, showToast } = render();
-    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 0, unterminated: false, malformed: 0 })); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 0, unterminated: false, malformed: 0 }), true); });
     expect(showToast).not.toHaveBeenCalled();
   });
 
@@ -350,7 +350,7 @@ describe("useLoadTruncation — reportImportFor", () => {
   // nothing. Nothing tested `refuseWrite`'s BEHAVIOUR at all before this.
   it("speaks when the ONLY cause is malformed quoting", () => {
     const { result, showToast } = render();
-    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 3 })); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 3 }), true); });
     // The hold is genuinely raised off this cause alone — the precondition that
     // makes a silent refusal reachable. Without this the test below could pass
     // because the refusal never ran.
@@ -360,7 +360,17 @@ describe("useLoadTruncation — reportImportFor", () => {
     showToast.mockClear();
     act(() => { result.current.truncationOps.refuseWrite(); });
     expect(showToast).toHaveBeenCalledTimes(1);
-    expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importMalformedQuotesWarning", 3));
+    // ★★ TWO SENTENCES NOW, and this expectation was UPDATED rather than loosened.
+    // The malformed-quotes string used to carry "Saving is paused until you confirm."
+    // baked in. §287 made the hold conditional, so that sentence became false on the
+    // declined-overwrite exit and was split into `importMalformedQuotesPaused`, pushed
+    // only where the pause is real. THIS path is the refusal itself, so it is real here
+    // and both sentences must appear — asserting only the first would let a regression
+    // that stopped telling the user why their save was refused pass unnoticed.
+    expect(showToast).toHaveBeenLastCalledWith(
+      "error",
+      `${t("en-US", "importMalformedQuotesWarning", 3)} ${t("en-US", "importMalformedQuotesPaused")}`,
+    );
   });
 
   // ★ The nonce is what lets the banner's re-show reconcile see this cause at
@@ -370,14 +380,14 @@ describe("useLoadTruncation — reportImportFor", () => {
     const { result } = render();
     const start = result.current.malformedQuotesNonce;
 
-    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 })); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 }), true); });
     const afterFirst = result.current.malformedQuotesNonce;
     expect(afterFirst).not.toBe(start);
     expect(result.current.malformedQuoteCount).toBe(2);
 
     // A SECOND load with the same COUNT must still move the nonce — this is the
     // whole reason it is not a count.
-    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 })); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 }), true); });
     expect(result.current.malformedQuotesNonce).not.toBe(afterFirst);
 
     // A clean load lowers the count and must NOT mint an identity, or the banner
@@ -388,17 +398,64 @@ describe("useLoadTruncation — reportImportFor", () => {
     expect(result.current.malformedQuoteCount).toBe(0);
   });
 
-  // ★★★ RAISE-ONLY, and this is the half the plan's one-line summary did not
-  // carry. `LocalFileBackend.openFile()` ends `await idbSet(this.idbKey, handle)`
-  // — it re-points the ACTIVE backend at the picked file — so the next debounced
-  // save writes the merged live workspace back OVER the file just read. A
-  // malformed file reaching this path is therefore the malformed-quote hold's
-  // own case, not an exception to it.
-  it("RAISES the hold for a malformed file, because the next save overwrites it", () => {
+  // ★★★ RAISE-ONLY, AND ONLY WHEN THE BACKEND IS ACTUALLY BOUND TO THE FILE JUST
+  // READ. That condition used to be free: `LocalFileBackend.openFile()` ended
+  // `await idbSet(this.idbKey, handle)`, re-pointing the ACTIVE backend at the picked
+  // file on BOTH exits of the overwrite confirm, so the next debounced save wrote the
+  // live workspace back OVER the file just read either way. §287 moved that commit
+  // inside the ACCEPT branch, so the caller now has to SAY which case it is and these
+  // two tests pin the two answers. Do not merge them: they assert opposite state.
+  it("RAISES the hold for a malformed file the backend is now bound to", () => {
     const { result } = render();
-    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 })); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 }), true); });
     expect(result.current.loadWasIncomplete).toBe(true);
     expect(result.current.mayCommitAfterIncompleteLoad()).toBe(false);
+  });
+
+  it("does NOT raise the hold when the backend was never bound to the file read", () => {
+    // ★★★ THE DECLINED-CONFIRM CASE, and a real regression this pins. With the
+    // commit moved into the accept branch, declining leaves the active backend on the
+    // user's PREVIOUS file — which the malformed one has nothing to do with. Raising
+    // here refuses autosave of an untouched project over a file the user just refused
+    // to open, and nothing lowers it again for the rest of the session.
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 }), false); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+    expect(result.current.mayCommitAfterIncompleteLoad()).toBe(true);
+  });
+
+  it("does NOT claim saving is paused when it has not raised the hold", () => {
+    // ★★★ THE MESSAGE MUST NOT OUTLIVE THE BEHAVIOUR IT DESCRIBES. Until §287 the
+    // malformed-quotes warning ended "Saving is paused until you confirm." as one baked-in
+    // string, and that was true because every caller raised the hold. Making the raise
+    // conditional turned it into a falsehood on this exit: the app told the user saving
+    // was paused while deliberately leaving it running. Mutant: pushing
+    // `importMalformedQuotesPaused` unconditionally in `reportImportDiagnostics`, or
+    // folding the two strings back into one.
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 }), false); });
+    expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importMalformedQuotesWarning", 2));
+  });
+
+  it("DOES claim saving is paused when it raises the hold", () => {
+    // ★★ Its own it(), and the positive control for the one above: a build that
+    // simply stopped emitting the pause sentence anywhere would satisfy that assertion
+    // perfectly while losing the user the reason their save stopped working.
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 }), true); });
+    expect(showToast).toHaveBeenLastCalledWith(
+      "error",
+      `${t("en-US", "importMalformedQuotesWarning", 2)} ${t("en-US", "importMalformedQuotesPaused")}`,
+    );
+  });
+  it("still reports the import diagnostics when it does not raise the hold", () => {
+    // ★★ Separate it(), and the anti-vacuity control for the one above: a
+    // `reportImportFor` that did NOTHING AT ALL on the unbound path would satisfy
+    // those two assertions perfectly. §152 is the record of what skipping the report
+    // costs, so only the STATE CHANGE is conditional — the diagnostics are not.
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 4 }), false); });
+    expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importDroppedRowsWarning", 4));
   });
 
   it("does NOT lower a truncation hold a previous load raised", () => {
@@ -406,7 +463,7 @@ describe("useLoadTruncation — reportImportFor", () => {
     // §103 flag is about, so a clean import may not clear their warning.
     const { result } = render();
     act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 5, blocks: 0 })); });
-    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 0 })); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 0 }), true); });
     expect(result.current.loadWasIncomplete).toBe(true);
     expect(result.current.truncation).toEqual({ entries: 5, blocks: 0 });
   });
@@ -421,14 +478,14 @@ describe("useLoadTruncation — reportImportFor", () => {
         lastImportMalformedQuotes: 3,
       });
     });
-    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 0 })); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 0 }), true); });
     expect(result.current.loadWasIncomplete).toBe(true);
   });
 
   it("does NOT lower a decode hold a previous load raised", () => {
     const { result } = render();
     act(() => { result.current.truncationOps.reportFor(decodingFor(["documents"])); });
-    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 1 })); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 1 }), true); });
     expect(result.current.loadWasIncomplete).toBe(true);
     expect(result.current.decodeFailureCount).toBe(1);
   });
@@ -730,7 +787,28 @@ describe("ops files — no unguarded backend access (source scan)", () => {
   // that simply forgot.
   it.each(CENSUS_FILES)("%s reports for every load it does not explicitly exempt", (file) => {
     const src = readFileSync(file, "utf8");
-    const loads = src.match(/\.load\(\)/g)?.length ?? 0;
+    // ★★★ A LOAD IS COUNTED BY ITS SPELLING, AND A NEW SPELLING IS INVISIBLE
+    // UNTIL ADDED HERE. onOpenStorageFile used to call `await backend.load()`; closing
+    // open-followups §287 replaced it with `loadFromHandleForBackend(backend, handle)`
+    // — a facade helper that loads from a handle the backend has NOT yet been
+    // committed to — so the load site vanished from this scan while all three of
+    // that file's reports remained. The census went 3 loads/3 reports to 2/3 and FAILED,
+    // which is this guard working: it noticed that reports outnumbered the loads it
+    // could still see. Had the ratio happened to stay balanced it would have gone GREEN
+    // over a load path it can no longer see at all.
+    //
+    // ★★ DO NOT silence a case like that with a 'NO reportFor:' marker. The marker
+    // means the load reports NOTHING, and it deliberately COLLIDES with a real reporting
+    // call (see the note above) so a path that reports cannot also claim exemption. The
+    // fix for a renamed or re-spelled load is to teach this list, which is what
+    // `loadFromHandleForBackend` is doing here.
+    //
+    // ★ This stays the guard's standing weakness and NO gate covers it: a third
+    // spelling added tomorrow counts as zero loads, and a file that also adds no report
+    // stays green. Re-derive today's facade load helpers with:
+    //   grep -n 'export function load' src/app/storage.ts
+    const LOAD_SPELLINGS = [/\.load\(\)/g, /loadFromHandleForBackend\(/g];
+    const loads = LOAD_SPELLINGS.reduce((acc, re) => acc + (src.match(re)?.length ?? 0), 0);
     const reports = src.match(/reportFor\(/g)?.length ?? 0;
     const importReports = src.match(/reportImportFor\(/g)?.length ?? 0;
     const exemptRe = new RegExp(REPORT_EXEMPT_MARKER, "g");

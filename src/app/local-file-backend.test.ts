@@ -18,11 +18,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const kv = vi.hoisted(() => new Map<string, unknown>());
 
+// ★★ `idbGet` REALLY DOES REJECT in the browser — `openIdb` rejects when there is
+// no `indexedDB` at all, and on a store error. Nothing else in this file can reach
+// that path, so it gets an explicit lever rather than a contrived handle.
+const idbGetError = vi.hoisted(() => ({ current: null as Error | null }));
+
 vi.mock("./idb", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./idb")>();
   return {
     ...actual,
-    idbGet: async (key: string) => kv.get(key),
+    idbGet: async (key: string) => {
+      if (idbGetError.current) throw idbGetError.current;
+      return kv.get(key);
+    },
     idbSet: async (key: string, value: unknown) => {
       kv.set(key, value);
     },
@@ -30,6 +38,16 @@ vi.mock("./idb", async (importOriginal) => {
       kv.delete(key);
     },
   };
+});
+
+// ★★★ ONLY THE PICKER IS REPLACED. `tryGrantPermission` must keep running for real,
+// because it is the half of `openFile()` that §287 deliberately LEFT in place — a mock
+// covering the whole module would make the test green whether that call survived or not.
+const pickedByUser = vi.hoisted(() => ({ current: null as unknown }));
+
+vi.mock("./fs-access", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./fs-access")>();
+  return { ...actual, pickOpenFile: async () => pickedByUser.current };
 });
 
 import type { FsHandle } from "./fs-access";
@@ -74,6 +92,7 @@ async function loadDirty(be: LocalFileBackend): Promise<void> {
 describe("LocalFileBackend load() import diagnostics", () => {
   beforeEach(() => {
     kv.clear();
+    idbGetError.current = null;
   });
 
   // ★★ THE THREE THROWING EXITS USED TO SKIP THE IMPORT-FLAG RESET, which sat
@@ -207,5 +226,126 @@ describe("LocalFileBackend load() import diagnostics", () => {
     await be.setHandle(fakeHandle({ text: "# TASKS\r\nid,taskName,blockers\r\n7,T7,\r\n" }));
     await be.load();
     expect(be.lastImportMalformedQuotes).toBe(0);
+  });
+});
+
+// ★★★ THE ONLY THING STANDING BETWEEN §287 AND A SILENT REGRESSION. The fix moved
+// the handle commit OUT of `openFile()` and into the caller's accept branch, but the
+// hook-level tests covering that branch mock `./storage` wholesale — so they assert that
+// `setBackendFileHandle` was or was not called, which is a claim about the CALLER. Those
+// tests pass unchanged against the PRE-FIX backend, because pre-fix NOTHING called that
+// helper on any path: the bind lived down here. Re-adding `await idbSet(this.idbKey,
+// handle)` to `openFile()` tomorrow would restore the data-loss bug with the whole hook
+// suite still green. This file is where it is detectable, because only here does the
+// real backend run.
+describe("LocalFileBackend.openFile does not commit the handle (§287)", () => {
+  // ★★★ THIS HOOK IS NOT DECORATION — WITHOUT IT THIS BLOCK FAILS ON A SHUFFLED RUN.
+  // `idbGetError` is MODULE-scoped, and the sibling describe below leaves it SET on its
+  // last test (the rethrow case) with no afterEach to clear it. Every test here reaches
+  // `readHandle()` -> `getHandle()` -> `idbGet`, so if that sibling runs first the mock
+  // throws and all three of these error out. vitest shuffles top-level describes against
+  // each other, so the order is a function of the seed: MEASURED, not reasoned — seed 1
+  // (which is what CI's blocking `unit-tests-shuffled` job pins) happens to keep source
+  // order and passes, while `--sequence.seed=3` reorders and fails two of these three.
+  // The weekly random-seed job would have found it eventually; open-followups §75 is the
+  // record of this class. A describe that mutates module state owes an afterEach or every
+  // sibling owes a beforeEach; this file chose the latter, so a NEW describe here needs one.
+  beforeEach(() => {
+    kv.clear();
+    idbGetError.current = null;
+  });
+  it("leaves the active handle untouched", async () => {
+    const be = new LocalFileBackend("local-csv");
+    const current = fakeHandle({ text: "" });
+    await be.setHandle(current);
+    pickedByUser.current = fakeHandle({ text: "" });
+
+    await be.openFile();
+
+    expect(await be.readHandle()).toBe(current);
+  });
+
+  it("returns the picked handle to the caller", async () => {
+    // ★★ Separate it(), and the positive control for the one above: an `openFile()`
+    // that threw, or returned nothing, would satisfy "the active handle is untouched"
+    // perfectly while being useless. This pins that the pick still happens and that its
+    // result reaches the caller, which is the value the caller then commits.
+    const be = new LocalFileBackend("local-csv");
+    await be.setHandle(fakeHandle({ text: "" }));
+    const picked = fakeHandle({ text: "" });
+    pickedByUser.current = picked;
+
+    expect(await be.openFile()).toBe(picked);
+  });
+
+  it("commits only when the caller asks, via setHandle", async () => {
+    // ★★ The second positive control. Without it, a backend whose `setHandle` was
+    // itself broken would make the first test pass for the WRONG reason — the active
+    // handle unchanged because nothing can change it, rather than because `openFile`
+    // declines to.
+    const be = new LocalFileBackend("local-csv");
+    await be.setHandle(fakeHandle({ text: "" }));
+    const picked = fakeHandle({ text: "" });
+    pickedByUser.current = picked;
+
+    await be.setHandle(await be.openFile());
+
+    expect(await be.readHandle()).toBe(picked);
+  });
+});
+
+// ★★★ THE ONE EXIT ABOVE `loadFrom`'S RESETS. §287 split `load()` into a wrapper
+// that awaits `getHandle()` and a `loadFrom(handle)` that does the work, and the resets
+// live in `loadFrom`. So a REJECTING handle store became the first exit that could
+// happen before any reset ran, leaving the previous load's diagnostics standing — which
+// is worse than zeroes, because `truncationOps.reportFor` would then warn about lost
+// rows in a file that is perfectly fine.
+describe("LocalFileBackend.load resets diagnostics when the handle store rejects", () => {
+  beforeEach(() => {
+    kv.clear();
+    idbGetError.current = null;
+  });
+
+  it("clears the import flags a previous load left raised", async () => {
+    const be = new LocalFileBackend("local-csv");
+    await loadDirty(be);
+    expect(be.lastImportUnterminatedQuote).toBe(true); // the state this test needs to exist
+
+    idbGetError.current = new Error("indexedDB unavailable");
+    await expect(be.load()).rejects.toThrow("indexedDB unavailable");
+
+    expect(be.lastImportUnterminatedQuote).toBe(false);
+    expect(be.lastImportDroppedRows).toBe(0);
+  });
+
+  it("clears the truncation field too", async () => {
+    // ★★ Its own it(): `lastLoadTruncation` is published by a DIFFERENT mechanism
+    // (`loadFrom`'s `finally`) than the import flags above, so a fix that reset only
+    // one of the two would leave this unproved if it shared their block.
+    const be = new LocalFileBackend("local-csv");
+    await loadDirty(be);
+    // ★★★ SEEDED BY HAND, and the test was VACUOUS without it. `loadDirty`'s CSV
+    // truncates nothing, so this field was already `{0,0}` and the assertion below
+    // passed whether or not the reset ran — measured: under the pre-fix wrapper this
+    // test stayed GREEN while its sibling went red. A non-zero value is the only thing
+    // that makes it discriminate.
+    be.lastLoadTruncation = { entries: 3, blocks: 1 };
+
+    idbGetError.current = new Error("indexedDB unavailable");
+    await expect(be.load()).rejects.toThrow("indexedDB unavailable");
+
+    expect(be.lastLoadTruncation).toEqual({ entries: 0, blocks: 0 });
+  });
+
+  it("rethrows the original error rather than masking it", async () => {
+    // ★★★ THE POSITIVE CONTROL, and the one that stops the fix becoming a
+    // swallow. A `load()` that caught the rejection and resolved — or that converted it
+    // into a generic StorageNotReadyError — would satisfy both assertions above while
+    // hiding a real handle-store failure from the caller's own handler.
+    const be = new LocalFileBackend("local-csv");
+    const cause = new Error("store is closed");
+    idbGetError.current = cause;
+
+    await expect(be.load()).rejects.toBe(cause);
   });
 });

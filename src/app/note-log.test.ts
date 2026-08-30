@@ -316,3 +316,64 @@ describe("§137: the load boundary keeps markup outside the retired lean list", 
     expect(out.mitigation).toBe("<p>a</p>b");
   });
 });
+
+// ★★★ THESE RUN THE REAL `sanitizeRichHtml` + `htmlToText` PAIR, and that is the
+// whole point of putting them here rather than in `note-log-policy.test.ts`. That file
+// injects a MOCK `NoteLogHtmlOps` (a regex tag-strip) to test the policy in isolation,
+// so it is structurally incapable of seeing an html body that the REAL sanitizer or the
+// REAL projection empties. A deletion bug that did exactly that shipped green past the
+// mocked suite; see the ★★★ block on the re-derivation in `note-log-policy.ts`.
+describe("note-log text re-derivation against the real sanitizer (§286, seventh divergence)", () => {
+  const at = "2026-07-16T10:00:00.000Z";
+  const one = (html: string, text: string) =>
+    sanitizeNoteLog([{ id: 1, timestamp: at, html, text }]);
+
+  it("re-derives a captured text from the html when the two disagree", () => {
+    // The seventh divergence itself: html wins over a stale captured projection.
+    expect(one("<p>real</p>", "STALE")[0].text).toBe("real");
+  });
+
+  it("and the two candidate values are distinguishable (anti-vacuity)", () => {
+    // ★★ Separate it(): vitest aborts at the first failing hard assertion, so an
+    // assertion sharing the block above would be unproved whenever that one failed.
+    // Without this, a projection that happened to yield "STALE" would satisfy the test
+    // above while proving the OPPOSITE rule.
+    expect(one("<p>real</p>", "STALE")[0].text).not.toBe("STALE");
+  });
+
+  // ★★★ THE REGRESSION PIN. Each of these three bodies survives or fails sanitising
+  // in a different way and ALL of them project to the empty string, so an unconditional
+  // re-derivation overwrites a good captured text with "" and the `if (!text) continue`
+  // below it then DROPS the entry entirely — losing its timestamp and author too. One
+  // it() per claim per shape, because they are three independent claims about three
+  // different shapes: a mutant that only fixes one must not be able to hide behind the
+  // other two. And survival and text are two independently-provable claims about ONE
+  // shape — vitest aborts at the first failing hard assertion, so a text assertion
+  // sharing a block with the length one is unproved whenever that one fails (the same
+  // reason the anti-vacuity it() above stands on its own).
+  const EMPTY_PROJECTIONS: ReadonlyArray<readonly [string, string]> = [
+    ["a bare horizontal rule (survives sanitising, projects to nothing)", "<hr>"],
+    ["a paragraph holding only a line break", "<p><br></p>"],
+    ["an image-only body (img is not in RICH_ALLOWED_TAGS, so it sanitises away)", "<p><img src=x.png></p>"],
+  ];
+
+  for (const [label, html] of EMPTY_PROJECTIONS) {
+    it(`keeps the entry when the html is ${label}`, () => {
+      expect(one(html, "Screenshot of the risk register")).toHaveLength(1);
+    });
+
+    it(`keeps the captured text when the html is ${label}`, () => {
+      expect(one(html, "Screenshot of the risk register")[0]?.text).toBe(
+        "Screenshot of the risk register",
+      );
+    });
+  }
+
+  it("still drops an entry when BOTH the captured text and the projection are empty", () => {
+    // ★★ The positive control for the three above. Without it, a validator that
+    // simply never dropped anything would satisfy every one of them, and the guard
+    // being pinned (re-derive only when the projection says something) would be
+    // indistinguishable from having no drop rule at all.
+    expect(one("<hr>", "")).toHaveLength(0);
+  });
+});

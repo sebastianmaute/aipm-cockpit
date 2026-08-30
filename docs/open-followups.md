@@ -512,9 +512,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
 | [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open |
 | [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass--closed-2026-08-29) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass — CLOSED 2026-08-29 | found 2026-08-29, fixed 2026-08-29 | M | **CLOSED** 2026-08-29 |
-| [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-six-ways--open) | The template seed's note-log validator diverges from the canonical one in six ways — open | — | — | open |
-| [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
-| [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--open-pre-existing) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing | found 2026-08-29 | M | open |
+| [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30) | The template seed's note-log validator diverges from the canonical one in seven ways — filed as six — CLOSED 2026-08-30 | found 2026-08-28, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
+| [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--closed-2026-08-30) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — CLOSED 2026-08-30 | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
+| [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--closed-2026-08-30) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — CLOSED 2026-08-30 | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
 | [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either | found 2026-08-29 | S | **CLOSED** 2026-08-30 (all THREE paths: apply, single-row undo, bulk undo; SUPERSEDES §181) |
 | [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
 | [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
@@ -524,6 +524,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | open |
 | [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | open |
 | [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss but not when a consumer closes it from an item's own handler | carved out of §146 on close, 2026-08-30 | M | open |
+| [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -11885,6 +11886,13 @@ leaves the next save writing over the picked file. An early `return` would have 
 silently; one report after the `if` covers both. ★ The re-point on decline is the WIDER defect and is
 NOT fixed here — see §287.
 
+★★ **BOTH PARAGRAPHS ABOVE ARE THE REASONING AS IT STOOD, NOT THE TREE TODAY.** §287 landed
+2026-08-30 and made their shared premise false: `openFile()` no longer persists anything — it ends
+`return handle;`, and the caller binds the picked handle only inside the accept branch — so opening a
+file no longer re-points the active backend before the confirm is answered. They are left as the
+record of why the guard clause here is inverted rather than an early `return`, which is still the
+right shape. Verify: `grep -n "async openFile" -A 6 src/app/local-file-backend.ts`
+
 **The attribution.** `ImportSectionKey` (a zero-import leaf union in `csv-codecs-sections.ts`) and
 `ImportDiag.droppedBySection`, threaded through `collectRows`, `decodeCsvSection`, `decodeMdTable`,
 `markdownToRefs` and the two task loops. `countDroppedRow` is the single writer of the breakdown AND
@@ -22171,9 +22179,29 @@ it, which is why this is filed rather than fixed.
 
 ---
 
-## 286. The template seed's note-log validator diverges from the canonical one in six ways — open
+## 286. The template seed's note-log validator diverges from the canonical one in seven ways — filed as six — CLOSED 2026-08-30
 
-**Status:** open — a second note-log validator with six unforced divergences from `sanitizeNoteLog`. Found 2026-08-28 by a cold review of the §168 carry; reproduce by reading the two side by side (`grep -n "function sanitizeNoteLog" src/app/note-log.ts` and `grep -n "function sanitizeSeedNoteLog" src/app/templates.ts`).
+**Status:** CLOSED 2026-08-30 by `11912745` (the shared core) · `320c35ad` (both callers adopt it) · `7f9d044d` (the seventh divergence). The DOM-free half of the canonical validator is now `sanitizeNoteLogWith` (`note-log-policy.ts`), parameterised by the two DOM-dependent steps; `sanitizeNoteLog` and `sanitizeSeedNoteLog` both call it, so the seed gains the entry cap, the byte html cap, control-char stripping, timestamp validation and mint-and-dedupe. Verified by `npx vitest run --maxWorkers=1 src/app/note-log-policy.test.ts src/app/note-log.test.ts src/app/template-note-carry.test.ts src/app/golden-workspace.test.ts`. ★★ `note-log.test.ts` passes UNEDITED, which is the evidence the extracted core reproduces canonical behaviour rather than approximating it.
+
+★★★ **THE AUDIT FOUND SIX AND THE FIX FOUND A SEVENTH — and it is the ONE ROW where the SEED
+validator's rule wins.** The table below enumerates six, and the decision was that canonical wins on
+the five of them that are UNFORCED. ★★★ IT DOES NOT WIN ON THE HTML-CAP ROW, AND CANNOT — an earlier
+revision of this sentence read "canonical wins on all six", which is the overclaim the corrected
+bullet beneath the table now states in full. That row is a SECOND FORCED difference, the same class
+as the DOM boundary this entry opens with, and the residue is tracked as
+[§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open).
+Adopting the shared core exposed a seventh the audit had missed: canonical derived `text`
+from `html` only when the captured `text` was empty (`hasHtml && !text`), while the seed ALWAYS
+re-projected. The seed rule was taken on that row, because its rationale is written down and still
+holds — a captured `text` can disagree with its `html` after a hand-edited template, or after a sink
+change narrowed the html since capture, and a stale projection must not outlive the html it describes.
+★★ The DIRECTION was measured, not argued: under the seed rule `note-log.test.ts` passes unedited,
+`template-note-carry.test.ts` needs no flip, and `golden-workspace.test.ts` byte-stability holds.
+★★ State the bound with it, because the measurement does not reach as far as it looks: no test pinned
+the OLD behaviour, which is NOT the same as nothing having depended on it. The change is real for any
+stored entry whose `text` disagrees with its `html`.
+★ Both tests this slice predicted would flip pass untouched, so no assertion was weakened to reach
+this state.
 
 ★★★ **AND THE COMMIT THAT FILED IT STILL SAYS 284.** `26a66e7f`'s message reads "Filed rather than
 fixed: 284 records six unforced divergences…", which now points at "A malformed Turso meta blob is
@@ -22212,20 +22240,61 @@ log", is fixed except for exactly the legacy entries the canonical repair was wr
 test `drops an entry with no usable id or timestamp, keeping its siblings` certifies that drop as
 intended behaviour. Decide which is right before that test is read as settled.
 
+★★ **DECIDED FOR CANONICAL: the shared core MINTS**, and `sanitizeNoteLogWith`'s own docstring
+carries the reasoning. ★★★ AND THAT TEST NO LONGER DISCRIMINATES THE `id` RULE AT ALL, which is
+worth knowing before it is read as still covering one: its second fixture entry carries no
+`timestamp` either, and an unparseable timestamp is an INDEPENDENT drop that runs before any id
+handling — so the test passes under the mint rule and under the drop rule alike. It is a timestamp
+test wearing an id test's name. Reproduce by reading the fixture:
+`grep -n "no usable id or timestamp" -A 10 src/app/template-note-carry.test.ts`.
+
 ★★ Duplicate ids pass through unchanged, and the notes window edits and deletes BY id — so two
 captured entries sharing `id: 1` make one of them unaddressable in the UI after apply.
 
-★ The html-cap divergence is a content-loss path in the opposite direction from §168: a captured note
-above the visible-text ceiling is degraded to PLAIN TEXT on the template route while the identical
-note stays rich HTML on every other route.
+★★★ **THE HTML-CAP ROW SURVIVED THE CLOSE, AND IT IS THE ONE ROW THE TABLE ABOVE MISFILES.** It sits
+under "what is NOT forced" and it is in fact FORCED — `sanitizeRichHtml` never degrades, and the only
+DOM-free cleaner `templates.ts` can reach is `sanitizeRichText`, whose caps are intrinsic to it, so
+parity was never available on this row without weakening a load-path sanitiser used app-wide. What
+the shared core DID buy is real but partial: the seed now also takes the `MAX_NOTE_HTML` slice it
+previously lacked, so both routes are BOUNDED — they are simply not IDENTICAL. The content-loss path
+this bullet originally described is therefore still live, in the opposite direction from §168: a
+captured note above the visible-text cap is degraded to PLAIN TEXT on the template route while the
+identical note stays rich HTML on every other route. Tracked as
+[§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open),
+which carries the arithmetic and the two net-neutral loss directions this table does not list.
 
 ★ Fix shape, if wanted: extract the DOM-free half of `sanitizeNoteLog` into a shared helper both call,
 leaving only the `sanitizeRichHtml` step behind the DOM boundary. That is a real refactor of a
 sanitiser on six write paths, which is why it is filed rather than done inside a bug-fix slice.
 
-## 287. Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading
+## 287. Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — CLOSED 2026-08-30
 
-**Status:** open — never machine-verified by a committed probe. The mechanism was read out of `LocalFileBackend.openFile()` on 2026-08-29 while closing §152; no test drives the decline path far enough to observe a subsequent save. Independently re-read by a cold reviewer on 2026-08-29, who confirmed the mechanism and added the `refreshBackendStatus()` half below.
+**Status:** CLOSED 2026-08-30 by `5b311e66` (extract `loadFrom`) · `4a98d9c9` (the fix). `openFile()` now RETURNS the picked handle instead of persisting it, `loadFromHandleForBackend` reads through an explicit handle without consulting or touching stored state, and `setBackendFileHandle` runs INSIDE the accept branch — so there is no window in which storage points somewhere the user has not agreed to. Verified by `npx vitest run --maxWorkers=1 src/app/use-storage-backend.test.tsx src/app/local-file-backend.test.ts src/app/use-load-truncation.test.ts`.
+★★★ ALL THREE FILES ARE LOAD-BEARING AND AN EARLIER WITNESS HERE NAMED ONLY THE FIRST,
+which was the weakest of the three. Measured: restoring `openFile()`'s `idbSet` leaves that
+whole file green and reddens only `local-file-backend.test.ts`, which is why the second
+file is here. The third is here because closing this entry BROKE it — the census in
+`use-load-truncation.test.ts` counts load sites by spelling, and replacing `backend.load()`
+with `loadFromHandleForBackend` made a load invisible to it while its reports remained, so
+the branch shipped a red blocking gate that this witness could not see.
+
+★★ **THE DECLINE-PATH PROBE THIS ENTRY RECORDS AS NEVER HAVING EXISTED NOW EXISTS**, in
+`use-storage-backend.test.tsx`, with the workspace-survives half in its own `it()` — deliberately
+not folded in, because vitest aborts a test at its first failing hard assertion and "setHandle was
+not called" is a claim about a MOCK while "the live tasks are still here" is the claim about the
+user's DATA. ★★ Read its mutation record for the BOUND rather than for reassurance: it names the
+mutant it is proved against — moving the bind out of the accept branch, the exact pre-fix order —
+and states that only the last assertion dies under it, so that probe proves the commit's PLACEMENT
+and nothing wider.
+★ Staging the handle in memory was considered and rejected: it reintroduces the same defect through
+a save firing during the confirm, safe today only because `window.confirm` blocks timers. The
+add-existing-project flow still commits immediately, because adoption is the intent there and it has
+no confirm to lose.
+
+★★ **EVERYTHING FROM HERE DOWN IS THE DEFECT AS FILED, NOT THE TREE TODAY** — the three paragraphs
+above describe the closure, this is the record of what was wrong. The fix landed 2026-08-30, so the
+stale-label state described next can no longer occur, and the closing **Fix shape** paragraph records
+what was WANTED at filing time, not work still owed. All of it is left as the record.
 
 ★★ **THE UI ALSO KEEPS SHOWING THE OLD FILENAME, which is what makes this hard to notice.**
 `refreshBackendStatus()` runs only inside the accept branch, alongside `suppressNextSaveRef.current =
@@ -22263,9 +22332,22 @@ user declines. The first is a behaviour change (the user picks a file only after
 their tasks); the second needs the old handle captured and re-persisted, and must survive the picker
 throwing. Neither is scoped to a diagnostics slice.
 
-## 288. The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing
+## 288. The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — CLOSED 2026-08-30
 
-**Status:** open — never machine-verified by a committed probe. Read out of `new-project-workspace.ts` and `sanitize-records.ts` on 2026-08-29 during the §168 review; no test drives a hostile model payload through `appendSeed`.
+**Status:** CLOSED 2026-08-30 by `04795d2f` (the fix) · `b7b07904` (the coverage hole a cold review found). The four rich-field allow-list passes moved OUT of `applyTemplate` and INTO `appendSeed` — the tail both seed branches share — behind a new `allowListSeed` helper, so neither branch can reach a workspace without them. The four hostile-payload assertions landed as a committed RED test (`ace9b5b9`) one commit before the fix; verified green by `npx vitest run --maxWorkers=1 src/app/new-project-workspace.test.ts`.
+
+★★ **A COLD REVIEW COULD NOT REFUTE THE FIX AND FOUND A HOLE IN ITS EVIDENCE INSTEAD**, which is the
+usual shape here. The idempotency block justified itself by the double-application hazard on the TASK
+path while no fixture carried a task — and the task path is the ONLY one where the allow-list runs
+twice, since `buildSeedTask` alone reaches `sanitizeAiRichText` while RAID, changes and milestones
+come from the upgrade-only `sanitize*Item` helpers and meet the allow-list for the first time inside
+`appendSeed`. So the suite pinned `sanitizeRichHtml` composed with itself on a raw string and claimed
+cover of a composition it never ran. `b7b07904` adds the task row and corrects two further claims:
+the mutation record's count was file-scoped without saying so, and the anti-vacuity comment claimed
+assertions pass on an empty workspace when they in fact throw.
+★ Fixing it at the PRODUCER (`proposalToSeed`) was rejected on the grounds §228 already records:
+apply is the only ingress into a workspace, so a producer-side fix leaves every other seed source
+unrepaired.
 
 Found by a cold reviewer of the §168 template-carry slice. NOT introduced by it — both branches
 predate that work — but the slice sharpened the asymmetry without naming it, which is why it is
@@ -22277,6 +22359,10 @@ recorded here rather than left to be rediscovered.
 if (opts.template)            ws = applyTemplate(ws, opts.template, …);   // allow-lists ten rich fields
 else if (opts.aiSeed && …)    ws = appendSeed(ws, remapSeed(ws, opts.aiSeed));  // does not
 ```
+
+★ That snippet is the DEFECT as filed, not the tree today: the allow-list no longer sits above the
+template branch at all — it sits in `appendSeed`, which both lines above end in. Everything below
+describes what was wrong and why, and is left as the record.
 
 `proposalToSeed` builds RAID, changes and milestones through `sanitizeRaidItem` /
 `sanitizeChangeItem` / `sanitizeMilestone`, which run `sanitizeRichText` only — a
@@ -22784,3 +22870,79 @@ control disappears — AGENTS.md carries the measurement for the sibling blind s
 test the fixer writes is the only detector this will ever have, and it must assert focus lands
 somewhere USEFUL, not merely that it is not on the trigger: `not.toHaveFocus()` passes when the
 panel never opened.
+
+## 298. The template seed's note-log html cap is a second forced difference, not a closed divergence — open
+
+**Status:** open — **never machine-verified**. The arithmetic below was derived from the source on
+2026-08-30 by reading the constants (`grep -n "RICH_BYTE_K = \|RICH_BYTE_FLOOR = \|richByteCeiling = " src/app/rich-text-plain.ts`
+and `grep -n "export const TEXTAREA_MAX" src/app/sanitize-core.ts`), and the injection asymmetry from
+`grep -n "sanitizeHtml:" src/app/templates.ts src/app/note-log.ts`, which prints one line per route.
+No committed test drives a note past either trigger through `sanitizeSeedNoteLog`, so nothing has
+EXECUTED the divergence — the reading is of the call path, not of a run.
+
+Residue of [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30),
+which closed on the strength of a shared core (`sanitizeNoteLogWith`, `note-log-policy.ts`) that both
+validators now call. FIVE of the six divergences it enumerated really are gone. The html-cap row is
+not, and both the code comment in `templates.ts` and §286's own prose asserted for a release that all
+six were — while a bullet further down §286 went on describing this exact content-loss path in the
+present tense. The two halves of one entry contradicted each other and the register read as closed.
+
+**Why it is FORCED, and therefore not a defect to "fix" by reaching parity.** `templates.ts` is
+DOM-free by contract (it sits in the sample generator's import graph), so it cannot call
+`sanitizeRichHtml`, which is the canonical route's cleaner and never degrades. The only DOM-free
+cleaner it can reach is `sanitizeRichText`, whose caps are intrinsic to it — it is a load-path
+sanitiser used across the app, so loosening them to buy parity here would weaken every other caller.
+This row belongs in the same class as the DOM boundary §286 opens by calling the ONE forced
+difference; it is the SECOND, and the table's "what is NOT forced" framing misfiles it.
+
+**What the shared core did buy, and the bound on it.** The seed now also takes the `MAX_NOTE_HTML`
+slice it previously lacked, so both routes are BOUNDED. They are not IDENTICAL. Two triggers still
+flatten a captured note to plain text on the template route alone:
+
+- **Visible-text cap.** `capHtmlText` degrades whenever the html projects to more than `TEXTAREA_MAX`
+  (5 000) visible characters. This is the one that actually bites: it fires well INSIDE the
+  20 000-character band `MAX_NOTE_HTML` lets through on the canonical route, so a ~6 KB captured note
+  — an ordinary long note, not an abuse shape — is rich HTML everywhere else and plain text here.
+- **Raw-byte ceiling.** `richByteCeiling(TEXTAREA_MAX)` is `5000 * 32 + 1024` = **161 024** characters
+  of raw html; past it `sanitizeRichText` hard-clips and hands the result to `degradeToPlain`. Only
+  markup-heavy, low-visible-text shapes reach this one without having already tripped the cap above.
+
+★★★ **THE ORDERING IS WHAT KEEPS BOTH TRIGGERS REACHABLE, and it is the easy thing to get wrong when
+reading the core.** The `.slice(0, MAX_NOTE_HTML)` is applied to the RESULT of the injected
+`sanitizeHtml`, not to its input (`grep -n "MAX_NOTE_HTML)" src/app/note-log-policy.ts` puts it on the
+closing line of that expression). So it cannot shrink what either trigger sees, and reasoning "the
+core caps at 20 000, so the 161 024 ceiling is unreachable" is wrong in both directions at once.
+
+★ A third observable divergence from the same injection: `sanitizeRichText` ends
+`htmlTextLength(html) === 0 ? "" : html` (`grep -n "htmlTextLength(html)" src/app/rich-text-plain.ts`),
+so on the seed route an entry whose body is visually empty — a bare rule, an image-only paragraph —
+comes back with an EMPTY `html` where the canonical `sanitizeRichHtml` keeps the markup, the entry
+itself surviving either way on its captured `text`.
+
+**Two further loss directions the §286 table does not list, both NET-NEUTRAL.** Adopting the core
+means the template route now also:
+
+- **drops a note entry whose `timestamp` does not parse** (`isValidTimestamp`), where the old seed
+  validator accepted any non-empty string; and
+- **caps at `MAX_NOTE_ENTRIES`** (500 accepted entries), where the old seed was unbounded.
+
+Neither is new data loss. Canonical validation drops exactly the same entries at the next whole-object
+load (`sanitizeRichFields` calls `sanitizeNoteLog`) and on the CSV / Markdown / Turso cell paths
+(`decodeNoteLog` calls it too), so the persisted end state after one reload is unchanged; the losses
+merely move EARLIER. ★★ State the bound with it: "net-neutral" is about the end state, not about every
+observable moment. Before this branch such entries survived apply and lived in memory until the next
+load. A user who applied a template and read the notes without reloading would have seen them.
+
+★★ **Fix shape, if wanted — and "make the sentence true" is not one.** Do NOT loosen a cap in
+`sanitizeRichText`, and do NOT slice raw html before sanitising to keep it under a trigger: both
+manufacture parity by weakening the boundary the seed carry exists to enforce, and the second one
+feeds severed markup to a cleaner that is only safe on the clipped path because `degradeToPlain`
+flattens it. The honest options are to accept the difference as forced and documented (the state this
+entry records), or to give the core a DOM-free cleaner with canonical cap semantics — a real piece of
+work, since the caps and the plain-text upgrade in `sanitizeRichText` are the same function.
+
+★ **Nothing detects this.** No gate compares the two routes' output, `docs:symbols:check` proves only
+that the names above exist, and the divergence needs a note past a cap to appear at all. A unit test
+feeding one fixture through `sanitizeNoteLog` and `sanitizeSeedNoteLog` and asserting where they agree
+and where they do not is the only detector this will ever have — and it should PIN the difference as
+intended, not assert it away.

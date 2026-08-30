@@ -25,6 +25,7 @@ import {
 } from "./sanitize";
 import { htmlPlainProjection, sanitizeRichText } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
+import { sanitizeNoteLogWith } from "./note-log-policy";
 import {
   DEPENDENCY_TYPES,
   RAID_CATEGORIES,
@@ -121,24 +122,17 @@ const RISK_SCALES = new Set([1, 2, 3, 4, 5]);
  * html is the source of truth.
  */
 function sanitizeSeedNoteLog(raw: unknown): NoteLogEntry[] | undefined {
-  if (!Array.isArray(raw)) return undefined;
-  const out: NoteLogEntry[] = [];
-  for (const item of raw) {
-    if (!isPlainObject(item)) continue;
-    const id = fkIdOrUndefined(item.id);
-    if (id === undefined) continue;
-    const timestamp = nonEmptyStr(item.timestamp);
-    if (!timestamp) continue;
-    const html = sanitizeRichText(item.html, TEXTAREA_MAX, RICH_SINK);
-    const entry: NoteLogEntry = { id, timestamp, html, text: htmlPlainProjection(html) };
-    const authorResourceId = fkIdOrUndefined(item.authorResourceId);
-    if (authorResourceId !== undefined) entry.authorResourceId = authorResourceId;
-    const authorName = nonEmptyStr(item.authorName);
-    if (authorName) entry.authorName = authorName;
-    const editedAt = nonEmptyStr(item.editedAt);
-    if (editedAt) entry.editedAt = editedAt;
-    out.push(entry);
-  }
+  // ★★ Same policy as the canonical validator — only the two html steps differ,
+  // because this file is DOM-free by contract (sample-generator import graph).
+  // FIVE of the six divergences open-followups §286 recorded are gone; the
+  // policy lives once, in note-log-policy.ts.
+  // Tracked as open-followups §298; do NOT close it
+  // by loosening a cap or slicing raw html before sanitising, which would
+  // manufacture parity by weakening the boundary this carry exists to enforce.
+  const out = sanitizeNoteLogWith(raw, {
+    sanitizeHtml: (h) => sanitizeRichText(h, TEXTAREA_MAX, RICH_SINK),
+    toText: htmlPlainProjection,
+  });
   return out.length ? out : undefined;
 }
 

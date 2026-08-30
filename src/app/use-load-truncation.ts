@@ -146,12 +146,26 @@ export interface TruncationOps {
    *  load replaced nothing, so the live workspace still carries the PREVIOUS
    *  load's reading and any flag raised over it is still true. Lowering here
    *  would resume autosave on the strength of a partial merge.
-   *  ★★ It DOES raise for a malformed file, and reading the "import-only"
-   *  name as "toast-only" is the trap. `LocalFileBackend.openFile()` ends
-   *  `await idbSet(this.idbKey, handle)` — it re-points the ACTIVE backend at
-   *  the file it just read — so the next debounced save writes the merged live
-   *  workspace back OVER that file. That is exactly the overwrite-the-only-copy
-   *  case the quoting hold exists for, arriving through a narrower door.
+   *  ★★ It raises for a malformed file ONLY WHEN THE CALLER SAYS THE BACKEND
+   *  NOW POINTS AT THE FILE IT JUST READ, which is what `backendNowPointsAtLoadedFile`
+   *  is for, and reading the "import-only" name as "toast-only" is the trap. When the
+   *  backend IS re-pointed, the next debounced save writes the merged live workspace
+   *  back OVER that file — exactly the overwrite-the-only-copy case the quoting hold
+   *  exists for, arriving through a narrower door.
+   *
+   *  ★★★ THE FLAG IS NOT A CONVENIENCE, AND ITS ABSENCE WAS A REAL FALSE POSITIVE.
+   *  Until §287 this op could assume the re-point: `LocalFileBackend.openFile()`
+   *  ended `await idbSet(this.idbKey, handle)`, so BOTH exits of the overwrite confirm
+   *  left the active backend on the picked file and raising unconditionally was right.
+   *  §287 moved the commit inside the ACCEPT branch — `openFile()` now ends
+   *  `return handle;` and persists nothing — so on DECLINE the backend still points at
+   *  the user's previous file, which the malformed one has nothing to do with. Raising
+   *  there halts autosave of an untouched project over a file the user just refused to
+   *  open, and nothing lowers it again for the rest of the session.
+   *  ★★ THE DIAGNOSTICS STILL FIRE ON BOTH EXITS and must keep doing so — a malformed
+   *  file dropped the same rows whichever way the confirm went, and §152 is the record
+   *  of what an early `return` that skipped the report cost. Only the STATE CHANGE is
+   *  conditional. Do not collapse the two back together.
    *
    *  ★★★ THE CALLER MUST FIRE ITS OWN "opened" TOAST BEFORE THIS, NEVER AFTER —
    *  the surface is single-slot, see the landmine on {@link reportFor}. */
@@ -163,6 +177,13 @@ export interface TruncationOps {
       | "lastImportUnterminatedQuote"
       | "lastImportMalformedQuotes"
     >,
+    /** TRUE when the active backend is now bound to the file this load read, so a
+     *  pending save would write over it. FALSE when the caller loaded from a handle it
+     *  did not commit to (the declined overwrite confirm). REQUIRED, and deliberately
+     *  not defaulted: every call site must state which it is, because the wrong default
+     *  is silent in both directions — `true` halts autosave over a file nothing points
+     *  at, `false` re-opens the overwrite this hold exists to prevent. */
+    backendNowPointsAtLoadedFile: boolean,
   ) => void;
   /** Best-effort flush of the live workspace to the ACTIVE backend, SKIPPED
    *  while a truncated load is unresolved. Skipping is the safe outcome: the
@@ -603,6 +624,13 @@ export function useLoadTruncation(
       | "lastImportUnterminatedQuote"
       | "lastImportMalformedQuotes"
     >,
+    // ★★★ WHETHER THE CALLER IS ABOUT TO RAISE THE QUOTING HOLD. It decides ONE sentence,
+    // and getting it wrong states a falsehood about the user's own data: the malformed-quotes
+    // warning used to END with "Saving is paused until you confirm." baked in, true while every
+    // caller raised the hold, and §287 made the raise conditional — so the declined-overwrite
+    // exit announced a pause it had deliberately not applied. Only the CONSEQUENCE is gated; the
+    // FACT is always shown, which is why the string was SPLIT rather than suppressed whole.
+    holdWillBeRaised: boolean,
   ) => {
     const dropped = backend.lastImportDroppedRows ?? 0;
     const parts: string[] = [];
@@ -632,7 +660,10 @@ export function useLoadTruncation(
     // the two above — those rows are absent, these are present but possibly
     // mis-parsed — so it is added, never substituted.
     const malformed = backend.lastImportMalformedQuotes ?? 0;
-    if (malformed > 0) parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
+    if (malformed > 0) {
+      parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
+      if (holdWillBeRaised) parts.push(t(langRef.current, "importMalformedQuotesPaused"));
+    }
     if (parts.length > 0) showToast("error", parts.join(" "));
   };
 
@@ -655,18 +686,10 @@ export function useLoadTruncation(
       // DIFFERENT state behaviour over the same sentences: this one both raises
       // AND lowers, that one raises only. Keeping the state change out here is
       // what lets the sentence be shared while the direction is not.
-      //
-      // ★★★ AN EARLIER REVISION OF THIS COMMENT GAVE THE WRONG REASON AND THE
-      // WRONG BEHAVIOUR. It said the import-only path "must NOT touch the hold
-      // — it applies rows into an existing workspace rather than replacing it,
-      // so no save of ITS backing file is pending." The second clause is false:
-      // `LocalFileBackend.openFile()` ends `await idbSet(this.idbKey, handle)`,
-      // re-pointing the ACTIVE backend at the file it just read, so the next
-      // debounced save writes the merged workspace straight back over it. A
-      // toast-only op there would have re-opened the very hole this cause was
-      // added to close, one path over. See `reportImportFor`.
       reportMalformedQuotes(backend);
-      reportImportDiagnostics(backend);
+      // ★ `true`: this op raises the hold whenever the count is positive, and the
+      // sentence is only pushed when it is positive, so the two cannot disagree.
+      reportImportDiagnostics(backend, true);
     },
     raiseDecodeFailuresFor: (backend) => {
       // ★ The RAISE-ONLY gate, and the only line that differs from the shared
@@ -678,11 +701,15 @@ export function useLoadTruncation(
       // row, the state and the nonce cannot drift from the `reportFor` path.
       reportDecodeFailures(backend);
     },
-    reportImportFor: (backend) => {
+    reportImportFor: (backend, backendNowPointsAtLoadedFile) => {
       // ★ Sentences first, state second — the reverse of `reportFor`'s ordering
       // note and for the same single-slot reason read from the other end: the
       // raise below shows nothing, so nothing can overwrite this toast.
-      reportImportDiagnostics(backend);
+      reportImportDiagnostics(backend, backendNowPointsAtLoadedFile);
+      // ★★★ THE DIAGNOSTICS ABOVE ARE UNCONDITIONAL, THE HOLD BELOW IS NOT. See the
+      // member's doc: a load the backend was never bound to cannot be overwritten by a
+      // pending save, so raising there refuses saves of a project that is not at risk.
+      if (!backendNowPointsAtLoadedFile) return;
       // ★ The RAISE-ONLY gate, spelled exactly as `raiseDecodeFailuresFor`'s is
       // and for the same reason: `reportMalformedQuotes` reaches only its
       // raising branch with a positive count, so the diagnostics row, the state
@@ -737,7 +764,11 @@ export function useLoadTruncation(
       const parts: string[] = [];
       if (last) parts.push(truncationText(last.entries, last.blocks));
       if (decoded > 0) parts.push(t(langRef.current, "documentsUnreadableWarning", decoded));
-      if (malformed > 0) parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
+      // ★★ UNCONDITIONAL HERE, unlike in `reportImportDiagnostics`: this is the REFUSAL path — the user asked to write and was declined, so the pause is not a prediction but what just happened.
+      if (malformed > 0) {
+        parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
+        parts.push(t(langRef.current, "importMalformedQuotesPaused"));
+      }
       if (parts.length > 0) showToast("error", parts.join(" "));
     },
     guardedWrite: async (backend, ws) => {

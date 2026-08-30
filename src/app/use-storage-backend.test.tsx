@@ -31,6 +31,12 @@ vi.mock("./storage", () => ({
     constructor(hint: string) { super(hint); this.hint = hint; }
   },
   openFileForBackend: vi.fn(),
+  // ★★ In prod this reads the PICKED handle without binding it (§287). The fake
+  //    backends below express that same read as their own `load()`, so the
+  //    default delegates there: every existing `onOpenStorageFile` test keeps
+  //    driving ONE fixture, and the diagnostics they publish from inside
+  //    `load()` still reach `reportImportFor` exactly as they did.
+  loadFromHandleForBackend: vi.fn((backend: { load: () => Promise<unknown> }) => backend.load()),
   pickFileForBackend: vi.fn(),
   pickOpenFileAny: vi.fn(),
   formatFromFileName: vi.fn(() => "json"),
@@ -3114,6 +3120,10 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     diag: {
       dropped?: number;
       unterminated?: boolean;
+      /** The count behind the quoting HOLD (as opposed to `unterminated`, which
+       *  is a sentence only). Present so a test can drive the one signal
+       *  `reportImportFor`'s second argument gates. */
+      malformed?: number;
       /** Per-section attribution (§152). Absent on JSON/Turso backends, which
        *  is why it is optional here rather than defaulted to an empty object —
        *  an empty object and an absent field must reach the reporter as
@@ -3126,6 +3136,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
       load: vi.fn(async () => {
         b.lastImportDroppedRows = diag.dropped;
         b.lastImportUnterminatedQuote = diag.unterminated;
+        b.lastImportMalformedQuotes = diag.malformed;
         b.lastImportDroppedBySection = diag.bySection;
         return emptyWorkspace();
       }),
@@ -3134,6 +3145,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
       describe: vi.fn().mockResolvedValue("f.csv"),
       lastImportDroppedRows: undefined as number | undefined,
       lastImportUnterminatedQuote: undefined as boolean | undefined,
+      lastImportMalformedQuotes: undefined as number | undefined,
       lastImportDroppedBySection: undefined as Partial<Record<string, number>> | undefined,
     };
     return b;
@@ -3394,10 +3406,14 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
   });
 
   it("onOpenStorageFile reports even when the user DECLINES the overwrite", async () => {
-    // ★★★ THE EXIT AN EARLY `return` WOULD HAVE EXEMPTED. `openFileForBackend`
-    // has already re-pointed the ACTIVE backend at the picked file by the time
-    // the confirm is asked, so declining still leaves the next save writing over
-    // it — the decline path needs the report as much as the apply path.
+    // ★★★ THE EXIT AN EARLY `return` WOULD HAVE EXEMPTED. A malformed file drops
+    // the same rows whichever way the confirm goes, so the decline path needs the
+    // report as much as the apply path does.
+    // ★★ The ORIGINAL reason given here — that `openFileForBackend` had already
+    // re-pointed the ACTIVE backend, so declining still left the next save
+    // writing over the picked file — is no longer true: the handle is committed
+    // inside the accept branch now (§287). The report is still owed on this exit;
+    // only the justification changed.
     const b = makeImportBackend();
     // The MOUNT load seeds a live task, so the overwrite confirm is reached at
     // all — with no live tasks the handler applies unconditionally and this
@@ -3426,6 +3442,83 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     expect(result.current.tasks).toHaveLength(1);
     // Nothing else toasts on this exit, so the diagnostic is the survivor.
     expect(survivingToast()).toContain("6 invalid row(s)");
+  });
+
+  // ── `reportImportFor`'s SECOND ARGUMENT, pinned AT THE CALL SITE ───────────
+  // ★★★ `use-load-truncation.test.ts` pins the OP at both argument values, and
+  // that is a claim about the OP, not about what this CALLER passes. A mutant
+  // hardcoding the argument passed the whole suite: the decline test above
+  // asserts only that a toast fired, which is true at either value because the
+  // diagnostics half is unconditional. These two read the HOLD instead, via
+  // `loadWasIncomplete` — the only observable the argument moves.
+  // ★★ ONE MUTANT EACH, NOT BOTH. Hardcoding `true` raises the hold on the
+  // decline exit and kills the FIRST test only (it is the correct value on the
+  // accept exit); hardcoding `false` kills the SECOND only. Neither test proves
+  // the other's half, which is why both are owed.
+  // ★ SPLIT INTO TWO `it()`s on purpose: vitest aborts at the first failing hard
+  // assertion, so one block holding both claims would leave the second
+  // unexecuted — and therefore unproved — under whichever mutant killed the
+  // first. The sibling decline pair above is split for the same reason.
+  // ★ The two bodies differ in ONE input, the confirm answer, so the pair
+  // isolates exactly what the argument tracks.
+
+  it("does NOT raise the quoting hold when the user DECLINES the overwrite", async () => {
+    // §287: the handle is bound INSIDE the accept branch, so a declined open
+    // leaves the backend on the user's previous file. Halting autosave there
+    // pauses an untouched project all session over a file never opened.
+    const b = makeImportBackend();
+    // The MOUNT load seeds a live task so the confirm is reached at all — with
+    // no live tasks the handler applies unconditionally and the decline branch
+    // is never entered.
+    b.load.mockImplementationOnce(
+      async () => ({ ...emptyWorkspace(), tasks: [{ id: 1, taskName: "Live" }] }) as never,
+    );
+    createBackendMock.mockReturnValue(b);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasIncomplete).toBe(false); // control: not already raised
+
+    b.load.mockImplementationOnce(async () => {
+      b.lastImportMalformedQuotes = 3;
+      return emptyWorkspace();
+    });
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    expect(window.confirm).toHaveBeenCalled();    // control: the decline really happened
+    expect(result.current.tasks).toHaveLength(1); // control: the live workspace survived
+    // ★ POSITIVE CONTROL, and the load-bearing one: it proves the fixture
+    //   published a malformed count at all. Without it "the hold is down" is
+    //   equally satisfied by a load that reported nothing, and the test would
+    //   pass against a `reportImportFor` that had stopped reading the field.
+    expect(survivingToast()).toContain("breaks CSV quoting rules");
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("DOES raise the quoting hold when the user ACCEPTS the overwrite", async () => {
+    const b = makeImportBackend();
+    b.load.mockImplementationOnce(
+      async () => ({ ...emptyWorkspace(), tasks: [{ id: 1, taskName: "Live" }] }) as never,
+    );
+    createBackendMock.mockReturnValue(b);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasIncomplete).toBe(false); // control: not already raised
+
+    b.load.mockImplementationOnce(async () => {
+      b.lastImportMalformedQuotes = 3;
+      return emptyWorkspace();
+    });
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    expect(window.confirm).toHaveBeenCalled();    // control: the confirm was reached
+    expect(result.current.tasks).toHaveLength(0); // control: the opened file was applied
+    expect(result.current.loadWasIncomplete).toBe(true);
   });
 
   it("switchToTursoProject reports the target's unbalanced quotes", async () => {
@@ -3819,5 +3912,126 @@ describe("useStorageBackend — the decode signal survives the empty-load refusa
     expect(result.current.tasks).toHaveLength(1);
     expect(result.current.decodeFailureCount).toBe(2);
     expect(result.current.loadWasIncomplete).toBe(true);
+  });
+});
+
+describe("useStorageBackend — onOpenStorageFile binds the picked handle only on accept (§287)", () => {
+  /** LOCAL per test, never the shared `mockBackend`: these fixtures install
+   *  IMPLEMENTATIONS, and `vi.clearAllMocks()` is `mockClear` — it wipes call
+   *  history and leaves implementations in place, so a leak here would surface
+   *  under the shuffled-seed gate as a failure somewhere else in the file.
+   *
+   *  The MOUNT load seeds a live task so the overwrite confirm is actually
+   *  REACHED: `onOpenStorageFile` short-circuits it on `tasks.length === 0`, and
+   *  with an empty workspace every assertion below would hold for the wrong
+   *  reason. The picked file carries DIFFERENT tasks, which is what makes
+   *  "was the workspace replaced?" decidable rather than a matter of counting. */
+  function useOpenableBackend() {
+    const picked = { name: "picked.json" };
+    const backend = {
+      kind: "local-json",
+      load: vi.fn(async () => ({ ...storageMod.emptyWorkspace(), tasks: [{ id: 1, taskName: "Live" }] })),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("picked.json"),
+    };
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(backend);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(picked));
+    (storageMod.loadFromHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve({ ...storageMod.emptyWorkspace(), tasks: [{ id: 2, taskName: "From the picked file" }] }),
+    );
+    return { backend, picked };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // Undo the two implementations above: `mockClear` does not remove a
+    // `mockReturnValue`, so leaving them set would make some OTHER test's
+    // `onOpenStorageFile` read THIS fixture under the shuffled-seed gate.
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReset();
+    (storageMod.loadFromHandleForBackend as ReturnType<typeof vi.fn>).mockImplementation(
+      (backend: { load: () => Promise<unknown> }) => backend.load(),
+    );
+  });
+
+  it("does not bind the picked handle when the user declines the overwrite", async () => {
+    // ★★★ THE PROBE §287 RECORDS AS NEVER HAVING EXISTED. Before the fix,
+    // `LocalFileBackend.openFile()` persisted the handle before this confirm ran,
+    // so declining kept the live workspace AND re-pointed storage — the next
+    // debounced save then wrote the live project over a file the user had just
+    // refused, behind a UI still naming the previous file.
+    //
+    // ★★ MUTANT THAT KILLS THIS (measured, not reasoned): move
+    // `await setBackendFileHandle(backend, picked);` out of the accept branch to
+    // directly after `const picked = await promise;` — the exact pre-fix order.
+    // Only the LAST assertion here dies (1 call, expected 0); the confirm
+    // control and the `toHaveLength(1)` control both survive it, so this mutant
+    // proves the commit's PLACEMENT and nothing else. The sibling test below is
+    // what proves the workspace half, and the accept test what proves the
+    // commit still happens at all.
+    useOpenableBackend();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.tasks).toHaveLength(1); // control: the confirm is reachable at all
+
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    expect(confirmSpy).toHaveBeenCalled(); // control: the decline really happened
+    expect(storageMod.setBackendFileHandle).not.toHaveBeenCalled();
+  });
+
+  it("keeps the live workspace when the user declines — the half a mock assertion cannot see", async () => {
+    // ★★ A SEPARATE `it()` ON PURPOSE. vitest aborts a test at its first failing
+    // hard assertion, so folding this into the one above would leave whichever
+    // ran second unproved. "setHandle was not called" is a claim about a MOCK;
+    // this is the claim about the user's DATA, and only the two together say the
+    // decline was honoured.
+    useOpenableBackend();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    expect(result.current.tasks).toHaveLength(1);
+    expect(result.current.tasks[0].taskName).toBe("Live"); // NOT "From the picked file"
+  });
+
+  it("binds the picked handle when the user accepts (positive control)", async () => {
+    // ★★ WITHOUT THIS, a backend that refused every open — or a handler that
+    // never reached the commit at all — would satisfy both assertions above
+    // perfectly. It also pins WHICH handle is bound: the one just picked.
+    const { backend, picked } = useOpenableBackend();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    expect(storageMod.setBackendFileHandle).toHaveBeenCalledTimes(1);
+    expect(storageMod.setBackendFileHandle).toHaveBeenCalledWith(backend, picked);
+  });
+
+  it("applies the opened workspace when the user accepts", async () => {
+    // ★★★ ITS OWN it(), and the sibling decline pair is split for exactly this
+    // reason — the note is stated twice in this file and was then not applied here.
+    // vitest aborts a test at its first failing hard assertion, so while this rode
+    // along beneath the two `setBackendFileHandle` expectations above it was UNPROVED
+    // whenever either of them failed. It is also a different KIND of claim: those two
+    // read a MOCK and this one reads the resulting workspace, so a regression that
+    // bound the handle correctly and applied nothing would have been reported as one
+    // failure in one place rather than as the two independent facts they are.
+    useOpenableBackend();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    expect(result.current.tasks[0].taskName).toBe("From the picked file");
   });
 });

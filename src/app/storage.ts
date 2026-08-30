@@ -10,7 +10,7 @@
 import { SharePointBackend } from "./sharepoint-backend";
 import { TursoBackend } from "./turso-backend";
 import type { TursoConfig } from "./turso-config";
-import { type StorageConfig, type StorageBackend } from "./workspace"; // facade-internal
+import { type StorageConfig, type StorageBackend, type Workspace } from "./workspace"; // facade-internal
 import { type FsHandle } from "./fs-access"; // facade-internal
 import { BrowserBackend } from "./browser-backend"; // facade-internal
 import { LocalFileBackend } from "./local-file-backend"; // facade-internal
@@ -79,10 +79,28 @@ export function pickFileForBackend(
   return null;
 }
 
+/**
+ * Pick a file and RETURN its handle, committing nothing (§287). The caller
+ * decides when — and whether — to bind it with {@link setBackendFileHandle};
+ * pair it with {@link loadFromHandleForBackend} to read the picked file first.
+ */
 export function openFileForBackend(
   backend: StorageBackend,
-): Promise<void> | null {
+): Promise<FsHandle> | null {
   if (backend instanceof LocalFileBackend) return backend.openFile();
+  return null;
+}
+
+/**
+ * Read a workspace from an EXPLICIT handle, without consulting or touching the
+ * backend's stored handle — the read half of the commit-on-accept split (§287),
+ * so a caller can show the user what a picked file contains before binding it.
+ */
+export function loadFromHandleForBackend(
+  backend: StorageBackend,
+  handle: FsHandle,
+): Promise<Workspace> | null {
+  if (backend instanceof LocalFileBackend) return backend.loadFrom(handle);
   return null;
 }
 

@@ -11,7 +11,9 @@ import type {
 import { resourceDisplayName } from "./resource-foundation";
 import { mintIds, type MintKind } from "./id-mint-session";
 import { sanitizeRichHtml } from "./sanitize-html";
-import { htmlPlainProjection } from "./rich-text-plain";
+import { htmlPlainProjection, sanitizeRichText, htmlTextLength } from "./rich-text-plain";
+import { RICH_SINK } from "./html-start";
+import { TEXTAREA_MAX } from "./sanitize";
 
 export interface ApplyTemplateOptions {
   includeSeed: boolean;
@@ -79,6 +81,51 @@ function remapDeps(
  * function's name. A narrower list here would destroy a captured heading that
  * the classifier had already accepted as live markup.
  */
+/**
+ * Allow-list ONE rich HTML field, then RE-APPLY THE EMPTY RULE. The only way
+ * this file should reach `sanitizeRichHtml` — every rich-field site in the four
+ * `allowList*` passes below routes through here.
+ *
+ * ★★★ THE SECOND PASS IS THE POINT, AND A BARE `sanitizeRichHtml` AT A NEW SITE
+ * REINTRODUCES THE DEFECT IT CLOSES. The allow-list can EMPTY a value whose only
+ * content was a disallowed element while leaving its wrapper standing:
+ * `"<p><script>x</script></p>"` and `"<p><img src=a></p>"` both come out as
+ * `"<p></p>"` — measured, not reasoned. `"<p></p>"` is TRUTHY, so it sails
+ * through every `if (description)` gate downstream and is stored, exported and
+ * indexed as content for a field that is in fact empty. `sanitizeRichText` drops
+ * a visually-empty value, so re-running it turns the phantom back into `""`.
+ *
+ * ★★ This is `sanitizeAiRichText`'s (`ai-rich-text.ts`) trailing re-run, copied
+ * deliberately — same defect, same repair, same two constants. `TEXTAREA_MAX`
+ * and `RICH_SINK` are the SAME ones that boundary uses ON PURPOSE: both guard
+ * the same rich ENTITY fields on their way into the same six write paths, so
+ * picking a different cap or sink here would let the two boundaries drift and
+ * store bytes one of them would have refused. Do not "tidy" either into a local
+ * constant.
+ *
+ * ★★★ "ENTITY FIELDS" IS LITERAL AND EXCLUDES NOTE-LOG HTML, WHICH IS WHY
+ * `allowListNoteLog` DOES NOT CALL THIS. The parity argument above rests on both
+ * boundaries guarding the SAME fields, and `AI_RICH_FIELDS` covers RAID
+ * description/mitigation, Change description/impactDescription/resolutionNotes and
+ * Milestone description — a note entry's `html` is not among them. Its canonical
+ * route (`sanitizeNoteLog`) caps at `MAX_NOTE_HTML`, a flat 20 000-character html
+ * bound with NO visible-text cap and no degrade-to-plain. `TEXTAREA_MAX` is 5 000
+ * VISIBLE characters and `sanitizeRichText` flattens past it, so routing note html
+ * through here silently turned any long rich note into plain text on apply — a
+ * loss the canonical route does not have. MEASURED, not reasoned: a 6 000-character
+ * bolded paragraph keeps its `<strong>` through `sanitizeRichHtml` and loses it
+ * through this composition. That was shipped by the commit that introduced this
+ * helper and caught in review; see §298 for the sibling divergence on the seed route.
+ *
+ * ★ Note what the re-run does NOT do: it is the empty rule and the cap, not a
+ * second allow-list, and it cannot recognise less than the pass above it keeps
+ * (`isHtmlStart(value, "rich")` derives its test from the same
+ * `RICH_ALLOWED_TAGS` list `sanitizeRichHtml` enforces).
+ */
+function allowListField(html: string): string {
+  return sanitizeRichText(sanitizeRichHtml(html), TEXTAREA_MAX, RICH_SINK);
+}
+
 function allowListNoteLog(noteLog: NoteLogEntry[] | undefined): NoteLogEntry[] | undefined {
   // ★★ `text` MUST be re-derived, not carried. The allow-list can remove markup
   // whose inner text the projection had already captured — `<p>ok</p><script>
@@ -89,8 +136,17 @@ function allowListNoteLog(noteLog: NoteLogEntry[] | undefined): NoteLogEntry[] |
   // ★ Same rule `sanitizeSeedNoteLog` states on the way in: the html is the
   // source of truth and `text` is derived from it, at every boundary that
   // rewrites the html.
+  // ★★★ THE EMPTY RULE WITHOUT THE CAP, and the split is deliberate — see the
+  // carve-out on `allowListField`. Note html must NOT meet `TEXTAREA_MAX`: that is a
+  // 5 000-VISIBLE-character bound that degrades to plain text, while this field's
+  // canonical route caps at `MAX_NOTE_HTML` (20 000 html chars, no degrade). Calling
+  // the shared helper here flattened long rich notes on apply. The phantom-`<p></p>`
+  // half still applies though — an allow-listed body whose only content was a
+  // disallowed element leaves its wrapper standing — so the empty rule is applied
+  // directly via `htmlTextLength`, which is the same test `sanitizeRichText` ends on.
   return noteLog?.map((n) => {
-    const html = sanitizeRichHtml(n.html);
+    const cleaned = sanitizeRichHtml(n.html);
+    const html = htmlTextLength(cleaned) === 0 ? "" : cleaned;
     return { ...n, html, text: htmlPlainProjection(html) };
   });
 }
@@ -102,7 +158,7 @@ function allowListRich<T extends { description?: string; noteLog?: NoteLogEntry[
 ): T {
   return {
     ...row,
-    ...(row.description ? { description: sanitizeRichHtml(row.description) } : {}),
+    ...(row.description ? { description: allowListField(row.description) } : {}),
     ...(row.noteLog ? { noteLog: allowListNoteLog(row.noteLog) } : {}),
   };
 }
@@ -113,7 +169,7 @@ function allowListRich<T extends { description?: string; noteLog?: NoteLogEntry[
  *  caller. */
 function allowListRaid(row: RaidItem): RaidItem {
   const base = allowListRich(row);
-  return row.mitigation ? { ...base, mitigation: sanitizeRichHtml(row.mitigation) } : base;
+  return row.mitigation ? { ...base, mitigation: allowListField(row.mitigation) } : base;
 }
 
 /** Changes carry THREE rich fields beyond the note log — `description` (the
@@ -129,10 +185,10 @@ function allowListChange(row: ChangeItem): ChangeItem {
   return {
     ...base,
     ...(row.impactDescription
-      ? { impactDescription: sanitizeRichHtml(row.impactDescription) }
+      ? { impactDescription: allowListField(row.impactDescription) }
       : {}),
     ...(row.resolutionNotes
-      ? { resolutionNotes: sanitizeRichHtml(row.resolutionNotes) }
+      ? { resolutionNotes: allowListField(row.resolutionNotes) }
       : {}),
   };
 }
@@ -239,23 +295,81 @@ export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
   return out;
 }
 
-/** Append an already-remapped seed onto a workspace, non-destructively. Pure. */
+/** The four allow-list passes, applied to a whole seed. Tasks and milestones
+ *  share `allowListRich` (description + note log); RAID adds `mitigation` and
+ *  changes add `impactDescription` + `resolutionNotes`.
+ *  ★ Stakeholders, budgets and resources carry no rich HTML field, so they are
+ *  deliberately absent rather than overlooked — `Stakeholder.notes` and
+ *  `Resource.notes` (`types.ts`) are plain free text and `BudgetBucket` has no
+ *  notes field at all. `AI_RICH_FIELDS` in `ai-rich-text.ts` corroborates from
+ *  the other direction: it names the entities that DO carry a rich field
+ *  outside a note log — raid, change, milestone (`Task.description` is handled
+ *  separately, via `sanitizeAiRichText` directly, so it is not a fourth key
+ *  there) — and none of the three absentees here is among them. */
+function allowListSeed(seed: TemplateSeed): TemplateSeed {
+  let out = seed;
+  if (out.tasks) out = { ...out, tasks: out.tasks.map(allowListRich) };
+  // RAID has no equivalent single-item re-sanitizer exported from
+  // `templates.ts` for this to run alongside, so this only layers the
+  // allow-list onto `description`/`mitigation`/`noteLog` — it does not
+  // re-validate the rest of the row.
+  if (out.raid) out = { ...out, raid: out.raid.map(allowListRaid) };
+  if (out.changes) out = { ...out, changes: out.changes.map(allowListChange) };
+  // ★★ Milestones carry NO note log but DO carry a rich `description` —
+  // `sanitizeMilestone` upgrades it through the same `sanitizeRichText`/
+  // `RICH_SINK` pair inside the DOM-free graph and cannot allow-list it, so it
+  // is the fourth seeded ENTITY and belongs here exactly as the other three do.
+  // ★ ENTITY, not field — it is the tenth allow-listed rich FIELD (and the
+  // seventh that is not a note log). The two counts differ because three
+  // entities carry more than one rich field each, and an earlier revision of
+  // this line said "fourth seeded rich field", which contradicts §36(a)'s
+  // table. It was missed on the first cut because the scope was framed as "the
+  // note-log entities", which is a property of the CARRY (§168) and not of
+  // this allow-list — the two have different footprints and the entity list
+  // must be derived from "what is rich", never from "what has a note log".
+  if (out.milestones) out = { ...out, milestones: out.milestones.map(allowListRich) };
+  return out;
+}
+
+/** ★★★ THE ALLOW-LIST RUNS HERE, not in `applyTemplate`, and that placement is
+ *  the whole of open-followups §288. `applyTemplate` and the AI-seed branch of
+ *  `buildNewProjectWorkspace` end in the IDENTICAL `appendSeed(…, remapSeed(…))`
+ *  tail; the four passes used to sit above only the template one, so a seed the
+ *  model produced reached a workspace with no allow-list pass at all.
+ *  ★★ Fixing it at the PRODUCER (`proposalToSeed`) was rejected for the reason
+ *  the §228 comment in this same file already gives about fixing at save: apply
+ *  is the only ingress into a workspace, so a producer-side fix leaves every
+ *  other seed source — including one added tomorrow — unprotected.
+ *  ★★ The passes are IDEMPOTENT and must stay so: an AI task already met
+ *  `sanitizeAiRichText` in `buildSeedTask` and now meets `allowListRich` too.
+ *  `allowListNoteLog` re-derives `text` from the html at every boundary, so it
+ *  is idempotent by construction; `sanitizeRichHtml` is idempotent under its
+ *  default configuration — but read that pin's SCOPE before leaning on it:
+ *  `sanitize-html.test.ts`'s "is idempotent on already-clean html" covers
+ *  exactly the second-application case this relies on, and nothing wider.
+ *  ★ `allowListField`'s trailing `sanitizeRichText` re-run inherits the same
+ *  qualification: `rich-text-plain.test.ts`'s "is idempotent — it runs on every
+ *  load" pins `descriptionHtml` over four inputs, which is the upgrade half; the
+ *  cap and the empty rule are idempotent by construction (a value already at or
+ *  under the cap is unchanged, and `""` stays `""`), and nothing pins the
+ *  composed function end to end. */
 export function appendSeed(ws: Workspace, seed: TemplateSeed): Workspace {
+  const allowed = allowListSeed(seed);
   return {
     ...ws,
-    tasks: seed.tasks ? [...ws.tasks, ...seed.tasks] : ws.tasks,
-    milestones: seed.milestones
-      ? [...(ws.milestones ?? []), ...seed.milestones]
+    tasks: allowed.tasks ? [...ws.tasks, ...allowed.tasks] : ws.tasks,
+    milestones: allowed.milestones
+      ? [...(ws.milestones ?? []), ...allowed.milestones]
       : ws.milestones,
-    raid: seed.raid ? [...ws.raid, ...seed.raid] : ws.raid,
-    changes: seed.changes
-      ? [...(ws.changes ?? []), ...seed.changes]
+    raid: allowed.raid ? [...ws.raid, ...allowed.raid] : ws.raid,
+    changes: allowed.changes
+      ? [...(ws.changes ?? []), ...allowed.changes]
       : ws.changes,
-    stakeholders: seed.stakeholders
-      ? [...(ws.stakeholders ?? []), ...seed.stakeholders]
+    stakeholders: allowed.stakeholders
+      ? [...(ws.stakeholders ?? []), ...allowed.stakeholders]
       : ws.stakeholders,
-    budgets: seed.budgets ? [...(ws.budgets ?? []), ...seed.budgets] : ws.budgets,
-    resources: seed.resources ? [...(ws.resources ?? []), ...seed.resources] : ws.resources,
+    budgets: allowed.budgets ? [...(ws.budgets ?? []), ...allowed.budgets] : ws.budgets,
+    resources: allowed.resources ? [...(ws.resources ?? []), ...allowed.resources] : ws.resources,
   };
 }
 
@@ -287,44 +401,19 @@ export function applyTemplate(
   //   `migrateTask` backfills a replacement from `lastUpdateDate` — so the
   //   applied task still carries a `createdDate`, just not the one that was
   //   captured. ★★ NINE, NOT TEN, AND `noteLog` IS NO LONGER AMONG THEM — it is
-  //   CARRIED as of §168, and allow-listed a dozen lines below in this very file.
-  //   Leaving it on this list contradicted the `allowListRich` docstring
-  //   underneath it. The load path already dropped all nine; this makes the two
+  //   CARRIED as of §168, and allow-listed inside `appendSeed` (§288 moved the
+  //   pass there from this function — see `allowListSeed`'s docstring above).
+  //   Leaving it on this list contradicted the `allowListRich` docstring.
+  //   The load path already dropped all nine; this makes the two
   //   agree. It also stops a per-row external link being CLONED — two local
   //   tasks pointing at one Jira issue is not a template.
-  let seed = tpl.seed.tasks
+  const seed = tpl.seed.tasks
     ? {
         ...tpl.seed,
         tasks: tpl.seed.tasks
           .map(sanitizeSeedTask)
-          .filter((x): x is Task => x !== null)
-          // ★★ The allow-list pass — see the docstring above `allowListRich`.
-          .map(allowListRich),
+          .filter((x): x is Task => x !== null),
       }
     : tpl.seed;
-  // RAID has no equivalent single-item re-sanitizer exported from
-  // `templates.ts` for `applyTemplate` to run here, so this only layers the
-  // allow-list onto `description`/`mitigation`/`noteLog` — it does not
-  // re-validate the rest of the row.
-  if (seed.raid) {
-    seed = { ...seed, raid: seed.raid.map(allowListRaid) };
-  }
-  if (seed.changes) {
-    seed = { ...seed, changes: seed.changes.map(allowListChange) };
-  }
-  // ★★ Milestones carry NO note log but DO carry a rich `description` —
-  // `sanitizeMilestone` upgrades it through the same `sanitizeRichText`/
-  // `RICH_SINK` pair inside the DOM-free graph and cannot allow-list it, so it
-  // is the fourth seeded ENTITY and belongs here exactly as the other three do.
-  // ★ ENTITY, not field — it is the tenth allow-listed rich FIELD (and the
-  // seventh that is not a note log). The two counts differ because three
-  // entities carry more than one rich field each, and an earlier revision of
-  // this line said "fourth seeded rich field", which contradicts §36(a)'s table. It was missed on the first cut because the scope was framed as "the
-  // note-log entities", which is a property of the CARRY (§168) and not of this
-  // allow-list — the two have different footprints and the entity list must be
-  // derived from "what is rich", never from "what has a note log".
-  if (seed.milestones) {
-    seed = { ...seed, milestones: seed.milestones.map(allowListRich) };
-  }
   return appendSeed(base, remapSeed(ws, seed));
 }
