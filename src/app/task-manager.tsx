@@ -194,7 +194,17 @@ function TaskManagerInner() {
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
   // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
   // capture is threaded into each entity hook below; undo/control are surfaces. ★ Undo/redo is ALWAYS user-caused — a chat tool write takes no undo capture.
-  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction });
+  // ★ `allowDestructiveSave` is produced by `useStorageBackend` further down, so
+  // it does not exist at this call site. Forward it through a ref filled by the
+  // effect below — the same pattern `use-reference-data.ts` uses for THIS VERY
+  // callback (`allowDestructiveRef.current = args.allowDestructiveSave`, spent at
+  // `allowDestructiveRef.current?.()`), and `use-bulk-operations.ts` and
+  // `use-document-assets.ts` use for the same one. Moving the `useUndoStack` call
+  // down instead would also move `useUndoHotkey`'s listener registration relative
+  // to the other hotkey hooks.
+  const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined);
+  const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
+  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo });
   useUndoHotkey(undoApi.undo, undoApi.redo);
   // Stable identity so ToastProvider consumers don't re-render on every parent render.
   const toastApi = useMemo(() => ({ showToast, showToastAction }), [showToast, showToastAction]);
@@ -448,6 +458,10 @@ function TaskManagerInner() {
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
   } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => setDestructiveBannerDismissed(false), setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+
+  // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
+  // that re-removes rows can arm the one-shot destructive-save bypass (§295).
+  useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; }, [allowDestructiveSave]);
 
   // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
   // incomplete load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).

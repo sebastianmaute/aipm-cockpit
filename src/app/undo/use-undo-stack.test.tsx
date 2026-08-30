@@ -492,6 +492,63 @@ describe("useUndoStack", () => {
     // ★ Cascade FK follows the re-mint to 8 (would be a stale 7 without flushSync).
     expect(result.current.refs).toEqual([{ id: 1, roleId: 8 }]);
   });
+
+  // ── §295: a redo re-applies a deletion, so it must arm the storage bypass ──
+  it("arms the destructive bypass when a redo re-removes rows", () => {
+    const allowDestructiveSave = vi.fn();
+    const deps = makeDeps({ allowDestructiveSave });
+    const { result } = renderHook(() => useUndoStack(deps));
+    let arr: readonly Row[] = [{ id: 1, name: "a" }];
+    const setter = (u: SetStateAction<readonly Row[]>) => { arr = typeof u === "function" ? u(arr) : u; };
+
+    act(() => {
+      result.current.capture({ setter, kind: "task.deleted", removed: [{ id: 2, name: "b" }, { id: 3, name: "c" }], fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }] });
+    });
+    act(() => { result.current.undo(); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled(); // undo RESTORES — nothing to authorise
+    act(() => { result.current.redo(); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not arm when a redo only re-applies an edit", () => {
+    // ★ The leak class §294 is about: arming on EVERY redo would hand a
+    // one-shot destructive bypass to an ordinary bulk-edit redo, and the next
+    // unrelated save would spend it.
+    const allowDestructiveSave = vi.fn();
+    const deps = makeDeps({ allowDestructiveSave });
+    const { result } = renderHook(() => useUndoStack(deps));
+    let arr: readonly Row[] = [{ id: 1, name: "after" }];
+    const setter = (u: SetStateAction<readonly Row[]>) => { arr = typeof u === "function" ? u(arr) : u; };
+
+    act(() => {
+      result.current.capture({ setter, kind: "task.updated", edited: [{ id: 1, name: "before" }], fromArray: [{ id: 1, name: "before" }] });
+    });
+    act(() => { result.current.undo(); });
+    act(() => { result.current.redo(); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+  });
+
+  it("arms when any fragment of a composite redo removes rows", () => {
+    const allowDestructiveSave = vi.fn();
+    const deps = makeDeps({ allowDestructiveSave });
+    const { result } = renderHook(() => useUndoStack(deps));
+    let rows: readonly Row[] = [{ id: 1, name: "kept" }];
+    let refs: readonly Ref[] = [{ id: 9, roleId: 1 }];
+    const rowSetter = (u: SetStateAction<readonly Row[]>) => { rows = typeof u === "function" ? u(rows) : u; };
+    const refSetter = (u: SetStateAction<readonly Ref[]>) => { refs = typeof u === "function" ? u(refs) : u; };
+
+    act(() => {
+      const editPart = capturePart<Ref>({ setter: refSetter, edited: [{ id: 9, roleId: 2 }], fromArray: [{ id: 9, roleId: 2 }] });
+      const deletePart = capturePart<Row>({ setter: rowSetter, removed: [{ id: 2, name: "gone" }], fromArray: [{ id: 1, name: "kept" }, { id: 2, name: "gone" }], isPrimary: true });
+      result.current.captureComposite({ kind: "task.deleted", primaryCount: 1, parts: [editPart, deletePart] });
+    });
+    act(() => { result.current.undo(); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    act(() => { result.current.redo(); });
+    // ★ Composites arm because a FRAGMENT arms — `compositeUndoRunner` composes
+    // the fragment redos and needs no check of its own. Do not add one.
+    expect(allowDestructiveSave).toHaveBeenCalled();
+  });
 });
 
 describe("buildUndoLabel — entity registration", () => {
