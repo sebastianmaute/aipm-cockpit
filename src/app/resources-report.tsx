@@ -228,9 +228,11 @@ function ByPeriodTable({ lang, rows, colResize, days, money }: {
           head={
             <tr>
               <SortResizeTh {...th} label={t(lang, "resourcesReportByPeriod")} sortCol="name" resizeCol="label" width={w.label} />
-              <SortResizeTh {...th} label={t(lang, "resourcesCapacityDays")} sortCol="days" width={w.days} align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
-              <SortResizeTh {...th} label={t(lang, "resourcesInternalCost")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} />
-              <SortResizeTh {...th} label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesCapacityDays")} nameContext={t(lang, "resourcesReportByPeriod")} sortCol="days" width={w.days} align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesInternalCost")} nameContext={t(lang, "resourcesReportByPeriod")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesExternalCost")} nameContext={t(lang, "resourcesReportByPeriod")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} />
+              {/* Margin is unique to this table (no other co-rendered table has
+                  a Margin column) — bare label per AGENTS.md's no-blanket rule. */}
               <SortResizeTh {...th} label={t(lang, "resourcesMargin")} sortCol="margin" width={w.margin} align="right" hint={t(lang, "resourcesMarginHint")} />
             </tr>
           }
@@ -300,10 +302,10 @@ function ByGroupTable({ lang, title, rows, colResize, days, money }: {
           head={
             <tr>
               <SortResizeTh {...th} label={title} sortCol="name" resizeCol="label" width={w.label} />
-              <SortResizeTh {...th} label={t(lang, "resourcesReportHeadcount")} sortCol="headcount" width={w.headcount} align="right" />
-              <SortResizeTh {...th} label={t(lang, "resourcesCapacityDays")} sortCol="days" width={w.days} align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
-              <SortResizeTh {...th} label={t(lang, "resourcesInternalCost")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} />
-              <SortResizeTh {...th} label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesReportHeadcount")} nameContext={title} sortCol="headcount" width={w.headcount} align="right" />
+              <SortResizeTh {...th} label={t(lang, "resourcesCapacityDays")} nameContext={title} sortCol="days" width={w.days} align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesInternalCost")} nameContext={title} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesExternalCost")} nameContext={title} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} />
             </tr>
           }
           tbodyClassName="divide-y divide-line"
@@ -363,9 +365,9 @@ function ByResourceTable({ lang, rows, colResize, days, money }: {
               <SortResizeTh {...th} label={t(lang, "assignee")} sortCol="name" width={w.name} />
               <SortResizeTh {...th} label={t(lang, "resourcesRole")} sortCol="role" width={w.role} />
               <SortResizeTh {...th} label={t(lang, "resourcesReportAvgUtil")} sortCol="avgUtil" width={w.avgUtil} align="right" hint={t(lang, "resourcesReportAvgUtilHint")} />
-              <SortResizeTh {...th} label={t(lang, "resourcesCapacityDays")} sortCol="capDays" width={w.capDays} align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
-              <SortResizeTh {...th} label={t(lang, "resourcesInternalCost")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} />
-              <SortResizeTh {...th} label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesCapacityDays")} nameContext={t(lang, "resourcesReportByResource")} sortCol="capDays" width={w.capDays} align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesInternalCost")} nameContext={t(lang, "resourcesReportByResource")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesExternalCost")} nameContext={t(lang, "resourcesReportByResource")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} />
             </tr>
           }
           tbodyClassName="divide-y divide-line"

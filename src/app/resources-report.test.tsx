@@ -2,6 +2,7 @@ import { test, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ResourcesReportPanel } from "./resources-report";
 import type { Resource, Role, Discipline, Grade, ResourcePlan } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const disciplines: Discipline[] = [{ id: 1, name: "Developer" }];
 const grades: Grade[] = [{ id: 1, name: "Senior" }];
@@ -58,6 +59,21 @@ test("shows a margin RAG badge in the by-period table", () => {
       holidaySet={new Set()} workdayHours={8} />,
   );
   expect(screen.getAllByText(/^[RAG]$/).length).toBeGreaterThan(0);
+});
+
+test("keeps every sortable header distinct across the co-rendered By Period / By Discipline / By Grade / By Combo / By Resource tables", () => {
+  // Fixture (one resource with a role, one discipline, one grade) populates
+  // every ByGroupTable instance plus ByPeriodTable and ByResourceTable, so the
+  // collision is real, not a vacuous empty-table pass.
+  render(
+    <ResourcesReportPanel lang="en-US" resources={resources} roles={roles}
+      disciplines={disciplines} grades={grades} plan={plan} absences={[]}
+      holidaySet={new Set()} workdayHours={8} />,
+  );
+  // Measured: the five tables + toolbar render 46 `button`-role controls in
+  // this fixture (obtained by passing 9999 once and reading the actual count
+  // off the throw message, per the shared helper's own doc comment).
+  expectRowUniqueNames({ minControls: 46, requireCollisionSeed: false });
 });
 
 test("resource report uses a resizable ReportCard with sort buttons, a filter input, and resize handles", () => {

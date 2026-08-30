@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { RaidReportPanel } from "./raid-report-panel";
 import type { RaidItem } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const TODAY = "2026-05-28";
 
@@ -85,6 +86,16 @@ describe("RaidReportPanel", () => {
     const titleHeader = screen.getByRole("button", { name: /title/i });
     fireEvent.click(titleHeader);
     expect(screen.getByText("Server capacity risk")).toBeInTheDocument();
+  });
+
+  it("keeps every sortable header distinct across the co-rendered summary tables", () => {
+    // Fixture covers every summary table's rows (severity variety, owner
+    // variety, open items, category variety, non-zero aging buckets) so the
+    // collision is real, not a vacuous empty-table pass.
+    render(<RaidReportPanel lang="en-US" items={items} today={TODAY} />);
+    // Measured: the summary view's six tables + toolbar render 29
+    // `button`-role controls in this fixture.
+    expectRowUniqueNames({ minControls: 29, requireCollisionSeed: false });
   });
 
   it("embedded mode shows summary content and no toggle or print button", () => {

@@ -296,7 +296,7 @@ function StatusTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
         <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
               <SortResizeTh {...th} label={t(lang, "raidReportByStatus")} sortCol="name" resizeCol="label" width={w.label} />
-              <SortResizeTh {...th} label={t(lang, "raidReportColOpen")} sortCol="open" width={w.open} align="right" />
+              <SortResizeTh {...th} label={t(lang, "raidReportColOpen")} nameContext={t(lang, "raidReportByStatus")} sortCol="open" width={w.open} align="right" />
             </tr>
           </>} tbodyClassName="divide-y divide-line">
             {sorted.map((row) => (
@@ -438,7 +438,12 @@ function CategoryTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport
         <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
               <SortResizeTh {...th} label={t(lang, "raidReportByCategory")} sortCol="name" resizeCol="label" width={w.label} />
-              <SortResizeTh {...th} label={t(lang, "raidReportColOpen")} sortCol="open" width={w.open} align="right" />
+              {/* Only "Open" collides — StatusTable's own Open column, in the
+                  same summary view. "Closed"/"Overdue" share their label with
+                  no other co-rendered header, so per AGENTS.md they stay bare:
+                  a nameContext here would only add noise for every
+                  screen-reader user. */}
+              <SortResizeTh {...th} label={t(lang, "raidReportColOpen")} nameContext={t(lang, "raidReportByCategory")} sortCol="open" width={w.open} align="right" />
               <SortResizeTh {...th} label={t(lang, "raidReportColClosed")} sortCol="closed" width={w.closed} align="right" />
               <SortResizeTh {...th} label={t(lang, "raidReportColOverdue")} sortCol="overdue" width={w.overdue} align="right" />
             </tr>
@@ -593,11 +598,11 @@ function RaidCountHead({
     <thead className={TABLE_HEAD_CLASS}>
       <tr>
         <SortResizeTh {...th} label={t(lang, firstLabelKey)} sortCol="name" resizeCol="label" width={w.label} />
-        <SortResizeTh {...th} label={t(lang, "raidCategoryRisk")} sortCol="risks" width={w.risks} align="right" />
-        <SortResizeTh {...th} label={t(lang, "raidCategoryAssumption")} sortCol="assumptions" width={w.assumptions} align="right" />
-        <SortResizeTh {...th} label={t(lang, "raidCategoryIssue")} sortCol="issues" width={w.issues} align="right" />
-        <SortResizeTh {...th} label={t(lang, "raidCategoryDependency")} sortCol="dependencies" width={w.dependencies} align="right" />
-        <SortResizeTh {...th} label={t(lang, "raidReportColTotal")} sortCol="total" width={w.total} align="right" />
+        <SortResizeTh {...th} label={t(lang, "raidCategoryRisk")} nameContext={t(lang, firstLabelKey)} sortCol="risks" width={w.risks} align="right" />
+        <SortResizeTh {...th} label={t(lang, "raidCategoryAssumption")} nameContext={t(lang, firstLabelKey)} sortCol="assumptions" width={w.assumptions} align="right" />
+        <SortResizeTh {...th} label={t(lang, "raidCategoryIssue")} nameContext={t(lang, firstLabelKey)} sortCol="issues" width={w.issues} align="right" />
+        <SortResizeTh {...th} label={t(lang, "raidCategoryDependency")} nameContext={t(lang, firstLabelKey)} sortCol="dependencies" width={w.dependencies} align="right" />
+        <SortResizeTh {...th} label={t(lang, "raidReportColTotal")} nameContext={t(lang, firstLabelKey)} sortCol="total" width={w.total} align="right" />
       </tr>
     </thead>
   );
