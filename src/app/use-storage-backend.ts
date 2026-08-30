@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useBroadcastSync } from "./broadcast-sync";
 import { t } from "./i18n";
 import {
@@ -11,7 +11,6 @@ import {
   pickFileForBackend, requestWriteAccessForBackend, setBackendFileHandle,
 } from "./storage";
 import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
-import { evaluateSaveGuard } from "./save-guard";
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
@@ -28,6 +27,7 @@ import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
 import { useFileProjectOps } from "./use-storage-file-ops";
 import { useLoadTruncation } from "./use-load-truncation";
+import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
 import { STORAGE_LABEL_KEYS, type UseStorageBackendArgs } from "./use-storage-backend-types";
 
 export type { UseStorageBackendArgs } from "./use-storage-backend-types";
@@ -120,20 +120,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const suppressNextLoadRef = useRef(false);
   // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
   const reloadInFlightRef = useRef(false);
-  // Non-empty-collection count of the last observed workspace — drives the
-  // Layer-3 persistence guard against a multi-collection simultaneous wipe.
-  const prevCollectionCountRef = useRef(0);
-  // Total record count of the last observed workspace — drives the Layer-B
-  // mass-deletion guard.
-  const prevRecordCountRef = useRef(0);
-  // One-shot bypass for the L3/B guards, set by an explicit user bulk-op
-  // (clear-all / bulk delete) via allowDestructiveSave() and consumed by the
-  // next save.
-  const allowDestructiveRef = useRef(false);
-  /** Arm a one-shot bypass so the NEXT save may destroy data (a confirmed
-   *  clear-all / bulk delete). Without this an unexplained mass deletion is
-   *  refused by the persistence guard. */
-  const allowDestructiveSave = useCallback(() => { allowDestructiveRef.current = true; }, []); // ★ useCallback with EMPTY deps: it only writes a ref, so it closes over nothing that can go stale — and use-register-tools.ts lists it in an exhaustive useMemo deps array that assumes every member is identity-stable.
+  // ★★ The DESTRUCTIVE lockout. Its peer is `useLoadTruncation` directly below;
+  // the two cannot be active at once (see that hook's header for why).
+  const destructive = useDestructiveSaveGuard();
+  const allowDestructiveSave = destructive.allowDestructiveSave;
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
   const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
 
@@ -393,8 +383,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
       suppressNextSaveRef.current = false;
-      prevCollectionCountRef.current = curCollections; // sync baselines on a load/apply
-      prevRecordCountRef.current = curRecords;
+      destructive.syncBaselines(curCollections, curRecords); // sync baselines on a load/apply
       // ★★★ SPEND the bypass here too — but NOT for the incomplete-load return's reason,
       //   which an earlier revision of this comment copied. "The save never ran" is true of
       //   BOTH returns, so it distinguishes nothing. There the arm is still NEEDED and
@@ -415,20 +404,20 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   can be an arbitrary WALL-CLOCK time away. An earlier revision put the phrase "hours
       //   afterwards" in §294's mouth; §294 says neither, and now states both halves itself
       //   (docs/open-followups.md §294, "Consequence").
-      allowDestructiveRef.current = false;
+      destructive.consumeArm();
       return;
     }
     // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends): L3 and
     //   Layer B, both decided by the pure `evaluateSaveGuard` (save-guard.ts) — read the
     //   two invariants there, not here. An explicit user bulk-op (clear-all / bulk delete)
-    //   arms allowDestructiveRef one-shot to bypass them; on refusal the backend keeps the
+    //   arms the destructive-save guard one-shot to bypass them; on refusal the backend keeps the
     //   data, so a reload restores it.
     // ★★ §103: an AUTOMATIC save must never commit a truncated load — the excess documents
     // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
-    if (!mayCommitAfterIncompleteLoad()) { allowDestructiveRef.current = false; return; } // ★★★ SPEND the bypass here too — a sticky guard would otherwise carry it for hours (use-load-truncation.ts).
-    const verdict = evaluateSaveGuard({ prevCollections: prevCollectionCountRef.current, prevRecords: prevRecordCountRef.current, curCollections, curRecords, allowDestructive: allowDestructiveRef.current });
+    if (!mayCommitAfterIncompleteLoad()) { destructive.consumeArm(); return; } // ★★★ SPEND the bypass here too — a sticky guard would otherwise carry it for hours (use-load-truncation.ts).
+    const verdict = destructive.evaluate(curCollections, curRecords, destructive.consumeArm());
     if (verdict.refuse) {
-      recordDataLossEvent({ path: "save-effect", prevCollections: prevCollectionCountRef.current, nextCollections: curCollections, refused: true });
+      recordDataLossEvent({ path: "save-effect", prevCollections: destructive.readBaselines().collections, nextCollections: curCollections, refused: true });
       emitToast("info", t(langRef.current, "storageRefusedWipe"));
       return; // keep baselines so a later change re-evaluates
     }
@@ -436,9 +425,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // A single-collection full-empty L3 lets through — leave a forensic trail.
       recordDataLossEvent({ path: "save-effect", prevCollections: 1, nextCollections: 0, refused: false });
     }
-    allowDestructiveRef.current = false; // consume the one-shot bypass
-    prevCollectionCountRef.current = curCollections;
-    prevRecordCountRef.current = curRecords;
+    destructive.syncBaselines(curCollections, curRecords);
     // Fire-and-forget save with the effect's full error handling — the .catch
     // routes every rejection to the storage-outcome/toast path, so a REJECTED
     // save never escapes unhandled.
