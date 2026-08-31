@@ -23,9 +23,10 @@ Read these before starting. Each has already cost real work in this repo.
 3. **`npx tsc --noEmit` exits 2 on diagnostics, not 1.**
 4. **`npm run lint` exits 1 from gitignored leftovers.** Use `npx eslint src`.
 5. **Never run two vitest processes at once.** A vitest red carrying `Failed to start forks worker` is machine contention, not a real failure.
-6. **`react-hooks/set-state-in-effect` is banned and fatal**, and `--max-warnings=0` makes every warning fatal including unused vars.
-7. **`pos` is a fresh object every time and the post-paint clamp rewrites it.** Any effect that must not re-run while the panel stays mounted has to depend on a derived boolean, never on `pos` itself. This is the single most dangerous detail in this plan — see Tasks 3 and 4.
-8. **jsdom DOES mount the real `PopoverPanel`, and a comment in the tree says otherwise.** This is the single claim most likely to make you write a vacuous test, so verify it FIRST (Task 5 Step 0) rather than trusting either the tree or this plan.
+6. **`/tmp` is shared across concurrent Claude sessions on this machine.** Every `> /tmp/tN.log` below is written that way for brevity only — substitute your session's scratchpad directory with a per-agent basename prefix. A peer's gate log has already overwritten one of ours and been read as this checkout's result.
+7. **`react-hooks/set-state-in-effect` is banned and fatal**, and `--max-warnings=0` makes every warning fatal including unused vars.
+8. **`pos` is a fresh object every time and the post-paint clamp rewrites it.** Any effect that must not re-run while the panel stays mounted has to depend on a derived boolean, never on `pos` itself. This is the single most dangerous detail in this plan — see Tasks 3 and 4.
+9. **jsdom DOES mount the real `PopoverPanel`, and a comment in the tree says otherwise.** This is the single claim most likely to make you write a vacuous test, so verify it FIRST (Task 5 Step 0) rather than trusting either the tree or this plan.
 
    `dismissal-integration.test.tsx`'s `Popover` stand-in carries the docstring *"jsdom reports every rect as zero so the real portal never positions itself, which is why these are hosted on the hook rather than the component."* That conclusion does not follow from its premise. The premise is true — every rect IS zero — but trace the measure effect with those zeros: `r.right = 0`, and jsdom's `window.innerWidth` is 1024, so `right = Math.max(8, 1024 - 0) = 1024`; `spaceBelow = window.innerHeight - r.bottom = 768 - 0 = 768`, which clears `MIN_SPACE_BELOW` (220), so the effect calls `setPos({ right, top: 4 })`. `pos` is non-null and `if (!open || !pos || typeof document === "undefined") return null;` lets the panel through.
 
@@ -34,7 +35,7 @@ Read these before starting. Each has already cost real work in this repo.
    Zero rects would only strand the panel on the `right-start` placement, which sets `left`/`top` and is then clamped; the default `bottom-end` is unaffected. Task 5's harness uses the default.
 
    ★ Because the stand-in cannot exercise a Tab cycle at all, Task 5 must use the real component. Correcting that docstring is part of Task 5, not optional tidying — left alone it will send the next reader back to a stand-in.
-9. **Open a popover from a trigger click, never render it already-open.** `dismissal-stack.ts` asserts as a precondition that open order equals nesting order. Mount a popover and its parent modal in one commit and React runs the child's effect first, inverting the stack.
+10. **Open a popover from a trigger click, never render it already-open.** `dismissal-stack.ts` asserts as a precondition that open order equals nesting order. Mount a popover and its parent modal in one commit and React runs the child's effect first, inverting the stack.
 
 ---
 
@@ -128,9 +129,9 @@ npx tsc --noEmit; echo "EXIT=$?"
 Expected: `EXIT=0`.
 
 ```bash
-npx vitest run src/app/modal.test.tsx src/app/use-focus-trap.test.tsx src/app/undo > /tmp/t1.log 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " /tmp/t1.log
+npx vitest run src/app/modal.test.tsx src/app/use-focus-trap.test.ts src/app/undo > /tmp/t1.log 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " /tmp/t1.log
 ```
-Expected: `EXIT=0`, all passing. If `use-focus-trap.test.tsx` does not exist, drop it from the command rather than creating it here.
+Expected: `EXIT=0`, all passing. ★ The focus-trap spec is `use-focus-trap.test.ts` — a `.ts`, not a `.tsx`; an earlier revision of this line assumed `.tsx` and the command matched nothing.
 
 - [ ] **Step 5: Verify line endings survived**
 
@@ -352,6 +353,35 @@ git commit -m "fix: arm the popover close-on-scroll listener only once the panel
 ---
 
 ### Task 4: §297 — restore focus to the anchor when the panel unmounts
+
+> ★★★ **AMENDED AFTER MEASUREMENT — the mechanism Step 3 below prescribes DOES NOT WORK, and
+> neither did the first replacement for it.** Two spellings were tried and both were measured
+> broken, in opposite ways:
+>
+> 1. Step 3's own `panelRef.current?.contains(document.activeElement)` read inside the cleanup is a
+>    silent no-op **everywhere**. A passive effect destroy runs after the commit that removed the
+>    panel, so React has already detached the ref AND focus has already fallen to `<body>` — both
+>    terms are stale. Measured in jsdom: the §297 test failed identically to unfixed code.
+> 2. Its replacement — eager `focusin`/`focusout` capture into a `focusInsideRef` that the cleanup
+>    reads — is a no-op **in Chromium only**, which is worse, because jsdom cannot see it and all 23
+>    tests went green over it. Measured with Playwright probes in real chromium and firefox:
+>    **Chromium dispatches `focusout` on the panel with `relatedTarget === null`, synchronously, as
+>    the focused element is removed** — before the passive cleanup runs — so `panel.contains(null)`
+>    clears the flag first. Firefox and jsdom dispatch no focusout on removal at all. There is no
+>    in-handler discriminator: at that event Chromium reports `target.isConnected: true`,
+>    `panel.isConnected: true`, `activeElement: BODY`, byte-identical to an outside-click focusout.
+>
+> The shipped fix keeps the eager capture and adds two structural guards: `onOut` **ignores a null
+> `relatedTarget` entirely** (unknowable across removal / `<body>` / window blur), and the
+> outside-mousedown listener **clears the flag explicitly** before `onClose`, so §146's
+> "don't yank the user back after a deliberate outside click" is enforced by the code that knows the
+> click was outside rather than by browser blur timing. Validated in BOTH browsers.
+>
+> ★★ Read Steps 3–4 below as the RECORD OF A REJECTED DESIGN, not as instructions. The live
+> mechanism and its landmines are in `popover-panel.tsx`'s own comments; the two tests that pin the
+> Chromium half (a null-`relatedTarget` focusout must NOT clear the flag; a non-null outside one
+> must) are the only detector anywhere — jsdom fires no focusout on removal, axe has no rule, and
+> the e2e suite does not exercise it.
 
 **The defect:** `closeRestoringFocus` is wired only to `useDismissable`, so it runs on Escape and nothing else. 13 activate sites across 7 consumer files close the panel from an item's own handler; focus falls to `document.body`. Several of them use a raw `setOpen(false)` rather than the memoised `close`, so a fix that rewires `close` misses them.
 
@@ -1062,3 +1092,10 @@ jsdom has no layout and axe cannot see Tab order, so three things in this slice 
 - [ ] Open an edit modal, open its field-visibility menu, Tab through it. Focus must cycle inside the menu and never jump to the dialog behind it.
 - [ ] Open the Open Points row ⋮ menu on a horizontally scrolled table where the trigger is near the edge. It must open on the first click.
 - [ ] Open any menu, activate an item with Enter, then press Tab. Focus must continue from the button you opened, not from the top of the page.
+
+★★★ **The third item MUST be done in Chromium specifically, and repeated in Firefox.** §297's
+restore is the one thing in this slice whose behaviour was measured to DIVERGE between the two
+engines, and the first two attempts at it were each green in one engine and dead in the other. A
+pass in only one browser is not evidence. Also check the outside-click direction in both: click
+outside an open menu and confirm focus does NOT snap back to the trigger (that is §146, and it is
+now held by an explicit clear rather than by blur timing).
