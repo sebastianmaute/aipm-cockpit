@@ -62,7 +62,7 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { GlobalSearchConnected } from "./global-search-box";
-import { BirthdayBanner, JiraTokenBanner, StorageBanner, TruncatedLoadBanner } from "./notifications";
+import { BirthdayBanner, JiraTokenBanner, StorageBanner, SavingPausedBanner } from "./notifications";
 import { classifyStorageError, type StorageErrorKind } from "./storage-error";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
@@ -194,7 +194,17 @@ function TaskManagerInner() {
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
   // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
   // capture is threaded into each entity hook below; undo/control are surfaces. ★ Undo/redo is ALWAYS user-caused — a chat tool write takes no undo capture.
-  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction });
+  // ★ `allowDestructiveSave` is produced by `useStorageBackend` further down, so
+  // it does not exist at this call site. Forward it through a ref filled by the
+  // effect below — the same pattern `use-reference-data.ts` uses for THIS VERY
+  // callback (`allowDestructiveRef.current = args.allowDestructiveSave`, spent at
+  // `allowDestructiveRef.current?.()`), and `use-bulk-operations.ts` and
+  // `use-document-assets.ts` use for the same one. Moving the `useUndoStack` call
+  // down instead would also move `useUndoHotkey`'s listener registration relative
+  // to the other hotkey hooks.
+  const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined);
+  const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
+  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo });
   useUndoHotkey(undoApi.undo, undoApi.redo);
   // Stable identity so ToastProvider consumers don't re-render on every parent render.
   const toastApi = useMemo(() => ({ showToast, showToastAction }), [showToast, showToastAction]);
@@ -381,6 +391,7 @@ function TaskManagerInner() {
   const [storageError, setStorageError] = useState<{ kind: StorageErrorKind } | null>(null);
   const [storageErrorDismissed, setStorageErrorDismissed] = useState(false); // ★ §103's banner dismissal is SEPARATE and hides only the banner — the save guard stays armed (use-load-truncation.ts).
   const [truncationBannerDismissed, setTruncationBannerDismissed] = useState(false);
+  const [destructiveBannerDismissed, setDestructiveBannerDismissed] = useState(false);
   // Bridges a successful save into the version-history idle-capture timer. The
   // hook is instantiated later, so this ref is wired up via an effect below.
   const versionNotifyRef = useRef<() => void>(() => {});
@@ -441,11 +452,16 @@ function TaskManagerInner() {
   const {
     storageDescription, storageReady, workspaceLoaded, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
+    allowDestructiveSaveAnyway, destructiveRefusal,
     truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
-  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => setDestructiveBannerDismissed(false), setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+
+  // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
+  // that re-removes rows can arm the one-shot destructive-save bypass (§295).
+  useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; }, [allowDestructiveSave]);
 
   // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
   // incomplete load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
@@ -480,6 +496,51 @@ function TaskManagerInner() {
     setDecodeNonceSeen(decodeFailureNonce);
     setMalformedNonceSeen(malformedQuotesNonce);
     setTruncationBannerDismissed(false);
+  }
+
+  // ★★ The SAME render-time reconcile for the OTHER saving-paused cause (an
+  // effect is impossible — `set-state-in-effect` is banned and fatal). Without
+  // it the dismissal is sticky ACROSS episodes: dismiss, the refusal RESOLVES,
+  // and a later, different refusal raises the banner ALREADY HIDDEN. What is
+  // left is only the transient toast plus whichever standing hint the layout
+  // has: `hasFooterIndicator` is `layout !== "classic"`, and
+  // `SavingPausedBanner`'s dismissed branch returns null when that is true — so
+  // DEFAULT layouts fall back to the footer indicator alone, and classic to the
+  // compact re-open chip. Neither names the magnitude the banner would.
+  // ★★★ KEYED ON THE REFUSAL OBJECT, and what it DEPENDS ON is
+  // `useDestructiveSaveGuard`'s `sameRefusal` functional setter: identity is
+  // stable for as long as one refusal stands, so a dismiss survives every
+  // re-refusal (one per edit while paused) and only a genuinely different
+  // refusal re-shows the banner. Lose that stability and every re-refusal
+  // re-shows a banner the user just dismissed.
+  // ★★ WHAT THE OBJECT KEY BUYS, MEASURED, IS OVER A **BOOLEAN** KEY — AND ON
+  // EXACTLY ONE INPUT. `destructiveRefusal !== null` fails only on an ESCALATION
+  // WITH NO INTERVENING NULL: the refusal never resolves, the user deletes more,
+  // `evaluate` mints a new object because the counts moved, and the boolean never
+  // flips, so a dismissed banner stays hidden while the claim it was dismissing
+  // has changed. A second EPISODE it handles fine — the resolution in between
+  // flips it. Pinned by "an ESCALATING refusal re-shows a dismissed banner while
+  // it still stands" in `task-manager.truncation-banner.test.tsx`, the only one of
+  // that file's three reconcile tests to go red under a boolean key.
+  // ★★★ A COUNTS-DERIVED KEY IS EQUIVALENT, NOT WORSE. `sameRefusal` makes object
+  // identity ⟺ the counts tuple, so NO input separates object from counts: a
+  // faithful counts key was measured green. Prefer the object key because it does
+  // not restate `sameRefusal`'s field list — which would drift the day a field is
+  // added to it — NOT because it catches anything extra.
+  // ★ Do not "simplify" it to a nonce: there is none to bump — the guard's state
+  // IS the event.
+  // ★ Resetting on the transition to `null` is deliberate, not sloppiness: the
+  // banner mounts only while `destructiveRefusal !== null`, so nothing appears
+  // when a refusal resolves — clearing the flag as the episode ENDS is precisely
+  // what leaves the NEXT one visible.
+  // ★ Seeded `null`, the guard's OWN starting value rather than the live one —
+  // it mounts in this same render (task-manager calls the hook that owns it), so
+  // null is what it really is here, and seeding from the live value is the
+  // remount-swallow shape that drops a pending report.
+  const [destructiveRefusalSeen, setDestructiveRefusalSeen] = useState<typeof destructiveRefusal>(null);
+  if (destructiveRefusal !== destructiveRefusalSeen) {
+    setDestructiveRefusalSeen(destructiveRefusal);
+    setDestructiveBannerDismissed(false);
   }
 
   // Refresh the Turso project list (active + archived) from the shared DB. The
@@ -2516,7 +2577,22 @@ function TaskManagerInner() {
         <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
       )}
       {!isPopout && loadWasIncomplete && (
-        <TruncatedLoadBanner lang={lang} truncation={truncation} decodeFailureCount={decodeFailureCount} malformedQuoteCount={malformedQuoteCount} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowIncompleteSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
+        <SavingPausedBanner lang={lang} cause={{ kind: "truncation", truncation, decodeFailureCount, malformedQuoteCount }} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowIncompleteSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
+      )}
+      {/* ★ A SIBLING of the truncation mount, never an `else` on it: the two causes
+          are mutually exclusive UPSTREAM, by TWO mechanisms — the save effect returns
+          on truncation ABOVE the destructive guard (no NEW refusal while truncation
+          stands), and its suppress-after-load branch clears a standing refusal (no OLD
+          refusal outlives its workspace). An `else` would ENCODE that exclusivity here
+          and hide where it is actually enforced.
+          ★★ So these siblings are UNGUARDED against each other on purpose, and the cost
+          is visible: were the combined state ever reachable again, BOTH would render —
+          two `role="alert"` regions, two identically-named Dismiss buttons, and two
+          "save anyway" buttons authorising different things. That consequence is
+          characterized in `task-manager.truncation-banner.test.tsx`; the exclusivity
+          itself is pinned in `use-storage-backend.test.tsx`, which is where it lives. */}
+      {!isPopout && destructiveRefusal !== null && (
+        <SavingPausedBanner lang={lang} cause={{ kind: "destructive", prevRecords: destructiveRefusal.prevRecords, curRecords: destructiveRefusal.curRecords, fullWipe: destructiveRefusal.fullWipe }} dismissed={destructiveBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowDestructiveSaveAnyway} onDismiss={() => setDestructiveBannerDismissed(true)} onReopen={() => setDestructiveBannerDismissed(false)} />
       )}
     </>
   );
@@ -2709,8 +2785,17 @@ function TaskManagerInner() {
             lang={lang}
             collapsed={sidebarCollapsed}
             storageDescription={storageDescription}
-            storageReady={storageOk && !loadWasIncomplete}
-            savingPaused={!isPopout && loadWasIncomplete} onRestoreSavingNotice={() => setTruncationBannerDismissed(false)}
+            storageReady={storageOk && !loadWasIncomplete && destructiveRefusal === null}
+            savingPaused={!isPopout && (loadWasIncomplete || destructiveRefusal !== null)}
+            // ★ Clearing BOTH dismissals is correct, not sloppiness: the two causes
+            // cannot hold at once — truncation returns ABOVE the destructive guard so
+            // no new refusal is raised, AND the save effect's suppress-after-load
+            // branch clears a standing refusal so none outlives its workspace — so at
+            // most one banner is standing and clearing the other flag is a no-op.
+            // ★ It stays correct if that ever stopped holding: clearing both re-shows
+            // both, which is the honest outcome for a user who asked to see why
+            // saving is paused.
+            onRestoreSavingNotice={() => { setTruncationBannerDismissed(false); setDestructiveBannerDismissed(false); }}
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
             onSignOut={() => { void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}

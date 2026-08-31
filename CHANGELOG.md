@@ -8,6 +8,35 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.268.0] - 2026-08-30 "Ogawa"
+
+### Fixed
+
+- **When the app withheld a save to protect your project, saving stayed paused for good.** The guard
+  that refuses a sudden wipe or a large deletion did its job, but there was no way to tell it you
+  meant it: every later save was refused too, and the only advice on offer was to reload the page and
+  lose whatever you had done since. A notice now stays on screen while saving is paused, says how
+  much would have been removed, and offers to save it anyway — behind a confirmation, and behind a
+  typed phrase when the whole project would go. Reloading still restores your saved data, as before.
+- **If an authorised save then failed, the protection quietly switched itself off.** Agreeing to a
+  large deletion and having the write fail — offline, a locked database — left nothing written and a
+  guard that could no longer tell the deletion had never been saved. It now restores what was
+  genuinely last written, so the next attempt is judged against your stored data.
+- **Redoing "clear all tasks" appeared to work and was never saved.** Undoing a clear-all and then
+  redoing it looked right on screen, but the guard treated the redo as an unexplained mass deletion
+  and withheld it; the rows came back at the next reload. A redo that removes rows again now carries
+  the same permission the original action had.
+
+### Changed
+
+- **Two buttons no longer share the name "Save anyway".** On the notice about partly-loaded data, the
+  button that opened the confirmation and the button that committed it were announced identically, so
+  screen-reader users could not tell the irreversible one from the one that merely asks. The
+  confirmation's button now says what it does.
+- **Whether storage is ready is no longer shown by colour alone.** The indicator beside the storage
+  description carried its state only in the dot's colour, which now also stands for a withheld
+  deletion. It gains a mark that does not depend on seeing colour.
+
 ## [0.267.0] - 2026-08-30 "Nagamatsu"
 
 ### Fixed

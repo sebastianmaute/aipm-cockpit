@@ -1,17 +1,14 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useBroadcastSync } from "./broadcast-sync";
 import { t } from "./i18n";
 import {
   type StorageConfig,
-  type StorageKind,
   type Workspace,
   StorageNotImplementedError, StorageNotReadyError, createBackend,
-  getBackendFileHandle, loadFromHandleForBackend, openFileForBackend,
-  pickFileForBackend, requestWriteAccessForBackend, setBackendFileHandle,
+  getBackendFileHandle, requestWriteAccessForBackend,
 } from "./storage";
 import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
-import { evaluateSaveGuard } from "./save-guard";
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
@@ -26,9 +23,11 @@ import { mergeActivityLogs } from "./activity-log-merge";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
-import { useFileProjectOps } from "./use-storage-file-ops";
+import { useFileProjectOps, useStorageFilePickerOps } from "./use-storage-file-ops";
 import { useLoadTruncation } from "./use-load-truncation";
-import { STORAGE_LABEL_KEYS, type UseStorageBackendArgs } from "./use-storage-backend-types";
+import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
+import type { ToastAction } from "./use-toast";
+import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
 export type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
@@ -120,20 +119,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const suppressNextLoadRef = useRef(false);
   // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
   const reloadInFlightRef = useRef(false);
-  // Non-empty-collection count of the last observed workspace — drives the
-  // Layer-3 persistence guard against a multi-collection simultaneous wipe.
-  const prevCollectionCountRef = useRef(0);
-  // Total record count of the last observed workspace — drives the Layer-B
-  // mass-deletion guard.
-  const prevRecordCountRef = useRef(0);
-  // One-shot bypass for the L3/B guards, set by an explicit user bulk-op
-  // (clear-all / bulk delete) via allowDestructiveSave() and consumed by the
-  // next save.
-  const allowDestructiveRef = useRef(false);
-  /** Arm a one-shot bypass so the NEXT save may destroy data (a confirmed
-   *  clear-all / bulk delete). Without this an unexplained mass deletion is
-   *  refused by the persistence guard. */
-  const allowDestructiveSave = useCallback(() => { allowDestructiveRef.current = true; }, []); // ★ useCallback with EMPTY deps: it only writes a ref, so it closes over nothing that can go stale — and use-register-tools.ts lists it in an exhaustive useMemo deps array that assumes every member is identity-stable.
+  // ★★ The DESTRUCTIVE lockout. Its peer is `useLoadTruncation` directly below;
+  // the two cannot be active at once (see that hook's header for why).
+  const destructive = useDestructiveSaveGuard();
+  const allowDestructiveSave = destructive.allowDestructiveSave;
+  // ★★★ THE COUNTS ACTUALLY ON DISK — as of the last COMMITTED save, or the last
+  // load/apply the suppress branch folded in. `syncBaselines` advances the guard
+  // BEFORE the debounced write, so a REJECTED write would otherwise leave the
+  // destroyed counts standing as "last committed". The `.catch` restores THIS.
+  const committedBaselineRef = useRef({ collections: 0, records: 0 });
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
   const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
 
@@ -176,6 +170,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   function emitToast(kind: "info" | "error" | "success", text: string): void {
     if (!mountedRef.current) return;
     args.showToast(kind, text);
+  }
+  // ★★ A HELPER, not an inline `args.showToastAction(...)` at the call site.
+  // `react-hooks/set-state-in-effect` is BANNED and fatal under
+  // `--max-warnings=0`, and the rule is SYNTACTIC — a setState-bearing call
+  // reached through this indirection is legal inside the save effect where a
+  // bare one is not. That is exactly why `emitToast` above exists at this site.
+  function emitToastAction(kind: "info" | "error" | "success", text: string, action: ToastAction): void {
+    if (!mountedRef.current) return;
+    args.showToastAction(kind, text, action);
   }
   function emitRegistryChange(registry: ProjectsRegistry): void {
     if (!mountedRef.current) return;
@@ -370,6 +373,26 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   // Save workspace to backend on change (debounced 500ms)
   useEffect(() => {
+    // ★★★ §294 — READ THE ONE-SHOT ONCE, HERE, AND CLEAR IT. Every path below
+    // therefore spends the arm BY CONSTRUCTION, and the reader's question at a
+    // new early return becomes "does this path USE `armed`", which cannot be
+    // skipped. Spending it used to be decided by hand at each return: two
+    // returns decided it and three left it by accident, and nothing checked
+    // either.
+    // ★★★ THIS IS A REFACTOR, NOT A FIX — it changes no behaviour on any
+    // currently reachable path, and no test can tell the two arrangements
+    // apart. The truncation and suppress returns already spent the arm; the
+    // refusal branch has nothing to spend (`evaluateSaveGuard` refuses only
+    // when `!allowDestructive`, so reaching it implies the arm was false);
+    // nothing arms before hydration; a popout returns above the guard. The
+    // value is prospective: a return added below this line cannot leak.
+    // ★★ TOPMOST IS THE ONLY PLACEMENT WORTH HAVING. `allowDestructiveRef` is
+    // read by nothing outside `use-destructive-save-guard.ts` — the other save
+    // paths (`guardedWrite`, `flushCurrent` in use-load-truncation.ts) never
+    // consult it — so an arm can only ever be consumed HERE. Anywhere lower
+    // leaves the returns above it as exactly the hand-decided cases §294 is
+    // about.
+    const armed = destructive.consumeArm();
     if (!args.hydrated) return;
     // Single-writer rule: the main window owns persistence. ★★★ A popout does
     // NOT save and does NOT forward edits — `canSend = !args.isPopout` below
@@ -393,8 +416,41 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
       suppressNextSaveRef.current = false;
-      prevCollectionCountRef.current = curCollections; // sync baselines on a load/apply
-      prevRecordCountRef.current = curRecords;
+      destructive.syncBaselines(curCollections, curRecords); // sync baselines on a load/apply
+      // ★★ …and re-point the rejection rollback: without this a save rejecting
+      //   after a project SWITCH restores the previous project's counts onto the
+      //   new one, and if smaller a genuine wipe of it then passes unrefused.
+      committedBaselineRef.current = { collections: curCollections, records: curRecords };
+      // ★★★ AND DROP ANY STANDING REFUSAL — a refusal is scoped to the workspace that
+      //   raised it. The baselines it was measured against were just replaced one line up,
+      //   so it now quotes magnitudes ("847 of 900 records") belonging to a project that is
+      //   no longer on screen. Left standing it survives a reload, a project switch, an
+      //   opened file and a BRAND-NEW project: the banner claims saving is paused on the new
+      //   project while it is not, the sidebar reports the new project as not-ready
+      //   (`storageReady` folds in `destructiveRefusal`), and a genuine mass deletion on the
+      //   new project is then refused SILENTLY — `refusalWasStanding` below suppresses the
+      //   announcement, so the user gets the stale counts instead of theirs and the only
+      //   exit they are offered authorises whatever is pending under a banner that describes
+      //   something else.
+      // ★★★ ONE SITE COVERS ALL LOAD/SWITCH/CREATE PATHS, which is why there is no
+      //   per-path obligation to add. `suppressNextSaveRef` is set by every one of them, and
+      //   this branch is INSIDE the save effect, so clearing here dominates the lot and a
+      //   tenth path cannot forget it. Enumerate them:
+      //     grep -rn "suppressNextSaveRef.current = true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+      // ★★ DO NOT "complete the pattern" by copying the PEER lockout's shape — the
+      //   asymmetry is real, not an oversight. `use-load-truncation.ts` exposes
+      //   `clearForFreshWorkspace` and needs THREE explicit call sites (two in
+      //   `use-storage-file-ops.ts`, one in `use-storage-turso-ops.ts`) because its state is
+      //   raised by load-REPORTING, outside this effect, which therefore cannot clear it.
+      //   Ours is raised and cleared in the same effect. Adding call sites beside those
+      //   three would be redundant writes, and a fourth path would still be uncovered.
+      // ★★ CLEARING RE-RUNS THIS EFFECT (`destructive.refusal` is a dep, deliberately —
+      //   see the deps note), so when a refusal WAS standing the suppressed load is followed
+      //   by one ordinary save of the freshly-loaded workspace against the freshly-synced
+      //   baselines. That is a redundant write, not a guard bypass: the re-run consumes any
+      //   arm at the top and evaluates the loaded counts against themselves. A test asserting
+      //   "no save after a suppressed load" is only true when no refusal was standing.
+      destructive.clearRefusal();
       // ★★★ SPEND the bypass here too — but NOT for the incomplete-load return's reason,
       //   which an earlier revision of this comment copied. "The save never ran" is true of
       //   BOTH returns, so it distinguishes nothing. There the arm is still NEEDED and
@@ -415,30 +471,54 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   can be an arbitrary WALL-CLOCK time away. An earlier revision put the phrase "hours
       //   afterwards" in §294's mouth; §294 says neither, and now states both halves itself
       //   (docs/open-followups.md §294, "Consequence").
-      allowDestructiveRef.current = false;
+      // ★ The spend that used to sit here is now at the TOP of this effect, so
+      // this branch spends by construction like every other. The resync
+      // rationale above is unchanged and still the reason it is SAFE to spend.
       return;
     }
     // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends): L3 and
     //   Layer B, both decided by the pure `evaluateSaveGuard` (save-guard.ts) — read the
     //   two invariants there, not here. An explicit user bulk-op (clear-all / bulk delete)
-    //   arms allowDestructiveRef one-shot to bypass them; on refusal the backend keeps the
+    //   arms the destructive-save guard one-shot to bypass them; on refusal the backend keeps the
     //   data, so a reload restores it.
     // ★★ §103: an AUTOMATIC save must never commit a truncated load — the excess documents
     // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
-    if (!mayCommitAfterIncompleteLoad()) { allowDestructiveRef.current = false; return; } // ★★★ SPEND the bypass here too — a sticky guard would otherwise carry it for hours (use-load-truncation.ts).
-    const verdict = evaluateSaveGuard({ prevCollections: prevCollectionCountRef.current, prevRecords: prevRecordCountRef.current, curCollections, curRecords, allowDestructive: allowDestructiveRef.current });
+    if (!mayCommitAfterIncompleteLoad()) { return; } // ★★★ The bypass is ALREADY SPENT — at the top of this effect, not here. It has to be: this guard is STICKY, so an arm surviving the return would be carried for hours (use-load-truncation.ts). That is why the hoist above is safe for this return and not merely tidier.
+    // ★ Read BEFORE `evaluate`, which is what sets the refusal. This is the
+    // effect closure's render-time value of the hook's React state, so it
+    // answers "was a refusal already standing when this save was attempted?".
+    const refusalWasStanding = destructive.refusal !== null;
+    const verdict = destructive.evaluate(curCollections, curRecords, armed);
     if (verdict.refuse) {
-      recordDataLossEvent({ path: "save-effect", prevCollections: prevCollectionCountRef.current, nextCollections: curCollections, refused: true });
-      emitToast("info", t(langRef.current, "storageRefusedWipe"));
+      recordDataLossEvent({ path: "save-effect", prevCollections: destructive.readBaselines().collections, nextCollections: curCollections, refused: true });
+      // ★★ ONLY on a NEW refusal. The refusal keeps the baselines, so every
+      // later save re-refuses; a toast per re-refusal would be one per edit
+      // while the banner is already standing and saying the same thing.
+      // ★ The action REVEALS the banner rather than carrying the destructive
+      // action itself: a toast auto-dismisses and is single-slot, a bad host for
+      // an irreversible button — and `TypeToConfirmDialog` holds `TITLE_ID` as a
+      // MODULE constant, so a second trigger would need a second instance.
+      if (!refusalWasStanding) {
+        emitToastAction("info", t(langRef.current, "storageRefusedWipe"), {
+          labelKey: "storageSavingPausedAction",
+          run: () => args.onRevealSavingPaused(),
+        });
+      }
       return; // keep baselines so a later change re-evaluates
     }
     if (verdict.forensic) {
       // A single-collection full-empty L3 lets through — leave a forensic trail.
       recordDataLossEvent({ path: "save-effect", prevCollections: 1, nextCollections: 0, refused: false });
     }
-    allowDestructiveRef.current = false; // consume the one-shot bypass
-    prevCollectionCountRef.current = curCollections;
-    prevRecordCountRef.current = curRecords;
+    // ★★★ BOTH RUN BEFORE THE WRITE; DEFERRING EITHER INTO `.then()` IS WRONG — a
+    //   rejection is undone in the `.catch` instead. Deferring `syncBaselines`
+    //   keeps the PRE-deletion baseline live across the debounce+latency window
+    //   (the arm is consumed at the top of this effect), so any edit inside it
+    //   re-runs unarmed, refuses, and the debounce cleanup cancels the very save
+    //   the user authorised. `clearRefusal` is already a no-op on that path —
+    //   `allowDestructiveSaveAnyway` clears the refusal ITSELF to re-run this effect.
+    destructive.syncBaselines(curCollections, curRecords);
+    destructive.clearRefusal(); // a committed save resolves any standing refusal
     // Fire-and-forget save with the effect's full error handling — the .catch
     // routes every rejection to the storage-outcome/toast path, so a REJECTED
     // save never escapes unhandled.
@@ -450,8 +530,24 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //    reason; do not call args.* directly here.
     const doSave = () => {
       backend.save(outgoing).then(() => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
+        committedBaselineRef.current = { collections: curCollections, records: curRecords }; // the write landed: these are on disk now
         emitOutcome(null);
       }).catch((err) => {
+        // ★★★ PUT THE BASELINES BACK — nothing was written, so the guard must not
+        //   believe the destroyed counts are stored. Left adopted they disarm the
+        //   lockout for good: the next save compares the destroyed workspace against
+        //   itself, cannot refuse, and leaves no banner and unwritten data.
+        //   Restoring re-evaluates the next save against what is genuinely on disk,
+        //   so the refusal is raised again. ★ NOT re-raised here — that needs a
+        //   setState from an async callback (§72) and would cancel any pending save.
+        //   ★★ COMPARE-AND-SWAP, since a later run or a load may have re-baselined
+        //   mid-flight onto a different workspace.
+        //   ★★ RESIDUAL: two saves overlapping in flight can still settle on a
+        //   never-written baseline — coordinating them is out of scope here.
+        const live = destructive.readBaselines();
+        if (live.collections === curCollections && live.records === curRecords) {
+          destructive.syncBaselines(committedBaselineRef.current.collections, committedBaselineRef.current.records);
+        }
         emitOutcome(err);
         logDiag("error", "storage.saveFailed", { message: String(err) });
         // Turso connectivity/auth failures show the persistent banner — skip the toast.
@@ -478,8 +574,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // ★ `loadWasIncomplete` is a dep so LOWERING it (the user's "save anyway") re-runs this effect
     // and the escape actually WRITES — otherwise it no-ops until the next unrelated edit. ★★ Keep
     // the disable directive DIRECTLY below: a comment between it and the deps line silently voids it.
+    // ★ `destructive.refusal` is a dep for the SAME reason: clearing it is what
+    // `allowDestructiveSaveAnyway` does, and without the dep the authorised save
+    // would wait for an unrelated edit — with saving paused, there may not be one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, args.hydrated, args.isPopout, backend, loadWasIncomplete]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -500,133 +599,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // the read-only project header in popout windows. The generic handles undefined.
   useBroadcastSync("project", project, setProject, canSend);
 
-  async function onPickStorageFile() {
-    if (truncationOps.wouldRefuseWrite()) { truncationOps.refuseWrite(); return; } // ★★★ §103: refuse BEFORE the picker — it creates the file and persists the handle on the ACTIVE backend, so a write-only guard stranded the app on an empty file. See `refuseWrite` (use-load-truncation.ts).
-    const promise = pickFileForBackend(backend);
-    if (!promise) return;
-    await promise;
-    try {
-      if (!(await truncationOps.guardedWrite(backend, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog }))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
-      await refreshBackendStatus();
-      emitToast("info", t(langRef.current, "storageSwitchedToast"));
-    } catch (err) {
-      emitToast("error", t(langRef.current, "storageSaveFailed", String(err)));
-    }
-  }
-
-  async function onGrantWriteAccess() {
-    const promise = requestWriteAccessForBackend(backend);
-    if (!promise) return;
-    const granted = await promise;
-    await refreshBackendStatus();
-    if (granted) {
-      emitToast("info", t(langRef.current, "storagePermissionGranted"));
-    } else {
-      emitToast("error", t(langRef.current, "storagePermissionDenied"));
-    }
-  }
-
-  async function onOpenStorageFile() {
-    const promise = openFileForBackend(backend);
-    if (!promise) return;
-    const picked = await promise;
-    try {
-      const load = loadFromHandleForBackend(backend, picked);
-      if (!load) throw new StorageNotReadyError("local-file-not-picked"); // Unreachable: `openFileForBackend` returned non-null above, so this IS the LocalFileBackend, and both facade helpers narrow on the same `instanceof` against the same instance. The guard exists only because every facade helper is uniformly nullable. ★★★ A `throw`, NEVER a `return`. BOTH exit above `reportImportFor`, and that is fine here — no load has happened yet, so there are no import diagnostics to report. What differs is SILENCE: a bare `return` makes the user's click do nothing and say nothing, while the throw reaches the catch below and surfaces a real error. Nothing pins that the two helpers' predicates stay in agreement, so if this ever DOES become reachable it must fail loudly. ★★ Its neighbour `setBackendFileHandle` below is nullable for the same reason and is deliberately NOT hardened — do not read the asymmetry as a claim it is safer: a `null` there `await`s to nothing, so the pick would go silently UNBOUND while the apply proceeded, which is the worse failure of the two. It is left alone because a second unreachable guard costs a line this file has no budget for, not because it cannot go wrong.
-      const loaded = await load; // ★ `reportImportFor`, NOT `reportFor` — see the report at the end of this try. This path applies tasks+raid ONLY, never the loaded documents, so raising the §103 flag would warn about documents the user still has and lowering it would clear a warning still true of the live ones. That reason is TRUNCATION-specific and never covered the import channel (§152): `droppedRows` is one workspace-wide count bumped at five sites across BOTH codec families, so the rows a malformed CSV *or Markdown* file dropped may be the very tasks and RAID applied below. ★★ COUNT THE CALL SITES, NOT THE INCREMENTS — every bump now routes through one writer, so the obvious `grep -rn "droppedRows++"` reads as a refutation of this sentence: `grep -rn "countDroppedRow(" src/app --include=*.ts | grep -v "\.test\." | grep -v "export function"` returns the five (3 CSV + 2 Markdown).
-      // ★★★ A GUARD CLAUSE INVERTED ON PURPOSE, so ONE report below covers BOTH exits OF THE CONFIRM: the decline path needs the import report and the quoting hold every bit as much as the apply path does — a malformed file drops the same rows whichever way the confirm goes — and an early `return` above would have silently exempted it (§152). ★★ The re-point that used to happen on BOTH exits is GONE — `openFileForBackend` commits nothing now, and the handle is bound inside the accept branch below (§287).
-      const accepted = tasks.length === 0 || window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length));
-      if (accepted) {
-        await setBackendFileHandle(backend, picked); // ★ commit the pick ONLY now (§287) — before this line the backend still points at the previous file, so a decline leaves nothing to undo.
-        suppressNextSaveRef.current = true; // ★★★ AFTER the bind, never before. The flag suppresses the save that the `setTasks` below triggers, and `setTasks` runs after this line either way — but a bind that THROWS jumps to the catch, and an already-armed flag would then swallow the next legitimate save of a workspace nothing had modified. Arming it here means a failed bind leaves no residue.
-        // Seed the session minter from the opened file so its (possibly larger)
-        // task/raid ids can't be reused after a delete. "raise" never lowers a
-        // kind's mark, so the absences/shifts NOT applied below keep their
-        // current-project high-water intact.
-        seedMintFromWorkspace(loaded, "raise");
-        setTasks(loaded.tasks);
-        setRaid(loaded.raid);
-        // NOTE: absences and shifts intentionally NOT restored here —
-        // faithful extraction of original behavior (not a bug fix).
-        await refreshBackendStatus();
-        emitToast("info", t(langRef.current, "storageOpenedToast", loaded.tasks.length));
-      }
-      // ★★★ AFTER the toast above, never before: the surface is single-slot and REPLACES, so a diagnostic fired first is created and instantly discarded. The confirmation is the disposable half — it carries no remedy, and a clean import shows nothing here so it still paints. See the landmine on `TruncationOps.reportFor`.
-      truncationOps.reportImportFor(backend, accepted); // ★★★ THE SECOND ARGUMENT IS THE DECISION, NOT A FORMALITY: diagnostics fire on BOTH exits OF THE CONFIRM — not on both exits of the function, since a rejecting `setBackendFileHandle` jumps to the catch and never reaches this line, leaving that file's dropped rows unreported (pre-existing, not this branch's) — the quoting HOLD only when a pending save could actually reach the file just read — ACCEPT alone since §287, because DECLINE commits nothing and leaves the backend on the user's previous file. A bare `true` here restores a real regression (autosave of an untouched project halted all session over a file the user refused to open) and no gate would notice. Full reasoning on `TruncationOps.reportImportFor`.
-    } catch (err) {
-      if (err instanceof StorageNotReadyError) {
-        const key =
-          (err as StorageNotReadyError).hint === "local-file-permission-needed"
-            ? "storagePermissionGestureNeeded"
-            : "storageNotReady";
-        emitToast("error", t(langRef.current, key));
-      } else {
-        emitToast("error", t(langRef.current, "storageLoadFailed", String(err)));
-      }
-    }
-  }
-
-  // Reads the current workspace via render-scope closure — same pattern
-  // as onPickStorageFile/onOpenStorageFile. Must NOT be memoized by consumers,
-  // or it would capture a stale snapshot of tasks/raid/etc. The same applies to
-  // the emitters it calls (emitStorageConfig, emitToast): they are re-created
-  // each render and read `args.*` live, so memoizing this handler would capture
-  // stale versions of those callbacks too — and a stale `mountedRef` with them.
-  async function onRequestStorageSwitch(newKind: StorageKind): Promise<void> {
-    if (args.isPopout) return;
-    const current = settingsRef.current.storageConfig;
-    if (newKind === current.kind) return;
-    const newConfig: StorageConfig =
-      (newKind === "sp-json" || newKind === "sp-csv") && (current.kind === "sp-json" || current.kind === "sp-csv")
-        ? { ...current, kind: newKind }
-        // Cast is safe: browser/local-*/turso variants carry no required fields
-        // beyond `kind`; only sp-* needs hostname/sitePath/itemPath, handled by
-        // the spread branch above.
-        : ({ kind: newKind } as StorageConfig);
-    const label = t(langRef.current, STORAGE_LABEL_KEYS[newKind]);
-    const leavingTurso = current.kind === "turso" && newKind !== "turso";
-    const confirmKey = leavingTurso ? "storageTursoLeaveWarn" : "storageConvertConfirm";
-    if (!window.confirm(t(langRef.current, confirmKey, tasks.length, label))) return;
-    const target = createBackend(newConfig, {
-      acquireToken: auth.acquireToken,
-      tursoConfig: getTursoConfig(
-        settingsRef.current.integrations?.turso?.databaseUrl,
-        settingsRef.current.integrations?.turso?.authToken,
-      ),
-    });
-    try {
-      const pick = pickFileForBackend(target);
-      if (pick) await pick;
-      if (!(await truncationOps.guardedWrite(target, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog }))) return; // ★★ §103: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
-      suppressNextLoadRef.current = true;
-      emitStorageConfig(newConfig);
-      emitToast("info", t(langRef.current, "storageConvertedToast", label));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/abort/i.test(msg) || /user activation/i.test(msg)) return;
-      if (err instanceof StorageNotReadyError) {
-        const hint = (err as StorageNotReadyError).hint;
-        const key =
-          hint === "local-file-permission-needed"
-            ? "storagePermissionGestureNeeded"
-            : hint === "storage-unreachable"
-              ? "storageUnreachable"
-              : "storageNotReady";
-        emitToast("error", t(langRef.current, key));
-      } else if (isTursoLockTimeout(err)) {
-        // Conversion target was Turso and the cross-tab write lock timed out.
-        emitToast("error", t(langRef.current, "tursoLockTimeout"));
-      } else {
-        // StorageNotImplementedError also surfaces here — user confirmed a
-        // conversion write, so silent failure is wrong.
-        emitToast("error", t(langRef.current, "storageSaveFailed", msg));
-      }
-    }
-  }
-
   // Snapshot the live workspace from the render-scope closure — same pattern as
-  // the file handlers above. Must NOT be memoized or it would capture stale
-  // state.
+  // the file-picker handlers in use-storage-file-ops.ts (onPickStorageFile /
+  // onOpenStorageFile / onRequestStorageSwitch), which take it as a dep. Must
+  // NOT be memoized or it would capture stale state.
   function currentWorkspace(): Workspace {
     return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog };
   }
@@ -737,6 +713,29 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     suppressNextSaveRef,
   });
 
+  const {
+    onPickStorageFile,
+    onGrantWriteAccess,
+    onOpenStorageFile,
+    onRequestStorageSwitch,
+  } = useStorageFilePickerOps({
+    isPopout: args.isPopout,
+    backend,
+    truncationOps,
+    currentWorkspace,
+    refreshBackendStatus,
+    emitToast,
+    langRef,
+    settingsRef,
+    suppressNextSaveRef,
+    suppressNextLoadRef,
+    emitStorageConfig,
+    acquireToken: auth.acquireToken,
+    setTasks,
+    setRaid,
+    tasks,
+  });
+
   // Re-load the CURRENT project's workspace from its backend, discarding the
   // in-memory state. Recovery affordance for when an error (or a partial load)
   // leaves the app unpopulated — unlike switchToProject, which early-returns on
@@ -790,7 +789,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   return {
     storageDescription, storageReady, workspaceLoaded,
     onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
-    reloadCurrentProject, allowDestructiveSave, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
+    reloadCurrentProject, allowDestructiveSave, allowDestructiveSaveAnyway: destructive.allowDestructiveSaveAnyway, destructiveRefusal: destructive.refusal, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso,
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,

@@ -2836,6 +2836,12 @@ const enUS = {
   documentsTruncatedBlocksCount: "{0} blocks in stored documents could not be opened.",
   documentsTruncatedConfirmTitle: "Save anyway?",
   documentsTruncatedConfirmBody: "This overwrites your saved project with only the data the app could open. Whatever it could not open is not in the app, and saving loses it for good.",
+  // ★★ NOT `documentsTruncatedSaveAnyway`, for the same reason as both destructive
+  // pairs below: `ConfirmDialog` renders this as a button while the banner's own
+  // trigger stays mounted behind it (the dialog comes from `ConfirmProvider`), so
+  // sharing the string put two identically-named buttons on screen at once. It also
+  // names what the commit actually does, which "Save anyway" never did.
+  documentsTruncatedConfirmSaveAnyway: "Discard the unopened data",
   storageSavingPaused: "Saving paused",
   storageSavingPausedAction: "Saving paused - show how to resolve it",
   knowledgeModuleDesc: "A single place to see and manage every knowledge link — documents, Confluence pages, and web URLs — across the project.",
@@ -3889,7 +3895,33 @@ const enUS = {
   reloadProjectError: "Could not reload the project. Its data was left unchanged.",
   reloadEmptyConfirm: "Reloading would replace this project with empty data (the saved copy has no records). This usually means a failed read. Reload anyway and discard the current content?",
   storageKeptCurrentData: "Storage returned no data, so your current project was kept. Reload the page if this persists.",
-  storageRefusedWipe: "Storage blocked a sudden wipe of your whole project to protect it (likely a glitch). Your saved data is intact — reload the page to restore it.",
+  storageRefusedWipe: "Saving is paused - a large deletion was withheld. Review it in the banner above, or reload the page to restore your saved data.",
+  storageDestructiveBanner: "Saving is paused. A large deletion was withheld to protect your project.",
+  storageDestructiveBannerAria: "Saving paused - a large deletion was withheld",
+  storageDestructiveCount: "{0} of {1} records would be removed.",
+  storageDestructiveWipeCount: "Every record in this project would be removed.",
+  storageDestructiveSaveAnyway: "Save this deletion",
+  storageDestructiveConfirmTitle: "Save this deletion?",
+  storageDestructiveConfirmBody: "If you did not do this, reload the page instead - your saved data is intact.",
+  // ★★ NOT `storageDestructiveSaveAnyway`, for the same reason as the wipe pair
+  // below: `ConfirmDialog` renders this as a button while the banner's own
+  // trigger stays mounted behind it, so sharing the string would put two
+  // identically-named buttons on screen at once.
+  storageDestructiveConfirmSaveAnyway: "Remove these records",
+  storageDestructiveWipeConfirmTitle: "Save this wipe?",
+  storageDestructiveWipeConfirmBody: "This removes every record in the project. If you did not do this, reload the page instead - your saved data is intact.",
+  storageDestructiveWipeConfirmValue: "yes, save this wipe",
+  // ★★ DELIBERATELY NOT `storageDestructiveSaveAnyway`. The banner's own trigger
+  // keeps that string and stays in the DOM behind the open dialog, so reusing it
+  // would put two buttons with the same accessible name on screen at once — the
+  // duplicate-name defect the axe gate provably cannot see.
+  storageDestructiveWipeSaveAnyway: "Save this wipe",
+  // ★★ The BANNER TRIGGER for the wipe tier — a THIRD string, not a swap. The wipe
+  // tier used to reuse `storageDestructiveSaveAnyway` ("Save this deletion") while
+  // its count line and its dialog title both said WIPE, so the button understated
+  // what it was about to commit. It cannot take `storageDestructiveWipeSaveAnyway`
+  // either: that is the dialog's commit, and the dialog opens OVER this banner.
+  storageDestructiveWipeBannerSaveAnyway: "Save this full wipe",
   historyRestoreNothing: "Nothing to restore — this version has no differences from the current project (it may be an empty snapshot).",
   historyRestoreNothingManaged: "Nothing to restore — every change in this version is document history, which is managed per document.",
   projectsSwitch: "Switch project",

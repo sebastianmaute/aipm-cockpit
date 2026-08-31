@@ -1,8 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
+import { useCallback, useEffect, useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "./activity-log";
 import type { Settings } from "./settings-types";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 import type { Task } from "./types";
 import type { ProjectDocument } from "./document-model";
 import type { DocVersion } from "./document-versions";
@@ -13,6 +14,8 @@ import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { useBroadcastSync } from "./broadcast-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
+import { useUndoStack } from "./undo/use-undo-stack";
+import { useBulkOperations } from "./use-bulk-operations";
 
 // ── Storage mock ─────────────────────────────────────────────────────────────
 vi.mock("./storage", () => ({
@@ -176,6 +179,29 @@ beforeEach(() => {
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const showToast = vi.fn();
+const showToastAction = vi.fn();
+/** ★★★ SUPPLIED BY `makeArgs`, and that is the whole point of it existing here.
+ *  Every test in this file omitted it, so `args.onRevealSavingPaused?.()` was a
+ *  GUARANTEED no-op and the refusal toast's only button could be gutted to
+ *  `run: () => {}` with the entire suite still green — measured, not predicted.
+ *  A test running the action without this mock asserts nothing about it. */
+const onRevealSavingPaused = vi.fn();
+
+/** The refusal announcement as the guard now emits it: an ACTION toast whose
+ *  action reveals the standing banner (it is `showToastAction`, not `showToast`).
+ *
+ *  ★★★ DERIVED FROM `t`, NEVER A QUOTED FRAGMENT. Six assertions in this file
+ *  matched the literal "blocked a sudden wipe"; the string was reworded when the
+ *  refusal grew a persistent banner, and the two failure modes are NOT
+ *  symmetrical — four went red, and two `not.toHaveBeenCalledWith` assertions
+ *  went VACUOUS, passing because nothing on earth could emit that text any more.
+ *  The vacuous pair is the dangerous half: it is what a bypass regression would
+ *  have had to defeat. Deriving the text moves all six on the next reword. */
+const refusalToastArgs = () => [
+  "info",
+  t("en-US", "storageRefusedWipe"),
+  expect.objectContaining({ labelKey: "storageSavingPausedAction" }),
+] as const;
 
 const setStorageConfigGlobal = vi.fn();
 
@@ -186,6 +212,8 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
     hydrated: true,
     isPopout: false,
     showToast,
+    showToastAction,
+    onRevealSavingPaused,
     setStorageConfig: setStorageConfigGlobal,
     ...overrides,
   };
@@ -202,6 +230,72 @@ function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
 
 function renderBackend(args = makeArgs()) {
   return renderHook(makeProbe(args), {
+    wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+  });
+}
+
+// ── Seam harness: the REAL undo stack + the REAL clear-all, over this hook ────
+// ★★★ THE POINT IS THAT NOTHING HERE IS A STAND-IN FOR THE BYPASS. Task 9's
+// undo-stack tests pass a `vi.fn()` as `allowDestructiveSave`, so they prove a
+// redo CALLS an arm — never that the arm reaches the guard that refused. This
+// composes `useUndoStack` + `useStorageBackend` + `useBulkOperations` so the
+// only bypass in play is the hook's own, and the only assertion that can pass
+// is one where the guard actually let the write through.
+// ★★ The three hooks are called in task-manager's ORDER, which is why the
+// ref-forward exists at all: `useUndoStack` runs BEFORE `useStorageBackend`,
+// so it cannot receive `allowDestructiveSave` by value. `task-manager.tsx`
+// solves that with a `useRef` filled by a `useEffect`; reproducing any other
+// wiring here would test a composition the app does not have.
+const logActivitySeam = vi.fn();
+const bulkHandlers = { onEdit: () => {}, onDelete: () => {}, onSendInquiry: () => {} };
+const noHolidays: ReadonlySet<string> = new Set<string>();
+const bulkSettings = { hideFinishedTasks: false } as unknown as Settings;
+const noopSetSettings = (() => {}) as unknown as React.Dispatch<React.SetStateAction<Settings>>;
+
+function makeUndoProbe(args: Parameters<typeof useStorageBackend>[0]) {
+  return function useUndoProbe() {
+    const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined);
+    const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
+    const undoApi = useUndoStack({
+      lang: "en-US",
+      logActivity: logActivitySeam,
+      showToast,
+      showToastAction,
+      allowDestructiveSave: armDestructiveForUndo,
+    });
+    const backend = useStorageBackend(args);
+    // Hoisted out of the dep array: exhaustive-deps rejects an `obj.member` dep.
+    const { allowDestructiveSave, destructiveRefusal } = backend;
+    useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; }, [allowDestructiveSave]);
+    const { tasks, setTasks } = useWorkspace();
+    const bulk = useBulkOperations({
+      lang: "en-US",
+      settings: bulkSettings,
+      setSettings: noopSetSettings,
+      handlers: bulkHandlers,
+      onCancelEdit: () => {},
+      logActivity: logActivitySeam,
+      capture: undoApi.capture,
+      captureFieldRows: undoApi.captureFieldRows,
+      commitBuckets: () => {},
+      showToast,
+      allowDestructiveSave,
+      today: "2026-01-01",
+      holidaySet: noHolidays,
+    });
+    return {
+      clearAllTasks: bulk.handleClearAll,
+      undo: undoApi.undo,
+      redo: undoApi.redo,
+      destructiveRefusal,
+      tasks,
+      setTasks,
+    };
+  };
+}
+
+function renderBackendWithUndo(args = makeArgs()) {
+  return renderHook(makeUndoProbe(args), {
     wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
   });
 }
@@ -2369,7 +2463,7 @@ describe("useStorageBackend — Layer 3 wipe guard (persistence choke point)", (
     vi.clearAllMocks();
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
     await act(async () => { result.current.setTasks([]); result.current.setChanges([]); }); // wipe both at once
-    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());
   });
 
   it("ALLOWS a single-collection clear (not the wipe signature)", async () => {
@@ -2379,7 +2473,7 @@ describe("useStorageBackend — Layer 3 wipe guard (persistence choke point)", (
     vi.clearAllMocks();
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
     await act(async () => { result.current.setTasks([]); }); // clear the only collection
-    expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).not.toHaveBeenCalledWith(...refusalToastArgs());
   });
 });
 
@@ -2397,7 +2491,7 @@ describe("useStorageBackend — Layer B mass-deletion guard", () => {
     vi.clearAllMocks();
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
     await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); }); // remove 19
-    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());
   });
 
   it("allowDestructiveSave() bypasses the guard for a confirmed bulk delete", async () => {
@@ -2407,7 +2501,7 @@ describe("useStorageBackend — Layer B mass-deletion guard", () => {
     vi.clearAllMocks();
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
     await act(async () => { result.current.allowDestructiveSave(); result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
-    expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).not.toHaveBeenCalledWith(...refusalToastArgs());
   });
 });
 
@@ -2580,7 +2674,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(backend.save).not.toHaveBeenCalled();
-    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());
   });
 
   it("still honours a bypass armed AFTER the truncation is resolved", async () => {
@@ -2675,7 +2769,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(backend.save).not.toHaveBeenCalled();
-    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());
   });
 
   it("still honours a bypass armed AFTER a suppressed load", async () => {
@@ -2706,6 +2800,480 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     expect(backend.save).toHaveBeenCalledWith(
       expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T" })] }),
     );
+  });
+
+  // ── a refusal must not outlive the workspace whose baselines raised it ────
+  // ★★★ THE ONLY THING THAT EVER CLEARED A REFUSAL WAS A COMMITTED SAVE, and a
+  // project you have just switched away from never commits one. So a refusal
+  // raised on project A survived a reload, a project switch, an opened file and
+  // a BRAND-NEW project, and stood there quoting A's magnitudes. What that costs
+  // on the new project: the banner says saving is paused when it is not, the
+  // sidebar reports the project not-ready, and — the one that loses data — a
+  // GENUINE mass deletion on the new project is refused SILENTLY, because
+  // `refusalWasStanding` suppresses the announcement. The user is then offered
+  // one exit, under a banner describing a different project's records, and
+  // taking it authorises whatever is actually pending.
+  // ★★ THE ARM ITSELF IS NOT THE HAZARD.
+  // `allowDestructiveSaveAnyway` arms AND clears, `destructive.refusal` is
+  // a dep of the save effect, and `consumeArm()` is that effect's FIRST
+  // statement — so the arm is spent by the very effect run the clearing
+  // triggers, never carried to a later edit. What the stale banner buys is a
+  // MISINFORMED consent, not a floating bypass.
+  it("drops a standing refusal when a load/apply replaces the workspace", async () => {
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });   // 20 records → baseline 20
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    // Raise a refusal: 19 of 20 records deleted with nothing armed.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();               // control: the guard engaged
+    expect(result.current.destructiveRefusal).not.toBeNull();  // control: the refusal really stands
+
+    // The load/apply. `reloadCurrentProject` is the cheapest of the sites
+    // that set `suppressNextSaveRef`; the branch it reaches is shared by all of
+    // them, project switch and create included, which is why one clear covers
+    // the lot (see the comment on that branch).
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.destructiveRefusal).toBeNull();
+  });
+
+  it("judges the next mass deletion after a suppressed load as a NEW refusal, not a continuing one", async () => {
+    // ★★★ THE CONSEQUENCE THAT MATTERS, and the reason the state assertion above
+    // is not enough on its own. A carried-over refusal makes `refusalWasStanding`
+    // true for the first real deletion on the NEW project, and the guard
+    // announces a refusal ONLY when it is new — so the deletion is withheld in
+    // silence, under a banner already on screen quoting the OLD project's
+    // counts. This test's kill line is the toast, not the `save` assertion:
+    // `save` is not called either way, so a version asserting only that passes
+    // against the unfixed tree.
+    // ★ There is no direct observable for `allowDestructiveRef` through this
+    // hook's surface, and there does not need to be — see the ★★ above: the arm
+    // cannot outlive the effect run that clears the refusal. The reachable harm
+    // is this silence, so this is what is pinned.
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());  // control: project A was announced
+
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Everything from here on is the NEW project's own story.
+    backend.save.mockClear();
+    showToastAction.mockClear();
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).not.toHaveBeenCalled();                          // still withheld…
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());  // …and this time SAID so
+  });
+
+  it("leaves exactly ONE lockout standing when a truncating load arrives on a refusal", async () => {
+    // ★★★ THE CLAIM FIVE COMMENTS MAKE, AND THIS IS WHERE IT LIVES. They assert
+    // the two lockouts cannot hold at once and used to justify it with the
+    // truncation early return ALONE — which proves only that no NEW refusal is
+    // raised while truncation stands, and says nothing about this order. This
+    // combination WAS reachable: refuse on A, switch to a project whose load
+    // truncates, and both were up at once. The banner mounts are siblings with
+    // no guard between them, so that state rendered two stacked banners.
+    // ★ The fixture loads CLEAN first and truncates only on the reload — a
+    // backend that truncates from the start never lets a save commit, so no
+    // refusal could be established to carry.
+    let loads = 0;
+    const backend = {
+      load: vi.fn(async () => {
+        loads += 1;
+        backend.lastLoadTruncation = loads > 1 ? { entries: 5, blocks: 0 } : undefined;
+        return { tasks: manyTasks, raid: [], absences: [], shifts: [] };
+      }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+      lastLoadTruncation: undefined as { entries: number; blocks: number } | undefined,
+    };
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(backend);
+
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasIncomplete).toBe(false);   // control: the FIRST load was clean
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.destructiveRefusal).not.toBeNull();
+
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.loadWasIncomplete).toBe(true);      // the new lockout took over…
+    expect(result.current.destructiveRefusal).toBeNull();     // …and the old one did not linger
+  });
+
+  // ── a refusal is a standing OUTAGE, not one lost save ─────────────────────
+  // ★★★ The refusal keeps the baselines ("so a later change re-evaluates"), so
+  // `prevRecords` stays at 20 while `curRecords` stays at 1 — `isMassDeletion`
+  // keeps answering true and EVERY later save re-refuses. Saving is paused
+  // until the user authorises the deletion or reloads, which is why the
+  // recourse needs a persistent surface and not only a 7-second toast.
+  it("keeps refusing every later save while a refusal stands", async () => {
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    // An UNARMED 19-of-20 deletion: refused.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();
+    // ★ toMatchObject, NOT `.not.toBeNull()` — the property did not exist before
+    // this task, and `expect(undefined).not.toBeNull()` PASSES, so the weaker
+    // form was green against a hook that exposed nothing.
+    expect(result.current.destructiveRefusal).toMatchObject({ prevRecords: 20, curRecords: 1, fullWipe: false });
+    const standing = result.current.destructiveRefusal;
+
+    // An unrelated, entirely harmless edit afterwards. The baselines still say
+    // 20, so this save is judged as the same mass deletion and refused again.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "renamed" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();
+    expect(result.current.destructiveRefusal).toMatchObject({ prevRecords: 20, curRecords: 1, fullWipe: false });
+    // ★★★ IDENTITY, not equality — this is what stops the save effect looping
+    // forever. `destructive.refusal` is one of that effect's deps, so a
+    // re-evaluation minting a fresh object re-triggers the effect, which refuses
+    // against unchanged baselines and mints another. `useDestructiveSaveGuard`
+    // stops it with an `Object.is`-stable functional setter (`sameRefusal`).
+    // ★★ NOT "THE" ASSERTION — this comment claimed to be the only one and was
+    // wrong, and so was the sibling's mirror-image claim. Two tests cover the
+    // property and neither subsumes the other: "keeps a standing refusal's
+    // identity stable while nothing about it changes" in
+    // `use-destructive-save-guard.test.ts` drives the hook DIRECTLY, with no
+    // effect in the loop, so it fails on the CAUSE (a fresh object) and keeps
+    // failing even if this file ever drops the dep that turns that object into a
+    // loop. What THIS one uniquely covers is the composition: the real save
+    // effect with the real dep array, which is where the loop actually closes
+    // and the only place the OOM below is reachable. Delete either and a real
+    // gap opens.
+    // ★★ THE LOOP DOES HAVE A LOUDER DETECTOR AND IT IS A BAD ONE: without the
+    // guard this file dies with "Ineffective mark-compacts near heap limit",
+    // which in this repo reads as machine contention (AGENTS.md documents that
+    // shape) and cost a whole debugging cycle before the single-test isolation
+    // run refuted it. Assert the property, not the crash.
+    // ★ `react-hooks/set-state-in-effect` does NOT cover this. The rule is
+    // syntactic and the setter is reached through a hook module, so lint stayed
+    // green throughout.
+    expect(result.current.destructiveRefusal).toBe(standing);
+  });
+
+  // ★★★ The refusal keeps the baselines, so EVERY later save re-refuses (the
+  // test above pins exactly that). A toast fired per refusal is therefore a
+  // toast per edit, indefinitely, while the banner is already standing and
+  // saying the same thing — so the toast must fire only on a NEW refusal.
+  // ★ The NEGATIVE half is the whole test. Asserting only that the first
+  // refusal toasts passes against a version that toasts on every one.
+  it("announces a refusal with an action toast ONCE, not again on each re-refusal", async () => {
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+    showToastAction.mockClear();
+
+    // An UNARMED 19-of-20 deletion: refused, and announced.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled(); // control: the refusal really engaged
+    expect(showToastAction).toHaveBeenCalledTimes(1);
+    // ★ The ACTION is asserted, not just the text: the point of the swap from
+    // `showToast` is that the toast carries a route back to the banner. A toast
+    // with the right words and no action is the defect this replaced.
+    const [kind, text, action] = showToastAction.mock.calls[0] as [string, string, { labelKey: string; run: () => void }];
+    expect(kind).toBe("info");
+    expect(text).toBe(t("en-US", "storageRefusedWipe"));
+    expect(action.labelKey).toBe("storageSavingPausedAction");
+    // ...and it REVEALS the banner rather than performing the deletion. Running
+    // it must not arm anything: the refusal has to still stand afterwards.
+    // ★★★ THE POSITIVE HALF IS THE ONE THAT PINS THE ACTION, and it did not
+    // exist before: `makeArgs` supplied no `onRevealSavingPaused`, so `run()`
+    // called `undefined?.()` and the two assertions below it ("the refusal still
+    // stands") were equally satisfied by a `run` that did NOTHING AT ALL. The
+    // mutant `run: () => {}` survived this test, this file and the whole suite.
+    // Reveal is the ONLY route from the toast back to the dismissible banner, so
+    // a silently dead button leaves a paused save with no persistent recourse.
+    onRevealSavingPaused.mockClear();
+    await act(async () => { action.run(); });
+    expect(onRevealSavingPaused).toHaveBeenCalledTimes(1);
+    expect(result.current.destructiveRefusal).not.toBeNull();
+
+    // A second, entirely harmless edit. The baselines still say 20, so it is
+    // judged the same mass deletion and refused AGAIN — silently this time.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "renamed" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled(); // control: it really did re-refuse
+    expect(result.current.destructiveRefusal).toMatchObject({ prevRecords: 20, curRecords: 1 });
+    expect(showToastAction).toHaveBeenCalledTimes(1); // ← the assertion the guard exists for
+  });
+
+  it("commits the pending deletion when the user saves anyway", async () => {
+    // ★ The SAVE is the assertion, not the cleared state. Clearing alone would
+    // pass against a version that armed nothing — the point is that clearing
+    // RE-RUNS the effect, so the authorised write happens without waiting for
+    // an unrelated edit. With saving paused there may never be one.
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();
+
+    await act(async () => { result.current.allowDestructiveSaveAnyway(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T" })] }),
+    );
+    expect(result.current.destructiveRefusal).toBeNull();
+  });
+
+  it("clears a standing refusal once a save commits", async () => {
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { result.current.allowDestructiveSaveAnyway(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.destructiveRefusal).toBeNull();
+
+    // And an ordinary edit afterwards neither refuses nor re-raises it: the
+    // baselines were adopted by the commit, so 1 -> 1 is no deletion at all.
+    backend.save.mockClear();
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "later" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).toHaveBeenCalled();
+    expect(result.current.destructiveRefusal).toBeNull();
+  });
+
+  // ── a REJECTED authorised save must leave the lockout able to re-refuse ────
+  // ★★★ THE BASELINES ARE THE RECOVERABLE STATE, NOT THE REFUSAL OBJECT. The
+  // save effect adopts the new counts SYNCHRONOUSLY and only then schedules the
+  // debounced write, so before this slice a rejected write left the guard
+  // baselined on a workspace that was never stored: the destroyed counts became
+  // "the last committed workspace", every later save compared them against
+  // themselves, and no refusal could ever be raised again. Nothing on screen
+  // said so — the banner was already gone, cleared by the user's own
+  // `allowDestructiveSaveAnyway`, which is why an assertion on
+  // `destructiveRefusal` immediately after the rejection proves NOTHING here.
+  //
+  // ★ The observable is therefore the NEXT save: it must be withheld and the
+  // banner must come back. Assert on `backend.save`, not on the task list — the
+  // rows are gone from memory either way and only the write tells the two
+  // versions apart.
+  it("keeps the lockout able to re-refuse when the authorised destructive save REJECTS", async () => {
+    const backend = useReloadableBackend();          // 20 seeded tasks
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    // Raise a refusal: 19 of 20 records deleted with nothing armed.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();               // control: the refusal really engaged
+    expect(result.current.destructiveRefusal).not.toBeNull();
+
+    // The user authorises it — and the write FAILS. Nothing is stored.
+    backend.save.mockRejectedValue(new Error("disk full"));
+    await act(async () => { result.current.allowDestructiveSaveAnyway(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).toHaveBeenCalledTimes(1);             // control: the authorised write really was attempted
+
+    // The 20 records are still the ones on disk, so the next save is a mass
+    // deletion all over again and must be withheld with the banner back up.
+    backend.save.mockClear();
+    backend.save.mockResolvedValue(undefined);
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "later" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();
+    expect(result.current.destructiveRefusal).toMatchObject({ prevRecords: 20, curRecords: 1 });
+  });
+
+  // ★★ The restore point has to MOVE with each commit, and this is the only
+  // test that says so. Rolling back to the counts the project LOADED with would
+  // pass the test above just as well, and would then refuse an innocent save
+  // for the rest of the session — every deletion measured against a 20-record
+  // workspace that stopped existing at the first committed bulk op.
+  it("re-points the rollback at the counts a committed save actually wrote", async () => {
+    const backend = useReloadableBackend();          // 20 seeded tasks
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    // An authorised deletion that COMMITS: one record is now what is stored.
+    await act(async () => { result.current.allowDestructiveSave(); result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).toHaveBeenCalledTimes(1);             // control: it really committed
+
+    // A later, ordinary save fails. Its rollback must restore THAT one record.
+    backend.save.mockClear();
+    backend.save.mockRejectedValue(new Error("offline"));
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }, { id: 2, taskName: "U" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).toHaveBeenCalledTimes(1);             // control: the failing write really was attempted
+
+    // Dropping back to that single record is no deletion at all. Against a
+    // stale 20-record restore point it would be refused instead.
+    backend.save.mockClear();
+    backend.save.mockResolvedValue(undefined);
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T2" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.destructiveRefusal).toBeNull();
+    expect(backend.save).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★★ THE TEST ABOVE IS BLIND IN ONE DIRECTION AND THIS ONE COVERS IT. It ends
+  // on `destructiveRefusal` being NULL — an assertion that a refusal does NOT
+  // happen — so it can only catch a restore point that is too HIGH (the stale-20
+  // case its own comment names). UNDERSTATING the restore point is invisible
+  // there, because a lower baseline makes `isMassDeletion` and `fullWipe`
+  // strictly LESS likely to fire, so the assertion holds for the wrong reason.
+  // Measured, not reasoned: mutating the `.then()` assignment to
+  // `{ collections: 0, records: 0 }` left that test GREEN.
+  // ★★ Understating is the WORSE direction — pinned at zero, every rejection
+  // restores zero and the guard can never refuse again, which is the permanent
+  // disarm this whole fix exists to prevent. So the direction that has to be
+  // pinned is one where a refusal is REQUIRED.
+  // ★ Step 1 has to COMMIT a save: the load's suppress branch sets the restore
+  // point too, so without a committed write in between the mutant never bites.
+  it("restores the full committed baseline after a rejected save, so a later mass deletion still refuses", async () => {
+    const twentyNamed = (taskName: string) => Array.from({ length: 20 }, (_, i) => ({ id: i + 1, taskName })) as unknown as Task[];
+    const backend = useReloadableBackend();          // 20 seeded tasks
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    // 1. A save that COMMITS 20 records — the restore point now comes from the
+    //    `.then()`, not from the load.
+    await act(async () => { result.current.setTasks(twentyNamed("edited")); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).toHaveBeenCalledTimes(1);   // control: 20 records really committed
+
+    // 2. An ordinary save — still 20 records, nothing destructive — REJECTS.
+    backend.save.mockClear();
+    backend.save.mockRejectedValue(new Error("offline"));
+    await act(async () => { result.current.setTasks(twentyNamed("again")); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).toHaveBeenCalledTimes(1);   // control: the failing write really was attempted
+
+    // 3. A genuine UNARMED mass deletion, 19 of 20 removed. It must be refused.
+    //    Against a restore point of zero, nothing can ever refuse again.
+    backend.save.mockClear();
+    backend.save.mockResolvedValue(undefined);
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();
+    expect(result.current.destructiveRefusal).toMatchObject({ prevRecords: 20, curRecords: 1 });
+  });
+
+  // §295's owed verification: "a test driving clear-all -> undo -> redo against
+  // evaluateSaveGuard". Task 4 pins the storage half and Task 9 the undo half;
+  // per-task checks miss the SEAM between them, which is where this bug lived.
+  //
+  // ★ IT LIVES UNDER A §103 DESCRIBE ON PURPOSE — do not "tidy" it into a §295
+  // block. `useReloadableBackend` (the 20-task fixture this needs) is declared
+  // INSIDE this describe, so moving the test without also hoisting that helper
+  // breaks it. The reporter therefore prints this as "§103 truncated-load guard
+  // > persists a redo of a clear-all", which reads as misfiled and is not.
+  it("persists a redo of a clear-all instead of refusing it", async () => {
+    const backend = useReloadableBackend();          // 20 seeded tasks
+    const { result } = renderBackendWithUndo();      // storage hook + real undo stack
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+    expect(result.current.tasks).toHaveLength(20);   // control: the seed really landed
+
+    // Clear-all: captured for undo AND armed, so this save commits.
+    await act(async () => { result.current.clearAllTasks(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).toHaveBeenCalledWith(expect.objectContaining({ tasks: [] }));
+
+    // Undo restores all 20. Not a deletion, so no arming is needed.
+    backend.save.mockClear();
+    await act(async () => { result.current.undo(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: expect.arrayContaining([expect.objectContaining({ id: 1 })]) }),
+    );
+
+    // Redo re-removes all 20 through the undo runner. Before this slice the
+    // runner armed nothing, the guard refused, and the redo was never written.
+    backend.save.mockClear();
+    await act(async () => { result.current.redo(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    // ★ Assert on the SAVE, not on the in-memory task list. The bug was that
+    // the rows vanished on screen and were never persisted, so an assertion on
+    // state alone passes against the broken tree — which is exactly how this
+    // shipped.
+    expect(backend.save).toHaveBeenCalledWith(expect.objectContaining({ tasks: [] }));
+    expect(result.current.destructiveRefusal).toBeNull();
   });
 });
 

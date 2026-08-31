@@ -12,9 +12,13 @@ interface SidebarFooterProps {
   collapsed: boolean;
   storageDescription: string | null;
   storageReady: boolean;
-  /** A truncated load has paused saving (`use-load-truncation.ts`). */
+  /** Saving is paused by a lockout — a truncated load
+   *  (`use-load-truncation.ts`) or a withheld mass deletion
+   *  (`use-destructive-save-guard.ts`). The two cannot hold at once, by TWO
+   *  mechanisms and not one. */
   savingPaused?: boolean;
-  /** Re-show the truncation banner, which carries the only "Save anyway". */
+  /** Re-show whichever saving-paused banner is standing; it carries the only
+   *  "save anyway" for that cause. */
   onRestoreSavingNotice?: () => void;
   isSignedIn: boolean;
   accountName: string | null;
@@ -23,7 +27,7 @@ interface SidebarFooterProps {
 
 /**
  * ★★★ THE INDICATOR IS THE DOOR BACK, so it is a BUTTON, not a dot.
- * `TruncatedLoadBanner` is dismissable (it must be — a banner you cannot clear
+ * `SavingPausedBanner` is dismissable (it must be — a banner you cannot clear
  * makes the fastest way to tidy your screen the irreversible button), and it is
  * the only surface carrying "Save anyway". Without a control that re-shows it,
  * one ✕ leaves the user watching every later edit vanish on tab close with a
@@ -87,7 +91,26 @@ export function SidebarFooter({
     <div className="flex flex-col gap-3">
       {pausedControl}
       {storageDescription && (
-        <p className={storageReady ? "text-ui-light-grey" : "text-ui-light-grey"}>
+        // ★★ WCAG 1.4.1 — THE DOT'S TWO STATES DIFFER ONLY IN FILL COLOUR
+        // (`--ui-green` vs `--ui-medium-grey`) and the dot is `aria-hidden`, so
+        // a reader who cannot tell those apart sees a paused session as a
+        // healthy one. That got worse rather than better on this branch:
+        // `storageReady` here is `storageOk && !loadWasIncomplete &&
+        // destructiveRefusal === null` (`task-manager.tsx`), so the grey dot now
+        // also stands for a withheld mass deletion.
+        // ★ The trailing marker is the non-colour channel, built the way
+        // `ToggleButton`'s `data-pressed-marker` is: ALWAYS rendered and merely
+        // `invisible` in the quiet state, so the line keeps ONE width and the
+        // description cannot reflow as storage flips.
+        // ★ a second colour would be the very channel this comment says is not
+        // sufficient on its own.
+        // ★★ IT DOES NOT CLOSE THE ASSISTIVE-TECH HALF, and nothing here does:
+        // the marker is `aria-hidden` like the dot, and `storageDescription`
+        // names the BACKEND, never its readiness — so a screen reader is told
+        // nothing about this state on this line. Until then the
+        // `SavingPausedButton` above is the only SPOKEN disclosure, and it is
+        // absent for a plain not-ready backend.
+        <p className="text-ui-light-grey">
           <span
             aria-hidden
             className={
@@ -96,6 +119,13 @@ export function SidebarFooter({
             }
           />
           {storageDescription}
+          <span
+            aria-hidden
+            data-storage-marker={storageReady ? "ready" : "not-ready"}
+            className={"ml-1 text-xs leading-none" + (storageReady ? " invisible" : "")}
+          >
+            ⚠
+          </span>
         </p>
       )}
 

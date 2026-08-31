@@ -191,9 +191,34 @@ export type Runner = () => Runner;
  * returned redo thunk sees the populated `forward` only when the user later
  * invokes it (after the updater has committed).
  */
+/** Does applying these images REMOVE rows?
+ *
+ *  ★★ OVER-APPROXIMATES ON PURPOSE. `applyUndoForward` carries an identity
+ *  guard and skips a delete-image whose live row no longer matches, so this can
+ *  answer true where nothing is actually removed. That is harmless — the arm is
+ *  a one-shot spent by the very save this mutation triggers. Under-arming is
+ *  the direction that reproduces §295, so a cleverer predicate is a regression
+ *  risk, not an improvement.
+ *
+ *  ★ The UNDO direction never removes: `UndoOp` is "delete" | "edit" and
+ *  created rows are excluded entirely — there is no before-image for a row that
+ *  did not exist, and no entity in the app captures a create. So only
+ *  forward/redo images are ever tested here.
+ *  ★ A `kind: "budget.created"` exists and is NOT a counter-example —
+ *  `ActivityKind` and `UndoOp` are different vocabularies. */
+function imagesRemoveRows<T extends { id: number }>(images: readonly BeforeImage<T>[]): boolean {
+  return images.some((i) => i.op === "delete");
+}
+
 function fragmentUndoRunner<T extends { id: number }>(
   setter: Dispatch<SetStateAction<readonly T[]>>,
   before: readonly BeforeImage<T>[],
+  /** Arm the storage destructive-save bypass; see `UseUndoStackDeps`. Optional
+   *  so the engine stays usable without one (tests, a caller that never
+   *  deletes). ★ Passed as a PARAMETER rather than read from the hook's
+   *  `depsRef`: this builder is module-scope, deliberately, so `capturePart`
+   *  can be called from outside the hook — `depsRef` is not in scope here. */
+  arm?: () => void,
 ): Runner {
   const runUndo: Runner = () => {
     let forward: BeforeImage<T>[] = [];
@@ -205,6 +230,7 @@ function fragmentUndoRunner<T extends { id: number }>(
       return result;
     });
     const runRedo: Runner = () => {
+      if (imagesRemoveRows(forward)) arm?.();
       setter((prev) => applyUndoForward(prev, forward, WRITE_THROUGH_FIELDS));
       return runUndo;
     };
@@ -228,12 +254,28 @@ const EMPTY_REMAP: ReadonlyMap<number, number> = new Map();
 export interface CompositeFragment {
   /** Whether this fragment is the PRIMARY delete (its id-remap drives cascades). */
   isPrimary: boolean;
-  restore: (primaryRemap: { current: ReadonlyMap<number, number> }, isPrimary: boolean) => () => void;
+  /** ★ `arm` is threaded THROUGH by `compositeUndoRunner` and spent (or ignored)
+   *  by the fragment builder — the decision is per-fragment, because only the
+   *  fragment knows whether its own forward images remove rows. A
+   *  `captureFieldPart` fragment declares no parameters at all and so can never
+   *  arm, which is correct: it merges a field patch and removes nothing. */
+  restore: (
+    primaryRemap: { current: ReadonlyMap<number, number> },
+    isPrimary: boolean,
+    arm?: () => void,
+  ) => () => void;
 }
 
 /** Drive ONE `captureFieldPart` fragment as a standalone undo↔redo runner. The
  *  fragment publishes no id-remap (it removes nothing), so the empty box and
- *  `isPrimary: false` are the only correct arguments here. */
+ *  `isPrimary: false` are the only correct arguments here.
+ *
+ *  ★★ DELIBERATELY UNARMED (§295) — no `arm` is threaded, and that is not an
+ *  omission. This runner drives a `captureFieldPart`, whose redo is
+ *  `apply(after, before)`, i.e. a `prev.map(...)` merging a field patch onto
+ *  rows that already exist. A map cannot shorten the array, so no direction of
+ *  this runner ever removes a row and arming here would leak a one-shot
+ *  destructive bypass to the next unrelated save. */
 function fieldRowsRunner(part: CompositeFragment): Runner {
   const runUndo: Runner = () => {
     const redo = part.restore({ current: EMPTY_REMAP }, false);
@@ -255,7 +297,15 @@ function fieldRowsRunner(part: CompositeFragment): Runner {
  * re-minted row by its correct id via `buildForwardImages`). Re-undo re-runs
  * `runUndo`, re-orchestrating from the fixed before-images — fully reusable.
  */
-function compositeUndoRunner(fragments: readonly CompositeFragment[]): Runner {
+function compositeUndoRunner(
+  fragments: readonly CompositeFragment[],
+  /** ★★ FORWARDED, NEVER TESTED HERE (§295). A composite arms because a
+   *  FRAGMENT arms: each fragment's redo closure runs its own `imagesRemoveRows`
+   *  check over its OWN forward images, so this function needs no predicate of
+   *  its own and must not grow one — a check here would either duplicate the
+   *  per-fragment answer or, worse, disagree with it. */
+  arm?: () => void,
+): Runner {
   // The PRIMARY (remap source) is the explicitly-flagged fragment; fall back to
   // index 0 for back-compat. Explicit beats the fragile positional convention.
   const primaryIdx = Math.max(0, fragments.findIndex((f) => f.isPrimary));
@@ -264,7 +314,7 @@ function compositeUndoRunner(fragments: readonly CompositeFragment[]): Runner {
     // live state rather than a stale one.
     const primaryRemap = { current: EMPTY_REMAP };
     const redos: (() => void)[] = new Array(fragments.length);
-    const runPrimary = () => { redos[primaryIdx] = fragments[primaryIdx].restore(primaryRemap, true); };
+    const runPrimary = () => { redos[primaryIdx] = fragments[primaryIdx].restore(primaryRemap, true, arm); };
     // ★★ Flush the PRIMARY synchronously so its published remap is populated
     // BEFORE the cascade updaters run — `undo()` fires from an event handler, so
     // under React-18 auto-batching the separate setters would otherwise flush in
@@ -272,7 +322,7 @@ function compositeUndoRunner(fragments: readonly CompositeFragment[]): Runner {
     // still-empty box. Only when there ARE cascades: a lone fragment needs no
     // cross-fragment sync, so flushSync would just force a needless extra commit.
     if (fragments.length > 1) flushSync(runPrimary); else runPrimary();
-    fragments.forEach((f, i) => { if (i !== primaryIdx) redos[i] = f.restore(primaryRemap, false); });
+    fragments.forEach((f, i) => { if (i !== primaryIdx) redos[i] = f.restore(primaryRemap, false, arm); });
     const runRedo: Runner = () => {
       for (const redo of redos) redo();
       return runUndo;
@@ -302,6 +352,7 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
   const restore = (
     primaryRemap: { current: ReadonlyMap<number, number> },
     isPrimary: boolean,
+    arm?: () => void,
   ): (() => void) => {
     let forward: BeforeImage<T>[] = [];
     setter((prev) => {
@@ -317,7 +368,14 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
       forward = buildForwardImages(restoreImages, prev, remap);
       return result;
     });
-    return () => { setter((prev) => applyUndoForward(prev, forward, WRITE_THROUGH_FIELDS)); };
+    return () => {
+      // §295: this fragment's redo re-applies its own forward images, so it is
+      // the only place that can tell whether THIS array loses rows. Arming here
+      // is what makes a composite arm transitively — `compositeUndoRunner` just
+      // forwards `arm` and adds no check of its own.
+      if (imagesRemoveRows(forward)) arm?.();
+      setter((prev) => applyUndoForward(prev, forward, WRITE_THROUGH_FIELDS));
+    };
   };
   return { isPrimary: isPrimary === true, restore };
 }
@@ -508,6 +566,16 @@ export interface UseUndoStackDeps {
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   showToast: (kind: "info" | "error", text: string) => void;
   showToastAction: (kind: "info" | "error", text: string, action: ToastAction) => void;
+  /** Arm the storage destructive-save bypass. Called by a runner whose applied
+   *  direction REMOVES rows — a redo of a captured deletion.
+   *
+   *  ★★★ WITHOUT THIS, A REDO IS REFUSED. The runner drives the same workspace
+   *  setters the save effect watches, so a redo of a clear-all re-removes every
+   *  row with no bypass armed; the guard then refuses and the redo is never
+   *  persisted (open-followups §295).
+   *  ★★ ARMED IN THE SAME SYNCHRONOUS BLOCK AS THE SETTER, deliberately — a
+   *  site that arms, awaits, then mutates loses its permission. */
+  allowDestructiveSave?: () => void;
 }
 
 /** One entry on either stack: display meta + the impure directional runner. */
@@ -526,6 +594,11 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   const depsRef = useRef(deps);
   useEffect(() => { depsRef.current = deps; }, [deps]);
   const idRef = useRef(0);
+  // §295. ★ Reads `depsRef` LAZILY, at redo time — a runner outlives the render
+  // that built it, so capturing `deps.allowDestructiveSave` by value at capture
+  // time would spend a stale callback. Stable identity (`[]`), so the module-scope
+  // runner builders can close over it once and never need re-minting.
+  const armDestructive = useCallback(() => { depsRef.current.allowDestructiveSave?.(); }, []);
 
   // Run an entry's undo + side effects OUTSIDE any setState updater (strict mode
   // double-invokes updaters → double restore). `entry.run()` applies the undo
@@ -648,8 +721,8 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // Toast/count reflect the PRIMARY op (the rows the user acted on), not the
     // incidental dependents an edit-cascade also captured.
     const primaryCount = removed.length > 0 ? removed.length : edited.length;
-    pushEntry(kind, primaryCount, fragmentUndoRunner(setter, images), { name, entityKey });
-  }, [pushEntry]);
+    pushEntry(kind, primaryCount, fragmentUndoRunner(setter, images, armDestructive), { name, entityKey });
+  }, [pushEntry, armDestructive]);
 
   const captureFieldEdit = useCallback(<T extends { id: number }>(opts: CaptureFieldEditOpts<T>) => {
     const { setter, kind, id, before, after, stampField, name } = opts;
@@ -658,6 +731,14 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const merge = (patch: Partial<T>) =>
       setter((prev) => prev.map((r) => (r.id === id ? stamp({ ...r, ...patch }) : r)));
     // Mutually-recursive, reusable undo↔redo runners (function decls hoist).
+    // ★★ NEITHER DIRECTION ARMS THE DESTRUCTIVE BYPASS, and that is deliberate
+    // (§295), not an oversight — this `runRedo` is one of several in the file
+    // (the others live in `fragmentUndoRunner`, `fieldRowsRunner` and
+    // `compositeUndoRunner`) and the easiest to mistake for a missing arm.
+    // `merge` is `prev.map(...)`, a map over the rows that already exist, so it
+    // can rewrite a row but never drop one; the array length is invariant in
+    // both directions. Arming here would hand a one-shot bypass to an ordinary
+    // single-field redo and the next unrelated save would spend it.
     function runUndo(): Runner { merge(before); return runRedo; }
     function runRedo(): Runner { merge(after); return runUndo; }
     pushEntry(kind, 1, runUndo, { name });
@@ -666,8 +747,8 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
     const fragments = opts.parts.filter((f): f is CompositeFragment => f !== null);
     if (fragments.length === 0) return;
-    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments), { name: opts.name, entityKey: opts.entityKey });
-  }, [pushEntry]);
+    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments, armDestructive), { name: opts.name, entityKey: opts.entityKey });
+  }, [pushEntry, armDestructive]);
 
   const captureFieldRows = useCallback(<T extends { id: number }>(opts: CaptureFieldRowsOpts<T>) => {
     const part = captureFieldPart<T>({ setter: opts.setter, edits: opts.edits, stampField: opts.stampField });
