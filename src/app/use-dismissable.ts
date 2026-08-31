@@ -29,12 +29,14 @@ export function useDismissable({
   onDismiss,
   claims,
 }: DismissableOptions): symbol {
-  // Matches modal.tsx's token pattern: a Symbol is minted once and kept
-  // stable across re-renders. ★ Held in `useState` (lazy initializer), NOT a
-  // ref — the token is now RETURNED, and `react-hooks/refs` rejects reading
-  // `ref.current` during render ("Cannot access refs during render"), which
-  // is exactly what a return statement does. A plain state value has no such
-  // restriction because it is a normal render-time value, not a ref.
+  // ★★ This DIVERGES from modal.tsx's token pattern, deliberately — do not
+  // "align" them. `modal.tsx` holds its token in a `useRef` (minting a Symbol
+  // every render and keeping only the first), which is fine there because it
+  // never returns the token and only reads `.current` inside effects. This
+  // hook RETURNS the token, and returning is a render-time read, which
+  // `react-hooks/refs` rejects outright ("Cannot access refs during render")
+  // — a fatal rule under `--max-warnings=0`. A lazy `useState` initializer
+  // mints once and yields a normal render-time value with no such restriction.
   const [token] = useState<symbol>(() => Symbol("dismissable"));
   const onDismissRef = useRef(onDismiss);
   const claimsRef = useRef(claims);
@@ -70,8 +72,11 @@ export function useDismissable({
 
   // ★ Returned so a caller that runs its OWN Tab trap can ask
   // `isTopmostOfKind(token, "modal")` and stand down when something is layered
-  // above it. `popover-panel.tsx` is the only consumer that needs it; the other
-  // five ignore the return, which is why adding it broke nothing.
+  // above it. ★★ NO consumer reads it yet — every call site invokes this hook
+  // as a bare statement — so do not read an unused return as dead API and
+  // delete it. `popover-panel.tsx`'s Tab cycle is the intended first reader.
+  // Enumerate today's call sites rather than trusting a count here:
+  //   git grep -n 'useDismissable(' -- src | grep -v test
   return token;
 }
 

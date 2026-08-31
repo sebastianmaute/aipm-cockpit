@@ -111,8 +111,11 @@ export function PopoverPanel({
   // post-paint clamp effect rewrites it, so both listeners would be torn down
   // and re-registered on every clamp pass.
   //
-  // ★ This is the same distinction the autoFocus effect below already draws:
-  // the flag means "the panel is RENDERED", not "the panel is open".
+  // ★ Same distinction `usePanelInitialFocus` (`use-panel-focus.ts`) already
+  // draws, and its parameter docstring is where the rule is stated in full:
+  // the flag means "the panel is RENDERED", not "the panel was requested". A
+  // surface with a secondary mount gate must pass that gate too. The autoFocus
+  // effect below draws it inline for the same reason.
   const rendered = open && pos !== null;
   useEffect(() => {
     if (!rendered) return;
