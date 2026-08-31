@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import {
   claimsEscape,
   popDismissal,
@@ -28,11 +28,14 @@ export function useDismissable({
   kind,
   onDismiss,
   claims,
-}: DismissableOptions): void {
-  // Matches modal.tsx's token pattern: a Symbol is minted each render but only
-  // the first is kept. Assigning to a ref during render would trip the
-  // react-hooks purity rule, which CI rejects.
-  const tokenRef = useRef<symbol>(Symbol("dismissable"));
+}: DismissableOptions): symbol {
+  // Matches modal.tsx's token pattern: a Symbol is minted once and kept
+  // stable across re-renders. ★ Held in `useState` (lazy initializer), NOT a
+  // ref — the token is now RETURNED, and `react-hooks/refs` rejects reading
+  // `ref.current` during render ("Cannot access refs during render"), which
+  // is exactly what a return statement does. A plain state value has no such
+  // restriction because it is a normal render-time value, not a ref.
+  const [token] = useState<symbol>(() => Symbol("dismissable"));
   const onDismissRef = useRef(onDismiss);
   const claimsRef = useRef(claims);
   useEffect(() => {
@@ -40,19 +43,20 @@ export function useDismissable({
     claimsRef.current = claims;
   });
 
-  // ★★ Deps are [open, kind] ONLY. Adding onDismiss or claims here would
-  // re-run this on any parent re-render, re-pushing the token to the TOP of
-  // the stack and making the wrong layer topmost — the bug modal.tsx hit twice.
+  // ★★ Deps are [open, kind, token] — `token` never changes after mount, so
+  // adding it cannot cause the re-push-to-top bug the comment below warns
+  // about; it satisfies exhaustive-deps for a value the effect closes over.
+  // Adding onDismiss or claims here would re-run this on any parent
+  // re-render, re-pushing the token to the TOP of the stack and making the
+  // wrong layer topmost — the bug modal.tsx hit twice.
   useEffect(() => {
     if (!open) return;
-    const token = tokenRef.current;
     pushDismissal(token, kind, () => claimsRef.current?.() ?? true);
     return () => popDismissal(token);
-  }, [open, kind]);
+  }, [open, kind, token]);
 
   useEffect(() => {
     if (!open) return;
-    const token = tokenRef.current;
     function onKeyDown(e: KeyboardEvent) {
       if (!claimsEscape(e, token)) return;
       // Still mark it: element-scoped handlers and anything outside the stack
@@ -62,7 +66,13 @@ export function useDismissable({
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, kind]);
+  }, [open, kind, token]);
+
+  // ★ Returned so a caller that runs its OWN Tab trap can ask
+  // `isTopmostOfKind(token, "modal")` and stand down when something is layered
+  // above it. `popover-panel.tsx` is the only consumer that needs it; the other
+  // five ignore the return, which is why adding it broke nothing.
+  return token;
 }
 
 /** Claim Escape only while focus is inside `ref` — or nowhere at all.
