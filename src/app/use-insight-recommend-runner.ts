@@ -154,5 +154,18 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   //    too, but the interval effect's `[intervalMs]` cleanup re-runs on every
   //    cadence change and would abort legitimate in-flight work on a settings
   //    edit, not just on unmount.
+  //
+  // ★★ DEV-ONLY SIDE EFFECT — do NOT report §120 as broken from a dev session.
+  //    App Router runs StrictMode by default here (no `reactStrictMode` in
+  //    next.config.ts), so under `next dev` the mount commit runs effects →
+  //    cleanup → effects: this cleanup aborts the mount tick's controller, and
+  //    the re-run then returns early on `isRunningRef` (lowered only in the
+  //    tick's `finally`, a later microtask). Net: no recommendations on mount
+  //    under `npm run dev`. Production no-ops StrictMode, so shipped users are
+  //    unaffected — which is why this is filed rather than fixed. An identity
+  //    guard cannot be added HERE (empty effect body, no controller captured;
+  //    and at a simulated unmount the mount tick's controller IS the current
+  //    one). See docs/open-followups.md §310 for the minimal fix if dev parity
+  //    is ever wanted.
   useEffect(() => () => abortRef.current?.abort(), []);
 }
