@@ -30,6 +30,10 @@ import type { ConfirmFn } from "./confirm-dialog";
 import { loadThreads, saveThread, deleteThread as deleteThreadRow } from "./chat-threads-store";
 import { type ChatThread, newThreadId, deriveThreadName, stripAttachmentsForPersistence } from "./chat-threads";
 import { publishChatThreads, clearChatThreadsFor } from "./chat-threads-registry";
+import {
+  mergeThreadsAfterLoad,
+  resetThreadsAfterFailedLoad,
+} from "./chat-thread-load";
 
 /** Live render-scope values the Turso thread flows read each render. */
 export interface UseChatThreadsDeps {
@@ -55,77 +59,6 @@ export interface UseChatThreadsDeps {
   cancelledRef: React.MutableRefObject<boolean>;
   abortRef: React.MutableRefObject<AbortController | null>;
   confirm: ConfirmFn;
-}
-
-/** Outcome of settling a SUCCESSFUL `loadThreads()` call, shared by the
- *  mount-fetch effect's `.then` and retryLoad's reload `.then` (§148) so the
- *  two settle paths cannot drift apart. `stale=true` means "do not adopt
- *  `loaded[0]`", and since `preserveLive` landed it has TWO causes, not one:
- *  either something (ensureThreadForSend) minted/adopted a different thread
- *  while this fetch was in flight, OR the caller held a live send via
- *  `preserveLive` and nothing moved at all. Under EITHER the caller must
- *  MERGE `loaded` rather than adopt `loaded[0]`, per the mount effect's own
- *  "MERGE, not bail" comment. */
-interface LoadSettleResult {
-  updateThreads: (prev: ChatThread[]) => ChatThread[];
-  stale: boolean;
-  next: ChatThread | null;
-}
-
-/** `preserveLive` forces the merge branch even when the identity test reads
- *  clean. The identity test asks "did threadIdRef MOVE during this fetch",
- *  which is blind to a thread that moved BEFORE the fetch started and still
- *  has a send streaming into it — the state a failed mount fetch's own stale
- *  branch leaves behind. Only retryLoad passes true; see its comment for why
- *  the mount/project-switch effect must NOT.
- *
- *  ★★★ THE MERGE BRANCH IS SCOPED TO THIS PROJECT, and that filter is
- *  load-bearing rather than tidiness. `prev` is whatever the PREVIOUS project
- *  left behind — nothing resets it on a switch — so an unfiltered merge keeps
- *  another project's rows in the sidebar and, since the caller marks the list
- *  loaded on this path, republishes them under this project's id. Every row
- *  carries the `projectId` it was minted or fetched under (`loadThreads` is
- *  per-project; ensureThreadForSend and the busy-persist effect both stamp
- *  it), so the ownership test is exact rather than heuristic. */
-function mergeThreadsAfterLoad(
-  startedOn: string | null,
-  liveThreadId: string | null,
-  projectId: string,
-  loaded: ChatThread[],
-  preserveLive: boolean,
-): LoadSettleResult {
-  if (preserveLive || liveThreadId !== startedOn) {
-    return {
-      updateThreads: (prev) => [
-        ...prev.filter((th) => th.projectId === projectId && !loaded.some((l) => l.id === th.id)),
-        ...loaded,
-      ],
-      stale: true,
-      next: null,
-    };
-  }
-  return { updateThreads: () => loaded, stale: false, next: loaded[0] ?? null };
-}
-
-/** Mirror of mergeThreadsAfterLoad for a FAILED `loadThreads()` call — shared
- *  by the mount effect's `.catch` and retryLoad's reload `.catch` (§148), so
- *  a mid-flight-minted thread's row survives a failed reload exactly as it
- *  already survived a failed initial fetch. */
-interface FailedLoadSettleResult {
-  updateThreads: (prev: ChatThread[]) => ChatThread[];
-  stale: boolean;
-}
-
-function resetThreadsAfterFailedLoad(
-  startedOn: string | null,
-  liveThreadId: string | null,
-  projectId: string,
-  preserveLive: boolean,
-): FailedLoadSettleResult {
-  if (preserveLive || liveThreadId !== startedOn) {
-    return { updateThreads: (prev) => prev.filter((th) => th.projectId === projectId), stale: true };
-  }
-  return { updateThreads: () => [], stale: false };
 }
 
 export function useChatThreads(deps: UseChatThreadsDeps) {
