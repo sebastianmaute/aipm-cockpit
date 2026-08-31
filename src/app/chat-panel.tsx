@@ -545,7 +545,7 @@ function ChatPanelInner({
         }
       }
     } finally {
-      abortRef.current = null;
+      if (abortRef.current === controller) abortRef.current = null;
       setBusy(false);
       // Refocus the input after the round-trip resolves.
       inputRef.current?.focus();

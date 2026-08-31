@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { asTimeZoneForTests } from "./timezone";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { useState } from "react";
 import { readFileSync } from "node:fs";
@@ -1745,5 +1745,62 @@ describe("historySearch reaches the request body", () => {
     //   there, only its tool-bearing lines gone — otherwise a prompt that lost
     //   the whole view-scope block would satisfy the negative above.
     expect(off.system).toContain("VIEW SCOPE");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// abortRef ownership under a same-tick double dispatch (open-followups §312)
+// ---------------------------------------------------------------------------
+describe("abortRef ownership across concurrent sends", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("still holds the second send's controller after the first send settles", async () => {
+    const signals: AbortSignal[] = [];
+    let rejectFirst!: (reason: unknown) => void;
+    const first = new Promise<Response>((_res, rej) => { rejectFirst = rej; });
+    const second = new Promise<Response>(() => {});
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+      signals.push((init as RequestInit).signal as AbortSignal);
+      return signals.length === 1 ? first : second;
+    });
+
+    const base = {
+      lang: "en-US" as const,
+      ai: AI_WITH_KEY,
+      dispatcher: makeDispatcher(),
+      onAcceptConsent: vi.fn(),
+    };
+    const { rerender } = render(<ChatPanel {...base} projectId="p1" />);
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), {
+      target: { value: "list tasks" },
+    });
+
+    // Two native clicks with NO render between them, so both submitPrompt calls
+    // read `busy === false` off the same render closure. That is the same-tick
+    // double dispatch submitPrompt's own `busy` bail cannot stop, and it is the
+    // only way to give abortRef a second owner.
+    const send = screen.getByRole("button", { name: "Send" });
+    await act(async () => {
+      send.click();
+      send.click();
+    });
+    await waitFor(() => expect(signals).toHaveLength(2));
+
+    // Settle send 1. Its `finally` runs while send 2 is still in flight.
+    await act(async () => {
+      rejectFirst(new Error("boom"));
+    });
+
+    // A project switch aborts whatever abortRef holds. It must still be send 2's
+    // controller: an unconditional clear in send 1's `finally` empties the slot,
+    // and retryLoad then reads that same ref as "no send in flight".
+    await act(async () => {
+      rerender(<ChatPanel {...base} projectId="p2" />);
+    });
+
+    expect(signals[1].aborted).toBe(true);
+    // Control: send 1 already settled and was never the target, so a passing
+    // assertion above cannot come from a blanket abort of every controller.
+    expect(signals[0].aborted).toBe(false);
   });
 });
