@@ -14,12 +14,23 @@ const showToastSpy = vi.fn();
 beforeEach(() => {
   clearDiagLog();
   showToastSpy.mockClear();
+  mockVersions = [version()];
 });
 
 const saveVersion = vi.fn(async () => {});
+type MockVersion = { id: string; templateId: string; name: string; body: string; isAuto: boolean; createdAt: string };
+const version = (over: Partial<MockVersion> = {}): MockVersion => ({
+  id: "x-v-1", templateId: "t1", name: "v1", body: "<p>old</p>", isAuto: false, createdAt: "2026-06-15T00:00:00Z", ...over,
+});
+// ★ Mutable so a test can seed a version list that collides. `vi.mock` hoists
+// above this declaration, but the factory reads the binding rather than a
+// snapshot, so a test that reassigns it before `setup()` is what the next
+// render sees. The `mock` name prefix is what lets vitest's hoist check accept
+// the reference at all.
+let mockVersions: MockVersion[] = [version()];
 vi.mock("../use-comm-template-versions", () => ({
   useCommTemplateVersions: () => ({
-    versions: [{ id: "x-v-1", templateId: "t1", name: "v1", body: "<p>old</p>", isAuto: false, createdAt: "2026-06-15T00:00:00Z" }],
+    versions: mockVersions,
     busy: false,
     saveVersion,
     removeVersion: vi.fn(),
@@ -176,12 +187,77 @@ describe("CommTemplatesSection", () => {
     expect(names.some((n) => n.includes("Weekly ping (4)"))).toBe(false);
   });
 
-  it("keeps the default badge in the row button's accessible name", () => {
+  // ★★★ THE TEST THAT USED TO SIT HERE WAS VACUOUS, and this is the record of
+  // that rather than a silent replacement. It asserted that three row buttons
+  // start with "Weekly ping" and that exactly one of their names carries the
+  // badge — and BOTH were already true of the UNFIXED, content-named code,
+  // because the default row's content name was "Weekly pingDefault" while the
+  // other two were "Weekly ping". The badge was doing the disambiguating for
+  // free, so the assertion could not tell fixed code from broken code.
+  // ★★ MEASURED, not reasoned. With the row button's `aria-label` mutated to
+  // `undefined` (exactly the pre-fix shape) the old test PASSED, while "gives
+  // every per-row control a row-unique accessible name" — the test that really
+  // does cover the §276 collision on this surface — went RED under that same
+  // mutant. So the file's collision coverage was real; only this one test was
+  // contributing nothing to it while reading as though it did.
+  // ★★ WHAT REPLACES IT PINS THE COMPOSED NAME, not two counts, and that is
+  // the whole difference: a content-named button can satisfy a count, but it
+  // cannot produce "Weekly ping (1) Default". Both halves of the
+  // `tpl.isDefault ? … : token` ternary get their own `it()` — vitest aborts at
+  // the first hard assertion, so folding them together would leave whichever
+  // ran second unproved — and each is written so the OTHER branch's mutant
+  // passes it, which is what makes them isolate.
+  // ★ Neither is collision coverage and neither should be read as such; the
+  // uniqueness assertion above is.
+  it("keeps the occurrence token AND the default badge in a colliding default row's name", () => {
     setup(collidingTemplates);
-    // The badge is visible text INSIDE the row button, so an aria-label that
-    // dropped it would both lose information and fail WCAG 2.5.3.
-    const rowButtons = buttonNames().filter((n) => n.startsWith("Weekly ping"));
-    expect(rowButtons).toHaveLength(3);
-    expect(rowButtons.filter((n) => n.includes(t("en-US", "commTplDefaultBadge")))).toHaveLength(1);
+    // c1 is the only default and leads the colliding trio. The badge is visible
+    // text INSIDE the button, so it has to survive into the accessible name
+    // (information parity, and WCAG 2.5.3 containment) alongside the token.
+    expect(buttonNames()).toContain(`Weekly ping (1) ${t("en-US", "commTplDefaultBadge")}`);
+  });
+
+  it("leaves the default badge off a non-default row's name", () => {
+    setup(collidingTemplates);
+    // The ternary's other branch. Making the badge UNCONDITIONAL leaves every
+    // name distinct and every count unchanged, so only an exact-name assertion
+    // on a non-default row catches it — and dropping the ternary entirely still
+    // satisfies this one, which is what keeps the two tests independent.
+    expect(buttonNames()).toContain("Weekly ping (2)");
+  });
+
+  // ★★ WCAG 2.4.6 — a version name is whatever `window.prompt` returned
+  // (`saveCurrentVersion`), and nothing on any backend constrains it, so two
+  // versions can share one. Both of that row's controls interpolated the raw
+  // name, so "Compare: draft" and "Restore: draft" each appeared twice.
+  async function openVersionList() {
+    setup([tpl()]);
+    fireEvent.click(screen.getByRole("button", { name: "Inquiry A" }));
+    // The editor is lazy; awaiting it also guarantees the `selected` subtree
+    // (which holds the version list) has committed.
+    await screen.findByLabelText("Body");
+  }
+
+  it("gives every version-list control a row-unique accessible name when two versions share a name", async () => {
+    mockVersions = [version({ id: "v-a", name: "draft" }), version({ id: "v-b", name: "draft" })];
+    await openVersionList();
+    // 11 = measured for this fixture (whole-document scope): one row name
+    // button, "Set as default", "Delete", "Create", "Cancel editing", "Save
+    // version", the Current row's Compare, and Compare+Restore per version.
+    expectRowUniqueNames({ minControls: 11, requireCollisionSeed: true });
+  });
+
+  it("numbers the Current pseudo-row too when a saved version is named after it", async () => {
+    // The Current row is part of the SAME rendered list and carries the SAME
+    // verb, so it has to share the token map — otherwise a version the user
+    // literally named "Current" collides with it and only one of the two pair
+    // members can be numbered.
+    mockVersions = [version({ id: "v-a", name: t("en-US", "commTplCurrent") })];
+    await openVersionList();
+    const names = buttonNames();
+    const compare = t("en-US", "commTplCompare");
+    const current = t("en-US", "commTplCurrent");
+    expect(names).toContain(`${compare}: ${current} (1)`);
+    expect(names).toContain(`${compare}: ${current} (2)`);
   });
 });

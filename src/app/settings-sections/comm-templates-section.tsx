@@ -61,6 +61,19 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   const selected = inCategory.find((tpl) => tpl.id === selectedId) ?? null;
 
   const versions = useCommTemplateVersions({ active: props.config !== null, config: props.config, templateId: selectedId });
+  // ★★ A version name is whatever `window.prompt` returned in
+  // `saveCurrentVersion` — nothing on any backend constrains it — so two
+  // versions can share one and BOTH of a row's controls (Compare, Restore)
+  // interpolated it raw. Same free-text class as the template rows above.
+  // ★ The CURRENT pseudo-row is in the SAME rendered list and carries the SAME
+  // Compare verb, so it joins the map rather than sitting outside it: a user
+  // who names a saved version "Current" collides with it, and only a map
+  // spanning both can number the pair. It leads the list because it renders
+  // first — the occurrence index has to follow what is on screen.
+  const versionRowTokens = buildRowTokens<string>([
+    { id: CURRENT_ID, name: t(lang, "commTplCurrent") },
+    ...versions.versions.map((v) => ({ id: v.id, name: v.name })),
+  ]);
 
   function toggleCompare(id: string) {
     setCompareIds((prev) =>
@@ -346,7 +359,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                   type="button"
                   onClick={() => toggleCompare(CURRENT_ID)}
                   aria-pressed={compareIds.includes(CURRENT_ID)}
-                  aria-label={`${t(lang, "commTplCompare")}: ${t(lang, "commTplCurrent")}`}
+                  aria-label={`${t(lang, "commTplCompare")}: ${versionRowTokens.get(CURRENT_ID) ?? t(lang, "commTplCurrent")}`}
                   className={`${compareIds.includes(CURRENT_ID)
                     ? "shrink-0 rounded-md border border-line bg-ui-dark-blue px-2 py-0.5 text-[11px] text-white"
                     : "shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"} ${INTERACTIVE}`}
@@ -354,7 +367,12 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                   {t(lang, "commTplCompare")}
                 </button>
               </li>
-              {versions.versions.map((v) => (
+              {versions.versions.map((v) => {
+                // Cannot miss: the map is built over this exact list, keyed on
+                // the same `v.id`. The fallback keeps the pre-token behaviour
+                // rather than rendering an unnamed control if it ever did.
+                const vToken = versionRowTokens.get(v.id) ?? v.name;
+                return (
                 <li key={v.id} className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1">
                   <span className="flex min-w-0 flex-1 items-center gap-2">
                     <span className="truncate text-xs text-foreground">{v.name}</span>
@@ -368,7 +386,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                     type="button"
                     onClick={() => toggleCompare(v.id)}
                     aria-pressed={compareIds.includes(v.id)}
-                    aria-label={`${t(lang, "commTplCompare")}: ${v.name}`}
+                    aria-label={`${t(lang, "commTplCompare")}: ${vToken}`}
                     className={`${compareIds.includes(v.id)
                       ? "shrink-0 rounded-md border border-line bg-ui-dark-blue px-2 py-0.5 text-[11px] text-white"
                       : "shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"} ${INTERACTIVE}`}
@@ -380,12 +398,13 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                     size="xs"
                     className="shrink-0"
                     onClick={() => restoreVersion(v.body)}
-                    aria-label={`${t(lang, "commTplRestore")}: ${v.name}`}
+                    aria-label={`${t(lang, "commTplRestore")}: ${vToken}`}
                   >
                     {t(lang, "commTplRestore")}
                   </Button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
             {compareIds.length === 2 && (() => {
               const [a, b] = [...compareIds].sort((x, y) => sortKey(x).localeCompare(sortKey(y)));
