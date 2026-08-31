@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { SidebarFooter } from "./sidebar-footer";
+import { t } from "./i18n";
 
 const base = {
   lang: "en-US" as const,
@@ -52,6 +53,16 @@ describe("SidebarFooter", () => {
     };
     expect(marker(true)).toEqual({ state: "ready", hidden: true });
     expect(marker(false)).toEqual({ state: "not-ready", hidden: false });
+  });
+
+  it("speaks the not-ready state, which the dot only shows in colour", () => {
+    render(<SidebarFooter {...base} storageReady={false} />);
+    expect(screen.getByText(t("en-US", "sidebarStorageNotReady"))).toBeInTheDocument();
+  });
+
+  it("speaks the ready state too", () => {
+    render(<SidebarFooter {...base} storageReady />);
+    expect(screen.getByText(t("en-US", "sidebarStorageReady"))).toBeInTheDocument();
   });
 
   describe("saving-paused indicator", () => {
