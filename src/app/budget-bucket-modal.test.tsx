@@ -92,10 +92,9 @@ const tasks: Task[] = [
 function setup(
   over: Partial<React.ComponentProps<typeof BudgetBucketModal>> = {},
   // ★ Defaults to Full so every field (incl. the Full-only rate overrides)
-  // renders, exactly as before. "advanced" still renders the allocation blocks
-  // (`planningDetail` is an advanced-tier field) while dropping the two
-  // rate-override InfoTooltips — see the §276 describe block for why that
-  // matters there.
+  // renders. The parameter is kept for the tier-switch test below, which needs a
+  // narrower tier to assert what Full-only fields stop rendering. It no longer
+  // exists to dodge the rate-override tooltip collision — that closed with §314.
   tier: FieldTier = "full",
 ) {
   const onSave = vi.fn();
@@ -306,7 +305,11 @@ describe("BudgetBucketModal", () => {
 
   test("negative internal rate override blocks save", () => {
     const { onSave } = setup({ disciplines });
-    fireEvent.change(screen.getByLabelText(/internal rate override/i), { target: { value: "-1" } });
+    // ★ EXACT string, not /internal rate override/i. Since §314 the field's
+    // InfoTooltip trigger is named "<field> – <hint>", which CONTAINS the field
+    // label, so the regex matches the input AND the trigger. An RTL string
+    // matcher is whole-string, so it resolves to the input alone.
+    fireEvent.change(screen.getByLabelText(t("en-US", "budgetRateOverrideInternal")), { target: { value: "-1" } });
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByText(/zero or greater/i)).toBeInTheDocument();
@@ -314,13 +317,41 @@ describe("BudgetBucketModal", () => {
 
   test("rate override hint is an InfoTooltip (accessible by name), not a native title on the input", () => {
     setup({ disciplines });
-    // Both internal and external rate labels get an InfoTooltip with the same hint key —
-    // expect two tooltip buttons (one per field).
-    const hintText = t("en-US", "budgetRateOverrideHint");
-    expect(screen.getAllByRole("button", { name: hintText }).length).toBeGreaterThanOrEqual(1);
     // The internal rate input itself must NOT carry the native title any more.
     const input = screen.getByLabelText(t("en-US", "budgetRateOverrideInternal"));
     expect(input.getAttribute("title")).toBeNull();
+  });
+
+  // WCAG 2.4.6 (open-followups §314). The two rate-override fields share ONE hint
+  // string, and `InfoTooltip` falls back to `text` for its trigger's accessible
+  // name — so unqualified they announce one identical, ~100-character name.
+  //
+  // ★★ THIS IS THE ONLY THING THAT CAN CATCH IT, IN EITHER LAYER. The axe gate
+  // has no rule that flags two controls sharing an accessible name (measured
+  // against axe-core 4.12.1 — see AGENTS.md), and §276's per-row scanner looks
+  // for controls inside a `.map()`, which these two static fields are not.
+  //
+  // ★ Asserted as an exact SET, not merely "two distinct names". A weaker
+  // assertion (`new Set(names).size === 2`) passes against any qualifier at all,
+  // including " (1)"/" (2)", which would say there are two of something without
+  // saying which is which — the outcome this fix deliberately avoids.
+  test("the two rate-override tooltips get field-qualified, distinct accessible names", () => {
+    setup({ disciplines });
+    const hint = t("en-US", "budgetRateOverrideHint");
+    const internal = t("en-US", "budgetRateOverrideInternal");
+    const external = t("en-US", "budgetRateOverrideExternal");
+
+    // Neither trigger keeps the bare shared hint as its whole name.
+    expect(screen.queryAllByRole("button", { name: hint })).toHaveLength(0);
+
+    // ★ The field name LEADS. Hint-first would be conformant but would make a
+    // screen reader read the whole shared preamble before the distinguishing word.
+    expect(screen.getByRole("button", { name: `${internal} – ${hint}` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${external} – ${hint}` })).toBeInTheDocument();
+
+    // ★ The shared `text` is deliberately UNCHANGED — the fix qualifies the NAME
+    // and adds no i18n key, so the visible tooltip body stays one string.
+    expect(hint.length).toBeGreaterThan(40);
   });
 
   test("tier switch hides advanced/full fields but keeps required ones", () => {
@@ -501,18 +532,23 @@ describe("BudgetBucketModal field-visibility control", () => {
 // names, never the role id — and discipline names are free text with no
 // uniqueness constraint anywhere in `sanitize.ts`.
 //
-// ★★ SEEDED AT THE **ADVANCED** TIER, NOT FULL, AND THAT IS LOAD-BEARING RATHER
-// THAN A STYLE CHOICE. The scope is the whole document (the shared helper's
-// default), and at the Full tier this modal renders a CONFIRMED unrelated
-// collision: the internal and external rate-override fields each mount an
-// `InfoTooltip` on the SAME `budgetRateOverrideHint` string, so two tooltip
-// triggers share one accessible name. That is a genuine 2.4.6 defect of its own
-// — reported, NOT fixed here, since it is outside the §276 site list and
-// qualifying it needs a string this branch may not add. Dropping the tier to
-// "advanced" keeps `planningDetail` (an advanced-tier field, so both allocation
-// blocks still render) while leaving the Full-only `rateOverrides` group out,
-// which is why this assertion can stay unnarrowed. If the tooltip collision is
-// ever closed, raising this back to "full" is safe and strictly stronger.
+// ★★ SEEDED AT THE **FULL** TIER — RAISED FROM "advanced" WHEN §314 CLOSED, which
+// is what the previous revision of this comment said to do. It had dropped the
+// tier because at Full this modal rendered a CONFIRMED unrelated collision: the
+// internal and external rate-override fields each mounted an `InfoTooltip` on the
+// SAME `budgetRateOverrideHint` string, so a whole-document assertion threw on
+// that pair rather than on anything under test. Both triggers now carry an
+// explicit field-led `label`, so Full renders no collision but the seeded one.
+//
+// ★ Full is strictly STRONGER than advanced here, not merely different: it is a
+// superset of the rendered fields, so it keeps every control advanced showed and
+// adds the two rate-override triggers to the scope this assertion covers.
+//
+// ★★ `minControls: 15` is MEASURED at this tier (13 at advanced, plus the two
+// rate-override tooltips), read off the helper's own throw with a 9999 floor —
+// not derived, and not a round number chosen for comfort. Re-measure the same way
+// if the field set changes; a floor left loose lets a silently narrowed `roles`
+// array back in, which is the one thing `requireCollisionSeed` cannot catch.
 describe("BudgetBucketModal — row-unique control names (§276)", () => {
   test("keeps every control distinct when two role allocations share a role label", () => {
     setup({
@@ -530,8 +566,8 @@ describe("BudgetBucketModal — row-unique control names (§276)", () => {
       ],
       disciplines: [{ id: 1, name: "Consulting" }],
       grades: [{ id: 1, name: "Junior" }],
-    }, "advanced");
-    expectRowUniqueNames({ minControls: 13, requireCollisionSeed: true });
+    }, "full");
+    expectRowUniqueNames({ minControls: 15, requireCollisionSeed: true });
   });
 
   test("keeps every control distinct when two discipline allocations share a name", () => {
@@ -549,7 +585,7 @@ describe("BudgetBucketModal — row-unique control names (§276)", () => {
         { id: 1, name: "Consulting" },
         { id: 2, name: "Consulting" },
       ],
-    }, "advanced");
-    expectRowUniqueNames({ minControls: 13, requireCollisionSeed: true });
+    }, "full");
+    expectRowUniqueNames({ minControls: 15, requireCollisionSeed: true });
   });
 });

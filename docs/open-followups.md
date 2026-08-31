@@ -540,7 +540,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle--closed-2026-08-31-02720) | A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle | — | — | **CLOSED** 2026-08-31 |
 | [§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720) | `retryLoad`'s in-flight guard assumed `submitPrompt` is single-flight, and nothing pinned it | — | — | **CLOSED** 2026-08-31 |
 | [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen--closed-2026-08-31-02720) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | **CLOSED** 2026-08-31 |
-| [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name | — | — | open |
+| [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name--closed-2026-08-31) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name | — | — | **CLOSED** 2026-08-31 |
 | [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide) | `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide | — | — | open |
 | [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31 |
@@ -24366,13 +24366,38 @@ EQUAL, so the guard passes over a switch that did happen. `c70ff113` ships a mon
 bumping it, so a retry issued against the old database still settles. Pre-existing — the shape this
 replaced had the same hole — and deliberately not widened here.
 
-## 314. `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name
+## 314. `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name — CLOSED 2026-08-31
 
-**Status:** open — found 2026-08-31 while closing §276's `FIXED`-site census. The shared hint key is
-machine-verified: `grep -c "budgetRateOverrideHint" src/app/budget-bucket-modal.tsx` returns **2**,
-both of them `<InfoTooltip text={...} />` with no `label`. That the two triggers therefore compute
-one accessible name was read off an `expectRowUniqueNames({ minControls: 9999 })` throw and is not
-otherwise pinned by any test.
+**Status:** CLOSED 2026-08-31 — both triggers now take an explicit `label` that leads with their own
+field name (`"<field> – <hint>"`), keeping the one shared `text` and adding no i18n key. Verified by
+`npx vitest run src/app/budget-bucket-modal.test.tsx` (30 passed), `npx tsc --noEmit` and eslint.
+
+★★ **The new test is mutation-proved, and it failed on its HEADLINE assertion.** Stripping the
+internal trigger's `label` turns "the two rate-override tooltips get field-qualified, distinct
+accessible names" red on its FIRST assertion — that no trigger keeps the bare shared hint as its
+whole name — not on a later, weaker one. Reverted with a uniqueness-asserted inverse write.
+
+★★ **`budget-bucket-modal.test.tsx`'s two §276 tests were RAISED from the `advanced` tier back to
+`full`**, which is what their own comment said to do once this closed and is strictly stronger —
+`full` is a superset of the fields `advanced` renders. `minControls` moved 13 → **15**, MEASURED off
+the helper's own throw at a 9999 floor, not derived.
+
+★ **The field name LEADS the hint, and that is not the order `report-table.tsx` uses.** The hint is
+~100 characters and identical across both triggers, so hint-first is conformant but makes a screen
+reader read the whole shared preamble before the single distinguishing word — the case the note
+under WCAG 2.5.3 covers. It also keeps `getByLabelText("Internal rate override")` resolving to the
+INPUT alone, since an RTL string matcher is whole-string; two existing tests used a REGEX there and
+began matching both the input and the trigger, and were moved to the exact form.
+
+★★ **THE CLASS WAS ENUMERATED, NOT ASSUMED — and it found one site this entry does not name.**
+Sweeping every `<InfoTooltip>` in `src/app` (139 instances, 352 files) for a `text` reused with no
+`label` returns four candidates beyond this one. Three are non-defects: `budget-panel.tsx`'s bare
+legend hint is deliberate and §246 says so, `report-table.tsx`'s two live in different components,
+and the `stakeholderField*Hint` pair sits in two views that never co-render. The fourth is REAL and
+is filed separately — `actionScoreTooltip` is mounted bare by BOTH `action-row.tsx` and
+`action-hero-card.tsx` under `expertMode`, and its `t(lang, key, action.score)` argument is a value
+that CAN repeat, which is exactly the discriminator AGENTS.md gives. Reproduce the sweep with
+`grep -rn "<InfoTooltip" src/app --include=*.tsx | grep -v "\.test\.tsx:"`.
 
 The internal and external rate-override fields each mount `<InfoTooltip text={t(lang,
 "budgetRateOverrideHint")} />`. `InfoTooltip` derives its trigger's accessible name from that `text`
