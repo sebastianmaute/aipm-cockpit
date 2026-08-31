@@ -355,11 +355,16 @@ describe("PopoverPanel", () => {
     });
   });
 
-  // ★★★ THE THREE NEGATIVES ARE THE POINT. A fix that restores focus from all
-  // four dismiss paths passes the Escape case alone, and that is exactly the
-  // regression §146 warns about: yanking focus back to the trigger when the
-  // user has deliberately clicked somewhere else. Named mutant for this block:
-  // route `onDown`/`onResize`/`onScroll` through the restoring wrapper too.
+  // ★★★ ONE NEGATIVE REMAINS, NOT THREE, and this block used to say otherwise.
+  // §297 flipped the resize and ancestor-scroll cases to POSITIVES — focus is
+  // still inside the panel on those paths, so the choice was never between the
+  // anchor and where the user was, it was between the anchor and `<body>`. The
+  // surviving negative is outside-CLICK, which is the whole §146 concern: a
+  // real outside click blurs first, so the unmount guard stands down. Named
+  // mutant for what is left: drop the `focusInsideRef` check in the unmount
+  // cleanup and restore unconditionally — the outside-mousedown test below and
+  // "leaves focus alone when the consumer has already moved it" both go red
+  // (measured, 2 of 23).
   it("returns focus to the trigger on Escape", () => {
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "trigger" });
@@ -370,14 +375,17 @@ describe("PopoverPanel", () => {
     expect(trigger).toHaveFocus();
   });
 
-  // ★★★ EACH NEGATIVE IS A PAIR, and the `queryByRole` half is the load-bearing
-  // one. `not.toHaveFocus()` is an ABSENCE assertion, and an absence passes
-  // trivially when the thing under test never ran at all — a `fireEvent` that
-  // misses the listener (the capture-phase ancestor-`scroll` one, or the
-  // resize guard that only trips on a WIDTH change) leaves the panel open and
-  // focus wherever it was, which is indistinguishable from "did not steal
-  // focus". `Harness`'s `close` calls `setOpen(false)`, so a real dismiss
-  // unmounts the panel.
+  // ★★★ THE SURVIVING NEGATIVE IS A PAIR, and the `queryByRole` half is the
+  // load-bearing one. `not.toHaveFocus()` is an ABSENCE assertion, and an
+  // absence passes trivially when the thing under test never ran at all — a
+  // `fireEvent` that misses the listener (the capture-phase ancestor-`scroll`
+  // one, or the resize guard that only trips on a WIDTH change) leaves the
+  // panel open and focus wherever it was, which is indistinguishable from "did
+  // not steal focus". `Harness`'s `close` calls `setOpen(false)`, so a real
+  // dismiss unmounts the panel. ★ The two flipped tests below no longer need
+  // this argument for their focus half — `toHaveFocus()` on the trigger is a
+  // POSITIVE, which a listener that never fired cannot satisfy — but they keep
+  // the open-then-gone pair for the dismissal half.
   //
   // ★★★ THE PAIR IS OPEN-THEN-GONE, NEVER GONE-ALONE, and an earlier revision
   // of this comment claimed the second half sufficed ("asserting it is gone
@@ -386,20 +394,36 @@ describe("PopoverPanel", () => {
   // panel is gated on `open && pos`, this file stubs `getBoundingClientRect`
   // and `window.innerWidth` elsewhere, and a dispatched click does not move
   // focus in jsdom (measured) — so a positioning change leaving `pos` null
-  // would satisfy BOTH assertions in all three tests and hollow out the only
+  // would satisfy BOTH assertions in the negative test and hollow out the only
   // detector this behaviour will ever have (axe has no rule for it). The
   // `getByRole` BEFORE the dismiss is what rules that out; it throws.
+  // ★★★ §297 SUPERSEDES THE ESCAPE-ONLY RULE, BUT NOT FOR OUTSIDE-CLICK, and
+  // the `.blur()` below is what keeps that honest rather than accidental. A real
+  // outside mousedown on non-focusable chrome blurs the focused control first,
+  // so the unmount guard records focus as having LEFT the panel and stands down
+  // — which is the whole §146 concern ("don't yank the user back"). jsdom does
+  // NOT implement that side effect of `mousedown` (the comment above says so,
+  // measured), so without the explicit blur this test passes for the wrong
+  // reason: it would pin focus parked inside a panel the user just clicked away
+  // from, a state no browser produces.
   it("does NOT return focus to the trigger on an outside mousedown", () => {
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "trigger" });
     fireEvent.click(trigger);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+    (document.activeElement as HTMLElement | null)?.blur();
     fireEvent.mouseDown(document.body);
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(trigger).not.toHaveFocus();
   });
 
-  it("does NOT return focus to the trigger on a width resize", () => {
+  // ★★★ FLIPPED BY §297 — both of these asserted `not.toHaveFocus()` until the
+  // unmount guard landed. Unlike the outside-click above, a resize or an
+  // ancestor scroll leaves focus exactly where it was: INSIDE the panel that is
+  // about to be destroyed. The old rule read that as "the user did not ask to
+  // leave, so don't move them", but the choice was never between the anchor and
+  // where they were — it was between the anchor and `<body>`.
+  it("returns focus to the trigger on a width resize that closes the panel", () => {
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "trigger" });
     fireEvent.click(trigger);
@@ -415,16 +439,77 @@ describe("PopoverPanel", () => {
       Object.defineProperty(window, "innerWidth", { configurable: true, value: origWidth });
     }
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(trigger).not.toHaveFocus();
+    expect(trigger).toHaveFocus();
   });
 
-  it("does NOT return focus to the trigger when an ancestor scroller moves", () => {
+  it("returns focus to the trigger when an ancestor scroller closes the panel", () => {
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "trigger" });
     fireEvent.click(trigger);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     fireEvent.scroll(document.body);
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(trigger).not.toHaveFocus();
+    expect(trigger).toHaveFocus();
+  });
+
+  /** §297. Closes with a RAW `setOpen(false)`, exactly as export-menu's pick,
+   *  template-menus' submit and action-cta-controls' item helper do — a test
+   *  written against a memoised `close` would pass against a fix that rewired
+   *  `close` and missed those sites. */
+  function ActivateHarness() {
+    const [open, setOpen] = useState(false);
+    const btnRef = useRef<HTMLButtonElement>(null);
+    return (
+      <div>
+        <button ref={btnRef} type="button" onClick={() => setOpen((o) => !o)}>
+          trigger
+        </button>
+        <PopoverPanel open={open} anchorRef={btnRef} onClose={() => setOpen(false)} role="dialog" ariaLabel="Panel" className="w-64 p-2">
+          <button type="button" onClick={() => setOpen(false)}>item</button>
+        </PopoverPanel>
+      </div>
+    );
+  }
+
+  it("returns focus to the anchor when an item closes the panel", () => {
+    render(<ActivateHarness />);
+    fireEvent.click(screen.getByText("trigger"));
+    const item = screen.getByText("item");
+    item.focus();
+    fireEvent.click(item);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByText("trigger"));
+  });
+
+  it("leaves focus alone when the consumer has already moved it", () => {
+    // dashboard-panel restores focus itself, to an element that is NOT the
+    // anchor. The containment guard must let it win.
+    function ElsewhereHarness() {
+      const [open, setOpen] = useState(false);
+      const btnRef = useRef<HTMLButtonElement>(null);
+      const otherRef = useRef<HTMLButtonElement>(null);
+      return (
+        <div>
+          <button ref={btnRef} type="button" onClick={() => setOpen((o) => !o)}>
+            trigger
+          </button>
+          <button ref={otherRef} type="button">elsewhere</button>
+          <PopoverPanel open={open} anchorRef={btnRef} onClose={() => setOpen(false)} role="dialog" ariaLabel="Panel" className="w-64 p-2">
+            <button
+              type="button"
+              onClick={() => { otherRef.current?.focus(); setOpen(false); }}
+            >
+              item
+            </button>
+          </PopoverPanel>
+        </div>
+      );
+    }
+    render(<ElsewhereHarness />);
+    fireEvent.click(screen.getByText("trigger"));
+    const item = screen.getByText("item");
+    item.focus();
+    fireEvent.click(item);
+    expect(document.activeElement).toBe(screen.getByText("elsewhere"));
   });
 });

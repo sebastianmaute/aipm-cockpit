@@ -97,7 +97,8 @@ export function PopoverPanel({
     }
   }, [open, anchorRef, placement]);
 
-  // ★★★ §124. These listeners are armed on `rendered`, NOT on `open` — they
+  // ★★★ §124. The scroll/resize listeners BELOW — the §297 effect now sits
+  // between this note and them — are armed on `rendered`, NOT on `open`: they
   // used to live in the measure effect above, which runs while the panel is
   // still gated behind `open && pos`. A click on a trigger inside a
   // horizontally scrollable container makes the browser scroll the container to
@@ -117,6 +118,74 @@ export function PopoverPanel({
   // surface with a secondary mount gate must pass that gate too. The autoFocus
   // effect below draws it inline for the same reason.
   const rendered = open && pos !== null;
+
+  // ★★★ §297. Restore focus to the anchor when the panel goes away with focus
+  // still inside it. This is in the PRIMITIVE, on unmount, rather than threaded
+  // out to consumers, for two measured reasons: several activate sites close
+  // with a raw `setOpen(false)` rather than the memoised `close`, so a fix that
+  // rewired `close` would miss them silently; and `dashboard-panel` already
+  // restores focus of its own, to an element that is NOT the anchor.
+  //
+  // ★★ The containment guard is what makes both work. A consumer that has
+  // already moved focus has moved it OUT of the panel, so this reads false and
+  // stands down — no opt-out prop, no per-site audit.
+  //
+  // ★★★ THE OBVIOUS SPELLING OF THIS GUARD IS A SILENT NO-OP — do not
+  // "simplify" it back to `panelRef.current?.contains(document.activeElement)`
+  // in the cleanup. MEASURED: with that spelling the §297 test below failed
+  // identically to the unfixed code, `activeElement` still at `<body>`. The
+  // cleanup is a PASSIVE effect destroy, so it runs after the commit that
+  // removed the panel, and BOTH of its terms have gone stale by then — React
+  // detaches the ref (`panelRef.current === null`) and focus has already left
+  // the removed node for `<body>`. ★ Which of the two read false was not
+  // isolated; either alone is fatal, so the fix does not depend on knowing.
+  // The containment answer is therefore captured EAGERLY: `focusin`/`focusout`
+  // on the live panel maintain `focusInsideRef` while the panel is up, and the
+  // cleanup reads that recorded answer.
+  //
+  // ★★ It depends on the `rendered` BOOLEAN, not on `pos`. Depending on `pos`
+  // would fire this cleanup on every post-paint clamp pass — with the panel
+  // still mounted and focus still inside it — yanking focus to the anchor
+  // mid-clamp. jsdom has no layout, so no test in this file can catch that.
+  const focusInsideRef = useRef(false);
+  useEffect(() => {
+    if (!rendered) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    // ★ The seed is INERT TODAY and kept deliberately, so do not read it as
+    // load-bearing: `rendered` can only flip true on the commit that creates
+    // this panel, and focus is still on the trigger at that point, so it always
+    // records false. What actually records the `autoFocus` landing is the
+    // `focusin` below — which works only because THIS effect is declared ahead
+    // of the autoFocus effect and has therefore already subscribed. Reorder the
+    // two and that `focusin` is missed; the seed is what keeps this correct if
+    // anyone ever does.
+    focusInsideRef.current = panel.contains(document.activeElement);
+    const onIn = () => { focusInsideRef.current = true; };
+    // ★ `relatedTarget` is where focus is GOING. A move between two controls
+    // INSIDE the panel fires `focusout` too, so reading it is what keeps this
+    // from recording "outside" on every internal Tab.
+    const onOut = (e: FocusEvent) => {
+      focusInsideRef.current = panel.contains(e.relatedTarget as Node | null);
+    };
+    // ★★ The anchor is read LATE, through this getter, and that is the point of
+    // the indirection. `react-hooks/exhaustive-deps` warns about reading
+    // `anchorRef.current` in a cleanup and asks you to copy it at setup instead
+    // — and doing so would introduce the exact defect `dashboard-panel`
+    // documents on its own restore: the consumer re-renders its trigger, the
+    // captured node is detached, and `.focus()` on a detached node is a SILENT
+    // no-op. The getter keeps the read at cleanup time where it belongs; the
+    // warning is not applicable rather than suppressed.
+    const focusAnchor = () => anchorRef.current?.focus({ preventScroll: true });
+    panel.addEventListener("focusin", onIn);
+    panel.addEventListener("focusout", onOut);
+    return () => {
+      panel.removeEventListener("focusin", onIn);
+      panel.removeEventListener("focusout", onOut);
+      if (focusInsideRef.current) focusAnchor();
+    };
+  }, [rendered, anchorRef]);
+
   useEffect(() => {
     if (!rendered) return;
     // Close when an ANCESTOR scroller moves (the panel detaches from its anchor),
@@ -225,13 +294,20 @@ export function PopoverPanel({
     }
   }, [autoFocus, open, pos]);
 
-  // ★★★ ESCAPE ONLY. `onClose` is invoked from FOUR places here — this dismiss
-  // hook, the outside-click `mousedown` listener, the `resize` listener and the
-  // capture-phase ancestor-`scroll` listener. Restoring focus from all four
-  // would YANK the user back to the trigger after they deliberately clicked
-  // somewhere else, which is worse than the gap this closes (open-followups
-  // §146). Scroll and resize are not the user asking to leave either: the
-  // layout moved out from under the panel.
+  // ★★★ Escape restores focus HERE, before `onClose`, so there is never a frame
+  // in which `document.activeElement` is `body`. Every other close path —
+  // outside-click, ancestor-scroll, width-resize, and a consumer closing from
+  // an item's own handler — is covered by the unmount guard above instead.
+  // ★★ The two compose and cannot double-fire: this one moves focus to the
+  // anchor, which puts it OUTSIDE the panel, so the unmount guard's recorded
+  // containment answer then reads false. Do not delete either as redundant.
+  // ★★ This SUPERSEDES the former Escape-only rule (open-followups §146, §297).
+  // That rule argued that restoring from all four paths would yank the user back
+  // after they deliberately clicked elsewhere — which is an argument about
+  // outside-CLICK, where the click blurs the focused control first, so the
+  // containment guard already declines. When focus is INSIDE the panel and the
+  // panel unmounts, the alternative to restoring is not "leave the user where
+  // they were"; it is `document.body`.
   // ★★ The panel is PORTALED to document.body, so on Escape the browser leaves
   // focus on `body` and the toolbar the user came from goes arrow-dead — its
   // roving-tabindex guard correctly refuses to act from outside the row.
