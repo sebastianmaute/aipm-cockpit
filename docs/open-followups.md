@@ -533,6 +533,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§310](#310-120s-unmount-abort-suppresses-the-mount-tick-under-next-devs-strictmode--dev-only) | §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only | — | — | open |
 | [§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle) | A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle | — | — | open |
 | [§312](#312-retryloads-in-flight-guard-assumes-submitprompt-is-single-flight-and-nothing-pins-it) | `retryLoad`'s in-flight guard assumes `submitPrompt` is single-flight, and nothing pins it | — | — | open |
+| [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -21519,24 +21520,42 @@ files is two sites:
 grep -rln "projectsRestore\|projectsDeletePermanently" src/app --include=*.tsx | grep -v test
 ```
 
-★★★ **WHY THE SECOND SURFACE SURVIVED THE FIRST PASS: A TEST WHOSE NAME CLAIMED A PROPERTY IT DID NOT
-VERIFY.** `project-empty-state.test.tsx` carried `"turso mode lists archived projects with a row-unique
-Restore button; clicking calls onRestore"`. It seeded archived projects with DISTINCT names and
-asserted the click handler — it never staged a collision and never asserted row-uniqueness at all. A
-reader auditing the surface greps for coverage, reads that name, and moves on; the name is the reason
-the file looked done. It has since been split into three focused tests, one of which stages two
-archived projects sharing a display name and asserts through `expectRowUniqueNames` with
-`requireCollisionSeed`, so the property is now proved rather than announced:
+★★★ **WHY THE SECOND SURFACE SURVIVED THE FIRST PASS: A ROW-UNIQUENESS ASSERTION AGAINST A FIXTURE
+THAT COULD NOT STAGE A COLLISION.** `project-empty-state.test.tsx` carried `"turso mode lists archived
+projects with a row-unique Restore button; clicking calls onRestore"`, and it DID assert the property
+— through `expectRowUniqueNames`, this scan's STRONGEST marker. What it did not do is give that
+assertion anything to find: its archived fixtures carried DISTINCT display names and it passed no
+`requireCollisionSeed`, so the only collision the surface can produce was absent from the data by
+construction. Verify the pre-fix shape rather than trusting this paragraph:
+
+```bash
+git show bfbab4bb^:src/app/project-empty-state.test.tsx | grep -n "expectRowUniqueNames\|requireCollisionSeed"
+```
+
+→ the import and one `expectRowUniqueNames({ minControls: 10 });`, and no `requireCollisionSeed`. It
+has since been split into three focused tests, one of which stages two archived projects sharing a
+display name and asserts through `expectRowUniqueNames` WITH `requireCollisionSeed`, so the property
+is now proved rather than merely asserted:
 
 ```bash
 grep -n 'it("' src/app/project-empty-state.test.tsx | grep -i "archived\|row-unique\|Restore"
 ```
 
-★★ **Read that as a CLASS, not an anecdote.** A test NAME is prose and nothing reads it — the same
-ungated-prose problem this register records for docs, one directory over, and it is why
-`check-rowname-surfaces.mjs` matches coverage by test CONTENT and never by test name (this entry's own
-headline says so). What is new here is the direction of the harm: the name did not merely fail to
-help, it actively suppressed the audit that would have found the defect.
+★★★ **AN EARLIER REVISION OF THIS PARAGRAPH DREW THE OPPOSITE LESSON AND IT WAS BACKWARDS — that is
+the part worth keeping.** It stated that the test "never asserted row-uniqueness at all", and
+concluded that its NAME "is the reason the file looked done… it actively suppressed the audit". The
+premise is refuted by the command above, and the conclusion inverts the mechanism: BECAUSE the helper
+call was there, `check-rowname-surfaces.mjs` reported this file `COVERED` under `expectRowUniqueNames`
+— its strong marker — whatever the test happened to be called. A reader who took the old wording away
+would learn to distrust test NAMES and to go on trusting the marker, which is the exact reading that
+lets this recur.
+
+★★ **The real lesson is this entry's own caveat (5), not a new class.** A `COVERED` line is not
+evidence that the test is non-vacuous, and the strong marker does not change that — it says only that
+someone reached for the shared helper, never that they fed it a fixture capable of failing.
+`src/test/row-unique-names.ts` already records a floor-guarded assertion that passed against a
+zero-row fixture, and `requireCollisionSeed` is the opt-in guard that closes exactly this gap. A
+strong-marker `COVERED` on a collision-free fixture certifies nothing.
 
 ## 277. Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair
 
@@ -23338,7 +23357,8 @@ half leaves a third of the sections untouched while every gate stays green.
 **Status:** open — never machine-verified by a committed probe. Carved out of
 [§271](#271-collectionspecnamefield-is-an-unchecked-string-so-a-spec-can-still-name-a-field-no-record-carries--the-last-known-instance-fixed-2026-08-31--closed-2026-08-31)
 when it closed 2026-08-31, when giving `documentVersions` a real `nameField` enlarged the population
-this affects. Pre-existing and general — not introduced by that fix.
+this affects. The CLASS is pre-existing and general; on `documentVersions` specifically that fix
+traded a visible discriminator for a readable one — see the trade note below.
 
 `version-diff-view.tsx` renders `{c.recordLabel}` bare in BOTH layouts, while the occurrence-numbered
 token `buildRowTokens` mints reaches only the `aria-label` (via `rowLabel`, at every per-row control in
@@ -23362,6 +23382,24 @@ its VISIBLE row disambiguates by rendering the version's `savedAt` timestamp bes
 precedent for the accessible-name pattern `version-diff-view.tsx` already follows, and the
 visible-label question here has no precedent in the repo — a fix has to choose one (an `#id` suffix,
 the occurrence token, or a per-row secondary field) rather than copy one.
+
+★★ **"NOT INTRODUCED BY §271" IS TRUE OF THE CLASS AND FALSE OF `documentVersions`, the one
+collection that fix touched — an earlier revision said it flatly and that reading is too broad.**
+Before the fix, version-history rows for that slice took the `#id` fallback and read `#12` / `#13` /
+`#14`: unique by construction, and the only thing on screen telling two versions of one document
+apart. `nameField: "title"` replaced it with the document's title, so three versions of the same
+document now render three IDENTICAL visible labels. The accessible names stay safe — `buildRowTokens`
+runs at the view level and numbers the occurrences — so this is not a 2.4.6 regression; but a sighted
+user comparing same-titled rows has lost their only discriminator and gained nothing visible for it.
+
+★ **The trade was deliberate, and naming it that way is what makes the fix choice legible.** `#12` is
+unique and unreadable; a title is readable and collidable. §271 bought readability for every
+non-colliding row — the common case — at the colliding row's expense, which is the right trade only
+once the colliding row gets a second VISIBLE field back (the `savedAt` timestamp
+`documents-deleted-section.tsx` renders is the nearest shape, per the paragraph above). For the five
+slices §271 names, the same trade was made earlier and separately at `ccb6d598` — see the
+two-enlargements note above — so relative to §271 those really are pre-existing; §271 itself enlarged
+`documentVersions` alone.
 
 ## 308. `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name
 
@@ -23635,3 +23673,48 @@ the assumption is held by call-site inspection alone and a new call site can fal
 regression test would have to dispatch twice within one tick and assert exactly one controller is
 minted — which, if it can be written at all, is also the test that proves the guard needs the identity
 clear.
+
+## 313. `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen
+
+**Status:** open — pre-existing; this branch neither caused nor fixed it. Found 2026-08-31 reviewing `1db52e40`; never machine-verified.
+
+The mount/project-switch effect in `use-chat-threads.ts` guards BOTH of its settle paths with a
+`cancelled` flag its own cleanup sets, so a fetch issued for the project you are leaving cannot write
+state under the project you arrived at. `retryLoad` — reached from the chat sidebar's couldn't-load
+banner — issues the same `loadThreads` call and guards neither of its settle paths.
+
+```bash
+grep -n "cancelled = true\|if (cancelled) return;\|setLoadedProjectId(projectId);" src/app/use-chat-threads.ts
+```
+
+→ seven lines: three `cancelled` lines, all inside the mount effect, and four `setLoadedProjectId`
+calls. The first two `setLoadedProjectId` each sit under one of those guards; the last two are
+`retryLoad`'s, sit past the mount effect's `cancelled = true` cleanup, and carry none.
+
+**The sequence.** Click Retry while on project p1, then switch to p2 before the reload settles. p1's
+`.then` runs holding p1's closure: `mergeThreadsAfterLoad` filters `prev` down to rows whose
+`projectId` is p1 — dropping the rows p2's own fetch had put there — and `setLoadedProjectId` then
+stamps p1. The sidebar reads `threads` off this hook directly, so it lists p1's conversations while p2
+is the open project. The `.catch` path has the same hole with `resetThreadsAfterFailedLoad`.
+
+★ **The registry publish stays correct, and knowing that bounds the blast radius before anyone
+reaches for a fix there.** `threadsMatchProject` compares `loadedProjectId` against the LIVE
+`projectId`, so with the slot stamped p1 under p2 it reads false and `publishChatThreads` sends an
+empty thread list with a null active id. Nothing outside the chat panel sees p1's rows; the defect is
+confined to what the sidebar renders.
+
+★★ **How long the wrong state survives depends on an ordering nobody has pinned.** The project switch
+re-runs the mount effect, and its settle will overwrite both `threads` and `loadedProjectId` with p2's.
+So the wrong list is transient if p2's fetch settles AFTER p1's retry, and sticks if it settles
+BEFORE — two `loadThreads` calls against the same backend with no ordering guarantee between them.
+Which ordering is the common one was not measured, and the entry does not claim one.
+
+★ **Pre-existing.** Before `1db52e40` the success path assigned `setThreads(loaded)` verbatim, which
+put p1's FETCHED rows under p2 just as squarely; that fix changed which wrong rows survive, not
+whether any do. Reproduce the pre-fix shape with `git show 1db52e40^:src/app/use-chat-threads.ts`.
+
+★ **Closing it is the mechanical half of the guard the mount effect already has**, and the one thing
+it must NOT do is reuse that effect's `cancelled` local — `retryLoad` is called from an event handler
+outside that effect's scope. A ref holding the project the reload was issued for, compared against the
+live `projectId` at both settle paths, is the smaller change; it also composes with the `preserveLive`
+sampling already happening there rather than fighting it.

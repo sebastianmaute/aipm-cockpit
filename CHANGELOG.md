@@ -27,15 +27,20 @@ longer carries its own changelog comment.
 - **In report views, one column header could label several columns at once** where two tables were
   rendered side by side and happened to share a column name. Shared column headers are now
   disambiguated so each one names only its own table.
-- **Timelog sync could report "idle" while a previous sync was still running in the background.**
-  Starting a new sync while an old one was still catching up no longer lets the stale run's
-  completion overwrite the new one's status.
-- **Retrying a failed chat message could delete a message you had already sent afterwards** —
-  including one that was still streaming in at the moment you clicked Retry. Retry now only
-  replaces the message it is retrying.
-- **Leaving the Insights view left up to three AI calls running in the background**, continuing to
-  bill against your API usage after you had moved on. Navigating away now cancels any Insights AI
-  calls still in flight.
+- **Timelog sync could report "idle" while a sync was still running.** If you started a fresh sync
+  before an earlier one had finished, the earlier one finishing switched the indicator back to
+  idle — so the sync still working looked done. A superseded run's completion no longer overwrites
+  the status of the run that replaced it.
+- **In the AI Assistant, clicking Retry on the "couldn't load your conversations" banner could make
+  a message you were still sending disappear.** Retry re-reads the conversation list, and when that
+  came back it moved you to whichever conversation the server listed first — dropping the one your
+  message had just started and cancelling the reply streaming into it. Retry now refreshes the list
+  without moving you off a conversation you are in the middle of sending to.
+- **Leaving the Insights view did not stop the AI calls it had already started**, so they kept
+  billing against your API usage after you had moved on. Each background pass works through up to
+  three insights one after another, so leaving part-way through could leave a call in flight and
+  more still queued behind it. Navigating away now cancels the call in flight and abandons the rest
+  of the pass.
 - **Note logs exported into documents as a raw block of JSON** instead of the readable text you see
   in the app. Exported note logs now render the same way they do on screen.
 
