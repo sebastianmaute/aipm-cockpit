@@ -23706,8 +23706,14 @@ alone would not reach it. Its header records this as its third stated limitation
 phrase in EN and DE (EN `Type “{0}” to confirm`), and the dialog trims the comparison and reports a
 mismatch after blur via `aria-invalid` plus `aria-describedby` pointing at a polite live region
 carrying `typeToConfirmMismatch`. The comparison is trimmed only — NOT case-folded and NOT Unicode-
-normalised — so the ★★★ prohibition below still stands and the two project-NAME call sites are
-unaffected. Verify with `npx vitest run src/app/type-to-confirm-dialog.test.tsx` (9 tests).
+normalised — so the ★★★ prohibition below still stands. ★★ The two project-NAME call sites are
+unaffected FOR A REASON A READER CAN RE-CHECK, not by assertion: a project name reaches the registry
+through `sanitizeProjectMeta`, which runs it through `sanitizeText`, and that is `clipText` over an
+already-trimmed string — so a stored name cannot carry the leading or trailing whitespace that would
+matter here. ★ BOTH sides are now trimmed (the first cut trimmed only the typed one), so even a
+whitespace-bearing `confirmValue` arriving some other way is no longer permanently unmatchable while
+the prompt renders it as if it were fine. Verify with
+`npx vitest run src/app/type-to-confirm-dialog.test.tsx`.
 
 ★★★ **What the fix ROUND found is the more interesting half, and nothing in this repo gates it.**
 The first cut coloured the mismatch text `text-ui-pink`. That IS a sanctioned palette token — it is
@@ -23765,11 +23771,23 @@ write, a second tab) — turning an already-typed correct phrase into a wrong on
 cause. The count stays where it belongs, in the surrounding prose:
 `tasksDeleteSelectedDialogMessage`.
 
-★★★ **TEST-VALIDITY FINDING, and it generalises past this entry.** Under `en-US` the new key values
-are BYTE-IDENTICAL to the constants they replaced, so **an EN-only test passes against the reverted
-code and pins nothing.** The German test is the only one that can fail for this defect, and it was
-mutation-proved: restoring the hardcoded constant turns it red. Any "we replaced a literal with an
-i18n key" test needs a non-EN assertion, or it is decorative.
+★★★ **TEST-VALIDITY FINDING, and it generalises past this entry — BUT ONLY OVER TWO OF THIS ENTRY'S
+OWN THREE SITES.** For `settingsResetConfirmValue` and `tasksClearAllConfirmValue` — the two MODULE
+CONSTANTS — the new key values under `en-US` are BYTE-IDENTICAL to the constants they replaced, so
+**an EN-only test passes against the reverted code and pins nothing.** For those two the German test
+is the only one that can fail for this defect, and it was mutation-proved: restoring the hardcoded
+constant turns it red. Any "we replaced a literal with an i18n key" test needs a non-EN assertion, or
+it is decorative.
+
+★★★ **The THIRD site is the exception, and an earlier wording of the paragraph above swept it in —
+which read as licence to prune a real regression pin as decorative.** The bulk-delete phrase did NOT
+survive the swap byte-identical: `tasksDeleteSelectedConfirmValue` is "yes, delete the selected
+tasks", where what it replaced was an inline template literal rendering "delete N tasks". So the EN
+bulk-delete test IS a genuine regression pin — reverting that site leaves it looking for the new
+phrase in the prompt against a rendered old one, and it throws on the lookup. ★★ The entry's own
+table a few paragraphs below said as much all along (it is the row marked **no** under "Localisable
+by a string swap?"), so the generalisation contradicted the evidence sitting in the same entry.
+Do not delete that EN test.
 
 ★ That German test types the literal `"yes, reset everything"` in order to assert it is REFUSED —
 which is exactly the hazard shape
