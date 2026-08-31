@@ -31,6 +31,12 @@ longer carries its own changelog comment.
   name for every row and had no way to say which one they meant. Every one of those controls now
   names its own row — and where a row's own label can repeat (two snapshots in the same minute, two
   templates with one name), the name says which of them it is.
+- **The same problem, in two more places found on a second pass.** In the communication templates,
+  the saved-version list gave every version an identically-named Compare and Restore button, and a
+  version name is whatever you typed when you saved it — so two versions could share one. In
+  Resources, each person's name button, their near-term utilisation field, their overdue-triage
+  button and every absence chip announced a bare name, number or date range that two rows could
+  share. All of them now name the row they belong to.
 - **In report views, one column header could label several columns at once** where a single view
   showed several tables that happened to share a column name. Shared column headers are now
   disambiguated so each one names only its own table, and the same applies to the Resources
