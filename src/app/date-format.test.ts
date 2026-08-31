@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { localeFor, shortDateRange, shortDateRangeIso, formatExpiryDate } from "./date-format";
+import { localeFor, shortDateRange, shortDateRangeIso, formatExpiryDate, formatFetchedAt } from "./date-format";
 import type { Absence } from "./types";
 const abs = (startDate: string, endDate: string): Absence =>
   ({ id: 1, assignee: "X", startDate, endDate, type: "vacation" });
@@ -48,5 +48,26 @@ describe("formatExpiryDate", () => {
   });
   it("returns the input unchanged when unparseable", () => {
     expect(formatExpiryDate("not-a-date", "en-US")).toBe("not-a-date");
+  });
+});
+
+describe("formatFetchedAt", () => {
+  // ★ Distinct from `formatExpiryDate`: that one takes a DATE-ONLY string and appends
+  //   `T12:00:00`, which turns a value that already carries a time into an Invalid Date.
+  //   That is why the two cannot share an implementation.
+  it("formats a full ISO timestamp, keeping the time", () => {
+    const out = formatFetchedAt("2026-06-23T10:00:00Z", "en-US");
+    expect(out).not.toBe("2026-06-23T10:00:00Z");
+    expect(out).toMatch(/2026/);
+    // The time is the point — this exists to answer "how stale is this?", and on the
+    // day of a fetch a date alone answers nothing.
+    expect(out).toMatch(/\d{1,2}:\d{2}/);
+  });
+
+  // ★ The §122 cue renders this straight into the page, so an unparseable stored
+  //   timestamp must degrade to something visible rather than "Invalid Date".
+  it("returns the input unchanged when unparseable", () => {
+    expect(formatFetchedAt("not-a-date", "en-US")).toBe("not-a-date");
+    expect(formatFetchedAt("", "de")).toBe("");
   });
 });

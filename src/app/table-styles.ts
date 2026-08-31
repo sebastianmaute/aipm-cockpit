@@ -47,11 +47,23 @@ export const TABLE_HEAD_CLASS =
  * sibling had. That split was drift, not intent; it was settled deliberately on
  * the bottom-border form — no line under the header, none after the last row.
  *
- * ★ NOTHING CAN TEST THIS. jsdom has no layout, so no unit test can see a
- * painted border either way; the tests that exist pin the CLASS placement, and
- * the appearance itself is eye-verified. `BucketTotalRow` reaches the same place
- * by a different route (a `cellClass` prop threaded to each of its cells)
- * because it composes its cells from components rather than writing `<td>`s.
+ * ★★ WHAT IS AND IS NOT TESTABLE HERE — an earlier revision of this line said
+ * "NOTHING CAN TEST THIS", and that overstatement is the direction that let a
+ * real defect through. jsdom has no layout, so no unit test can see a PAINTED
+ * border either way, and the appearance stays eye-verified. But jsdom evaluates
+ * `:last-child` perfectly well, so the exemption's STRUCTURAL precondition is
+ * testable — which is how the `ownBodies` defect below was eventually caught.
+ *
+ * ★★ And do not read "the tests pin the class placement" as cover: when these
+ * eight rows were migrated, `grep -rn "ROW_RULE_CLASS\|\[&>td\]" src/app/*.test.tsx`
+ * returned NOTHING, so every one of them was pinned by exactly nothing. Today
+ * only `budget-panel.tsx`'s role rows are pinned (`budget-panel.test.tsx`, "row
+ * separators sit on the cells, and only the last row is exempt"); the other five
+ * files remain unpinned. Re-run that grep before believing otherwise.
+ *
+ * ★ `BucketTotalRow` reaches the same place by a different route (a `cellClass`
+ * prop threaded to each of its cells) because it composes its cells from
+ * components rather than writing `<td>`s.
  */
 export const ROW_RULE_CLASS =
   "[&>td]:border-b [&>td]:border-line last:[&>td]:border-b-0";

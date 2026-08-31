@@ -346,8 +346,22 @@ export function bucketBudgetGrid<P extends { key: string }>(
   const grid = new Map<TotalsRow, readonly number[]>(
     rows.map((r) => [r, periods.map((p) => compute(r, p))] as const),
   );
-  const budgetAt = (row: TotalsRow, periodIndex: number): number =>
-    grid.get(row)?.[periodIndex] ?? 0;
+  // ★★★ THROWS RATHER THAN FALLING BACK TO 0, and the difference is a money
+  // figure. A `?? 0` here would let a row the grid does not know about
+  // contribute SILENTLY to a budget total as zero — a plausible-looking wrong
+  // number, in a panel whose whole subject is hours and cost. The helper it
+  // replaced had no such path: it invoked `budgetOf` directly, so an unknown row
+  // still produced a real figure. Degrading quietly would also contradict this
+  // function's entire thesis, which is that the two axes cannot disagree.
+  //
+  // ★ Unreachable today — the one call site feeds `bucketBudgetGrid` the same
+  // array it then renders — so this is a guard against a FUTURE caller passing
+  // rows the grid was not built from, not a fix for a live bug.
+  const budgetAt = (row: TotalsRow, periodIndex: number): number => {
+    const cells = grid.get(row);
+    if (!cells) throw new Error("bucketBudgetGrid: row is not in the grid it is being summed against");
+    return cells[periodIndex] ?? 0;
+  };
   const rowBudgetTotal = (row: TotalsRow): number =>
     (grid.get(row) ?? []).reduce((s, v) => s + v, 0);
 

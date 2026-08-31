@@ -540,7 +540,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle--closed-2026-08-31-02720) | A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle | — | — | **CLOSED** 2026-08-31 |
 | [§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720) | `retryLoad`'s in-flight guard assumed `submitPrompt` is single-flight, and nothing pinned it | — | — | **CLOSED** 2026-08-31 |
 | [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen--closed-2026-08-31-02720) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | **CLOSED** 2026-08-31 |
-| [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name--closed-2026-08-31) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name | — | — | **CLOSED** 2026-08-31 |
+| [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name--closed-2026-08-31) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name — CLOSED 2026-08-31 | — | — | **CLOSED** 2026-08-31 |
 | [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide) | `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide | — | — | open |
 | [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31 |
@@ -4601,10 +4601,15 @@ the border on its `<tr>` under the real `table:has(> .aipm-cockpit-thead)` rule,
 reproduced rather than being mocked up) and chose ONE idiom for all eight: `border-b`, no line after
 the last row.
 
-★★★ **THAT IS A DELIBERATE UNIFORMING, NOT A PORT — five sites CHANGED SHAPE.** The eight were split
-between `border-t` (which also draws a rule directly under the header pill) and
-`border-b last:border-0` (which does not), and `portfolio-health-panel.tsx` carried a `border-b` with
-NO last-row exemption, so a faithful fix would have closed that one table with a rule no sibling had.
+★★★ **THAT IS A DELIBERATE UNIFORMING, NOT A PORT — SIX of the eight sites CHANGED SHAPE.** Five
+carried `border-t` (which also draws a rule directly under the header pill) where the chosen idiom
+does not, and `portfolio-health-panel.tsx` carried a `border-b` with NO last-row exemption, so a
+faithful port would have closed that one table with a rule no sibling had. Only the two Timelog
+tables were already in the chosen idiom and are unchanged in shape. ★ An earlier revision of this
+line said "five", counting the `border-t` group and then describing portfolio-health separately
+without adding it in — a cold review caught it. Re-derive with
+`git grep -n '<tr[^>]*className="[^"]*border-' 62d84fa3 -- 'src/app/*.tsx' | grep -v "\.test\.tsx"`,
+which returns 4 `border-t` + 1 `border-t … align-top` + 1 bare `border-b` + 2 `border-b last:border-0`.
 The split was drift; it is now one idiom. Do not "restore" a `border-t` here on the grounds that the
 original markup said so.
 
@@ -4640,8 +4645,8 @@ which now returns nothing.
 
 `budget-panel.tsx`'s two allocation rows — the `<tr key={a.roleId}>` in the detailed/role branch and
 the `<tr key={a.disciplineId}>` in the blended/discipline one — both render
-`<tr className="border-t border-line">`. That border has never rendered. `globals.css:125`
-`table:has(> .aipm-cockpit-thead)` sets **`border-collapse: separate`**, and CSS 2.2 §17.6.1 puts that
+`<tr className="border-t border-line">`. That border has never rendered. `globals.css`'s
+`table:has(> .aipm-cockpit-thead)` rule sets **`border-collapse: separate`**, and CSS 2.2 §17.6.1 puts that
 table in the separated-borders model, where "borders set on rows, row groups, columns and column
 groups are ignored".
 
@@ -4649,7 +4654,7 @@ groups are ignored".
 (Tailwind's own `node_modules/tailwindcss/preflight.css`, the `table { … border-collapse: collapse; }`
 reset — a dependency file, never in this repo), under which a `<tr>` border WOULD paint. It is the
 `globals.css` override that breaks it, and only for tables carrying `TABLE_HEAD_CLASS` / rendered through `DataTable` —
-`globals.css:124` puts that at ~25 tables.
+the `globals.css` comment above that rule puts it at ~25 tables.
 
 ★★ **NOT budget-specific.** Sweeping `<tr …className=…border-…>` across `src/app/*.tsx` finds **8
 occurrences in 6 files**, and all six render their tables through the marked shell: `budget-panel`
@@ -4745,6 +4750,10 @@ switched these totals to the unfiltered list now fails. Asserting the label alon
 Mutation-proved: pinning the label to `budgetTotal` fails on the headline assertion
 (`expected 'Total' to be 'Total (filtered)'`).
 
+_Original finding, as written 2026-08-28. Superseded by the Status above: the totals still follow
+the filter (deliberately), the label now says so, and tests now pin the scope. Preserved unedited as
+the dated record._
+
 `budget-panel.tsx` builds its per-bucket totals from `rowsForTotals`, which is whichever of
 `detailedRows`/`blendedRows` applies — and BOTH come out of `filterSortAllocations(..., roleFilter,
 roleSort)`, so both are already narrowed by the role filter. The CCI tiles rendered directly above
@@ -4766,8 +4775,13 @@ the unfiltered list and nothing would fail.
 
 **Status:** CLOSED 2026-08-31 — `bucketColumnTotals` was REPLACED by `bucketBudgetGrid`
 (`budget-panel-totals.tsx`), which evaluates the row × period grid ONCE and derives the cell values,
-the row totals and the column totals from that one grid. `cellBudget` now has two occurrences in
+the row totals and the column totals from that one grid. `cellBudget` now has two CODE occurrences in
 `budget-panel.tsx`: its definition and the single call that feeds the grid.
+
+★★ `grep -c cellBudget src/app/budget-panel.tsx` returns **3**, not 2 — the third match is the
+explanatory comment this same closure added above the call. That is the repo's own
+self-referential-grep landmine, and an earlier revision of this line quoted the grep total as though
+it were the code count.
 
 ★★★ **THE INVARIANT WAS THE POINT, NOT THE SPEED — this entry said so and it is what shipped.** The
 old helper took the caller's own `cellBudget` as a `budgetOf` accessor so the row sums and column sums
@@ -4782,6 +4796,12 @@ performance fix.
 
 ★ `bucketColumnTotals` had exactly one caller and no test of its own, so it was removed outright
 rather than left as a wrapper — there is no dead second path to drift.
+
+_Original finding, as written 2026-08-28. Superseded by the Status above — it describes the code
+BEFORE `bucketBudgetGrid` replaced `bucketColumnTotals`, so it names a symbol that no longer exists
+and counts three evaluations where there is now one. Preserved unedited as the dated record; note
+that `docs/open-followups.md` is outside `docs:symbols:check`, so nothing will ever flag the dead
+name._
 
 `cellBudget` (`budget-panel.tsx`, a closure over `effectiveBudgetHours`) is the most expensive call in
 the panel: it walks resources, absences, holidays and the budget-follows-plan mirroring rule. Every
@@ -9106,7 +9126,7 @@ from different places:
 ★★ **Nothing in the UI says they can disagree**, and their layout says the opposite: a disclosure
 opening directly under a figure reads as a BREAKDOWN of that figure. They are not one, and they do
 not reconcile by construction — the engine drops bookers whose role has no line on this bucket
-(those hours stay in `unattributed`, `budget-bucket-people.ts:41-54`), so the people column does not
+(those hours stay in `unattributed`, `budget-bucket-people.ts`, the `extraIds` comment), so the people column does not
 sum to the role row even when both sources are perfectly fresh.
 
 Four ways they diverge in ordinary use:

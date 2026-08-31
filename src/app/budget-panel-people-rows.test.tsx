@@ -70,6 +70,16 @@ describe("BucketPeopleRows", () => {
     expect(cue?.textContent).toMatch(/2026/);
   });
 
+  // ★ A wrong colSpan breaks the table layout SILENTLY — nothing throws, the row
+  //   just stops spanning. jsdom exposes `td.colSpan`, so unlike the painted border
+  //   this IS checkable: three pinned lead cells (dot, name, total) + one per period.
+  it("spans the pinned lead cells and every period column", () => {
+    const { container } = renderRows([row()], false, "2026-08-31T09:30:00Z");
+    const cell = container.querySelector("[data-people-source] td") as HTMLTableCellElement | null;
+    expect(cell).not.toBeNull();
+    expect(cell?.colSpan).toBe(3 + PERIODS.length);
+  });
+
   it("says so when this device has never fetched", () => {
     const { container } = renderRows([row()], false, undefined);
     const cue = container.querySelector("[data-people-source]");
