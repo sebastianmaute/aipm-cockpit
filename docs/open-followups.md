@@ -526,14 +526,14 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--closed-2026-08-31) | ~~`PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler~~ | carved out of §146 on close, 2026-08-30 | M | **CLOSED** 2026-08-31 |
 | [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence — open | carved out of §286 on close, 2026-08-30 | M | open |
 | [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry — open | carved out of §235 on close, 2026-08-30 | M | open |
-| [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--open) | The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch — open | found 2026-08-30, fixing the DE wipe phrase | M | open |
-| [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--open) | Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap — open | found 2026-08-30, fixing the DE wipe phrase | M | open |
-| [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--open) | The storage readiness indicator is never disclosed to assistive technology, in either state — open | found 2026-08-30, fixing the colour-only state cue | M | open |
-| [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--open) | One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint — open | found 2026-08-30, in the destructive-refusal fix round | M | open |
+| [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--closed-2026-08-31) | ~~The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
+| [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--closed-2026-08-31) | ~~Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
+| [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--closed-2026-08-31) | ~~The storage readiness indicator is never disclosed to assistive technology, in either state~~ | found 2026-08-30, fixing the colour-only state cue | M | **CLOSED** 2026-08-31 |
+| [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31) | ~~One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint~~ | found 2026-08-30, in the destructive-refusal fix round | M | **CLOSED** 2026-08-31 |
 | [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label) | Every export section header is an untranslated raw string, not a display label | — | — | open |
 | [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates) | Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates | — | — | open |
 | [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--open) | Negative test assertions matching quoted English literals go silently vacuous on a reword — open | found 2026-08-30, in the destructive-refusal deletion round | M | open |
-| [§307](#307-a-destructive-save-refusal-cannot-be-staged-in-a-browser-so-the-recourse-has-never-been-seen-working--open) | A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working — open | found 2026-08-30, closing out the destructive-refusal slice | M | open |
+| [§307](#307-a-destructive-save-refusal-cannot-be-staged-in-a-browser-so-the-recourse-has-never-been-seen-working--closed-2026-08-31-not-a-defect) | ~~A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working~~ — not a defect | found 2026-08-30, closing out the destructive-refusal slice | M | **CLOSED** 2026-08-31 |
 | [§308](#308-controlnames-and-the-collision-helpers-built-on-it-are-blind-to-three-parts-of-the-real-accessible-name) | `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name | — | — | open |
 | [§309](#309-projects-paneltsxs-active-project-list-still-names-its-row-controls-by-raw-interpolation-so-one-file-now-carries-two-conventions) | `projects-panel.tsx`'s ACTIVE project list still names its row controls by raw interpolation, so one file now carries two conventions | — | — | open |
 | [§310](#310-120s-unmount-abort-suppresses-the-mount-tick-under-next-devs-strictmode--dev-only) | §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only | — | — | open |
@@ -549,6 +549,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | open |
 | [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | open |
 | [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked) | The asset library offers Insert on a refused-format row, which can only ever render as blocked | found 2026-08-31 in the §230 cold review | S | open |
+| [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | open |
+| [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-the-default-scheme) | Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in the default scheme | found 2026-08-31 in the §300 fix round | M | open |
+| [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide) | `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide | found 2026-08-31, adding the §300 mismatch region | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -23696,13 +23699,24 @@ missing call.
 with a NON-recursive `readdirSync`, so `src/app/undo/` is never opened; widening `WRITER_ANCHORS`
 alone would not reach it. Its header records this as its third stated limitation.
 
-## 300. The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch — open
+## 300. The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch — CLOSED 2026-08-31
 
-**Status:** open — the strings and every call site were read on 2026-08-30 with
-`grep -n "typeToConfirmPrompt:" src/app/i18n.ts src/app/i18n.de.ts` and
-`grep -rn "confirmValue=" src/app --include=*.tsx | grep -v "\.test\."` (six sites). The RENDERED sentence has never
-been exercised — no test or manual pass has read the prompt in either language, so the ambiguity
-below is derived from the strings, not observed.
+**Status:** **CLOSED** 2026-08-31. Both halves are fixed. `typeToConfirmPrompt` now DELIMITS the
+phrase in EN and DE (EN `Type “{0}” to confirm`), and the dialog trims the comparison and reports a
+mismatch after blur via `aria-invalid` plus `aria-describedby` pointing at a polite live region
+carrying `typeToConfirmMismatch`. The comparison is trimmed only — NOT case-folded and NOT Unicode-
+normalised — so the ★★★ prohibition below still stands and the two project-NAME call sites are
+unaffected. Verify with `npx vitest run src/app/type-to-confirm-dialog.test.tsx` (9 tests).
+
+★★★ **What the fix ROUND found is the more interesting half, and nothing in this repo gates it.**
+The first cut coloured the mismatch text `text-ui-pink`. That IS a sanctioned palette token — it is
+the FILL/BORDER one — and as small (12px) TEXT on `--surface` it measures 4.63 (harbor L) / 6.78
+(harbor D) / 4.74 / 6.44 / 5.19 / 6.41 across six scheme combos, and **3.83 on beacon, which is
+`DEFAULT_SCHEME_ID`** — i.e. under AA in the scheme a fresh install runs. `--ui-pink-strong` is
+DERIVED as `nudgeToAa(--ui-pink, surface)` and is the TEXT token; the fix uses it.
+★★ NOTHING CATCHES THIS CLASS. The palette sweep accepts the token (it is on-palette by
+construction), and the axe gate never opens a modal, so no scanned view ever renders the string.
+The measurement was the only detector. The sweep for the rest of this class is **§325**.
 
 `TypeToConfirmDialog` interpolates the phrase into one prompt with no delimiters around it:
 
@@ -23735,12 +23749,38 @@ call sites type-to-confirm a raw project NAME (`project-empty-state.tsx`, `proje
 case folding would let a lowercased name match a differently-cased one — precisely the near-miss the
 gate exists to catch.
 
-## 301. Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap — open
+## 301. Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap — CLOSED 2026-08-31
 
-**Status:** open — enumerated on 2026-08-30 by
-`grep -rn "confirmValue=" src/app --include=*.tsx | grep -v "\.test\."`, which prints all six sites
-and is the reproduce command for the split below. Never machine-verified in the sense that matters:
-no test asserts any of these phrases in a non-EN locale, and no German pass has been run against them.
+**Status:** **CLOSED** 2026-08-31. All three phrases are now `t(lang, …)` keys —
+`tasksClearAllConfirmValue`, `settingsResetConfirmValue`, `tasksDeleteSelectedConfirmValue` — with EN
+and DE strings. Verify with
+`npx vitest run src/app/settings-sections/general-section.test.tsx src/app/tasks-section.test.tsx`
+(66 tests).
+
+★★ **The design decision, recorded because the obvious alternative is worse.** The bulk-delete phrase
+carries **NO count**. A count inside a string the user must type CHARACTER-FOR-CHARACTER cannot
+express German plural agreement, and the count can change under the user mid-type (a background
+write, a second tab) — turning an already-typed correct phrase into a wrong one with no visible
+cause. The count stays where it belongs, in the surrounding prose:
+`tasksDeleteSelectedDialogMessage`.
+
+★★★ **TEST-VALIDITY FINDING, and it generalises past this entry.** Under `en-US` the new key values
+are BYTE-IDENTICAL to the constants they replaced, so **an EN-only test passes against the reverted
+code and pins nothing.** The German test is the only one that can fail for this defect, and it was
+mutation-proved: restoring the hardcoded constant turns it red. Any "we replaced a literal with an
+i18n key" test needs a non-EN assertion, or it is decorative.
+
+★ That German test types the literal `"yes, reset everything"` in order to assert it is REFUSED —
+which is exactly the hazard shape
+[§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--open)
+describes. If the EN phrase is ever reworded, that negative assertion goes vacuous silently: it will
+still pass, because the new phrase does not match either. Re-check it on any reword.
+
+★ **The two module constants named in the table below no longer exist.** `CLEAR_TASKS_CONFIRM_PHRASE`
+and `RESET_CONFIRM_PHRASE` were REMOVED by the fix; the table is retained as the record of what was
+found. Do NOT reintroduce either — the phrases are i18n keys now. (Both are SCREAMING_CASE, so
+`docs:symbols:check` was never able to see them go stale; that is the ungated class the top of
+`AGENTS.md` warns about, and this note is the manual substitute.)
 
 Of the six `confirmValue=` call sites, exactly one is localised — the one the
 recoverable-destructive-refusal slice added (`notifications.tsx`, via
@@ -23767,12 +23807,28 @@ to expect localisation at the other three.
 ★ Related: §300 covers the prompt these phrases are rendered into, and the absence of any feedback
 when what the user typed does not match.
 
-## 302. The storage readiness indicator is never disclosed to assistive technology, in either state — open
+## 302. The storage readiness indicator is never disclosed to assistive technology, in either state — CLOSED 2026-08-31
 
-**Status:** open — the DOM was read on 2026-08-30 (`grep -n "aria-hidden" src/app/sidebar-footer.tsx`, and
-`grep -n "describe()\|isReady()" src/app/use-storage-backend.ts`, which puts them on separate lines as
-separate calls). **Never machine-verified** in the sense that matters: no screen-reader pass has been run
-against this line, and no test asserts what it announces, because there is nothing to assert.
+**Status:** **CLOSED** 2026-08-31. An `sr-only` readiness sentence (`sidebarStorageReady` /
+`sidebarStorageNotReady`) now sits beside `storageDescription` in the footer. The dot and the `⚠`
+marker stay `aria-hidden` **deliberately** — the state is spoken ONCE rather than three times.
+Verify with `npx vitest run src/app/sidebar-footer.test.tsx` (11 tests).
+
+★★ **The string says no more than "storage is not ready", and that is the fix to the ★★★ below, not
+a shortcut past it.** `storageReady` is COMPOUND (`storageOk && !loadWasIncomplete &&
+destructiveRefusal === null`), so naming a cause would be wrong two times out of three — which is
+precisely why reusing `storageNotReady` ("pick a file in Settings") was rejected. A cause-free
+sentence is true under all three. Three cause-specific keys remain the richer option and are still
+available later; they were not needed to close the disclosure gap.
+
+★★ **SCOPE — this covers the EXPANDED footer only.** `sidebar-footer.tsx` returns early at
+`if (collapsed) return pausedControl;`, so the COLLAPSED rail renders no storage state at all: no
+dot, no description, no sentence. That is therefore NOT an AT gap — sighted users get nothing there
+either — which is why it is not filed as a follow-up. It is stated here so a reader does not infer
+the closure covers a surface it does not.
+
+★ Reachable from slice 3 and slice 7 of the follow-up roadmap; closed by slice 3 — slice 7 must not
+re-close it.
 
 The sidebar footer's readiness paragraph shows a coloured dot and, since the recoverable-destructive-refusal
 slice, a trailing shape marker. **Both are `aria-hidden`.** The only other content of that paragraph is
@@ -23795,11 +23851,34 @@ actively misleading. Closing this needs a key that covers all three causes, or t
 and the chooser has to live where all three signals are already known, which is `task-manager.tsx`, not the
 footer.
 
-## 303. One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint — open
+## 303. One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint — CLOSED 2026-08-31
 
-**Status:** open — measured 2026-08-30 with a temporary probe counting `logDiag` calls carrying
-`dataloss.refused`, since removed from the tree. Enumerate the record sites with
+**Status:** **CLOSED** 2026-08-31. `evaluate` now returns `isNewMagnitude` on a widened
+`DestructiveEvaluation`, and the forensic write is gated on it. Verify with
+`npx vitest run src/app/use-storage-backend.test.tsx` (145 tests).
+
+★★ **NO SECOND USER ACTION IS INVOLVED, and the entry originally read as though one might be.**
+Measured on this branch: the refusal is a DEPENDENCY of the save effect, so raising a refusal
+re-runs the effect immediately, which re-refuses and records again. **One unarmed deletion is
+recorded twice, with nothing further happening at all** — no later save, no unrelated edit, no
+second attempt by the user. Understating that makes the duplicate look rare; it is the ordinary case.
+
+★★★ **`!refusalWasStanding` — the obvious gate — is WRONG, and this was mutation-proved.** It
+answers "was any refusal up", so it silently drops the case where the user deletes FURTHER while
+paused and the loss gets WORSE: a genuinely new, larger magnitude goes unrecorded. Under a
+`!refusalWasStanding` mutant the worsened-magnitude test fails while the duplicate test still
+**PASSES** — so the duplicate test ALONE would have certified the wrong gate. `isNewMagnitude`
+answers the question that actually discriminates: did `evaluate` MINT, or return the standing one.
+
+★★ **COVERAGE BOUNDARY, stated so nobody reads this closure as wider than it is.** The two new tests
+count `logDiag` calls carrying code `"dataloss.refused"` rather than reading the ring through
+`readDataLossLog`, because `use-storage-backend.test.tsx` mocks `./diagnostics` with `logDiag` alone.
+They would therefore NOT catch a regression inside `readDataLossLog`'s own mapping. Enumerate the
+record sites with
 `grep -rn "recordDataLossEvent" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`.
+
+**The original finding, retained.** Measured 2026-08-30 with a temporary probe counting `logDiag`
+calls carrying `dataloss.refused`, since removed from the tree.
 
 Measured counts for one destructive episode: a NEW refusal writes **2** entries; a later re-refusal at
 UNCHANGED counts adds **1**; a later re-refusal whose counts MOVED adds **2** again. So the over-report is
@@ -23964,9 +24043,39 @@ through a test that does not otherwise need it costs more than it buys. ★ The 
 `e2e/`, for a stronger reason — no spec there imports the string table, so converting one would
 introduce the suite's first dependency on `src/app/i18n` as a side effect of a copy change.
 
-## 307. A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working — open
+## 307. A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working — CLOSED 2026-08-31, not a defect
 
-**Status:** open — established 2026-08-30 by reading the e2e harness, not by attempting it:
+**Status:** **CLOSED** 2026-08-31 — **not a defect.** Re-examined on this branch: the premise is
+true, and it is not a gap. The finding is below; nothing was fixed, because there is nothing here to
+fix.
+
+The refusal predicate is `(fullWipe || massDelete) && !allowDestructive`, and every legitimate bulk
+path arms (`allowDestructiveSave`), so a refusal fires ONLY on data loss that nothing in the app
+explains. An e2e could therefore stage one only by manufacturing corruption. Covered at unit level
+instead, where the state is directly constructible.
+
+★ Residual, stated rather than hidden: the recourse path is still never exercised in a real
+browser, so a prod-only CSP- or focus-class defect in it would not be caught here.
+
+★ Rejected: a dev-only injector global. A global that forces a destructive-save state is a
+security surface, the production strip would have to be proven rather than assumed, and a hook
+stripped in prod means the e2e exercises a path users never run.
+
+★★ **Retained from the original entry, because it is the severity anchor and is still true.** All
+four observables the slice owed a manual pass on ARE pinned by unit tests — the magnitude line and
+both confirm tiers in the banner's own suite, the exclusivity of the two saving-paused causes at the
+hook boundary, the toast's action invoking the reveal callback rather than performing the save, and
+the classic-layout chip (`notifications.test.tsx`, added by `a8123570` on the slice's own branch).
+What is NOT covered is anything geometric — jsdom has no layout — and the axe gate never reaches the
+banner, which mounts only while `destructiveRefusal !== null` (`task-manager.tsx`).
+
+★★ **Do NOT re-open this by writing a spec that stubs the refusal state.** A test that renders the
+banner from fixed props is what the unit suite already does; dressed as an e2e it would report that
+the recourse works end-to-end while never having exercised the guard, the arming, or the save — the
+same false-green shape the slice itself was fixing.
+
+**The original harness evidence, retained.** Established 2026-08-30 by reading the e2e harness, not
+by attempting it:
 `grep -rln "storageRefusedWipe\|storageDestructive" e2e/` returns nothing, so no spec drives a
 refusal; `grep -n "indexedDB\|addInitScript" e2e/seed.ts` shows the seed runs BEFORE the app loads;
 and the two globals the app assigns — `__lopDataLossLog` (`dataloss-forensics.ts`) and `__aipmDiag`
@@ -23997,31 +24106,11 @@ cold review found four routes it had missed. ★ They are all armed today, so th
 the CENSUS method, not a live gap to go and use. So read this as "no route I could find", not
 "no route exists"; finding one would be the cheapest way to close this entry.
 
-**What IS covered, so this is read at the right severity.** ★★★ **ALL FOUR are pinned by unit
-tests** — the magnitude line and both confirm tiers in the banner's own suite, the exclusivity of the
-two causes at the hook boundary, the toast's action invoking the reveal callback rather than the
-save, AND the classic-layout chip ("offers the re-open chip for the destructive cause in the classic
-layout", `notifications.test.tsx`, added by `a8123570` on the slice's own branch). An earlier revision
-of this entry said that fourth one "has no test at any layer", which was false when written and
-inflated the entry's severity — the false-coverage class inverted, and the harder direction to catch,
-because a claim that something is UNTESTED invites work rather than stopping an audit.
-What is NOT covered is anything geometric — jsdom has no layout, so no test can see the banner's
-placement, its focus order among the other banners, or whether the footer marker shifts its line.
-★★ Nor does the axe gate reach the banner: it mounts only while `destructiveRefusal !== null`
-(`task-manager.tsx`), which by this entry's own thesis never happens in a scanned view. An earlier
-revision claimed the opposite in the same paragraph as the thesis that contradicts it.
-
-★★ **Do NOT close this by writing a spec that stubs the refusal state.** A test that renders the
-banner from fixed props is what the unit suite already does; dressed as an e2e it would report that
-the recourse works end-to-end while never having exercised the guard, the arming, or the save. That
-is the same false-green shape the slice itself was fixing — a recourse that appears to exist and
-does not.
-
-**What closing it would take**, in the order that keeps production honest: a way to reach an unarmed
-destructive save that is not a back door — the most plausible is a delete route that legitimately
-does not arm today, which is what §293 is about — or, failing that, an
-explicit test-only capability gated the way other diagnostics are, plus a spec that drives it and
-asserts all four observables including the classic layout.
+★ The record of an earlier error here, kept: a prior revision said the classic-layout chip "has no
+test at any layer", which was false when written and inflated the entry's severity — the
+false-coverage class inverted, and the harder direction to catch, because a claim that something is
+UNTESTED invites work rather than stopping an audit. A second prior revision claimed the axe gate
+DID reach the banner, in the same paragraph as the thesis that contradicts it.
 
 ## 308. `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name
 
@@ -24744,3 +24833,107 @@ one controller pins TODAY's call sites; it does not make the property structural
 a ref-based bail read at dispatch (the ref is already there for aborts) rather than a `busy` read from
 the closure. Cheap — but it changes the send path, which is why it was not folded into a load-path
 slice.
+
+## 323. The single-task delete is the one entity delete that never arms the destructive-save bypass
+
+**Status:** OPEN. Filed 2026-08-31 while closing
+[§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31).
+**Never machine-verified** — no probe was run; the unreachability argument below is read off the
+code, not observed. Reproduce with
+`grep -n "onDelete\|allowDestructiveSave" src/app/use-task-row-handlers.ts` — it prints the
+`onDelete` declaration and its entry in the returned object, and NO `allowDestructiveSave` line at
+all, which is the finding — and
+`grep -rn "handlers.onDelete\|onDelete={onDelete}" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`.
+
+★ **Number:** 324 is held by a concurrent branch at filing time, so this batch took 323, 325 and 326
+and left 324 alone. A number is only reserved once it is on `origin/main`; if 324 never lands, the
+gap stays.
+
+**What happens.** `use-task-row-handlers.ts`'s `onDelete` removes one task (and strips that id from
+other tasks' `dependencies`) and never calls `allowDestructiveSave`. Every other entity's
+single-item delete arms unconditionally. So the pattern has one hole, and a reader completing it
+would arm here too.
+
+★★★ **Filed, not fixed, and BOTH reasons matter — the second one inverts the obvious instinct.**
+
+1. **It cannot be reached.** `onDelete` takes a single `id: number` and filters exactly one row.
+   `isMassDeletion(prev, cur, floor = 5, fraction = 0.1)` (`workspace-metrics.ts`) needs at least 5
+   records removed, so one deletion cannot cross the floor whatever the workspace size. The three
+   consumers all pass ONE id and none loops: the row/Kanban prop (`task-manager.tsx`), the editor's
+   `TaskDeleteButton` (same file), and the voice `"delete"` command
+   (`use-bulk-operations.ts`, which finds one task by `cmd.id`).
+   ★ The original brief for this entry said TWO consumers; the third — the voice command, reached
+   via the `handlers` bag rather than a JSX prop — was found by running the grep above. It is
+   single-id like the other two, so the conclusion is unchanged and the ENUMERATION was wrong. Run
+   the grep; do not trust a count.
+2. **Not-arming is the SAFER side.** `allowDestructiveSave` SUPPRESSES the guard. "Completing the
+   pattern" here would weaken a live safety check to buy consistency, on a path that by (1) can
+   never trip that check anyway. The consistency is worth having only if it is free, and it is not.
+
+★ So the useful outcome of this entry may well be a comment at the handler saying why it does NOT
+arm, rather than a code change. Whoever picks it up should decide that first.
+
+## 325. Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in the default scheme
+
+**Status:** OPEN. Filed 2026-08-31 from the
+[§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--closed-2026-08-31)
+fix round, which found this on ONE site and fixed that one. **Never machine-verified beyond that
+single measurement** — the 3.83:1 beacon figure recorded in §300 is the only contrast number anyone
+has computed for this token as text; none of the sites below has been measured. Reproduce the
+inventory with:
+
+```
+grep -rn "text-ui-pink[^-]" src/app --include=*.tsx | grep -v "\.test\.tsx:"
+```
+
+★ **That grep returns 13, not 12.** One hit is a COMMENT in `type-to-confirm-dialog.tsx` quoting the
+token in order to explain why the STRONG variant is used there — i.e. the detector matches the note
+that documents the fix. This register has been bitten by a self-matching grep before; the count is 13
+lines, 12 candidate sites, 10 files.
+
+**What happens.** `--ui-pink` is the FILL/BORDER token. `--ui-pink-strong` is derived as
+`nudgeToAa(--ui-pink, surface)` and is the one intended for text. Used raw as small text on
+`--surface`, `--ui-pink` measures 3.83:1 on beacon — `DEFAULT_SCHEME_ID`, the scheme a fresh install
+runs — which is under the 4.5:1 AA threshold.
+
+★★ **These 12 are CANDIDATES requiring per-site measurement, NOT 12 confirmed failures**, and the
+ratio genuinely differs per site for two reasons: the surface BEHIND the text may not be `--surface`
+(several sit on muted or chip backgrounds), and large text has a lower threshold. Several hits are
+also `hover:text-ui-pink` on an otherwise-muted control, where the failing colour appears only under
+pointer hover — still a real 1.4.3 question, but a different one from a persistently-rendered
+status line. Measure each; do not sweep-replace.
+
+★ The closest analogue to the site already fixed is `document-block-notices.tsx` — `role="status"` +
+`text-xs` + `text-ui-pink`, the same shape on the same kind of surface. Start there.
+
+★★ **Nothing gates this class**, which is why it accumulated 12 sites. The palette sweep accepts the
+token (it is on-palette by construction, and the sweep checks token USE, not the contrast of the
+resulting pair), and the axe gate scans only what a seeded FILE-mode workspace renders in 17 views —
+several of these sites are in modals, popovers or empty states it never opens. A contrast
+measurement is the only detector, and it has to be written by hand.
+
+## 326. `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide
+
+**Status:** OPEN. Filed 2026-08-31 while adding the §300 mismatch region. **Never machine-verified**
+— the two-instance path is read off the code, not observed; no test mounts two dialogs and no probe
+was run. Reproduce with `grep -n "TITLE_ID\|MISMATCH_ID" src/app/type-to-confirm-dialog.tsx` and
+`grep -n "TypeToConfirmDialog\|ConfirmOpen" src/app/tasks-section.tsx`.
+
+**What happens.** Both ids are module-level constants — `TITLE_ID` (pre-existing) and `MISMATCH_ID`
+(added by the §300 fix). Two mounted dialogs therefore put duplicate ids in the document, and
+`aria-labelledby` / `aria-describedby` resolve to whichever element comes FIRST in document order.
+The wrong dialog's title or mismatch text is announced, with no visible symptom and nothing thrown.
+
+★★ **A concrete two-instance path exists**, which is what raises this above theoretical.
+`tasks-section.tsx` holds two independent booleans — `clearConfirmOpen` and
+`deleteSelectedConfirmOpen` — each rendering its own `TypeToConfirmDialog`, and the voice `clearAll`
+nonce reconcile sets the first one WITHOUT checking the second is closed. So the collision is
+reachable by a user action sequence, not only by a hypothetical future call site.
+
+★ **Filed, not fixed.** It is a PRE-EXISTING hazard that the §300 fix WIDENED by exactly one id — it
+did not create it — and switching both to `useId()` is out of scope for the commit that found it.
+
+★★ **The fix is worth more than the bug.** `useId()` for both would also retire the unwritten "only
+one may be open at a time" constraint that `notifications.tsx` and `use-storage-backend.ts` both
+shaped their designs around. That is the reason to do it properly rather than to paper over the
+tasks-section case with a mutual-exclusion guard.
