@@ -398,8 +398,15 @@ export function PopoverPanel({
   // Every count it prints is 0; the only non-zero hits are test harnesses.
   // The gate is therefore defensive, not load-bearing for a shipped surface —
   // but every Tab trap in the app consults the stack, and keeping that uniform
-  // is what stops two traps competing the first time such a consumer lands. It
-  // is pinned by the inverse-nesting test in `dismissal-integration.test.tsx`.
+  // is what stops two traps competing the first time such a consumer lands.
+  // ★★★ It is pinned by ONE test — "leaves a NON-EDGE Tab inside the
+  // layered-above modal completely alone" — and NOT by the inverse-nesting
+  // test beside it, which reads like the pin and is not. Measured by mutation:
+  // deleting this gate leaves the inverse-nesting test GREEN, because both
+  // traps are `document` keydown listeners firing in REGISTRATION order and the
+  // modal opened second, so it runs last and silently corrects whatever an
+  // ungated popover just did. Any assertion on FINAL focus is blind here. That
+  // test's own comment carries the reasoning; read it before touching either.
   //
   // ★ Escape and outside-click remain the exits. This deliberately does NOT
   // close on Tab: `CollapsedNavFlyout` does that, but its items are all
