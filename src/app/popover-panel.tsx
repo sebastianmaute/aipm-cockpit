@@ -95,6 +95,27 @@ export function PopoverPanel({
         setPos({ right, bottom: window.innerHeight - r.top + ANCHOR_GAP });
       }
     }
+  }, [open, anchorRef, placement]);
+
+  // ★★★ §124. These listeners are armed on `rendered`, NOT on `open` — they
+  // used to live in the measure effect above, which runs while the panel is
+  // still gated behind `open && pos`. A click on a trigger inside a
+  // horizontally scrollable container makes the browser scroll the container to
+  // reveal the trigger, and that scroll is dispatched AFTER the click handler
+  // and its effects — so it landed on a listener that had just been registered
+  // and closed a panel that had never been in the DOM. `aria-expanded` went
+  // straight back to `false`.
+  //
+  // ★★ `rendered` is a BOOLEAN, deliberately, and depending on `pos` here
+  // instead would reintroduce a different bug: `pos` is a fresh object and the
+  // post-paint clamp effect rewrites it, so both listeners would be torn down
+  // and re-registered on every clamp pass.
+  //
+  // ★ This is the same distinction the autoFocus effect below already draws:
+  // the flag means "the panel is RENDERED", not "the panel is open".
+  const rendered = open && pos !== null;
+  useEffect(() => {
+    if (!rendered) return;
     // Close when an ANCESTOR scroller moves (the panel detaches from its anchor),
     // but NOT when the user scrolls a scrollable child INSIDE the panel (e.g. the
     // nested ResourcePicker's `overflow-y-auto` resource list in Assign/Escalate)
@@ -115,7 +136,7 @@ export function PopoverPanel({
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onResize);
     };
-  }, [open, anchorRef, onClose, placement]);
+  }, [rendered, onClose]);
 
   // Post-paint left-edge clamp. The panel is right-aligned via CSS `right`, which
   // alone can't stop the LEFT edge going off-screen on a narrow viewport with a

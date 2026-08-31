@@ -224,6 +224,32 @@ describe("PopoverPanel", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("does not arm the close-on-scroll listener until the panel is rendered", () => {
+    // §124: the listener used to be registered in the same effect pass that
+    // called setPos, i.e. while the panel was still gated behind `open && pos`.
+    // A scroll dispatched by the browser to reveal the trigger then closed a
+    // panel that had never been in the DOM.
+    const realAdd = window.addEventListener;
+    let panelPresentWhenArmed: boolean | null = null;
+    const spy = vi
+      .spyOn(window, "addEventListener")
+      .mockImplementation((type, listener, options) => {
+        if (type === "scroll" && panelPresentWhenArmed === null) {
+          panelPresentWhenArmed =
+            document.body.querySelector('[role="dialog"]') !== null;
+        }
+        return realAdd.call(window, type, listener, options);
+      });
+    try {
+      render(<Harness />);
+      fireEvent.click(screen.getByText("trigger"));
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(panelPresentWhenArmed).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("does NOT close when a scrollable child INSIDE the panel scrolls (nested picker regression)", () => {
     const onClose = vi.fn();
     function ScrollHarness() {
