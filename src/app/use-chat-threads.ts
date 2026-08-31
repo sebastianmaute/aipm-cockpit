@@ -268,6 +268,20 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   const persistSeqRef = useRef(0);
   const latestSeqRef = useRef<Map<string, number>>(new Map());
 
+  // §317. How many runPersist calls have SETTLED. `persistSeqRef` counts
+  // writes STARTED, so `persistSeqRef.current > persistSettledRef.current` is
+  // exactly "a write is outstanding right now" — the LIVENESS question, which
+  // a counter sampled at one instant cannot answer on its own. retryLoad needs
+  // both: the occurrence test catches a write that BEGINS inside its window,
+  // and this one catches a write already in flight when Retry was clicked.
+  //
+  // ★★★ BUMPED BEFORE THE `owns()` BAIL, DELIBERATELY. A superseded write
+  // still settles and still runs its handler; bumping after the bail would
+  // leak the count upward forever, leaving `started > settled` permanently
+  // true, `preserveLive` permanently set, and the reload branch unable to
+  // adopt anything ever again.
+  const persistSettledRef = useRef(0);
+
   // Fire a Turso WRITE (save or delete), tracking it as the retry target
   // (keyed by the thread id it targets) on failure and clearing just THAT
   // key on success — the error banner only clears once nothing is left
@@ -294,11 +308,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     const owns = () => latestSeqRef.current.get(key) === seq;
     action()
       .then(() => {
+        persistSettledRef.current += 1;
         if (!owns()) return;
         pendingRetryRef.current.delete(key);
         setThreadsError(pendingRetryRef.current.size > 0);
       })
       .catch(() => {
+        persistSettledRef.current += 1;
         if (!owns()) return;
         pendingRetryRef.current.set(key, () => runPersist(key, action));
         setThreadsError(true);
@@ -502,6 +518,12 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // reload branch closed forever, leaving the sidebar permanently stale.
     const sendInFlightAtClick = abortRef.current !== null;
     const seqAtClick = sendSeqRef.current;
+    // §317. The same liveness/occurrence pair for PERSISTS. Only two disjuncts:
+    // a settle-time liveness re-read would be redundant — a write started after
+    // the click is already caught by the occurrence test, and one started
+    // before it by `persistInFlightAtClick` — so no mutant could kill it alone.
+    const persistInFlightAtClick = persistSeqRef.current > persistSettledRef.current;
+    const persistSeqAtClick = persistSeqRef.current;
     // §313. The project this reload is FOR, compared at settle against the
     // live one. The mount effect's `cancelled` local cannot serve here —
     // retryLoad runs from an event handler, outside that effect's closure.
@@ -515,7 +537,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         setThreadsError(false);
         setLoadFailed(false);
         const preserveLive =
-          sendInFlightAtClick || abortRef.current !== null || sendSeqRef.current !== seqAtClick;
+          sendInFlightAtClick ||
+          abortRef.current !== null ||
+          sendSeqRef.current !== seqAtClick ||
+          persistInFlightAtClick ||
+          persistSeqRef.current !== persistSeqAtClick;
         const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
@@ -529,7 +555,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         setThreadsError(true);
         setLoadFailed(true);
         const preserveLive =
-          sendInFlightAtClick || abortRef.current !== null || sendSeqRef.current !== seqAtClick;
+          sendInFlightAtClick ||
+          abortRef.current !== null ||
+          sendSeqRef.current !== seqAtClick ||
+          persistInFlightAtClick ||
+          persistSeqRef.current !== persistSeqAtClick;
         const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);

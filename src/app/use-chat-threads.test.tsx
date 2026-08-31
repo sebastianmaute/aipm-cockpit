@@ -1127,6 +1127,16 @@ describe("useChatThreads — retryLoad's reload vs. a send that both starts AND 
       );
     });
     abortRef.current = null;
+    // §317. ensureThreadForSend also WRITES the row it inserts, and an
+    // unsettled write is itself a reason to preserve — so drain it, or this
+    // block would go on passing via the persist guard and stop saying anything
+    // about the SEND counter it exists to pin. Its subject is that counter,
+    // not persists; the persist equivalents live in the §317 describe.
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
 
     // Its window is over, so this reload must adopt exactly as it did before
     // the counter existed.
@@ -1899,5 +1909,165 @@ describe("useChatThreads — retryLoad's settle vs. a project switch (§313)", (
     await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
 
     await waitFor(() => expect(result.current.threadsError).toBe(true));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §317: retryLoad's reload vs. an UNSETTLED persist. `pendingRetryRef` is a
+// FAILED-write registry, not a writes-outstanding one — runPersist records a
+// key only in its `.catch` and deletes it in its `.then`, so a write that has
+// not settled yet is in NEITHER state and retryLoad's only pre-reload gate
+// (`pendingRetryRef.current.size > 0`) reads clean over it. The reload then
+// adopts the row as ensureThreadForSend first wrote it (the user's message,
+// no reply) and replaces the transcript on screen. The write itself still
+// completes, so nothing is lost server-side; the damage is what the user sees.
+//
+// Persists need BOTH of the signals sends already have, for the same reason
+// the §148 comment gives: LIVENESS (`persistSeqRef > persistSettledRef`) can
+// only be SAMPLED, so it misses a write whose whole lifetime falls between two
+// samples; OCCURRENCE (`persistSeqRef !== persistSeqAtClick`) is monotonic but
+// blind to a write that began BEFORE the sample was captured — which is
+// §317's own ordering. Neither subsumes the other.
+//
+// MUTATION SCORECARD (each mutant applied alone and reverted before the next;
+// the file's runtime test count was 70, and each tally sums to it):
+//   Mutant A — `|| persistInFlightAtClick` deleted from BOTH preserveLive
+//     expressions: 1 failed / 69 passed. Failing: "does not replace the
+//     transcript when a persist was already in flight at the click". The
+//     begins-inside block stayed GREEN, so the two are separately proved.
+//   Mutant B — `|| persistSeqRef.current !== persistSeqAtClick` deleted from
+//     BOTH: 1 failed / 69 passed. Failing: "does not replace the transcript
+//     when a persist begins inside the reload window". The in-flight-at-click
+//     block stayed GREEN.
+//   Mutant C — `persistSettledRef.current += 1;` moved to AFTER runPersist's
+//     `if (!owns()) return;` in both handlers (the ordering trap): 1 failed /
+//     69 passed. Failing: "still adopts the reload after a SUPERSEDED write
+//     has settled" — the freeze control, and the ONLY block that sees it.
+//   No mutant killed a block another killed, so no disjunct stands in for
+//   another and the bump's POSITION is pinned as well as its existence.
+// ---------------------------------------------------------------------------
+describe("useChatThreads — retryLoad's settle vs. an unsettled persist (§317)", () => {
+  /** The row the reload returns. Its history is non-empty so the positive
+   *  controls can assert the adopt branch really ran, rather than matching an
+   *  empty array the merge branch could also have produced. */
+  const SERVER_ROW = thread("t-server", {
+    history: [{ role: "user", content: "server snapshot" }],
+    display: [{ kind: "user", text: "server snapshot" }],
+  });
+
+  /** Mounts on a seeded thread, mount fetch already settled. Each `it` runs it
+   *  fresh — vitest aborts a block at its first hard failure, so one behaviour
+   *  per test is the only way all of them are ever evaluated. */
+  async function arrangeMounted() {
+    loadThreadsMock.mockResolvedValueOnce([thread("t1")]);
+    const harness = renderChatThreads();
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(harness.result.current.activeThreadId).toBe("t1"));
+    return harness;
+  }
+
+  /** Clicks Retry with the reload held open and hands back its resolver. */
+  async function clickRetryHoldingReload(result: ReturnType<typeof renderChatThreads>["result"]) {
+    let resolveReload!: (threads: ChatThread[]) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((res) => {
+        resolveReload = res;
+      }),
+    );
+    act(() => result.current.retryLoad());
+    // ★★★ VACUITY GUARD: proves retryLoad reached the RELOAD branch. A pending
+    // WRITE retry would re-issue that write and never call loadThreads again,
+    // and then every assertion below would pass for the wrong reason.
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+    return resolveReload;
+  }
+
+  it("does not replace the transcript when a persist was already in flight at the click", async () => {
+    const { result, setHistory } = await arrangeMounted();
+
+    // A write that never settles. It is in neither half of pendingRetryRef, so
+    // the pre-reload gate reads clean — the premise of the whole entry.
+    saveThreadMock.mockReturnValueOnce(new Promise<void>(() => {}));
+    act(() => result.current.renameThread("t1", "renamed"));
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    expect(result.current.threadsError).toBe(false);
+
+    const resolveReload = await clickRetryHoldingReload(result);
+    // Only writes made after the click are the subject.
+    setHistory.mockClear();
+    resolveReload([SERVER_ROW]);
+    // Settle witness that holds on BOTH branches — the preserve branch folds
+    // `loaded` in too — so a red below is an assertion failure, not a timeout.
+    await waitFor(() => expect(result.current.threads.map((th) => th.id)).toContain("t-server"));
+
+    expect(setHistory).not.toHaveBeenCalled();
+  });
+
+  it("does not replace the transcript when a persist begins inside the reload window", async () => {
+    const { result, setHistory } = await arrangeMounted();
+
+    const resolveReload = await clickRetryHoldingReload(result);
+    // Starts AFTER the click, so no click-time sample can see it — only the
+    // occurrence counter can.
+    saveThreadMock.mockResolvedValueOnce(undefined);
+    act(() => result.current.renameThread("t1", "renamed"));
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    setHistory.mockClear();
+
+    resolveReload([SERVER_ROW]);
+    await waitFor(() => expect(result.current.threads.map((th) => th.id)).toContain("t-server"));
+
+    expect(setHistory).not.toHaveBeenCalled();
+  });
+
+  // ★★★ POSITIVE CONTROL. Without it, a guard that sets `preserveLive`
+  // unconditionally passes both blocks above while permanently breaking the
+  // reload for every user who never has a write outstanding.
+  it("still adopts the reload when no persist is outstanding", async () => {
+    const { result, setHistory } = await arrangeMounted();
+
+    const resolveReload = await clickRetryHoldingReload(result);
+    setHistory.mockClear();
+    resolveReload([SERVER_ROW]);
+
+    await waitFor(() => expect(setHistory).toHaveBeenCalledWith(SERVER_ROW.history));
+  });
+
+  // ★★★ FREEZE CONTROL — the block that pins WHERE the settled counter is
+  // bumped. A SUPERSEDED write still settles and still runs its handler, so if
+  // the bump sits AFTER runPersist's `owns()` bail its settle is never counted:
+  // `started > settled` becomes permanently true, `preserveLive` freezes on,
+  // and the reload branch can never adopt again for the life of the hook — a
+  // permanently stale sidebar, which is worse than the defect being fixed.
+  it("still adopts the reload after a SUPERSEDED write has settled", async () => {
+    const { result, setHistory } = await arrangeMounted();
+
+    // Write A on t1, held open so B can claim the key from under it.
+    let resolveA!: () => void;
+    saveThreadMock.mockReturnValueOnce(
+      new Promise<void>((res) => {
+        resolveA = res;
+      }),
+    );
+    act(() => result.current.renameThread("t1", "A"));
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    saveThreadMock.mockResolvedValueOnce(undefined);
+    act(() => result.current.renameThread("t1", "B"));
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(2));
+    // A settles last, superseded — its handler runs and bails on `owns()`.
+    await act(async () => {
+      resolveA();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    // Both writes succeeded, so nothing is parked in pendingRetryRef and the
+    // click below reaches the reload branch rather than replaying a write.
+    expect(result.current.threadsError).toBe(false);
+
+    const resolveReload = await clickRetryHoldingReload(result);
+    setHistory.mockClear();
+    resolveReload([SERVER_ROW]);
+
+    await waitFor(() => expect(setHistory).toHaveBeenCalledWith(SERVER_ROW.history));
   });
 });
