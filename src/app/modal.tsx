@@ -38,23 +38,13 @@ import {
   popDismissal,
   pushDismissal,
 } from "./dismissal-stack";
+import { FOCUSABLE_SELECTOR } from "./focusables";
 
 /** Canonical modal backdrop tint — the AIPM dark-blue scrim every modal shares.
  *  `Modal` defaults to it; hand-rolled overlays (popovers that can't use `Modal`)
  *  import it so the whole app dims consistently. Emphasis tiers (confirm/empty)
  *  intentionally use a stronger variant and are not folded onto this. */
 export const MODAL_BACKDROP_CLASS = "bg-ui-dark-blue/40";
-
-// Standard "focusable element" selector. Excludes negative-tabindex (which
-// the dialog root itself uses) and disabled inputs/buttons/etc.
-const FOCUSABLE_SELECTOR = [
-  "a[href]",
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  '[tabindex]:not([tabindex="-1"])',
-].join(", ");
 
 interface BaseProps {
   /** When false the modal renders nothing and listeners aren't attached. */

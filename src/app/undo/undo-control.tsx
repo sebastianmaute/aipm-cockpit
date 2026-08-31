@@ -4,16 +4,11 @@ import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ChevronDownIcon } from "../ico
 import { t, type Lang, type TranslationKey } from "../i18n";
 import { FOCUS_RING, INTERACTIVE } from "../interaction-styles";
 import { PopoverPanel } from "../popover-panel";
+import { FOCUSABLE_SELECTOR } from "../focusables";
 import { type UndoMeta } from "./undo-stack";
 
 const BUTTON_CLASS =
   "inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-sm text-muted-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey";
-
-// Same list `use-focus-trap.ts` uses. Kept local rather than exported from
-// there: that module owns a trap, not a focus-order utility, and widening its
-// API for one caller is the parameterise-a-working-thing move this repo avoids.
-const FOCUSABLE_SELECTOR =
-  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 /**
  * The element a Tab from `root` would have reached — the first focusable in
