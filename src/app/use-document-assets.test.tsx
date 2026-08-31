@@ -12,6 +12,16 @@ import { saveAssetData, deleteAssetData, loadAssetDataIds } from "./document-ass
 
 const config = { httpUrl: "https://db.turso.io", authToken: "t" } as never;
 
+/** A promise whose settlement the TEST decides. The §213 defect is an ORDERING
+ *  one, so a fixture that merely awaits both the byte write and the dangling
+ *  diff proves nothing — it passes under whichever order the harness happens to
+ *  produce. Gating each side lets the test force the losing order. */
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((r) => { resolve = r; });
+  return { promise, resolve };
+}
+
 // A 24-byte PNG header — the same shape document-asset-upload.test.ts uses.
 // At 4x3 pixels it never triggers a downscale (target size == source size,
 // see targetSize's `Math.min(..., 1)` clamp), so `processUpload` never calls
@@ -163,6 +173,48 @@ describe("useDocumentAssets — write order", () => {
     renderHook(() => useDocumentAssets({ config: null, assets, setAssets: vi.fn(), projectId: "p1" }));
     await Promise.resolve();
     expect(loadAssetDataIds).not.toHaveBeenCalled();
+  });
+
+  it("does not re-mark a fresh upload when the dangling diff resolves AFTER the byte write", async () => {
+    // ★★★ GATED PROMISES, NOT `waitFor` (§213). The defect is an ORDERING one,
+    // so a test that merely awaits both passes under whichever order the
+    // harness happens to produce — exactly how this went unnoticed. The mount's
+    // own diff resolves normally; the one the metadata commit arms is HELD, and
+    // released only after the byte write has already resolved and cleared.
+    const load = deferred<string[]>();
+    const save = deferred<void>();
+    vi.mocked(loadAssetDataIds).mockResolvedValueOnce([]).mockReturnValueOnce(load.promise);
+    vi.mocked(saveAssetData).mockReturnValueOnce(save.promise);
+
+    const { result } = renderHook(() => useAssetsHost([]));
+
+    let uploaded!: Promise<DocumentAsset | null>;
+    // ★★ DRIVE THE UPLOAD TO THE RACE AND ASSERT IT GOT THERE. `upload` awaits
+    // three times (file bytes, processing, hash) before it commits metadata, so
+    // a single microtask turn leaves it short of the byte write entirely —
+    // measured: one `await Promise.resolve()` here left `saveAssetData`
+    // UNCALLED, which staged the epoch capture on the wrong side of the write
+    // and made this pass against the unfixed hook for the wrong reason. The
+    // state the race needs is: metadata committed (so the diff is armed and its
+    // load is in flight) while the byte write is still pending. The two
+    // expectations below pin exactly that, so a re-staging that misses it fails
+    // here rather than passing vacuously.
+    await act(async () => {
+      uploaded = result.current.upload(pngFile("chart.png"));
+      for (let i = 0; i < 50; i += 1) {
+        if (vi.mocked(saveAssetData).mock.calls.length === 1
+          && vi.mocked(loadAssetDataIds).mock.calls.length === 2) break;
+        await new Promise((r) => { setTimeout(r, 0); });
+      }
+    });
+    expect(saveAssetData).toHaveBeenCalledTimes(1);
+    expect(loadAssetDataIds).toHaveBeenCalledTimes(2);
+
+    await act(async () => { save.resolve(); await uploaded; });
+    await act(async () => { load.resolve([]); await load.promise; });
+
+    const asset = await uploaded;
+    expect(result.current.danglingIds.has(asset!.id)).toBe(false);
   });
 });
 
