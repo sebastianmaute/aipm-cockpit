@@ -72,4 +72,18 @@ describe("TypeToConfirmDialog", () => {
     expect(id).toBeTruthy();
     expect(document.getElementById(id as string)).toHaveTextContent(/does not match/i);
   });
+
+  it("explains a whitespace-only entry rather than just staying dead", () => {
+    render(<TypeToConfirmDialog {...base} />);
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.blur(input);
+    expect(screen.getByText(/does not match/i)).toBeInTheDocument();
+  });
+
+  it("says nothing when an untouched empty field is blurred", () => {
+    render(<TypeToConfirmDialog {...base} />);
+    fireEvent.blur(screen.getByRole("textbox"));
+    expect(screen.queryByText(/does not match/i)).not.toBeInTheDocument();
+  });
 });

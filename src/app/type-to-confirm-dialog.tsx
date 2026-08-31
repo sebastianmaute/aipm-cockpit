@@ -43,9 +43,17 @@ export function TypeToConfirmDialog({
   // Case-folding would weaken a deliberate destructive gate, and `confirmValue`
   // is sometimes a project NAME, where case is meaningful.
   const matched = typed.trim() === confirmValue;
-  // ★ Blur-gated on purpose: a message rendered per keystroke makes a screen
-  // reader narrate one failure per character of a 30-character phrase.
-  const showMismatch = touched && typed.trim() !== "" && !matched;
+  // ★ Gated until the first blur, live thereafter: `touched` never resets, so
+  // once the field has been blurred once the message updates on every
+  // keystroke. The text node only mutates on the false→true transition
+  // (blank/matched → mismatched), so a screen reader still gets one
+  // announcement, not one per character of a 30-character phrase.
+  // ★ The second conjunct is `typed !== ""`, NOT `typed.trim() !== ""` —
+  // whitespace-only input is a real mismatch and must say so (a visibly
+  // non-empty field with a dead button and no explanation is the exact
+  // silent failure this message exists to end); an untouched EMPTY field
+  // stays silent on blur, which this conjunct also preserves.
+  const showMismatch = touched && typed !== "" && !matched;
 
   return (
     <Modal
@@ -78,8 +86,15 @@ export function TypeToConfirmDialog({
               autoComplete="off"
             />
             {/* ★ ALWAYS mounted, content swapped — a live region added to the DOM
-                at the same moment it gains text is not reliably announced. */}
-            <span id={MISMATCH_ID} role="status" className="text-xs text-ui-pink">
+                at the same moment it gains text is not reliably announced.
+                ★ Hand-rolled rather than the shared `FieldError` (`field-feedback.tsx`)
+                for two reasons: `FieldError` returns null on falsy children, which
+                is exactly the mount-and-populate shape this comment insists on; and
+                it uses role="alert" (assertive), where this blur-gated notice wants
+                role="status" (polite) instead. `text-ui-pink-strong` (not the raw
+                `text-ui-pink` fill/border token) is the AA-derived text color — see
+                globals.css and scheme-tokens.ts `nudgeToAa`. */}
+            <span id={MISMATCH_ID} role="status" className="text-xs text-ui-pink-strong">
               {showMismatch ? t(lang, "typeToConfirmMismatch") : ""}
             </span>
           </label>
