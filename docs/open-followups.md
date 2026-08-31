@@ -326,7 +326,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§97](#97-the-dom-constraint-inverted-for-the-document-load-paths--open-trap-safe-today) | The DOM constraint INVERTED for the document load paths — open (TRAP, safe today) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open |
 | [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--open-missing-net-counters-widened-2026-08-29-live-path-found--284) | `documents` is invisible to both save-time data-loss guards — open (MISSING NET; counters WIDENED 2026-08-29, live path FOUND — §284) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open |
 | [§99](#99-the-e2e-seed-writes-only-four-of-browserbackends-ten-optional-slices-so-some-axe-scans-run-on-an-empty-state--open-partly-fixed-2026-08-08) | The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY FIXED 2026-08-08 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open |
-| [§100](#100-tab-ejects-focus-from-a-portaled-popover-opened-inside-a-modal--open-a11y) | Tab ejects focus from a portaled popover opened inside a modal — open, a11y | field controls → modal header, unreleased | M | open |
+| [§100](#100-tab-ejects-focus-from-a-portaled-popover-opened-inside-a-modal--closed-2026-08-31) | ~~Tab ejects focus from a portaled popover opened inside a modal~~ | field controls → modal header, unreleased | M | **CLOSED** 2026-08-31 |
 | [§101](#101-segmentedcontrols-selected-segment-is-colour-only-in-the-three-dark-schemes--open-a11y) | `SegmentedControl`'s selected segment is colour-only in the three DARK schemes — open, a11y | field controls → modal header, unreleased | S | open |
 | [§102](#102-hand-rolled-ui-that-should-be-a-shared-primitive-and-glyphs-that-should-be-heroicons--open-ratchet) | Hand-rolled UI that should be a shared primitive, and glyphs that should be heroicons — open, ratchet | — | — | open |
 | [§103](#103-an-over-cap-load-silently-and-permanently-destroyed-the-excess-documents--closed) | An over-cap load silently and permanently destroyed the excess documents | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** |
@@ -350,7 +350,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§121](#121-use-tasks-deduptsx-never-aborts-its-in-flight-call-on-unmount--closed-2026-08-08) | `use-tasks-dedup.tsx` never aborts its in-flight call on unmount | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-08 |
 | [§122](#122-the-budget-people-rows-and-the-role-row-above-them-read-booked-from-two-different-sources--open-data-integrity) | The budget people rows and the role row above them read BOOKED from two different sources — open, data-integrity | UI batch slice 3 — 0.224.0 "Emshwiller" | M — it is a design question, not a wiring bug | open |
 | [§123](#123-the-budget-people-row-disclosure-clips-its-own-label-mid-glyph-with-no-ellipsis--closed-2026-08-08) | The budget people-row disclosure clips its own label mid-glyph, with no ellipsis | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-08 |
-| [§124](#124-a-popover-opened-by-a-click-that-also-scrolls-its-ancestor-never-mounts--open-ui) | A popover opened by a click that also scrolls its ancestor never mounts — open, UI | found in the slice-3 eye-verify | UNKNOWN | open |
+| [§124](#124-a-popover-opened-by-a-click-that-also-scrolls-its-ancestor-never-mounts--closed-2026-08-31) | ~~A popover opened by a click that also scrolls its ancestor never mounts~~ | found in the slice-3 eye-verify | UNKNOWN | **CLOSED** 2026-08-31 |
 | [§125](#125-two-more-controls-start-a-billed-anthropic-call-with-no-way-to-stop-it--open-billed) | Two more controls start a billed Anthropic call with no way to stop it — open, billed | found in the slice-3 review prose check | S each | open |
 | [§126](#126-two-same-type-insight-rows-produce-identically-named-per-row-controls-and-no-gate-can-see-it--closed-2026-08-25) | Two same-type Insight rows produce identically-named per-row controls, and no gate can see it | found in the slice-3 review, exposed by the new e2e seed | S | **CLOSED** 2026-08-25 |
 | [§127](#127-two-of-the-six-ai-trigger-hooks-never-abort-on-unmount--closed-2026-08-08) | Two of the six AI trigger hooks never abort on unmount | split out of §121 on 2026-08-08 | S each | **CLOSED** 2026-08-08 |
@@ -523,7 +523,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§294](#294-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation--two-returns-decide-it-three-leave-it-by-accident-and-nothing-checks-either--closed-2026-08-30) | Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either | found 2026-08-29 | M | **CLOSED** 2026-08-30 (`consumeArm` hoisted to the effect's first statement; the prospective property is structurally untestable) |
 | [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard--closed-2026-08-30) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | **CLOSED** 2026-08-30 (redo arms when the forward images remove rows; pinned by a real clear-all→undo→redo seam test) |
 | [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--closed-2026-08-31) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | **CLOSED** 2026-08-31 |
-| [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss but not when a consumer closes it from an item's own handler — open | carved out of §146 on close, 2026-08-30 | M | open |
+| [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--closed-2026-08-31) | ~~`PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler~~ | carved out of §146 on close, 2026-08-30 | M | **CLOSED** 2026-08-31 |
 | [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence — open | carved out of §286 on close, 2026-08-30 | M | open |
 | [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry — open | carved out of §235 on close, 2026-08-30 | M | open |
 | [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--open) | The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch — open | found 2026-08-30, fixing the DE wipe phrase | M | open |
@@ -544,6 +544,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide) | `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide | — | — | open |
 | [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | open |
+| [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--open) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack — open | found 2026-08-31 while closing §100 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -6880,9 +6881,31 @@ the wrong shape silently. A comment now sits at that line.
 
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry hardcodes a ten-slice optional list and a six-slice dropped set. There are twelve optional slices and seven are unseeded — `activityLog` arrived after the entry was written and its own probe cannot see it, so the entry's command confirms an understated number. That is the rot it warns about twice. Reproduced by `grep -c "const KV_" src/app/browser-backend.ts`.
 
-## 100. Tab ejects focus from a portaled popover opened inside a modal — open, a11y
+## 100. ~~Tab ejects focus from a portaled popover opened inside a modal~~ — CLOSED 2026-08-31
 
-**Status:** open — a Tab trap blind to a portaled popover. Reproduced 2026-08-28 by `grep -n "container.contains(active)" src/app/modal.tsx`.
+**Status:** **CLOSED** 2026-08-31 by `eefa7ffd` (the fix) · `4784a172` (naming the test that actually
+pins the gate). `PopoverPanel` now runs its OWN Tab cycle over its portaled content, enumerated with
+the shared `FOCUSABLE_SELECTOR` (`focusables.ts`), and pushes `kind: "modal"` instead of `"layer"` —
+so `modal.tsx`'s `isTopmostOfKind` branch DEFERS rather than competing. That is the FIRST of the two
+directions this entry sketched, the contained one; the modal's trap still cannot see portaled
+content, and teaching it to would remain the class fix. Pinned by three cases under "Tab containment
+across a portaled popover" in `dismissal-integration.test.tsx`, verified by
+`npx vitest run --maxWorkers=1 src/app/dismissal-integration.test.tsx`. Mutation-proved: reverting
+the push to `"layer"` turns all three red (**3 failed / 8 passed**, against that file's runtime count
+of 11).
+
+★★★ **THE `isTopmostOfKind` GATE IS PINNED BY ONE TEST, AND IT IS NOT THE ONE THAT READS LIKE THE
+PIN.** The pin is **"leaves a NON-EDGE Tab inside the layered-above modal completely alone"** —
+deleting the gate turns it red at **1 failed / 10 passed**. The sibling INVERSE-NESTING test does
+NOT pin it: deleting the gate leaves that test **GREEN (0 failed / 10 passed — the mutant SURVIVED)**,
+measured, not reasoned. Both traps are `document` keydown listeners firing in REGISTRATION order and
+the modal opens second, so it runs LAST and silently corrects whatever an ungated popover just did —
+which makes every assertion on FINAL focus structurally blind to the gate. Do not delete the
+non-edge test as redundant, and do not read the inverse-nesting one as cover for it.
+
+★ The kind flip also brings this primitive under the stack rule that `kind` MEANS "traps Tab", so a
+future reader of the stack can reason about Tab from it — with the one exception filed as
+[§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--open).
 
 **Measured in Chromium 2026-08-06, not inferred.** Open any edit modal → open the field-visibility
 popover in its header → press Tab ONCE. Focus lands back on the trigger button **while the popover
@@ -9104,9 +9127,37 @@ test:
 grep -n "PeopleDisclosureLabel" src/app/budget-panel-people-rows.tsx src/app/budget-panel.tsx
 ```
 
-## 124. A popover opened by a click that also scrolls its ancestor never mounts — open, UI
+## 124. ~~A popover opened by a click that also scrolls its ancestor never mounts~~ — CLOSED 2026-08-31
 
-**Status:** open — a UI defect — a popover opened by a scrolling click never mounts. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** **CLOSED** 2026-08-31 by `6d6db501`. The measure effect is now SPLIT from the
+scroll/resize listeners, which are armed only once the panel is actually rendered — so the scroll the
+opening click dispatches lands on no listener at all, because none has been registered yet. Pinned by
+"does not arm the close-on-scroll listener until the panel is rendered" in `popover-panel.test.tsx`,
+which spies `window.addEventListener` and asserts the `[role="dialog"]` is already in the DOM at the
+moment the `scroll` listener is armed; verified by `npx vitest run --maxWorkers=1
+src/app/popover-panel.test.tsx`.
+
+★★ **The gate is a derived BOOLEAN, `rendered = open && pos !== null`, NOT `pos` itself.** `pos` is a
+fresh object and the post-paint clamp effect rewrites it, so depending on `pos` would tear down and
+re-register both listeners on every clamp pass. The first bullet of the fix-shape warning below is
+also answered by the split: the listener registration no longer shares an effect with `setPos`, so
+there is no early-`return` path that deletes close-on-scroll for every popover in the app.
+
+★★★ **THE FIX-SHAPE WARNING'S SECOND BULLET WAS REFUTED BY THIS ENTRY'S OWN MEASUREMENT, and that is
+why the split works after all.** It reasoned (explicitly "reasoned, not measured here") that React
+flushes a discrete-event state update AND its effects inside the click dispatch, so `pos` would
+already be set and the listener already live when the scroll arrives — leaving the best case as
+"opened, then closed a frame later". If that premise held, the panel would have been COMMITTED before
+the scroll and the MutationObserver below would have counted at least one menu appearance. It counted
+**0**. So the scroll wins the race against the commit, not against the effect: under the split the
+listener does not yet exist in that window, and the panel mounts and STAYS. ★★ Reasoned here from the
+recorded measurement — it has NOT been re-measured in a browser.
+
+★★ **OWED: re-run the original probe.** The jsdom test pins the ORDERING invariant (armed only while
+rendered), which is the mechanism this entry names; it cannot exercise a browser's focus-scroll at
+all. Re-driving the Open Points row ⋮ under the document-level capture listener below is what would
+turn the closure from structural into observed — and the same caveat the entry already carries stands:
+that trace is Playwright's click, and a HUMAN pointer reproduction was never established either.
 
 ★ **Filed as §123** — see the renumbering note at the head of §120.
 
@@ -9165,6 +9216,12 @@ click, and Playwright scrolls an element into view before clicking. The MECHANIS
 browser-driven either way — it is `focus()` scrolling the nearest scroller, not anything the driver
 injects — so a user clicking a ⋮ that is only partly inside the table's horizontal scroll window
 should hit it; that has not been reproduced by hand and should not be written up as if it had.
+
+★★★ **SUPERSEDED 2026-08-31 — read the Status line first.** Everything from here to the end of the
+entry is the pre-fix record, kept because its measurements are the evidence the fix rests on. The
+"fix shape is not determined" verdict below is no longer current: bullet one was answered by
+splitting the effect, and bullet two was refuted by this entry's own MutationObserver count. Neither
+candidate direction (a) nor (b) was implemented.
 
 ★★★ **THE FIX SHAPE IS NOT DETERMINED, and the one this entry used to propose does not work.** It
 said: "gate the `:85` listener on `pos !== null`, not on `open`". Two things are wrong with it, and a
@@ -23281,11 +23338,49 @@ as `reports.test.tsx` already did.
 ★★ **The axe gate cannot see any of this**, in either panel, at any seed size — AGENTS.md carries the
 measurement. The unit tests above are the only detector this will ever have.
 
-## 297. `PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler — open
+## 297. ~~`PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler~~ — CLOSED 2026-08-31
 
-**Status:** open — **never machine-verified**. The call shape below was read out of the source on
-2026-08-30 (`grep -n "close()" src/app/document-block-gutter.tsx`); no committed test asserts where
-focus lands on that path, and no gate can (see the axe note at the end).
+**Status:** **CLOSED** 2026-08-31 by `45c594fb` (the restore) · `b6510039` (the null-`relatedTarget`
+guard that makes it work in Chromium). The primitive now restores focus to its anchor on ANY unmount
+while focus was still inside it — the fix shape this entry prescribed — and it does NOT ask the
+question in the cleanup, where both terms are stale. Containment is captured EAGERLY into
+`focusInsideRef` by `focusin`/`focusout` listeners on the live panel, which the effect cleanup then
+merely reads. Verified by `npx vitest run --maxWorkers=1 src/app/popover-panel.test.tsx`.
+
+★★★ **TWO SPELLINGS WERE TRIED AND BOTH WERE MEASURED DEAD — this is the part of the entry worth
+keeping, because a later reader will otherwise re-derive one of them and ship it.**
+
+1. The obvious one — reading `panelRef.current?.contains(document.activeElement)` in the effect
+   cleanup — is a no-op **everywhere**. A passive-effect destroy runs AFTER the commit that removed
+   the panel, so React has already detached the ref AND focus has already fallen to `<body>`: both
+   terms are stale, and the restore never fires in any engine.
+2. The eager-capture replacement was a no-op **in Chromium ONLY**, which is strictly worse, because
+   jsdom could not see it and the whole unit suite went green over it. Measured with Playwright
+   probes in real chromium and firefox: **Chromium dispatches `focusout` on the panel with
+   `relatedTarget === null`, SYNCHRONOUSLY, as the focused node is removed** — before the passive
+   cleanup runs — so `panel.contains(null)` cleared the flag first. Firefox and jsdom dispatch no
+   focusout on removal at all. There is NO in-handler discriminator: at that event Chromium reports
+   `target.isConnected: true`, `panel.isConnected: true`, `activeElement: BODY` — byte-identical to
+   an outside-click focusout.
+
+★★ **The shipped fix is therefore two STRUCTURAL guards, not a browser sniff.** `onOut` ignores a
+null `relatedTarget` outright (null is genuinely unknowable — element removal, focus landing on
+`<body>`, a window blur — so only events that KNOW where focus went are allowed to say so), and the
+outside-`mousedown` listener clears the flag EXPLICITLY before calling `onClose`. So §146's "do not
+yank the user back after a deliberate outside click" is now enforced by the code that KNOWS the click
+was outside, rather than by browser blur timing. ★★★ The old justification for leaning on that timing
+— "the click blurs the focused control first" — is MEASURED FALSE in both engines: at the moment the
+mousedown listener runs, the blur has not happened.
+
+★★ **No gate can see this divergence, in any layer.** jsdom fires no focusout on removal, axe has no
+rule for where focus lands after a control disappears, and no e2e spec exercises it. Two
+`relatedTarget` cases in `popover-panel.test.tsx` are the only detector this will ever have — and a
+green run over the OLD code proved nothing about Chromium, which is exactly how spelling 2 shipped
+dead.
+
+★★ **OWED: a real-browser eye-verify, in Chromium AND Firefox.** None of this has been checked by a
+human in a browser. This is the one behaviour in the slice MEASURED to diverge between engines, so a
+single-engine pass is not verification.
 
 Carved out of [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30)
 when it closed on 2026-08-30. §146 fixed the DISMISS paths inside the primitive: Escape routes
@@ -24226,3 +24321,40 @@ an extra reason to skip the fetch.
 ★ The comment at the three-ordering enumeration in `use-chat-threads.ts` used to assert that a send
 begun and finished before the click had nothing live about it. That sentence was false and is now
 replaced by a ★★★ pointing here.
+
+## 318. `use-focus-trap` runs a Tab trap that never joins the dismissal stack — open
+
+**Status:** open — **never machine-verified**; read out of the source on 2026-08-31 while closing
+§100. Reproduce with `grep -n "active\|hasEscape" src/app/use-focus-trap.ts` and
+`grep -n "useFocusTrap(" src/app/inline-ai-edit-popover.tsx src/app/modern-shell.tsx`.
+
+Its Tab branch is gated on `active` ALONE (`if (!active) return;` in the keydown effect), while its
+stack PUSH is gated on `active && hasEscape`. `inline-ai-edit-popover` calls
+`useFocusTrap(ref, true, undefined, inputRef)` — no `onEscape` — so it runs a live, unconditional Tab
+trap while never appearing in the stack at all.
+
+★ **The gating itself is deliberate and correct, and this entry is not asking for it to be undone.**
+The hook's own comment gives the reason: an always-claiming stack entry with no handler would swallow
+Escape and block every layer beneath it. Tab is WCAG 2.4.3 containment and must not be waivable by
+another layer, so it deliberately never consults the stack. The defect is the CONSEQUENCE, not the
+rule.
+
+★★ **The consequence for anything that reasons about Tab from the stack — which is now `modal.tsx`
+AND `popover-panel.tsx` — is that this trap is structurally invisible.** §100's fix is correct today
+only because no `PopoverPanel` is reachable inside EITHER `useFocusTrap` call site. That was
+established by tracing both render paths by hand, not by any guard, and nothing will report it
+changing.
+
+★★★ **The two things that would make it reachable are single tokens in unrelated files.**
+`renderSidebar`'s hardcoded `false` in `modern-shell.tsx` becoming `collapsed`, or anything under
+`sidebar-footer.tsx` gaining a `PopoverPanel`. The second is the nastier of the two: `sidebar.tsx`
+renders its `footer` slot INSIDE the drawer and UNGATED (outside the `!collapsed` branch), and the
+slot arrives as a prop from `task-manager.tsx` — so no import-closure check over `sidebar.tsx` can
+see what lands there. Enumerate the live state with
+`grep -rn "PopoverPanel" src/app/sidebar.tsx src/app/sidebar-footer.tsx src/app/inline-ai-edit-popover.tsx`
+(no matches today) and `grep -n "renderSidebar(" src/app/modern-shell.tsx`.
+
+★ **The failure would not be two symmetric traps.** `PopoverPanel` portals to `document.body` and
+this trap enumerates `container.querySelectorAll`, so the popover's DOM is invisible to it — the
+drawer trap would yank focus back OUT of the popover on every Tab. That is §100's own defect, one
+layer up, and with no stack entry for §100's fix to defer to.
