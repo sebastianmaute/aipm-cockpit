@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { isTopmostOfKind } from "./dismissal-stack";
+import { FOCUSABLE_SELECTOR } from "./focusables";
 import { useDismissable } from "./use-dismissable";
 
 /**
@@ -368,7 +370,83 @@ export function PopoverPanel({
 
   // Escape goes through the dismissal stack — see `use-popover-dismiss` for
   // why this is no longer a capture-phase listener.
-  useDismissable({ open, kind: "layer", onDismiss: closeRestoringFocus });
+  // ★★★ `kind: "modal"` because this panel now TRAPS TAB (the effect below).
+  // `docs/AGENTS/ui-shell.md`: `kind` MEANS "traps Tab", not "looks like a
+  // dialog", and a surface gaining a real trap flips its kind in the SAME
+  // commit. The flip is also what makes the fix work — `modal.tsx`'s Tab branch
+  // consults `isTopmostOfKind`, which goes false while this panel is open, so
+  // the modal beneath defers instead of competing (open-followups §100).
+  // ★ Escape is unaffected: modal and layer compete equally for it.
+  const dismissToken = useDismissable({ open, kind: "modal", onDismiss: closeRestoringFocus });
+
+  // ★★★ §100. The panel is PORTALED to document.body, so an enclosing Modal's
+  // Tab trap — which guards on `container.contains(active)` — reads false for
+  // EVERY element in here, not merely at the boundary. Its "focus escaped"
+  // branch therefore fired on the first Tab and threw the user back into the
+  // modal, leaving this panel's controls with no keyboard path at all
+  // (WCAG 2.1.1). We cycle Tab ourselves instead.
+  //
+  // ★★ Gated on `isTopmostOfKind` so this stands down when something is layered
+  // ABOVE us. ★ NO consumer opens a `Modal` from inside a `PopoverPanel` today
+  // — verified, and do NOT restore the `version-menu` example an earlier draft
+  // of this comment named: that file renders `VersionInfo` (static content),
+  // while the `Modal` lives in the SIBLING export `VersionInfoModal`, which the
+  // sidebar version line and the Settings footer open directly. Reproduce with
+  // (the bracket keeps the pattern from matching THIS comment — a grep quoted
+  // in a comment otherwise counts itself, and the count reads as one consumer):
+  //   grep -l PopoverPanel src/app/*.tsx | grep -v test | xargs grep -c "<[M]odal"
+  // Every count it prints is 0; the only non-zero hits are test harnesses.
+  // The gate is therefore defensive, not load-bearing for a shipped surface —
+  // but every Tab trap in the app consults the stack, and keeping that uniform
+  // is what stops two traps competing the first time such a consumer lands. It
+  // is pinned by the inverse-nesting test in `dismissal-integration.test.tsx`.
+  //
+  // ★ Escape and outside-click remain the exits. This deliberately does NOT
+  // close on Tab: `CollapsedNavFlyout` does that, but its items are all
+  // tabIndex={-1} and arrow-navigated, so it has no tab stops to strand. A
+  // panel with real tab stops needs a cycle, not an exit.
+  //
+  // ★★ A panel whose every control is `tabIndex={-1}` matches
+  // `FOCUSABLE_SELECTOR` nowhere, so this returns without trapping. That is
+  // correct, not a hole — `CollapsedNavFlyout` is exactly that shape and owns
+  // its own Tab handling (it `preventDefault`s and re-focuses its trigger).
+  // ★ Unlike `modal.tsx`, we must NOT `preventDefault` + focus the root in that
+  // case: the panel is a `<span>` with no `tabIndex`, so focusing it would
+  // strand the user on an unfocusable element.
+  //
+  // ★★ `FOCUSABLE_SELECTOR`, deliberately — NOT either selector string the
+  // `autoFocus` effect above uses. Those two answer "where should focus
+  // START"; this answers "what is in the tab order", and neither of them
+  // covers `a[href]`, `select`, `textarea` or `:not([disabled])`.
+  useEffect(() => {
+    if (!rendered) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Tab" || e.defaultPrevented) return;
+      if (!isTopmostOfKind(dismissToken, "modal")) return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusables = Array.from(
+        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey) {
+        if (active === first || !panel.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last || !panel.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [rendered, dismissToken]);
 
   useEffect(() => {
     if (!open) return;
