@@ -340,8 +340,10 @@ describe("TasksSection", () => {
     expect(confirm).toBeDisabled();
 
     fireEvent.change(
-      screen.getByLabelText(t("en-US", "typeToConfirmPrompt", "yes, clear all tasks")),
-      { target: { value: "yes, clear all tasks" } },
+      screen.getByLabelText(
+        t("en-US", "typeToConfirmPrompt", t("en-US", "tasksClearAllConfirmValue")),
+      ),
+      { target: { value: t("en-US", "tasksClearAllConfirmValue") } },
     );
     expect(confirm).toBeEnabled();
     fireEvent.click(confirm);

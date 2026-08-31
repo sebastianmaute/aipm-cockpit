@@ -63,7 +63,7 @@ describe("GeneralSection", () => {
     expect(confirm).toBeDisabled();
 
     // Exact phrase enables confirm and triggers the reset.
-    fireEvent.change(input, { target: { value: "yes, reset everything" } });
+    fireEvent.change(input, { target: { value: t("en-US", "settingsResetConfirmValue") } });
     expect(confirm).toBeEnabled();
     fireEvent.click(confirm);
     expect(resetMock).toHaveBeenCalledTimes(1);
