@@ -109,14 +109,36 @@ popover's checkbox list has no arrow-key fallback, so Tab-closes would leave it 
 unreachable as it is today — it would fix the WCAG 2.4.3 symptom and not the WCAG 2.1.1 defect §100
 is filed for.
 
-**Known risk, to be resolved during implementation.** `use-focus-trap.ts` also pushes `kind: "modal"`
-but its Tab branch never consults the stack — its own comment says Tab is unchanged and never reads
-the stack. A `PopoverPanel` opened inside a surface using that hook would therefore get two live
-traps under this design. There are two call sites (`modern-shell`'s narrow-viewport drawer and
-`inline-ai-edit-popover`); `modern-shell` does not reference the sidebar directly, so whether a
-popover is reachable inside the drawer must be established by grep before the fix lands. If one is
-reachable, `use-focus-trap` adopts the same `isTopmostOfKind` gate — which is the uniform rule this
-design is already introducing, not a new concept.
+**Known risk — RESOLVED 2026-08-31 before implementation: NOT REACHABLE.** `use-focus-trap.ts` also
+pushes `kind: "modal"` but its Tab branch never consults the stack, so a `PopoverPanel` open inside a
+surface using that hook would be a second uncoordinated trap. Both call sites were traced and neither
+can contain one today, so **`use-focus-trap.ts` is not modified by this slice**:
+
+- `modern-shell`'s narrow-viewport drawer renders the sidebar through `renderSidebar` with a
+  hardcoded `false` for `collapsed`, and `CollapsedNavFlyout` — the only `PopoverPanel` in that
+  subtree — is gated on `collapsed`. The exclusion is that single literal, NOT a viewport invariant:
+  `SIDEBAR_NARROW_QUERY` is `(max-width: 1023px)` and narrow does default to collapsed; the drawer
+  deliberately overrides it to render the sidebar expanded.
+- `inline-ai-edit-popover` renders no `PopoverPanel` anywhere in its transitive closure and takes no
+  `ReactNode` prop through which one could arrive.
+
+**The failure mode is not the one this risk was originally written against, and the guard comment
+must say so.** `PopoverPanel` portals to `document.body` while `useFocusTrap` enumerates
+`container.querySelectorAll(FOCUSABLE_SELECTOR)`. A popover inside the drawer would therefore not
+produce two symmetric traps competing — its DOM is invisible to the drawer's focusables list, so the
+drawer trap would yank focus back OUT of the popover on every Tab. That is §100's own defect one
+layer up.
+
+**Two single-token regressions would make it reachable**, both in files this slice does not otherwise
+touch, which is why the guard comment is anchored at the literal rather than only in the primitive:
+`renderSidebar`'s hardcoded `false` becoming `collapsed`, or anything under `sidebar-footer.tsx`
+gaining a `PopoverPanel` — the `footer` slot renders inside the drawer ungated, and because it
+arrives as a prop no import-closure check over `sidebar.tsx` can ever see it.
+
+**Filed separately, not fixed here:** `use-focus-trap`'s Tab branch is gated on `active` alone while
+its stack push is gated on `active && hasEscape`, so `inline-ai-edit-popover` — which passes no
+`onEscape` — runs a live Tab trap while never joining the stack, invisible to any stack-consulting
+logic. Register entry minted from 316.
 
 Verify the current asymmetry:
 `grep -rn "isTopmostOfKind" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
@@ -227,10 +249,23 @@ site, since that is the case the obvious fix misses.
 ## In scope but easy to forget
 
 - **`docs/AGENTS/ui-shell.md`'s claim that only the topmost modal contains Tab is false today** —
-  `use-focus-trap` pushes `kind: "modal"` and traps unconditionally. The doc is corrected in this
-  slice either way: if the drawer case is reachable the hook adopts the `isTopmostOfKind` gate and
-  the claim becomes true; if it is not, the doc gains the exception. Leaving it as-is is not an
-  option, because this slice adds a second trap that reasons from that sentence.
+  `use-focus-trap` pushes `kind: "modal"` and traps unconditionally. Since the drawer case is NOT
+  reachable, the hook is left alone and **the doc gains the exception** rather than the claim becoming
+  true. Leaving the sentence as-is is not an option, because this slice adds a second stack-consulting
+  trap that reasons from it.
+
+## Two supporting API changes, both forced by the design
+
+- **`useDismissable` must return its token.** It returns `void` today and seals the token in a ref, so
+  `PopoverPanel` has no way to ask `isTopmostOfKind(token, "modal")` — which §100's inverse-nesting
+  gate requires. The change is `return tokenRef.current`, typed `symbol`. Purely additive: all six
+  existing consumers ignore the return and none changes behaviour.
+- **`FOCUSABLE_SELECTOR` moves to a shared module.** It is already copy-pasted three times — in
+  `modal.tsx`, `use-focus-trap.ts` and `undo/undo-control.tsx` — and the Tab cycle needs a fourth.
+  The three differ only in whitespace after the commas, which a CSS selector list ignores, so
+  extracting them to one exported constant is behaviour-preserving. Taken rather than dodged because
+  the alternative is shipping the fourth copy; it is the only part of this slice that touches
+  `use-focus-trap.ts` or `undo/undo-control.tsx`, and it touches them by import line only.
 - **The `kind` flip is a documented protocol change**, so the dismissal section's description of what
   `PopoverPanel` pushes must move with it.
 - **`closeRestoringFocus`'s comment currently states a rule this slice changes** (Escape-only
