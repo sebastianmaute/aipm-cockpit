@@ -490,21 +490,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     const refusalWasStanding = destructive.refusal !== null;
     const verdict = destructive.evaluate(curCollections, curRecords, armed);
     if (verdict.refuse) {
-      // ★★★ ONLY on a NEW MAGNITUDE, and NOT on `!refusalWasStanding` — those
-      // differ, and the difference is a real record. `refusalWasStanding`
-      // answers "was any refusal up", so gating on it would silently DROP the
-      // case where the user deletes further while paused and the loss gets
-      // WORSE (§303). `isNewMagnitude` compares the counts, so it suppresses
-      // the re-refusal of one unchanged loss and keeps the second real event.
-      // ★ It matters because the diagnostic ring is capped and `capRing` evicts
-      // `info` first: a `dataloss.refused` write is `warn`, so duplicates evict
-      // real history rather than being evicted.
-      // ★★ The duplicate is NOT only "an unrelated edit while paused". The
-      // refusal is a dep of this effect, so raising one RE-RUNS it — a single
-      // deletion recorded TWICE before this gate, with no second user action.
-      if (verdict.isNewMagnitude) {
-        recordDataLossEvent({ path: "save-effect", prevCollections: destructive.readBaselines().collections, nextCollections: curCollections, refused: true });
-      }
+      // ★★★ NEW magnitude only, never `!refusalWasStanding` — see §303 and the `DestructiveEvaluation` docstring.
+      if (verdict.isNewMagnitude) recordDataLossEvent({ path: "save-effect", prevCollections: destructive.readBaselines().collections, nextCollections: curCollections, refused: true });
       // ★★ ONLY on a NEW refusal. The refusal keeps the baselines, so every
       // later save re-refuses; a toast per re-refusal would be one per edit
       // while the banner is already standing and saying the same thing.

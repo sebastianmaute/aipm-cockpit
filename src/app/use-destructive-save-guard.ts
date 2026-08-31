@@ -58,7 +58,26 @@ export interface DestructiveRefusal {
 export interface DestructiveEvaluation extends SaveGuardVerdict {
   /** True when no refusal stood, or the standing one described a different
    *  magnitude. False when this is the same loss re-refusing — the case that
-   *  must not be recorded twice (§303). Always false when `refuse` is false. */
+   *  must not be recorded twice (§303). Always false when `refuse` is false.
+   *
+   *  ★★★ THIS, NEVER `!refusalWasStanding` — the plausible wrong gate, and the
+   *  two differ on a case that is a real record. `refusalWasStanding` answers
+   *  "was ANY refusal up", so gating the `dataloss.refused` write on it
+   *  silently DROPS the case where the user deletes further while paused and
+   *  the loss gets WORSE (§303). `isNewMagnitude` compares the COUNTS, so it
+   *  suppresses the re-refusal of one unchanged loss and keeps the second real
+   *  event. The save-effect's write site (`use-storage-backend.ts`) is the
+   *  caller this exists for.
+   *  ★ It matters because the diagnostic ring is capped and `capRing` evicts
+   *  `info` first: a `dataloss.refused` write is `warn`, so duplicates evict
+   *  real history rather than being evicted themselves.
+   *  ★★ The duplicate needs NO second user action — it is not merely "an
+   *  unrelated edit while paused". The refusal is a DEP of the save effect, so
+   *  raising one RE-RUNS that effect, and a single unarmed deletion was
+   *  recorded TWICE before this gate existed.
+   *  ★★ MUTATION-PROVED: under a `!refusalWasStanding` mutant the
+   *  worsened-magnitude test FAILS while the duplicate-suppression test still
+   *  PASSES — so the duplicate test alone would certify the wrong gate. */
   isNewMagnitude: boolean;
 }
 
