@@ -162,11 +162,44 @@ export function PopoverPanel({
     // anyone ever does.
     focusInsideRef.current = panel.contains(document.activeElement);
     const onIn = () => { focusInsideRef.current = true; };
-    // ★ `relatedTarget` is where focus is GOING. A move between two controls
-    // INSIDE the panel fires `focusout` too, so reading it is what keeps this
-    // from recording "outside" on every internal Tab.
+    // ★★★ A NULL `relatedTarget` IS IGNORED, AND THAT IS THE WHOLE FIX. MEASURED
+    // in real Chromium and Firefox with Playwright probes: CHROMIUM DISPATCHES
+    // `focusout` ON THIS PANEL WITH `relatedTarget === null`, SYNCHRONOUSLY, AS
+    // THE FOCUSED ELEMENT IS REMOVED — before `remove()` returns, and therefore
+    // before the passive cleanup below runs. Firefox and jsdom dispatch NO
+    // focusout on removal at all. So the obvious spelling
+    // (`panel.contains(e.relatedTarget as Node | null)`, which is false for
+    // null) recorded "outside" on every Chromium unmount and made the §297
+    // restore a NO-OP in the browser most users are on, with every test in this
+    // file green over it — jsdom cannot reach the branch.
+    // ★★★ THERE IS NO IN-HANDLER DISCRIMINATOR, so a cleverer filter cannot
+    // work: at the removal-induced focusout Chromium reports
+    // `target.isConnected: true`, `panel.isConnected: true`, `relatedTarget:
+    // null`, `activeElement: BODY` — byte-identical to an outside-click
+    // focusout. Null is genuinely unknowable (element removal, focus landing on
+    // `<body>`, and a window blur on alt-tab all produce it), so the only
+    // correct answer is to keep the LAST KNOWN one and let the paths that DO
+    // know say so — which is why the outside-mousedown listener below clears
+    // this flag itself rather than leaving it to a browser side effect.
+    // ★ Reading a NON-null `relatedTarget` is what keeps an internal Tab from
+    // recording "outside": a move between two controls INSIDE the panel fires
+    // `focusout` too, and its `relatedTarget` is the sibling control.
+    // ★★ NO GATE CAN SEE THIS DIVERGENCE. jsdom fires no focusout on removal,
+    // axe has no rule for it, and no e2e spec exercises it — the two
+    // `relatedTarget` tests in `popover-panel.test.tsx` are the only detector
+    // this behaviour will ever have, and a green run over the pre-fix code
+    // proved nothing whatever about Chromium.
+    // ★ NESTED PORTALS STAY UNFIXED BY THIS (a note, not a fix): a focusable
+    // child the panel itself portals elsewhere is not `panel.contains(...)`, so
+    // focusing it would record "outside" and silently disable the restore.
+    // Verified no consumer does that today — `createPortal` appears only in
+    // `info-tooltip.tsx`, `popover-panel.tsx`, `raci-chip-picker.tsx` and
+    // `rich-text-editor.tsx`, no `PopoverPanel` consumer renders `InfoTooltip`
+    // or `RaciChipPicker`, and `ResourcePicker` (which several do render) does
+    // not portal.
     const onOut = (e: FocusEvent) => {
-      focusInsideRef.current = panel.contains(e.relatedTarget as Node | null);
+      if (e.relatedTarget === null) return;
+      focusInsideRef.current = panel.contains(e.relatedTarget as Node);
     };
     // ★★ The anchor is read LATE, through this getter, and that is the point of
     // the indirection. `react-hooks/exhaustive-deps` warns about reading
@@ -295,19 +328,29 @@ export function PopoverPanel({
   }, [autoFocus, open, pos]);
 
   // ★★★ Escape restores focus HERE, before `onClose`, so there is never a frame
-  // in which `document.activeElement` is `body`. Every other close path —
-  // outside-click, ancestor-scroll, width-resize, and a consumer closing from
-  // an item's own handler — is covered by the unmount guard above instead.
+  // in which `document.activeElement` is `body`. THREE other close paths —
+  // ancestor-scroll, width-resize, and a consumer closing from an item's own
+  // handler — are covered by the unmount guard above instead. OUTSIDE-CLICK IS
+  // DELIBERATELY NOT COVERED BY EITHER: the mousedown listener below clears the
+  // recorded containment answer, so the unmount guard declines there. Do not
+  // read this comment as claiming protection on that path — it once did.
   // ★★ The two compose and cannot double-fire: this one moves focus to the
   // anchor, which puts it OUTSIDE the panel, so the unmount guard's recorded
   // containment answer then reads false. Do not delete either as redundant.
-  // ★★ This SUPERSEDES the former Escape-only rule (open-followups §146, §297).
-  // That rule argued that restoring from all four paths would yank the user back
-  // after they deliberately clicked elsewhere — which is an argument about
-  // outside-CLICK, where the click blurs the focused control first, so the
-  // containment guard already declines. When focus is INSIDE the panel and the
-  // panel unmounts, the alternative to restoring is not "leave the user where
-  // they were"; it is `document.body`.
+  // ★★ This SUPERSEDES the former Escape-only rule (open-followups §146, §297)
+  // FOR THOSE THREE PATHS AND NOT FOR OUTSIDE-CLICK. §146 argued that restoring
+  // from every path would yank the user back after they deliberately clicked
+  // elsewhere, and for outside-CLICK that argument stands — which is why the
+  // mousedown listener clears the flag EXPLICITLY. It used to be left to the
+  // browser: this comment claimed "the click blurs the focused control first,
+  // so the containment guard already declines", and that is MEASURED FALSE in
+  // both Chromium and Firefox. At the moment the outside `mousedown` listener
+  // runs the blur has not happened and the recorded answer is still `true`, so
+  // the old behaviour rode React's passive-flush scheduling relative to a
+  // browser default action — undocumented, untested, and browser-specific.
+  // ★★ For the other three, when focus is INSIDE the panel and the panel
+  // unmounts, the alternative to restoring is not "leave the user where they
+  // were"; it is `document.body`.
   // ★★ The panel is PORTALED to document.body, so on Escape the browser leaves
   // focus on `body` and the toolbar the user came from goes arrow-dead — its
   // roving-tabindex guard correctly refuses to act from outside the row.
@@ -332,6 +375,16 @@ export function PopoverPanel({
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
       if (anchorRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      // ★★ §146 — "do not yank the user back after a deliberate outside click"
+      // — is enforced HERE, by the code that actually knows the click was
+      // outside (the early return above has already established it landed in
+      // neither the anchor nor the panel), rather than by an accident of blur
+      // timing. MEASURED in Chromium and Firefox: at the moment this listener
+      // runs the default-action blur has NOT happened and the recorded
+      // containment answer is still `true`, so the previous behaviour depended
+      // on React's passive-flush scheduling relative to a browser default
+      // action — something nothing here documented or tested.
+      focusInsideRef.current = false;
       onClose();
     };
     document.addEventListener("mousedown", onDown);

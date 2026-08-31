@@ -359,12 +359,19 @@ describe("PopoverPanel", () => {
   // §297 flipped the resize and ancestor-scroll cases to POSITIVES — focus is
   // still inside the panel on those paths, so the choice was never between the
   // anchor and where the user was, it was between the anchor and `<body>`. The
-  // surviving negative is outside-CLICK, which is the whole §146 concern: a
-  // real outside click blurs first, so the unmount guard stands down. Named
-  // mutant for what is left: drop the `focusInsideRef` check in the unmount
-  // cleanup and restore unconditionally — the outside-mousedown test below and
-  // "leaves focus alone when the consumer has already moved it" both go red
-  // (measured, 2 of 23).
+  // surviving negative is outside-CLICK, which is the whole §146 concern — but
+  // NOT for the reason this comment used to give ("a real outside click blurs
+  // first, so the unmount guard stands down"), which is measured false in both
+  // Chromium and Firefox. The outside-mousedown listener clears the recorded
+  // answer explicitly; see that test below.
+  // ★ Named mutant for what is left: drop the `focusInsideRef` check in the
+  // unmount cleanup and restore unconditionally — THREE tests go red (measured
+  // 2026-08-31, 3 failed / 22 passed): the outside-mousedown test below,
+  // "leaves focus alone when the consumer has already moved it", and
+  // "clears the recorded containment answer when a focusout carries an outside
+  // relatedTarget". ★ An earlier revision said "2 of 23" and was correct when
+  // written; the third test arrived with the Chromium fix and nothing pointed
+  // back here. Re-measure the tally rather than adjusting it by reasoning.
   it("returns focus to the trigger on Escape", () => {
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "trigger" });
@@ -397,24 +404,82 @@ describe("PopoverPanel", () => {
   // would satisfy BOTH assertions in the negative test and hollow out the only
   // detector this behaviour will ever have (axe has no rule for it). The
   // `getByRole` BEFORE the dismiss is what rules that out; it throws.
-  // ★★★ §297 SUPERSEDES THE ESCAPE-ONLY RULE, BUT NOT FOR OUTSIDE-CLICK, and
-  // the `.blur()` below is what keeps that honest rather than accidental. A real
-  // outside mousedown on non-focusable chrome blurs the focused control first,
-  // so the unmount guard records focus as having LEFT the panel and stands down
-  // — which is the whole §146 concern ("don't yank the user back"). jsdom does
-  // NOT implement that side effect of `mousedown` (the comment above says so,
-  // measured), so without the explicit blur this test passes for the wrong
-  // reason: it would pin focus parked inside a panel the user just clicked away
-  // from, a state no browser produces.
+  // ★★★ §297 SUPERSEDES THE ESCAPE-ONLY RULE, BUT NOT FOR OUTSIDE-CLICK — and
+  // that exemption is now enforced by CODE rather than by a browser side
+  // effect. This test used to hand-simulate the browser with a `.blur()` before
+  // the mousedown, on the theory that a real outside click blurs the focused
+  // control first and the unmount guard therefore stands down on its own. THE
+  // ORDERING IT MODELLED IS THE OPPOSITE OF THE REAL ONE: measured in Chromium
+  // and Firefox, a microtask queued from a native `mousedown` listener runs
+  // BEFORE the default-action blur, so at the moment React removes the panel
+  // the recorded containment answer is still `true`. The listener now clears
+  // that answer itself — it is the one place that knows the click landed
+  // outside both the anchor and the panel — so the `.blur()` is gone and what
+  // is pinned here is the explicit clear.
+  // ★ Named mutant: delete `focusInsideRef.current = false;` from `onDown` and
+  // this test goes red.
   it("does NOT return focus to the trigger on an outside mousedown", () => {
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "trigger" });
     fireEvent.click(trigger);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    (document.activeElement as HTMLElement | null)?.blur();
     fireEvent.mouseDown(document.body);
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(trigger).not.toHaveFocus();
+  });
+
+  // ★★★ THE CHROMIUM DIVERGENCE, AND THE ONLY DETECTOR THIS REPO WILL EVER
+  // HAVE FOR IT. MEASURED with Playwright in real browsers: Chromium dispatches
+  // `focusout` on the panel with `relatedTarget === null`, SYNCHRONOUSLY, as
+  // the focused element is removed — before the passive cleanup that restores
+  // focus runs. Firefox and jsdom dispatch none at all. That is why the whole
+  // of this file stayed green while the §297 restore was a no-op in Chromium:
+  // `panel.contains(null)` is false, so the removal's own focusout recorded
+  // "focus left the panel" and the cleanup declined.
+  // ★★ NO GATE CAN SEE IT. jsdom fires no focusout on removal (so this test has
+  // to dispatch the event by hand), axe has no rule for it, and no e2e spec
+  // exercises the path. This test and the one below it are the entire safety
+  // net; a green run over the pre-fix code proved nothing about Chromium.
+  it("keeps the recorded containment answer when a focusout carries a null relatedTarget", () => {
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "trigger" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    const field = screen.getByLabelText("field");
+    // A positive, not an absence: autoFocus landed inside, so the recorded
+    // answer is `true` before the unknowable focusout arrives.
+    expect(field).toHaveFocus();
+    // Chromium's removal-induced focusout, replayed exactly.
+    field.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: null }));
+    // Close via a path the unmount guard IS meant to cover (ancestor scroll).
+    fireEvent.scroll(document.body);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  // ★ The other half: the null guard must not degenerate into "always inside".
+  // A focusout carrying a REAL element outside the panel still records
+  // "outside" — that is what lets a consumer which moved focus itself
+  // (`dashboard-panel`) win, and what makes Escape and outside-click decline.
+  it("clears the recorded containment answer when a focusout carries an outside relatedTarget", () => {
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "trigger" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    const field = screen.getByLabelText("field");
+    expect(field).toHaveFocus();
+    // A real element outside the portaled panel, appended by hand: RTL's
+    // cleanup only removes its own container, hence the finally.
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    try {
+      field.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: outside }));
+      fireEvent.scroll(document.body);
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(trigger).not.toHaveFocus();
+    } finally {
+      outside.remove();
+    }
   });
 
   // ★★★ FLIPPED BY §297 — both of these asserted `not.toHaveFocus()` until the

@@ -343,8 +343,16 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // one of them has to say where focus goes or the browser drops it on `<body>`.
   // Hide is pressed inside the ⋮ popover, which unmounts along with the tile it
   // was anchored to; Restore is pressed on a chip that the same click removes.
-  // `PopoverPanel` does NOT restore focus to its anchor on close (it focuses the
-  // first control on OPEN only), so nothing else was going to catch either case.
+  // ★★ `PopoverPanel` DOES restore focus to its anchor when it unmounts with
+  // focus still inside it (§297) — this comment claimed the opposite, which was
+  // true when it was written and stopped being true when that guard landed. The
+  // restore below still stands, and the primitive is what makes it stand: the
+  // guard is a containment check over an eagerly recorded answer, so
+  // `focusShelfToggle()` running FIRST inside the Hide handler moves focus to an
+  // element outside the panel, the panel's `focusout` records that (a real,
+  // non-null `relatedTarget`), and the primitive declines. Restore is not a
+  // popover path at all — its chip is not inside one — so nothing else was ever
+  // going to catch that half.
   // The shelf disclosure is the destination for both: it is the one node in that
   // subtree that never unmounts, it is where the hidden tile now lives, and it
   // is the route back. The `.focus()` is safe to call synchronously because the
