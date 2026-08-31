@@ -511,23 +511,29 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email--closed-2026-08-30) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | **CLOSED** 2026-08-30 |
 | [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open |
-| [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass--closed-2026-08-29) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29, fixed 2026-08-29 | M | **CLOSED** 2026-08-29 |
-| [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30) | The template seed's note-log validator diverges from the canonical one in seven ways — filed as six | found 2026-08-28, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
-| [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--closed-2026-08-30) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
-| [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--closed-2026-08-30) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
-| [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | ~~Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either~~ | found 2026-08-29 | S | **CLOSED** 2026-08-30 |
-| [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` — open | found 2026-08-29 | XS | open |
-| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s — open | found 2026-08-29 | S | open |
-| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage — open | found 2026-08-29 | S | open |
-| [§293](#293-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open |
-| [§294](#294-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation--two-returns-decide-it-three-leave-it-by-accident-and-nothing-checks-either) | Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either | found 2026-08-29 | M | open |
-| [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | open |
+| [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass--closed-2026-08-29) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass — CLOSED 2026-08-29 | found 2026-08-29, fixed 2026-08-29 | M | **CLOSED** 2026-08-29 |
+| [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30) | The template seed's note-log validator diverges from the canonical one in seven ways — filed as six — CLOSED 2026-08-30 | found 2026-08-28, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
+| [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--closed-2026-08-30) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — CLOSED 2026-08-30 | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
+| [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--closed-2026-08-30) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — CLOSED 2026-08-30 | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
+| [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either | found 2026-08-29 | S | **CLOSED** 2026-08-30 (all THREE paths: apply, single-row undo, bulk undo; SUPERSEDES §181) |
+| [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
+| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
+| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
+| [§293](#293-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open (narrowed 2026-08-30 — the refusal is now recoverable; the detection gap is unchanged) |
+| [§294](#294-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation--two-returns-decide-it-three-leave-it-by-accident-and-nothing-checks-either--closed-2026-08-30) | Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either | found 2026-08-29 | M | **CLOSED** 2026-08-30 (`consumeArm` hoisted to the effect's first statement; the prospective property is structurally untestable) |
+| [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard--closed-2026-08-30) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | **CLOSED** 2026-08-30 (redo arms when the forward images remove rows; pinned by a real clear-all→undo→redo seam test) |
 | [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--closed-2026-08-31) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | **CLOSED** 2026-08-31 |
-| [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler — open | carved out of §146 on close, 2026-08-30 | M | open |
-| [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence — open | carved out of §286 on close, 2026-08-30 | M | open |
-| [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry — open | carved out of §235 on close, 2026-08-30 | M | open |
+| [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss but not when a consumer closes it from an item's own handler | carved out of §146 on close, 2026-08-30 | M | open |
+| [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | open |
+| [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry | carved out of §235 on close, 2026-08-30 | M | open |
+| [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--open) | The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch | found 2026-08-30, fixing the DE wipe phrase | M | open |
+| [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--open) | Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap | found 2026-08-30, fixing the DE wipe phrase | M | open |
+| [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--open) | The storage readiness indicator is never disclosed to assistive technology, in either state | found 2026-08-30, fixing the colour-only state cue | M | open |
+| [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--open) | One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint | found 2026-08-30, in the destructive-refusal fix round | M | open |
 | [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label) | Every export section header is an untranslated raw string, not a display label | — | — | open |
 | [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates) | Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates | — | — | open |
+| [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--open) | Negative test assertions matching quoted English literals go silently vacuous on a reword | found 2026-08-30, in the destructive-refusal deletion round | M | open |
+| [§307](#307-a-destructive-save-refusal-cannot-be-staged-in-a-browser-so-the-recourse-has-never-been-seen-working--open) | A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working | found 2026-08-30, closing out the destructive-refusal slice | M | open |
 | [§308](#308-controlnames-and-the-collision-helpers-built-on-it-are-blind-to-three-parts-of-the-real-accessible-name) | `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name | — | — | open |
 | [§309](#309-projects-paneltsxs-active-project-list-still-names-its-row-controls-by-raw-interpolation-so-one-file-now-carries-two-conventions) | `projects-panel.tsx`'s ACTIVE project list still names its row controls by raw interpolation, so one file now carries two conventions | — | — | open |
 | [§310](#310-120s-unmount-abort-suppresses-the-mount-tick-under-next-devs-strictmode--dev-only) | §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only | — | — | open |
@@ -22889,8 +22895,12 @@ returns) and put the floor on THAT. Alternatively add a generator that derives `
 permutation of `target` so the killing shape is drawn on purpose rather than by luck.
 ## 293. The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate
 
-**Status:** open — never machine-verified. Filed 2026-08-29 while closing §285, by reading
-`destructive-save-arming.test.ts`'s own enumeration source rather than by any gate.
+**Status:** open — Narrowed 2026-08-30 by the recoverable-destructive-refusal slice: a route that
+forgets to arm now yields a recoverable refusal (a standing banner with a working "save anyway")
+instead of a save outage whose only advice was to reload.
+Never machine-verified: no test enumerates UI delete routes, which is the entry's whole point.
+(Filed 2026-08-29 while closing §285, by reading `destructive-save-arming.test.ts`'s own
+enumeration source rather than by any gate.)
 
 §285 asked for something that would catch a counted slice's removal route missing its
 `allowDestructiveSave` call. `fix/destructive-save-arming` armed every route the census in §285 named
@@ -22914,6 +22924,17 @@ never sees the UI surface), not `workspace-slice-policy.test.ts` (that gates whi
 whether their routes arm the bypass), not lint, tsc, coverage or axe. It would be caught only by
 another hand-written per-route test, the same way each Tier-C UI route on this branch
 was — or by the same kind of post-hoc read that found §285's instances and this entry both.
+
+★★ **NARROWED 2026-08-30, NOT CLOSED — the CONSEQUENCE changed, the DETECTION did not.** The
+recoverable-destructive-refusal slice turned a forgotten arm from a save OUTAGE (the guard refused,
+the banner's only advice was to reload) into a recoverable refusal: a standing banner carrying a
+working "save anyway". So the paragraph above still holds verbatim — a new UI delete handler that
+forgets to arm still fails nothing — but the user is no longer stranded when it happens. Nothing was
+added to detect it: `destructive-save-arming.test.ts` and `workspace-slice-policy.test.ts` are
+byte-unchanged across that slice, no census over UI delete routes was written, and the
+`DELETE_ROUTES` registry the "Fix shape" section below proposes was read and deliberately REJECTED
+by the slice's design doc rather than left undone. Read the severity down one notch; do not read the
+entry as resolved.
 
 ★★★ **THE GAP IS NOT HYPOTHETICAL AND WAS PAID BEFORE THIS ENTRY WAS A DAY OLD.** A cold review of
 the very branch that filed this entry found FOUR live routes the by-hand census had missed, each a
@@ -22948,10 +22969,28 @@ in — so a census can walk it the way `destructive-save-arming.test.ts` already
 Short of that, there is no source-level signal that distinguishes a delete from an edit, so any gate
 proposal here has to either accept a registry of this shape or fall back to enumeration by hand.
 
-## 294. Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either
+## 294. Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either — CLOSED 2026-08-30
 
-**Status:** open — never machine-verified. Filed 2026-08-29 while fixing the second instance, by
-reading the save effect's returns rather than by any gate.
+**Status:** CLOSED 2026-08-30 by `dc165211`. `consumeArm()` is now the FIRST statement of the save
+effect in `use-storage-backend.ts`, so every early return below it spends the arm BY CONSTRUCTION
+rather than each return having to decide. ★★★ **BE HONEST ABOUT WHAT IS PINNED — the new property is
+STRUCTURALLY UNTESTABLE.** It is a claim about early returns that do not exist yet, and every
+currently reachable path behaves identically before and after the hoist; no test can tell the two
+arrangements apart on today's code. What IS pinned is the OLD, per-return behaviour: four tests in
+`use-storage-backend.test.tsx` cover the two KNOWN returns (two leak tests plus two controls, named
+in "Fix shape" below), and reverting the hoist without restoring the per-return spends fails two of
+them — so a PARTIAL regression is caught. A NEW leaking return is not caught and CANNOT be. Do not
+restate this as "pinned by tests" without that qualification, and do not propose a source-scanning
+test as the remedy: it would pin TEXT rather than behaviour, and this repo has recorded
+prefix-mutant escapes on exactly that pattern. ★★ THE "fails two of them" ABOVE IS MEASURED, not
+reasoned: moving `consumeArm()` back below `evaluateSaveGuard` — its true pre-hoist position — fails
+exactly `"does not carry a destructive bypass armed during the refusal into the eventual 'save
+anyway'"` and `"does not carry a destructive bypass across the suppress-after-load early return"`,
+141 of 143 passing. ★★★ AND THE FIRST ATTEMPT AT THAT MUTANT SURVIVED, which is the part worth
+keeping: moving the call below the `!args.hydrated` / `args.isPopout` returns instead changes
+nothing, because those are not the two returns this entry is about. A surviving mutant is a QUESTION
+— it can mean the mutant is aimed wrong, not that the test is vacuous. (Filed 2026-08-29 while
+fixing the second instance, by reading the save effect's returns rather than by any gate.)
 
 ★★ CORRECTED 2026-08-29 after a cold review: this entry first said the obligation was "decided
 three times by hand". It is decided TWICE and left by accident THREE times — the entry counted
@@ -22959,10 +22998,17 @@ three times by hand". It is decided TWICE and left by accident THREE times — t
 matches the body.
 
 `allowDestructiveRef` in `use-storage-backend.ts` is a one-shot: an explicit bulk op arms it via
-`allowDestructiveSave` so the NEXT save gets past the Layer-B mass-deletion guard, and the effect
-clears it at the consume site below `evaluateSaveGuard`. Every early return ABOVE that site is
-therefore a decision about whether the arm survives — and the answer has had to be written out by
-hand, separately, at each one.
+`allowDestructiveSave` so the NEXT save gets past the Layer-B mass-deletion guard, and — AS FILED —
+the effect cleared it at a consume site below `evaluateSaveGuard`. Every early return ABOVE that
+site was therefore a decision about whether the arm survives, and the answer had to be written out
+by hand, separately, at each one.
+
+★★★ **THAT SHAPE IS GONE.** `consumeArm()` is
+now the FIRST statement of the effect: the arm is read into a local (`armed`) and the ref cleared
+before any guard clause runs, so there are NO returns above the consume site and no per-return
+decision left to make. The reader's question at a new early return is "does this path USE `armed`",
+which cannot be skipped. Reproduce the placement with
+`grep -n "consumeArm\|if (!args.hydrated) return\|if (args.isPopout) return" src/app/use-storage-backend.ts`
 
 ★★ **The obligation is invisible at the site that creates it.** Arming happens in a panel handler
 several files away; the consume site reads as the single owner of the lifetime; and the returns above
@@ -22996,11 +23042,17 @@ refused. Enumerate the sites before adding one — `grep -rn "allowDestructiveSa
 implies the arm was false. That is a property of the guard's formula, in another file, not of
 anything local. Widening `refuse` to fire for a reason unrelated to the bypass would silently turn
 that return into a third leak, and the change would be made in `save-guard.ts` by someone with no
-reason to open the save effect.
+reason to open the save effect. ★★ **THIS ONE IS STILL TRUE AND IS THE ONE ITEM HERE THE CLOSURE DID
+NOT FALSIFY — it is merely no longer LOAD-BEARING.** The coincidence holds exactly as described, and
+`refuse`'s formula is still a fact about another file that nothing local states; what changed is that
+the arm is already spent by the time that branch is reachable, so widening `refuse` can no longer
+turn this return into a leak. Keep the hazard on record: a reader widening `refuse` should still
+know the reasoning it silently depends on.
 
-★ The two remaining returns (`!args.hydrated`, `args.isPopout`) also leave the arm unspent, by
-accident rather than by decision, and neither says so. Neither is a live vector, but the reasons this
-entry first gave were both wrong. "A popout never saves at all" is a claim about the whole app that
+★ The two remaining returns (`!args.hydrated`, `args.isPopout`) ALSO left the arm unspent, by
+accident rather than by decision, and neither said so. **Both now sit BELOW `consumeArm()` and
+therefore spend it.** Neither was a live vector, but the reasons this entry first gave were both
+wrong. "A popout never saves at all" is a claim about the whole app that
 the code does not support — `use-load-truncation.ts`'s `guardedWrite` is a second `backend.save` with
 no `isPopout` check in that file. The true, narrower reason is local: the save EFFECT returns before
 the guard is ever consulted, so an arm stranded past that return can be neither spent nor used there.
@@ -23008,8 +23060,9 @@ the guard is ever consulted, so an arm stranded past that return can be neither 
 load effect has four exits and only one sets `suppressNextSaveRef`. The window is closed instead by
 nothing arming the bypass before hydration.
 
-**Consequence:** a new early return added above the consume site leaks the one-shot by default. It
-fails no gate, no test, and no review checklist; the failure is a bypass armed by a deliberate
+**Consequence, AS FILED — this is precisely what the hoist removed, and there is no "above" any
+more:** a new early return added above the consume site leaked the one-shot by default. It
+failed no gate, no test, and no review checklist; the failure is a bypass armed by a deliberate
 deletion silently waving through an unrelated accidental one at the NEXT save of any kind. ★ That is an
 arbitrary WALL-CLOCK time later — a live arm survives unbounded loads and unbounded idle, because
 `refuse` is unreachable while it is set — but it is never "some later edit": the first save to reach
@@ -23035,11 +23088,15 @@ like a precise census. The opening address `/377/` "worked" only because that ou
 contain the digits 377, so any insertion above it would have broken the range silently. A fenced
 block also hides this from `docs:claims:check`, which ignores fenced content by design.
 
-**Fix shape, if wanted:** make the spend structural rather than per-return — e.g. read the arm into a
-local at the top of the effect and clear the ref immediately, so every path below is spending it by
-construction and the decision becomes "does this path USE the local", which a reader cannot skip. The
-behavioural difference is confined to paths that currently return before the read; each of those
-would need its own test. The two known returns are each pinned by a leak test AND a control in
+**Fix shape — and this is exactly what `dc165211` did:** make the spend structural rather than
+per-return — read the arm into a local at the top of the effect and clear the ref immediately, so
+every path below is spending it by construction and the decision becomes "does this path USE the
+local", which a reader cannot skip. ★ The behavioural difference is confined to paths that returned
+before the read, and there turned out to be NONE reachable: the truncation and suppress returns
+already spent the arm, the refusal branch has nothing to spend, nothing arms before hydration, and a
+popout returns above the guard. That is why the commit is a refactor with no new test — and why the
+prospective property it buys is untestable, as the Status line above says at length. The two known
+returns are each pinned by a leak test AND a control in
 `use-storage-backend.test.tsx` — "does not carry a destructive bypass armed during the refusal into
 the eventual 'save anyway'" / "still honours a bypass armed AFTER the truncation is resolved" for the
 truncation return, and "does not carry a destructive bypass across the suppress-after-load early
@@ -23047,41 +23104,56 @@ return" / "still honours a bypass armed AFTER a suppressed load" for this one. T
 load-bearing, not decoration: a cold review mutated `save-guard.ts` to refuse every mass deletion
 regardless of the arm and both leak tests still PASSED, while all four controls failed.
 
-## 295. Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard
+## 295. Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard — CLOSED 2026-08-30
 
-**Status:** open — never machine-verified. Filed 2026-08-29 immediately after merging main's
-0.264.0 undo-residue slice into `fix/destructive-save-arming`, by reading the merged tree. What is
-measured is the ABSENCE of arming and the presence of a redo-side removal; what is NOT measured is
-whether a redo reaches the save guard at refusing volume. Nobody has run that sequence.
+**Status:** CLOSED 2026-08-30 by `99667e71` (the arming) · `89bc9d26` (the seam test). A redo that
+re-removes rows now arms the bypass: `handleClearAll` captures via `fragmentUndoRunner` with the
+arming callback, `buildForwardImages` keeps the `"delete"` op, so `imagesRemoveRows` is true and the
+arm fires synchronously before the setter. ★★ **THESE PINS ARE REAL, unlike §294's:**
+`"arms the destructive bypass when a redo re-removes rows"` in `use-undo-stack.test.tsx` goes red if
+the arm is reverted; and the seam test `"persists a redo of a clear-all instead of refusing it"` in
+`use-storage-backend.test.tsx` composes the REAL undo stack, storage hook and bulk operations with
+no `vi.fn()` standing in for the bypass, asserting on `backend.save` rather than on the in-memory
+task list — `89bc9d26`'s message records it proved red at its FINAL assertion before the fix, which
+is the shape that distinguishes a pinned seam from a broken harness. (Filed 2026-08-29 immediately
+after merging main's 0.264.0 undo-residue slice into `fix/destructive-save-arming`, by reading the
+merged tree; the sequence nobody had run is the one `89bc9d26` now runs.)
+
+★★ **TWO REDO PATHS ARE DELIBERATELY UNARMED, and that is correct, not a residual hole.** Both
+applies are a `prev.map(...)` that cannot shorten the array — `captureFieldEdit`'s merge and
+`captureFieldRows`' restore — and `captureFieldPart`'s restore declares no arm parameter at all, so
+the absence is structural rather than forgotten. Both now carry tests whose load-bearing assertion is
+the array LENGTH (`"does not arm on a captureFieldEdit redo, and cannot: the merge is a map"` /
+`"does not arm on a captureFieldRows redo, and cannot: the restore is a map"`), pinning the PREMISE
+that makes non-arming safe rather than merely the current absence of an arm — an
+absence assertion alone would pass just as well against a path that had quietly started removing rows.
 
 `fix/destructive-save-arming` armed every removal route the §285 census named, and §293 records that
 the resulting gate covers the AI surface only. Both censuses predate the undo stack growing a redo
 path that re-applies deletions, so neither looked at it.
 
-★★ **The undo module arms nothing.** `grep -rn "allowDestructive" src/app/undo/` returns zero
-non-test hits. `buildBeforeImages` in `undo-stack.ts` folds the rows an op removed into before-images
+★★ **AS FILED, the undo module armed nothing** — `grep -rn "allowDestructive" src/app/undo/`
+returned zero non-test hits. It returns three today: the optional `allowDestructiveSave` dep, the
+`armDestructive` callback that reads it through `depsRef`, and the comment explaining why it is
+captured by ref, all in `use-undo-stack.ts`. `buildBeforeImages` in `undo-stack.ts` folds the rows an op removed into before-images
 tagged `op: "delete"`, and the runner it builds is explicitly bidirectional — its own docstring says
 applying it "mutates state (undo OR redo) via its captured setter(s)" and returns the inverse runner.
-So a redo drives the same workspace setters the save effect watches, with no bypass armed.
+So a redo drives the same workspace setters the save effect watches.
 
 ★★ **Clear-all is the concrete case, and it is undoable by declaration.** `use-bulk-operations.ts`
 documents its `capture` dep as "a pre-op snapshot for undo (clear-all deletes, bulk-edit changes)".
-That hook DOES arm the bypass for the original clear-all. The sequence that skips the arming is:
-clear all tasks (armed, saves) → undo (restores every row) → **redo** (removes them all again,
-through the undo runner, which arms nothing). The guard then sees a full wipe or a mass deletion with
-`allowDestructive` false and refuses the save — the user's redo appears to work on screen and is
-never persisted, and the rows return on the next reload.
+That hook DOES arm the bypass for the original clear-all.
 
-★ **That is the same user-visible shape as the three defects this release already fixes**, reached
-through a route none of them touched: those were panel and AI delete handlers, this is the undo
-stack replaying one of them.
-
-★ **Why it is filed rather than fixed.** The fix is not obviously "arm in the redo thunk" — the
-runner is generic over any captured array and does not know whether a given replay removes records or
-restores them, which is exactly the delete-versus-edit distinction §293 explains no source scan can
-make. Arming unconditionally on every redo would hand a one-shot bypass to ordinary bulk-edit undo,
-which is the leak class §294 is about. The honest options are to arm from the CONSUMER that knows its
-op was destructive, or to have the runner report whether the applied images net-removed rows.
+★ **Why it was filed rather than fixed at the time, and which option was taken.** The fix is not
+obviously "arm in the redo thunk" — the runner is generic over any captured array and does not know
+whether a given replay removes records or restores them, which is exactly the delete-versus-edit
+distinction §293 explains no source scan can make. Arming unconditionally on every redo would hand a
+one-shot bypass to ordinary bulk-edit undo, which is the leak class §294 is about. The two honest
+options were to arm from the CONSUMER that knows its op was destructive, or to have the runner
+report whether the applied images net-removed rows. **The SECOND was taken**: `imagesRemoveRows`
+inspects the forward images the runner is about to apply and fires the arm only when they actually
+remove rows, so the generic runner never has to be told what kind of op it is replaying, and the
+`prev.map` paths above cannot reach it.
 
 **Reproduce:**
 ```
@@ -23089,9 +23161,11 @@ grep -rn "allowDestructive" src/app/undo/ | grep -v "\.test\." | wc -l
 grep -n "removed" src/app/undo/undo-stack.ts
 grep -n "clear-all deletes" src/app/use-bulk-operations.ts
 ```
-The first returns 0, the second shows the removal images a redo re-applies, the third shows clear-all
-is captured for undo. None of the three proves a redo trips the guard — that needs a test driving
-clear-all → undo → redo against `evaluateSaveGuard`, which is the verification this entry owes.
+The first returned 0 when this was filed and returns **3** today — the arming this entry asked for;
+the second shows the removal images a redo re-applies, the third shows clear-all is captured for
+undo. None of the three ever proved a redo trips the guard — that needed a test driving
+clear-all → undo → redo against `evaluateSaveGuard`, which is the verification this entry owed and
+which `89bc9d26` supplies (`"persists a redo of a clear-all instead of refusing it"`).
 
 ## 296. Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels — CLOSED 2026-08-31
 
@@ -23343,6 +23417,137 @@ missing call.
 with a NON-recursive `readdirSync`, so `src/app/undo/` is never opened; widening `WRITER_ANCHORS`
 alone would not reach it. Its header records this as its third stated limitation.
 
+## 300. The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch — open
+
+**Status:** open — the strings and every call site were read on 2026-08-30 with
+`grep -n "typeToConfirmPrompt:" src/app/i18n.ts src/app/i18n.de.ts` and
+`grep -rn "confirmValue=" src/app --include=*.tsx | grep -v "\.test\."` (six sites). The RENDERED sentence has never
+been exercised — no test or manual pass has read the prompt in either language, so the ambiguity
+below is derived from the strings, not observed.
+
+`TypeToConfirmDialog` interpolates the phrase into one prompt with no delimiters around it:
+
+- EN `i18n.ts` — `typeToConfirmPrompt: "Type {0} to confirm"`
+- DE `i18n.de.ts` — `typeToConfirmPrompt: "Geben Sie {0} zur Bestätigung ein"`
+
+With 0.26x's `storageDestructiveWipeConfirmValue` the German prompt reads *"Geben Sie ja, diese
+Löschung speichern zur Bestätigung ein"*. German is the worse case for a structural reason, not a
+stylistic one: the separable prefix **ein** lands immediately after the phrase, so the sentence does
+not visibly end where the phrase does, and the phrase itself contains a comma. EN has a milder
+version of the same question ("... this wipe to confirm" — is "to confirm" part of it?).
+
+★★ This was tolerable while every phrase was short and English. It became material when the
+recoverable-destructive-refusal slice added the repo's FIRST localised phrase — four words with an
+internal comma — so the entry is filed against the change that made it visible, not against the
+primitive's age.
+
+★★★ **The second half is what turns a near-miss into a dead end, and it is the half worth fixing
+first.** `matched` is bare `typed === confirmValue` — no trim, no case folding, no Unicode
+normalisation — and it gates only `disabled={!matched}`. There is no error text, no hint, and no copy
+button. A user who mistypes by one character sees a button that never enables and is told nothing.
+That is exactly how the German capitalisation defect (fixed in that slice by capitalising the noun)
+presented: not as a rejection, but as a control that appeared broken.
+
+**Why it was not fixed there.** Quoting the placeholder changes the rendered text at all six call
+sites, every one of which is a destructive confirm gate, and the finding landed mid-way through a fix
+round — this repo's highest-risk commit class. Adding mismatch feedback is a larger change to a
+shared primitive and wants its own review. ★★★ **Do NOT fix this by loosening the comparison**: two
+call sites type-to-confirm a raw project NAME (`project-empty-state.tsx`, `projects-panel.tsx`), where
+case folding would let a lowercased name match a differently-cased one — precisely the near-miss the
+gate exists to catch.
+
+## 301. Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap — open
+
+**Status:** open — enumerated on 2026-08-30 by
+`grep -rn "confirmValue=" src/app --include=*.tsx | grep -v "\.test\."`, which prints all six sites
+and is the reproduce command for the split below. Never machine-verified in the sense that matters:
+no test asserts any of these phrases in a non-EN locale, and no German pass has been run against them.
+
+Of the six `confirmValue=` call sites, exactly one is localised — the one the
+recoverable-destructive-refusal slice added (`notifications.tsx`, via
+`t(lang, "storageDestructiveWipeConfirmValue")`). Two correctly are not: they pass a project's own
+NAME, which must not be translated. The remaining three are hardcoded English:
+
+| Site | Phrase | Localisable by a string swap? |
+|---|---|---|
+| `CLEAR_TASKS_CONFIRM_PHRASE` in `tasks-section.tsx` | "yes, clear all tasks" | yes — a module constant |
+| `RESET_CONFIRM_PHRASE` in `settings-sections/general-section.tsx` | "yes, reset everything" | yes — a module constant |
+| the bulk-delete `confirmValue` in `tasks-section.tsx` | an inline template literal reading "delete N tasks" | **no** |
+
+★★ The third is what makes this more than a translation chore. It is built at render time from the
+selection count, so it is not merely un-translated but un-translat**able** by substitution: German
+needs plural agreement and a different word order, which a positional placeholder inside a phrase the
+user must type CHARACTER-FOR-CHARACTER cannot express safely. Whatever form it takes has to be stable
+enough to copy, which rules out anything concatenated at render time.
+
+**Consequence today.** A German user must type English at all three surfaces — clearing all tasks,
+bulk-deleting tasks, and resetting the application — while the destructive-save wipe gate is in
+German. That inconsistency is itself a hazard: the one gate that reads as localised teaches the user
+to expect localisation at the other three.
+
+★ Related: §300 covers the prompt these phrases are rendered into, and the absence of any feedback
+when what the user typed does not match.
+
+## 302. The storage readiness indicator is never disclosed to assistive technology, in either state — open
+
+**Status:** open — the DOM was read on 2026-08-30 (`grep -n "aria-hidden" src/app/sidebar-footer.tsx`, and
+`grep -n "describe()\|isReady()" src/app/use-storage-backend.ts`, which puts them on separate lines as
+separate calls). **Never machine-verified** in the sense that matters: no screen-reader pass has been run
+against this line, and no test asserts what it announces, because there is nothing to assert.
+
+The sidebar footer's readiness paragraph shows a coloured dot and, since the recoverable-destructive-refusal
+slice, a trailing shape marker. **Both are `aria-hidden`.** The only other content of that paragraph is
+`storageDescription`, which comes from the backend's `describe()` — a DIFFERENT call from the `isReady()`
+that decides the state — so it names the BACKEND and never its readiness.
+
+Consequence: a screen-reader user is told nothing about ready-versus-not on this line, in EITHER state. The
+visual channel was fixed in that slice (the marker is a non-colour cue, closing WCAG 1.4.1); the
+assistive-technology half was deliberately left, and this entry is that half.
+
+★★ **The slice WIDENED what the state means, which is why this is worth filing rather than shrugging at.**
+`storageReady` now folds in a truncated load and a standing destructive refusal, so the quiet state stands
+for a withheld mass deletion as well as an unconfigured backend. The one spoken disclosure that does exist —
+the `SavingPausedButton` above — covers the two lockout causes but is ABSENT for a plain not-ready backend.
+
+★★★ **The obvious fix is wrong and that is the reason this is not a five-minute change.** `storageNotReady`
+("Storage isn't configured yet — pick a file in Settings.") asserts ONE cause. Reusing it would tell a user
+whose save is paused by a truncated load or a refusal to go and pick a file, which is both false and
+actively misleading. Closing this needs a key that covers all three causes, or three keys chosen by cause —
+and the chooser has to live where all three signals are already known, which is `task-manager.tsx`, not the
+footer.
+
+## 303. One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint — open
+
+**Status:** open — measured 2026-08-30 with a temporary probe counting `logDiag` calls carrying
+`dataloss.refused`, since removed from the tree. Enumerate the record sites with
+`grep -rn "recordDataLossEvent" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`.
+
+Measured counts for one destructive episode: a NEW refusal writes **2** entries; a later re-refusal at
+UNCHANGED counts adds **1**; a later re-refusal whose counts MOVED adds **2** again. So the over-report is
+**+1 per distinct refusal STATE**, not per attempt.
+
+Mechanism: `recordDataLossEvent` sits outside the `!refusalWasStanding` guard that suppresses the duplicate
+toast, and the guard's `refusal` is a dependency of the save effect while `evaluate` sets that state. A new
+refusal therefore runs the effect twice — record, mint, dependency identity changes, record again — before
+`sameRefusal` converges.
+
+★★ **NOT a data defect, and the log is not lying.** Every sibling record site fires once per call and each
+entry captures a stack, so the log is attempt-level; the second entry is a real, system-initiated save
+attempt that really was refused. Under attempt semantics it is true, merely redundant. No consumer
+aggregates — the diagnostics panel renders a timeline, the bundle builder dumps verbatim, and the window
+alias is a manual read — so nothing currently reports a wrong NUMBER to anyone.
+
+★★★ **Do NOT "fix" this by moving the record inside the `!refusalWasStanding` guard.** That also drops the
+genuine per-edit re-refusal records the log exists to keep, which is a worse loss than the duplicate. A
+`justRefused` ref inside the save effect is no better: it removes the null-to-first-refusal doubling and
+leaves the counts-changed doubling intact, producing a log whose correction rule differs per entry — harder
+to read than a uniform over-count.
+
+The only discriminator is whether `evaluate` MINTED a new refusal object or returned the standing one, and
+`evaluate` does not report that today. Closing this means changing its return in
+`use-destructive-save-guard.ts` and having the save effect record on the mint — a change to the guard's
+contract, which is why it was left rather than bodged during a fix round.
+
 ## 304. Every export section header is an untranslated raw string, not a display label
 
 **Status:** open — never machine-verified by a committed probe. Found 2026-08-31 while fixing §36(b).
@@ -23429,6 +23634,115 @@ once the colliding row gets a second VISIBLE field back (the `savedAt` timestamp
 slices §271 names, the same trade was made earlier and separately at `ccb6d598` — see the
 two-enlargements note above — so relative to §271 those really are pre-existing; §271 itself enlarged
 `documentVersions` alone.
+
+## 306. Negative test assertions matching quoted English literals go silently vacuous on a reword — open
+
+**Status:** open — enumerated 2026-08-30 with
+`grep -rn "query[A-Za-z]*(" src/app --include=*.test.tsx --include=*.test.ts | grep -i "toBeNull\|not\." | grep '"'`
+★★★ which is a CANDIDATE list, NOT the class, and reading it as the class is how this entry shipped
+overstated. Its last stage is a bare `grep '"'`, and `t("en-US", "key")` contains two double quotes —
+so the CORRECT derived form matches it too. It returns 737 lines across ~180 files for a scope that
+is a handful of lines in the 2 suites named below; it cannot tell you which rows are in class, and
+nothing else can either. ★★ NO COUNT IS GIVEN FOR THE IN-CLASS SET ON PURPOSE — the boundary is a
+judgement (is a `queryByRole("textbox")` in class? a regex over free text?), and three hand
+enumerations during review returned three different answers, including one that returned zero
+because its pattern missed the `not.toBeInTheDocument` spelling. Anything quoted here would be one
+reader's reading wearing the authority of a measurement.
+Never machine-verified: nothing asserts that any of them WOULD go vacuous, and by construction
+nothing can — a vacuous negative passes, which is the entire defect.
+
+A negative assertion — `expect(screen.queryByText("…")).toBeNull()` — that matches a quoted UI
+string stops matching anything the moment that string is reworded, and then passes for the wrong
+reason. The positive form is not affected: `getByRole` / `findByText` THROW when they match nothing,
+so a rename fails loudly. Only the negative fails silently, and it fails in the direction that looks
+like success.
+
+★★ **ONE INSTANCE IS RECORDED, and an earlier revision of this entry inflated it to six.** The event
+was `42ad6090`, a CALL-SITE swap (`documentsTruncatedSaveAnyway` → `documentsTruncatedConfirmSaveAnyway`),
+not a reword: it moved a batch of positives, which went red immediately, and exactly ONE negative —
+`expect(screen.queryByText(/\d+ of \d+ records would be removed/i)).toBeNull()` — which would have
+gone silently vacuous and was found only because the reds sent someone to read the file. The fix was
+to derive the expectation from `t(...)` so it moves with the string. Reproduce:
+`git show 42ad6090 -- '*.test.tsx' '*.spec.ts' | grep "^[-+].*toBeNull"`.
+★★★ The inflated version claimed a REWORD moved four positives and two negatives. Exactly one string
+VALUE was reworded on that branch (`git diff origin/main...HEAD -- src/app/i18n.ts | grep "^-  [a-zA-Z]"`
+returns one line, `storageRefusedWipe`), in a commit that touched no test file at all. The class is
+real; the tally and the mechanism were invented.
+
+**What is in scope.** The surviving in-class assertions are in the storage banner and sidebar-footer
+suites, and they blame to commits that predate this slice. ★ They are NOT in unrelated files — the
+slice rewrote a large fraction of `notifications.test.tsx`
+(`git diff --numstat origin/main...HEAD -- src/app/notifications.test.tsx`; use numstat, NOT the
+`--stat` summary, whose insertion figure is the TWO-file total and was misread into this entry once)
+— so the reason they were left is narrower than
+"don't touch other people's tests": converting assertions a fix round does not otherwise need is how
+a release branch doubles in size.
+
+★★ **The rule, so a reader does not over-apply it.** Derive from `t(...)` when the assertion is a
+NEGATIVE, or when it matches free text a translator or a copy edit can move. Leave a quoted literal
+where it is a POSITIVE locator: it is brittle, it announces itself, and threading the string table
+through a test that does not otherwise need it costs more than it buys. ★ The same split governs
+`e2e/`, for a stronger reason — no spec there imports the string table, so converting one would
+introduce the suite's first dependency on `src/app/i18n` as a side effect of a copy change.
+
+## 307. A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working — open
+
+**Status:** open — established 2026-08-30 by reading the e2e harness, not by attempting it:
+`grep -rln "storageRefusedWipe\|storageDestructive" e2e/` returns nothing, so no spec drives a
+refusal; `grep -n "indexedDB\|addInitScript" e2e/seed.ts` shows the seed runs BEFORE the app loads;
+and the two globals the app assigns — `__lopDataLossLog` (`dataloss-forensics.ts`) and `__aipmDiag`
+(`readDiagLog`, `diagnostics.ts`) — are both read-only readers, so neither can inject state at
+runtime. ★★★ ENUMERATE THEM BY THE ASSIGNMENT FORM, `grep -rnoE "\)\.__[A-Za-z_]+ *=" src/app
+--include=*.ts --include=*.tsx | grep -v "\.test\."` — TWO earlier revisions of this line cited a
+`window.__`-prefixed needle instead, and BOTH were refuted the same way: the real assignments cast
+first (`(globalThis as …).__x =`), so a `window.__` grep matches only the COMMENTS that mention the
+global, and a third one added with no comment would be invisible to it. The conclusion survived both
+times and the evidence reached it neither time. Never machine-verified, and
+that is the entry: nothing has ever driven this surface in a browser.
+
+The recoverable destructive-save refusal shipped with a manual verification owed — four checks the
+slice's own plan listed: the magnitude line, that the two saving-paused causes never render
+together, the dismiss-and-reopen chip in the CLASSIC layout, and that the toast's action reveals the
+banner rather than performing the save. None was done, because none can be done as written.
+
+★★★ **THE OBSTACLE IS STRUCTURAL, NOT EFFORT.** A refusal requires an UNARMED mass deletion or full
+wipe at RUNTIME. The e2e seed writes IndexedDB before the app loads, so a seeded workspace is simply
+the starting state and no guard ever evaluates it; and every load, project switch, file open and
+project create is suppressed (nine `suppressNextSaveRef.current = true` sites, whose branch resyncs
+the baselines and calls `clearRefusal`), so no load path can raise one either. Staging a refusal
+means adding a test-only route into production code whose only purpose is to defeat the guard under
+test. ★★ **The remaining step is a JUDGEMENT, not a proof:** that every UI bulk path arms the
+bypass is a completeness claim over delete routes, and §293 — open — says in terms that the
+UI surface has nothing to enumerate from, and records that a hand-written census WAS wrong once —
+cold review found four routes it had missed. ★ They are all armed today, so they are evidence about
+the CENSUS method, not a live gap to go and use. So read this as "no route I could find", not
+"no route exists"; finding one would be the cheapest way to close this entry.
+
+**What IS covered, so this is read at the right severity.** ★★★ **ALL FOUR are pinned by unit
+tests** — the magnitude line and both confirm tiers in the banner's own suite, the exclusivity of the
+two causes at the hook boundary, the toast's action invoking the reveal callback rather than the
+save, AND the classic-layout chip ("offers the re-open chip for the destructive cause in the classic
+layout", `notifications.test.tsx`, added by `a8123570` on the slice's own branch). An earlier revision
+of this entry said that fourth one "has no test at any layer", which was false when written and
+inflated the entry's severity — the false-coverage class inverted, and the harder direction to catch,
+because a claim that something is UNTESTED invites work rather than stopping an audit.
+What is NOT covered is anything geometric — jsdom has no layout, so no test can see the banner's
+placement, its focus order among the other banners, or whether the footer marker shifts its line.
+★★ Nor does the axe gate reach the banner: it mounts only while `destructiveRefusal !== null`
+(`task-manager.tsx`), which by this entry's own thesis never happens in a scanned view. An earlier
+revision claimed the opposite in the same paragraph as the thesis that contradicts it.
+
+★★ **Do NOT close this by writing a spec that stubs the refusal state.** A test that renders the
+banner from fixed props is what the unit suite already does; dressed as an e2e it would report that
+the recourse works end-to-end while never having exercised the guard, the arming, or the save. That
+is the same false-green shape the slice itself was fixing — a recourse that appears to exist and
+does not.
+
+**What closing it would take**, in the order that keeps production honest: a way to reach an unarmed
+destructive save that is not a back door — the most plausible is a delete route that legitimately
+does not arm today, which is what §293 is about — or, failing that, an
+explicit test-only capability gated the way other diagnostics are, plus a spec that drives it and
+asserts all four observables including the classic layout.
 
 ## 308. `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name
 

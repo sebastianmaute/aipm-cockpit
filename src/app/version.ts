@@ -3,11 +3,12 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.269.0";
-export const APP_BUILD_DATE = "2026-08-31"; // 0.269.0: version-history document titles, workspace-collapse a11y, AI Assistant settings group label, archived-project row-unique controls, report header disambiguation, timelog sync-status race, chat retry data loss, insights-navigation AI call cleanup, note-log export fidelity (Due)
+export const APP_BUILD_DATE = "2026-08-31"; // 0.269.0: version-history document titles, workspace-collapse a11y, AI Assistant settings group label, row-unique controls across nine lists, report header and filter disambiguation, timelog sync-status race, chat retry data loss, insights-navigation AI call cleanup, note-log export fidelity (Due)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.269.x line is "Due" (Tananarive Due, American horror/SF author).
- *  0.268.x is reserved by a concurrent unmerged branch ("Ogawa") — left
- *  untouched here; this slice takes 0.269.x instead.
+ *  0.268.x was "Ogawa" (Yoko Ogawa, Japanese author of speculative fiction),
+ *  developed concurrently with this line on a separate branch and merged
+ *  first — which is why 0.269.0 was minted before 0.268.0 landed.
  *  0.267.x was "Nagamatsu" (Sequoia Nagamatsu, American SF author).
  *  0.266.x was "VanderMeer" (Jeff VanderMeer, American SF/weird-fiction
  *  author). ★★ REUSED: 0.96.0 also ran under this name — permitted by the same

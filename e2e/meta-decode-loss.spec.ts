@@ -526,17 +526,21 @@ test.describe("§284 — a malformed meta blob is caught before the next save de
     // ── 5. NEGATIVE CONTROL — without this, step 4 proves nothing. Show that a
     //       save CAN reach this row in this exact setup, so "unchanged" above
     //       means "withheld" rather than "nothing ever saves here". ──────────
-    // ★★★ TWO CONTROLS SHARE THIS NAME AND `.first()` IS THE WRONG ONE ON ITS
-    // OWN. The banner's trigger opens a confirm dialog whose commit button
-    // carries the SAME label (`documentsTruncatedSaveAnyway` is both), so
-    // clicking once only opens the dialog — the save never happens, and the
-    // assertion below reads as "the escape does not work" when the test simply
-    // never confirmed. This is the repo's documented duplicate-name trap, in the
-    // silent direction. Click the trigger, then commit INSIDE the dialog.
-    await page.getByRole("button", { name: "Save anyway", exact: true }).first().click();
+    // ★★ THE TWO CONTROLS NO LONGER SHARE A NAME, and this comment used to say
+    // they did. The banner's trigger is `documentsTruncatedSaveAnyway` ("Save
+    // anyway") and the dialog's commit is now `documentsTruncatedConfirmSaveAnyway`
+    // ("Discard the unopened data"); they were BOTH the former until the
+    // duplicate-accessible-name defect was fixed. `.first()` is gone with it —
+    // under `exact: true` only the trigger answers to "Save anyway" now, so a
+    // second match would be a real regression rather than something to skip past.
+    // ★★★ THE TWO CLICKS ARE STILL BOTH REQUIRED, which is the half that was
+    // always true: the trigger only OPENS the dialog, so a test that clicks it
+    // and stops never confirms, and the assertion below then reads as "the
+    // escape does not work" when nothing was ever committed.
+    await page.getByRole("button", { name: "Save anyway", exact: true }).click();
     const confirmDialog = page.getByRole("dialog", { name: "Save anyway?", exact: true });
     await expect(confirmDialog).toBeVisible({ timeout: 10_000 });
-    await confirmDialog.getByRole("button", { name: "Save anyway", exact: true }).click();
+    await confirmDialog.getByRole("button", { name: "Discard the unopened data", exact: true }).click();
     await page.waitForTimeout(6_000);
 
     // ★★★ A POSITIVE CLAIM, NOT `.not.toBe("{not json")`. The weaker form is

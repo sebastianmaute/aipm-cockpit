@@ -1,8 +1,9 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BirthdayBanner, JiraTokenBanner, TruncatedLoadBanner } from "./notifications";
+import type { ComponentProps } from "react";
+import { BirthdayBanner, JiraTokenBanner, SavingPausedBanner } from "./notifications";
 
-// TruncatedLoadBanner routes "Save anyway" through the branded ConfirmDialog.
+// SavingPausedBanner routes "Save anyway" through the branded ConfirmDialog.
 // No ConfirmProvider is mounted in this harness, and the real context DEFAULT
 // resolves false — which would make every "it fired" assertion below pass for
 // the wrong reason (nothing fires). Mock the hook with a per-test controllable
@@ -23,6 +24,7 @@ import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
 import type { Resource } from "./types";
 import type { JiraTokenAlert } from "./jira-token-status";
+import { t } from "./i18n";
 
 function makeResource(id: number, firstName: string, lastName: string): Resource {
   return {
@@ -147,7 +149,7 @@ describe("JiraTokenBanner", () => {
   });
 });
 
-describe("TruncatedLoadBanner", () => {
+describe("SavingPausedBanner", () => {
   const FIVE_ENTRIES = { entries: 5, blocks: 0 };
 
   beforeEach(() => {
@@ -163,7 +165,7 @@ describe("TruncatedLoadBanner", () => {
     // so a user who is never told saving stopped goes on editing into a paused
     // session. `banner.tsx` already defaults error → "alert" for exactly this
     // reason; AlertBanner's "region" default was overriding it.
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByRole("alert", { name: "Document data could not be opened" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /document/i })).toBeNull();
   });
@@ -182,14 +184,14 @@ describe("TruncatedLoadBanner", () => {
     // "Document limit warning" — the exact claim this rule forbids. An earlier
     // version of this test only checked for /cut off/i and sailed straight past
     // the word "limit" two lines above it.
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: { entries: 0, blocks: 7 }, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.textContent ?? "").not.toMatch(/cut off|over the limit/i);
     expect(alert.getAttribute("aria-label") ?? "").not.toMatch(/limit/i);
   });
 
   it("names the magnitude — the count is not left to a 7s toast", () => {
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/5 document entries could not be opened/i)).toBeInTheDocument();
   });
 
@@ -197,7 +199,7 @@ describe("TruncatedLoadBanner", () => {
     // ★ "stored documents", NOT "stored document versions": since 0.221.0 a LIVE
     // document over `MAX_BLOCKS_PER_DOC` feeds the same counter, so naming
     // versions would assert something the count no longer implies.
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: { entries: 0, blocks: 7 }, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/7 blocks in stored documents could not be opened/i)).toBeInTheDocument();
     expect(screen.queryByText(/versions/i)).toBeNull();
     expect(screen.queryByText(/document entries/i)).toBeNull();
@@ -212,7 +214,7 @@ describe("TruncatedLoadBanner", () => {
     // single load reporting both. The decode magnitude then reached NO
     // persistent surface: its toast is single-slot and 7s long, and this line
     // and the dialog it feeds are all that outlives it.
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={3} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 3, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.textContent ?? "").toMatch(/5 document entries could not be opened/i);
     expect(alert.textContent ?? "").toMatch(/3 kinds of saved data could not be read/i);
@@ -233,11 +235,11 @@ describe("TruncatedLoadBanner", () => {
     // telling every truncation-only user that some unnamed number of kinds of
     // data was unreadable too — a joined line that reads as thorough and is
     // false. Both directions, because each is a separate way to get it wrong.
-    const { unmount } = render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const { unmount } = render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByRole("alert").textContent ?? "").not.toMatch(/could not be read/i);
     unmount();
 
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: null, decodeFailureCount: 2, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.textContent ?? "").toMatch(/2 kinds of saved data could not be read/i);
     expect(alert.textContent ?? "").not.toMatch(/document entries|blocks in stored documents/i);
@@ -250,7 +252,7 @@ describe("TruncatedLoadBanner", () => {
   // `askThenSave` fell through to `message: body`. That dialog is a PERMANENT
   // discard, which is the reason the counts are threaded here at all.
   it("names the magnitude when malformed quoting is the only cause", async () => {
-    render(<TruncatedLoadBanner malformedQuoteCount={4} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: null, decodeFailureCount: 0, malformedQuoteCount: 4 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.textContent ?? "").toMatch(/breaks CSV quoting rules in 4 place/i);
     // The other two causes are absent, so neither may be named — the control
@@ -267,7 +269,7 @@ describe("TruncatedLoadBanner", () => {
   it("joins all three causes when all three hold", () => {
     // ★ The join spans three now, not two. Each cause keeps its own vocabulary,
     // so a reader can tell which loss is which.
-    render(<TruncatedLoadBanner malformedQuoteCount={3} decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 2, malformedQuoteCount: 3 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const text = screen.getByRole("alert").textContent ?? "";
     expect(text).toMatch(/5 document entries/i);
     expect(text).toMatch(/2 kinds of saved data could not be read/i);
@@ -283,7 +285,7 @@ describe("TruncatedLoadBanner", () => {
   // (30/30 passed). Truncation present, decode ZERO, malformed positive is the
   // only shape in which the third term is load-bearing.
   it("takes the wider headline when truncation and malformed quoting hold, with no decode failure", () => {
-    render(<TruncatedLoadBanner malformedQuoteCount={3} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 3 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     // ★ "Document data" is true of truncation and false of a malformed import,
     // so the pair must take the wider wording — the same rule the
     // truncation+decode pair already follows.
@@ -299,7 +301,7 @@ describe("TruncatedLoadBanner", () => {
   // "document data", the user concluded it did not apply, and clicked the
   // PERMANENT-discard button — on a screen that misnamed what was discarded.
   it("does not call a decode failure 'document data', in the copy OR the accessible name", () => {
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: null, decodeFailureCount: 2, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     // The HEADLINE specifically: the count line legitimately says "kinds of
     // saved data", so a whole-node scan for /document/i would be answered by a
@@ -314,7 +316,7 @@ describe("TruncatedLoadBanner", () => {
     // The control for the rule above, and the no-regression pin: truncation
     // genuinely IS about documents (the cap cuts document entries and blocks),
     // so widening its wording would lose real specificity.
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.querySelector("p")?.textContent ?? "").toMatch(/document data could not be opened/i);
     expect(alert.getAttribute("aria-label")).toBe("Document data could not be opened");
@@ -325,7 +327,7 @@ describe("TruncatedLoadBanner", () => {
     // into one diagnostic — and the only headline accurate for the pair is the
     // one that names neither cause specifically. The count line below it still
     // names each magnitude in its own vocabulary, so nothing is lost.
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={3} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 3, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.querySelector("p")?.textContent ?? "").not.toMatch(/document data/i);
     // Positive control: the magnitudes are still both there, one line down.
@@ -337,14 +339,14 @@ describe("TruncatedLoadBanner", () => {
     // ★ "Save anyway" permanently discards whatever could not be opened, and it
     // is the first tabbable control in <main>. Wearing StorageBanner's benign
     // primary blue made a data-destroying action read as the recommended one.
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Save anyway" }).className).toMatch(/ui-pink/);
   });
 
   it("gates Save anyway behind the confirm dialog and fires on accept", async () => {
     const onSaveAnyway = vi.fn();
     const onDismiss = vi.fn();
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(onSaveAnyway).toHaveBeenCalledTimes(1));
@@ -357,7 +359,7 @@ describe("TruncatedLoadBanner", () => {
     // ignored would pass the accept test above and still destroy data on cancel.
     confirmState.result = false;
     const onSaveAnyway = vi.fn();
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={onSaveAnyway} onDismiss={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(confirmState.calls).toBe(1));
@@ -365,7 +367,7 @@ describe("TruncatedLoadBanner", () => {
   });
 
   it("carries the count INTO the confirm dialog, so the decision is made on a number", async () => {
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(confirmState.lastOpts).not.toBeNull());
     expect(String(confirmState.lastOpts?.message ?? "")).toMatch(/5 document entries/i);
@@ -376,7 +378,7 @@ describe("TruncatedLoadBanner", () => {
     // callbacks are distinct so the save guard stays armed after a dismiss.
     const onSaveAnyway = vi.fn();
     const onDismiss = vi.fn();
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
 
     fireEvent.click(screen.getByRole("button", { name: /dismiss/i }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
@@ -393,7 +395,7 @@ describe("TruncatedLoadBanner", () => {
   // nothing and the second renders the full banner.
   it("leaves a re-open control when dismissed with no footer indicator (classic layout)", () => {
     const onReopen = vi.fn();
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed hasFooterIndicator={false} onReopen={onReopen} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed hasFooterIndicator={false} onReopen={onReopen} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
 
     // Not the full banner — dismissing must still quieten it.
     expect(screen.queryByRole("button", { name: "Save anyway" })).toBeNull();
@@ -414,7 +416,7 @@ describe("TruncatedLoadBanner", () => {
     // classic user gets was pinned nowhere. It matters most there: that layout
     // has no sidebar footer, so this chip is the entire persistent account of
     // what happened, and the decode cause has no counts object to fall back on.
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={2} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: null, decodeFailureCount: 2, malformedQuoteCount: 0 }} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/2 kinds of saved data could not be read/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /show how to resolve/i })).toBeInTheDocument();
   });
@@ -424,16 +426,217 @@ describe("TruncatedLoadBanner", () => {
     // count string would pass that assertion, and a chip that ignored the count
     // entirely would pass this one. `truncation` null with a zero decode count
     // is the only shape that reaches the fallback.
-    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<SavingPausedBanner cause={{ kind: "truncation", truncation: null, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText("Saving paused")).toBeInTheDocument();
     expect(screen.queryByText(/could not be read|could not be opened/i)).toBeNull();
   });
 
   it("renders nothing when dismissed and the footer already carries the indicator (modern layout)", () => {
-    const { container } = render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const { container } = render(<SavingPausedBanner cause={{ kind: "truncation", truncation: FIVE_ENTRIES, decodeFailureCount: 0, malformedQuoteCount: 0 }} dismissed hasFooterIndicator onReopen={vi.fn()} lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     // Control: the SAME props with hasFooterIndicator=false DO render something
     // (the case above), so an empty container here is the branch, not a broken
     // fixture.
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders the truncation cause with its own headline and counts", () => {
+    render(
+      <SavingPausedBanner
+        lang="en-US"
+        cause={{ kind: "truncation", truncation: { entries: 3, blocks: 0 }, decodeFailureCount: 0, malformedQuoteCount: 0 }}
+        dismissed={false}
+        hasFooterIndicator
+        onSaveAnyway={() => {}}
+        onDismiss={() => {}}
+        onReopen={() => {}}
+      />,
+    );
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "documentsTruncatedSaveAnyway") })).toBeInTheDocument();
+  });
+
+  it("gives the TRUNCATION confirm's commit button a name the banner trigger does not share", async () => {
+    // ★★★ The mirror of the destructive-arm test below, and the arm that actually
+    // shipped the defect: this branch passed `documentsTruncatedSaveAnyway` — its
+    // OWN trigger's string — as `confirmLabel`. `ConfirmDialog` renders that as a
+    // button, and the dialog comes from `ConfirmProvider`, so the banner never
+    // unmounts behind it: two buttons carried the identical accessible name at the
+    // same time, one opening an irreversible gate and one committing it (WCAG
+    // 2.4.6). The axe gate provably cannot see a duplicate accessible name in any
+    // view at any seed size.
+    // ★ This file mocks the whole `./confirm-dialog` module, so the real dialog can
+    // never render here and the options object it was handed is the ONLY available
+    // observable — same reasoning as the destructive test.
+    render(
+      <SavingPausedBanner
+        lang="en-US"
+        cause={{ kind: "truncation", truncation: { entries: 3, blocks: 0 }, decodeFailureCount: 0, malformedQuoteCount: 0 }}
+        dismissed={false}
+        hasFooterIndicator
+        onSaveAnyway={vi.fn()}
+        onDismiss={vi.fn()}
+        onReopen={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "documentsTruncatedSaveAnyway") }));
+    await waitFor(() => expect(confirmState.calls).toBe(1));
+    expect(confirmState.lastOpts?.confirmLabel).not.toBe(t("en-US", "documentsTruncatedSaveAnyway"));
+    expect(confirmState.lastOpts?.confirmLabel).toBe(t("en-US", "documentsTruncatedConfirmSaveAnyway"));
+  });
+
+  // ── The DESTRUCTIVE cause (the refused mass-deletion / full-wipe save) ──
+  //
+  // ★★ No `ConfirmProvider` is mounted, and mounting one would prove nothing:
+  // this file module-mocks the WHOLE confirm module, so the real dialog can
+  // never render here. The two tiers are therefore discriminated by a POSITIVE
+  // and a NEGATIVE each — the light tier increments `confirmState.calls` and
+  // mounts NO textbox; the heavy tier leaves `calls` at 0 and mounts the real,
+  // unmocked `TypeToConfirmDialog` (hence a textbox). Either assertion alone
+  // would pass against a component that always took one tier.
+  const MASS_DELETE = { kind: "destructive" as const, prevRecords: 900, curRecords: 53, fullWipe: false };
+  const FULL_WIPE = { kind: "destructive" as const, prevRecords: 900, curRecords: 0, fullWipe: true };
+  const REMOVED = MASS_DELETE.prevRecords - MASS_DELETE.curRecords;
+
+  // ★ Every destructive render goes through here so no case can quietly elide a
+  // prop and pass for the wrong reason.
+  const renderDestructive = (over: Partial<ComponentProps<typeof SavingPausedBanner>> = {}) =>
+    render(
+      <SavingPausedBanner
+        lang="en-US"
+        cause={MASS_DELETE}
+        dismissed={false}
+        hasFooterIndicator
+        onSaveAnyway={vi.fn()}
+        onDismiss={vi.fn()}
+        onReopen={vi.fn()}
+        {...over}
+      />,
+    );
+
+  it("names the magnitude of a refused mass deletion", () => {
+    // ★ The count is what makes the decision reviewable — "a large deletion was
+    // withheld" alone tells the user nothing about what they are about to lose.
+    renderDestructive();
+    expect(
+      screen.getByText(t("en-US", "storageDestructiveCount", REMOVED, MASS_DELETE.prevRecords)),
+    ).toBeInTheDocument();
+  });
+
+  it("names a full wipe without arithmetic, and NOT as an N-of-M count", () => {
+    // ★★ The negative is the half that matters: a branch that rendered both
+    // lines, or that always rendered the count, passes the positive alone.
+    // ★★★ DERIVED FROM THE STRING TABLE, never a quoted English literal. The
+    // literal it replaces (`/\d+ of \d+ records would be removed/i`) was the
+    // then-current wording of `storageDestructiveCount`, so any reword of that
+    // key would have left this negative matching NOTHING and passing for the
+    // wrong reason. Passing the wipe's OWN numbers makes the asserted-absent
+    // string exactly the true-but-useless "900 of 900" this copy refuses.
+    renderDestructive({ cause: FULL_WIPE });
+    expect(screen.getByText(t("en-US", "storageDestructiveWipeCount"))).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        t("en-US", "storageDestructiveCount", FULL_WIPE.prevRecords - FULL_WIPE.curRecords, FULL_WIPE.prevRecords),
+      ),
+    ).toBeNull();
+  });
+
+  it("names the WIPE on the wipe tier's trigger, not the mass deletion's label", () => {
+    // ★ The negative is the half that pins the fix: the mass-deletion label must
+    // be ABSENT here, or a component rendering both (or reverting to the shared
+    // string, which still contains no wipe wording) would pass the positive.
+    // ★ And distinct from the dialog's own commit button, which mounts over this
+    // banner — `storageDestructiveWipeSaveAnyway` is pinned separately below.
+    renderDestructive({ cause: FULL_WIPE });
+    expect(
+      screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeBannerSaveAnyway") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }),
+    ).toBeNull();
+    expect(t("en-US", "storageDestructiveWipeBannerSaveAnyway")).not.toBe(
+      t("en-US", "storageDestructiveWipeSaveAnyway"),
+    );
+  });
+
+  it("routes a refused mass deletion through the LIGHT confirm tier", async () => {
+    // ★★ Recoverable by reload, and the count line already names what would go —
+    // type-a-phrase friction here would be punitive, not protective.
+    renderDestructive();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }));
+    await waitFor(() => expect(confirmState.calls).toBe(1));
+    expect(confirmState.lastOpts?.title).toBe(t("en-US", "storageDestructiveConfirmTitle"));
+    // The negative: no type-to-confirm was mounted for this tier.
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("gives the confirm's commit button a name the banner trigger does not share", () => {
+    // ★★★ `ConfirmDialog` renders `confirmLabel` as a button while this banner
+    // stays mounted behind it, so the obvious `confirmLabel: <trigger label>`
+    // puts TWO identically-named buttons on screen — a WCAG 2.4.6 failure the
+    // axe gate provably cannot see (AGENTS.md measures this), and the reason a
+    // `getByRole("button", { name })` in a caller's test would go ambiguous.
+    // The real dialog cannot render here (this file mocks the module), so the
+    // ONLY place this is checkable is the options object it was handed.
+    renderDestructive();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }));
+    expect(confirmState.lastOpts?.confirmLabel).not.toBe(t("en-US", "storageDestructiveSaveAnyway"));
+    expect(confirmState.lastOpts?.confirmLabel).toBe(t("en-US", "storageDestructiveConfirmSaveAnyway"));
+  });
+
+  it("routes a refused FULL WIPE through the HEAVY type-to-confirm tier", () => {
+    const onSaveAnyway = vi.fn();
+    renderDestructive({ cause: FULL_WIPE, onSaveAnyway });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeBannerSaveAnyway") }));
+    // The negative: the shared ConfirmDialog was NOT used for this tier.
+    expect(confirmState.calls).toBe(0);
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: t("en-US", "storageDestructiveWipeConfirmValue") },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeSaveAnyway") }));
+    expect(onSaveAnyway).toHaveBeenCalledTimes(1);
+    expect(confirmState.calls).toBe(0);
+  });
+
+  it("keeps the wipe confirm DISABLED until the exact value is typed", () => {
+    // ★★ Pins the FRICTION, not merely that an input exists — a dialog whose
+    // commit fired on any keystroke would pass the tier test above.
+    const onSaveAnyway = vi.fn();
+    renderDestructive({ cause: FULL_WIPE, onSaveAnyway });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeBannerSaveAnyway") }));
+    const commit = screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeSaveAnyway") });
+    expect(commit).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "yes" } });
+    expect(commit).toBeDisabled();
+    fireEvent.click(commit);
+    expect(onSaveAnyway).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: t("en-US", "storageDestructiveWipeConfirmValue") },
+    });
+    expect(commit).toBeEnabled();
+  });
+
+  it("leaves the refusal standing when the wipe confirm is cancelled", () => {
+    const onSaveAnyway = vi.fn();
+    renderDestructive({ cause: FULL_WIPE, onSaveAnyway });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeBannerSaveAnyway") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(onSaveAnyway).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    // The lockout is still announced — cancelling the dialog resolves nothing.
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  it("offers the re-open chip for the destructive cause in the classic layout", () => {
+    // ★★ The same escape hatch the truncation cause gets. It is also what makes
+    // the heavy tier defensible: "Save anyway" is not the only exit here, so the
+    // friction is not coercive.
+    const onReopen = vi.fn();
+    renderDestructive({ dismissed: true, hasFooterIndicator: false, onReopen });
+    expect(screen.queryByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") })).toBeNull();
+    expect(
+      screen.getByText(t("en-US", "storageDestructiveCount", REMOVED, MASS_DELETE.prevRecords)),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageSavingPausedAction") }));
+    expect(onReopen).toHaveBeenCalledTimes(1);
   });
 });
