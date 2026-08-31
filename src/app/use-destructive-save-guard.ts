@@ -49,6 +49,19 @@ export interface DestructiveRefusal {
   fullWipe: boolean;
 }
 
+/** What `evaluate` answers: the pure verdict plus whether this refusal is a
+ *  NEW magnitude rather than the standing one re-asserting itself.
+ *
+ *  ★★★ `isNewMagnitude` is NOT on `SaveGuardVerdict`. `save-guard.ts` is pure
+ *  and has no idea a refusal is standing; novelty is a property of THIS hook's
+ *  state. Putting it there would drag the standing refusal into a pure module. */
+export interface DestructiveEvaluation extends SaveGuardVerdict {
+  /** True when no refusal stood, or the standing one described a different
+   *  magnitude. False when this is the same loss re-refusing — the case that
+   *  must not be recorded twice (§303). Always false when `refuse` is false. */
+  isNewMagnitude: boolean;
+}
+
 export interface DestructiveSaveGuard {
   /** Arm a one-shot bypass so the NEXT save may destroy data (a confirmed
    *  clear-all / bulk delete). Without this an unexplained mass deletion is
@@ -76,8 +89,9 @@ export interface DestructiveSaveGuard {
    *  one, which is open-followups §294. */
   consumeArm: () => boolean;
   /** Run the guard against the stored baselines and record a refusal if it
-   *  refuses. Returns the verdict. */
-  evaluate: (curCollections: number, curRecords: number, armed: boolean) => SaveGuardVerdict;
+   *  refuses. Returns the verdict, widened with `isNewMagnitude` so the caller
+   *  can tell a genuinely new loss from the standing one re-refusing. */
+  evaluate: (curCollections: number, curRecords: number, armed: boolean) => DestructiveEvaluation;
   /** Adopt the given counts as the new baselines — a committed save, or a
    *  load/apply the suppress branch is folding in. */
   syncBaselines: (curCollections: number, curRecords: number) => void;
@@ -143,15 +157,19 @@ export function useDestructiveSaveGuard(): DestructiveSaveGuard {
     records: prevRecordCountRef.current,
   });
 
-  const evaluate = (curCollections: number, curRecords: number, armed: boolean): SaveGuardVerdict => {
+  const evaluate = (curCollections: number, curRecords: number, armed: boolean): DestructiveEvaluation => {
     const prevCollections = prevCollectionCountRef.current;
     const prevRecords = prevRecordCountRef.current;
     const verdict = evaluateSaveGuard({ prevCollections, prevRecords, curCollections, curRecords, allowDestructive: armed });
-    if (verdict.refuse) {
-      const next: DestructiveRefusal = { prevCollections, prevRecords, curCollections, curRecords, fullWipe: verdict.refusedBy === "full-wipe" };
-      setRefusal((cur) => (cur !== null && sameRefusal(cur, next) ? cur : next));
-    }
-    return verdict;
+    if (!verdict.refuse) return { ...verdict, isNewMagnitude: false };
+    const next: DestructiveRefusal = { prevCollections, prevRecords, curCollections, curRecords, fullWipe: verdict.refusedBy === "full-wipe" };
+    // ★ Read the CLOSURE's `refusal`, not the functional setter's `cur`: the
+    // updater runs at commit time and cannot return a value to this caller.
+    // This is the same render-time value `use-storage-backend.ts` reads as
+    // `refusalWasStanding`, so the two can never disagree about what stood.
+    const isNewMagnitude = refusal === null || !sameRefusal(refusal, next);
+    setRefusal((cur) => (cur !== null && sameRefusal(cur, next) ? cur : next));
+    return { ...verdict, isNewMagnitude };
   };
 
   return {
