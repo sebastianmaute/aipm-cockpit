@@ -242,7 +242,19 @@ img[data-asset-blocked] {
 }
 img[data-asset-missing]::before,
 img[data-asset-blocked]::before {
-  content: "\26A0\FE0E ";
+  /* ★★★ TWO STRINGS, AND THE OBVIOUS ONE-STRING SPELLING IS A SILENT NO-OP.
+     This read `"\26A0\FE0E "` for three releases and that trailing space was
+     never in the output: consuming an escaped code point takes up to six hex
+     digits AND THEN CONSUMES ONE FOLLOWING WHITESPACE as the escape's
+     terminator, so the space was punctuation for `\FE0E`, not a character.
+     The glyph butted straight against the block author's `alt` text. Measured
+     in real Chromium and real Firefox by
+     `e2e-crossengine/asset-missing-glyph.spec.ts`, not reasoned — and the
+     declaration WITH the space resolved identically to one without it, which
+     is what proves the byte was inert rather than merely suspect.
+     Concatenating a second string is explicit; a second literal space would
+     work and would be invisible to every future reader. */
+  content: "\26A0\FE0E" " ";
 }
 
 /* Print: DIN A4 page, strip surface chrome, preserve semantic accents.
