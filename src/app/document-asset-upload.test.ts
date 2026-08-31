@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ASSET_MIME_ALLOWED, ASSET_RAW_MAX_BYTES, ASSET_STORED_MAX_BYTES,
   ASSET_MAX_SOURCE_DIM, ASSET_DOWNSCALE_W, ASSET_DOWNSCALE_H,
-  ASSET_MAX_PER_DOCUMENT, checkUploadCandidate,
+  ASSET_MAX_PER_DOCUMENT, checkUploadCandidate, isBlockedAssetMime,
   readHeaderDimensions, checkHeaderDimensions,
   targetSize, pickSmaller, checkStoredSize, processUpload,
   bytesToBase64, base64ToBytes, safeBase64ToBytes, hashBytes, findDuplicate,
@@ -518,5 +518,36 @@ describe("findDuplicate", () => {
   it("never matches on a blank hash", () => {
     const withBlank = [...assets, { id: "a3", name: "z", mime: "image/png", size: 1, hash: "", createdAt: "" }];
     expect(findDuplicate(withBlank, "")).toBeUndefined();
+  });
+});
+
+describe("isBlockedAssetMime", () => {
+  it("blocks a stored mime outside the allowlist", () => {
+    expect(isBlockedAssetMime("image/svg+xml")).toBe(true);
+  });
+
+  // ★★★ §225 — THE EMPTY STRING MUST FALL THROUGH. `sanitizeDocumentAsset`
+  // runs its mime through `sanitizeText`, which returns "" for anything
+  // non-string, so a missing/blank/non-string mime survives every load path as
+  // "" and such an asset has always rendered by content-sniffing. A
+  // `!== undefined` spelling would refuse an image the user can see working.
+  // ★★★ THIS CASE IS THE SOLE DISCRIMINATOR BETWEEN THE TWO SPELLINGS — DO NOT
+  // DELETE IT AS REDUNDANT WITH THE `undefined` CASE BELOW. Measured by
+  // mutation, not reasoned: swapping `!!mime` for `mime !== undefined` kills
+  // this test and NOTHING else in the file (1 failed / 63 passed of 64). The
+  // `undefined` case structurally CANNOT discriminate, since both spellings
+  // return false for it — it is a real regression pin, but vacuous with respect
+  // to §225. Delete this one and the guard §225 exists to protect goes untested
+  // while the suite stays green.
+  it("does NOT block the empty-string mime that real rows carry", () => {
+    expect(isBlockedAssetMime("")).toBe(false);
+  });
+
+  it("does NOT block an absent mime", () => {
+    expect(isBlockedAssetMime(undefined)).toBe(false);
+  });
+
+  it("does not block an allowed mime", () => {
+    expect(isBlockedAssetMime("image/png")).toBe(false);
   });
 });
