@@ -8,6 +8,29 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.272.0] - 2026-08-31 "Zoline"
+
+### Fixed
+
+- **Retrying a failed chat load could discard the message you had just sent.** If you pressed Retry
+  on the chat sidebar's "couldn't load" banner while a message was still being sent — or was sent
+  and answered inside that same moment — the reload could replace the conversation on screen with
+  an older copy, so your message and its reply disappeared. Nothing was lost on the server and both
+  returned on the next load, but the transcript in front of you was wrong. The reload now notices a
+  message that arrived while it was working and leaves the live conversation alone.
+- **Switching project during a chat reload could leave the previous project's conversations on
+  screen.** Pressing Retry and then changing project before the reload finished left the sidebar
+  listing the conversations of the project you had just left, under the name of the one you had
+  arrived at. A reload now discards its own result when the project changed underneath it.
+- **A reply could vanish from screen if you retried while it was still being saved.** In the short
+  window where a finished answer was being written to the database, a reload read the conversation
+  back without it. The save itself always completed and the reply returned on the next load; it no
+  longer disappears in the meantime.
+- **A finishing message could clear the record of a different one still running.** The bookkeeping
+  for an in-progress message was cleared by whichever send finished first rather than by the one
+  that owned it. No path in the app reaches this today; it is fixed so it cannot later become a way
+  to lose a live message.
+
 ## [0.271.0] - 2026-08-31 "Gibson"
 
 ### Fixed
