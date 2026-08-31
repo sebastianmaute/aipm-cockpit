@@ -1660,6 +1660,17 @@ describe("400 response message surfacing", () => {
 //   BUILDER, never the WIRING. This describe block is the only place the two
 //   call sites are checked against ONE setting.
 describe("historySearch reaches the request body", () => {
+  // ★★ BOTH hooks, and the beforeEach is the load-bearing one. `globalThis.fetch`
+  // is msw's `fetchProxy`; `vi.spyOn` on a property that is ALREADY spied returns
+  // the EXISTING spy, call history and all, rather than a fresh one. A sibling
+  // describe that leaves its spy installed therefore hands this one a mock that
+  // has already been called, and `requestBodyFor`'s `toHaveBeenCalledTimes(1)`
+  // reads 2 before this render has done anything. Measured: with only the
+  // afterEach, `vitest --sequence.shuffle --sequence.seed=1` puts "chips stay
+  // available after the first message is sent" immediately before this test and
+  // the spy arrives carrying one call. An afterEach cannot protect this describe
+  // from what ran BEFORE it — only a beforeEach can.
+  beforeEach(() => vi.restoreAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
   // ★★★ THE VIEW IS FIXTURE, NOT DECORATION. The system prompt only NAMES a
