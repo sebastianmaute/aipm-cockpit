@@ -545,6 +545,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | open |
 | [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--open) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack — open | found 2026-08-31 while closing §100 | S | open |
+| [§319](#319-this-registers-own-index-rebuild-recipe-silently-strips-hand-written-state-cells-and-claims-to-be-idempotent--open) | This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent — open | found 2026-08-31 while filing §318 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -24383,3 +24384,54 @@ the drawer. Do not read this bullet as cover for the next consumer.
 
 ★ A comment at the `renderSidebar(` call in `modern-shell.tsx` names both ways in, and states the
 INERT mechanism rather than the yank — added 2026-08-31 in the same slice.
+
+---
+
+## 319. This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent — open
+
+**Status:** open — MEASURED 2026-08-31 while filing §318, by running the recipe and reading which
+cells moved. The mechanism is readable straight out of the recipe with
+`grep -n "keep.set\|const state =" docs/open-followups.md`: the first line harvests `[c[1], c[2]]`
+— `Origin` and `Size`, and nothing else — while the second derives `State` from the heading alone.
+★ Those two are the RECIPE's own lines, near the top of the file; the grep also matches this entry
+quoting them, so read the two low line numbers and ignore the rest — a grep quoted in the prose it
+describes always counts itself.
+★ The loss itself does NOT show up in a gate; the three doc gates
+(`npm run followups:status:check`, `npm run docs:claims:check`, `npm run docs:symbols:check`) are
+all green over a stripped cell, which is half of why this is worth an entry.
+
+The recipe derives each row's `State` cell from the HEADING ALONE —
+`const state = i < 0 ? "open" : "**CLOSED**" + t.slice(i + 9);` — and the only cells it HARVESTS
+from the table it replaces are `Origin` and `Size` (`keep.set(+m[1], [c[1], c[2]])`). So any
+hand-written qualifier in a `State` cell is destroyed on the next rebuild, by anyone, for any
+reason.
+
+★★★ **It is not idempotent, and the doc asserts that it is.** The line above the recipe reads
+"is idempotent — a rebuild that changes nothing is the proof that the table already matches the
+headings". That is true only of a table nobody has annotated. The FIRST rebuild after any hand
+annotation rewrites those cells, and every rebuild after that is stable — so the property holds
+exactly when it does not matter and fails exactly when it does.
+
+★★ **MEASURED BLAST RADIUS, not hypothesised.** One rebuild wiped the qualifiers on FOUR unrelated
+rows — §289 lost "(all THREE paths: apply, single-row undo, bulk undo; SUPERSEDES §181)" and §293
+lost "(narrowed 2026-08-30 — the refusal is now recoverable; the detection gap is unchanged)",
+with §294 and §295 the same shape. All four were restored by hand in the same commit. Recover any
+future loss the same way: `git show <pre-rebuild-sha>:docs/open-followups.md`.
+
+★★★ **The diff does not show you this.** A rebuild run while closing an entry produces a diff whose
+every visible hunk is a row you meant to touch, plus four rows losing a parenthetical each — which
+reads as noise from the regeneration rather than as data loss, and is trivially scrolled past. That
+is the whole defect: the recipe is documented as safe, its output looks correct, and the loss is
+silent and permanent unless someone reads a `git show` of the previous revision.
+
+★ **The gates cannot see it either**, and this is a worked example of a rule this file already
+carries: `followups:status:check` reads the `**Status:**` LINE, not the table, and
+`docs:claims:check` counts `path:LINE` citations. A stripped `State` cell is conforming markdown, so
+all three doc gates stay green over the loss.
+
+★★ Fix shape is NOT determined and should not be guessed at. The cheap honest option is to delete
+the idempotence claim and warn instead. The real option is to harvest `State` the way `Origin` and
+`Size` are already harvested, and reconcile only the CLOSED marker against the heading — but that
+inverts the current design, in which the heading is the single source of truth for closure state,
+and would let a stale table row disagree with a heading forever. Whoever takes this should decide
+which of those two properties is worth more before writing code.
