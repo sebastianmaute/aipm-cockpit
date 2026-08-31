@@ -23348,7 +23348,12 @@ contract, which is why it was left rather than bodged during a fix round.
 ★★★ which is a CANDIDATE list, NOT the class, and reading it as the class is how this entry shipped
 overstated. Its last stage is a bare `grep '"'`, and `t("en-US", "key")` contains two double quotes —
 so the CORRECT derived form matches it too. It returns 737 lines across ~180 files for a scope that
-is 10 lines in 2 files; it cannot tell you which rows are in class, and nothing else can either.
+is a handful of lines in the 2 suites named below; it cannot tell you which rows are in class, and
+nothing else can either. ★★ NO COUNT IS GIVEN FOR THE IN-CLASS SET ON PURPOSE — the boundary is a
+judgement (is a `queryByRole("textbox")` in class? a regex over free text?), and three hand
+enumerations during review returned three different answers, including one that returned zero
+because its pattern missed the `not.toBeInTheDocument` spelling. Anything quoted here would be one
+reader's reading wearing the authority of a measurement.
 Never machine-verified: nothing asserts that any of them WOULD go vacuous, and by construction
 nothing can — a vacuous negative passes, which is the entire defect.
 
