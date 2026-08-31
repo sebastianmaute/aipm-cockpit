@@ -295,7 +295,12 @@ function ByGroupTable({ lang, title, rows, colResize, days, money }: {
 
   return (
     <Section title={title}>
-      <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey="reportsFilterLabel" />
+      {/* ★ `nameContext` because this component is rendered THREE times in one
+          view (By Discipline / By Grade / By Combo) with one `placeholderKey`,
+          so the input and its ✕ would otherwise share a name across all three
+          — WCAG 2.4.6, and invisible to the axe gate. Same ` – <context>`
+          shape the `SortResizeTh`s below already use. */}
+      <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey="reportsFilterLabel" nameContext={title} />
       <div className="overflow-x-auto rounded-md border border-line">
         <DataTable
           className="min-w-full text-left text-sm"

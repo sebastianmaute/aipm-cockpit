@@ -129,12 +129,33 @@ export function TableFilter({
   value,
   onChange,
   placeholderKey,
+  nameContext,
 }: {
   lang: Lang;
   value: string;
   onChange: (v: string) => void;
   placeholderKey: "reportsFilterAssignee" | "reportsFilterGroup" | "reportsFilterLabel" | "raidReportFilterOwner" | "raidReportFilterDetail" | "budgetReportFilterBucket" | "planningFilterResource" | "budgetRoleFilter";
+  /**
+   * Disambiguating suffix for the accessible name, in the SAME ` – ` shape
+   * `SortResizeTh` uses. Pass it ONLY where one view renders SEVERAL filters
+   * that share a `placeholderKey` — the three co-rendered `ByGroupTable`
+   * instances in `resources-report.tsx` are the case this exists for. Every
+   * other consumer renders one filter per key, and qualifying those would put
+   * noise in a screen reader for nothing.
+   *
+   * ★ It does NOT touch the visible `placeholder`. WCAG 2.5.3 containment
+   * therefore still holds: the visible text stays a substring of the
+   * accessible name, and it stays at the FRONT of it.
+   */
+  nameContext?: string;
 }) {
+  const placeholder = t(lang, placeholderKey);
+  // ★★ ONE source for both names. The input's name and the ✕'s name are built
+  // from the same string, so a future edit cannot qualify one and leave the
+  // other colliding — which is exactly the half-fix this defect would invite,
+  // since the ✕ only renders once a field holds a value and is therefore
+  // invisible to any check run against the resting state.
+  const fieldName = nameContext ? `${placeholder} – ${nameContext}` : placeholder;
   return (
     <div className="mb-2 flex items-center gap-2 print:hidden">
       {/* The overlaid ✕ (and every reason it is overlaid rather than a sibling)
@@ -145,19 +166,28 @@ export function TableFilter({
         * ★ The label is QUALIFIED with the field's own placeholder because a
         * single view renders SEVERAL of these — Reports alone has more than one,
         * and it is axe-scanned. N controls all announcing "Clear" is a WCAG
-        * 2.4.6 failure that the axe gate passes, since a name does exist. */}
+        * 2.4.6 failure that the axe gate passes, since a name does exist.
+        *
+        * ★★ THE PLACEHOLDER ALONE IS NOT ENOUGH, and assuming it was is what
+        * shipped §296: Resources renders `ByGroupTable` THREE times (By
+        * Discipline / By Grade / By Combo), all passing ONE `placeholderKey`,
+        * so all three ✕ buttons — and all three inputs — announced the same
+        * name. `nameContext` is the caller's answer for that shape. */}
       <ClearableSearchInput
         value={value}
         onClear={() => onChange("")}
-        clearLabel={`${t(lang, "clear")} – ${t(lang, placeholderKey)}`}
+        clearLabel={`${t(lang, "clear")} – ${fieldName}`}
         className="min-w-0 flex-1"
       >
         <input
           type="search"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={t(lang, placeholderKey)}
-          aria-label={t(lang, placeholderKey)}
+          // ★ The VISIBLE placeholder stays unqualified — `nameContext` is an
+          // accessible-name concern only, and the section heading already
+          // supplies the context on screen.
+          placeholder={placeholder}
+          aria-label={fieldName}
           // pr-8 ONLY while the ✕ is rendered — it reserves room for the
           // overlaid button, so applying it unconditionally would shave ~2rem
           // off the visible placeholder in the (common) empty state.
