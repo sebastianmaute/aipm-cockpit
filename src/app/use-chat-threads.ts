@@ -152,6 +152,19 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     threadsRef.current = threads;
   }, [threads]);
 
+  // The LIVE project, for async settles that must not write under a project
+  // the user has since left. retryLoad's `.then`/`.catch` close over the
+  // `projectId` of the render that produced the clicked instance, so comparing
+  // that local against itself is a tautology — this ref is the only way to ask
+  // "am I still on the project this reload was issued for?".
+  //
+  // ★ It must NOT be the mount effect's `cancelled` local: retryLoad is called
+  // from an event handler outside that effect's closure.
+  const projectIdRef = useRef(projectId);
+  useEffect(() => {
+    projectIdRef.current = projectId;
+  }, [projectId]);
+
   // Publish to the module registry the AI dispatcher reads. See
   // chat-threads-registry.ts for why this is not a prop.
   //
@@ -489,8 +502,16 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // reload branch closed forever, leaving the sidebar permanently stale.
     const sendInFlightAtClick = abortRef.current !== null;
     const seqAtClick = sendSeqRef.current;
+    // §313. The project this reload is FOR, compared at settle against the
+    // live one. The mount effect's `cancelled` local cannot serve here —
+    // retryLoad runs from an event handler, outside that effect's closure.
+    const issuedFor = projectId;
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
+        // §313. A project switch while this was in flight means every setState
+        // below would write p1's data under p2 — including setLoadedProjectId,
+        // which would then claim ownership of rows p2's own fetch put there.
+        if (issuedFor !== projectIdRef.current) return;
         setThreadsError(false);
         setLoadFailed(false);
         const preserveLive =
@@ -504,6 +525,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         setDisplay(settled.next?.display ?? []);
       })
       .catch(() => {
+        if (issuedFor !== projectIdRef.current) return;
         setThreadsError(true);
         setLoadFailed(true);
         const preserveLive =

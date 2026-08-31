@@ -1747,3 +1747,157 @@ describe("useChatThreads — registry publication", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// §313: retryLoad's reload outliving a PROJECT SWITCH. Both settle handlers
+// wrote unconditionally, so a reload issued for p1 that resolves after the
+// user moved to p2 ran every setState under p1's closure: mergeThreadsAfterLoad
+// filters `prev` down to p1's rows (dropping whatever p2's own fetch had just
+// put there) and setLoadedProjectId(projectId) then stamps p1 — claiming
+// ownership of a list the sidebar renders under p2. The `.catch` has the same
+// hole via resetThreadsAfterFailedLoad, and additionally raises the load-failure
+// banner for a project the user has already left.
+//
+// The mount effect's `cancelled` local cannot be reused: retryLoad is called
+// from an event handler, outside that effect's closure. The fix is a ref
+// holding the LIVE project, compared against the project the reload was issued
+// for, as the first statement of each handler.
+//
+// MUTATION SCORECARD (each mutant applied alone and reverted before the next;
+// the file's runtime test count was 66, and each tally sums to it):
+//   Mutant A — bail deleted from the `.then` ONLY: 2 failed / 64 passed.
+//     Failing: "does not adopt the left project's rows under the new project"
+//     and "does not drop the new project's rows when the left project's reload
+//     succeeds". Neither `.catch` block moved.
+//   Mutant B — bail deleted from the `.catch` ONLY: 2 failed / 64 passed.
+//     Failing: "does not raise the load-failure banner for a project the user
+//     has left" and "does not drop the new project's rows when the left
+//     project's reload fails". Neither `.then` block moved.
+//   The two mutants are INDEPENDENT — neither killed a block the other killed,
+//   so each bail is separately proved rather than one standing in for both.
+// ---------------------------------------------------------------------------
+describe("useChatThreads — retryLoad's settle vs. a project switch (§313)", () => {
+  /** Drives "Retry clicked on p1, user switches to p2, p1's reload is still in
+   *  flight" up to the moment that reload is settled by the caller. Each `it`
+   *  runs it fresh — vitest aborts a block at its first hard failure, so one
+   *  behaviour per test is the only way all of them are ever evaluated. */
+  async function arrangeReloadOutlivingASwitch() {
+    // (1) Mount on p1 with a real row: it gives the settle a witness, and it
+    //     makes retryLoad's `startedOn` a genuine p1 thread rather than null.
+    loadThreadsMock.mockResolvedValueOnce([thread("p1-seed", { projectId: "p1" })]);
+    const harness = renderChatThreads({ projectId: "p1" });
+    const { result, rerender, initialProps, setHistory, setDisplay } = harness;
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.activeThreadId).toBe("p1-seed"));
+
+    // (2) Retry on p1, held open across the switch below.
+    let settleRetry!: {
+      resolve: (threads: ChatThread[]) => void;
+      reject: (reason: unknown) => void;
+    };
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((resolve, reject) => {
+        settleRetry = { resolve, reject };
+      }),
+    );
+    act(() => result.current.retryLoad());
+    // ★★★ VACUITY GUARD: proves retryLoad reached the RELOAD branch. A pending
+    // WRITE retry would re-issue that write and never call loadThreads again,
+    // and then every assertion below would pass for the wrong reason.
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+
+    // (3) The user switches to p2 while p1's reload is still in flight.
+    loadThreadsMock.mockResolvedValueOnce([thread("p2-row", { projectId: "p2" })]);
+    rerender({ ...initialProps, projectId: "p2" });
+    // ★★★ VACUITY GUARD: proves the switch really issued p2's OWN fetch — the
+    // rows the stale settle goes on to destroy have to be there first.
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(result.current.activeThreadId).toBe("p2-row"));
+    expect(result.current.threads.map((th) => th.id)).toEqual(["p2-row"]);
+    // The banner is the `.catch` assertion's subject — pin its starting value
+    // so a red there cannot be inherited from an earlier step.
+    expect(result.current.threadsError).toBe(false);
+
+    setHistory.mockClear();
+    setDisplay.mockClear();
+    return { ...harness, settleRetry };
+  }
+
+  /** Settle p1's held reload and drain the microtask queue. Three ticks covers
+   *  the `.then`/`.catch` chain (two links) plus the awaits themselves; the
+   *  RED run is what proves it is enough, since on the FIXED code both
+   *  handlers are observably silent and no witness can exist. */
+  async function settleAndDrain(fire: () => void) {
+    await act(async () => {
+      fire();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  }
+
+  it("does not adopt the left project's rows under the new project", async () => {
+    const { result, settleRetry } = await arrangeReloadOutlivingASwitch();
+
+    await settleAndDrain(() => settleRetry.resolve([thread("p1-late", { projectId: "p1" })]));
+
+    expect(result.current.threads.map((th) => th.id)).not.toContain("p1-late");
+  });
+
+  it("does not drop the new project's rows when the left project's reload succeeds", async () => {
+    const { result, settleRetry } = await arrangeReloadOutlivingASwitch();
+
+    await settleAndDrain(() => settleRetry.resolve([thread("p1-late", { projectId: "p1" })]));
+
+    expect(result.current.threads.map((th) => th.id)).toEqual(["p2-row"]);
+  });
+
+  it("does not raise the load-failure banner for a project the user has left", async () => {
+    const { result, settleRetry } = await arrangeReloadOutlivingASwitch();
+
+    await settleAndDrain(() => settleRetry.reject(new Error("p1 reload failed")));
+
+    expect(result.current.threadsError).toBe(false);
+  });
+
+  it("does not drop the new project's rows when the left project's reload fails", async () => {
+    const { result, settleRetry } = await arrangeReloadOutlivingASwitch();
+
+    await settleAndDrain(() => settleRetry.reject(new Error("p1 reload failed")));
+
+    expect(result.current.threads.map((th) => th.id)).toEqual(["p2-row"]);
+  });
+
+  // ★★★ POSITIVE CONTROLS. Without these, a bail written unconditionally —
+  // `return` as the first statement of each handler — passes all four negative
+  // blocks above while silently breaking retryLoad for every user who never
+  // switches project. One per handler, because the two `preserveLive`
+  // expressions are separate code and the `.then` control says nothing about
+  // the `.catch`.
+  it("still adopts the reload when it settles with the user STILL on the issuing project", async () => {
+    loadThreadsMock.mockResolvedValueOnce([thread("p1-seed", { projectId: "p1" })]);
+    const { result } = renderChatThreads({ projectId: "p1" });
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.activeThreadId).toBe("p1-seed"));
+
+    loadThreadsMock.mockResolvedValueOnce([thread("p1-late", { projectId: "p1" })]);
+    act(() => result.current.retryLoad());
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+
+    await waitFor(() => expect(result.current.threads.map((th) => th.id)).toEqual(["p1-late"]));
+  });
+
+  it("still raises the banner when a FAILING reload settles on the issuing project", async () => {
+    loadThreadsMock.mockResolvedValueOnce([thread("p1-seed", { projectId: "p1" })]);
+    const { result } = renderChatThreads({ projectId: "p1" });
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.activeThreadId).toBe("p1-seed"));
+    expect(result.current.threadsError).toBe(false);
+
+    loadThreadsMock.mockRejectedValueOnce(new Error("still down"));
+    act(() => result.current.retryLoad());
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+  });
+});
