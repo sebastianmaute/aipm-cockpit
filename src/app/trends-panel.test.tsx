@@ -173,9 +173,21 @@ describe("TrendsPanel", () => {
     expectRowUniqueNames({ minControls: 2, roles: ["checkbox"], requireCollisionSeed: true });
   });
 
-  it("numbers the occurrence index in RENDERED (newest-first) order, not raw snapshot order", async () => {
-    const deleteSnapshot = vi.fn(noop);
-    renderColliding({ deleteSnapshot });
+  // ★★ The token ORDER and the row IDENTITY are TWO behaviours and are split
+  // into two `it()` blocks deliberately: vitest aborts a block at its first
+  // failing hard assertion, so asserting both in one block leaves the identity
+  // claim UNEXECUTED — therefore unproved — under any mutant that breaks the
+  // token order. Each block below is backed by a mutant that kills it and NOT
+  // the other:
+  //   • order    — build the token map over the RAW `snapshots` array
+  //                (`buildRowTokens(snapshots.map(` in trends-panel.tsx):
+  //                tokens follow capture order while rows stay newest-first, so
+  //                the first row reads (2). Identity is untouched.
+  //   • identity — drop `.reverse()` from `renderedSnapshots`: rows render
+  //                oldest-first and the token map follows them, so the first
+  //                row still reads (1) while it is now the WRONG snapshot.
+  it("numbers the occurrence index in RENDERED (newest-first) order, not raw snapshot order", () => {
+    renderColliding();
     const deletes = deleteButtons();
     expect(deletes).toHaveLength(2);
     // The panel renders `[...snapshots].reverse()`, so the NEWEST row is first
@@ -183,7 +195,12 @@ describe("TrendsPanel", () => {
     // array would swap the two.
     expect(nameOf(deletes[0])).toMatch(/\(1\)$/);
     expect(nameOf(deletes[1])).toMatch(/\(2\)$/);
-    fireEvent.click(deletes[0]);
+  });
+
+  it("deletes the NEWEST snapshot when the first rendered delete control is clicked", async () => {
+    const deleteSnapshot = vi.fn(noop);
+    renderColliding({ deleteSnapshot });
+    fireEvent.click(deleteButtons()[0]);
     await waitFor(() => expect(deleteSnapshot).toHaveBeenCalledWith("s-later"));
   });
 });
