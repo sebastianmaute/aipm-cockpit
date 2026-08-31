@@ -1,9 +1,9 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { GeneralSection } from "./general-section";
 import { defaultSettings } from "../settings-types";
 import type { Resource } from "../types";
-import { t } from "../i18n";
+import { loadI18n, t } from "../i18n";
 
 const resetMock = vi.fn();
 vi.mock("../app-reset", () => ({
@@ -67,6 +67,39 @@ describe("GeneralSection", () => {
     expect(confirm).toBeEnabled();
     fireEvent.click(confirm);
     expect(resetMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("GeneralSection reset dialog — German", () => {
+  // The DE dictionary is lazy-loaded; a test asserting DE output must load it
+  // first or it silently reads EN and passes for the wrong reason.
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  // ★ This is the ONLY test that can fail for §301. Under en-US the confirm-
+  // value key's value is byte-identical to the hardcoded English constant it
+  // replaced, so an EN-only test passes against the reverted code too — German
+  // is the one language where a hardcoded English phrase is detectable at all.
+  it("asks a German user to type the German confirm phrase, not the English one", () => {
+    render(<GeneralSection lang="de" settings={defaultSettings} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("de", "settingsResetButton") }));
+    const confirm = screen.getByRole("button", {
+      name: t("de", "settingsResetConfirmLabel"),
+    }) as HTMLButtonElement;
+    expect(confirm).toBeDisabled();
+
+    const input = screen.getByLabelText(
+      t("de", "typeToConfirmPrompt", t("de", "settingsResetConfirmValue")),
+    );
+
+    // The old hardcoded English phrase must NOT satisfy this dialog anymore.
+    fireEvent.change(input, { target: { value: "yes, reset everything" } });
+    expect(confirm).toBeDisabled();
+
+    // Only the German phrase enables confirm.
+    fireEvent.change(input, { target: { value: t("de", "settingsResetConfirmValue") } });
+    expect(confirm).toBeEnabled();
   });
 });
 
