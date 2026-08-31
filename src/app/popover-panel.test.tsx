@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { useRef, useState, useCallback } from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { PopoverPanel } from "./popover-panel";
 
 function Harness({
@@ -217,6 +217,79 @@ describe("PopoverPanel", () => {
     // element. Asserting "not the trigger" alone would pass if focus went to
     // document.body, which is the very bug.
     expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "First" }));
+  });
+
+  // ★★★ The `e.defaultPrevented` guard on the Tab cycle, and this is the ONLY
+  // thing pinning it. Measured by mutation 2026-08-31: deleting
+  // `|| e.defaultPrevented` from `popover-panel.tsx` left ALL 95 tests across
+  // popover-panel, dismissal-integration, modal, use-dismissable,
+  // popover-in-modal, modal-field-controls and sidebar-nav green.
+  //
+  // ★★★ `sidebar-nav.test.tsx`'s "Tab closes the flyout and returns focus to
+  // the trigger" READS like the pin and is NOT one. `CollapsedNavFlyout`'s own
+  // handler also CLOSES the flyout, so by the time this document-level cycle
+  // runs there is no panel left to cycle — every focus assertion there is blind
+  // to this guard, because it cannot separate "the cycle stood down" from "the
+  // panel went away". The harness below is that consumer with the
+  // `setOpen(false)` REMOVED, which is the only way to tell the two apart, and
+  // it asserts the panel is STILL OPEN for exactly that reason.
+  //
+  // ★★ Why the guard is load-bearing rather than a nicety: `FOCUSABLE_SELECTOR`
+  // matches `<button tabindex="-1">` (its `button:not([disabled])` arm carries
+  // no tabindex exclusion), so this cycle DOES run over an all-roving panel.
+  // The consumer here moves focus OUT of the panel, to its trigger — what the
+  // real flyout does. Ungated, the cycle then reads `!panel.contains(active)`
+  // and yanks focus back to the panel's first menuitem: the consumer's own Tab
+  // behaviour silently doubled, among elements that are not in the tab order.
+  it("stands down on Tab once a consumer's own handler has called preventDefault", () => {
+    function SelfHandledTabHarness() {
+      const [open, setOpen] = useState(false);
+      const btnRef = useRef<HTMLButtonElement>(null);
+      const close = useCallback(() => setOpen(false), []);
+      return (
+        <div>
+          <button ref={btnRef} type="button" onClick={() => setOpen(true)}>trigger</button>
+          <PopoverPanel open={open} anchorRef={btnRef} onClose={close} role="dialog" ariaLabel="Panel">
+            {/* `CollapsedNavFlyout`'s `onMenuKeyDown` Tab arm, minus the close. */}
+            <div
+              role="menu"
+              onKeyDown={(e) => {
+                if (e.key !== "Tab") return;
+                e.preventDefault();
+                btnRef.current?.focus();
+              }}
+            >
+              <button type="button" role="menuitem" tabIndex={-1}>First</button>
+              <button type="button" role="menuitem" tabIndex={-1}>Second</button>
+            </div>
+          </PopoverPanel>
+        </div>
+      );
+    }
+    render(<SelfHandledTabHarness />);
+    const trigger = screen.getByText("trigger");
+    fireEvent.click(trigger);
+    const first = screen.getByRole("menuitem", { name: "First" });
+    expect(document.activeElement).toBe(first);
+
+    // ★ A NATIVE, BUBBLING event from the focused control. `fireEvent.keyDown(
+    // document, …)` would skip the consumer's React handler entirely: React
+    // listens on the PORTAL CONTAINER (`document.body`), and the panel's own
+    // listener sits above it on `document` — that ordering is the whole reason
+    // the guard can work.
+    const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    act(() => {
+      first.dispatchEvent(tab);
+    });
+
+    // Anti-vacuity: proves the consumer's React handler actually ran. Were the
+    // event never delivered to it, this would be false and the focus assertion
+    // below would pass for the wrong reason.
+    expect(tab.defaultPrevented).toBe(true);
+    // Separates "the cycle stood down" from "the panel went away".
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+    // The consumer's placement must survive untouched.
+    expect(document.activeElement).toBe(trigger);
   });
 
   it("renders nothing while closed", () => {

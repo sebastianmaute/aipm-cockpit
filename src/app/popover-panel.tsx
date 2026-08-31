@@ -428,9 +428,20 @@ export function PopoverPanel({
   // re-focuses the trigger — and the cycle below bails on `e.defaultPrevented`.
   // It gets there first because it is a React handler, delegated from boot on a
   // node at or below the one this effect-registered listener sits on (the same
-  // ordering `dismissal-stack.ts` relies on for element-scoped Escape). Pinned
-  // by "Tab closes the flyout and returns focus to the trigger"
-  // (`sidebar-nav.test.tsx`), which renders this primitive for real.
+  // ordering `dismissal-stack.ts` relies on for element-scoped Escape).
+  // ★★★ THE `e.defaultPrevented` TERM IS PINNED BY ONE TEST — "stands down on
+  // Tab once a consumer's own handler has called preventDefault"
+  // (`popover-panel.test.tsx`) — and by nothing else among the seven files that
+  // exercise this cycle. An earlier revision of this comment named
+  // `sidebar-nav.test.tsx`'s "Tab closes the flyout and returns focus to the
+  // trigger" as the pin. It is NOT one: that consumer's handler also CLOSES the
+  // flyout, so this listener finds no panel and every focus assertion there is
+  // blind to the term. Measured by mutation 2026-08-31, not reasoned — deleting
+  // `|| e.defaultPrevented` left ALL 95 tests across popover-panel,
+  // dismissal-integration, modal, use-dismissable, popover-in-modal,
+  // modal-field-controls and sidebar-nav GREEN; with the new test the same
+  // mutant gives 1 failed / 25 passed. (The full suite was not run, so read the
+  // "nothing else" as scoped to those seven.)
   // ★ So a NEW consumer whose controls are all `tabIndex={-1}` must handle Tab
   // itself the same way; it does not get an exemption from here.
   // ★ When the panel genuinely has NO focusables we return without trapping,
