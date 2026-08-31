@@ -3703,13 +3703,26 @@ non-colour marker now covers the highest-traffic case in the app.
 
 The twelve that remain: `task-form-fields.tsx:576,590` (health-override chips) ·
 `create-project-wizard.tsx:308,337` (template picker) · `raci-chip-picker.tsx:107` ·
-`knowledge-panel.tsx:213` · `settings-sections/comm-templates-section.tsx:324,346` (version compare)
+`knowledge-panel.tsx:213` · `settings-sections/comm-templates-section.tsx` (version compare —
+located by grep, not by line: see below)
 · `step0-import-panel.tsx:304` · `influence-interest-matrix.tsx:80` · `dictation-mic.tsx:73` ·
 `voice-button.tsx:101`.
 ★★ FOUR of those line numbers MOVED in the same slice that removed the thirteenth, and none of the
 controls changed: `task-form-fields` 545,559 → 576,590 and `comm-templates-section` 335,357 →
 324,346, because both files are `RichTextEditor` call sites and lost the `variant`/`labels` props
-(`raci-chip-picker` 105 → 107 was already stale). Re-verified against the tree 2026-08-11. This is
+(`raci-chip-picker` 105 → 107 was already stale). Re-verified against the tree 2026-08-11.
+★★★ **AND THE SAME TWO MOVED AGAIN on 2026-08-31 — 324,346 → 348,370, from an unrelated insertion
+above them — which is why the list now names the FILE and no line at all.** That pair rotted TWICE in
+twenty days, and `docs:claims:check` was EXIT=0 across both, correctly: it proves only that a cited
+line COULD exist, and 324 and 346 still do — they point at `/>` and `type="button"`. A citation that
+survives its own subject is worse than no citation, because it reads as verified. Locate the pair by
+what it IS:
+
+```bash
+git grep -n "aria-pressed" -- src/app/settings-sections/comm-templates-section.tsx
+```
+
+This is
 AGENTS.md's own corollary — an edit that inserts or deletes lines invalidates every `file:LINE`
 citation in the file, including ones in a doc the edit never opened.
 
