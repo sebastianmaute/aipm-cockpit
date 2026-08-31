@@ -24,6 +24,7 @@ export interface TypeToConfirmDialogProps {
 }
 
 const TITLE_ID = "type-to-confirm-title";
+const MISMATCH_ID = "type-to-confirm-mismatch";
 
 export function TypeToConfirmDialog({
   lang,
@@ -35,7 +36,16 @@ export function TypeToConfirmDialog({
   onCancel,
 }: TypeToConfirmDialogProps) {
   const [typed, setTyped] = useState("");
-  const matched = typed === confirmValue;
+  const [touched, setTouched] = useState(false);
+  // ★ Trim, do NOT case-fold. A trailing space arrives whenever the phrase is
+  // copied out of the prompt above, and a dead button with no explanation is
+  // the same silent failure this dialog's mismatch message exists to end.
+  // Case-folding would weaken a deliberate destructive gate, and `confirmValue`
+  // is sometimes a project NAME, where case is meaningful.
+  const matched = typed.trim() === confirmValue;
+  // ★ Blur-gated on purpose: a message rendered per keystroke makes a screen
+  // reader narrate one failure per character of a 30-character phrase.
+  const showMismatch = touched && typed.trim() !== "" && !matched;
 
   return (
     <Modal
@@ -61,9 +71,17 @@ export function TypeToConfirmDialog({
               type="text"
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
+              onBlur={() => setTouched(true)}
               aria-label={t(lang, "typeToConfirmPrompt", confirmValue)}
+              invalid={showMismatch}
+              aria-describedby={showMismatch ? MISMATCH_ID : undefined}
               autoComplete="off"
             />
+            {/* ★ ALWAYS mounted, content swapped — a live region added to the DOM
+                at the same moment it gains text is not reliably announced. */}
+            <span id={MISMATCH_ID} role="status" className="text-xs text-ui-pink">
+              {showMismatch ? t(lang, "typeToConfirmMismatch") : ""}
+            </span>
           </label>
           <div className="flex justify-end gap-2">
             <button
