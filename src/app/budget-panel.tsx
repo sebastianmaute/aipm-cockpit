@@ -40,8 +40,9 @@ import { ViewCallout } from "./view-callout";
 import { BudgetUnappliedNotice } from "./budget-unapplied-notice";
 import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { ROW_RULE_CLASS } from "./table-styles";
 import {
-  DOT_COL_PX, TOTAL_COL_PX, HoursTd, BucketRowLeadCells, BucketTotalRow, bucketColumnTotals,
+  DOT_COL_PX, TOTAL_COL_PX, HoursTd, BucketRowLeadCells, BucketTotalRow, bucketBudgetGrid,
   type TotalsRow,
 } from "./budget-panel-totals";
 
@@ -78,6 +79,10 @@ export interface BudgetPanelProps {
    *  writes, NOT from live sync state, so it is a DIFFERENT source from the role
    *  row's persisted `actualHours`; see the booked-vs-role-row follow-up. */
   actualsByBucket?: ActualsByBucket;
+  /** `fetchedAt` of the per-device Timelog cache `actualsByBucket` came from.
+   *  Drives the §122 source cue on the people rows; absent means this device
+   *  has never fetched. */
+  actualsFetchedAt?: string;
   onChangeBuckets: (next: BudgetBucket[], meta?: BucketCommitMeta) => void;
   onSetBudgetFollowsPlan?: (v: boolean) => void;
   onRefreshFx: () => void;
@@ -117,7 +122,7 @@ function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {
 }
 
 export function BudgetPanel(props: BudgetPanelProps) {
-  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, timelogProjectId, onGoToTimelog, tasks = [], actualsByBucket = NO_ACTUALS } = props;
+  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, timelogProjectId, onGoToTimelog, tasks = [], actualsByBucket = NO_ACTUALS, actualsFetchedAt } = props;
   const locale = localeFor(lang);
   const confirm = useConfirm();
 
@@ -437,7 +442,11 @@ export function BudgetPanel(props: BudgetPanelProps) {
           // choice the rows do. Both allocation shapes carry the three fields
           // TotalsRow names, so the union widens without a cast.
           const rowsForTotals: readonly TotalsRow[] = isBlended ? blendedRows : detailedRows;
-          const totals = bucketColumnTotals(rowsForTotals, periods, (r, p) => cellBudget(r, p, periods));
+          // §71 — ONE evaluation of `cellBudget` per (row, period). The cell, the
+          // row total and the column totals all read this same grid, so the two
+          // axes agree structurally rather than because three call sites happen to
+          // pass the same accessor.
+          const totals = bucketBudgetGrid(rowsForTotals, periods, (r, p) => cellBudget(r, p, periods));
           return (
             <div
               key={br.bucketId}
@@ -605,7 +614,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     {!isBlended && detailedRows.map((a) => {
                       // Effective budget (mirrors planned when follow-plan is on) so the
                       // row RAG agrees with the cells + bucket dot — not the stored hours.
-                      const totBudget = periods.reduce((s, p) => s + cellBudget(a, p, periods), 0);
+                      const totBudget = totals.rowBudgetTotal(a);
                       const totActual = sumPeriods(a.actualHours, periods);
                       const mirror = budgetFollowsPlan && a.resourceIds.length > 0;
                       const label = roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`;
@@ -615,7 +624,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       return (
                       <Fragment key={a.roleId}>
                       <tbody>
-                      <tr className="border-t border-line">
+                      <tr className={ROW_RULE_CLASS}>
                         <BucketRowLeadCells
                           label={
                             <PeopleDisclosureLabel
@@ -625,11 +634,11 @@ export function BudgetPanel(props: BudgetPanelProps) {
                           }
                           budget={totBudget} actual={totActual} lang={lang} roleWidth={colWidths.role}
                         />
-                        {periods.map((p) => (
+                        {periods.map((p, pi) => (
                           <HoursTd
                             key={p.key}
                             ariaPrefix={`${bucket.id}-${a.roleId}-${p.key}`}
-                            budget={cellBudget(a, p, periods)}
+                            budget={totals.budgetAt(a, pi)}
                             actual={a.actualHours[p.key]}
                             readOnly={mirror}
                             onBudget={(v) => setCell(bucket.id, a.roleId, p.key, "budgetHours", v)}
@@ -650,6 +659,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
                         periods={periods}
                         collapsed={!open}
                         roleWidth={colWidths.role}
+                        lang={lang}
+                        fetchedAt={actualsFetchedAt}
                       />
                       </Fragment>
                       );
@@ -657,23 +668,23 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     {isBlended && <tbody>{blendedRows.map((a) => {
                       // Effective budget (mirrors planned when follow-plan is on) so the
                       // row RAG agrees with the cells + bucket dot — not the stored hours.
-                      const totBudget = periods.reduce((s, p) => s + cellBudget(a, p, periods), 0);
+                      const totBudget = totals.rowBudgetTotal(a);
                       const totActual = sumPeriods(a.actualHours, periods);
                       // Each blended row IS one disciplineAllocation carrying its own
                       // resourceIds, and allocationPlannedHours already sums over them —
                       // so the mirror rule is identical to the role rows.
                       const mirror = budgetFollowsPlan && a.resourceIds.length > 0;
                       return (
-                      <tr key={a.disciplineId} className="border-t border-line">
+                      <tr key={a.disciplineId} className={ROW_RULE_CLASS}>
                         <BucketRowLeadCells
                           label={props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`}
                           budget={totBudget} actual={totActual} lang={lang} roleWidth={colWidths.role}
                         />
-                        {periods.map((p) => (
+                        {periods.map((p, pi) => (
                           <HoursTd
                             key={p.key}
                             ariaPrefix={`${bucket.id}-d${a.disciplineId}-${p.key}`}
-                            budget={cellBudget(a, p, periods)}
+                            budget={totals.budgetAt(a, pi)}
                             actual={a.actualHours[p.key]}
                             readOnly={mirror}
                             onBudget={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "budgetHours", v)}
@@ -694,6 +705,12 @@ export function BudgetPanel(props: BudgetPanelProps) {
                           grandActual={totals.grandActual}
                           lang={lang}
                           roleWidth={colWidths.role}
+                          // §70 — `rowsForTotals` is already narrowed by
+                          // `filterSortAllocations`, so this total covers the matching
+                          // roles only while the CCI tiles above it read the whole
+                          // bucket. Trimmed, because a filter of only spaces narrows
+                          // nothing and must not relabel the total.
+                          filtered={roleFilter.trim() !== ""}
                         />
                       </tbody>
                     )}

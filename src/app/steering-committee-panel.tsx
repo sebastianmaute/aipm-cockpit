@@ -24,6 +24,7 @@ import { committeeMemberEmails } from "./committee-report/report-recipients";
 import type { MeetingReportBag } from "./use-meeting-report-actions";
 import { Button } from "./button";
 import { Input } from "./form-controls";
+import { ROW_RULE_CLASS } from "./table-styles";
 
 const MEETING_COL_WIDTHS = { date: 150, title: 240, location: 200 } as const;
 type MeetingCol = keyof typeof MEETING_COL_WIDTHS;
@@ -329,7 +330,7 @@ export function SteeringCommitteePanel({
                 </tr>
               </>}>
                 {c.meetings.map((m) => (
-                  <tr key={m.id} className="border-t border-line">
+                  <tr key={m.id} className={ROW_RULE_CLASS}>
                     <td className="py-1">
                       <Input
                         type="date"
@@ -443,7 +444,7 @@ export function SteeringCommitteePanel({
                 </tr>
               </>}>
                 {c.infoSchedules.map((s) => (
-                  <tr key={s.id} className="border-t border-line">
+                  <tr key={s.id} className={ROW_RULE_CLASS}>
                     <td className="py-1">
                       <Input
                         type="text"

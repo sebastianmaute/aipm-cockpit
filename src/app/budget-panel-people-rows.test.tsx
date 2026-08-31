@@ -17,11 +17,12 @@ const row = (over: Partial<PersonRow> = {}): PersonRow => ({
   bookedTotal: 6, plannedTotal: 8, ...over,
 });
 
-const renderRows = (rows: readonly PersonRow[], collapsed = false) =>
+const renderRows = (rows: readonly PersonRow[], collapsed = false, fetchedAt?: string) =>
   render(
     <table>
       <BucketPeopleRows
         id="people-1-10" rows={rows} periods={PERIODS} collapsed={collapsed} roleWidth={ROLE_WIDTH}
+        lang="en-US" fetchedAt={fetchedAt}
       />
     </table>,
   );
@@ -29,8 +30,14 @@ const renderRows = (rows: readonly PersonRow[], collapsed = false) =>
 // ★ The figure and its separator are separate spans, and Testing Library's text
 //   matcher reads a node's DIRECT text children only — so no `getByText` can
 //   ever see a whole "booked / planned" pair. Read the cells instead.
+// ★★ EVERY POSITIONAL QUERY BELOW EXCLUDES `[data-people-source]`. That row is
+//    the §122 source cue — chrome that says which of the two "booked" sources these
+//    figures come from and how stale it is — and it sits FIRST in the tbody, so a
+//    bare `td` query would read its text as the first person cell and shift every
+//    index by one. Excluding it by attribute keeps these assertions about PEOPLE.
+//    The cue itself is asserted separately, below.
 const cellTexts = (container: HTMLElement) =>
-  [...container.querySelectorAll("#people-1-10 td")].map((td) => td.textContent);
+  [...container.querySelectorAll("#people-1-10 tr:not([data-people-source]) td")].map((td) => td.textContent);
 
 describe("BucketPeopleRows", () => {
   it("renders booked / planned in the total column and per period", () => {
@@ -40,6 +47,32 @@ describe("BucketPeopleRows", () => {
     // The counterpart to the collapsed case below: `hidden` must TRACK the prop,
     // not simply be present.
     expect(container.querySelector("#people-1-10")).not.toHaveAttribute("hidden");
+  });
+
+  // ★★ §122 — THE TWO "BOOKED" FIGURES COME FROM DIFFERENT SOURCES AND THE LAYOUT
+  //    SAYS OTHERWISE. The role row above renders the PERSISTED `actualHours` (written
+  //    only by Apply, and hand-editable); these rows render the per-device Timelog
+  //    cache (rewritten by every fetch, editable by nobody). A disclosure opening under
+  //    a figure reads as a BREAKDOWN of it — and they do not reconcile even in
+  //    principle, since the engine drops bookers whose role has no line on this bucket.
+  //
+  //    ★ Both branches are asserted because the ABSENT case is a real state, not an
+  //    edge: a second device, a profile after `clearAppConfig`, or simply before the
+  //    first fetch. Covering only the happy branch would leave the case where every
+  //    person reads "—" explaining itself with nothing.
+  it("names the source and its age when the cache has been fetched", () => {
+    const { container } = renderRows([row()], false, "2026-08-31T09:30:00Z");
+    const cue = container.querySelector("[data-people-source]");
+    expect(cue?.textContent).toContain("TimeLog bookings");
+    // The FORMATTED timestamp, never the raw ISO string.
+    expect(cue?.textContent).not.toContain("2026-08-31T09:30:00Z");
+    expect(cue?.textContent).toMatch(/2026/);
+  });
+
+  it("says so when this device has never fetched", () => {
+    const { container } = renderRows([row()], false, undefined);
+    const cue = container.querySelector("[data-people-source]");
+    expect(cue?.textContent).toContain("No TimeLog fetch on this device");
   });
 
   it("shows a dash for planned when the person has no plan line", () => {
@@ -87,7 +120,7 @@ describe("BucketPeopleRows", () => {
   // the first cut of this shipped mis-aligned — assert both.
   it("anchors a person's period figure to the role row's value-box column", () => {
     const { container } = renderRows([row()]);
-    const cells = [...container.querySelectorAll("#people-1-10 td")];
+    const cells = [...container.querySelectorAll("#people-1-10 tr:not([data-people-source]) td")];
     const period = cells[3] as HTMLElement;
     expect(period.className).not.toContain("text-right");
     const figure = period.firstElementChild as HTMLElement;
@@ -105,7 +138,7 @@ describe("BucketPeopleRows", () => {
   // the one constant, so the two derivations cannot drift apart.
   it("anchors a person's TOTAL figure to the same column", () => {
     const { container } = renderRows([row()]);
-    const total = [...container.querySelectorAll("#people-1-10 td")][2] as HTMLElement;
+    const total = [...container.querySelectorAll("#people-1-10 tr:not([data-people-source]) td")][2] as HTMLElement;
     const figure = total.firstElementChild as HTMLElement;
     expect(figure.style.width).toBe(HOURS_LINE_REM);
     expect(figure).toHaveClass("pr-1");
@@ -119,7 +152,7 @@ describe("BucketPeopleRows", () => {
     expect(body).toHaveAttribute("hidden");
     // The rows themselves must still be there — a hidden tbody with no children
     // would satisfy the id lookup while pointing at nothing.
-    expect(body?.querySelectorAll("tr")).toHaveLength(1);
+    expect(body?.querySelectorAll("tr:not([data-people-source])")).toHaveLength(1);
   });
 
   it("does not tint either figure", () => {
@@ -136,7 +169,7 @@ describe("BucketPeopleRows", () => {
   //    jsdom has no layout — this pins the plumbing, not the geometry.
   it("pins its three leading cells at the same offsets as the role row", () => {
     const { container } = renderRows([row()]);
-    const cells = [...container.querySelectorAll("#people-1-10 td")];
+    const cells = [...container.querySelectorAll("#people-1-10 tr:not([data-people-source]) td")];
     expect(cells).toHaveLength(4); // dot, name, total, one period
     const [dot, name, total] = cells as HTMLElement[];
     expect(dot.style.left).toBe("0px");
@@ -194,11 +227,12 @@ describe("BucketRolePeople float noise", () => {
           plannedByResourcePeriod={planned}
           periods={NOISY_PERIODS}
           collapsed={false}
+          lang="en-US"
           roleWidth={ROLE_WIDTH}
         />
       </table>,
     );
-    const cells = [...container.querySelectorAll(`#${peopleBodyId(1, 10)} td`)].map((td) => td.textContent);
+    const cells = [...container.querySelectorAll(`#${peopleBodyId(1, 10)} tr:not([data-people-source]) td`)].map((td) => td.textContent);
     expect(cells).toEqual(["", "Adam", "0.3 / 285.6", "0.1 / 142.8", "0.2 / 142.8"]);
   });
 });

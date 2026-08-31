@@ -26,6 +26,7 @@ import { useResizable } from "./use-resizable";
 import { VIEW_PANE_FILL_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
 import { PaneHeader } from "./pane-header";
+import { ROW_RULE_CLASS } from "./table-styles";
 
 export interface PortfolioHealthPanelProps {
   lang: Lang;
@@ -167,7 +168,7 @@ export function PortfolioHealthPanel({
         </tr>
       }>
           {rows.map((row) => (
-            <tr key={row.id} className="border-b border-line">
+            <tr key={row.id} className={ROW_RULE_CLASS}>
               <td className="py-2 pr-3 font-medium text-foreground">
                 {onSwitchProject ? (
                   <button

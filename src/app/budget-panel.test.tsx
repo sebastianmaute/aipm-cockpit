@@ -1092,6 +1092,9 @@ describe("BudgetPanel — per-person booking rows", () => {
     }
   });
 
+  // ★ Both people-cell reads below exclude `[data-people-source]` — the §122 cue row
+  //   that names which "booked" source these figures come from. It leads the tbody, so
+  //   an unscoped `td` query reads its text as the first person cell.
   test("booked reads as unknown, never zero, when no actuals breakdown is supplied", () => {
     const { container } = renderPeople();
     const trigger = screen.getAllByRole("button", { name: /Show people/ })[0];
@@ -1099,7 +1102,7 @@ describe("BudgetPanel — per-person booking rows", () => {
     const body = container.querySelector(`#${CSS.escape(trigger.getAttribute("aria-controls")!)}`)!;
     // Ada is on the plan line, so planned is real (176 workday hours at 100 %)
     // while booked is "—": the panel has no per-resource breakdown to report.
-    const cells = [...body.querySelectorAll("td")].map((td) => td.textContent);
+    const cells = [...body.querySelectorAll("tr:not([data-people-source]) td")].map((td) => td.textContent);
     expect(cells[1]).toBe("Ada L");
     expect(cells[2]).toBe("— / 176");
   });
@@ -1111,7 +1114,7 @@ describe("BudgetPanel — per-person booking rows", () => {
     const trigger = screen.getAllByRole("button", { name: /Show people/ })[0];
     fireEvent.click(trigger);
     const body = container.querySelector(`#${CSS.escape(trigger.getAttribute("aria-controls")!)}`)!;
-    expect([...body.querySelectorAll("td")].map((td) => td.textContent)[2]).toBe("6 / 176");
+    expect([...body.querySelectorAll("tr:not([data-people-source]) td")].map((td) => td.textContent)[2]).toBe("6 / 176");
   });
 });
 
@@ -1216,5 +1219,82 @@ describe("BudgetPanel — the hours hints are stated once, not per cell (§246)"
       roles: ["button"],
       requireCollisionSeed: true,
     });
+  });
+});
+
+// WCAG-neutral, data-integrity (open-followups §70). A bucket's Total column and
+// total row are built from `rowsForTotals`, which `filterSortAllocations` has
+// ALREADY narrowed by the role filter — while the CCI tiles directly above them
+// read the whole-bucket report straight off the engine. Two scopes, stacked, and
+// the label just said "Total".
+//
+// ★★ THE FIGURES WERE NEVER WRONG. A total of what you are looking at is the right
+//    reading for a filtered table and is what every other filtered table in the app
+//    does; what was missing was anything on screen saying WHICH scope it meant. So
+//    this pins the disclosure AND the scope together — asserting the label alone
+//    would pass against a build that had quietly switched the totals to unfiltered.
+//
+// ★ Before this, NOTHING pinned the scope in either direction, so a future edit
+//   could have flipped these totals to the unfiltered list with a green suite.
+describe("BudgetPanel — a filtered bucket total says that it is filtered (§70)", () => {
+  const twoRoleProps = {
+    ...props,
+    roles: [
+      { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 7, disciplineId: 2, gradeId: 1, internalRate: 120, externalRate: 180 },
+    ],
+    disciplines: [{ id: 1, name: "Consulting" }, { id: 2, name: "Engineering" }],
+    grades: [{ id: 1, name: "Senior" }],
+    buckets: [{
+      ...buckets[0],
+      allocations: [
+        { roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } },
+        { roleId: 7, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: { "2026-01": 20 } },
+      ],
+    }],
+  };
+
+  // ★ "Total" is also a COLUMN HEADER, so a bare text query matches two elements.
+  //   The total ROW is the one `BucketTotalRow` marks `font-medium`; scoping to it
+  //   is what makes this about the row rather than the header.
+  const totalRowText = () => {
+    const labels = screen.getAllByText(
+      (txt) => txt === t("en-US", "budgetTotal") || txt === t("en-US", "budgetTotalFiltered"),
+    );
+    const label = labels.find((el) => el.closest("tr")?.classList.contains("font-medium"));
+    if (!label) throw new Error("no total ROW found; only headers matched");
+    return { label: label.textContent, row: label.closest("tr")?.textContent ?? "" };
+  };
+
+  test("says Total over every row, and Total (filtered) once the role filter narrows them", () => {
+    render(<BudgetPanel {...twoRoleProps} />);
+
+    const before = totalRowText();
+    expect(before.label).toBe(t("en-US", "budgetTotal"));
+    // Both allocations are in scope: 100 + 40 budget hours.
+    expect(before.row).toContain("140");
+
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "budgetRoleFilter")), {
+      target: { value: "Engineering" },
+    });
+
+    const after = totalRowText();
+    expect(after.label).toBe(t("en-US", "budgetTotalFiltered"));
+    // Now a subtotal of the one matching role — and no longer the whole bucket.
+    expect(after.row).not.toContain("140");
+    expect(after.row).toContain("40");
+  });
+
+  // ★ `filterSortAllocations` compares on `filter.trim()`, so whitespace narrows
+  //   NOTHING. The label has to use the same predicate or it announces a filter
+  //   that is not in effect.
+  test("a whitespace-only filter narrows nothing and does not relabel the total", () => {
+    render(<BudgetPanel {...twoRoleProps} />);
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "budgetRoleFilter")), {
+      target: { value: "   " },
+    });
+    const after = totalRowText();
+    expect(after.label).toBe(t("en-US", "budgetTotal"));
+    expect(after.row).toContain("140");
   });
 });

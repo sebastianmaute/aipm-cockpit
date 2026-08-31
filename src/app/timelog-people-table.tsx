@@ -16,6 +16,7 @@ import type { Resource } from "./types";
 import type { RowSelection } from "./use-row-selection";
 import type { TimelogUser, TimelogUserLink } from "./timelog-types";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { ROW_RULE_CLASS } from "./table-styles";
 
 // Module-scope accessor (see use-row-tokens.ts): a fresh inline arrow would
 // defeat the memo and trip react-hooks/exhaustive-deps (fatal here).
@@ -105,7 +106,7 @@ export function TimelogPeopleTable({
             const rowSelectLabel = t(lang, "selectItem", token);
             const removeLabel = rowLabel(t(lang, "remove"), token);
             return (
-              <tr key={u.userId} className="border-b border-line last:border-0">
+              <tr key={u.userId} className={ROW_RULE_CLASS}>
                 <td className="py-2 pr-2">
                   <Checkbox
                     aria-label={rowSelectLabel}

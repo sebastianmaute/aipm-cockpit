@@ -550,25 +550,12 @@ export function BudgetBucketModal({
           {isVisible("rateOverrides") && (
           <>
           <label className="flex flex-col gap-1 text-sm">
-            {/* ★★ THE `label` IS LOAD-BEARING, NOT DECORATION (open-followups §314).
-                Both rate-override fields mount the SAME `budgetRateOverrideHint`
-                string, and `InfoTooltip` derives its trigger's accessible name from
-                `text` when no `label` is given — so bare, these two static fields
-                announce one identical (and very long) name: WCAG 2.4.6. Qualifying
-                the NAME while leaving the shared `text` keeps one hint string and
-                needs no new i18n key. ★ NOT a `buildRowTokens` occurrence index:
-                these are not rows, and " (1)"/" (2)" would say only that there are
-                two of something, where the field name says which is which.
-                ★★ THE FIELD NAME LEADS, and that is not the order `report-table.tsx`
-                uses for its own `nameContext`. The hint is ~100 identical characters
-                across both triggers, so hint-first is conformant but makes a screen
-                reader read the whole shared preamble before the one distinguishing
-                word — the case WCAG's own note under 2.5.3 ("a best practice is to
-                have the text of the label at the start of the name") is about.
-                ★ It also keeps `getByLabelText("Internal rate override")` resolving
-                to the INPUT alone: an RTL string matcher is whole-string, so a name
-                that merely CONTAINS the field label does not collide with it, while
-                a regex query does — two existing tests moved to the exact form. */}
+            {/* ★★ The `label` is LOAD-BEARING (open-followups §314): both fields mount
+                the same `budgetRateOverrideHint`, and `InfoTooltip` falls back to
+                `text` for its name, so bare they announce one identical ~100-char
+                name (WCAG 2.4.6). The FIELD NAME LEADS — the opposite of
+                `report-table.tsx`'s `nameContext` order, and deliberately so. §314
+                carries the reasoning and the two test knock-ons. */}
             <span className="flex items-center gap-1">{t(lang, "budgetRateOverrideInternal")}<InfoTooltip text={t(lang, "budgetRateOverrideHint")} label={`${t(lang, "budgetRateOverrideInternal")} – ${t(lang, "budgetRateOverrideHint")}`} /></span>
             <div className="flex items-center gap-1">
               <input

@@ -248,7 +248,7 @@ export function WorkspaceSection({
   // accepted cost of not threading the live sync state through here. Keyed the
   // same way TimelogPanel keys the cache it WRITES — a different fallback than
   // `"default"` would miss every entry and silently report "unknown".
-  const budgetActualsByBucket = useMemo(() => loadActualsCache(currentProjectId ?? "default")?.aggregates?.byBucket ?? {}, [currentProjectId]);
+  const budgetActuals = useMemo(() => { const c = loadActualsCache(currentProjectId ?? "default"); return { byBucket: c?.aggregates?.byBucket ?? {}, fetchedAt: c?.fetchedAt }; }, [currentProjectId]);
   // Inline "Ask Claude" per-row edit glue (SP2). One instance per entity pane;
   // each yields the row handlers threaded into the panel + its active-edit
   // popover element. Called unconditionally (hook rules); the popover only
@@ -729,7 +729,7 @@ export function WorkspaceSection({
               workdayHours={settings.resources.workdayHours}
               today={today}
               tasks={tasks}
-              actualsByBucket={budgetActualsByBucket}
+              actualsByBucket={budgetActuals.byBucket} actualsFetchedAt={budgetActuals.fetchedAt}
               timelogProjectId={currentProjectId ?? "default"} onGoToTimelog={() => setActiveTab("timelog")}
               onChangeBuckets={onChangeBudgets}
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
