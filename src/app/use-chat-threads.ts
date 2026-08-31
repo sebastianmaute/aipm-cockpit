@@ -161,9 +161,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   }, [threads]);
 
   // A monotonic PROJECT EPOCH, for async settles that must not write under a
-  // project the user has since left. retryLoad's `.then`/`.catch` close over
-  // the `projectId` of the render that produced the clicked instance, so
-  // comparing that local against itself is a tautology.
+  // project the user has since left. ★ PROJECT changes ONLY — a `tursoConfig`
+  // change refires the load effect without bumping it, so a retry issued against
+  // the old database still settles (pre-existing; the ref this replaced had the
+  // same hole). retryLoad's handlers close over the `projectId` of the render
+  // that produced the clicked instance, so comparing it against itself is void.
   //
   // ★★ AN EPOCH, NOT THE PROJECT VALUE: comparing the id passes on
   // p1 → p2 → back to p1 inside one window (ABA), letting a stale p1 settle
@@ -172,10 +174,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   //
   // ★ NOT the mount effect's `cancelled` local: retryLoad runs from an event
   // handler outside that closure. ★★ Renamed off `projectIdRef` because
-  // ChatPanel has one too holding the LIVE project id — the same concept, not a
-  // naming coincidence. Its compare is ABA-blind too, but a p1 → p2 → p1 trip
-  // sets its `cancelledRef` at the first switch and nothing resets it until a
-  // send starts, so that case is caught there. Check that before copying this.
+  // ChatPanel has one too holding the LIVE project id — same concept, not a
+  // naming coincidence. Its compare is ABA-blind too, but its `cancelledRef`
+  // (set at the first switch, reset only at a send's start) catches it there.
   const projectEpochRef = useRef(0);
   useEffect(() => {
     projectEpochRef.current += 1;
