@@ -44,6 +44,12 @@ describe("TypeToConfirmDialog", () => {
     expect(screen.getByRole("button", { name: "Delete" })).not.toBeDisabled();
   });
 
+  it("matches a confirmValue that itself carries whitespace, as an entity name can", () => {
+    render(<TypeToConfirmDialog {...base} confirmValue="Apollo " />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Apollo" } });
+    expect(screen.getByRole("button", { name: "Delete" })).not.toBeDisabled();
+  });
+
   // Pins a DELIBERATE choice: confirmValue is sometimes a project NAME, and
   // case-folding would both weaken a destructive gate and make two projects
   // differing only in case indistinguishable here.

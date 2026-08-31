@@ -42,7 +42,12 @@ export function TypeToConfirmDialog({
   // the same silent failure this dialog's mismatch message exists to end.
   // Case-folding would weaken a deliberate destructive gate, and `confirmValue`
   // is sometimes a project NAME, where case is meaningful.
-  const matched = typed.trim() === confirmValue;
+  // ★ BOTH sides are trimmed, because two of the six call sites pass an entity
+  // NAME rather than a fixed phrase, and trimming only one side would make a
+  // whitespace-bearing name unmatchable while the prompt renders it as if it
+  // were fine — a permanently dead button, now compounded by a mismatch message
+  // telling the user their exactly-correct input does not match.
+  const matched = typed.trim() === confirmValue.trim();
   // ★ Gated until the first blur, live thereafter: `touched` never resets, so
   // once the field has been blurred once the message updates on every
   // keystroke. The text node only mutates on the false→true transition

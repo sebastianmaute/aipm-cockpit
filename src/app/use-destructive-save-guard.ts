@@ -77,7 +77,11 @@ export interface DestructiveEvaluation extends SaveGuardVerdict {
    *  recorded TWICE before this gate existed.
    *  ★★ MUTATION-PROVED: under a `!refusalWasStanding` mutant the
    *  worsened-magnitude test FAILS while the duplicate-suppression test still
-   *  PASSES — so the duplicate test alone would certify the wrong gate. */
+   *  PASSES — so the duplicate test alone would certify the wrong gate.
+   *  ★★ PRECONDITION: `evaluate` is expected to be called at most ONCE per
+   *  render. It compares against the CLOSURE's refusal, which the setter below
+   *  cannot update until commit, so a second call in the same render sees the
+   *  same closure value and reports `true` again. */
   isNewMagnitude: boolean;
 }
 

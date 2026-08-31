@@ -3891,7 +3891,7 @@ export const de: Record<TranslationKey, string> = {
   projectsHardDeleteTitle: "Projekt endgültig löschen",
   projectsHardDeleteMessage: "Damit werden das Projekt und ALLE zugehörigen Daten (Aufgaben, RAID, Meilensteine, Snapshots) dauerhaft aus der Datenbank entfernt. Dies kann nicht rückgängig gemacht werden.",
   typeToConfirmPrompt: "Geben Sie „{0}“ zur Bestätigung ein",
-  typeToConfirmMismatch: "Das stimmt nicht mit der Angabe oben überein.",
+  typeToConfirmMismatch: "Das stimmt nicht mit dem Text oben überein.",
   settingsResetConfirmValue: "ja, alles zurücksetzen",
   tasksClearAllConfirmValue: "ja, alle Aufgaben löschen",
   tasksDeleteSelectedConfirmValue: "ja, ausgewählte Aufgaben löschen",

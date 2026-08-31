@@ -390,8 +390,10 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     setSelectedIds(new Set());
   }, [bulkEdit, selectedIds, visibleIds, tasks, setTasks, setBulkEdit, setBulkEditOpen, tz, budgets, commitBuckets]);
 
-  // Unconditional clear — callers own the confirmation (the tasks view gates it
-  // with TypeToConfirmDialog; the voice command below gates it with window.confirm).
+  // Unconditional clear — callers own the confirmation, and BOTH paths gate it
+  // with TypeToConfirmDialog: the tasks view's toolbar button directly, and the
+  // voice command below by routing through `requestClearAllConfirmRef` so it
+  // opens the same dialog rather than a one-click window.confirm.
   const handleClearAll = useCallback(() => {
     if (tasks.length === 0) return;
     captureRef.current({ setter: setTasks, kind: "task.deleted", removed: tasks, fromArray: tasks });
