@@ -62,7 +62,8 @@ export interface UseChatThreadsDeps {
    *  sends settles FIRST it owns the slot and clears it while the earlier send
    *  is still live. retryLoad would read idle over that live send, and the
    *  occurrence test cannot help — both `sendSeqRef` bumps predate the click.
-   *  See retryLoad's second guard and docs/open-followups.md §312. */
+   *  Not known to be reachable — the call sites are enumerated at retryLoad's
+   *  second guard. See it and docs/open-followups.md §312. */
   cancelledRef: React.MutableRefObject<boolean>;
   abortRef: React.MutableRefObject<AbortController | null>;
   confirm: ConfirmFn;
@@ -170,8 +171,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // banner over a fetch that has since succeeded. A counter cannot repeat.
   //
   // ★ NOT the mount effect's `cancelled` local: retryLoad runs from an event
-  // handler outside that closure. NOT named projectIdRef — ChatPanel has its
-  // own, tracking the PREVIOUS project to abort a send; the two are unrelated.
+  // handler outside that closure. ★★ Renamed off `projectIdRef` because
+  // ChatPanel has one too holding the LIVE project id — the same concept, not a
+  // naming coincidence. Its compare is ABA-blind too, but a p1 → p2 → p1 trip
+  // sets its `cancelledRef` at the first switch and nothing resets it until a
+  // send starts, so that case is caught there. Check that before copying this.
   const projectEpochRef = useRef(0);
   useEffect(() => {
     projectEpochRef.current += 1;
@@ -504,21 +508,21 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     //   (c) A send that starts AND finishes strictly inside the window. Both
     //       liveness samples read null — chat-panel's `finally` clears
     //       `abortRef` whenever the settling send still OWNS it, which for a
-    //       single-flight send is always — and if it went
-    //       into the already-active thread it minted nothing, so the identity test
-    //       reads clean too. All three of the pre-counter guards pass, the
-    //       adopt branch runs, and setHistory/setDisplay replace the
-    //       transcript with a snapshot taken BEFORE that send: the user's
-    //       message and its reply vanish from screen. → caught by
-    //       `sendSeqRef.current !== seqAtClick`. ★★ NOT the ONLY detector, and
-    //       this comment said it was until §317 landed three commits earlier:
-    //       the busy-persist effect below issues a `runPersist` at EVERY send's
-    //       end, so in the running app that write falls inside the window and
-    //       §317's persist occurrence test fires for this ordering too. The
-    //       counter is the only detector here that does not depend on that
-    //       effect electing to write, which is why it stays. The tests isolate
-    //       it by draining that write: deleting this disjunct kills every block
-    //       in the §148 describe and nothing outside it (measured).
+    //       single-flight send is always — and if it went into the already-active
+    //       thread it minted nothing, so the identity test reads clean too. All
+    //       three of the pre-counter guards pass, the adopt branch runs, and
+    //       setHistory/setDisplay replace the transcript with a snapshot taken
+    //       BEFORE that send: the user's message and its reply vanish from
+    //       screen. → caught by
+    //       `sendSeqRef.current !== seqAtClick`. ★★ NOT the ONLY detector: the
+    //       busy-persist effect below issues a `runPersist` at EVERY send's end,
+    //       so in the running app that write falls inside the window and §317's
+    //       persist occurrence test fires for this ordering too. The counter is
+    //       the only detector here that does not depend on that effect electing
+    //       to write, which is why it stays. The tests isolate
+    //       it by draining that write: deleting this disjunct kills the eight
+    //       NEGATIVE blocks of the "starts AND finishes inside the window"
+    //       describe (its two positive controls survive, as they must), nothing else.
     // Those are the three orderings of a SEND relative to the two window
     // edges: begun-before (a), begun-inside-and-unfinished (b),
     // begun-inside-and-finished (c).

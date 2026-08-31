@@ -1791,9 +1791,13 @@ describe("useChatThreads — registry publication", () => {
 // ★★ The PASSED counts below were measured at 1819a0b9, when this file ran 66
 //   tests, and each tally summed to it. The file runs more now, so the passed
 //   halves are stale BY CONSTRUCTION — only the FAILING SETS are durable, and
-//   they are what each mutant actually proves. Re-measured at HEAD: Mutant A
-//   gives 2 failed / 68 passed of 70, killing the same two blocks. Quote a
-//   denominator only with the commit it was taken at.
+//   they are what each mutant actually proves. Re-measured after the ABA block
+//   below landed: Mutant A gives 3 failed / 68 passed of 71 — the two named
+//   under it PLUS that ABA block, which also settles through the `.then`.
+//   ★★ An earlier revision of this line said "2 failed / 68 passed of 70,
+//   killing the same two blocks": taken before the ABA block existed and
+//   labelled "at HEAD" — a stale denominator inside the very note about stale
+//   denominators, and it did not sum. Quote one only with what it was taken at.
 //   Mutant A — bail deleted from the `.then` ONLY: 2 failed / 64 passed.
 //     Failing: "does not adopt the left project's rows under the new project"
 //     and "does not drop the new project's rows when the left project's reload
@@ -1943,11 +1947,26 @@ describe("useChatThreads — retryLoad's settle vs. a project switch (§313)", (
   // every one of them. Here the user returns to p1 before the stale reload
   // settles: at settle the live project id equals the issuing one, so a value
   // comparison waves the stale write through — over p1's OWN newer rows. An
-  // epoch cannot repeat, so it still bails. Mutation-proved: restoring the
-  // value comparison kills this block and nothing else in the file.
+  // epoch cannot repeat, so it still bails.
+  //
+  // ★★★ THE RETURNING FETCH KEEPS p1-seed ACTIVE ON PURPOSE. Give it a
+  // different id and `startedOn` no longer matches threadIdRef at settle, so
+  // mergeThreadsAfterLoad's identity test forces the stale MERGE branch by
+  // itself — the stale row is then APPENDED, not adopted, and the block is
+  // green whether or not the project bail exists. That is the wrong kind of
+  // green, and it is the same trap arrangeReloadOutlivingASwitch documents
+  // above. Keeping the id equal leaves the ADOPT branch live, which is where
+  // an ABA actually destroys the transcript — hence the setHistory/setDisplay
+  // assertions, which are the point of this block rather than decoration.
+  //
+  // ★ No positive witness that the settle RAN is possible here: on the fixed
+  // code both handlers are observably silent, the same reason settleAndDrain
+  // documents above. The mutant is the proof.
   it("does not overwrite the issuing project's newer rows after leaving and returning", async () => {
     loadThreadsMock.mockResolvedValueOnce([thread("p1-seed", { projectId: "p1" })]);
-    const { result, rerender, initialProps } = renderChatThreads({ projectId: "p1" });
+    const { result, rerender, initialProps, setHistory, setDisplay } = renderChatThreads({
+      projectId: "p1",
+    });
     await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(result.current.activeThreadId).toBe("p1-seed"));
 
@@ -1968,16 +1987,21 @@ describe("useChatThreads — retryLoad's settle vs. a project switch (§313)", (
     await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(3));
     await waitFor(() => expect(result.current.activeThreadId).toBe("p2-row"));
 
-    // ...and back to p1, whose own fresh fetch lands the rows the stale settle
+    // ...and back to p1, whose own fetch lands the CURRENT rows the stale settle
     // would destroy. THIS is the state a value comparison cannot distinguish.
-    loadThreadsMock.mockResolvedValueOnce([thread("p1-fresh", { projectId: "p1" })]);
+    loadThreadsMock.mockResolvedValueOnce([thread("p1-seed", { projectId: "p1", name: "fresh" })]);
     rerender({ ...initialProps, projectId: "p1" });
     await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(4));
-    await waitFor(() => expect(result.current.threads.map((th) => th.id)).toEqual(["p1-fresh"]));
+    await waitFor(() => expect(result.current.activeThreadId).toBe("p1-seed"));
+    expect(result.current.threads.map((th) => th.name)).toEqual(["fresh"]);
+    setHistory.mockClear();
+    setDisplay.mockClear();
 
     await settleAndDrain(() => settleRetry([thread("p1-stale", { projectId: "p1" })]));
 
-    expect(result.current.threads.map((th) => th.id)).toEqual(["p1-fresh"]);
+    expect(result.current.threads.map((th) => th.name)).toEqual(["fresh"]);
+    expect(setHistory).not.toHaveBeenCalled();
+    expect(setDisplay).not.toHaveBeenCalled();
   });
 });
 
@@ -1998,8 +2022,10 @@ describe("useChatThreads — retryLoad's settle vs. a project switch (§313)", (
 // blind to a write that began BEFORE the sample was captured — which is
 // §317's own ordering. Neither subsumes the other.
 //
-// MUTATION SCORECARD (each mutant applied alone and reverted before the next;
-// the file's runtime test count was 70, and each tally sums to it):
+// MUTATION SCORECARD (each mutant applied alone and reverted before the next).
+// ★★ Tallies taken at 967633b5, when this file ran 70 tests and each summed to
+//   it. It runs 71 now — the §313 ABA block was added later — so the passed
+//   halves below under-count by one. The FAILING SETS are what they prove.
 //   Mutant A — `|| persistInFlightAtClick` deleted from BOTH preserveLive
 //     expressions: 1 failed / 69 passed. Failing: "does not replace the
 //     transcript when a persist was already in flight at the click". The

@@ -1795,7 +1795,7 @@ describe("abortRef ownership across concurrent sends", () => {
     // signals[1] is unaborted-then-aborted under the fixed AND the unconditional
     // clear alike, and the assertion below passes for the wrong reason. `setBusy
     // (false)` sits in that same finally, one line under the clear being tested,
-    // so the Send control returning proves it ran.
+    // so the Send control returning proves the finally ran.
     await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
 
     // A project switch aborts whatever abortRef holds. It must still be send 2's
