@@ -552,6 +552,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | open |
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-the-default-scheme) | Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in the default scheme | found 2026-08-31 in the §300 fix round | M | open |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide) | `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide | found 2026-08-31, adding the §300 mismatch region | S | open |
+| [§327](#327-use-storage-backendts-sits-exactly-on-the-800-line-size-ratchet-with-zero-headroom) | `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom | found 2026-08-31, closing §303 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -24937,3 +24938,53 @@ did not create it — and switching both to `useId()` is out of scope for the co
 one may be open at a time" constraint that `notifications.tsx` and `use-storage-backend.ts` both
 shaped their designs around. That is the reason to do it properly rather than to paper over the
 tasks-section case with a mutual-exclusion guard.
+
+## 327. `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom
+
+**Status:** OPEN. Filed 2026-08-31 while closing
+[§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31).
+**Partially machine-verified, partially not.** Measured: the file's line count by the gate's own
+method (`readFileSync(...).split("\n").length`, per `check-file-sizes.mjs`) is **800**, and
+`npm run size:check` exits **0** printing "file-size ratchet ok" against that count. Reproduce:
+
+```
+node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
+npm run size:check
+```
+
+**Never machine-verified:** whether an extraction of this file is safe, or what its right split
+seams are — nobody has assessed that; this entry records the headroom problem only.
+
+**What happens.** The §303 fix (commit `60bb8e53`) added a guard plus its rationale comment to the
+save effect, taking the file from 799 lines (one under the ceiling, pre-slice — `git show
+60bb8e53^:src/app/use-storage-backend.ts` piped through the same line-count method prints 799) past
+813, which turned `file-size-ratchet` red after every other gate on the branch had already passed.
+It was brought back to exactly 800 (commit `9c20b363`) by collapsing a 12-line rationale comment on
+the guard's call site into one line and moving the reasoning onto the `isNewMagnitude` docstring in
+`DestructiveEvaluation` (`src/app/use-destructive-save-guard.ts`) — a better home for it, since the
+property it documents belongs to the evaluator, not the call site. That trick is now **spent**:
+there is no second comment block in this file left to harvest the same way.
+
+★ **Nobody checked the file was one line under the ceiling before adding to it.** That is the
+process gap this entry exists to flag — a file sitting at 799 gives no visible signal that it has
+one line of room left, and the ratchet only speaks up after the change is already written.
+
+★★ **The gate's own off-by-one made this worse, not better.** It counts
+`readFileSync().split("\n").length`, which for a newline-terminated file is one MORE than `wc -l` —
+so budgeting headroom from `wc -l` overstates it by exactly one line. A contributor checking with
+`wc -l` on this file before the §303 change would have read 798 and believed there were two lines of
+room, when the gate's own count was already 799.
+
+★★★ **This is the storage-backend hook** — the file carrying the destructive-save guard, the
+debounced save effect, and the data-loss forensics (§300, §302, §303 all touched it). It is a file
+people MUST edit to fix data-loss defects, and it is now exactly the file where the next contributor
+discovers mid-fix that they must first perform an extraction before their change can land. The
+repo's own convention (`AGENTS.md`'s panel-split rule, applied already to `gantt.tsx`,
+`reports.tsx`, `raid-panel.tsx`) is to split a file into orchestrator + parts BEFORE it crosses the
+ratchet, not after — this file is past that point with no room left to defer the decision again.
+
+★ **The remedy is an extraction, not a re-baseline.** Re-baselining
+(`node scripts/check-file-sizes.mjs --update`) would admit the growth and defeat the only thing this
+gate checks; nothing in this entry should be read as recommending it. What the actual split seams
+should be is undetermined and is exactly what is NOT machine-verified above — that assessment is
+owed before anyone attempts it.
