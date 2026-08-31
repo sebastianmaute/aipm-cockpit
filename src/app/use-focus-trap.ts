@@ -1,9 +1,7 @@
 "use client";
 import { useEffect, useRef, type RefObject } from "react";
 import { claimsEscape, popDismissal, pushDismissal } from "./dismissal-stack";
-
-const FOCUSABLE_SELECTOR =
-  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+import { FOCUSABLE_SELECTOR } from "./focusables";
 
 /**
  * Trap keyboard focus within `ref` while `active`. On activation it focuses

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { useRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { resetDismissalStack } from "./dismissal-stack";
+import { isTopmostOfKind, resetDismissalStack } from "./dismissal-stack";
 import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
 
 /** Dispatch Escape from a FOCUSED ELEMENT, never `document`.
@@ -170,5 +170,19 @@ describe("useDismissable", () => {
     pressEscape(screen.getByRole("button", { name: "outer" }));
     expect(outer).toHaveBeenCalledTimes(1);
     expect(inner).not.toHaveBeenCalled();
+  });
+
+  it("returns a stable token that identifies its own stack entry", () => {
+    const tokens: symbol[] = [];
+    function Harness({ open }: { open: boolean }) {
+      const token = useDismissable({ open, kind: "modal", onDismiss: () => {} });
+      tokens.push(token);
+      return null;
+    }
+    const { rerender } = render(<Harness open />);
+    expect(typeof tokens[0]).toBe("symbol");
+    expect(isTopmostOfKind(tokens[0], "modal")).toBe(true);
+    rerender(<Harness open />);
+    expect(tokens[tokens.length - 1]).toBe(tokens[0]);
   });
 });

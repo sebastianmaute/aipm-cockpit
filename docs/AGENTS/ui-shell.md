@@ -478,8 +478,23 @@ commits that merely added comments above it; its `onChange` is
   • ★★ **Shared `Modal` (`modal.tsx`) STACKS — topmost-only Escape/Tab.** Per-instance Symbol tokens in
   the SHARED `dismissal-stack.ts` (the local `modalStack` it once owned is GONE — see the ESCAPE PROTOCOL
   bullet below); only the layer that owns the key handles Escape (`claimsEscape`) and only the topmost
-  MODAL contains Tab (`isTopmostOfKind(token,"modal")`), so a nested modal (wizard
+  `"modal"` entry contains Tab (`isTopmostOfKind`), so a nested modal (wizard
   opened from inside the create-project modal) no longer double-fires Escape and dismisses the parent.
+  ★★★ ONE EXCEPTION, and it is invisible to every stack-consulting reader.
+  `use-focus-trap.ts` pushes `kind: "modal"` and traps Tab UNCONDITIONALLY: its
+  Tab branch never consults the stack (the file's own comment says so in as many
+  words), and the keydown effect is gated on `active` ALONE while the stack PUSH
+  additionally requires an `onEscape`. So `inline-ai-edit-popover`, which passes
+  no `onEscape`, runs a live Tab trap while never joining the stack at all.
+  Verify rather than trust this — the command below returns exactly TWO real call
+  sites, `modal.tsx` and `popover-panel.tsx`; everything else it prints is the
+  declaration, their two imports, or prose, and `use-focus-trap.ts` is absent
+  from the output entirely (what keeps it off THIS file, so the quoted command
+  cannot count itself, is the `src/app` PATH ROOT — NOT the `--include`s, which
+  change nothing here: measured 2026-08-31, the command returns 9 lines with
+  them and 9 without, while dropping the path root returns 80):
+  `grep -rn "isTopmostOfKind" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+  Tracked in `docs/open-followups.md` §318.
   LANDMINE (bit twice): the keydown effect must depend on `[open]` ALONE and read `onClose` via a ref —
   if it deps `[open, onClose]`, an unstable parent `onClose` identity (re-created each render/keystroke)
   re-runs the effect and re-pushes that modal's token to the top → wrong modal becomes topmost. Push/pop
@@ -530,6 +545,78 @@ commits that merely added comments above it; its `onChange` is
   same time — that Modal stopped trapping Tab and nothing took over, so focus
   walked out of both (WCAG 2.4.3). Caught in review, not by a gate. If such a
   surface gains a real trap, flip its `kind` in the SAME commit.
+  ★★ WORKED EXAMPLE of that flip: `PopoverPanel` pushes `"modal"` as of 0.270.0
+  because it now owns a real Tab cycle over its portaled content
+  (`docs/open-followups.md` §100) — it was `"layer"` before. Escape is
+  unchanged; both kinds compete equally for it. The cycle is itself gated on
+  `isTopmostOfKind`, so a `Modal` opened from inside a popover would still win.
+  ★★★ Read that gate as DEFENSIVE and name no shipped call site: NO
+  `PopoverPanel` consumer opens a `Modal` today. `popover-panel.tsx`'s own
+  comment carries the reproduce, the counts it prints, and the reason a grep
+  quoted in a comment counts itself — stay consistent with it rather than
+  inventing a second wording, and do NOT reach for `version-menu` as the
+  example (it renders `VersionInfo`, static content; the `Modal` lives in the
+  sibling `VersionInfoModal`, which the sidebar version line and the Settings
+  footer open directly).
+  ★ **LATENT ASYMMETRY IN THAT FLIP — REASONED, NOT MEASURED, and filed here
+  rather than fixed because no reachable consumer was found.** The two halves of
+  "`kind` MEANS traps Tab" are gated on DIFFERENT conditions in
+  `popover-panel.tsx`: the stack PUSH rides `useDismissable({ open, kind:
+  "modal" })`, i.e. `open` alone, while the Tab cycle that JUSTIFIES the
+  `"modal"` kind rides `rendered` (`open` AND a measured position) and returns
+  early when the panel encloses no focusables. So the primitive can hold the top
+  `"modal"` slot — which stands an enclosing `Modal`'s trap down — across a
+  window in which it traps nothing, the exact state the rule above forbids.
+  ★ Reachability, as far as it was checked: the position stays unmeasured only
+  when the anchor ref is null at the open commit, and no shipped consumer opens
+  a panel with a null anchor. The no-focusables half was NOT ruled out and is the
+  one to probe first — it needs a `PopoverPanel` with no focusable content
+  rendered inside a `Modal`, which is the §100 nesting that demonstrably exists.
+  Neither half was reproduced. If either becomes reachable, gate the push on the
+  same condition as the cycle rather than loosening the rule.
+  ★★ The gate is pinned by exactly ONE test — `dismissal-integration.test.tsx`'s
+  "leaves a NON-EDGE Tab inside the layered-above modal completely alone" — and
+  NOT by the inverse-nesting test beside it, which reads like the pin and is not.
+  Deleting the gate leaves that sibling GREEN: both traps are `document` keydown
+  listeners firing in REGISTRATION order and the modal opens second, so it runs
+  last and silently corrects whatever an ungated popover just did. Any assertion
+  on FINAL focus is blind to this gate.
+  ★★★ **FOCUS-RESTORE ON UNMOUNT IS CROSS-BROWSER DIVERGENT, AND THE UNIT SUITE
+  CANNOT SEE IT.** `PopoverPanel` restores focus to its anchor when it unmounts
+  with focus still inside (§297), and getting there cost TWO measured-dead
+  implementations — read this before writing that logic anywhere else.
+  ★★ First dead spelling: asking the question IN the effect cleanup
+  (`panelRef.current?.contains(document.activeElement)`). A passive effect
+  destroy runs AFTER the commit that removed the panel, so React has detached
+  the ref AND focus has already fallen to `<body>` — both terms are stale and
+  the guard is a no-op EVERYWHERE.
+  ★★★ Second dead spelling, and the dangerous one: capture containment eagerly
+  with `focusin`/`focusout` and read the recorded answer in the cleanup. That is
+  a no-op **in Chromium only**, so the whole unit suite goes green over a fix
+  that does nothing for most users. MEASURED with Playwright probes in real
+  chromium and firefox: **Chromium dispatches `focusout` on the panel with
+  `relatedTarget === null`, SYNCHRONOUSLY, as the focused node is removed** —
+  before the passive cleanup runs — so a `contains(relatedTarget)` write clears
+  the flag first. Firefox and jsdom dispatch NO focusout on removal at all, so
+  jsdom's semantics are Firefox's and the divergence is invisible to vitest.
+  ★★ There is NO in-handler discriminator: at that event Chromium reports
+  `target.isConnected: true`, `panel.isConnected: true`, `activeElement: BODY`,
+  byte-identical to an outside-click focusout. A cleverer `focusout` filter
+  cannot work; the fix has to be structural.
+  ★★ What works, validated in BOTH engines: IGNORE a null `relatedTarget`
+  entirely (it is unknowable — removal, `<body>` and a window blur all produce
+  it) and have the outside-mousedown listener clear the flag EXPLICITLY, so
+  §146's "don't yank the user back after a deliberate outside click" is enforced
+  by the code that knows the click was outside. ★★★ Do NOT restore the old
+  justification that the click "blurs the focused control first" — MEASURED
+  FALSE in both engines: at the time the mousedown handler runs the blur has not
+  happened, and a microtask queued from a native mousedown listener runs BEFORE
+  the default-action blur.
+  ★★ NO GATE ANYWHERE CAN SEE THIS. jsdom fires no focusout on removal, axe has
+  no rule for it, and no e2e spec exercises it — two unit tests in
+  `popover-panel.test.tsx` (a null- and a non-null-`relatedTarget` focusout) are
+  the only detector that will ever exist. Verify any change here by hand in
+  Chromium AND Firefox; one engine is not evidence.
   ★★ STANDING GAP, not closed by that fix: `tour-overlay` has NO Tab trap at all
   and never has, so Shift+Tab from its first button walks into the app behind the
   dimmed backdrop, and its `aria-modal="true"` tells AT a containment story the

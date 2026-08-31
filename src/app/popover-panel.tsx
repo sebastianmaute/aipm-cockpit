@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { isTopmostOfKind } from "./dismissal-stack";
+import { FOCUSABLE_SELECTOR } from "./focusables";
 import { useDismissable } from "./use-dismissable";
 
 /**
@@ -95,6 +97,132 @@ export function PopoverPanel({
         setPos({ right, bottom: window.innerHeight - r.top + ANCHOR_GAP });
       }
     }
+  }, [open, anchorRef, placement]);
+
+  // ★★★ §124. The scroll/resize listeners BELOW — the §297 effect now sits
+  // between this note and them — are armed on `rendered`, NOT on `open`: they
+  // used to live in the measure effect above, which runs while the panel is
+  // still gated behind `open && pos`. A click on a trigger inside a
+  // horizontally scrollable container makes the browser scroll the container to
+  // reveal the trigger, and that scroll is dispatched AFTER the click handler
+  // and its effects — so it landed on a listener that had just been registered
+  // and closed a panel that had never been in the DOM. `aria-expanded` went
+  // straight back to `false`.
+  //
+  // ★★ `rendered` is a BOOLEAN, deliberately, and depending on `pos` here
+  // instead would reintroduce a different bug: `pos` is a fresh object and the
+  // post-paint clamp effect rewrites it, so both listeners would be torn down
+  // and re-registered on every clamp pass.
+  //
+  // ★ Same distinction `usePanelInitialFocus` (`use-panel-focus.ts`) already
+  // draws, and its parameter docstring is where the rule is stated in full:
+  // the flag means "the panel is RENDERED", not "the panel was requested". A
+  // surface with a secondary mount gate must pass that gate too. The autoFocus
+  // effect below draws it inline for the same reason.
+  const rendered = open && pos !== null;
+
+  // ★★★ §297. Restore focus to the anchor when the panel goes away with focus
+  // still inside it. This is in the PRIMITIVE, on unmount, rather than threaded
+  // out to consumers, for two measured reasons: several activate sites close
+  // with a raw `setOpen(false)` rather than the memoised `close`, so a fix that
+  // rewired `close` would miss them silently; and `dashboard-panel` already
+  // restores focus of its own, to an element that is NOT the anchor.
+  //
+  // ★★ The containment guard is what makes both work. A consumer that has
+  // already moved focus has moved it OUT of the panel, so this reads false and
+  // stands down — no opt-out prop, no per-site audit.
+  //
+  // ★★★ THE OBVIOUS SPELLING OF THIS GUARD IS A SILENT NO-OP — do not
+  // "simplify" it back to `panelRef.current?.contains(document.activeElement)`
+  // in the cleanup. MEASURED: with that spelling the §297 test below failed
+  // identically to the unfixed code, `activeElement` still at `<body>`. The
+  // cleanup is a PASSIVE effect destroy, so it runs after the commit that
+  // removed the panel, and BOTH of its terms have gone stale by then — React
+  // detaches the ref (`panelRef.current === null`) and focus has already left
+  // the removed node for `<body>`. ★ Which of the two read false was not
+  // isolated; either alone is fatal, so the fix does not depend on knowing.
+  // The containment answer is therefore captured EAGERLY: `focusin`/`focusout`
+  // on the live panel maintain `focusInsideRef` while the panel is up, and the
+  // cleanup reads that recorded answer.
+  //
+  // ★★ It depends on the `rendered` BOOLEAN, not on `pos`. Depending on `pos`
+  // would fire this cleanup on every post-paint clamp pass — with the panel
+  // still mounted and focus still inside it — yanking focus to the anchor
+  // mid-clamp. jsdom has no layout, so no test in this file can catch that.
+  const focusInsideRef = useRef(false);
+  useEffect(() => {
+    if (!rendered) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    // ★ The seed is INERT TODAY and kept deliberately, so do not read it as
+    // load-bearing: `rendered` can only flip true on the commit that creates
+    // this panel, and focus is still on the trigger at that point, so it always
+    // records false. What actually records the `autoFocus` landing is the
+    // `focusin` below — which works only because THIS effect is declared ahead
+    // of the autoFocus effect and has therefore already subscribed. Reorder the
+    // two and that `focusin` is missed; the seed is what keeps this correct if
+    // anyone ever does.
+    focusInsideRef.current = panel.contains(document.activeElement);
+    const onIn = () => { focusInsideRef.current = true; };
+    // ★★★ A NULL `relatedTarget` IS IGNORED, AND THAT IS THE WHOLE FIX. MEASURED
+    // in real Chromium and Firefox with Playwright probes: CHROMIUM DISPATCHES
+    // `focusout` ON THIS PANEL WITH `relatedTarget === null`, SYNCHRONOUSLY, AS
+    // THE FOCUSED ELEMENT IS REMOVED — before `remove()` returns, and therefore
+    // before the passive cleanup below runs. Firefox and jsdom dispatch NO
+    // focusout on removal at all. So the obvious spelling
+    // (`panel.contains(e.relatedTarget as Node | null)`, which is false for
+    // null) recorded "outside" on every Chromium unmount and made the §297
+    // restore a NO-OP in the browser most users are on, with every test in this
+    // file green over it — jsdom cannot reach the branch.
+    // ★★★ THERE IS NO IN-HANDLER DISCRIMINATOR, so a cleverer filter cannot
+    // work: at the removal-induced focusout Chromium reports
+    // `target.isConnected: true`, `panel.isConnected: true`, `relatedTarget:
+    // null`, `activeElement: BODY` — byte-identical to an outside-click
+    // focusout. Null is genuinely unknowable (element removal, focus landing on
+    // `<body>`, and a window blur on alt-tab all produce it), so the only
+    // correct answer is to keep the LAST KNOWN one and let the paths that DO
+    // know say so — which is why the outside-mousedown listener below clears
+    // this flag itself rather than leaving it to a browser side effect.
+    // ★ Reading a NON-null `relatedTarget` is what keeps an internal Tab from
+    // recording "outside": a move between two controls INSIDE the panel fires
+    // `focusout` too, and its `relatedTarget` is the sibling control.
+    // ★★ NO GATE CAN SEE THIS DIVERGENCE. jsdom fires no focusout on removal,
+    // axe has no rule for it, and no e2e spec exercises it — the two
+    // `relatedTarget` tests in `popover-panel.test.tsx` are the only detector
+    // this behaviour will ever have, and a green run over the pre-fix code
+    // proved nothing whatever about Chromium.
+    // ★ NESTED PORTALS STAY UNFIXED BY THIS (a note, not a fix): a focusable
+    // child the panel itself portals elsewhere is not `panel.contains(...)`, so
+    // focusing it would record "outside" and silently disable the restore.
+    // Verified no consumer does that today — `createPortal` appears only in
+    // `info-tooltip.tsx`, `popover-panel.tsx`, `raci-chip-picker.tsx` and
+    // `rich-text-editor.tsx`, no `PopoverPanel` consumer renders `InfoTooltip`
+    // or `RaciChipPicker`, and `ResourcePicker` (which several do render) does
+    // not portal.
+    const onOut = (e: FocusEvent) => {
+      if (e.relatedTarget === null) return;
+      focusInsideRef.current = panel.contains(e.relatedTarget as Node);
+    };
+    // ★★ The anchor is read LATE, through this getter, and that is the point of
+    // the indirection. `react-hooks/exhaustive-deps` warns about reading
+    // `anchorRef.current` in a cleanup and asks you to copy it at setup instead
+    // — and doing so would introduce the exact defect `dashboard-panel`
+    // documents on its own restore: the consumer re-renders its trigger, the
+    // captured node is detached, and `.focus()` on a detached node is a SILENT
+    // no-op. The getter keeps the read at cleanup time where it belongs; the
+    // warning is not applicable rather than suppressed.
+    const focusAnchor = () => anchorRef.current?.focus({ preventScroll: true });
+    panel.addEventListener("focusin", onIn);
+    panel.addEventListener("focusout", onOut);
+    return () => {
+      panel.removeEventListener("focusin", onIn);
+      panel.removeEventListener("focusout", onOut);
+      if (focusInsideRef.current) focusAnchor();
+    };
+  }, [rendered, anchorRef]);
+
+  useEffect(() => {
+    if (!rendered) return;
     // Close when an ANCESTOR scroller moves (the panel detaches from its anchor),
     // but NOT when the user scrolls a scrollable child INSIDE the panel (e.g. the
     // nested ResourcePicker's `overflow-y-auto` resource list in Assign/Escalate)
@@ -115,7 +243,7 @@ export function PopoverPanel({
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onResize);
     };
-  }, [open, anchorRef, onClose, placement]);
+  }, [rendered, onClose]);
 
   // Post-paint left-edge clamp. The panel is right-aligned via CSS `right`, which
   // alone can't stop the LEFT edge going off-screen on a narrow viewport with a
@@ -201,13 +329,30 @@ export function PopoverPanel({
     }
   }, [autoFocus, open, pos]);
 
-  // ★★★ ESCAPE ONLY. `onClose` is invoked from FOUR places here — this dismiss
-  // hook, the outside-click `mousedown` listener, the `resize` listener and the
-  // capture-phase ancestor-`scroll` listener. Restoring focus from all four
-  // would YANK the user back to the trigger after they deliberately clicked
-  // somewhere else, which is worse than the gap this closes (open-followups
-  // §146). Scroll and resize are not the user asking to leave either: the
-  // layout moved out from under the panel.
+  // ★★★ Escape restores focus HERE, before `onClose`, so there is never a frame
+  // in which `document.activeElement` is `body`. THREE other close paths —
+  // ancestor-scroll, width-resize, and a consumer closing from an item's own
+  // handler — are covered by the unmount guard above instead. OUTSIDE-CLICK IS
+  // DELIBERATELY NOT COVERED BY EITHER: the mousedown listener below clears the
+  // recorded containment answer, so the unmount guard declines there. Do not
+  // read this comment as claiming protection on that path — it once did.
+  // ★★ The two compose and cannot double-fire: this one moves focus to the
+  // anchor, which puts it OUTSIDE the panel, so the unmount guard's recorded
+  // containment answer then reads false. Do not delete either as redundant.
+  // ★★ This SUPERSEDES the former Escape-only rule (open-followups §146, §297)
+  // FOR THOSE THREE PATHS AND NOT FOR OUTSIDE-CLICK. §146 argued that restoring
+  // from every path would yank the user back after they deliberately clicked
+  // elsewhere, and for outside-CLICK that argument stands — which is why the
+  // mousedown listener clears the flag EXPLICITLY. It used to be left to the
+  // browser: this comment claimed "the click blurs the focused control first,
+  // so the containment guard already declines", and that is MEASURED FALSE in
+  // both Chromium and Firefox. At the moment the outside `mousedown` listener
+  // runs the blur has not happened and the recorded answer is still `true`, so
+  // the old behaviour rode React's passive-flush scheduling relative to a
+  // browser default action — undocumented, untested, and browser-specific.
+  // ★★ For the other three, when focus is INSIDE the panel and the panel
+  // unmounts, the alternative to restoring is not "leave the user where they
+  // were"; it is `document.body`.
   // ★★ The panel is PORTALED to document.body, so on Escape the browser leaves
   // focus on `body` and the toolbar the user came from goes arrow-dead — its
   // roving-tabindex guard correctly refuses to act from outside the row.
@@ -225,13 +370,134 @@ export function PopoverPanel({
 
   // Escape goes through the dismissal stack — see `use-popover-dismiss` for
   // why this is no longer a capture-phase listener.
-  useDismissable({ open, kind: "layer", onDismiss: closeRestoringFocus });
+  // ★★★ `kind: "modal"` because this panel now TRAPS TAB (the effect below).
+  // `docs/AGENTS/ui-shell.md`: `kind` MEANS "traps Tab", not "looks like a
+  // dialog", and a surface gaining a real trap flips its kind in the SAME
+  // commit. The flip is also what makes the fix work — `modal.tsx`'s Tab branch
+  // consults `isTopmostOfKind`, which goes false while this panel is open, so
+  // the modal beneath defers instead of competing (open-followups §100).
+  // ★ Escape is unaffected: modal and layer compete equally for it.
+  const dismissToken = useDismissable({ open, kind: "modal", onDismiss: closeRestoringFocus });
+
+  // ★★★ §100. The panel is PORTALED to document.body, so an enclosing Modal's
+  // Tab trap — which guards on `container.contains(active)` — reads false for
+  // EVERY element in here, not merely at the boundary. Its "focus escaped"
+  // branch therefore fired on the first Tab and threw the user back into the
+  // modal, leaving this panel's controls with no keyboard path at all
+  // (WCAG 2.1.1). We cycle Tab ourselves instead.
+  //
+  // ★★ Gated on `isTopmostOfKind` so this stands down when something is layered
+  // ABOVE us. ★ NO consumer opens a `Modal` from inside a `PopoverPanel` today
+  // — verified, and do NOT restore the `version-menu` example an earlier draft
+  // of this comment named: that file renders `VersionInfo` (static content),
+  // while the `Modal` lives in the SIBLING export `VersionInfoModal`, which the
+  // sidebar version line and the Settings footer open directly. Reproduce with
+  // (the bracket keeps the pattern from matching THIS comment — a grep quoted
+  // in a comment otherwise counts itself, and the count reads as one consumer):
+  //   grep -l PopoverPanel src/app/*.tsx | grep -v test | xargs grep -c "<[M]odal"
+  // Every count it prints is 0; the only non-zero hits are test harnesses.
+  // The gate is therefore defensive, not load-bearing for a shipped surface —
+  // but every Tab trap in the app consults the stack, and keeping that uniform
+  // is what stops two traps competing the first time such a consumer lands.
+  // ★★★ It is pinned by ONE test — "leaves a NON-EDGE Tab inside the
+  // layered-above modal completely alone" — and NOT by the inverse-nesting
+  // test beside it, which reads like the pin and is not. Measured by mutation:
+  // deleting this gate leaves the inverse-nesting test GREEN, because both
+  // traps are `document` keydown listeners firing in REGISTRATION order and the
+  // modal opened second, so it runs last and silently corrects whatever an
+  // ungated popover just did. Any assertion on FINAL focus is blind here. That
+  // test's own comment carries the reasoning; read it before touching either.
+  //
+  // ★ Escape and outside-click remain the exits. This deliberately does NOT
+  // close on Tab: `CollapsedNavFlyout` does that, but its items are all
+  // tabIndex={-1} and arrow-navigated, so it has no tab stops to strand. A
+  // panel with real tab stops needs a cycle, not an exit.
+  //
+  // ★★★ AN ALL-ROVING PANEL IS NOT EXEMPT — this primitive does NOT stand down
+  // for one, and an earlier draft of this comment asserted that it did.
+  // `FOCUSABLE_SELECTOR`'s `button:not([disabled])` arm carries NO tabindex
+  // exclusion, so a `<button tabindex="-1">` MATCHES it and this cycle runs,
+  // moving focus among elements that are not in the tab order. Measured against
+  // `CollapsedNavFlyout`'s markup (two `tabIndex={-1}` menuitems): this
+  // selector returns 2, while the NARROW `autoFocus` selector one screen above
+  // — which does carry `:not([tabindex="-1"])` on each arm — returns 0. That
+  // "-1 matches nothing" property belongs to the narrow selector alone and was
+  // carried onto the wrong constant.
+  // ★★ What actually keeps `CollapsedNavFlyout` safe is its OWN handler:
+  // `onMenuKeyDown` (`sidebar-nav.tsx`) `preventDefault`s Tab, closes, and
+  // re-focuses the trigger — and the cycle below bails on `e.defaultPrevented`.
+  // It gets there first because it is a React handler, delegated from boot on a
+  // node at or below the one this effect-registered listener sits on (the same
+  // ordering `dismissal-stack.ts` relies on for element-scoped Escape).
+  // ★★★ THE `e.defaultPrevented` TERM IS PINNED BY ONE TEST — "stands down on
+  // Tab once a consumer's own handler has called preventDefault"
+  // (`popover-panel.test.tsx`) — and by nothing else among the seven files that
+  // exercise this cycle. An earlier revision of this comment named
+  // `sidebar-nav.test.tsx`'s "Tab closes the flyout and returns focus to the
+  // trigger" as the pin. It is NOT one: that consumer's handler also CLOSES the
+  // flyout, so this listener finds no panel and every focus assertion there is
+  // blind to the term. Measured by mutation 2026-08-31, not reasoned — deleting
+  // `|| e.defaultPrevented` left ALL 95 tests across popover-panel,
+  // dismissal-integration, modal, use-dismissable, popover-in-modal,
+  // modal-field-controls and sidebar-nav GREEN; with the new test the same
+  // mutant gives 1 failed / 25 passed. (The full suite was not run, so read the
+  // "nothing else" as scoped to those seven.)
+  // ★ So a NEW consumer whose controls are all `tabIndex={-1}` must handle Tab
+  // itself the same way; it does not get an exemption from here.
+  // ★ When the panel genuinely has NO focusables we return without trapping,
+  // and — unlike `modal.tsx` — must NOT `preventDefault` + focus the root: the
+  // panel is a `<span>` with no `tabIndex`, so focusing it would strand the
+  // user on an unfocusable element.
+  //
+  // ★★ `FOCUSABLE_SELECTOR`, deliberately — NOT either selector string the
+  // `autoFocus` effect above uses. Those two answer "where should focus
+  // START"; this answers "what is in the tab order", and neither of them
+  // covers `a[href]`, `select`, `textarea` or `:not([disabled])`.
+  useEffect(() => {
+    if (!rendered) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Tab" || e.defaultPrevented) return;
+      if (!isTopmostOfKind(dismissToken, "modal")) return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusables = Array.from(
+        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey) {
+        if (active === first || !panel.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last || !panel.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [rendered, dismissToken]);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
       if (anchorRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      // ★★ §146 — "do not yank the user back after a deliberate outside click"
+      // — is enforced HERE, by the code that actually knows the click was
+      // outside (the early return above has already established it landed in
+      // neither the anchor nor the panel), rather than by an accident of blur
+      // timing. MEASURED in Chromium and Firefox: at the moment this listener
+      // runs the default-action blur has NOT happened and the recorded
+      // containment answer is still `true`, so the previous behaviour depended
+      // on React's passive-flush scheduling relative to a browser default
+      // action — something nothing here documented or tested.
+      focusInsideRef.current = false;
       onClose();
     };
     document.addEventListener("mousedown", onDown);

@@ -8,6 +8,31 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.270.0] - 2026-08-31 "Tchaikovsky"
+
+### Fixed
+
+- **Closing a menu or picker left the keyboard stranded.** When a popover closed because the page
+  scrolled, the window was resized, or the panel itself acted on your choice, focus was dropped onto
+  the page body instead of returning to the button you opened it from. Keyboard and screen-reader
+  users had to tab back from the top of the document every time. Focus now returns to the trigger —
+  but only when it was actually inside the panel, so clicking elsewhere on the page no longer has
+  focus yanked away from wherever you clicked.
+- **Tab was unusable inside a menu opened from a dialog.** A popover opened from within a dialog —
+  the field-configuration menus, for example — could not be reached with Tab at all: the first press
+  threw focus back into the dialog behind it, so the menu's own controls had no keyboard path. Tab
+  now cycles within the menu while it is open, and the dialog resumes trapping focus once it closes.
+- **A popover could react to page scrolling before it was on screen**, closing itself in response to
+  a scroll that happened while it was still being positioned.
+
+### Changed
+
+- Cross-browser verification for focus behaviour: `npm run e2e:crossengine` runs the popover focus
+  and keyboard checks in real Chromium **and** real Firefox. The two engines genuinely disagree about
+  what happens to focus when an element is removed, and the ordinary test environment can only see
+  one of the two answers — so this closes a gap the rest of the suite is structurally unable to
+  cover. It is opt-in and not part of the standard pipeline.
+
 ## [0.269.0] - 2026-08-31 "Due"
 
 ### Fixed

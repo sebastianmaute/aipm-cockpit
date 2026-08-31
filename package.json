@@ -1,6 +1,6 @@
 {
   "name": "aipm-cockpit",
-  "version": "0.269.0",
+  "version": "0.270.0",
   "private": true,
   "license": "EUPL-1.2",
   "engines": {
@@ -23,6 +23,7 @@
     "e2e:smoke:prod": "node scripts/e2e-smoke-prod.mjs",
     "e2e:visual": "playwright test --project=visual",
     "e2e:visual:update": "playwright test --project=visual --update-snapshots",
+    "e2e:crossengine": "playwright test -c playwright.crossengine.config.ts",
     "e2e:install": "playwright install --with-deps chromium",
     "docs:scripts": "node scripts/sync-script-docs.mjs",
     "docs:scripts:check": "node scripts/sync-script-docs.mjs --check",
@@ -53,6 +54,7 @@
     "e2e:smoke:prod": "Smoke against a real, already-built production server (scripts/e2e-smoke-prod.mjs): starts `next start`, runs the smoke, stops it. Does NOT build — run `npm run build` first. The ONLY local reproduction of the prod CSP; `e2e:smoke` alone only ever meets the permissive dev policy",
     "e2e:visual": "Playwright visual-regression snapshots (opt-in; baselines are per-platform — generate CI's in the Linux container)",
     "e2e:visual:update": "Regenerate visual snapshot baselines for the current platform",
+    "e2e:crossengine": "Run e2e-crossengine/ in BOTH real Chromium and real Firefox (playwright.crossengine.config.ts, port 3300, workers=1). Covers the popover focus behaviour the unit suite is structurally blind to: jsdom's element-removal focus semantics are Firefox's, so a Chromium-only defect stays green in vitest. Needs Firefox installed (`npx playwright install firefox`)",
     "e2e:install": "One-time: download Chromium browser binary",
     "docs:scripts": "Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json`",
     "docs:scripts:check": "Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode)",

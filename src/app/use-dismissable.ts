@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import {
   claimsEscape,
   popDismissal,
@@ -28,11 +28,16 @@ export function useDismissable({
   kind,
   onDismiss,
   claims,
-}: DismissableOptions): void {
-  // Matches modal.tsx's token pattern: a Symbol is minted each render but only
-  // the first is kept. Assigning to a ref during render would trip the
-  // react-hooks purity rule, which CI rejects.
-  const tokenRef = useRef<symbol>(Symbol("dismissable"));
+}: DismissableOptions): symbol {
+  // ★★ This DIVERGES from modal.tsx's token pattern, deliberately — do not
+  // "align" them. `modal.tsx` holds its token in a `useRef` (minting a Symbol
+  // every render and keeping only the first), which is fine there because it
+  // never returns the token and only reads `.current` inside effects. This
+  // hook RETURNS the token, and returning is a render-time read, which
+  // `react-hooks/refs` rejects outright ("Cannot access refs during render")
+  // — a fatal rule under `--max-warnings=0`. A lazy `useState` initializer
+  // mints once and yields a normal render-time value with no such restriction.
+  const [token] = useState<symbol>(() => Symbol("dismissable"));
   const onDismissRef = useRef(onDismiss);
   const claimsRef = useRef(claims);
   useEffect(() => {
@@ -40,19 +45,20 @@ export function useDismissable({
     claimsRef.current = claims;
   });
 
-  // ★★ Deps are [open, kind] ONLY. Adding onDismiss or claims here would
-  // re-run this on any parent re-render, re-pushing the token to the TOP of
-  // the stack and making the wrong layer topmost — the bug modal.tsx hit twice.
+  // ★★ Deps are [open, kind, token] — `token` never changes after mount, so
+  // adding it cannot cause the re-push-to-top bug the comment below warns
+  // about; it satisfies exhaustive-deps for a value the effect closes over.
+  // Adding onDismiss or claims here would re-run this on any parent
+  // re-render, re-pushing the token to the TOP of the stack and making the
+  // wrong layer topmost — the bug modal.tsx hit twice.
   useEffect(() => {
     if (!open) return;
-    const token = tokenRef.current;
     pushDismissal(token, kind, () => claimsRef.current?.() ?? true);
     return () => popDismissal(token);
-  }, [open, kind]);
+  }, [open, kind, token]);
 
   useEffect(() => {
     if (!open) return;
-    const token = tokenRef.current;
     function onKeyDown(e: KeyboardEvent) {
       if (!claimsEscape(e, token)) return;
       // Still mark it: element-scoped handlers and anything outside the stack
@@ -62,7 +68,19 @@ export function useDismissable({
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, kind]);
+  }, [open, kind, token]);
+
+  // ★ Returned so a caller that runs its OWN Tab trap can ask
+  // `isTopmostOfKind(token, "modal")` and stand down when something is layered
+  // above it. ★★ `popover-panel.tsx` IS that reader — it binds this to
+  // `dismissToken` and gates its Tab cycle on it, which is the §100 fix — so
+  // deleting the return is not a dead-API cleanup, it breaks that gate. (The
+  // other call sites do invoke this hook as a bare statement; an earlier
+  // revision here read that as "NO consumer reads it yet", which the command
+  // below refuted in the very range that added the sentence.)
+  // Enumerate today's call sites rather than trusting a count here:
+  //   git grep -n 'useDismissable(' -- src | grep -v test
+  return token;
 }
 
 /** Claim Escape only while focus is inside `ref` — or nowhere at all.

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TOUR_STEPS } from "./app-tour";
 import { resetDismissalStack } from "./dismissal-stack";
 import { Modal } from "./modal";
+import { PopoverPanel } from "./popover-panel";
 import { TourOverlay } from "./tour-overlay";
 import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
 
@@ -27,9 +28,15 @@ function pressEscape(from: HTMLElement): KeyboardEvent {
   return e;
 }
 
-/** Stand-in for a document-level popover (PopoverPanel / usePopoverDismiss).
- *  jsdom reports every rect as zero so the real portal never positions itself,
- *  which is why these are hosted on the hook rather than the component. */
+/** Stand-in for a document-level popover, hosted on the hook. It exists to keep
+ *  the ESCAPE-ordering tests below focused on stack order rather than on a
+ *  component's lifecycle — NOT because the real component cannot render here.
+ *  ★★ It can: with jsdom's zero rects the measure effect still computes
+ *  `right = max(VIEWPORT_MARGIN, innerWidth - 0)` and a `spaceBelow` of
+ *  `innerHeight - 0` that clears MIN_SPACE_BELOW (220), so `setPos` fires and
+ *  the panel portals. An earlier version of this comment claimed the opposite
+ *  and would have pushed the §100 Tab tests onto this stand-in, where a Tab
+ *  cycle cannot be exercised at all. */
 function Popover({ onClose, label }: { onClose: () => void; label: string }) {
   useDismissable({ open: true, kind: "layer", onDismiss: onClose });
   return <button type="button">{label}</button>;
@@ -227,5 +234,155 @@ describe("Escape dismissal across surfaces", () => {
     });
     expect(tab.defaultPrevented).toBe(true);
     expect(document.activeElement).toBe(screen.getByRole("button", { name: first }));
+  });
+});
+
+/** Unlike the `Popover` stand-in above, this mounts the REAL PopoverPanel — the
+ *  Tab cycle is the thing under test and a hook stand-in cannot exercise it.
+ *  jsdom mounts it fine: with zero rects `right` and `spaceBelow` still compute,
+ *  so `setPos` fires and the panel portals. The `withRects` helper in
+ *  popover-panel.test.tsx is for GEOMETRY assertions, not for mounting. */
+function ModalWithRealPopover({ closeModal }: { closeModal: () => void }) {
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  return (
+    <Modal open onClose={closeModal} ariaLabel="Editor">
+      <button type="button">modal first</button>
+      <button ref={btnRef} type="button" onClick={() => setPopoverOpen(true)}>
+        field
+      </button>
+      <PopoverPanel
+        open={popoverOpen}
+        anchorRef={btnRef}
+        onClose={() => setPopoverOpen(false)}
+        role="dialog"
+        ariaLabel="Fields"
+        className="w-64 p-2"
+      >
+        <button type="button">panel first</button>
+        <button type="button">panel last</button>
+      </PopoverPanel>
+      <button type="button">modal last</button>
+    </Modal>
+  );
+}
+
+function pressTab(from: HTMLElement, shiftKey = false): KeyboardEvent {
+  from.focus();
+  const e = new KeyboardEvent("keydown", {
+    key: "Tab",
+    shiftKey,
+    bubbles: true,
+    cancelable: true,
+  });
+  act(() => {
+    from.dispatchEvent(e);
+  });
+  return e;
+}
+
+/** The INVERSE nesting: a real `Modal` opened from inside a real
+ *  `PopoverPanel`.
+ *  ★ Both surfaces open from a trigger CLICK rather than rendering already
+ *  open: `dismissal-stack.ts` assumes open order equals nesting order, and
+ *  mounting a child and its parent in one commit runs the CHILD's effect
+ *  first, inverting the stack. */
+function PopoverWithModal() {
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  return (
+    <div>
+      <button ref={btnRef} type="button" onClick={() => setPopoverOpen(true)}>
+        menu
+      </button>
+      <PopoverPanel
+        open={popoverOpen}
+        anchorRef={btnRef}
+        onClose={() => setPopoverOpen(false)}
+        role="dialog"
+        ariaLabel="Menu"
+        className="w-64 p-2"
+      >
+        <button type="button" onClick={() => setModalOpen(true)}>
+          about
+        </button>
+      </PopoverPanel>
+      {modalOpen && (
+        <Modal open onClose={() => setModalOpen(false)} ariaLabel="About">
+          <button type="button">inner first</button>
+          <button type="button">inner middle</button>
+          <button type="button">inner last</button>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function openPopoverThenModal(): void {
+  render(<PopoverWithModal />);
+  fireEvent.click(screen.getByRole("button", { name: "menu" }));
+  fireEvent.click(screen.getByRole("button", { name: "about" }));
+}
+
+describe("Tab containment across a portaled popover", () => {
+  beforeEach(() => resetDismissalStack());
+
+  it("cycles Tab inside the popover instead of ejecting to the modal", () => {
+    render(<ModalWithRealPopover closeModal={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "field" }));
+    pressTab(screen.getByRole("button", { name: "panel last" }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "panel first" }),
+    );
+    expect(screen.getByRole("dialog", { name: "Fields" })).toBeInTheDocument();
+  });
+
+  it("wraps Shift+Tab from the first control to the last", () => {
+    render(<ModalWithRealPopover closeModal={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "field" }));
+    pressTab(screen.getByRole("button", { name: "panel first" }), true);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "panel last" }),
+    );
+  });
+
+  it("pulls a Tab arriving from outside into the popover", () => {
+    render(<ModalWithRealPopover closeModal={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "field" }));
+    pressTab(screen.getByRole("button", { name: "modal last" }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "panel first" }),
+    );
+  });
+
+  it("stands down when a modal is opened from inside the popover", () => {
+    openPopoverThenModal();
+    pressTab(screen.getByRole("button", { name: "inner last" }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "inner first" }),
+    );
+  });
+
+  it("leaves a NON-EDGE Tab inside the layered-above modal completely alone", () => {
+    // ★★★ THIS is the test that pins the `isTopmostOfKind` gate, and the
+    // sibling above is NOT — measured by mutation, not reasoned. Deleting the
+    // gate leaves that one GREEN, because both handlers sit on `document` and
+    // fire in REGISTRATION order: the modal opened second, so it registered
+    // second and runs LAST, silently correcting whatever an ungated popover
+    // did. Every assertion on FINAL focus is therefore blind to the gate.
+    //
+    // A non-edge Tab is the one case the modal's own trap deliberately does
+    // NOTHING for — focus is inside its container and not at either end, so it
+    // returns without preventing, letting the browser advance naturally. There
+    // is no second handler to paper over the popover, so an ungated popover's
+    // `!panel.contains(active)` branch fires and hijacks the keypress: every
+    // interior Tab of a modal layered above a popover would yank focus into the
+    // popover behind it.
+    openPopoverThenModal();
+    const middle = screen.getByRole("button", { name: "inner middle" });
+    const e = pressTab(middle);
+    expect(e.defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(middle);
   });
 });
