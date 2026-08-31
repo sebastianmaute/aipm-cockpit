@@ -156,12 +156,16 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   //    edit, not just on unmount.
   //
   // ★★ DEV-ONLY SIDE EFFECT — do NOT report §120 as broken from a dev session.
-  //    App Router runs StrictMode by default here (no `reactStrictMode` in
-  //    next.config.ts), so under `next dev` the mount commit runs effects →
-  //    cleanup → effects: this cleanup aborts the mount tick's controller, and
-  //    the re-run then returns early on `isRunningRef` (lowered only in the
-  //    tick's `finally`, a later microtask). Net: no recommendations on mount
-  //    under `npm run dev`. Production no-ops StrictMode, so shipped users are
+  //    MEASURED: App Router runs StrictMode by default here (no
+  //    `reactStrictMode` in next.config.ts). REASONED, and nobody has watched
+  //    it happen: under `next dev` the mount commit runs effects → cleanup →
+  //    effects, so this cleanup would abort the mount tick's controller and the
+  //    re-run would then return early on `isRunningRef` (lowered only in the
+  //    tick's `finally`, a later microtask) — leaving no recommendations on
+  //    mount under `npm run dev`. That chain was traced statically, never
+  //    observed, and §310 records it the same way; treat it as a reasoned
+  //    prediction, not a measurement.
+  //    Production no-ops StrictMode, so shipped users are
   //    unaffected — which is why this is filed rather than fixed. An identity
   //    guard cannot be added HERE (empty effect body, no controller captured;
   //    and at a simulated unmount the mount tick's controller IS the current

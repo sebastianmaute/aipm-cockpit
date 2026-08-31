@@ -44,10 +44,14 @@ export interface UseChatThreadsDeps {
   setDisplay: React.Dispatch<React.SetStateAction<DisplayItem[]>>;
   /** ChatPanel's own refs — shared here so a thread switch and a project
    *  switch can't race each other's abort of an in-flight send. `abortRef` is
-   *  ALSO read here as the live "is a send in flight" signal (non-null between
-   *  submitPrompt's start and its identity-guarded `finally`), which is what
+   *  ALSO read here as the live "is a send in flight" signal, which is what
    *  lets retryLoad refuse to adopt a server thread over a conversation the
-   *  user is mid-send in — see its second guard. */
+   *  user is mid-send in. It is non-null between submitPrompt's start and its
+   *  `finally` — and that `finally` (in chat-panel.tsx) clears it
+   *  UNCONDITIONALLY, NOT under an identity guard, so the signal is only as
+   *  good as submitPrompt being single-flight. That assumption holds today and
+   *  nothing pins it; see retryLoad's second guard for the tripwire it carries
+   *  and docs/open-followups.md §312. */
   cancelledRef: React.MutableRefObject<boolean>;
   abortRef: React.MutableRefObject<AbortController | null>;
   confirm: ConfirmFn;
@@ -70,7 +74,16 @@ interface LoadSettleResult {
  *  which is blind to a thread that moved BEFORE the fetch started and still
  *  has a send streaming into it — the state a failed mount fetch's own stale
  *  branch leaves behind. Only retryLoad passes true; see its comment for why
- *  the mount/project-switch effect must NOT. */
+ *  the mount/project-switch effect must NOT.
+ *
+ *  ★★★ THE MERGE BRANCH IS SCOPED TO THIS PROJECT, and that filter is
+ *  load-bearing rather than tidiness. `prev` is whatever the PREVIOUS project
+ *  left behind — nothing resets it on a switch — so an unfiltered merge keeps
+ *  another project's rows in the sidebar and, since the caller marks the list
+ *  loaded on this path, republishes them under this project's id. Every row
+ *  carries the `projectId` it was minted or fetched under (`loadThreads` is
+ *  per-project; ensureThreadForSend and the busy-persist effect both stamp
+ *  it), so the ownership test is exact rather than heuristic. */
 function mergeThreadsAfterLoad(
   startedOn: string | null,
   liveThreadId: string | null,

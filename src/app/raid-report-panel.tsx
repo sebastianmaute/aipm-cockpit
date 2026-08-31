@@ -439,7 +439,8 @@ function CategoryTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport
             <tr>
               <SortResizeTh {...th} label={t(lang, "raidReportByCategory")} sortCol="name" resizeCol="label" width={w.label} />
               {/* `grep -n raidReportColOpen src/app/raid-report-panel.tsx` returns
-                  three hits, but only StatusTable's is another CONTROL named
+                  four hits, one of them this comment quoting the pattern. Of the
+                  three CODE hits only StatusTable's is another CONTROL named
                   Open, in the same summary view — AgingTable's is a plain
                   <th> with no sort button, so it cannot trip 2.4.6.
                   "Closed"/"Overdue" share their label with no other co-rendered
