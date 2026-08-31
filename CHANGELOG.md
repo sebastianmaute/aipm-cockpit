@@ -24,7 +24,7 @@ longer carries its own changelog comment.
   buttons**, on both the projects panel and its empty state — so a screen reader had no way to tell
   which archived project a given button acted on. Each control's name now includes the project it
   belongs to.
-- **Seven more lists had the same problem: every row's buttons announced the same name.** Snapshot
+- **More lists had the same problem: every row's buttons announced the same name.** Snapshot
   Delete and Set-as-baseline in Trends, Set-as-default in the communication templates, Remove-role
   and Remove-discipline in a budget bucket, Unlink on a change's linked RAID items, and Add-as-
   resource on unlinked people. In each case a screen reader or voice-control user heard the same
