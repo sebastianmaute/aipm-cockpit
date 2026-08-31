@@ -563,6 +563,42 @@ commits that merely added comments above it; its `onChange` is
   listeners firing in REGISTRATION order and the modal opens second, so it runs
   last and silently corrects whatever an ungated popover just did. Any assertion
   on FINAL focus is blind to this gate.
+  ★★★ **FOCUS-RESTORE ON UNMOUNT IS CROSS-BROWSER DIVERGENT, AND THE UNIT SUITE
+  CANNOT SEE IT.** `PopoverPanel` restores focus to its anchor when it unmounts
+  with focus still inside (§297), and getting there cost TWO measured-dead
+  implementations — read this before writing that logic anywhere else.
+  ★★ First dead spelling: asking the question IN the effect cleanup
+  (`panelRef.current?.contains(document.activeElement)`). A passive effect
+  destroy runs AFTER the commit that removed the panel, so React has detached
+  the ref AND focus has already fallen to `<body>` — both terms are stale and
+  the guard is a no-op EVERYWHERE.
+  ★★★ Second dead spelling, and the dangerous one: capture containment eagerly
+  with `focusin`/`focusout` and read the recorded answer in the cleanup. That is
+  a no-op **in Chromium only**, so the whole unit suite goes green over a fix
+  that does nothing for most users. MEASURED with Playwright probes in real
+  chromium and firefox: **Chromium dispatches `focusout` on the panel with
+  `relatedTarget === null`, SYNCHRONOUSLY, as the focused node is removed** —
+  before the passive cleanup runs — so a `contains(relatedTarget)` write clears
+  the flag first. Firefox and jsdom dispatch NO focusout on removal at all, so
+  jsdom's semantics are Firefox's and the divergence is invisible to vitest.
+  ★★ There is NO in-handler discriminator: at that event Chromium reports
+  `target.isConnected: true`, `panel.isConnected: true`, `activeElement: BODY`,
+  byte-identical to an outside-click focusout. A cleverer `focusout` filter
+  cannot work; the fix has to be structural.
+  ★★ What works, validated in BOTH engines: IGNORE a null `relatedTarget`
+  entirely (it is unknowable — removal, `<body>` and a window blur all produce
+  it) and have the outside-mousedown listener clear the flag EXPLICITLY, so
+  §146's "don't yank the user back after a deliberate outside click" is enforced
+  by the code that knows the click was outside. ★★★ Do NOT restore the old
+  justification that the click "blurs the focused control first" — MEASURED
+  FALSE in both engines: at the time the mousedown handler runs the blur has not
+  happened, and a microtask queued from a native mousedown listener runs BEFORE
+  the default-action blur.
+  ★★ NO GATE ANYWHERE CAN SEE THIS. jsdom fires no focusout on removal, axe has
+  no rule for it, and no e2e spec exercises it — two unit tests in
+  `popover-panel.test.tsx` (a null- and a non-null-`relatedTarget` focusout) are
+  the only detector that will ever exist. Verify any change here by hand in
+  Chromium AND Firefox; one engine is not evidence.
   ★★ STANDING GAP, not closed by that fix: `tour-overlay` has NO Tab trap at all
   and never has, so Shift+Tab from its first button walks into the app behind the
   dimmed backdrop, and its `aria-modal="true"` tells AT a containment story the
