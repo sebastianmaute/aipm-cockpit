@@ -24341,9 +24341,10 @@ rule.
 
 ★★ **The consequence for anything that reasons about Tab from the stack — which is now `modal.tsx`
 AND `popover-panel.tsx` — is that this trap is structurally invisible.** §100's fix is correct today
-only because no `PopoverPanel` is reachable inside EITHER `useFocusTrap` call site. That was
-established by tracing both render paths by hand, not by any guard, and nothing will report it
-changing.
+only because no `PopoverPanel` is RENDERED inside either trap's container. ★★ Read that as the
+RENDER claim it is, not an import one: `sidebar-nav.tsx` imports `PopoverPanel` and is squarely in
+`sidebar.tsx`'s closure — it is only the collapsed-rail branch that keeps it out of the drawer. Both
+render paths were traced by hand; no guard checks either, and nothing will report it changing.
 
 ★★★ **The two things that would make it reachable are single tokens in unrelated files.**
 `renderSidebar`'s hardcoded `false` in `modern-shell.tsx` becoming `collapsed`, or anything under
@@ -24351,10 +24352,34 @@ changing.
 renders its `footer` slot INSIDE the drawer and UNGATED (outside the `!collapsed` branch), and the
 slot arrives as a prop from `task-manager.tsx` — so no import-closure check over `sidebar.tsx` can
 see what lands there. Enumerate the live state with
-`grep -rn "PopoverPanel" src/app/sidebar.tsx src/app/sidebar-footer.tsx src/app/inline-ai-edit-popover.tsx`
-(no matches today) and `grep -n "renderSidebar(" src/app/modern-shell.tsx`.
+`grep -rn "PopoverPanel" src/app/sidebar.tsx src/app/sidebar-nav.tsx src/app/sidebar-footer.tsx src/app/inline-ai-edit-popover.tsx`
+— today that returns `sidebar-nav.tsx` ONLY (the collapsed-rail flyout, see below) and nothing under
+`sidebar-footer.tsx` — and `grep -n "renderSidebar(" src/app/modern-shell.tsx`, which returns the two
+call sites. ★ Grep the CALL, not the argument: the drawer call is multi-line with `false,` on its own
+line, so `grep -n "renderSidebar(false"` returns zero and reads as though the literal were gone.
 
-★ **The failure would not be two symmetric traps.** `PopoverPanel` portals to `document.body` and
-this trap enumerates `container.querySelectorAll`, so the popover's DOM is invisible to it — the
-drawer trap would yank focus back OUT of the popover on every Tab. That is §100's own defect, one
-layer up, and with no stack entry for §100's fix to defer to.
+★★★ **THE FAILURE WOULD NOT BE A YANK, AND IT IS NOT `modal.tsx`'s SHAPE — a first cut of this entry
+said it was, and got the mechanism exactly backwards.** `modal.tsx`'s Tab branch carries a
+containment test (`active === last || !container.contains(active)`, and the mirror of it under
+`shiftKey`), and that `!contains` arm is what YANKS. `use-focus-trap.ts` has **no containment branch
+at all**: its whole Tab body compares `document.activeElement` against its own `first`/`last` and
+nothing else, so a portaled element matches neither and it never `preventDefault`s. The trap goes
+**INERT** rather than fighting — containment (WCAG 2.4.3) silently stops applying while the popover
+is open, and Tab rests entirely on whatever the panel does for itself. That is the worse of the two
+to misdescribe, because a yank is at least visible. Reproduce by reading the two branches side by
+side:
+```bash
+grep -n -A14 'key !== "Tab"' src/app/use-focus-trap.ts
+grep -n -B6 -A10 "contains(active)" src/app/modal.tsx
+```
+
+★★ **Today's only flyout would be safe there, by accident — so the hazard is a panel with REAL tab
+stops, not this one.** `CollapsedNavFlyout` is the sole `PopoverPanel` consumer in `sidebar.tsx`'s
+import closure, and it exists only on the COLLAPSED rail, which the hardcoded `false` above is what
+keeps it out of the drawer. Even if it landed there it would hold: every menuitem is `tabIndex={-1}`,
+so `PopoverPanel`'s own cycle finds zero focusables and returns without trapping, and the flyout's
+`onMenuKeyDown` handles Tab itself by `preventDefault` → close → refocus its trigger, which is inside
+the drawer. Do not read this bullet as cover for the next consumer.
+
+★ A comment at the `renderSidebar(` call in `modern-shell.tsx` names both ways in, and states the
+INERT mechanism rather than the yank — added 2026-08-31 in the same slice.
