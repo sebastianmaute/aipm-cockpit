@@ -20,10 +20,10 @@
 // editor to surface.
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { ExclamationTriangleIcon } from "./icons";
+import { ExclamationTriangleIcon, EyeSlashIcon } from "./icons";
 import { t, localeFor, type Lang } from "./i18n";
 import type { DocumentAsset } from "./document-asset";
-import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
+import { ASSET_MIME_ALLOWED, isBlockedAssetMime } from "./document-asset-upload";
 import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { Button } from "./button";
@@ -217,18 +217,33 @@ export function AssetLibrary({
             {sorted.map((asset) => {
               const token = rowTokens.get(asset.id) ?? asset.name;
               const isDangling = danglingIds.has(asset.id);
+              // §230 — a refused mime is NOT dangling: the byte row exists, so
+              // the diff that builds `danglingIds` will never flag it. Derived
+              // from metadata here because that is the only place the mime is
+              // visible. Dangling takes precedence: missing bytes is the more
+              // actionable of the two, and a row cannot usefully say both.
+              const isBlocked = !isDangling && isBlockedAssetMime(asset.mime);
               const isBusy = busyId === asset.id;
               const isEditing = editingId === asset.id;
               return (
                 <tr key={asset.id}>
                   <td className="px-3 py-2 font-medium text-foreground">
                     <div className="flex items-center gap-1">
-                      {/* Fixed-width gutter so a dangling row's marker never
-                          shifts this row's controls relative to a healthy
-                          one above/below it — the marker itself is only IN
-                          the DOM when this asset is dangling. */}
+                      {/* Fixed-width gutter holding whichever of the two
+                          markers applies — dangling bytes, or a stored mime
+                          the upload policy no longer accepts. At most one is
+                          ever in the DOM, and the gutter's FIXED width is
+                          what stops a marked row from shifting its own
+                          controls relative to an unmarked row above or below
+                          it. */}
                       <span
-                        title={isDangling ? t(lang, "assetLibraryDangling") : undefined}
+                        title={
+                          isDangling
+                            ? t(lang, "assetLibraryDangling")
+                            : isBlocked
+                              ? t(lang, "assetLibraryBlocked")
+                              : undefined
+                        }
                         className="inline-block w-4 shrink-0"
                       >
                         {isDangling && (
@@ -251,6 +266,43 @@ export function AssetLibrary({
                                 Deleting it makes a broken asset and a healthy
                                 one indistinguishable to AT again. */}
                             <span className="sr-only">{t(lang, "assetLibraryDangling")}</span>
+                          </>
+                        )}
+                        {isBlocked && (
+                          <>
+                            <span
+                              data-blocked-marker
+                              aria-hidden="true"
+                              className="text-ui-pink-strong"
+                            >
+                              {/* ★★ A DIFFERENT GLYPH FROM THE DANGLING ONE, AND
+                                  THAT IS THE POINT. Both states share a colour,
+                                  so the SHAPE is the only channel telling a
+                                  sighted user which of the two this row is —
+                                  give them the same triangle and the library
+                                  reproduces, one pane over, the very
+                                  can't-tell-these-apart defect §230 was filed
+                                  for. Colour is deliberately NOT the
+                                  discriminator (WCAG 1.4.1); an eye-slash reads
+                                  as "cannot be shown", which is exactly this
+                                  state — the bytes are intact, the format is
+                                  not one we will render. */}
+                              <EyeSlashIcon className="h-3.5 w-3.5" />
+                            </span>
+                            {/* ★★ Same rule as the dangling text above, for the
+                                same reason: the glyph is the non-colour cue for
+                                SIGHTED users and the `title` is hover-only
+                                chrome that AT never announces and keyboard or
+                                touch can never reach, so this sr-only text is
+                                the ONLY thing telling a screen-reader user the
+                                stored format is no longer supported. §230 —
+                                deliberately DISCLOSURE ONLY: no re-upload
+                                affordance, because a healthy duplicate matched
+                                by content hash returns early without a metadata
+                                write, so the stale mime would never be
+                                corrected and the button would silently do
+                                nothing. */}
+                            <span className="sr-only">{t(lang, "assetLibraryBlocked")}</span>
                           </>
                         )}
                       </span>
