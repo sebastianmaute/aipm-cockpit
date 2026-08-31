@@ -162,8 +162,11 @@ Expected: `OK` then `EXIT=0`.
 ```bash
 node -e "
 const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');
-const bad=[];for(let i=0;i<s.length;i++){const c=s.codePointAt(i);if(c<9||(c>10&&c<32)||c===127)bad.push(c);}
-console.log('control bytes:',bad.length);
+// EXCLUDE 13 (CR). src/app/*.ts(x) is CRLF, so a check counting CR reports one hit
+// per line and reads as mass corruption — measured 4156 on i18n.de.ts, every one a
+// CR. Print a HISTOGRAM, never a bare count: the count cannot tell you WHICH byte.
+const h={};for(let i=0;i<s.length;i++){const c=s.codePointAt(i);if(c<9||(c>10&&c<13)||(c>13&&c<32)||c===127)h[c]=(h[c]||0)+1;}
+console.log('control bytes (CR excluded):',JSON.stringify(h));
 console.log('escape leak:',/\\\\u00/.test(s));
 console.log('ascii sub leak:',/fuer|druecken/.test(s));
 for(const k of ['zurücksetzen','löschen','überein','ausgewählte','Speicher bereit','„{0}“'])
@@ -171,7 +174,7 @@ for(const k of ['zurücksetzen','löschen','überein','ausgewählte','Speicher b
 "
 git ls-files --eol src/app/i18n.de.ts
 ```
-Expected: `control bytes: 0`, both leaks `false`, every key `true`, and `i/lf w/crlf`.
+Expected: `control bytes (CR excluded): {}`, both leaks `false`, every key `true`, `i/lf w/crlf`.
 ★ If `w/lf` appears, the file was re-lined — revert and redo with the node script.
 
 - [ ] **Step 5: Typecheck (this is what enforces parity)**
