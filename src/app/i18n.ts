@@ -4237,6 +4237,7 @@ const enUS = {
   assetLibraryActions: "Actions",
   assetLibraryTotalSize: "Total size: {0}",
   assetLibraryDangling: "Image data missing",
+  assetLibraryBlocked: "Image format no longer supported",
   assetLibraryDeleteConfirm: "Delete {0}?",
   assetLibraryDeleteConfirmUsed:
     "Delete {0}? It is used in {1} document(s) and will leave a broken image there.",
