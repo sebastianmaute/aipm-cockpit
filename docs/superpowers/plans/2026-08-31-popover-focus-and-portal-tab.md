@@ -658,6 +658,10 @@ import { FOCUSABLE_SELECTOR } from "./focusables";
 
 - [ ] **Step 4: Add the Tab cycle**
 
+★★★ **Three different focusable selectors exist and they are NOT interchangeable. Use `FOCUSABLE_SELECTOR` from Task 1, deliberately.** The popover's own `autoFocus` effect uses two inline selector strings — a narrow `'input:not([tabindex="-1"]),button:not([tabindex="-1"]),[tabindex]:not([tabindex="-1"])'` arm with an `"input,button,[tabindex]"` fallback — and **neither covers `a[href]`, `select`, `textarea`, or `:not([disabled])`**. Building the Tab cycle on the narrow arm would skip links, selects and textareas inside a panel and would land on disabled buttons. Do not "reuse the existing selector" without saying which; `autoFocus` answers "where should focus START", the cycle answers "what is in the tab order", and only the second needs the full set.
+
+★★ **A panel whose every control is `tabIndex={-1}` matches `FOCUSABLE_SELECTOR` nowhere, so `focusables.length === 0` and the effect returns without trapping. That is correct, not a hole.** `CollapsedNavFlyout` is exactly that shape — an arrow-navigated menu with no tab stops — and it already owns its own Tab handling (it `preventDefault`s and re-focuses the trigger). The early return is what lets it keep doing so. Note this differs from `modal.tsx`, which on zero focusables `preventDefault`s and focuses the dialog root; a popover must NOT do that, because the panel is a `<span>` with no `tabIndex` and focusing it would strand the user on an unfocusable element.
+
 Add this effect after the `useDismissable` call:
 
 ```tsx
