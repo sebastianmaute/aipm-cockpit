@@ -1526,7 +1526,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `grep -nE "^\s+(omitted|missing)\.add" src/app/document-export-assets.ts`, which returns ONE
   `omitted.add` (the budget branch) against TWO `missing.add` (a null row, and an `isRenderable`
   decline — the mime allowlist for HTML/PDF). ★★ The `^\s+` anchor is load-bearing: the obvious
-  `grep -n "omitted.add\|missing.add"` also matches a COMMENT at `:103` that mentions
+  `grep -n "omitted.add\|missing.add"` also matches a COMMENT mentioning
   `NO_EXPORT_ASSETS.omitted.add("x")`, so `grep -c` reports a symmetric 2-vs-2 that refutes the
   sentence it is attached to. Caught by cold review, not by any gate. §320 carries the consequence: an exported document
   discloses a policy-refused image as "the bytes are gone". ★★ The longer statement in

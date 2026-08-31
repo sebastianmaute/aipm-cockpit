@@ -79,14 +79,8 @@ describe("attachAssetImages", () => {
   // ★★★ THE SAME RECYCLING, THE OTHER WAY ROUND — resolved FIRST, then
   // declined. Only the clear-the-marker direction above was covered, so the
   // apply loop cleared markers but never the `src`, and cold review caught it.
-  // It matters because `globals.css` paints the warning glyph with `::before`,
-  // and a REPLACED element has no generated content: an element left holding a
-  // (by then revoked) `src` keeps the dashed frame but loses the glyph and the
-  // text, so the reader gets the browser's own broken-image icon and no
-  // explanation — the unexplained state §230 exists to remove.
-  // Reachable via `documents-history-modal.tsx`, whose `mimeFor` is built from
-  // an OPTIONAL asset bag: run 1 without it sniffs the bytes and sets `src`,
-  // run 2 with it can declare the very same id blocked.
+  // The reason it matters, and the path that reaches it, are in the apply
+  // loop's own comment in `document-asset-images.ts` — not restated here.
   it("drops a stale src when a later run declines the same element as blocked", async () => {
     const el = root('<img data-asset-id="a1">');
     const first = await attachAssetImages(el, async () => "QUJD");

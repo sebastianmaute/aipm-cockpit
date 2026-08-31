@@ -15499,11 +15499,12 @@ spec cannot make. Measured 2026-08-31 by `npm run e2e:crossengine`.
 the trailing space at all, and it runs only when someone types the command, so a future one-string
 "simplification" back to `"\26A0\FE0E "` re-lands the defect with every pipeline green. Read
 "measured" here as "measured once, by hand, on 2026-08-31" — not as a standing guarantee.
-★★ `npm run followups:check` also reports this entry as `PATH_MISSING` for that spec. It is a FALSE
-positive and a structural one: `SWEEP_DIRS` in `scripts/followup-claims-lib.mjs` is
-`["src","scripts","e2e"]`, so EVERY path under `e2e-crossengine/` is unresolvable to that reporter,
-for any entry, forever. It is a report and not a gate (it exits 0). Do NOT "fix" it by deleting the
-citation — the file exists; check with `ls e2e-crossengine/`.
+★★ `npm run followups:check` also reports this entry as `PATH_MISSING` for that spec, and the report
+is wrong — the file exists (`ls e2e-crossengine/`). It is a report and not a gate (it exits 0). Do
+NOT "fix" it by deleting the citation. ★★★ THE MECHANISM IS DELIBERATELY NOT NAMED HERE: a first
+attempt blamed `SWEEP_DIRS`, which drives only the IDENTIFIER sweep and not path resolution, so
+editing it would not move the verdict — a wrong cause filed inside the entry that exists to record a
+wrong cause. Whoever fixes it should trace the resolver rather than trust a name from this line.
 
 A dangling image reference (asset deleted, byte row missing) renders via a CSS trick. **The
 declaration is in `globals.css`, not in `document-asset-images.ts` as this entry's heading implies —
@@ -17452,8 +17453,7 @@ and it has to be: the `undefined` case cannot discriminate at all, because both 
 false for it. So the obvious tidy-up — "`""` and `undefined` are both no-mime, one of these two
 assertions is redundant" — removes the UNIT-level discriminator for this entry.
 ★★★ **IT IS NOT THE ONLY GATE, AND AN EARLIER REVISION OF THIS PARAGRAPH SAID IT WAS** — "the SOLE
-discriminator … every other gate stays green while it does". False, and refuted by the sentence
-three lines above it, which already named the backstop. `document-asset-images.test.ts`'s "still
+discriminator … every other gate stays green while it does". False. `document-asset-images.test.ts`'s "still
 renders an asset whose stored mime is the empty string" calls the REAL `attachAssetImages` (that
 file carries no `vi.mock` at all) with `mimeFor = () => ""` and asserts a `blob:` src; under the
 same mutant the row is declined, no blob is minted, and it goes red too. So deleting the unit case
@@ -18058,8 +18058,8 @@ imported by both the renderer and the library so they cannot drift — see §225
 spelling is load-bearing. (2) `documents-history-modal.tsx` now folds a blank `assetAccess.projectId`
 to `ASSET_PARTITION_FALLBACK`, matching the two siblings that fold `""` with `||`
 (`document-edit-mode.tsx`, `documents-asset-section.tsx`). ★★ NOT three — `document-preview.tsx`
-DEFAULTS the prop, which fires only for `undefined`, and is normalised by its only caller instead;
-this entry's own body had that distinction right and the first fix round flattened it. Verified 2026-08-31 by
+DEFAULTS the prop, which fires only for `undefined`, and is normalised by its only caller instead.
+Verified 2026-08-31 by
 `npx vitest run src/app/document-asset-images.test.ts src/app/asset-library.test.tsx src/app/documents-history-modal.test.tsx`.
 ★ Closure covers the DISCLOSURE, which is what this entry was filed for; the export sinks reach the
 same wrong conclusion by two other routes and are tracked separately as §320 — a residual with its

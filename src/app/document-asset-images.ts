@@ -129,10 +129,9 @@ export async function attachAssetImages(
     // OPTIONAL `assetAccess.assets`, so run 1 with the bag absent sniffs the
     // bytes and sets `src`, and run 2 with the bag present can declare the very
     // same id blocked. Leaving the (by then revoked) `src` in place keeps the
-    // element REPLACED, and a replaced element has no `::before` — so the
-    // reader gets the dashed frame with the browser's own broken-image icon
-    // inside it and NO warning glyph and no text, which is the unexplained
-    // state §230 exists to prevent.
+    // element REPLACED — so the reader gets the dashed frame with the browser's
+    // own broken-image icon inside it and NO warning glyph and no text, which
+    // is the unexplained state §230 exists to prevent.
     if (url) {
       img.setAttribute("src", url);
       img.removeAttribute("data-asset-missing");

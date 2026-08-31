@@ -269,10 +269,9 @@ export function AssetLibrary({
                                 name". That is false about the element it
                                 describes: the `title` sits on the OUTER gutter
                                 span, and this sr-only span is its CHILD, so
-                                the element takes its name from that content
-                                and the `title` is its DESCRIPTION. The premise
-                                was wrong; the conclusion — keep the sr-only
-                                text — is right for the reason above. */}
+                                that span is not contentless. The premise was
+                                wrong; the conclusion — keep the sr-only text —
+                                is right for the reason above. */}
                             <span className="sr-only">{t(lang, "assetLibraryDangling")}</span>
                           </>
                         )}
