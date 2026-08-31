@@ -23345,7 +23345,10 @@ contract, which is why it was left rather than bodged during a fix round.
 
 **Status:** open — enumerated 2026-08-30 with
 `grep -rn "query[A-Za-z]*(" src/app --include=*.test.tsx --include=*.test.ts | grep -i "toBeNull\|not\." | grep '"'`
-which lists the negatives whose matcher is a quoted English string rather than a `t(...)` call.
+★★★ which is a CANDIDATE list, NOT the class, and reading it as the class is how this entry shipped
+overstated. Its last stage is a bare `grep '"'`, and `t("en-US", "key")` contains two double quotes —
+so the CORRECT derived form matches it too. It returns 737 lines across ~180 files for a scope that
+is 10 lines in 2 files; it cannot tell you which rows are in class, and nothing else can either.
 Never machine-verified: nothing asserts that any of them WOULD go vacuous, and by construction
 nothing can — a vacuous negative passes, which is the entire defect.
 
@@ -23355,17 +23358,23 @@ reason. The positive form is not affected: `getByRole` / `findByText` THROW when
 so a rename fails loudly. Only the negative fails silently, and it fails in the direction that looks
 like success.
 
-★★★ **THIS IS NOT HYPOTHETICAL AND THE COST IS RECORDED.** Rewording one storage string on the
-recoverable-destructive-refusal branch moved SIX assertions at once: four positives went red
-immediately, and **two negatives went silently vacuous** and were only found because the four reds
-sent someone to read the file. The fix there was to derive the expectation from `t(...)`, so the
-assertion moves with the string. A third instance was introduced and caught in the same slice's
-review, in a test whose own comment named the mutant it was supposed to catch.
+★★ **ONE INSTANCE IS RECORDED, and an earlier revision of this entry inflated it to six.** The event
+was `42ad6090`, a CALL-SITE swap (`documentsTruncatedSaveAnyway` → `documentsTruncatedConfirmSaveAnyway`),
+not a reword: it moved twelve positives, which went red immediately, and exactly ONE negative —
+`expect(screen.queryByText(/\d+ of \d+ records would be removed/i)).toBeNull()` — which would have
+gone silently vacuous and was found only because the reds sent someone to read the file. The fix was
+to derive the expectation from `t(...)` so it moves with the string. Reproduce:
+`git show 42ad6090 -- '*.test.tsx' '*.spec.ts' | grep "^[-+].*toBeNull"`.
+★★★ The inflated version claimed a REWORD moved four positives and two negatives. Exactly one string
+VALUE was reworded on that branch (`git diff origin/main...HEAD -- src/app/i18n.ts | grep "^-  [a-zA-Z]"`
+returns one line, `storageRefusedWipe`), in a commit that touched no test file at all. The class is
+real; the tally and the mechanism were invented.
 
-**What is in scope.** The survivors are in test files that PREDATE that slice and were not authored
-by it — the storage banner and sidebar-footer suites. They were left deliberately rather than swept,
-because converting assertions in unrelated tests during a fix round is how a release branch doubles
-in size. The enumerator above is the reproduce; run it rather than trusting a list here.
+**What is in scope.** The surviving in-class assertions are in the storage banner and sidebar-footer
+suites, and they blame to commits that predate this slice. ★ They are NOT in unrelated files — the
+slice rewrote a quarter of `notifications.test.tsx` — so the reason they were left is narrower than
+"don't touch other people's tests": converting assertions a fix round does not otherwise need is how
+a release branch doubles in size.
 
 ★★ **The rule, so a reader does not over-apply it.** Derive from `t(...)` when the assertion is a
 NEGATIVE, or when it matches free text a translator or a copy edit can move. Leave a quoted literal
@@ -23378,8 +23387,11 @@ introduce the suite's first dependency on `src/app/i18n` as a side effect of a c
 **Status:** open — established 2026-08-30 by reading the e2e harness, not by attempting it:
 `grep -rln "storageRefusedWipe\|storageDestructive" e2e/` returns nothing, so no spec drives a
 refusal; `grep -n "indexedDB\|addInitScript" e2e/seed.ts` shows the seed runs BEFORE the app loads;
-and `grep -rn "window.__lop" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."` finds only
-the data-loss log alias, so there is no hook to inject state at runtime. Never machine-verified, and
+and `grep -rno "window\.__[A-Za-z_]*" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+returns two globals, `__lopDataLossLog` (a back-compat alias, and that hit is a COMMENT) and
+`__aipmDiag` (`readDiagLog`, read-only) — neither can inject state at runtime. ★★ An earlier revision
+cited a `window.__lop` needle here, which cannot establish that NO hook exists; the conclusion
+survived the wider grep, the evidence did not reach it. Never machine-verified, and
 that is the entry: nothing has ever driven this surface in a browser.
 
 The recoverable destructive-save refusal shipped with a manual verification owed — four checks the
@@ -23389,18 +23401,29 @@ banner rather than performing the save. None was done, because none can be done 
 
 ★★★ **THE OBSTACLE IS STRUCTURAL, NOT EFFORT.** A refusal requires an UNARMED mass deletion or full
 wipe at RUNTIME. The e2e seed writes IndexedDB before the app loads, so a seeded workspace is simply
-the starting state and no guard ever evaluates it. Every UI bulk path arms the one-shot bypass by
-design, which is the whole point of the arming contract — so the surfaces a test can drive are
-exactly the ones that cannot produce a refusal. Staging one means adding a test-only route into
-production code whose only purpose is to defeat the guard under test.
+the starting state and no guard ever evaluates it; and every load, project switch, file open and
+project create is suppressed (nine `suppressNextSaveRef.current = true` sites, whose branch resyncs
+the baselines and calls `clearRefusal`), so no load path can raise one either. Staging a refusal
+means adding a test-only route into production code whose only purpose is to defeat the guard under
+test. ★★ **The remaining step is a JUDGEMENT, not a proof:** that every UI bulk path arms the
+bypass is a completeness claim over delete routes, and §293 — open — says in terms that the
+UI surface has nothing to enumerate from, records that a hand-written census WAS wrong once, and
+names the four live unarmed routes cold review found. So read this as "no route I could find", not
+"no route exists"; finding one would be the cheapest way to close this entry.
 
-**What IS covered, so this is read at the right severity.** Three of the four are pinned by unit
-tests: the magnitude line and both confirm tiers in the banner's own suite, the exclusivity of the
-two causes at the hook boundary, and the toast's action invoking the reveal callback rather than the
-save. The banner and the footer indicator render in every axe-scanned view. What is NOT covered is
-the CLASSIC-layout chip, which has no test at any layer, and anything geometric — jsdom has no
-layout, so no existing test can see the banner's placement, its focus order among the other banners,
-or whether the footer marker shifts the line it sits on.
+**What IS covered, so this is read at the right severity.** ★★★ **ALL FOUR are pinned by unit
+tests** — the magnitude line and both confirm tiers in the banner's own suite, the exclusivity of the
+two causes at the hook boundary, the toast's action invoking the reveal callback rather than the
+save, AND the classic-layout chip ("offers the re-open chip for the destructive cause in the classic
+layout", `notifications.test.tsx`, added by `a8123570` on the slice's own branch). An earlier revision
+of this entry said that fourth one "has no test at any layer", which was false when written and
+inflated the entry's severity — the false-coverage class inverted, and the harder direction to catch,
+because a claim that something is UNTESTED invites work rather than stopping an audit.
+What is NOT covered is anything geometric — jsdom has no layout, so no test can see the banner's
+placement, its focus order among the other banners, or whether the footer marker shifts its line.
+★★ Nor does the axe gate reach the banner: it mounts only while `destructiveRefusal !== null`
+(`task-manager.tsx`), which by this entry's own thesis never happens in a scanned view. An earlier
+revision claimed the opposite in the same paragraph as the thesis that contradicts it.
 
 ★★ **Do NOT close this by writing a spec that stubs the refusal state.** A test that renders the
 banner from fixed props is what the unit suite already does; dressed as an e2e it would report that
@@ -23410,6 +23433,6 @@ does not.
 
 **What closing it would take**, in the order that keeps production honest: a way to reach an unarmed
 destructive save that is not a back door — the most plausible is a delete route that legitimately
-does not arm today, which is what the UI-delete-route census entry is about — or, failing that, an
+does not arm today, which is what §293 is about — or, failing that, an
 explicit test-only capability gated the way other diagnostics are, plus a spec that drives it and
 asserts all four observables including the classic layout.
