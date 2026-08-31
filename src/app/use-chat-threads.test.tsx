@@ -1127,11 +1127,22 @@ describe("useChatThreads — retryLoad's reload vs. a send that both starts AND 
       );
     });
     abortRef.current = null;
-    // §317. ensureThreadForSend also WRITES the row it inserts, and an
-    // unsettled write is itself a reason to preserve — so drain it, or this
-    // block would go on passing via the persist guard and stop saying anything
-    // about the SEND counter it exists to pin. Its subject is that counter,
-    // not persists; the persist equivalents live in the §317 describe.
+    // §317. ensureThreadForSend also WRITES the row it inserts, and after the
+    // §317 fix an unsettled write is itself a reason to preserve — so without
+    // this drain the block FAILS: the incidental write holds preserveLive true
+    // past the click and the reload never adopts "t-server" at all. Measured,
+    // not reasoned — commenting the drain out gives 1 failed / 69 passed, and
+    // the one failure is this block.
+    //
+    // ★ An earlier revision of this comment predicted the OPPOSITE — that the
+    // block would go on PASSING via the persist guard, vacuously. That was
+    // never measured and is false. It matters which: a block that passes for
+    // the wrong reason is one you stop checking, so recording that shape where
+    // it does not exist teaches the next reader to distrust a live test.
+    // Its subject is the SEND counter, not persists; the persist equivalents
+    // live in the §317 describe. It remains a live freeze-detector after the
+    // drain — poisoning seqAtClick to -1 (preserveLive permanently true) turns
+    // it red, alongside every other "still adopts" control in this file.
     await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
     await act(async () => {
       await Promise.resolve();
