@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { COLLECTION_SPECS, diffWorkspaces, summarizeDiff } from "./version-diff";
 import { ws, arraysFixture, taskRec, resourceRec, roleRec, disciplineRec, gradeRec,
-  absenceRec, shiftRec } from "../test/workspace-records";
+  absenceRec, shiftRec, docVersion } from "../test/workspace-records";
 import type { Workspace } from "./workspace";
 
 const task = (id: number, over: Record<string, unknown> = {}) => ({ id, title: `T${id}`, ...over } as never);
@@ -177,6 +177,16 @@ describe("record labels", () => {
       { resources: [resourceRec(1, "New")] },
       "resources",
     )).toBe("ResNew Example");
+  });
+
+  // §271: `documentVersions` had no `nameField`, so every version-history row
+  // fell back to `#<id>` instead of the document's title.
+  it("labels a document version by its title, not #id", () => {
+    expect(labelFor(
+      { documentVersions: [docVersion(1, "Old")] },
+      { documentVersions: [docVersion(1, "Q3 report")] },
+      "documentVersions",
+    )).toBe("Q3 report");
   });
 
   it("labels a role from the workspace's disciplines and grades", () => {

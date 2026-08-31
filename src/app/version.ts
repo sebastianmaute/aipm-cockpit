@@ -2,11 +2,14 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.268.0";
-export const APP_BUILD_DATE = "2026-08-30"; // 0.268.0: recoverable destructive-save refusal (Ogawa)
+export const APP_VERSION = "0.269.0";
+export const APP_BUILD_DATE = "2026-08-31"; // 0.269.0: version-history document titles, workspace-collapse a11y, AI Assistant settings group label, row-unique controls, report header and filter disambiguation, timelog sync-status race, chat retry data loss, insights-navigation AI call cleanup, note-log export fidelity (Due)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.268.x line is "Ogawa" (Yoko Ogawa, Japanese author of speculative
- *  fiction). 0.267.x was "Nagamatsu" (Sequoia Nagamatsu, American SF author).
+ *  0.269.x line is "Due" (Tananarive Due, American horror/SF author).
+ *  0.268.x was "Ogawa" (Yoko Ogawa, Japanese author of speculative fiction),
+ *  developed concurrently with this line on a separate branch and merged
+ *  first.
+ *  0.267.x was "Nagamatsu" (Sequoia Nagamatsu, American SF author).
  *  0.266.x was "VanderMeer" (Jeff VanderMeer, American SF/weird-fiction
  *  author). ★★ REUSED: 0.96.0 also ran under this name — permitted by the same
  *  uniqueness-per-MINOR-LINE rule spelled out below, and recorded here so that a
@@ -79,7 +82,7 @@ export const APP_BUILD_DATE = "2026-08-30"; // 0.268.0: recoverable destructive-
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Ogawa";
+export const APP_MILESTONE = "Due";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

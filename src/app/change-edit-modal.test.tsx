@@ -13,6 +13,7 @@ import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
 import type { ChangeItem, Stakeholder } from "./types";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // ProseMirror (the three RichTextEditors) touches layout APIs jsdom lacks; stub
 // them so the editors mount. Mirrors raid-edit-modal / milestone-edit-modal.
@@ -136,8 +137,39 @@ describe("ChangeEditModal", () => {
     // `hover:text-foreground`, `dangerBordered` an unprefixed `text-ui-pink-strong`).
     renderModalFull({ draft: change({ linkedRaidIds: [5] }) });
     expect(
-      screen.getByRole("button", { name: t("en-US", "changeUnlinkRaid") }).className,
+      // ★ REGEX, not a bare string: RTL's string `name` is a WHOLE-STRING match,
+      // and the chip's name now carries the row qualifier ("… – #5") that §276
+      // added. A bare string would go red on the qualifier rather than on the
+      // variant this test is about.
+      screen.getByRole("button", { name: new RegExp(t("en-US", "changeUnlinkRaid")) }).className,
     ).toMatch(/\bhover:text-ui-pink-strong\b/);
+  });
+
+  // WCAG 2.4.6 — every linked-RAID chip rendered an unlink control whose name
+  // was the bare `changeUnlinkRaid` constant, so N chips announced one name
+  // (open-followups §276).
+  //
+  // ★★ `requireCollisionSeed` is deliberately OFF. The qualifier here is the
+  // RAID id, which is structurally unique — it is the React list key AND
+  // `addLinkedRaid` refuses an id already in `linkedRaidIds` — so no fixture can
+  // make two chips share it, and `buildRowTokens`' " (N)" suffix (the only thing
+  // the guard recognises) can never appear on this surface. Turning it on would
+  // throw against correct code.
+  //
+  // ★ The seed is still collision-BEARING for the defect under test: before the
+  // fix both chips are named exactly "Unlink RAID item", which is what makes
+  // this fail red. Distinct ids are the point, not a weakness of the fixture.
+  it("gives every linked-RAID unlink chip a row-unique accessible name (§276)", () => {
+    renderModalFull({
+      draft: change({ linkedRaidIds: [5, 9] }),
+      // ★ The two items share a TITLE on purpose: the title is free text and can
+      // repeat, so it could not have carried the qualifier. The id can not.
+      raid: [
+        { id: 5, category: "R", title: "Vendor delay", status: "Open", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-05-01" },
+        { id: 9, category: "R", title: "Vendor delay", status: "Open", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-05-02" },
+      ],
+    });
+    expectRowUniqueNames({ minControls: 23 });
   });
 });
 

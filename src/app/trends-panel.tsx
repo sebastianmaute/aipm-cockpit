@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { VIEW_PANE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
 import { TextButton } from "./text-button";
@@ -86,6 +87,25 @@ export function TrendsPanel(props: TrendsPanelProps) {
   const snapshotResize = useColumnResize<SnapshotCol>("trends-snapshots", SNAPSHOT_COL_WIDTHS);
   const varianceStartResize = varianceResize.startColResize as (col: string, e: React.MouseEvent) => void;
   const snapshotStartResize = snapshotResize.startColResize as (col: string, e: React.MouseEvent) => void;
+
+  // ★★ Rows render NEWEST-FIRST, so the token map is built over that reversed
+  // sequence and not the raw array — the occurrence index has to follow what is
+  // on screen. Both the list and the map are derived here, above the `!active`
+  // early return, because hooks cannot sit below it.
+  // ★★ The row's display name is a FORMATTED TIMESTAMP, and a timestamp
+  // REPEATS: two snapshots captured in the same displayed minute render the
+  // same string. That is why the select checkbox — which already interpolated
+  // the timestamp — was no less of a WCAG 2.4.6 collision than the bare
+  // "Set as baseline" / "Delete" buttons beside it, and why all three take the
+  // same token.
+  const renderedSnapshots = useMemo(() => [...snapshots].reverse(), [snapshots]);
+  const rowTokens = useMemo(
+    () =>
+      buildRowTokens(
+        renderedSnapshots.map((s) => ({ id: s.id, name: formatDisplayTimestamp(s.capturedAt, displayTz, lang) })),
+      ),
+    [renderedSnapshots, displayTz, lang],
+  );
 
   if (!active) {
     return (
@@ -237,7 +257,9 @@ export function TrendsPanel(props: TrendsPanelProps) {
                   </th>
                 </tr>
               </>}>
-                {[...snapshots].reverse().map((s) => (
+                {renderedSnapshots.map((s) => {
+                  const token = rowTokens.get(s.id) ?? formatDisplayTimestamp(s.capturedAt, displayTz, lang);
+                  return (
                   <tr key={s.id}>
                     <td className="px-3 py-2">
                       <input
@@ -250,7 +272,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                             return next;
                           });
                         }}
-                        aria-label={t(lang, "snapshotSelectRow", formatDisplayTimestamp(s.capturedAt, displayTz, lang))}
+                        aria-label={t(lang, "snapshotSelectRow", token)}
                       />
                     </td>
                     <td className="px-3 py-2 tabular-nums">{formatDisplayTimestamp(s.capturedAt, displayTz, lang)}</td>
@@ -260,6 +282,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                       <span className="inline-flex gap-2">
                         {!s.isBaseline && (
                           <button type="button" disabled={busy} onClick={() => { void setBaseline(s.id); }}
+                            aria-label={rowLabel(t(lang, "trendsSetBaseline"), token)}
                             className={`text-xs font-medium text-ui-green-strong underline-offset-2 hover:underline disabled:opacity-50 ${INTERACTIVE}`}>
                             {t(lang, "trendsSetBaseline")}
                           </button>
@@ -272,6 +295,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                             void deleteSnapshot(s.id);
                             setSelected((prev) => { const next = new Set(prev); next.delete(s.id); return next; });
                           }}
+                          aria-label={rowLabel(t(lang, "snapshotDelete"), token)}
                           className="text-xs"
                         >
                           {t(lang, "snapshotDelete")}
@@ -279,7 +303,8 @@ export function TrendsPanel(props: TrendsPanelProps) {
                       </span>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
             </DataTable>
             </div>
           </div>

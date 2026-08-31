@@ -25,6 +25,7 @@ import {
 } from "./types";
 import { TaskLinkPicker } from "./task-link-picker";
 import { roleLabel, resourceDisplayName } from "./resource-foundation";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, PO_NUMBER_MAX, AMOUNT_MAX } from "./sanitize";
@@ -181,6 +182,29 @@ export function BudgetBucketModal({
       ...d,
       disciplineAllocations: (d.disciplineAllocations ?? []).filter((a) => a.disciplineId !== disciplineId),
     }));
+
+  // WCAG 2.4.6 (open-followups §276) — both allocation lists render a per-row
+  // remove control, and its name used to be the bare verb, so N rows announced
+  // one name. ★★ NEITHER display value is safe as a plain qualifier: two rate-
+  // card roles may sit on the SAME (discipline, grade) pair, and `roleLabel`
+  // renders only those two names — never the role id — so two rows genuinely
+  // read alike; discipline names are free text with no uniqueness constraint.
+  // Both therefore go through `buildRowTokens`, which appends an occurrence
+  // index only to the rows that actually collide.
+  // ★ Built over the RENDERED sequence: neither list is sorted or filtered, so
+  // the draft array order IS what the user navigates.
+  const allocationTokens = buildRowTokens(
+    draft.allocations.map((a) => ({
+      id: a.roleId,
+      name: roleLabel(roles.find((r) => r.id === a.roleId), disciplines, grades) || `#${a.roleId}`,
+    })),
+  );
+  const disciplineAllocationTokens = buildRowTokens(
+    (draft.disciplineAllocations ?? []).map((a) => ({
+      id: a.disciplineId,
+      name: disciplines.find((x) => x.id === a.disciplineId)?.name ?? `#${a.disciplineId}`,
+    })),
+  );
 
   const addLinkedTask = (taskId: number) =>
     setDraft((d) => ({ ...d, taskIds: [...(d.taskIds ?? []), taskId] }));
@@ -612,6 +636,10 @@ export function BudgetBucketModal({
                     variant="ghost"
                     size="xs"
                     onClick={() => removeRole(a.roleId)}
+                    aria-label={rowLabel(
+                      t(lang, "budgetRemoveRole"),
+                      allocationTokens.get(a.roleId) ?? `#${a.roleId}`,
+                    )}
                   >
                     {t(lang, "budgetRemoveRole")}
                   </Button>
@@ -693,6 +721,10 @@ export function BudgetBucketModal({
                       variant="ghost"
                       size="xs"
                       onClick={() => removeDiscipline(a.disciplineId)}
+                      aria-label={rowLabel(
+                        t(lang, "budgetRemoveDiscipline"),
+                        disciplineAllocationTokens.get(a.disciplineId) ?? `#${a.disciplineId}`,
+                      )}
                     >
                       {t(lang, "budgetRemoveDiscipline")}
                     </Button>
