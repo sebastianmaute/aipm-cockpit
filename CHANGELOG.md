@@ -18,24 +18,14 @@ longer carries its own changelog comment.
   lose whatever you had done since. A notice now stays on screen while saving is paused, says how
   much would have been removed, and offers to save it anyway — behind a confirmation, and behind a
   typed phrase when the whole project would go. Reloading still restores your saved data, as before.
-- **A withheld save followed you into other projects.** After a refusal, switching project, opening
-  another file or creating a new one carried the warning across, still quoting the previous project's
-  figures, while that project's saving was not in fact paused. Worse, agreeing to it there granted
-  permission for the *next* deletion in the new project. The warning now clears when a project is
-  loaded, switched or created.
 - **If an authorised save then failed, the protection quietly switched itself off.** Agreeing to a
-  large deletion and having the write fail — offline, a locked database — left nothing written, no
-  warning on screen, and a guard that could no longer tell the deletion had never been saved. It now
-  restores what was genuinely last written, so the next attempt is judged against your stored data.
+  large deletion and having the write fail — offline, a locked database — left nothing written and a
+  guard that could no longer tell the deletion had never been saved. It now restores what was
+  genuinely last written, so the next attempt is judged against your stored data.
 - **Redoing "clear all tasks" appeared to work and was never saved.** Undoing a clear-all and then
   redoing it looked right on screen, but the guard treated the redo as an unexplained mass deletion
   and withheld it; the rows came back at the next reload. A redo that removes rows again now carries
   the same permission the original action had.
-- **Dismissing the paused-saving notice dismissed it permanently.** A later, different warning
-  appeared already hidden. Each new warning is now shown again.
-- **The German confirmation phrase could not be typed correctly.** The phrase you are asked to copy
-  for a full wipe was printed with a lower-case noun and matched exactly, so typing it the way German
-  requires left the button disabled with nothing explaining why.
 
 ### Changed
 
