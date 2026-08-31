@@ -155,6 +155,28 @@ export function ModernShell({
                 aria-label={t(lang, "navPrimaryLabel")}
                 className="fixed inset-y-0 left-0 z-50"
               >
+                {/* ★★★ The `false` is LOAD-BEARING, not a default. The drawer
+                    IS the expanded sidebar (see the block comment above), and
+                    rendering it expanded is also what keeps
+                    `CollapsedNavFlyout` — which only exists on the collapsed
+                    rail, and is the ONLY `PopoverPanel` consumer anywhere in
+                    `sidebar.tsx`'s import closure — out of this focus trap.
+                    ★★ The mechanism is NOT the one `modal.tsx` documents.
+                    `use-focus-trap.ts` has no `!container.contains(active)`
+                    branch, so it never yanks focus back; it reads its
+                    focusables from `container.querySelectorAll` and
+                    `PopoverPanel` portals to `document.body`, so while focus
+                    sits inside a portaled panel this trap is simply INERT —
+                    containment (WCAG 2.4.3) then rests entirely on whatever
+                    that panel does for itself. `CollapsedNavFlyout` happens to
+                    be safe (every menuitem is `tabIndex={-1}`, and its own Tab
+                    branch closes the menu and refocuses the trigger, which is
+                    inside the drawer), but a panel with real tab stops would
+                    let Tab walk out of the drawer with nothing to stop it.
+                    ★★ The `footer` slot is the other way in — it renders inside
+                    the drawer UNGATED and arrives as a prop, so no
+                    import-closure check over `sidebar.tsx` can ever see a
+                    `PopoverPanel` added under `sidebar-footer.tsx`. */}
                 {renderSidebar(
                   false,
                   closeDrawer,
