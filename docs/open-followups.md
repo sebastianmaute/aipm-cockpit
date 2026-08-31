@@ -542,6 +542,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | open |
 | [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name | — | — | open |
 | [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide) | `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide | — | — | open |
+| [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -21361,6 +21362,25 @@ is what the closure rests on:
 content-named weekly-hours button. Neither is a row-control naming site of the class this entry
 scanned for.
 
+★★★ **AND THE ADJUDICATION ABOVE COVERED THE `FIXED` LEG ALONE, WHICH IS NOT THE LEG THIS DEFECT
+LIVES IN.** `check-rowname-surfaces.mjs` sorts every site into five legs. `FIXED` means "nothing
+per-row survives — every row announces the SAME name". `DATA` means, in the report's own words,
+"some other value reaches the name — collides when that value repeats" — which is a restatement of
+this entry's defect class, and it was never read. A fourth review round then found five live
+collisions sitting in `DATA` **inside the two files this entry had just fixed**: the version list's
+`commTplCompare` / `commTplRestore` (a `window.prompt` name carrying no uniqueness constraint) and
+`resource-workload.tsx`'s content-named row-name button plus its absence chips in both tables. Both
+files classify `DATA/TOKENIZED`, never `FIXED`, so no amount of re-reading the `FIXED` census could
+have surfaced them. Reproduce the leg split with:
+
+```bash
+npm run rownames:check
+```
+
+The five are fixed; the leg is not adjudicated, and that is [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives). This entry stays
+CLOSED on the job its title names — the scanner, the one real defect, and the `FIXED` census — and
+explicitly does NOT claim the surface is clean.
+
 ★ The GAP-file inventory below genuinely IS coverage information rather than a defect count, and is
 tracked by the live, re-runnable `npm run rownames:check` report, not by this entry. Re-run it before
 treating any number below as current — the `FIXED` total moved sharply on the day this closed.
@@ -24119,3 +24139,39 @@ element, so no container isolates one row's controls from another's. That is why
 (32h / 24h) — not because the fixture needs them, but so the hours buttons differ and the assertion
 fails only on the control it is about. A ★★★ comment at the fixture says so and says to drop the
 distinct shifts once this is closed; leaving them in afterwards would quietly weaken the test.
+
+## 316. The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives
+
+**Status:** filed 2026-08-31, never machine-verified as a whole — the leg is a candidate list, not a
+defect list, and nothing has read it end to end. Size it with `npm run rownames:check` and read the
+`by leg` line.
+
+`check-rowname-surfaces.mjs` sorts every per-row control into five legs.
+[§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) built the scanner and adjudicated the `FIXED` leg by hand. Nobody has read `DATA`.
+
+★★★ **`DATA` is the leg this defect class lives in, and `FIXED` is not.** The report defines
+`FIXED` as "nothing per-row survives — every row announces the SAME name" and `DATA` as "some other
+value reaches the name — collides when that value repeats". The second sentence IS the WCAG 2.4.6
+row-collision class. Reading only `FIXED` and reporting the surface adjudicated is the
+instance-not-class error one level up: the census was adjudicated, the class was not.
+
+★★ **Measured 2026-08-31, which is why this is not theoretical:** a cold review found five live
+collisions in `DATA` inside the two files §276 had *just* finished fixing — both classify
+`DATA/TOKENIZED`, neither ever appeared in the `FIXED` census. They are fixed now, but they were
+found by a human reading a file, not by any report.
+
+★★ **A `DATA` site is NOT automatically a defect, which is why this needs reading rather than
+bulk-fixing.** The discriminator is "can this value repeat in one rendered list?" — a React list key
+or a numeric id cannot, and needs only a plain qualifier; free text (a name, a title, a date range)
+always needs `buildRowTokens`. The report cannot make that call, and a bulk "tokenise every `DATA`
+site" would qualify names that are already unique by construction, which is noise in every screen
+reader.
+
+★ **Two report limitations to carry into the adjudication.** It cannot see a one-row guard, so a
+control rendered under `isSelected`/`isCurrent` classifies `FIXED` and is not a defect; and a
+`COVERED` marker says only that someone reached for `expectRowUniqueNames`, never that the fixture
+could fail — see §276's caveat (5) and `requireCollisionSeed` in `src/test/row-unique-names.ts`.
+
+★ **Scope note.** This is a read-and-adjudicate task, not a fix task. The output is a verdict per
+site, and the sites that are genuinely fine want a one-line reason recorded, or the next round
+re-derives the same list from scratch.
