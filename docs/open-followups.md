@@ -529,6 +529,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label) | Every export section header is an untranslated raw string, not a display label | — | — | open |
 | [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates) | Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates | — | — | open |
 | [§308](#308-controlnames-and-the-collision-helpers-built-on-it-are-blind-to-three-parts-of-the-real-accessible-name) | `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name | — | — | open |
+| [§309](#309-projects-paneltsxs-active-project-list-still-names-its-row-controls-by-raw-interpolation-so-one-file-now-carries-two-conventions) | `projects-panel.tsx`'s ACTIVE project list still names its row controls by raw interpolation, so one file now carries two conventions | — | — | open |
+| [§310](#310-120s-unmount-abort-suppresses-the-mount-tick-under-next-devs-strictmode--dev-only) | §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only | — | — | open |
+| [§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle) | A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle | — | — | open |
+| [§312](#312-retryloads-in-flight-guard-assumes-submitprompt-is-single-flight-and-nothing-pins-it) | `retryLoad`'s in-flight guard assumes `submitPrompt` is single-flight, and nothing pins it | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -11542,9 +11546,11 @@ to read this entry or the code comment beside the CSS rule.
 
 ## 148. `retryLoad`'s reload branch clobbers a concurrently-minted chat thread — CLOSED 2026-08-31
 
-**Status:** fixed 2026-08-31 by hoisting the merge-vs-replace decision into two shared helpers
-(`mergeThreadsAfterLoad` / `resetThreadsAfterFailedLoad`) used by both the mount-fetch effect and
-`retryLoad`'s reload branch, verified by `npx vitest run src/app/use-chat-threads.test.tsx`.
+**Status:** fixed 2026-08-31 in TWO commits, and the first alone did not close it. `e31aa8ef` hoisted
+the merge-vs-replace decision into two shared helpers (`mergeThreadsAfterLoad` /
+`resetThreadsAfterFailedLoad`) used by both the mount-fetch effect and `retryLoad`'s reload branch;
+`1db52e40` added the `preserveLive` flag those helpers needed for the OTHER ordering (see "The second
+ordering" below). Verified by `npx vitest run src/app/use-chat-threads.test.tsx --maxWorkers=1`.
 
 Opened 2026-08-14 out of the chat-thread-persistence branch's fourth review round. It is the SAME
 defect that round fixed in the mount-fetch effect, one function down, left unfixed deliberately to
@@ -11589,6 +11595,50 @@ body wholesale — the effect also clears `pendingRetryRef`/`latestSeqRef` on pr
 ★ Pinned with the failed-initial-fetch precondition set up explicitly, on both the merge and the reset
 path, so a mid-flight-minted thread's row is proved to survive a failed reload exactly as it already
 survived a failed initial fetch.
+
+### The second ordering, `1db52e40`
+
+★★★ **The identity test above covers ONE of two orderings, and `e31aa8ef` shipped believing it covered
+both.** `startedOn` is captured at Retry-CLICK time, so it detects a thread adopted DURING the reload.
+A send ALREADY streaming when Retry is clicked moved `threadIdRef` BEFORE the fetch started, so
+`startedOn` equals the live id, the identity test reads clean, and the settle replaces the list, adopts
+the server's newest thread, resets history/display and — via the `threadIdRef` sync effect — aborts the
+send. The user's typed message vanishes, which is the same loss this entry was opened for. That state
+is produced by the failed mount fetch's OWN stale branch, which returns early and leaves the
+mid-flight-minted thread active with the live conversation on screen.
+
+Both settle helpers now take a `preserveLive` flag that forces the merge branch regardless of the
+identity test. `retryLoad` derives it from `abortRef` — the live "is a send in flight" signal, read from
+a ref rather than from `busy` because `retryLoad` is non-memoized and its `.then` would close over a
+stale render's `busy`. It is sampled at BOTH ends, because either sample alone leaves a hole: a send
+that FINISHES before the reload settles still owns the conversation on screen (the click-time sample
+catches it), and a send that STARTS after the click is only in flight at settle (the settle-time sample
+catches it).
+
+★★★ **It gates the SETTLE, never the fetch.** Treating in-flight as another `stale: true` still fetches
+and still merges `loaded` under the live thread, skipping only the auto-adopt of `loaded[0]`. Gating
+the `loadThreads` CALL instead would let a send that never settles pin the reload branch closed
+forever, leaving the sidebar permanently stale — a worse failure than the one being fixed.
+
+★★★ **DO NOT read this as "the guard applies to both fetch paths."** The mount/project-switch effect
+passes `preserveLive: false` DELIBERATELY, and that is not an oversight to be tidied up. That effect
+also runs on a PROJECT SWITCH, where `startedOn` is the PREVIOUS project's thread: preserving there
+would leave the old project's thread active with its conversation on screen underneath the NEW project
+— worse than the bug the flag exists to prevent. The identity test still covers that effect's own
+hazard (a mint DURING its own fetch), because at mount there is no earlier thread for a send to
+already be streaming into. So the flag covers `retryLoad`'s two orderings and deliberately nothing else.
+
+★ `1db52e40` also corrected two comments this slice had falsified. The reload branch is NOT safe
+because "the initial fetch's catch already reset history/display to empty" — that catch has two
+branches and its STALE branch returns before the reset. And `retryLoad`'s `startedOn` is NOT captured
+"exactly as the effect captures its own" — the effect's baseline predates any send for that mount,
+while `retryLoad`'s can already BE a thread with a send streaming into it.
+
+★★ **Two things this did not close, each filed rather than left implicit.** A send that starts AND
+finishes entirely between the two samples still loses —
+[§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle).
+And the `abortRef` read assumes `submitPrompt` is single-flight, which it is only effectively —
+[§312](#312-retryloads-in-flight-guard-assumes-submitprompt-is-single-flight-and-nothing-pins-it).
 
 ## 149. Date-dependent unit tests detonate on a calendar rollover, with no code change behind them
 
@@ -21272,10 +21322,12 @@ still moving is the shape this repo keeps re-staling.
 ## 276. The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 — CLOSED 2026-08-31
 
 **Status:** this entry's own job — build the scanner, size the surface, and fix what the scan proved
-was a REAL WCAG 2.4.6 collision rather than a mere coverage gap — is done. The one unconditional
-collision the scan named (`projects-panel.tsx`'s archived-row `projectsRestore`/
-`projectsDeletePermanently`, unguarded by any `isCurrent`-style branch) is fixed 2026-08-31 with
-`buildRowTokens`, verified by `npx vitest run src/app/projects-panel.test.tsx`. The remaining
+was a REAL WCAG 2.4.6 collision rather than a mere coverage gap — is done. The unconditional
+collision (archived-row `projectsRestore` / `projectsDeletePermanently`, unguarded by any
+`isCurrent`-style branch) renders on TWO surfaces and both are fixed 2026-08-31 with
+`buildRowTokens` / `rowLabel`: `projects-panel.tsx` in `3abf5442`, `project-empty-state.tsx` in
+`bfbab4bb` (see "The second surface" below). Verified by
+`npx vitest run src/app/project-empty-state.test.tsx --maxWorkers=1`. The remaining
 inventory below — the 15/64 weak/strong-marker GAP files, the FIXED-site census — is coverage
 information, not a defect count (this entry says so itself), and is tracked by the live, re-runnable
 `npm run rownames:check` report, not by this entry. Re-run it before treating any number
@@ -21450,6 +21502,41 @@ Both are printed in the report's own "WHAT THIS CANNOT SEE" footer.
 ★ The marker printed on each `COVERED` line grades the evidence: a bare `unique` may be about a
 unique id, while `expectRowUniqueNames` means someone meant THIS property. Sort by that before
 sorting by anything else.
+
+### The second surface, `bfbab4bb`
+
+★★★ **THE COLLISION HAD TWO RENDERED SURFACES AND THE FIRST FIX REACHED ONLY ONE.** `3abf5442` fixed
+`projects-panel.tsx`; a cold review then found the SAME unconditional collision, on the SAME two
+controls, in `project-empty-state.tsx` — which renders its own archived-projects list and still named
+those controls by raw interpolation. `archivedProjects.map` there carries no `isCurrent`-style guard
+and the project registry de-dupes by id only, so two archived projects sharing a display name gave two
+identically-named Restore buttons and two identically-named Delete-permanently buttons. `bfbab4bb`
+mirrors the first fix (`buildRowTokens` / `rowLabel` from `row-tokens.ts`). Enumerate the surfaces
+rather than trusting this paragraph — the scan reports SITES per file, and a control rendered from two
+files is two sites:
+
+```bash
+grep -rln "projectsRestore\|projectsDeletePermanently" src/app --include=*.tsx | grep -v test
+```
+
+★★★ **WHY THE SECOND SURFACE SURVIVED THE FIRST PASS: A TEST WHOSE NAME CLAIMED A PROPERTY IT DID NOT
+VERIFY.** `project-empty-state.test.tsx` carried `"turso mode lists archived projects with a row-unique
+Restore button; clicking calls onRestore"`. It seeded archived projects with DISTINCT names and
+asserted the click handler — it never staged a collision and never asserted row-uniqueness at all. A
+reader auditing the surface greps for coverage, reads that name, and moves on; the name is the reason
+the file looked done. It has since been split into three focused tests, one of which stages two
+archived projects sharing a display name and asserts through `expectRowUniqueNames` with
+`requireCollisionSeed`, so the property is now proved rather than announced:
+
+```bash
+grep -n 'it("' src/app/project-empty-state.test.tsx | grep -i "archived\|row-unique\|Restore"
+```
+
+★★ **Read that as a CLASS, not an anecdote.** A test NAME is prose and nothing reads it — the same
+ungated-prose problem this register records for docs, one directory over, and it is why
+`check-rowname-surfaces.mjs` matches coverage by test CONTENT and never by test name (this entry's own
+headline says so). What is new here is the direction of the harm: the name did not merely fail to
+help, it actively suppressed the audit that would have found the defect.
 
 ## 277. Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair
 
@@ -23396,3 +23483,155 @@ via testing-library — `toolbar-order.ts`'s own docstring records why a bare im
 its "live hazard" paragraph) re-measures `minControls` for every adopting test, and `minControls` is the
 guard that stops a scope rendering too few controls — so changing what it counts is not a mechanical
 edit.
+
+## 309. `projects-panel.tsx`'s ACTIVE project list still names its row controls by raw interpolation, so one file now carries two conventions
+
+**Status:** open — a CONDITIONAL collision, deliberately out of §276's scope. Found 2026-08-31 while
+closing that entry's second surface; never machine-verified.
+
+★★★ **`projects-panel.tsx` NOW CARRIES TWO ROW-NAMING CONVENTIONS, AND THAT IS THE FIRST THING TO KNOW
+ABOUT THE FILE.** Its ARCHIVED list was converted to `buildRowTokens` / `rowLabel` by `3abf5442`. Its
+ACTIVE list (`projects.map`) still builds each control's accessible name by raw interpolation of the
+project name — the `projectsSwitch`, `projectsArchive` and `projectsDelete` controls. Both halves are
+visible in one grep, which is the point:
+
+```bash
+grep -n 'aria-label={`\|aria-label={rowLabel(\|buildRowTokens' src/app/projects-panel.tsx
+```
+
+★★ **Recorded so the next reader treats it as KNOWN, not as drift nobody noticed.** Someone finding two
+conventions in one file will otherwise either "complete the pattern" without asking whether the two
+lists differ, or read the raw-interpolation half as an oversight from the fix that landed beside it. It
+is neither.
+
+★ **Why it was out of scope.** This half is a CONDITIONAL collision: it needs two ACTIVE projects
+sharing a display name. §276's archived-row defect was UNCONDITIONAL — N rows, N identical names, no
+data precondition at all — which is exactly the `FIXED` / `DATA` split the row-name scanner reports, and
+§276 scoped itself to the `FIXED` sites it could prove real without knowing the data. The condition is
+reachable rather than theoretical: both lists are fed from the same project registry, so if two ARCHIVED
+projects can share a name — the premise §276's fix rests on — two ACTIVE ones can too.
+
+★ **Closing it** is the mechanical half of the archived fix: one `buildRowTokens` over the active
+`projects` keyed by `{ id, name }`, threaded into three `rowLabel` calls, plus an
+`expectRowUniqueNames` test with `requireCollisionSeed` seeding two active projects that share a name.
+The naming becomes uniform across the file, which is the durable win — a single convention is the thing
+the next reader can rely on without reading both lists.
+
+## 310. §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only
+
+**Status:** open — dev-only, no shipped-user impact, and deliberately left unfixed for the reasons
+below. Found 2026-08-31 reviewing `aee18311`; never machine-verified.
+
+`aee18311` closed
+[§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--closed-2026-08-31)
+by adding an unmount-only cleanup to `use-insight-recommend-runner.ts` —
+`useEffect(() => () => abortRef.current?.abort(), []);` — so navigating away stops the billed calls a
+tick still has in flight. Under `next dev` that same cleanup suppresses the MOUNT tick entirely.
+
+**MEASURED half — App Router runs StrictMode by default in this checkout.** `next.config.ts` sets no
+`reactStrictMode`, and Next's build-time define reads
+`config.reactStrictMode === null ? true : config.reactStrictMode` for `__NEXT_STRICT_MODE_APP`. ★ Note
+the `__NEXT_STRICT_MODE` line immediately above it defaults the PAGES router the OTHER way, to false —
+do not read one off the other:
+
+```bash
+grep -c reactStrictMode next.config.ts
+grep -n -A 1 "__NEXT_STRICT_MODE" node_modules/next/dist/build/define-env.js
+```
+
+**REASONED half — nothing has watched this happen, and it is stated as inference.** In a development
+build StrictMode makes the mount commit run effects → cleanup → effects. The first pass calls
+`tickRef.current()`, which sets `isRunningRef.current = true` and stores its controller in `abortRef`.
+The cleanup aborts that controller. The re-run then hits the overlap guard
+(`if (isRunningRef.current) return;`) and returns early, because that flag is lowered only in the tick's
+`finally`, which cannot run until the aborted promise's rejection has been delivered — a later microtask
+than the synchronous double-invoke. Net: under `npm run dev` the mount tick produces no
+recommendations. The interval and `visibilitychange` ticks are unaffected.
+
+★★★ **NO CODE FIX WAS TAKEN, and this is the decision a later reader will second-guess.** (1)
+Production React no-ops StrictMode's double-invoke, so there is no shipped-user impact — the symptom
+exists only under `next dev`. (2) The change would touch the one part of the hook that has no defect, to
+chase a development-mode artefact. (3) **The obvious fix does not work.** An identity guard cannot
+attach to that cleanup: `useEffect(() => () => abortRef.current?.abort(), [])` has an EMPTY body and so
+captures no controller to compare against, and at a SIMULATED unmount the mount tick's controller IS
+still `abortRef.current` — so a guard written there passes and aborts anyway. Real and simulated unmount
+are indistinguishable from inside that cleanup.
+
+★★ **The minimal fix if dev parity is ever wanted, and it is THREE pieces, not two.** (a) the cleanup
+must CLEAR the slot it aborts, not merely abort it; (b) the tick's `finally` clears under identity —
+`if (abortRef.current === controller) abortRef.current = null;` — so a superseded tick cannot empty a
+newer one's slot; (c) the overlap test reads `abortRef.current !== null` instead of the `isRunningRef`
+boolean. ★★★ (b) and (c) WITHOUT (a) change nothing: the StrictMode re-run's overlap test would read the
+aborted-but-uncleared controller and still return early, which is the same symptom by a different
+route. (b) is what makes (a) safe rather than a new race. That is more churn than a dev-only artefact
+justifies today.
+
+★ A comment at the cleanup in `use-insight-recommend-runner.ts` points here, so nobody eye-verifies
+§120 under `npm run dev`, sees nothing happen, and reports the fix as broken.
+
+## 311. A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle
+
+**Status:** open — pre-existing, and much narrower than the ordering
+[§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--closed-2026-08-31)
+fixed. Found 2026-08-31 reviewing `1db52e40`; never machine-verified.
+
+`retryLoad`'s in-flight guard samples `abortRef` at the Retry CLICK and again at the SETTLE, and its
+identity test compares `threadIdRef` across the fetch. A send that starts AFTER the click and finishes
+BEFORE the settle is null at both samples. If it minted a NEW thread the identity test still catches it,
+because `threadIdRef` moved. If it sent into an EXISTING thread, `threadIdRef` never moves either — so
+neither guard fires, `preserveLive` is false, and the settle takes the non-stale branch and adopts
+`loaded[0]` over the conversation the user was just in.
+
+★ **Narrower than the fixed case, which is why it is filed rather than fixed.** No send is in flight at
+settle, so nothing is aborted and the message is already persisted server-side; the damage is that the
+active thread and the on-screen history/display jump to whatever the server returns first, and the user
+has to reselect their thread. The fixed ordering lost the message itself.
+
+★★ **Closing it properly wants a monotonic send COUNTER rather than the single-slot `abortRef`** — the
+settle would compare a sequence number taken at click against the live one and preserve when they
+differ, which catches a send that both started and finished inside the window. A ref that only says
+"something is in flight right now" cannot answer "did anything happen while I was away" by
+construction. That is more plumbing than `1db52e40`'s fix warranted, and it touches the send path rather
+than the load path.
+
+## 312. `retryLoad`'s in-flight guard assumes `submitPrompt` is single-flight, and nothing pins it
+
+**Status:** open — the assumption HOLDS today and the guard is correct; what is missing is anything that
+keeps it true. Found 2026-08-31 reviewing `1db52e40`; never machine-verified.
+
+`retryLoad`'s second guard reads `abortRef.current !== null` as "a send is in flight". That is only
+equivalent while `submitPrompt` is single-flight, and it is **effectively** so rather than
+**structurally** so: its bail reads `busy` from the render closure, so two dispatches in ONE tick would
+both pass it.
+
+```bash
+grep -n "guidesPending) return;" src/app/chat-panel.tsx
+grep -n "abortRef.current = null" src/app/chat-panel.tsx
+```
+
+★ **No such path exists today.** Every call site is a separate DOM event — by which point React has
+flushed `setBusy` and disabled the control — or the one-shot `chatSeed` effect.
+
+★★★ **THE TRIPWIRE, and it must be spent in the SAME change.** `chat-panel.tsx`'s `finally` clears
+`abortRef.current` UNCONDITIONALLY. So if a same-tick double dispatch is ever introduced, the FIRST
+send's `finally` empties a slot the SECOND still owns, and `retryLoad`'s guard then reads "idle" over a
+live send — the exact data loss the guard exists to prevent. Add the identity clear
+(`if (abortRef.current === controller) abortRef.current = null;`) at that `finally` in the same change
+that introduces the second dispatch, not afterwards.
+
+★★ **The structural fix was WRITTEN and REVERTED, for a reason worth recording rather than
+rediscovering.** Making that clear identity-guarded grew `chat-panel.tsx` from 996 to 1004 lines and
+failed `npm run size:check`, which baselines that file at 996 and fails on ANY growth. Re-baselining a
+shared baseline file — unasked, inside a defect-closure slice — was declined. Read today's numbers off
+the tools rather than off this paragraph:
+
+```bash
+node -e "console.log(require('fs').readFileSync('src/app/chat-panel.tsx','utf8').split('\n').length)"
+node -e "console.log(require('./docs/baselines/file-sizes.json')['src/app/chat-panel.tsx'])"
+```
+
+★★ **The guard is pinned by NO test.** Nothing asserts that `submitPrompt` cannot double-dispatch, so
+the assumption is held by call-site inspection alone and a new call site can falsify it silently. A
+regression test would have to dispatch twice within one tick and assert exactly one controller is
+minted — which, if it can be written at all, is also the test that proves the guard needs the identity
+clear.
