@@ -2,10 +2,15 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.269.0";
-export const APP_BUILD_DATE = "2026-08-31"; // 0.269.0: version-history document titles, workspace-collapse a11y, AI Assistant settings group label, row-unique controls, report header and filter disambiguation, timelog sync-status race, chat retry data loss, insights-navigation AI call cleanup, note-log export fidelity (Due)
+export const APP_VERSION = "0.270.0";
+export const APP_BUILD_DATE = "2026-08-31"; // 0.270.0: popover focus restore on unmount, Tab containment through a portaled popover, scroll listener armed only when rendered (Tchaikovsky)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.269.x line is "Due" (Tananarive Due, American horror/SF author).
+ *  0.270.x line is "Tchaikovsky" (Adrian Tchaikovsky, British SF/fantasy
+ *  author). ★ Not previously used at any minor line — chosen over a name
+ *  the rule below would have permitted but which 0.265.x had taken the day
+ *  before, since a reader grepping CHANGELOG would then get two hits a day
+ *  apart.
+ *  0.269.x was "Due" (Tananarive Due, American horror/SF author).
  *  0.268.x was "Ogawa" (Yoko Ogawa, Japanese author of speculative fiction),
  *  developed concurrently with this line on a separate branch and merged
  *  first.
@@ -82,7 +87,7 @@ export const APP_BUILD_DATE = "2026-08-31"; // 0.269.0: version-history document
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Due";
+export const APP_MILESTONE = "Tchaikovsky";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
