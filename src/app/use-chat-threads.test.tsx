@@ -838,8 +838,9 @@ describe("useChatThreads — retryLoad's reload vs. a send in flight at click th
     setHistory.mockClear();
     setDisplay.mockClear();
 
-    // The send finishes — its `finally`, clearing unconditionally. No NEW send
-    // follows, so the counter stands exactly where seqAtClick captured it.
+    // The send finishes — its `finally`, whose identity-guarded clear fires
+    // because this lone send still owns the slot. No NEW send follows, so the
+    // counter stands exactly where seqAtClick captured it.
     abortRef.current = null;
 
     resolveRetry([thread("t-server")]);
@@ -922,9 +923,10 @@ describe("useChatThreads — retryLoad's reload vs. a send that both starts AND 
       );
     });
     expect(mintedId).toEqual(expect.any(String));
-    // Its `finally` — which clears UNCONDITIONALLY (see the abortRef doc
-    // comment in use-chat-threads.ts). This is the step that makes the two
-    // liveness samples blind.
+    // Its `finally` — whose identity-guarded clear fires here because this lone
+    // send still owns the slot (see the abortRef doc comment in
+    // use-chat-threads.ts). This is the step that makes the two liveness
+    // samples blind.
     abortRef.current = null;
 
     // (3) The mount fetch fails on the STALE path, leaving M active with the
@@ -1785,8 +1787,13 @@ describe("useChatThreads — registry publication", () => {
 // holding the LIVE project, compared against the project the reload was issued
 // for, as the first statement of each handler.
 //
-// MUTATION SCORECARD (each mutant applied alone and reverted before the next;
-// the file's runtime test count was 66, and each tally sums to it):
+// MUTATION SCORECARD (each mutant applied alone and reverted before the next).
+// ★★ The PASSED counts below were measured at 1819a0b9, when this file ran 66
+//   tests, and each tally summed to it. The file runs more now, so the passed
+//   halves are stale BY CONSTRUCTION — only the FAILING SETS are durable, and
+//   they are what each mutant actually proves. Re-measured at HEAD: Mutant A
+//   gives 2 failed / 68 passed of 70, killing the same two blocks. Quote a
+//   denominator only with the commit it was taken at.
 //   Mutant A — bail deleted from the `.then` ONLY: 2 failed / 64 passed.
 //     Failing: "does not adopt the left project's rows under the new project"
 //     and "does not drop the new project's rows when the left project's reload
@@ -1929,6 +1936,48 @@ describe("useChatThreads — retryLoad's settle vs. a project switch (§313)", (
     await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
 
     await waitFor(() => expect(result.current.threadsError).toBe(true));
+  });
+
+  // ★★★ ABA — the ordering the four negative blocks above CANNOT see. They
+  // switch p1 → p2 and stop, so a guard comparing the project VALUE passes
+  // every one of them. Here the user returns to p1 before the stale reload
+  // settles: at settle the live project id equals the issuing one, so a value
+  // comparison waves the stale write through — over p1's OWN newer rows. An
+  // epoch cannot repeat, so it still bails. Mutation-proved: restoring the
+  // value comparison kills this block and nothing else in the file.
+  it("does not overwrite the issuing project's newer rows after leaving and returning", async () => {
+    loadThreadsMock.mockResolvedValueOnce([thread("p1-seed", { projectId: "p1" })]);
+    const { result, rerender, initialProps } = renderChatThreads({ projectId: "p1" });
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.activeThreadId).toBe("p1-seed"));
+
+    // Retry on p1, held open across BOTH switches below.
+    let settleRetry!: (threads: ChatThread[]) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((resolve) => {
+        settleRetry = resolve;
+      }),
+    );
+    act(() => result.current.retryLoad());
+    // ★★★ VACUITY GUARD: proves the RELOAD branch was taken, not a write retry.
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+
+    // Away to p2...
+    loadThreadsMock.mockResolvedValueOnce([thread("p2-row", { projectId: "p2" })]);
+    rerender({ ...initialProps, projectId: "p2" });
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(result.current.activeThreadId).toBe("p2-row"));
+
+    // ...and back to p1, whose own fresh fetch lands the rows the stale settle
+    // would destroy. THIS is the state a value comparison cannot distinguish.
+    loadThreadsMock.mockResolvedValueOnce([thread("p1-fresh", { projectId: "p1" })]);
+    rerender({ ...initialProps, projectId: "p1" });
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(result.current.threads.map((th) => th.id)).toEqual(["p1-fresh"]));
+
+    await settleAndDrain(() => settleRetry([thread("p1-stale", { projectId: "p1" })]));
+
+    expect(result.current.threads.map((th) => th.id)).toEqual(["p1-fresh"]);
   });
 });
 
