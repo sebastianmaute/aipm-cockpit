@@ -478,8 +478,21 @@ commits that merely added comments above it; its `onChange` is
   • ★★ **Shared `Modal` (`modal.tsx`) STACKS — topmost-only Escape/Tab.** Per-instance Symbol tokens in
   the SHARED `dismissal-stack.ts` (the local `modalStack` it once owned is GONE — see the ESCAPE PROTOCOL
   bullet below); only the layer that owns the key handles Escape (`claimsEscape`) and only the topmost
-  MODAL contains Tab (`isTopmostOfKind(token,"modal")`), so a nested modal (wizard
+  `"modal"` entry contains Tab (`isTopmostOfKind`), so a nested modal (wizard
   opened from inside the create-project modal) no longer double-fires Escape and dismisses the parent.
+  ★★★ ONE EXCEPTION, and it is invisible to every stack-consulting reader.
+  `use-focus-trap.ts` pushes `kind: "modal"` and traps Tab UNCONDITIONALLY: its
+  Tab branch never consults the stack (the file's own comment says so in as many
+  words), and the keydown effect is gated on `active` ALONE while the stack PUSH
+  additionally requires an `onEscape`. So `inline-ai-edit-popover`, which passes
+  no `onEscape`, runs a live Tab trap while never joining the stack at all.
+  Verify rather than trust this — the command below returns exactly TWO real call
+  sites, `modal.tsx` and `popover-panel.tsx`; everything else it prints is the
+  declaration, their two imports, or prose, and `use-focus-trap.ts` is absent
+  from the output entirely (the `--include`s keep it off this file, so the
+  quoted command cannot count itself):
+  `grep -rn "isTopmostOfKind" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+  Tracked in `docs/open-followups.md` §318.
   LANDMINE (bit twice): the keydown effect must depend on `[open]` ALONE and read `onClose` via a ref —
   if it deps `[open, onClose]`, an unstable parent `onClose` identity (re-created each render/keystroke)
   re-runs the effect and re-pushes that modal's token to the top → wrong modal becomes topmost. Push/pop
@@ -530,6 +543,26 @@ commits that merely added comments above it; its `onChange` is
   same time — that Modal stopped trapping Tab and nothing took over, so focus
   walked out of both (WCAG 2.4.3). Caught in review, not by a gate. If such a
   surface gains a real trap, flip its `kind` in the SAME commit.
+  ★★ WORKED EXAMPLE of that flip: `PopoverPanel` pushes `"modal"` as of 0.270.0
+  because it now owns a real Tab cycle over its portaled content
+  (`docs/open-followups.md` §100) — it was `"layer"` before. Escape is
+  unchanged; both kinds compete equally for it. The cycle is itself gated on
+  `isTopmostOfKind`, so a `Modal` opened from inside a popover would still win.
+  ★★★ Read that gate as DEFENSIVE and name no shipped call site: NO
+  `PopoverPanel` consumer opens a `Modal` today. `popover-panel.tsx`'s own
+  comment carries the reproduce, the counts it prints, and the reason a grep
+  quoted in a comment counts itself — stay consistent with it rather than
+  inventing a second wording, and do NOT reach for `version-menu` as the
+  example (it renders `VersionInfo`, static content; the `Modal` lives in the
+  sibling `VersionInfoModal`, which the sidebar version line and the Settings
+  footer open directly).
+  ★★ The gate is pinned by exactly ONE test — `dismissal-integration.test.tsx`'s
+  "leaves a NON-EDGE Tab inside the layered-above modal completely alone" — and
+  NOT by the inverse-nesting test beside it, which reads like the pin and is not.
+  Deleting the gate leaves that sibling GREEN: both traps are `document` keydown
+  listeners firing in REGISTRATION order and the modal opens second, so it runs
+  last and silently corrects whatever an ungated popover just did. Any assertion
+  on FINAL focus is blind to this gate.
   ★★ STANDING GAP, not closed by that fix: `tour-overlay` has NO Tab trap at all
   and never has, so Shift+Tab from its first button walks into the app behind the
   dimmed backdrop, and its `aria-modal="true"` tells AT a containment story the
