@@ -8,6 +8,37 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.269.0] - 2026-08-31 "Due"
+
+### Fixed
+
+- **Document-version rows in version history showed `#<id>` instead of the document's title.**
+  Restoring or comparing an earlier version of a document meant matching an internal id against a
+  list of titles by hand. Version-history rows now show the document's actual title.
+- **The workspace collapse control could only be operated by hovering to read its title** — it had
+  no accessible name of its own, so voice control and touch assistive technology had no way to
+  trigger it. It now carries a proper label and works the same way every other control does.
+- **The Settings "AI Assistant" block wasn't announced as a group to screen readers**, so its
+  related controls read as a flat, unlabeled list rather than a named section.
+- **Archived-project rows gave every row identically-named Restore and Delete-permanently
+  buttons**, on both the projects panel and its empty state — so a screen reader had no way to tell
+  which archived project a given button acted on. Each control's name now includes the project it
+  belongs to.
+- **In report views, one column header could label several columns at once** where two tables were
+  rendered side by side and happened to share a column name. Shared column headers are now
+  disambiguated so each one names only its own table.
+- **Timelog sync could report "idle" while a previous sync was still running in the background.**
+  Starting a new sync while an old one was still catching up no longer lets the stale run's
+  completion overwrite the new one's status.
+- **Retrying a failed chat message could delete a message you had already sent afterwards** —
+  including one that was still streaming in at the moment you clicked Retry. Retry now only
+  replaces the message it is retrying.
+- **Leaving the Insights view left up to three AI calls running in the background**, continuing to
+  bill against your API usage after you had moved on. Navigating away now cancels any Insights AI
+  calls still in flight.
+- **Note logs exported into documents as a raw block of JSON** instead of the readable text you see
+  in the app. Exported note logs now render the same way they do on screen.
+
 ## [0.267.0] - 2026-08-30 "Nagamatsu"
 
 ### Fixed

@@ -2,10 +2,13 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.267.0";
-export const APP_BUILD_DATE = "2026-08-30"; // 0.267.0: completion-trend numerator, status audit trail, contact export (Nagamatsu)
+export const APP_VERSION = "0.269.0";
+export const APP_BUILD_DATE = "2026-08-31"; // 0.269.0: version-history document titles, workspace-collapse a11y, AI Assistant settings group label, archived-project row-unique controls, report header disambiguation, timelog sync-status race, chat retry data loss, insights-navigation AI call cleanup, note-log export fidelity (Due)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.267.x line is "Nagamatsu" (Sequoia Nagamatsu, American SF author).
+ *  0.269.x line is "Due" (Tananarive Due, American horror/SF author).
+ *  0.268.x is reserved by a concurrent unmerged branch ("Ogawa") — left
+ *  untouched here; this slice takes 0.269.x instead.
+ *  0.267.x was "Nagamatsu" (Sequoia Nagamatsu, American SF author).
  *  0.266.x was "VanderMeer" (Jeff VanderMeer, American SF/weird-fiction
  *  author). ★★ REUSED: 0.96.0 also ran under this name — permitted by the same
  *  uniqueness-per-MINOR-LINE rule spelled out below, and recorded here so that a
@@ -78,7 +81,7 @@ export const APP_BUILD_DATE = "2026-08-30"; // 0.267.0: completion-trend numerat
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Nagamatsu";
+export const APP_MILESTONE = "Due";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
