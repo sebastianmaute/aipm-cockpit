@@ -1516,8 +1516,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   tsc, unit + coverage floors, axe, prod-smoke), and that section is the list of what not to
   reintroduce.
   ★★ **Image BYTES in every export format (S3c-2)** — the three-bucket
-  `loadExportAssets` contract (`omitted` is a POLICY call, `missing` is a DATA problem; do not
-  collapse them), the additive `media` parameter on both package builders, the forced DOCX
+  `loadExportAssets` contract (★★★ **NOT "policy vs data" — that is what this line said for six
+  releases and BOTH HALVES ARE FALSE.** `omitted` is BUDGET overflow ALONE, and a POLICY refusal
+  lands in `missing` alongside the genuine data losses, so the split a reader reaches for here does
+  not exist in the code. Measured 2026-08-31, not reasoned — reproduce with
+  `grep -n "omitted.add\|missing.add" src/app/document-export-assets.ts`, which returns ONE
+  `omitted.add` (the budget branch) against TWO `missing.add` (a null row, and an `isRenderable`
+  decline — the mime allowlist for HTML/PDF). §320 carries the consequence: an exported document
+  discloses a policy-refused image as "the bytes are gone". ★★ The longer statement in
+  `documents.md` is substantively RIGHT — it explains the budget correctly and names `isRenderable`
+  under `missing`; only its "POLICY" label is wrong. This copy lost the explanation and kept the
+  label, which is exactly the restate-instead-of-link failure the doc-set rule at the top of this
+  file warns about), the additive `media` parameter on both package builders, the forced DOCX
   paragraph split, cost-based PPTX pagination, and the 25 MB inline budget that applies to HTML/PDF
   ONLY, live in the same file's "Image bytes in every export format (S3c-2)" section.
   ★★★ **THREE THINGS THERE HAVE ALREADY COST REAL WORK AND ARE NOT DERIVABLE FROM THE CODE
