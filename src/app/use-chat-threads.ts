@@ -134,6 +134,35 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     setHistory, setDisplay, cancelledRef, abortRef, confirm,
   } = deps;
 
+  // Monotonic count of COMMITTED sends, bumped by ensureThreadForSend — which
+  // submitPrompt calls exactly once per send, after all of its bails and
+  // synchronously before it awaits anything, so it IS the commit point.
+  //
+  // ★★★ IT ANSWERS A DIFFERENT QUESTION FROM `abortRef`, and retryLoad needs
+  // both:
+  //    `abortRef`   — LIVENESS:   "is a send in flight AT THIS INSTANT?"
+  //    `sendSeqRef` — OCCURRENCE: "did any send BEGIN since this moment?"
+  // A liveness signal can only ever be SAMPLED, at instants; a send whose
+  // whole lifetime falls strictly between two samples is invisible to it no
+  // matter how many samples are taken. That is retryLoad's third ordering,
+  // and only an occurrence signal closes it.
+  //
+  // ★★ It lives HERE rather than in ChatPanel (beside abortRef/cancelledRef,
+  // where the other send-state refs sit) for one measured reason: chat-panel.
+  // tsx sits EXACTLY at its own entry in docs/baselines/file-sizes.json — zero
+  // ratchet headroom — and a threaded ref costs two statements there, which
+  // cannot be written in zero lines. No count is quoted here because both
+  // numbers move; reproduce with `npm run size:check` after adding a line to
+  // that file. Owning it here also keeps the signal in the same file as its
+  // only reader. ★ The cost of that choice: a future send path that skipped
+  // ensureThreadForSend would skip the bump — though such a path would already
+  // be violating that function's own durable-row invariant, which is the
+  // louder failure.
+  //
+  // Never reset, and only ever compared against a value captured earlier in
+  // the same flow, so its absolute magnitude never matters.
+  const sendSeqRef = useRef(0);
+
   // Turso-only multi-thread state. `threads` holds each thread's FULL
   // ChatThread (incl. history/display) so switching between them is instant
   // with no second Turso round-trip — see the design's "already-fetched copy"
@@ -476,12 +505,36 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // clear identity-guarded (`if (abortRef.current === controller)`) at the
     // same time, not afterwards.
     //
-    // Sampled at BOTH ends because either alone leaves a hole: a send that
-    // FINISHES before the reload settles still owns the conversation on screen
-    // (click-time sample catches it), and a send that STARTS after the click
-    // is in flight only at settle (settle-time sample catches it; the identity
-    // test covers that one too when it minted a thread, but not when it sent
-    // into an existing one).
+    // ★★★ THREE ORDERINGS, THREE DISJUNCTS — and the enumeration is the point.
+    // This comment used to list only the first two and call them exhaustive,
+    // which is how the third shipped. `abortRef` is a LIVENESS signal, and a
+    // liveness signal can only ever be sampled at instants; anything whose
+    // whole lifetime falls between two samples is invisible to it, however
+    // many samples you take. Closing that needs an OCCURRENCE signal, which is
+    // a different question and therefore a different ref (`sendSeqRef`).
+    //   (a) A send already IN FLIGHT when Retry is clicked, finishing before
+    //       the reload settles. It still owns the conversation on screen.
+    //       → caught by `sendInFlightAtClick`, and by NOTHING else: it bumped
+    //         the counter BEFORE `seqAtClick` was captured, so the seq test
+    //         reads equal, and `abortRef` is null again by settle. The counter
+    //         does NOT subsume this disjunct.
+    //   (b) A send that STARTS after the click and is STILL in flight at
+    //       settle. → caught by the settle-time `abortRef.current !== null`.
+    //       (The identity test also covers it when the send MINTED a thread,
+    //       but not when it sent into an existing one.)
+    //   (c) A send that starts AND finishes strictly inside the window. Both
+    //       liveness samples read null — chat-panel's `finally` clears
+    //       `abortRef` unconditionally — and if it went into the
+    //       already-active thread it minted nothing, so the identity test
+    //       reads clean too. All three of the pre-counter guards pass, the
+    //       adopt branch runs, and setHistory/setDisplay replace the
+    //       transcript with a snapshot taken BEFORE that send: the user's
+    //       message and its reply vanish from screen. → caught ONLY by
+    //       `sendSeqRef.current !== seqAtClick`.
+    // That is exhaustive over WHEN a send can begin and end relative to the
+    // two window edges: begun-before (a), begun-inside-and-unfinished (b),
+    // begun-inside-and-finished (c). A send begun AND finished before the
+    // click is not this guard's business — nothing about it is live.
     //
     // ★★★ IT MUST GATE THE SETTLE, NOT THE FETCH. Treating in-flight as
     // another `stale: true` still fetches and still merges `loaded` under the
@@ -489,11 +542,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // `loadThreads` CALL instead would let a send that never settles pin the
     // reload branch closed forever, leaving the sidebar permanently stale.
     const sendInFlightAtClick = abortRef.current !== null;
+    const seqAtClick = sendSeqRef.current;
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
         setThreadsError(false);
         setLoadFailed(false);
-        const preserveLive = sendInFlightAtClick || abortRef.current !== null;
+        const preserveLive =
+          sendInFlightAtClick || abortRef.current !== null || sendSeqRef.current !== seqAtClick;
         const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
@@ -505,7 +560,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       .catch(() => {
         setThreadsError(true);
         setLoadFailed(true);
-        const preserveLive = sendInFlightAtClick || abortRef.current !== null;
+        const preserveLive =
+          sendInFlightAtClick || abortRef.current !== null || sendSeqRef.current !== seqAtClick;
         const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
@@ -606,6 +662,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // its FIRST evaluation — which is the send loop's first statement. Every
   // file-mode send became a silent no-op: no API call, no reply, no error.
   function ensureThreadForSend(sentHistory: ApiMessage[], sentDisplay: DisplayItem[]): string | null {
+    // Before the file-mode bail, so the counter measures SENDS rather than
+    // Turso sends — cheap, and it keeps the one write to this ref
+    // unconditional and therefore easy to reason about. retryLoad, its only
+    // reader, is tursoMode-gated anyway.
+    sendSeqRef.current += 1;
     if (!tursoMode) return threadIdRef.current;
     const id = activeThreadId ?? newThreadId();
     if (activeThreadId === null) {

@@ -768,6 +768,357 @@ describe("useChatThreads — retryLoad's reload vs. a send already in flight at 
   });
 });
 
+// ---------------------------------------------------------------------------
+// §148 (FIRST ordering, pinned on its own): the describe above holds abortRef
+// non-null right through the settle, so its assertions are satisfied by the
+// SETTLE-TIME sample alone and say nothing about the CLICK-TIME one. This
+// block is the difference: the send is in flight at the click and FINISHES
+// before the reload settles, so at settle abortRef is null and the counter is
+// unchanged (the send bumped it BEFORE `seqAtClick` was captured). Only
+// `sendInFlightAtClick` can catch it — which is the proof that the counter
+// does NOT subsume that disjunct, a claim retryLoad's comment makes and
+// nothing else tests.
+// ---------------------------------------------------------------------------
+describe("useChatThreads — retryLoad's reload vs. a send in flight at click that finishes first (§148)", () => {
+  async function arrangeSendFinishingBeforeSettle() {
+    let rejectMount!: (reason: unknown) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((_res, rej) => {
+        rejectMount = rej;
+      }),
+    );
+    const abortRef: { current: AbortController | null } = { current: null };
+    const harness = renderChatThreads({ abortRef });
+    const { result, setHistory, setDisplay } = harness;
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+
+    abortRef.current = new AbortController();
+    let mintedId: string | null = null;
+    act(() => {
+      mintedId = result.current.ensureThreadForSend(
+        [{ role: "user", content: "typed by the user" }],
+        [{ kind: "user", text: "typed by the user" }],
+      );
+    });
+    expect(mintedId).toEqual(expect.any(String));
+    rejectMount(new Error("network down"));
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+    expect(result.current.activeThreadId).toBe(mintedId);
+
+    // Retry WHILE the send is still streaming — this is the one instant at
+    // which anything can observe it.
+    expect(abortRef.current).not.toBeNull();
+    let resolveRetry!: (threads: ChatThread[]) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((res) => {
+        resolveRetry = res;
+      }),
+    );
+    act(() => result.current.retryLoad());
+    // ★★★ VACUITY GUARD: proves the RELOAD branch was taken.
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+    setHistory.mockClear();
+    setDisplay.mockClear();
+
+    // The send finishes — its `finally`, clearing unconditionally. No NEW send
+    // follows, so the counter stands exactly where seqAtClick captured it.
+    abortRef.current = null;
+
+    resolveRetry([thread("t-server")]);
+    await waitFor(() => expect(result.current.threadsError).toBe(false));
+    return { ...harness, mintedId };
+  }
+
+  it("refreshes the thread list from the server (positive control for the absence assertions below)", async () => {
+    const { result } = await arrangeSendFinishingBeforeSettle();
+    expect(result.current.threads.map((th) => th.id)).toContain("t-server");
+  });
+
+  it("leaves the finished send's thread active", async () => {
+    const { result, mintedId } = await arrangeSendFinishingBeforeSettle();
+    expect(result.current.activeThreadId).toBe(mintedId);
+  });
+
+  it("does not replace the history the finished send wrote", async () => {
+    const { setHistory } = await arrangeSendFinishingBeforeSettle();
+    expect(setHistory).not.toHaveBeenCalled();
+  });
+
+  it("does not replace the display the finished send wrote", async () => {
+    const { setDisplay } = await arrangeSendFinishingBeforeSettle();
+    expect(setDisplay).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §148 (THIRD ordering): a send that BOTH STARTS AND FINISHES inside the
+// reload window. The two guards above are both reads of `abortRef`, which is a
+// LIVENESS signal — "is a send in flight AT THIS INSTANT" — sampled at two
+// instants. A send whose whole lifetime falls strictly between them is
+// invisible to both, and if it went into the ALREADY-ACTIVE thread rather than
+// minting one, the identity test is blind to it as well. Trace:
+//   1. As in the second ordering: a first send mints M, the mount fetch fails
+//      on its STALE branch, M stays active with the user's message on screen.
+//   2. That first send FINISHES. chat-panel's `finally` clears abortRef.
+//   3. Retry → pendingRetryRef is empty (the FETCH failed, not a write), so
+//      the RELOAD branch runs. abortRef.current is null, so
+//      sendInFlightAtClick is FALSE. startedOn = threadIdRef.current = M.
+//   4. The user sends again, into M. ensureThreadForSend finds M already
+//      active and already rowed, so it neither mints nor moves threadIdRef.
+//   5. That send finishes too — abortRef.current back to null — all before
+//      the reload settles.
+//   6. At settle: sendInFlightAtClick false, abortRef.current null, and
+//      threadIdRef.current still M === startedOn. All three guards read clean,
+//      mergeThreadsAfterLoad takes its ADOPT branch, and setHistory/setDisplay
+//      replace the transcript with `loaded` — a snapshot taken BEFORE step 4.
+//      The user's second message and its reply vanish from screen.
+// The discriminator is not liveness but OCCURRENCE: "did any send begin since
+// the click", which only a monotonic counter (`sendSeqRef`) can answer.
+// ---------------------------------------------------------------------------
+describe("useChatThreads — retryLoad's reload vs. a send that both starts AND finishes inside the window (§148)", () => {
+  /** Drives the six-step ordering above up to "the retry-reload has resolved".
+   *  Each `it` runs it fresh — vitest aborts a block at its first hard
+   *  failure, so one assertion per test is the only way all of them are ever
+   *  evaluated. */
+  async function arrangeSendWhollyInsideWindow() {
+    // (1) The mount fetch, held open so the FIRST send can start underneath it.
+    let rejectMount!: (reason: unknown) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((_res, rej) => {
+        rejectMount = rej;
+      }),
+    );
+    const cancelledRef = { current: false };
+    const abortRef: { current: AbortController | null } = { current: null };
+    const harness = renderChatThreads({ cancelledRef, abortRef });
+    const { result, setHistory, setDisplay } = harness;
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+
+    // (2) The first send. Mints M, exactly as the second ordering's does.
+    abortRef.current = new AbortController();
+    let mintedId: string | null = null;
+    act(() => {
+      mintedId = result.current.ensureThreadForSend(
+        [{ role: "user", content: "first message" }],
+        [{ kind: "user", text: "first message" }],
+      );
+    });
+    expect(mintedId).toEqual(expect.any(String));
+    // Its `finally` — which clears UNCONDITIONALLY (see the abortRef doc
+    // comment in use-chat-threads.ts). This is the step that makes the two
+    // liveness samples blind.
+    abortRef.current = null;
+
+    // (3) The mount fetch fails on the STALE path, leaving M active with the
+    //     live conversation intact.
+    rejectMount(new Error("network down"));
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+    expect(result.current.activeThreadId).toBe(mintedId);
+
+    // (4) Retry, with NOTHING in flight — the premise of this whole ordering.
+    expect(abortRef.current).toBeNull();
+    let resolveRetry!: (threads: ChatThread[]) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((res) => {
+        resolveRetry = res;
+      }),
+    );
+    act(() => result.current.retryLoad());
+    // ★★★ VACUITY GUARD: proves retryLoad reached the RELOAD branch. A pending
+    // WRITE retry would re-issue that write and never call loadThreads again,
+    // and then every assertion below would pass for the wrong reason.
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+    // Only writes made after this point are the subject.
+    setHistory.mockClear();
+    setDisplay.mockClear();
+
+    // (5) The SECOND send: begins and ends entirely inside the window, into
+    //     the EXISTING thread M.
+    const secondController = new AbortController();
+    abortRef.current = secondController;
+    let sentInto: string | null = null;
+    act(() => {
+      sentInto = result.current.ensureThreadForSend(
+        [{ role: "user", content: "first message" }, { role: "assistant", content: [{ type: "text", text: "reply" }] }, { role: "user", content: "second message" }],
+        [{ kind: "user", text: "first message" }, { kind: "assistant", text: "reply" }, { kind: "user", text: "second message" }],
+      );
+    });
+    // ★★★ The load-bearing premise: no mint, so threadIdRef never moves and
+    // the identity test cannot see this send either. If this ever starts
+    // minting, the test is covering the SECOND ordering again, not the third.
+    expect(sentInto).toBe(mintedId);
+    expect(result.current.threadIdRef.current).toBe(mintedId);
+    // Its `finally`, still before the reload settles.
+    abortRef.current = null;
+
+    // (6) The reload resolves. All three of the pre-counter guards read clean.
+    resolveRetry([thread("t-server")]);
+    // Settle witness that holds on BOTH the merged and the replaced branch —
+    // `.then` clears the banner before it ever consults staleness — so a red
+    // here is an assertion failure, never a timeout on the broken code.
+    await waitFor(() => expect(result.current.threadsError).toBe(false));
+
+    return { ...harness, mintedId, secondController, cancelledRef };
+  }
+
+  it("refreshes the thread list from the server (positive control for the absence assertions below)", async () => {
+    const { result } = await arrangeSendWhollyInsideWindow();
+    expect(result.current.threads.map((th) => th.id)).toContain("t-server");
+  });
+
+  it("keeps the thread the just-finished send wrote into", async () => {
+    const { result, mintedId } = await arrangeSendWhollyInsideWindow();
+    expect(result.current.threads.map((th) => th.id)).toContain(mintedId);
+  });
+
+  it("leaves that thread active", async () => {
+    const { result, mintedId } = await arrangeSendWhollyInsideWindow();
+    expect(result.current.activeThreadId).toBe(mintedId);
+  });
+
+  it("does not replace the history the just-finished send added to", async () => {
+    const { setHistory } = await arrangeSendWhollyInsideWindow();
+    expect(setHistory).not.toHaveBeenCalled();
+  });
+
+  it("does not replace the display the just-finished send added to", async () => {
+    const { setDisplay } = await arrangeSendWhollyInsideWindow();
+    expect(setDisplay).not.toHaveBeenCalled();
+  });
+
+  /** Same ordering, but the retry-reload REJECTS. The two `preserveLive`
+   *  expressions are SEPARATE code, so the `.then` tests above prove nothing
+   *  about this path — and the catch is the more destructive of the two: its
+   *  adopt branch resets `threads` to empty and history/display with it. */
+  async function arrangeSendWhollyInsideFailingWindow() {
+    let rejectMount!: (reason: unknown) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((_res, rej) => {
+        rejectMount = rej;
+      }),
+    );
+    const cancelledRef = { current: false };
+    const abortRef: { current: AbortController | null } = { current: null };
+    const harness = renderChatThreads({ cancelledRef, abortRef });
+    const { result, setHistory, setDisplay } = harness;
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+
+    abortRef.current = new AbortController();
+    let mintedId: string | null = null;
+    act(() => {
+      mintedId = result.current.ensureThreadForSend(
+        [{ role: "user", content: "first message" }],
+        [{ kind: "user", text: "first message" }],
+      );
+    });
+    abortRef.current = null;
+    rejectMount(new Error("network down"));
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+    expect(result.current.activeThreadId).toBe(mintedId);
+
+    expect(abortRef.current).toBeNull();
+    let rejectRetry!: (reason: unknown) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((_res, rej) => {
+        rejectRetry = rej;
+      }),
+    );
+    act(() => result.current.retryLoad());
+    // ★★★ VACUITY GUARD, as above: proves the RELOAD branch was taken.
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+    setHistory.mockClear();
+    setDisplay.mockClear();
+
+    const secondController = new AbortController();
+    abortRef.current = secondController;
+    let sentInto: string | null = null;
+    act(() => {
+      sentInto = result.current.ensureThreadForSend(
+        [{ role: "user", content: "first message" }, { role: "assistant", content: [{ type: "text", text: "reply" }] }, { role: "user", content: "second message" }],
+        [{ kind: "user", text: "first message" }, { kind: "assistant", text: "reply" }, { kind: "user", text: "second message" }],
+      );
+    });
+    expect(sentInto).toBe(mintedId);
+    expect(result.current.threadIdRef.current).toBe(mintedId);
+    abortRef.current = null;
+
+    // ★★★ The banner is ALREADY true here (the mount fetch failed), so a bare
+    // `waitFor(threadsError === true)` after the rejection is VACUOUS — it
+    // returns on the first poll, before the catch has settled, and every
+    // assertion below then reads pre-settle state and passes for free. Clear
+    // it INSIDE act (so the commit is flushed, not merely scheduled) to make
+    // it a real witness, and drain the microtask queue inside act so the
+    // settle is deterministic rather than a race with waitFor's own flush.
+    act(() => result.current.setThreadsError(false));
+    expect(result.current.threadsError).toBe(false);
+    await act(async () => {
+      rejectRetry(new Error("still down"));
+      await Promise.resolve();
+    });
+    // Branch-independent settle witness: the catch raises the banner before it
+    // ever consults staleness.
+    expect(result.current.threadsError).toBe(true);
+
+    return { ...harness, mintedId, secondController, cancelledRef };
+  }
+
+  it("a FAILED retry-reload keeps the thread the just-finished send wrote into", async () => {
+    const { result, mintedId } = await arrangeSendWhollyInsideFailingWindow();
+    expect(result.current.threads.map((th) => th.id)).toEqual([mintedId]);
+  });
+
+  it("a FAILED retry-reload leaves that thread active", async () => {
+    const { result, mintedId } = await arrangeSendWhollyInsideFailingWindow();
+    expect(result.current.activeThreadId).toBe(mintedId);
+  });
+
+  it("a FAILED retry-reload does not replace the history", async () => {
+    const { setHistory } = await arrangeSendWhollyInsideFailingWindow();
+    expect(setHistory).not.toHaveBeenCalled();
+  });
+
+  it("a FAILED retry-reload does not replace the display", async () => {
+    const { setDisplay } = await arrangeSendWhollyInsideFailingWindow();
+    expect(setDisplay).not.toHaveBeenCalled();
+  });
+
+  it("a LATER retry, with no send inside ITS OWN window, still adopts the server's list", async () => {
+    // The counter is CAPTURED per click, never compared against a fixed
+    // origin — so a send in an EARLIER window must not pin the guard closed
+    // forever. Without this, "increment a counter" would be indistinguishable
+    // from "disable adoption after the first send", and every test above
+    // would still pass.
+    let resolveMount!: (threads: ChatThread[]) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((res) => {
+        resolveMount = res;
+      }),
+    );
+    const abortRef: { current: AbortController | null } = { current: null };
+    const { result } = renderChatThreads({ abortRef });
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    resolveMount([]);
+    await waitFor(() => expect(result.current.threadsError).toBe(false));
+
+    // A send happens and completes BEFORE any retry is clicked.
+    abortRef.current = new AbortController();
+    act(() => {
+      result.current.ensureThreadForSend(
+        [{ role: "user", content: "earlier" }],
+        [{ kind: "user", text: "earlier" }],
+      );
+    });
+    abortRef.current = null;
+
+    // Its window is over, so this reload must adopt exactly as it did before
+    // the counter existed.
+    loadThreadsMock.mockResolvedValueOnce([thread("t-server")]);
+    act(() => result.current.retryLoad());
+    await waitFor(() => expect(result.current.activeThreadId).toBe("t-server"));
+    expect(result.current.threads.map((th) => th.id)).toEqual(["t-server"]);
+  });
+});
+
 describe("useChatThreads — busy-persist effect: existing-thread name reuse", () => {
   // Stable across rerenders — see makeStableDeps' comment in the retry
   // describe block above for why fresh vi.fn()/ref identities per call would
