@@ -8,6 +8,59 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.269.0] - 2026-08-31 "Due"
+
+### Fixed
+
+- **Document-version rows in version history showed `#<id>` instead of the document's title.**
+  Restoring or comparing an earlier version of a document meant matching an internal id against a
+  list of titles by hand. Version-history rows now show the document's actual title.
+- **The workspace collapse control could only be operated by hovering to read its title** — it had
+  no accessible name of its own, so voice control and touch assistive technology had no way to
+  trigger it. It now carries a proper label and works the same way every other control does.
+- **The Settings "AI Assistant" block wasn't announced as a group to screen readers**, so its
+  related controls read as a flat, unlabeled list rather than a named section.
+- **Archived-project rows gave every row identically-named Restore and Delete-permanently
+  buttons**, on both the projects panel and its empty state — so a screen reader had no way to tell
+  which archived project a given button acted on. Each control's name now includes the project it
+  belongs to.
+- **More lists had the same problem: every row's buttons announced the same name.** Snapshot
+  Delete and Set-as-baseline in Trends, Set-as-default in the communication templates, Remove-role
+  and Remove-discipline in a budget bucket, Unlink on a change's linked RAID items, and Add-as-
+  resource on unlinked people. In each case a screen reader or voice-control user heard the same
+  name for every row and had no way to say which one they meant. Every one of those controls now
+  names its own row — and where a row's own label can repeat (two snapshots in the same minute, two
+  templates with one name), the name says which of them it is.
+- **The same problem, in two more places found on a second pass.** In the communication templates,
+  the saved-version list gave every version an identically-named Compare and Restore button, and a
+  version name is whatever you typed when you saved it — so two versions could share one. In
+  Resources, each person's name button, their near-term utilisation field, their overdue-triage
+  button and every absence chip announced a bare name, number or date range that two rows could
+  share. All of them now name the row they belong to.
+- **In report views, one column header could label several columns at once** where a single view
+  showed several tables that happened to share a column name. Shared column headers are now
+  disambiguated so each one names only its own table, and the same applies to the Resources
+  report's three group filters, whose search boxes and clear buttons all announced one name.
+- **Timelog sync could report "idle" while a sync was still running.** If you started a fresh sync
+  before an earlier one had finished, the earlier one finishing switched the indicator back to
+  idle — so the sync still working looked done. A superseded run's completion no longer overwrites
+  the status of the run that replaced it.
+- **In the AI Assistant, clicking Retry on the "couldn't load your conversations" banner could make
+  a message you were still sending disappear.** Retry re-reads the conversation list, and when that
+  came back it moved you to whichever conversation the server listed first — dropping the one your
+  message had just started and cancelling the reply streaming into it. Retry now refreshes the list
+  without moving you off a conversation you are in the middle of sending to — including the case
+  where the whole message is sent and answered while the refresh is still running, which the first
+  version of this fix did not cover.
+- **Leaving the Insights view did not stop the AI calls it had already started**, so they kept
+  billing against your API usage after you had moved on. Each background pass works through up to
+  three insights one after another, so leaving part-way through could leave a call in flight and
+  more still queued behind it. Navigating away now cancels the call in flight and abandons the rest
+  of the pass.
+- **Note logs exported into documents as a raw block of JSON** instead of readable text. Each entry
+  now exports as one plain `author · date · text` line, with an ISO date rather than the localised
+  timestamp the app shows on screen.
+
 ## [0.268.0] - 2026-08-30 "Ogawa"
 
 ### Fixed

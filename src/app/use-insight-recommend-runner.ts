@@ -53,6 +53,11 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   // Overlap guard: skip a tick while a previous async run is still in flight.
   const isRunningRef = useRef(false);
 
+  // ★ One controller per TICK (not per candidate) — unmount must stop every
+  //   remaining candidate this tick, not just the one in flight at that
+  //   instant. See the mount-effect cleanup below for the abort() call.
+  const abortRef = useRef<AbortController | null>(null);
+
   // The cadence is a hoisted SCALAR local: react-hooks/exhaustive-deps REJECTS
   // an `args.intervalMinutes` member expression in a dep array.
   const intervalMs = clampInsightRecInterval(args.intervalMinutes) * 60_000;
@@ -74,12 +79,19 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
       .slice(0, MAX_BG_RECS_PER_TICK);
     if (candidates.length === 0) return;
 
+    const controller = new AbortController();
+    abortRef.current = controller;
     isRunningRef.current = true;
     try {
       // Serial, not parallel — bounded by MAX_BG_RECS_PER_TICK candidates, and
       // a global failure (usage limit / auth) should stop the whole tick
-      // rather than fire N more calls that will fail the same way.
+      // rather than fire N more calls that will fail the same way. An abort
+      // (unmount mid-tick) is the same kind of global stop — checked before
+      // starting a candidate AND after one settles, so neither a call that
+      // never gets issued nor one that resolves in the same tick the abort
+      // landed can slip past.
       for (const insight of candidates) {
+        if (controller.signal.aborted) break;
         try {
           const rec = await runInsightRecommendation({
             apiKey: aiRef.current.apiKey,
@@ -87,13 +99,18 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
             context: buildContextForRef.current(insight),
             index: buildIndexRef.current(),
             today: todayRef.current,
+            signal: controller.signal,
           });
+          if (controller.signal.aborted) break;
           applyRecommendationRef.current(insight.id, rec);
         } catch (e) {
-          // NEVER log/echo the api key or response body. A limit/auth failure
-          // is global (every remaining call this tick would fail the same
-          // way) — stop burning budget. Any other failure (parse/network/
-          // one-off) is swallowed so the next candidate still gets a try.
+          // NEVER log/echo the api key or response body. An abort (unmount)
+          // stops the whole tick — the promise's rejection is expected, not a
+          // failure to classify. A limit/auth failure is likewise global
+          // (every remaining call this tick would fail the same way) — stop
+          // burning budget. Any OTHER failure (parse/network/one-off) is
+          // swallowed so the next candidate still gets a try.
+          if (controller.signal.aborted) break;
           if (e instanceof AiHttpError) {
             const cls = classifyAiError(e.status, e.errorType);
             if (cls === "limit" || cls === "auth") break;
@@ -129,4 +146,30 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
     const interval = setInterval(() => { void tickRef.current(); }, intervalMs);
     return () => { clearInterval(interval); };
   }, [intervalMs]);
+
+  // ★★★ REGRESSION (§120): navigating away did not stop up to
+  //    MAX_BG_RECS_PER_TICK billed calls already in flight. `[]` deps —
+  //    unmount-only, like the mount effect above. Deliberately NOT folded
+  //    into either effect above: the mount effect's `[]` cleanup would work
+  //    too, but the interval effect's `[intervalMs]` cleanup re-runs on every
+  //    cadence change and would abort legitimate in-flight work on a settings
+  //    edit, not just on unmount.
+  //
+  // ★★ DEV-ONLY SIDE EFFECT — do NOT report §120 as broken from a dev session.
+  //    MEASURED: App Router runs StrictMode by default here (no
+  //    `reactStrictMode` in next.config.ts). REASONED, and nobody has watched
+  //    it happen: under `next dev` the mount commit runs effects → cleanup →
+  //    effects, so this cleanup would abort the mount tick's controller and the
+  //    re-run would then return early on `isRunningRef` (lowered only in the
+  //    tick's `finally`, a later microtask) — leaving no recommendations on
+  //    mount under `npm run dev`. That chain was traced statically, never
+  //    observed, and §310 records it the same way; treat it as a reasoned
+  //    prediction, not a measurement.
+  //    Production no-ops StrictMode, so shipped users are
+  //    unaffected — which is why this is filed rather than fixed. An identity
+  //    guard cannot be added HERE (empty effect body, no controller captured;
+  //    and at a simulated unmount the mount tick's controller IS the current
+  //    one). See docs/open-followups.md §310 for the minimal fix if dev parity
+  //    is ever wanted.
+  useEffect(() => () => abortRef.current?.abort(), []);
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { RaidReportPanel } from "./raid-report-panel";
 import type { RaidItem } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const TODAY = "2026-05-28";
 
@@ -85,6 +86,21 @@ describe("RaidReportPanel", () => {
     const titleHeader = screen.getByRole("button", { name: /title/i });
     fireEvent.click(titleHeader);
     expect(screen.getByText("Server capacity risk")).toBeInTheDocument();
+  });
+
+  it("keeps every sortable header distinct across the co-rendered summary tables", () => {
+    // ★ The header collision does NOT depend on this fixture's row variety.
+    // All six summary tables are rendered unconditionally and none carries a
+    // per-table empty guard, so their headers collide for ANY items list that
+    // clears the panel's own `items.length === 0` EmptyState early return.
+    // What the fixture buys is the minControls floor below, not reachability.
+    // ★ Do NOT "align" resources-report.test.tsx's near-identical comment to
+    // this one — there the claim is true, because its ByGroupTable returns
+    // null at zero rows and so must be populated per instance.
+    render(<RaidReportPanel lang="en-US" items={items} today={TODAY} />);
+    // Measured: the summary view's six tables + toolbar render 29
+    // `button`-role controls in this fixture.
+    expectRowUniqueNames({ minControls: 29, requireCollisionSeed: false });
   });
 
   it("embedded mode shows summary content and no toggle or print button", () => {

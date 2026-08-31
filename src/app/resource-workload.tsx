@@ -10,6 +10,7 @@ import { INNER_TABLE_CLASS } from "./view-styles";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { WorkloadOverdueTriage } from "./resource-workload-triage";
 import { DataTable } from "./data-table";
@@ -26,6 +27,25 @@ function absenceTypeLabel(type: AbsenceType, lang: Lang): string {
     default:
       return t(lang, "absenceTypeOther");
   }
+}
+
+/**
+ * One absence chip's accessible name: its own VISIBLE text, then the row it
+ * belongs to. The chip is content-named today, so two people off on the same
+ * days for the same reason announce identically (WCAG 2.4.6) — the row is what
+ * tells them apart.
+ *
+ * ★★ THE MISSING SPACE BETWEEN THE RANGE AND THE TYPE IS DELIBERATE, and
+ * "tidying" it breaks WCAG 2.5.3. The chip renders two INLINE spans, and
+ * name-from-content concatenates inline content with NO separator — measured,
+ * not reasoned: before this qualifier existed the two colliding chips computed
+ * to `Jul 01–Jul 05vacation`. 2.5.3 wants the visible label CONTAINED in the
+ * accessible name, so this half has to reproduce that concatenation verbatim.
+ * `a.type` (not the localized `absenceTypeLabel`) for the same reason — the raw
+ * enum value is what the span renders.
+ */
+function absenceChipName(a: Absence, lang: Lang, rowToken: string): string {
+  return `${shortDateRange(a, lang)}${a.type} – ${rowToken}`;
 }
 
 export const WORKLOAD_COL_WIDTHS = {
@@ -132,6 +152,53 @@ export function ResourceWorkload({
     () => (hideExternal ? allManaged.filter((r) => !r.resource.isExternal) : allManaged),
     [allManaged, hideExternal],
   );
+  // ★★ Two resources can carry ONE display name: `buildResourceWorkload` keys
+  // `managed` on the resource id and only its `nameToId` join map de-duplicates
+  // by name, so both rows render. The row's name button has no `aria-label`, so
+  // its accessible name falls back to its CONTENT and both announced the same
+  // string (WCAG 2.4.6); the utilization input and the triage trigger
+  // interpolate the same free-text value and collided with it.
+  // ★ Built over the POST-filter `managed` list, in rendered order — a row
+  // `hideExternal` withholds is not on screen and must not consume an
+  // occurrence index.
+  const rowTokens = useMemo(
+    () => buildRowTokens(managed.map((row) => ({ id: row.resource.id, name: row.display }))),
+    [managed],
+  );
+  // ★★ ONE MAP PER RENDERED TABLE, deliberately, even though both tables share
+  // one DOM `<table>` and uniqueness is a whole-surface property. The two lists
+  // carry different identity schemes (a numeric resource id vs a case-folded
+  // display name), and their chip names cannot collide across the split: an
+  // unlinked row exists precisely BECAUSE its name matched no resource
+  // case-folded, so no unlinked `display` can equal a managed one. A single map
+  // would have to invent a common key type to buy nothing.
+  // ★ The row qualifier alone is not sufficient, which is why the composed name
+  // still goes through `buildRowTokens`: one person can hold two absence
+  // records with the same window and type, so the composed value can repeat.
+  const managedAbsenceTokens = useMemo(
+    () =>
+      buildRowTokens(
+        managed.flatMap((row) =>
+          row.upcoming.map((a) => ({
+            id: `${row.resource.id}:${a.id}`,
+            name: absenceChipName(a, lang, rowTokens.get(row.resource.id) ?? row.display),
+          })),
+        ),
+      ),
+    [managed, rowTokens, lang],
+  );
+  const unlinkedAbsenceTokens = useMemo(
+    () =>
+      buildRowTokens(
+        unlinked.flatMap((row) =>
+          row.upcoming.map((a) => ({
+            id: `${row.display.toLowerCase()}:${a.id}`,
+            name: absenceChipName(a, lang, row.display),
+          })),
+        ),
+      ),
+    [unlinked, lang],
+  );
   const confirm = useConfirm();
 
   const { colWidths } = colResize;
@@ -182,7 +249,12 @@ export function ResourceWorkload({
             </th>
           </tr>
         </>} tbodyClassName="divide-y divide-line">
-          {managed.map((row) => (
+          {managed.map((row) => {
+            // Cannot miss: the map is built over this exact list, keyed on the
+            // same resource id. The fallback keeps the pre-token name rather
+            // than leaving the control unnamed if it ever did.
+            const rowToken = rowTokens.get(row.resource.id) ?? row.display;
+            return (
             <tr key={`res-${row.resource.id}`} className="cursor-pointer align-top hover:bg-surface-muted" onClick={() => onEditResource(row.resource)}>
               <td className="px-3 py-2 font-medium text-foreground">
                 <button
@@ -190,6 +262,9 @@ export function ResourceWorkload({
                   onClick={(e) => { e.stopPropagation(); onEditResource(row.resource); }}
                   className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
                   title={row.display}
+                  // WCAG 2.5.3 holds by CONTAINMENT: the token is the visible
+                  // `row.display` with at most a trailing occurrence index.
+                  aria-label={rowToken}
                 >
                   {row.display}
                 </button>
@@ -204,7 +279,7 @@ export function ResourceWorkload({
                 {row.overdueCount > 0 ? (
                   <WorkloadOverdueTriage
                     lang={lang}
-                    rowDisplay={row.display}
+                    rowDisplay={rowToken}
                     overdueTasks={row.overdueTasks}
                     resources={resources}
                     onReassignTask={onReassignTask}
@@ -250,7 +325,7 @@ export function ResourceWorkload({
                     min={0}
                     step={row.resource.utilizationMode === "percent" ? 5 : 1}
                     value={row.resource.utilization[nearTermPeriodKey] ?? ""}
-                    aria-label={t(lang, "workloadNearTermUtilLabel", row.display)}
+                    aria-label={t(lang, "workloadNearTermUtilLabel", rowToken)}
                     onChange={(e) =>
                       onSetUtilization(row.resource.id, nearTermPeriodKey, Number(e.target.value) || 0)
                     }
@@ -275,6 +350,10 @@ export function ResourceWorkload({
                           type="button"
                           onClick={(e) => { e.stopPropagation(); onEditAbsence(a); }}
                           title={a.note ?? ""}
+                          aria-label={
+                            managedAbsenceTokens.get(`${row.resource.id}:${a.id}`) ??
+                            absenceChipName(a, lang, rowToken)
+                          }
                           className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-ui-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
                         >
                           <span>{shortDateRange(a, lang)}</span>
@@ -288,7 +367,8 @@ export function ResourceWorkload({
                 )}
               </td>
             </tr>
-          ))}
+            );
+          })}
 
           {unlinked.length > 0 && (
             <>
@@ -321,6 +401,18 @@ export function ResourceWorkload({
                           email: row.email || undefined,
                         })
                       }
+                      // WCAG 2.4.6 (open-followups §276) — this button's name
+                      // came from its CONTENT alone, so every unlinked row
+                      // announced the same "Add as resource"; the row's identity
+                      // sits in the SIBLING span, outside the button.
+                      // ★★ A PLAIN QUALIFIER, NOT `buildRowTokens`:
+                      // `buildResourceWorkload` accumulates unlinked rows into a
+                      // Map keyed on `display.toLowerCase()`, so `row.display`
+                      // cannot repeat in this list — not even in a different
+                      // case — and an occurrence index would have nothing to
+                      // count. The sibling clear-unlinked control qualifies with
+                      // the same value for the same reason.
+                      aria-label={rowLabel(t(lang, "resourcesAddAsResource"), row.display)}
                       className={`ml-2 rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-normal text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >
                       {t(lang, "resourcesAddAsResource")}
@@ -396,6 +488,14 @@ export function ResourceWorkload({
                               type="button"
                               onClick={() => onEditAbsence(a)}
                               title={a.note ?? ""}
+                              // A plain `row.display` qualifier is enough for
+                              // the ROW half here (unlinked rows are keyed on
+                              // `display.toLowerCase()`, so it cannot repeat),
+                              // but the CHIP half still can — hence the token.
+                              aria-label={
+                                unlinkedAbsenceTokens.get(`${row.display.toLowerCase()}:${a.id}`) ??
+                                absenceChipName(a, lang, row.display)
+                              }
                               className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-ui-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
                             >
                               <span>{shortDateRange(a, lang)}</span>

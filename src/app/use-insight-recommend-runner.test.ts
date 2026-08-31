@@ -115,6 +115,88 @@ describe("useInsightRecommendRunner", () => {
     await expect(act(async () => { await flushMicrotasks(); })).resolves.not.toThrow();
     expect(applyRecommendation).not.toHaveBeenCalled();
   });
+
+  // ★★★ REGRESSION (§120): the runner had NO AbortController anywhere, so
+  //    navigating away mid-tick did not stop the remaining billed calls.
+  // ★ Vacuity trap: the mount tick fires immediately, so the first call MUST
+  //   still be in flight (a never-settling promise) when unmount() runs — an
+  //   already-finished tick would let this pass with the cleanup deleted.
+  test("captures an AbortSignal on the in-flight call and aborts it when the runner unmounts", async () => {
+    let captured: AbortSignal | undefined;
+    mockRun.mockImplementation((args) => {
+      captured = args.signal;
+      return new Promise<InsightRecommendation>(() => {});
+    });
+    const { unmount } = renderRunner({ insights: [makeInsight(1)] });
+    await act(async () => { await flushMicrotasks(); });
+    expect(captured).toBeDefined();
+    // Guard against a vacuous pass: an already-aborted signal would satisfy
+    // the post-unmount assertion below without the cleanup ever running.
+    expect(captured!.aborted).toBe(false);
+    unmount();
+    expect(captured!.aborted).toBe(true);
+  });
+
+  // ★★★ The signal flipping to aborted is not, by itself, proof that billing
+  //    stops: without a `break` on abort the serial loop still walks the
+  //    remaining candidates once the in-flight call settles. The observable
+  //    here is the call COUNT on the mocked runner, not the signal — a real
+  //    fetch rejects as soon as its signal aborts, so the mock reproduces
+  //    that by rejecting the first call the instant its signal aborts, which
+  //    lets the loop's `await` return and (absent the fix) proceed to the
+  //    second candidate.
+  test("does not issue the next candidate's call after the tick aborts mid-loop", async () => {
+    const insights = [makeInsight(1), makeInsight(2), makeInsight(3)];
+    mockRun.mockImplementationOnce((args) => {
+      return new Promise<InsightRecommendation>((_resolve, reject) => {
+        args.signal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        });
+      });
+    });
+    mockRun.mockResolvedValue(fakeRec); // would answer candidate 2 if wrongly called
+    const { unmount } = renderRunner({ insights });
+    await act(async () => { await flushMicrotasks(); });
+    // Positive control: the first candidate's call WAS issued.
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    unmount();
+    await act(async () => { await flushMicrotasks(); });
+    // Absence assertion: the second candidate's call was never issued.
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★★ The POST-AWAIT abort check (the `break` sitting BETWEEN the awaited
+  //    runInsightRecommendation and applyRecommendationRef.current) is a
+  //    THIRD guard, distinct from the top-of-loop one and from the catch's.
+  //    It covers the call that RESOLVES after the unmount: without it the
+  //    loop writes a recommendation into an unmounted tree's writer.
+  // ★★ ONE candidate, and a RESOLVING deferred, both on purpose. A second
+  //    candidate would let the top-of-loop check break instead, and a
+  //    REJECTING promise would route through the catch's own abort break —
+  //    either way this test would pass with the post-await line deleted.
+  //    MEASURED, not reasoned: deleting that one `break` turns this test RED
+  //    while both §120 tests above stay GREEN.
+  test("does not apply a recommendation that resolves after the runner unmounts", async () => {
+    let resolveRun: ((rec: InsightRecommendation) => void) | undefined;
+    mockRun.mockImplementation(
+      () => new Promise<InsightRecommendation>((resolve) => { resolveRun = resolve; }),
+    );
+    const { unmount, applyRecommendation } = renderRunner({ insights: [makeInsight(1)] });
+    await act(async () => { await flushMicrotasks(); });
+    // Positive controls: the call is genuinely IN FLIGHT (issued, unsettled)
+    // when the unmount lands — an already-settled tick would make the final
+    // absence assertion vacuous.
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(resolveRun).toBeDefined();
+    expect(applyRecommendation).not.toHaveBeenCalled();
+
+    unmount();
+    await act(async () => {
+      resolveRun!(fakeRec);
+      await flushMicrotasks();
+    });
+    expect(applyRecommendation).not.toHaveBeenCalled();
+  });
 });
 
 // The cadence is user-settable (SP4). These assertions are only meaningful with

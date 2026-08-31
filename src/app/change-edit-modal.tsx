@@ -34,6 +34,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
+import { rowLabel } from "./row-tokens";
 import { Button } from "./button";
 import {
   EditModalShell,
@@ -677,7 +678,18 @@ export function ChangeEditModal({
                     <IconButton
                       variant="danger"
                       onClick={() => removeLinkedRaid(rid)}
-                      label={t(lang, "changeUnlinkRaid")}
+                      // WCAG 2.4.6 (open-followups §276) — one chip per linked
+                      // RAID item, all named by the same bare constant.
+                      // ★★ A PLAIN QUALIFIER, NOT `buildRowTokens`, and the id
+                      // is the right one: `rid` cannot repeat in this list (it
+                      // is the React key, and `addLinkedRaid` refuses an id
+                      // already present), so there is nothing for an occurrence
+                      // index to disambiguate. The RAID TITLE would have been
+                      // the wrong choice for exactly the opposite reason — it is
+                      // free text and two items may share one. `#${rid}` is also
+                      // what the chip already shows, so the spoken name matches
+                      // what is on screen.
+                      label={rowLabel(t(lang, "changeUnlinkRaid"), `#${rid}`)}
                       title={t(lang, "changeUnlinkRaid")}
                     >
                       <XMarkIcon aria-hidden="true" className="h-3 w-3" />

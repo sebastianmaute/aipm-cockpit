@@ -116,8 +116,18 @@ export function useTimelogSync(args: Args) {
       if (status === 401 || status === 403) onTokenInvalid();
       return undefined;
     } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-      setBusy(false);
+      // ★★ BOTH statements are guarded on the SAME identity test, and that is
+      //    the point: a SUPERSEDED run must not clear a flag its successor has
+      //    already raised. The identity test IS the generation check — the only
+      //    writers of `abortRef.current` are this function's own assignment and
+      //    this guarded null, and `cancel()` aborts WITHOUT nulling the ref, so
+      //    a user-cancelled (not superseded) run still matches here and clears
+      //    busy. A superseded run that skips the clear is always followed by a
+      //    successor whose own `finally` clears it.
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setBusy(false);
+      }
     }
   }
 

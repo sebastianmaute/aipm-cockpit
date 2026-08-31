@@ -53,6 +53,7 @@ import type {
   BudgetBucket,
   ProjectStatus,
   ProjectMeta,
+  NoteLogEntry,
 } from "./types";
 import type { KnowledgeLink } from "./document-link";
 
@@ -115,8 +116,14 @@ export type ExportSection = {
 
 function tasksSection(tasks: readonly Task[], lang: Lang): ExportSection {
   const columns = CSV_COLUMNS as unknown as string[];
-  const rows = tasks.map((t) =>
-    CSV_COLUMNS.map((c) => richCell(fieldToString(t, c), c, TASK_RICH_COLUMNS))
+  const rows = tasks.map((task) =>
+    CSV_COLUMNS.map((c) =>
+      richCell(
+        c === "noteLog" ? projectNoteLog(task.noteLog, lang) : fieldToString(task, c),
+        c,
+        TASK_RICH_COLUMNS
+      )
+    )
   );
   return { key: "tasks", title: t(lang, "tasks"), columns, rows };
 }
@@ -145,10 +152,41 @@ function richCell(value: string, column: string, rich: ReadonlySet<string>): Exp
   return { html: value, text: descriptionTextWithBreaks(value) };
 }
 
+/** Projects a note log to one `author · date · text` line per entry, for a
+ *  DOCUMENT-EXPORT cell — never for storage (CSV/Markdown/Turso keep the
+ *  `encodeNoteLog` JSON blob; that round-trip is byte-pinned and must not
+ *  change). Reads the entity's OWN `noteLog` array directly rather than
+ *  re-encoding/decoding through `encodeNoteLog`/`decodeNoteLog`, so it carries
+ *  no DOM dependency and cannot hit `decodeNoteLog`'s bare-node blind spot.
+ *
+ *  ★ `.text`, never `.html` — `.text` is the maintained plain projection
+ *  (re-derived after sanitising), so no markup can reach a flat XLSX/PPTX
+ *  cell. ★ The date is the ISO date part of `timestamp` (`slice(0, 10)`), NOT
+ *  a localized display timestamp — this builder receives no timezone, so
+ *  `formatDisplayTimestamp` is unreachable without a signature change across
+ *  both consumers. ★ A missing/empty log stays an empty cell, mirroring
+ *  `encodeNoteLog`'s own empty-string case. */
+function projectNoteLog(log: readonly NoteLogEntry[] | undefined, lang: Lang): string {
+  if (!log || log.length === 0) return "";
+  return log
+    .map((entry) => {
+      const author = entry.authorName || t(lang, "noteLogNoAuthor");
+      const date = entry.timestamp.slice(0, 10);
+      return `${author} · ${date} · ${entry.text}`;
+    })
+    .join("\n");
+}
+
 function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {
   const columns = RAID_CSV_COLUMNS as unknown as string[];
   const rows = raid.map((r) =>
-    RAID_CSV_COLUMNS.map((c) => richCell(raidFieldToString(r, c), c, RAID_RICH_COLUMNS))
+    RAID_CSV_COLUMNS.map((c) =>
+      richCell(
+        c === "noteLog" ? projectNoteLog(r.noteLog, lang) : raidFieldToString(r, c),
+        c,
+        RAID_RICH_COLUMNS
+      )
+    )
   );
   return { key: "raid", title: t(lang, "tabRaid"), columns, rows };
 }
@@ -167,7 +205,11 @@ function changesSection(changes: readonly ChangeItem[], lang: Lang): ExportSecti
   const columns = CHANGES_CSV_COLUMNS as unknown as string[];
   const rows = changes.map((c) =>
     CHANGES_CSV_COLUMNS.map((col) =>
-      richCell(changeFieldToString(c, col), col, CHANGE_RICH_COLUMNS)
+      richCell(
+        col === "noteLog" ? projectNoteLog(c.noteLog, lang) : changeFieldToString(c, col),
+        col,
+        CHANGE_RICH_COLUMNS
+      )
     )
   );
   return { key: "changes", title: t(lang, "navChanges"), columns, rows };

@@ -18,6 +18,7 @@ import { type Contact } from "./contacts";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { defaultSettings } from "./settings-types";
 import { type ProjectMeta } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
@@ -285,21 +286,48 @@ describe("ProjectsPanel turso mode", () => {
     fireEvent.click(screen.getByRole("button", { name: /show archived/i }));
     expect(screen.getByText("Old")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /^restore$/i }));
+    // Restore/Delete-permanently are now row-qualified (§276) even with a
+    // single archived row — same unconditional-qualification convention the
+    // Switch/Archive/Delete buttons above already follow.
+    fireEvent.click(screen.getByRole("button", { name: /^restore –/i }));
     expect(onRestore).toHaveBeenCalledWith("p9");
 
-    // Permanent delete: the row button opens the type-to-confirm dialog. Both
-    // the row button and the dialog's confirm button share the "Delete
-    // permanently" label, so disambiguate by clicking the LAST match (dialog).
+    // Permanent delete: the row button ("Delete permanently – Old") opens the
+    // type-to-confirm dialog, whose own confirm button carries the bare,
+    // unqualified "Delete permanently" label — the two no longer collide.
     fireEvent.click(
-      screen.getByRole("button", { name: /^delete permanently$/i }),
+      screen.getByRole("button", { name: /^delete permanently –/i }),
     );
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Old" } });
-    const confirmButtons = screen.getAllByRole("button", {
-      name: "Delete permanently",
-    });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]);
+    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
     expect(onHardDelete).toHaveBeenCalledWith("p9");
+  });
+
+  it("gives every archived row's controls a row-unique name", () => {
+    // Two archived projects with DIFFERENT names. requireCollisionSeed stays
+    // OFF: the names differ, so the guard would throw against correct code.
+    setup({
+      mode: "turso",
+      archivedProjects: [
+        { id: "a1", name: "Nova", code: "NOV-1", storageConfig: { kind: "turso" } as never },
+        { id: "a2", name: "Borealis", code: "BOR-1", storageConfig: { kind: "turso" } as never },
+      ],
+    });
+    fireEvent.click(screen.getByRole("button", { name: /show archived/i }));
+    expectRowUniqueNames({ minControls: 11, requireCollisionSeed: false });
+  });
+
+  it("numbers archived rows that share a name", () => {
+    // Two archived projects with the SAME name -> occurrence suffixes.
+    setup({
+      mode: "turso",
+      archivedProjects: [
+        { id: "a1", name: "Zeta", code: "ZET-1", storageConfig: { kind: "turso" } as never },
+        { id: "a2", name: "Zeta", code: "ZET-2", storageConfig: { kind: "turso" } as never },
+      ],
+    });
+    fireEvent.click(screen.getByRole("button", { name: /show archived/i }));
+    expectRowUniqueNames({ minControls: 11, requireCollisionSeed: true });
   });
 
   it("hides Load from file", () => {

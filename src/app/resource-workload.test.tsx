@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS } from "./resource-workload";
 import { ConfirmProvider } from "./confirm-dialog";
 import { t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { Resource, Task } from "./types";
 
 const r: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
@@ -160,5 +161,168 @@ describe("ResourceWorkload", () => {
     // Jira owns synced tasks — local reassign/reschedule would be reverted, so both are disabled.
     expect(screen.getByLabelText(/Owner – Fix bug/i)).toBeDisabled();
     expect(screen.getByLabelText(/Due – Fix bug/i)).toBeDisabled();
+  });
+
+  // WCAG 2.4.6 — every unlinked row renders an "Add as resource" button whose
+  // accessible name came from its CONTENT alone, so N unlinked assignees
+  // announced one name (open-followups §276). The row's identity sits in a
+  // SIBLING <span>, outside the button, so nothing disambiguated it.
+  //
+  // ★★ `requireCollisionSeed` is deliberately OFF, and it is not merely
+  // unnecessary here — it would throw. `row.display` is structurally unique
+  // within the rendered list: `buildResourceWorkload` accumulates unlinked rows
+  // into a Map keyed on `display.toLowerCase()`, so two rows cannot carry the
+  // same display name (not even in different case), and the " (N)" occurrence
+  // suffix the guard looks for can never be emitted on this surface. A plain
+  // qualifier is therefore sufficient, and `buildRowTokens` would be dead code.
+  //
+  // ★ The fixture is still collision-BEARING for the defect under test: before
+  // the fix BOTH buttons are named exactly "Add as resource".
+  //
+  // ★★★ THE SHIFT FIXTURE IS LOAD-BEARING AND IS **NOT** PART OF THE DEFECT
+  // UNDER TEST. Every row — managed and unlinked alike — renders a weekly-hours
+  // button whose accessible name is its CONTENT, i.e. the bare hours number, so
+  // any two rows on the same contracted hours share the name "40". That is a
+  // REAL, still-open 2.4.6 collision of its own, outside the §276 site list and
+  // deliberately NOT fixed here: qualifying it is not mechanical, because WCAG
+  // 2.5.3 requires the visible "40" to survive inside whatever name replaces it.
+  // The assertion below is whole-document (the shared helper's default) and no
+  // DOM container holds the unlinked rows alone — they are sibling <tr>s with no
+  // wrapper — so it cannot be narrowed around that collision. Giving the two
+  // unlinked people distinct part-time shifts makes the three hours buttons
+  // genuinely distinct instead, which isolates this test to the add-as-resource
+  // control. If the hours button is ever qualified, these shifts can go.
+  it("gives every unlinked row's add-as-resource button a row-unique name (§276)", () => {
+    const unlinkedTasks = [
+      { id: 41, taskName: "Draft SOW", assignee: "Alice Smith", dueDate: "2026-07-01" },
+      { id: 42, taskName: "Review SOW", assignee: "Bob Jones", dueDate: "2026-07-02" },
+    ] as unknown as Task[];
+    const partTime = [
+      { id: 1, assignee: "Alice Smith", hoursPerWeekday: [8, 8, 8, 8, 0, 0, 0] },
+      { id: 2, assignee: "Bob Jones", hoursPerWeekday: [8, 8, 8, 0, 0, 0, 0] },
+    ] as unknown as React.ComponentProps<typeof ResourceWorkload>["shifts"];
+    render(<ResourceWorkload {...baseProps} tasks={unlinkedTasks} shifts={partTime} />);
+    // Both unlinked rows reached the table — otherwise the assertion below is
+    // about a list that never rendered.
+    expect(screen.getByText("Alice Smith")).toBeInTheDocument();
+    expect(screen.getByText("Bob Jones")).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 6 });
+  });
+
+  // ★★ Distinct part-time shifts throughout the fixtures below, for the reason
+  // spelled out on the §276 test above: every row's weekly-hours button is
+  // content-named, so two rows on the same contracted hours collide on "40"
+  // regardless of anything under test here. That collision is real and still
+  // open; giving each row its own hours isolates these assertions from it.
+  const shiftFor = (id: number, resourceId: number | null, assignee: string, days: number) =>
+    ({ id, resourceId, assignee, hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0].map((h, i) => (i < days ? h : 0)) }) as unknown as
+      React.ComponentProps<typeof ResourceWorkload>["shifts"][number];
+
+  // WCAG 2.4.6 — `buildResourceWorkload` keys `managed` on the RESOURCE ID
+  // (only its `nameToId` join map de-duplicates by name), so two resources may
+  // carry one display name. The row's name button has no aria-label, so its
+  // accessible name is its CONTENT — both rows announced "Alex Example".
+  const twin: Resource = { id: 2, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
+
+  it("gives every managed row control a row-unique name when two resources share a display name", () => {
+    render(
+      <ResourceWorkload
+        {...baseProps}
+        resources={[r, twin]}
+        tasks={[]}
+        shifts={[shiftFor(1, 1, "Alex Example", 5), shiftFor(2, 2, "Alex Example", 4)]}
+      />,
+    );
+    // 4 = measured: a name button and an hours button per managed row.
+    expectRowUniqueNames({ minControls: 4, requireCollisionSeed: true });
+  });
+
+  // WCAG 2.4.6 — an absence chip is content-named too (a date range plus the
+  // raw type), so two people off on the same dates for the same reason share a
+  // name. The fixture deliberately gives the two people DIFFERENT names: the
+  // chips are what must be told apart, and the disambiguator under test is the
+  // row qualifier rather than an occurrence index.
+  const ben: Resource = { id: 2, firstName: "Ben", lastName: "Ng", roleId: null, utilizationMode: "percent", utilization: {} };
+  const sameWindow = (id: number, resourceId: number, assignee: string) =>
+    ({ id, resourceId, assignee, startDate: "2026-07-01", endDate: "2026-07-05", type: "vacation" }) as unknown as
+      React.ComponentProps<typeof ResourceWorkload>["absences"][number];
+
+  // ★★ `requireCollisionSeed` is OFF here ON PURPOSE, and NOT because it is
+  // merely unnecessary — it would THROW against the fixed code. It certifies a
+  // collision seed by stripping a trailing " (N)", and the fix for this site is
+  // a row QUALIFIER, not an occurrence index, so no name on this surface ever
+  // carries that suffix. Forcing one (by also colliding the two people's names)
+  // would satisfy the guard via the name buttons — a different control — and
+  // mask whatever the chips did.
+  it("qualifies each managed row's absence chip so two people off the same days do not share a name", () => {
+    render(
+      <ResourceWorkload
+        {...baseProps}
+        resources={[r, ben]}
+        tasks={[]}
+        absences={[sameWindow(11, 1, "Alex Example"), sameWindow(12, 2, "Ben Ng")]}
+        shifts={[shiftFor(1, 1, "Alex Example", 5), shiftFor(2, 2, "Ben Ng", 4)]}
+      />,
+    );
+    // 6 = measured: a name button, an hours button and one absence chip per row.
+    expectRowUniqueNames({ minControls: 6 });
+  });
+
+  // ★ The chip is located by its VISIBLE text, never by its aria-label — a
+  // finder keyed on the qualifier would throw rather than assert when the
+  // qualifier is mutated away, which reads as a broken test rather than as the
+  // guard firing, and would make this test and the one below redundant.
+  const absenceChip = () =>
+    screen.getAllByRole("button").find((b) => b.textContent?.includes("vacation"))!;
+
+  it("names a managed absence chip after the row it belongs to", () => {
+    render(
+      <ResourceWorkload {...baseProps} resources={[r]} tasks={[]} absences={[sameWindow(11, 1, "Alex Example")]} />,
+    );
+    expect(absenceChip().getAttribute("aria-label")).toContain("Alex Example");
+  });
+
+  it("keeps an absence chip's visible text inside its accessible name (WCAG 2.5.3)", () => {
+    render(
+      <ResourceWorkload
+        {...baseProps}
+        resources={[r]}
+        tasks={[]}
+        absences={[sameWindow(11, 1, "Alex Example")]}
+      />,
+    );
+    const chip = absenceChip();
+    // 2.5.3 is CONTAINMENT, case-insensitive — not a prefix rule. The chip's
+    // two spans compute to "<range> vacation", which must survive verbatim
+    // inside whatever the qualifier wraps it in.
+    // Joined with NO separator on purpose: name-from-content concatenates
+    // inline content without one, measured on this very surface — before the
+    // qualifier landed, the two colliding chips computed to
+    // "Jul 01–Jul 05vacation". Joining with a space would assert a string the
+    // accessible name never contains.
+    const visible = Array.from(chip.querySelectorAll("span")).map((s) => s.textContent).join("");
+    expect(chip.getAttribute("aria-label")?.toLowerCase()).toContain(visible.toLowerCase());
+  });
+
+  it("qualifies each unlinked row's absence chip so two unlinked people off the same days do not share a name", () => {
+    const unlinkedTasks = [
+      { id: 41, taskName: "Draft SOW", assignee: "Alice Smith", dueDate: "2026-07-01" },
+      { id: 42, taskName: "Review SOW", assignee: "Bob Jones", dueDate: "2026-07-02" },
+    ] as unknown as Task[];
+    render(
+      <ResourceWorkload
+        {...baseProps}
+        resources={[]}
+        tasks={unlinkedTasks}
+        absences={[
+          { id: 21, assignee: "Alice Smith", startDate: "2026-07-01", endDate: "2026-07-05", type: "vacation" },
+          { id: 22, assignee: "Bob Jones", startDate: "2026-07-01", endDate: "2026-07-05", type: "vacation" },
+        ] as unknown as React.ComponentProps<typeof ResourceWorkload>["absences"]}
+        shifts={[shiftFor(1, null, "Alice Smith", 5), shiftFor(2, null, "Bob Jones", 4)]}
+      />,
+    );
+    // 6 = measured: an add-as-resource button, an hours button and one absence
+    // chip per unlinked row; `resources={[]}` leaves no managed row at all.
+    expectRowUniqueNames({ minControls: 6 });
   });
 });

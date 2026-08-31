@@ -88,6 +88,7 @@ function CapInput({
 
 export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
+  const aiHeadingId = useId();
   const behaviourHeadingId = useId();
   const confirm = useConfirm();
   const showToast = useToastContext();
@@ -180,9 +181,17 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const keyPassphraseMismatch = keyPassphrase !== "" && keyConfirm !== "" && keyPassphrase !== keyConfirm;
 
   return (
-    <div className="mb-4">
-      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-        {t(lang, "aiAssistant")}
+    <div className="mb-4" role="group" aria-labelledby={aiHeadingId}>
+      <span className="mb-1 flex items-center gap-1">
+        {/* The tooltip trigger sits BESIDE the labelling <span>, not inside it —
+            it is a role="button" span, so nesting it in the aria-labelledby
+            target would fold its own name into the group's, same landmine as
+            an interactive control inside a <label>. A <p> here is invalid
+            content model (a <span> accepts phrasing content only) — <span>
+            carries the same id without the violation. */}
+        <span id={aiHeadingId} className="text-sm font-medium text-foreground">
+          {t(lang, "aiAssistant")}
+        </span>
         <InfoTooltip text={t(lang, "aiAssistantTooltip")} />
       </span>
       <label className="mt-2 flex items-center gap-2">
@@ -380,8 +389,9 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           mount AiSection with no heading at all, so for AT the four settings sat
           in an unlabeled generic on three surfaces. An <h3> would fix the
           semantics but has no <h2> ancestor on exactly those three surfaces,
-          tripping axe's heading-order rule; the group carries the name without
-          claiming a position in the document outline. `useId` because AiSection
+          which would break the document outline for heading navigation there;
+          the group carries the name without claiming a position in the
+          document outline. `useId` because AiSection
           is mounted by four different surfaces and a literal id could collide. */}
       <div
         role="group"

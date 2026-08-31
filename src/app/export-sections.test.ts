@@ -22,7 +22,7 @@ import {
 import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
-import type { Task, RaidItem, Milestone } from "./types";
+import type { Task, RaidItem, Milestone, NoteLogEntry } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 import { nearestOccurrence } from "./recurrence";
 
@@ -714,5 +714,107 @@ describe("rich cells carry both representations (§141(b))", () => {
         expect(isRichCell(section.rows[0][col])).toBe(true);
       }
     }
+  });
+});
+
+describe("note logs export as readable text, not a raw JSON blob (§36b)", () => {
+  // A two-entry log: one authored, one not — the second exercises the
+  // noteLogNoAuthor fallback in the same fixture as the happy path.
+  const twoEntryLog: NoteLogEntry[] = [
+    {
+      id: 1,
+      authorName: "Alice",
+      timestamp: "2026-08-14T09:30:00.000Z",
+      html: "<p>Chased the vendor</p>",
+      text: "Chased the vendor",
+    },
+    {
+      id: 2,
+      timestamp: "2026-08-20T16:00:00.000Z",
+      html: "<p>Second note</p>",
+      text: "Second note",
+    },
+  ];
+
+  const expectedReadable =
+    "Alice · 2026-08-14 · Chased the vendor\nNo author · 2026-08-20 · Second note";
+
+  function noteLogCellFor(key: "tasks" | "raid" | "changes"): string {
+    const base = makeBaseWorkspace();
+    const ws: Workspace =
+      key === "tasks"
+        ? { ...base, tasks: [{ ...makeTask(1), noteLog: twoEntryLog }] }
+        : key === "raid"
+          ? { ...base, raid: [{ ...makeRaidItem(1), noteLog: twoEntryLog }] }
+          : {
+              ...base,
+              changes: [
+                {
+                  id: 1, title: "Change 1", type: "Scope", status: "Proposed",
+                  raisedDate: "2025-01-01", description: "",
+                  linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+                  noteLog: twoEntryLog,
+                },
+              ],
+            };
+    const cfg: ExportConfig = { ...defaultExportConfig, changes: true };
+    const sections = buildExportSections(ws, cfg, "en-US");
+    const section = sections.find((s) => s.key === key);
+    expect(section).toBeDefined();
+    const col = section!.columns.indexOf("noteLog");
+    expect(col).toBeGreaterThanOrEqual(0);
+    return String(flatCell(section!.rows[0][col]));
+  }
+
+  // Positive control for the "does not start with [{" assertions below: proves
+  // the raw storage encoding — the shape we are asserting ABSENT — really does
+  // start that way, so the regex is capable of catching the defect it targets.
+  it("sanity: the raw storage encoding of the fixture starts with JSON array-of-object syntax", () => {
+    const raw = JSON.stringify(twoEntryLog);
+    expect(raw).toMatch(/^\[\{/);
+    expect(raw).toContain('"text":');
+  });
+
+  it("projects the task note log as readable author · date · text lines", () => {
+    const cell = noteLogCellFor("tasks");
+    expect(cell).toBe(expectedReadable);
+  });
+
+  it("does not emit JSON punctuation in the task note-log cell", () => {
+    const cell = noteLogCellFor("tasks");
+    expect(cell).not.toMatch(/^\[\{/);
+    expect(cell).not.toContain('"text":');
+  });
+
+  it("projects the RAID note log as readable author · date · text lines", () => {
+    const cell = noteLogCellFor("raid");
+    expect(cell).toBe(expectedReadable);
+  });
+
+  it("does not emit JSON punctuation in the RAID note-log cell", () => {
+    const cell = noteLogCellFor("raid");
+    expect(cell).not.toMatch(/^\[\{/);
+    expect(cell).not.toContain('"text":');
+  });
+
+  it("projects the change note log as readable author · date · text lines", () => {
+    const cell = noteLogCellFor("changes");
+    expect(cell).toBe(expectedReadable);
+  });
+
+  it("does not emit JSON punctuation in the change note-log cell", () => {
+    const cell = noteLogCellFor("changes");
+    expect(cell).not.toMatch(/^\[\{/);
+    expect(cell).not.toContain('"text":');
+  });
+
+  it("leaves an empty note log as an empty cell, not a stray separator", () => {
+    const base = makeBaseWorkspace();
+    const ws: Workspace = { ...base, tasks: [{ ...makeTask(1), noteLog: [] }] };
+    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    const tasks = sections.find((s) => s.key === "tasks");
+    const col = tasks!.columns.indexOf("noteLog");
+    expect(col).toBeGreaterThanOrEqual(0);
+    expect(flatCell(tasks!.rows[0][col])).toBe("");
   });
 });
