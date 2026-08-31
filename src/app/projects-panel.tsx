@@ -150,7 +150,7 @@ export function ProjectsPanel({
   // unconditionally otherwise — every archived row emits the identical bare
   // verb (§276). ProjectRegistryEntry.id is a string, so `useRowTokens`
   // (constrained to `{ id: number }`) doesn't fit here; call `buildRowTokens`
-  // directly and own the memo, mirroring documents-list.tsx's string-id rows.
+  // (generic over `Id`) directly and own the memo.
   const archivedTokens = useMemo(
     () => buildRowTokens((archivedProjects ?? []).map((p) => ({ id: p.id, name: p.name }))),
     [archivedProjects],

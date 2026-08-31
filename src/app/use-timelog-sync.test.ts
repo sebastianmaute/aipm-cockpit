@@ -409,14 +409,25 @@ it("keeps busy raised when a superseded run settles while its successor is still
   const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
 
   let runA!: ReturnType<typeof result.current.fetchBookings>;
+  let runB!: ReturnType<typeof result.current.fetchBookings>;
   await act(async () => {
     runA = result.current.fetchBookings("2026-06-01", "2026-06-30"); // starts, then suspends on listTimeItemsSelf
-    result.current.fetchBookings("2026-06-01", "2026-06-30"); // supersedes A: aborts it, raises busy again for B
+    runB = result.current.fetchBookings("2026-06-01", "2026-06-30"); // supersedes A: aborts it, raises busy again for B
     await runA; // flush A's abort-rejection through its catch + finally
   });
 
   expect(result.current.busy).toBe(true); // B is still pending — must not have been cleared by A's finally
-  resolveB([]); // let the still-pending run settle so the suite doesn't leave a dangling act()
+
+  // ★ Settle B INSIDE act() and AWAIT it — the assertion above is the whole
+  //   point of the test, so B has to stay pending until it, but its
+  //   continuation (finally + setStates + saveActualsCache) must then land in
+  //   THIS test's window. Resolving bare and returning leaves that work to run
+  //   during whichever test comes next, which the shuffled-order CI gate makes
+  //   arbitrary. Same shape as the test below.
+  await act(async () => {
+    resolveB([]);
+    await runB;
+  });
 });
 
 it("clears busy once the successor settles", async () => {

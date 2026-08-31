@@ -646,9 +646,17 @@ describe("useChatThreads — retryLoad's reload vs. a send already in flight at 
     expect(result.current.activeThreadId).toBe(mintedId);
   });
 
-  it("does not replace the live conversation the user's message is in", async () => {
-    const { setHistory, setDisplay } = await arrangeInFlightSendAcrossRetry();
+  // ★ history and display are SEPARATE setters and get their own blocks: a
+  //   block aborts at its first failing hard assertion, so a mutant that
+  //   clobbers only the display would be masked by the history assertion
+  //   failing first. Mirrors the already-split cancel/abort pair below.
+  it("does not replace the history the user's in-flight message is in", async () => {
+    const { setHistory } = await arrangeInFlightSendAcrossRetry();
     expect(setHistory).not.toHaveBeenCalled();
+  });
+
+  it("does not replace the display the user's in-flight message is in", async () => {
+    const { setDisplay } = await arrangeInFlightSendAcrossRetry();
     expect(setDisplay).not.toHaveBeenCalled();
   });
 
@@ -734,15 +742,25 @@ describe("useChatThreads — retryLoad's reload vs. a send already in flight at 
     expect(result.current.activeThreadId).toBe(mintedId);
   });
 
-  it("a FAILED retry-reload does not replace the live conversation", async () => {
-    const { setHistory, setDisplay } = await arrangeInFlightSendAcrossFailingRetry();
+  it("a FAILED retry-reload does not replace the history", async () => {
+    const { setHistory } = await arrangeInFlightSendAcrossFailingRetry();
     expect(setHistory).not.toHaveBeenCalled();
+  });
+
+  it("a FAILED retry-reload does not replace the display", async () => {
+    const { setDisplay } = await arrangeInFlightSendAcrossFailingRetry();
     expect(setDisplay).not.toHaveBeenCalled();
   });
 
-  it("a FAILED retry-reload does not abort the in-flight send", async () => {
-    const { controller, cancelledRef } = await arrangeInFlightSendAcrossFailingRetry();
+  // The controller and the cancelled flag are two different signals written by
+  // two different code paths — one block each, for the same reason as above.
+  it("a FAILED retry-reload does not abort the in-flight send's controller", async () => {
+    const { controller } = await arrangeInFlightSendAcrossFailingRetry();
     expect(controller.signal.aborted).toBe(false);
+  });
+
+  it("a FAILED retry-reload does not cancel the in-flight send", async () => {
+    const { cancelledRef } = await arrangeInFlightSendAcrossFailingRetry();
     expect(cancelledRef.current).toBe(false);
   });
 

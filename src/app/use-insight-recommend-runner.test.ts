@@ -164,6 +164,39 @@ describe("useInsightRecommendRunner", () => {
     // Absence assertion: the second candidate's call was never issued.
     expect(mockRun).toHaveBeenCalledTimes(1);
   });
+
+  // ★★★ The POST-AWAIT abort check (the `break` sitting BETWEEN the awaited
+  //    runInsightRecommendation and applyRecommendationRef.current) is a
+  //    THIRD guard, distinct from the top-of-loop one and from the catch's.
+  //    It covers the call that RESOLVES after the unmount: without it the
+  //    loop writes a recommendation into an unmounted tree's writer.
+  // ★★ ONE candidate, and a RESOLVING deferred, both on purpose. A second
+  //    candidate would let the top-of-loop check break instead, and a
+  //    REJECTING promise would route through the catch's own abort break —
+  //    either way this test would pass with the post-await line deleted.
+  //    MEASURED, not reasoned: deleting that one `break` turns this test RED
+  //    while both §120 tests above stay GREEN.
+  test("does not apply a recommendation that resolves after the runner unmounts", async () => {
+    let resolveRun: ((rec: InsightRecommendation) => void) | undefined;
+    mockRun.mockImplementation(
+      () => new Promise<InsightRecommendation>((resolve) => { resolveRun = resolve; }),
+    );
+    const { unmount, applyRecommendation } = renderRunner({ insights: [makeInsight(1)] });
+    await act(async () => { await flushMicrotasks(); });
+    // Positive controls: the call is genuinely IN FLIGHT (issued, unsettled)
+    // when the unmount lands — an already-settled tick would make the final
+    // absence assertion vacuous.
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(resolveRun).toBeDefined();
+    expect(applyRecommendation).not.toHaveBeenCalled();
+
+    unmount();
+    await act(async () => {
+      resolveRun!(fakeRec);
+      await flushMicrotasks();
+    });
+    expect(applyRecommendation).not.toHaveBeenCalled();
+  });
 });
 
 // The cadence is user-settable (SP4). These assertions are only meaningful with

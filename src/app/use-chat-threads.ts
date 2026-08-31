@@ -59,10 +59,13 @@ export interface UseChatThreadsDeps {
 
 /** Outcome of settling a SUCCESSFUL `loadThreads()` call, shared by the
  *  mount-fetch effect's `.then` and retryLoad's reload `.then` (§148) so the
- *  two settle paths cannot drift apart. `stale=true` means something
- *  (ensureThreadForSend) minted/adopted a different thread while this fetch
- *  was in flight — the caller must MERGE `loaded` under it rather than adopt
- *  `loaded[0]`, per the mount effect's own "MERGE, not bail" comment. */
+ *  two settle paths cannot drift apart. `stale=true` means "do not adopt
+ *  `loaded[0]`", and since `preserveLive` landed it has TWO causes, not one:
+ *  either something (ensureThreadForSend) minted/adopted a different thread
+ *  while this fetch was in flight, OR the caller held a live send via
+ *  `preserveLive` and nothing moved at all. Under EITHER the caller must
+ *  MERGE `loaded` rather than adopt `loaded[0]`, per the mount effect's own
+ *  "MERGE, not bail" comment. */
 interface LoadSettleResult {
   updateThreads: (prev: ChatThread[]) => ChatThread[];
   stale: boolean;

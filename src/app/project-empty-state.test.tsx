@@ -263,8 +263,13 @@ describe("ProjectEmptyState", () => {
     });
     // minControls measured by passing 9999 and reading the thrown count off
     // expectRowUniqueNames's own error message: 10 controls render in this
-    // fixture (3 top-level choice buttons + the 2x2 archived-row buttons +
-    // 3 backend-setup buttons + the header's reset-size button).
+    // fixture (2 top-level choice buttons + the 2x2 archived-row buttons +
+    // 3 backend-setup buttons + the header's reset-size button). ★ TWO
+    // top-level choices, not three: of the four this view can render, the
+    // demo one is gated on an `onLoadDemo` prop `setup()` never passes, and
+    // load-from-Turso is gated on `mode === "file"` while this fixture is
+    // "turso". Re-measure the same way rather than deriving — an earlier
+    // revision of this comment enumerated to 11 beside the 10.
     expectRowUniqueNames({ minControls: 10, requireCollisionSeed: true });
   });
 

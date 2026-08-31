@@ -104,10 +104,12 @@ export function ProjectEmptyState({
   const [tursoPickerOpen, setTursoPickerOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:create-modal-size");
-  // Archived-row control names (Restore / Delete permanently) collide
-  // unconditionally otherwise — the registry de-dupes by id only, so two
-  // archived projects can share a display name (§276's second surface;
-  // projects-panel.tsx was fixed for the same defect on its own list).
+  // Archived-row control names (Restore / Delete permanently) already carried
+  // the row's own name, so the collision here is CONDITIONAL: it needs two
+  // archived projects sharing a display name, which the registry allows by
+  // de-duping on id alone (§276's second surface; projects-panel.tsx was fixed
+  // for the same defect on its own list, where its archived rows carried no
+  // name at all and so collided unconditionally).
   // ProjectRegistryEntry-shaped ids here are strings, so `useRowTokens`
   // (constrained to `{ id: number }`) doesn't fit — call `buildRowTokens`
   // directly and own the memo, mirroring projects-panel.tsx.

@@ -8,13 +8,13 @@ beforeAll(async () => {
   await loadI18n("de");
 });
 
-function setup(lang: Lang = "en-US") {
+function setup(lang: Lang = "en-US", workspaceCollapsed = false) {
   render(
     <WorkspaceTabStrip
       lang={lang}
       activeTab="gantt"
       setActiveTab={vi.fn()}
-      workspaceCollapsed={false}
+      workspaceCollapsed={workspaceCollapsed}
       setWorkspaceCollapsed={vi.fn()}
       resetWorkspaceSize={vi.fn()}
       features={[]}
@@ -42,12 +42,37 @@ describe("WorkspaceTabStrip", () => {
     expect(screen.queryByRole("tablist", { name: "Workspace sub-tabs" })).not.toBeInTheDocument();
   });
 
-  it("names the collapse control without relying on title", () => {
-    // ★ `title` alone IS a valid accessible name (accname's last resort), so this
-    //   assertion passes today. The point is the ATTRIBUTE, which is what voice
-    //   control and touch AT actually reach — assert on that directly.
+  // ★★ TWO INDEPENDENT BEHAVIOURS, so two blocks: the accessible NAME, and the
+  //    fact that it rides `aria-label` rather than only `title`. Vitest aborts a
+  //    block at its first failing hard assertion, so folding these together
+  //    leaves the second unproved by any mutant that kills the first. They are
+  //    genuinely independent despite sharing a locator: deleting the aria-label
+  //    leaves `title` behind, and `title` IS a valid accessible name (accname's
+  //    last resort), so the name query below still passes while the attribute
+  //    assertion fails.
+  it("names the collapse control", () => {
+    setup();
+    expect(screen.getByRole("button", { name: "Collapse workspace" })).toBeInTheDocument();
+  });
+
+  it("carries the collapse control's name in aria-label, not only in title", () => {
+    // ★ Assert the VALUE. A bare `toHaveAttribute("aria-label")` passes for ANY
+    //   string, including one that no longer matches what the control does.
     setup();
     const btn = screen.getByRole("button", { name: "Collapse workspace" });
-    expect(btn).toHaveAttribute("aria-label");
+    expect(btn).toHaveAttribute("aria-label", "Collapse workspace");
+  });
+
+  // The collapsed branch of the same ternary — untested until now, so an
+  // inverted condition would have shipped with the expanded branch green.
+  it("names the control Expand when the workspace is already collapsed", () => {
+    setup("en-US", true);
+    expect(screen.getByRole("button", { name: "Expand workspace" })).toBeInTheDocument();
+  });
+
+  it("carries the expand control's name in aria-label, not only in title", () => {
+    setup("en-US", true);
+    const btn = screen.getByRole("button", { name: "Expand workspace" });
+    expect(btn).toHaveAttribute("aria-label", "Expand workspace");
   });
 });
