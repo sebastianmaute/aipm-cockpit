@@ -413,13 +413,30 @@ export function PopoverPanel({
   // tabIndex={-1} and arrow-navigated, so it has no tab stops to strand. A
   // panel with real tab stops needs a cycle, not an exit.
   //
-  // ★★ A panel whose every control is `tabIndex={-1}` matches
-  // `FOCUSABLE_SELECTOR` nowhere, so this returns without trapping. That is
-  // correct, not a hole — `CollapsedNavFlyout` is exactly that shape and owns
-  // its own Tab handling (it `preventDefault`s and re-focuses its trigger).
-  // ★ Unlike `modal.tsx`, we must NOT `preventDefault` + focus the root in that
-  // case: the panel is a `<span>` with no `tabIndex`, so focusing it would
-  // strand the user on an unfocusable element.
+  // ★★★ AN ALL-ROVING PANEL IS NOT EXEMPT — this primitive does NOT stand down
+  // for one, and an earlier draft of this comment asserted that it did.
+  // `FOCUSABLE_SELECTOR`'s `button:not([disabled])` arm carries NO tabindex
+  // exclusion, so a `<button tabindex="-1">` MATCHES it and this cycle runs,
+  // moving focus among elements that are not in the tab order. Measured against
+  // `CollapsedNavFlyout`'s markup (two `tabIndex={-1}` menuitems): this
+  // selector returns 2, while the NARROW `autoFocus` selector one screen above
+  // — which does carry `:not([tabindex="-1"])` on each arm — returns 0. That
+  // "-1 matches nothing" property belongs to the narrow selector alone and was
+  // carried onto the wrong constant.
+  // ★★ What actually keeps `CollapsedNavFlyout` safe is its OWN handler:
+  // `onMenuKeyDown` (`sidebar-nav.tsx`) `preventDefault`s Tab, closes, and
+  // re-focuses the trigger — and the cycle below bails on `e.defaultPrevented`.
+  // It gets there first because it is a React handler, delegated from boot on a
+  // node at or below the one this effect-registered listener sits on (the same
+  // ordering `dismissal-stack.ts` relies on for element-scoped Escape). Pinned
+  // by "Tab closes the flyout and returns focus to the trigger"
+  // (`sidebar-nav.test.tsx`), which renders this primitive for real.
+  // ★ So a NEW consumer whose controls are all `tabIndex={-1}` must handle Tab
+  // itself the same way; it does not get an exemption from here.
+  // ★ When the panel genuinely has NO focusables we return without trapping,
+  // and — unlike `modal.tsx` — must NOT `preventDefault` + focus the root: the
+  // panel is a `<span>` with no `tabIndex`, so focusing it would strand the
+  // user on an unfocusable element.
   //
   // ★★ `FOCUSABLE_SELECTOR`, deliberately — NOT either selector string the
   // `autoFocus` effect above uses. Those two answer "where should focus

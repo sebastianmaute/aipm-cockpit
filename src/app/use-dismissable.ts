@@ -72,9 +72,12 @@ export function useDismissable({
 
   // ★ Returned so a caller that runs its OWN Tab trap can ask
   // `isTopmostOfKind(token, "modal")` and stand down when something is layered
-  // above it. ★★ NO consumer reads it yet — every call site invokes this hook
-  // as a bare statement — so do not read an unused return as dead API and
-  // delete it. `popover-panel.tsx`'s Tab cycle is the intended first reader.
+  // above it. ★★ `popover-panel.tsx` IS that reader — it binds this to
+  // `dismissToken` and gates its Tab cycle on it, which is the §100 fix — so
+  // deleting the return is not a dead-API cleanup, it breaks that gate. (The
+  // other call sites do invoke this hook as a bare statement; an earlier
+  // revision here read that as "NO consumer reads it yet", which the command
+  // below refuted in the very range that added the sentence.)
   // Enumerate today's call sites rather than trusting a count here:
   //   git grep -n 'useDismissable(' -- src | grep -v test
   return token;

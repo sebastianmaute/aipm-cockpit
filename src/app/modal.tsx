@@ -181,10 +181,16 @@ export function Modal({
       }
       if (e.key !== "Tab") return;
       // ★ Tab asks a DIFFERENT question. Escape is a dismissal — deferring to
-      // whoever is on top is right. Tab is CONTAINMENT: the trap must keep
-      // focus inside the dialog no matter what is layered above it, so it
-      // gates on the topmost MODAL and is never waivable by a popover
-      // (WCAG 2.4.3).
+      // whoever is on top is right. Tab is CONTAINMENT: focus must never end up
+      // outside every trap (WCAG 2.4.3), so this gates on the topmost MODAL
+      // rather than on the topmost entry.
+      // ★★ Which makes containment waivable by another `"modal"` entry and by
+      // NOTHING else. `kind` MEANS "traps Tab", so a `"modal"` above us runs a
+      // trap of its own and deferring to it strands nobody; a `"layer"` traps
+      // nothing, so deferring to one would. `PopoverPanel` is such an entry —
+      // it pushes `"modal"` and cycles Tab over its portaled content, which
+      // this trap cannot see — and this branch going false is what stops the
+      // two competing (`docs/open-followups.md` §100).
       if (!isTopmostOfKind(token, "modal")) return;
       const container = dialogRef.current;
       if (!container) return;

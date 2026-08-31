@@ -6897,9 +6897,12 @@ of 11).
 
 ★★★ **THE `isTopmostOfKind` GATE IS PINNED BY ONE TEST, AND IT IS NOT THE ONE THAT READS LIKE THE
 PIN.** The pin is **"leaves a NON-EDGE Tab inside the layered-above modal completely alone"** —
-deleting the gate turns it red at **1 failed / 10 passed**. The sibling INVERSE-NESTING test does
-NOT pin it: deleting the gate leaves that test **GREEN (0 failed / 10 passed — the mutant SURVIVED)**,
-measured, not reasoned. Both traps are `document` keydown listeners firing in REGISTRATION order and
+deleting the gate turns it red at **1 failed / 10 passed** (against that file's runtime count of 11).
+The sibling INVERSE-NESTING test does NOT pin it: it is one of the **10 that PASSED in that same
+run**, so against it the mutant SURVIVED — measured, not reasoned. ★ There is ONE mutation run here,
+not two, and the two sentences report it from opposite ends; a second tally that did not sum to 11
+used to sit in this spot and read as a separate measurement.
+Both traps are `document` keydown listeners firing in REGISTRATION order and
 the modal opens second, so it runs LAST and silently corrects whatever an ungated popover just did —
 which makes every assertion on FINAL focus structurally blind to the gate. Do not delete the
 non-edge test as redundant, and do not read the inverse-nesting one as cover for it.

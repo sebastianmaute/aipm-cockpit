@@ -57,9 +57,17 @@ export function popDismissal(token: symbol): void {
   }
 }
 
-/** Topmost entry of `kind`. This is the TAB question, and it is deliberately
- *  not the Escape question: containment is WCAG 2.4.3, and a popover layered
- *  above a modal traps nothing, so the modal keeps Tab regardless. */
+/** Topmost entry of `kind`. This is the TAB question; `escapeOwner` is the
+ *  Escape one, and the two answer differently on purpose.
+ *  ★★ `kind` MEANS "traps Tab" (see `DismissalKind` above), so asking for the
+ *  topmost `"modal"` is asking "is anything above me running a trap of its
+ *  own?". A `"modal"` entry layered above another `"modal"` DOES take Tab from
+ *  it — the one beneath defers because the one above contains focus itself. A
+ *  `"layer"` never takes Tab from anything: it traps nothing, so deferring to
+ *  one would strand focus outside every trap (WCAG 2.4.3).
+ *  ★ `PopoverPanel` pushes `"modal"` precisely because it runs its own Tab
+ *  cycle over its portaled content, and `modal.tsx` deferring to it is the
+ *  §100 fix. A surface gaining a real trap flips its kind in the SAME commit. */
 export function isTopmostOfKind(token: symbol, kind: DismissalKind): boolean {
   for (let i = stack.length - 1; i >= 0; i--) {
     if (stack[i].kind === kind) return stack[i].token === token;

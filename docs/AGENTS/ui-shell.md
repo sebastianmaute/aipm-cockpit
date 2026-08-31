@@ -489,8 +489,10 @@ commits that merely added comments above it; its `onChange` is
   Verify rather than trust this — the command below returns exactly TWO real call
   sites, `modal.tsx` and `popover-panel.tsx`; everything else it prints is the
   declaration, their two imports, or prose, and `use-focus-trap.ts` is absent
-  from the output entirely (the `--include`s keep it off this file, so the
-  quoted command cannot count itself):
+  from the output entirely (what keeps it off THIS file, so the quoted command
+  cannot count itself, is the `src/app` PATH ROOT — NOT the `--include`s, which
+  change nothing here: measured 2026-08-31, the command returns 9 lines with
+  them and 9 without, while dropping the path root returns 80):
   `grep -rn "isTopmostOfKind" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
   Tracked in `docs/open-followups.md` §318.
   LANDMINE (bit twice): the keydown effect must depend on `[open]` ALONE and read `onClose` via a ref —
@@ -556,6 +558,22 @@ commits that merely added comments above it; its `onChange` is
   example (it renders `VersionInfo`, static content; the `Modal` lives in the
   sibling `VersionInfoModal`, which the sidebar version line and the Settings
   footer open directly).
+  ★ **LATENT ASYMMETRY IN THAT FLIP — REASONED, NOT MEASURED, and filed here
+  rather than fixed because no reachable consumer was found.** The two halves of
+  "`kind` MEANS traps Tab" are gated on DIFFERENT conditions in
+  `popover-panel.tsx`: the stack PUSH rides `useDismissable({ open, kind:
+  "modal" })`, i.e. `open` alone, while the Tab cycle that JUSTIFIES the
+  `"modal"` kind rides `rendered` (`open` AND a measured position) and returns
+  early when the panel encloses no focusables. So the primitive can hold the top
+  `"modal"` slot — which stands an enclosing `Modal`'s trap down — across a
+  window in which it traps nothing, the exact state the rule above forbids.
+  ★ Reachability, as far as it was checked: the position stays unmeasured only
+  when the anchor ref is null at the open commit, and no shipped consumer opens
+  a panel with a null anchor. The no-focusables half was NOT ruled out and is the
+  one to probe first — it needs a `PopoverPanel` with no focusable content
+  rendered inside a `Modal`, which is the §100 nesting that demonstrably exists.
+  Neither half was reproduced. If either becomes reachable, gate the push on the
+  same condition as the cycle rather than loosening the rule.
   ★★ The gate is pinned by exactly ONE test — `dismissal-integration.test.tsx`'s
   "leaves a NON-EDGE Tab inside the layered-above modal completely alone" — and
   NOT by the inverse-nesting test beside it, which reads like the pin and is not.
