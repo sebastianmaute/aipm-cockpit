@@ -23372,7 +23372,8 @@ real; the tally and the mechanism were invented.
 
 **What is in scope.** The surviving in-class assertions are in the storage banner and sidebar-footer
 suites, and they blame to commits that predate this slice. ★ They are NOT in unrelated files — the
-slice rewrote a quarter of `notifications.test.tsx` — so the reason they were left is narrower than
+slice inserted 250 lines into a 642-line `notifications.test.tsx`
+(`git diff --stat origin/main...HEAD -- src/app/notifications.test.tsx`) — so the reason they were left is narrower than
 "don't touch other people's tests": converting assertions a fix round does not otherwise need is how
 a release branch doubles in size.
 
