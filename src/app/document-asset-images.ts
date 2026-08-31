@@ -10,7 +10,7 @@
 //
 // ★★ NEVER INLINE BASE64. Ten images would put ~67 MB into that one string.
 
-import { isAllowedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
+import { isBlockedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
 
 export type AssetByteLoader = (id: string) => Promise<string | null>;
 
@@ -35,6 +35,7 @@ export async function attachAssetImages(
 
   const ids = Array.from(new Set(imgs.map((i) => i.getAttribute("data-asset-id") ?? "")));
   const urls = new Map<string, string>();
+  const blocked = new Set<string>();
 
   await Promise.all(ids.map(async (id) => {
     try {
@@ -61,7 +62,7 @@ export async function attachAssetImages(
       // BREAKS WORKING IMAGES. FOUR cases reach this line, not three:
       //   (a) no `mimeFor` supplied at all      → undefined → fall through
       //   (b) lookup MISSED (no metadata row)   → undefined → fall through
-      //   (c) lookup hit a DISALLOWED mime      → e.g. image/svg+xml → DECLINE
+      //   (c) lookup hit a DISALLOWED mime      → e.g. image/svg+xml → DECLINE, marked blocked
       //   (d) lookup hit a row whose mime is "" → fall through
       // (d) is the one `!== undefined` gets wrong. `sanitizeDocumentAsset`
       // requires only an `id`; its mime is `sanitizeText(o.mime, …)`, which
@@ -74,7 +75,11 @@ export async function attachAssetImages(
       // (§223 predicted this consumer: it reads a stored mime and builds a
       // Blob from it with no allowlist and no cast, so no search for
       // `ASSET_MIME_ALLOWED` could find it.)
-      if (mime && !isAllowedAssetMime(mime)) return;
+      // §230 — record WHY, so the apply loop can tell a refused row from a
+      // missing one. The predicate is shared with `asset-library.tsx` so the
+      // render and the library row cannot disagree; its truthy spelling is
+      // load-bearing (§225) and documented at its definition.
+      if (isBlockedAssetMime(mime)) { blocked.add(id); return; }
       const blob = mime ? new Blob([bytes], { type: mime }) : new Blob([bytes]);
       urls.set(id, URL.createObjectURL(blob));
     } catch {
@@ -104,7 +109,8 @@ export async function attachAssetImages(
   }
 
   for (const img of imgs) {
-    const url = urls.get(img.getAttribute("data-asset-id") ?? "");
+    const id = img.getAttribute("data-asset-id") ?? "";
+    const url = urls.get(id);
     // ★★★ CLEARING THE MARKER IS NOT SYMMETRY FOR ITS OWN SAKE. This function
     // is re-run over the SAME subtree whenever a §212 repair lands (the preview
     // effect's `assetRepairGeneration` dependency) — `html` has not changed, so
@@ -118,7 +124,14 @@ export async function attachAssetImages(
     if (url) {
       img.setAttribute("src", url);
       img.removeAttribute("data-asset-missing");
-    } else img.setAttribute("data-asset-missing", "true");
+      img.removeAttribute("data-asset-blocked");
+    } else if (blocked.has(id)) {
+      img.setAttribute("data-asset-blocked", "true");
+      img.removeAttribute("data-asset-missing");
+    } else {
+      img.setAttribute("data-asset-missing", "true");
+      img.removeAttribute("data-asset-blocked");
+    }
   }
 
   return () => { for (const url of urls.values()) URL.revokeObjectURL(url); };
