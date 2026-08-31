@@ -23360,7 +23360,7 @@ like success.
 
 ★★ **ONE INSTANCE IS RECORDED, and an earlier revision of this entry inflated it to six.** The event
 was `42ad6090`, a CALL-SITE swap (`documentsTruncatedSaveAnyway` → `documentsTruncatedConfirmSaveAnyway`),
-not a reword: it moved twelve positives, which went red immediately, and exactly ONE negative —
+not a reword: it moved a batch of positives, which went red immediately, and exactly ONE negative —
 `expect(screen.queryByText(/\d+ of \d+ records would be removed/i)).toBeNull()` — which would have
 gone silently vacuous and was found only because the reds sent someone to read the file. The fix was
 to derive the expectation from `t(...)` so it moves with the string. Reproduce:
@@ -23372,8 +23372,10 @@ real; the tally and the mechanism were invented.
 
 **What is in scope.** The surviving in-class assertions are in the storage banner and sidebar-footer
 suites, and they blame to commits that predate this slice. ★ They are NOT in unrelated files — the
-slice inserted 250 lines into a 642-line `notifications.test.tsx`
-(`git diff --stat origin/main...HEAD -- src/app/notifications.test.tsx`) — so the reason they were left is narrower than
+slice rewrote a large fraction of `notifications.test.tsx`
+(`git diff --numstat origin/main...HEAD -- src/app/notifications.test.tsx`; use numstat, NOT the
+`--stat` summary, whose insertion figure is the TWO-file total and was misread into this entry once)
+— so the reason they were left is narrower than
 "don't touch other people's tests": converting assertions a fix round does not otherwise need is how
 a release branch doubles in size.
 
@@ -23388,11 +23390,14 @@ introduce the suite's first dependency on `src/app/i18n` as a side effect of a c
 **Status:** open — established 2026-08-30 by reading the e2e harness, not by attempting it:
 `grep -rln "storageRefusedWipe\|storageDestructive" e2e/` returns nothing, so no spec drives a
 refusal; `grep -n "indexedDB\|addInitScript" e2e/seed.ts` shows the seed runs BEFORE the app loads;
-and `grep -rno "window\.__[A-Za-z_]*" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
-returns two globals, `__lopDataLossLog` (a back-compat alias, and that hit is a COMMENT) and
-`__aipmDiag` (`readDiagLog`, read-only) — neither can inject state at runtime. ★★ An earlier revision
-cited a `window.__lop` needle here, which cannot establish that NO hook exists; the conclusion
-survived the wider grep, the evidence did not reach it. Never machine-verified, and
+and the two globals the app assigns — `__lopDataLossLog` (`dataloss-forensics.ts`) and `__aipmDiag`
+(`readDiagLog`, `diagnostics.ts`) — are both read-only readers, so neither can inject state at
+runtime. ★★★ ENUMERATE THEM BY THE ASSIGNMENT FORM, `grep -rnoE "\)\.__[A-Za-z_]+ *=" src/app
+--include=*.ts --include=*.tsx | grep -v "\.test\."` — TWO earlier revisions of this line cited a
+`window.__`-prefixed needle instead, and BOTH were refuted the same way: the real assignments cast
+first (`(globalThis as …).__x =`), so a `window.__` grep matches only the COMMENTS that mention the
+global, and a third one added with no comment would be invisible to it. The conclusion survived both
+times and the evidence reached it neither time. Never machine-verified, and
 that is the entry: nothing has ever driven this surface in a browser.
 
 The recoverable destructive-save refusal shipped with a manual verification owed — four checks the
@@ -23408,8 +23413,9 @@ the baselines and calls `clearRefusal`), so no load path can raise one either. S
 means adding a test-only route into production code whose only purpose is to defeat the guard under
 test. ★★ **The remaining step is a JUDGEMENT, not a proof:** that every UI bulk path arms the
 bypass is a completeness claim over delete routes, and §293 — open — says in terms that the
-UI surface has nothing to enumerate from, records that a hand-written census WAS wrong once, and
-names the four live unarmed routes cold review found. So read this as "no route I could find", not
+UI surface has nothing to enumerate from, and records that a hand-written census WAS wrong once —
+cold review found four routes it had missed. ★ They are all armed today, so they are evidence about
+the CENSUS method, not a live gap to go and use. So read this as "no route I could find", not
 "no route exists"; finding one would be the cheapest way to close this entry.
 
 **What IS covered, so this is read at the right severity.** ★★★ **ALL FOUR are pinned by unit
