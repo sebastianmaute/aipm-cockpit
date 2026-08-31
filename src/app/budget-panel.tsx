@@ -40,7 +40,7 @@ import { ViewCallout } from "./view-callout";
 import { BudgetUnappliedNotice } from "./budget-unapplied-notice";
 import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens, rowLabel } from "./row-tokens";
-import { ROW_RULE_CLASS } from "./table-styles";
+import { ROW_RULE_CLASS, rowRuleClass } from "./table-styles";
 import {
   DOT_COL_PX, TOTAL_COL_PX, HoursTd, BucketRowLeadCells, BucketTotalRow, bucketBudgetGrid,
   type TotalsRow,
@@ -611,7 +611,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     </tr>
                   </>}
                 >
-                    {!isBlended && detailedRows.map((a) => {
+                    {!isBlended && detailedRows.map((a, rowIdx) => {
                       // Effective budget (mirrors planned when follow-plan is on) so the
                       // row RAG agrees with the cells + bucket dot — not the stored hours.
                       const totBudget = totals.rowBudgetTotal(a);
@@ -624,7 +624,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       return (
                       <Fragment key={a.roleId}>
                       <tbody>
-                      <tr className={ROW_RULE_CLASS}>
+                      {/* ★★★ `rowRuleClass`, NOT `ROW_RULE_CLASS`: each role row is the ONLY
+                          child of its own `<tbody>`, so `last:` matches EVERY row and the
+                          shared constant draws nothing. Shipped green that way — §68. */}
+                      <tr className={rowRuleClass(rowIdx === detailedRows.length - 1)}>
                         <BucketRowLeadCells
                           label={
                             <PeopleDisclosureLabel

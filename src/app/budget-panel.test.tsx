@@ -998,11 +998,11 @@ describe("BudgetPanel — per-person booking rows", () => {
       { roleId: 4, resourceIds: [], budgetHours: { "2026-01": 50 }, actualHours: { "2026-01": 10 } },
     ],
   }];
-  const renderPeople = (actualsByBucket?: Record<number, Record<string, { hours: number; billableHours: number; byResource?: Record<number, { hours: number; billableHours: number }> }>>) =>
+  const renderPeople = (actualsByBucket?: Record<number, Record<string, { hours: number; billableHours: number; byResource?: Record<number, { hours: number; billableHours: number }> }>>, actualsFetchedAt?: string) =>
     render(
       <BudgetPanel {...props} buckets={peopleBuckets} roles={peopleRoles}
         disciplines={peopleDisciplines} grades={peopleGrades} resources={peopleResources}
-        actualsByBucket={actualsByBucket} />,
+        actualsByBucket={actualsByBucket} actualsFetchedAt={actualsFetchedAt} />,
     );
 
   test("each role line's label is a disclosure trigger with a row-unique name", () => {
@@ -1105,6 +1105,23 @@ describe("BudgetPanel — per-person booking rows", () => {
     const cells = [...body.querySelectorAll("tr:not([data-people-source]) td")].map((td) => td.textContent);
     expect(cells[1]).toBe("Ada L");
     expect(cells[2]).toBe("— / 176");
+  });
+
+  // ★★★ THE PANEL-LEVEL WIRING OF THE §122 CUE, WHICH NOTHING ELSE PINS.
+  //    `budget-panel-people-rows.test.tsx` renders `BucketPeopleRows` DIRECTLY with an
+  //    explicit `fetchedAt`, so it proves the component, never that the panel passes it.
+  //    Without this, `fetchedAt={undefined}` here leaves the whole suite green while every
+  //    user permanently reads "No TimeLog fetch on this device".
+  test("passes the cache timestamp through, so the people cue names the source", () => {
+    const { container } = renderPeople(
+      { 1: { "2026-01": { hours: 6, billableHours: 6, byResource: { 5: { hours: 6, billableHours: 6 } } } } },
+      "2026-06-23T10:00:00Z",
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: /Show people/ })[0]);
+    const cue = container.querySelector("[data-people-source]");
+    expect(cue).not.toBeNull();
+    expect(cue?.textContent).toContain("TimeLog bookings");
+    expect(cue?.textContent).not.toContain("No TimeLog fetch");
   });
 
   test("booked reports the per-resource breakdown when one is supplied", () => {
@@ -1281,8 +1298,11 @@ describe("BudgetPanel — a filtered bucket total says that it is filtered (§70
     const after = totalRowText();
     expect(after.label).toBe(t("en-US", "budgetTotalFiltered"));
     // Now a subtotal of the one matching role — and no longer the whole bucket.
+    // ★ "20" is the filtered ACTUAL and is a substring of neither 140 nor 100, so it
+    //   is an independent pin. "40" would NOT be: "140" contains it, so it is
+    //   satisfied in both states and asserts nothing.
     expect(after.row).not.toContain("140");
-    expect(after.row).toContain("40");
+    expect(after.row).toContain("20");
   });
 
   // ★ `filterSortAllocations` compares on `filter.trim()`, so whitespace narrows
@@ -1296,5 +1316,73 @@ describe("BudgetPanel — a filtered bucket total says that it is filtered (§70
     const after = totalRowText();
     expect(after.label).toBe(t("en-US", "budgetTotal"));
     expect(after.row).toContain("140");
+  });
+});
+
+// open-followups §68. The rule has to sit on the CELLS: `globals.css` puts every
+// `aipm-cockpit-thead` table into the SEPARATED borders model, where a border set on a
+// `<tr>` is ignored outright.
+//
+// ★★★ THIS EXISTS BECAUSE THE FIRST FIX SHIPPED BROKEN AND GREEN. It used the shared
+//    `ROW_RULE_CLASS`, whose `last:` is `:last-child` — a question about the DOM PARENT.
+//    Every role row is the ONLY child of its own `<tbody>` (the people disclosure's
+//    `aria-controls` target must be a `<tbody>`), so every row was `:last-child`,
+//    `border-b-0` won on all of them, and the DEFAULT planning mode drew no separators.
+//    The class was present on every row, so class-placement assertions passed; jsdom has
+//    no layout, so nothing else could see it either.
+//
+// ★★ The index-driven form is what makes this testable AT ALL: with `last:` the class
+//    string is byte-identical on every row, so no assertion can distinguish a working
+//    table from a broken one. Here only the LAST row differs, and that is the assertion.
+//
+// ★ This still cannot see a PAINTED border — jsdom has no layout. It pins the placement
+//   and the last-row exemption; the appearance stays eye-verified.
+describe("BudgetPanel — row separators sit on the cells, and only the last row is exempt (§68)", () => {
+  const twoRoles = {
+    ...props,
+    roles: [
+      { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 7, disciplineId: 2, gradeId: 1, internalRate: 120, externalRate: 180 },
+    ],
+    disciplines: [{ id: 1, name: "Consulting" }, { id: 2, name: "Engineering" }],
+    grades: [{ id: 1, name: "Senior" }],
+    buckets: [{
+      ...buckets[0],
+      allocations: [
+        { roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } },
+        { roleId: 7, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: { "2026-01": 20 } },
+      ],
+    }],
+  };
+
+  /** The role rows, in render order — each is the sole `<tr>` of its own `<tbody>`. */
+  const roleRows = (container: HTMLElement) =>
+    [...container.querySelectorAll("tr")].filter((tr) =>
+      tr.className.includes("[&>td]:border-b") || tr.querySelector("[aria-controls^='bucket-people-']"),
+    );
+
+  test("every role row but the last carries the cell rule; the last carries none", () => {
+    const { container } = render(<BudgetPanel {...twoRoles} />);
+    const rows = roleRows(container);
+    // Anti-vacuity: two allocations must actually render, or "the last has none"
+    // is satisfied by an empty list.
+    expect(rows).toHaveLength(2);
+
+    expect(rows[0].className).toContain("[&>td]:border-b");
+    expect(rows[0].className).toContain("[&>td]:border-line");
+    expect(rows[1].className).not.toContain("border-b");
+  });
+
+  // ★ The rule must never ride the `<tr>` itself, which is the original defect.
+  //   `[&>td]:border-b` contains the substring "border-b", so this checks for a BARE
+  //   `border-b`/`border-t` token rather than any occurrence.
+  test("no role row carries a bare row-level border utility", () => {
+    const { container } = render(<BudgetPanel {...twoRoles} />);
+    for (const tr of roleRows(container)) {
+      const tokens = tr.className.split(/\s+/);
+      expect(tokens).not.toContain("border-b");
+      expect(tokens).not.toContain("border-t");
+      expect(tokens).not.toContain("border-line");
+    }
   });
 });

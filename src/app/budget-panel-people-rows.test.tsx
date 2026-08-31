@@ -63,6 +63,7 @@ describe("BucketPeopleRows", () => {
   it("names the source and its age when the cache has been fetched", () => {
     const { container } = renderRows([row()], false, "2026-08-31T09:30:00Z");
     const cue = container.querySelector("[data-people-source]");
+    expect(cue).not.toBeNull();
     expect(cue?.textContent).toContain("TimeLog bookings");
     // The FORMATTED timestamp, never the raw ISO string.
     expect(cue?.textContent).not.toContain("2026-08-31T09:30:00Z");
@@ -72,6 +73,7 @@ describe("BucketPeopleRows", () => {
   it("says so when this device has never fetched", () => {
     const { container } = renderRows([row()], false, undefined);
     const cue = container.querySelector("[data-people-source]");
+    expect(cue).not.toBeNull();
     expect(cue?.textContent).toContain("No TimeLog fetch on this device");
   });
 

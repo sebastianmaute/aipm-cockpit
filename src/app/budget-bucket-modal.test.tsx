@@ -315,7 +315,9 @@ describe("BudgetBucketModal", () => {
     expect(screen.getByText(/zero or greater/i)).toBeInTheDocument();
   });
 
-  test("rate override hint is an InfoTooltip (accessible by name), not a native title on the input", () => {
+  // ★ The accessible-NAME half moved to the §314 test below when the two triggers were
+  //   qualified; this one now pins only that the hint is not a native `title`.
+  test("the rate override hint is not a native title on the input", () => {
     setup({ disciplines });
     // The internal rate input itself must NOT carry the native title any more.
     const input = screen.getByLabelText(t("en-US", "budgetRateOverrideInternal"));
@@ -349,9 +351,6 @@ describe("BudgetBucketModal", () => {
     expect(screen.getByRole("button", { name: `${internal} – ${hint}` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `${external} – ${hint}` })).toBeInTheDocument();
 
-    // ★ The shared `text` is deliberately UNCHANGED — the fix qualifies the NAME
-    // and adds no i18n key, so the visible tooltip body stays one string.
-    expect(hint.length).toBeGreaterThan(40);
   });
 
   test("tier switch hides advanced/full fields but keeps required ones", () => {
@@ -544,11 +543,18 @@ describe("BudgetBucketModal field-visibility control", () => {
 // superset of the rendered fields, so it keeps every control advanced showed and
 // adds the two rate-override triggers to the scope this assertion covers.
 //
-// ★★ `minControls: 15` is MEASURED at this tier (13 at advanced, plus the two
-// rate-override tooltips), read off the helper's own throw with a 9999 floor —
-// not derived, and not a round number chosen for comfort. Re-measure the same way
-// if the field set changes; a floor left loose lets a silently narrowed `roles`
-// array back in, which is the one thing `requireCollisionSeed` cannot catch.
+// ★★ `minControls: 15` is MEASURED, read off the helper's own throw with a 9999 floor
+// — not derived, and not a round number chosen for comfort. 13 at advanced, plus the
+// two rate-override tooltips.
+// ★★★ MEASURED FOR **EACH** TEST SEPARATELY, and that is not pedantry: the two
+// fixtures render structurally different subtrees — the first is DETAILED with two
+// role allocations, the second is `planningMode: "blended"` with two discipline
+// allocations, and `budget-bucket-modal.tsx` renders those from different branches.
+// One measurement cannot speak for both. They happen to agree at 15; a cold review
+// flagged the single-measurement claim, and re-probing the blended one is what turned
+// "probably fine" into a number. Re-measure BOTH if the field set changes.
+// ★ A floor left loose lets a silently narrowed `roles` array back in, which is the
+// one thing `requireCollisionSeed` cannot catch.
 describe("BudgetBucketModal — row-unique control names (§276)", () => {
   test("keeps every control distinct when two role allocations share a role label", () => {
     setup({

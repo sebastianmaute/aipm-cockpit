@@ -4608,8 +4608,32 @@ NO last-row exemption, so a faithful fix would have closed that one table with a
 The split was drift; it is now one idiom. Do not "restore" a `border-t` here on the grounds that the
 original markup said so.
 
+★★★ **THE FIRST FIX SHIPPED BROKEN AND GREEN, AND ONLY A COLD REVIEW CAUGHT IT.** `ROW_RULE_CLASS`
+ends in `last:[&>td]:border-b-0`, and `last:` is `:last-child` — a question about the DOM PARENT, not
+about the list. `budget-panel.tsx`'s detailed/role branch gives EVERY role row its own `<tbody>` (the
+people disclosure's `aria-controls` target has to be a `<tbody>`), so every row was `:last-child`,
+`border-b-0` won on all of them, and the DEFAULT planning mode drew no separators at all — the exact
+condition this entry was opened about, in the very file it is named after. Every gate passed: the
+class was present on each row, the suite pins class PLACEMENT, and jsdom has no layout.
+
+★★ The role branch now takes `rowRuleClass(isLast)` (`table-styles.ts`), which is index-driven. That
+is not a cosmetic difference: with `last:` the class string is BYTE-IDENTICAL on every row, so no
+assertion can tell a working table from a broken one, and the defect was structurally untestable.
+Index-driven, only the last row differs — `budget-panel.test.tsx`'s "row separators sit on the cells,
+and only the last row is exempt (§68)" pins it, and reverting the call site to `ROW_RULE_CLASS` turns
+it red on the headline assertion.
+
+★ The last row emits NO border utility rather than `border-b-0` beside `border-b`: two competing
+utilities on one element resolve by the order Tailwind EMITS them, not the order they are written, so
+that form would be a coin flip that looks deliberate.
+
+★ The other five adopters keep `ROW_RULE_CLASS` and are correct — each maps its rows inside ONE shared
+parent, so `:last-child` means what it looks like there. Check the parent before reusing either form.
+
 ★ **Still eye-verified only, and that is permanent.** jsdom has no layout, so no unit test can see a
-painted border in either direction — the suite pins CLASS placement and nothing more. Re-derive the
+painted border in either direction — the suite pins CLASS placement and nothing more. The eye-verify
+recorded when this entry was first closed did NOT cover the detailed branch, or it would have caught
+the above; redo it in BOTH planning modes. Re-derive the
 site list with
 `grep -rn '<tr[^>]*className="[^"]*border-' src/app --include=*.tsx | grep -v "\.test\.tsx:"`,
 which now returns nothing.

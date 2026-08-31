@@ -55,3 +55,35 @@ export const TABLE_HEAD_CLASS =
  */
 export const ROW_RULE_CLASS =
   "[&>td]:border-b [&>td]:border-line last:[&>td]:border-b-0";
+
+/**
+ * The same rule for a row that does NOT share a parent with its siblings.
+ *
+ * ★★★ `last:` IS `:last-child`, SO IT ASKS ABOUT THE DOM PARENT, NOT THE LIST.
+ * `ROW_RULE_CLASS` is correct only where every row of a list is a child of ONE
+ * `<tbody>`. Where each row gets a `<tbody>` of its own — `budget-panel.tsx`'s
+ * detailed/role branch does exactly that, because the per-role people
+ * disclosure's `aria-controls` target has to be a `<tbody>` — every row is
+ * `:last-child`, `border-b-0` wins on all of them, and NOT ONE SEPARATOR DRAWS.
+ *
+ * ★★★ THAT SHIPPED, GREEN, IN THE COMMIT THAT CLOSED §68. The class was present
+ * on every row, the suite pins class PLACEMENT, and jsdom has no layout — so
+ * nothing failed while the default planning mode still had no rules at all.
+ * Caught by cold review, not by any gate.
+ *
+ * ★★ Passing the index makes the class DIFFER between rows, which is the whole
+ * reason this form is testable at all: with `last:` the string is byte-identical
+ * on every row, so no assertion can tell a working table from a broken one. Here
+ * the last row is the only one carrying NO rule at all, and a test can say so.
+ *
+ * ★ Callers whose rows share one `<tbody>` should keep `ROW_RULE_CLASS` — it
+ * needs no index and cannot fall out of step with the rendered list.
+ *
+ * ★★ The last row emits NO border utility at all rather than `border-b-0`
+ * alongside `border-b`. Two competing utilities on one element are resolved by
+ * the order Tailwind EMITS them in, not the order they are written in the class
+ * string, so that form would be a coin flip that happens to look deliberate.
+ */
+export function rowRuleClass(isLast: boolean): string {
+  return isLast ? "" : "[&>td]:border-b [&>td]:border-line";
+}
