@@ -534,6 +534,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle) | A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle | — | — | open |
 | [§312](#312-retryloads-in-flight-guard-assumes-submitprompt-is-single-flight-and-nothing-pins-it) | `retryLoad`'s in-flight guard assumes `submitPrompt` is single-flight, and nothing pins it | — | — | open |
 | [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | open |
+| [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name | — | — | open |
+| [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide) | `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -21326,11 +21328,40 @@ collision (archived-row `projectsRestore` / `projectsDeletePermanently`, unguard
 `isCurrent`-style branch) renders on TWO surfaces and both are fixed 2026-08-31 with
 `buildRowTokens` / `rowLabel`: `projects-panel.tsx` in `3abf5442`, `project-empty-state.tsx` in
 `bfbab4bb` (see "The second surface" below). Verified by
-`npx vitest run src/app/project-empty-state.test.tsx --maxWorkers=1`. The remaining
-inventory below — the 15/64 weak/strong-marker GAP files, the FIXED-site census — is coverage
-information, not a defect count (this entry says so itself), and is tracked by the live, re-runnable
-`npm run rownames:check` report, not by this entry. Re-run it before treating any number
-below as current.
+`npx vitest run src/app/project-empty-state.test.tsx --maxWorkers=1`.
+
+★★★ **THE `FIXED`-SITE CENSUS WAS THE OTHER HALF OF THIS ENTRY'S JOB, AND CLOSING IT ONCE WITHOUT
+ADJUDICATING THAT CENSUS WAS WRONG.** An earlier Status line here dismissed the census as "coverage
+information, not a defect count (this entry says so itself)". The parenthetical misattributed: the
+"neither is a defect count" sentence below is scoped to the two GAP numbers, while this entry
+separately calls the `FIXED` sites "THE MOST ACTIONABLE FINDING AND ALSO THE MOST OVER-READ" and
+names them in its own title. A cold review found the census still holding live, unconditional
+collisions at sites this entry itself listed. **Every one has now been adjudicated by hand**, which
+is what the closure rests on:
+
+- **Seven were REAL and are fixed** (2026-08-31): `trends-panel.tsx`'s `snapshotDelete` and
+  `trendsSetBaseline`, `settings-sections/comm-templates-section.tsx`'s `commTplSetDefault`,
+  `budget-bucket-modal.tsx`'s `budgetRemoveRole` and `budgetRemoveDiscipline`,
+  `change-edit-modal.tsx`'s `changeUnlinkRaid`, and `resource-workload.tsx`'s
+  `resourcesAddAsResource`. Each ships a red-first test and a named mutant.
+- **The three that remain are one-row-guarded and cannot collide.**
+  `influence-interest-matrix.tsx`'s `stakeholderNeedsComms` renders under `isSelected`, and a picker
+  matrix has one selected cell; `projects-panel.tsx`'s `projectsEdit` and `projectsExport` render
+  under `isCurrent`, and one project is current. The scanner cannot see a one-row guard, so it
+  classifies both as `FIXED` — that is a REPORT limitation, not a defect, and it is why the census
+  needs reading rather than quoting.
+- **`budget-panel.tsx` was never a `FIXED`-site file at all.** This entry listed it among them; its
+  four controls already route through `rowLabel` and classify `TOKENIZED`. The claim was wrong when
+  written.
+
+★★ Two collisions found while fixing the above are NOT in this census and are filed separately —
+`budget-bucket-modal.tsx`'s duplicated rate-override tooltip triggers, and `resource-workload.tsx`'s
+content-named weekly-hours button. Neither is a row-control naming site of the class this entry
+scanned for.
+
+★ The GAP-file inventory below genuinely IS coverage information rather than a defect count, and is
+tracked by the live, re-runnable `npm run rownames:check` report, not by this entry. Re-run it before
+treating any number below as current — the `FIXED` total moved sharply on the day this closed.
 
 `npm run rownames:check` (`scripts/check-rowname-surfaces.mjs`, added by `f8466714` · `122abf8f` ·
 `bd06f81d`, corrected by `5aa07575`) enumerates every per-row accessible-name site. **It is a REPORT,
@@ -23716,3 +23747,65 @@ it must NOT do is reuse that effect's `cancelled` local — `retryLoad` is calle
 outside that effect's scope. A ref holding the project the reload was issued for, compared against the
 live `projectId` at both settle paths, is the smaller change; it also composes with the `preserveLive`
 sampling already happening there rather than fighting it.
+
+## 314. `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name
+
+**Status:** open — found 2026-08-31 while closing §276's `FIXED`-site census. The shared hint key is
+machine-verified: `grep -c "budgetRateOverrideHint" src/app/budget-bucket-modal.tsx` returns **2**,
+both of them `<InfoTooltip text={...} />` with no `label`. That the two triggers therefore compute
+one accessible name was read off an `expectRowUniqueNames({ minControls: 9999 })` throw and is not
+otherwise pinned by any test.
+
+The internal and external rate-override fields each mount `<InfoTooltip text={t(lang,
+"budgetRateOverrideHint")} />`. `InfoTooltip` derives its trigger's accessible name from that `text`
+when no explicit `label` is passed, so at the **full** field tier the modal renders two buttons with
+one identical, and very long, name — a WCAG 2.4.6 failure of the same class as §276, reached through
+a different mechanism.
+
+★★ **NOT a per-row naming site, which is why §276's scanner never reported it.** That scan looks for
+controls inside a `.map()`; these two are distinct static fields that happen to share a hint string.
+Reading §276's census as covering this class is the mistake to avoid — the census would be green
+here forever.
+
+★ **Fixing it is a string decision, not a qualifier swap.** Either the two fields take distinct hint
+strings (new i18n keys, EN + DE), or each trigger takes an explicit `label` naming its own field
+while keeping the shared `text`. The second is smaller and needs no new key, and `InfoTooltip`
+already accepts `label` for exactly this.
+
+★ **`budget-bucket-modal.test.tsx`'s two §276 tests work around this rather than asserting over it.**
+They seed the `advanced` tier, where `rateOverrides` (a `full`-tier field) does not render while
+`planningDetail` does — so both allocation blocks are present and the colliding tooltips are not.
+The describe block carries a comment saying to raise the tier back to `full`, which is strictly
+stronger, once this is closed. Until then a whole-document assertion at `full` would throw on this
+pair rather than on anything under test.
+
+## 315. `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide
+
+**Status:** open — found 2026-08-31 while fixing that file's `resourcesAddAsResource` collision under
+§276. `grep -n "{row.weeklyHours}" src/app/resource-workload.tsx` returns **two** sites and each is
+the CONTENT of its own `<button>`, which is the whole claim. That three such buttons then compute one
+name was measured off a three-row fixture rendering three named `40`; nothing pins it.
+
+★★★ **TWO TABLES, NOT ONE — and the first draft of this entry said "each unlinked row", which is the
+error this register keeps recording.** The button is rendered in BOTH the managed-resources table and
+the unlinked-rows table. The managed table is the worse of the two: it is the main planning grid, and
+a team on a standard 40-hour week gives it N buttons all named `40`. Fixing only the unlinked half —
+the half that happened to sit beside the §276 control being fixed when this was found — would leave
+the larger collision live and close the entry falsely.
+
+The button's accessible name is its own CONTENT, the contracted hours number; its `title` is
+`resourcesEditShift` / `resourcesDefaultShift`, which is the accessible DESCRIPTION and does not
+name it.
+
+★★★ **DELIBERATELY NOT FIXED WITH ITS NEIGHBOUR, because it is not the same KIND of fix.** The
+neighbour was content-named with the row identity sitting unused in a sibling `<span>`, so it took a
+qualifier. Here the visible text IS the number, so WCAG 2.5.3 requires `40` to survive inside
+whatever the new name is — that is a naming decision about what the button means ("Set weekly hours
+for X, currently 40"?), and it needs a string this branch did not want to invent silently.
+
+★★ **It is not narrowable by `scope`.** The unlinked rows are sibling `<tr>`s with no wrapping
+element, so no container isolates one row's controls from another's. That is why
+`resource-workload.test.tsx`'s §276 test gives its two unlinked people DISTINCT part-time shifts
+(32h / 24h) — not because the fixture needs them, but so the hours buttons differ and the assertion
+fails only on the control it is about. A ★★★ comment at the fixture says so and says to drop the
+distinct shifts once this is closed; leaving them in afterwards would quietly weaken the test.
