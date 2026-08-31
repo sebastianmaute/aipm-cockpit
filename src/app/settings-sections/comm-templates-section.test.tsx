@@ -5,6 +5,9 @@ import type { CommTemplate } from "../comm-templates";
 import { defaultSettings } from "../settings-types";
 import { ToastProvider } from "../toast-context";
 import { readDiagLog, clearDiagLog } from "../diagnostics";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
+import { rowLabel } from "../row-tokens";
+import { t } from "../i18n";
 
 const showToastSpy = vi.fn();
 
@@ -84,7 +87,7 @@ describe("CommTemplatesSection", () => {
 
   it("sets a template as default", () => {
     const h = setup([tpl()]);
-    fireEvent.click(screen.getByRole("button", { name: "Set as default" }));
+    fireEvent.click(screen.getByRole("button", { name: rowLabel(t("en-US", "commTplSetDefault"), "Inquiry A") }));
     expect(h.onSetDefault).toHaveBeenCalledWith("status-inquiry", "t1");
   });
 
@@ -132,5 +135,53 @@ describe("CommTemplatesSection", () => {
       expect(readDiagLog().some((ev) => ev.code === "commTemplates.saveFailed")).toBe(true);
     });
     expect(showToastSpy).toHaveBeenCalledWith("error", expect.any(String));
+  });
+
+  // ★★ WCAG 2.4.6 — nothing stops two templates in one category sharing a
+  // name, so BOTH the bare "Set as default" and the name-interpolated
+  // "Delete: <name>" collide. The row's own name button is content-named and
+  // collides too. All three take the same occurrence token.
+  // ★ `c3` shares the name from the OTHER category: it is never rendered here,
+  // so it must not consume an occurrence index.
+  // ★★ THREE rendered rows, and only ONE of them default, is load-bearing. With
+  // two rows where one is default, the row NAME buttons differ by the badge
+  // ("Weekly pingDefault" vs "Weekly ping") even with no fix at all — the
+  // uniqueness assertion then passes over that control for the wrong reason and
+  // covers only the two action buttons. The two non-default rows collide.
+  const collidingTemplates: CommTemplate[] = [
+    tpl({ id: "c1", name: "Weekly ping", isDefault: true }),
+    tpl({ id: "c2", name: "Weekly ping" }),
+    tpl({ id: "c4", name: "Weekly ping" }),
+    tpl({ id: "c3", name: "Weekly ping", category: "stakeholder-update" }),
+  ];
+  const nameOf = (el: Element) => el.getAttribute("aria-label") || el.textContent || "";
+  const buttonNames = () => screen.getAllByRole("button").map(nameOf);
+
+  it("gives every per-row control a row-unique accessible name when two templates share a name", () => {
+    setup(collidingTemplates);
+    // 11 = measured for this fixture (whole-document scope).
+    expectRowUniqueNames({ minControls: 11, requireCollisionSeed: true });
+  });
+
+  it("numbers the occurrence index over the RENDERED category, not the whole template list", () => {
+    setup(collidingTemplates);
+    const names = buttonNames();
+    const verb = t("en-US", "commTplSetDefault");
+    // Three rendered rows → exactly (1), (2), (3). Building the map over the
+    // whole `templates` array instead would hand the third rendered row (4),
+    // because the other category's `c3` sits ahead of it there.
+    expect(names).toContain(rowLabel(verb, "Weekly ping (1)"));
+    expect(names).toContain(rowLabel(verb, "Weekly ping (2)"));
+    expect(names).toContain(rowLabel(verb, "Weekly ping (3)"));
+    expect(names.some((n) => n.includes("Weekly ping (4)"))).toBe(false);
+  });
+
+  it("keeps the default badge in the row button's accessible name", () => {
+    setup(collidingTemplates);
+    // The badge is visible text INSIDE the row button, so an aria-label that
+    // dropped it would both lose information and fail WCAG 2.5.3.
+    const rowButtons = buttonNames().filter((n) => n.startsWith("Weekly ping"));
+    expect(rowButtons).toHaveLength(3);
+    expect(rowButtons.filter((n) => n.includes(t("en-US", "commTplDefaultBadge")))).toHaveLength(1);
   });
 });

@@ -18,6 +18,7 @@ import { Input, Select } from "../form-controls";
 import { reportSilentFailure } from "../guard-feedback";
 import { useToastContext } from "../toast-context";
 import { RichTextEditor } from "../rich-text-editor-lazy";
+import { buildRowTokens, rowLabel } from "../row-tokens";
 
 const CAT_LABEL_KEY: Record<CommTemplateCategory, TranslationKey> = {
   "status-inquiry": "commTplCat_statusInquiry",
@@ -48,6 +49,15 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const CURRENT_ID = "__current__";
   const inCategory = templates.filter((tpl) => tpl.category === category);
+  // ★★ Built over `inCategory` — the RENDERED, category-filtered rows — not
+  // over `templates`. A same-named template in the other category is not on
+  // screen, so letting it consume an occurrence index would number the visible
+  // rows (2)/(3) with no (1) anywhere.
+  // ★ Template names are free text with no uniqueness constraint, so every
+  // per-row control here (the name button, "Set as default" and "Delete") takes
+  // the same token — an already-interpolated name is no more unique than a bare
+  // verb when the name itself repeats.
+  const rowTokens = buildRowTokens(inCategory.map((tpl) => ({ id: tpl.id, name: tpl.name })));
   const selected = inCategory.find((tpl) => tpl.id === selectedId) ?? null;
 
   const versions = useCommTemplateVersions({ active: props.config !== null, config: props.config, templateId: selectedId });
@@ -198,9 +208,26 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
           <EmptyState compact title={t(lang, "commTplEmpty")} />
         ) : (
           <ul className="flex flex-col gap-2">
-            {inCategory.map((tpl) => (
+            {inCategory.map((tpl) => {
+              const token = rowTokens.get(tpl.id) ?? tpl.name;
+              // The default badge is VISIBLE text inside this button, so it stays
+              // in the accessible name — dropping it would lose information for
+              // AT that every sighted user gets.
+              // ★★ THIS IS NOT A CLEAN WCAG 2.5.3 PASS AND DO NOT RECORD IT AS
+              // ONE. On a row whose name COLLIDES the token carries an occurrence
+              // suffix, so the name reads "X (2) Default" while the visible label
+              // reads "X Default" — 2.5.3 wants the visible label CONTAINED in
+              // the accessible name, and the "(2)" interrupts it. Accepted
+              // deliberately: it is strictly better than the status quo (which
+              // failed 2.4.6 outright on every duplicate name), it bites only a
+              // duplicate-named DEFAULT row, and the alternative — a second token
+              // map built over the full visible label — puts two parallel maps in
+              // this component that can drift apart. Revisit if a 2.5.3 gate ever
+              // runs; axe's rule is experimental and cannot see this today.
+              const rowName = tpl.isDefault ? `${token} ${t(lang, "commTplDefaultBadge")}` : token;
+              return (
               <li key={tpl.id} className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 transition-colors hover:border-ui-dark-blue/40 hover:bg-surface-muted">
-                <button type="button" onClick={() => selectTemplate(tpl)} title={t(lang, "commTplRowsClickableHint")} className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left ${INTERACTIVE}`}>
+                <button type="button" onClick={() => selectTemplate(tpl)} aria-label={rowName} title={t(lang, "commTplRowsClickableHint")} className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left ${INTERACTIVE}`}>
                   <span className="truncate text-sm font-medium text-foreground">{tpl.name}</span>
                   {tpl.isDefault && (
                     <span className="shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-xs text-foreground">
@@ -218,6 +245,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                     )
                   }
                   disabled={tpl.isDefault}
+                  aria-label={rowLabel(t(lang, "commTplSetDefault"), token)}
                 >
                   {t(lang, "commTplSetDefault")}
                 </Button>
@@ -231,12 +259,13 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                     );
                     if (selectedId === tpl.id) { setSelectedId(null); setBodyDraft(""); }
                   }}
-                  aria-label={`${t(lang, "commTplDelete")}: ${tpl.name}`}
+                  aria-label={`${t(lang, "commTplDelete")}: ${token}`}
                 >
                   {t(lang, "commTplDelete")}
                 </Button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>

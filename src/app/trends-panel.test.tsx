@@ -9,6 +9,9 @@ vi.mock("./confirm-dialog", () => ({
 }));
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import type { SnapshotRecord, VarianceRow } from "./snapshot";
+import { expectRowUniqueNames } from "../test/row-unique-names";
+import { rowLabel } from "./row-tokens";
+import { t } from "./i18n";
 
 // The panel reads useDisplayTimezone(); wrap every render in the provider. A
 // non-UTC zone (Asia/Kolkata, +5:30) makes the zone conversion observable.
@@ -80,7 +83,7 @@ describe("TrendsPanel", () => {
   it("shows a per-row delete button for each snapshot", () => {
     renderPanel(<TrendsPanel {...base} />);
     // Two snapshots → two delete buttons (aria-label or text "Delete")
-    const deleteBtns = screen.getAllByRole("button", { name: /^Delete$/i });
+    const deleteBtns = deleteButtons();
     expect(deleteBtns).toHaveLength(2);
   });
 
@@ -88,7 +91,7 @@ describe("TrendsPanel", () => {
     confirmMock.result = true;
     const deleteSnapshot = vi.fn(noop);
     renderPanel(<TrendsPanel {...base} deleteSnapshot={deleteSnapshot} />);
-    const [firstDelete] = screen.getAllByRole("button", { name: /^Delete$/i });
+    const [firstDelete] = deleteButtons();
     fireEvent.click(firstDelete);
     await waitFor(() => expect(deleteSnapshot).toHaveBeenCalledTimes(1));
   });
@@ -97,7 +100,7 @@ describe("TrendsPanel", () => {
     confirmMock.result = false;
     const deleteSnapshot = vi.fn(noop);
     renderPanel(<TrendsPanel {...base} deleteSnapshot={deleteSnapshot} />);
-    const [firstDelete] = screen.getAllByRole("button", { name: /^Delete$/i });
+    const [firstDelete] = deleteButtons();
     fireEvent.click(firstDelete);
     await act(async () => {});
     expect(deleteSnapshot).not.toHaveBeenCalled();
@@ -133,5 +136,54 @@ describe("TrendsPanel", () => {
     renderPanel(<TrendsPanel {...base} />);
     const bulkBtn = screen.getByRole("button", { name: /delete selected/i });
     expect(bulkBtn).toBeDisabled();
+  });
+
+  // ★★ WCAG 2.4.6 — the row name is a formatted TIMESTAMP, and a timestamp
+  // REPEATS: two snapshots captured in the same displayed minute render the
+  // same string. That is the same defect class as a bare "Delete", so the
+  // checkbox (which was already interpolating the raw timestamp) is fixed the
+  // same way as the two unqualified buttons — one occurrence token per row.
+  // ★ Both rows are non-baseline so BOTH render a "Set as baseline" button;
+  // with a baseline row only one would, and the collision would not render.
+  const colliding = [
+    snap("s-earlier", "2026-W24", { capturedAt: "2026-06-10T00:00:00.000Z" }),
+    snap("s-later", "2026-W24", { capturedAt: "2026-06-10T00:00:30.000Z" }),
+  ];
+  function renderColliding(over: Partial<typeof base> = {}) {
+    return renderPanel(
+      <TrendsPanel {...base} snapshots={colliding} baseline={null} latest={colliding[1]} {...over} />,
+    );
+  }
+  // `rowLabel(verb, "")` is the verb plus the separator the shared helper emits,
+  // so nothing here hardcodes the separator glyph.
+  const DELETE_PREFIX = rowLabel(t("en-US", "snapshotDelete"), "");
+  const nameOf = (el: Element) => el.getAttribute("aria-label") || el.textContent || "";
+  const deleteButtons = () =>
+    screen.getAllByRole("button").filter((b) => nameOf(b).startsWith(DELETE_PREFIX));
+
+  it("gives every per-row BUTTON a row-unique accessible name when two snapshots share a displayed timestamp", () => {
+    renderColliding();
+    // 10 = measured for this fixture (whole-document scope).
+    expectRowUniqueNames({ minControls: 10, requireCollisionSeed: true });
+  });
+
+  it("gives every per-row CHECKBOX a row-unique accessible name when two snapshots share a displayed timestamp", () => {
+    renderColliding();
+    // 2 = measured for this fixture (one checkbox per snapshot row).
+    expectRowUniqueNames({ minControls: 2, roles: ["checkbox"], requireCollisionSeed: true });
+  });
+
+  it("numbers the occurrence index in RENDERED (newest-first) order, not raw snapshot order", async () => {
+    const deleteSnapshot = vi.fn(noop);
+    renderColliding({ deleteSnapshot });
+    const deletes = deleteButtons();
+    expect(deletes).toHaveLength(2);
+    // The panel renders `[...snapshots].reverse()`, so the NEWEST row is first
+    // and must carry occurrence (1) — building the token map over the raw
+    // array would swap the two.
+    expect(nameOf(deletes[0])).toMatch(/\(1\)$/);
+    expect(nameOf(deletes[1])).toMatch(/\(2\)$/);
+    fireEvent.click(deletes[0]);
+    await waitFor(() => expect(deleteSnapshot).toHaveBeenCalledWith("s-later"));
   });
 });
