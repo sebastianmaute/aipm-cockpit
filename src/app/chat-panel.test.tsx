@@ -1790,6 +1790,14 @@ describe("abortRef ownership across concurrent sends", () => {
     await act(async () => {
       rejectFirst(new Error("boom"));
     });
+    // ★ WITNESS that the finally actually ran, without which this block has no
+    // discriminating power at all: if the rejection ever stops reaching it,
+    // signals[1] is unaborted-then-aborted under the fixed AND the unconditional
+    // clear alike, and the assertion below passes for the wrong reason. `setBusy
+    // (false)` sits in that same finally, one line under the clear being tested,
+    // so the Send control returning is the tightest witness available from
+    // outside the component.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
 
     // A project switch aborts whatever abortRef holds. It must still be send 2's
     // controller: an unconditional clear in send 1's `finally` empties the slot,

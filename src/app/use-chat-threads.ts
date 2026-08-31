@@ -51,11 +51,21 @@ export interface UseChatThreadsDeps {
    *  ALSO read here as the live "is a send in flight" signal, which is what
    *  lets retryLoad refuse to adopt a server thread over a conversation the
    *  user is mid-send in. It is non-null between submitPrompt's start and its
-   *  `finally` — and that `finally` (in chat-panel.tsx) clears it
-   *  UNCONDITIONALLY, NOT under an identity guard, so the signal is only as
-   *  good as submitPrompt being single-flight. That assumption holds today and
-   *  nothing pins it; see retryLoad's second guard for the tripwire it carries
-   *  and docs/open-followups.md §312. */
+   *  `finally` — and that `finally` (in chat-panel.tsx) clears it only when
+   *  the settling send still OWNS the slot
+   *  (`if (abortRef.current === controller)`, §312), so a second dispatch's
+   *  controller survives the first send's finally. Pinned by
+   *  chat-panel.test.tsx's "still holds the second send's controller after the
+   *  first send settles".
+   *  ★★ THAT NARROWS THE SINGLE-FLIGHT DEPENDENCY, IT DOES NOT REMOVE IT, and
+   *  the residual runs the other way round: if the LATER of two concurrent
+   *  sends settles FIRST it owns the slot and clears it while the earlier send
+   *  is still live, and the earlier one's finally then correctly declines to
+   *  restore it. retryLoad would read idle over that live send, and the
+   *  occurrence test cannot help — both `sendSeqRef` bumps predate the click.
+   *  Unreachable today for the same reason the whole assumption is: every call
+   *  site is a separate DOM event. See retryLoad's second guard and
+   *  docs/open-followups.md §312. */
   cancelledRef: React.MutableRefObject<boolean>;
   abortRef: React.MutableRefObject<AbortController | null>;
   confirm: ConfirmFn;
@@ -500,8 +510,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     //       DISJUNCT — a lone send matches its own controller and clears the
     //       ref exactly as before, so both samples still read null and
     //       `sendSeqRef` remains the ONLY detector here) — and if it went
-    //       into the
-    //       already-active thread it minted nothing, so the identity test
+    //       into the already-active thread it minted nothing, so the identity test
     //       reads clean too. All three of the pre-counter guards pass, the
     //       adopt branch runs, and setHistory/setDisplay replace the
     //       transcript with a snapshot taken BEFORE that send: the user's
@@ -517,10 +526,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     //   records a key in `pendingRetryRef` only in its `.catch` and deletes it
     //   in its `.then`, so an UNSETTLED write is in neither — invisible to
     //   `retryLoad`'s only pre-reload gate, `pendingRetryRef.current.size > 0`.
-    //   A reload landing in that window adopts the row as `ensureThreadForSend`
-    //   wrote it (user message only) and drops the reply from SCREEN; the
-    //   server-side write still completes, so no data is lost. Narrow, and
-    //   deliberately NOT closed here — see `docs/open-followups.md`.
+    //   A reload landing in that window WOULD adopt the row as
+    //   `ensureThreadForSend` wrote it (user message only) and drop the reply
+    //   from SCREEN. That is §317, and it IS closed here now: the settle
+    //   carries `persistInFlightAtClick` and the persist occurrence test
+    //   below. ★ The sentence before this one is still true and is the reason
+    //   the fix had to go where it did — the PRE-RELOAD gate is unchanged and
+    //   still cannot see an unsettled write. The SETTLE is where it is caught.
     //
     // ★★★ IT MUST GATE THE SETTLE, NOT THE FETCH. Treating in-flight as
     // another `stale: true` still fetches and still merges `loaded` under the

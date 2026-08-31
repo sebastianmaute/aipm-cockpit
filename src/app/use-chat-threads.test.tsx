@@ -1141,8 +1141,9 @@ describe("useChatThreads — retryLoad's reload vs. a send that both starts AND 
     // it does not exist teaches the next reader to distrust a live test.
     // Its subject is the SEND counter, not persists; the persist equivalents
     // live in the §317 describe. It remains a live freeze-detector after the
-    // drain — poisoning seqAtClick to -1 (preserveLive permanently true) turns
-    // it red, alongside every other "still adopts" control in this file.
+    // drain — also measured: poisoning seqAtClick to -1 (preserveLive
+    // permanently true) gives 5 failed / 65 passed, and this block is among
+    // the five, alongside every other "still adopts" control in the file.
     await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
     await act(async () => {
       await Promise.resolve();
@@ -1839,6 +1840,14 @@ describe("useChatThreads — retryLoad's settle vs. a project switch (§313)", (
     // so a red there cannot be inherited from an earlier step.
     expect(result.current.threadsError).toBe(false);
 
+    // ★ Cleared for hygiene, and DELIBERATELY not asserted on by any block
+    // here — do not read the absence as a dropped assertion and supply one.
+    // This arrangement leaves `startedOn` as "p1-seed" while threadIdRef holds
+    // "p2-row", so the identity test forces the stale branch on its own and the
+    // transcript was never at risk: an assertion here would be green whether or
+    // not the project bail exists, which is the wrong kind of green. The
+    // transcript is the §317 describe's subject, where a persist is what makes
+    // it reachable.
     setHistory.mockClear();
     setDisplay.mockClear();
     return { ...harness, settleRetry };
@@ -1994,7 +2003,7 @@ describe("useChatThreads — retryLoad's settle vs. an unsettled persist (§317)
   }
 
   it("does not replace the transcript when a persist was already in flight at the click", async () => {
-    const { result, setHistory } = await arrangeMounted();
+    const { result, setHistory, setDisplay } = await arrangeMounted();
 
     // A write that never settles. It is in neither half of pendingRetryRef, so
     // the pre-reload gate reads clean — the premise of the whole entry.
@@ -2006,16 +2015,22 @@ describe("useChatThreads — retryLoad's settle vs. an unsettled persist (§317)
     const resolveReload = await clickRetryHoldingReload(result);
     // Only writes made after the click are the subject.
     setHistory.mockClear();
+    setDisplay.mockClear();
     resolveReload([SERVER_ROW]);
     // Settle witness that holds on BOTH branches — the preserve branch folds
     // `loaded` in too — so a red below is an assertion failure, not a timeout.
     await waitFor(() => expect(result.current.threads.map((th) => th.id)).toContain("t-server"));
 
     expect(setHistory).not.toHaveBeenCalled();
+    // Both setters sit under the SAME `if (settled.stale) return;`, so one
+    // would witness the branch — asserted anyway, and in the same block rather
+    // than a split one, because the free extra assertion is what would catch a
+    // refactor that moved setDisplay above that return.
+    expect(setDisplay).not.toHaveBeenCalled();
   });
 
   it("does not replace the transcript when a persist begins inside the reload window", async () => {
-    const { result, setHistory } = await arrangeMounted();
+    const { result, setHistory, setDisplay } = await arrangeMounted();
 
     const resolveReload = await clickRetryHoldingReload(result);
     // Starts AFTER the click, so no click-time sample can see it — only the
@@ -2024,11 +2039,13 @@ describe("useChatThreads — retryLoad's settle vs. an unsettled persist (§317)
     act(() => result.current.renameThread("t1", "renamed"));
     await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
     setHistory.mockClear();
+    setDisplay.mockClear();
 
     resolveReload([SERVER_ROW]);
     await waitFor(() => expect(result.current.threads.map((th) => th.id)).toContain("t-server"));
 
     expect(setHistory).not.toHaveBeenCalled();
+    expect(setDisplay).not.toHaveBeenCalled();
   });
 
   // ★★★ POSITIVE CONTROL. Without it, a guard that sets `preserveLive`
