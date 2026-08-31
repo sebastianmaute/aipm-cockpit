@@ -2,15 +2,18 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.271.0";
-export const APP_BUILD_DATE = "2026-08-31"; // 0.271.0: epoch-keyed suppression of a late dangling diff, a distinct blocked-format marker for declined asset images, warning-glyph escape respelled (Gibson)
+export const APP_VERSION = "0.272.0";
+export const APP_BUILD_DATE = "2026-08-31"; // 0.272.0: retry-reload no longer discards a send that lands inside its window, a project switch mid-reload no longer strands the old project's threads, an unsettled persist is visible to the settle, abortRef cleared only by its owner (Zoline)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.271.x line is "Gibson" (William Gibson, American-Canadian SF author).
- *  ★★★ REUSED: 0.59.0 (2026-06-10) also ran under this name. Permitted —
- *  the rule at the end of this comment is uniqueness per MINOR LINE, not
- *  across all history — and recorded here so that a bare
+ *  0.272.x line is "Zoline" (Pamela Zoline, American SF author and painter,
+ *  "The Heat Death of the Universe"). Checked dash-agnostically BEFORE the
+ *  bump with the command below: zero hits across all 398 version headers, so
+ *  this one is genuinely fresh rather than a permitted reuse.
+ *  ★★★ 0.271.x ("Gibson") WAS a reuse: 0.59.0 (2026-06-10) ran under the
+ *  same name. Permitted — the rule at the end of this comment is uniqueness
+ *  per MINOR LINE, not across all history — and recorded so that a bare
  *  `grep -rn "Gibson" CHANGELOG.md` hit is not read as the name being taken.
- *  ★★★ THIS LINE FIRST SHIPPED CLAIMING THE NAME WAS FRESH, on the evidence
+ *  ★★★ THAT LINE FIRST SHIPPED CLAIMING THE NAME WAS FRESH, on the evidence
  *  of a grep anchored to `] - `, in the very sentence that pointed at the
  *  dash note below warning against exactly that. 0.59.0's header uses an EM
  *  DASH and was invisible to it — as are 100 of the 398 version headers, and
@@ -115,7 +118,7 @@ export const APP_BUILD_DATE = "2026-08-31"; // 0.271.0: epoch-keyed suppression 
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Gibson";
+export const APP_MILESTONE = "Zoline";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

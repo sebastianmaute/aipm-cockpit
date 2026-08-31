@@ -30,6 +30,10 @@ import type { ConfirmFn } from "./confirm-dialog";
 import { loadThreads, saveThread, deleteThread as deleteThreadRow } from "./chat-threads-store";
 import { type ChatThread, newThreadId, deriveThreadName, stripAttachmentsForPersistence } from "./chat-threads";
 import { publishChatThreads, clearChatThreadsFor } from "./chat-threads-registry";
+import {
+  mergeThreadsAfterLoad,
+  resetThreadsAfterFailedLoad,
+} from "./chat-thread-load";
 
 /** Live render-scope values the Turso thread flows read each render. */
 export interface UseChatThreadsDeps {
@@ -47,85 +51,22 @@ export interface UseChatThreadsDeps {
    *  ALSO read here as the live "is a send in flight" signal, which is what
    *  lets retryLoad refuse to adopt a server thread over a conversation the
    *  user is mid-send in. It is non-null between submitPrompt's start and its
-   *  `finally` — and that `finally` (in chat-panel.tsx) clears it
-   *  UNCONDITIONALLY, NOT under an identity guard, so the signal is only as
-   *  good as submitPrompt being single-flight. That assumption holds today and
-   *  nothing pins it; see retryLoad's second guard for the tripwire it carries
-   *  and docs/open-followups.md §312. */
+   *  `finally` — and that `finally` (in chat-panel.tsx) clears it only when
+   *  the settling send still OWNS the slot
+   *  (`if (abortRef.current === controller)`, §312), so a second dispatch's
+   *  controller survives the first send's finally. Pinned by
+   *  chat-panel.test.tsx's "still holds the second send's controller after the
+   *  first send settles".
+   *  ★★ THAT NARROWS THE SINGLE-FLIGHT DEPENDENCY, IT DOES NOT REMOVE IT, and
+   *  the residual runs the other way round: if the LATER of two concurrent
+   *  sends settles FIRST it owns the slot and clears it while the earlier send
+   *  is still live. retryLoad would read idle over that live send, and the
+   *  occurrence test cannot help — both `sendSeqRef` bumps predate the click.
+   *  Not known to be reachable — the call sites are enumerated at retryLoad's
+   *  second guard. See it and docs/open-followups.md §312. */
   cancelledRef: React.MutableRefObject<boolean>;
   abortRef: React.MutableRefObject<AbortController | null>;
   confirm: ConfirmFn;
-}
-
-/** Outcome of settling a SUCCESSFUL `loadThreads()` call, shared by the
- *  mount-fetch effect's `.then` and retryLoad's reload `.then` (§148) so the
- *  two settle paths cannot drift apart. `stale=true` means "do not adopt
- *  `loaded[0]`", and since `preserveLive` landed it has TWO causes, not one:
- *  either something (ensureThreadForSend) minted/adopted a different thread
- *  while this fetch was in flight, OR the caller held a live send via
- *  `preserveLive` and nothing moved at all. Under EITHER the caller must
- *  MERGE `loaded` rather than adopt `loaded[0]`, per the mount effect's own
- *  "MERGE, not bail" comment. */
-interface LoadSettleResult {
-  updateThreads: (prev: ChatThread[]) => ChatThread[];
-  stale: boolean;
-  next: ChatThread | null;
-}
-
-/** `preserveLive` forces the merge branch even when the identity test reads
- *  clean. The identity test asks "did threadIdRef MOVE during this fetch",
- *  which is blind to a thread that moved BEFORE the fetch started and still
- *  has a send streaming into it — the state a failed mount fetch's own stale
- *  branch leaves behind. Only retryLoad passes true; see its comment for why
- *  the mount/project-switch effect must NOT.
- *
- *  ★★★ THE MERGE BRANCH IS SCOPED TO THIS PROJECT, and that filter is
- *  load-bearing rather than tidiness. `prev` is whatever the PREVIOUS project
- *  left behind — nothing resets it on a switch — so an unfiltered merge keeps
- *  another project's rows in the sidebar and, since the caller marks the list
- *  loaded on this path, republishes them under this project's id. Every row
- *  carries the `projectId` it was minted or fetched under (`loadThreads` is
- *  per-project; ensureThreadForSend and the busy-persist effect both stamp
- *  it), so the ownership test is exact rather than heuristic. */
-function mergeThreadsAfterLoad(
-  startedOn: string | null,
-  liveThreadId: string | null,
-  projectId: string,
-  loaded: ChatThread[],
-  preserveLive: boolean,
-): LoadSettleResult {
-  if (preserveLive || liveThreadId !== startedOn) {
-    return {
-      updateThreads: (prev) => [
-        ...prev.filter((th) => th.projectId === projectId && !loaded.some((l) => l.id === th.id)),
-        ...loaded,
-      ],
-      stale: true,
-      next: null,
-    };
-  }
-  return { updateThreads: () => loaded, stale: false, next: loaded[0] ?? null };
-}
-
-/** Mirror of mergeThreadsAfterLoad for a FAILED `loadThreads()` call — shared
- *  by the mount effect's `.catch` and retryLoad's reload `.catch` (§148), so
- *  a mid-flight-minted thread's row survives a failed reload exactly as it
- *  already survived a failed initial fetch. */
-interface FailedLoadSettleResult {
-  updateThreads: (prev: ChatThread[]) => ChatThread[];
-  stale: boolean;
-}
-
-function resetThreadsAfterFailedLoad(
-  startedOn: string | null,
-  liveThreadId: string | null,
-  projectId: string,
-  preserveLive: boolean,
-): FailedLoadSettleResult {
-  if (preserveLive || liveThreadId !== startedOn) {
-    return { updateThreads: (prev) => prev.filter((th) => th.projectId === projectId), stale: true };
-  }
-  return { updateThreads: () => [], stale: false };
 }
 
 export function useChatThreads(deps: UseChatThreadsDeps) {
@@ -218,6 +159,28 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   useEffect(() => {
     threadsRef.current = threads;
   }, [threads]);
+
+  // A monotonic PROJECT EPOCH, for async settles that must not write under a
+  // project the user has since left. ★ PROJECT changes ONLY — a `tursoConfig`
+  // change refires the load effect without bumping it, so a retry issued against
+  // the old database still settles (pre-existing; the ref this replaced had the
+  // same hole). retryLoad's handlers close over the `projectId` of the render
+  // that produced the clicked instance, so comparing it against itself is void.
+  //
+  // ★★ AN EPOCH, NOT THE PROJECT VALUE: comparing the id passes on
+  // p1 → p2 → back to p1 inside one window (ABA), letting a stale p1 settle
+  // overwrite p1's own newer fetch — or, on `.catch`, raise the load-failure
+  // banner over a fetch that has since succeeded. A counter cannot repeat.
+  //
+  // ★ NOT the mount effect's `cancelled` local: retryLoad runs from an event
+  // handler outside that closure. ★★ Renamed off `projectIdRef` because
+  // ChatPanel has one too holding the LIVE project id — same concept, not a
+  // naming coincidence. Its compare is ABA-blind too, but its `cancelledRef`
+  // (set at the first switch, reset only at a send's start) catches it there.
+  const projectEpochRef = useRef(0);
+  useEffect(() => {
+    projectEpochRef.current += 1;
+  }, [projectId]);
 
   // Publish to the module registry the AI dispatcher reads. See
   // chat-threads-registry.ts for why this is not a prop.
@@ -322,6 +285,20 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   const persistSeqRef = useRef(0);
   const latestSeqRef = useRef<Map<string, number>>(new Map());
 
+  // §317. How many runPersist calls have SETTLED. `persistSeqRef` counts
+  // writes STARTED, so `persistSeqRef.current > persistSettledRef.current` is
+  // exactly "a write is outstanding right now" — the LIVENESS question, which
+  // a counter sampled at one instant cannot answer on its own. retryLoad needs
+  // both: the occurrence test catches a write that BEGINS inside its window,
+  // and this one catches a write already in flight when Retry was clicked.
+  //
+  // ★★★ BUMPED BEFORE THE `owns()` BAIL, DELIBERATELY. A superseded write
+  // still settles and still runs its handler; bumping after the bail would
+  // leak the count upward forever, leaving `started > settled` permanently
+  // true, `preserveLive` permanently set, and the reload branch unable to
+  // adopt anything ever again.
+  const persistSettledRef = useRef(0);
+
   // Fire a Turso WRITE (save or delete), tracking it as the retry target
   // (keyed by the thread id it targets) on failure and clearing just THAT
   // key on success — the error banner only clears once nothing is left
@@ -348,11 +325,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     const owns = () => latestSeqRef.current.get(key) === seq;
     action()
       .then(() => {
+        persistSettledRef.current += 1;
         if (!owns()) return;
         pendingRetryRef.current.delete(key);
         setThreadsError(pendingRetryRef.current.size > 0);
       })
       .catch(() => {
+        persistSettledRef.current += 1;
         if (!owns()) return;
         pendingRetryRef.current.set(key, () => runPersist(key, action));
         setThreadsError(true);
@@ -501,12 +480,14 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // dispatches in ONE tick would both pass it. Nothing reaches it that way
     // today — every call site is a separate DOM event (React has flushed
     // setBusy and disabled the control by then) or the one-shot `chatSeed`
-    // effect. ★★★ IF THAT EVER CHANGES, chat-panel.tsx's `finally` clears
-    // `abortRef.current` UNCONDITIONALLY, so the FIRST send's finally would
-    // empty a slot the SECOND still owns and this guard would read "idle" over
-    // a live send — the exact data loss it exists to prevent. Make that
-    // clear identity-guarded (`if (abortRef.current === controller)`) at the
-    // same time, not afterwards.
+    // effect. ★★ THAT IS NO LONGER THE ONLY THING HOLDING IT UP (§312):
+    // chat-panel.tsx's `finally` reads
+    // `if (abortRef.current === controller) abortRef.current = null;`, so a
+    // second dispatch's slot survives the first send's finally. Pinned by
+    // chat-panel.test.tsx's "still holds the second send's controller after
+    // the first send settles", which stages the same-tick double dispatch with
+    // two native `.click()`s inside one `act` and observes the ref through the
+    // projectId-switch abort — the one abort site that is not `busy`-gated.
     //
     // ★★★ THREE ORDERINGS, THREE DISJUNCTS — and the enumeration is the point.
     // This comment used to list only the first two and call them exhaustive,
@@ -527,13 +508,22 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     //       but not when it sent into an existing one.)
     //   (c) A send that starts AND finishes strictly inside the window. Both
     //       liveness samples read null — chat-panel's `finally` clears
-    //       `abortRef` unconditionally — and if it went into the
-    //       already-active thread it minted nothing, so the identity test
-    //       reads clean too. All three of the pre-counter guards pass, the
-    //       adopt branch runs, and setHistory/setDisplay replace the
-    //       transcript with a snapshot taken BEFORE that send: the user's
-    //       message and its reply vanish from screen. → caught ONLY by
-    //       `sendSeqRef.current !== seqAtClick`.
+    //       `abortRef` whenever the settling send still OWNS it, which for a
+    //       single-flight send is always — and if it went into the already-active
+    //       thread it minted nothing, so the identity test reads clean too. All
+    //       three of the pre-counter guards pass, the adopt branch runs, and
+    //       setHistory/setDisplay replace the transcript with a snapshot taken
+    //       BEFORE that send: the user's message and its reply vanish from
+    //       screen. → caught by
+    //       `sendSeqRef.current !== seqAtClick`. ★★ NOT the ONLY detector: the
+    //       busy-persist effect below issues a `runPersist` at EVERY send's end,
+    //       so in the running app that write falls inside the window and §317's
+    //       persist occurrence test fires for this ordering too. The counter is
+    //       the only detector here that does not depend on that effect electing
+    //       to write, which is why it stays. The tests isolate
+    //       it by draining that write: deleting this disjunct kills the eight
+    //       NEGATIVE blocks of the "starts AND finishes inside the window"
+    //       describe (its two positive controls survive, as they must), nothing else.
     // Those are the three orderings of a SEND relative to the two window
     // edges: begun-before (a), begun-inside-and-unfinished (b),
     // begun-inside-and-finished (c).
@@ -544,10 +534,12 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     //   records a key in `pendingRetryRef` only in its `.catch` and deletes it
     //   in its `.then`, so an UNSETTLED write is in neither — invisible to
     //   `retryLoad`'s only pre-reload gate, `pendingRetryRef.current.size > 0`.
-    //   A reload landing in that window adopts the row as `ensureThreadForSend`
-    //   wrote it (user message only) and drops the reply from SCREEN; the
-    //   server-side write still completes, so no data is lost. Narrow, and
-    //   deliberately NOT closed here — see `docs/open-followups.md`.
+    //   A reload landing in that window WOULD adopt the row as
+    //   `ensureThreadForSend` wrote it (user message only) and drop the reply
+    //   from SCREEN. That is §317, and it IS closed here now: the settle
+    //   carries `persistInFlightAtClick` and the persist occurrence test
+    //   below. The PRE-RELOAD gate is unchanged and still cannot see an
+    //   unsettled write; the SETTLE is where it is caught.
     //
     // ★★★ IT MUST GATE THE SETTLE, NOT THE FETCH. Treating in-flight as
     // another `stale: true` still fetches and still merges `loaded` under the
@@ -556,12 +548,36 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // reload branch closed forever, leaving the sidebar permanently stale.
     const sendInFlightAtClick = abortRef.current !== null;
     const seqAtClick = sendSeqRef.current;
+    // §317. The same liveness/occurrence pair for PERSISTS. Only two disjuncts:
+    // a settle-time liveness re-read would be redundant — a write started after
+    // the click is already caught by the occurrence test, and one started
+    // before it by `persistInFlightAtClick` — so no mutant could kill it alone.
+    const persistInFlightAtClick = persistSeqRef.current > persistSettledRef.current;
+    const persistSeqAtClick = persistSeqRef.current;
+    // §313. The project epoch this reload is FOR, compared at settle against
+    // the live one. The mount effect's `cancelled` local cannot serve here —
+    // retryLoad runs from an event handler, outside that effect's closure.
+    const issuedAtEpoch = projectEpochRef.current;
+    // ★★ A FUNCTION, NOT A VALUE — three disjuncts read refs that must be
+    // sampled AT SETTLE; evaluating at click time would reduce this to
+    // `sendInFlightAtClick || persistInFlightAtClick` and reopen (b) and (c).
+    // Hoisted so the two handlers cannot drift: the `.catch` is the more
+    // destructive path, so a disjunct added to one and not the other loses more.
+    const shouldPreserveLive = () =>
+      sendInFlightAtClick ||
+      abortRef.current !== null ||
+      sendSeqRef.current !== seqAtClick ||
+      persistInFlightAtClick ||
+      persistSeqRef.current !== persistSeqAtClick;
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
+        // §313. A project switch while this was in flight means every setState
+        // below would write p1's data under p2 — including setLoadedProjectId,
+        // which would then claim ownership of rows p2's own fetch put there.
+        if (issuedAtEpoch !== projectEpochRef.current) return;
         setThreadsError(false);
         setLoadFailed(false);
-        const preserveLive =
-          sendInFlightAtClick || abortRef.current !== null || sendSeqRef.current !== seqAtClick;
+        const preserveLive = shouldPreserveLive();
         const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
@@ -571,10 +587,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         setDisplay(settled.next?.display ?? []);
       })
       .catch(() => {
+        if (issuedAtEpoch !== projectEpochRef.current) return;
         setThreadsError(true);
         setLoadFailed(true);
-        const preserveLive =
-          sendInFlightAtClick || abortRef.current !== null || sendSeqRef.current !== seqAtClick;
+        const preserveLive = shouldPreserveLive();
         const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId, preserveLive);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);

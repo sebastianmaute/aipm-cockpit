@@ -537,16 +537,17 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§308](#308-controlnames-and-the-collision-helpers-built-on-it-are-blind-to-three-parts-of-the-real-accessible-name) | `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name | — | — | open |
 | [§309](#309-projects-paneltsxs-active-project-list-still-names-its-row-controls-by-raw-interpolation-so-one-file-now-carries-two-conventions) | `projects-panel.tsx`'s ACTIVE project list still names its row controls by raw interpolation, so one file now carries two conventions | — | — | open |
 | [§310](#310-120s-unmount-abort-suppresses-the-mount-tick-under-next-devs-strictmode--dev-only) | §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only | — | — | open |
-| [§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle) | A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle | — | — | open |
-| [§312](#312-retryloads-in-flight-guard-assumes-submitprompt-is-single-flight-and-nothing-pins-it) | `retryLoad`'s in-flight guard assumes `submitPrompt` is single-flight, and nothing pins it | — | — | open |
-| [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | open |
+| [§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle--closed-2026-08-31-02720) | A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle | — | — | **CLOSED** 2026-08-31 |
+| [§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720) | `retryLoad`'s in-flight guard assumed `submitPrompt` is single-flight, and nothing pinned it | — | — | **CLOSED** 2026-08-31 |
+| [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen--closed-2026-08-31-02720) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | **CLOSED** 2026-08-31 |
 | [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name | — | — | open |
 | [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide) | `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide | — | — | open |
 | [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
-| [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | open |
+| [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31 |
 | [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--open) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack — open | found 2026-08-31 while closing §100 | S | open |
 | [§319](#319-this-registers-own-index-rebuild-recipe-silently-strips-hand-written-state-cells-and-claims-to-be-idempotent--open) | This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent — open | found 2026-08-31 while filing §318 | S | open |
 | [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | open |
+| [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | open |
 | [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked) | The asset library offers Insert on a refused-format row, which can only ever render as blocked | found 2026-08-31 in the §230 cold review | S | open |
 <!-- INDEX:END -->
 
@@ -11717,9 +11718,9 @@ while `retryLoad`'s can already BE a thread with a send streaming into it.
 
 ★★ **Two things this did not close, each filed rather than left implicit.** A send that starts AND
 finishes entirely between the two samples still loses —
-[§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle).
+[§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle--closed-2026-08-31-02720).
 And the `abortRef` read assumes `submitPrompt` is single-flight, which it is only effectively —
-[§312](#312-retryloads-in-flight-guard-assumes-submitprompt-is-single-flight-and-nothing-pins-it).
+[§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720).
 
 ## 149. Date-dependent unit tests detonate on a calendar rollover, with no code change behind them
 
@@ -23079,7 +23080,7 @@ function. Consumers today: `valuesDiffer` has exactly one (`tasks-section.tsx`, 
 call); `differs` has exactly one (`undo/merge-field-value.ts`).
 
 ★★ **Do NOT enumerate `differs` consumers with a bare word grep.** "differs" is an ordinary English
-word and appears in prose comments throughout the tree, so `grep -rln "differs" src/app` answers a
+word and appears in prose comments throughout the tree, so `grep -rln "\bdiffers\b" src/app` answers a
 different question entirely — it returns two orders of magnitude more files than there are importers.
 No count is quoted here because every comment added anywhere moves it; run both and compare. Match the
 import instead: `grep -rn "differs" src/app --include=*.ts --include=*.tsx | grep "field-groups"`.
@@ -24228,11 +24229,17 @@ justifies today.
 ★ A comment at the cleanup in `use-insight-recommend-runner.ts` points here, so nobody eye-verifies
 §120 under `npm run dev`, sees nothing happen, and reports the fix as broken.
 
-## 311. A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle
+## 311. A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle — CLOSED 2026-08-31, 0.272.0
 
-**Status:** open — pre-existing, and much narrower than the ordering
+**Status:** CLOSED 2026-08-31, 0.272.0 — STALE, not fixed by this slice. Filed 2026-08-31 reviewing
+`1db52e40`, and already closed on `main` by `b5d2f8ff` — a LATER commit of the same
 [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--closed-2026-08-31)
-fixed. Found 2026-08-31 reviewing `1db52e40`; never machine-verified.
+review — which shipped the send counter this entry asks for below. Establish that mechanically rather
+than from this line: `git log --oneline -S sendSeqRef -- src/app/use-chat-threads.ts` names
+`b5d2f8ff`, and `git merge-base --is-ancestor 1db52e40 b5d2f8ff` exits 0. Pinned by the "starts AND
+finishes inside the window" describe in `use-chat-threads.test.tsx`: deleting the `sendSeqRef`
+disjunct kills that describe's eight NEGATIVE blocks and nothing else, its two positive controls
+surviving as they must (measured 2026-08-31).
 
 `retryLoad`'s in-flight guard samples `abortRef` at the Retry CLICK and again at the SETTLE, and its
 identity test compares `threadIdRef` across the fetch. A send that starts AFTER the click and finishes
@@ -24250,13 +24257,22 @@ has to reselect their thread. The fixed ordering lost the message itself.
 settle would compare a sequence number taken at click against the live one and preserve when they
 differ, which catches a send that both started and finished inside the window. A ref that only says
 "something is in flight right now" cannot answer "did anything happen while I was away" by
-construction. That is more plumbing than `1db52e40`'s fix warranted, and it touches the send path rather
-than the load path.
+construction.
 
-## 312. `retryLoad`'s in-flight guard assumes `submitPrompt` is single-flight, and nothing pins it
+★★★ **THAT COUNTER ALREADY EXISTED BY THE TIME ANYONE RE-READ THIS, WHICH IS THE WHOLE CLOSURE.**
+The sentence that stood here — the counter is "more plumbing than `1db52e40`'s fix warranted" — was
+true when written and false within the same review: `b5d2f8ff` shipped exactly that counter, on the
+load path, before this branch existed. **An entry filed against one commit of a multi-commit review can
+be closed by the next commit of that same review, and nothing re-reads it.** Check a filed-during-review
+entry against the review's TIP, not against the commit it was filed on.
 
-**Status:** open — the assumption HOLDS today and the guard is correct; what is missing is anything that
-keeps it true. Found 2026-08-31 reviewing `1db52e40`; never machine-verified.
+## 312. `retryLoad`'s in-flight guard assumed `submitPrompt` is single-flight, and nothing pinned it — CLOSED 2026-08-31, 0.272.0
+
+**Status:** CLOSED 2026-08-31, 0.272.0 by `a8a15ab3` — the identity clear shipped, so the guard no
+longer rests on the assumption at all. Verified by `npx vitest run src/app/chat-panel.test.tsx`
+(60 passed) and by mutation: reverting the clear to the unconditional form kills exactly the one test
+that stages a second controller (measured 2026-08-31). The single-flight PROPERTY is still unpinned and
+is now [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural).
 
 `retryLoad`'s second guard reads `abortRef.current !== null` as "a send is in flight". That is only
 equivalent while `submitPrompt` is single-flight, and it is **effectively** so rather than
@@ -24271,33 +24287,38 @@ grep -n "abortRef.current = null" src/app/chat-panel.tsx
 ★ **No such path exists today.** Every call site is a separate DOM event — by which point React has
 flushed `setBusy` and disabled the control — or the one-shot `chatSeed` effect.
 
-★★★ **THE TRIPWIRE, and it must be spent in the SAME change.** `chat-panel.tsx`'s `finally` clears
-`abortRef.current` UNCONDITIONALLY. So if a same-tick double dispatch is ever introduced, the FIRST
-send's `finally` empties a slot the SECOND still owns, and `retryLoad`'s guard then reads "idle" over a
-live send — the exact data loss the guard exists to prevent. Add the identity clear
-(`if (abortRef.current === controller) abortRef.current = null;`) at that `finally` in the same change
-that introduces the second dispatch, not afterwards.
+★★★ **THE TRIPWIRE IS SPENT — paid BEFORE a second dispatch exists, not alongside one.**
+`chat-panel.tsx`'s `finally` used to clear `abortRef.current` UNCONDITIONALLY, so a same-tick double
+dispatch would have the FIRST send's `finally` empty a slot the SECOND still owned, and `retryLoad`'s
+guard would then read "idle" over a live send — the exact data loss the guard exists to prevent. It now
+reads `if (abortRef.current === controller) abortRef.current = null;`. **Read this paragraph as
+history.** The prescription it used to carry is DONE; while it stood, it read as an open TODO and a
+reader could conclude the guard was still missing.
 
-★★ **The structural fix was WRITTEN and REVERTED, for a reason worth recording rather than
-rediscovering.** Making that clear identity-guarded grew `chat-panel.tsx` from 996 to 1004 lines and
-failed `npm run size:check`, which baselines that file at 996 and fails on ANY growth. Re-baselining a
-shared baseline file — unasked, inside a defect-closure slice — was declined. Read today's numbers off
-the tools rather than off this paragraph:
+★★ **An EARLIER attempt was written and reverted, and the reason is worth keeping.** That cut grew
+`chat-panel.tsx` from 996 to 1004 lines and failed `npm run size:check`, which baselines that file at
+996 and fails on ANY growth; re-baselining a shared baseline file — unasked, inside a defect-closure
+slice — was declined. **What shipped instead costs ZERO net lines**: one line in, one line out, with
+the reasoning in the test rather than in a comment beside the code. Read today's numbers off the tools
+rather than off this paragraph:
 
 ```bash
 node -e "console.log(require('fs').readFileSync('src/app/chat-panel.tsx','utf8').split('\n').length)"
 node -e "console.log(require('./docs/baselines/file-sizes.json')['src/app/chat-panel.tsx'])"
 ```
 
-★★ **The guard is pinned by NO test.** Nothing asserts that `submitPrompt` cannot double-dispatch, so
-the assumption is held by call-site inspection alone and a new call site can falsify it silently. A
-regression test would have to dispatch twice within one tick and assert exactly one controller is
-minted — which, if it can be written at all, is also the test that proves the guard needs the identity
-clear.
+★★ **The CLEAR is pinned by a test; the SINGLE-FLIGHT property still is not, and that residual is
+[§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural).** `chat-panel.test.tsx` stages two controllers and asserts the first send's
+`finally` cannot empty the slot the second still owns, so the guard now holds whether or not
+`submitPrompt` is single-flight. Nothing asserts that it CANNOT double-dispatch — the fix removed the
+CONSEQUENCE this entry was about, not the property.
 
-## 313. `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen
+## 313. `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen — CLOSED 2026-08-31, 0.272.0
 
-**Status:** open — pre-existing; this branch neither caused nor fixed it. Found 2026-08-31 reviewing `1db52e40`; never machine-verified.
+**Status:** CLOSED 2026-08-31, 0.272.0 by `c70ff113` — both settle paths now bail when the project
+changed under them. Verified by `npx vitest run src/app/use-chat-threads.test.tsx`; the `.then` bail is
+pinned by mutation (deleting it kills exactly the two blocks of this entry's describe, measured
+2026-08-31).
 
 The mount/project-switch effect in `use-chat-threads.ts` guards BOTH of its settle paths with a
 `cancelled` flag its own cleanup sets, so a fetch issued for the project you are leaving cannot write
@@ -24334,11 +24355,16 @@ Which ordering is the common one was not measured, and the entry does not claim 
 put p1's FETCHED rows under p2 just as squarely; that fix changed which wrong rows survive, not
 whether any do. Reproduce the pre-fix shape with `git show 1db52e40^:src/app/use-chat-threads.ts`.
 
-★ **Closing it is the mechanical half of the guard the mount effect already has**, and the one thing
-it must NOT do is reuse that effect's `cancelled` local — `retryLoad` is called from an event handler
-outside that effect's scope. A ref holding the project the reload was issued for, compared against the
-live `projectId` at both settle paths, is the smaller change; it also composes with the `preserveLive`
-sampling already happening there rather than fighting it.
+★ **What shipped is that guard, with ONE deliberate difference from the sentence that stood here.**
+Reusing the mount effect's `cancelled` local was never possible — `retryLoad` runs from an event
+handler, outside that effect's scope — so a ref was right. But a ref holding the project VALUE, which
+this paragraph prescribed, is **ABA-vulnerable**: p1 → p2 → back to p1 inside one reload window compares
+EQUAL, so the guard passes over a switch that did happen. `c70ff113` ships a monotonic
+`projectEpochRef`, bumped by a `[projectId]` effect, instead — an epoch cannot repeat.
+
+★ **The epoch covers PROJECT changes ONLY.** A `tursoConfig` change refires the load effect without
+bumping it, so a retry issued against the old database still settles. Pre-existing — the shape this
+replaced had the same hole — and deliberately not widened here.
 
 ## 314. `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name
 
@@ -24438,12 +24464,14 @@ could fail — see §276's caveat (5) and `requireCollisionSeed` in `src/test/ro
 site, and the sites that are genuinely fine want a one-line reason recorded, or the next round
 re-derives the same list from scratch.
 
-## 317. An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen
+## 317. An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen — CLOSED 2026-08-31, 0.272.0
 
-**Status:** filed 2026-08-31, never machine-verified — found by reading, not by a failing test, and no
-test stages it. The read is reproducible: `grep -n "pendingRetryRef" src/app/use-chat-threads.ts`
-shows the only writes are the `.catch` set and the `.then` delete inside `runPersist`, and the only
-pre-reload gate is `pendingRetryRef.current.size > 0`.
+**Status:** CLOSED 2026-08-31, 0.272.0 by `77546c68` — the settle now carries a liveness/occurrence
+pair for PERSISTS (a new `persistSettledRef` beside the pre-existing `persistSeqRef`), which is what
+sends already had. Tests stage the ordering; verified by
+`npx vitest run src/app/use-chat-threads.test.tsx`. ★ The PRE-RELOAD gate is UNCHANGED and still
+cannot see an unsettled write — deliberately, per the ★ below: the fix gates the SETTLE, not the
+FETCH.
 
 §148 closed three orderings of a SEND relative to the Retry click. This is a fourth live thing in the
 same window that is not a send at all — its PERSIST.
@@ -24687,3 +24715,32 @@ a reason, (b) allow it but warn at insert time, (c) leave it and rely on the in-
 
 ★ Dangling rows have the same unguarded Insert. That half is milder — the retry path exists — but
 whatever is decided here should cover both, since the button is one call site.
+
+## 321. `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural
+
+**Status:** filed 2026-08-31, never machine-verified — split out of
+[§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720)
+when that closed. The read is reproducible:
+`grep -n "guidesPending) return;" src/app/chat-panel.tsx` shows the bail reads `busy` from the render
+closure, and `grep -n "abortRef.current === controller" src/app/chat-panel.tsx` shows the clear that
+made the CONSEQUENCE go away.
+
+§312 closed by making `retryLoad`'s guard correct whether or not `submitPrompt` is single-flight: the
+`finally` now clears `abortRef` only when the settling send still OWNS the slot. That removed the
+consequence. The PROPERTY is untouched — the bail reads `busy` from the render closure, so two
+dispatches in ONE tick would both pass it and mint two controllers streaming into one thread.
+
+★ **No path reaches it today, and that is call-site inspection, not a guarantee.** Every call site is a
+separate DOM event — by which point React has flushed `setBusy` and disabled the control — or the
+one-shot `chatSeed` effect. A new call site can falsify that silently, and nothing asserts otherwise.
+
+★★ **Severity is now BOUNDED by §312's fix, which is why this is filed rather than fixed.** Before that
+clear, a double dispatch cost `retryLoad` its liveness signal and could drop a live send's transcript
+from screen — silent loss on the load path. The worst case now is two concurrent streams into one
+thread: visibly wrong, and confined to the send path.
+
+★ **Do not close this with a test alone.** A test that dispatches twice in one tick and asserts exactly
+one controller pins TODAY's call sites; it does not make the property structural. The structural form is
+a ref-based bail read at dispatch (the ref is already there for aborts) rather than a `busy` read from
+the closure. Cheap — but it changes the send path, which is why it was not folded into a load-path
+slice.
