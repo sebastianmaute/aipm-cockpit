@@ -439,7 +439,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§210](#210-standalone-html-and-pdf-export-carry-an-image-with-no-source-and-no-placeholder-either--closed-2026-08-22) | Standalone HTML and PDF export carry an image with no source, and no placeholder either | — | — | **CLOSED** 2026-08-22 |
 | [§211](#211-a-single-tenant-turso-db-created-by-a-pre-fix-build-keeps-id-integer-primary-key-on-document_assets-forever) | A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever | — | — | open |
 | [§212](#212-a-dangling-asset-cannot-be-repaired-in-place--the-dedup-short-circuit-blocks-the-retry--closed-2026-08-22) | A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry | — | — | **CLOSED** 2026-08-22 |
-| [§213](#213-a-late-landing-dangling-diff-can-overwrite-a-healthy-asset-back-to-dangling) | A late-landing dangling diff can overwrite a healthy asset back to dangling | — | — | open |
+| [§213](#213-a-late-landing-dangling-diff-can-overwrite-a-healthy-asset-back-to-dangling--closed-02710) | A late-landing dangling diff can overwrite a healthy asset back to dangling | — | — | **CLOSED** 0.271.0 |
 | [§214](#214-there-is-no---max-warnings-gate-anywhere-so-an-unused-import-ships-green-through-ci--closed-2026-08-26) | There is no `--max-warnings` gate anywhere, so an unused import ships green through CI | — | — | **CLOSED** 2026-08-26 |
 | [§215](#215-ci-has-no-live-turso-database-so-the-twelve-tests-that-prove-document-images-work-never-run-there) | CI has no live Turso database, so the twelve tests that prove document images work never run there | — | — | open |
 | [§216](#216-there-is-no-docx-or-pptx-byte-fixture-so-the-builders-additive-contract-is-pinned-only-by-their-own-unit-tests--closed-2026-08-24) | There is no `.docx` or `.pptx` byte fixture, so the builders' additive contract is pinned only by their own unit tests | — | — | **CLOSED** 2026-08-24 |
@@ -456,7 +456,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§227](#227-the-jira-conflict-merge-is-a-pass-through-not-a-normaliser-so-a-local-pick-re-emits-an-already-split-pair) | The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair | — | — | open |
 | [§228](#228-a-template-saved-from-the-live-workspace-bypasses-the-pair-reconciler-until-the-next-page-load) | A template saved from the live workspace bypasses the pair reconciler until the next page load | — | — | open |
 | [§229](#229-use-storage-backendts-sits-at-799-with-no-baseline-entry--two-net-lines-fail-the-ratchet--closed-2026-08-29) | `use-storage-backend.ts` sits at 799 with no baseline entry — TWO net lines fail the ratchet | — | — | **CLOSED** 2026-08-29 |
-| [§230](#230-a-declined-asset-image-is-indistinguishable-from-a-missing-one-and-the-library-says-the-row-is-healthy) | A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy | — | — | open |
+| [§230](#230-a-declined-asset-image-is-indistinguishable-from-a-missing-one-and-the-library-says-the-row-is-healthy--closed-02710) | A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy | — | — | **CLOSED** 0.271.0 |
 | [§231](#231-asset_id_re-is-a-naive-attribute-match-so-the-20-image-cap-counts-text-content--and-in-one-reachable-by-import-shape-a-phantom-id-instead-of-the-real-one--closed-2026-08-25) | `ASSET_ID_RE` is a naive attribute match, so the 20-image cap counts text content — and, in one reachable-by-import shape, a phantom id instead of the real one | — | — | **CLOSED** 2026-08-25 |
 | [§232](#232-workspacesteeringcommittee-is-loaded-into-state-and-written-back-by-nothing-so-every-backend-deletes-it-on-the-next-unrelated-autosave--closed-2026-08-25) | `Workspace.steeringCommittee` is loaded into state and written back by NOTHING, so every backend deletes it on the next unrelated autosave | — | — | **CLOSED** 2026-08-25 |
 | [§233](#233-ask_claude_prompts-has-no-activity-chip-and-the-reason-the-test-records-for-it-is-stale) | `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale | — | — | open |
@@ -546,6 +546,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | open |
 | [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--open) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack — open | found 2026-08-31 while closing §100 | S | open |
 | [§319](#319-this-registers-own-index-rebuild-recipe-silently-strips-hand-written-state-cells-and-claims-to-be-idempotent--open) | This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent — open | found 2026-08-31 while filing §318 | S | open |
+| [§320](#320-every-export-sink-tells-the-reader-a-policy-refused-images-data-is-gone) | Every EXPORT sink tells the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -15487,16 +15488,27 @@ change, with the tenant-vs-single-DB question answered deliberately rather than 
 
 ## 205. The missing-image glyph in `document-asset-images.ts` is not eye-verified
 
-**Status:** open — jsdom cannot exercise the mechanism; no manual check recorded yet. Reproduced 2026-08-28 by `grep -n "data-asset-missing" src/app/globals.css`.
+**Status:** open — MEASURED for the first time in 0.271.0, but NOT eye-verified, which is what this
+entry asks for. `e2e-crossengine/asset-missing-glyph.spec.ts` now resolves the declaration in real
+Chromium and real Firefox (see "What the cross-engine measurement found" below); nobody has yet
+LOOKED at the marker in the Documents pane, and one of the two findings needs a human judgement a
+spec cannot make. Measured 2026-08-31 by `npm run e2e:crossengine`.
 
 A dangling image reference (asset deleted, byte row missing) renders via a CSS trick. **The
 declaration is in `globals.css`, not in `document-asset-images.ts` as this entry's heading implies —
-that module only sets and clears the `data-asset-missing` attribute.** And it is not the plain glyph
-this entry used to quote as `content: "⚠"`:
+that module only sets and clears the marker attributes (`data-asset-missing`, and since 0.271.0
+`data-asset-blocked` too — §230).** And it is not the plain glyph this entry used to quote as
+`content: "⚠"`:
 
 ```bash
-grep -n -A2 'data-asset-missing\]::before' src/app/globals.css   # content: "\26A0\FE0E ";
+grep -n -A 16 'data-asset-missing\]::before' src/app/globals.css
 ```
+
+★ The window is 16 lines rather than the 2 this entry used to ask for, because a twelve-line comment
+now sits between the selector and its `content` — a `-A2` reads as if the declaration had vanished.
+The declaration that grep prints is `content: "\26A0\FE0E" " ";`, two concatenated strings,
+and the single-string spelling it replaced is the defect recorded under "What the cross-engine
+measurement found" below — read that before assuming a trailing space inside the quotes would do.
 
 ★★★ **`\FE0E` IS VARIATION SELECTOR-15, AND IT IS THE WHOLE POINT OF THE OWED EYE-VERIFY.** U+FE0E
 requests TEXT presentation for the preceding U+26A0, i.e. a monochrome glyph rather than the colour
@@ -15516,6 +15528,59 @@ not that the glyph actually paints. Eye-verify in a real browser (Chromium at mi
 relying on this as the user-visible signal for a broken image reference.
 
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** In this entry, the HEADING attributes the glyph to the wrong file; the body already carries the correction. Anyone triaging by heading alone is misled. Reproduced by `grep -n "data-asset-missing" src/app/globals.css`.
+
+### What the cross-engine measurement found (0.271.0)
+
+`e2e-crossengine/asset-missing-glyph.spec.ts` resolves the declaration in real Chromium and real
+Firefox. Three results, and they are deliberately of three different kinds — one was FIXED, one is
+PINNED as a platform characterization, one is recorded as an observation and never asserted.
+
+★★ **`npm run followups:check` REPORTS `PATH_MISSING` FOR THAT SPEC, AND THE FILE IS THERE.** The
+reporter's `SWEEP_DIRS` are `src`, `scripts` and `e2e` — `e2e-crossengine/` is not among them, so
+every path under it resolves to nothing and any entry citing one is classified missing forever. It
+is a REPORT and not a gate (it exits 0 regardless), so nothing is red; do not "fix" this entry by
+deleting the citation. Confirm with `ls e2e-crossengine/` and
+`grep -n "SWEEP_DIRS" scripts/followup-claims-lib.mjs`.
+
+★★★ **1. A REAL DEFECT, FIXED: the trailing space was never in the output.** The declaration read
+`content: "\26A0\FE0E "` for three releases. Consuming an escaped code point takes up to six hex
+digits AND THEN CONSUMES ONE FOLLOWING WHITESPACE as the escape's terminator — so that space was
+punctuation for `\FE0E`, not a character, and the glyph butted straight against the block author's
+`alt` text. Chromium resolved the declaration to FOUR code points (`U+0022 U+26A0 U+FE0E U+0022`),
+and a declaration written with no trailing space at all resolved identically, which is what proves
+the byte was inert rather than merely suspect. `globals.css` now spells it as two concatenated
+strings — `content: "\26A0\FE0E" " ";` — and resolves to FIVE code points with `U+0020` present.
+★ The assertion was RED before the respelling and GREEN after, on a line whose visible text did not
+change; a single extra literal space would have worked and would have been invisible to every future
+reader, which is why the concatenation is the shipped spelling. This is the third of the three things
+this entry told a reviewer to judge in the browser, and it is the one that was actually wrong.
+
+★★★ **2. A PLATFORM FINDING, PINNED RATHER THAN FIXED: Firefox never paints the glyph, and no
+stylesheet can make it.** Gecko's UA sheet puts `content: -moz-alt-content !important` on a BROKEN
+`<img>`, and a src-less `<img>` is exactly what this marker is. The spec MEASURES the cause instead
+of inferring it, with two controls: an `<img>` carrying NO marker attribute resolves to
+`-moz-alt-content` too (so this is not the author rule losing on specificity), and an author
+`!important` declaration inserted ahead of ours via CSSOM ALSO loses (so no author rule wins at any
+weight — a UA `!important` outranks an author `!important`). Firefox still draws the FRAME: the
+dashed border, the background and the colour all apply, with the block author's `alt` text inside it
+instead of the warning glyph. Pinned as a characterization so it goes red if Gecko ever changes,
+NOT as a defect to fix.
+
+★ **3. AN OBSERVATION, DELIBERATELY NEVER ASSERTED: on the measuring machine U+FE0E changes
+nothing.** U+26A0 with and without the variation selector produced zero differing pixels, zero
+coloured pixels and identical widths, in both engines — because U+26A0 already renders in its text
+form there. That is a property of the machine's FONTS, not of the CSS, and the `\FE0E`-blind failure
+mode this entry already describes runs the other way too: asserting it would turn the gate red on
+machines whose font stack behaves differently, i.e. on the wrong machines. The spec logs it and
+asserts only that something with non-zero width and non-zero ink was drawn.
+
+★★★ **THIS ENTRY STAYS OPEN, AND A GREEN SPEC IS NOT WHY IT WOULD CLOSE.** A spec that runs is not an
+eye-verify. Nothing has yet LOOKED at this marker in the Documents pane — the measurement above
+resolves computed values on synthetic probe elements, which is a different question from whether the
+signal reads as "this image is broken" to a person looking at a document. And finding 2 needs a
+judgement no assertion can make: whether Firefox's frame-plus-alt-text with NO glyph is acceptable
+disclosure, or whether that engine needs a non-`::before` cue. Close this entry when a human has
+answered that in a real browser, not when the spec goes green.
 
 ## 206. `documents-history-modal.tsx` does not resolve images — CLOSED 2026-08-23
 
@@ -16107,9 +16172,17 @@ through to the byte write, reusing the existing id — which repairs the placeme
 does not change. (b) A per-row Retry control in the asset library calling `saveAssetData` directly.
 (a) is the smaller change and covers the paste/drop path as well, which has no UI to hang (b) on.
 
-## 213. A late-landing dangling diff can overwrite a healthy asset back to dangling
+## 213. A late-landing dangling diff can overwrite a healthy asset back to dangling — CLOSED 0.271.0
 
-**Status:** open — pre-existing, surfaced (not caused) by the §212 work, and NOT closed by it. Reproduced 2026-08-28 by `grep -n "setDanglingIds" src/app/use-document-assets.ts`.
+**Status:** CLOSED 0.271.0, 2026-08-31. Epoch-keyed suppression in `use-document-assets.ts`: a
+`writtenRef` map records the epoch at which this session wrote each id's bytes, `epochRef` is bumped
+on every successful `saveAssetData`, and the diff effect captures `startEpoch` BEFORE its await and
+then skips any id whose recorded write is newer than that capture. So a continuation that resolves
+after the write can no longer re-mark the row, and the whole-set replacement described below is
+harmless. ★ Self-evicting rather than permanent: the suppression only outranks diffs armed before
+the write, so a byte row that vanishes LATER is still reported dangling — the guard silences the
+race, not the detector. Mutation-proved. Verified 2026-08-31 by
+`npx vitest run src/app/use-document-assets.test.tsx`.
 
 **Symptom.** A FRESH upload succeeds — bytes written, no error — and the asset library still
 shows the row marked dangling, permanently. Nothing the user can do from the library clears it;
@@ -16173,10 +16246,16 @@ of a closed one. Whatever closes §213 has to leave that test's shape intact.
 every render. Neither touches `danglingIds`: this entry's marker race is unchanged in either
 direction by that work.
 
-**Candidate fix.** `wroteBytesRef` does not exist and is proposed by this entry: have the effect
-ignore ids this session is known to have written, via a ref populated on a successful
-`saveAssetData` and subtracted from `next` before the set is stored. Deliberately NOT done as part of §212 (scope), and no comment in
-`use-document-assets.ts` claims otherwise.
+**Candidate fix, and what actually shipped.** This entry proposed a `wroteBytesRef` — a plain set of
+ids this session had written, subtracted from `next` before the set is stored. That name never
+existed and the plain-set shape was NOT what landed. ★ The two differ in one property worth stating,
+reasoned from the shapes and not measured: a bare set never forgets, so an id written once would be
+exempt from the diff for the rest of the session and a byte row that vanished afterwards would stop
+being reported. What shipped instead keys the suppression to an EPOCH (`writtenRef` /
+`epochRef` / the `startEpoch` captured before the await), which suppresses only the diffs that were
+already in flight when the write completed and lets every later diff see the id normally. Read the
+Status line above for the shipped mechanism; this paragraph is kept as the record of the rejected
+shape and why.
 
 ★ A test needs to control the resolution ORDER of `loadAssetDataIds` and `saveAssetData`
 independently — gated promises, not `waitFor`. A test that merely awaits both will pass under
@@ -17292,7 +17371,12 @@ grep -n -A 9 "interface ScheduledJob " src/app/scheduled-jobs/types.ts
 ## 225. `attachAssetImages` builds a TYPELESS `Blob` when no metadata row matches, leaving the mime to content sniffing
 
 **Status:** open — DELIBERATE, not an oversight. Recorded because the obvious tightening is a
-REGRESSION, and the next person to read that line will reach for it. Reproduced 2026-08-28 by `grep -n "isAllowedAssetMime" src/app/document-asset-images.ts`.
+REGRESSION, and the next person to read that line will reach for it. The truthy guard MOVED in
+0.271.0 and did not change: it is now the shared `isBlockedAssetMime` (`document-asset-upload.ts`),
+the ONE definition of "this STORED mime is refused", imported by `document-asset-images.ts` (which
+declines the render) and `asset-library.tsx` (which discloses it on the row) so the two cannot drift
+— see §230. Reproduced 2026-08-31 by
+`grep -rn "isBlockedAssetMime" src/app --include=*.ts --include=*.tsx`.
 
 `attachAssetImages` (`document-asset-images.ts`) resolves every `<img data-asset-id>` in a rendered
 document by loading its bytes and minting a blob URL. Its mime lookup (`mimeFor`) is optional and can
@@ -17316,8 +17400,11 @@ work today:
   on its own schedule.
 
 ★★★ **THE GUARD IS SPELLED TRUTHY, AND `mime !== undefined` WOULD BREAK WORKING IMAGES. THIS IS THE
-TRAP THIS ENTRY EXISTS FOR.** The disallowed-mime check added by `6b858b82` (§223) reads
-`if (mime && !isAllowedAssetMime(mime)) return;`. The stricter-looking `mime !== undefined && …` is
+TRAP THIS ENTRY EXISTS FOR.** The disallowed-mime check added by `6b858b82` (§223) read
+`if (mime && !isAllowedAssetMime(mime)) return;` at the call site; since 0.271.0 the same predicate
+lives once, as `isBlockedAssetMime` — `!!mime && !isAllowedAssetMime(mime)` — with this reasoning
+repeated as a docstring on it, because someone tightening it will be reading the code, not this
+file. The stricter-looking `mime !== undefined && …` is
 wrong, and concretely so: `sanitizeDocumentAsset` (`document-asset.ts`) requires only an `id`, and
 its mime is `sanitizeText(o.mime, ASSET_MIME_MAX)`, which returns `""` for anything non-string
 (`sanitizeText` in `sanitize-core.ts` — `if (typeof s !== "string") return ""`). So a row with a
@@ -17327,8 +17414,16 @@ spelling would DECLINE it and stamp the repair marker on an image the user can s
 also mirrors the ternary on the very next line, so the guard and the Blob construction cannot
 disagree about what "no mime" means. Both branches are pinned by `document-asset-images.test.ts`
 ("declines an asset whose stored mime is outside the allowlist" and "still renders an asset whose
-stored mime is the empty string"), and both were mutation-proved. The reasoning is repeated as a
-comment at the line itself, because someone tightening it will be reading the code, not this file.
+stored mime is the empty string"), and both were mutation-proved.
+
+★★★ **ONE TEST IS THE WHOLE GUARD, AND IT LOOKS LIKE THE MOST DELETABLE ONE IN THE FILE.** Measured
+2026-08-31 by mutation, not reasoned: swapping `isBlockedAssetMime`'s truthy `!!mime` for
+`mime !== undefined` turns exactly ONE test in `document-asset-upload.test.ts` red — the
+EMPTY-STRING case — leaving 1 failed / 63 passed of 64. It is the SOLE discriminator between the two
+spellings, and it has to be: the `undefined` case cannot discriminate at all, because both spellings
+return false for it. So the obvious tidy-up — "`""` and `undefined` are both no-mime, one of these
+two assertions is redundant" — silently unguards this entry, and every other gate stays green while
+it does. Do not delete it; if it ever has to move, move the mutation proof with it.
 
 ★★ **BOUNDED, by the same argument as §223 and with the same honest limit.** The blob URL is only
 ever assigned to `<img src>`, where a sniffed document runs no script; and `src/proxy.ts` serves
@@ -17914,10 +18009,25 @@ the ratchet two mechanisms and needs a decision about who may raise a pin, which
 of its own rather than a tweak. **There is no pressure to do either now** — recorded so the choice is
 visible, not to schedule it.
 
-## 230. A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy
+## 230. A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy — CLOSED 0.271.0
 
-**Status:** OPEN. Found by cold review of the §223/§225 slice, 2026-08-24. Disclosure only — no data is
-lost and nothing renders that should not. Never machine-verified by a committed probe.
+**Status:** CLOSED 0.271.0, 2026-08-31. **BOTH items landed — the marker split AND the history-modal
+project id — so nothing in this entry is outstanding.** (1) `document-asset-images.ts` now stamps a
+distinct `data-asset-blocked="true"` on the decline branch instead of reusing
+`data-asset-missing="true"`, clearing whichever of the pair does not apply so the two can never both
+sit on one element; `globals.css` frames it alongside the missing marker and the asset library row
+discloses it with its own string and its own glyph, so a blocked row no longer reports healthy. The
+decision of what counts as refused is the shared `isBlockedAssetMime` (`document-asset-upload.ts`),
+imported by both the renderer and the library so they cannot drift — see §225 for why its truthy
+spelling is load-bearing. (2) `documents-history-modal.tsx` now folds a blank `assetAccess.projectId`
+to `ASSET_PARTITION_FALLBACK`, matching all three of its siblings. Verified 2026-08-31 by
+`npx vitest run src/app/document-asset-images.test.ts src/app/asset-library.test.tsx src/app/documents-history-modal.test.tsx`.
+★ Closure covers the DISCLOSURE, which is what this entry was filed for; the export sinks reach the
+same wrong conclusion by two other routes and are tracked separately as §320 — a residual with its
+own number does not un-close its parent.
+
+**The record of the defect follows, as written on 2026-08-24.** Both halves of it are fixed; the text
+below describes the pre-fix tree and is kept as the record of what was measured, not as a live claim.
 
 `document-asset-images.ts` declines an asset whose stored mime is outside the upload allowlist by
 routing it down the SAME sink a missing byte row uses: it sets no `src` and stamps
@@ -24438,3 +24548,58 @@ the idempotence claim and warn instead. The real option is to harvest `State` th
 inverts the current design, in which the heading is the single source of truth for closure state,
 and would let a stale table row disagree with a heading forever. Whoever takes this should decide
 which of those two properties is worth more before writing code.
+
+## 320. Every EXPORT sink tells the reader a policy-refused image's data is gone
+
+**Status:** OPEN. Filed 2026-08-31 from the §230 fix round — the disclosure §230 closed for the
+PREVIEW is still wrong in HTML, PDF, DOCX and PPTX, by two independent routes. Disclosure only: no
+data is lost, and nothing renders that the upload policy forbids. Reproduced 2026-08-31 by
+`grep -n "omitted.add\|missing.add" src/app/document-export-assets.ts`.
+
+**The chain.** For HTML and PDF, `assetPolicy` (`document-download.ts`) hands `loadExportAssets` an
+`isRenderable` predicate that IS the mime allowlist — `isAllowedAssetMime` over the metadata row.
+`loadExportAssets` (`document-export-assets.ts`) then routes `isRenderable === false` into
+**`missing`**, not `omitted`. Its two buckets split BUDGET from DATA, not POLICY from DATA: there is
+exactly ONE `omitted.add` (the budget branch) and TWO `missing.add` (a null byte row, and the
+`isRenderable` decline), which the reproduce command above prints in one line each. And
+`assetSrcAttr` (`doc-render-html.ts`) independently returns null for a disallowed mime, whereupon its
+caller falls through to `data-asset-missing="true"`.
+
+So an exported document says an image whose bytes are present and intact is missing — the exact
+contradiction §230 was filed for, one surface over.
+
+★★★ **TWO INDEPENDENT SITES REACH THAT CONCLUSION, SO A ONE-SITE FIX DOES NOT CLOSE THIS.** Removing
+the decline from `loadExportAssets` leaves `assetSrcAttr` stamping the marker on its own; teaching
+`assetSrcAttr` a blocked sink leaves `loadExportAssets` having already put the id in `missing` and
+withheld its base64. Whoever takes this has to decide the bucket question and the render question
+together, and OOXML is a third decision again — `canEmbedDocxAsset` / `canEmbedPptxAsset` decline for
+reasons that are NOT policy (a missing extent), so a blocked state there cannot simply reuse the
+same predicate.
+
+★★ **ROUTING A POLICY REFUSAL TO `missing` WAS DELIBERATE, AND THE PART THAT IS RIGHT MUST SURVIVE
+THE FIX.** The comment above the branch says an id the renderer will decline must never be charged
+against the budget — and it is correct: HTML is the one sink where the budget can actually be spent,
+so an undrawable row charged against it would evict a good image that could have been shown. Keeping
+the refusal OFF the budget is right. What loses the distinction is landing it in `missing` rather
+than a third state. Without this paragraph the next reader "fixes" the disclosure by charging the
+budget, which trades a wrong label for a wrong export.
+
+★ **`doc-render-html.ts` carries its OWN `img[data-asset-missing]` rule**, separate from the one in
+`globals.css` and deliberately different — currentColor, no background, no `::before` — because it
+ships inside every standalone file and has to stay palette-safe. A test pins that the emitted
+stylesheet contains it. So a blocked sink in the standalone export needs that file's stylesheet
+widened too, not just the app's; `globals.css` already carries a pointer here saying so.
+
+★★ **This is `register-names-one-instance-not-the-class`, again.** §230 named the PREVIEW instance —
+`attachAssetImages` stamping one marker for two conditions — and the class is wider: "a refused mime
+is disclosed as absent data" holds at every sink that renders an asset, and the preview was merely
+the one someone looked at. §230 is CLOSED and STAYS closed: it fixed the instance it named, and a
+residual with its own number never un-closes its parent. Enumerate the sinks before fixing, rather
+than the call sites of any one helper.
+
+**What closing it would look like.** A third bucket (or a blocked-id set) on `ExportAssets` that
+means "refused by policy, bytes intact", charged against no budget, carried through to each
+renderer's placeholder text so the reader is told the format is unsupported rather than that the
+data is gone — plus the standalone stylesheet's own sink. ★ Note the cheaper alternative that is NOT
+sufficient: recording the mime alongside the bytes (the §225 closure) would stop mimes going stale,
+but a genuinely disallowed format would still be refused and would still be labelled missing.

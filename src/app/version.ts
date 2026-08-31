@@ -2,14 +2,30 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.270.0";
-export const APP_BUILD_DATE = "2026-08-31"; // 0.270.0: popover focus restore on unmount, Tab containment through a portaled popover, scroll listener armed only when rendered (Tchaikovsky)
+export const APP_VERSION = "0.271.0";
+export const APP_BUILD_DATE = "2026-08-31"; // 0.271.0: epoch-keyed suppression of a late dangling diff, a distinct blocked-format marker for declined asset images, warning-glyph escape respelled (Gibson)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.270.x line is "Tchaikovsky" (Adrian Tchaikovsky, British SF/fantasy
- *  author). ★ Not previously used at any minor line — chosen over a name
- *  the rule below would have permitted but which 0.265.x had taken the day
- *  before, since a reader grepping CHANGELOG would then get two hits a day
- *  apart.
+ *  0.271.x line is "Gibson" (William Gibson, American-Canadian SF author).
+ *  ★★★ REUSED: 0.59.0 (2026-06-10) also ran under this name. Permitted —
+ *  the rule at the end of this comment is uniqueness per MINOR LINE, not
+ *  across all history — and recorded here so that a bare
+ *  `grep -rn "Gibson" CHANGELOG.md` hit is not read as the name being taken.
+ *  ★★★ THIS LINE FIRST SHIPPED CLAIMING THE NAME WAS FRESH, on the evidence
+ *  of a grep anchored to `] - `, in the very sentence that pointed at the
+ *  dash note below warning against exactly that. 0.59.0's header uses an EM
+ *  DASH and was invisible to it; 77 of the 375 version headers are. Check a
+ *  candidate dash-agnostically, and BEFORE the bump — run it after and the
+ *  pattern matches the line you just wrote:
+ *  `grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[A-Za-z]+"' CHANGELOG.md | grep -i <name>`
+ *  0.270.x was "Tchaikovsky" (Adrian Tchaikovsky, British SF/fantasy
+ *  author). ★★ REUSED: 0.39.0 (2026-06-01) also ran under this name —
+ *  permitted, same per-MINOR-LINE rule. ★★ It shipped asserting "Not
+ *  previously used at any minor line", which was FALSE, for the same
+ *  dash-anchored-grep reason as the 0.271.x note above; corrected
+ *  2026-08-31, one release late. The rest of the original note stands and is
+ *  a separate judgement: the name WAS chosen over one that 0.265.x had taken
+ *  the day before, since a reader grepping CHANGELOG would then get two hits
+ *  a day apart. Legality and recency are different questions.
  *  0.269.x was "Due" (Tananarive Due, American horror/SF author).
  *  0.268.x was "Ogawa" (Yoko Ogawa, Japanese author of speculative fiction),
  *  developed concurrently with this line on a separate branch and merged
@@ -87,8 +103,8 @@ export const APP_BUILD_DATE = "2026-08-31"; // 0.270.0: popover focus restore on
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Tchaikovsky";
-/** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
+export const APP_MILESTONE = "Gibson";
+/** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
 

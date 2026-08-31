@@ -8,6 +8,28 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.271.0] - 2026-08-31 "Gibson"
+
+### Fixed
+
+- **A freshly uploaded image could stay marked as broken in the asset library, permanently.** On a
+  large picture the library sometimes finished checking for the image's data a moment before that
+  data had finished being written, and then kept reporting the picture as broken for the rest of the
+  session — even though the image itself was fine and displayed correctly in the document. Nothing
+  in the library could clear it. Uploads now stay marked healthy, while an image whose data really
+  does go missing later is still reported.
+- **An image in a format the app no longer accepts said its data was missing.** A picture stored in
+  a format outside the upload allowlist was shown with the same "this image is missing" marker as
+  one whose data had genuinely been lost, while the asset library listed the very same picture as
+  healthy — so the two panes contradicted each other and neither explained anything. Such a picture
+  is now marked distinctly in the document and labelled as an unsupported format on its library row,
+  so it is clear the data is intact and the format is the problem.
+- **The warning marker on a broken image ran into the surrounding text.** The space meant to
+  separate the warning symbol from the image's description was never actually part of it, so the two
+  butted together. They are now properly separated. Note that Firefox does not draw this symbol at
+  all — it shows the image's description inside the same warning frame instead — which is a browser
+  behaviour no styling can change.
+
 ## [0.270.0] - 2026-08-31 "Tchaikovsky"
 
 ### Fixed
