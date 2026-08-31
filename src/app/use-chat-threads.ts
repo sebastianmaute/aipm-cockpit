@@ -463,12 +463,17 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // dispatches in ONE tick would both pass it. Nothing reaches it that way
     // today — every call site is a separate DOM event (React has flushed
     // setBusy and disabled the control by then) or the one-shot `chatSeed`
-    // effect. ★★★ IF THAT EVER CHANGES, chat-panel.tsx's `finally` clears
-    // `abortRef.current` UNCONDITIONALLY, so the FIRST send's finally would
-    // empty a slot the SECOND still owns and this guard would read "idle" over
-    // a live send — the exact data loss it exists to prevent. Make that
-    // clear identity-guarded (`if (abortRef.current === controller)`) at the
-    // same time, not afterwards.
+    // effect. ★★ THAT IS NO LONGER THE ONLY THING HOLDING IT UP (§312): this
+    // comment used to end by PRESCRIBING an identity-guarded clear, and that
+    // prescription has been carried out — chat-panel.tsx's `finally` now reads
+    // `if (abortRef.current === controller) abortRef.current = null;`, so a
+    // second dispatch's slot survives the first send's finally. Pinned by
+    // chat-panel.test.tsx's "still holds the second send's controller after
+    // the first send settles", which stages the same-tick double dispatch with
+    // two native `.click()`s inside one `act` and observes the ref through the
+    // projectId-switch abort — the one abort site that is not `busy`-gated.
+    // ★ Do not restore the old wording; it read as an open TODO and a reader
+    // would conclude the guard is still absent.
     //
     // ★★★ THREE ORDERINGS, THREE DISJUNCTS — and the enumeration is the point.
     // This comment used to list only the first two and call them exhaustive,
@@ -489,7 +494,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     //       but not when it sent into an existing one.)
     //   (c) A send that starts AND finishes strictly inside the window. Both
     //       liveness samples read null — chat-panel's `finally` clears
-    //       `abortRef` unconditionally — and if it went into the
+    //       `abortRef` whenever the settling send still OWNS it, which for a
+    //       single-flight send is always (§312's identity guard narrowed that
+    //       clear; it did not remove it, and ★★★ IT DOES NOT CLOSE THIS
+    //       DISJUNCT — a lone send matches its own controller and clears the
+    //       ref exactly as before, so both samples still read null and
+    //       `sendSeqRef` remains the ONLY detector here) — and if it went
+    //       into the
     //       already-active thread it minted nothing, so the identity test
     //       reads clean too. All three of the pre-counter guards pass, the
     //       adopt branch runs, and setHistory/setDisplay replace the
