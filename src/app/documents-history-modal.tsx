@@ -259,9 +259,16 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws, assetAccess }
   // ★★★ `""` IS NORMALISED, AND THAT HALF IS THE OBSERVABLE ONE. A blank id
   // must fold to `ASSET_PARTITION_FALLBACK`, because that is the partition the
   // bytes were WRITTEN under: `workspace-panels.tsx` normalises with the same
-  // `||` on the write side, and the three sibling readers
-  // (`document-edit-mode.tsx`, `documents-asset-section.tsx`,
-  // `document-preview.tsx`) all do it too. Reading `""` back queries
+  // `||` on the write side, and TWO sibling readers —
+  // `document-edit-mode.tsx` and `documents-asset-section.tsx` — do the same.
+  // ★★ `document-preview.tsx` IS NOT A THIRD, and counting it as one inverts
+  // the point this comment makes. It takes a DEFAULT PARAMETER
+  // (`projectId = ASSET_PARTITION_FALLBACK`), which fires only for `undefined`
+  // and passes `""` straight through — precisely the shape the paragraph below
+  // says buys nothing. It is safe because its ONLY caller normalises first
+  // (`document-edit-mode.tsx` renders it with
+  // `projectId={assetsProjectId || ASSET_PARTITION_FALLBACK}`), NOT because it
+  // defends itself. Reading `""` back queries
   // `project_id = ""`, matches nothing, and stamps EVERY image in the preview
   // `data-asset-missing` — telling the reader their bytes are gone when they
   // are sitting one partition over. Pinned by "normalises a blank project id to

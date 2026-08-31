@@ -132,6 +132,13 @@ write, so the stale mime is never corrected. The button would silently do nothin
 
 `documents-history-modal.tsx` reads `assetAccess?.projectId` bare — the only asset consumer
 of four that does not normalise to `ASSET_PARTITION_FALLBACK`. Not reachable today, since
+
+> **Correction (2026-08-31, cold review).** "Of four" overstates the precedent. Only TWO
+> consumers fold `""` with `||` (`document-edit-mode.tsx`, `documents-asset-section.tsx`).
+> `document-preview.tsx` DEFAULTS the prop, which fires for `undefined` only and passes `""`
+> through; it is normalised by its caller, not by itself. The fix below is still right — the
+> precedent for it is two sites, not three.
+
 the only production caller already normalises. A future caller passing `""` would query
 `project_id = ""`, match nothing, and stamp every image in a version preview as missing.
 

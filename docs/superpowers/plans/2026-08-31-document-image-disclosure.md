@@ -483,7 +483,7 @@ If the blocked marker introduces any new per-row *control* (it should not — it
 - Modify: `src/app/documents-history-modal.tsx`
 - Test: `src/app/documents-history-modal.test.tsx`
 
-**Context:** this is the only asset consumer of four that reads `assetAccess?.projectId` bare. `document-edit-mode.tsx`, `documents-asset-section.tsx` and `document-preview.tsx` all normalise to `ASSET_PARTITION_FALLBACK`. Not reachable today — the production caller already normalises — but a caller passing `""` would query `project_id = ""`, match nothing, and stamp every image in a version preview as missing.
+**Context:** this is the only asset consumer of four that reads `assetAccess?.projectId` bare. `document-edit-mode.tsx` and `documents-asset-section.tsx` normalise to `ASSET_PARTITION_FALLBACK` with `||`. (**Corrected 2026-08-31, cold review:** this line originally named `document-preview.tsx` as a third. It is not — it DEFAULTS the prop, which fires for `undefined` only and passes `""` through, and is normalised by its caller instead.) Not reachable today — the production caller already normalises — but a caller passing `""` would query `project_id = ""`, match nothing, and stamp every image in a version preview as missing.
 
 - [ ] **Step 1: Write the failing test** — render the modal with `assetAccess={{ projectId: "", assets: [...] }}` and assert the asset load is invoked with `ASSET_PARTITION_FALLBACK`, not `""`. Match the file's existing mocking style.
 

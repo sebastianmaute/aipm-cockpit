@@ -1517,12 +1517,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   reintroduce.
   ★★ **Image BYTES in every export format (S3c-2)** — the three-bucket
   `loadExportAssets` contract (★★★ **NOT "policy vs data" — that is what this line said for six
-  releases and BOTH HALVES ARE FALSE.** `omitted` is BUDGET overflow ALONE, and a POLICY refusal
-  lands in `missing` alongside the genuine data losses, so the split a reader reaches for here does
-  not exist in the code. Measured 2026-08-31, not reasoned — reproduce with
-  `grep -n "omitted.add\|missing.add" src/app/document-export-assets.ts`, which returns ONE
+  releases, and the `omitted` half is FALSE outright while the `missing` half is merely
+  INCOMPLETE.** (An earlier revision said "BOTH HALVES ARE FALSE", which is stronger than its own
+  next clause: `missing` genuinely does hold data problems — what is false is that it holds ONLY
+  them.) `omitted` is BUDGET overflow ALONE, and a POLICY refusal lands in `missing` alongside the
+  genuine data losses, so the split a reader reaches for here does not exist in the code. Measured
+  2026-08-31, not reasoned — reproduce with
+  `grep -nE "^\s+(omitted|missing)\.add" src/app/document-export-assets.ts`, which returns ONE
   `omitted.add` (the budget branch) against TWO `missing.add` (a null row, and an `isRenderable`
-  decline — the mime allowlist for HTML/PDF). §320 carries the consequence: an exported document
+  decline — the mime allowlist for HTML/PDF). ★★ The `^\s+` anchor is load-bearing: the obvious
+  `grep -n "omitted.add\|missing.add"` also matches a COMMENT at `:103` that mentions
+  `NO_EXPORT_ASSETS.omitted.add("x")`, so `grep -c` reports a symmetric 2-vs-2 that refutes the
+  sentence it is attached to. Caught by cold review, not by any gate. §320 carries the consequence: an exported document
   discloses a policy-refused image as "the bytes are gone". ★★ The longer statement in
   `documents.md` is substantively RIGHT — it explains the budget correctly and names `isRenderable`
   under `missing`; only its "POLICY" label is wrong. This copy lost the explanation and kept the

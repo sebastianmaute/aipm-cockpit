@@ -244,6 +244,17 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
   // is given no signal at all. Keying on a monotonic epoch makes the
   // suppression SELF-EVICTING: it holds only for a diff whose snapshot predates
   // the write, which is precisely the race and nothing else.
+  // ★★ THESE DELIBERATELY SURVIVE A `projectId`/`config` CHANGE, and that is
+  // safe for any COMPLETED write: such a write's epoch is already ≤
+  // `epochRef.current`, and the switch's own diff captures `startEpoch` at that
+  // same value, so `wroteAt > startEpoch` is false and nothing is suppressed.
+  // The one reachable leak needs a write still IN FLIGHT at the instant the
+  // project changes AND the same asset id present in the new project's
+  // metadata — which cannot arise from minting (ids are `crypto.randomUUID()`),
+  // only from an imported or duplicated workspace. It self-evicts on the next
+  // `assets` change. Traced in cold review, not measured; left unfixed rather
+  // than clearing the maps on a dep change, which would reopen §213 for any
+  // upload in flight across a re-render.
   const writtenRef = useRef<Map<string, number>>(new Map());
   const epochRef = useRef(0);
 

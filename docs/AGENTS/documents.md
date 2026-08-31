@@ -1213,7 +1213,7 @@ under `missing` — only the one-word label disagreed with both. It matters beca
 got restated: `AGENTS.md` compressed this paragraph to "`omitted` is a POLICY call, `missing` is a
 DATA problem", kept the label, dropped the explanation, and shipped a claim that is false in both
 halves to every session that loads it. Reproduce the real routing with
-`grep -n "omitted.add\|missing.add" src/app/document-export-assets.ts` — ONE `omitted.add` (budget)
+`grep -nE "^\s+(omitted|missing)\.add" src/app/document-export-assets.ts` — ONE `omitted.add` (budget)
 against TWO `missing.add` (a null row, and an `isRenderable` decline).
 
 ★★★ **AND `missing` ABSORBING POLICY IS A DISCLOSURE DEFECT, NOT JUST A NAMING ONE — §320.** For

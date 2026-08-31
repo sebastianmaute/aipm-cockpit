@@ -13,10 +13,22 @@ export const APP_BUILD_DATE = "2026-08-31"; // 0.271.0: epoch-keyed suppression 
  *  ★★★ THIS LINE FIRST SHIPPED CLAIMING THE NAME WAS FRESH, on the evidence
  *  of a grep anchored to `] - `, in the very sentence that pointed at the
  *  dash note below warning against exactly that. 0.59.0's header uses an EM
- *  DASH and was invisible to it; 77 of the 375 version headers are. Check a
- *  candidate dash-agnostically, and BEFORE the bump — run it after and the
- *  pattern matches the line you just wrote:
- *  `grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[A-Za-z]+"' CHANGELOG.md | grep -i <name>`
+ *  DASH and was invisible to it — as are 100 of the 398 version headers, and
+ *  not only through the dash: 23 of those put the codename BEFORE the date,
+ *  so the `] - ` anchor misses them on a second axis. Check a candidate
+ *  dash-agnostically, and BEFORE the bump — run it after and the pattern
+ *  matches the header you just wrote, which reads as a collision with
+ *  yourself:
+ *  `grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md | grep -i <name>`
+ *  ★★★ THE NAME CLASS IS `[^"]+`, NOT `[A-Za-z]+`, AND THE FIRST CUT OF THIS
+ *  VERY CORRECTION SHIPPED `[A-Za-z]+` — one character class away from the
+ *  defect it was written to end. That class silently drops every codename
+ *  that is not a single ASCII word: "Le Guin" (space), "Nevala-Lee"
+ *  (hyphen), "García" (non-ASCII) — 4 of 362 named headers today. A
+ *  candidate of any of those shapes returns zero hits and reads as free.
+ *  A replacement is only proved by showing it sees ALL 362 named headers,
+ *  never by showing it finds the one name you happened to be checking:
+ *  `grep -coE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md`
  *  0.270.x was "Tchaikovsky" (Adrian Tchaikovsky, British SF/fantasy
  *  author). ★★ REUSED: 0.39.0 (2026-06-01) also ran under this name —
  *  permitted, same per-MINOR-LINE rule. ★★ It shipped asserting "Not

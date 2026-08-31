@@ -216,6 +216,62 @@ describe("useDocumentAssets — write order", () => {
     const asset = await uploaded;
     expect(result.current.danglingIds.has(asset!.id)).toBe(false);
   });
+
+  it("re-flags an uploaded asset whose bytes are still absent at the NEXT diff — the suppression SELF-EVICTS", async () => {
+    // ★★★ THE OTHER DIRECTION OF §213, AND THE ONLY THING SEPARATING THE
+    // SHIPPED GUARD FROM THE CANDIDATE THE REGISTER REJECTED. The test above
+    // pins that a racing diff must NOT re-mark a fresh upload. On its own that
+    // is satisfied just as well by "suppress every id this session wrote" — a
+    // plain written-ids Set — which never forgets, so an asset whose byte row
+    // later vanishes (§207 desync, another tab, a failed remove) would read
+    // HEALTHY for the rest of the session. That is a false "fine" in place of a
+    // false "broken", which the hook's own comment calls the worse direction
+    // because the user is given no signal at all.
+    //
+    // Keying on a monotonic epoch is what makes the suppression expire: it
+    // holds only for a diff whose snapshot PREDATES the write. So a LATER diff
+    // must judge the same id on the evidence again. Cold review found this
+    // untested and both degradations green — `if (wroteAt !== undefined)
+    // continue;` and `const startEpoch = -1;` each survive the whole file
+    // without this case. Both turn it red.
+    //
+    // ★★ THE BYTE STORE IS DRIVEN, NOT FROZEN, and the HEALTHY step is why.
+    // A first cut asserted "not dangling" straight after the upload and failed
+    // — ungated, this diff's load resolves BEFORE the write bumps the epoch, so
+    // the suppression never engages and the fresh upload is marked dangling by
+    // the very race the test above gates for. That is fine here (a later diff
+    // corrects it, which is this test's whole subject) but it means the
+    // precondition has to be established from the STORE reporting the bytes,
+    // not from the suppression. Hence three uploads: one to write the row, one
+    // whose diff sees it and clears it, one whose diff sees it gone.
+    let present: string[] = [];
+    vi.mocked(loadAssetDataIds).mockImplementation(async () => [...present]);
+
+    const { result } = renderHook(() => useAssetsHost([]));
+
+    // ★ EVERY UPLOAD USES A DIFFERENT WIDTH, so the bytes and therefore the
+    // hash differ — `findDuplicate` matches on hash ALONE, and a dedup hit
+    // returns before any metadata write, arming no diff and leaving the
+    // assertions below vacuous.
+    let first!: DocumentAsset | null;
+    await act(async () => { first = await result.current.upload(pngFile("first.png", 4)); });
+    expect(first).not.toBeNull();
+    await waitFor(() => expect(saveAssetData).toHaveBeenCalledTimes(1));
+
+    // The bytes are now really there. The next upload re-arms the diff, which
+    // sees the row and clears any mark — the PRECONDITION, asserted rather than
+    // assumed so a regression cannot let the final assertion pass by inertia.
+    present = [first!.id];
+    await act(async () => { await result.current.upload(pngFile("second.png", 8)); });
+    await waitFor(() => expect(result.current.danglingIds.has(first!.id)).toBe(false));
+
+    // Now the row vanishes — a failed remove, another tab, the §207 desync.
+    // `first`'s write is two epochs old, so the guard must NOT suppress it.
+    present = [];
+    await act(async () => { await result.current.upload(pngFile("third.png", 12)); });
+
+    await waitFor(() => expect(result.current.danglingIds.has(first!.id)).toBe(true));
+  });
 });
 
 // ★★★ §212 — A DANGLING ROW MUST BE REPAIRABLE BY RE-UPLOADING THE SAME IMAGE.

@@ -76,6 +76,43 @@ describe("attachAssetImages", () => {
     second();
   });
 
+  // ★★★ THE SAME RECYCLING, THE OTHER WAY ROUND — resolved FIRST, then
+  // declined. Only the clear-the-marker direction above was covered, so the
+  // apply loop cleared markers but never the `src`, and cold review caught it.
+  // It matters because `globals.css` paints the warning glyph with `::before`,
+  // and a REPLACED element has no generated content: an element left holding a
+  // (by then revoked) `src` keeps the dashed frame but loses the glyph and the
+  // text, so the reader gets the browser's own broken-image icon and no
+  // explanation — the unexplained state §230 exists to remove.
+  // Reachable via `documents-history-modal.tsx`, whose `mimeFor` is built from
+  // an OPTIONAL asset bag: run 1 without it sniffs the bytes and sets `src`,
+  // run 2 with it can declare the very same id blocked.
+  it("drops a stale src when a later run declines the same element as blocked", async () => {
+    const el = root('<img data-asset-id="a1">');
+    const first = await attachAssetImages(el, async () => "QUJD");
+    expect(el.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
+    first();
+
+    const second = await attachAssetImages(el, async () => "QUJD", () => "image/svg+xml");
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("data-asset-blocked")).toBe("true");
+    expect(img?.hasAttribute("src")).toBe(false);
+    second();
+  });
+
+  it("drops a stale src when a later run finds the bytes gone", async () => {
+    const el = root('<img data-asset-id="a1">');
+    const first = await attachAssetImages(el, async () => "QUJD");
+    expect(el.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
+    first();
+
+    const second = await attachAssetImages(el, async () => null);
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("data-asset-missing")).toBe("true");
+    expect(img?.hasAttribute("src")).toBe(false);
+    second();
+  });
+
   // ★★★ THE CATCH CANNOT SEE THIS ONE, WHICH IS WHY THE DECODE HAD TO MOVE TO
   // `safeBase64ToBytes`. `atob` strips ASCII whitespace before decoding, so a
   // whitespace-only stored row returns "" and raises NOTHING — the raw

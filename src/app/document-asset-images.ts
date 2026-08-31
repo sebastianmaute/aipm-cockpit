@@ -121,6 +121,18 @@ export async function attachAssetImages(
     // (only the `::before` warning glyph drops out, because a replaced element
     // has no generated content). The repaired image would render inside a
     // broken-image frame.
+    // ★★★ AND THE `src` MUST GO THE OTHER WAY TOO — clearing only the MARKER is
+    // half the job, which is what this loop did until cold review. The same
+    // recycled element can go the other direction: a run that RESOLVED (src
+    // set) followed by one that classifies the id blocked or missing. That is
+    // reachable — `documents-history-modal.tsx` builds `mimeFor` from an
+    // OPTIONAL `assetAccess.assets`, so run 1 with the bag absent sniffs the
+    // bytes and sets `src`, and run 2 with the bag present can declare the very
+    // same id blocked. Leaving the (by then revoked) `src` in place keeps the
+    // element REPLACED, and a replaced element has no `::before` — so the
+    // reader gets the dashed frame with the browser's own broken-image icon
+    // inside it and NO warning glyph and no text, which is the unexplained
+    // state §230 exists to prevent.
     if (url) {
       img.setAttribute("src", url);
       img.removeAttribute("data-asset-missing");
@@ -128,9 +140,11 @@ export async function attachAssetImages(
     } else if (blocked.has(id)) {
       img.setAttribute("data-asset-blocked", "true");
       img.removeAttribute("data-asset-missing");
+      img.removeAttribute("src");
     } else {
       img.setAttribute("data-asset-missing", "true");
       img.removeAttribute("data-asset-blocked");
+      img.removeAttribute("src");
     }
   }
 

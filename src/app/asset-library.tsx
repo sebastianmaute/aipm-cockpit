@@ -257,14 +257,22 @@ export function AssetLibrary({
                             </span>
                             {/* ★★ WCAG 1.4.1 — the glyph is the non-colour cue
                                 for SIGHTED users, and the `title` above is
-                                hover-only chrome: a non-interactive,
-                                non-focusable <span> with no text content
-                                exposes no accessible name, so AT never
-                                announces it and keyboard/touch can never reach
-                                it. This sr-only text is the ONLY thing that
-                                tells a screen-reader user the bytes are gone.
-                                Deleting it makes a broken asset and a healthy
-                                one indistinguishable to AT again. */}
+                                hover-only chrome: it is unreachable by
+                                keyboard and by touch, so it can never be the
+                                sole carrier of a state. This sr-only text is
+                                what tells a screen-reader user the bytes are
+                                gone. Deleting it makes a broken asset and a
+                                healthy one indistinguishable to AT again.
+                                ★★ DO NOT RESTORE THE OLD JUSTIFICATION, which
+                                said this was "a non-focusable <span> with no
+                                text content" that "exposes no accessible
+                                name". That is false about the element it
+                                describes: the `title` sits on the OUTER gutter
+                                span, and this sr-only span is its CHILD, so
+                                the element takes its name from that content
+                                and the `title` is its DESCRIPTION. The premise
+                                was wrong; the conclusion — keep the sr-only
+                                text — is right for the reason above. */}
                             <span className="sr-only">{t(lang, "assetLibraryDangling")}</span>
                           </>
                         )}

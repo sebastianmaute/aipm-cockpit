@@ -583,10 +583,12 @@ describe("DocumentsHistoryModal — asset images in a version Preview", () => {
     expect(loadAssetData).toHaveBeenCalledWith(TURSO, "a1", "p1");
   });
 
-  // ★★★ A BLANK PROJECT ID IS NORMALISED, NOT PASSED THROUGH. The three
-  // sibling consumers of the byte store — `document-edit-mode.tsx`,
-  // `documents-asset-section.tsx` and `document-preview.tsx` — all fold `""`
-  // into `ASSET_PARTITION_FALLBACK`, and that is the partition the BYTES were
+  // ★★★ A BLANK PROJECT ID IS NORMALISED, NOT PASSED THROUGH. TWO sibling
+  // consumers of the byte store — `document-edit-mode.tsx` and
+  // `documents-asset-section.tsx` — fold `""` into `ASSET_PARTITION_FALLBACK`
+  // with `||`. ★★ `document-preview.tsx` does NOT: it defaults the PROP
+  // (`projectId = ASSET_PARTITION_FALLBACK`), which fires only for `undefined`,
+  // and is normalised by its only caller instead. That is the partition the BYTES were
   // written under: `workspace-panels.tsx` normalises with the same `||` on the
   // WRITE side. A caller handing this modal `""` would query
   // `project_id = ""`, match nothing, and stamp EVERY image in the version

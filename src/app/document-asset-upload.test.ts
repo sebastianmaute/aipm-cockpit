@@ -531,14 +531,19 @@ describe("isBlockedAssetMime", () => {
   // non-string, so a missing/blank/non-string mime survives every load path as
   // "" and such an asset has always rendered by content-sniffing. A
   // `!== undefined` spelling would refuse an image the user can see working.
-  // ★★★ THIS CASE IS THE SOLE DISCRIMINATOR BETWEEN THE TWO SPELLINGS — DO NOT
-  // DELETE IT AS REDUNDANT WITH THE `undefined` CASE BELOW. Measured by
-  // mutation, not reasoned: swapping `!!mime` for `mime !== undefined` kills
-  // this test and NOTHING else in the file (1 failed / 63 passed of 64). The
-  // `undefined` case structurally CANNOT discriminate, since both spellings
-  // return false for it — it is a real regression pin, but vacuous with respect
-  // to §225. Delete this one and the guard §225 exists to protect goes untested
-  // while the suite stays green.
+  // ★★★ THIS CASE IS THE ONLY DISCRIMINATOR IN THIS FILE — DO NOT DELETE IT AS
+  // REDUNDANT WITH THE `undefined` CASE BELOW. Measured by mutation, not
+  // reasoned: swapping `!!mime` for `mime !== undefined` kills this test and
+  // NOTHING else in the file (1 failed / 63 passed of 64). The `undefined` case
+  // structurally CANNOT discriminate, since both spellings return false for it
+  // — it is a real regression pin, but vacuous with respect to §225.
+  // ★★ THE SUITE DOES NOT GO GREEN WITHOUT IT, and an earlier wording of this
+  // comment claimed it would. `document-asset-images.test.ts`'s "still renders
+  // an asset whose stored mime is the empty string" drives the REAL
+  // `attachAssetImages` with `mimeFor = () => ""` and asserts a `blob:` src, so
+  // the same mutant turns it red as well. Deleting this one costs the
+  // UNIT-level pin, not the whole guard — which is still a real loss, because
+  // that test pins the RENDER and this one pins the PREDICATE.
   it("does NOT block the empty-string mime that real rows carry", () => {
     expect(isBlockedAssetMime("")).toBe(false);
   });

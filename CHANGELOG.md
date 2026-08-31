@@ -27,8 +27,8 @@ longer carries its own changelog comment.
 - **The warning marker on a broken image ran into the surrounding text.** The space meant to
   separate the warning symbol from the image's description was never actually part of it, so the two
   butted together. They are now properly separated. Note that Firefox does not draw this symbol at
-  all — it shows the image's description inside the same warning frame instead — which is a browser
-  behaviour no styling can change.
+  all — it shows the image's description inside the same warning frame instead — which no styling of
+  that marker can change.
 
 ## [0.270.0] - 2026-08-31 "Tchaikovsky"
 
