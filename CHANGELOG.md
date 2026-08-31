@@ -24,6 +24,13 @@ longer carries its own changelog comment.
   buttons**, on both the projects panel and its empty state — so a screen reader had no way to tell
   which archived project a given button acted on. Each control's name now includes the project it
   belongs to.
+- **Seven more lists had the same problem: every row's buttons announced the same name.** Snapshot
+  Delete and Set-as-baseline in Trends, Set-as-default in the communication templates, Remove-role
+  and Remove-discipline in a budget bucket, Unlink on a change's linked RAID items, and Add-as-
+  resource on unlinked people. In each case a screen reader or voice-control user heard the same
+  name for every row and had no way to say which one they meant. Every one of those controls now
+  names its own row — and where a row's own label can repeat (two snapshots in the same minute, two
+  templates with one name), the name says which of them it is.
 - **In report views, one column header could label several columns at once** where a single view
   showed several tables that happened to share a column name. Shared column headers are now
   disambiguated so each one names only its own table, and the same applies to the Resources
@@ -36,7 +43,9 @@ longer carries its own changelog comment.
   a message you were still sending disappear.** Retry re-reads the conversation list, and when that
   came back it moved you to whichever conversation the server listed first — dropping the one your
   message had just started and cancelling the reply streaming into it. Retry now refreshes the list
-  without moving you off a conversation you are in the middle of sending to.
+  without moving you off a conversation you are in the middle of sending to — including the case
+  where the whole message is sent and answered while the refresh is still running, which the first
+  version of this fix did not cover.
 - **Leaving the Insights view did not stop the AI calls it had already started**, so they kept
   billing against your API usage after you had moved on. Each background pass works through up to
   three insights one after another, so leaving part-way through could leave a call in flight and
