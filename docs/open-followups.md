@@ -543,6 +543,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name | — | — | open |
 | [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide) | `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide | — | — | open |
 | [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
+| [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -24175,3 +24176,40 @@ could fail — see §276's caveat (5) and `requireCollisionSeed` in `src/test/ro
 ★ **Scope note.** This is a read-and-adjudicate task, not a fix task. The output is a verdict per
 site, and the sites that are genuinely fine want a one-line reason recorded, or the next round
 re-derives the same list from scratch.
+
+## 317. An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen
+
+**Status:** filed 2026-08-31, never machine-verified — found by reading, not by a failing test, and no
+test stages it. The read is reproducible: `grep -n "pendingRetryRef" src/app/use-chat-threads.ts`
+shows the only writes are the `.catch` set and the `.then` delete inside `runPersist`, and the only
+pre-reload gate is `pendingRetryRef.current.size > 0`.
+
+§148 closed three orderings of a SEND relative to the Retry click. This is a fourth live thing in the
+same window that is not a send at all — its PERSIST.
+
+★★★ **An in-flight write is in NEITHER of `pendingRetryRef`'s states.** `runPersist` sets a retry
+thunk only in its `.catch` and deletes it in its `.then`. A write that has not settled has therefore
+never been recorded, so `retryLoad`'s gate — which asks only whether the map is non-empty — reads
+clean and falls through to the reload branch. The map is a FAILED-write registry; it was never a
+"writes outstanding" registry, and the gate reads it as though it were.
+
+★★ **The sequence.** A send finishes → the busy-persist fires `saveThread` with the full turn → the
+user clicks Retry while that write is unsettled → `loadThreads` returns the row as
+`ensureThreadForSend` first wrote it, carrying the user message ONLY → at settle
+`sendInFlightAtClick` is false, `abortRef.current` is null, `sendSeqRef.current === seqAtClick` and
+`threadIdRef.current === startedOn`, so all four guards pass, the adopt branch runs, and
+`setHistory(loaded[0].history)` replaces the transcript with a snapshot that predates the reply.
+
+★★ **Severity is bounded and the bound is the reason this is filed rather than fixed.** The write
+itself still completes, so nothing is lost server-side and the reply returns on the next load. The
+loss is on SCREEN, in a window measured by one round trip, and it needs a Retry click inside it.
+
+★ **Do not close this by widening the existing gate to "any unsettled write".** `retryLoad`'s own
+★★★ comment records why the guard gates the SETTLE and not the FETCH: a send that never settles
+would otherwise pin the reload branch closed forever and leave the sidebar permanently stale. A fix
+wants the same treatment the send got — something monotonic that a settle can compare against — not
+an extra reason to skip the fetch.
+
+★ The comment at the three-ordering enumeration in `use-chat-threads.ts` used to assert that a send
+begun and finished before the click had nothing live about it. That sentence was false and is now
+replaced by a ★★★ pointing here.

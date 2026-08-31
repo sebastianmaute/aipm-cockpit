@@ -534,10 +534,20 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     //       transcript with a snapshot taken BEFORE that send: the user's
     //       message and its reply vanish from screen. → caught ONLY by
     //       `sendSeqRef.current !== seqAtClick`.
-    // That is exhaustive over WHEN a send can begin and end relative to the
-    // two window edges: begun-before (a), begun-inside-and-unfinished (b),
-    // begun-inside-and-finished (c). A send begun AND finished before the
-    // click is not this guard's business — nothing about it is live.
+    // Those are the three orderings of a SEND relative to the two window
+    // edges: begun-before (a), begun-inside-and-unfinished (b),
+    // begun-inside-and-finished (c).
+    // ★★★ DO NOT READ THAT AS EXHAUSTIVE OVER WHAT CAN BE LIVE. An earlier
+    //   revision of this comment ended "a send begun AND finished before the
+    //   click is not this guard's business — nothing about it is live", and
+    //   that is false: the send's PERSIST can still be in flight. `runPersist`
+    //   records a key in `pendingRetryRef` only in its `.catch` and deletes it
+    //   in its `.then`, so an UNSETTLED write is in neither — invisible to
+    //   `retryLoad`'s only pre-reload gate, `pendingRetryRef.current.size > 0`.
+    //   A reload landing in that window adopts the row as `ensureThreadForSend`
+    //   wrote it (user message only) and drops the reply from SCREEN; the
+    //   server-side write still completes, so no data is lost. Narrow, and
+    //   deliberately NOT closed here — see `docs/open-followups.md`.
     //
     // ★★★ IT MUST GATE THE SETTLE, NOT THE FETCH. Treating in-flight as
     // another `stale: true` still fetches and still merges `loaded` under the
