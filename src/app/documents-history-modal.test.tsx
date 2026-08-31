@@ -5,6 +5,7 @@ import { DocumentsHistoryModal, type HistoryAssetAccess } from "./documents-hist
 import type { DocVersion, DocVersionOp } from "./document-versions";
 import type { DocBlock, ProjectDocument } from "./document-model";
 import type { DocumentAsset } from "./document-asset";
+import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 import { emptyWorkspace, type Workspace } from "./workspace";
 
 // ★ The byte store is the ONE thing this component reaches outside itself. The
@@ -580,6 +581,37 @@ describe("DocumentsHistoryModal — asset images in a version Preview", () => {
     // The bag's OWN three fields reached the loader — a `src` alone would also
     // appear if the effect fetched against some other project's partition.
     expect(loadAssetData).toHaveBeenCalledWith(TURSO, "a1", "p1");
+  });
+
+  // ★★★ A BLANK PROJECT ID IS NORMALISED, NOT PASSED THROUGH. TWO sibling
+  // consumers of the byte store — `document-edit-mode.tsx` and
+  // `documents-asset-section.tsx` — fold `""` into `ASSET_PARTITION_FALLBACK`
+  // with `||`. That is the partition the BYTES were
+  // written under: `workspace-panels.tsx` normalises with the same `||` on the
+  // WRITE side. A caller handing this modal `""` would query
+  // `project_id = ""`, match nothing, and stamp EVERY image in the version
+  // preview `data-asset-missing` — the same false "your bytes are gone"
+  // disclosure the rest of this slice exists to stop.
+  //
+  // ★★ NOT REACHABLE FROM PRODUCTION TODAY — the one mount
+  // (`workspace-panels.tsx`) already normalises before the bag is built. This
+  // pins the COMPONENT's own contract, so a second caller cannot reintroduce
+  // it; it is not a claim that anything is broken at a live call site.
+  //
+  // ★ `||`, never `??`: `""` is a real value, so a `??` reads it as "supplied"
+  // and passes it through — which is exactly the state this case is red under.
+  it("normalises a blank project id to the asset partition fallback", async () => {
+    const panel = await openPreview({ assetAccess: { ...access(), projectId: "" } });
+    expect(panel.textContent).toContain("Section A");
+
+    const img = panel.querySelector("img[data-asset-id='a1']");
+    expect(img).not.toBeNull();
+    await waitFor(() => expect(img!.getAttribute("src")).toBe("blob:version-image"));
+    expect(loadAssetData).toHaveBeenCalledWith(TURSO, "a1", ASSET_PARTITION_FALLBACK);
+    // ★ Spelled out as well as via the constant: asserting only on the imported
+    // name would keep passing if the constant were ever redefined AS `""`,
+    // which is the one value this case exists to exclude.
+    expect(loadAssetData).not.toHaveBeenCalledWith(TURSO, "a1", "");
   });
 
   it("still renders the version's blocks when no asset bag is supplied", async () => {

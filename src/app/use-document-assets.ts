@@ -231,6 +231,33 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     [],
   );
 
+  // ★★★ §213 — WHY A BARE "ids this session wrote" SET IS NOT ENOUGH, AND THE
+  // REGISTER'S OWN CANDIDATE WAS ONE. `upload` commits metadata BEFORE the
+  // bytes, so the `assets` change arms the diff below while `saveAssetData` is
+  // still in flight. If the save resolves first and the load second, the diff
+  // REPLACES the whole set and discards the clear — and nothing re-runs it,
+  // because none of its deps changed again. Suppressing every id this session
+  // wrote closes that and opens a worse hole: the id stays suppressed for the
+  // rest of the session, so a byte row that later vanishes (§207 desync,
+  // another tab, a failed remove) would read HEALTHY forever — a false "fine"
+  // in place of a false "broken", which is the worse direction because the user
+  // is given no signal at all. Keying on a monotonic epoch makes the
+  // suppression SELF-EVICTING: it holds only for a diff whose snapshot predates
+  // the write, which is precisely the race and nothing else.
+  // ★★ THESE DELIBERATELY SURVIVE A `projectId`/`config` CHANGE, and that is
+  // safe for any COMPLETED write: such a write's epoch is already ≤
+  // `epochRef.current`, and the switch's own diff captures `startEpoch` at that
+  // same value, so `wroteAt > startEpoch` is false and nothing is suppressed.
+  // The one reachable leak needs a write still IN FLIGHT at the instant the
+  // project changes AND the same asset id present in the new project's
+  // metadata — which cannot arise from minting (ids are `crypto.randomUUID()`),
+  // only from an imported or duplicated workspace. It self-evicts on the next
+  // `assets` change. Traced in cold review, not measured; left unfixed rather
+  // than clearing the maps on a dep change, which would reopen §213 for any
+  // upload in flight across a re-render.
+  const writtenRef = useRef<Map<string, number>>(new Map());
+  const epochRef = useRef(0);
+
   // ★★★ `react-hooks/set-state-in-effect` is BANNED and fatal. The diff runs
   // in the effect's ASYNC CONTINUATION, never synchronously in the effect
   // body — mirrors use-comm-templates.ts's load effect. `cancelled` guards
@@ -239,13 +266,21 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     if (!config) return;
     let cancelled = false;
     (async () => {
+      // ★ CAPTURED BEFORE THE AWAIT. After it, a write that raced this diff has
+      // already bumped the epoch and every comparison below would be inert.
+      const startEpoch = epochRef.current;
       try {
         const presentIds = await loadAssetDataIds(config, projectId);
         if (cancelled) return;
         const present = new Set(presentIds);
         const next = new Set<string>();
         for (const a of assets) {
-          if (!present.has(a.id)) next.add(a.id);
+          if (present.has(a.id)) continue;
+          // Bytes written AFTER this diff's snapshot began cannot appear in its
+          // result, so their absence here is not evidence of anything.
+          const wroteAt = writtenRef.current.get(a.id);
+          if (wroteAt !== undefined && wroteAt > startEpoch) continue;
+          next.add(a.id);
         }
         setDanglingIds((prev) => (setsEqual(prev, next) ? prev : next));
       } catch {
@@ -313,6 +348,12 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     setBusyId(asset.id);
     try {
       await saveAssetData(config, { id: asset.id, projectId, data: bytesToBase64(processed.image.bytes) });
+      // §213 — record the write against a monotonic epoch. Any diff whose
+      // snapshot began earlier cannot have observed these bytes, so it must not
+      // conclude this id is dangling. Recorded only on SUCCESS: a failed write
+      // IS the dangling case and must stay visible.
+      epochRef.current += 1;
+      writtenRef.current.set(asset.id, epochRef.current);
       // ★★★ CLEAR THE ID EXPLICITLY — NOTHING ELSE WILL. The diff effect that
       // builds `danglingIds` is keyed on `assets`, and a repair writes NO
       // metadata, so a successful retry leaves that effect dormant and the row

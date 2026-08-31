@@ -1199,13 +1199,34 @@ of DOM and of translation, exactly like `document-model.ts`.
 `inlined` is id — base64, `omitted` and `missing` are id sets.
 
 ★★★ **`omitted` AND `missing` ARE NOT TWO NAMES FOR THE SAME THING, AND COLLAPSING THEM
-LOSES THE ONLY DISTINCTION A USER CAN ACT ON.** `omitted` is a POLICY decision — the bytes exist
+LOSES THE ONLY DISTINCTION A USER CAN ACT ON.** `omitted` is a BUDGET decision — the bytes exist
 and are usable, but the running budget was already spent, so a DIFFERENT export of the same
 document (a format with no budget, or a smaller selection) will carry it. `missing` is a DATA
 problem — there is no byte row, the load failed, or the renderer's own `isRenderable` declined
 it — and no format anywhere will ever carry it until the asset is repaired. Every sink discloses
 both, but a reader who is told "omitted" about a dangling asset goes looking for a setting that
 does not exist.
+
+★★★ **THAT WORD WAS "POLICY" UNTIL 2026-08-31 AND THE LABEL WAS WRONG WHILE THE SENTENCE AROUND IT
+WAS RIGHT.** The prose has always explained the budget correctly and has always named `isRenderable`
+under `missing` — only the one-word label disagreed with both. It matters because the label is what
+got restated: `AGENTS.md` compressed this paragraph to "`omitted` is a POLICY call, `missing` is a
+DATA problem", kept the label, dropped the explanation, and shipped a claim that is false in both
+halves to every session that loads it. Reproduce the real routing with
+`grep -nE "^\s+(omitted|missing)\.add" src/app/document-export-assets.ts` — ONE `omitted.add` (budget)
+against TWO `missing.add` (a null row, and an `isRenderable` decline).
+
+★★★ **AND `missing` ABSORBING POLICY IS A DISCLOSURE DEFECT, NOT JUST A NAMING ONE — §320.** For
+HTML/PDF `isRenderable` IS the mime allowlist, so an asset the policy refuses is routed to `missing`
+and rendered `data-asset-missing`: the export tells the reader the bytes are gone when they are
+present and intact. TWO independent sites reach that conclusion — this routing, and `assetSrcAttr`
+returning null for a disallowed mime — so a one-site fix does not close it. The preview half of the
+same defect was §230, fixed by splitting `data-asset-blocked` out of the missing sink; the export
+sink has no blocked state at all, and `doc-render-html.ts` carries its own separate
+`img[data-asset-missing]` rule that a test pins, so widening this needs both files. Routing a
+refusal to `missing` was deliberate — the comment above the branch says an id the renderer will
+decline must never be charged against the budget, which is correct — but putting it in `missing`
+rather than a third state is what loses the distinction.
 
 ★★ **ORDER IS LOAD-BEARING.** `documentAssetIds` returns ids in DOCUMENT order, de-duplicated,
 and the budget is charged serially over that list — so which images survive a tight budget is the

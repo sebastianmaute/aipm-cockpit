@@ -4129,6 +4129,7 @@ export const de: Record<TranslationKey, string> = {
   assetLibraryActions: "Aktionen",
   assetLibraryTotalSize: "Gesamtgröße: {0}",
   assetLibraryDangling: "Bilddaten fehlen",
+  assetLibraryBlocked: "Bildformat wird nicht mehr unterstützt",
   assetLibraryDeleteConfirm: "{0} löschen?",
   assetLibraryDeleteConfirmUsed: "{0} löschen? Es wird in {1} Dokument(en) verwendet und hinterlässt dort ein defektes Bild.",
   assetLibraryTursoOnly: "Bilder benötigen ein Turso-Projekt. Dokumente funktionieren mit jedem Backend.",

@@ -208,17 +208,30 @@ li[data-type="taskItem"][data-checked="true"]::before { content: "\2611"; }
   stroke-width: 1.5;
 }
 
-/* S3c-1 — a document image whose bytes never resolved: a dangling asset id,
-   no Turso config, or the byte load threw. `attachAssetImages`
-   (document-asset-images.ts) marks it rather than leaving a bare broken-image
-   icon with no explanation. Border + background are reliable on an <img>
+/* S3c-1 — a document image the preview could not draw. TWO markers, ONE frame,
+   and the split is §230: `data-asset-missing` means the BYTES will not render
+   (a dangling asset id, no Turso config, a whitespace-only byte row, an `atob`
+   reject, or the byte load threw), while `data-asset-blocked` means the bytes
+   are PRESENT and intact but the stored mime is outside the upload allowlist.
+   They share this frame deliberately — both are "this image is not here" to a
+   reader — and differ only in the copy the asset library puts on the row,
+   because only one of the two is repairable. Do not fold them back together:
+   the library reports a blocked row healthy (its byte row exists, so the
+   dangling diff never flags it), which is the contradiction §230 was filed
+   for. `attachAssetImages` (document-asset-images.ts) stamps both rather than
+   leaving a bare broken-image icon with no explanation.
+   ★ The standalone-HTML export in `doc-render-html.ts` carries its OWN,
+   different `img[data-asset-missing]` rule (currentColor, no background, no
+   ::before) and has no blocked sink at all — see §320 before widening this
+   pair to it. Border + background are reliable on an <img>
    with no `src` set at all; the classic "style a broken image" ::before glyph
    trick (mirrored from the task-item checkbox glyph above) works for the same
    reason that one does — no `src` means the element renders as if it were
    non-replaced, so generated content applies. The accessible name still comes
    from the block author's own `alt`, unaffected by this being aria-hidden by
    construction (a pseudo-element is never exposed to the a11y tree). */
-img[data-asset-missing] {
+img[data-asset-missing],
+img[data-asset-blocked] {
   display: inline-block;
   min-width: 3rem;
   min-height: 2rem;
@@ -227,8 +240,21 @@ img[data-asset-missing] {
   color: var(--rag-red-text);
   font-size: 0.75rem;
 }
-img[data-asset-missing]::before {
-  content: "\26A0\FE0E ";
+img[data-asset-missing]::before,
+img[data-asset-blocked]::before {
+  /* ★★★ TWO STRINGS, AND THE OBVIOUS ONE-STRING SPELLING IS A SILENT NO-OP.
+     This read `"\26A0\FE0E "` for three releases and that trailing space was
+     never in the output: consuming an escaped code point takes up to six hex
+     digits AND THEN CONSUMES ONE FOLLOWING WHITESPACE as the escape's
+     terminator, so the space was punctuation for `\FE0E`, not a character.
+     The glyph butted straight against the block author's `alt` text. Measured
+     in real Chromium and real Firefox by
+     `e2e-crossengine/asset-missing-glyph.spec.ts`, not reasoned — and the
+     declaration WITH the space resolved identically to one without it, which
+     is what proves the byte was inert rather than merely suspect.
+     Concatenating a second string is explicit; a second literal space would
+     work and would be invisible to every future reader. */
+  content: "\26A0\FE0E" " ";
 }
 
 /* Print: DIN A4 page, strip surface chrome, preserve semantic accents.

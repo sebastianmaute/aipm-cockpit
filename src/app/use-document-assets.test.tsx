@@ -12,6 +12,16 @@ import { saveAssetData, deleteAssetData, loadAssetDataIds } from "./document-ass
 
 const config = { httpUrl: "https://db.turso.io", authToken: "t" } as never;
 
+/** A promise whose settlement the TEST decides. The §213 defect is an ORDERING
+ *  one, so a fixture that merely awaits both the byte write and the dangling
+ *  diff proves nothing — it passes under whichever order the harness happens to
+ *  produce. Gating each side lets the test force the losing order. */
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((r) => { resolve = r; });
+  return { promise, resolve };
+}
+
 // A 24-byte PNG header — the same shape document-asset-upload.test.ts uses.
 // At 4x3 pixels it never triggers a downscale (target size == source size,
 // see targetSize's `Math.min(..., 1)` clamp), so `processUpload` never calls
@@ -163,6 +173,104 @@ describe("useDocumentAssets — write order", () => {
     renderHook(() => useDocumentAssets({ config: null, assets, setAssets: vi.fn(), projectId: "p1" }));
     await Promise.resolve();
     expect(loadAssetDataIds).not.toHaveBeenCalled();
+  });
+
+  it("does not re-mark a fresh upload when the dangling diff resolves AFTER the byte write", async () => {
+    // ★★★ GATED PROMISES, NOT `waitFor` (§213). The defect is an ORDERING one,
+    // so a test that merely awaits both passes under whichever order the
+    // harness happens to produce — exactly how this went unnoticed. The mount's
+    // own diff resolves normally; the one the metadata commit arms is HELD, and
+    // released only after the byte write has already resolved and cleared.
+    const load = deferred<string[]>();
+    const save = deferred<void>();
+    vi.mocked(loadAssetDataIds).mockResolvedValueOnce([]).mockReturnValueOnce(load.promise);
+    vi.mocked(saveAssetData).mockReturnValueOnce(save.promise);
+
+    const { result } = renderHook(() => useAssetsHost([]));
+
+    let uploaded!: Promise<DocumentAsset | null>;
+    // ★★ DRIVE THE UPLOAD TO THE RACE AND ASSERT IT GOT THERE. `upload` awaits
+    // three times (file bytes, processing, hash) before it commits metadata, so
+    // a single microtask turn leaves it short of the byte write entirely —
+    // measured: one `await Promise.resolve()` here left `saveAssetData`
+    // UNCALLED, which staged the epoch capture on the wrong side of the write
+    // and made this pass against the unfixed hook for the wrong reason. The
+    // state the race needs is: metadata committed (so the diff is armed and its
+    // load is in flight) while the byte write is still pending. The two
+    // expectations below pin exactly that, so a re-staging that misses it fails
+    // here rather than passing vacuously.
+    await act(async () => {
+      uploaded = result.current.upload(pngFile("chart.png"));
+      for (let i = 0; i < 50; i += 1) {
+        if (vi.mocked(saveAssetData).mock.calls.length === 1
+          && vi.mocked(loadAssetDataIds).mock.calls.length === 2) break;
+        await new Promise((r) => { setTimeout(r, 0); });
+      }
+    });
+    expect(saveAssetData).toHaveBeenCalledTimes(1);
+    expect(loadAssetDataIds).toHaveBeenCalledTimes(2);
+
+    await act(async () => { save.resolve(); await uploaded; });
+    await act(async () => { load.resolve([]); await load.promise; });
+
+    const asset = await uploaded;
+    expect(result.current.danglingIds.has(asset!.id)).toBe(false);
+  });
+
+  it("re-flags an uploaded asset whose bytes are still absent at the NEXT diff — the suppression SELF-EVICTS", async () => {
+    // ★★★ THE OTHER DIRECTION OF §213, AND THE ONLY THING SEPARATING THE
+    // SHIPPED GUARD FROM THE CANDIDATE THE REGISTER REJECTED. The test above
+    // pins that a racing diff must NOT re-mark a fresh upload. On its own that
+    // is satisfied just as well by "suppress every id this session wrote" — a
+    // plain written-ids Set — which never forgets, so an asset whose byte row
+    // later vanishes (§207 desync, another tab, a failed remove) would read
+    // HEALTHY for the rest of the session. That is a false "fine" in place of a
+    // false "broken", which the hook's own comment calls the worse direction
+    // because the user is given no signal at all.
+    //
+    // Keying on a monotonic epoch is what makes the suppression expire: it
+    // holds only for a diff whose snapshot PREDATES the write. So a LATER diff
+    // must judge the same id on the evidence again. Cold review found this
+    // untested and both degradations green — `if (wroteAt !== undefined)
+    // continue;` and `const startEpoch = -1;` each survive the whole file
+    // without this case. Both turn it red.
+    //
+    // ★★ THE BYTE STORE IS DRIVEN, NOT FROZEN, and the HEALTHY step is why.
+    // A first cut asserted "not dangling" straight after the upload and failed
+    // — ungated, this diff's load resolves BEFORE the write bumps the epoch, so
+    // the suppression never engages and the fresh upload is marked dangling by
+    // the very race the test above gates for. That is fine here (a later diff
+    // corrects it, which is this test's whole subject) but it means the
+    // precondition has to be established from the STORE reporting the bytes,
+    // not from the suppression. Hence three uploads: one to write the row, one
+    // whose diff sees it and clears it, one whose diff sees it gone.
+    let present: string[] = [];
+    vi.mocked(loadAssetDataIds).mockImplementation(async () => [...present]);
+
+    const { result } = renderHook(() => useAssetsHost([]));
+
+    // ★ EVERY UPLOAD USES A DIFFERENT WIDTH, so the bytes and therefore the
+    // hash differ — `findDuplicate` matches on hash ALONE, and a dedup hit
+    // returns before any metadata write, arming no diff and leaving the
+    // assertions below vacuous.
+    let first!: DocumentAsset | null;
+    await act(async () => { first = await result.current.upload(pngFile("first.png", 4)); });
+    expect(first).not.toBeNull();
+    await waitFor(() => expect(saveAssetData).toHaveBeenCalledTimes(1));
+
+    // The bytes are now really there. The next upload re-arms the diff, which
+    // sees the row and clears any mark — the PRECONDITION, asserted rather than
+    // assumed so a regression cannot let the final assertion pass by inertia.
+    present = [first!.id];
+    await act(async () => { await result.current.upload(pngFile("second.png", 8)); });
+    await waitFor(() => expect(result.current.danglingIds.has(first!.id)).toBe(false));
+
+    // Now the row vanishes — a failed remove, another tab, the §207 desync.
+    // `first`'s write is two epochs old, so the guard must NOT suppress it.
+    present = [];
+    await act(async () => { await result.current.upload(pngFile("third.png", 12)); });
+
+    await waitFor(() => expect(result.current.danglingIds.has(first!.id)).toBe(true));
   });
 });
 

@@ -76,6 +76,37 @@ describe("attachAssetImages", () => {
     second();
   });
 
+  // ★★★ THE SAME RECYCLING, THE OTHER WAY ROUND — resolved FIRST, then
+  // declined. Only the clear-the-marker direction above was covered, so the
+  // apply loop cleared markers but never the `src`, and cold review caught it.
+  // The reason it matters, and the path that reaches it, are in the apply
+  // loop's own comment in `document-asset-images.ts` — not restated here.
+  it("drops a stale src when a later run declines the same element as blocked", async () => {
+    const el = root('<img data-asset-id="a1">');
+    const first = await attachAssetImages(el, async () => "QUJD");
+    expect(el.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
+    first();
+
+    const second = await attachAssetImages(el, async () => "QUJD", () => "image/svg+xml");
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("data-asset-blocked")).toBe("true");
+    expect(img?.hasAttribute("src")).toBe(false);
+    second();
+  });
+
+  it("drops a stale src when a later run finds the bytes gone", async () => {
+    const el = root('<img data-asset-id="a1">');
+    const first = await attachAssetImages(el, async () => "QUJD");
+    expect(el.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
+    first();
+
+    const second = await attachAssetImages(el, async () => null);
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("data-asset-missing")).toBe("true");
+    expect(img?.hasAttribute("src")).toBe(false);
+    second();
+  });
+
   // ★★★ THE CATCH CANNOT SEE THIS ONE, WHICH IS WHY THE DECODE HAD TO MOVE TO
   // `safeBase64ToBytes`. `atob` strips ASCII whitespace before decoding, so a
   // whitespace-only stored row returns "" and raises NOTHING — the raw
@@ -193,8 +224,34 @@ describe("attachAssetImages", () => {
     const detach = await attachAssetImages(el, async () => "QUJD", () => "image/svg+xml");
     const img = el.querySelector("img");
     expect(img?.hasAttribute("src")).toBe(false);
-    expect(img?.getAttribute("data-asset-missing")).toBe("true");
+    expect(img?.getAttribute("data-asset-blocked")).toBe("true");
+    // §230 — NOT the missing sink. The bytes are present and intact; the
+    // library shows this row healthy, so telling the reader "missing" was a
+    // contradiction one pane away.
+    expect(img?.hasAttribute("data-asset-missing")).toBe(false);
     expect(URL.createObjectURL).not.toHaveBeenCalled();
+    detach();
+  });
+
+  it("keeps a missing-bytes row on the missing marker, not the blocked one", async () => {
+    const el = root('<img data-asset-id="gone">');
+    const detach = await attachAssetImages(el, async () => null, () => "image/png");
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("data-asset-missing")).toBe("true");
+    expect(img?.hasAttribute("data-asset-blocked")).toBe(false);
+    detach();
+  });
+
+  it("clears a stale blocked marker when a later run resolves the same element", async () => {
+    // Same reason the missing marker is cleared: this function re-runs over the
+    // SAME elements when a repair lands, and a marker left behind draws the
+    // broken frame around an image that now renders.
+    const el = root('<img data-asset-id="a1">');
+    el.querySelector("img")!.setAttribute("data-asset-blocked", "true");
+    const detach = await attachAssetImages(el, async () => "QUJD", () => "image/png");
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("src")).toMatch(/^blob:/);
+    expect(img?.hasAttribute("data-asset-blocked")).toBe(false);
     detach();
   });
 

@@ -158,6 +158,79 @@ describe("AssetLibrary", () => {
     expect(rowFor("a2").querySelector("[data-dangling-marker]")).toBeNull();
   });
 
+  // ★★★ §230 — the bytes are PRESENT for a refused mime, so this row is not
+  //     dangling and the diff that builds `danglingIds` will never flag it.
+  //     Without this the library reports the row healthy while the document
+  //     preview renders it as a broken frame: one asset, two panes, opposite
+  //     answers. The mime is visible ONLY in the metadata this component
+  //     already holds, so this is the one place the state can be derived.
+  it("marks a row whose stored mime is no longer supported, and says so distinctly", () => {
+    const stale = [{ ...assets[0], name: "old.svg", mime: "image/svg+xml" }];
+    render(<AssetLibrary {...base} assets={stale} danglingIds={new Set<string>()} />);
+    expect(screen.getByText(t("en-US", "assetLibraryBlocked"))).toBeInTheDocument();
+    // ★ Distinct from the dangling wording, not a shared "broken" catch-all —
+    //   the two states have different causes and different remedies.
+    expect(screen.queryByText(t("en-US", "assetLibraryDangling"))).toBeNull();
+    // Non-colour cue, the same rule the dangling marker follows (WCAG 1.4.1),
+    // under its OWN attribute so a test cannot confuse the two states.
+    expect(rowFor("a1").querySelector("[data-blocked-marker]")).not.toBeNull();
+    expect(rowFor("a1").querySelector("[data-dangling-marker]")).toBeNull();
+    // ★ §230 — DISCLOSURE ONLY, and this is what pins that decision. The
+    //   marker adds no per-row CONTROL: deliberately NO re-upload affordance,
+    //   because a healthy duplicate matched by content hash returns early with
+    //   no metadata write, so the stale mime would never be corrected and the
+    //   button would silently do nothing. It is also why the marker owes no
+    //   row-unique accessible name — a non-focusable span is not a control.
+    expect(within(rowFor("a1")).getAllByRole("button")).toHaveLength(2); // rename + delete
+  });
+
+  it("still reports a dangling row as missing data, not as an unsupported format", () => {
+    const ok = [{ ...assets[0], name: "chart.png", mime: "image/png" }];
+    render(<AssetLibrary {...base} assets={ok} danglingIds={new Set(["a1"])} />);
+    expect(screen.getByText(t("en-US", "assetLibraryDangling"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "assetLibraryBlocked"))).toBeNull();
+  });
+
+  // ★★★ PRECEDENCE, and it is the reason the `!isDangling` guard exists. A row
+  //     can be both — a refused mime whose bytes ALSO went missing — and it
+  //     must report the missing bytes, the more actionable of the two; a row
+  //     cannot usefully say both at once. Mutation-proved: drop `!isDangling &&`
+  //     from the `isBlocked` line and this test alone goes red, so without it
+  //     the guard can be deleted with the suite green.
+  it("reports a row that is both dangling and unsupported as missing data only", () => {
+    const stale = [{ ...assets[0], name: "old.svg", mime: "image/svg+xml" }];
+    render(<AssetLibrary {...base} assets={stale} danglingIds={new Set(["a1"])} />);
+    expect(screen.getByText(t("en-US", "assetLibraryDangling"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "assetLibraryBlocked"))).toBeNull();
+    expect(rowFor("a1").querySelector("[data-dangling-marker]")).not.toBeNull();
+    expect(rowFor("a1").querySelector("[data-blocked-marker]")).toBeNull();
+  });
+
+  // ★★★ THE TWO MARKERS MUST NOT SHARE A GLYPH, AND NOTHING ELSE PINS THIS.
+  //     They share a COLOUR deliberately — colour is never the discriminator
+  //     (WCAG 1.4.1) — which leaves SHAPE as the only channel a sighted user
+  //     has for telling a refused format from missing bytes. Give both the same
+  //     triangle and the library reproduces, one pane over, the very
+  //     can't-tell-these-apart defect §230 was filed for; the first cut of this
+  //     row did exactly that, and both states still read identically without
+  //     hovering. Compared by RENDERED SVG CONTENT, not by class or component
+  //     name: `icons.ts` re-exports lucide under the old heroicons names and
+  //     lucide prepends its own `lucide-*` classes, so a rename or a re-alias
+  //     must not be able to make this vacuous.
+  it("draws a different glyph for a blocked row than for a dangling one", () => {
+    const stale = [{ ...assets[0], name: "old.svg", mime: "image/svg+xml" }];
+    const first = render(<AssetLibrary {...base} assets={stale} danglingIds={new Set<string>()} />);
+    const blockedGlyph = rowFor("a1").querySelector("[data-blocked-marker] svg")?.innerHTML;
+    first.unmount();
+    render(<AssetLibrary {...base} assets={[{ ...assets[0] }]} danglingIds={new Set(["a1"])} />);
+    const danglingGlyph = rowFor("a1").querySelector("[data-dangling-marker] svg")?.innerHTML;
+    // Both must actually be present — otherwise `undefined !== undefined` is
+    // false and the comparison below would "pass" on two missing markers.
+    expect(blockedGlyph).toBeTruthy();
+    expect(danglingGlyph).toBeTruthy();
+    expect(blockedGlyph).not.toBe(danglingGlyph);
+  });
+
   it("renders no insert control when no insert handler is supplied", () => {
     render(<AssetLibrary {...base} onInsert={undefined} />);
     expect(screen.queryByRole("button", { name: /insert/i })).toBeNull();

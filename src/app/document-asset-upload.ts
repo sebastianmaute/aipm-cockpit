@@ -35,6 +35,23 @@ export function isAllowedAssetMime(mime: string | undefined): boolean {
   return mime !== undefined && (ASSET_MIME_ALLOWED as readonly string[]).includes(mime);
 }
 
+/** §230/§225 — the ONE spelling of "this STORED mime is refused".
+ *
+ *  ★★★ TRUTHY, NOT `mime !== undefined`, AND THE DIFFERENCE BREAKS WORKING
+ *  IMAGES. `sanitizeDocumentAsset` requires only an `id` and runs its mime
+ *  through `sanitizeText`, which returns "" for anything non-string — so a
+ *  missing, blank or non-string mime SURVIVES sanitising as "" on every load
+ *  path, and such an asset has always rendered by content-sniffing.
+ *  `isAllowedAssetMime("")` is false, so the stricter spelling would refuse an
+ *  image the user can see working. §225 exists to stop exactly that tightening;
+ *  read it before touching this line.
+ *
+ *  Exported so `document-asset-images.ts` (which declines the render) and
+ *  `asset-library.tsx` (which discloses it on the row) cannot drift apart. */
+export function isBlockedAssetMime(mime: string | undefined): boolean {
+  return !!mime && !isAllowedAssetMime(mime);
+}
+
 /** Bounds what is read into memory at all, before any decode. */
 export const ASSET_RAW_MAX_BYTES = 25 * 1024 * 1024;
 

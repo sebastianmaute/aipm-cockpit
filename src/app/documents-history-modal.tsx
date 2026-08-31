@@ -34,6 +34,7 @@ import { RESTORED_MARKER_OP, type DocVersion, type DocVersionOp } from "./docume
 import { renderDocumentHtml } from "./doc-render-html";
 import { attachAssetImages } from "./document-asset-images";
 import { loadAssetData } from "./document-assets-store";
+import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 import {
   subscribeAssetRepairs, getAssetRepairGeneration, getServerAssetRepairGeneration,
 } from "./document-asset-repairs";
@@ -255,7 +256,37 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws, assetAccess }
   // Pinned by "does not re-fetch the bytes when the caller hands it a fresh bag
   // object", which counts loader calls across an unrelated re-render.
   const assetTursoConfig = assetAccess?.tursoConfig ?? null;
-  const assetProjectId = assetAccess?.projectId;
+  // ★★★ `""` IS NORMALISED, AND THAT HALF IS THE OBSERVABLE ONE. A blank id
+  // must fold to `ASSET_PARTITION_FALLBACK`, because that is the partition the
+  // bytes were WRITTEN under: `workspace-panels.tsx` normalises with the same
+  // `||` on the write side, and TWO sibling readers —
+  // `document-edit-mode.tsx` and `documents-asset-section.tsx` — do the same.
+  // ★★ `document-preview.tsx` IS NOT A THIRD, and counting it as one inverts
+  // the point this comment makes. It takes a DEFAULT PARAMETER
+  // (`projectId = ASSET_PARTITION_FALLBACK`), which fires only for `undefined`
+  // and passes `""` straight through — precisely the shape the paragraph below
+  // says buys nothing. It is safe because its ONLY caller normalises first
+  // (`document-edit-mode.tsx` renders it with
+  // `projectId={assetsProjectId || ASSET_PARTITION_FALLBACK}`), NOT because it
+  // defends itself. Reading `""` back queries
+  // `project_id = ""`, matches nothing, and stamps EVERY image in the preview
+  // `data-asset-missing` — telling the reader their bytes are gone when they
+  // are sitting one partition over. Pinned by "normalises a blank project id to
+  // the asset partition fallback"; a bare read of the field kills it.
+  //
+  // ★★ THE `undefined` ARM IS DEFENCE-IN-DEPTH, NOT A LOAD-BEARING BRANCH, and
+  // saying otherwise here would be a false coverage claim. It keeps the
+  // `assetProjectId === undefined` guard below reachable for a bagless render —
+  // but a bagless render ALSO has a null `assetTursoConfig`, so the very next
+  // guard bails on its own and the loader is unreachable either way. Measured
+  // by mutation, not reasoned: dropping this arm so every render normalises
+  // fails NO test in `documents-history-modal.test.tsx` (27/27 still pass).
+  // Keep it — it costs nothing and stops a bagless render from ever depending
+  // on a second guard for its correctness — but do not cite it as protection.
+  //
+  // ★ `||` not `??`: `""` is a supplied value, so `??` passes it straight
+  // through and buys nothing.
+  const assetProjectId = assetAccess ? assetAccess.projectId || ASSET_PARTITION_FALLBACK : undefined;
   const assetList = assetAccess?.assets;
 
   // ★★★ THE ONE SIGNAL NO PROP CARRIES, exactly as in `document-preview.tsx`: a
