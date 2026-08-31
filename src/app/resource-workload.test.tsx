@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS } from "./resource-workload";
 import { ConfirmProvider } from "./confirm-dialog";
 import { t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { Resource, Task } from "./types";
 
 const r: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
@@ -160,5 +161,51 @@ describe("ResourceWorkload", () => {
     // Jira owns synced tasks — local reassign/reschedule would be reverted, so both are disabled.
     expect(screen.getByLabelText(/Owner – Fix bug/i)).toBeDisabled();
     expect(screen.getByLabelText(/Due – Fix bug/i)).toBeDisabled();
+  });
+
+  // WCAG 2.4.6 — every unlinked row renders an "Add as resource" button whose
+  // accessible name came from its CONTENT alone, so N unlinked assignees
+  // announced one name (open-followups §276). The row's identity sits in a
+  // SIBLING <span>, outside the button, so nothing disambiguated it.
+  //
+  // ★★ `requireCollisionSeed` is deliberately OFF, and it is not merely
+  // unnecessary here — it would throw. `row.display` is structurally unique
+  // within the rendered list: `buildResourceWorkload` accumulates unlinked rows
+  // into a Map keyed on `display.toLowerCase()`, so two rows cannot carry the
+  // same display name (not even in different case), and the " (N)" occurrence
+  // suffix the guard looks for can never be emitted on this surface. A plain
+  // qualifier is therefore sufficient, and `buildRowTokens` would be dead code.
+  //
+  // ★ The fixture is still collision-BEARING for the defect under test: before
+  // the fix BOTH buttons are named exactly "Add as resource".
+  //
+  // ★★★ THE SHIFT FIXTURE IS LOAD-BEARING AND IS **NOT** PART OF THE DEFECT
+  // UNDER TEST. Every row — managed and unlinked alike — renders a weekly-hours
+  // button whose accessible name is its CONTENT, i.e. the bare hours number, so
+  // any two rows on the same contracted hours share the name "40". That is a
+  // REAL, still-open 2.4.6 collision of its own, outside the §276 site list and
+  // deliberately NOT fixed here: qualifying it is not mechanical, because WCAG
+  // 2.5.3 requires the visible "40" to survive inside whatever name replaces it.
+  // The assertion below is whole-document (the shared helper's default) and no
+  // DOM container holds the unlinked rows alone — they are sibling <tr>s with no
+  // wrapper — so it cannot be narrowed around that collision. Giving the two
+  // unlinked people distinct part-time shifts makes the three hours buttons
+  // genuinely distinct instead, which isolates this test to the add-as-resource
+  // control. If the hours button is ever qualified, these shifts can go.
+  it("gives every unlinked row's add-as-resource button a row-unique name (§276)", () => {
+    const unlinkedTasks = [
+      { id: 41, taskName: "Draft SOW", assignee: "Alice Smith", dueDate: "2026-07-01" },
+      { id: 42, taskName: "Review SOW", assignee: "Bob Jones", dueDate: "2026-07-02" },
+    ] as unknown as Task[];
+    const partTime = [
+      { id: 1, assignee: "Alice Smith", hoursPerWeekday: [8, 8, 8, 8, 0, 0, 0] },
+      { id: 2, assignee: "Bob Jones", hoursPerWeekday: [8, 8, 8, 0, 0, 0, 0] },
+    ] as unknown as React.ComponentProps<typeof ResourceWorkload>["shifts"];
+    render(<ResourceWorkload {...baseProps} tasks={unlinkedTasks} shifts={partTime} />);
+    // Both unlinked rows reached the table — otherwise the assertion below is
+    // about a list that never rendered.
+    expect(screen.getByText("Alice Smith")).toBeInTheDocument();
+    expect(screen.getByText("Bob Jones")).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 6 });
   });
 });

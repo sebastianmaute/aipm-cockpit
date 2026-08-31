@@ -8,6 +8,7 @@ import { applyTier } from "./field-visibility";
 import type { FieldTier } from "./modal-fields";
 import { t } from "./i18n";
 import { fieldTierTrigger, selectFieldTier } from "../test/field-tier";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { BudgetBucket, Role, Task } from "./types";
 
 // The planning-mode data-loss warning now routes through the branded
@@ -90,12 +91,18 @@ const tasks: Task[] = [
 
 function setup(
   over: Partial<React.ComponentProps<typeof BudgetBucketModal>> = {},
+  // ★ Defaults to Full so every field (incl. the Full-only rate overrides)
+  // renders, exactly as before. "advanced" still renders the allocation blocks
+  // (`planningDetail` is an advanced-tier field) while dropping the two
+  // rate-override InfoTooltips — see the §276 describe block for why that
+  // matters there.
+  tier: FieldTier = "full",
 ) {
   const onSave = vi.fn();
   const result = render(
     <>
       {/* Seed Full so every field (incl. Full-only rate overrides + planning) renders. */}
-      <Seed tier="full" />
+      <Seed tier={tier} />
       <BudgetBucketModal
         lang="en-US"
         bucket={baseBucket}
@@ -476,5 +483,73 @@ describe("BudgetBucketModal field-visibility control", () => {
     const trigger = fieldTierTrigger("en-US");
     // PLACEMENT, not presence — see edit-modal-chrome.test.tsx.
     expect(trigger.closest("header")).not.toBeNull();
+  });
+});
+
+// WCAG 2.4.6 — both allocation lists render a per-row remove control whose name
+// was a bare constant, so N rows announced one name (open-followups §276).
+//
+// ★★ BOTH fixtures seed a REAL display-name collision, which is the only way
+// these assertions can fail against the unfixed code: a fixture of distinct
+// role/discipline labels passes whether or not the qualifier is present, because
+// the qualifier is what makes the names differ at all. Hence
+// `requireCollisionSeed: true` on both — the qualifier here is `buildRowTokens`,
+// which emits the " (N)" occurrence suffix the guard looks for.
+//
+// ★ The collisions are reachable, not contrived. A rate card may hold two roles
+// on the SAME (discipline, grade) pair — `roleLabel` renders only those two
+// names, never the role id — and discipline names are free text with no
+// uniqueness constraint anywhere in `sanitize.ts`.
+//
+// ★★ SEEDED AT THE **ADVANCED** TIER, NOT FULL, AND THAT IS LOAD-BEARING RATHER
+// THAN A STYLE CHOICE. The scope is the whole document (the shared helper's
+// default), and at the Full tier this modal renders a CONFIRMED unrelated
+// collision: the internal and external rate-override fields each mount an
+// `InfoTooltip` on the SAME `budgetRateOverrideHint` string, so two tooltip
+// triggers share one accessible name. That is a genuine 2.4.6 defect of its own
+// — reported, NOT fixed here, since it is outside the §276 site list and
+// qualifying it needs a string this branch may not add. Dropping the tier to
+// "advanced" keeps `planningDetail` (an advanced-tier field, so both allocation
+// blocks still render) while leaving the Full-only `rateOverrides` group out,
+// which is why this assertion can stay unnarrowed. If the tooltip collision is
+// ever closed, raising this back to "full" is safe and strictly stronger.
+describe("BudgetBucketModal — row-unique control names (§276)", () => {
+  test("keeps every control distinct when two role allocations share a role label", () => {
+    setup({
+      bucket: {
+        ...baseBucket,
+        allocations: [
+          { roleId: 3, resourceIds: [], budgetHours: {}, actualHours: {} },
+          { roleId: 5, resourceIds: [], budgetHours: {}, actualHours: {} },
+        ],
+      },
+      // Two DISTINCT roles resolving to the same "Consulting Junior" label.
+      roles: [
+        { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+        { id: 5, disciplineId: 1, gradeId: 1, internalRate: 110, externalRate: 160 },
+      ],
+      disciplines: [{ id: 1, name: "Consulting" }],
+      grades: [{ id: 1, name: "Junior" }],
+    }, "advanced");
+    expectRowUniqueNames({ minControls: 13, requireCollisionSeed: true });
+  });
+
+  test("keeps every control distinct when two discipline allocations share a name", () => {
+    setup({
+      bucket: {
+        ...baseBucket,
+        planningMode: "blended",
+        disciplineAllocations: [
+          { disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} },
+          { disciplineId: 2, resourceIds: [], budgetHours: {}, actualHours: {} },
+        ],
+      },
+      // Two DISTINCT disciplines that happen to carry the same free-text name.
+      disciplines: [
+        { id: 1, name: "Consulting" },
+        { id: 2, name: "Consulting" },
+      ],
+    }, "advanced");
+    expectRowUniqueNames({ minControls: 13, requireCollisionSeed: true });
   });
 });

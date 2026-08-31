@@ -10,6 +10,7 @@ import { INNER_TABLE_CLASS } from "./view-styles";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
+import { rowLabel } from "./row-tokens";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { WorkloadOverdueTriage } from "./resource-workload-triage";
 import { DataTable } from "./data-table";
@@ -321,6 +322,18 @@ export function ResourceWorkload({
                           email: row.email || undefined,
                         })
                       }
+                      // WCAG 2.4.6 (open-followups §276) — this button's name
+                      // came from its CONTENT alone, so every unlinked row
+                      // announced the same "Add as resource"; the row's identity
+                      // sits in the SIBLING span, outside the button.
+                      // ★★ A PLAIN QUALIFIER, NOT `buildRowTokens`:
+                      // `buildResourceWorkload` accumulates unlinked rows into a
+                      // Map keyed on `display.toLowerCase()`, so `row.display`
+                      // cannot repeat in this list — not even in a different
+                      // case — and an occurrence index would have nothing to
+                      // count. The sibling clear-unlinked control qualifies with
+                      // the same value for the same reason.
+                      aria-label={rowLabel(t(lang, "resourcesAddAsResource"), row.display)}
                       className={`ml-2 rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-normal text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >
                       {t(lang, "resourcesAddAsResource")}
