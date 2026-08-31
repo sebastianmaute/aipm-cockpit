@@ -24,9 +24,10 @@ longer carries its own changelog comment.
   buttons**, on both the projects panel and its empty state — so a screen reader had no way to tell
   which archived project a given button acted on. Each control's name now includes the project it
   belongs to.
-- **In report views, one column header could label several columns at once** where two tables were
-  rendered side by side and happened to share a column name. Shared column headers are now
-  disambiguated so each one names only its own table.
+- **In report views, one column header could label several columns at once** where a single view
+  showed several tables that happened to share a column name. Shared column headers are now
+  disambiguated so each one names only its own table, and the same applies to the Resources
+  report's three group filters, whose search boxes and clear buttons all announced one name.
 - **Timelog sync could report "idle" while a sync was still running.** If you started a fresh sync
   before an earlier one had finished, the earlier one finishing switched the indicator back to
   idle — so the sync still working looked done. A superseded run's completion no longer overwrites
@@ -41,8 +42,9 @@ longer carries its own changelog comment.
   three insights one after another, so leaving part-way through could leave a call in flight and
   more still queued behind it. Navigating away now cancels the call in flight and abandons the rest
   of the pass.
-- **Note logs exported into documents as a raw block of JSON** instead of the readable text you see
-  in the app. Exported note logs now render the same way they do on screen.
+- **Note logs exported into documents as a raw block of JSON** instead of readable text. Each entry
+  now exports as one plain `author · date · text` line, with an ISO date rather than the localised
+  timestamp the app shows on screen.
 
 ## [0.267.0] - 2026-08-30 "Nagamatsu"
 

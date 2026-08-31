@@ -2040,8 +2040,9 @@ data sections and is imported by `doc-render-html.ts`, `doc-render-docx.ts` and 
 ★★ **NO SURFACE COUNT IS QUOTED HERE, AND RESTORING ONE IS A REGRESSION.** This said "five surfaces",
 which counted the export formats PER FORMAT but a document's embedded data ONCE, despite that half having
 three renderers of its own — the same population comes to 7 counted per renderer and 2 counted per data
-path. Nothing downstream depends on the number. Enumerate instead:
-`grep -rn "buildExportSections" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`.
+path. Nothing downstream depends on the number. The prose enumeration above IS the enumeration; a bare
+`buildExportSections` grep is NOT a substitute for it, because most of what it returns is comments and
+the definition rather than the surfaces this paragraph is about.
 ★ Fixed by `projectNoteLog` (`export-sections.ts`), called from the tasks/RAID/changes section builders in
 place of the raw field: one `author · date · text` line per entry, read directly off the entity's own
 `noteLog` array (no `encodeNoteLog`/`decodeNoteLog` round trip, so no DOM dependency). Because both
@@ -6017,9 +6018,9 @@ always-visible list with no per-row toggle, folded into `src/app/settings-sectio
 by that rename and is still live: `ai-section.tsx`'s own "AI Assistant" and "Operating guides"
 sub-section titles are styled elements, not headings:
 
-- **FIXED 2026-08-31.** `{t(lang, "aiAssistant")}` now renders inside a `<p id={aiHeadingId}>`, and the
+- **FIXED 2026-08-31.** `{t(lang, "aiAssistant")}` now carries `id={aiHeadingId}`, and the
   wrapping `<div>` carries `role="group" aria-labelledby={aiHeadingId}` — the tooltip trigger sits
-  BESIDE the `<p>`, not inside it, so its own name cannot fold into the group's. Not a real heading
+  BESIDE the labelling element, not inside it, so its own name cannot fold into the group's. Not a real heading
   (still no outline position — that trade-off is deliberate, see below), but a screen-reader user
   navigating by group/landmark now gets a stop where before there was none. Grep the id in
   `ai-section.tsx`.
@@ -9282,7 +9283,7 @@ retry exists (the scheduled-job runner calls `runJobAnalysis` directly, not this
 in the code says defence-in-depth in those words rather than claiming a live bug — do not quote this
 entry as evidence of a shipped defect there.
 
-★ **One instance of the ADJACENT class is still open: `use-timelog-sync.ts`. It is filed as §128.**
+★ **One instance of the ADJACENT class was `use-timelog-sync.ts`, filed as §128 and since fixed.**
 It was first written here as a bullet, which was wrong — a live defect recorded inside a CLOSED
 entry, with no number and no index row, is a defect nobody will read again. Closed entries are the
 ones that stop being re-read.
@@ -9373,14 +9374,11 @@ sweeps in §121 or §127 to surface it. Reproduce the census with:
 grep -rn "=== controller" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."
 ```
 
-Measured 2026-08-09 and re-run 2026-08-25: **three** non-test SITES (`use-abortable-ai.ts`,
-`use-action-analysis.ts`, `use-timelog-sync.ts`), of which this is still the only one whose
-`setBusy` sits outside the guard — verified by reading the `finally` block, not just the census.
-★ The grep also returns COMMENT lines in `use-action-analysis.ts` that document this very outlier, so
-count SITES, not lines: the raw line count is **6**, of which 2 are those comments. (This bullet said
-"three COMMENT lines" and there are two — the count moved with an unrelated edit to that comment
-block; the instruction it supports is unaffected, which is exactly why the instruction, not the
-number, is the durable part.)
+★ The grep returns COMMENT lines as well as guards, so count SITES, not lines. ★★ NO COUNT IS
+QUOTED HERE, deliberately, and restoring one is a regression: two successive revisions of this
+paragraph stated a site count and a line count, and BOTH were falsified — the second by a commit on
+the very branch that closed this entry, which added a fourth matching file and a third comment line
+while correcting the numbers a few lines away. The reproduce command is the durable part; run it.
 
 ★ Fixed 2026-08-31 by moving `setBusy(false)` inside the existing `if`, pinned by a test that
 supersedes a run and asserts the flag survives — the same shape that proved the other two.
