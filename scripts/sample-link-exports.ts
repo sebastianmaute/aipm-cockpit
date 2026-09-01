@@ -36,8 +36,12 @@
 // ★★ WHAT THE HYPERLINK ASSERTION ACTUALLY BUYS is a positive observable: it
 // fails if the FIXTURE stops carrying links or a SINK stops emitting them. It
 // is demonstrably not vacuous — during development it went red for real, on
-// `workspace-exporter.pptx` (0 occurrences), which is how the flat-sink
-// distinction below was found.
+// `workspace-exporter.pptx` (0 occurrences). ★ That red was READ WRONG at the
+// time: it was taken as proof the workspace .pptx was flat BY DESIGN, and a
+// `sink: "flat"` expectation was written to match it. The exporter simply had
+// not been wired yet. A genuine failure was turned into a pinned requirement,
+// and it later refused to write the very file the fix had corrected — so treat
+// a red here as a QUESTION about the sink, never as a specification of it.
 //
 // ★★ `Blob` IS DELIBERATELY NOT TAKEN FROM jsdom. jsdom's Blob shim has no
 // `.arrayBuffer()` and Node cannot wrap one as a BlobPart, so installing it
@@ -179,7 +183,7 @@ const TABLE_ROWS: string[][] = [
  *  cycle. `cellTextWithLinks` falls back to `cell.text` when it finds no SAFE
  *  link — so the misclassified inert row printed
  *  `Inert: <a href="…">not a link</a>.` onto a slide, address and all. It read
- *  exactly like a sanitiser hole in the flat sink; it is neither, and the
+ *  exactly like a sanitiser hole in the .pptx path; it is neither, and the
  *  DOCX renderer was clean on the identical fixture, which is precisely the
  *  kind of split that sends someone hunting in the wrong file. Wrapping the
  *  value the way the rich-text editor actually stores it makes both renderers
@@ -334,40 +338,47 @@ async function main(): Promise<void> {
 
   // --- Build ---------------------------------------------------------------
   //
-  // ★★★ `sink` IS NOT COSMETIC — IT IS THE EXPECTED BEHAVIOUR, AND GETTING IT
-  // WRONG INVENTS A DEFECT. `export-pptx.ts` is a FLAT sink by design: it
-  // projects a linked cell through `cellTextWithLinks` as `text (url)` and
-  // emits NO `<a:hlinkClick>` and no external relationship at all. A first cut
-  // of this script demanded real link elements from all four and reported
-  // three failures against correct code. `doc-render-pptx.ts` is the awkward
-  // one and needs BOTH: real `<a:hlinkClick>` on its text-body lines, and the
-  // flat `text (url)` projection in its table cells.
+  // ★★★ ALL FOUR ARTIFACTS ARE REAL SINKS AS OF THE §330 SCOPE FIX, and this
+  // block used to say the opposite. It carried a `sink: "flat"` discriminator
+  // and asserted that `export-pptx.ts` emits NO `<a:hlinkClick>` and no
+  // external relationship "by design" — which was true when written and became
+  // a REQUIREMENT PINNING THE OLD BEHAVIOUR the moment the workspace exporter
+  // learned to mint per-slide relationships. It failed the regenerate that was
+  // meant to hand a human the fixed file, and refused to write it.
+  //
+  // ★★ The flat `text (url)` projection is NOT gone — `doc-render-pptx.ts`
+  // still uses it for TABLE cells, because that path flattens a row to one
+  // line and no per-word run survives (open-followups §330). It is simply no
+  // longer any ARTIFACT'S whole-package contract, so there is nothing left for
+  // a per-artifact flag to discriminate. Its unit witnesses live in
+  // `export-ooxml.test.ts` and `doc-render-pptx.test.ts`.
+  //
+  // ★ Historical note worth keeping: a first cut of this script demanded real
+  // link elements from all four and reported three failures against correct
+  // code. That was a genuine false alarm THEN. Re-adding a flat expectation
+  // now would be the mirror mistake.
   const artifacts = [
     {
       file: "document-renderer.docx",
       kind: "docx" as const,
-      sink: "real" as const,
       media: true,
       blob: renderDocumentDocx(doc, ws, "en-US", assets),
     },
     {
       file: "document-renderer.pptx",
       kind: "pptx" as const,
-      sink: "real" as const,
       media: true,
       blob: renderDocumentPptx(doc, ws, "en-US", assets),
     },
     {
       file: "workspace-exporter.docx",
       kind: "docx" as const,
-      sink: "real" as const,
       media: false,
       blob: buildDocx(sections),
     },
     {
       file: "workspace-exporter.pptx",
       kind: "pptx" as const,
-      sink: "flat" as const,
       media: false,
       blob: buildPptx(sections, "en-US"),
     },
@@ -387,51 +398,38 @@ async function main(): Promise<void> {
       [...x.matchAll(/<Relationship\b[^>]*TargetMode="External"[^>]*>/g)].map(() => p),
     );
 
-    if (artifact.sink === "real") {
-      // 1. The rich parse actually produced link machinery. ★ NOT a no-DOM
-      //    guard — a missing DOM throws long before this runs (see the header).
-      //    It catches a fixture that stopped carrying links, or a sink that
-      //    stopped emitting them.
-      checks.push({
-        label: `${linkTag} present`,
-        ok: linkTags > 0,
-        detail: `${linkTags} occurrence(s)`,
-      });
-      checks.push({
-        label: 'TargetMode="External" relationship',
-        ok: external.length > 0,
-        detail: `${external.length} across ${new Set(external).size} rels part(s)`,
-      });
-      // 2. The repeated target is ONE relationship per relationship SCOPE.
-      //    ★★ A docx has one scope (word/_rels/document.xml.rels); a pptx has
-      //    one PER SLIDE, so "1 per rels part" is the right invariant for both
-      //    and a bare package-wide count would flag correct pptx output.
-      const perPart = relParts
-        .map(([p, x]) => ({ p, n: countOccurrences(x, `Target="${HANDBOOK}"`) }))
-        .filter((e) => e.n > 0);
-      checks.push({
-        label: "repeated target = exactly ONE relationship per rels part",
-        ok: perPart.length > 0 && perPart.every((e) => e.n === 1),
-        detail: perPart.length === 0
-          ? "target absent"
-          : perPart.map((e) => `${e.p}:${e.n}`).join(", "),
-      });
-    } else {
-      // A flat sink must emit NO link machinery, and must instead carry the
-      // address inline. Asserting the ABSENCE alone would pass against a sink
-      // that dropped the address entirely — which is the §119 defect itself —
-      // so the inline projection is asserted in the same breath.
-      checks.push({
-        label: `flat sink emits no ${linkTag} and no external relationship`,
-        ok: linkTags === 0 && external.length === 0,
-        detail: `${linkTags} link tag(s), ${external.length} external rel(s)`,
-      });
-      checks.push({
-        label: "flat sink carries the address inline as `text (url)`",
-        ok: all.includes(`delivery handbook (${HANDBOOK})`),
-        detail: all.includes(`delivery handbook (${HANDBOOK})`) ? "found" : "MISSING",
-      });
-    }
+    // 1. The rich parse actually produced link machinery. ★ NOT a no-DOM
+    //    guard — a missing DOM throws long before this runs (see the header).
+    //    It catches a fixture that stopped carrying links, or a sink that
+    //    stopped emitting them.
+    checks.push({
+      label: `${linkTag} present`,
+      ok: linkTags > 0,
+      detail: `${linkTags} occurrence(s)`,
+    });
+    checks.push({
+      label: 'TargetMode="External" relationship',
+      ok: external.length > 0,
+      detail: `${external.length} across ${new Set(external).size} rels part(s)`,
+    });
+    // 2. The repeated target is ONE relationship per relationship SCOPE.
+    //    ★★ A docx has one scope (word/_rels/document.xml.rels); a pptx has
+    //    one PER SLIDE, so "1 per rels part" is the right invariant for both
+    //    and a bare package-wide count would flag correct pptx output.
+    //    ★★ For the workspace .pptx that scope is now one rels part PER ROW
+    //    SLIDE, each minting from its own sink at rId2 — so the same target
+    //    appearing once in each of several parts is CORRECT here, and a
+    //    package-wide "exactly one" would report a defect that is not there.
+    const perPart = relParts
+      .map(([p, x]) => ({ p, n: countOccurrences(x, `Target="${HANDBOOK}"`) }))
+      .filter((e) => e.n > 0);
+    checks.push({
+      label: "repeated target = exactly ONE relationship per rels part",
+      ok: perPart.length > 0 && perPart.every((e) => e.n === 1),
+      detail: perPart.length === 0
+        ? "target absent"
+        : perPart.map((e) => `${e.p}:${e.n}`).join(", "),
+    });
 
     // 3. The forbidden scheme appears NOWHERE — every part, not just the rels.
     const leaks = [...text].filter(([, x]) => x.includes(INERT_SCHEME));
@@ -444,9 +442,11 @@ async function main(): Promise<void> {
     });
 
     // 4. A URL that is its OWN link text must not be doubled. Applies to all
-    //    four: the flat sinks are where `text (url)` could produce
-    //    "https://x (https://x)", and the real sinks are checked too so a
-    //    future change that routed them through the flat projection is caught.
+    //    four. ★ The doubling it guards against is `cellTextWithLinks`'
+    //    `text (url)` form, which no longer governs any whole artifact — but
+    //    `doc-render-pptx.ts` still uses that projection for TABLE cells
+    //    (open-followups §330), and any future change routing a package back
+    //    through it would reintroduce the risk. Keep the check on all four.
     const doubled = `${STATUS_URL} (${STATUS_URL})`;
     checks.push({
       label: "URL used as its own link text is NOT doubled",
