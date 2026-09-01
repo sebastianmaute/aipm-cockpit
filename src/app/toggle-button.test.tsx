@@ -199,4 +199,44 @@ describe("ToggleButton", () => {
     expect(btn.className).toContain("border-[var(--control-state-border-pink)]");
     expect(btn.className).not.toContain("border-ui-pink ");
   });
+
+  // ★★ BOTH branches are pinned deliberately. `size` defaults to "chip", and a
+  //    default that silently drifted to the card geometry would move every
+  //    toolbar toggle in the app while a card-only assertion stayed green.
+  it("defaults to the chip geometry", () => {
+    render(<ToggleButton pressed={false} onToggle={() => {}}>Chip</ToggleButton>);
+    const cls = screen.getByRole("button", { name: "Chip" }).className;
+    expect(cls).toContain("px-2.5");
+    expect(cls).toContain("py-1.5");
+    expect(cls).toContain("text-xs");
+    expect(cls).toContain("items-center");
+  });
+
+  it("size=card renders the roomier full-width option-card geometry", () => {
+    render(
+      <ToggleButton pressed={false} onToggle={() => {}} size="card">Card</ToggleButton>,
+    );
+    const cls = screen.getByRole("button", { name: "Card" }).className;
+    expect(cls).toContain("px-3");
+    expect(cls).toContain("py-2");
+    expect(cls).toContain("text-sm");
+    expect(cls).toContain("items-start");
+    expect(cls).not.toContain("px-2.5");
+    expect(cls).not.toContain("text-xs");
+    expect(cls).not.toContain("items-center");
+  });
+
+  // ★★ The card variant exists so a call site never reaches INTO the primitive.
+  //    The wizard used to carry `[&>span]:w-full` to stretch this wrapper; if
+  //    the primitive stops doing it, that hack comes back.
+  it("size=card makes the children wrapper full-width, the default does not", () => {
+    const { container, rerender } = render(
+      <ToggleButton pressed={false} onToggle={() => {}} size="card">Card</ToggleButton>,
+    );
+    const wrapper = () => container.querySelector("button > span") as HTMLElement;
+    expect(wrapper().className).toContain("w-full");
+
+    rerender(<ToggleButton pressed={false} onToggle={() => {}}>Card</ToggleButton>);
+    expect(wrapper().className).not.toContain("w-full");
+  });
 });

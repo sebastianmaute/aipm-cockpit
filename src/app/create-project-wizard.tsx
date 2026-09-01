@@ -52,14 +52,17 @@ type CreateFormat = "json" | "csv" | "md";
 // (open-followups §55 — the old green selected border measured 1.53-1.88:1
 // against the unselected `border-line` in all four LIGHT schemes, so selection
 // now also carries the primitive's non-colour marker).
-// ★★ `[&>span]:w-full` reaches the wrapper span `ToggleButton` puts around its
-//    children. Without it that span is a fit-content flex item, so the template
-//    card's inner `justify-between` header row cannot stretch and its badges
-//    collapse against the title instead of sitting at the card's right edge.
-//    The only other direct-span child a `ToggleButton` can have is an `icon`,
-//    which these cards do not pass; the marker is an `<svg>`, so it is
-//    unaffected. jsdom has no layout — nothing in the unit suite can see this.
-const TEMPLATE_CARD_CLASS = "w-full justify-start text-left [&>span]:w-full";
+// ★★ These are full-width, multi-line OPTION cards — a title, a badge row, a
+//    description, a seed count — not toolbar chips, so they take the
+//    primitive's `size="card"` geometry (items-start px-3 py-2 text-sm) rather
+//    than restyling it from here. That size also stretches the children wrapper
+//    inside the primitive, which is what lets the inner `justify-between`
+//    header row push its badges to the card's right edge; this const used to
+//    carry a `[&>span]:w-full` reaching into `ToggleButton`'s own markup to do
+//    it. Only the outer box (full width, left-aligned content) is a call-site
+//    concern and stays here. jsdom has no layout — nothing in the unit suite
+//    can see any of it.
+const TEMPLATE_CARD_CLASS = "w-full justify-start text-left";
 
 const MODE_LABEL_KEY = {
   simple: "modeSimple",
@@ -319,6 +322,7 @@ export function CreateProjectWizard({
               <ToggleButton
                 pressed={selectedTemplate === null}
                 onToggle={() => chooseTemplate(null)}
+                size="card"
                 className={TEMPLATE_CARD_CLASS}
                 lang={lang}
               >
@@ -344,6 +348,7 @@ export function CreateProjectWizard({
                     key={tpl.id}
                     pressed={selected}
                     onToggle={() => chooseTemplate(tpl)}
+                    size="card"
                     className={TEMPLATE_CARD_CLASS}
                     lang={lang}
                   >

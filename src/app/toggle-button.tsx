@@ -24,6 +24,15 @@ import { type Lang, t } from "./i18n";
 // inline is on. Do not pass a label that flips to the opposite action.
 export type ToggleAccent = "dark-blue" | "pink";
 
+// Geometry family. "chip" is the toolbar look every consumer started with;
+// "card" is a full-width, multi-line OPTION card (a title, a description, a
+// badge row) — the create-project wizard's Step-2 templates.
+// ★★ The card variant lives HERE rather than at the call site because the call
+//    site's only way to stretch the children wrapper was `[&>span]:w-full`,
+//    i.e. reaching into this component's internal markup. A primitive whose
+//    consumers have to know its DOM is not a primitive.
+export type ToggleSize = "chip" | "card";
+
 // ★★ `disabled` was accepted by this component from the start but styled NOTHING
 //    — no call site had ever passed it, so an inoperable toggle was pixel-identical
 //    to a live one. The first real consumer is the Settings auto-sync row, which is
@@ -31,7 +40,16 @@ export type ToggleAccent = "dark-blue" | "pink";
 //    WCAG 1.4.3 exempts inactive components from contrast, which is NOT true of the
 //    enabled-state alpha traps recorded in AGENTS.md — don't generalise it.
 const BASE =
-  "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex gap-1.5 rounded-md border focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60";
+
+// Geometry only — everything else about the two sizes is identical.
+// ★★ `font-medium` is deliberately CHIP-ONLY. On a card the weight belongs to
+//    the title span the call site already emits; spreading it over the whole
+//    control would bold the description paragraphs too.
+const SIZE: Record<ToggleSize, string> = {
+  chip: "items-center px-2.5 py-1.5 text-xs font-medium",
+  card: "items-start px-3 py-2 text-sm",
+};
 
 const UNPRESSED =
   "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-ui-green";
@@ -50,6 +68,10 @@ interface ToggleButtonProps {
   children: ReactNode;
   /** Pressed accent family; defaults to the app's dark-blue chrome accent. */
   accent?: ToggleAccent;
+  /** Geometry family — a toolbar chip (default) or a full-width, multi-line
+   *  option card. `card` also stretches the children wrapper, so no call site
+   *  has to reach into this component's markup to do it. */
+  size?: ToggleSize;
   /** Optional leading icon (aria-hidden svg), rendered before the label. */
   icon?: ReactNode;
   /** Overrides the accessible name when the visible label needs qualifying. */
@@ -94,6 +116,7 @@ export function ToggleButton({
   onToggle,
   children,
   accent = "dark-blue",
+  size = "chip",
   icon,
   ariaLabel,
   title,
@@ -144,10 +167,10 @@ export function ToggleButton({
       aria-describedby={ariaDescribedBy}
       title={fullTitle}
       disabled={disabled}
-      className={`${BASE} ${pressed ? PRESSED[accent] : UNPRESSED}${className ? ` ${className}` : ""}`}
+      className={`${BASE} ${SIZE[size]} ${pressed ? PRESSED[accent] : UNPRESSED}${className ? ` ${className}` : ""}`}
     >
       {icon}
-      <span>{children}</span>
+      <span className={size === "card" ? "w-full" : undefined}>{children}</span>
       {/* ★★ THE NON-COLOUR CUE (WCAG 1.4.1). Without it the ON state is carried
           by the accent border+tint ALONE, which a user who cannot distinguish
           those colours reads as an ordinary chip. `aria-pressed` already tells
