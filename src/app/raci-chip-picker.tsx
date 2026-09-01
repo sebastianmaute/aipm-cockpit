@@ -32,6 +32,43 @@ export const ROLE_LABEL_KEY: Record<RaciRole, Parameters<typeof t>[1]> = {
 const CHIP_BASE =
   "flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors focus:outline-none focus:ring-2 focus:ring-ui-green";
 
+// ★★★ SC 1.4.1 — the SELECTED chip is marked by a RING (a shape cue), never by
+// the brand fill alone. Measured against `--surface` across the seven built-in
+// scheme combos, the fill fails 1.4.11's 3:1 floor in the dark schemes: R is
+// 1.10-1.31:1 and I is 2.70-2.84:1, so the selected chip is indistinguishable
+// from an unselected one for EVERY user, not only users with a colour-vision
+// deficiency. A (5.30-8.80) and C (3.33-6.15) clear it everywhere and carry the
+// ring anyway — a picker where two chips have a cue and two do not is worse
+// than either consistent state.
+//
+// ★★★ THE RING IS A NEUTRAL, AND `ring-offset-2` IS LOAD-BEARING RATHER THAN
+// DECORATIVE — do NOT "simplify" it away. A ring in the chip's OWN role hue
+// would be exactly as invisible as the fill it supplements: R's token IS
+// `--ui-dark-blue`, the colour measuring 1.10:1. And no colour whatsoever can
+// rescue a no-offset design. A luminance scan over the whole 0..1 range puts
+// the best achievable min-ratio against {`--surface`, R, A, C, I} at 1.90-2.54
+// depending on the combo, so NOTHING clears 3:1 against the surface AND all
+// four fills — not any scheme token, not pure white, not pure black. That is
+// structural rather than incidental: `deriveAaVariants` derives
+// `--ui-green-strong` to a mid luminance that clears AA against the surface,
+// which is precisely the band leaving no room for a third colour. The offset is
+// what makes a neutral legitimate — it lays a 2px band of `--surface` between
+// the fill and the ring, so the ring is adjacent to `--surface` on BOTH sides
+// and never touches the fill, and `--foreground` is >= 5.94:1 against
+// `--surface` in all seven combos (13.64-17.16 in six of them).
+//
+// ★★ Applied at the four selectable chips and deliberately NOT folded into
+// `CHIP[role].on`: the collapsed trigger renders the current value with nothing
+// beside it to contrast against, and `RaciLegend` uses `.on` for all four at
+// once — ringing a static key would mark every entry as selected.
+//
+// ★ A `ToggleButton` migration was implemented and measured first, to gain that
+// primitive's non-colour `data-pressed-marker` glyph, and was REVERTED by user
+// decision: a 20px circle cannot hold a 14px marker plus its gap plus the
+// letter, so it forced the chips into ~48x26px stadium pills and grew this
+// unclamped popover by ~116px. The ring buys the same non-colour cue for ~16px.
+const SELECTED_RING = "ring-2 ring-[var(--foreground)] ring-offset-2 ring-offset-[var(--surface)]";
+
 export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPickerProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -93,10 +130,17 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
       </button>
       {open && pos && typeof document !== "undefined" &&
         createPortal(
+        // ★★ `gap-2`/`p-1.5` below are sized for SELECTED_RING, not chosen for
+        // looks. The ring extends 4px past the 20px chip (2px offset + 2px
+        // ring), so the former `gap-1`/`p-1` (4px each) left ZERO clearance —
+        // the ring landed exactly on the neighbouring chip's border and on this
+        // popover's own. Only one chip is ringed at a time, so 8px of gap gives
+        // 4px of clearance and 6px of padding gives 2px. Costs ~16px of popover
+        // width (three extra gaps + two padding edges).
         <span
           ref={popRef}
           style={{ top: pos.top, left: pos.left }}
-          className="fixed z-[100] flex w-max items-center gap-1 rounded-md border border-line bg-surface p-1 shadow-[var(--shadow-control)]"
+          className="fixed z-[100] flex w-max items-center gap-2 rounded-md border border-line bg-surface p-1.5 shadow-[var(--shadow-control)]"
         >
           {RACI_ROLES.map((role) => {
             const c = CHIP[role];
@@ -111,7 +155,7 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
                   pick(role);
                 }}
                 className={`${CHIP_BASE} ${
-                  value === role ? c.on : `bg-surface ${c.off} hover:bg-surface-muted`
+                  value === role ? `${c.on} ${SELECTED_RING}` : `bg-surface ${c.off} hover:bg-surface-muted`
                 }`}
               >
                 {role}
@@ -130,7 +174,10 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
           >
             {/* ★ NOT an `IconButton`. This is the 5th of five chips that must
                 render identically (R/A/C/I + clear), and `CHIP_BASE` pins them
-                to a 20px `rounded-full` box. `IconButton` hard-codes
+                to a 20px `rounded-full` box. Still true under SELECTED_RING: a
+                ring is a box-shadow, so it adds no layout and the five stay one
+                size — and it is correctly absent HERE, because clear is not a
+                role and is never the selected value. `IconButton` hard-codes
                 `rounded-md` + `p-1`; a caller `className` cannot reliably win
                 either, because Tailwind resolves conflicting utilities by
                 stylesheet source order, not class-attribute order — and `p-1`
