@@ -165,6 +165,22 @@ export function ResourceWorkload({
     () => buildRowTokens(managed.map((row) => ({ id: row.resource.id, name: row.display }))),
     [managed],
   );
+  // ★★★ THE UNLINKED TABLE TAKES A TOKEN TOO, and the premise this file used to
+  // carry — "`row.display` cannot repeat here, so a plain qualifier suffices" —
+  // is FALSE. `buildResourceWorkload` keys unlinked rows on
+  // `display.toLowerCase()`: a TRIM and a case-fold, but NOT a whitespace
+  // COLLAPSE. Accessible-name comparison DOES collapse internal runs (which is
+  // why `buildRowTokens` keys on `collapse(name)` and why the shared test
+  // harness collapses before comparing), so "Bob  Smith" and "Bob Smith" are
+  // TWO rows rendering ONE announced name — the exact vector the old comment
+  // denied.
+  // ★ Behaviour-neutral for every name that differs today: `buildRowTokens`
+  // emits a BARE token for a name unique within its map, so only the colliding
+  // pair gains an occurrence index.
+  const unlinkedRowTokens = useMemo(
+    () => buildRowTokens(unlinked.map((row) => ({ id: row.display.toLowerCase(), name: row.display }))),
+    [unlinked],
+  );
   // ★★ ONE MAP PER RENDERED TABLE, deliberately, even though both tables share
   // one DOM `<table>` and uniqueness is a whole-surface property. The two lists
   // carry different identity schemes (a numeric resource id vs a case-folded
@@ -478,13 +494,17 @@ export function ResourceWorkload({
                           : t(lang, "resourcesDefaultShift")
                       }
                       // WCAG 2.4.6 (§315), the same content-named collision as
-                      // the managed hours button above — but a PLAIN
-                      // `row.display` qualifier, NOT a token: unlinked rows are
-                      // accumulated into a Map keyed on `display.toLowerCase()`,
-                      // so the value cannot repeat here and an occurrence index
-                      // would have nothing to count. Same reasoning as the
-                      // `resourcesAddAsResource` control above (§276).
-                      aria-label={rowLabel(String(row.weeklyHours), row.display)}
+                      // the managed hours button above — and it takes the same
+                      // TOKEN. The old comment here claimed `row.display`
+                      // "cannot repeat" because unlinked rows are accumulated
+                      // into a Map keyed on `display.toLowerCase()`; that key
+                      // trims and case-folds but does NOT collapse internal
+                      // whitespace runs, while accessible-name comparison does.
+                      // See `unlinkedRowTokens` for the full reasoning.
+                      aria-label={rowLabel(
+                        String(row.weeklyHours),
+                        unlinkedRowTokens.get(row.display.toLowerCase()) ?? row.display,
+                      )}
                       className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${
                         row.shift
                           ? "text-foreground"

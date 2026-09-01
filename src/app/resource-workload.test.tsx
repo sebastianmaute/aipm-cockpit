@@ -335,31 +335,50 @@ describe("ResourceWorkload", () => {
     expectRowUniqueNames({ minControls: 4, requireCollisionSeed: true });
   });
 
-  // ★★★ `requireCollisionSeed` is OFF here ON PURPOSE, and NOT because it is
-  // merely unnecessary — it would THROW against CORRECT code. The unlinked half
-  // takes a PLAIN QUALIFIER rather than a token: `buildResourceWorkload`
-  // accumulates unlinked rows into a Map keyed on `display.toLowerCase()`, so
-  // two rows cannot carry the same display name and the " (N)" occurrence
-  // suffix the guard strips can never be emitted on this surface. After the fix
-  // the two names are "40 – Alice Smith" and "40 – Bob Jones"; nothing collides
-  // once stripped, so the guard would fail a CORRECT fix. Do not "complete the
-  // pattern" by turning it on. The anti-vacuity evidence this test has instead
-  // is a recorded MUTATION PROOF: deleting the unlinked button's `aria-label`
-  // turns this test red.
-  it("gives the UNLINKED weekly-hours buttons distinct names when two people work equal hours (§315)", () => {
+  // ★★★ A SHARED UNLINKED NAME IS SEEDABLE AFTER ALL, and the comment that used
+  // to sit here denied it: it said `requireCollisionSeed` "would THROW against
+  // CORRECT code" because `buildResourceWorkload` keys unlinked rows on
+  // `display.toLowerCase()`, so no display name can repeat. That key trims and
+  // case-folds but does NOT collapse internal whitespace runs, while an
+  // accessible name IS compared collapsed — so "Bob  Smith" (two spaces) and
+  // "Bob Smith" (one) are TWO rows announcing ONE name. The seed below is
+  // exactly that pair, and the button now takes the row TOKEN.
+  //
+  // ★★★ `expectRowUniqueNames` ALONE CANNOT SEE THIS COLLISION, so the collapsed
+  // comparison below is not decoration — it is the assertion that goes red when
+  // the token is reverted to a plain `row.display`. The harness's duplicate
+  // check compares names RAW (`src/test/row-unique-names.ts`), and the two names
+  // differ by one space, so it reports no duplicate either way. Only
+  // `requireCollisionSeed` collapses, and that is a seed guard, not a detector.
+  // Measured, not reasoned: with the token reverted the `expectRowUniqueNames`
+  // call stays GREEN and only the collapsed assertion turns red.
+  //
+  // ★ The harness still earns its place: it kills the ORIGINAL §315 mutant
+  // (deleting the `aria-label` outright leaves both buttons named by content,
+  // "40" twice, a raw duplicate).
+  it("gives the UNLINKED weekly-hours buttons distinct names when two people share a whitespace-collapsed name (§315)", () => {
     const unlinkedTasks = [
-      { id: 41, taskName: "Draft SOW", assignee: "Alice Smith", dueDate: "2026-07-01" },
-      { id: 42, taskName: "Review SOW", assignee: "Bob Jones", dueDate: "2026-07-02" },
+      { id: 41, taskName: "Draft SOW", assignee: "Bob  Smith", dueDate: "2026-07-01" },
+      { id: 42, taskName: "Review SOW", assignee: "Bob Smith", dueDate: "2026-07-02" },
     ] as unknown as Task[];
     render(<ResourceWorkload {...baseProps} resources={[]} tasks={unlinkedTasks} />);
-    // Both unlinked rows reached the table — otherwise the assertion below is
-    // about a list that never rendered.
-    expect(screen.getByText("Alice Smith")).toBeInTheDocument();
-    expect(screen.getByText("Bob Jones")).toBeInTheDocument();
+    // Both unlinked rows reached the table — otherwise the assertions below are
+    // about a list that never rendered. Two matches, because RTL's text matcher
+    // normalises whitespace exactly as the accessible-name computation does:
+    // that is the defect, seen from the query side.
+    expect(screen.getAllByText("Bob Smith")).toHaveLength(2);
     // 4 = measured: an add-as-resource button and an hours button per unlinked
     // row; `resources={[]}` leaves no managed row at all. No `shifts` is passed,
     // so both rows carry the same DEFAULT weekly hours — the collision under
     // test.
-    expectRowUniqueNames({ minControls: 4 });
+    expectRowUniqueNames({ minControls: 4, requireCollisionSeed: true });
+    // The hours buttons are the ones under test — `/^\d+ – /` matches only
+    // those (add-as-resource starts with its verb), and it also fails loudly if
+    // the qualifier is dropped entirely, since a bare "40" does not match.
+    const hoursNames = screen
+      .getAllByRole("button", { name: /^\d+ – / })
+      .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
+    expect(hoursNames).toHaveLength(2);
+    expect(new Set(hoursNames).size).toBe(2);
   });
 });
