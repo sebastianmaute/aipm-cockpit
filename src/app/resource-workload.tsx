@@ -431,14 +431,18 @@ export function ResourceWorkload({
                       // came from its CONTENT alone, so every unlinked row
                       // announced the same "Add as resource"; the row's identity
                       // sits in the SIBLING span, outside the button.
-                      // ★★ A PLAIN QUALIFIER, NOT `buildRowTokens`:
-                      // `buildResourceWorkload` accumulates unlinked rows into a
-                      // Map keyed on `display.toLowerCase()`, so `row.display`
-                      // cannot repeat in this list — not even in a different
-                      // case — and an occurrence index would have nothing to
-                      // count. The sibling clear-unlinked control qualifies with
-                      // the same value for the same reason.
-                      aria-label={rowLabel(t(lang, "resourcesAddAsResource"), row.display)}
+                      // ★★★ THE ROW TOKEN, NOT A PLAIN `row.display`. The comment
+                      // that stood here justified the plain qualifier by saying
+                      // `buildResourceWorkload` keys unlinked rows on
+                      // `display.toLowerCase()`, so a display name "cannot repeat
+                      // in this list". That key TRIMS and CASE-FOLDS but does NOT
+                      // collapse internal whitespace runs, while accessible-name
+                      // comparison DOES — so "Bob  Smith" and "Bob Smith" are two
+                      // rows announcing one name here exactly as they were on the
+                      // weekly-hours button. See `unlinkedRowTokens`.
+                      // ★ Behaviour-neutral for names that differ today: a name
+                      // unique within its map gets a BARE token.
+                      aria-label={rowLabel(t(lang, "resourcesAddAsResource"), unlinkedRowTokens.get(row.display.toLowerCase()) ?? row.display)}
                       className={`ml-2 rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-normal text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >
                       {t(lang, "resourcesAddAsResource")}
@@ -446,7 +450,14 @@ export function ResourceWorkload({
                     {onClearUnlinked && (
                       <IconButton
                         variant="danger"
-                        label={t(lang, "resourcesClearUnlinked", row.display)}
+                        // ★ Same collapse hazard as the sibling add button — the
+                        //   token, not the raw display. ★★ `resourcesClearUnlinked`
+                        //   is "Clear {0}" in EN but "{0} entfernen" in DE, so the
+                        //   occurrence index lands MID-STRING in German and
+                        //   `requireCollisionSeed`'s end-anchored regex cannot strip
+                        //   it. Uniqueness still holds in both; only the shared
+                        //   harness's seed guard is DE-blind here.
+                        label={t(lang, "resourcesClearUnlinked", unlinkedRowTokens.get(row.display.toLowerCase()) ?? row.display)}
                         title={t(lang, "resourcesClearUnlinkedHint")}
                         onClick={async () => {
                           if (await confirm({ message: t(lang, "resourcesClearUnlinkedConfirm", row.display), tone: "danger" })) {

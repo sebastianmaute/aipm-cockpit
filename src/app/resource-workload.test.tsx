@@ -361,17 +361,20 @@ describe("ResourceWorkload", () => {
       { id: 41, taskName: "Draft SOW", assignee: "Bob  Smith", dueDate: "2026-07-01" },
       { id: 42, taskName: "Review SOW", assignee: "Bob Smith", dueDate: "2026-07-02" },
     ] as unknown as Task[];
-    render(<ResourceWorkload {...baseProps} resources={[]} tasks={unlinkedTasks} />);
+    // `onClearUnlinked` is passed so the ✕ RENDERS — it takes the same token and
+    // is otherwise covered by nothing, which would leave that half of the fix a
+    // claim with no detector behind it.
+    render(<ResourceWorkload {...baseProps} resources={[]} tasks={unlinkedTasks} onClearUnlinked={vi.fn()} />);
     // Both unlinked rows reached the table — otherwise the assertions below are
     // about a list that never rendered. Two matches, because RTL's text matcher
     // normalises whitespace exactly as the accessible-name computation does:
     // that is the defect, seen from the query side.
     expect(screen.getAllByText("Bob Smith")).toHaveLength(2);
-    // 4 = measured: an add-as-resource button and an hours button per unlinked
-    // row; `resources={[]}` leaves no managed row at all. No `shifts` is passed,
-    // so both rows carry the same DEFAULT weekly hours — the collision under
-    // test.
-    expectRowUniqueNames({ minControls: 4, requireCollisionSeed: true });
+    // 6 = MEASURED, not counted off the JSX: an add-as-resource button, an hours
+    // button and a clear-unlinked ✕ per unlinked row; `resources={[]}` leaves no
+    // managed row at all. No `shifts` is passed, so both rows carry the same
+    // DEFAULT weekly hours — the collision under test.
+    expectRowUniqueNames({ minControls: 6, requireCollisionSeed: true });
     // The hours buttons are the ones under test — `/^\d+ – /` matches only
     // those (add-as-resource starts with its verb), and it also fails loudly if
     // the qualifier is dropped entirely, since a bare "40" does not match.
@@ -380,5 +383,27 @@ describe("ResourceWorkload", () => {
       .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
     expect(hoursNames).toHaveLength(2);
     expect(new Set(hoursNames).size).toBe(2);
+    // ★★★ THE ADD-AS-RESOURCE BUTTONS ARE A SECOND, INDEPENDENT DETECTOR, and
+    // until this assertion existed they were the DEFECT that satisfied
+    // `requireCollisionSeed` above — the guard was certified by a broken control
+    // rather than by the one under test, the masking hazard
+    // `src/test/row-unique-names.ts` warns about. They carried the same refuted
+    // "`row.display` cannot repeat here" premise and now take the same token.
+    // Collapsed, because the harness compares RAW and one space cannot separate
+    // two names a screen reader reads identically.
+    const addNames = screen
+      .getAllByRole("button", { name: /^Add as resource – / })
+      .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
+    expect(addNames).toHaveLength(2);
+    expect(new Set(addNames).size).toBe(2);
+    // The ✕ is icon-only, so its whole accessible name is the interpolated
+    // string — "Clear {0}" in EN, which puts the token last. ★ In DE the key is
+    // "{0} entfernen" and the index lands mid-string; uniqueness still holds,
+    // but this regex and the harness's end-anchored strip are EN-shaped.
+    const clearNames = screen
+      .getAllByRole("button", { name: /^Clear / })
+      .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
+    expect(clearNames).toHaveLength(2);
+    expect(new Set(clearNames).size).toBe(2);
   });
 });
