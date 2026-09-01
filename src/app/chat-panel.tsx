@@ -228,9 +228,7 @@ function ChatPanelInner({
     dictation,
     enabled: true,
     label: t(lang, "chatPlaceholder"),
-    // Trailing `!` — the mic is a `ToggleButton` and carries its own chip
-    // padding in the same class list; see the `padding` prop's docstring.
-    padding: "px-4! py-2!",
+    padding: "px-4! py-2!", // trailing `!` required — see the prop's docstring
     className: "inline-flex items-center justify-center",
     onAppendFinal: (txt) => setInput((prev) => appendDictation(prev, txt)),
   });
