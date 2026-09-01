@@ -8,6 +8,27 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.275.0] - 2026-09-01 "Nagata"
+
+### Fixed
+
+- **Rows that share a name are now told apart by screen readers.** Where a list showed two people,
+  projects or actions with the same name, the buttons in those rows announced identically — "Open",
+  "Switch", "40" — so there was no way to hear which row you were on. Every control that repeats
+  once per row now carries the row's name, and where the names themselves collide each gets a
+  numbered occurrence. This covers the Next-actions rows and the focus card above them, the AI
+  suggestions beside them, the project list, the resource workload tables and version history.
+
+- **Two people whose names differ only by an extra space are no longer announced as one.** A name
+  typed with a double space reads aloud exactly like the same name with one, and the resource
+  workload treated them as different rows while a screen reader heard a single name — including
+  across the boundary between the linked and unlinked tables, where one person could appear on both
+  sides of the split.
+
+- **Deleting a project announced the same name as every other row's delete button.** The delete
+  control was reached only in file mode, which is why it went unnoticed while its archive
+  counterpart was fixed.
+
 ## [0.274.0] - 2026-09-01 "Varley"
 
 ### Fixed

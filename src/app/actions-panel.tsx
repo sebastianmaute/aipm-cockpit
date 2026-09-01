@@ -25,6 +25,7 @@ import type { RescheduleBundle } from "./reschedule-popover";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
 import { groupNextActions, type ActionGroup } from "./next-actions/group";
 import { TIER_RAG } from "./next-actions/action-cta";
+import { buildRowTokens } from "./row-tokens";
 import { Dot } from "./dot";
 
 const TIERS: { tier: ActionTier; labelKey: TranslationKey }[] = [
@@ -70,13 +71,79 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   const { ref, reset } = useResizable("aipm-cockpit:actions-size");
   const groups = useMemo(() => groupNextActions(actions), [actions]);
   const [expanded, setExpanded] = useState<Record<"now" | "soon", boolean>>({ now: false, soon: false });
+
+  // ★★ ONE map over the hero AND every tier's rows, because they are all
+  //    rendered in one list at one time and are therefore ONE naming population
+  //    (§324).
+  // ★★★ THE REASON IS NOT "TWO MAPS WOULD EACH NUMBER FROM 1" — an earlier
+  //    revision of this comment said exactly that and it is FALSE, measured by
+  //    mutant: `buildRowTokens` numbers only when a name REPEATS inside the map
+  //    it was given, so a map with one member emits a BARE token, never "(1)".
+  //    That is what makes splitting dangerous rather than merely redundant. Split
+  //    the map on ANY axis and two members sharing a title can each land alone in
+  //    their own map, so BOTH come out bare and collide:
+  //      · hero-vs-rows — a hero and a single row sharing a title;
+  //      · per-tier — a `now` row and a `soon` row sharing a title.
+  //    Pinned by "keeps the hero and a cross-tier row in one naming population"
+  //    in `actions-panel.test.tsx`, whose fixture is built to kill both.
+  // ★★ Built over `groups` — the STABLE FULL population, not the currently
+  //    VISIBLE one. Every group is rendered AT MOST once — as the hero, or by a
+  //    tier list that filters `g.key !== heroKey`, and a capped-out or collapsed
+  //    group not at all — so tokenising `groups` cannot double-count. (Not
+  //    "exactly once": the visibility cap is precisely why some appear zero
+  //    times, which is the whole point of tokenising the full population.)
+  //    Tokenising the visible slice instead would make a row's
+  //    accessible name CHANGE when an unrelated tier is expanded past
+  //    `MAX_VISIBLE_PER_TIER` or the monitor group is toggled — a name that
+  //    mutates under interaction is worse than the bug being fixed. The cost is
+  //    that a row can show "(2)" while its "(1)" is currently capped out, which
+  //    is acceptable and strictly better.
+  // ★ An action title is FREE TEXT (`title.key` + params), so it can repeat; the
+  //   rule is that free text always needs a token, and a plain qualifier is only
+  //   enough for a value that cannot repeat in one rendered list.
+  const actionTokens = useMemo(
+    () => buildRowTokens(groups.map((g) => ({
+      id: g.key,
+      name: t(lang, g.primary.title.key, ...(g.primary.title.params ?? [])),
+    }))),
+    [groups, lang],
+  );
+
+  // §324 — the AI list is its OWN naming population, tokenised separately from
+  // `actionTokens` above. An `AiAction` carries no stable id, so the INDEX is
+  // the id, matching the list key this section already uses.
+  // ★★ SEPARATE ON PURPOSE, and the section segment in `AiActionRow` is what
+  //    makes that safe: keeping the populations apart means an analysis
+  //    appearing or disappearing cannot perturb a group row's name at all.
+  // ★★★ NOT because a merge "would renumber every group row" — an earlier
+  //    revision said that and it is false. `buildRowTokens` numbers a row only
+  //    when its collapsed name repeats INSIDE the map it was handed, so a merge
+  //    would move only the group rows an AI action actually shares a title with.
+  // ★ Hoisted to a local const because `react-hooks/exhaustive-deps` rejects an
+  //   `obj.member` dependency, and every lint warning is fatal here.
+  const aiActions = aiAnalysis?.result?.actions;
+  const aiActionTokens = useMemo(
+    () => buildRowTokens((aiActions ?? []).map((a, i) => ({ id: i, name: a.title }))),
+    [aiActions],
+  );
+
   // Shared handler/config props threaded identically to ActionRow and ActionHeroCard.
+  // ★ `rowToken` is deliberately NOT folded in here — `rowProps` is by definition
+  //   the props identical for every row, and this one is per-instance.
+  // ★★ Both render sites therefore write `{...rowProps}` FIRST and `rowToken`
+  //    AFTER. JSX spread wins on duplicate keys and tsc does not object, so with
+  //    the opposite order a future edit folding `rowToken` into `rowProps` — the
+  //    very thing this comment forbids — would silently override every
+  //    per-instance token with one shared value and no compiler signal. The
+  //    ordering makes the guard structural instead of merely advisory.
   const rowProps = {
     lang, expertMode, onOpen, onSnooze, onCreateTask, assignOwner,
     onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker,
   };
+  // ★ `?? ""` cannot actually fire: the map is keyed by `g.key` over the same
+  //   `groups` array every render site draws from.
   const renderRow = (g: ActionGroup) => (
-    <ActionRow key={g.key} action={g.primary} extraReasons={g.extra} {...rowProps} />
+    <ActionRow key={g.key} action={g.primary} extraReasons={g.extra} {...rowProps} rowToken={actionTokens.get(g.key) ?? ""} />
   );
 
   // Hero = the single top-ranked group, but only when it carries real urgency
@@ -175,7 +242,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
           )}
           <div className="flex flex-col gap-2">
             {aiAnalysis.result.actions.map((a, i) => (
-              <AiActionRow key={`${a.title}:${i}`} lang={lang} action={a} onAct={aiAnalysis.onActAi} />
+              <AiActionRow key={`${a.title}:${i}`} lang={lang} action={a} rowToken={aiActionTokens.get(i) ?? a.title} onAct={aiAnalysis.onActAi} />
             ))}
           </div>
         </section>
@@ -184,7 +251,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
         <p className="text-sm text-muted-foreground">{t(lang, "actionsEmptyState")}</p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto pr-2">
-          {hero && <ActionHeroCard group={hero} {...rowProps} />}
+          {hero && <ActionHeroCard group={hero} {...rowProps} rowToken={actionTokens.get(hero.key) ?? ""} />}
           {TIERS.map(({ tier, labelKey }) => {
             const rows = groups.filter((g) => g.tier === tier && g.key !== heroKey);
             if (rows.length === 0) return null;

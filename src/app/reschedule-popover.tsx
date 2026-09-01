@@ -17,11 +17,14 @@ interface ReschedulePopoverProps {
   lang: Lang;
   action: SuggestedAction;
   bundle: RescheduleBundle;
+  /** Occurrence-qualified row name, threaded from the list owner. REQUIRED —
+   *  see `ActionPopoverTrigger` (§324). */
+  rowToken: string;
   /** Hero surface renders the trigger as a prominent filled CTA. */
   prominent?: boolean;
 }
 
-export function ReschedulePopover({ lang, action, bundle, prominent }: ReschedulePopoverProps) {
+export function ReschedulePopover({ lang, action, bundle, rowToken, prominent }: ReschedulePopoverProps) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -36,6 +39,7 @@ export function ReschedulePopover({ lang, action, bundle, prominent }: Reschedul
     <ActionPopoverTrigger
       label={t(lang, "actionReschedule")}
       ariaLabel={t(lang, "actionReschedule")}
+      rowToken={rowToken}
       open={open}
       onToggle={toggleOpen}
       onClose={close}

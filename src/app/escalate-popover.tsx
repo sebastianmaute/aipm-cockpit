@@ -24,13 +24,16 @@ interface EscalatePopoverProps {
   lang: Lang;
   action: SuggestedAction;
   bundle: EscalateBundle;
+  /** Occurrence-qualified row name, threaded from the list owner. REQUIRED —
+   *  see `ActionPopoverTrigger` (§324). */
+  rowToken: string;
   /** Hero surface renders the trigger as a prominent filled CTA. */
   prominent?: boolean;
 }
 
 const EMPTY_RECIPIENT: ResourcePickerValue = { name: "", email: "", resourceId: null };
 
-export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePopoverProps) {
+export function EscalatePopover({ lang, action, bundle, rowToken, prominent }: EscalatePopoverProps) {
   const [open, setOpen] = useState(false);
   const [recipient, setRecipient] = useState<ResourcePickerValue>(EMPTY_RECIPIENT);
   const [emailInput, setEmailInput] = useState("");
@@ -75,6 +78,7 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
     <ActionPopoverTrigger
       label={t(lang, "actionEscalate")}
       ariaLabel={t(lang, "actionEscalateTitle")}
+      rowToken={rowToken}
       open={open}
       panelOpen={open && !!plan}
       onToggle={toggleOpen}

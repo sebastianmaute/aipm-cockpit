@@ -531,17 +531,17 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--closed-2026-08-31) | ~~The storage readiness indicator is never disclosed to assistive technology, in either state~~ | found 2026-08-30, fixing the colour-only state cue | M | **CLOSED** 2026-08-31 |
 | [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31) | ~~One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint~~ | found 2026-08-30, in the destructive-refusal fix round | M | **CLOSED** 2026-08-31 |
 | [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label) | Every export section header is an untranslated raw string, not a display label | — | — | open |
-| [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates) | Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates | — | — | open |
+| [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates--closed-2026-09-01) | ~~Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates~~ | — | — | **CLOSED** 2026-09-01 |
 | [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--open) | Negative test assertions matching quoted English literals go silently vacuous on a reword — open | found 2026-08-30, in the destructive-refusal deletion round | M | open |
 | [§307](#307-a-destructive-save-refusal-cannot-be-staged-in-a-browser-so-the-recourse-has-never-been-seen-working--closed-2026-08-31-not-a-defect) | ~~A destructive-save refusal cannot be staged in a browser, so the recourse has never been seen working~~ — not a defect | found 2026-08-30, closing out the destructive-refusal slice | M | **CLOSED** 2026-08-31 |
 | [§308](#308-controlnames-and-the-collision-helpers-built-on-it-are-blind-to-three-parts-of-the-real-accessible-name) | `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name | — | — | open |
-| [§309](#309-projects-paneltsxs-active-project-list-still-names-its-row-controls-by-raw-interpolation-so-one-file-now-carries-two-conventions) | `projects-panel.tsx`'s ACTIVE project list still names its row controls by raw interpolation, so one file now carries two conventions | — | — | open |
+| [§309](#309-projects-paneltsxs-active-project-list-still-names-its-row-controls-by-raw-interpolation-so-one-file-now-carries-two-conventions--closed-2026-09-01) | ~~`projects-panel.tsx`'s ACTIVE project list still names its row controls by raw interpolation, so one file now carries two conventions~~ | — | — | **CLOSED** 2026-09-01 |
 | [§310](#310-120s-unmount-abort-suppresses-the-mount-tick-under-next-devs-strictmode--dev-only) | §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only | — | — | open |
 | [§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle--closed-2026-08-31-02720) | A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle | — | — | **CLOSED** 2026-08-31 |
 | [§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720) | `retryLoad`'s in-flight guard assumed `submitPrompt` is single-flight, and nothing pinned it | — | — | **CLOSED** 2026-08-31 |
 | [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen--closed-2026-08-31-02720) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | **CLOSED** 2026-08-31 |
 | [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name--closed-2026-08-31) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name — CLOSED 2026-08-31 | — | — | **CLOSED** 2026-08-31 |
-| [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide) | `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide | — | — | open |
+| [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide--closed-2026-09-01) | ~~`resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide~~ | — | — | **CLOSED** 2026-09-01 (both tables take the row token, from ONE map — the collision crosses them) |
 | [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31 |
 | [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--closed-2026-09-01) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack — CLOSED 2026-09-01 | found 2026-08-31 while closing §100 | S | **CLOSED** 2026-09-01 |
@@ -550,10 +550,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | open |
 | [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked) | The asset library offers Insert on a refused-format row, which can only ever render as blocked | found 2026-08-31 in the §230 cold review | S | open |
 | [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | open |
-| [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name) | `actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name | 0.272.0 (Zoline) | S | open |
+| [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01) | ~~`actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name~~ | 0.272.0 (Zoline) | S | **CLOSED** 2026-09-01 (closed WIDER than its title; popover internals carved out to §328) |
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-the-default-scheme) | Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in the default scheme | found 2026-08-31 in the §300 fix round | M | open |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide) | `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide | found 2026-08-31, adding the §300 mismatch region | S | open |
 | [§327](#327-use-storage-backendts-sits-exactly-on-the-800-line-size-ratchet-with-zero-headroom) | `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom | found 2026-08-31, closing §303 | S | open |
+| [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -21392,7 +21393,7 @@ a decision NOT taken (see "Option considered and NOT taken" below), not a bug le
 refactor if a sixth wrong-instance ever appears, not worth one on the strength of the five (now six)
 already-fixed by hand. The visible-row-label collision this slice's review surfaced while fixing
 `documentVersions` is a SEPARATE, pre-existing, general defect and is carved out to
-[§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates).
+[§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates--closed-2026-09-01).
 
 `COLLECTION_SPECS` (`version-diff.ts`) pairs a workspace slice with the field its records label
 themselves by. `key` is `keyof Workspace`; `nameField` is a bare `string`. **tsc cannot pair the
@@ -21494,7 +21495,7 @@ spec is both the fix and its own new coverage.
 ★★ Reviewing this fix surfaced a related but SEPARATE defect — `version-diff-view.tsx` renders
 `{c.recordLabel}` bare while only the accessible name carries a disambiguator — pre-existing and
 general, not introduced by naming `documentVersions`. Carved out to
-[§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates)
+[§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates--closed-2026-09-01)
 rather than fixed here, for the same reason §296 was carved out of §246: not fixable per call site,
 and the choice of disambiguator (an `#id` suffix, the occurrence token, or a per-row secondary field)
 is a design decision, not a drive-by.
@@ -24158,20 +24159,33 @@ map for the ten (mirroring the `*_CSV_COLUMNS` module maps AGENTS.md already tra
 plus five hand-written header lists translated one string at a time. A fix that ships only the first
 half leaves a third of the sections untouched while every gate stays green.
 
-## 305. Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates
+## 305. Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates — CLOSED 2026-09-01
 
-**Status:** open — never machine-verified by a committed probe. Carved out of
+**Status:** CLOSED 2026-09-01 by `c11d82d4` — both layout sites in `version-diff-view.tsx` now render
+`tokens.get(k) ?? c.recordLabel` in place of the bare `c.recordLabel`, so the occurrence-numbered token
+is VISIBLE as well as announced — a sighted user now reads the same discriminator an AT user hears.
+★ Precisely: the row label on screen is the TOKEN, and the per-row controls' accessible names are
+`rowLabel(<verb-or-field>, token)`, so the token is the shared part rather than the whole name.
+Non-colliding rows are
+untouched, because `buildRowTokens` returns the bare name when it does not collide. Pinned by
+`version-diff-view.test.tsx`'s "renders two visually distinct rows when two records share a recordLabel
+(§305)", which asserts on RENDERED TEXT: the accessible names were ALREADY unique here, so a
+name-uniqueness assertion would have passed against the unfixed code and read as coverage.
+Mutation-proved per layout — each of the two `<span>`s reverted to the bare `c.recordLabel`
+independently turns its own layout's assertion red. ★ Nothing beyond that unit test was verified:
+no one has driven a real project to two same-titled version records and read the rows back on screen.
+Carved out of
 [§271](#271-collectionspecnamefield-is-an-unchecked-string-so-a-spec-can-still-name-a-field-no-record-carries--the-last-known-instance-fixed-2026-08-31--closed-2026-08-31)
 when it closed 2026-08-31, when giving `documentVersions` a real `nameField` enlarged the population
 this affects. The CLASS is pre-existing and general; on `documentVersions` specifically that fix
 traded a visible discriminator for a readable one — see the trade note below.
 
-`version-diff-view.tsx` renders `{c.recordLabel}` bare in BOTH layouts, while the occurrence-numbered
-token `buildRowTokens` mints reaches only the `aria-label` (via `rowLabel`, at every per-row control in
-both layouts). While a slice had no working `nameField`, its rows were unique BY CONSTRUCTION, because
-the `#id` fallback is unique; naming a slice by a real field makes it collidable, so two records sharing
-that field's value now render two visually identical rows. A screen-reader user hears "(1)" and "(2)"; a
-sighted user gets nothing to tell the rows apart.
+**The defect as filed.** `version-diff-view.tsx` rendered `{c.recordLabel}` bare in BOTH layouts, while
+the occurrence-numbered token `buildRowTokens` mints reached only the `aria-label` (via `rowLabel`, at
+every per-row control in both layouts). While a slice had no working `nameField`, its rows were unique BY
+CONSTRUCTION, because the `#id` fallback is unique; naming a slice by a real field makes it collidable, so
+two records sharing that field's value rendered two visually identical rows. A screen-reader user heard
+"(1)" and "(2)"; a sighted user got nothing to tell the rows apart. Both spans now render the token.
 
 ★ **Two separate enlargements, two commits — do not fold them into one.** The five slices §271 names
 (`tasks`/`resources`/`roles`/`absences`/`shifts`) became collidable in the version-restore-residue
@@ -24184,25 +24198,33 @@ line directly above it. Re-derive both with
 
 ★ **The obvious precedent does NOT cover the visible half, and reading it as if it did would ship the
 wrong fix.** `documents-deleted-section.tsx`'s ` · #id` suffix is in that row's **`aria-label` only**;
-its VISIBLE row disambiguates by rendering the version's `savedAt` timestamp beside the title. So it is
-precedent for the accessible-name pattern `version-diff-view.tsx` already follows, and the
-visible-label question here has no precedent in the repo — a fix has to choose one (an `#id` suffix,
-the occurrence token, or a per-row secondary field) rather than copy one.
+its VISIBLE row disambiguates by rendering the version's `savedAt` timestamp beside the title. So it was
+precedent for the accessible-name pattern `version-diff-view.tsx` already followed, and the
+visible-label question had no precedent in the repo — the fix had to CHOOSE one of the three candidates
+(an `#id` suffix, the occurrence token, or a per-row secondary field) rather than copy one. **It chose
+the occurrence token**, on the ground that it is the discriminator the accessible names already carry:
+rendering it puts ONE string in front of both audiences rather than introducing a second one a sighted
+and an AT user would each have to reconcile. An `#id` suffix would have reintroduced the
+unreadable `#12` the §271 trade below was made to get rid of.
 
 ★★ **"NOT INTRODUCED BY §271" IS TRUE OF THE CLASS AND FALSE OF `documentVersions`, the one
 collection that fix touched — an earlier revision said it flatly and that reading is too broad.**
 Before the fix, version-history rows for that slice took the `#id` fallback and read `#12` / `#13` /
 `#14`: unique by construction, and the only thing on screen telling two versions of one document
 apart. `nameField: "title"` replaced it with the document's title, so three versions of the same
-document now render three IDENTICAL visible labels. The accessible names stay safe — `buildRowTokens`
-runs at the view level and numbers the occurrences — so this is not a 2.4.6 regression; but a sighted
-user comparing same-titled rows has lost their only discriminator and gained nothing visible for it.
+document rendered three IDENTICAL visible labels. The accessible names stayed safe — `buildRowTokens`
+runs at the view level and numbers the occurrences — so it was never a 2.4.6 regression; but a sighted
+user comparing same-titled rows had lost their only discriminator and gained nothing visible for it.
+Those three rows now read "Title (1)" / "Title (2)" / "Title (3)".
 
 ★ **The trade was deliberate, and naming it that way is what makes the fix choice legible.** `#12` is
 unique and unreadable; a title is readable and collidable. §271 bought readability for every
 non-colliding row — the common case — at the colliding row's expense, which is the right trade only
-once the colliding row gets a second VISIBLE field back (the `savedAt` timestamp
-`documents-deleted-section.tsx` renders is the nearest shape, per the paragraph above). For the five
+once the colliding row gets something VISIBLE back. It now does: the occurrence token, which costs the
+non-colliding rows nothing because `buildRowTokens` leaves them bare. A per-row secondary field (the
+`savedAt` timestamp `documents-deleted-section.tsx` renders is the nearest shape, per the paragraph
+above) would have been the richer answer and was not taken — it needs a field every collection can
+supply, which `COLLECTION_SPECS` does not model. For the five
 slices §271 names, the same trade was made earlier and separately at `ccb6d598` — see the
 two-enlargements note above — so relative to §271 those really are pre-existing; §271 itself enlarged
 `documentVersions` alone.
@@ -24447,25 +24469,47 @@ its "live hazard" paragraph) re-measures `minControls` for every adopting test, 
 guard that stops a scope rendering too few controls — so changing what it counts is not a mechanical
 edit.
 
-## 309. `projects-panel.tsx`'s ACTIVE project list still names its row controls by raw interpolation, so one file now carries two conventions
+## 309. `projects-panel.tsx`'s ACTIVE project list still names its row controls by raw interpolation, so one file now carries two conventions — CLOSED 2026-09-01
 
-**Status:** open — a CONDITIONAL collision, deliberately out of §276's scope. Found 2026-08-31 while
-closing that entry's second surface; never machine-verified.
+**Status:** CLOSED 2026-09-01 by `fe2206ec` — the ACTIVE list now runs its own `buildRowTokens` over
+`projects.map((p) => ({ id: p.id, name: p.name }))` and threads the token through `rowLabel` at all
+three controls (`projectsSwitch`, `projectsArchive`, `projectsDelete`), matching the archived list's
+convention. ★★★ **IT TAKES TWO TESTS, NOT ONE, AND AN EARLIER REVISION OF THIS STATUS CLAIMED
+OTHERWISE.** It cited only `projects-panel.test.tsx`'s "gives every ACTIVE row control a row-unique
+accessible name when two projects share a name (§309)" and claimed it covered all three controls — but
+that test renders the TURSO branch, and `projectsArchive` / `projectsDelete` are MUTUALLY EXCLUSIVE
+branches of one ternary (`projects-panel.tsx`), so the Delete button never rendered in it and was
+pinned by nothing. A second FILE-MODE test now covers it. Both carry `requireCollisionSeed: true` and
+seed two active projects sharing a display name.
+★★ `minControls` is **7** in both, MEASURED off the harness's own error listing rather than counted
+off the JSX — the previous `4` was loose enough to let a silently narrowed scope back in, which is the
+failure mode `src/test/row-unique-names.ts` documents for a floor below its measured value.
+Mutation-proved: reverting the file-mode Delete label gives **1 failed / 21 passed**, summing to the
+file's 22 runtime tests (`grep -cE '\bit(\.(each|only|skip|todo))?\(' src/app/projects-panel.test.tsx`).
+★★★ A second tally for the `projectsSwitch` mutant stood here and was DELETED rather than re-measured:
+it read `1 failed / 20 passed`, which sums to 21 — the file's count BEFORE the same sentence's own
+file-mode test existed. It was inherited across the fixture growth, which is exactly what the §315
+bullet below warns against, and its failed-count was wrong too (both §309 tests render a Switch
+button, so that revert reddens both). One discharging tally beats two of which one is stale. ★ The two ARCHIVED-list controls
+are unchanged and stay pinned by §276's own test — this fix added a second token map, it did not widen
+the existing one.
 
-★★★ **`projects-panel.tsx` NOW CARRIES TWO ROW-NAMING CONVENTIONS, AND THAT IS THE FIRST THING TO KNOW
-ABOUT THE FILE.** Its ARCHIVED list was converted to `buildRowTokens` / `rowLabel` by `3abf5442`. Its
-ACTIVE list (`projects.map`) still builds each control's accessible name by raw interpolation of the
-project name — the `projectsSwitch`, `projectsArchive` and `projectsDelete` controls. Both halves are
-visible in one grep, which is the point:
+★★★ **`projects-panel.tsx` CARRIED TWO ROW-NAMING CONVENTIONS, AND THAT WAS THE POINT OF THE ENTRY.**
+Its ARCHIVED list was converted to `buildRowTokens` / `rowLabel` by `3abf5442`. Its ACTIVE list
+(`projects.map`) still built each control's accessible name by raw interpolation of the project name —
+the `projectsSwitch`, `projectsArchive` and `projectsDelete` controls. Both halves were visible in one
+grep, which is now the verification that the file is uniform: among its hits are two `buildRowTokens`
+calls (one per list) and five `aria-label={rowLabel(` sites — three active, two archived — and **no**
+`` aria-label={` `` at all.
 
 ```bash
 grep -n 'aria-label={`\|aria-label={rowLabel(\|buildRowTokens' src/app/projects-panel.tsx
 ```
 
-★★ **Recorded so the next reader treats it as KNOWN, not as drift nobody noticed.** Someone finding two
-conventions in one file will otherwise either "complete the pattern" without asking whether the two
-lists differ, or read the raw-interpolation half as an oversight from the fix that landed beside it. It
-is neither.
+★★ **Why it was recorded rather than fixed on the spot.** Someone finding two conventions in one file
+would otherwise either "complete the pattern" without asking whether the two lists differ, or read the
+raw-interpolation half as an oversight from the fix that landed beside it. It was neither — see the
+scope note below.
 
 ★ **Why it was out of scope.** This half is a CONDITIONAL collision: it needs two ACTIVE projects
 sharing a display name. §276's archived-row defect was UNCONDITIONAL — N rows, N identical names, no
@@ -24474,11 +24518,11 @@ data precondition at all — which is exactly the `FIXED` / `DATA` split the row
 reachable rather than theoretical: both lists are fed from the same project registry, so if two ARCHIVED
 projects can share a name — the premise §276's fix rests on — two ACTIVE ones can too.
 
-★ **Closing it** is the mechanical half of the archived fix: one `buildRowTokens` over the active
-`projects` keyed by `{ id, name }`, threaded into three `rowLabel` calls, plus an
-`expectRowUniqueNames` test with `requireCollisionSeed` seeding two active projects that share a name.
-The naming becomes uniform across the file, which is the durable win — a single convention is the thing
-the next reader can rely on without reading both lists.
+★ **Closing it** was the mechanical half of the archived fix, and that is exactly what landed: one
+`buildRowTokens` over the active `projects` keyed by `{ id, name }`, threaded into three `rowLabel`
+calls, plus an `expectRowUniqueNames` test with `requireCollisionSeed` seeding two active projects that
+share a name. The naming is now uniform across the file, which is the durable win — a single convention
+is the thing the next reader can rely on without reading both lists.
 
 ## 310. §120's unmount abort suppresses the mount tick under `next dev`'s StrictMode — dev-only
 
@@ -24725,12 +24769,86 @@ The describe block carries a comment saying to raise the tier back to `full`, wh
 stronger, once this is closed. Until then a whole-document assertion at `full` would throw on this
 pair rather than on anything under test.
 
-## 315. `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide
+## 315. `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide — CLOSED 2026-09-01
 
-**Status:** open — found 2026-08-31 while fixing that file's `resourcesAddAsResource` collision under
-§276. `grep -n "{row.weeklyHours}" src/app/resource-workload.tsx` returns **two** sites and each is
-the CONTENT of its own `<button>`, which is the whole claim. That three such buttons then compute one
-name was measured off a three-row fixture rendering three named `40`; nothing pins it.
+**Status:** CLOSED 2026-09-01 by `afb32629`, corrected by `1b6bfdbb` and completed by `65a43493` —
+both hours buttons carry an `aria-label`, and **BOTH tables take the row token.** ★★★ An earlier
+revision of this Status said the two tables "took DELIBERATELY DIFFERENT fixes, pinned by different
+test shapes" and warned against paraphrasing it as "pinned by a collision test". That warning is now
+backwards: the unlinked half's plain-qualifier rationale was refuted in review, the collision IS
+seedable, and both halves carry `requireCollisionSeed`. See the UNLINKED bullet for what was wrong and
+why. ★ What survives from the old warning is narrower and still worth keeping: the shared harness is
+not the detector on the unlinked side — the explicit collapsed-name assertions are.
+
+- **MANAGED table** — `buildResourceWorkload` keys `managed` on the numeric resource id, so two rows
+  CAN carry the same `display`. That half takes the row TOKEN: `rowLabel(String(row.weeklyHours),
+  rowToken)`. Pinned by `resource-workload.test.tsx`'s "gives the MANAGED weekly-hours buttons
+  row-unique names when two people share a name and hours (§315)", with `requireCollisionSeed: true`
+  and `minControls: 4`.
+- **UNLINKED table** — takes the row TOKEN as well, and the reasoning that said otherwise was
+  **refuted in review**. This bullet used to argue for a PLAIN QUALIFIER on the grounds that
+  `buildResourceWorkload` accumulates unlinked rows into a Map keyed on `display.toLowerCase()` (see
+  `ensureUnlinked` in `resource-workload-rows.ts`), so `display` "cannot repeat". That key TRIMS and
+  CASE-FOLDS but does **not** collapse internal whitespace runs, while accessible-name comparison
+  DOES — so `"Bob  Smith"` and `"Bob Smith"` are two rows announcing one name. Two cold reviewers
+  reached this independently from opposite sides, which is what promoted it from Minor.
+  ★★★ **THE REFUTED PREMISE HAD SPREAD PAST THE CONTROL THIS ENTRY NAMES, and each review round found
+  another copy — do not read the list below as closed by construction.** Round 1 fixed the weekly-hours
+  button. Round 2 found the add-as-resource button and the clear-unlinked ✕ still carrying it in their
+  own comments (`65a43493`). Round 3 found two more COMMENTS stating it — at the unlinked absence chip
+  and in `resource-workload.test.tsx`'s §276 test, the latter also asserting that `buildRowTokens`
+  "would be dead code" on a surface where it is live — plus the cross-table case below. The absence
+  chip's CODE was already correct by accident (its composed name goes through `buildRowTokens`, which
+  collapse-keys); the false justification beside it is the dangerous part, because it is what gets
+  copied somewhere the collapse does not save it. ★ Enumerate before trusting this list:
+  `grep -n "cannot repeat\|can never be emitted\|dead code" src/app/resource-workload*.ts*`.
+  ★★ The token also makes this half **seedable**, retiring the mutation-proof-only weakness recorded
+  here before: `"Bob  Smith"` and `"Bob Smith"` collapse equal, so `requireCollisionSeed: true` is
+  satisfiable against CORRECT code and the test now carries it (`minControls: 6`, measured).
+  ★★★ **The harness alone still cannot SEE this collision, and the test says so at the assertion.**
+  `expectRowUniqueNames` compares names RAW (`src/test/row-unique-names.ts` — only
+  `requireCollisionSeed` collapses), and the two names differ by one space, so it reports no duplicate
+  either way. The explicit collapsed-name comparisons in the test are the detectors; the flag is a
+  seed guard. Measured, not reasoned: with a token reverted the `expectRowUniqueNames` call stays
+  GREEN and only the collapsed assertion turns red.
+  ★★★ **AND THE COLLISION CROSSES THE TWO TABLES**, which is one level up again and was live behind a
+  comment asserting it could not happen ("no unlinked `display` can equal a managed one"). Case-folded
+  inequality is not COLLAPSED inequality: a resource `"Mary  Jane"`/`"Smith"` and a task assigned
+  `"Mary Jane Smith"` miss each other on every join, so one managed and one unlinked row render in the
+  SAME `<table>` announcing one name. With a token map PER TABLE each name was unique inside its own
+  map and both came out BARE. The two maps are now ONE, keyed `m:<resourceId>` / `u:<display>`; the
+  absence-chip maps merged the same way and both halves now compose from the row token.
+  Mutation tallies, all re-run after each fixture change rather than inherited across it:
+  hours **1 failed / 19 passed**, add-as-resource **1/19**, clear-unlinked **1/19** at 20 runtime
+  tests; dropping the unlinked half back out of the merged map is **2 failed / 19 passed** at 21.
+  Reproduce the divisor with `grep -cE '\bit(\.(each|only|skip|todo))?\(' src/app/resource-workload.test.tsx`.
+  ★★ **Two things deferred rather than done, both verified as NOT defects today.** (1) Every consumer
+  reads `map.get(<key>) ?? <fallback>`, and the key expression is spelled out at each of the eight
+  sites rather than once per population. All eight were checked byte-for-byte against their
+  construction keys and match; every fallback is unreachable, because `buildRowTokens` sets a token
+  for every input row and the maps are built over the same array references that render, with no sort
+  or second filter between. The hazard is a FUTURE refactor — add a sort, a second display filter or
+  a third population at the render site without touching the memo input, and the fallback silently
+  restores the raw un-tokenised name with every gate green. Hoisting the lookups into two per-row
+  helpers would make that structurally impossible; not done here because it touches eight call sites
+  for zero behaviour change, and a fix round is this repo's highest-risk commit class.
+  (2) `hideExternal` is never passed anywhere in `resource-workload.test.tsx`, so the "build the map
+  over the POST-filter list" property — correct today, and the reason a withheld row cannot consume an
+  occurrence index — is pinned by nothing.
+  ★ `resourcesClearUnlinked` is `"Clear {0}"` in EN but `"{0} entfernen"` in DE, so the occurrence
+  index lands MID-STRING in German and the harness's end-anchored strip cannot see it there.
+  Uniqueness holds in both languages; only the seed guard is EN-shaped. Recorded, not chased — no DE
+  test covers this surface.
+
+★ WCAG 2.5.3 holds at both sites by construction: each button's visible content is exactly
+`{row.weeklyHours}`, and `rowLabel(verb, token)` renders `${verb} – ${token}`, so that same string LEADS
+the accessible name. ★ Neither half is machine-verified in a browser — the unit tests are the only
+detector that can exist for this class (axe has no rule that flags two controls sharing a name).
+
+**The defect as filed.** `grep -n "{row.weeklyHours}" src/app/resource-workload.tsx` returned **two**
+sites and each was the CONTENT of its own `<button>`, which was the whole claim. That three such buttons
+then computed one name was measured off a three-row fixture rendering three named `40`; nothing pinned
+it at filing time.
 
 ★★★ **TWO TABLES, NOT ONE — and the first draft of this entry said "each unlinked row", which is the
 error this register keeps recording.** The button is rendered in BOTH the managed-resources table and
@@ -24739,22 +24857,29 @@ a team on a standard 40-hour week gives it N buttons all named `40`. Fixing only
 the half that happened to sit beside the §276 control being fixed when this was found — would leave
 the larger collision live and close the entry falsely.
 
-The button's accessible name is its own CONTENT, the contracted hours number; its `title` is
+The button's accessible name was its own CONTENT, the contracted hours number; its `title` is
 `resourcesEditShift` / `resourcesDefaultShift`, which is the accessible DESCRIPTION and does not
 name it.
 
 ★★★ **DELIBERATELY NOT FIXED WITH ITS NEIGHBOUR, because it is not the same KIND of fix.** The
 neighbour was content-named with the row identity sitting unused in a sibling `<span>`, so it took a
-qualifier. Here the visible text IS the number, so WCAG 2.5.3 requires `40` to survive inside
-whatever the new name is — that is a naming decision about what the button means ("Set weekly hours
-for X, currently 40"?), and it needs a string this branch did not want to invent silently.
+qualifier. Here the visible text IS the number, so WCAG 2.5.3 requires `40` to survive inside whatever
+the new name is — which reads as a naming decision about what the button MEANS ("Set weekly hours for X,
+currently 40"?) needing a new string. ★ **In the event no new string was invented**, and that is the
+useful part of the record: `rowLabel(String(row.weeklyHours), …)` puts the number FIRST and appends the
+row identity, so the visible `40` is CONTAINED in the accessible name — 2.5.3 holds, with front-position
+for free. The name does carry something the visible label does not (the row identity); that is exactly
+what 2.4.6 needs and what 2.5.3 permits. The concern was real; the answer was smaller than it looked.
 
 ★★ **It is not narrowable by `scope`.** The unlinked rows are sibling `<tr>`s with no wrapping
 element, so no container isolates one row's controls from another's. That is why
-`resource-workload.test.tsx`'s §276 test gives its two unlinked people DISTINCT part-time shifts
-(32h / 24h) — not because the fixture needs them, but so the hours buttons differ and the assertion
-fails only on the control it is about. A ★★★ comment at the fixture says so and says to drop the
-distinct shifts once this is closed; leaving them in afterwards would quietly weaken the test.
+`resource-workload.test.tsx`'s §276 test USED to give its two unlinked people DISTINCT part-time shifts
+(32h / 24h) — not because the fixture needed them, but so the hours buttons differed and the assertion
+failed only on the control it was about. ★ That fixture was flattened to equal hours by the fix commit,
+as the ★★★ comment at it instructed; the comment now records why equal hours are safe. ★★ The distinct
+shifts in the `shiftFor` helper further down that file were LEFT as they are, and a ★★ note there says
+so — they are no longer load-bearing either, so do not read them as evidence this is still open, and do
+not "restore a difference to match" elsewhere.
 
 ## 316. The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives
 
@@ -25160,17 +25285,68 @@ would arm here too.
 ★ So the useful outcome of this entry may well be a comment at the handler saying why it does NOT
 arm, rather than a code change. Whoever picks it up should decide that first.
 
-## 324. `actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name
+## 324. `actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name — CLOSED 2026-09-01
 
-**Status:** open, never machine-verified as a RENDERED collision — filed 2026-08-31 from the §314 fix
-round. What IS machine-verified is the shape: sweeping all 139 `<InfoTooltip>` instances in `src/app`
-for a `text` reused with no `label` returns this pair, and both sites are bare. Nobody has yet driven
-the app to two actions with equal scores and read the names back.
+**Status:** CLOSED 2026-09-01 by `29e1c0c9`, `5e34cbd5` and `1b2dad93`. ★★★ **IT CLOSED FAR WIDER THAN
+ITS TITLE, and it left a live successor — say both or the record understates the change.** The probe
+found the collision CLASS on that surface was wider than the score tooltip instance, and the scope was
+widened under an explicit decision. What landed: **every once-per-row control on BOTH Next-actions
+surfaces now takes a REQUIRED, occurrence-qualified `rowToken` from its list owner** — the score
+tooltips, the Open button (ONE element, rendered either AS the primary or as the ghost alongside another
+primary — which is why it collides across rows in both positions), the direct verb buttons (`actionClearBlocker` /
+`actionMarkDone` / `actionDraftMessage`), the assign trigger, the escalate / rebaseline / reschedule
+popover TRIGGERS (whose `ariaLabel` had been reaching the PANEL rather than the button), the `⋮`
+overflow trigger and `ActionReasons`. The last two had used a raw `` `${title}` ``, which is
+insufficient because two rows can share a title.
 
-`action-row.tsx` and `action-hero-card.tsx` each mount
+★★★ **THE BOLDED COMPLETENESS CLAIM ABOVE — "every once-per-row control on BOTH Next-actions surfaces"
+— WAS FALSE WHEN WRITTEN, AND A COLD REVIEW CAUGHT IT: `AiActionRow` is a once-per-row control on
+`actions-panel.tsx` and did NOT take a token.** Its button was named
+`` `${t(lang, ctaKey)} – ${action.title}` `` from a MODEL-GENERATED title, which is free text and
+repeats — the exact discriminator this slice turns on — so it collided within the AI list and against
+the group rows the same commit had just qualified. Fixed in `cb5d040a`: the name is now
+`rowLabel(rowLabel(verb, actionAiSectionTitle), rowToken)` — verb, then the section, then the token,
+token LAST because `requireCollisionSeed`'s occurrence regex is END-ANCHORED. ★★ The section segment
+keeps the two lists as SEPARATE token populations, so an AI action appearing cannot perturb a group
+row's name. ★★★ An earlier revision justified that as "folding AI actions into the group map would
+renumber EVERY group row", which is the very over-generalisation this same commit range corrected at
+`action-hero-card.tsx`: `buildRowTokens` numbers a row only when its collapsed name repeats INSIDE the
+map (`counts > 1`), so a merge would move only the group rows an AI action actually shares a title
+with. Deleted rather than restated — the separate-populations reason stands on its own.
+Zero new i18n keys — the section title already existed (`git diff faa3d570..HEAD -- src/app/i18n*.ts`
+is empty). Pinned by a third `actions-panel.test.tsx` test seeding two AI actions on one title plus one
+titled like a group row; dropping the token and dropping the section are each mutation-proved
+independently. ★ No tally is quoted: the run spanned `actions-panel.test.tsx` AND
+`ai-action-row.test.tsx`, so the figure did not sum against either file alone and read as an error.
+
+★★ **Two things surfaced that no grep would have found**, and they are the reason the widening was
+worth doing. (1) The popover triggers' bare names: the label was threaded as a PROP, so it is invisible
+to any `aria-label` grep. (2) `dashboard-sections/dashboard-top-actions.tsx` is a **SECOND list owner**
+for `ActionRow`, revealed only because the prop was made REQUIRED rather than optional — it mints its
+own token map.
+
+**Pinned by three tests, all with `requireCollisionSeed: true` and `minControls` at exact measured
+counts:** `actions-panel.test.tsx`'s "gives the score tooltips and Open buttons row-unique names when
+actions share a title and score (§324)" and "keeps the hero and a cross-tier row in one naming
+population (§324)", plus `dashboard-top-actions.test.tsx`'s "gives each row a unique Open name when two
+top actions share a title (§324)".
+
+★★★ **The popover-INTERNAL controls were deliberately left unqualified and are NOT covered by this
+closure** — the overflow menu ITEMS, the three confirm buttons, the assign and escalate
+`ResourcePicker`s, the escalate email `Input`, and each panel's own `role="dialog"` label. Their premise
+— that `PopoverPanel`'s outside-click dismissal makes two panels non-simultaneous — is REASONED, NOT
+MEASURED. Filed as
+[§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise),
+which names the owed measurement. Do not read this entry as covering them.
+
+**The defect as filed.** `action-row.tsx` and `action-hero-card.tsx` each mounted
 `<InfoTooltip text={t(lang, "actionScoreTooltip", action.score)} />` under `expertMode`, with no
 `label`. `InfoTooltip` derives its trigger's accessible name from `text` when none is given, so the
-name is whatever that string interpolates to.
+name was whatever that string interpolated to. ★★ Both sites now pass an explicit
+`label={rowLabel(t(lang, "actionScoreTooltip", action.score), rowToken)}` while keeping the shared
+`text` — the §314 ordering precedent. **An earlier revision of this entry said "both sites are bare" and
+that they mount the tooltip "with no `label`" as live statements of the tree; a cold reviewer caught
+both at HEAD. They describe the pre-fix code only.**
 
 ★★★ **THE POSITIONAL ARGUMENT IS NOT A DISAMBIGUATOR, AND THIS IS THE TRAP AGENTS.md NAMES.**
 Interpolating `action.score` proves the two names DIFFER when the scores differ and proves NOTHING
@@ -25179,8 +25355,11 @@ is "can this value repeat in one rendered list", never the call FORM. Two action
 ordinary, not contrived.
 
 ★ Two distinct collisions, not one. The hero is `groups[0]` and is de-duped from its tier list, so
-hero-vs-row is one pair; but `action-row` renders once per row, so rows collide among THEMSELVES as
-soon as any two visible actions share a score.
+hero-vs-row was one pair; but `action-row` renders once per row, so rows collided among THEMSELVES as
+soon as any two visible actions shared a score. ★★ That is why `actions-panel.tsx` mints ONE token map
+spanning the hero AND every tier row rather than a map per list — the second of the three tests above
+("keeps the hero and a cross-tier row in one naming population") exists to pin exactly that, and a
+per-list map would pass every other assertion here.
 
 ★★ **Neither gate can see it.** axe has no rule that flags two controls sharing an accessible name
 (measured against axe-core 4.12.1 — see AGENTS.md), and §276's per-row scanner looks for controls
@@ -25192,9 +25371,11 @@ of the budget panel, and scoping it here would have meant fixing a Next-actions 
 branch. §314's own fix set the ordering precedent to follow: qualify the NAME with an explicit
 `label` that LEADS with what distinguishes it, keeping the shared `text`.
 
-★ Reproduce the sweep:
-`grep -rn "<InfoTooltip" src/app --include=*.tsx | grep -v "\.test\.tsx:"` (139), then check which
-carry no `label`.
+★ Reproduce the sweep that found it:
+`grep -rn "<InfoTooltip" src/app --include=*.tsx | grep -v "\.test\.tsx:"` (139 on 2026-09-01, the same
+figure as at filing — the fix added `label` props to existing instances, it added no new tooltip), then
+check which carry no `label`. The two Next-actions sites no longer appear in that residue; §314's
+paragraph on the same sweep adjudicates the other three candidates as non-defects.
 
 ---
 
@@ -25312,3 +25493,66 @@ ratchet, not after — this file is past that point with no room left to defer t
 gate checks; nothing in this entry should be read as recommending it. What the actual split seams
 should be is undetermined and is exactly what is NOT machine-verified above — that assessment is
 owed before anyone attempts it.
+
+---
+
+## 328. The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise
+
+**Status:** OPEN, **never machine-verified**. Filed 2026-09-01 while fixing
+[§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01),
+which widened into every control the Next-actions row and hero render. The controls named below were
+deliberately NOT given a row token, and the justification was reasoned from the dismissal contract
+rather than measured. Nothing drives two of these panels open at once in any test, so the premise
+has never been exercised.
+
+§324's fix threads an occurrence-qualified `rowToken` into every control that renders **once per
+row**: the score tooltip, the Open button (primary and ghost), the direct verbs, the assign trigger,
+the three `ActionPopoverTrigger` buttons, the `⋮` overflow trigger and the `ActionReasons`
+disclosure. Left bare, on purpose:
+
+- the `ActionOverflowMenu` menu ITEMS (`Mark done` / `Draft message` / `Create task` /
+  `actionSnooze1h` / `actionSnooze1d`)
+- the confirm buttons inside the escalate / rebaseline / reschedule panels
+- the `ResourcePicker` inside the assign popover
+- the escalate panel's OWN `ResourcePicker` (labelled `actionEscalateRecipient`) and its email
+  `Input` (labelled `actionEscalateEmailPlaceholder`) — a second pair, distinct from the assign
+  popover's picker above, and missed by the first cut of this list
+- the `ariaLabel` each panel passes to `PopoverPanel` for its own `role="dialog"`
+
+★★ **THREE of the bullets above are not buttons, and they need THREE different roles — an earlier
+revision said "the last two" and prescribed one `roles: ["combobox", "textbox"]` pass, which is both
+a miscount and insufficient.** The `ResourcePicker`s map to `combobox`, the escalate email `Input` to
+`textbox`, and each panel's own `ariaLabel` names a `role="dialog"`. All three fall outside the
+default `["button"]` list every adopting test uses, so none is visible to the existing assertions.
+★ The dialog leg needs a **separate** pass, not a wider `roles` array: `expectRowUniqueNames` compares
+names across every role it is given at once, so folding dialogs in with the controls would let a
+panel's name collide with a button's and report it as a row collision. Settle the premise first —
+these are only defects if two panels can coexist.
+
+★★ **The premise is that `PopoverPanel`'s outside-click dismissal makes two panels non-simultaneous**,
+so a name inside one panel cannot repeat within a single rendered list — which is the discriminator
+the whole row-unique-names slice turns on. If that premise is wrong, every item above is a live WCAG
+2.4.6 collision the moment two rows' panels coexist, and the fix is mechanical (the token is already
+in scope at each of these call sites — `rowToken` reaches `ActionPrimaryCta` and
+`ActionOverflowMenu`, and the three popovers already take it).
+
+★ **What is owed is one measurement, not a redesign:** render two Next-actions rows, open row A's
+`⋮`, then open row B's, and assert only one menu is in the DOM. A unit test in
+`action-cta-controls.test.tsx` can do it. The comment in `ActionOverflowMenu` already flags ITSELF
+correctly — it carries an explicit ★★★ saying the premise is reasoned from the dismissal contract and
+not measured, and points here — so what is outstanding is the measurement alone, not a mislabelled
+claim in the source. (An earlier revision of this entry said that comment was "a reasoned claim
+wearing the voice of a measured one"; that described the state before the same commit range
+corrected it, and is no longer true of the tree.)
+
+★★ **Neither gate can see any of it.** axe has no rule that flags two controls sharing an accessible
+name, at any seed size in any view (measured against axe-core 4.12.1 — see AGENTS.md), and the
+Next-actions view's popovers are never opened by the a11y spec anyway. A unit test is the only
+detector that can exist here, as it was for §324.
+
+★ **One accepted risk, recorded rather than guarded.** `ActionPrimaryCta` and `ActionOverflowMenu`
+each take `caps` and `handlers` as separate props, so a call site passing a `caps` derived from a
+DIFFERENT handlers object than the one it threads could render two same-named Open buttons within a
+single row. Unreachable today — both call sites (`action-row.tsx`, `action-hero-card.tsx`) pass the
+same object to `useActionCaps` and to `handlers` — and judged not worth a guard. Listed so the next
+reader does not have to rediscover that the coupling is by convention rather than by construction.

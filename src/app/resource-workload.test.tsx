@@ -168,38 +168,31 @@ describe("ResourceWorkload", () => {
   // announced one name (open-followups §276). The row's identity sits in a
   // SIBLING <span>, outside the button, so nothing disambiguated it.
   //
-  // ★★ `requireCollisionSeed` is deliberately OFF, and it is not merely
-  // unnecessary here — it would throw. `row.display` is structurally unique
-  // within the rendered list: `buildResourceWorkload` accumulates unlinked rows
-  // into a Map keyed on `display.toLowerCase()`, so two rows cannot carry the
-  // same display name (not even in different case), and the " (N)" occurrence
-  // suffix the guard looks for can never be emitted on this surface. A plain
-  // qualifier is therefore sufficient, and `buildRowTokens` would be dead code.
+  // ★★ `requireCollisionSeed` is deliberately OFF: this is a DISTINCT-name
+  // regression pin, not a collision test, which is the case the flag's own
+  // docstring says to leave it off for.
+  // ★★★ The paragraph that stood here gave a different and now FALSE reason —
+  // that `display.toLowerCase()` keying makes a shared display name structurally
+  // impossible, that " (N)" "can never be emitted on this surface", and that
+  // `buildRowTokens` "would be dead code". All three were refuted: that key
+  // trims and case-folds without collapsing whitespace, and `buildRowTokens` is
+  // live on every unlinked control this test renders.
   //
   // ★ The fixture is still collision-BEARING for the defect under test: before
   // the fix BOTH buttons are named exactly "Add as resource".
-  //
-  // ★★★ THE SHIFT FIXTURE IS LOAD-BEARING AND IS **NOT** PART OF THE DEFECT
-  // UNDER TEST. Every row — managed and unlinked alike — renders a weekly-hours
-  // button whose accessible name is its CONTENT, i.e. the bare hours number, so
-  // any two rows on the same contracted hours share the name "40". That is a
-  // REAL, still-open 2.4.6 collision of its own, outside the §276 site list and
-  // deliberately NOT fixed here: qualifying it is not mechanical, because WCAG
-  // 2.5.3 requires the visible "40" to survive inside whatever name replaces it.
-  // The assertion below is whole-document (the shared helper's default) and no
-  // DOM container holds the unlinked rows alone — they are sibling <tr>s with no
-  // wrapper — so it cannot be narrowed around that collision. Giving the two
-  // unlinked people distinct part-time shifts makes the three hours buttons
-  // genuinely distinct instead, which isolates this test to the add-as-resource
-  // control. If the hours button is ever qualified, these shifts can go.
   it("gives every unlinked row's add-as-resource button a row-unique name (§276)", () => {
     const unlinkedTasks = [
       { id: 41, taskName: "Draft SOW", assignee: "Alice Smith", dueDate: "2026-07-01" },
       { id: 42, taskName: "Review SOW", assignee: "Bob Jones", dueDate: "2026-07-02" },
     ] as unknown as Task[];
+    // EQUAL hours on purpose. These were once deliberately distinct (32h / 24h)
+    // to keep the then-unqualified weekly-hours buttons from colliding on "40"
+    // and masking the add-as-resource defect under test. §315 qualified those
+    // buttons with the row, so equal hours are safe again and the fixture no
+    // longer carries a difference that has nothing to do with this assertion.
     const partTime = [
       { id: 1, assignee: "Alice Smith", hoursPerWeekday: [8, 8, 8, 8, 0, 0, 0] },
-      { id: 2, assignee: "Bob Jones", hoursPerWeekday: [8, 8, 8, 0, 0, 0, 0] },
+      { id: 2, assignee: "Bob Jones", hoursPerWeekday: [8, 8, 8, 8, 0, 0, 0] },
     ] as unknown as React.ComponentProps<typeof ResourceWorkload>["shifts"];
     render(<ResourceWorkload {...baseProps} tasks={unlinkedTasks} shifts={partTime} />);
     // Both unlinked rows reached the table — otherwise the assertion below is
@@ -209,11 +202,15 @@ describe("ResourceWorkload", () => {
     expectRowUniqueNames({ minControls: 6 });
   });
 
-  // ★★ Distinct part-time shifts throughout the fixtures below, for the reason
-  // spelled out on the §276 test above: every row's weekly-hours button is
-  // content-named, so two rows on the same contracted hours collide on "40"
-  // regardless of anything under test here. That collision is real and still
-  // open; giving each row its own hours isolates these assertions from it.
+  // ★★ The distinct part-time shifts throughout the fixtures below are NO
+  // LONGER LOAD-BEARING, and reading them as such is the trap this note exists
+  // to close. They date from when every row's weekly-hours button was
+  // content-named, so two rows on the same contracted hours collided on "40"
+  // regardless of anything under test — the distinct hours isolated these
+  // assertions from that. §315 qualified both tables' hours buttons with the
+  // row, so the collision is closed and equal hours would be safe here too;
+  // these are simply left as they are. Do not restore a difference elsewhere
+  // "to match", and do not cite this helper as evidence the defect is open.
   const shiftFor = (id: number, resourceId: number | null, assignee: string, days: number) =>
     ({ id, resourceId, assignee, hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0].map((h, i) => (i < days ? h : 0)) }) as unknown as
       React.ComponentProps<typeof ResourceWorkload>["shifts"][number];
@@ -324,5 +321,162 @@ describe("ResourceWorkload", () => {
     // 6 = measured: an add-as-resource button, an hours button and one absence
     // chip per unlinked row; `resources={[]}` leaves no managed row at all.
     expectRowUniqueNames({ minControls: 6 });
+  });
+
+  // WCAG 2.4.6 (§315) — the weekly-hours button's accessible name is its own
+  // CONTENT, the contracted hours number, so a team on one standard week gives
+  // N buttons all named "40". BOTH tables render it and BOTH take the row token,
+  // from one shared map. ★★ An earlier revision of this comment said the two
+  // halves take "DIFFERENT fixes", with the unlinked one on a plain qualifier;
+  // that premise was refuted — see the unlinked test below and `rowTokens`.
+  // `buildResourceWorkload` keys `managed` on the numeric resource id, so a
+  // display name CAN repeat there, and this fixture is the two-Sarahs shape.
+  it("gives the MANAGED weekly-hours buttons row-unique names when two people share a name and hours (§315)", () => {
+    render(<ResourceWorkload {...baseProps} resources={[r, twin]} tasks={[]} />);
+    // 4 = measured: a name button and an hours button per managed row. No
+    // `shifts` is passed, so both rows carry the same DEFAULT weekly hours —
+    // that is the collision under test, not an oversight.
+    expectRowUniqueNames({ minControls: 4, requireCollisionSeed: true });
+  });
+
+  // ★★★ A SHARED UNLINKED NAME IS SEEDABLE AFTER ALL, and the comment that used
+  // to sit here denied it: it said `requireCollisionSeed` "would THROW against
+  // CORRECT code" because `buildResourceWorkload` keys unlinked rows on
+  // `display.toLowerCase()`, so no display name can repeat. That key trims and
+  // case-folds but does NOT collapse internal whitespace runs, while an
+  // accessible name IS compared collapsed — so "Bob  Smith" (two spaces) and
+  // "Bob Smith" (one) are TWO rows announcing ONE name. The seed below is
+  // exactly that pair, and the button now takes the row TOKEN.
+  //
+  // ★★★ `expectRowUniqueNames` ALONE CANNOT SEE THIS COLLISION, so the collapsed
+  // comparison below is not decoration — it is the assertion that goes red when
+  // the token is reverted to a plain `row.display`. The harness's duplicate
+  // check compares names RAW (`src/test/row-unique-names.ts`), and the two names
+  // differ by one space, so it reports no duplicate either way. Only
+  // `requireCollisionSeed` collapses, and that is a seed guard, not a detector.
+  // Measured, not reasoned: with the token reverted the `expectRowUniqueNames`
+  // call stays GREEN and only the collapsed assertion turns red.
+  //
+  // ★ The harness still earns its place: it kills the ORIGINAL §315 mutant
+  // (deleting the `aria-label` outright leaves both buttons named by content,
+  // "40" twice, a raw duplicate).
+  it("gives the UNLINKED weekly-hours buttons distinct names when two people share a whitespace-collapsed name (§315)", () => {
+    const unlinkedTasks = [
+      { id: 41, taskName: "Draft SOW", assignee: "Bob  Smith", dueDate: "2026-07-01" },
+      { id: 42, taskName: "Review SOW", assignee: "Bob Smith", dueDate: "2026-07-02" },
+    ] as unknown as Task[];
+    // `onClearUnlinked` is passed so the ✕ RENDERS — it takes the same token and
+    // is otherwise covered by nothing, which would leave that half of the fix a
+    // claim with no detector behind it.
+    render(<ResourceWorkload {...baseProps} resources={[]} tasks={unlinkedTasks} onClearUnlinked={vi.fn()} />);
+    // Both unlinked rows reached the table — otherwise the assertions below are
+    // about a list that never rendered. Two matches, because RTL's text matcher
+    // normalises whitespace exactly as the accessible-name computation does:
+    // that is the defect, seen from the query side.
+    expect(screen.getAllByText("Bob Smith")).toHaveLength(2);
+    // 6 = MEASURED, not counted off the JSX: an add-as-resource button, an hours
+    // button and a clear-unlinked ✕ per unlinked row; `resources={[]}` leaves no
+    // managed row at all. No `shifts` is passed, so both rows carry the same
+    // DEFAULT weekly hours — the collision under test.
+    expectRowUniqueNames({ minControls: 6, requireCollisionSeed: true });
+    // The hours buttons are the ones under test — `/^\d+ – /` matches only
+    // those (add-as-resource starts with its verb), and it also fails loudly if
+    // the qualifier is dropped entirely, since a bare "40" does not match.
+    const hoursNames = screen
+      .getAllByRole("button", { name: /^\d+ – / })
+      .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
+    expect(hoursNames).toHaveLength(2);
+    expect(new Set(hoursNames).size).toBe(2);
+    // ★★★ THE ADD-AS-RESOURCE BUTTONS ARE A SECOND, INDEPENDENT DETECTOR — they
+    // carried the same refuted "`row.display` cannot repeat here" premise and now
+    // take the same token. Collapsed, because the harness compares RAW and one
+    // space cannot separate two names a screen reader reads identically.
+    // ★★ An earlier comment here claimed these two were what SATISFIED
+    // `requireCollisionSeed` above, i.e. that the guard was being certified by a
+    // broken control. That was FALSE and self-contradictory: once tokenised, the
+    // hours pair strips to "40 – Bob  Smith" / "40 – Bob Smith" and COLLAPSES to
+    // one string, so it satisfies the guard on its own.
+    const addNames = screen
+      .getAllByRole("button", { name: /^Add as resource – / })
+      .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
+    expect(addNames).toHaveLength(2);
+    expect(new Set(addNames).size).toBe(2);
+    // The ✕ is icon-only, so its whole accessible name is the interpolated
+    // string — "Clear {0}" in EN, which puts the token last. ★ In DE the key is
+    // "{0} entfernen" and the index lands mid-string; uniqueness still holds,
+    // but this regex and the harness's end-anchored strip are EN-shaped.
+    const clearNames = screen
+      .getAllByRole("button", { name: /^Clear / })
+      .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
+    expect(clearNames).toHaveLength(2);
+    expect(new Set(clearNames).size).toBe(2);
+  });
+
+  // ★★★ THE COLLISION ALSO CROSSES THE TWO TABLES, which is one level up from
+  // everything above and was live behind a comment asserting it could not
+  // happen: "an unlinked row exists precisely BECAUSE its name matched no
+  // resource case-folded, so no unlinked `display` can equal a managed one."
+  // Case-folded inequality is not COLLAPSED inequality. `resourceDisplayName`
+  // joins with a single space and trims; `nameToId` keys on
+  // `display.trim().toLowerCase()`; `resolve` looks up `name.toLowerCase()`. So
+  // the resource below (display "Mary  Jane Smith") and the task assignee
+  // ("Mary Jane Smith") MISS each other — one managed row, one unlinked row, one
+  // `<table>`, one announced name.
+  // ★★ With a token map PER TABLE each name was unique inside its own map, so
+  // both came out BARE. That is why the maps were merged with prefixed keys
+  // rather than the claim merely deleted: two bare tokens is the defect.
+  // ★ `expectRowUniqueNames` cannot see this either (it compares RAW), so the
+  // collapsed comparison is again the detector.
+  // ★★★ THE ABSENCE MAP'S OWN REASON FOR EXISTING WAS ASSERTED IN PROSE AND
+  // PINNED BY NOTHING. `absenceTokens`' comment says one person can hold two
+  // absences with the same window and type, so the composed chip name repeats —
+  // but every absence fixture in this file seeded DISTINCT row names and ONE
+  // absence per row, which makes the token equal its own fallback at every chip
+  // site. A key mistake there was therefore invisible.
+  // ★★ Two properties, deliberately in one fixture because they need the same
+  // seed: (1) the chip composes from the ROW TOKEN, not the raw shared display —
+  // a uniqueness assertion CANNOT catch that, since numbering the composed names
+  // keeps them distinct either way while silently dropping the row identity, so
+  // the containment assertions below are the detector; (2) two identical
+  // absences on ONE row get numbered against each other.
+  it("composes each absence chip from the row token and numbers repeats within a row", () => {
+    render(
+      <ResourceWorkload
+        {...baseProps}
+        resources={[r, twin]}
+        tasks={[]}
+        absences={[
+          { id: 31, resourceId: 1, startDate: "2026-07-01", endDate: "2026-07-05", type: "vacation" },
+          { id: 32, resourceId: 1, startDate: "2026-07-01", endDate: "2026-07-05", type: "vacation" },
+          { id: 33, resourceId: 2, startDate: "2026-07-01", endDate: "2026-07-05", type: "vacation" },
+        ] as unknown as React.ComponentProps<typeof ResourceWorkload>["absences"]}
+      />,
+    );
+    const chips = screen
+      .getAllByRole("button", { name: /vacation – / })
+      .map((b) => b.getAttribute("aria-label") ?? "");
+    expect(chips).toHaveLength(3);
+    expect(new Set(chips).size).toBe(3);
+    // Sample #1 holds both identical absences, so her two chips carry HER token
+    // and are numbered against each other; Sample #2's single chip carries hers.
+    expect(chips.filter((n) => n.includes("Alex Example (1)"))).toHaveLength(2);
+    expect(chips.filter((n) => n.includes("Alex Example (2)"))).toHaveLength(1);
+  });
+
+  it("keeps a managed row and an unlinked row distinct when their names differ only by whitespace (§315)", () => {
+    const wide: Resource = { id: 7, firstName: "Mary  Jane", lastName: "Smith", roleId: null, utilizationMode: "percent", utilization: {} };
+    const crossTasks = [
+      { id: 51, taskName: "Spec", assignee: "Mary Jane Smith", dueDate: "2026-07-01" },
+    ] as unknown as Task[];
+    render(<ResourceWorkload {...baseProps} resources={[wide]} tasks={crossTasks} />);
+    // Both rows reached the table: RTL's text matcher normalises whitespace the
+    // way the accessible-name computation does, so one query finds both — that
+    // is the defect seen from the query side.
+    expect(screen.getAllByText("Mary Jane Smith")).toHaveLength(2);
+    const hoursNames = screen
+      .getAllByRole("button", { name: /^\d+ – / })
+      .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
+    expect(hoursNames).toHaveLength(2);
+    expect(new Set(hoursNames).size).toBe(2);
   });
 });

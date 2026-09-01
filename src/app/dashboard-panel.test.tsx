@@ -327,7 +327,7 @@ describe("DashboardPanel top-actions card (Task 7)", () => {
     );
     expect(screen.getByText("Top actions")).toBeInTheDocument();
     // Two action rows rendered — each has an "Open" CTA button
-    expect(screen.getAllByRole("button", { name: "Open" }).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByRole("button", { name: /^Open – / }).length).toBeGreaterThanOrEqual(2);
   });
 
   it("fires onOpenAction with the action when a row is clicked", async () => {
@@ -342,7 +342,7 @@ describe("DashboardPanel top-actions card (Task 7)", () => {
       { wrapper },
     );
     // Click the "Open" button inside the ActionRow (exact text, not the print button)
-    const rowButton = screen.getByRole("button", { name: "Open" });
+    const rowButton = screen.getByRole("button", { name: /^Open – / });
     await user.click(rowButton);
     expect(onOpenAction).toHaveBeenCalledWith(action1);
   });

@@ -12,6 +12,7 @@ import { ReschedulePopover, type RescheduleBundle } from "./reschedule-popover";
 import { PopoverPanel } from "./popover-panel";
 import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 import { pickPrimaryCta, overflowCtas, type ActionCaps } from "./next-actions/action-cta";
+import { rowLabel } from "./row-tokens";
 
 export interface AssignOwnerBundle {
   resources: readonly Resource[];
@@ -61,13 +62,23 @@ interface CtaProps {
   action: SuggestedAction;
   caps: ActionCaps;
   handlers: ActionHandlers;
+  /** Occurrence-qualified row name from whoever renders the LIST. REQUIRED, not
+   *  optional, so a future call site cannot silently omit it and reintroduce the
+   *  bare name: every verb below ("Open", "Mark done", …) is a fixed string, so
+   *  without a token two rows render two identically-named buttons (WCAG 2.4.6).
+   *  ★★ A raw action TITLE is not a substitute — a title is free text and can
+   *  repeat, which is the entire premise of this defect class; the discriminator
+   *  is "can this value repeat in one rendered list", never the call form (§324).
+   *  A per-item component cannot disambiguate itself (no sibling visibility), so
+   *  the token is built by the list owner and threaded down. */
+  rowToken: string;
   /** Hero = larger filled treatment for direct verbs (bigger padding + text). */
   prominent?: boolean;
 }
 
 /** Renders the single primary control (popover verbs reuse their existing popover;
  *  direct verbs render a button) PLUS a ghost Open when the primary isn't Open. */
-export function ActionPrimaryCta({ lang, action, caps, handlers, prominent }: CtaProps) {
+export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, prominent }: CtaProps) {
   const [assignOpen, setAssignOpen] = useState(false);
   const assignBtnRef = useRef<HTMLButtonElement>(null);
   const closeAssign = useCallback(() => setAssignOpen(false), []);
@@ -76,8 +87,12 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, prominent }: Ct
   const directBtn = `${FILLED_BASE} ${prominent ? "px-4 py-1.5 text-sm" : "px-3 py-1 text-xs"}`;
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
+  // ★ Rendered for EVERY action — as the primary when `kind === "open"`, and as
+  //   the ghost alongside every other primary — so this one element is two
+  //   identically-named buttons the moment a list holds two rows.
   const open = (
     <button type="button" onClick={(e) => { stop(e); handlers.onOpen(action); }}
+      aria-label={rowLabel(t(lang, "actionOpen"), rowToken)}
       className={kind === "open" ? directBtn : `${GHOST} px-3`}>
       {t(lang, "actionOpen")}
     </button>
@@ -88,6 +103,7 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, prominent }: Ct
     primary = (
       <span className="relative">
         <button ref={assignBtnRef} type="button" aria-haspopup="dialog" aria-expanded={assignOpen}
+          aria-label={rowLabel(t(lang, "actionAssignOwner"), rowToken)}
           onClick={(e) => { stop(e); setAssignOpen((o) => !o); }} className={prominent ? directBtn : GHOST}>
           {t(lang, "actionAssignOwner")}
         </button>
@@ -101,17 +117,38 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, prominent }: Ct
       </span>
     );
   } else if (kind === "escalate" && handlers.escalate) {
-    primary = <EscalatePopover lang={lang} action={action} bundle={handlers.escalate} prominent={prominent} />;
+    primary = <EscalatePopover lang={lang} action={action} bundle={handlers.escalate} rowToken={rowToken} prominent={prominent} />;
   } else if (kind === "rebaseline" && handlers.rebaseline) {
-    primary = <RebaselinePopover lang={lang} action={action} bundle={handlers.rebaseline} prominent={prominent} />;
+    primary = <RebaselinePopover lang={lang} action={action} bundle={handlers.rebaseline} rowToken={rowToken} prominent={prominent} />;
   } else if (kind === "reschedule" && handlers.reschedule) {
-    primary = <ReschedulePopover lang={lang} action={action} bundle={handlers.reschedule} prominent={prominent} />;
+    primary = <ReschedulePopover lang={lang} action={action} bundle={handlers.reschedule} rowToken={rowToken} prominent={prominent} />;
   } else if (kind === "clearBlocker" && handlers.onClearBlocker) {
-    primary = <button type="button" onClick={(e) => { stop(e); handlers.onClearBlocker!(action); }} className={directBtn}>{t(lang, "actionClearBlocker")}</button>;
+    // ★ `aria-label` on its own line in all three, matching the Open and assign
+    //   buttons above: it is the accessibility-relevant attribute and is hardest
+    //   to spot wedged mid-line between `type` and `onClick`.
+    primary = (
+      <button type="button"
+        aria-label={rowLabel(t(lang, "actionClearBlocker"), rowToken)}
+        onClick={(e) => { stop(e); handlers.onClearBlocker!(action); }} className={directBtn}>
+        {t(lang, "actionClearBlocker")}
+      </button>
+    );
   } else if (kind === "markDone" && handlers.onMarkDone) {
-    primary = <button type="button" onClick={(e) => { stop(e); handlers.onMarkDone!(action); }} className={directBtn}>{t(lang, "actionMarkDone")}</button>;
+    primary = (
+      <button type="button"
+        aria-label={rowLabel(t(lang, "actionMarkDone"), rowToken)}
+        onClick={(e) => { stop(e); handlers.onMarkDone!(action); }} className={directBtn}>
+        {t(lang, "actionMarkDone")}
+      </button>
+    );
   } else if (kind === "draft" && handlers.onDraftMessage) {
-    primary = <button type="button" onClick={(e) => { stop(e); handlers.onDraftMessage!(action); }} className={directBtn}>{t(lang, "actionDraftMessage")}</button>;
+    primary = (
+      <button type="button"
+        aria-label={rowLabel(t(lang, "actionDraftMessage"), rowToken)}
+        onClick={(e) => { stop(e); handlers.onDraftMessage!(action); }} className={directBtn}>
+        {t(lang, "actionDraftMessage")}
+      </button>
+    );
   }
 
   return (
@@ -123,14 +160,21 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, prominent }: Ct
 }
 
 /** The ⋮ overflow holding the menu-able secondaries minus the primary. */
-export function ActionOverflowMenu({ lang, action, caps, handlers }: CtaProps) {
+export function ActionOverflowMenu({ lang, action, caps, handlers, rowToken }: CtaProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setMenuOpen(false), []);
   const items = overflowCtas(action, caps);
   if (items.length === 0) return null;
-  const title = t(lang, action.title.key, ...(action.title.params ?? []));
   const stop = (e: React.MouseEvent) => e.stopPropagation();
+  // ★★ The menu ITEMS below are deliberately NOT qualified, on the premise that
+  //    they render only inside this row's `PopoverPanel`, which dismisses on
+  //    outside click — so two menus are never in the tree at once and an item's
+  //    name cannot repeat in one rendered list, the discriminator this whole
+  //    slice turns on.
+  // ★★★ THAT PREMISE IS REASONED FROM THE DISMISSAL CONTRACT, NOT MEASURED — no
+  //    test drives two of these menus open. `docs/open-followups.md` §328 holds
+  //    it, and names the one measurement owed. Do not restate it as a fact.
   const item = (label: string, onClick: () => void) => (
     <button key={label} type="button"
       onClick={(e) => { stop(e); setMenuOpen(false); onClick(); }}
@@ -139,7 +183,7 @@ export function ActionOverflowMenu({ lang, action, caps, handlers }: CtaProps) {
   return (
     <span className="relative">
       <button ref={btnRef} type="button" aria-expanded={menuOpen}
-        aria-label={`${t(lang, "actionMoreActions")} – ${title}`}
+        aria-label={rowLabel(t(lang, "actionMoreActions"), rowToken)}
         title={t(lang, "actionMoreActionsHint")}
         onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
         className={`cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 ${FOCUS_RING}`}>

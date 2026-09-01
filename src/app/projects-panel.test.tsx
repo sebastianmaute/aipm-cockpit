@@ -256,6 +256,23 @@ describe("ProjectsPanel file mode", () => {
       screen.getByRole("button", { name: /delete project/i }),
     ).toBeInTheDocument();
   });
+
+  // §309, the OTHER branch. `projects-panel.tsx` renders Archive OR Delete —
+  // `{isTurso ? <Archive/> : <Delete/>}` — so the turso test above can never
+  // reach the `projectsDelete` label and nothing pinned its name. File mode is
+  // the only way in.
+  it("gives every ACTIVE row control a row-unique accessible name in FILE mode (§309)", () => {
+    const shared: ProjectRegistryEntry[] = [
+      { id: "p1", name: "Migration", code: "MIG-1", storageConfig: { kind: "local-json" } as never },
+      { id: "p2", name: "Migration", code: "MIG-2", storageConfig: { kind: "local-json" } as never },
+    ];
+    setup({ mode: "file", projects: shared, currentProjectId: null });
+    // 7 = MEASURED, exactly as above: Load from file… · + New project · reset
+    // pane size, plus Switch + Delete on each of the two rows. Turso is not
+    // configured in `defaultSettings`, so neither Load-from-Turso nor
+    // Migrate-to-Turso renders.
+    expectRowUniqueNames({ minControls: 7, requireCollisionSeed: true });
+  });
 });
 
 describe("ProjectsPanel turso mode", () => {
@@ -328,6 +345,29 @@ describe("ProjectsPanel turso mode", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /show archived/i }));
     expectRowUniqueNames({ minControls: 11, requireCollisionSeed: true });
+  });
+
+  it("gives every ACTIVE row control a row-unique accessible name when two projects share a name (§309)", () => {
+    // Two ACTIVE projects (not archived) sharing a display name. currentProjectId
+    // is null so BOTH rows render as non-current — the non-current-row controls
+    // (Switch + the destructive Archive) live only on non-current rows, so a
+    // fixture with a current row would render just one Archive and the
+    // assertion would cover nothing. (Switch itself is `variant="secondary"`;
+    // only Archive/Delete are destructive.)
+    const shared: ProjectRegistryEntry[] = [
+      { id: "p1", name: "Migration", code: "MIG-1", storageConfig: { kind: "turso" } as never },
+      { id: "p2", name: "Migration", code: "MIG-2", storageConfig: { kind: "turso" } as never },
+    ];
+    setup({
+      mode: "turso",
+      projects: shared,
+      currentProjectId: null,
+    });
+    // 7 = MEASURED, not a floor over the row buttons alone: the panel renders
+    // chrome outside the row map too (Show archived · + New project · reset
+    // pane size) on top of the four row controls. Keeping it EXACT is the only
+    // automatic guard against a silently narrowed `roles` list.
+    expectRowUniqueNames({ minControls: 7, requireCollisionSeed: true });
   });
 
   it("hides Load from file", () => {

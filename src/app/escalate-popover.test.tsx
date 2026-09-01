@@ -20,16 +20,16 @@ const issue = (over: Partial<RaidItem> = {}): RaidItem =>
 
 describe("EscalatePopover", () => {
   it("shows the raise-severity preview and a disabled confirm until a valid email", () => {
-    render(<EscalatePopover lang="en-US" action={action(1)} bundle={bundle([issue()])} />);
-    fireEvent.click(screen.getByRole("button", { name: "Escalate" }));
+    render(<EscalatePopover rowToken="Row" lang="en-US" action={action(1)} bundle={bundle([issue()])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Escalate – Row" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Raise severity: High → Critical")).toBeTruthy();
     expect(within(dialog).getByRole("button", { name: "Escalate now" })).toHaveProperty("disabled", true);
   });
 
   it("shows the notify-only note for a Risk", () => {
-    render(<EscalatePopover lang="en-US" action={action(1)} bundle={bundle([issue({ category: "R" })])} />);
-    fireEvent.click(screen.getByRole("button", { name: "Escalate" }));
+    render(<EscalatePopover rowToken="Row" lang="en-US" action={action(1)} bundle={bundle([issue({ category: "R" })])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Escalate – Row" }));
     expect(within(screen.getByRole("dialog")).getByText(/notify only/)).toBeTruthy();
   });
 
@@ -44,10 +44,10 @@ describe("EscalatePopover", () => {
       { id: 1, firstName: "Sample", lastName: "Dummy", email: "Sample@x.com", roleId: null, utilizationMode: "percent" as const, utilization: {} },
     ];
     render(
-      <EscalatePopover lang="en-US" action={action(1)}
+      <EscalatePopover rowToken="Row" lang="en-US" action={action(1)}
         bundle={{ ...bundle([issue()], onEscalate), resources }} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Escalate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Escalate – Row" }));
     const dialog = screen.getByRole("dialog");
 
     // Adopt Sample's address via the picker.
@@ -63,8 +63,8 @@ describe("EscalatePopover", () => {
 
   it("fires onEscalate with the chosen recipient and closes", () => {
     const onEscalate = vi.fn();
-    render(<EscalatePopover lang="en-US" action={action(1)} bundle={bundle([issue()], onEscalate)} />);
-    fireEvent.click(screen.getByRole("button", { name: "Escalate" }));
+    render(<EscalatePopover rowToken="Row" lang="en-US" action={action(1)} bundle={bundle([issue()], onEscalate)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Escalate – Row" }));
     const dialog = screen.getByRole("dialog");
     const email = within(dialog).getByPlaceholderText(/email/i);
     fireEvent.change(email, { target: { value: "boss@example.com" } });

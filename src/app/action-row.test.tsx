@@ -16,14 +16,14 @@ describe("ActionRow", () => {
     const onOpen = vi.fn();
     // The row is a plain onClick div (no role=button — avoids nested-interactive
     // a11y with the inner Open button). Click the title text; it bubbles to the row.
-    const { getByText } = render(<ActionRow lang="en-US" action={action} onOpen={onOpen} />);
+    const { getByText } = render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={onOpen} />);
     fireEvent.click(getByText(/Server down/));
     expect(onOpen).toHaveBeenCalledWith(action);
   });
   it("clicking the Open button fires onOpen exactly once (stopPropagation)", () => {
     const onOpen = vi.fn();
-    const { getByRole } = render(<ActionRow lang="en-US" action={action} onOpen={onOpen} />);
-    fireEvent.click(getByRole("button", { name: "Open" }));
+    const { getByRole } = render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={onOpen} />);
+    fireEvent.click(getByRole("button", { name: "Open – Row" }));
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });
@@ -31,23 +31,23 @@ describe("ActionRow", () => {
 describe("ActionRow snooze", () => {
   it("opens the snooze menu and fires onSnooze with 1h / 1d", () => {
     const onSnooze = vi.fn();
-    const { getByRole } = render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onSnooze={onSnooze} />);
-    fireEvent.click(getByRole("button", { name: /more actions/i }));
+    const { getByRole } = render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} onSnooze={onSnooze} />);
+    fireEvent.click(getByRole("button", { name: /^More actions – Row$/ }));
     fireEvent.click(getByRole("button", { name: "1 hour" }));
     expect(onSnooze).toHaveBeenCalledWith(action, SNOOZE_1H);
-    fireEvent.click(getByRole("button", { name: /more actions/i }));
+    fireEvent.click(getByRole("button", { name: /^More actions – Row$/ }));
     fireEvent.click(getByRole("button", { name: "1 day" }));
     expect(onSnooze).toHaveBeenCalledWith(action, SNOOZE_1D);
   });
   it("snooze menu clicks do not fire onOpen (stopPropagation)", () => {
     const onOpen = vi.fn();
-    const { getByRole } = render(<ActionRow lang="en-US" action={action} onOpen={onOpen} onSnooze={() => {}} />);
-    fireEvent.click(getByRole("button", { name: /more actions/i }));
+    const { getByRole } = render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={onOpen} onSnooze={() => {}} />);
+    fireEvent.click(getByRole("button", { name: /^More actions – Row$/ }));
     fireEvent.click(getByRole("button", { name: "1 hour" }));
     expect(onOpen).not.toHaveBeenCalled();
   });
   it("renders no Snooze control when onSnooze is omitted", () => {
-    const { queryByRole } = render(<ActionRow lang="en-US" action={action} onOpen={() => {}} />);
+    const { queryByRole } = render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} />);
     expect(queryByRole("button", { name: /Snooze/i })).toBeNull();
   });
 });
@@ -62,8 +62,8 @@ describe("ActionRow create task", () => {
       why: { key: "actionRaidWhyNoOwner", params: ["High"] },
       score: 30, tier: "now", cta: { kind: "open", view: "raid", id: 1 },
     } as never;
-    render(<ActionRow lang="en-US" action={action} onOpen={onOpen} onCreateTask={onCreateTask} />);
-    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
+    render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={onOpen} onCreateTask={onCreateTask} />);
+    fireEvent.click(screen.getByRole("button", { name: /^More actions – Row$/ }));
     const btn = screen.getByRole("button", { name: /create task/i });
     fireEvent.click(btn);
     expect(onCreateTask).toHaveBeenCalledTimes(1);
@@ -77,7 +77,7 @@ describe("ActionRow create task", () => {
       why: { key: "actionTaskWhyOverdue", params: [2] },
       score: 40, tier: "now", cta: { kind: "open", view: "open-points", id: 1 },
     } as never;
-    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onCreateTask={() => {}} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} onCreateTask={() => {}} />);
     expect(screen.queryByRole("button", { name: /create task/i })).toBeNull();
   });
 
@@ -88,7 +88,7 @@ describe("ActionRow create task", () => {
       why: { key: "actionRaidWhyNoOwner", params: ["High"] },
       score: 30, tier: "now", cta: { kind: "open", view: "raid", id: 1 },
     } as never;
-    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} />);
     expect(screen.queryByRole("button", { name: /create task/i })).toBeNull();
   });
 });
@@ -106,8 +106,8 @@ describe("ActionRow assign owner", () => {
 
   it("shows Assign owner for a no-owner raid action and opens the picker", () => {
     const onOpen = vi.fn();
-    render(<ActionRow lang="en-US" action={noOwnerRaid()} onOpen={onOpen} assignOwner={{ ...bundle, onAssign: vi.fn() }} />);
-    const btn = screen.getByRole("button", { name: /assign owner/i });
+    render(<ActionRow rowToken="Row" lang="en-US" action={noOwnerRaid()} onOpen={onOpen} assignOwner={{ ...bundle, onAssign: vi.fn() }} />);
+    const btn = screen.getByRole("button", { name: /^Assign owner – Row$/ });
     fireEvent.click(btn);
     expect(onOpen).not.toHaveBeenCalled();       // stopPropagation
     expect(screen.getByRole("combobox")).toBeInTheDocument(); // ResourcePicker input present (role="combobox")
@@ -115,12 +115,12 @@ describe("ActionRow assign owner", () => {
 
   it("hides Assign owner for an owned raid action (severity why)", () => {
     const owned = { ...(noOwnerRaid() as SuggestedAction), why: { key: "actionRaidWhySeverity", params: ["High"] } } as never;
-    render(<ActionRow lang="en-US" action={owned} onOpen={() => {}} assignOwner={bundle} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={owned} onOpen={() => {}} assignOwner={bundle} />);
     expect(screen.queryByRole("button", { name: /assign owner/i })).toBeNull();
   });
 
   it("hides Assign owner when no assignOwner bundle is provided", () => {
-    render(<ActionRow lang="en-US" action={noOwnerRaid()} onOpen={() => {}} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={noOwnerRaid()} onOpen={() => {}} />);
     expect(screen.queryByRole("button", { name: /assign owner/i })).toBeNull();
   });
 
@@ -128,7 +128,7 @@ describe("ActionRow assign owner", () => {
     const onAssign = vi.fn();
     const resources = [{ id: 1, firstName: "Mara", lastName: "Vega", email: "mara@x.io" }] as never;
     render(
-      <ActionRow
+      <ActionRow rowToken="Row"
         lang="en-US"
         action={noOwnerRaid() as never}
         onOpen={() => {}}
@@ -136,7 +136,7 @@ describe("ActionRow assign owner", () => {
       />,
     );
     // Open the assign-owner popover.
-    fireEvent.click(screen.getByRole("button", { name: /assign owner/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Assign owner – Row$/ }));
     // The ResourcePicker combobox is now rendered; focus it so the listbox opens.
     const combobox = screen.getByRole("combobox");
     fireEvent.focus(combobox);
@@ -165,8 +165,8 @@ describe("ActionRow draft message", () => {
     const onOpen = vi.fn();
     const onDraftMessage = vi.fn();
     const action = draftableAction("task-due");
-    render(<ActionRow lang="en-US" action={action} onOpen={onOpen} onDraftMessage={onDraftMessage} />);
-    const btn = screen.getByRole("button", { name: /draft message/i });
+    render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={onOpen} onDraftMessage={onDraftMessage} />);
+    const btn = screen.getByRole("button", { name: /^Draft message – Row$/ });
     fireEvent.click(btn);
     expect(onDraftMessage).toHaveBeenCalledTimes(1);
     expect(onDraftMessage).toHaveBeenCalledWith(action);
@@ -176,8 +176,8 @@ describe("ActionRow draft message", () => {
   it("shows Draft message for stakeholder-comms and calls onDraftMessage", () => {
     const onDraftMessage = vi.fn();
     const action = draftableAction("stakeholder-comms");
-    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onDraftMessage={onDraftMessage} />);
-    const btn = screen.getByRole("button", { name: /draft message/i });
+    render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} onDraftMessage={onDraftMessage} />);
+    const btn = screen.getByRole("button", { name: /^Draft message – Row$/ });
     expect(btn).toBeInTheDocument();
     fireEvent.click(btn);
     expect(onDraftMessage).toHaveBeenCalledTimes(1);
@@ -185,10 +185,10 @@ describe("ActionRow draft message", () => {
   });
 
   it("hides Draft message for other sources and when onDraftMessage absent", () => {
-    const { unmount } = render(<ActionRow lang="en-US" action={draftableAction("budget")} onOpen={() => {}} onDraftMessage={() => {}} />);
+    const { unmount } = render(<ActionRow rowToken="Row" lang="en-US" action={draftableAction("budget")} onOpen={() => {}} onDraftMessage={() => {}} />);
     expect(screen.queryByRole("button", { name: /draft message/i })).toBeNull();
     unmount();
-    render(<ActionRow lang="en-US" action={draftableAction("task-due")} onOpen={() => {}} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={draftableAction("task-due")} onOpen={() => {}} />);
     expect(screen.queryByRole("button", { name: /draft message/i })).toBeNull();
   });
 });
@@ -209,16 +209,16 @@ describe("ActionRow escalate", () => {
   const bundle = { resources: [], onCreateResource: () => 1, raid: raidItems, onEscalate: () => {} };
   // The trigger button is "Escalate"; the in-dialog confirm is "Escalate now" — anchor the
   // regex so the two never collide.
-  const ESCALATE = /^Escalate$/;
+  const ESCALATE = /^Escalate – Row$/;
 
   it("shows Escalate for a has-owner severity raid action", () => {
-    render(<ActionRow lang="en-US" action={severityRaid()} onOpen={() => {}} escalate={bundle} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={severityRaid()} onOpen={() => {}} escalate={bundle} />);
     expect(screen.getByRole("button", { name: ESCALATE })).toBeInTheDocument();
   });
 
   it("opens the confirm dialog without firing onOpen (stopPropagation)", () => {
     const onOpen = vi.fn();
-    render(<ActionRow lang="en-US" action={severityRaid()} onOpen={onOpen} escalate={bundle} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={severityRaid()} onOpen={onOpen} escalate={bundle} />);
     fireEvent.click(screen.getByRole("button", { name: ESCALATE }));
     expect(onOpen).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -226,18 +226,18 @@ describe("ActionRow escalate", () => {
 
   it("hides Escalate for a no-owner raid action (assign-owner's row — non-overlap)", () => {
     const noOwner = { ...(severityRaid() as SuggestedAction), why: { key: "actionRaidWhyNoOwner", params: ["High"] } } as never;
-    render(<ActionRow lang="en-US" action={noOwner} onOpen={() => {}} escalate={bundle} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={noOwner} onOpen={() => {}} escalate={bundle} />);
     expect(screen.queryByRole("button", { name: ESCALATE })).toBeNull();
   });
 
   it("hides Escalate for a review-due raid action", () => {
     const reviewDue = { ...(severityRaid() as SuggestedAction), why: { key: "actionRaidWhyReviewOverdue", params: [3] } } as never;
-    render(<ActionRow lang="en-US" action={reviewDue} onOpen={() => {}} escalate={bundle} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={reviewDue} onOpen={() => {}} escalate={bundle} />);
     expect(screen.queryByRole("button", { name: ESCALATE })).toBeNull();
   });
 
   it("hides Escalate when no escalate bundle is provided", () => {
-    render(<ActionRow lang="en-US" action={severityRaid()} onOpen={() => {}} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={severityRaid()} onOpen={() => {}} />);
     expect(screen.queryByRole("button", { name: ESCALATE })).toBeNull();
   });
 });
@@ -261,34 +261,34 @@ describe("ActionRow rebaseline", () => {
       cta: { kind: "open", view: "milestones", id },
     } as never;
   }
-  const REB = /^Re-baseline$/;
+  const REB = /^Re-baseline – Row$/;
 
   it("shows Re-baseline for a milestone at-risk row", () => {
-    render(<ActionRow lang="en-US" action={action("milestone", "actionMilestoneWhyAtRisk", 7)} onOpen={() => {}} rebaseline={reb()} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={action("milestone", "actionMilestoneWhyAtRisk", 7)} onOpen={() => {}} rebaseline={reb()} />);
     expect(screen.getByRole("button", { name: REB })).toBeInTheDocument();
   });
   it("shows Re-baseline for a milestone overdue row", () => {
-    render(<ActionRow lang="en-US" action={action("milestone", "actionMilestoneWhyOverdue", 7)} onOpen={() => {}} rebaseline={reb()} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={action("milestone", "actionMilestoneWhyOverdue", 7)} onOpen={() => {}} rebaseline={reb()} />);
     expect(screen.getByRole("button", { name: REB })).toBeInTheDocument();
   });
   it("shows Re-baseline for a schedule-slipping row when snapshotActive", () => {
-    render(<ActionRow lang="en-US" action={action("schedule", "actionScheduleWhySlipping", 0)} onOpen={() => {}} rebaseline={reb()} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={action("schedule", "actionScheduleWhySlipping", 0)} onOpen={() => {}} rebaseline={reb()} />);
     expect(screen.getByRole("button", { name: REB })).toBeInTheDocument();
   });
   it("shows Re-baseline for a budget-worsening row when snapshotActive", () => {
-    render(<ActionRow lang="en-US" action={action("budget", "actionBudgetWhyWorsening", 0)} onOpen={() => {}} rebaseline={reb()} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={action("budget", "actionBudgetWhyWorsening", 0)} onOpen={() => {}} rebaseline={reb()} />);
     expect(screen.getByRole("button", { name: REB })).toBeInTheDocument();
   });
   it("hides the snapshot CTA when snapshotActive is false", () => {
-    render(<ActionRow lang="en-US" action={action("schedule", "actionScheduleWhySlipping", 0)} onOpen={() => {}} rebaseline={reb({ snapshotActive: false })} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={action("schedule", "actionScheduleWhySlipping", 0)} onOpen={() => {}} rebaseline={reb({ snapshotActive: false })} />);
     expect(screen.queryByRole("button", { name: REB })).toBeNull();
   });
   it("does not show Re-baseline for a raid row", () => {
-    render(<ActionRow lang="en-US" action={action("raid", "actionRaidWhySeverity", 1)} onOpen={() => {}} rebaseline={reb()} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={action("raid", "actionRaidWhySeverity", 1)} onOpen={() => {}} rebaseline={reb()} />);
     expect(screen.queryByRole("button", { name: REB })).toBeNull();
   });
   it("does not show Re-baseline when the bundle is absent", () => {
-    render(<ActionRow lang="en-US" action={action("milestone", "actionMilestoneWhyAtRisk", 7)} onOpen={() => {}} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={action("milestone", "actionMilestoneWhyAtRisk", 7)} onOpen={() => {}} />);
     expect(screen.queryByRole("button", { name: REB })).toBeNull();
   });
 });
@@ -299,11 +299,14 @@ describe("ActionRow reschedule / mark done / clear blocker", () => {
     const action = { id: "task-due:1:overdue", source: "task-due",
       title: { key: "actionTaskTitle", params: ["T"] }, why: { key: "actionTaskWhyOverdue", params: [2] },
       score: 70, tier: "now", cta: { kind: "open", view: "open-points", id: 1 } } as never;
-    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onMarkDone={onMarkDone}
+    render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} onMarkDone={onMarkDone}
       reschedule={{ onReschedule: vi.fn() }} />);
-    expect(screen.getByRole("button", { name: /reschedule/i })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
-    fireEvent.click(screen.getByRole("button", { name: /mark done/i }));
+    expect(screen.getByRole("button", { name: /^Reschedule – Row$/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^More actions – Row$/ }));
+    // ★ NOT row-qualified, and that is deliberate: the overflow MENU ITEMS are
+    //   unqualified by design (see the comment at `ActionOverflowMenu`), so the
+    //   full expected name here is the bare verb.
+    fireEvent.click(screen.getByRole("button", { name: /^Mark done$/ }));
     expect(onMarkDone).toHaveBeenCalled();
   });
 
@@ -314,10 +317,10 @@ describe("ActionRow reschedule / mark done / clear blocker", () => {
       score: 30, tier: "soon", cta: { kind: "open", view: "open-points", id: 1 } } as never;
     const blocked = { ...(unassigned as SuggestedAction), id: "task-attention:1:blocked", why: { key: "actionTaskWhyBlocked", params: ["x"] } } as never;
     const assignBundle = { resources: [], onCreateResource: () => 1, onAssign: vi.fn() };
-    const { rerender } = render(<ActionRow lang="en-US" action={unassigned} onOpen={() => {}} assignOwner={assignBundle} />);
-    expect(screen.getByRole("button", { name: /assign owner/i })).toBeTruthy();
-    rerender(<ActionRow lang="en-US" action={blocked} onOpen={() => {}} onClearBlocker={onClearBlocker} />);
-    fireEvent.click(screen.getByRole("button", { name: /clear blocker/i })); // now inline, not in the menu
+    const { rerender } = render(<ActionRow rowToken="Row" lang="en-US" action={unassigned} onOpen={() => {}} assignOwner={assignBundle} />);
+    expect(screen.getByRole("button", { name: /^Assign owner – Row$/ })).toBeTruthy();
+    rerender(<ActionRow rowToken="Row" lang="en-US" action={blocked} onOpen={() => {}} onClearBlocker={onClearBlocker} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Clear blocker – Row$/ })); // now inline, not in the menu
     expect(onClearBlocker).toHaveBeenCalled();
   });
 });
@@ -325,7 +328,7 @@ describe("ActionRow reschedule / mark done / clear blocker", () => {
 describe("ActionRow source label + expert score", () => {
   it("shows the source label inline and NO standalone icon", () => {
     const scored = { ...action, source: "raid" as const, score: 42 };
-    render(<ActionRow lang="en-US" action={scored} onOpen={() => {}} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={scored} onOpen={() => {}} />);
     // Anchored: the title ("RAID 1: Server down") also contains "RAID" as a direct
     // text node, so an unanchored /RAID/ matches both it and the bold source label.
     expect(screen.getByText(/^RAID$/)).toBeInTheDocument();                 // source label in why-line
@@ -334,7 +337,7 @@ describe("ActionRow source label + expert score", () => {
   });
   it("shows the score tooltip only in expert mode", () => {
     const scored = { ...action, source: "raid" as const, score: 42 };
-    render(<ActionRow lang="en-US" action={scored} onOpen={() => {}} expertMode />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={scored} onOpen={() => {}} expertMode />);
     expect(screen.getByRole("button", { name: /Score: 42/ })).toBeInTheDocument();
   });
 });
@@ -342,18 +345,18 @@ describe("ActionRow source label + expert score", () => {
 describe("ActionRow learning hint", () => {
   it("renders a surfaced hint when learning.moved is up", () => {
     const surfaced = { ...action, learning: { bias: 12, moved: "up" as const } };
-    render(<ActionRow lang="en-US" action={surfaced} onOpen={() => {}} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={surfaced} onOpen={() => {}} />);
     expect(screen.getByText(/surfaced/i)).toBeInTheDocument();
   });
 
   it("renders a demoted hint when learning.moved is down", () => {
     const demoted = { ...action, learning: { bias: -12, moved: "down" as const } };
-    render(<ActionRow lang="en-US" action={demoted} onOpen={() => {}} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={demoted} onOpen={() => {}} />);
     expect(screen.getByText(/demoted/i)).toBeInTheDocument();
   });
 
   it("renders no learning hint when learning is absent", () => {
-    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} />);
+    render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} />);
     expect(screen.queryByText(/surfaced/i)).toBeNull();
     expect(screen.queryByText(/demoted/i)).toBeNull();
   });
@@ -372,8 +375,8 @@ describe("ActionRow extra reasons", () => {
       { id: "x2", source: "raid", title: { key: "actionRaidTitle", params: [1, "x2"] },
         why: { key: "actionRaidWhyNoOwner" }, score: 40, tier: "now", cta: { kind: "open", view: "raid", id: 1 } },
     ] as never;
-    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} extraReasons={extra} />);
-    const toggle = screen.getByRole("button", { name: /1 more reasons/i });
+    render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} extraReasons={extra} />);
+    const toggle = screen.getByRole("button", { name: /^\+1 more reasons – Row$/ });
     // The reasons container is always mounted (aria-controls target must stay in DOM);
     // expansion flips `hidden`, not presence.
     const list = document.getElementById("action-reasons-x"); // action.id is "x" in this test
@@ -391,7 +394,7 @@ describe("ActionRow extra reasons", () => {
       why: { key: "actionRaidWhySeverity", params: ["High"] }, score: 70, tier: "now",
       cta: { kind: "open", view: "raid", id: 1 },
     } as never;
-    const { container } = render(<ActionRow lang="en-US" action={action} onOpen={() => {}} />);
+    const { container } = render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} />);
     expect(container.querySelector(".border-l-\\[var\\(--rag-red\\)\\]")).toBeTruthy();
   });
 
@@ -403,8 +406,8 @@ describe("ActionRow extra reasons", () => {
       why: { key: "actionRaidWhySeverity", params: ["High"] }, score: 70, tier: "now",
       cta: { kind: "open", view: "raid", id: 1 },
     } as never;
-    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onSnooze={onSnooze} onCreateTask={onCreateTask} />);
-    const menuTrigger = screen.getByRole("button", { name: /more actions/i });
+    render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} onSnooze={onSnooze} onCreateTask={onCreateTask} />);
+    const menuTrigger = screen.getByRole("button", { name: /^More actions – Row$/ });
     fireEvent.click(menuTrigger);
     // The Snooze 1h item lives inside the menu now (actionSnooze1h EN = "1 hour").
     fireEvent.click(screen.getByRole("button", { name: /1 hour/i }));

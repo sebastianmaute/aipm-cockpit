@@ -155,6 +155,16 @@ export function ProjectsPanel({
     () => buildRowTokens((archivedProjects ?? []).map((p) => ({ id: p.id, name: p.name }))),
     [archivedProjects],
   );
+  // ★ The ACTIVE list needs its own map (§309). Two active projects can share a
+  // display name exactly as two archived ones can — both lists are fed from the
+  // same registry — so the raw `p.name` qualifier these three controls used was
+  // a conditional collision. `ProjectRegistryEntry.id` is a string, so
+  // `useRowTokens` (constrained to `{ id: number }`) does not fit; call
+  // `buildRowTokens` directly, exactly as the archived half does.
+  const activeTokens = useMemo(
+    () => buildRowTokens(projects.map((p) => ({ id: p.id, name: p.name }))),
+    [projects],
+  );
 
   const isTurso = mode === "turso";
 
@@ -339,7 +349,7 @@ export function ProjectsPanel({
                             variant="secondary"
                             size="sm"
                             onClick={() => onSwitch(p.id)}
-                            aria-label={`${t(lang, "projectsSwitch")} – ${p.name}`}
+                            aria-label={rowLabel(t(lang, "projectsSwitch"), activeTokens.get(p.id) ?? p.name)}
                           >
                             {t(lang, "projectsSwitch")}
                           </Button>
@@ -351,7 +361,7 @@ export function ProjectsPanel({
                               variant="destructive"
                               size="sm"
                               onClick={() => handleArchive(p.id)}
-                              aria-label={`${t(lang, "projectsArchive")} – ${p.name}`}
+                              aria-label={rowLabel(t(lang, "projectsArchive"), activeTokens.get(p.id) ?? p.name)}
                               title={t(lang, "projectsArchiveHint")}
                             >
                               {t(lang, "projectsArchive")}
@@ -361,7 +371,7 @@ export function ProjectsPanel({
                               variant="destructive"
                               size="sm"
                               onClick={() => handleDelete(p.id)}
-                              aria-label={`${t(lang, "projectsDelete")} – ${p.name}`}
+                              aria-label={rowLabel(t(lang, "projectsDelete"), activeTokens.get(p.id) ?? p.name)}
                             >
                               {t(lang, "projectsDelete")}
                             </Button>
