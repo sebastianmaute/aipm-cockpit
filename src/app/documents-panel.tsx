@@ -661,7 +661,7 @@ export function DocumentsPanel({
             so the four clearing contexts listed on `restoreRejected` are what
             keep this from becoming a line of permanent furniture. */}
         {restoreRejected.length > 0 && (
-          <p role="status" className="text-sm text-ui-pink">
+          <p role="status" className="text-sm text-ui-pink-strong">
             {restoreRejected.join("; ")}
           </p>
         )}

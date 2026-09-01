@@ -247,6 +247,42 @@ describe("CommTemplatesSection", () => {
     expectRowUniqueNames({ minControls: 11, requireCollisionSeed: true });
   });
 
+  // WCAG 1.4.1 (open-followups §55): a selected Compare button was carried by
+  // the `--ui-dark-blue` fill ALONE, which against `--surface` measures
+  // 1.10-1.31:1 in the three dark schemes — nobody can see which of the two
+  // versions is armed. `ToggleButton` supplies the trailing non-colour marker.
+  // ★ Assert it in BOTH states on the SAME button: it is rendered always and
+  //   merely `invisible` when off, so an ON-state-only assertion would pass
+  //   against a conditional-render regression.
+  // ★★ The row-unique `versionRowTokens` label is threaded through the
+  //   primitive's `ariaLabel` UNCHANGED. NO GATE CAN SEE A REGRESSION HERE —
+  //   axe 4.12.1 has no rule that flags two controls sharing an accessible
+  //   name, in any view at any seed size — so the fixture deliberately seeds
+  //   TWO versions sharing one name, making the collision reachable and the
+  //   distinctness assertion below non-vacuous.
+  it("keeps the compare buttons row-unique and gives them a non-colour marker in both states", async () => {
+    mockVersions = [version({ id: "v-a", name: "draft" }), version({ id: "v-b", name: "draft" })];
+    await openVersionList();
+    const compare = t("en-US", "commTplCompare");
+    const compareButtons = screen.getAllByRole("button", { name: new RegExp(`^${compare}: `) });
+    // Current pseudo-row + the two seeded version rows.
+    expect(compareButtons).toHaveLength(3);
+    const names = compareButtons.map(nameOf);
+    expect(new Set(names).size).toBe(3);
+    expect(names).toContain(`${compare}: draft (1)`);
+    expect(names).toContain(`${compare}: draft (2)`);
+
+    const chip = screen.getByRole("button", { name: `${compare}: draft (1)` });
+    expect(chip).toHaveAttribute("aria-pressed", "false");
+    expect(chip.querySelector("[data-pressed-marker]")).not.toBeNull();
+    expect(chip.querySelector("[data-pressed-marker]")?.getAttribute("data-pressed-marker")).toBe("off");
+    fireEvent.click(chip);
+    expect(chip).toHaveAttribute("aria-pressed", "true");
+    expect(chip.querySelector("[data-pressed-marker]")?.getAttribute("data-pressed-marker")).toBe("on");
+    // The row-unique name survives the state change.
+    expect(nameOf(chip)).toBe(`${compare}: draft (1)`);
+  });
+
   it("numbers the Current pseudo-row too when a saved version is named after it", async () => {
     // The Current row is part of the SAME rendered list and carries the SAME
     // verb, so it has to share the token map — otherwise a version the user

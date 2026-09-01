@@ -8,6 +8,45 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.276.0] - 2026-09-01 "Cadigan"
+
+### Fixed
+
+- **Toggle buttons no longer signal their state by colour alone (WCAG 1.4.1).**
+  Every `ToggleButton` carries a non-colour pressed marker — a check glyph that is
+  present in both states and merely invisible when off, so the button keeps one
+  width and a toolbar's neighbouring controls do not move under the pointer on
+  every click. The pressed border now rides a derived state token nudged to clear
+  3:1 against the surrounding rule, which covers an imported colour scheme for
+  free where editing the built-in maps would not. Previously the pressed border
+  measured 1.03-1.22:1 in the three dark schemes.
+- **The RACI chip picker's selection is readable without colour.** The selected
+  chip carries a neutral ring rather than a hue alone, and the ring survives
+  keyboard focus — the focus style used to repaint it, so the only cue vanished
+  exactly while the control was being operated from the keyboard.
+- **The dictation microphone's listening state carries the shared marker.** The
+  listening cue was the icon colour alone, which cleared 3:1 in one of the seven
+  scheme combinations and measured 1.20-2.72 in the other six. The "Listening"
+  text was not a fallback either — the panel that hosts the mic in a note log
+  does not render it.
+- **The segmented control's selected segment** carries its own non-colour marker;
+  its selected fill measured 2.25-2.43:1 in the dark schemes and 1.13:1 in the
+  default light scheme.
+- **Push-to-talk was undefended.** The handlers that drive it reach the button
+  through a bag prop that nothing tested, so removing it type-checked and left
+  the whole suite green while disabling push-to-talk on seven surfaces. Covered
+  now at both the primitive and the call site.
+
+### Changed
+
+- Documentation: the claim that the 3:1 state-border floor is structural for
+  every toggle is scoped to the primitive's own three accents. A consumer may
+  override the border, and the task-health chips deliberately do — on a health
+  chip the hue is which health was picked. That residual is recorded as an open
+  follow-up with its measurements, both closure routes, and why no unit test can
+  witness it (the question is which border wins the cascade, and the test
+  environment applies no stylesheet).
+
 ## [0.275.0] - 2026-09-01 "Nagata"
 
 ### Fixed

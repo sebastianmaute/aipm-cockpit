@@ -24,6 +24,7 @@ import {
 } from "./health";
 import { RagDot } from "./rag-dot";
 import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
+import { ToggleButton } from "./toggle-button";
 import { type Lang, priorityLabel, t } from "./i18n";
 import { LabelsInput } from "./labels-input";
 import {
@@ -582,19 +583,36 @@ export function TaskFormFields({
                 >
                   {autoLabel}
                 </button>
+                {/* open-followups §55 (WCAG 1.4.1) — these three ride
+                    `ToggleButton` for its non-colour pressed marker. The active
+                    amber and green borders measured 1.34-2.34 and 2.47-2.96
+                    against the inactive `--line` in the light schemes, so the
+                    RAG hue alone could not carry the selected state. The hue
+                    stays (it carries WHICH health was picked) as the appended
+                    `chipActive[h]`.
+                    ★ The dot goes through `icon`, NOT into `children`: the
+                      primitive renders `icon` as its own flex item, so the
+                      dot keeps the `gap-1.5` it had when the chip was a bare
+                      flex `<button>`. Folded into `children` it would share
+                      one wrapper span with the label and butt against it —
+                      JSX drops the newline between them, so there would not
+                      even be a space.
+                    ★ The sibling "Auto (currently: …)" chip above is
+                      deliberately left hand-rolled: its selected border
+                      already measures 8.97-10.22 light / 4.22-4.58 dark, so
+                      migrating it would be a change with no defect behind
+                      it. */}
                 {HEALTH_VALUES.map((h) => (
-                  <button
+                  <ToggleButton
                     key={h}
-                    type="button"
-                    onClick={() => setForm({ ...form, healthOverride: h })}
-                    aria-pressed={form.healthOverride === h}
-                    className={`${chipBase} ${
-                      form.healthOverride === h ? chipActive[h] : chipInactive
-                    }`}
+                    pressed={form.healthOverride === h}
+                    onToggle={() => setForm({ ...form, healthOverride: h })}
+                    icon={<RagDot level={h} />}
+                    className={form.healthOverride === h ? chipActive[h] : undefined}
+                    lang={lang}
                   >
-                    <RagDot level={h} />
                     {healthColorName(h, lang)}
-                  </button>
+                  </ToggleButton>
                 ))}
               </div>
             );

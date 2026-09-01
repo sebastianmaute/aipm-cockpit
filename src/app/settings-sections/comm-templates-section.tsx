@@ -14,6 +14,7 @@ import { EmptyState } from "../empty-state";
 import { FieldHint } from "../field-hint";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
 import { Button } from "../button";
+import { ToggleButton } from "../toggle-button";
 import { Input, Select } from "../form-controls";
 import { reportSilentFailure } from "../guard-feedback";
 import { useToastContext } from "../toast-context";
@@ -355,17 +356,31 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
             <ul className="flex flex-col gap-1">
               <li className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-2 py-1">
                 <span className="truncate text-xs text-foreground">{t(lang, "commTplCurrent")}</span>
-                <button
-                  type="button"
-                  onClick={() => toggleCompare(CURRENT_ID)}
-                  aria-pressed={compareIds.includes(CURRENT_ID)}
-                  aria-label={`${t(lang, "commTplCompare")}: ${versionRowTokens.get(CURRENT_ID) ?? t(lang, "commTplCurrent")}`}
-                  className={`${compareIds.includes(CURRENT_ID)
-                    ? "shrink-0 rounded-md border border-line bg-ui-dark-blue px-2 py-0.5 text-[11px] text-white"
-                    : "shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"} ${INTERACTIVE}`}
+                {/* open-followups §55 (WCAG 1.4.1) — the armed Compare state was
+                    carried by the `--ui-dark-blue` fill ALONE, which against
+                    `--surface` measures 1.10-1.31:1 in the three dark schemes,
+                    so nothing told a user which version was armed. `ToggleButton`
+                    adds the trailing non-colour marker, in both states.
+                    ★★ `ariaLabel` takes the row-unique `versionRowTokens` name
+                      VERBATIM. Dropping or altering it reopens the duplicate-name
+                      class of §111/§126/§247/§248, and NO GATE CAN SEE THAT —
+                      axe has no rule for two controls sharing an accessible
+                      name. The unit test beside this file is the only detector.
+                    ★ `shrink-0` is the only surviving class: it collides with
+                      nothing the primitive sets, so it needs no `!`. The old
+                      `px-2 py-0.5 text-[11px]` box is deliberately NOT pinned —
+                      the primitive's `px-2.5 py-1.5 text-xs` is byte-identical
+                      to `Button size="xs"`, so Compare now matches the Restore
+                      control beside it instead of sitting a size below it. */}
+                <ToggleButton
+                  pressed={compareIds.includes(CURRENT_ID)}
+                  onToggle={() => toggleCompare(CURRENT_ID)}
+                  ariaLabel={`${t(lang, "commTplCompare")}: ${versionRowTokens.get(CURRENT_ID) ?? t(lang, "commTplCurrent")}`}
+                  className="shrink-0"
+                  lang={lang}
                 >
                   {t(lang, "commTplCompare")}
-                </button>
+                </ToggleButton>
               </li>
               {versions.versions.map((v) => {
                 // Cannot miss: the map is built over this exact list, keyed on
@@ -382,17 +397,18 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                       </span>
                     )}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => toggleCompare(v.id)}
-                    aria-pressed={compareIds.includes(v.id)}
-                    aria-label={`${t(lang, "commTplCompare")}: ${vToken}`}
-                    className={`${compareIds.includes(v.id)
-                      ? "shrink-0 rounded-md border border-line bg-ui-dark-blue px-2 py-0.5 text-[11px] text-white"
-                      : "shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"} ${INTERACTIVE}`}
+                  {/* Same migration as the Current pseudo-row above — see its
+                      note for why `ariaLabel` carries `vToken` verbatim and why
+                      `shrink-0` needs no `!`. */}
+                  <ToggleButton
+                    pressed={compareIds.includes(v.id)}
+                    onToggle={() => toggleCompare(v.id)}
+                    ariaLabel={`${t(lang, "commTplCompare")}: ${vToken}`}
+                    className="shrink-0"
+                    lang={lang}
                   >
                     {t(lang, "commTplCompare")}
-                  </button>
+                  </ToggleButton>
                   <Button
                     variant="secondary"
                     size="xs"

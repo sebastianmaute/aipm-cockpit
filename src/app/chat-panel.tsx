@@ -228,7 +228,7 @@ function ChatPanelInner({
     dictation,
     enabled: true,
     label: t(lang, "chatPlaceholder"),
-    padding: "px-4 py-2",
+    padding: "px-4! py-2!", // trailing `!` required — see the prop's docstring
     className: "inline-flex items-center justify-center",
     onAppendFinal: (txt) => setInput((prev) => appendDictation(prev, txt)),
   });

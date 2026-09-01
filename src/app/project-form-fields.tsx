@@ -15,6 +15,7 @@ import { useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
 import { FieldGroup, fieldClass } from "./form-controls";
+import { IconButton } from "./icon-button";
 import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
 import type { KnowledgeLink } from "./document-link";
@@ -739,15 +740,19 @@ function ContactPersonsControl({
                 )}
                 <span>{contactDisplay(cp)}</span>
               </span>
-              <button
-                type="button"
+              {/* ★ The name is ROW-UNIQUE (rowLabel over contactTokens) and is
+                  threaded through `label` byte-for-byte. Two contacts can share
+                  a display name, and no gate would report a collision here —
+                  axe has no rule that flags two controls sharing an accessible
+                  name, in any view at any seed size. */}
+              <IconButton
                 onClick={() => onChange(contactPersons.filter((_, i) => i !== idx))}
-                aria-label={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
+                label={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
                 title={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
-                className="rounded-full px-1 text-muted-foreground hover:text-ui-pink"
+                variant="danger"
               >
                 ×
-              </button>
+              </IconButton>
             </li>
           ))}
         </ul>

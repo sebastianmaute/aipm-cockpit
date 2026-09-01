@@ -149,7 +149,7 @@ export function DocumentBlockGutter({
               <Button
                 variant="ghost"
                 size="xs"
-                className="justify-start text-ui-pink hover:bg-ui-pink/10 dark:hover:bg-ui-pink/5"
+                className="justify-start text-ui-pink-strong hover:bg-ui-pink/10 dark:hover:bg-ui-pink/5"
                 onClick={() => { close(); onDelete(index); }}
               >
                 {t(lang, "documentsBlockDelete")}

@@ -429,10 +429,10 @@ export function DocumentsAssetSection({
             region BEFORE the content changes. Conditionally mounted, not one of
             the seven upload-error strings nor the cap message ever reached a
             screen reader. Same always-mounted rule as `action-reasons`. */}
-        <span role="status" className="text-xs text-ui-pink">
+        <span role="status" className="text-xs text-ui-pink-strong">
           {error ? t(lang, UPLOAD_ERROR_KEY[error]) : ""}
         </span>
-        <span role="status" className="text-xs text-ui-pink">
+        <span role="status" className="text-xs text-ui-pink-strong">
           {capMessage === null
             ? ""
             : capMessage > 0

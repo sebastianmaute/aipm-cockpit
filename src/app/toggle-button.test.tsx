@@ -32,7 +32,7 @@ describe("ToggleButton", () => {
     rerender(<ToggleButton pressed onToggle={() => {}} accent="pink">Critical path</ToggleButton>);
     btn = screen.getByRole("button");
     expect(btn.className).toContain("bg-ui-pink/10");
-    expect(btn.className).toContain("border-ui-pink");
+    expect(btn.className).toContain("border-[var(--control-state-border-pink)]");
   });
 
   it("defaults to the dark-blue accent", () => {
@@ -169,6 +169,52 @@ describe("ToggleButton", () => {
     expect(fire(screen.getByRole("button", { name: "Bold" }))).toBe(false);
   });
 
+  // ★★★ `pressHandlers` HAD ZERO COVERAGE ANYWHERE. Every test that renders a
+  //    mic mocks the bag away as `buttonHandlers: {}`, so deleting the spread
+  //    from this component typechecked and left the whole unit suite green
+  //    while push-to-talk dictation was dead on every surface — the consumer
+  //    passes a deliberate no-op `onToggle`, so there is no click fallback to
+  //    mask it. This is the mutant-killer for the PRIMITIVE half; the CONSUMER
+  //    half (deleting `pressHandlers={ptt.buttonHandlers}`) is only reachable
+  //    from dictation-mic.test.tsx and is pinned there.
+  it("binds every member of the pressHandlers bag", () => {
+    const handlers = {
+      onPointerDown: vi.fn(),
+      onPointerUp: vi.fn(),
+      onPointerLeave: vi.fn(),
+      onPointerCancel: vi.fn(),
+      onKeyDown: vi.fn(),
+      onKeyUp: vi.fn(),
+    };
+    render(
+      <ToggleButton pressed={false} onToggle={() => {}} pressHandlers={handlers}>Hold</ToggleButton>,
+    );
+    const btn = screen.getByRole("button", { name: "Hold" });
+    fireEvent.pointerDown(btn);
+    fireEvent.pointerUp(btn);
+    fireEvent.pointerLeave(btn);
+    fireEvent.pointerCancel(btn);
+    fireEvent.keyDown(btn, { key: " " });
+    fireEvent.keyUp(btn, { key: " " });
+    for (const [name, spy] of Object.entries(handlers)) {
+      expect(spy, name).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  // ★★★ `type` IS THE ONE ATTRIBUTE THE SPREAD COULD STEAL. It used to be
+  //    written BEFORE `{...pressHandlers}`, and JSX is later-wins. The `Pick<>`
+  //    does not close it: TypeScript's excess-property check applies only to
+  //    FRESH OBJECT LITERALS, so the bag below — a plain `const`, deliberately
+  //    passed with NO cast, which is the whole point — is assignable and would
+  //    have made this toggle submit its enclosing form.
+  it("keeps type=button even when the pressHandlers bag carries a type", () => {
+    const leakyBag = { onPointerDown: () => {}, type: "submit" };
+    render(
+      <ToggleButton pressed={false} onToggle={() => {}} pressHandlers={leakyBag}>Hold</ToggleButton>,
+    );
+    expect(screen.getByRole("button", { name: "Hold" })).toHaveAttribute("type", "button");
+  });
+
   it("renders a leading icon and an override aria-label", () => {
     render(
       <ToggleButton pressed={false} onToggle={() => {}} ariaLabel="Detailed planning" icon={<svg data-testid="ic" aria-hidden />}>
@@ -177,5 +223,106 @@ describe("ToggleButton", () => {
     );
     expect(screen.getByTestId("ic")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Detailed planning" })).toBeInTheDocument();
+  });
+
+  // SC 1.4.11 — the pressed border must be the DERIVED token, which
+  // scheme-apply sets per active scheme AND mode. A raw accent measured
+  // 1.03-1.22:1 against the unpressed --line in the three dark schemes.
+  // ★ The absence assertions are the load-bearing half: they are what a
+  //   reinstated `dark:border-ui-*` variant would trip, and such a variant
+  //   would re-pin the raw accent in exactly the schemes that fail.
+  it("the pressed border rides the derived state token, not a raw accent", () => {
+    const { rerender } = render(
+      <ToggleButton pressed onToggle={() => {}}>Inline milestones</ToggleButton>,
+    );
+    const btn = screen.getByRole("button", { name: "Inline milestones" });
+    expect(btn.className).toContain("border-[var(--control-state-border)]");
+    expect(btn.className).not.toContain("border-ui-dark-blue");
+
+    rerender(
+      <ToggleButton pressed onToggle={() => {}} accent="pink">Inline milestones</ToggleButton>,
+    );
+    expect(btn.className).toContain("border-[var(--control-state-border-pink)]");
+    // ★★ NO TRAILING SPACE. It bought nothing (the derived token does not
+    //    contain `border-ui-pink` either way) and made the assertion evadable:
+    //    appending ` dark:border-ui-pink` to the END of PRESSED.pink leaves the
+    //    class string ending there with no trailing space, so the padded form
+    //    stayed GREEN while the raw accent was re-pinned in exactly the dark
+    //    schemes this slice fixed.
+    expect(btn.className).not.toContain("border-ui-pink");
+  });
+
+  // ★★★ THE TWO MATCHERS ARE NOT INTERCHANGEABLE, AND WHICH ONE IS RIGHT
+  //    DEPENDS ON WHETHER YOU ARE ASSERTING PRESENCE OR ABSENCE:
+  //    · `classList.contains` is EXACT-TOKEN — right for asserting PRESENCE of
+  //      one exact class, WRONG for asserting absence of a class FAMILY,
+  //      because `dark:border-ui-green` is a different token entirely and the
+  //      check passes no matter what.
+  //    · `toContain` is a SUBSTRING match — right for asserting ABSENCE of a
+  //      family (it catches every variant-prefixed member), wrong for presence
+  //      (a longer class merely containing the needle satisfies it).
+  //    So the two PRESENCE assertions below stay on classList and the ABSENCE
+  //    one is `not.toContain`. This test had classList for all three, which made
+  //    its absence half FALSE BY CONSTRUCTION: appending ` dark:border-ui-green`
+  //    to PRESSED.green — the exact regression it exists to catch — left it
+  //    green. Verified safe first: no other class in the green pressed list
+  //    (`border-[var(--control-state-border-green)]`, `bg-ui-green/10`,
+  //    `hover:bg-ui-green/20`, `focus:ring-ui-green`, `dark:bg-ui-green/20`)
+  //    contains `border-ui-green` as a substring, so this cannot be falsely red.
+  //    ★ The `focus:ring-2` / `ring-2` trap that pushed the RACI picker and the
+  //    mic onto classList is about PRESENCE — it is not an argument for using
+  //    classList on an absence check.
+  // ★★ Green is the accent where the derivation is NOT a no-op — raw
+  //    --ui-green misses 3:1 against --line in all four LIGHT combos — so
+  //    regressing this one class to the raw accent is a real contrast defect,
+  //    not the theoretical guard the pink case is.
+  it("the green accent rides the derived state token, not the raw accent", () => {
+    render(
+      <ToggleButton pressed onToggle={() => {}} accent="green">Hold to dictate</ToggleButton>,
+    );
+    const btn = screen.getByRole("button", { name: "Hold to dictate" });
+    expect(btn.classList.contains("border-[var(--control-state-border-green)]")).toBe(true);
+    expect(btn.className).not.toContain("border-ui-green");
+    expect(btn.classList.contains("bg-ui-green/10")).toBe(true);
+  });
+
+  // ★★ BOTH branches are pinned deliberately. `size` defaults to "chip", and a
+  //    default that silently drifted to the card geometry would move every
+  //    toolbar toggle in the app while a card-only assertion stayed green.
+  it("defaults to the chip geometry", () => {
+    render(<ToggleButton pressed={false} onToggle={() => {}}>Chip</ToggleButton>);
+    const cls = screen.getByRole("button", { name: "Chip" }).className;
+    expect(cls).toContain("px-2.5");
+    expect(cls).toContain("py-1.5");
+    expect(cls).toContain("text-xs");
+    expect(cls).toContain("items-center");
+  });
+
+  it("size=card renders the roomier full-width option-card geometry", () => {
+    render(
+      <ToggleButton pressed={false} onToggle={() => {}} size="card">Card</ToggleButton>,
+    );
+    const cls = screen.getByRole("button", { name: "Card" }).className;
+    expect(cls).toContain("px-3");
+    expect(cls).toContain("py-2");
+    expect(cls).toContain("text-sm");
+    expect(cls).toContain("items-start");
+    expect(cls).not.toContain("px-2.5");
+    expect(cls).not.toContain("text-xs");
+    expect(cls).not.toContain("items-center");
+  });
+
+  // ★★ The card variant exists so a call site never reaches INTO the primitive.
+  //    The wizard used to carry `[&>span]:w-full` to stretch this wrapper; if
+  //    the primitive stops doing it, that hack comes back.
+  it("size=card makes the children wrapper full-width, the default does not", () => {
+    const { container, rerender } = render(
+      <ToggleButton pressed={false} onToggle={() => {}} size="card">Card</ToggleButton>,
+    );
+    const wrapper = () => container.querySelector("button > span") as HTMLElement;
+    expect(wrapper().className).toContain("w-full");
+
+    rerender(<ToggleButton pressed={false} onToggle={() => {}}>Card</ToggleButton>);
+    expect(wrapper().className).not.toContain("w-full");
   });
 });

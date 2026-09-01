@@ -170,6 +170,29 @@ describe("KnowledgePanel", () => {
     expect(allChip).toHaveAttribute("aria-pressed", "true");
   });
 
+  // WCAG 1.4.1 (open-followups §55): the selected source chip used to be carried
+  // by the --ui-dark-blue fill ALONE, which measures 1.01-1.17:1 against the
+  // unselected --surface-muted in the three dark schemes — invisible to every
+  // user, not only to users with a colour-vision deficiency. The non-colour cue
+  // is ToggleButton's trailing marker. ★ Assert it in BOTH states: it is
+  // rendered always and merely `invisible` when off, so an ON-state-only
+  // assertion passes against a conditional-render regression that would resize
+  // the chip on every click.
+  it("gives the source filter chips a non-colour pressed marker in both states", () => {
+    renderWithTasks([seededTask([LINK])]);
+    const allChip = screen.getByRole("button", { name: new RegExp(t("en-US", "documentsFilterAll")) });
+    const chips = Array.from(document.querySelectorAll<HTMLButtonElement>("button[aria-pressed]"));
+    expect(chips.length).toBeGreaterThanOrEqual(2);
+    const offChip = chips.find((c) => c.getAttribute("aria-pressed") === "false");
+    expect(allChip).toHaveAttribute("aria-pressed", "true");
+    expect(offChip).toBeDefined();
+    expect(allChip.querySelector("[data-pressed-marker]")?.getAttribute("data-pressed-marker")).toBe("on");
+    expect(offChip!.querySelector("[data-pressed-marker]")).not.toBeNull();
+    expect(offChip!.querySelector("[data-pressed-marker]")?.getAttribute("data-pressed-marker")).toBe("off");
+    // The trailing count span survives the migration.
+    expect(allChip.textContent).toMatch(/\d/);
+  });
+
   it("narrows by the search box", () => {
     const second: KnowledgeLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
     renderWithTasks([{ ...seededTask([LINK, second]) }]);
