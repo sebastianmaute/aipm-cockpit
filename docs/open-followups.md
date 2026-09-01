@@ -8930,12 +8930,16 @@ All three return nothing. `A` is in neither `MARK_BY_TAG` nor `LINE_TAGS`
 only its text — which `rich-text-runs.test.ts`'s "carries no mark for a tag that only
 wraps (a link)" already pins as the intended behaviour of the parse.
 
-★ Not a one-line fix in either format, which is why it is filed rather than done: a real
-`.docx` hyperlink is a `w:hyperlink` element carrying an `r:id` into a RELATIONSHIP part,
-so `buildDocxPackage` would have to collect per-part relationships it does not model
-today; `.pptx` needs the equivalent `a:hlinkClick` plus its own slide relationship. The
-shared parse would also have to start carrying a href on `TextRun`, which is a change to
-the type both renderers consume.
+★ Not a one-line fix in either format, but the cost below is NARROWER than this entry
+first estimated — corrected 2026-09-01, because that estimate had gone stale, not because
+the fix landed. Both OOXML renderers already collect per-part relationships: the S3c-2
+image-media slice built exactly that machinery, with caller-minted relationship ids
+assembled into `word/_rels/document.xml.rels` for `.docx` and into a per-slide rels part
+for `.pptx`. What is still missing is narrower than "the machinery does not exist": a
+hyperlink relationship carries no PART at all — no zip entry, no `[Content_Types].xml`
+Default — which is what `TargetMode="External"` licenses and neither renderer mints today;
+and the shared parse would still have to start carrying a href on `TextRun` in
+`rich-text-runs.ts`, where `A` sits in neither `MARK_BY_TAG` nor `LINE_TAGS`.
 
 ---
 **CLOSED 2026-08-08 by `max-md:basis-full` on the group.** The group claims its own row, so the
