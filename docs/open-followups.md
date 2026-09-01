@@ -8170,9 +8170,15 @@ grep -n "^## 202\." docs/open-followups.md                              # → "�
 sed -n '/^## \[0\.256\.0\]/,/^## \[0\.255\./p' CHANGELOG.md | grep -i "images in them"
 ```
 
-★ `docs/work-inventory.md` §3 is NOT corrected here and still lists S3c-2 as designed-but-unbuilt,
-in its backlog table and twice more below it (`grep -n "S3c-2" docs/work-inventory.md`). That is a
-separate document with its own sweep; do not read this entry's update as covering it.
+★ **CORRECTED 2026-09-01 — that separate sweep HAPPENED, and this line outlived its subject.** It
+used to say `docs/work-inventory.md` §3 "is NOT corrected here and still lists S3c-2 as
+designed-but-unbuilt, in its backlog table and twice more below it", and told the reader not to take
+this entry's update as covering it. §3 was swept on 2026-08-25: its backlog table is down to three
+rows (**S6 · S7 · `optimize_wbs`**), and every S3c-2 mention left in that file records the slice as
+SHIPPED — `grep -n "S3c-2" docs/work-inventory.md` returns seven lines, not one of them a backlog
+row. ★★ The caveat was true when written and went stale a week later, which is the same rot it was
+warning about, one document over. A pointer at another document's staleness needs re-checking on
+exactly the same schedule as the claim it points at.
 
 ★★★ **THE DESIGN DOCUMENT IS TRACKED AND IS NOW LINKED, NOT REPRODUCED-BECAUSE-UNREACHABLE:**
 [`superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md`](superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md).
