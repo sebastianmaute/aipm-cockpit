@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.272.1 "Zoline" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.273.0 "Goonan" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
 
 # Architecture
 

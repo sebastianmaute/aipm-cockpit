@@ -104,12 +104,11 @@ export function SidebarFooter({
         // description cannot reflow as storage flips.
         // ★ a second colour would be the very channel this comment says is not
         // sufficient on its own.
-        // ★★ IT DOES NOT CLOSE THE ASSISTIVE-TECH HALF, and nothing here does:
-        // the marker is `aria-hidden` like the dot, and `storageDescription`
-        // names the BACKEND, never its readiness — so a screen reader is told
-        // nothing about this state on this line. Until then the
-        // `SavingPausedButton` above is the only SPOKEN disclosure, and it is
-        // absent for a plain not-ready backend.
+        // ★★ THE ASSISTIVE-TECH HALF IS CLOSED by the sr-only readiness text
+        // below (§302). The dot and marker stay aria-hidden deliberately — the
+        // state is spoken once, not three times. The COLOUR half is unchanged:
+        // the dot alone is still not a sufficient visual channel, which is what
+        // the trailing marker is for.
         <p className="text-ui-light-grey">
           <span
             aria-hidden
@@ -119,6 +118,17 @@ export function SidebarFooter({
             }
           />
           {storageDescription}
+          {/* ★ The dot and the trailing marker are BOTH aria-hidden, so this is
+              the only readiness disclosure a screen reader gets on this line.
+              ★★ Deliberately says no more than "not ready": `storageReady` is
+              compound (`storageOk && !loadWasIncomplete && destructiveRefusal
+              === null` in task-manager.tsx), so naming a CAUSE here would be
+              wrong two times out of three. SavingPausedButton above names the
+              cause when there is one. */}
+          <span className="sr-only">
+            {" "}
+            {t(lang, storageReady ? "sidebarStorageReady" : "sidebarStorageNotReady")}
+          </span>
           <span
             aria-hidden
             data-storage-marker={storageReady ? "ready" : "not-ready"}

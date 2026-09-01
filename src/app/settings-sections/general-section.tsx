@@ -21,10 +21,6 @@ interface GeneralSectionProps {
   resources?: readonly Resource[];
 }
 
-/** The exact phrase the user must type to confirm a full reset. Deliberately a
- *  fixed English phrase (a friction gate), not localized. */
-const RESET_CONFIRM_PHRASE = "yes, reset everything";
-
 export function GeneralSection({ lang, settings, onChange, resources = [] }: GeneralSectionProps) {
   const [resetOpen, setResetOpen] = useState(false);
   return (
@@ -123,7 +119,7 @@ export function GeneralSection({ lang, settings, onChange, resources = [] }: Gen
           lang={lang}
           title={t(lang, "settingsResetDialogTitle")}
           message={t(lang, "settingsResetDialogMessage")}
-          confirmValue={RESET_CONFIRM_PHRASE}
+          confirmValue={t(lang, "settingsResetConfirmValue")}
           confirmLabel={t(lang, "settingsResetConfirmLabel")}
           onConfirm={() => resetAppToCleanSlate()}
           onCancel={() => setResetOpen(false)}

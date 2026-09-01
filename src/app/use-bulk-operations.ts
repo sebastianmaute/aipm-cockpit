@@ -60,8 +60,9 @@ export interface UseBulkOperationsArgs {
   allowDestructiveSave?: () => void;
   /** Open the tasks view's type-to-confirm clear-all dialog. The voice `clearAll`
    *  command routes through this so it faces the SAME friction as the toolbar
-   *  button (type "yes, clear all tasks") instead of a one-click window.confirm.
-   *  Undefined ⇒ voice clear-all is a safe no-op (popout / view not mounted). */
+   *  button (type the `tasksClearAllConfirmValue` phrase) instead of a one-click
+   *  window.confirm. Undefined ⇒ voice clear-all is a safe no-op (popout / view
+   *  not mounted). */
   requestClearAllConfirm?: () => void;
   /** Day-boundary context for the health filter. task-manager threads the SAME
    *  `today` and `holidaySet` VALUES into the Open Points pane, so two of the
@@ -389,8 +390,10 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     setSelectedIds(new Set());
   }, [bulkEdit, selectedIds, visibleIds, tasks, setTasks, setBulkEdit, setBulkEditOpen, tz, budgets, commitBuckets]);
 
-  // Unconditional clear — callers own the confirmation (the tasks view gates it
-  // with TypeToConfirmDialog; the voice command below gates it with window.confirm).
+  // Unconditional clear — callers own the confirmation, and BOTH paths gate it
+  // with TypeToConfirmDialog: the tasks view's toolbar button directly, and the
+  // voice command below by routing through `requestClearAllConfirmRef` so it
+  // opens the same dialog rather than a one-click window.confirm.
   const handleClearAll = useCallback(() => {
     if (tasks.length === 0) return;
     captureRef.current({ setter: setTasks, kind: "task.deleted", removed: tasks, fromArray: tasks });
@@ -534,10 +537,11 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
           return;
         }
         case "clearAll":
-          // Route through the tasks view's type-to-confirm dialog (type
-          // "yes, clear all tasks") — the SAME friction as the toolbar button —
-          // rather than a one-click window.confirm before an irreversible wipe.
-          // No dialog wired (popout / view not mounted) ⇒ safe no-op.
+          // Route through the tasks view's type-to-confirm dialog (type the
+          // `tasksClearAllConfirmValue` phrase) — the SAME friction as the
+          // toolbar button — rather than a one-click window.confirm before an
+          // irreversible wipe. No dialog wired (popout / view not mounted) ⇒
+          // safe no-op.
           if (tasks.length > 0) requestClearAllConfirmRef.current?.();
           return;
         case "openForm":
