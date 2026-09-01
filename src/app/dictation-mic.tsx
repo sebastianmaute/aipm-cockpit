@@ -96,6 +96,14 @@ export function useDictationMic({
       // `pressHandlers`, and their keydown calls preventDefault, which
       // suppresses the synthetic click a keyboard press would otherwise emit.
       onToggle={() => {}}
+      // ★ The mic keeps its GREEN identity rather than taking the primitive's
+      //   dark-blue chrome default. The green was never the problem — the
+      //   problem was that it was the ONLY cue; `accent="green"` puts it on a
+      //   border derived to clear 3:1 against --line and leaves the shared
+      //   non-colour marker to carry SC 1.4.1. Dropping to the default would
+      //   have fixed the contrast by discarding the colour that means
+      //   "recording" everywhere else in the app.
+      accent="green"
       // Icon-only on screen, so the (row-unique) name rides an `sr-only`
       // child rather than an `aria-label` — name-from-content yields the same
       // string, and passing both would leave the visible-to-AT span dead.

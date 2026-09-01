@@ -22,7 +22,11 @@ import { type Lang, t } from "./i18n";
 // (`children`) MUST name what pressed=true ENABLES and NEVER flip with state.
 // `aria-pressed` tracks that same state, so "Inline milestones, pressed" ⇒
 // inline is on. Do not pass a label that flips to the opposite action.
-export type ToggleAccent = "dark-blue" | "pink";
+// ★ Three accents, and each exists because some consumer's IDENTITY colour had
+// to survive the 1.4.11 fix rather than be replaced by the chrome default.
+// Green is the dictation mic's: its listening cue was a green ICON, which
+// clears 3:1 against the idle glyph in exactly one of seven combos.
+export type ToggleAccent = "dark-blue" | "pink" | "green";
 
 // Geometry family. "chip" is the toolbar look every consumer started with;
 // "card" is a full-width, multi-line OPTION card (a title, a description, a
@@ -58,6 +62,8 @@ const PRESSED: Record<ToggleAccent, string> = {
   "dark-blue":
     "border-[var(--control-state-border)] bg-ui-dark-blue/10 text-ui-dark-blue hover:bg-ui-dark-blue/20 focus:ring-ui-dark-blue dark:bg-ui-dark-blue/20 dark:text-ui-light-grey",
   pink: "border-[var(--control-state-border-pink)] bg-ui-pink/10 text-ui-dark-blue hover:bg-ui-pink/20 focus:ring-ui-pink dark:bg-ui-pink/15 dark:text-ui-light-grey",
+  green:
+    "border-[var(--control-state-border-green)] bg-ui-green/10 text-ui-dark-blue hover:bg-ui-green/20 focus:ring-ui-green dark:bg-ui-green/20 dark:text-ui-light-grey",
 };
 
 interface ToggleButtonProps {

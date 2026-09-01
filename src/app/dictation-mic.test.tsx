@@ -79,6 +79,25 @@ describe("useDictationMic", () => {
     expect(marker()?.getAttribute("class") ?? "").not.toContain("invisible");
   });
 
+  // ★★ The mic KEEPS its green while gaining a conformant border. The default
+  //    accent is dark-blue, so without `accent="green"` the migration silently
+  //    recolours the app's "recording" signal to chrome blue — a change nobody
+  //    asked for and no contrast test would ever object to. That is what this
+  //    pins: not a ratio, but the identity.
+  // ★ classList, not a className substring: `bg-ui-green/10` is a substring of
+  //   `hover:bg-ui-green/10`, so a substring match could not tell the pressed
+  //   fill from a hover-only one.
+  it("keeps the green accent rather than the primitive's dark-blue default", () => {
+    ptt.listening = true;
+    render(<Mic />);
+    const btn = screen.getByRole("button", {
+      name: `${t("en-US", "dictationHold")} – Notes`,
+    });
+    expect(btn.classList.contains("border-[var(--control-state-border-green)]")).toBe(true);
+    expect(btn.classList.contains("bg-ui-green/10")).toBe(true);
+    expect(btn.classList.contains("bg-ui-dark-blue/10")).toBe(false);
+  });
+
   // ★ The accessible name is unchanged by the migration and stays row-unique
   //   (`Hold to dictate – <field>`); several panels query the mic by it.
   it("keeps the row-unique accessible name and the caller's padding", () => {

@@ -142,6 +142,21 @@ export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
   if (colors["--ui-pink"]) {
     out["--control-state-border-pink"] = nudgeToContrast(colors["--ui-pink"], line, 3);
   }
+  // The accent set is now THREE. Green joined when the dictation mic adopted
+  // ToggleButton: its listening cue had been the icon colour alone, and raw
+  // --ui-green vs --muted-foreground clears 3:1 in exactly ONE of the seven
+  // combos. Keeping the green identity therefore needed a green state border.
+  // ★★ Unlike pink, this derivation is NOT a no-op, and it splits by MODE.
+  // Raw --ui-green against --line measures 1.53-1.88:1 in the four LIGHT
+  // combos (a bright accent on a pale rule) and 4.96-6.90:1 in the three DARK
+  // ones. So the loop runs in the light schemes ONLY, landing them at
+  // 3.06-3.81, and returns the base unchanged in the dark ones — the mirror of
+  // --control-state-border, whose dark-blue fails in the DARK schemes and
+  // passes in the light. Green is therefore the one accent whose globals.css
+  // fallback is NOT its raw base: see the hardcoded value there.
+  if (colors["--ui-green"]) {
+    out["--control-state-border-green"] = nudgeToContrast(colors["--ui-green"], line, 3);
+  }
   // ★★ --ui-purple-strong is the ONE variant whose reference is NOT the card.
   // Every site that uses it puts it on a PURPLE TINT, not on a plain surface —
   // the RAID "caused this" chips, the chat AI-consent block and the read-only

@@ -66,12 +66,19 @@
 
   /* SC 1.4.11 state borders — the pre-boot/no-JS FALLBACK only; at runtime
      scheme-apply.ts overrides these inline per active scheme AND mode, so no
-     `dark:` variant is needed at the consuming component. These static values
-     are the AIPM-light bases unchanged, because both already clear 3:1 against
-     the static --line #dbe2ea (dark-blue 8.97:1, pink 3.55:1) — the derivation
-     returns the base when the floor is already met. */
+     `dark:` variant is needed at the consuming component. The first two are the
+     AIPM-light bases UNCHANGED, because both already clear 3:1 against the
+     static --line #dbe2ea (dark-blue 8.97:1, pink 3.55:1) — the derivation
+     returns the base when the floor is already met.
+     ★★ THE GREEN ONE IS NOT ITS BASE, and copying the pattern from its two
+     neighbours is the trap. Raw --ui-green #2bc4b6 scores only 1.66:1 against
+     that same --line, so nudgeToContrast actually runs and returns #1f8e83
+     (3.06:1). Hardcoding #2bc4b6 here would ship a fallback that fails the
+     floor the runtime derivation meets. Keep all three in step with
+     deriveAaVariants — scheme-state-contrast.test.ts pins the equivalence. */
   --control-state-border: #153a5c;
   --control-state-border-pink: #c24a76;
+  --control-state-border-green: #1f8e83;
 
   /* ---- CI-style role tokens. These AIPM-light values are the static no-JS /
      pre-boot FALLBACK; at runtime the active scheme (AIPM / Mockup / Harbor /

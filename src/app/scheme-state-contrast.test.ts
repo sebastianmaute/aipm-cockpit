@@ -40,6 +40,10 @@ describe("scheme state contrast", () => {
     expect(ratio(colors["--control-state-border-pink"]!, colors["--line"]!)).toBeGreaterThanOrEqual(3);
   });
 
+  test.each(COMBOS)("$id: --control-state-border-green clears 3:1 against --line", ({ colors }) => {
+    expect(ratio(colors["--control-state-border-green"]!, colors["--line"]!)).toBeGreaterThanOrEqual(3);
+  });
+
   // The SegmentedControl marker is drawn ON the selected segment, so the colour
   // it must contrast with is that segment's own fill — NOT the track. Measured
   // against the track, --segment-active-fg scores 1.01-1.14 in the light
@@ -59,8 +63,14 @@ describe("scheme state contrast", () => {
   });
 
   // Pins the PROPERTY the globals.css fallback relies on: at the AIPM-light
-  // base both accents already clear 3:1 against --line, so the derivation
-  // returns them UNCHANGED — which is why the CSS may hardcode the raw bases.
+  // base the dark-blue and pink accents already clear 3:1 against --line, so
+  // the derivation returns them UNCHANGED — which is why the CSS may hardcode
+  // those two raw bases.
+  // ★★ GREEN IS THE EXCEPTION and that is the point of asserting it here: raw
+  //    --ui-green scores 1.66:1 against the same --line, so the derivation
+  //    genuinely nudges and the stylesheet must hardcode the NUDGED #1f8e83.
+  //    A future edit to --ui-green that changed the nudge's output would leave
+  //    the CSS fallback wrong, and this is the only thing that would say so.
   // ★★ It does NOT read globals.css, so it cannot see drift THERE: edit
   //    --control-state-border in the stylesheet alone and this stays green.
   //    What it does catch is the derivation gaining a nudge at this base,
@@ -68,9 +78,10 @@ describe("scheme state contrast", () => {
   test("globals.css fallbacks match the derivation for the AIPM-light base", () => {
     const derived = resolveSchemeColors({
       "--ui-dark-blue": "#153a5c", "--ui-pink": "#c24a76", "--line": "#dbe2ea",
-      "--surface-muted": "#eef2f6",
+      "--ui-green": "#2bc4b6", "--surface-muted": "#eef2f6",
     } as SchemeColorMap);
     expect(derived["--control-state-border"]).toBe("#153a5c");
     expect(derived["--control-state-border-pink"]).toBe("#c24a76");
+    expect(derived["--control-state-border-green"]).toBe("#1f8e83");
   });
 });

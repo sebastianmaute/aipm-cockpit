@@ -200,6 +200,24 @@ describe("ToggleButton", () => {
     expect(btn.className).not.toContain("border-ui-pink ");
   });
 
+  // The third accent. Asserted on classList rather than the className STRING:
+  // a substring match cannot distinguish `border-ui-green` from a longer class
+  // that merely contains it, and the absence half is the load-bearing one here
+  // exactly as it is above.
+  // ★★ Green is the accent where the derivation is NOT a no-op — raw
+  //    --ui-green misses 3:1 against --line in all four LIGHT combos — so
+  //    regressing this one class to the raw accent is a real contrast defect,
+  //    not the theoretical guard the pink case is.
+  it("the green accent rides the derived state token, not the raw accent", () => {
+    render(
+      <ToggleButton pressed onToggle={() => {}} accent="green">Hold to dictate</ToggleButton>,
+    );
+    const btn = screen.getByRole("button", { name: "Hold to dictate" });
+    expect(btn.classList.contains("border-[var(--control-state-border-green)]")).toBe(true);
+    expect(btn.classList.contains("border-ui-green")).toBe(false);
+    expect(btn.classList.contains("bg-ui-green/10")).toBe(true);
+  });
+
   // ★★ BOTH branches are pinned deliberately. `size` defaults to "chip", and a
   //    default that silently drifted to the card geometry would move every
   //    toolbar toggle in the app while a card-only assertion stayed green.
