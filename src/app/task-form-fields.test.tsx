@@ -63,6 +63,38 @@ describe("HEALTH_CHIP_ACTIVE_CLASS (manual health-override chip tint)", () => {
       expect(cls).not.toContain("bg-ui-green");
     }
   });
+
+  // open-followups §55 (WCAG 1.4.1). The active RAG border measured 1.34-2.34
+  // (amber) and 2.47-2.96 (green) against the inactive `--line` in the light
+  // schemes, so the hue alone cannot carry the selected state. The marker is
+  // rendered in BOTH states (merely `invisible` when off) so the chip keeps one
+  // width — asserting only the ON state would pass against a conditional-render
+  // regression, which is the failure the mechanism exists to prevent.
+  // ★ The "Auto (currently: …)" chip in the same row is deliberately NOT
+  //   covered: its selected border already measures 8.97-10.22 light /
+  //   4.22-4.58 dark, so it has no defect to fix.
+  it("each health chip carries the non-colour selected marker in both states", async () => {
+    const user = userEvent.setup();
+    render(<Harness />, { wrapper: TestProviders });
+    const markerState = (name: string) => {
+      const marker = screen
+        .getByRole("button", { name })
+        .querySelector("[data-pressed-marker]");
+      expect(marker).not.toBeNull();
+      return marker?.getAttribute("data-pressed-marker");
+    };
+
+    // No override is set, so every RAG chip is off — and each still renders a
+    // marker.
+    for (const name of ["Red", "Amber", "Green"]) {
+      expect(markerState(name)).toBe("off");
+    }
+
+    await user.click(screen.getByRole("button", { name: "Amber" }));
+    expect(markerState("Amber")).toBe("on");
+    expect(markerState("Red")).toBe("off");
+    expect(markerState("Green")).toBe("off");
+  });
 });
 
 describe("TaskFormFields — budget bucket", () => {
