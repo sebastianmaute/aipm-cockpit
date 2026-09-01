@@ -13,6 +13,7 @@
 // per block boundary, adjacent boundaries never producing a blank line. What it
 // adds is the marks that projection throws away.
 
+import { safeLinkTarget } from "./ooxml-links";
 import { TASK_MARK_CHECKED, TASK_MARK_UNCHECKED } from "./rich-text-plain";
 
 export type RunMark =
@@ -25,7 +26,16 @@ export type RunMark =
   | "sub"
   | "sup";
 
-export type TextRun = { text: string; marks: RunMark[] };
+/** ★★ `href` is a FIELD and not a `RunMark` because a `RunMark` carries no
+ *  payload — it is a plain enum string, so it could never hold an address. A
+ *  link is also not a style: it travels down a subtree exactly as `align` and
+ *  the enclosing list item do, unchanged by any inline mark it meets.
+ *
+ *  ★ It is ABSENT on an unlinked run, never own-and-undefined — the same rule
+ *  the `continuation` docblock below states for line heads, and for the same
+ *  reason: the two compare differently under `toEqual` and serialise
+ *  differently, so a run built either way has to be indistinguishable. */
+export type TextRun = { text: string; marks: RunMark[]; href?: string };
 
 export type RichLineKind = "p" | "blockquote" | "pre" | "hr" | "heading" | "li";
 
@@ -376,16 +386,24 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  re-opened line has to inherit: `<br>` ends a line WITHOUT ending the
    *  paragraph, so the half after it belongs to the same declaration as the half
    *  before. Built from the kind alone, the second half exported unaligned. */
+  /** ★★ `href` is the link in force, or undefined outside one. It travels
+   *  beside `marks` rather than in them (see the `TextRun` docblock) and is set
+   *  on the run only when present. */
   function pushText(
     text: string,
     marks: readonly RunMark[],
     kind: BlockKind,
     item: LiLine | null,
     align: Align | undefined,
+    href: string | undefined,
   ): void {
     if (text === "") return;
     if (!current) current = item === null ? { kind, runs: [], align } : continuationOf(item, align);
-    current.runs.push({ text, marks: [...marks] });
+    // ★ The field is ABSENT on an unlinked run, never own-and-undefined — the
+    // same rule the `continuation` docblock states for line heads.
+    current.runs.push(
+      href === undefined ? { text, marks: [...marks] } : { text, marks: [...marks], href },
+    );
   }
 
   /** Preformatted text: whitespace is kept verbatim and a newline ENDS the line,
@@ -393,11 +411,16 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  run-on paragraph. */
   /** ★ No `item`: a `<pre>` is never walked with one (see the walk's nested
    *  arm), so its line breaks always re-open as `pre` lines. */
-  function pushPreText(raw: string, marks: readonly RunMark[], align: Align | undefined): void {
+  function pushPreText(
+    raw: string,
+    marks: readonly RunMark[],
+    align: Align | undefined,
+    href: string | undefined,
+  ): void {
     const parts = raw.split("\n");
     for (let i = 0; i < parts.length; i += 1) {
       if (i > 0) flush();
-      pushText(parts[i], marks, "pre", null, align);
+      pushText(parts[i], marks, "pre", null, align, href);
     }
   }
 
@@ -439,12 +462,13 @@ export function htmlToRichLines(html: string): RichLine[] {
     inListItem = false,
     item: LiLine | null = null,
     align: Align | undefined = undefined,
+    href: string | undefined = undefined,
   ): void {
     for (const child of Array.from(node.childNodes)) {
       if (child.nodeType === TEXT_NODE) {
         const raw = (child as Text).data;
-        if (kind === "pre") pushPreText(raw, marks, align);
-        else pushText(raw.replace(WS_RUN, " "), marks, kind, item, align);
+        if (kind === "pre") pushPreText(raw, marks, align, href);
+        else pushText(raw.replace(WS_RUN, " "), marks, kind, item, align, href);
         continue;
       }
       if (child.nodeType !== ELEMENT_NODE) continue;
@@ -471,7 +495,7 @@ export function htmlToRichLines(html: string): RichLine[] {
       if (nested) {
         const nestedAlign = alignOf(el);
         startLine({ kind: nested, runs: [], align: nestedAlign });
-        walk(el, marks, nested, false, null, nestedAlign);
+        walk(el, marks, nested, false, null, nestedAlign, href);
         flush();
         continue;
       }
@@ -483,7 +507,10 @@ export function htmlToRichLines(html: string): RichLine[] {
         // ★ `item` cleared: a nested list's items are produced by the LI arm at
         // their OWN depth and index, and must inherit nothing from the item
         // they are nested inside.
-        walk(el, marks, kind, false, null);
+        // ★ `align` is spelled `undefined` rather than omitted only so `href`
+        // can be passed positionally — the UL/OL arm's deliberate dropping of
+        // the alignment in force (see the walk's docblock) is unchanged.
+        walk(el, marks, kind, false, null, undefined, href);
         listCounters.pop();
         listIndex.pop();
         continue;
@@ -535,7 +562,7 @@ export function htmlToRichLines(html: string): RichLine[] {
         // nothing into the output has no line for a reader to count from, so
         // numbering past it would strand the number.
         const outputBefore = lines.length;
-        walk(el, marks, kind, true, item, item.align);
+        walk(el, marks, kind, true, item, item.align, href);
         flush();
         promoteItemHead(outputBefore, depth);
         // ★ AFTER the walk. The `listIndex.length` guard keeps a stray <li> with
@@ -552,7 +579,7 @@ export function htmlToRichLines(html: string): RichLine[] {
         startLine({ kind: "heading", runs: [], align: headingAlign, level });
         // ★ `item` cleared for the same reason as <blockquote>/<pre>: a heading
         // inside an item keeps its LEVEL, which a continuation cannot carry.
-        walk(el, marks, kind, false, null, headingAlign);
+        walk(el, marks, kind, false, null, headingAlign, href);
         flush();
         continue;
       }
@@ -611,7 +638,7 @@ export function htmlToRichLines(html: string): RichLine[] {
         // paragraph re-opens with the same alignment the head line got.
         const resolved = host.align ?? align;
         if (align !== undefined && host.align === undefined) current = { ...host, align };
-        walk(el, marks, kind, false, item, resolved);
+        walk(el, marks, kind, false, item, resolved, href);
         continue;
       }
 
@@ -644,7 +671,7 @@ export function htmlToRichLines(html: string): RichLine[] {
         startLine(
           item === null ? { kind, runs: [], align: resolved } : continuationOf(item, resolved),
         );
-        walk(el, marks, kind, false, item, resolved);
+        walk(el, marks, kind, false, item, resolved, href);
         flush();
         continue;
       }
@@ -656,8 +683,20 @@ export function htmlToRichLines(html: string): RichLine[] {
       // ★ `align` passes straight through for the same reason `item` does: an
       // inline mark is not a paragraph, so it neither declares an alignment nor
       // ends the one in force.
+      // ★★ `A` is deliberately in NEITHER `MARK_BY_TAG` nor `LINE_TAGS`: a link
+      // is not a style (a RunMark carries no payload, so it could not hold a
+      // URL) and it does not end a line. It travels exactly as `align` and
+      // `item` do — down through the subtree, unchanged by inline marks.
+      // ★ An <a> whose href fails `safeLinkTarget` walks on with the INHERITED
+      // href rather than clearing it, so a bad nested anchor inside a good one
+      // cannot silently strip the outer link. Nesting anchors is invalid HTML
+      // and the parser flattens it, so this is a belt-and-braces branch.
+      if (tag === "A") {
+        walk(el, marks, kind, false, item, align, safeLinkTarget(el.getAttribute("href")) ?? href);
+        continue;
+      }
       const mark = MARK_BY_TAG[tag];
-      walk(el, mark ? addMark(marks, mark) : marks, kind, false, item, align);
+      walk(el, mark ? addMark(marks, mark) : marks, kind, false, item, align, href);
     }
   }
 

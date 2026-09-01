@@ -59,10 +59,38 @@ describe("htmlToRichLines", () => {
     ]);
   });
 
-  it("carries no mark for a tag that only wraps (a link)", () => {
-    expect(htmlToRichLines('<p><a href="https://x.test">link</a></p>')[0].runs).toEqual([
-      { text: "link", marks: [] },
+  // ★★ FLIPPED 2026-09-01 (open-followups §119/§30). This test used to assert
+  // that an <a> contributed NOTHING but its text — i.e. it pinned the defect
+  // that lost every link address in .docx and .pptx. The tag still carries no
+  // MARK (a RunMark has no payload and cannot hold a URL); what changed is that
+  // the run now carries the address in its own `href` field.
+  it("carries no mark for a link, but does carry its href", () => {
+    const lines = htmlToRichLines('<p>Spec: <a href="https://intra/spec">the spec</a></p>');
+    expect(lines).toHaveLength(1);
+    expect(lines[0].runs).toEqual([
+      { text: "Spec: ", marks: [] },
+      { text: "the spec", marks: [], href: "https://intra/spec" },
     ]);
+  });
+
+  it("keeps marks and href together when a link wraps a mark", () => {
+    const lines = htmlToRichLines('<p><a href="https://a"><strong>bold link</strong></a></p>');
+    expect(lines[0].runs).toEqual([{ text: "bold link", marks: ["bold"], href: "https://a" }]);
+  });
+
+  it("keeps marks and href together when a mark wraps a link", () => {
+    const lines = htmlToRichLines('<p><strong><a href="https://a">bold link</a></strong></p>');
+    expect(lines[0].runs).toEqual([{ text: "bold link", marks: ["bold"], href: "https://a" }]);
+  });
+
+  it("drops an unsafe scheme to a plain run rather than carrying it", () => {
+    const lines = htmlToRichLines('<p><a href="javascript:alert(1)">click</a></p>');
+    expect(lines[0].runs).toEqual([{ text: "click", marks: [] }]);
+  });
+
+  it("omits href entirely on an ordinary run, never as own-and-undefined", () => {
+    const lines = htmlToRichLines("<p>plain</p>");
+    expect(Object.hasOwn(lines[0].runs[0], "href")).toBe(false);
   });
 
   it("turns <br> into a line break within the same block", () => {
