@@ -203,6 +203,35 @@ describe("CreateProjectWizard", () => {
     expect(opts.features).toContain("trends");
   });
 
+  // open-followups §55 (WCAG 1.4.1). The selected template was signalled by a
+  // green border + tint ALONE, which measured 1.53-1.88:1 against the
+  // unselected border in all four LIGHT schemes. The marker is the non-colour
+  // cue; it is rendered in BOTH states (merely `invisible` when off) so the
+  // card keeps one width. Asserting only the ON state would pass against a
+  // conditional-render regression, which is the failure the mechanism exists
+  // to prevent — so both states are pinned here.
+  it("every template option carries the non-colour selected marker in both states", () => {
+    setup();
+    completeStep1();
+
+    const markerOf = (name: RegExp) => {
+      const btn = screen.getByRole("button", { name });
+      const marker = btn.querySelector("[data-pressed-marker]");
+      expect(marker).not.toBeNull();
+      return marker?.getAttribute("data-pressed-marker");
+    };
+    const STANDARD = /Standard PM/;
+    const BLANK = /choose functions yourself/i;
+
+    fireEvent.click(screen.getByRole("button", { name: STANDARD }));
+    expect(markerOf(STANDARD)).toBe("on");
+    expect(markerOf(BLANK)).toBe("off");
+
+    fireEvent.click(screen.getByRole("button", { name: BLANK }));
+    expect(markerOf(BLANK)).toBe("on");
+    expect(markerOf(STANDARD)).toBe("off");
+  });
+
   it("Back returns from Step 2 to Step 1; Cancel on Step 1 calls onCancel", () => {
     const { onCancel } = setup();
 
