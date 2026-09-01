@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.274.0";
-export const APP_BUILD_DATE = "2026-09-01"; // 0.274.0: the guided tour keeps keyboard focus inside itself instead of letting Tab walk into the page behind it, focus returns where it came from when the tour closes, and the three focus-trapped surfaces join the shared dismissal arbiter so Escape and Tab reach the right layer when surfaces stack (Varley)
+export const APP_VERSION = "0.275.0";
+export const APP_BUILD_DATE = "2026-09-01"; // 0.275.0: every control that repeats once per row on the Next-actions, Projects, Resources and version-history surfaces now announces a name unique to its row, so a screen reader can tell two rows apart when the people, projects or actions in them share a name (Nagata)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.274.x line is "Varley" (John Varley, American SF author, the Gaea
  *  trilogy). Checked dash-agnostically BEFORE the bump with the command
@@ -126,7 +126,7 @@ export const APP_BUILD_DATE = "2026-09-01"; // 0.274.0: the guided tour keeps ke
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Varley";
+export const APP_MILESTONE = "Nagata";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
