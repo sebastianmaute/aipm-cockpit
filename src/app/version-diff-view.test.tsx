@@ -284,6 +284,40 @@ describe("VersionDiffView", () => {
       onToggleRecord={() => {}} onRestoreRecord={() => {}} />);
     expectRowUniqueNames({ roles: ["checkbox", "button"], minControls: 4, requireCollisionSeed: true });
   });
+
+  // ★★★ Do NOT assert accessible names here — they already route through
+  // `tokens`/`rowLabel` and are unique BEFORE this fix. What was broken is the
+  // VISIBLE text: both layouts rendered the bare `c.recordLabel` in the
+  // `span.text-foreground` record-label span, so two records sharing a
+  // `recordLabel` rendered two visually identical rows even though their
+  // aria-labels already differed. Assert on RENDERED TEXT, per layout, so a
+  // fix touching only one of the two sites still leaves this red.
+  function diffWithTwoChangesSharing(label: string): VersionChange[] {
+    return [1, 2].map((id) => ({
+      collection: "tasks", collectionLabel: "Tasks", kind: "list" as const,
+      recordId: id, recordLabel: label, type: "modified" as const,
+      fields: [{ field: "title", label: "Title", before: "a", after: "b" }],
+    }));
+  }
+
+  it("renders two visually distinct rows when two records share a recordLabel (§305)", () => {
+    const diff = diffWithTwoChangesSharing("Design review");
+
+    const inline = render(<VersionDiffView lang="en-US" changes={diff} />);
+    const inlineShown = [...inline.container.querySelectorAll("span.text-foreground")]
+      .map((el) => el.textContent?.trim())
+      .filter((s): s is string => s === "Design review" || /^Design review \(\d+\)$/.test(s));
+    expect(inlineShown.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(inlineShown).size).toBe(inlineShown.length);
+    inline.unmount();
+
+    const sideBySide = render(<VersionDiffView lang="en-US" changes={diff} layout="sideBySide" />);
+    const sideBySideShown = [...sideBySide.container.querySelectorAll("span.text-foreground")]
+      .map((el) => el.textContent?.trim())
+      .filter((s): s is string => s === "Design review" || /^Design review \(\d+\)$/.test(s));
+    expect(sideBySideShown.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(sideBySideShown).size).toBe(sideBySideShown.length);
+  });
 });
 
 // ★★ THE DISCLOSURE CONTRACT. `aria-expanded` alone is cheap and half-useless:

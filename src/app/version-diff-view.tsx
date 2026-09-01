@@ -126,7 +126,7 @@ export function VersionDiffView({
                 return (
                 <li key={k} className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
                   <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="text-foreground">{c.recordLabel}</span>
+                    <span className="text-foreground">{tokens.get(k) ?? c.recordLabel}</span>
                     <span className="flex items-center gap-2">
                       <span className={`text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
                       {!revertible && (
@@ -270,7 +270,7 @@ export function VersionDiffView({
                       aria-describedby={revertible ? undefined : `${panelIds.get(k)}-managed`}
                       className="flex w-full items-center justify-between text-left"
                     >
-                      <span className="text-foreground">{c.recordLabel}</span>
+                      <span className="text-foreground">{tokens.get(k) ?? c.recordLabel}</span>
                       <span aria-hidden="true" className={`text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
                     </button>
                     {!revertible && (
