@@ -480,21 +480,33 @@ commits that merely added comments above it; its `onChange` is
   bullet below); only the layer that owns the key handles Escape (`claimsEscape`) and only the topmost
   `"modal"` entry contains Tab (`isTopmostOfKind`), so a nested modal (wizard
   opened from inside the create-project modal) no longer double-fires Escape and dismisses the parent.
-  ★★★ ONE EXCEPTION, and it is invisible to every stack-consulting reader.
-  `use-focus-trap.ts` pushes `kind: "modal"` and traps Tab UNCONDITIONALLY: its
-  Tab branch never consults the stack (the file's own comment says so in as many
-  words), and the keydown effect is gated on `active` ALONE while the stack PUSH
-  additionally requires an `onEscape`. So `inline-ai-edit-popover`, which passes
-  no `onEscape`, runs a live Tab trap while never joining the stack at all.
-  Verify rather than trust this — the command below returns exactly TWO real call
-  sites, `modal.tsx` and `popover-panel.tsx`; everything else it prints is the
-  declaration, their two imports, or prose, and `use-focus-trap.ts` is absent
-  from the output entirely (what keeps it off THIS file, so the quoted command
-  cannot count itself, is the `src/app` PATH ROOT — NOT the `--include`s, which
-  change nothing here: measured 2026-08-31, the command returns 9 lines with
-  them and 9 without, while dropping the path root returns 80):
+  ★★ THERE IS NO LONGER AN EXCEPTION, and the one there was is worth knowing.
+  `use-focus-trap.ts` used to push `kind: "modal"` and trap Tab
+  UNCONDITIONALLY: its Tab branch never consulted the stack at all, and its
+  keydown effect was gated on `active` ALONE while the stack PUSH additionally
+  required an `onEscape` — so `inline-ai-edit-popover`, which passes no
+  `onEscape`, ran a live Tab trap while never joining the stack, invisible to
+  every stack-consulting reader. It now pushes whenever `active` and DECLINES
+  Escape through a `claims: () => hasEscape` predicate instead of hiding, and
+  its Tab branch asks `isTopmostOfKind` exactly as the other two do
+  (`docs/open-followups.md` §318, CLOSED 2026-09-01). Verify rather than trust
+  this — the command below now returns THREE real call sites, `modal.tsx`,
+  `popover-panel.tsx` and `use-focus-trap.ts`; everything else it prints is the
+  declaration, their imports, or prose. ★★★ TWO GUARDS KEEP IT OFF THIS FILE
+  AND EITHER ONE SUFFICES — an earlier wording credited the `src/app` PATH ROOT
+  and explicitly ACQUITTED the `--include`s, which is backwards, because a
+  `.md` file cannot match `--include=*.ts --include=*.tsx` at any path root.
+  Measured 2026-09-01 across all four variants, and quoted as RELATIONS rather
+  than totals, because the absolute numbers rot within the hour — the first
+  version of this paragraph quoted 13/13/14 and a later commit in the very same
+  branch added one more mention and made all three wrong. What holds: the two
+  variants that keep the path root agree EXACTLY (so the includes are redundant
+  *while the root is there* — that much of the old claim held); dropping the
+  root while KEEPING the includes adds exactly one hit, an `e2e-crossengine`
+  `.ts` spec and still no docs; and only with BOTH dropped does it reach the
+  several-fold figure the old sentence attributed to the root alone. Re-run all
+  four before quoting any of them:
   `grep -rn "isTopmostOfKind" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
-  Tracked in `docs/open-followups.md` §318.
   LANDMINE (bit twice): the keydown effect must depend on `[open]` ALONE and read `onClose` via a ref —
   if it deps `[open, onClose]`, an unstable parent `onClose` identity (re-created each render/keystroke)
   re-runs the effect and re-pushes that modal's token to the top → wrong modal becomes topmost. Push/pop
@@ -540,12 +552,18 @@ commits that merely added comments above it; its `onChange` is
   exclusive `if/else` branches in `task-manager.tsx`).
   ★★ `kind` MEANS "traps Tab", NOT "looks like a dialog". Tag a surface `modal`
   ONLY if it actually contains Tab; otherwise `layer`, however `aria-modal` it is.
-  `tour-overlay` is `role=dialog aria-modal` with NO focus trap, and tagging it
-  `modal` took `isTopmostOfKind(…,"modal")` away from any real `Modal` open at the
-  same time — that Modal stopped trapping Tab and nothing took over, so focus
-  walked out of both (WCAG 2.4.3). Caught in review, not by a gate. If such a
-  surface gains a real trap, flip its `kind` in the SAME commit.
-  ★★ WORKED EXAMPLE of that flip: `PopoverPanel` pushes `"modal"` as of 0.270.0
+  `tour-overlay` is the record of what breaking that rule costs in BOTH
+  directions. Tagged `modal` while it trapped nothing, it took
+  `isTopmostOfKind(…,"modal")` away from any real `Modal` open at the same time —
+  that Modal stopped trapping Tab and nothing took over, so focus walked out of
+  both (WCAG 2.4.3); caught in review, not by a gate, and the overlay was demoted
+  to `layer` for it. Trapping WITHOUT the tag is the mirror: a `layer` never takes
+  Tab from a `Modal` above it, so two `document` keydown listeners fight in
+  registration order. So move both or neither — a surface gaining a real trap
+  flips its `kind` in the SAME commit, and one losing its trap is demoted in the
+  same commit too.
+  ★★ TWO WORKED EXAMPLES of that flip, and they arrived by different routes.
+  (1) `PopoverPanel` pushes `"modal"` as of 0.270.0
   because it now owns a real Tab cycle over its portaled content
   (`docs/open-followups.md` §100) — it was `"layer"` before. Escape is
   unchanged; both kinds compete equally for it. The cycle is itself gated on
@@ -581,6 +599,21 @@ commits that merely added comments above it; its `onChange` is
   listeners firing in REGISTRATION order and the modal opens second, so it runs
   last and silently corrects whatever an ungated popover just did. Any assertion
   on FINAL focus is blind to this gate.
+  ★★ (2) `tour-overlay` pushes `"modal"` as of 2026-09-01 because it swapped
+  `useDismissable` for `useFocusTrap`, which supplies the trap and the `"modal"`
+  tag TOGETHER so the two can never disagree — the flip and the trap are the same
+  edit, which is the cheapest way to obey the rule above. It was `"layer"` for as
+  long as it trapped nothing (`docs/open-followups.md` §8). ★ The overlay passes
+  its `cardRef` as BOTH the container and the `initialFocusRef`, which preserves
+  focusing the CARD rather than its first button — that is what makes AT announce
+  the dialog and its label, and it is the state the trap's own Tab term had to be
+  widened to see. ★ `onSkip` must stay a stable `useCallback` at the call
+  site: the hook's keydown effect has it in its deps.
+  ★★★ THAT WIDENING IS MEMBERSHIP, NOT CONTAINMENT, and the difference is the
+  whole of §8 — `Node.contains` is REFLEXIVE, so a containment term cannot see
+  the card. The measurement, the reason `modal.tsx`'s containment spelling is
+  NOT defective, and the bound on how much wider membership is all live in the
+  `★★★ THE TEST IS MEMBERSHIP, NOT CONTAINMENT` block in `use-focus-trap.ts`.
   ★★★ **FOCUS-RESTORE ON UNMOUNT IS CROSS-BROWSER DIVERGENT, AND THE UNIT SUITE
   CANNOT SEE IT.** `PopoverPanel` restores focus to its anchor when it unmounts
   with focus still inside (§297), and getting there cost TWO measured-dead
@@ -617,11 +650,16 @@ commits that merely added comments above it; its `onChange` is
   `popover-panel.test.tsx` (a null- and a non-null-`relatedTarget` focusout) are
   the only detector that will ever exist. Verify any change here by hand in
   Chromium AND Firefox; one engine is not evidence.
-  ★★ STANDING GAP, not closed by that fix: `tour-overlay` has NO Tab trap at all
-  and never has, so Shift+Tab from its first button walks into the app behind the
-  dimmed backdrop, and its `aria-modal="true"` tells AT a containment story the
-  keyboard does not honour. `kind:"layer"` only stops it breaking OTHER modals.
-  Tracked separately — do not read the bullet above as "the tour is a11y-clean".
+  ★★ THE GAP THAT USED TO SIT HERE IS CLOSED, and it was never the same defect as
+  the focus-restore one above — do not read the fix below as covering that. For
+  years `tour-overlay` had NO Tab trap at all, so Shift+Tab from its first button
+  walked into the app behind the dimmed backdrop while its `aria-modal="true"`
+  told AT a containment story the keyboard did not honour;
+  `kind:"layer"` only ever stopped it breaking OTHER modals. It now calls
+  `useFocusTrap`, so the trap and the `"modal"` tag arrive together, and it gains
+  focus restoration on close that nothing in its chain had ever recorded — closing
+  it used to drop focus to `<body>` (`docs/open-followups.md` §8, CLOSED
+  2026-09-01).
   ★★ **Focus-on-open (`use-panel-focus.ts`).** A floating panel that gates Escape
   on `useClaimsWhenFocusWithin` MUST call `usePanelInitialFocus`, or the trigger
   that opened it keeps focus, the panel declines its own Escape, and the layer
@@ -634,10 +672,18 @@ commits that merely added comments above it; its `onChange` is
   `[open, kind]`) ALONE and handlers ride refs — re-running it moves the token to
   the TOP and makes the wrong layer topmost, the bug `modal.tsx` hit twice via an
   unstable `onClose`. (2) `claims()` is read at EVENT time and must be a live DOM
-  read, never a captured state value. (3) Register ONLY when you can act —
-  `use-focus-trap` gates on a `hasEscape` BOOLEAN because an always-claiming
-  entry with no handler swallows the key and leaves every layer beneath
-  unclosable (`inline-ai-edit-popover` passes no `onEscape`).
+  read, never a captured state value. (3) NEVER CLAIM ESCAPE YOU CANNOT ACT ON —
+  an always-claiming entry with no handler swallows the key and leaves every layer
+  beneath unclosable, and `inline-ai-edit-popover` passes no `onEscape`, so that
+  shape is live rather than hypothetical. ★★ THE WAY TO HONOUR THAT IS TO DECLINE,
+  NOT TO STAY OUT, and `use-focus-trap` used to do the second. It now registers
+  whenever `active` and passes `claims: () => hasEscape`, and `escapeOwner()` walks
+  past a declining entry to the one underneath. Being absent from the stack instead
+  bought the same Escape safety at the price of being invisible to
+  `isTopmostOfKind`, so nothing could ask the trap to stand down and its own Tab
+  branch could not consult the stack at all (§318). ★ Gate on a BOOLEAN, not on the
+  handler itself — an unstable handler identity in the deps re-pushes the token to
+  the top, which is rule (1) all over again.
   ★★ A NON-MODAL floating panel claims Escape ONLY while focus is inside it (or
   nowhere) via `useClaimsWhenFocusWithin(ref)` — `notes-window` and `help-menu`.
   The gate MUST live in `claims`, not in the handler: a decliner that stayed
