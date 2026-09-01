@@ -11,6 +11,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { canLoadManagedProjects } from "./timelog-guards";
 import type { TimelogProjectRef } from "./timelog-match";
 import type { BudgetBucket } from "./types";
+import { ROW_RULE_CLASS } from "./table-styles";
 
 /** Effective project→budget link (auto or manual, manual wins). */
 type ProjectLinkView = { timelogProjectId: number; bucketId: number | null; manual: boolean };
@@ -94,7 +95,7 @@ export function TimelogProjectsTable({
                 const selectLabel = `${t(lang, "timelogMatchProjects")} – ${displayId}`;
                 const clearLabel = `${t(lang, "timelogMatchClear")} – ${displayId}`;
                 return (
-                  <tr key={p.id} className="border-b border-line last:border-0">
+                  <tr key={p.id} className={ROW_RULE_CLASS}>
                     <td className="py-2 pr-3 text-foreground">{displayId}</td>
                     <td className="py-2 pr-2">
                       <Select

@@ -550,7 +550,13 @@ export function BudgetBucketModal({
           {isVisible("rateOverrides") && (
           <>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1">{t(lang, "budgetRateOverrideInternal")}<InfoTooltip text={t(lang, "budgetRateOverrideHint")} /></span>
+            {/* ★★ The `label` is LOAD-BEARING (open-followups §314): both fields mount
+                the same `budgetRateOverrideHint`, and `InfoTooltip` falls back to
+                `text` for its name, so bare they announce one identical ~100-char
+                name (WCAG 2.4.6). The FIELD NAME LEADS — the opposite of
+                `report-table.tsx`'s `nameContext` order, and deliberately so. §314
+                carries the reasoning and the two test knock-ons. */}
+            <span className="flex items-center gap-1">{t(lang, "budgetRateOverrideInternal")}<InfoTooltip text={t(lang, "budgetRateOverrideHint")} label={`${t(lang, "budgetRateOverrideInternal")} – ${t(lang, "budgetRateOverrideHint")}`} /></span>
             <div className="flex items-center gap-1">
               <input
                 className={inputClass}
@@ -581,7 +587,7 @@ export function BudgetBucketModal({
             <FieldNotice id={rateIntNoticeId}>{notice.rateOverrideInternal}</FieldNotice>
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="flex items-center gap-1">{t(lang, "budgetRateOverrideExternal")}<InfoTooltip text={t(lang, "budgetRateOverrideHint")} /></span>
+            <span className="flex items-center gap-1">{t(lang, "budgetRateOverrideExternal")}<InfoTooltip text={t(lang, "budgetRateOverrideHint")} label={`${t(lang, "budgetRateOverrideExternal")} – ${t(lang, "budgetRateOverrideHint")}`} /></span>
             <div className="flex items-center gap-1">
               <input
                 className={inputClass}

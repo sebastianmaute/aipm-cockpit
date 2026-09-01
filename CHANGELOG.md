@@ -8,6 +8,29 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.272.1] - 2026-09-01 "Zoline"
+
+### Fixed
+
+- **The Budget planning table drew no lines between its rows.** In the default (per-role)
+  planning view every row ran into the next with nothing separating them, which made a long
+  plan hard to read across and easy to lose your place in. The separators are back, and the
+  last row no longer closes the table with a rule none of its siblings have. The same
+  treatment now applies to the Learning, Portfolio health, Steering committee and both Time
+  bookings tables, which had drifted into three different styles between them.
+- **The Budget bucket totals ignored the role filter.** Filtering the planning table to a
+  role narrowed the rows but left the totals row showing the totals for every role, so the
+  columns did not add up to what was on screen. The totals now follow the filter, and the
+  row says so when a filter is active.
+- **The Budget people rows did not say where their booked hours came from, or how old they
+  were.** Actual hours are read from a stored copy of the Time bookings data, which can be
+  out of date; nothing on screen indicated that, so the figures read as live. Each people
+  section now leads with the source and the time the figures were last fetched, or says
+  plainly that no booked hours have been fetched yet.
+- **The two rate-override tooltips in the bucket editor had the same name.** A screen-reader
+  user tabbing through the editor heard the same label twice with no way to tell the
+  internal rate's hint from the external one. Each now carries its own field's name.
+
 ## [0.272.0] - 2026-08-31 "Zoline"
 
 ### Fixed

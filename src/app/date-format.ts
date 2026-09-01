@@ -33,6 +33,26 @@ export function shortDateRangeIso(startIso: string, endIso: string, lang: Lang):
   return `${start.toLocaleDateString(loc, fmt)}–${end.toLocaleDateString(loc, fmt)}`;
 }
 
+/**
+ * Formats a full ISO TIMESTAMP (e.g. a cache's `fetchedAt`) for display in the
+ * active language; returns the input unchanged if unparseable.
+ *
+ * ★ Separate from `formatExpiryDate` because that one takes a DATE-ONLY
+ * "YYYY-MM-DD" and appends `T12:00:00` to dodge the timezone-rollover trap.
+ * Doing that to a value which already carries a time yields an invalid Date, so
+ * the two cannot share an implementation.
+ *
+ * ★ Shows the time as well as the day: this exists to answer "how stale is
+ * this?", and on the day of a fetch a date alone answers nothing.
+ */
+export function formatFetchedAt(iso: string, lang: Lang): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.valueOf())) return iso;
+  return d.toLocaleString(localeFor(lang), {
+    year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+}
+
 /** Formats a "YYYY-MM-DD" date for display in the active language; returns the input if unparseable. */
 export function formatExpiryDate(isoDate: string, lang: Lang): string {
   const d = new Date(`${isoDate}T12:00:00`);

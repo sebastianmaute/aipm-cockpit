@@ -294,10 +294,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§65](#65-a-done-task-with-no-completeddate-shows-the-cross-while-its-tooltip-says-completed--half-fixed-post-02160) | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — HALF FIXED post-0.216.0 | cancelled-work presentation | S | open |
 | [§66](#66-the-rag-tile-counts-a-cancelled-task-green-one-tile-from-the-fix--closed-post-02160) | ~~The R/A/G tile counts a cancelled task GREEN, one tile from the fix~~ | cancelled-work presentation | M | **CLOSED** post-0.216.0 |
 | [§67](#67-a-committed-nul-byte-makes-use-portfolio-healthts-invisible-to-content-greps--closed-post-02160) | ~~A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps~~ | pre-existing (`909118b2`) | XS | **CLOSED** post-0.216.0 |
-| [§68](#68-the-budget-allocation-rows-border-t-sits-on-the-tr-where-it-has-never-painted--open) | The budget allocation rows' `border-t` sits on the `<tr>`, where it has never painted — open | 0.214.0 (Lostetter) | S–M | open |
+| [§68](#68-the-budget-allocation-rows-border-t-sits-on-the-tr-where-it-has-never-painted--closed-2026-08-31) | The budget allocation rows' `border-t` sits on the `<tr>`, where it has never painted — CLOSED 2026-08-31 | 0.214.0 (Lostetter) | S–M | **CLOSED** 2026-08-31 |
 | [§69](#69-brandingconfigs-is-this-blob-empty-question-is-answered-in-two-places--open) | `BrandingConfig`'s "is this blob empty?" question is answered in TWO places — open | 0.214.0 (Lostetter) | S | open |
-| [§70](#70-a-budget-buckets-total-column-and-total-row-silently-follow-the-role-filter--open) | A budget bucket's Total column and total row silently follow the role filter — open | 0.214.0 (Lostetter) | S | open |
-| [§71](#71-a-budget-bucket-evaluates-cellbudget-three-times-per-row-period--open) | A budget bucket evaluates `cellBudget` three times per (row, period) — open | 0.214.0 (Lostetter) | S–M | open |
+| [§70](#70-a-budget-buckets-total-column-and-total-row-silently-follow-the-role-filter--closed-2026-08-31) | A budget bucket's Total column and total row silently follow the role filter — CLOSED 2026-08-31 | 0.214.0 (Lostetter) | S | **CLOSED** 2026-08-31 |
+| [§71](#71-a-budget-bucket-evaluates-cellbudget-three-times-per-row-period--closed-2026-08-31) | A budget bucket evaluates `cellBudget` three times per (row, period) — CLOSED 2026-08-31 | 0.214.0 (Lostetter) | S–M | **CLOSED** 2026-08-31 |
 | [§72](#72-caller-callbacks-fire-after-unmount--the-unit-tests-job-exits-1-with-every-test-passing--closed-in-this-slice) | ~~Caller callbacks fire after unmount — the unit-tests job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED** in this slice |
 | [§73](#73-ontestfailed-reports-post-teardown-state-so-any-capture-it-makes-is-a-false-witness--closed) | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** |
 | [§74](#74-the-timelog-refresh-handlers-omit-a-guard-their-button-carries--closed) | ~~The TimeLog refresh handlers omit a guard their button carries~~ | pre-existing, found post-0.214.0 | S | **CLOSED** |
@@ -348,7 +348,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§119](#119-a-href-is-dropped-by-both-ooxml-renderers--open) | `<a href>` is dropped by both OOXML renderers — open | pre-existing, confirmed 2026-08-08 during the S3a review | S | open |
 | [§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--closed-2026-08-31) | The background insight-recommendation runner has no `AbortController` at all | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-31 |
 | [§121](#121-use-tasks-deduptsx-never-aborts-its-in-flight-call-on-unmount--closed-2026-08-08) | `use-tasks-dedup.tsx` never aborts its in-flight call on unmount | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-08 |
-| [§122](#122-the-budget-people-rows-and-the-role-row-above-them-read-booked-from-two-different-sources--open-data-integrity) | The budget people rows and the role row above them read BOOKED from two different sources — open, data-integrity | UI batch slice 3 — 0.224.0 "Emshwiller" | M — it is a design question, not a wiring bug | open |
+| [§122](#122-the-budget-people-rows-and-the-role-row-above-them-read-booked-from-two-different-sources--closed-2026-08-31) | The budget people rows and the role row above them read BOOKED from two different sources — CLOSED 2026-08-31 | UI batch slice 3 — 0.224.0 "Emshwiller" | M — it is a design question, not a wiring bug | **CLOSED** 2026-08-31 |
 | [§123](#123-the-budget-people-row-disclosure-clips-its-own-label-mid-glyph-with-no-ellipsis--closed-2026-08-08) | The budget people-row disclosure clips its own label mid-glyph, with no ellipsis | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-08 |
 | [§124](#124-a-popover-opened-by-a-click-that-also-scrolls-its-ancestor-never-mounts--closed-2026-08-31) | ~~A popover opened by a click that also scrolls its ancestor never mounts~~ | found in the slice-3 eye-verify | UNKNOWN | **CLOSED** 2026-08-31 |
 | [§125](#125-two-more-controls-start-a-billed-anthropic-call-with-no-way-to-stop-it--open-billed) | Two more controls start a billed Anthropic call with no way to stop it — open, billed | found in the slice-3 review prose check | S each | open |
@@ -540,7 +540,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§311](#311-a-send-that-starts-and-finishes-between-retryloads-two-preservelive-samples-still-loses-to-the-settle--closed-2026-08-31-02720) | A send that starts and finishes between `retryLoad`'s two `preserveLive` samples still loses to the settle | — | — | **CLOSED** 2026-08-31 |
 | [§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720) | `retryLoad`'s in-flight guard assumed `submitPrompt` is single-flight, and nothing pinned it | — | — | **CLOSED** 2026-08-31 |
 | [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen--closed-2026-08-31-02720) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | **CLOSED** 2026-08-31 |
-| [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name | — | — | open |
+| [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name--closed-2026-08-31) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name — CLOSED 2026-08-31 | — | — | **CLOSED** 2026-08-31 |
 | [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide) | `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide | — | — | open |
 | [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31 |
@@ -550,6 +550,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | open |
 | [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked) | The asset library offers Insert on a refused-format row, which can only ever render as blocked | found 2026-08-31 in the §230 cold review | S | open |
 | [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | open |
+| [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name) | `actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name | 0.272.0 (Zoline) | S | open |
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-the-default-scheme) | Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in the default scheme | found 2026-08-31 in the §300 fix round | M | open |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide) | `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide | found 2026-08-31, adding the §300 mismatch region | S | open |
 | [§327](#327-use-storage-backendts-sits-exactly-on-the-800-line-size-ratchet-with-zero-headroom) | `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom | found 2026-08-31, closing §303 | S | open |
@@ -4590,14 +4591,66 @@ extension, or it reports binaries as findings.
 
 ---
 
-## 68. The budget allocation rows' `border-t` sits on the `<tr>`, where it has never painted — open
+## 68. The budget allocation rows' `border-t` sits on the `<tr>`, where it has never painted — CLOSED 2026-08-31
 
-**Status:** open — row borders that cannot paint under a separate border model. Reproduced 2026-08-28 by `grep -n "border-collapse" src/app/globals.css`.
+**Status:** CLOSED 2026-08-31 — all eight sites moved onto the CELLS via the shared
+`ROW_RULE_CLASS` (`table-styles.ts`), beside `TABLE_HEAD_CLASS` so the marker and the rule that
+depends on it sit together. `learning-insights.tsx`'s misleading `border-collapse` utility went with
+it. Verified `npx tsc --noEmit`, `npx eslint --max-warnings=0 src`, `npm run test:run`.
+
+★★ **THE SIGN-OFF THIS ENTRY ASKED FOR WAS OBTAINED, and it changed the outcome.** The entry said
+"restore the intended styling" and "add row separators across six panels" are the same diff described
+two ways, and that someone had to choose. They were shown a live side-by-side (each specimen carrying
+the border on its `<tr>` under the real `table:has(> .aipm-cockpit-thead)` rule, so the broken half
+reproduced rather than being mocked up) and chose ONE idiom for all eight: `border-b`, no line after
+the last row.
+
+★★★ **THAT IS A DELIBERATE UNIFORMING, NOT A PORT — SIX of the eight sites CHANGED SHAPE.** Five
+carried `border-t` (which also draws a rule directly under the header pill) where the chosen idiom
+does not, and `portfolio-health-panel.tsx` carried a `border-b` with NO last-row exemption, so a
+faithful port would have closed that one table with a rule no sibling had. Only the two Timelog
+tables were already in the chosen idiom and are unchanged in shape. ★ An earlier revision of this
+line said "five", counting the `border-t` group and then describing portfolio-health separately
+without adding it in — a cold review caught it. Re-derive with
+`git grep -n '<tr[^>]*className="[^"]*border-' 62d84fa3 -- 'src/app/*.tsx' | grep -v "\.test\.tsx"`,
+which returns 4 `border-t` + 1 `border-t … align-top` + 1 bare `border-b` + 2 `border-b last:border-0`.
+The split was drift; it is now one idiom. Do not "restore" a `border-t` here on the grounds that the
+original markup said so.
+
+★★★ **THE FIRST FIX SHIPPED BROKEN AND GREEN, AND ONLY A COLD REVIEW CAUGHT IT.** `ROW_RULE_CLASS`
+ends in `last:[&>td]:border-b-0`, and `last:` is `:last-child` — a question about the DOM PARENT, not
+about the list. `budget-panel.tsx`'s detailed/role branch gives EVERY role row its own `<tbody>` (the
+people disclosure's `aria-controls` target has to be a `<tbody>`), so every row was `:last-child`,
+`border-b-0` won on all of them, and the DEFAULT planning mode drew no separators at all — the exact
+condition this entry was opened about, in the very file it is named after. Every gate passed: the
+class was present on each row, the suite pins class PLACEMENT, and jsdom has no layout.
+
+★★ The role branch now takes `rowRuleClass(isLast)` (`table-styles.ts`), which is index-driven. That
+is not a cosmetic difference: with `last:` the class string is BYTE-IDENTICAL on every row, so no
+assertion can tell a working table from a broken one, and the defect was structurally untestable.
+Index-driven, only the last row differs — `budget-panel.test.tsx`'s "row separators sit on the cells,
+and only the last row is exempt (§68)" pins it, and reverting the call site to `ROW_RULE_CLASS` turns
+it red on the headline assertion.
+
+★ The last row emits NO border utility rather than `border-b-0` beside `border-b`: two competing
+utilities on one element resolve by the order Tailwind EMITS them, not the order they are written, so
+that form would be a coin flip that looks deliberate.
+
+★ The other five adopters keep `ROW_RULE_CLASS` and are correct — each maps its rows inside ONE shared
+parent, so `:last-child` means what it looks like there. Check the parent before reusing either form.
+
+★ **Still eye-verified only, and that is permanent.** jsdom has no layout, so no unit test can see a
+painted border in either direction — the suite pins CLASS placement and nothing more. The eye-verify
+recorded when this entry was first closed did NOT cover the detailed branch, or it would have caught
+the above; redo it in BOTH planning modes. Re-derive the
+site list with
+`grep -rn '<tr[^>]*className="[^"]*border-' src/app --include=*.tsx | grep -v "\.test\.tsx:"`,
+which now returns nothing.
 
 `budget-panel.tsx`'s two allocation rows — the `<tr key={a.roleId}>` in the detailed/role branch and
 the `<tr key={a.disciplineId}>` in the blended/discipline one — both render
-`<tr className="border-t border-line">`. That border has never rendered. `globals.css:125`
-`table:has(> .aipm-cockpit-thead)` sets **`border-collapse: separate`**, and CSS 2.2 §17.6.1 puts that
+`<tr className="border-t border-line">`. That border has never rendered. `globals.css`'s
+`table:has(> .aipm-cockpit-thead)` rule sets **`border-collapse: separate`**, and CSS 2.2 §17.6.1 puts that
 table in the separated-borders model, where "borders set on rows, row groups, columns and column
 groups are ignored".
 
@@ -4605,7 +4658,7 @@ groups are ignored".
 (Tailwind's own `node_modules/tailwindcss/preflight.css`, the `table { … border-collapse: collapse; }`
 reset — a dependency file, never in this repo), under which a `<tr>` border WOULD paint. It is the
 `globals.css` override that breaks it, and only for tables carrying `TABLE_HEAD_CLASS` / rendered through `DataTable` —
-`globals.css:124` puts that at ~25 tables.
+the `globals.css` comment above that rule puts it at ~25 tables.
 
 ★★ **NOT budget-specific.** Sweeping `<tr …className=…border-…>` across `src/app/*.tsx` finds **8
 occurrences in 6 files**, and all six render their tables through the marked shell: `budget-panel`
@@ -4679,9 +4732,31 @@ carries the lockstep note, which is prose, and prose here decays ungated.
 
 ---
 
-## 70. A budget bucket's Total column and total row silently follow the role filter — open
+## 70. A budget bucket's Total column and total row silently follow the role filter — CLOSED 2026-08-31
 
-**Status:** open — totals whose scope no test pins. Reproduced 2026-08-28 by `grep -n "rowsForTotals" src/app/budget-panel.tsx`.
+**Status:** CLOSED 2026-08-31 — the total row now says which scope it means: `BucketTotalRow` takes
+a `filtered` prop and renders `budgetTotalFiltered` ("Total (filtered)" / "Gesamt (gefiltert)", EN+DE)
+whenever the role filter narrows the rows.
+
+★★ **THE FIGURES WERE NOT CHANGED, and that was the decision.** A total of what you are looking at is
+the right reading for a filtered table and is what every other filtered table in the app does; the
+alternative — an unfiltered total — would leave a figure whose parts are not on screen, which is the
+worse of the two confusions. What was missing was anything saying which scope the label meant.
+
+★★ **The predicate MIRRORS the engine rather than approximating it.** `filterSortAllocations` compares
+on `filter.trim()`, so a whitespace-only filter narrows nothing; the label uses
+`roleFilter.trim() !== ""` for exactly that reason, and a test pins the whitespace case. Gating on a
+bare `!== ""` would announce a filter that is not in effect.
+
+★ **The "untested either way" half is closed too**, which was the more durable complaint: the new
+tests in `budget-panel.test.tsx` pin the SCOPE and the disclosure together, so an edit that quietly
+switched these totals to the unfiltered list now fails. Asserting the label alone would not have.
+Mutation-proved: pinning the label to `budgetTotal` fails on the headline assertion
+(`expected 'Total' to be 'Total (filtered)'`).
+
+_Original finding, as written 2026-08-28. Superseded by the Status above: the totals still follow
+the filter (deliberately), the label now says so, and tests now pin the scope. Preserved unedited as
+the dated record._
 
 `budget-panel.tsx` builds its per-bucket totals from `rowsForTotals`, which is whichever of
 `detailedRows`/`blendedRows` applies — and BOTH come out of `filterSortAllocations(..., roleFilter,
@@ -4700,9 +4775,37 @@ the unfiltered list and nothing would fail.
 
 ---
 
-## 71. A budget bucket evaluates `cellBudget` three times per (row, period) — open
+## 71. A budget bucket evaluates `cellBudget` three times per (row, period) — CLOSED 2026-08-31
 
-**Status:** open — an unmemoized accessor evaluated three times per cell. Reproduced 2026-08-28 by `grep -n "cellBudget" src/app/budget-panel.tsx`.
+**Status:** CLOSED 2026-08-31 — `bucketColumnTotals` was REPLACED by `bucketBudgetGrid`
+(`budget-panel-totals.tsx`), which evaluates the row × period grid ONCE and derives the cell values,
+the row totals and the column totals from that one grid. `cellBudget` now has two CODE occurrences in
+`budget-panel.tsx`: its definition and the single call that feeds the grid.
+
+★★ `grep -c cellBudget src/app/budget-panel.tsx` returns **3**, not 2 — the third match is the
+explanatory comment this same closure added above the call. That is the repo's own
+self-referential-grep landmine, and an earlier revision of this line quoted the grep total as though
+it were the code count.
+
+★★★ **THE INVARIANT WAS THE POINT, NOT THE SPEED — this entry said so and it is what shipped.** The
+old helper took the caller's own `cellBudget` as a `budgetOf` accessor so the row sums and column sums
+would agree, which held only BY CONVENTION: it worked exactly as long as every future caller
+remembered to pass the same accessor, and nothing could enforce that. Both axes are now reductions of
+one stored grid, so "the two axes cannot disagree" is structural — there is no second accessor left to
+get wrong.
+
+★ **The 3× → 1× reduction is real but remains UNMEASURED.** No profile exists, no gate covers render
+cost, and a bucket is typically a handful of rows by a handful of periods. Do not cite this as a
+performance fix.
+
+★ `bucketColumnTotals` had exactly one caller and no test of its own, so it was removed outright
+rather than left as a wrapper — there is no dead second path to drift.
+
+_Original finding, as written 2026-08-28. Superseded by the Status above — it describes the code
+BEFORE `bucketBudgetGrid` replaced `bucketColumnTotals`, so it names a symbol that no longer exists
+and counts three evaluations where there is now one. Preserved unedited as the dated record; note
+that `docs/open-followups.md` is outside `docs:symbols:check`, so nothing will ever flag the dead
+name._
 
 `cellBudget` (`budget-panel.tsx`, a closure over `effectiveBudgetHours`) is the most expensive call in
 the panel: it walks resources, absences, holidays and the budget-follows-plan mirroring rule. Every
@@ -8968,9 +9071,44 @@ unmount LEAK here, a disarmed FLAG there, and not an AI path at all, so neither 
 Pointed at from here because it was first written as a bullet inside CLOSED §127, where it had no
 heading of its own and stopped being read.
 
-## 122. The budget people rows and the role row above them read BOOKED from two different sources — open, data-integrity
+## 122. The budget people rows and the role row above them read BOOKED from two different sources — CLOSED 2026-08-31
 
-**Status:** open — two stacked booked figures read from different sources. Reproduced 2026-08-28 by `grep -n "loadActualsCache" src/app/workspace-section.tsx`.
+**Status:** CLOSED 2026-08-31 by option (a), the visible source cue — the fix this entry itself
+scoped as a product decision. The people body now leads with a line naming WHERE its figures come from
+and HOW OLD they are: "TimeLog bookings, fetched {0}. Not the applied total above …", or, when this
+device has never fetched, "No TimeLog fetch on this device …". EN+DE.
+
+★★ **IT DISCLOSES, IT DOES NOT RECONCILE, and that is deliberate.** The two figures cannot be made to
+agree by construction — the engine drops bookers whose role has no line on this bucket, so the people
+column does not sum to the role row even when both sources are perfectly fresh. What a reader needs is
+to know the two are ALLOWED to disagree and why; a cue does that, and any attempt to reconcile them
+would have had to invent a rule for the unattributed hours.
+
+★★ **Both branches are covered because the ABSENT case is ordinary**, not an edge — a second device, a
+profile after `clearAppConfig`, or simply before the first fetch. Without the cue, every person reading
+"—" explained itself with nothing. Mutation-proved: forcing the cue to the never-fetched branch fails
+on the headline assertion.
+
+★ `workspace-section.tsx` now reads the cache ONCE and derives both the aggregates and the `fetchedAt`
+behind them, so the figures and the timestamp describing them cannot come from different snapshots —
+a smaller version of the very defect this cue discloses.
+
+★★ **The `?? {}` stays INSIDE that memo, and moving it to the call site is the tempting wrong turn.**
+`workspace-section.test.tsx`'s "passes an empty map — never undefined" is a deliberate ANTI-VACUITY
+control for the test above it (with nothing seeded, that one would pass against a hardcoded `{}`), and
+a fresh `{}` in the JSX would also be a new identity on every render — which is what `BudgetPanel`'s
+module-level `NO_ACTUALS` exists to avoid. Both were broken briefly while trimming the file under the
+size ratchet, and the test caught it. There is no explanatory comment at the memo: `workspace-section.tsx`
+sits exactly ON its 1000-line baseline, so the reasoning lives here and in that test instead.
+
+★ The staleness the entry records as accepted is UNCHANGED: the read is still memoised on `projectId`,
+so a fetch in the Timelog panel does not move these figures until the view remounts. The cue makes that
+visible rather than removing it.
+
+★★ The cue row carries `data-people-source`, and every positional cell query in
+`budget-panel-people-rows.test.tsx` and `budget-panel.test.tsx` excludes it BY ATTRIBUTE. Those tests
+read person cells by index, so chrome at the top of that tbody shifts them all — excluding it by
+meaning rather than by counting rows is what keeps them from breaking again on the next addition.
 
 ★ **Filed as §121** — see the renumbering note at the head of §120.
 
@@ -8992,7 +9130,7 @@ from different places:
 ★★ **Nothing in the UI says they can disagree**, and their layout says the opposite: a disclosure
 opening directly under a figure reads as a BREAKDOWN of that figure. They are not one, and they do
 not reconcile by construction — the engine drops bookers whose role has no line on this bucket
-(those hours stay in `unattributed`, `budget-bucket-people.ts:41-54`), so the people column does not
+(those hours stay in `unattributed`, `budget-bucket-people.ts`, the `extraIds` comment), so the people column does not
 sum to the role row even when both sources are perfectly fresh.
 
 Four ways they diverge in ordinary use:
@@ -24484,13 +24622,38 @@ EQUAL, so the guard passes over a switch that did happen. `c70ff113` ships a mon
 bumping it, so a retry issued against the old database still settles. Pre-existing — the shape this
 replaced had the same hole — and deliberately not widened here.
 
-## 314. `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name
+## 314. `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name — CLOSED 2026-08-31
 
-**Status:** open — found 2026-08-31 while closing §276's `FIXED`-site census. The shared hint key is
-machine-verified: `grep -c "budgetRateOverrideHint" src/app/budget-bucket-modal.tsx` returns **2**,
-both of them `<InfoTooltip text={...} />` with no `label`. That the two triggers therefore compute
-one accessible name was read off an `expectRowUniqueNames({ minControls: 9999 })` throw and is not
-otherwise pinned by any test.
+**Status:** CLOSED 2026-08-31 — both triggers now take an explicit `label` that leads with their own
+field name (`"<field> – <hint>"`), keeping the one shared `text` and adding no i18n key. Verified by
+`npx vitest run src/app/budget-bucket-modal.test.tsx` (30 passed), `npx tsc --noEmit` and eslint.
+
+★★ **The new test is mutation-proved, and it failed on its HEADLINE assertion.** Stripping the
+internal trigger's `label` turns "the two rate-override tooltips get field-qualified, distinct
+accessible names" red on its FIRST assertion — that no trigger keeps the bare shared hint as its
+whole name — not on a later, weaker one. Reverted with a uniqueness-asserted inverse write.
+
+★★ **`budget-bucket-modal.test.tsx`'s two §276 tests were RAISED from the `advanced` tier back to
+`full`**, which is what their own comment said to do once this closed and is strictly stronger —
+`full` is a superset of the fields `advanced` renders. `minControls` moved 13 → **15**, MEASURED off
+the helper's own throw at a 9999 floor, not derived.
+
+★ **The field name LEADS the hint, and that is not the order `report-table.tsx` uses.** The hint is
+~100 characters and identical across both triggers, so hint-first is conformant but makes a screen
+reader read the whole shared preamble before the single distinguishing word — the case the note
+under WCAG 2.5.3 covers. It also keeps `getByLabelText("Internal rate override")` resolving to the
+INPUT alone, since an RTL string matcher is whole-string; two existing tests used a REGEX there and
+began matching both the input and the trigger, and were moved to the exact form.
+
+★★ **THE CLASS WAS ENUMERATED, NOT ASSUMED — and it found one site this entry does not name.**
+Sweeping every `<InfoTooltip>` in `src/app` (139 instances, 352 files) for a `text` reused with no
+`label` returns four candidates beyond this one. Three are non-defects: `budget-panel.tsx`'s bare
+legend hint is deliberate and §246 says so, `report-table.tsx`'s two live in different components,
+and the `stakeholderField*Hint` pair sits in two views that never co-render. The fourth is REAL and
+is filed separately — `actionScoreTooltip` is mounted bare by BOTH `action-row.tsx` and
+`action-hero-card.tsx` under `expertMode`, and its `t(lang, key, action.score)` argument is a value
+that CAN repeat, which is exactly the discriminator AGENTS.md gives. Reproduce the sweep with
+`grep -rn "<InfoTooltip" src/app --include=*.tsx | grep -v "\.test\.tsx:"`.
 
 The internal and external rate-override fields each mount `<InfoTooltip text={t(lang,
 "budgetRateOverrideHint")} />`. `InfoTooltip` derives its trigger's accessible name from that `text`
@@ -24882,7 +25045,8 @@ the three consumer sites enumerated below.
 
 ★ **Number:** 324 is held by a concurrent branch at filing time, so this batch took 323, 325 and 326
 and left 324 alone. A number is only reserved once it is on `origin/main`; if 324 never lands, the
-gap stays.
+gap stays. ★ It landed — 324 reached `origin/main` with 0.272.1 and is merged in above, so the gap
+closed and leaving it alone was the right call.
 
 **What happens.** `use-task-row-handlers.ts`'s `onDelete` removes one task (and strips that id from
 other tasks' `dependencies`) and never calls `allowDestructiveSave`. Every other entity's
@@ -24912,6 +25076,44 @@ would arm here too.
 
 ★ So the useful outcome of this entry may well be a comment at the handler saying why it does NOT
 arm, rather than a code change. Whoever picks it up should decide that first.
+
+## 324. `actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name
+
+**Status:** open, never machine-verified as a RENDERED collision — filed 2026-08-31 from the §314 fix
+round. What IS machine-verified is the shape: sweeping all 139 `<InfoTooltip>` instances in `src/app`
+for a `text` reused with no `label` returns this pair, and both sites are bare. Nobody has yet driven
+the app to two actions with equal scores and read the names back.
+
+`action-row.tsx` and `action-hero-card.tsx` each mount
+`<InfoTooltip text={t(lang, "actionScoreTooltip", action.score)} />` under `expertMode`, with no
+`label`. `InfoTooltip` derives its trigger's accessible name from `text` when none is given, so the
+name is whatever that string interpolates to.
+
+★★★ **THE POSITIONAL ARGUMENT IS NOT A DISAMBIGUATOR, AND THIS IS THE TRAP AGENTS.md NAMES.**
+Interpolating `action.score` proves the two names DIFFER when the scores differ and proves NOTHING
+when they repeat — and a repeating value is the entire premise of this defect class. The discriminator
+is "can this value repeat in one rendered list", never the call FORM. Two actions tying on score is
+ordinary, not contrived.
+
+★ Two distinct collisions, not one. The hero is `groups[0]` and is de-duped from its tier list, so
+hero-vs-row is one pair; but `action-row` renders once per row, so rows collide among THEMSELVES as
+soon as any two visible actions share a score.
+
+★★ **Neither gate can see it.** axe has no rule that flags two controls sharing an accessible name
+(measured against axe-core 4.12.1 — see AGENTS.md), and §276's per-row scanner looks for controls
+inside a `.map()`, which the hero's is not. A unit test rendering two same-score actions is the only
+possible detector.
+
+★ **Not fixed with §314 on purpose.** It is row-unique-names material (the slice-6 cluster), not part
+of the budget panel, and scoping it here would have meant fixing a Next-actions surface from a budget
+branch. §314's own fix set the ordering precedent to follow: qualify the NAME with an explicit
+`label` that LEADS with what distinguishes it, keeping the shared `text`.
+
+★ Reproduce the sweep:
+`grep -rn "<InfoTooltip" src/app --include=*.tsx | grep -v "\.test\.tsx:"` (139), then check which
+carry no `label`.
+
+---
 
 ## 325. Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in the default scheme
 

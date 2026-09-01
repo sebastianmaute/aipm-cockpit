@@ -11,7 +11,7 @@ import {
 } from "./action-learning";
 import { ACTION_SOURCE_LABEL } from "./action-source-label";
 import type { ActionSource } from "./next-actions/types";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { ROW_RULE_CLASS, TABLE_HEAD_CLASS } from "./table-styles";
 import { useConfirm } from "./confirm-dialog";
 import { rowLabel } from "./row-tokens";
 
@@ -70,7 +70,13 @@ export function LearningInsights({
       ) : (
         <>
           <div className="overflow-x-auto rounded border border-line">
-            <table className="w-full border-collapse text-sm">
+            {/* ★ `border-collapse` was REMOVED here, not forgotten (§68). It read as
+                opting this table back into the collapsed borders model, and it never
+                did: `globals.css`'s `table:has(> .aipm-cockpit-thead)` rule is
+                UNLAYERED, so it beats a layered Tailwind utility whatever the
+                specificity. Leaving it would keep implying that a `<tr>` border can
+                paint here. Do NOT reintroduce it. */}
+            <table className="w-full text-sm">
               <thead className={TABLE_HEAD_CLASS}>
                 <tr>
                   <th className="px-3 py-2 text-left">{t(lang, "learningColKind")}</th>
@@ -86,7 +92,7 @@ export function LearningInsights({
                   const stats = state[kind];
                   const d = decayStats(stats, nowMs);
                   return (
-                    <tr key={kind} className="border-t border-line align-top">
+                    <tr key={kind} className={`${ROW_RULE_CLASS} align-top`}>
                       <td className="px-3 py-2">
                         <div>{sourceLabel(lang, kind)}</div>
                         <div className="text-xs text-muted-foreground">{kind}</div>
