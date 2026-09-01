@@ -135,16 +135,17 @@ describe("ActionsPanel", () => {
   // ★ Whole-document scope on purpose: the panel's own chrome (Print, reset-size,
   //   the learning pill) must not collide with the rows either, and there is no
   //   confirmed chrome collision to dodge by narrowing.
-  // ★ `InfoTooltip`'s trigger is a `<span role="button">`, so the default
-  //   `["button"]` roles list picks it up alongside the real buttons.
-  const sharedTitleAndScore = () =>
-    (["s1", "s2", "s3"] as const).map((id) => ({
-      id, source: "raid", moduleId: "raid",
-      title: { key: "actionRaidTitle", params: [1, "Shared"] },
-      why: { key: "actionRaidWhySeverity", params: ["High"] },
-      score: 60, tier: "now",
-      cta: { kind: "open", view: "raid", id },
-    })) as unknown as SuggestedAction[];
+  // ★ `InfoTooltip`'s trigger is a `<span role="button">`, so the requested
+  //   `["button"]` role picks it up alongside the real buttons.
+  // ★ Built on `mk()` so the shared title is visibly the ONE thing overridden,
+  //   and so the fixture stays type-checked: an `as unknown as SuggestedAction[]`
+  //   cast would silently rot if the type gained or renamed a field.
+  //   (Typed as the field rather than `as const`: a readonly tuple from `as const`
+  //   is not assignable to the mutable `params`, and widening it with a cast would
+  //   reintroduce exactly the unchecked fixture this rebuild removes.)
+  const SHARED_TITLE: SuggestedAction["title"] = { key: "actionRaidTitle", params: [1, "Shared"] };
+  const sharedTitleAndScore = (): SuggestedAction[] =>
+    ["s1", "s2", "s3"].map((id) => ({ ...mk(id, "now"), title: { ...SHARED_TITLE } }));
 
   // ★ Named for what the fixture actually renders. An `onOpen`-only panel builds
   //   no overflow menu, no reasons disclosure, no verb buttons and no popover
@@ -177,7 +178,13 @@ describe("ActionsPanel", () => {
   //    exactly ONE hero and exactly ONE row, sharing a title, in DIFFERENT tiers.
   //    Split hero-vs-rows and each map holds one member; split per-tier and each
   //    map holds one member. Either way both tokens come out bare and the two
-  //    Open buttons (and the two tooltips) share a name. Both measured RED here.
+  //    Open buttons share a name. Both measured RED here.
+  // ★★ THE TOOLTIPS DO NOT BACKSTOP THAT, and an earlier revision of this comment
+  //    claimed they did. `mk()` gives the hero 60 and the Soon row 30, and
+  //    `actionScoreTooltip` interpolates the score, so the two tooltip names
+  //    differ at ANY token value — under either mutant and under correct code
+  //    alike. The two Open buttons alone kill both mutants and alone satisfy
+  //    `requireCollisionSeed`. Do not read this fixture as covering the tooltips.
   // ★★★ ONE MUTANT SURVIVES THIS AND THAT IS CORRECT, NOT A GAP — do not "fix"
   //    the fixture to chase it. Splitting the hero's map ALONE while the rows
   //    keep the full map is unkillable by ANY duplicate-name assertion, and the
@@ -187,16 +194,13 @@ describe("ActionsPanel", () => {
   //    different strings, so nothing collides and there is no 2.4.6 defect to
   //    detect. It is a consistency wart (a "(2)" with no visible "(1)"), which
   //    is a different claim from the one this file makes.
-  // ★ Scores differ so the tier assignment is deterministic: the 60 sorts first
-  //   and becomes the hero, the 30 renders as the lone Soon row.
-  const heroAndCrossTierRowSharingTitle = () =>
-    ([["h1", 60, "now"], ["r1", 30, "soon"]] as const).map(([id, score, tier]) => ({
-      id, source: "raid", moduleId: "raid",
-      title: { key: "actionRaidTitle", params: [1, "Shared"] },
-      why: { key: "actionRaidWhySeverity", params: ["High"] },
-      score, tier,
-      cta: { kind: "open", view: "raid", id },
-    })) as unknown as SuggestedAction[];
+  // ★ Scores differ so the GROUP ORDERING out of `groupNextActions` (score desc,
+  //   then key asc) is deterministic, which is what fixes WHICH group becomes the
+  //   hero — the tier itself is a fixture literal, not a consequence of the score.
+  //   `mk()` already yields 60 for "now" and 30 for "soon": the 60 sorts first and
+  //   becomes the hero, the 30 renders as the lone Soon row.
+  const heroAndCrossTierRowSharingTitle = (): SuggestedAction[] =>
+    [mk("h1", "now"), mk("r1", "soon")].map((a) => ({ ...a, title: { ...SHARED_TITLE } }));
 
   it("keeps the hero and a cross-tier row in one naming population (§324)", () => {
     render(

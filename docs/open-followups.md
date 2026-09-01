@@ -25269,9 +25269,12 @@ in scope at each of these call sites — `rowToken` reaches `ActionPrimaryCta` a
 
 ★ **What is owed is one measurement, not a redesign:** render two Next-actions rows, open row A's
 `⋮`, then open row B's, and assert only one menu is in the DOM. A unit test in
-`action-cta-controls.test.tsx` can do it. Until then the comment in `ActionOverflowMenu` asserting
-the items "cannot repeat in one rendered list" is a reasoned claim wearing the voice of a measured
-one — the exact shape this register keeps recording.
+`action-cta-controls.test.tsx` can do it. The comment in `ActionOverflowMenu` already flags ITSELF
+correctly — it carries an explicit ★★★ saying the premise is reasoned from the dismissal contract and
+not measured, and points here — so what is outstanding is the measurement alone, not a mislabelled
+claim in the source. (An earlier revision of this entry said that comment was "a reasoned claim
+wearing the voice of a measured one"; that described the state before the same commit range
+corrected it, and is no longer true of the tree.)
 
 ★★ **Neither gate can see any of it.** axe has no rule that flags two controls sharing an accessible
 name, at any seed size in any view (measured against axe-core 4.12.1 — see AGENTS.md), and the

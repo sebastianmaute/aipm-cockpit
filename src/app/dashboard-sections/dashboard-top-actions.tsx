@@ -29,6 +29,12 @@ export function DashboardTopActions({ lang, topActions, onOpenAction, dc }: Dash
   //    visibility — and the two lists are separate mounts, so sharing a map
   //    across them would be wrong as well as impossible (§324).
   // ★ Declared BEFORE the early return: hooks cannot sit behind a conditional.
+  // ★★ PRECONDITION: `topActions` ids must be unique. Unlike the panel's `g.key`
+  //    — unique BY CONSTRUCTION, since `groupNextActions` builds from a Map —
+  //    an action id is unique only by assumption here. Two entries sharing one
+  //    would make `tokens.set` overwrite, both rows would read the same token,
+  //    and the collision returns. Not live: `key={a.id}` below already assumes
+  //    it, so a duplicate is a React warning first.
   const tokens = useMemo(
     () => buildRowTokens((topActions ?? []).map((a) => ({
       id: a.id,

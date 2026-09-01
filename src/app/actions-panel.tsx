@@ -87,9 +87,12 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   //    Pinned by "keeps the hero and a cross-tier row in one naming population"
   //    in `actions-panel.test.tsx`, whose fixture is built to kill both.
   // ★★ Built over `groups` — the STABLE FULL population, not the currently
-  //    VISIBLE one. Every group appears exactly once (hero, or a tier list that
-  //    filters `g.key !== heroKey`), so `groups` IS hero-plus-rows with no
-  //    double count. Tokenising the visible slice instead would make a row's
+  //    VISIBLE one. Every group is rendered AT MOST once — as the hero, or by a
+  //    tier list that filters `g.key !== heroKey`, and a capped-out or collapsed
+  //    group not at all — so tokenising `groups` cannot double-count. (Not
+  //    "exactly once": the visibility cap is precisely why some appear zero
+  //    times, which is the whole point of tokenising the full population.)
+  //    Tokenising the visible slice instead would make a row's
   //    accessible name CHANGE when an unrelated tier is expanded past
   //    `MAX_VISIBLE_PER_TIER` or the monitor group is toggled — a name that
   //    mutates under interaction is worse than the bug being fixed. The cost is
@@ -109,6 +112,12 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   // Shared handler/config props threaded identically to ActionRow and ActionHeroCard.
   // ★ `rowToken` is deliberately NOT folded in here — `rowProps` is by definition
   //   the props identical for every row, and this one is per-instance.
+  // ★★ Both render sites therefore write `{...rowProps}` FIRST and `rowToken`
+  //    AFTER. JSX spread wins on duplicate keys and tsc does not object, so with
+  //    the opposite order a future edit folding `rowToken` into `rowProps` — the
+  //    very thing this comment forbids — would silently override every
+  //    per-instance token with one shared value and no compiler signal. The
+  //    ordering makes the guard structural instead of merely advisory.
   const rowProps = {
     lang, expertMode, onOpen, onSnooze, onCreateTask, assignOwner,
     onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker,
@@ -116,7 +125,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   // ★ `?? ""` cannot actually fire: the map is keyed by `g.key` over the same
   //   `groups` array every render site draws from.
   const renderRow = (g: ActionGroup) => (
-    <ActionRow key={g.key} action={g.primary} extraReasons={g.extra} rowToken={actionTokens.get(g.key) ?? ""} {...rowProps} />
+    <ActionRow key={g.key} action={g.primary} extraReasons={g.extra} {...rowProps} rowToken={actionTokens.get(g.key) ?? ""} />
   );
 
   // Hero = the single top-ranked group, but only when it carries real urgency
@@ -224,7 +233,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
         <p className="text-sm text-muted-foreground">{t(lang, "actionsEmptyState")}</p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto pr-2">
-          {hero && <ActionHeroCard group={hero} rowToken={actionTokens.get(hero.key) ?? ""} {...rowProps} />}
+          {hero && <ActionHeroCard group={hero} {...rowProps} rowToken={actionTokens.get(hero.key) ?? ""} />}
           {TIERS.map(({ tier, labelKey }) => {
             const rows = groups.filter((g) => g.tier === tier && g.key !== heroKey);
             if (rows.length === 0) return null;

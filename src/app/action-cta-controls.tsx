@@ -123,11 +123,32 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
   } else if (kind === "reschedule" && handlers.reschedule) {
     primary = <ReschedulePopover lang={lang} action={action} bundle={handlers.reschedule} rowToken={rowToken} prominent={prominent} />;
   } else if (kind === "clearBlocker" && handlers.onClearBlocker) {
-    primary = <button type="button" aria-label={rowLabel(t(lang, "actionClearBlocker"), rowToken)} onClick={(e) => { stop(e); handlers.onClearBlocker!(action); }} className={directBtn}>{t(lang, "actionClearBlocker")}</button>;
+    // ★ `aria-label` on its own line in all three, matching the Open and assign
+    //   buttons above: it is the accessibility-relevant attribute and is hardest
+    //   to spot wedged mid-line between `type` and `onClick`.
+    primary = (
+      <button type="button"
+        aria-label={rowLabel(t(lang, "actionClearBlocker"), rowToken)}
+        onClick={(e) => { stop(e); handlers.onClearBlocker!(action); }} className={directBtn}>
+        {t(lang, "actionClearBlocker")}
+      </button>
+    );
   } else if (kind === "markDone" && handlers.onMarkDone) {
-    primary = <button type="button" aria-label={rowLabel(t(lang, "actionMarkDone"), rowToken)} onClick={(e) => { stop(e); handlers.onMarkDone!(action); }} className={directBtn}>{t(lang, "actionMarkDone")}</button>;
+    primary = (
+      <button type="button"
+        aria-label={rowLabel(t(lang, "actionMarkDone"), rowToken)}
+        onClick={(e) => { stop(e); handlers.onMarkDone!(action); }} className={directBtn}>
+        {t(lang, "actionMarkDone")}
+      </button>
+    );
   } else if (kind === "draft" && handlers.onDraftMessage) {
-    primary = <button type="button" aria-label={rowLabel(t(lang, "actionDraftMessage"), rowToken)} onClick={(e) => { stop(e); handlers.onDraftMessage!(action); }} className={directBtn}>{t(lang, "actionDraftMessage")}</button>;
+    primary = (
+      <button type="button"
+        aria-label={rowLabel(t(lang, "actionDraftMessage"), rowToken)}
+        onClick={(e) => { stop(e); handlers.onDraftMessage!(action); }} className={directBtn}>
+        {t(lang, "actionDraftMessage")}
+      </button>
+    );
   }
 
   return (
