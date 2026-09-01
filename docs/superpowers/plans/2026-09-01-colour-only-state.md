@@ -798,7 +798,9 @@ Measured: active fill `--ui-dark-blue` vs `--surface`, **1.10-1.31 in the dark s
 
 Measured: the tint is **1.21-1.42:1 in all seven combos** — it is not a cue at all, and `animate-pulse` is doing 100% of the work today.
 
-★★ **This one changes the control's visual footprint, and that is a real UI change, not a refactor.** `voice-button` today is `rounded-md p-2` with no border; `ToggleButton`'s `BASE` is a bordered chip (`border px-2.5 py-1.5`). Adopting the primitive turns a bare top-bar icon into a bordered chip. That is the cost of the marker here and it needs an eye-verify (Task 16). If the reviewer rejects the footprint change, the fallback is an icon swap (mic → stop glyph) — but do NOT hand-roll a marker inline, which duplicates the primitive.
+★★ **This one changes the control's visual footprint, and that is a real UI change, not a refactor.** `voice-button` today is `rounded-md p-2` with no border; `ToggleButton`'s `BASE` is a bordered chip (`border px-2.5 py-1.5`). Adopting the primitive turns a bare top-bar icon into a bordered chip.
+
+**This was put to the user and APPROVED on 2026-09-01, under the standing confirm-before-window-changes rule** (the top bar is window chrome). Do not re-open it, and do not substitute the icon-swap alternative — that was considered and declined in favour of the uniform marker. Do NOT hand-roll a marker inline either; it duplicates the primitive. The footprint still gets an eye-verify in Task 16, which is a check that the approved change looks right, not a re-litigation of whether to make it.
 
 - [ ] **Step 1: Write the failing test**
 
