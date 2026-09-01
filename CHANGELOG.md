@@ -8,6 +8,24 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.274.0] - 2026-09-01 "Varley"
+
+### Fixed
+
+- **The guided tour is now a real dialog for keyboard users.** It already announced itself as one,
+  but pressing Tab walked straight out of it into the page behind — so a keyboard or screen-reader
+  user could reach controls that the tour's dimmed backdrop had already put out of reach for
+  everyone using a mouse. Tab and Shift+Tab now cycle within the tour card, focus starts on the card
+  itself so assistive technology reads the step aloud when it opens, and closing or skipping the
+  tour returns focus to whatever you were on before it appeared.
+
+- **Escape and Tab now reach the right layer when surfaces are stacked.** The three surfaces that
+  hold focus — the guided tour, the navigation drawer on narrow screens, and the inline AI edit
+  popover — now take part in the same arbiter that modals and popovers already used. Escape closes
+  the topmost surface that has something to close, and one that has nothing to dismiss passes the
+  key down instead of swallowing it; when a popover opens above one of these surfaces, it takes over
+  Tab rather than the two competing over where focus goes next.
+
 ## [0.273.0] - 2026-09-01 "Goonan"
 
 ### Fixed
