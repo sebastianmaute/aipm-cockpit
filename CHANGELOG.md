@@ -8,6 +8,33 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.273.0] - 2026-09-01 "Goonan"
+
+### Fixed
+
+- **A destructive confirmation no longer leaves you with a dead button and no explanation.** The
+  dialogs that ask you to type a phrase before deleting or resetting something now show the phrase
+  in quotation marks, so it is clear where it starts and ends, and they say so when what you typed
+  does not match — instead of silently leaving the confirm button greyed out. A stray leading or
+  trailing space, which is what you get when you copy the phrase out of the prompt above, is now
+  accepted rather than being an invisible reason for a button that will not light up. The message
+  appears once you leave the field or press Enter, not on every keystroke.
+
+- **The three confirmation phrases were only ever in English.** Resetting the app, clearing all
+  tasks, and deleting the selected tasks each asked you to type an English phrase regardless of the
+  language you had chosen, so a German user had to type English to get past the gate. All three are
+  now translated. The bulk-delete phrase also no longer contains the number of selected tasks,
+  which changed under you if the selection changed while the dialog was open.
+
+- **The sidebar's storage status was colour-only for screen-reader users.** Whether storage was
+  ready or paused was carried by a coloured dot that assistive technology skips, so the state was
+  announced identically either way. The footer now says which it is.
+
+- **A refused save recorded the same event over and over.** When the app withholds a save because it
+  looks like mass deletion, it writes a diagnostic record for support purposes. That record was
+  being written every time the save was re-attempted rather than once per refusal, so the diagnostic
+  log filled with duplicates of a single event. It is now recorded once per refusal.
+
 ## [0.272.1] - 2026-09-01 "Zoline"
 
 ### Fixed
