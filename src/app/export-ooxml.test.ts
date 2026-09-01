@@ -861,3 +861,53 @@ describe("XLSX carries a projected paragraph break", () => {
     expect(richText).not.toContain("object Object");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Workspace .docx export — link fidelity (§119 / §30)
+// ---------------------------------------------------------------------------
+
+// ★★ BOTH HALVES OR NEITHER. A `<w:hyperlink r:id="rId2">` whose relationship
+// was never written names an id Word cannot resolve — it opens the document
+// with the text unlinked and no error — and a relationship nothing references
+// is an orphan the reader never sees. Either assertion passes alone while the
+// export is broken, so the pair is the claim.
+describe("buildDocx link relationships", () => {
+  function sectionWith(html: string): ExportSection {
+    return {
+      key: "tasks",
+      title: "Tasks",
+      columns: ["description"],
+      rows: [[{ html, text: descriptionTextWithBreaks(html) }]],
+    };
+  }
+
+  const LINKED = '<p>see <a href="https://intra/spec">the spec</a></p>';
+
+  it("wraps a linked rich cell's run in w:hyperlink in the body", async () => {
+    const files = await unzipBlob(buildDocx([sectionWith(LINKED)]));
+    const doc = files.get("word/document.xml")!;
+    // ★ `xmlns:r` precedes `r:id` on the element, so this is matched as a
+    // pattern rather than a literal prefix (same reason as the primitives'
+    // own hyperlink tests).
+    expect(doc).toMatch(/<w:hyperlink [^>]*r:id="rId2">/);
+    expect(doc).toContain("the spec");
+  });
+
+  it("writes the referenced external relationship into document.xml.rels", async () => {
+    const files = await unzipBlob(buildDocx([sectionWith(LINKED)]));
+    const rels = files.get("word/_rels/document.xml.rels")!;
+    expect(rels).toContain('Id="rId2"');
+    expect(rels).toContain('TargetMode="External"');
+    expect(rels).toContain("https://intra/spec");
+    // A link has no part — that is what TargetMode="External" licenses.
+    expect([...files.keys()].filter((p) => p.startsWith("word/media/"))).toEqual([]);
+  });
+
+  it("mints no external relationship for a section carrying no link", async () => {
+    // ★ The additive contract: threading a sink must leave a link-free export
+    // exactly as it was, which is what keeps the byte-pinned package unmoved.
+    const files = await unzipBlob(buildDocx([sectionWith("<p>plain</p>")]));
+    expect(files.get("word/_rels/document.xml.rels")!).not.toContain('TargetMode="External"');
+    expect(files.get("word/document.xml")!).not.toContain("<w:hyperlink");
+  });
+});

@@ -9,6 +9,7 @@ import {
   todayHuman,
   xmlEscape,
 } from "./export-ooxml-shared";
+import { createLinkSink, type LinkSink } from "./ooxml-links";
 import { DOC_STYLES, buildDocxPackage, buildDocxTable } from "./ooxml-docx-primitives";
 
 // ============================================================================
@@ -25,7 +26,7 @@ import { DOC_STYLES, buildDocxPackage, buildDocxTable } from "./ooxml-docx-primi
  *  is lenient, which is how `<w:color/><w:i/>` sat in both paragraphs here
  *  unnoticed. This is the same rule `DOCX_MARK_RPR`'s `rank` table enforces for
  *  the rich path — read its comment before reordering anything here. */
-function buildDocxSection(section: ExportSection): string {
+function buildDocxSection(section: ExportSection, links: LinkSink): string {
   return `
     <w:p>
       <w:pPr><w:pStyle w:val="Title"/></w:pPr>
@@ -41,7 +42,7 @@ function buildDocxSection(section: ExportSection): string {
       </w:r>
     </w:p>
     <w:p/>
-    ${buildDocxTable(section.columns, section.rows)}
+    ${buildDocxTable(section.columns, section.rows, undefined, links)}
     <w:p/>`;
 }
 
@@ -51,7 +52,20 @@ function buildDocxSection(section: ExportSection): string {
  * (exportWorkspace) can compute it once and share it across all three builders.
  */
 export function buildDocx(sections: ExportSection[]): Blob {
-  const sectionsXml = sections.map(buildDocxSection).join("");
+  // ★★ ONE sink for the whole document, because `word/_rels/document.xml.rels`
+  // is one relationship scope no matter how many sections feed it — a sink per
+  // section would mint `rId2` repeatedly and two links would collide on one id.
+  //
+  // ★★★ `2` IS THE WHOLE ARITHMETIC HERE, and that is what makes this scope
+  // different from the document renderer's. rId1 is the styles part; this
+  // exporter emits NO media at all — there is no image path in this file and
+  // it passes an empty `media` array below — so nothing else is reserved and
+  // the first free id is rId2 unconditionally. `doc-render-docx.ts` cannot say
+  // that: it mints media relIds DURING its body render, so it has to offset by
+  // an upper bound on the media count (`2 + mediaIdCeiling(doc)`). Do not copy
+  // that expression here, and do not copy this bare `2` there.
+  const links = createLinkSink(2);
+  const sectionsXml = sections.map((section) => buildDocxSection(section, links)).join("");
 
   const body = `<w:p>
       <w:pPr><w:pStyle w:val="Title"/></w:pPr>
@@ -109,5 +123,8 @@ export function buildDocx(sections: ExportSection[]): Blob {
   // fixture needs regenerating. ★ A correction inherits none of the
   // verification of the thing it corrects — run a command against the
   // REPLACEMENT, which is why the two above are here rather than described.
-  return buildDocxPackage(body, DOC_STYLES);
+  // ★ `"landscape"` and `[]` are this file's long-standing defaults spelled out
+  // because `links` is positional and trails them; both are the values the
+  // two-argument call resolved to, so a link-free workspace is unmoved.
+  return buildDocxPackage(body, DOC_STYLES, "landscape", [], links.rels());
 }

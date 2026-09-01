@@ -563,16 +563,18 @@ export function buildDocxTable(
  *  content-types / rels / sectPr boilerplate. `extraStyles` is appended inside
  *  <w:styles> for callers that need styles beyond Title + TableHeader.
  *
- *  ★★ `page` defaults to `landscape` — the workspace exporter calls this with
- *  two arguments and its bytes are pinned by the export-ooxml suite, so the
- *  default is not a preference, it is the contract. */
+ *  ★★ `page` defaults to `landscape` — the workspace exporter's bytes are
+ *  pinned by the export-ooxml suite, so the default is not a preference, it is
+ *  the contract. ★ That exporter now spells `"landscape"` out rather than
+ *  relying on the default, because `links` trails it positionally; the value
+ *  is the same one and the obligation is unchanged. */
 export function buildDocxPackage(
   bodyXml: string,
   extraStyles = "",
   page: DocxPageLayout = "landscape",
   /** ★★★ ADDITIVE BY CONTRACT: an empty array must add no Default entry, no
    *  part and no relationship, because the workspace exporter shares this
-   *  builder and calls it with two or three arguments.
+   *  builder and passes an empty array here — it emits no media at all.
    *
    *  ★★ THIS FILE'S OWN TEST IS NO LONGER THE ONLY THING ENFORCING IT, and an
    *  earlier revision of this comment said it was.
