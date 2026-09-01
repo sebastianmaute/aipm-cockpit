@@ -64,6 +64,15 @@
      surface. The old #5f57a8 cleared the card but not that hover state. */
   --ui-purple-strong: #514a8f;
 
+  /* SC 1.4.11 state borders — the pre-boot/no-JS FALLBACK only; at runtime
+     scheme-apply.ts overrides these inline per active scheme AND mode, so no
+     `dark:` variant is needed at the consuming component. These static values
+     are the AIPM-light bases unchanged, because both already clear 3:1 against
+     the static --line #dbe2ea (dark-blue 8.97:1, pink 3.55:1) — the derivation
+     returns the base when the floor is already met. */
+  --control-state-border: #153a5c;
+  --control-state-border-pink: #c24a76;
+
   /* ---- CI-style role tokens. These AIPM-light values are the static no-JS /
      pre-boot FALLBACK; at runtime the active scheme (AIPM / Mockup / Harbor /
      user) overrides them inline via setProperty (see scheme-apply.ts). ---- */

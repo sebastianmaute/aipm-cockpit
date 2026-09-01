@@ -57,4 +57,20 @@ describe("scheme state contrast", () => {
       ratio(colors["--ui-pink-strong"]!, colors["--surface-muted"]!),
     ).toBeGreaterThanOrEqual(4.5);
   });
+
+  // Pins the PROPERTY the globals.css fallback relies on: at the AIPM-light
+  // base both accents already clear 3:1 against --line, so the derivation
+  // returns them UNCHANGED — which is why the CSS may hardcode the raw bases.
+  // ★★ It does NOT read globals.css, so it cannot see drift THERE: edit
+  //    --control-state-border in the stylesheet alone and this stays green.
+  //    What it does catch is the derivation gaining a nudge at this base,
+  //    which is what would make those hardcoded values wrong.
+  test("globals.css fallbacks match the derivation for the AIPM-light base", () => {
+    const derived = resolveSchemeColors({
+      "--ui-dark-blue": "#153a5c", "--ui-pink": "#c24a76", "--line": "#dbe2ea",
+      "--surface-muted": "#eef2f6",
+    } as SchemeColorMap);
+    expect(derived["--control-state-border"]).toBe("#153a5c");
+    expect(derived["--control-state-border-pink"]).toBe("#c24a76");
+  });
 });
