@@ -4,6 +4,7 @@
 // ExportSection — these are about the PresentationML format only. Shared ZIP
 // writer + palette live in export-ooxml-shared.ts.
 import { type MediaPart, contentTypeFor } from "./ooxml-media";
+import type { LinkRel } from "./ooxml-links";
 import { type ZipEntry, buildZip } from "./zip";
 // Type-only, so this stays a format module at runtime — no i18n code is pulled
 // into the OOXML graph, only the union of valid BCP-47 tags the app can produce.
@@ -61,6 +62,17 @@ export type PptxRun = {
   /** Highlight fill, 6 hex digits. `<a:highlight>` takes a real colour, unlike
    *  WordprocessingML's closed `ST_HighlightColor` enum. */
   highlightRgb?: string;
+  /** An external hyperlink, as the RELATIONSHIP ID that resolves to it — never
+   *  the URL.
+   *
+   *  ★★ The name is deliberately not `href`, which is what the parse-side
+   *  `TextRun` carries: one is an address and the other is an id into THIS
+   *  SLIDE's `_rels` part, and a renderer that conflates them writes a URL into
+   *  `r:id`. That is valid XML PowerPoint resolves to nothing, so the link is
+   *  simply dead with no error anywhere. `doc-render-pptx.ts` does the
+   *  conversion through a `LinkSink`, which is also what remembers the
+   *  relationship so `buildPptxPackage` can declare it. */
+  hyperlinkRelId?: string;
 };
 
 /** A paragraph is EITHER one uniformly styled text (the original shape, whose
@@ -108,10 +120,26 @@ function pptxRunXml(run: PptxRun, lang: Lang, sizeHundredths: number): string {
   // ★★★ THIS ORDER IS THE SCHEMA'S, not a preference: `highlight` precedes
   // `latin` in CT_TextCharacterProperties, and the marks arrive in HTML NESTING
   // order, which is unrelated (`<code><mark>…` hands us the face first).
+  // ★★★ `hlinkClick` COMES LAST, and for the same reason. The sequence runs
+  // `ln · fill · effect · highlight · uLn · uFill · latin · ea · cs · sym ·
+  // hlinkClick · hlinkMouseOver · rtl · extLst`, so the link element sits after
+  // BOTH children above it. A strict validator rejects it out of order while
+  // PowerPoint itself is lenient — exactly the trap `DOCX_MARK_RPR`'s rank
+  // table exists for on the WordprocessingML side, where `EG_RPrBase` is
+  // likewise a sequence.
+  // ★★ NO LOCAL `xmlns:r` HERE, and this is the one place PPTX is the OPPOSITE
+  // of DOCX: `<w:hyperlink>` must declare the prefix because `w:document` binds
+  // only `xmlns:w`, whereas `wrapPptxSlide` already binds `xmlns:r` on
+  // `<p:sld>` — the same asymmetry `pptxPicture`'s `r:embed` comment records.
+  // A redundant declaration would be harmless XML and a misleading precedent.
   const children =
     (run.highlightRgb
       ? `<a:highlight><a:srgbClr val="${run.highlightRgb}"/></a:highlight>`
-      : "") + (run.monospace ? `<a:latin typeface="${MONO_TYPEFACE}"/>` : "");
+      : "") +
+    (run.monospace ? `<a:latin typeface="${MONO_TYPEFACE}"/>` : "") +
+    (run.hyperlinkRelId === undefined
+      ? ""
+      : `<a:hlinkClick r:id="${run.hyperlinkRelId}"/>`);
   return `<a:r>
     <a:rPr lang="${xmlEscape(lang)}" sz="${sizeHundredths}"${attrs} dirty="0">${children}</a:rPr>
     <a:t>${xmlEscape(run.text)}</a:t>
@@ -507,8 +535,20 @@ export function buildPptxTheme(): string {
  *      deck-wide is harmless but wasteful; numbering `path` per-slide is data
  *      loss.
  *  The caller mints both — the slide XML already references `relId` via
- *  `r:embed` by the time it reaches this builder. */
-export type PptxSlide = { xml: string; media: readonly MediaPart[] };
+ *  `r:embed` by the time it reaches this builder.
+ *
+ *  ★★ `links` shares the SLIDE-scoped id space with `media` and nothing else:
+ *  two slides may both mint `rId2`, one for an image and one for a link, and
+ *  that is correct. Within ONE slide the two families must not overlap — see
+ *  the duplicate guard in `buildPptxPackage`. A link has no `path` because it
+ *  has no part at all, which is what `TargetMode="External"` licenses. */
+export type PptxSlide = {
+  xml: string;
+  media: readonly MediaPart[];
+  /** ★ OPTIONAL so every pre-existing caller stays byte-identical — omitted
+   *  and `[]` must both add no relationship. */
+  links?: readonly LinkRel[];
+};
 
 /** Assemble a .pptx package around a caller-supplied list of slides.
  *  Everything here — content types, presentation.xml sldIdList, all the rels,
@@ -516,9 +556,13 @@ export type PptxSlide = { xml: string; media: readonly MediaPart[] };
  *  media, so both the section exporter and any later renderer use this
  *  unchanged.
  *
- *  ★★★ ADDITIVE BY CONTRACT: a deck whose every slide has empty `media` must
- *  produce byte-for-byte the package this builder produced before images
- *  existed — no `Default` entry, no `ppt/media/` part, no extra relationship.
+ *  ★★★ ADDITIVE BY CONTRACT: a deck whose every slide has empty `media` AND no
+ *  `links` must produce byte-for-byte the package this builder produced before
+ *  images existed — no `Default` entry, no `ppt/media/` part, no extra
+ *  relationship.
+ *  ★★ MORE SO FOR `links` THAN FOR `media`: a link has NO part, so even a
+ *  NON-empty list must add no zip entry and no content-type `Default` — which
+ *  is exactly what `TargetMode="External"` licenses.
  *  ★★ Enforced in TWO places since open-followups §216 closed, and this
  *  docstring used to name only the first: this file's own test, "leaves the
  *  media-free package byte-for-byte what it was" (frozen literals, pinning
@@ -544,6 +588,31 @@ export function buildPptxPackage(slides: readonly PptxSlide[]): Blob {
       if (part.relId === "rId1") {
         throw new Error(`media relId "rId1" is reserved for the slide layout (${part.path})`);
       }
+    }
+  }
+  // ★★ ONE id space PER SLIDE, two families. rId1 is that slide's layout;
+  // media and links both mint above it. A DUPLICATE is valid XML that resolves
+  // to whichever relationship appears FIRST — an image silently becoming a link
+  // target, with no schema error and no visible symptom. The rId1 check alone
+  // could not see that.
+  // ★★★ SCOPED TO THE SLIDE, NEVER THE DECK. Ids restart at rId2 on every
+  // slide, so a `seen` set hoisted out of this loop would throw on correct
+  // output the moment two slides each carry one link.
+  // ★ The rId1 arm here is reachable for a LINK only — the media pass above
+  // runs first and keeps its own message, which names the offending part and
+  // which a test asserts. Deliberately not merged into one loop: losing that
+  // path from the message would make a real failure harder to place.
+  for (const slide of slides) {
+    const seen = new Set<string>();
+    for (const relId of [
+      ...slide.media.map((m) => m.relId),
+      ...(slide.links ?? []).map((l) => l.relId),
+    ]) {
+      if (relId === "rId1") {
+        throw new Error(`relId "rId1" is reserved for the slide layout`);
+      }
+      if (seen.has(relId)) throw new Error(`duplicate relationship id "${relId}"`);
+      seen.add(relId);
     }
   }
 
@@ -630,12 +699,23 @@ export function buildPptxPackage(slides: readonly PptxSlide[]): Blob {
   // part it sits in is `ppt/slides/_rels/slideN.xml.rels`. A package-absolute
   // `ppt/media/image1.png` here resolves to `ppt/slides/ppt/media/…` and the
   // image silently does not render.
+  //
+  // ★★★ A HYPERLINK TARGET IS THE OPPOSITE — the RAW absolute URL, resolved
+  // against nothing, which is exactly what `TargetMode="External"` means. Made
+  // part-relative like its neighbour it would resolve to `ppt/slides/https:/…`
+  // and open nothing. It is also the only Target here carrying user text, so it
+  // is the only one that needs escaping.
   const slideRelsFor = (slide: PptxSlide): string => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>${slide.media
     .map(
       (m) =>
         `\n  <Relationship Id="${m.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${m.path.slice("ppt/media/".length)}"/>`,
+    )
+    .join("")}${(slide.links ?? [])
+    .map(
+      (l) =>
+        `\n  <Relationship Id="${l.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${xmlEscape(l.target)}" TargetMode="External"/>`,
     )
     .join("")}
 </Relationships>`;

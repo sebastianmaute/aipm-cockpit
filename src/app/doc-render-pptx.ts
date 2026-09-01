@@ -69,6 +69,7 @@ import {
   buildContentSlide,
   createDeckMedia,
   isBlankLine,
+  mediaIdCeiling,
   paginateLines,
   pptxEmbedFor,
   slideTitleFor,
@@ -84,6 +85,7 @@ import { htmlEscape } from "./download";
 // point the dependency arrow renderer → renderer. That module's own comment
 // forbids it; the plan's `from "./doc-render-html"` is wrong for the same
 // reason (and that module never exported it — it kept a private copy).
+import { createLinkSink } from "./ooxml-links";
 import { resolveDataSection } from "./doc-data-section";
 import { NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
 import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
@@ -431,13 +433,30 @@ export function renderDocumentPptx(
       //    id deck-wide; minting a fresh deck counter inside it would number
       //    every part per slide. Both compile.
       const media = slideMedia();
+      // ★★★ ONE SINK PER SLIDE, exactly like the minter above and for the
+      //    mirror-image reason. A slide's relationship ids restart at rId2
+      //    (rId1 is that slide's layout), so a sink hoisted out of this loop
+      //    would number links deck-wide: slide 2's first link would ask for
+      //    `rId3` while its own rels part has no rId2, which is legal XML that
+      //    simply opens nothing. Media part PATHS are the deck-wide half — see
+      //    `createDeckMedia`. Both spellings compile.
+      // ★★ THE BASE IS RESERVED, NOT MEASURED. `media.parts` is populated by
+      //    `buildContentSlide` BELOW, and its body text box — where these link
+      //    ids are minted — is built before the pictures are. So the count does
+      //    not exist yet; `mediaIdCeiling` bounds it instead, which makes the
+      //    two id ranges disjoint by construction. `buildPptxPackage` throws on
+      //    an overlap, so a bound that ever stopped holding would be loud.
+      const links = createLinkSink(2 + mediaIdCeiling(chunk));
       const xml = buildContentSlide(
         slideTitleFor(slide.title, i, chunks.length),
         chunk,
         ctx,
         media.mint,
+        links,
       );
-      deck.push({ xml, media: media.parts });
+      // ★ Read `links.rels()` and `media.parts` AFTER the render that fills
+      //   them — both are populated by the call above, never before it.
+      deck.push({ xml, media: media.parts, links: links.rels() });
     }
   }
 

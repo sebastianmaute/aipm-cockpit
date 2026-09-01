@@ -1579,3 +1579,62 @@ describe("renderDocumentPptx — S3c-2 placed pictures", () => {
     });
   });
 });
+
+// ─── Hyperlinks (§119) ───────────────────────────────────────────────────────
+//
+// ★★★ THE RELATIONSHIP SCOPE IS THE WHOLE POINT, AND ONLY A TWO-SLIDE DECK CAN
+// SEE IT. `ooxml-pptx-primitives.test.ts` pins that `buildPptxPackage` writes a
+// slide's links into that slide's own rels part, but it hands the builder
+// slides it built by hand — so it says nothing about whether THIS renderer
+// mints one sink per slide or one per deck. Measured, not assumed: a deck-wide
+// sink here passed all 134 tests of the three pptx files before this block
+// existed. A one-slide fixture is equally blind, since both shapes agree on the
+// first slide.
+describe("hyperlinks", () => {
+  const twoLinkedSlides = doc([
+    { type: "heading", level: 1, text: "One" },
+    { type: "paragraph", html: '<p>see <a href="https://a.example/one">A</a></p>' },
+    { type: "heading", level: 1, text: "Two" },
+    { type: "paragraph", html: '<p>see <a href="https://b.example/two">B</a></p>' },
+  ]);
+
+  it("restarts relationship ids at rId2 on every slide and keeps each target local", async () => {
+    const all = await parts(twoLinkedSlides);
+    const rels2 = all.get("ppt/slides/_rels/slide2.xml.rels")!;
+    const rels3 = all.get("ppt/slides/_rels/slide3.xml.rels")!;
+
+    // ★ rId1 is the LAYOUT on both, so both links are rId2 — the ids do NOT
+    //   run on across slides. A deck-wide sink gives slide 3's link rId3.
+    expect(rels2).toContain(`Id="rId2"`);
+    expect(rels2).toContain(`Target="https://a.example/one" TargetMode="External"`);
+    expect(rels3).toContain(`Id="rId2"`);
+    expect(rels3).toContain(`Target="https://b.example/two" TargetMode="External"`);
+    expect(rels3).not.toContain("rId3");
+
+    // ★★ And neither part carries the OTHER slide's relationship. A deck-wide
+    //    sink accumulates, so slide 3's part would declare slide 2's link too —
+    //    a target the slide never references, pointing somewhere else entirely.
+    expect(rels3).not.toContain("https://a.example/one");
+    expect(rels2).not.toContain("https://b.example/two");
+  });
+
+  it("points each slide's linked run at that slide's own relationship", async () => {
+    const [, second, third] = await slides(twoLinkedSlides);
+    // ★ Resolving the reference chain, not just asserting an element exists:
+    //   the id here is what the rels assertions above look up.
+    expect(second).toContain(`<a:hlinkClick r:id="rId2"/>`);
+    expect(third).toContain(`<a:hlinkClick r:id="rId2"/>`);
+    // The unlinked run in the same paragraph carries no link at all.
+    const linkedRuns = [...third.matchAll(/<a:hlinkClick/g)];
+    expect(linkedRuns).toHaveLength(1);
+  });
+
+  it("leaves a link-free deck with no hyperlink relationship at all", async () => {
+    // ★ The additive contract, end to end — omitted `links` and an empty one
+    //   must both leave the package where it was.
+    const all = await parts(doc([{ type: "paragraph", html: "<p>no links here</p>" }]));
+    for (const [path, xml] of all) {
+      if (path.endsWith(".rels")) expect(xml).not.toContain("hyperlink");
+    }
+  });
+});

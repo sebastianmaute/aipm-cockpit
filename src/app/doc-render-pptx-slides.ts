@@ -39,6 +39,7 @@ import {
   type MediaExtension,
   type MediaPart,
 } from "./ooxml-media";
+import type { LinkSink } from "./ooxml-links";
 import { isAllowedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
 import type { DocumentAsset } from "./document-asset";
 import type { ExportAssets } from "./document-export-assets";
@@ -282,10 +283,19 @@ const HR_TEXT = "—".repeat(24);
  * counterpart. Italic mirrors the DOCX `Quote` style; monospace mirrors
  * `CodeBlock`. Both are no-ops on a run that already carries the mark.
  */
-function pptxRun(run: TextRun, kind: RichLineKind): PptxRun {
+function pptxRun(run: TextRun, kind: RichLineKind, links: LinkSink | undefined): PptxRun {
   const has = (mark: RunMark): boolean => run.marks.includes(mark);
   return {
     text: run.text,
+    // ★★ URL -> RELATIONSHIP ID. `TextRun.href` is an address the shared parse
+    //   already validated against the scheme allow-list; `hyperlinkRelId` is an
+    //   id into THIS SLIDE's rels part. The sink does the conversion and
+    //   remembers what it minted, so `renderDocumentPptx` can hand the same
+    //   list to `buildPptxPackage`.
+    // ★ No sink means no links at all — every pre-existing caller passes none
+    //   and its runs stay byte-identical.
+    hyperlinkRelId:
+      links === undefined || run.href === undefined ? undefined : links.relIdFor(run.href),
     bold: has("bold"),
     italic: has("italic") || kind === "blockquote",
     underline: has("underline"),
@@ -299,10 +309,10 @@ function pptxRun(run: TextRun, kind: RichLineKind): PptxRun {
 /** One body line as one paragraph for `pptxTextBox`. A plain string keeps the
  *  uniform-text shape it always had — byte-identical, since that branch splits
  *  on "\n" and these lines are already split. */
-function bodyParagraph(line: string | RichLine): PptxParagraph {
+function bodyParagraph(line: string | RichLine, links: LinkSink | undefined): PptxParagraph {
   if (typeof line === "string") return { text: line, sizeHundredths: BODY_SIZE };
   if (line.kind === "hr") return { runs: [{ text: HR_TEXT }], sizeHundredths: BODY_SIZE };
-  const runs = line.runs.map((run) => pptxRun(run, line.kind));
+  const runs = line.runs.map((run) => pptxRun(run, line.kind, links));
   // ★★ The marker is a RUN, not a paragraph property: this path emits no
   // bullet properties at all (see `bulletMarker`), so the ordinal has to be
   // text or it is lost outright. It is its OWN run so it inherits none of the
@@ -427,11 +437,42 @@ export function createDeckMedia(ctx: RenderCtx) {
   };
 }
 
+/**
+ * An UPPER BOUND on how many media relationship ids ONE slide will mint, so a
+ * link sink can start above them.
+ *
+ * ★★★ IT HAS TO BE A BOUND RATHER THAN A COUNT, and that is a property of
+ * `buildContentSlide`, not of this list: the body text box — which is where the
+ * link ids are minted — is built BEFORE `mint` runs over the picture lines, so
+ * the media count does not exist yet at the moment the first link id is needed.
+ * This is the same reservation `doc-render-docx.ts`'s own `mediaIdCeiling`
+ * makes for the same reason.
+ *
+ * ★★ THE TWO ARE NOT DERIVED THE SAME WAY, though, and reading this as a copy
+ * would mislead: DOCX cannot see its candidate set at all before the render and
+ * re-scans each block's HTML for `<img data-asset-id>`; here the candidates are
+ * already `ImageLine`s in the chunk, so the only slack is whether `mint`
+ * DECLINES one (bytes or metadata gone since `paragraphLines` accepted them —
+ * "unreachable by construction", per its docstring). So this over-reserves only
+ * on that path and can never under-reserve.
+ *
+ * ★ Over-reserving costs a GAP in the id sequence, which is legal — `Id` is an
+ * xsd:ID and nothing in OPC requires contiguity. Under-reserving would cost a
+ * collision, which `buildPptxPackage` throws on rather than shipping an image
+ * that silently resolves to a link.
+ */
+export function mediaIdCeiling(lines: readonly SlideLine[]): number {
+  return lines.filter(isImageLine).length;
+}
+
 export function buildContentSlide(
   title: string,
   lines: readonly SlideLine[],
   ctx: RenderCtx,
   mint: (line: ImageLine) => MediaPart | null,
+  /** ★ ONE SINK PER SLIDE — its ids land in THIS slide's rels part. Optional so
+   *  a caller that wants no links keeps the bytes it always had. */
+  links?: LinkSink,
 ): string {
   const { lang } = ctx;
   const titleShape = title
@@ -461,7 +502,7 @@ export function buildContentSlide(
         // One <a:p> per line. ★ A plain line still goes through the uniform
         // -text branch, which splits `text` on "\n" itself — so a bullet item
         // or table cell that smuggled a newline in behaves exactly as before.
-        paragraphs: textLines.map(bodyParagraph),
+        paragraphs: textLines.map((line) => bodyParagraph(line, links)),
       })
     : "";
 
