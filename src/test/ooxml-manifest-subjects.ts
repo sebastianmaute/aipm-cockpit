@@ -31,6 +31,25 @@ export type ManifestSubject = {
   /** Names the subject in the gate's failure text and in its test title. */
   label: string;
   build: () => Blob;
+  /** The SAME package, built with an EXPLICITLY empty `links` list.
+   *
+   *  ★★ REQUIRED, not optional, so a new subject cannot quietly opt out of the
+   *  links additive contract the gate asserts over this list.
+   *
+   *  ★★★ IT IS NOT ALWAYS A DIFFERENT CALL, and that is the point of pairing
+   *  the two spellings here rather than asserting one of them. `buildDocxPackage`
+   *  DEFAULTS `links` to `[]`, so for the two docx subjects "omitted" and
+   *  "explicitly empty" are the same call and comparing them proves nothing on
+   *  its own -- which is why the gate also compares this build against the
+   *  committed baseline, the one reference that predates links. For pptx the
+   *  distinction IS real: `PptxSlide.links` is an optional FIELD, so the
+   *  builder sees `undefined` here and `[]` there.
+   *
+   *  ★ Spelling `page` out below is forced (`links` trails it positionally) and
+   *  would re-open the drift this file exists to close -- except that the gate
+   *  compares the two builds part-for-part, so a twin that stops matching its
+   *  subject goes red rather than silent. */
+  buildEmptyLinks: () => Blob;
 };
 
 export const MANIFEST_SUBJECTS: readonly ManifestSubject[] = [
@@ -38,6 +57,7 @@ export const MANIFEST_SUBJECTS: readonly ManifestSubject[] = [
     key: "docx",
     label: "docx (portrait)",
     build: () => buildDocxPackage("<w:p/>", "", "portrait"),
+    buildEmptyLinks: () => buildDocxPackage("<w:p/>", "", "portrait", [], []),
   },
   {
     // ★★★ TWO ARGUMENTS ON PURPOSE, MIRRORING THE WORKSPACE EXPORTER.
@@ -50,10 +70,12 @@ export const MANIFEST_SUBJECTS: readonly ManifestSubject[] = [
     key: "docxLandscape",
     label: "docx (landscape)",
     build: () => buildDocxPackage("<w:p/>", ""),
+    buildEmptyLinks: () => buildDocxPackage("<w:p/>", "", "landscape", [], []),
   },
   {
     key: "pptx",
     label: "pptx",
     build: () => buildPptxPackage([{ xml: "<p:sld/>", media: [] }]),
+    buildEmptyLinks: () => buildPptxPackage([{ xml: "<p:sld/>", media: [], links: [] }]),
   },
 ];

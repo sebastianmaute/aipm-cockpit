@@ -133,6 +133,42 @@ describe("the media-free OOXML packages match their committed manifests", () => 
     });
   }
 
+  // ★★★ THE LINKS ADDITIVE CONTRACT, NAMED. Both builders promise that an
+  // empty `links` list adds NOTHING -- no relationship, and (a link having no
+  // part at all) no zip entry and no content-type Default either. The subject
+  // comparisons above already fail if that breaks, but they fail as a baseline
+  // digest diff, which says a part MOVED and not which promise was broken.
+  // This says which promise was broken.
+  for (const subject of MANIFEST_SUBJECTS) {
+    it(`${subject.label}: an empty links list adds nothing to the package`, async () => {
+      const omitted = await unzipBytes(subject.build());
+      const empty = await unzipBytes(subject.buildEmptyLinks());
+      expect([...empty.keys()]).toEqual([...omitted.keys()]);
+      // ★★ NOT `toBe`. `unzipBytes` slices a FRESH Uint8Array per part, so
+      // reference equality can never hold between two builds and the loop
+      // would fail on CORRECT output. `toEqual` compares typed arrays
+      // elementwise -- byte identity, which is the property, and unlike a
+      // decoded-text comparison it stays honest if a part is ever binary.
+      for (const [path, data] of empty) expect(data).toEqual(omitted.get(path));
+
+      // ★★★ THE HALF THAT CAN SEE A LINKS REGRESSION AT ALL, and the reason
+      // the loop above is not enough. `buildDocxPackage` DEFAULTS `links` to
+      // `[]`, so for both docx subjects the two builds are the SAME call: a
+      // mutant that makes an empty list emit a relationship moves BOTH sides
+      // equally and the comparison stays green. (Measured, not reasoned --
+      // see the tally in the commit that added this.) The committed baseline
+      // is the package as it stood BEFORE links existed, so it is the only
+      // reference here that separates the two shapes. The pptx subject is the
+      // one where the loop bites on its own: `PptxSlide.links` is an optional
+      // FIELD, so the builder really does see `undefined` on one side.
+      await expectMatchesBaseline(
+        subject.buildEmptyLinks(),
+        baseline[subject.key].parts,
+        subject.label,
+      );
+    });
+  }
+
   it("the baseline holds no media part, which is what makes it the media-FREE contract", () => {
     // Subsumed by the lists above -- no `media/` path appears in any of them --
     // and kept anyway, because a filter naming `media/` says WHY it failed and
