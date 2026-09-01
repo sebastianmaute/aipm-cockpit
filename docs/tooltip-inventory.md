@@ -8,6 +8,87 @@ tree `908e56cf3d2a…`, identical parent) left behind when that commit's message
 resolves in the authoring clone until gc and nowhere else. Amending a commit invalidates every sha
 already written into prose — check the citations after any amend.
 
+## Re-measured 2026-09-01, on `95afb789` (0.272.1)
+
+★★ **The 2026-08-21 column below reproduces EXACTLY, and that is the first thing this section
+checked.** The script under "Reproduce" was extracted from this file verbatim, `src/app` at
+`6c4e4162` was materialised with `git archive 6c4e4162 src/app | tar -x -C <dir>`, and the script
+was run there: **621 / 178 / 100 / 70 / 30 / 20**, all six on the nose. The parser is
+deterministic and the dated columns can be trusted as measurements of the trees they name. Do that
+check before adding a column — a number that no longer reproduces at its own sha is a script
+change, not a codebase change, and the two are indistinguishable from the new column alone.
+
+### The scan, re-run unchanged
+
+| measure | 2026-08-07 | 2026-08-21 | today (2026-09-01) |
+|---|---|---|---|
+| button-family elements scanned | 573 | 621 | **592** |
+| …carrying a `title=` | 142 | 178 | **167** |
+| **icon/glyph-only** elements | 87 | 100 | **101** |
+| …with `title=` — covered | 49 | 70 | **70** |
+| …**without** `title=` — the classification surface | 38 | 30 | **31** |
+| …**without any name prop** | 16 | 20 | **22** |
+
+Plain greps from "Baseline": `title=` **438 → 445**; `<InfoTooltip` mounts **147 → 139** (the first
+time this one has moved); files containing an `aria-label` **208 → 212**.
+
+★★ **The scanned population FELL 621 → 592 while the tree grew** (343 → 352 non-test `.tsx`), which
+inverts every prior column and is worth not glossing. It decomposes cleanly by tag:
+
+```bash
+grep -rhoE "<(button|Button|IconButton|ToggleButton)[[:space:]/>]" src/app   --include='*.tsx' --exclude='*.test.tsx' | sed 's/.$//' | sort | uniq -c
+```
+
+→ `<Button` 102 → **103**, `<IconButton` 7 → **7**, `<ToggleButton` 9 → **9**, and native
+`<button` **64 → 40**. The entire drop is native `<button`, and the three primitives moved by +1
+between them. ★ **The CAUSE is not established here** — the obvious reading is §102's hand-rolled
+conversion programme, but a −24 native against a +1 primitive does not add up to a straight
+conversion, and this measurement cannot tell a conversion from a deletion or from markup moving
+into a component. Measure it before writing it down.
+
+### The open surface is substantively unchanged
+
+Diffing the untitled site lists between the two runs, the only movement in real code is an
+**extraction, not a fix**: `document-block-editors.tsx` ×3 became `bullets-block-editor.tsx` ×2,
+when `0387402b` extracted `BulletsBlockEditor` into its own module. The three genuinely new hits —
+`popover-panel.tsx` ×2 and `roles-editor.tsx` ×1 — are all `<button` written inside `//` comments,
+the bucket this document already carries, and each was opened and read.
+
+★★★ **THE THIRD OF THOSE THREE ROWS DID NOT MOVE AND DID NOT GET FIXED — THE SCAN LOST IT, AND IN
+THE DIRECTION THE ★★★ UNDER "Reproduce" SAYS IT DOES NOT GO.** That warning frames the
+`endOfOpenTag` apostrophe bug as producing FALSE POSITIVES ("the dangerous direction for a
+ratchet"). Here it produced a false NEGATIVE. `bullets-block-editor.tsx`'s Remove-item `Button` — the third of
+the three, find it with `grep -n documentsRemoveItem src/app/bullets-block-editor.tsx` — is
+icon-only (`{"×"}` in an `aria-hidden` span) and carries no `title`, so it belongs in the 31. It is
+absent, because its opening tag contains a `//` comment reading
+``document-table-editor.tsx's remove-row/remove-column bounds``: the apostrophe opens a string the
+scanner never closes, the tag "ends" far below its real `>`, and the mis-sliced children stop
+`residue()` reducing to a glyph. A real control silently left the population. **Both directions are
+live, and the false negative is the one nothing else will catch** — a phantom row costs a wasted
+task and is found on opening the file, while a dropped row simply never gets looked at.
+
+### Two of the four "Still open, unchanged" bullets have since been fixed
+
+- **The blocked-on-i18n row is DONE.** `stakeholder-recipient-input.tsx`'s remove-recipient button
+  now reads ``aria-label={rowLabel(t(lang, "remove"), name)}`` — translated AND row-token'd, so it
+  cleared both the i18n block and the row-unique-names bar in one move (`32433366`). **So exactly
+  ONE survivor of the original 23 remains: B1.**
+- **The 15 hardcoded-English accessible names are down to 4**, and the four left are precisely the
+  ones this document already argued were not straightforward i18n defects: `task-editor-raid-mini.tsx`
+  ×2 (the half-translated ``RAID ${…}`` prefix, "arguably fine") and `budget-panel-totals.tsx` ×2
+  (the ``budget-${ariaPrefix}`` machine hooks — "different problem, worse", and still true).
+  Eleven were fixed by `32433366` and `82d9bb0c`. Re-run the section's own two greps to confirm; the
+  `aria-label="…"` one now returns a single hit, and that hit is prose inside a comment in
+  `dependencies-editor.tsx`, not a site.
+  ★ Those two `budget-panel-totals.tsx` rows are cited BY LINE in the section above and both line
+  numbers have since drifted — the file grew when 0.272.1 reworked the bucket totals. The rows are
+  the same rows; find them with `grep -n ariaPrefix src/app/budget-panel-totals.tsx`. This is the
+  drift this repo files under "cite the symbol, not the line", happening to this document.
+
+★ **The name defect bullet and B1 are both unchanged and both still open.** `workspace-section-chrome.tsx`
+remains the single `hasTitle=true, named=false` element, and B1 is still held for the reason the
+snapshot gives.
+
 ## Re-measured 2026-08-21, on `6c4e4162` (0.253.0)
 
 ★★ **The snapshot below is NOT rewritten.** It is a dated audit of `176b823a`, including its
@@ -84,6 +165,10 @@ untitled, and it is not a row. ★★ The warning predicted this would recur and
 it was measured on. **Open the file before opening a row.**
 
 ### Still open, unchanged
+
+★★ **Dated 2026-08-21. Two of the four bullets below have since been fixed** — see
+"Two of the four 'Still open, unchanged' bullets have since been fixed" in the 2026-09-01 section
+above. The list is left standing as the record of what was open on that date.
 
 - **name defect — 1 row.** `workspace-section-chrome.tsx`'s collapse/expand control still takes
   its accessible name from `title` alone, with no `aria-label`. The scan still reports it as the
