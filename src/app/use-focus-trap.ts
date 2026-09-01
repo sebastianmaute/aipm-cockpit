@@ -45,15 +45,29 @@ export function useFocusTrap(
   // boundary, or a ref forwarded through a child that mounts a tick later —
   // therefore registers a topmost `"modal"` entry with NO keydown listener
   // behind it: it stands every other trap down (`isTopmostOfKind` goes false
-  // for them) and traps nothing itself. Permanently, for that open — refs are
-  // not reactive, so the listener effect never re-runs when `ref.current`
-  // fills in.
+  // for them) and traps nothing itself, and nothing here will heal it: refs
+  // are not reactive, so a `ref.current` that fills in later does not re-run
+  // the listener effect on its own.
+  // ★ NOT "permanently", which is what this said first. The listener effect
+  // deps are `[active, ref, onEscape, initialFocusRef]`, so ANY re-render
+  // carrying a fresh `onEscape` identity re-runs it and the trap self-heals —
+  // and an unstable `onEscape` is the ordinary case for a consumer that has
+  // not read the stability note in this file's docstring. So the stuck state
+  // needs BOTH a late ref AND a stable handler, which is a narrower hazard
+  // than the first wording claimed and a stranger one: doing the documented
+  // thing is what keeps it stuck.
   // ★ LATENT, not live: all three of today's consumers (`tour-overlay`,
   // `inline-ai-edit-popover`, and the drawer in `modern-shell`) attach their
   // ref in the same commit that flips `active`.
-  // ★ Do NOT "fix" it by pushing from the listener effect instead — that puts
-  // `onEscape` back in this effect's deps and reintroduces the
-  // re-push-to-top hazard that bit `modal.tsx` twice.
+  // ★ Do not casually "fix" it by moving the push into the listener effect:
+  // that effect deps on `onEscape`, so the push would re-run on an unstable
+  // handler identity and move this token to the TOP of the stack — the hazard
+  // that bit `modal.tsx` twice. ★ That is a condition, not a prohibition, and
+  // an earlier wording here stated it as one. `modal.tsx` reads `onClose`
+  // through a ref precisely so its own push can deps on `[open]` alone, and
+  // the `hasEscape` boolean below is the same trick; a merged effect that
+  // mirrored `onEscape` into a ref would be sound. It is simply a bigger
+  // change than the hazard currently justifies.
   // ★ Same asymmetry `docs/AGENTS/ui-shell.md` already records for
   // `PopoverPanel` (push on `open`, cycle on `rendered`).
   //
@@ -183,9 +197,15 @@ export function useFocusTrap(
       //   grep -rnE 'tabIndex=\{.*-1' src/app --include=*.tsx | grep -v '\.test\.'
       // ★★★ THE OBVIOUS LITERAL PATTERN FINDS NOT ONE OF THEM, and this
       // comment shipped handing the reader exactly that. `tabIndex={[-]1}`
-      // matches ZERO roving-tabindex widgets, because every one of them spells
-      // it CONDITIONALLY (`tabIndex={cond ? 0 : -1}`), so the command could not
-      // support the claim it was attached to.
+      // matches ZERO widgets that move a SINGLE tab stop around, because every
+      // one of those spells it CONDITIONALLY (`tabIndex={cond ? 0 : -1}`), so
+      // the command could not support the claim it was attached to.
+      // ★★ "Roving" is used BOTH ways in this repo and the distinction matters
+      // here: `popover-panel.tsx` calls an ALL-`tabIndex={-1}` menu (the
+      // collapsed-nav flyout, `project-switcher`) "all-roving", and the literal
+      // pattern DOES match those. It is the conditional kind — a toolbar with
+      // one live tab stop — that it cannot see, and that is the kind whose
+      // focused node is a non-member of this trap's focusables.
       // ★★ The `.*` above is load-bearing and a `[^}]*` variant is NOT a safe
       // tightening: measured 2026-09-01, `[^}]*` returns 15 files where `.*`
       // returns 16, and the one it drops is a genuine roving widget whose

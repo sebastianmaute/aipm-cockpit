@@ -917,10 +917,12 @@ source by the end of this slice, which is the restate-instead-of-link failure th
 
 **Most of what follows is the PRE-FIX record**, kept because it is the argument for the pairing rule
 and for why the second option was rejected — but NOT all of it, and reading it as all history is how
-the live half gets skipped. Still current below: the gate paragraph (no axe rule exists, and the
-tour is still outside `A11Y_VIEWS`, so the two new unit tests remain the only detector — do not
-delete them as redundant) and the note on `use-tour.ts`'s render-time auto-launch, which is still
-the one push site in the app that is not a user gesture.
+the live half gets skipped. Still current below: the ★★★ citation-removal block immediately after
+this line; the gate paragraph (no axe rule exists, and the tour is still outside `A11Y_VIEWS`, so
+the two new unit tests remain the only detector — do not delete them as redundant); and the note on
+`use-tour.ts`'s render-time auto-launch, which is still the one push site in the app that is not a
+user gesture. ★ The first of those three was added by the very commit that wrote this banner and
+was omitted from it — the same one-paragraph-short miss the block itself is about.
 
 **Where:** `tour-overlay.tsx` — the card carries `role="dialog"` + `aria-modal="true"`, and the file
 imported `useDismissable` and nothing else; there was no `useFocusTrap` import until this fix.
@@ -938,7 +940,7 @@ The `aria-modal="true"` tells assistive tech a containment story the keyboard do
 WCAG 2.4.3 (focus order), and arguably 4.1.2 for the false state.
 
 **★ This is a STANDING GAP, not a regression, and 0.203.0 did not close it.** That release tagged
-the overlay `kind: "layer"` in the dismissal stack (`:72`), with the reasoning inline at `:58-62`:
+the overlay `kind: "layer"` in the dismissal stack, with the reasoning inline above that call:
 `kind` means "traps Tab", and tagging a trap-less surface `modal` had taken
 `isTopmostOfKind(…, "modal")` away from any real `Modal` open at the same time, so that Modal
 stopped trapping Tab and nothing took over. The `layer` tag fixed **that** — it stops the tour

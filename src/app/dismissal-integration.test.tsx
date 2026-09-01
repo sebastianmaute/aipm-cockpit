@@ -224,14 +224,27 @@ describe("Escape dismissal across surfaces", () => {
     //    assertion (focus lands on "modal first"). `defaultPrevented` is still
     //    true there, so that assertion is blind to this mutant too.
     //  · `modal.tsx`'s `if (!isTopmostOfKind(token, "modal")) return;`
-    //    neutralised → THIS TEST STAYS GREEN; 3 failed / 8 passed, all three in
-    //    "Tab containment across a portaled popover" below.
-    // The Modal's handler is registered first, so ungated it preventDefaults
-    // and focuses "modal first"; the tour's trap then runs, sees an
-    // activeElement that is not one of its own focusables, and yanks to Skip.
-    // The final assertion is satisfied by the tour CORRECTING the Modal, so it
-    // cannot tell a stood-down Modal from an ungated one. The Modal's
-    // stand-down is covered by those three popover tests, not by this one.
+    //    neutralised → 4 failed / 7 passed, and THIS TEST IS ONE OF THE FOUR
+    //    (the other three are "Tab containment across a portaled popover"
+    //    below). It fails on the same final focus assertion, Received
+    //    "modal first".
+    // So this test catches BOTH mutants: the Modal's stand-down is covered
+    // here as well as by the three popover tests.
+    //
+    // ★★★ AN EARLIER REVISION OF THIS BLOCK SAID THE OPPOSITE — "THIS TEST
+    // STAYS GREEN; 3 failed / 8 passed" — AND THAT NUMBER WAS REAL, JUST
+    // MEASURED AGAINST A TREE THAT NO LONGER EXISTED WHEN IT WAS WRITTEN. It
+    // was taken before `use-focus-trap.ts` gained its `|| e.defaultPrevented`
+    // bail, IN THE SAME COMMIT that added the bail. Ungated, the Modal
+    // preventDefaults first; the trap used to run anyway and yank to Skip, so
+    // the tour CORRECTED the Modal and the assertion passed either way. With
+    // the bail the trap stands down on an already-prevented event, focus stays
+    // on "modal first", and this test goes red. Re-measured against HEAD.
+    // ★★ The DIRECTION of that error is what earns these words. A comment
+    // claiming a live test is BLIND is as dangerous as one claiming false
+    // coverage — it invites the next reader to delete or weaken a test that is
+    // in fact load-bearing. Re-run a scorecard against the tree as it stands
+    // at the END of the commit, not as it stood when you measured.
     //
     // ★ Production cannot reach this screen — the tour and the empty-state
     // modal are mutually exclusive `if/else` branches in `task-manager.tsx`.

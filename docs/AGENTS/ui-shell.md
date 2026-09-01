@@ -496,13 +496,16 @@ commits that merely added comments above it; its `onChange` is
   AND EITHER ONE SUFFICES — an earlier wording credited the `src/app` PATH ROOT
   and explicitly ACQUITTED the `--include`s, which is backwards, because a
   `.md` file cannot match `--include=*.ts --include=*.tsx` at any path root.
-  Measured 2026-09-01, all four variants: path root WITH includes 13, path root
-  WITHOUT them 13 (so the includes are redundant *while the root is there* —
-  that much of the old claim held), root dropped but includes KEPT **14** (one
-  `.ts` spec, still no docs), and only with BOTH dropped does it reach the
-  several-fold figure the old sentence attributed to the root alone. No total
-  is quoted for the command itself, because every added call site and every
-  sentence like this one moves it:
+  Measured 2026-09-01 across all four variants, and quoted as RELATIONS rather
+  than totals, because the absolute numbers rot within the hour — the first
+  version of this paragraph quoted 13/13/14 and a later commit in the very same
+  branch added one more mention and made all three wrong. What holds: the two
+  variants that keep the path root agree EXACTLY (so the includes are redundant
+  *while the root is there* — that much of the old claim held); dropping the
+  root while KEEPING the includes adds exactly one hit, an `e2e-crossengine`
+  `.ts` spec and still no docs; and only with BOTH dropped does it reach the
+  several-fold figure the old sentence attributed to the root alone. Re-run all
+  four before quoting any of them:
   `grep -rn "isTopmostOfKind" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
   LANDMINE (bit twice): the keydown effect must depend on `[open]` ALONE and read `onClose` via a ref —
   if it deps `[open, onClose]`, an unstable parent `onClose` identity (re-created each render/keystroke)

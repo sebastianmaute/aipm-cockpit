@@ -15,8 +15,11 @@
 > ★★★ **AND DO NOT EXECUTE THIS PLAN.** It shipped as 0.270.0 and every task in it is done —
 > but unlike the spec beside it, this file is a set of INSTRUCTIONS, and the line directly above
 > this banner tells an agentic worker to implement it task-by-task. Its Task 7 carries a fenced
-> block of prose to paste into `docs/AGENTS/ui-shell.md` asserting the "ONE EXCEPTION" that this
-> slice removed, so a worker running it would re-insert the exact claim §318 closed. A dated
+> block of prose to paste into `docs/AGENTS/ui-shell.md` asserting that `use-focus-trap` "traps Tab
+> UNCONDITIONALLY: its Tab branch never consults the stack" — the exact claim §318 closed — so a
+> worker running it would re-insert it. ★ Grep for that phrase, not for a capitalised "ONE
+> EXCEPTION": an earlier wording here quoted the label the AGENTS doc used, which the plan itself
+> line-wraps in lower case, so the quoted string was unfindable in the file it describes. A dated
 > record is safe to leave alone; a dated record that is also a runnable instruction is not.
 
 **Goal:** Close open-followups §100, §297 and §124 — three keyboard/focus defects in the popover-modal subsystem — by moving the behaviour into the `PopoverPanel` primitive instead of leaving it to call sites.

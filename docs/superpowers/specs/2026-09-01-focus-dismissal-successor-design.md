@@ -283,10 +283,11 @@ Not optional and not a follow-up. Each of these currently states the defect as l
   said four.** Measured while closing them: §318 is FIVE — heading, summary-table LABEL cell,
   summary-table STATUS cell, table ANCHOR, `**Status:**` witness — plus a sixth if you count the
   anchored cross-reference inside §100, whose CLAIM ("with the one exception filed as §318") this
-  slice falsifies, so re-pointing the link alone would leave a correctly-linked lie. §8 is SIX: the
-  same five, plus two further live-state claims in its own body (its regression-detector paragraph,
-  whose second half the fix satisfies, and a directive pointing at AGENTS.md prose that has both
-  MOVED to `docs/AGENTS/ui-shell.md` and inverted). The rule counts the places a TEMPLATE touches;
+  slice falsifies, so re-pointing the link alone would leave a correctly-linked lie. §8 is SEVEN — and this line
+  said SIX, which is the same five plus two and does not add up. The five above all apply to §8
+  unchanged (verified against its row and heading), and its own body carries two MORE live-state
+  claims: its regression-detector paragraph, whose second half the fix satisfies, and a directive
+  pointing at AGENTS.md prose that has both MOVED to `docs/AGENTS/ui-shell.md` and inverted. The rule counts the places a TEMPLATE touches;
   it cannot count the places an entry's own prose asserts the defect is live.
 
 ★★ The AGENTS.md summary of the dismissal stack does not restate any of the above, so it needs no
