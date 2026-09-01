@@ -178,28 +178,19 @@ describe("ResourceWorkload", () => {
   //
   // ★ The fixture is still collision-BEARING for the defect under test: before
   // the fix BOTH buttons are named exactly "Add as resource".
-  //
-  // ★★★ THE SHIFT FIXTURE IS LOAD-BEARING AND IS **NOT** PART OF THE DEFECT
-  // UNDER TEST. Every row — managed and unlinked alike — renders a weekly-hours
-  // button whose accessible name is its CONTENT, i.e. the bare hours number, so
-  // any two rows on the same contracted hours share the name "40". That is a
-  // REAL, still-open 2.4.6 collision of its own, outside the §276 site list and
-  // deliberately NOT fixed here: qualifying it is not mechanical, because WCAG
-  // 2.5.3 requires the visible "40" to survive inside whatever name replaces it.
-  // The assertion below is whole-document (the shared helper's default) and no
-  // DOM container holds the unlinked rows alone — they are sibling <tr>s with no
-  // wrapper — so it cannot be narrowed around that collision. Giving the two
-  // unlinked people distinct part-time shifts makes the three hours buttons
-  // genuinely distinct instead, which isolates this test to the add-as-resource
-  // control. If the hours button is ever qualified, these shifts can go.
   it("gives every unlinked row's add-as-resource button a row-unique name (§276)", () => {
     const unlinkedTasks = [
       { id: 41, taskName: "Draft SOW", assignee: "Alice Smith", dueDate: "2026-07-01" },
       { id: 42, taskName: "Review SOW", assignee: "Bob Jones", dueDate: "2026-07-02" },
     ] as unknown as Task[];
+    // EQUAL hours on purpose. These were once deliberately distinct (32h / 24h)
+    // to keep the then-unqualified weekly-hours buttons from colliding on "40"
+    // and masking the add-as-resource defect under test. §315 qualified those
+    // buttons with the row, so equal hours are safe again and the fixture no
+    // longer carries a difference that has nothing to do with this assertion.
     const partTime = [
       { id: 1, assignee: "Alice Smith", hoursPerWeekday: [8, 8, 8, 8, 0, 0, 0] },
-      { id: 2, assignee: "Bob Jones", hoursPerWeekday: [8, 8, 8, 0, 0, 0, 0] },
+      { id: 2, assignee: "Bob Jones", hoursPerWeekday: [8, 8, 8, 8, 0, 0, 0] },
     ] as unknown as React.ComponentProps<typeof ResourceWorkload>["shifts"];
     render(<ResourceWorkload {...baseProps} tasks={unlinkedTasks} shifts={partTime} />);
     // Both unlinked rows reached the table — otherwise the assertion below is
@@ -209,11 +200,15 @@ describe("ResourceWorkload", () => {
     expectRowUniqueNames({ minControls: 6 });
   });
 
-  // ★★ Distinct part-time shifts throughout the fixtures below, for the reason
-  // spelled out on the §276 test above: every row's weekly-hours button is
-  // content-named, so two rows on the same contracted hours collide on "40"
-  // regardless of anything under test here. That collision is real and still
-  // open; giving each row its own hours isolates these assertions from it.
+  // ★★ The distinct part-time shifts throughout the fixtures below are NO
+  // LONGER LOAD-BEARING, and reading them as such is the trap this note exists
+  // to close. They date from when every row's weekly-hours button was
+  // content-named, so two rows on the same contracted hours collided on "40"
+  // regardless of anything under test — the distinct hours isolated these
+  // assertions from that. §315 qualified both tables' hours buttons with the
+  // row, so the collision is closed and equal hours would be safe here too;
+  // these are simply left as they are. Do not restore a difference elsewhere
+  // "to match", and do not cite this helper as evidence the defect is open.
   const shiftFor = (id: number, resourceId: number | null, assignee: string, days: number) =>
     ({ id, resourceId, assignee, hoursPerWeekday: [8, 8, 8, 8, 8, 0, 0].map((h, i) => (i < days ? h : 0)) }) as unknown as
       React.ComponentProps<typeof ResourceWorkload>["shifts"][number];
@@ -324,5 +319,47 @@ describe("ResourceWorkload", () => {
     // 6 = measured: an add-as-resource button, an hours button and one absence
     // chip per unlinked row; `resources={[]}` leaves no managed row at all.
     expectRowUniqueNames({ minControls: 6 });
+  });
+
+  // WCAG 2.4.6 (§315) — the weekly-hours button's accessible name is its own
+  // CONTENT, the contracted hours number, so a team on one standard week gives
+  // N buttons all named "40". BOTH tables render it, and the two halves take
+  // DIFFERENT fixes. `buildResourceWorkload` keys `managed` on the numeric
+  // resource id, so a display name CAN repeat there — that half needs the row
+  // TOKEN, and this fixture is the two-Sarahs shape the token exists for.
+  it("gives the MANAGED weekly-hours buttons row-unique names when two people share a name and hours (§315)", () => {
+    render(<ResourceWorkload {...baseProps} resources={[r, twin]} tasks={[]} />);
+    // 4 = measured: a name button and an hours button per managed row. No
+    // `shifts` is passed, so both rows carry the same DEFAULT weekly hours —
+    // that is the collision under test, not an oversight.
+    expectRowUniqueNames({ minControls: 4, requireCollisionSeed: true });
+  });
+
+  // ★★★ `requireCollisionSeed` is OFF here ON PURPOSE, and NOT because it is
+  // merely unnecessary — it would THROW against CORRECT code. The unlinked half
+  // takes a PLAIN QUALIFIER rather than a token: `buildResourceWorkload`
+  // accumulates unlinked rows into a Map keyed on `display.toLowerCase()`, so
+  // two rows cannot carry the same display name and the " (N)" occurrence
+  // suffix the guard strips can never be emitted on this surface. After the fix
+  // the two names are "40 – Alice Smith" and "40 – Bob Jones"; nothing collides
+  // once stripped, so the guard would fail a CORRECT fix. Do not "complete the
+  // pattern" by turning it on. The anti-vacuity evidence this test has instead
+  // is a recorded MUTATION PROOF: deleting the unlinked button's `aria-label`
+  // turns this test red.
+  it("gives the UNLINKED weekly-hours buttons distinct names when two people work equal hours (§315)", () => {
+    const unlinkedTasks = [
+      { id: 41, taskName: "Draft SOW", assignee: "Alice Smith", dueDate: "2026-07-01" },
+      { id: 42, taskName: "Review SOW", assignee: "Bob Jones", dueDate: "2026-07-02" },
+    ] as unknown as Task[];
+    render(<ResourceWorkload {...baseProps} resources={[]} tasks={unlinkedTasks} />);
+    // Both unlinked rows reached the table — otherwise the assertion below is
+    // about a list that never rendered.
+    expect(screen.getByText("Alice Smith")).toBeInTheDocument();
+    expect(screen.getByText("Bob Jones")).toBeInTheDocument();
+    // 4 = measured: an add-as-resource button and an hours button per unlinked
+    // row; `resources={[]}` leaves no managed row at all. No `shifts` is passed,
+    // so both rows carry the same DEFAULT weekly hours — the collision under
+    // test.
+    expectRowUniqueNames({ minControls: 4 });
   });
 });

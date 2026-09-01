@@ -309,6 +309,16 @@ export function ResourceWorkload({
                       ? t(lang, "resourcesEditShift")
                       : t(lang, "resourcesDefaultShift")
                   }
+                  // WCAG 2.4.6 (§315) — this button's name came from its
+                  // CONTENT alone, the contracted hours, so every row on a
+                  // standard week announced "40". THE TOKEN, not a plain
+                  // `row.display`: `managed` is keyed on the numeric resource
+                  // id, so two rows CAN carry one display name and the
+                  // occurrence index is what tells them apart.
+                  // ★ The hours LEAD, so the visible text is contained in the
+                  // accessible name and WCAG 2.5.3 holds with front-position
+                  // for free; the `title` keeps carrying the verb.
+                  aria-label={rowLabel(String(row.weeklyHours), rowToken)}
                   className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
                     row.shift
                       ? "text-foreground"
@@ -467,6 +477,14 @@ export function ResourceWorkload({
                           ? t(lang, "resourcesEditShift")
                           : t(lang, "resourcesDefaultShift")
                       }
+                      // WCAG 2.4.6 (§315), the same content-named collision as
+                      // the managed hours button above — but a PLAIN
+                      // `row.display` qualifier, NOT a token: unlinked rows are
+                      // accumulated into a Map keyed on `display.toLowerCase()`,
+                      // so the value cannot repeat here and an occurrence index
+                      // would have nothing to count. Same reasoning as the
+                      // `resourcesAddAsResource` control above (§276).
+                      aria-label={rowLabel(String(row.weeklyHours), row.display)}
                       className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${
                         row.shift
                           ? "text-foreground"
