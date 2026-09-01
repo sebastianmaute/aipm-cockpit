@@ -161,18 +161,27 @@ export function ModernShell({
                     `CollapsedNavFlyout` — which only exists on the collapsed
                     rail, and is the ONLY `PopoverPanel` consumer anywhere in
                     `sidebar.tsx`'s import closure — out of this focus trap.
-                    ★★ The mechanism is NOT the one `modal.tsx` documents.
-                    `use-focus-trap.ts` has no `!container.contains(active)`
-                    branch, so it never yanks focus back; it reads its
-                    focusables from `container.querySelectorAll` and
-                    `PopoverPanel` portals to `document.body`, so while focus
-                    sits inside a portaled panel this trap is simply INERT —
-                    containment (WCAG 2.4.3) then rests entirely on whatever
-                    that panel does for itself. `CollapsedNavFlyout` happens to
-                    be safe (every menuitem is `tabIndex={-1}`, and its own Tab
-                    branch closes the menu and refocuses the trigger, which is
-                    inside the drawer), but a panel with real tab stops would
-                    let Tab walk out of the drawer with nothing to stop it.
+                    ★★★ THE JUSTIFICATION HERE CHANGED ON 2026-09-01 AND THE
+                    CONCLUSION DID NOT — read the new one, because the old one
+                    argued from a mechanism that no longer exists. This said
+                    `use-focus-trap.ts` had no `!container.contains(active)`
+                    branch, so it never yanked focus back and went INERT while
+                    focus sat in a portaled panel, leaving containment (WCAG
+                    2.4.3) to whatever that panel did for itself. Closing §318
+                    gave the hook that branch and then generalised it to
+                    MEMBERSHIP of its own focusables, so the drawer's trap now
+                    yanks a stray Tab to its first control rather than
+                    declining. It also gates on `isTopmostOfKind`, so a
+                    `PopoverPanel` above it — which pushes `"modal"` — takes
+                    containment cleanly instead of the two fighting.
+                    ★★ So this `false` is still right, for a plainer reason: it
+                    keeps `CollapsedNavFlyout` off this surface entirely, and
+                    the flyout would in any case be portaled to `document.body`
+                    and therefore never a descendant of this container. What is
+                    NO LONGER true is the old warning that a panel with real tab
+                    stops would let Tab walk out with nothing to stop it — the
+                    trap now stands down to it deliberately, which is the
+                    arbiter working, not a hole.
                     ★★ The `footer` slot is the other way in — it renders inside
                     the drawer UNGATED and arrives as a prop, so no
                     import-closure check over `sidebar.tsx` can ever see a

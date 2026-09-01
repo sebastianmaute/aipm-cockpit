@@ -8,8 +8,18 @@
 //     replaces three different ad-hoc implementations).
 //   • Focus trap — Tab and Shift+Tab cycle within the dialog. Without this,
 //     Tab can move focus to the disabled underlying UI (WCAG 2.4.3).
-//   • Initial focus on open — `initialFocusRef` if supplied, else the
-//     dialog root (so the first Tab lands on the first focusable child).
+//   • Initial focus on open — `initialFocusRef` if supplied, else the FIRST
+//     FOCUSABLE CHILD, and only then the dialog root, which is reached only
+//     when the panel has no focusable content at all. ★★ That order is
+//     load-bearing, and this line used to state the last two the other way
+//     round. Focus resting on the root while focusables exist would be a real
+//     defect, because `Node.contains` is REFLEXIVE — the Tab branch's
+//     `!container.contains(active)` test reads the root as inside, matches
+//     neither edge, and declines, so Tab would leave the modal. The
+//     `focusables.length === 0` branch below is what covers the root case;
+//     the preference order is what keeps it from arising otherwise. A reader
+//     took the old wording at face value on 2026-09-01 and reported every
+//     modal in the app as leaking its first Tab.
 //   • Focus restore on close to whichever element had focus before opening.
 //   • Backdrop click closes (via `e.target === e.currentTarget` so clicks
 //     inside the panel never bubble to dismissal).

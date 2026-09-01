@@ -113,9 +113,23 @@ export function useFocusTrap(
       // `tabIndex={-1}` controls under the drawer are `CollapsedNavFlyout`'s
       // menuitems — which `renderSidebar(false, …)` never renders there, and
       // which a `PopoverPanel` portals OUT of the container regardless, so
-      // containment would already have treated them as outside. Re-measure
-      // before adding a third consumer:
-      //   grep -n tabIndex src/app/inline-ai-edit-popover.tsx src/app/sidebar-nav.tsx
+      // containment would already have treated them as outside.
+      // ★★ RE-MEASURE REPO-WIDE, NOT PER FILE, before adding a third consumer.
+      // A two-file grep is narrower than the claim: the drawer's real surface
+      // is `Sidebar` PLUS the `footer` slot, which arrives as a PROP, and
+      // `modern-shell.tsx`'s own comment says no import-closure check over
+      // `sidebar.tsx` can see what lands there. What matters is not the
+      // attribute but whether anything FOCUSES such a node, so enumerate the
+      // sites and then check each for a `.focus(`:
+      //   grep -rn 'tabIndex={[-]1}' src/app --include=*.tsx | grep -v '\.test\.'
+      // ★★★ THAT COMMAND COUNTS ITS OWN DOCUMENTATION — 8 of its 20 hits on
+      // 2026-09-01 were PROSE, not markup, so a bare tally over-reports by
+      // two thirds. This file is `.ts` and the pattern is `.tsx`-scoped, which
+      // is the only reason THIS comment does not inflate it. Read the hits,
+      // never the count. Today the ones ever focused programmatically are all
+      // `use-panel-focus` panel ROOTS (`help-menu`, `notes-window`,
+      // `undo-control`, `popover-panel`), and none is a descendant of either
+      // trap container.
       const untrapped = activeEl === null || !items.includes(activeEl);
       if (e.shiftKey && (activeEl === first || untrapped)) {
         e.preventDefault();
