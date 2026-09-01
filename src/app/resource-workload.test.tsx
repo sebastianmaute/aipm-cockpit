@@ -325,10 +325,12 @@ describe("ResourceWorkload", () => {
 
   // WCAG 2.4.6 (§315) — the weekly-hours button's accessible name is its own
   // CONTENT, the contracted hours number, so a team on one standard week gives
-  // N buttons all named "40". BOTH tables render it, and the two halves take
-  // DIFFERENT fixes. `buildResourceWorkload` keys `managed` on the numeric
-  // resource id, so a display name CAN repeat there — that half needs the row
-  // TOKEN, and this fixture is the two-Sarahs shape the token exists for.
+  // N buttons all named "40". BOTH tables render it and BOTH take the row token,
+  // from one shared map. ★★ An earlier revision of this comment said the two
+  // halves take "DIFFERENT fixes", with the unlinked one on a plain qualifier;
+  // that premise was refuted — see the unlinked test below and `rowTokens`.
+  // `buildResourceWorkload` keys `managed` on the numeric resource id, so a
+  // display name CAN repeat there, and this fixture is the two-Sarahs shape.
   it("gives the MANAGED weekly-hours buttons row-unique names when two people share a name and hours (§315)", () => {
     render(<ResourceWorkload {...baseProps} resources={[r, twin]} tasks={[]} />);
     // 4 = measured: a name button and an hours button per managed row. No
@@ -425,6 +427,42 @@ describe("ResourceWorkload", () => {
   // rather than the claim merely deleted: two bare tokens is the defect.
   // ★ `expectRowUniqueNames` cannot see this either (it compares RAW), so the
   // collapsed comparison is again the detector.
+  // ★★★ THE ABSENCE MAP'S OWN REASON FOR EXISTING WAS ASSERTED IN PROSE AND
+  // PINNED BY NOTHING. `absenceTokens`' comment says one person can hold two
+  // absences with the same window and type, so the composed chip name repeats —
+  // but every absence fixture in this file seeded DISTINCT row names and ONE
+  // absence per row, which makes the token equal its own fallback at every chip
+  // site. A key mistake there was therefore invisible.
+  // ★★ Two properties, deliberately in one fixture because they need the same
+  // seed: (1) the chip composes from the ROW TOKEN, not the raw shared display —
+  // a uniqueness assertion CANNOT catch that, since numbering the composed names
+  // keeps them distinct either way while silently dropping the row identity, so
+  // the containment assertions below are the detector; (2) two identical
+  // absences on ONE row get numbered against each other.
+  it("composes each absence chip from the row token and numbers repeats within a row", () => {
+    render(
+      <ResourceWorkload
+        {...baseProps}
+        resources={[r, twin]}
+        tasks={[]}
+        absences={[
+          { id: 31, resourceId: 1, startDate: "2026-07-01", endDate: "2026-07-05", type: "vacation" },
+          { id: 32, resourceId: 1, startDate: "2026-07-01", endDate: "2026-07-05", type: "vacation" },
+          { id: 33, resourceId: 2, startDate: "2026-07-01", endDate: "2026-07-05", type: "vacation" },
+        ] as unknown as React.ComponentProps<typeof ResourceWorkload>["absences"]}
+      />,
+    );
+    const chips = screen
+      .getAllByRole("button", { name: /vacation – / })
+      .map((b) => b.getAttribute("aria-label") ?? "");
+    expect(chips).toHaveLength(3);
+    expect(new Set(chips).size).toBe(3);
+    // Sample #1 holds both identical absences, so her two chips carry HER token
+    // and are numbered against each other; Sample #2's single chip carries hers.
+    expect(chips.filter((n) => n.includes("Alex Example (1)"))).toHaveLength(2);
+    expect(chips.filter((n) => n.includes("Alex Example (2)"))).toHaveLength(1);
+  });
+
   it("keeps a managed row and an unlinked row distinct when their names differ only by whitespace (§315)", () => {
     const wide: Resource = { id: 7, firstName: "Mary  Jane", lastName: "Smith", roleId: null, utilizationMode: "percent", utilization: {} };
     const crossTasks = [

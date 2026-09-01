@@ -546,7 +546,7 @@ export function ResourceWorkload({
                               // token there.
                               aria-label={
                                 absenceTokens.get(`u:${row.display.toLowerCase()}:${a.id}`) ??
-                                absenceChipName(a, lang, row.display)
+                                absenceChipName(a, lang, rowTokens.get(`u:${row.display.toLowerCase()}`) ?? row.display)
                               }
                               className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-ui-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
                             >

@@ -24775,6 +24775,19 @@ not the detector on the unlinked side — the explicit collapsed-name assertions
   hours **1 failed / 19 passed**, add-as-resource **1/19**, clear-unlinked **1/19** at 20 runtime
   tests; dropping the unlinked half back out of the merged map is **2 failed / 19 passed** at 21.
   Reproduce the divisor with `grep -cE '\bit(\.(each|only|skip|todo))?\(' src/app/resource-workload.test.tsx`.
+  ★★ **Two things deferred rather than done, both verified as NOT defects today.** (1) Every consumer
+  reads `map.get(<key>) ?? <fallback>`, and the key expression is spelled out at each of the eight
+  sites rather than once per population. All eight were checked byte-for-byte against their
+  construction keys and match; every fallback is unreachable, because `buildRowTokens` sets a token
+  for every input row and the maps are built over the same array references that render, with no sort
+  or second filter between. The hazard is a FUTURE refactor — add a sort, a second display filter or
+  a third population at the render site without touching the memo input, and the fallback silently
+  restores the raw un-tokenised name with every gate green. Hoisting the lookups into two per-row
+  helpers would make that structurally impossible; not done here because it touches eight call sites
+  for zero behaviour change, and a fix round is this repo's highest-risk commit class.
+  (2) `hideExternal` is never passed anywhere in `resource-workload.test.tsx`, so the "build the map
+  over the POST-filter list" property — correct today, and the reason a withheld row cannot consume an
+  occurrence index — is pinned by nothing.
   ★ `resourcesClearUnlinked` is `"Clear {0}"` in EN but `"{0} entfernen"` in DE, so the occurrence
   index lands MID-STRING in German and the harness's end-anchored strip cannot see it there.
   Uniqueness holds in both languages; only the seed guard is EN-shaped. Recorded, not chased — no DE
