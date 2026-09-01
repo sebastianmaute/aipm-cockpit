@@ -69,8 +69,16 @@ import type { KnowledgeLink } from "./document-link";
  *
  *  ★★ THE SECTION BUILDERS CARRY THE CELL AND NEVER PARSE IT, and that is the
  *  whole property — it is what lets ONE section model feed both the structural
- *  consumers (DOCX runs, HTML markup) and the flat ones (XLSX, PPTX). A builder
- *  that parsed "helpfully" on the way in would collapse that.
+ *  consumers (DOCX runs, HTML markup, and the workspace .pptx row slides) and
+ *  the flat ones (XLSX, doc-render-pptx's table cells). A builder that parsed
+ *  "helpfully" on the way in would collapse that.
+ *
+ *  ★★ This split said "(XLSX, PPTX)" until 2026-09-01, when export-pptx.ts's
+ *  row slides gained a link sink and moved to the structural side — while the
+ *  cellTextWithLinks docblock ~130 lines below, in THIS FILE, was updated in
+ *  the same commit. One file disagreeing with itself is the cheap version of
+ *  this failure; the expensive one is a reader trusting whichever half they
+ *  reach first.
  *
  *  ★★★ THAT IS A RULE ABOUT THE BUILDERS, NOT ABOUT THIS MODULE, and an earlier
  *  revision of this comment stated it as the latter ("the cell is carried, NEVER

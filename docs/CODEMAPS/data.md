@@ -97,8 +97,11 @@ fine; calling is not).
 ★★ **Two projections, and the FLAT export paths use the second.** `descriptionText` collapses a block
 boundary to a space; `descriptionTextWithBreaks` keeps it as `"\n"`. ★★★ A rich column is no longer
 flattened in `export-sections.ts` at all — `richCell` emits `RichCell = { html; text }`
-(`ExportCell = string | number | RichCell`, guard `isRichCell`, flattener `cellText`), so DOCX and
-the HTML/PDF path render markup while XLSX and both PPTX paths read `.text`. CSV and Markdown are
+(`ExportCell = string | number | RichCell`, guard `isRichCell`, flattener `cellText`), so DOCX, the
+HTML/PDF path and the workspace `.pptx` row slides render markup while `export-xlsx.ts` and
+`doc-render-pptx.ts`'s table-cell path read `.text`. ★★ This line said "both PPTX paths read
+`.text`" until 2026-09-01; `export-pptx.ts` left the flat set (§330) and this is a CODEMAP, the
+file AGENTS.md tells you to read FIRST. CSV and Markdown are
 outside this entirely: `exportWorkspace` routes them to `workspaceToCsv`/`workspaceToMarkdown` and
 never calls `buildExportSections`, so they emit the STORED html
 (`grep -n 'workspaceToCsv\|buildExportSections' src/app/export.ts`). The break mode is **opt-in at three points and

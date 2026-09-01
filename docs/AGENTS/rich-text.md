@@ -294,12 +294,17 @@ register's fix to another is how two of them broke. Read the note that names you
   forms, and each renderer picks.** `richCell` emits `RichCell = { html; text }` (`ExportCell =
   string | number | RichCell`, guard `isRichCell`, flattener `cellText`) for the columns named by
   `TASK_RICH_COLUMNS` · `RAID_RICH_COLUMNS` · `MILESTONE_RICH_COLUMNS` · `CHANGE_RICH_COLUMNS`. The
-  two structural consumers reach the html by DIFFERENT routes and conflating them sends you to the
+  three structural consumers reach the html by DIFFERENT routes and conflating them sends you to the
   wrong file: DOCX parses it into styled runs (`ooxml-docx-primitives.ts` → `htmlToRichLines`),
-  while the HTML/PDF path emits markup directly (`download.ts` `exportCellHtml` →
-  `sanitizeRichHtml(descriptionHtml(…))`, no runs parse at all). XLSX (`export-xlsx.ts`) and BOTH
-  PPTX paths (`export-pptx.ts`, `doc-render-pptx.ts`) read `.text` and are byte-identical to
-  before. `RichLine`
+  the HTML/PDF path emits markup directly (`download.ts` `exportCellHtml` →
+  `sanitizeRichHtml(descriptionHtml(…))`, no runs parse at all), and the workspace `.pptx` row
+  slides parse it into runs of their own (`export-pptx.ts` → `cellLinkedLines` → `htmlToRichLines`).
+  ★★★ IT WAS TWO UNTIL 2026-09-01 AND THIS SENTENCE ALSO SAID "XLSX AND **BOTH** PPTX PATHS READ
+  `.text` AND ARE BYTE-IDENTICAL TO BEFORE" — false on both halves for `export-pptx.ts` once its
+  row slides gained a link sink (§330), and a manual pass is what found it. Today `export-xlsx.ts`
+  and `doc-render-pptx.ts`'s table-cell path are the flat readers; `export-pptx.ts` reads `.html`
+  for any cell carrying a link and falls back to `.text` otherwise, so its bytes for such a cell
+  are NOT what they were. Reproduce: `grep -n "cellLinkedLines" src/app/export-pptx.ts`. `RichLine`
   (`rich-text-runs.ts`) carries the structure that makes this renderable: `kind: "heading"` with
   `level` (h5/h6 CLAMPED to 4 — nothing declares a `Heading5`, and Word SILENTLY IGNORES a
   `w:pStyle` it cannot resolve), `kind: "li"` with `ordered`/`depth`/`index`/`task`, and `align` on
@@ -406,9 +411,12 @@ register's fix to another is how two of them broke. Read the note that names you
   never consumed the flat projection at ALL; it emits the STORED HTML, which is exactly what
   `golden-workspace.test.ts` pins. Reproduce:
   `grep -n 'workspaceToCsv\|buildExportSections' src/app/export.ts`.
-  ★ PPTX being flat is a STATED gap with a layout cause, not an oversight — `buildPptxRowSlide`
+  ★ PPTX's REMAINING gap is a STATED one with a layout cause, not an oversight — `buildPptxRowSlide`
   renders one slide per ROW and caps the meta lines, so three of the seven rich fields (including
   `Task.description`) never reach a slide at any markup fidelity. `docs/open-followups.md` §153.
+  ★★ The lead clause read "PPTX being flat is a STATED gap" until 2026-09-01: `buildPptxRowSlide`
+  is precisely the function that stopped being flat (§330). The layout cap is unaffected — a field
+  that never reaches a slide is not helped by the slide gaining runs.
   ★★★ The break mode is OPT-IN at THREE points and all three are required:
   `separateBlockBoundaries(html, "\n")`, `htmlToText(html, {preserveBreaks:true})` and
   `htmlPlainProjection(html, {preserveBreaks:true})`. The middle one is the easy miss —

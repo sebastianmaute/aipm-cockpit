@@ -1806,7 +1806,11 @@ Two options were recorded, and the cheap one was not obviously right:
   It is a SEPARATE export-only projection, not a widening of an existing one, and it returns
   `cell.text` VERBATIM when the parse finds no address to add — so a drift between it and
   `descriptionTextWithBreaks` can only ever affect a cell that actually carries a link. Consumed by
-  `export-xlsx.ts`, `export-pptx.ts` and `doc-render-pptx.ts`'s table-cell path.
+  `export-xlsx.ts` and `doc-render-pptx.ts`'s table-cell path. ★★★ THAT SET SAID THREE AND NAMED
+  `export-pptx.ts` UNTIL 2026-09-01, 47 lines below the Status line corrected for the identical
+  reason — the correction was applied to the witness and not to the claim the witness supported, so
+  the entry asserted and denied one fact in one body. `export-pptx.ts` left the flat set the same
+  day (§330). Reproduce: `grep -c "cellTextWithLinks" src/app/export-pptx.ts` → 0.
 
 ★★★ **`htmlToText` WAS NOT WIDENED, and the prohibition below is now ENFORCED rather than asserted.**
 It is the shared plain-text projection that search, the note logs and the AI digests read, and none
@@ -9014,8 +9018,11 @@ package", and the additive contract is asserted at two more levels —
     grep -rn "additive contract" src/app/export-ooxml.test.ts src/app/doc-render-pptx.test.ts src/app/ooxml-pptx-primitives.test.ts
 
 ★ **Residual, which does NOT reopen this entry:** nothing in this repo can open a `.docx` or a
-`.pptx`, so the Word and LibreOffice pass is owed. That debt is §219's and this entry does not
-narrow it. `scripts/sample-link-exports.ts` emits the four link-bearing sample files that pass needs.
+`.pptx`. ★★ THAT PASS HAS SINCE BEEN RUN — 2026-09-01, on the same branch and in the same commit
+range that closed this entry, and it found a real defect (§333). This residual said the debt was
+outstanding while its own commit was recording it as discharged; §219 and §333 were updated and
+this entry was not. Read §219 for what the pass covered and what it left open — the `.pptx`
+reader was never recorded, so that half of the debt is still real. `scripts/sample-link-exports.ts` emits the four link-bearing sample files that pass needs.
 
 ---
 **CLOSED 2026-08-08 by `max-md:basis-full` on the group.** The group claims its own row, so the
@@ -12497,6 +12504,10 @@ ordering change is how an ordering change acquires a behavioural regression.
 
 Opened 2026-08-16 out of §141(b), which gave DOCX and the HTML/PDF path full structural fidelity for
 the seven rich entity fields and deliberately left both PPTX paths on the flat `.text` projection.
+★ SCOPE, 2026-09-01: that clause is now false for `export-pptx.ts`, whose row slides read `.html`
+through `cellLinkedLines` and render marks (§330). It does NOT touch this entry's own finding —
+`columns.slice(2, 8)` still keeps three of the seven fields off a slide at any fidelity, which is
+what §153 is about — so this is a scope correction, not a closure.
 That was the right call for that slice — but the reason PPTX is hard is NOT the missing bullet XML,
 and recording only "PPTX still flat" would send the next reader to the wrong file.
 
@@ -17163,13 +17174,18 @@ crafted `alt` keeps a genuinely drawn image out of the drawn count, which over-r
 
 ## 219. The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them
 
-**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. 2026-09-01: PARTIALLY DISCHARGED — never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. What remains needs a human opening the generated .docx in Word and in LibreOffice Writer, and the .pptx in PowerPoint, and recording what they saw in this entry.
+**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. 2026-09-01: PARTIALLY DISCHARGED — never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. The `.docx` ACCEPTANCE check IS discharged — Word and LibreOffice Writer, recorded below. What remains: the `.pptx` opened in **PowerPoint** specifically (both decks were opened on 2026-09-01 and reported working, but WHICH reader was never recorded, so item 2 is NOT discharged), plus items 3-7, none of which were exercised at all.
 
 ★★ **2026-09-01 — THE ACCEPTANCE HALF IS DISCHARGED, AND IT IS THE HALF THIS ENTRY SINGLES OUT AS
 THE ONE THAT HISTORICALLY FAILS.** During the `fix/export-link-fidelity` manual pass a human opened
 all four artifacts emitted by `npx jiti scripts/sample-link-exports.ts <dir>` — `document-renderer`
-and `workspace-exporter`, `.docx` and `.pptx` — in **Word and in LibreOffice**. Every one opened
-with **no repair prompt**. That answers item 1's leading risk (a package byte-perfect against its
+and `workspace-exporter`, `.docx` and `.pptx`. Every one opened
+with **no repair prompt**. ★★★ **THE READER IS RECORDED ONLY FOR THE TWO `.docx`** — Word and
+LibreOffice Writer. The two `.pptx` were opened and reported working, but nobody recorded WHICH
+application opened them. This paragraph read "all four … in **Word and in LibreOffice**" until a
+cold review caught it: Word cannot open a `.pptx`, so the sentence was impossible on its face, and
+it was the REPORTER'S summary that invented the pair, not the human's report. Item 2 names
+PowerPoint specifically and stays OPEN. That answers item 1's leading risk (a package byte-perfect against its
 own spec reading and still rejected over a relationship or content-type detail no substring
 assertion looks at) for the DOCX and PPTX writers as they stand today, including the newly added
 `<w:hyperlink>`, the `<w:style w:type="character">` in `styles.xml`, and the per-slide
@@ -17180,8 +17196,9 @@ real truecolour PNG, so an image was present in two of the four packages — but
 check render size, order, or the paragraph split around it, and a reader reporting "working" about
 links has said nothing about any of that. Items **3 (PDF through the print dialog)**, **4
 (over-budget placeholder)**, **5 (dangling asset)**, **6 (WebP in a perpetual Word)** and **7 (deck
-length)** were not exercised at all, and items 1-2 are discharged only for ACCEPTANCE, not for
-fidelity. Recording a link pass as an image pass would retire this entry while leaving the defect
+length)** were not exercised at all; item **1** is discharged only for ACCEPTANCE, not for
+fidelity; and item **2** is not discharged at all, because it names PowerPoint and no reader was
+recorded for either deck. Recording a link pass as an image pass would retire this entry while leaving the defect
 class it was filed for completely unverified — which is worse than leaving it open, because the next
 reader would stop looking.
 

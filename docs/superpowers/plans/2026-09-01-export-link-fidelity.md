@@ -762,6 +762,8 @@ Add to `export-sections.ts` a projection that parses the cell's `html`, walks it
 
 `export-xlsx.ts` (the shared-string cell), `export-pptx.ts` (both row values and the trailing columns), and `doc-render-pptx.ts`'s table path swap `cellText` for `cellTextWithLinks`. The whitespace collapse in the PPTX path stays where it is, applied after.
 
+> ★ **SUPERSEDED IN PART 2026-09-01**, same as the spec this plan was written from: `export-pptx.ts` never stayed in that list. A manual pass found its row slides emitting dead link text, and it was wired to real per-slide `<a:hlinkClick>` relationships instead (§330). Left unedited above as a dated record of intent — the banner is the correction, not a rewrite.
+
 - [ ] **Step 5: Run to verify it passes**
 
 ```bash
