@@ -178,6 +178,67 @@ describe("useFocusTrap", () => {
     trap.unmount();
   });
 
+  // ★★★ THE STATE THAT SEPARATES MEMBERSHIP FROM CONTAINMENT, and the only
+  // test in this file that can see it. `Node.contains` is REFLEXIVE, so a
+  // container focused for AT reads as INSIDE itself and a
+  // `!container.contains(activeEl)` term stays FALSE — the trap then matches
+  // neither edge, declines, and Tab walks out of the surface (§8). That is
+  // exactly the state `tour-overlay` is in on open: it passes `cardRef` as
+  // BOTH the container and `initialFocusRef`, so focus lands on the card.
+  // The test above focuses a node OUTSIDE the container, which a containment
+  // term catches just as well, so it is blind to the downgrade.
+  it("wraps a Tab pressed while focus sits on the container itself", () => {
+    resetDismissalStack();
+    const { container, buttons } = buildContainer();
+    // `tabIndex = -1` is what makes the container focusable without being a tab
+    // stop — the tour card's own shape. It is a non-member twice over:
+    // `focusables()` returns DESCENDANTS only, and `FOCUSABLE_SELECTOR`
+    // excludes `[tabindex="-1"]` anyway.
+    container.tabIndex = -1;
+    const ref = { current: container as HTMLElement };
+    const trap = renderHook(() => useFocusTrap(ref, true));
+
+    container.focus();
+    expect(document.activeElement).toBe(container);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(document.activeElement).toBe(buttons[0]);
+
+    container.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true }),
+    );
+    expect(document.activeElement).toBe(buttons[2]);
+
+    trap.unmount();
+  });
+
+  // ★★ The Tab branch bails on `e.defaultPrevented`, mirroring
+  // `popover-panel.tsx`: a consumer that handles Tab itself — closing and
+  // re-focusing its trigger, as `sidebar-nav.tsx`'s `onMenuKeyDown` does — must
+  // not be overridden from inside the trap. The stand-in consumer listener sits
+  // on the CONTAINER, below the hook's own `document` listener in the bubble
+  // path, so it runs first; a React `onKeyDown` gets the same ordering
+  // (measured — see the hook's comment on this term).
+  it("stands down on Tab once a consumer's own handler has called preventDefault", () => {
+    resetDismissalStack();
+    const { container, buttons } = buildContainer();
+    const ref = { current: container as HTMLElement };
+    const trap = renderHook(() => useFocusTrap(ref, true));
+
+    container.addEventListener("keydown", (e) => e.preventDefault());
+
+    // From the LAST element on purpose: that is an EDGE, so an ungated trap
+    // would preventDefault and wrap to the first. Staying put is the whole
+    // observable.
+    buttons[2].focus();
+    buttons[2].dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
+    );
+    expect(document.activeElement).toBe(buttons[2]);
+
+    trap.unmount();
+  });
+
   // ★★★ THIS is the only shape that can see the `isTopmostOfKind` gate. An
   // assertion on FINAL focus cannot: both traps are `document` keydown
   // listeners firing in REGISTRATION order, so whichever surface opened last

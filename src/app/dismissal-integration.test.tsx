@@ -214,8 +214,24 @@ describe("Escape dismissal across surfaces", () => {
     // membership branch pulls the keypress in: focus is on a node that is not
     // one of the tour card's focusables, so it yanks to the card's first
     // control. `defaultPrevented` still true, focus still inside a trap, and
-    // it left neither surface for the page behind. Deleting either the tour's
-    // trap or the Modal's stand-down puts focus back in the page.
+    // it left neither surface for the page behind.
+    //
+    // ★★★ WHAT THIS TEST CAN AND CANNOT SEE, and an earlier revision of this
+    // comment claimed the wider half. It catches the TOUR's trap and nothing
+    // else. Measured 2026-09-01 by mutation, not reasoned:
+    //  · `active` gated off in `tour-overlay.tsx`'s `useFocusTrap` call →
+    //    1 failed / 10 passed in this file, THIS test, on the final focus
+    //    assertion (focus lands on "modal first"). `defaultPrevented` is still
+    //    true there, so that assertion is blind to this mutant too.
+    //  · `modal.tsx`'s `if (!isTopmostOfKind(token, "modal")) return;`
+    //    neutralised → THIS TEST STAYS GREEN; 3 failed / 8 passed, all three in
+    //    "Tab containment across a portaled popover" below.
+    // The Modal's handler is registered first, so ungated it preventDefaults
+    // and focuses "modal first"; the tour's trap then runs, sees an
+    // activeElement that is not one of its own focusables, and yanks to Skip.
+    // The final assertion is satisfied by the tour CORRECTING the Modal, so it
+    // cannot tell a stood-down Modal from an ungated one. The Modal's
+    // stand-down is covered by those three popover tests, not by this one.
     //
     // ★ Production cannot reach this screen — the tour and the empty-state
     // modal are mutually exclusive `if/else` branches in `task-manager.tsx`.
