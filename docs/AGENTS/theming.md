@@ -264,6 +264,20 @@
   hardcoding the raw hex ships a fallback that fails the floor the runtime meets. All three fallbacks
   and the runtime derivation are pinned equivalent by `scheme-state-contrast.test.ts`, which also asserts
   the 3:1 floor per token across every built-in combo.
+  ★★★ THAT FLOOR IS A PROPERTY OF THE THREE TOKENS, AND SO OF `ToggleButton`'S OWN THREE ACCENTS — IT IS
+  NOT A PROPERTY OF EVERY CONTROL THAT RENDERS ONE, and stating it unqualified is the over-claim that had
+  to be corrected in `AGENTS.md`. The primitive APPENDS its `className` prop after its own classes, so a
+  consumer can override the border, and one deliberately does: `HEALTH_CHIP_ACTIVE_CLASS`
+  (`task-health-chip-style.ts`) pins a raw `--rag-red` / `--rag-amber` / `--rag-green` border with a
+  trailing `!` on the task editor's three health chips. That is a DECISION, not an oversight — on a health
+  chip the hue IS which health was picked and three chips sit in a row, so a uniform derived border would
+  delete the only thing telling them apart, trading a 1.4.11 problem for a worse 1.4.1 one. Where a
+  consumer overrides like this, the non-colour `data-pressed-marker` carries the state instead, which is
+  what makes it a RESIDUAL rather than a conformance gap. `docs/open-followups.md` §335 owns the decision
+  and the per-accent measurements; they are deliberately NOT restated here, so read them there.
+  ★★ NOTHING MACHINE-CHECKS ANY OF THIS. jsdom applies no stylesheet, so no unit test can observe which
+  border wins the cascade — a NEW hue override shipped with no marker behind it would show nothing red in
+  any gate. Adding one is an eye-verify plus a §335 update, not a test.
   ★★ All three are in `DERIVED_TOKENS`, so an IMPORTED theme is covered for free — deriving reaches every
   scheme, where editing the built-in maps would have reached only the built-ins. ★ The corollary is the
   base-wins rule above, not an exception to it: a theme that explicitly PINS one keeps its pin and is
@@ -274,14 +288,26 @@
   own `dark:border-*` variants were DELETED rather than remapped for this reason, and
   `toggle-button.test.tsx` pins their absence.
 - **★★ Non-colour state markers on the two toggle primitives (SC 1.4.1).** The state-border tokens above
-  close CONTRAST; they do NOT close colour-as-sole-cue, which is a separate guarantee. `ToggleButton`
+  close CONTRAST for the primitive's own three accents — never for a consumer that overrides the border
+  (§335, above); they do NOT close colour-as-sole-cue either way, which is a separate guarantee. `ToggleButton`
   renders a trailing `data-pressed-marker` check glyph and `SegmentedControl` a `data-selected-marker`
   one; both are `aria-hidden` (`aria-pressed`/`aria-checked` already tell AT) and both are ALWAYS
   mounted, merely `invisible` when off, so the control keeps ONE width.
   ★★ `SegmentedControl`'s marker is measured against the SELECTED SEGMENT'S OWN FILL, NOT the track:
   the glyph is drawn ON the selected segment, so the track is the wrong reference. `--segment-active-fg`
-  scores only 1.01-1.14 against the TRACK in the light schemes — a number that reads as a failure and
-  sends someone re-tinting a control that was already correct. `scheme-state-contrast.test.ts` asserts
+  scores only 1.12 / 1.14 / 1.01 against the TRACK in harbor-light / meridian-light / umber-light — a
+  number that reads as a failure and sends someone re-tinting a control that was already correct.
+  ★★★ THAT RANGE IS NOT "the light schemes", and reading it as one skips the scheme a fresh install
+  runs. Those three pair a DARK `--segment-active-bg` with near-white text, which is why the text all
+  but vanishes against a light track. **beacon-light INVERTS the pair** — a white fill with dark-green
+  text — and scores **4.76** against the same track. Beacon is a light scheme AND it is
+  `DEFAULT_SCHEME_ID`, so an over-general "1.01-1.14 in the light schemes" excludes the default outright
+  (§101's amended heading gets this right: "the three DARK schemes AND in beacon-light"). The dark
+  schemes land at 13.10-14.12. ★ Beacon's 4.76 is INCIDENTAL, not a design property — it does not make
+  the track a valid reference for any scheme, and the assertion still measures against the fill.
+  ★ Re-measure rather than trusting these figures: map `BUILTIN_SCHEMES` through `resolveSchemeColors`
+  the way `scheme-state-contrast.test.ts` builds its combos, then ratio `--segment-active-fg` against
+  `--segment-track-bg`. `scheme-state-contrast.test.ts` asserts
   it against `--segment-active-bg` at 3:1 for all seven combos and carries that reasoning beside the
   assertion.
   ★★ `ToggleButton` now carries THREE accents (`dark-blue` default · `pink` · `green`), a `size` of
@@ -297,7 +323,10 @@
   marker was tried on the RACI chips and REVERTED by user decision: a 20px circle cannot hold a 14px
   marker plus its gap plus the LETTER, so it forced the chips into ~48x26px stadium pills and grew that
   unclamped popover by ~116px; those chips ring instead
-  (`SELECTED_RING`, ~16px). Three further `aria-pressed` sites stayed exempt on their own measurements —
+  (`SELECTED_RING`, ~20px — COUNT THE CHILDREN, NOT THE ROLES: `RACI_ROLES` is four chips PLUS the
+  trailing clear button, so five children make FOUR gaps, and `gap-1`→`gap-2` costs 4px × 4 while
+  `p-1`→`p-1.5` costs 2px × 2 edges. An earlier revision said ~16px, having counted three gaps).
+  Three further `aria-pressed` sites stayed exempt on their own measurements —
   all three, and what exempts each, are in `docs/open-followups.md` §55.
 - **★★ Reduced motion (`globals.css` `@media (prefers-reduced-motion: reduce)`).** A single block, and it
   is deliberately NARROW and deliberately ASYMMETRIC: `.animate-pulse` is stopped outright

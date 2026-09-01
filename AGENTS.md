@@ -586,9 +586,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   Those were already conformant. The DARK maps measured 1.22 / 1.16 / 1.03:1 — that was the real
   failure, and not merely a colour-perception one. ★★ READ THOSE FIGURES AS THE RECORD OF WHAT §56
   MEASURED, NOT A LIVE DEFECT: §55 · §56 · §101 · §325 are all CLOSED. The CONTRAST half (SC 1.4.11) is
-  now STRUCTURAL — the pressed border rides one of THREE derived state-border tokens, each nudged to
+  STRUCTURAL FOR THE PRIMITIVE'S OWN THREE ACCENTS — each rides a derived state-border token nudged to
   clear 3:1 against `--line`, which covers a user's imported scheme for free where editing the built-in
-  maps would not. ★★★ A `dark:border-*` variant on this primitive OR on a consumer SILENTLY UNDOES
+  maps would not. ★★★ THAT IS A PROPERTY OF THE ACCENTS, NOT OF EVERY `ToggleButton`: `className` is
+  APPENDED to the primitive's own classes, so a consumer may deliberately override the border with a
+  trailing `!` and some do — `task-health-chip-style.ts` pins the RAG hue on the health chips, because
+  there the hue IS which health was picked. Where a consumer overrides, the derived floor does not
+  apply and the non-colour marker below is what carries the state (§335 records the measurement).
+  ★★★ A `dark:border-*` variant on this primitive OR on a consumer SILENTLY UNDOES
   THAT: `scheme-apply.ts` already sets the property per active scheme AND mode, so a `dark:` override
   re-pins the raw accent in exactly the schemes that failed. The derivations, the per-accent
   measurements, the three accents, the `card` size and the `pressHandlers` bag are all in

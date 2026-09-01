@@ -559,6 +559,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | open |
 | [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard) | The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | open |
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp) | `RaciChipPicker`'s popover is positioned with no right-edge clamp | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | open |
+| [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -3829,10 +3830,17 @@ incidental refactor:**
   dark-blue. See §56's closure for why that derivation is the MIRROR IMAGE of the dark-blue one.
 - `pressHandlers` — `dictation-mic` is PUSH-TO-TALK: it has no `onClick` at all, and its keydown
   calls `preventDefault`, which suppresses the synthetic click. The bag is a narrow
-  `Pick<ComponentProps<"button">, …>` over six pointer/keyboard handlers, spread BEFORE the
-  primitive's own attributes so that no call site can overwrite `aria-pressed`, `aria-label` or
-  `type`. That ordering is the load-bearing part; reversing it would let a consumer silently break
-  the very state this entry is about.
+  `Pick<ComponentProps<"button">, …>` over six pointer/keyboard handlers. ★★ TWO mechanisms guard it
+  and they close DIFFERENT threats — naming only one leaves the other looking optional. (1) The
+  `Pick<>` stops a FRESH OBJECT LITERAL smuggling in an a11y attribute: TypeScript's excess-property
+  check rejects `pressHandlers={{onKeyDown: f, type: "submit"}}` written inline. (2) It does NOT stop
+  a PRE-BUILT object, because excess-property checking applies to literals ONLY — a
+  `const bag = {onPointerDown: f, type: "submit" as const}` typechecks and arrives at the spread
+  intact. What stops that one is JSX later-wins ORDERING: every attribute the primitive owns is
+  written AFTER `{...pressHandlers}`, so the bag cannot reach it. `type="button"` sat BEFORE the
+  spread and was the sole unprotected attribute — a leaky bag would have turned every toggle inside a
+  `<form>` into a submit button. Moved below the spread in this round and pinned by
+  `toggle-button.test.tsx` ("keeps type=button even when the pressHandlers bag carries a type").
 
 **RACI took a different fix, and it is the interesting one.** `raci-chip-picker.tsx`'s chips are 20px
 circles holding a single letter. A `ToggleButton` migration WAS implemented and measured first
@@ -3840,8 +3848,10 @@ circles holding a single letter. A `ToggleButton` migration WAS implemented and 
 chips into ~48×26px stadium pills and grew the popover by ~116px. It was REVERTED (`047078f7`) by user
 decision and replaced (`af961732`) by a neutral ring —
 `ring-2 ring-[var(--foreground)] ring-offset-2 ring-offset-[var(--surface)]` — applied at the popover
-call site only, with the container's `gap-1`→`gap-2` and `p-1`→`p-1.5` for clearance, costing ~16px of
-popover width instead of ~116px.
+call site only, with the container's `gap-1`→`gap-2` and `p-1`→`p-1.5` for clearance, costing ~20px of
+popover width instead of ~116px. ★ COUNT THE CHILDREN, NOT THE ROLES — the row holds FIVE
+(`RACI_ROLES` is four, plus the clear chip), so it is FOUR gaps: 4px × 4 gaps + 2px × 2 padding edges
+= ~20px. This said ~16px until 2026-09-01, having counted the gaps BETWEEN the four role chips.
 
 ★★★ **THE RING'S COLOUR IS THE LOAD-BEARING PART, AND THE OBVIOUS CHOICE IS THE BROKEN ONE.** A ring
 in the chip's OWN role hue would be exactly as invisible as the fill it supplements — R's token IS
@@ -7298,9 +7308,22 @@ width and the control does not reflow as the selection moves — the same reason
 pressed marker follows.
 
 ★★ **The marker is measured against the SEGMENT'S OWN FILL, not against the track.** That is not a
-detail: the glyph is drawn ON the selected segment, so the track is the wrong reference, and
-`--segment-active-fg` scores 1.01-1.14 against the TRACK in the light schemes — a number that would
-have read as a failure and sent someone re-tinting a control that was already correct.
+detail: the glyph is drawn ON the selected segment, so the track is the wrong reference. Against the
+TRACK, `--segment-active-fg` scores only **1.12 harbor-light / 1.14 meridian-light / 1.01 umber-light**
+— a number that would have read as a failure and sent someone re-tinting a control that was already
+correct.
+★★★ **THOSE THREE ARE NOT "the light schemes", and this entry's own body said they were until
+2026-09-01 — contradicting the heading two screens up.** The three pair a DARK `--segment-active-bg`
+with near-white text, which is why the text all but vanishes against a light track. **beacon-light
+INVERTS that pairing** — a white fill with dark-green text — and scores **4.76** against the same
+track. Beacon is a light scheme AND it is `DEFAULT_SCHEME_ID`, so an over-general "1.01-1.14 in the
+light schemes" excludes the scheme a fresh install runs; the amended heading gets this right ("the
+three DARK schemes AND in beacon-light"). The dark schemes land at 13.10-14.12.
+★ Beacon's 4.76 is INCIDENTAL, not a design property: it does not make the track a valid reference for
+any scheme, and the assertion still measures against the fill.
+★ Re-measure rather than trusting these figures — build the combos the way `scheme-state-contrast.test.ts`
+does (map `BUILTIN_SCHEMES` through `resolveSchemeColors`, every mode each scheme supports, beacon
+light-only), then ratio `--segment-active-fg` against `--segment-track-bg`.
 `scheme-state-contrast.test.ts` asserts `--segment-active-fg` against `--segment-active-bg` at 3:1 for
 all seven combos, and carries that reasoning in a comment beside the assertion.
 
@@ -25564,10 +25587,17 @@ inventory with:
 grep -rn "text-ui-pink[^-]" src/app --include=*.tsx | grep -v "\.test\.tsx:"
 ```
 
-★ **That grep returns 13, not 12.** One hit is a COMMENT in `type-to-confirm-dialog.tsx` quoting the
-token in order to explain why the STRONG variant is used there — i.e. the detector matches the note
-that documents the fix. This register has been bitten by a self-matching grep before; the count is 13
-lines, 12 candidate sites, 10 files.
+★ **AT FILING that grep returned 13, not 12** — a PRE-FIX reading, kept here as the record of what the
+sweep saw, NOT as today's. One hit was already a COMMENT in `type-to-confirm-dialog.tsx` quoting the
+token in order to explain why the STRONG variant is used there — i.e. the detector matched the note
+that documents the fix. So the filed reading was 13 lines, 12 candidate sites, 10 files.
+
+★★ **Re-run 2026-09-01 after the fix: the grep returns ONE line, and it is that same self-matching
+comment** — the residue this entry predicted, and the figure the Status line and the closure section
+below both carry. The lesson survives the closure and is why the paragraph above is not deleted: a
+grep written to find a token also finds the prose explaining the token, so a detector's count is the
+count of LINES, never of sites, and this register has been bitten by that before. Anyone reading the
+reproduce block first must not take the 13 for a live number.
 
 **What happens.** `--ui-pink` is the FILL/BORDER token. `--ui-pink-strong` is derived as
 `nudgeToAa(--ui-pink, surface)` and is the one intended for text. Used raw as small text on
@@ -25869,15 +25899,36 @@ actually in use:
 - `.animate-spin` — **slowed to 3s**, deliberately NOT stopped. Three call sites: `spinner.tsx`,
   `budget-panel.tsx` (FX-rate fetch) and `tasks-section.tsx` (Jira sync).
 
-★★★ **THE SPLIT IS THE FINDING, NOT AN IMPLEMENTATION DETAIL.** On budget-panel and tasks-section the
-spinner is an `aria-hidden` icon swapped into an icon-only button: the rotation is the ENTIRE
-"in progress" cue, with no marker, no text and no layout change behind it. `animation: none` there
-would be a conformant-looking rule that DELETES a state cue — precisely the mistake the rest of this
-slice was ordered to avoid, and the reason the voice button's pulse could only be stilled AFTER it had
-been given a shape marker (before that, stilling it would have left a 1.21-1.42:1 tint and nothing
-else). 3s removes the fast, attention-grabbing rotation the preference is actually about while leaving
-the control legibly busy. Give a spinner a non-motion busy cue and it can join the stopped block; until
-then, do not tidy the two together.
+★★★ **AMENDED 2026-09-01: THE SPLIT WAS FILED AS "THE FINDING" ON A PREMISE BOTH OF ITS CITED SITES
+REFUTE.** The filed text — and the matching comment in `globals.css`, corrected in the same commit —
+said that on budget-panel and tasks-section "the spinner is an `aria-hidden` icon swapped into an
+icon-only button: the rotation is the ENTIRE 'in progress' cue, with no marker, no text and no layout
+change behind it". Read the two sites and every clause of that falls:
+
+- **budget-panel** renders `ArrowPathIcon` beside `t(lang, "budgetFxRefresh")` inside a `Button`, and
+  passes `disabled={props.fxLoading}` — `Button`'s base class supplies `disabled:cursor-not-allowed
+  disabled:opacity-50`, so while busy the control is inoperable and dimmed as well as spinning.
+- **tasks-section** does the same inline and goes further: its label SWAPS to `jiraSyncing` while the
+  sync runs, so the busy state is stated in words.
+- the three `Spinner` consumers (`actions-panel`, `step0-import-panel`, `timelog-panel`) each mount it
+  inside a `role="status" aria-live="polite"` card next to a text label — the component's own
+  docstring requires exactly that, since "a lone spinning glyph carries no meaning".
+
+So there is NO `animate-spin` site in the app today at which `animation: none` would delete the only
+cue, and the asymmetry is NOT forced by the sole-cue rule the `animate-pulse` half rests on.
+
+★★ **The 3s is still defensible, on a narrower and honest premise: it is a conservative default on a
+GLOBAL utility class.** `animate-spin` is reachable by any future consumer, and the next one need not
+carry a text cue; a rule stopping it would silently cover that site too. What is NOT true is that
+today's five sites need it. Stopping the spin outright is a live option, not a rejected one — the
+reason to decide rather than tidy is that whoever tidies will find the old justification and stop.
+
+★★ Reproduce the refutation without trusting this entry — each grep lands ON the label, so none of
+them rots on an insertion:
+`grep -n -B 8 budgetFxRefresh src/app/budget-panel.tsx` ·
+`grep -n -B 12 jiraSyncing src/app/tasks-section.tsx` ·
+`grep -rn -A 2 "<Spinner" src/app --include=*.tsx | grep -v "\.test\."` for the adjacent label, with
+`grep -rn -B 6 "<Spinner" src/app --include=*.tsx | grep -v "\.test\."` for the `role="status"` card.
 
 ★★ **The plan expected TWO animating call sites; there are FIVE.** The set was enumerated by grep
 rather than assumed, which is the only reason the three spinners were considered at all. Anything
@@ -25941,18 +25992,30 @@ has put a trigger near the viewport's right edge and watched the popover overflo
 while fixing §55's RACI half. Reproduce with
 `grep -n "getBoundingClientRect\|setPos\|fixed z-" src/app/raci-chip-picker.tsx`.
 
-**PRE-EXISTING, WIDENED BY ~16px.** The popover is `fixed z-[100] flex w-max`, positioned inline at the
+**PRE-EXISTING, WIDENED BY ~20px.** The popover is `fixed z-[100] flex w-max`, positioned inline at the
 trigger's own `left` (`setPos` stores `r.bottom + 4` and `r.left` from one
 `getBoundingClientRect`), with no comparison against `window.innerWidth`, no clamp and no flip. A
 trigger near the right edge of a wide RACI matrix therefore renders a popover that runs off-screen, and
-`w-max` means it never wraps to compensate. The 2026-09-01 ring fix widened it by about 16px — the
-container went `gap-1`→`gap-2` (three gaps) and `p-1`→`p-1.5` (two edges), sized for the ring's 4px
-overhang — so a trigger that previously just fitted may now just not. The measurement is in the
-component's own comment beside the class, not derived here.
+`w-max` means it never wraps to compensate. The 2026-09-01 ring fix widened it by about 20px — the
+container went `gap-1`→`gap-2` (**FOUR** gaps) and `p-1`→`p-1.5` (two edges), sized for the ring's 4px
+overhang, so 4px × 4 + 2px × 2 — and a trigger that previously just fitted may now just not. The
+measurement is in the component's own comment beside the class, not derived here.
+★★ **This entry said ~16px and "three gaps" until 2026-09-01, four lines above prose of its own that
+gives the right count** ("four 20px chips plus a clear button", below). `RACI_ROLES` is four members
+and the row also renders the clear chip, so FIVE children make FOUR gaps. COUNT THE CHILDREN, NOT THE
+ROLES — verify with `grep -n "RACI_ROLES = " src/app/types.ts` and by reading the `flex` container's
+children in `raci-chip-picker.tsx`.
 
 ★ **Scale makes this less alarming than it sounds, which is why it is filed rather than fixed.** The
-popover holds four 20px chips plus a clear button, so it is narrow in absolute terms; ~16px on a
+popover holds four 20px chips plus a clear button, so it is narrow in absolute terms; ~20px on a
 control that size moves the overflow threshold only within a narrow band of trigger positions.
+★★ **That triage was RE-CHECKED against the corrected figure and still holds — which was not
+automatic, since 20px is 25% more than the 16px this paragraph originally reasoned from.** `CHIP_BASE`
+is `h-5 w-5` for all five chips and `SELECTED_RING` is a `ring-*` box-shadow, which adds no layout, so
+the row measures 6×2 + 5×20 + 4×8 = **144px** today against 4×2 + 5×20 + 4×4 = **124px** before. The
+widening is ~16% of the pre-fix width, not the ~13% the old number implied. It is that RATIO the
+"narrow band" conclusion rests on, not the absolute delta — so re-derive it, rather than the delta
+alone, if either the chip size or the gap ever changes.
 
 ★★ **`PopoverPanel` — the shared popover primitive — ALREADY SOLVES THIS, and that is the real finding.**
 It runs a post-paint clamp effect that pulls the panel into the viewport on both axes, and closes on a
@@ -25966,3 +26029,76 @@ view of it, and `HASH_VIEW` deep-links only Next actions and Insights, so nothin
 surface has therefore never been scanned — and axe would not flag an off-screen popover in any case.
 jsdom has no layout, so its unit tests cannot see this either. Eye-verify is the only detector, in
 either layer, permanently.
+
+---
+
+## 335. The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes
+
+**Status:** OPEN, filed 2026-09-01 in the §55 fix round, from a cold docs review that caught
+`AGENTS.md` claiming the SC 1.4.11 floor was structural for every `ToggleButton`. The contrast
+figures below were recomputed 2026-09-01 straight from `builtin-schemes.ts` and match the ones
+`task-form-fields.tsx` already carries; the DEFECT is **never machine-verified** and cannot be —
+jsdom applies no stylesheet, so nothing in the unit suite can observe which border wins the cascade.
+Enumerate the call sites with `grep -n "border-\[var(--rag" src/app/task-health-chip-style.ts`.
+
+**What happens.** `ToggleButton`'s own three accents ride derived `--control-state-border*` tokens,
+each nudged to clear 3:1 against `--line` (§56). `className` is APPENDED to the primitive's classes,
+so a consumer can override that border, and `task-health-chip-style.ts` deliberately does:
+`HEALTH_CHIP_ACTIVE_CLASS` pins `border-[var(--rag-red)]!` / `--rag-amber` / `--rag-green` with a
+trailing `!` on all three health chips in the task editor. Raw against `--line`:
+
+| accent | four LIGHT schemes | three DARK schemes |
+|---|---|---|
+| `--rag-red` | 3.08–3.76 — clears | 4.37–4.44 — clears |
+| `--rag-amber` | **1.34–2.34 — FAILS** | 6.36–6.90 — clears |
+| `--rag-green` | **2.47–2.96 — FAILS** | 5.54–5.89 — clears |
+
+Worst case is beacon-light — `DEFAULT_SCHEME_ID`, the scheme a fresh install runs — at 1.34.
+
+**Why the hue was kept, and this is a decision rather than an oversight.** On a health chip the hue
+IS the semantic: it says WHICH health was picked, and there are three chips in a row. Swapping in the
+derived dark-blue border would make all three borders identical and delete the only thing
+distinguishing them, trading a 1.4.11 problem for a worse 1.4.1 one. The trailing `!` exists so the
+cascade cannot take the hue back — `task-health-chip-style.ts`'s own header explains that half.
+
+**Why it is not a live 1.4.11 failure, and why it is still filed.** SC 1.4.11 wants a 3:1 boundary
+for a control's STATE, and the pressed chip does not rest on its border: it also carries the
+primitive's `data-pressed-marker` check glyph, present in both states and merely `invisible` when
+off. So the non-colour marker carries the state and the entry is a RESIDUAL — a documented hole in
+the "structural" story, not a conformance gap. It is filed because `AGENTS.md` is always loaded and
+told every future session the floor holds for `ToggleButton` generally; a reader who trusts that
+sentence would ship a NEW hue override with no marker behind it and see nothing red.
+
+**To close:** either derive a `--control-state-border-rag-*` family the same way §56 derived the
+other three (nudging each RAG hue to 3:1 against `--line` while keeping it recognisably red/amber/
+green — the derivation already splits by mode for green, so it is the established shape), or record
+the decision NOT to and give the residual a permanent home in `docs/AGENTS/theming.md` instead.
+
+★★ **A ratio test WAS considered and deliberately NOT written — read the Status line's
+`never machine-verified` as a decision, not an omission.** An assertion that `--rag-amber`/`--rag-green`
+measure UNDER 3:1 against `--line` fails three ways. (1) It is **silent on degradation and red only on
+improvement**: amber worsening 1.34 → 1.0 is still under 3, so it stays green, while amber CLEARING
+3:1 — one of this entry's own closure paths — turns it red. That is strictly worse than no test.
+(2) It would **survive this entry's closure while pinning something no longer load-bearing**: the
+primary "To close" adds NEW `--control-state-border-rag-*` tokens and leaves the raw `--rag-*` values
+untouched, so the test stays green through the fix, still named after §335 and still commented as
+characterising a residual that no longer exists. (3) It cannot see the harm this entry actually names
+— a new hue override shipped with no marker behind it — because a ratio test over palette constants
+cannot see a new CALL SITE.
+
+★ **The tempting alternative was declined too:** a call-site invariant ("any consumer overriding the
+state border with a trailing `!` must also render the non-colour marker"). `ToggleButton` renders its
+`CheckIcon` UNCONDITIONALLY — only the `data-pressed-marker` value and an `invisible` class change with
+`pressed` — so an overriding consumer gets the marker for free and the assertion is near-tautological:
+the same guards-nothing trap, one layer down. The genuine exposure is a HAND-ROLLED `aria-pressed`
+control, which §55's residue grep already covers. This becomes worth writing **only if the marker ever
+stops being unconditional** — verify with `grep -n -B 2 "data-pressed-marker" src/app/toggle-button.tsx`
+before assuming it still is.
+
+★★ **What WOULD work, so this is not a dead end — and it is what makes the three notes ONE decision
+rather than three separate gaps.** Both tests above are declined for reasons of their own, but they
+share a root: neither can reach the actual claim, which is about which border WINS THE CASCADE when
+the consumer's `!` meets the primitive's own class. jsdom applies no stylesheet, so no unit test in
+any shape can answer that. A witness therefore has to be a BROWSER-CONTEXT probe in the eye-verify
+spec's shape — computed styles against a real stylesheet — which is the limit the Status line's
+`never machine-verified` is already naming.
