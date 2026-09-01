@@ -242,7 +242,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§5](#5-no-list-virtualization-anywhere-audit-14--parked-own-batch) | No list virtualization anywhere (audit #14) — parked, own batch | audit (2026-07) | L | open |
 | [§6](#6-undo-residuals-audit-11--optional-unscheduled) | Undo residuals (audit #11) — optional, unscheduled | audit (2026-07) | M each | open |
 | [§7](#7-surviving-dedup-seams-from-the-2026-06-refactor-review) | Surviving dedup seams from the 2026-06 refactor review | refactor review | S–M | open |
-| [§8](#8-tour-overlay-claims-aria-modal-with-no-tab-trap--open-unguarded) | `tour-overlay` claims `aria-modal` with no Tab trap — open, unguarded | 0.203.0 (Czerneda) | S | open |
+| [§8](#8-tour-overlay-claims-aria-modal-with-no-tab-trap--closed-2026-09-01) | `tour-overlay` claims `aria-modal` with no Tab trap — CLOSED 2026-09-01 | 0.203.0 (Czerneda) | S | **CLOSED** 2026-09-01 |
 | [§9](#9-aria-sort-inconsistent-across-the-four-raw-th-tables--closed-2026-08-23) | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | **CLOSED** 2026-08-23 |
 | [§10](#10-keyboard-move-has-no-preview--band-and-day-grid-both--open) | Keyboard move has no preview — band and day grid both — open | R5 (0.202.2) | M | open |
 | [§11](#11-instanceof-domexception-abort-check-misreports-a-user-cancel--closed-in-02111) | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED** in 0.211.1 |
@@ -544,7 +544,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide) | `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide | — | — | open |
 | [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31 |
-| [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--open) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack — open | found 2026-08-31 while closing §100 | S | open |
+| [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--closed-2026-09-01) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack — CLOSED 2026-09-01 | found 2026-08-31 while closing §100 | S | **CLOSED** 2026-09-01 |
 | [§319](#319-this-registers-own-index-rebuild-recipe-silently-strips-hand-written-state-cells-and-claims-to-be-idempotent--open) | This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent — open | found 2026-08-31 while filing §318 | S | open |
 | [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | open |
 | [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | open |
@@ -894,25 +894,59 @@ sites, `.tsx`) is the largest of the three.
 
 ---
 
-## 8. `tour-overlay` claims `aria-modal` with no Tab trap — open, unguarded
+## 8. `tour-overlay` claims `aria-modal` with no Tab trap — CLOSED 2026-09-01
 
-**Status:** open — an a11y gap, a dialog role with no Tab trap. Reproduced 2026-08-28 by `grep -n "aria-modal" src/app/tour-overlay.tsx`.
+**Status:** CLOSED 2026-09-01 by `25b69812`. The FIRST of the two options below was taken:
+`tour-overlay` swapped `useDismissable` for `useFocusTrap`, so the trap and the `kind: "modal"` tag
+arrive from one hook and cannot disagree, and the overlay gains focus restoration on close that
+nothing in its chain had ever recorded. Pinned by two new tests in `tour-overlay.test.tsx` —
+"Shift+Tab from the focused card wraps to the LAST in-card control (§8)" and "Tab from the focused
+card wraps to the FIRST in-card control" — plus a rewritten `dismissal-integration.test.tsx` guard,
+"hands Tab to the tour overlay's own trap when it is layered above a modal". Verified with
+`npx vitest run --maxWorkers=1 src/app/tour-overlay.test.tsx src/app/dismissal-integration.test.tsx`.
 
-**Where:** `tour-overlay.tsx` — `role="dialog"` + `aria-modal="true"` at `:96-97`; the file imports
-`useDismissable` (`:13`) and nothing else. There is no `useFocusTrap` import and never has been.
+★★★ **THE TERM THAT MADE IT WORK IS MEMBERSHIP, NOT CONTAINMENT, and the slice was nearly shipped
+believing containment covered it** — `Node.contains` is REFLEXIVE, so the `tabIndex={-1}` card the
+overlay focuses on open reports as INSIDE its own container. The measurement, the reason `modal.tsx`
+is NOT defective for carrying the containment spelling, and the bound on how much wider membership
+is, all live in ONE place: the `★★★ THE TEST IS MEMBERSHIP, NOT CONTAINMENT` block in
+`use-focus-trap.ts`. Read it there before copying either term across. ★ It is deliberately not
+restated here — this measurement had reached five near-identical copies across the docs and the
+source by the end of this slice, which is the restate-instead-of-link failure the doc-set rule in
+`AGENTS.md` exists to prevent.
+
+**Most of what follows is the PRE-FIX record**, kept because it is the argument for the pairing rule
+and for why the second option was rejected — but NOT all of it, and reading it as all history is how
+the live half gets skipped. Still current below: the ★★★ citation-removal block immediately after
+this line; the gate paragraph (no axe rule exists, and the tour is still outside `A11Y_VIEWS`, so
+the two new unit tests remain the only detector — do not delete them as redundant); and the note on
+`use-tour.ts`'s render-time auto-launch, which is still the one push site in the app that is not a
+user gesture.
+
+**Where:** `tour-overlay.tsx` — the card carries `role="dialog"` + `aria-modal="true"`, and the file
+imported `useDismissable` and nothing else; there was no `useFocusTrap` import until this fix.
+★★★ THE LINE NUMBERS THAT USED TO SIT IN THIS PARAGRAPH WERE REMOVED, NOT RENUMBERED, and the reason
+is the whole argument for citing symbols. The fix moved the file, and every one of them then pointed
+at something that CONTRADICTED the sentence carrying it: the cite for "imported `useDismissable`"
+landed on `import { useFocusTrap }`, the cite for `role="dialog"` landed on the backdrop `<div>`, and
+the cite for the `kind: "layer"` push landed inside the new comment that says the surface now
+contains Tab. `docs:claims:check` stayed green throughout — it ratchets on NEW citations and cannot
+see an old one turn into its own refutation. Reproduce today with
+`grep -n 'role="dialog"\|aria-modal\|useFocusTrap' src/app/tour-overlay.tsx`.
 
 Shift+Tab from the overlay's first button walks straight into the app behind the dimmed backdrop.
 The `aria-modal="true"` tells assistive tech a containment story the keyboard does not honour —
 WCAG 2.4.3 (focus order), and arguably 4.1.2 for the false state.
 
 **★ This is a STANDING GAP, not a regression, and 0.203.0 did not close it.** That release tagged
-the overlay `kind: "layer"` in the dismissal stack (`:72`), with the reasoning inline at `:58-62`:
+the overlay `kind: "layer"` in the dismissal stack, with the reasoning inline above that call:
 `kind` means "traps Tab", and tagging a trap-less surface `modal` had taken
 `isTopmostOfKind(…, "modal")` away from any real `Modal` open at the same time, so that Modal
 stopped trapping Tab and nothing took over. The `layer` tag fixed **that** — it stops the tour
-breaking OTHER modals. It does nothing about the tour's own missing trap. Do not read AGENTS.md's
-dismissal-stack section as saying the tour is a11y-clean; it says the opposite, in the paragraph
-after the fix.
+breaking OTHER modals. It did nothing about the tour's own missing trap. ★ That last sentence used
+to end "do not read AGENTS.md's dismissal-stack section as saying the tour is a11y-clean; it says the
+opposite" — BOTH halves are stale now. The section moved to `docs/AGENTS/ui-shell.md` when AGENTS.md
+was split, and its "STANDING GAP" paragraph was rewritten by this fix.
 
 **Two ways to close it, and they are not equivalent:**
 
@@ -926,9 +960,13 @@ after the fix.
   coaching overlay that deliberately spotlights the app behind it — the tour *wants* you looking at
   what is underneath.
 
-★ **Nothing will catch a regression here.** The tour is not in `A11Y_VIEWS`, and axe has no rule for
-"`aria-modal` without a focus trap" — it would pass the gate at 85/85 either way. Whichever fix
-lands needs its own unit test asserting the Tab/Shift+Tab boundary.
+★ **NO GATE WILL EVER CATCH A REGRESSION HERE, and that half of this paragraph is still true after
+the fix.** The tour is not in `A11Y_VIEWS`, and axe has no rule for "`aria-modal` without a focus
+trap" — it would pass either way. What HAS changed is the other half: this entry asked for a unit
+test asserting the Tab/Shift+Tab boundary and the fix ships two, named in the Status line above.
+They are the ONLY detector this surface will ever have; do not delete them as redundant with the
+`dismissal-integration.test.tsx` guard, which asserts a different thing (which surface catches a Tab
+when both are co-open).
 
 ★ One more thing to re-check while in this file: `use-tour.ts`'s render-time auto-launch is the ONE
 push site in the app that is not a user gesture, and the dismissal stack's open-order-equals-nesting-order
@@ -7018,8 +7056,12 @@ which makes every assertion on FINAL focus structurally blind to the gate. Do no
 non-edge test as redundant, and do not read the inverse-nesting one as cover for it.
 
 ★ The kind flip also brings this primitive under the stack rule that `kind` MEANS "traps Tab", so a
-future reader of the stack can reason about Tab from it — with the one exception filed as
-[§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--open).
+future reader of the stack can reason about Tab from it. ★★ THAT USED TO CARRY AN EXCEPTION AND NO
+LONGER DOES: `use-focus-trap` ran a Tab trap while staying out of the stack entirely, filed as
+[§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--closed-2026-09-01)
+and CLOSED 2026-09-01. It now registers whenever active, declines Escape when it holds no handler,
+and consults `isTopmostOfKind` for Tab like the other two — so the reasoning above holds across every
+trap in the app, with no carve-out.
 
 **Measured in Chromium 2026-08-06, not inferred.** Open any edit modal → open the field-visibility
 popover in its header → press Tab ONCE. Focus lands back on the trigger button **while the popover
@@ -22560,9 +22602,14 @@ already read `0.202.2`.
 *Never scanned:* Resources defaults to the directory sub-tab so Calendar is never reached (§1, §10);
 the Kanban board is not scanned (§5, the gate sees the table view); the link picker only lives inside
 edit modals the gate sees closed; the tour is not in `A11Y_VIEWS` (§8). *Scanned but invisible to
-axe:* there is no rule for `aria-modal` without a focus trap (§8) and none for a missing or duplicated
+axe:* there is no rule for `aria-modal` without a focus trap and none for a missing or duplicated
 `aria-sort` (§9), so RAID and Activity pass at 85/85 with the defect present. The vitest suites are
 the only automated coverage for any of it.
+★★ **SPLIT THE TWO CLAIMS ABOUT §8, because only one of them aged.** The GATE claim above is
+permanent — axe still ships no rule for `aria-modal` without a focus trap, so it could never have
+caught the tour and cannot catch the next surface to make the same promise. The DEFECT claim is not:
+§8 was CLOSED 2026-09-01 and the tour now runs a real trap, pinned by unit tests named in that entry.
+Cite this line for what the gate cannot see, never as evidence that the tour is unguarded.
 
 ★ **One stale AGENTS.md claim was found during this sweep and CORRECTED in place (2026-07-27), not
 carried here.** Its `CalendarEvent` section said the empty-string `localModifiedAt` bug was "still
@@ -24784,22 +24831,48 @@ an extra reason to skip the fetch.
 begun and finished before the click had nothing live about it. That sentence was false and is now
 replaced by a ★★★ pointing here.
 
-## 318. `use-focus-trap` runs a Tab trap that never joins the dismissal stack — open
+## 318. `use-focus-trap` runs a Tab trap that never joins the dismissal stack — CLOSED 2026-09-01
 
-**Status:** open — **never machine-verified**; read out of the source on 2026-08-31 while closing
-§100. Reproduce with `grep -n "active\|hasEscape" src/app/use-focus-trap.ts` and
-`grep -n "useFocusTrap(" src/app/inline-ai-edit-popover.tsx src/app/modern-shell.tsx`.
+**Status:** CLOSED 2026-09-01 by `0c1cb2c7`. The hook now pushes whenever `active` and DECLINES
+Escape through `pushDismissal(token, "modal", () => hasEscape)` instead of staying out of the stack;
+`escapeOwner()` already walked past a declining entry, so the Escape rule the old gate protected is
+kept while the entry becomes visible to `isTopmostOfKind`. Its Tab branch now consults the stack, as
+`modal.tsx` and `popover-panel.tsx` do. Pinned by three new tests in `use-focus-trap.test.ts` —
+"joins the stack even with no handler, and declines Escape from there", "pulls a Tab arriving from
+outside the container back inside", and "leaves a NON-EDGE Tab inside a modal layered above it
+completely alone" — each proved by its own mutant, and the last is the only one that can see the
+gate at all (see the §100 note on why an assertion on FINAL focus is blind to it). Verified with
+`npx vitest run --maxWorkers=1 src/app/use-focus-trap.test.ts`.
 
-Its Tab branch is gated on `active` ALONE (`if (!active) return;` in the keydown effect), while its
-stack PUSH is gated on `active && hasEscape`. `inline-ai-edit-popover` calls
-`useFocusTrap(ref, true, undefined, inputRef)` — no `onEscape` — so it runs a live, unconditional Tab
+★★ **THE TWO HALVES HAD TO SHIP AS ONE COMMIT.** Adding the `isTopmostOfKind` gate WITHOUT the
+unconditional push kills the pre-existing wrap test: the handler-less trap is not in the stack, the
+gate returns false for every keypress, and the trap is dead outright. The intermediate state is
+measurably worse than either end — do not split this shape if it recurs elsewhere.
+
+★★ **The Tab term added here was WIDENED again the same day, and the first spelling was wrong for the
+case it was written for.** This commit added a CONTAINMENT term (`!container.contains(activeEl)`);
+`25b69812` replaced it with MEMBERSHIP in the trap's own focusables, because `Node.contains` is
+reflexive and a `tabIndex={-1}` container node reports as inside itself. See §8.
+
+**Most of what follows is the PRE-FIX record** — but not all of it, and a blanket banner over a
+section that is part live is how the live half gets skipped. Still current below: the paragraph
+explaining why the Escape gating was deliberate (the RULE survives; only its mechanism moved from
+staying out of the stack to declining inside it), and the bannered note on the yank-versus-inert
+reproduce, which describes today's divergence between this hook and `modal.tsx`.
+
+Its Tab branch was gated on `active` ALONE (`if (!active) return;` in the keydown effect), while its
+stack PUSH was gated on `active && hasEscape`. `inline-ai-edit-popover` calls
+`useFocusTrap(ref, true, undefined, inputRef)` — no `onEscape` — so it ran a live, unconditional Tab
 trap while never appearing in the stack at all.
 
-★ **The gating itself is deliberate and correct, and this entry is not asking for it to be undone.**
-The hook's own comment gives the reason: an always-claiming stack entry with no handler would swallow
-Escape and block every layer beneath it. Tab is WCAG 2.4.3 containment and must not be waivable by
-another layer, so it deliberately never consults the stack. The defect is the CONSEQUENCE, not the
-rule.
+★ **The gating itself was deliberate, and this entry never asked for it to be undone — the fix keeps
+the rule and changes the mechanism.** The hook's own comment gave the reason: an always-claiming stack
+entry with no handler would swallow Escape and block every layer beneath it. Tab is WCAG 2.4.3
+containment and must not be waivable by another layer, so it deliberately never consulted the stack.
+The defect was the CONSEQUENCE, not the rule. ★★ What the entry missed is that DECLINING and being
+ABSENT are not the same thing: `pushDismissal`'s `claims` predicate buys the Escape safety without
+the invisibility, and Tab consulting the stack is not a waiver, because `kind` MEANS "traps Tab" — a
+`"modal"` above runs a trap of its own and a `"layer"` never takes Tab from anything.
 
 ★★ **The consequence for anything that reasons about Tab from the stack — which is now `modal.tsx`
 AND `popover-panel.tsx` — is that this trap is structurally invisible.** §100's fix is correct today
@@ -24834,6 +24907,16 @@ side:
 grep -n -A14 'key !== "Tab"' src/app/use-focus-trap.ts
 grep -n -B6 -A10 "contains(active)" src/app/modal.tsx
 ```
+★★★ **THAT REPRODUCE NOW ANSWERS DIFFERENTLY, and it is the reason this paragraph is bannered rather
+than deleted.** The hook's Tab body no longer compares against `first`/`last` and nothing else: it
+carries an `untrapped` term, so focus on none of its own focusables is pulled back in rather than
+ignored. ★★ The first command above will NOT show you that — its `-A14` window stops inside the
+comment block, tens of lines short of the term, so a reader runs it, sees prose, and concludes the
+entry is confused rather than dated. Use `grep -n untrapped src/app/use-focus-trap.ts` instead. The
+INERT description above is the state before `0c1cb2c7`, kept because the yank-versus-inert
+distinction is the durable lesson. ★ Note the
+hook's term is MEMBERSHIP and `modal.tsx`'s is CONTAINMENT — the second command still prints the
+containment spelling, and that is not drift; see §8 for why the two differ deliberately.
 
 ★★ **Today's only flyout would be safe there, by accident — so the hazard is a panel with REAL tab
 stops, not this one.** `CollapsedNavFlyout` is the sole `PopoverPanel` consumer in `sidebar.tsx`'s

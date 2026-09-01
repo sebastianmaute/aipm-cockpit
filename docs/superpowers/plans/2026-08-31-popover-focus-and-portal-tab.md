@@ -2,6 +2,24 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> ★★ **DATED RECORD — state as of 2026-08-31, NOT a description of today's code.**
+> This document is the plan/spec for the 0.270.0 slice and is deliberately not rewritten;
+> a signed record that is edited to match a later tree stops being one. SEVERAL of its claims
+> have since been falsified; the likeliest to mislead is that `use-focus-trap`'s Tab branch
+> "never consults the stack" and "traps Tab UNCONDITIONALLY". Both were true when written.
+> `docs/open-followups.md` §318 — CLOSED 2026-09-01 — made the hook register whenever active,
+> decline Escape through a `claims` predicate, and gate Tab on `isTopmostOfKind`; §8 gave
+> `tour-overlay` a real trap on top of it. Read this for what was DECIDED; read
+> `docs/AGENTS/ui-shell.md`'s dismissal section for what the code DOES.
+>
+> ★★★ **AND DO NOT EXECUTE THIS PLAN.** It shipped as 0.270.0 and every task in it is done —
+> but unlike the spec beside it, this file is a set of INSTRUCTIONS, and the line directly above
+> this banner tells an agentic worker to implement it task-by-task. Its Task 7 carries a fenced
+> block of prose to paste into `docs/AGENTS/ui-shell.md` asserting that `use-focus-trap` "traps Tab
+> UNCONDITIONALLY: its Tab branch never consults the stack" — the exact claim §318 closed — so a
+> worker running it would re-insert it. A dated
+> record is safe to leave alone; a dated record that is also a runnable instruction is not.
+
 **Goal:** Close open-followups §100, §297 and §124 — three keyboard/focus defects in the popover-modal subsystem — by moving the behaviour into the `PopoverPanel` primitive instead of leaving it to call sites.
 
 **Architecture:** `PopoverPanel` gains a Tab cycle over its own portaled content and flips its dismissal `kind` from `"layer"` to `"modal"`, so `Modal`'s existing `isTopmostOfKind` check defers to it; the new cycle is itself gated on `isTopmostOfKind` so a `Modal` opened from inside a popover still wins. Focus restoration moves to an unmount guard in the primitive, which fixes 13 consumer call sites without editing any of them. The measure effect splits so the scroll/resize listeners arm only once the panel is actually rendered.

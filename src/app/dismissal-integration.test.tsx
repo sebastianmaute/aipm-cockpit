@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TOUR_STEPS } from "./app-tour";
 import { resetDismissalStack } from "./dismissal-stack";
+import { t } from "./i18n";
 import { Modal } from "./modal";
 import { PopoverPanel } from "./popover-panel";
 import { TourOverlay } from "./tour-overlay";
@@ -192,22 +193,67 @@ describe("Escape dismissal across surfaces", () => {
     expect(closeOuter).not.toHaveBeenCalled();
   });
 
-  it("keeps a modal's Tab trap while the tour overlay is open", () => {
-    // ★★ REGRESSION GUARD. `TourOverlay` is a role=dialog aria-modal surface
-    // but implements NO Tab trap, so it registers as `layer`. Tagged `modal` it
-    // won `isTopmostOfKind(token,"modal")` away from a real `Modal` open at the
-    // same time — that Modal stopped trapping Tab and nothing took over, so
-    // focus walked out of both into the page behind (WCAG 2.4.3). This could
-    // not happen before the dismissal stack, because the tour never joined
-    // `Modal`'s private stack at all. Tab containment must never be waivable by
-    // a layer that contains nothing.
-    const first = "modal first";
-    const last = "modal last";
+  it("hands Tab to the tour overlay's own trap when it is layered above a modal", () => {
+    // ★★ REGRESSION GUARD, REWRITTEN. The DEFECT it guards is unchanged and is
+    // still worth guarding: with a `Modal` and the tour co-open, a Tab must end
+    // up contained by SOMEBODY. What changed is which surface contains it.
+    //
+    // The old assertion — focus lands on the MODAL's first button — was
+    // correct for its own code and is now wrong. `TourOverlay` used to
+    // implement NO Tab trap, so it registered as `layer`; tagged `modal` in
+    // that state it won `isTopmostOfKind(token,"modal")` away from the Modal,
+    // that Modal stood down and nothing took over, and focus walked out of
+    // both into the page behind (WCAG 2.4.3). Hence the rule the old comment
+    // stated: containment is never waivable by a layer that contains nothing.
+    //
+    // The tour now runs a real trap via `useFocusTrap` and registers `modal`,
+    // so the premise is retired, not the rule. It pushes SECOND and is
+    // topmost, the Modal defers to it — which is `isTopmostOfKind`'s own
+    // documented behaviour for a `modal` above a `modal`, and is correct
+    // because the one above contains focus itself — and the tour's own
+    // membership branch pulls the keypress in: focus is on a node that is not
+    // one of the tour card's focusables, so it yanks to the card's first
+    // control. `defaultPrevented` still true, focus still inside a trap, and
+    // it left neither surface for the page behind.
+    //
+    // ★★★ WHAT THIS TEST CAN AND CANNOT SEE, and an earlier revision of this
+    // comment claimed the wider half. It catches the TOUR's trap and nothing
+    // else. Measured 2026-09-01 by mutation, not reasoned:
+    //  · `active` gated off in `tour-overlay.tsx`'s `useFocusTrap` call →
+    //    1 failed / 10 passed in this file, THIS test, on the final focus
+    //    assertion (focus lands on "modal first"). `defaultPrevented` is still
+    //    true there, so that assertion is blind to this mutant too.
+    //  · `modal.tsx`'s `if (!isTopmostOfKind(token, "modal")) return;`
+    //    neutralised → 4 failed / 7 passed, and THIS TEST IS ONE OF THE FOUR
+    //    (the other three are "Tab containment across a portaled popover"
+    //    below). It fails on the same final focus assertion, Received
+    //    "modal first".
+    // So this test catches BOTH mutants: the Modal's stand-down is covered
+    // here as well as by the three popover tests.
+    //
+    // ★★★ AN EARLIER REVISION OF THIS BLOCK SAID THE OPPOSITE — "THIS TEST
+    // STAYS GREEN; 3 failed / 8 passed" — AND THAT NUMBER WAS REAL, JUST
+    // MEASURED AGAINST A TREE THAT NO LONGER EXISTED WHEN IT WAS WRITTEN. It
+    // was taken before `use-focus-trap.ts` gained its `|| e.defaultPrevented`
+    // bail, IN THE SAME COMMIT that added the bail. Ungated, the Modal
+    // preventDefaults first; the trap used to run anyway and yank to Skip, so
+    // the tour CORRECTED the Modal and the assertion passed either way. With
+    // the bail the trap stands down on an already-prevented event, focus stays
+    // on "modal first", and this test goes red. Re-measured against HEAD.
+    // ★★ The DIRECTION of that error is what earns these words. A comment
+    // claiming a live test is BLIND is as dangerous as one claiming false
+    // coverage — it invites the next reader to delete or weaken a test that is
+    // in fact load-bearing. Re-run a scorecard against the tree as it stands
+    // at the END of the commit, not as it stood when you measured.
+    //
+    // ★ Production cannot reach this screen — the tour and the empty-state
+    // modal are mutually exclusive `if/else` branches in `task-manager.tsx`.
+    // This is a statement about the STACK, not about a reachable view.
     render(
       <>
         <Modal open onClose={vi.fn()} ariaLabel="Editor">
-          <button type="button">{first}</button>
-          <button type="button">{last}</button>
+          <button type="button">modal first</button>
+          <button type="button">modal last</button>
         </Modal>
         <TourOverlay
           lang="en-US"
@@ -222,7 +268,7 @@ describe("Escape dismissal across surfaces", () => {
       </>,
     );
 
-    const lastBtn = screen.getByRole("button", { name: last });
+    const lastBtn = screen.getByRole("button", { name: "modal last" });
     lastBtn.focus();
     const tab = new KeyboardEvent("keydown", {
       key: "Tab",
@@ -233,7 +279,11 @@ describe("Escape dismissal across surfaces", () => {
       lastBtn.dispatchEvent(tab);
     });
     expect(tab.defaultPrevented).toBe(true);
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: first }));
+    // Step 0 ("welcome") carries no `view` and sits at index 0, so the card
+    // renders exactly two controls — Skip then Next — and Skip is its `first`.
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: t("en-US", "tourSkip") }),
+    );
   });
 });
 

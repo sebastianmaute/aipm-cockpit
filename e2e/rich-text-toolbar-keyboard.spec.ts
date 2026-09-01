@@ -9,11 +9,26 @@ import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
 // sits behind a modal, an unscanned view, a non-default Settings section, or a
 // closed <details>.
 test("rich-text toolbar is one tab stop and arrows move within it", async ({ page }) => {
+  // ★★★ SUPPRESS THE TOUR, OR THE FINAL ASSERTION PASSES FOR THE WRONG REASON.
+  // The guided tour auto-launches on a fresh device, and as of the §8 fix its
+  // overlay runs a REAL Tab trap and registers `kind: "modal"` — so it becomes
+  // the topmost trap over this whole page (the notes window pushes `"layer"`,
+  // which never takes Tab). The closing `expect(stillInside).toBe(false)` would
+  // then hold because the tour yanked focus to its own Skip button, whether or
+  // not the roving-tabindex contract this spec exists to prove still works.
+  // Before that fix the tour trapped nothing, so the same line was honest. The
+  // pattern and the reasoning for `tourSeen` are `suppressTour` in
+  // `documents-images-interactive.spec.ts`; settings are a SHALLOW merge over
+  // defaults, so this changes nothing else.
+  await page.addInitScript(() => {
+    localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
+  });
   await gotoApp(page);
   await openView(page, "Open Points");
 
-  // DOM-click so the auto-launched guided tour overlay cannot intercept a real
-  // pointer click. Assert it was found, so a rename fails loudly rather than
+  // DOM-click rather than a real pointer click. This no longer dodges the tour
+  // overlay — the init script above is what does that — but it is kept because
+  // it is also what makes a renamed aria-label fail loudly here rather than
   // silently testing the Open Points table.
   const opened = await page.evaluate(() => {
     const btn = document.querySelector(

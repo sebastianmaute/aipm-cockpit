@@ -2,10 +2,14 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.273.0";
-export const APP_BUILD_DATE = "2026-09-01"; // 0.273.0: a destructive confirmation says why the phrase does not match instead of leaving a dead button, the three English confirm phrases are translated, storage readiness is spoken rather than shown in colour alone, and a refused save records one forensic entry per refusal instead of one per render (Goonan)
+export const APP_VERSION = "0.274.0";
+export const APP_BUILD_DATE = "2026-09-01"; // 0.274.0: the guided tour keeps keyboard focus inside itself instead of letting Tab walk into the page behind it, focus returns where it came from when the tour closes, and the three focus-trapped surfaces join the shared dismissal arbiter so Escape and Tab reach the right layer when surfaces stack (Varley)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.273.x line is "Goonan" (Kathleen Ann Goonan, American SF author, the
+ *  0.274.x line is "Varley" (John Varley, American SF author, the Gaea
+ *  trilogy). Checked dash-agnostically BEFORE the bump with the command
+ *  below: zero hits, against a pattern proved to see all 365 named headers,
+ *  so this one is genuinely fresh rather than a permitted reuse.
+ *  0.273.x was "Goonan" (Kathleen Ann Goonan, American SF author, the
  *  Nanotech Quartet). Checked dash-agnostically BEFORE the bump with the
  *  command below: zero hits, against a pattern proved to see all 363 named
  *  headers, so this one is genuinely fresh rather than a permitted reuse.
@@ -122,7 +126,7 @@ export const APP_BUILD_DATE = "2026-09-01"; // 0.273.0: a destructive confirmati
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Goonan";
+export const APP_MILESTONE = "Varley";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

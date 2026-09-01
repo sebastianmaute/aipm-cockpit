@@ -65,9 +65,15 @@ export function popDismissal(token: symbol): void {
  *  it — the one beneath defers because the one above contains focus itself. A
  *  `"layer"` never takes Tab from anything: it traps nothing, so deferring to
  *  one would strand focus outside every trap (WCAG 2.4.3).
- *  ★ `PopoverPanel` pushes `"modal"` precisely because it runs its own Tab
- *  cycle over its portaled content, and `modal.tsx` deferring to it is the
- *  §100 fix. A surface gaining a real trap flips its kind in the SAME commit. */
+ *  ★ TWO SURFACES HAVE MADE THAT FLIP, by different routes. `PopoverPanel`
+ *  pushes `"modal"` precisely because it runs its own Tab cycle over its
+ *  portaled content, and `modal.tsx` deferring to it is the §100 fix.
+ *  `tour-overlay` pushes `"modal"` because it calls `useFocusTrap`, which
+ *  supplies the trap and the tag TOGETHER so the two cannot disagree — it was
+ *  `"layer"` for as long as it trapped nothing, and tagging it `modal` in that
+ *  state stood a co-open `Modal` down with nothing taking over (§8).
+ *  A surface gaining a real trap flips its kind in the SAME commit; one losing
+ *  its trap is demoted in the same commit too. */
 export function isTopmostOfKind(token: symbol, kind: DismissalKind): boolean {
   for (let i = stack.length - 1; i >= 0; i--) {
     if (stack[i].kind === kind) return stack[i].token === token;
