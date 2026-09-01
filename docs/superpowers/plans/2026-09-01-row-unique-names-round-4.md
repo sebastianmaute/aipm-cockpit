@@ -452,7 +452,7 @@ against the unfixed code and read as coverage."
 
 Both surfaces mount `<InfoTooltip text={t(lang, "actionScoreTooltip", action.score)} />` with no `label`, and `InfoTooltip` falls back to `aria-label={label ?? text}`. Interpolating the score proves the names differ when scores differ and proves nothing when they repeat.
 
-★★ **The hero and the rows are ONE naming population.** The hero is the first group, de-duped from its tier list. Mint ONE map in the panel; two maps would number each population from 1 independently and reintroduce the hero-vs-row pair.
+★★ **The hero and the rows are ONE naming population.** The hero is the first group, de-duped from its tier list. Mint ONE map in the panel. ★★★ The reason is NOT "two maps would each number from 1" — that is FALSE and was measured false by mutant: `buildRowTokens` numbers only a name that repeats INSIDE the map it was handed, so two single-member maps both emit a **BARE** token, never `(1)`. The real reason is CROSS-TIER: per-tier maps give a `now` row and a `soon` row sharing a title two bare names. See the long-form argument at `src/app/actions-panel.tsx`'s `actionTokens` memo.
 
 - [ ] **Step 1: Probe**
 
@@ -505,13 +505,14 @@ Add the import: `import { buildRowTokens, rowLabel } from "./row-tokens";`
 `src/app/actions-panel.tsx`, at the two render sites:
 
 ```tsx
-<ActionRow key={g.key} action={g.primary} extraReasons={g.extra} rowToken={actionTokens.get(g.key) ?? ""} {...rowProps} />
+<ActionRow key={g.key} action={g.primary} extraReasons={g.extra} {...rowProps} rowToken={actionTokens.get(g.key) ?? ""} />
 ```
 ```tsx
-{hero && <ActionHeroCard group={hero} rowToken={actionTokens.get(hero.key) ?? ""} {...rowProps} />}
+{hero && <ActionHeroCard group={hero} {...rowProps} rowToken={actionTokens.get(hero.key) ?? ""} />}
 ```
 
 ★ `rowToken` is passed per-instance, NOT folded into the shared `rowProps` spread — `rowProps` is by definition the props that are identical for every row, and this one is not.
+★★ **Write the spread FIRST and `rowToken` LAST.** An earlier revision of this plan showed the opposite order, which JSX resolves the same way today but which lets a future fold of `rowToken` into `rowProps` silently override every per-instance token with one shared value — reintroducing the exact collision, with the suite green.
 
 `src/app/action-row.tsx`:
 
@@ -566,10 +567,11 @@ is the entire premise of this defect class - two actions tying on score is
 ordinary.
 
 The panel now mints one token map over the rendered population and threads it
-into both components. One map, not two: the hero is the first group de-duped
-from its tier list, so per-component maps would number each from 1 and
-reintroduce the hero-vs-row pair. A per-item component cannot disambiguate
-itself, so the map is built by the list owner.
+into both components. One map, not two — but NOT because "per-component maps
+would number each from 1", which is false: a single-member map emits a BARE
+token. The reason is cross-tier, and it is argued in full at `actions-panel.tsx`'s
+`actionTokens` memo. A per-item component cannot disambiguate itself, so the map
+is built by the list owner.
 
 A raw title qualifier was rejected. A title is free text and can repeat, so it
 would have left two actions sharing a title and a score still colliding, and
@@ -583,7 +585,9 @@ only harness that can see this class."
 
 **Files:** Modify `docs/open-followups.md`
 
-★★ **Closing an entry is a FOUR-PLACE edit:** the heading marker · the summary-table STATUS cell · the summary-table ANCHOR (derived from the heading, so it changes when the heading does) · the `**Status:**` witness line. `isClosed` reads the TITLE only. A body line must never contain the word CLOSED.
+★★★ **FOUR PLACES IS A FLOOR, NOT THE COUNT.** The four that are always needed: the heading marker · the summary-table STATUS cell · the summary-table ANCHOR (derived from the heading, so it changes when the heading does) · the `**Status:**` witness line. `isClosed` reads the TITLE only. ★★★ Measured on this branch: §305 took SIX places and §324 FIVE — the extras are cross-reference ANCHORS inside OTHER entries' bodies, plus body claims elsewhere in the register that the fix has now falsified. **Grep the number across the whole register and read every hit**, including other entries' prose. No doc gate sees any of this: all of them pass over a body describing pre-fix code in the present tense.
+
+★ A body line MAY contain the word CLOSED — an earlier revision of this plan forbade it, which was invented. `isClosed(title)` reads the title alone, and 113 of the 150 closed entries put CLOSED in a body line. All four Status lines this branch writes begin `**Status:** CLOSED …`.
 
 ★★ `docs/open-followups.md` is **LF**. Do not let any tool re-line it.
 

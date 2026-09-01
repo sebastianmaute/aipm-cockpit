@@ -541,7 +541,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720) | `retryLoad`'s in-flight guard assumed `submitPrompt` is single-flight, and nothing pinned it | — | — | **CLOSED** 2026-08-31 |
 | [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen--closed-2026-08-31-02720) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | **CLOSED** 2026-08-31 |
 | [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name--closed-2026-08-31) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name — CLOSED 2026-08-31 | — | — | **CLOSED** 2026-08-31 |
-| [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide--closed-2026-09-01) | ~~`resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide~~ | — | — | **CLOSED** 2026-09-01 (two tables, two different fixes, pinned by two different test shapes) |
+| [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide--closed-2026-09-01) | ~~`resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide~~ | — | — | **CLOSED** 2026-09-01 (two tables, both taking the row token; three controls in the unlinked one) |
 | [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31 |
 | [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--open) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack — open | found 2026-08-31 while closing §100 | S | open |
@@ -24427,10 +24427,18 @@ edit.
 **Status:** CLOSED 2026-09-01 by `fe2206ec` — the ACTIVE list now runs its own `buildRowTokens` over
 `projects.map((p) => ({ id: p.id, name: p.name }))` and threads the token through `rowLabel` at all
 three controls (`projectsSwitch`, `projectsArchive`, `projectsDelete`), matching the archived list's
-convention. Pinned by `projects-panel.test.tsx`'s "gives every ACTIVE row control a row-unique
-accessible name when two projects share a name (§309)", which carries `requireCollisionSeed: true` and
-seeds two active projects sharing a display name. Mutation-proved: reverting the `projectsSwitch` label
-alone to raw interpolation gives **1 failed / 20 passed** in that file. ★ The two ARCHIVED-list controls
+convention. ★★★ **IT TAKES TWO TESTS, NOT ONE, AND AN EARLIER REVISION OF THIS STATUS CLAIMED
+OTHERWISE.** It cited only `projects-panel.test.tsx`'s "gives every ACTIVE row control a row-unique
+accessible name when two projects share a name (§309)" as covering "all three controls" — but that
+test renders the TURSO branch, and `projectsArchive` / `projectsDelete` are MUTUALLY EXCLUSIVE
+branches of one ternary (`projects-panel.tsx`), so the Delete button never rendered in it and was
+pinned by nothing. A second FILE-MODE test now covers it. Both carry `requireCollisionSeed: true` and
+seed two active projects sharing a display name.
+★★ `minControls` is **7** in both, MEASURED off the harness's own error listing rather than counted
+off the JSX — the previous `4` was loose enough to let a silently narrowed scope back in, which is the
+failure mode `src/test/row-unique-names.ts` documents for a floor below its measured value.
+Mutation-proved: reverting the `projectsSwitch` label alone to raw interpolation gives **1 failed /
+20 passed**; reverting the file-mode Delete label gives **1 failed / 21 passed**. ★ The two ARCHIVED-list controls
 are unchanged and stay pinned by §276's own test — this fix added a second token map, it did not widen
 the existing one.
 
@@ -24711,26 +24719,51 @@ pair rather than on anything under test.
 
 ## 315. `resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide — CLOSED 2026-09-01
 
-**Status:** CLOSED 2026-09-01 by `afb32629` — both hours buttons now carry an `aria-label`, and **the
-two tables took DELIBERATELY DIFFERENT fixes, pinned by different test shapes. Do not paraphrase this
-as "pinned by a collision test"; that is false for one of the halves.**
+**Status:** CLOSED 2026-09-01 by `afb32629`, corrected by `1b6bfdbb` and completed by `65a43493` —
+both hours buttons carry an `aria-label`, and **BOTH tables take the row token.** ★★★ An earlier
+revision of this Status said the two tables "took DELIBERATELY DIFFERENT fixes, pinned by different
+test shapes" and warned against paraphrasing it as "pinned by a collision test". That warning is now
+backwards: the unlinked half's plain-qualifier rationale was refuted in review, the collision IS
+seedable, and both halves carry `requireCollisionSeed`. See the UNLINKED bullet for what was wrong and
+why. ★ What survives from the old warning is narrower and still worth keeping: the shared harness is
+not the detector on the unlinked side — the explicit collapsed-name assertions are.
 
 - **MANAGED table** — `buildResourceWorkload` keys `managed` on the numeric resource id, so two rows
   CAN carry the same `display`. That half takes the row TOKEN: `rowLabel(String(row.weeklyHours),
   rowToken)`. Pinned by `resource-workload.test.tsx`'s "gives the MANAGED weekly-hours buttons
   row-unique names when two people share a name and hours (§315)", with `requireCollisionSeed: true`
   and `minControls: 4`.
-- **UNLINKED table** — `buildResourceWorkload` accumulates unlinked rows into a Map keyed on
-  `display.toLowerCase()` (see `ensureUnlinked` in `resource-workload-rows.ts`), so two same-named
-  entries COLLAPSE into one row and `display` cannot repeat. That half takes a PLAIN QUALIFIER:
-  `rowLabel(String(row.weeklyHours), row.display)`. Its test ("gives the UNLINKED weekly-hours buttons
-  distinct names when two people work equal hours (§315)") deliberately OMITS `requireCollisionSeed` —
-  after a correct fix the names are `40 – Alice Smith` / `40 – Bob Jones`, which do not collide once the
-  end-anchored ` (N)` is stripped, so the flag would THROW against CORRECT code. ★★★ Its only
-  anti-vacuity evidence is therefore a MUTATION PROOF, and the recorded tally is **2 failed / 18
-  passed**, not 1/19: deleting the unlinked button's `aria-label` also kills the §276 test, because this
-  commit flattened that fixture's hours to equal. An earlier report of 1/19 was corrected by a reviewer
-  reproducing it.
+- **UNLINKED table** — takes the row TOKEN as well, and the reasoning that said otherwise was
+  **refuted in review**. This bullet used to argue for a PLAIN QUALIFIER on the grounds that
+  `buildResourceWorkload` accumulates unlinked rows into a Map keyed on `display.toLowerCase()` (see
+  `ensureUnlinked` in `resource-workload-rows.ts`), so `display` "cannot repeat". That key TRIMS and
+  CASE-FOLDS but does **not** collapse internal whitespace runs, while accessible-name comparison
+  DOES — so `"Bob  Smith"` and `"Bob Smith"` are two rows announcing one name. Two cold reviewers
+  reached this independently from opposite sides, which is what promoted it from Minor.
+  ★★★ **THREE controls in that table were affected, not one.** The weekly-hours button was fixed in
+  the same pass; the add-as-resource button and the clear-unlinked ✕ carried the identical refuted
+  premise in their own comments and were fixed after a second review round found them still live
+  (`65a43493`). Fixing only the hours button would have left the entry falsely complete in exactly
+  the way §324's first cut was.
+  ★★ The token also makes this half **seedable**, retiring the mutation-proof-only weakness recorded
+  here before: `"Bob  Smith"` and `"Bob Smith"` collapse equal, so `requireCollisionSeed: true` is
+  satisfiable against CORRECT code and the test now carries it (`minControls: 6`, measured).
+  ★★★ **The harness alone still cannot SEE this collision, and the test says so at the assertion.**
+  `expectRowUniqueNames` compares names RAW (`src/test/row-unique-names.ts` — only
+  `requireCollisionSeed` collapses), and the two names differ by one space, so it reports no duplicate
+  either way. The explicit collapsed-name comparisons in the test are the detectors; the flag is a
+  seed guard. Measured, not reasoned: with a token reverted the `expectRowUniqueNames` call stays
+  GREEN and only the collapsed assertion turns red.
+  ★★ Until those two neighbours were fixed they were what SATISFIED `requireCollisionSeed` in that
+  fixture — the guard was being certified by a defective control rather than by the one under test,
+  which is the masking hazard `src/test/row-unique-names.ts` warns about in its own docstring.
+  Mutation tallies, all re-run after the fixture grew to six controls rather than inherited across it:
+  hours **1 failed / 19 passed**, add-as-resource **1/19**, clear-unlinked **1/19**, each summing to
+  the file's 20 runtime tests.
+  ★ `resourcesClearUnlinked` is `"Clear {0}"` in EN but `"{0} entfernen"` in DE, so the occurrence
+  index lands MID-STRING in German and the harness's end-anchored strip cannot see it there.
+  Uniqueness holds in both languages; only the seed guard is EN-shaped. Recorded, not chased — no DE
+  test covers this surface.
 
 ★ WCAG 2.5.3 holds at both sites by construction: each button's visible content is exactly
 `{row.weeklyHours}`, and `rowLabel(verb, token)` renders `${verb} – ${token}`, so that same string LEADS
@@ -25155,6 +25188,21 @@ popover TRIGGERS (whose `ariaLabel` had been reaching the PANEL rather than the 
 overflow trigger and `ActionReasons`. The last two had used a raw `` `${title}` ``, which is
 insufficient because two rows can share a title.
 
+★★★ **THAT SENTENCE WAS FALSE WHEN WRITTEN, AND A COLD REVIEW CAUGHT IT: `AiActionRow` is a
+once-per-row control on `actions-panel.tsx` and did NOT take a token.** Its button was named
+`` `${t(lang, ctaKey)} – ${action.title}` `` from a MODEL-GENERATED title, which is free text and
+repeats — the exact discriminator this slice turns on — so it collided within the AI list and against
+the group rows the same commit had just qualified. Fixed in `cb5d040a`: the name is now
+`rowLabel(rowLabel(verb, actionAiSectionTitle), rowToken)` — verb, then the section, then the token,
+token LAST because `requireCollisionSeed`'s occurrence regex is END-ANCHORED. ★★ The section segment
+is what keeps the two populations INDEPENDENT: folding AI actions into the group map would renumber
+every group row the moment an analysis appears or disappears. Zero new i18n keys — the section title
+already existed. Pinned by a third `actions-panel.test.tsx` test seeding two AI actions on one title
+plus one titled like a group row; mutants **3 failed / 20 passed** for dropping the token and the same
+for dropping the section.
+★ Making `rowToken` REQUIRED rather than optional is what surfaced it at tsc — the same mechanism that
+revealed the second list owner above, working a second time.
+
 ★★ **Two things surfaced that no grep would have found**, and they are the reason the widening was
 worth doing. (1) The popover triggers' bare names: the label was threaded as a PROP, so it is invisible
 to any `aria-label` grep. (2) `dashboard-sections/dashboard-top-actions.tsx` is a **SECOND list owner**
@@ -25355,9 +25403,15 @@ disclosure. Left bare, on purpose:
   popover's picker above, and missed by the first cut of this list
 - the `ariaLabel` each panel passes to `PopoverPanel` for its own `role="dialog"`
 
-★ Note the last two are not buttons, so they fall outside the default `["button"]` roles list the
-adopting tests use — a `roles: ["combobox", "textbox"]` pass would be needed to see them even once
-the premise is settled.
+★★ **THREE of the bullets above are not buttons, and they need THREE different roles — an earlier
+revision said "the last two" and prescribed one `roles: ["combobox", "textbox"]` pass, which is both
+a miscount and insufficient.** The `ResourcePicker`s map to `combobox`, the escalate email `Input` to
+`textbox`, and each panel's own `ariaLabel` names a `role="dialog"`. All three fall outside the
+default `["button"]` list every adopting test uses, so none is visible to the existing assertions.
+★ The dialog leg needs a **separate** pass, not a wider `roles` array: `expectRowUniqueNames` compares
+names across every role it is given at once, so folding dialogs in with the controls would let a
+panel's name collide with a button's and report it as a row collision. Settle the premise first —
+these are only defects if two panels can coexist.
 
 ★★ **The premise is that `PopoverPanel`'s outside-click dismissal makes two panels non-simultaneous**,
 so a name inside one panel cannot repeat within a single rendered list — which is the discriminator

@@ -226,7 +226,7 @@ Seeds, one per fix:
 | § | assertion | seed |
 |---|---|---|
 | 309 | `expectRowUniqueNames`, `requireCollisionSeed: true` | two ACTIVE projects sharing a display NAME |
-| 315 | `expectRowUniqueNames`, `requireCollisionSeed: true` | two people sharing a display NAME **and** on equal hours, per table |
+| 315 | `expectRowUniqueNames` + an explicit COLLAPSED-name comparison, `requireCollisionSeed: true` | two people sharing a display NAME **and** on equal hours, per table — in the UNLINKED table the shared name must differ by WHITESPACE (`"Bob  Smith"` / `"Bob Smith"`), see below |
 | 305 | visible-text assertion (see above) | two changes sharing a `recordLabel` |
 | 324 | `expectRowUniqueNames`, `requireCollisionSeed: true` | two actions sharing a TITLE and tied on score |
 
@@ -236,6 +236,20 @@ both on 40h render `40 – Anna` and `40 – Bob`: nothing collides once the suf
 `requireCollisionSeed` THROWS against the CORRECT code. The seed must make the TOKEN fire, which
 needs a shared display name. The same reasoning fixes §324's seed: the two actions must share a
 TITLE, not merely a score.
+
+★★★ **THE UNLINKED TABLE CONTRADICTED THAT ROW AS FIRST WRITTEN, AND THE RESOLUTION IS THE ROUND'S
+BEST RESULT.** This spec assumed a shared display name was UNSEEDABLE there, because
+`buildResourceWorkload` keys unlinked rows on `display.toLowerCase()` — so the seed the table above
+demands looked impossible, and the unlinked half was specced for a plain qualifier instead. That key
+trims and case-folds but does NOT collapse internal whitespace runs, while accessible-name comparison
+does: `"Bob  Smith"` and `"Bob Smith"` are two rows announcing one name. So the seed IS reachable, the
+unlinked half takes the row token like the managed one, and the mutation-proof-only anti-vacuity
+weakness this spec accepted for it is retired.
+★★ **But `expectRowUniqueNames` cannot DETECT that collision**, which is why the assertion column
+above now names two things. The harness's duplicate check compares names RAW; only
+`requireCollisionSeed` collapses. Two names differing by one space are not raw duplicates, so the
+harness stays green either way — the explicit collapsed comparison is the detector, the flag is a seed
+guard. Do not let a later simplification delete the collapsed assertion as redundant.
 
 ★★ **One knock-on, and leaving it undone quietly weakens an existing test.**
 `resource-workload.test.tsx`'s §276 test gives its two unlinked people DISTINCT part-time shifts
