@@ -172,6 +172,46 @@ Required:
 5. `tour-overlay.test.tsx` — the overlay's Escape still calls `onSkip`, and still declines when a
    layer above claims it.
 
+### The existing guard whose premise C3 inverts
+
+★★★ **`dismissal-integration.test.tsx`'s "keeps a modal's Tab trap while the tour overlay is open"
+WILL GO RED, and that is the change working.** It renders a real `Modal` and a real `TourOverlay`
+as siblings in one commit, focuses the modal's LAST button, dispatches Tab, and asserts both
+`tab.defaultPrevented === true` and that focus landed on the modal's FIRST button. Its comment
+states the premise in as many words: the tour "implements NO Tab trap, so it registers as `layer`
+… Tab containment must never be waivable by a layer that contains nothing."
+
+After C3 the tour registers `"modal"` and does contain something, so the premise is retired. The
+tour pushes second and is topmost, the `Modal` correctly stands down, and the tour's own containment
+branch pulls the Tab into the card — `defaultPrevented` stays true, `activeElement` becomes the
+tour's Skip button rather than the modal's first.
+
+**Rewrite it; do not delete it, and do not "fix" it by keeping the tour a `layer`.** The defect it
+guards — focus walking out of BOTH surfaces into the page behind — is still worth a guard, and the
+assertion that catches it is now "focus is contained by the topmost trap and did not leave either
+surface." Rewrite the comment to say what the test now pins and why the old assertion was correct
+for its own code, in the same commit. This is the same flip
+`e2e/seed-content.spec.ts` went through when §126 was fixed.
+
+★ Production cannot reach this state: the tour and the empty-state modal are mutually exclusive
+`if/else` branches in `task-manager.tsx`. The test is a statement about the stack, not about a
+reachable screen, and its rewrite should say so.
+
+### Two things C3 changes that neither register entry mentions
+
+- **The tour gains focus restoration it never had.** Nothing in `use-tour.ts` → `TourOverlay` →
+  `useDismissable` records the pre-open `activeElement` today, so closing the tour drops focus to
+  `<body>`. `useFocusTrap`'s teardown calls `prevFocus?.focus?.()`, so adopting it restores focus to
+  whatever held it before the tour opened. This is an improvement and it is in scope, but it is a
+  behaviour change and belongs in the commit message.
+- **The push/keydown asymmetry moves into this hook.** After C1 the push rides `active` while the
+  keydown effect additionally requires a non-null container, so the hook can hold the top `"modal"`
+  slot across a window in which it traps nothing — the same latent asymmetry
+  `docs/AGENTS/ui-shell.md` already records for `PopoverPanel` (push on `open`, cycle on
+  `rendered`). Not reachable at either call site: `modern-shell`'s drawer ref and the tour's card
+  ref are both non-null whenever their `active` is true. Record it beside the push rather than
+  fixing it — a ref is not reactive, so the push cannot gate on one.
+
 ★ Every one of these is a jsdom-visible Tab/stack assertion. The cross-engine hazard recorded for
 §297 (Chromium's synchronous `focusout` with a null `relatedTarget` on removal) is **not** in scope
 — nothing here touches focus-restore-on-unmount. `npm run e2e:crossengine` is not required for this
