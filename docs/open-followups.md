@@ -23707,10 +23707,13 @@ phrase in EN and DE (EN `Type “{0}” to confirm`), and the dialog trims the c
 mismatch after blur via `aria-invalid` plus `aria-describedby` pointing at a polite live region
 carrying `typeToConfirmMismatch`. The comparison is trimmed only — NOT case-folded and NOT Unicode-
 normalised — so the ★★★ prohibition below still stands. ★★ The two project-NAME call sites are
-unaffected FOR A REASON A READER CAN RE-CHECK, not by assertion: a project name reaches the registry
-through `sanitizeProjectMeta`, which runs it through `sanitizeText`, and that is `clipText` over an
-already-trimmed string — so a stored name cannot carry the leading or trailing whitespace that would
-matter here. ★ BOTH sides are now trimmed (the first cut trimmed only the typed one), so even a
+unaffected FOR A REASON A READER CAN RE-CHECK, not by assertion: on the SAVE path a project name
+reaches the registry through `sanitizeProjectMeta`, which runs it through `sanitizeText`, and that is
+`clipText` over an already-trimmed string — so a stored name cannot carry the leading or trailing
+whitespace that would matter here. ★ There are TWO paths and the second holds by a DIFFERENT
+mechanism: the load path goes through `deriveRegistryEntry` (`use-project-switch.ts`), which never
+calls `sanitizeProjectMeta` and instead trims the name itself, while `parseEntry`
+(`projects-registry.ts`) does not trim at all. ★ BOTH sides are now trimmed (the first cut trimmed only the typed one), so even a
 whitespace-bearing `confirmValue` arriving some other way is no longer permanently unmatchable while
 the prompt renders it as if it were fine. Verify with
 `npx vitest run src/app/type-to-confirm-dialog.test.tsx`.
@@ -23762,7 +23765,7 @@ gate exists to catch.
 `tasksClearAllConfirmValue`, `settingsResetConfirmValue`, `tasksDeleteSelectedConfirmValue` — with EN
 and DE strings. Verify with
 `npx vitest run src/app/settings-sections/general-section.test.tsx src/app/tasks-section.test.tsx`
-(66 tests).
+(67 tests, measured 2026-09-01).
 
 ★★ **The design decision, recorded because the obvious alternative is worse.** The bulk-delete phrase
 carries **NO count**. A count inside a string the user must type CHARACTER-FOR-CHARACTER cannot
@@ -23774,10 +23777,14 @@ cause. The count stays where it belongs, in the surrounding prose:
 ★★★ **TEST-VALIDITY FINDING, and it generalises past this entry — BUT ONLY OVER TWO OF THIS ENTRY'S
 OWN THREE SITES.** For `settingsResetConfirmValue` and `tasksClearAllConfirmValue` — the two MODULE
 CONSTANTS — the new key values under `en-US` are BYTE-IDENTICAL to the constants they replaced, so
-**an EN-only test passes against the reverted code and pins nothing.** For those two the German test
-is the only one that can fail for this defect, and it was mutation-proved: restoring the hardcoded
-constant turns it red. Any "we replaced a literal with an i18n key" test needs a non-EN assertion, or
-it is decorative.
+**an EN-only test passes against the reverted code and pins nothing.** Each of those two therefore
+has its OWN German test — `general-section.test.tsx`'s reset-dialog one and `tasks-section.test.tsx`'s
+clear-all one — and per site that German test is the only one that can fail for this defect. Both
+were mutation-proved: restoring the hardcoded constant at that site turns its German test red. Any
+"we replaced a literal with an i18n key" test needs a non-EN assertion, or it is decorative.
+★★ The clear-all German test was added 2026-09-01, in the fix round that found this paragraph
+claiming a coverage it did not have — until then the `tasksClearAllConfirmValue` site was pinned by
+nothing at all, and this entry said otherwise.
 
 ★★★ **The THIRD site is the exception, and an earlier wording of the paragraph above swept it in —
 which read as licence to prune a real regression pin as decorative.** The bulk-delete phrase did NOT
@@ -23841,10 +23848,13 @@ sentence is true under all three. Three cause-specific keys remain the richer op
 available later; they were not needed to close the disclosure gap.
 
 ★★ **SCOPE — this covers the EXPANDED footer only.** `sidebar-footer.tsx` returns early at
-`if (collapsed) return pausedControl;`, so the COLLAPSED rail renders no storage state at all: no
-dot, no description, no sentence. That is therefore NOT an AT gap — sighted users get nothing there
-either — which is why it is not filed as a follow-up. It is stated here so a reader does not infer
-the closure covers a surface it does not.
+`if (collapsed) return pausedControl;`, so the COLLAPSED rail renders no READINESS state at all: no
+dot, no description, no readiness sentence. That is therefore NOT an AT gap for readiness — sighted
+users get nothing there either — which is why it is not filed as a follow-up. ★★ Narrowed 2026-09-01
+from "renders no storage state at all", which the cited line refutes: the value that early return
+hands back IS `SavingPausedButton`, so while saving is paused the collapsed rail does render storage
+state, and exposes it to AT via `storageSavingPausedAction`. It is stated here so a reader does not
+infer the closure covers a surface it does not.
 
 ★ Reachable from slice 3 and slice 7 of the follow-up roadmap; closed by slice 3 — slice 7 must not
 re-close it.
@@ -24861,8 +24871,14 @@ slice.
 code, not observed. Reproduce with
 `grep -n "onDelete\|allowDestructiveSave" src/app/use-task-row-handlers.ts` — it prints the
 `onDelete` declaration and its entry in the returned object, and NO `allowDestructiveSave` line at
-all, which is the finding — and
-`grep -rn "handlers.onDelete\|onDelete={onDelete}" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`.
+all, which is the finding — and, for the consumers,
+`grep -n "onDelete" src/app/task-manager.tsx src/app/use-bulk-operations.ts | grep -v "onDelete[A-Z]"`.
+★ That second grep is scoped to the TWO files that consume the handlers bag, because `onDelete` is a
+generic prop name six other entities also use; a repo-wide one returns mostly their props and — this
+is the point — MISSES the voice consumer entirely, since it calls `handlersRef.current.onDelete(...)`
+rather than forwarding a prop. Run 2026-09-01 it prints **9** lines: three comment mentions, the
+destructure of the handler, the hand-off into `useBulkOperations`, that bag's type declaration, and
+the three consumer sites enumerated below.
 
 ★ **Number:** 324 is held by a concurrent branch at filing time, so this batch took 323, 325 and 326
 and left 324 alone. A number is only reserved once it is on `origin/main`; if 324 never lands, the
@@ -24877,14 +24893,19 @@ would arm here too.
 
 1. **It cannot be reached.** `onDelete` takes a single `id: number` and filters exactly one row.
    `isMassDeletion(prev, cur, floor = 5, fraction = 0.1)` (`workspace-metrics.ts`) needs at least 5
-   records removed, so one deletion cannot cross the floor whatever the workspace size. The three
+   records removed, so one deletion cannot cross the floor whatever the workspace size. ★★
+   `evaluateSaveGuard` refuses on `(fullWipe || massDelete)`, so the OTHER disjunct has to be
+   answered too: `fullWipe` needs `curCollections === 0 && prevCollections >= 2`, and a single-task
+   delete that zeroes the collection count implies `prevCollections === 1` — which falls to the
+   verdict's forensic branch, not to a refusal. The three
    consumers all pass ONE id and none loops: the row/Kanban prop (`task-manager.tsx`), the editor's
    `TaskDeleteButton` (same file), and the voice `"delete"` command
    (`use-bulk-operations.ts`, which finds one task by `cmd.id`).
    ★ The original brief for this entry said TWO consumers; the third — the voice command, reached
-   via the `handlers` bag rather than a JSX prop — was found by running the grep above. It is
-   single-id like the other two, so the conclusion is unchanged and the ENUMERATION was wrong. Run
-   the grep; do not trust a count.
+   via the `handlers` bag rather than a JSX prop — was missed. It is single-id like the other two, so
+   the conclusion is unchanged and the ENUMERATION was wrong. ★★ The grep this entry ORIGINALLY
+   prescribed could not have found it either: it matched `handlers.onDelete` and `onDelete={onDelete}`,
+   and the voice call is neither. Corrected above on 2026-09-01. Run the grep; do not trust a count.
 2. **Not-arming is the SAFER side.** `allowDestructiveSave` SUPPRESSES the guard. "Completing the
    pattern" here would weaken a live safety check to buy consistency, on a path that by (1) can
    never trip that check anyway. The consistency is worth having only if it is free, and it is not.
@@ -24975,7 +24996,7 @@ seams are — nobody has assessed that; this entry records the headroom problem 
 
 **What happens.** The §303 fix (commit `60bb8e53`) added a guard plus its rationale comment to the
 save effect, taking the file from 799 lines (one under the ceiling, pre-slice — `git show
-60bb8e53^:src/app/use-storage-backend.ts` piped through the same line-count method prints 799) past
+60bb8e53^:src/app/use-storage-backend.ts` piped through the same line-count method prints 799) to
 813, which turned `file-size-ratchet` red after every other gate on the branch had already passed.
 It was brought back to exactly 800 (commit `9c20b363`) by collapsing a 12-line rationale comment on
 the guard's call site into one line and moving the reasoning onto the `isNewMagnitude` docstring in
