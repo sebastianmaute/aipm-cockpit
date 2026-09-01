@@ -17,7 +17,12 @@ interface ActionHeroCardProps extends ActionHandlers {
    *  by whoever renders the list and threaded down (§324).
    *  ★★ It comes from the SAME map the rows use: the hero is `groups[0]`,
    *  de-duped from its tier list, so hero and rows are ONE naming population.
-   *  Two maps would number each from 1 and reintroduce the hero-vs-row pair. */
+   *  ★★★ SPLITTING THAT MAP IS THE DANGER, AND NOT BECAUSE EACH HALF WOULD
+   *  NUMBER FROM 1 — an earlier revision of this line said exactly that and it
+   *  is false: `buildRowTokens` numbers only when a name REPEATS inside the map
+   *  it was handed, so a one-member half emits a BARE token, never "(1)". The
+   *  full argument lives at the map itself in `actions-panel.tsx`; read it
+   *  there rather than restating it here. */
   rowToken: string;
 }
 

@@ -32,17 +32,17 @@ describe("ActionRow snooze", () => {
   it("opens the snooze menu and fires onSnooze with 1h / 1d", () => {
     const onSnooze = vi.fn();
     const { getByRole } = render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} onSnooze={onSnooze} />);
-    fireEvent.click(getByRole("button", { name: /more actions/i }));
+    fireEvent.click(getByRole("button", { name: /^More actions – Row$/ }));
     fireEvent.click(getByRole("button", { name: "1 hour" }));
     expect(onSnooze).toHaveBeenCalledWith(action, SNOOZE_1H);
-    fireEvent.click(getByRole("button", { name: /more actions/i }));
+    fireEvent.click(getByRole("button", { name: /^More actions – Row$/ }));
     fireEvent.click(getByRole("button", { name: "1 day" }));
     expect(onSnooze).toHaveBeenCalledWith(action, SNOOZE_1D);
   });
   it("snooze menu clicks do not fire onOpen (stopPropagation)", () => {
     const onOpen = vi.fn();
     const { getByRole } = render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={onOpen} onSnooze={() => {}} />);
-    fireEvent.click(getByRole("button", { name: /more actions/i }));
+    fireEvent.click(getByRole("button", { name: /^More actions – Row$/ }));
     fireEvent.click(getByRole("button", { name: "1 hour" }));
     expect(onOpen).not.toHaveBeenCalled();
   });
@@ -63,7 +63,7 @@ describe("ActionRow create task", () => {
       score: 30, tier: "now", cta: { kind: "open", view: "raid", id: 1 },
     } as never;
     render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={onOpen} onCreateTask={onCreateTask} />);
-    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^More actions – Row$/ }));
     const btn = screen.getByRole("button", { name: /create task/i });
     fireEvent.click(btn);
     expect(onCreateTask).toHaveBeenCalledTimes(1);
@@ -107,7 +107,7 @@ describe("ActionRow assign owner", () => {
   it("shows Assign owner for a no-owner raid action and opens the picker", () => {
     const onOpen = vi.fn();
     render(<ActionRow rowToken="Row" lang="en-US" action={noOwnerRaid()} onOpen={onOpen} assignOwner={{ ...bundle, onAssign: vi.fn() }} />);
-    const btn = screen.getByRole("button", { name: /assign owner/i });
+    const btn = screen.getByRole("button", { name: /^Assign owner – Row$/ });
     fireEvent.click(btn);
     expect(onOpen).not.toHaveBeenCalled();       // stopPropagation
     expect(screen.getByRole("combobox")).toBeInTheDocument(); // ResourcePicker input present (role="combobox")
@@ -136,7 +136,7 @@ describe("ActionRow assign owner", () => {
       />,
     );
     // Open the assign-owner popover.
-    fireEvent.click(screen.getByRole("button", { name: /assign owner/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Assign owner – Row$/ }));
     // The ResourcePicker combobox is now rendered; focus it so the listbox opens.
     const combobox = screen.getByRole("combobox");
     fireEvent.focus(combobox);
@@ -166,7 +166,7 @@ describe("ActionRow draft message", () => {
     const onDraftMessage = vi.fn();
     const action = draftableAction("task-due");
     render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={onOpen} onDraftMessage={onDraftMessage} />);
-    const btn = screen.getByRole("button", { name: /draft message/i });
+    const btn = screen.getByRole("button", { name: /^Draft message – Row$/ });
     fireEvent.click(btn);
     expect(onDraftMessage).toHaveBeenCalledTimes(1);
     expect(onDraftMessage).toHaveBeenCalledWith(action);
@@ -177,7 +177,7 @@ describe("ActionRow draft message", () => {
     const onDraftMessage = vi.fn();
     const action = draftableAction("stakeholder-comms");
     render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} onDraftMessage={onDraftMessage} />);
-    const btn = screen.getByRole("button", { name: /draft message/i });
+    const btn = screen.getByRole("button", { name: /^Draft message – Row$/ });
     expect(btn).toBeInTheDocument();
     fireEvent.click(btn);
     expect(onDraftMessage).toHaveBeenCalledTimes(1);
@@ -301,9 +301,12 @@ describe("ActionRow reschedule / mark done / clear blocker", () => {
       score: 70, tier: "now", cta: { kind: "open", view: "open-points", id: 1 } } as never;
     render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} onMarkDone={onMarkDone}
       reschedule={{ onReschedule: vi.fn() }} />);
-    expect(screen.getByRole("button", { name: /reschedule/i })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
-    fireEvent.click(screen.getByRole("button", { name: /mark done/i }));
+    expect(screen.getByRole("button", { name: /^Reschedule – Row$/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^More actions – Row$/ }));
+    // ★ NOT row-qualified, and that is deliberate: the overflow MENU ITEMS are
+    //   unqualified by design (see the comment at `ActionOverflowMenu`), so the
+    //   full expected name here is the bare verb.
+    fireEvent.click(screen.getByRole("button", { name: /^Mark done$/ }));
     expect(onMarkDone).toHaveBeenCalled();
   });
 
@@ -315,9 +318,9 @@ describe("ActionRow reschedule / mark done / clear blocker", () => {
     const blocked = { ...(unassigned as SuggestedAction), id: "task-attention:1:blocked", why: { key: "actionTaskWhyBlocked", params: ["x"] } } as never;
     const assignBundle = { resources: [], onCreateResource: () => 1, onAssign: vi.fn() };
     const { rerender } = render(<ActionRow rowToken="Row" lang="en-US" action={unassigned} onOpen={() => {}} assignOwner={assignBundle} />);
-    expect(screen.getByRole("button", { name: /assign owner/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Assign owner – Row$/ })).toBeTruthy();
     rerender(<ActionRow rowToken="Row" lang="en-US" action={blocked} onOpen={() => {}} onClearBlocker={onClearBlocker} />);
-    fireEvent.click(screen.getByRole("button", { name: /clear blocker/i })); // now inline, not in the menu
+    fireEvent.click(screen.getByRole("button", { name: /^Clear blocker – Row$/ })); // now inline, not in the menu
     expect(onClearBlocker).toHaveBeenCalled();
   });
 });
@@ -373,7 +376,7 @@ describe("ActionRow extra reasons", () => {
         why: { key: "actionRaidWhyNoOwner" }, score: 40, tier: "now", cta: { kind: "open", view: "raid", id: 1 } },
     ] as never;
     render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} extraReasons={extra} />);
-    const toggle = screen.getByRole("button", { name: /1 more reasons/i });
+    const toggle = screen.getByRole("button", { name: /^\+1 more reasons – Row$/ });
     // The reasons container is always mounted (aria-controls target must stay in DOM);
     // expansion flips `hidden`, not presence.
     const list = document.getElementById("action-reasons-x"); // action.id is "x" in this test
@@ -404,7 +407,7 @@ describe("ActionRow extra reasons", () => {
       cta: { kind: "open", view: "raid", id: 1 },
     } as never;
     render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} onSnooze={onSnooze} onCreateTask={onCreateTask} />);
-    const menuTrigger = screen.getByRole("button", { name: /more actions/i });
+    const menuTrigger = screen.getByRole("button", { name: /^More actions – Row$/ });
     fireEvent.click(menuTrigger);
     // The Snooze 1h item lives inside the menu now (actionSnooze1h EN = "1 hour").
     fireEvent.click(screen.getByRole("button", { name: /1 hour/i }));
