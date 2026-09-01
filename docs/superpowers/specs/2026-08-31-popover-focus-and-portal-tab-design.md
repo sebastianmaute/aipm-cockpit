@@ -4,6 +4,15 @@
 **Closes:** open-followups §100, §297, §124
 **Branch:** `fix/popover-focus-and-portal-tab`
 **Target version:** 0.270.0 (0.269.0 "Due" is reserved by a concurrent unmerged branch)
+
+> ★★ **DATED RECORD — state as of 2026-08-31, NOT a description of today's code.**
+> This document is the plan/spec for the 0.270.0 slice and is deliberately not rewritten;
+> a signed record that is edited to match a later tree stops being one. One claim in it has
+> since been falsified and is the likeliest to mislead: it says `use-focus-trap`'s Tab branch
+> "never consults the stack". That was true when written. `docs/open-followups.md` §318 —
+> CLOSED 2026-09-01 — made the hook register whenever active and gate Tab on `isTopmostOfKind`,
+> and §8 gave `tour-overlay` a real trap on top of it. Read this for what was DECIDED; read
+> `docs/AGENTS/ui-shell.md`'s dismissal section for what the code DOES.
 **Mint new register numbers from 316** — 304, 305 and 308–315 are reserved on that same branch and are not yet on `origin/main`.
 
 ## Goal

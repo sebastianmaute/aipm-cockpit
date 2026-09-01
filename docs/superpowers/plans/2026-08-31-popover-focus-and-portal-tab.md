@@ -2,6 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> ★★ **DATED RECORD — state as of 2026-08-31, NOT a description of today's code.**
+> This document is the plan/spec for the 0.270.0 slice and is deliberately not rewritten;
+> a signed record that is edited to match a later tree stops being one. One claim in it has
+> since been falsified and is the likeliest to mislead: it says `use-focus-trap`'s Tab branch
+> "never consults the stack". That was true when written. `docs/open-followups.md` §318 —
+> CLOSED 2026-09-01 — made the hook register whenever active and gate Tab on `isTopmostOfKind`,
+> and §8 gave `tour-overlay` a real trap on top of it. Read this for what was DECIDED; read
+> `docs/AGENTS/ui-shell.md`'s dismissal section for what the code DOES.
+
 **Goal:** Close open-followups §100, §297 and §124 — three keyboard/focus defects in the popover-modal subsystem — by moving the behaviour into the `PopoverPanel` primitive instead of leaving it to call sites.
 
 **Architecture:** `PopoverPanel` gains a Tab cycle over its own portaled content and flips its dismissal `kind` from `"layer"` to `"modal"`, so `Modal`'s existing `isTopmostOfKind` check defers to it; the new cycle is itself gated on `isTopmostOfKind` so a `Modal` opened from inside a popover still wins. Focus restoration moves to an unmount guard in the primitive, which fixes 13 consumer call sites without editing any of them. The measure effect splits so the scroll/resize listeners arm only once the panel is actually rendered.
