@@ -14,7 +14,7 @@ describe("AiActionRow", () => {
     expect(screen.getByText("Unblock M2")).toBeInTheDocument();
     expect(screen.getByText("Tasks block it.")).toBeInTheDocument();
     // ANCHORED, and the section segment is part of the expected name: an
-    // unanchored substring matched the pre-§328 "Open – Unblock M2" too, so it
+    // unanchored substring matched the pre-§324 "Open – Unblock M2" too, so it
     // passed with the fix reverted.
     const btn = screen.getByRole("button", { name: /^Open – AI suggestions – Unblock M2$/ });
     await userEvent.click(btn);

@@ -268,7 +268,7 @@ describe("ActionsPanel", () => {
       expect(ai.onClear).toHaveBeenCalled();
     });
 
-    // §328 — every AI row's "Open"/"Discuss in chat" button used to qualify
+    // §324 — every AI row's "Open"/"Discuss in chat" button used to qualify
     // itself with the RAW `action.title`, which is model-generated FREE TEXT and
     // can repeat. Two collisions were live at once:
     //   · WITHIN the AI list — two AI actions sharing a title. That the title is
@@ -289,7 +289,7 @@ describe("ActionsPanel", () => {
     // ★ The group's lone action becomes the HERO (`groups[0]`, tier !== monitor),
     //   so the cross-list pair is hero-Open vs AI-Open. `expertMode` is off, so
     //   no score tooltips render and the Open buttons carry the whole assertion.
-    it("gives every AI row a name unique within the AI list and against the group list (§328)", () => {
+    it("gives every AI row a name unique within the AI list and against the group list (§324)", () => {
       const groupTitle = t("en-US", "actionRaidTitle", 1, "Shared");
       const result: ActionAnalysis = {
         summary: "",
