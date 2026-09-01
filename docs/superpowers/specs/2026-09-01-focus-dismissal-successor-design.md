@@ -7,6 +7,20 @@ merged `kind: "modal"`.
 
 Every claim below was read out of the source on 2026-09-01 against `fb66aeec` (0.273.0 "Goonan").
 
+> ★★ **WHY THIS ONE IS AMENDED IN PLACE while the two 0.270.0 records beside it are BANNERED
+> instead.** Those describe a slice that had already shipped, so editing them to match a later tree
+> would destroy the only thing they are good for. This document was written AND corrected inside its
+> own slice, before anything merged — it never described a shipped state, so amending it is the
+> normal act of a plan being wrong and being fixed, not the rewriting of a signed record. From the
+> merge onward it becomes one, and the rule flips: banner it, do not edit it.
+>
+> ★★★ **THE C2 SNIPPET IN §2 IS DELIBERATELY WRONG AND IS KEPT THAT WAY.** It uses the `outside`
+> containment term, which `Node.contains` being reflexive makes a no-op for the exact case this
+> slice exists to fix, and the paragraph directly under it says so. Do not paste that block, and do
+> not "tidy" it by deleting either half — the snippet alone is a runnable error, and the refutation
+> alone is an argument about nothing. The shipped term is MEMBERSHIP; `use-focus-trap.ts` is where
+> it lives.
+
 ---
 
 ## 1. What is actually wrong
