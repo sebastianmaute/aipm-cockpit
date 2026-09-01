@@ -1324,6 +1324,46 @@ describe("renderDocumentPptx — S3c-2 placed pictures", () => {
     });
   }
 
+  /** ★★★ THE ONLY AUTOMATED EXERCISE OF `mediaIdCeiling`'S RESERVATION ON THIS
+   *  SIDE. A slide's media relationship ids are minted DURING the slide build,
+   *  so the link sink cannot measure them and reserves `2 + mediaIdCeiling
+   *  (chunk)` instead. Under-reserve — `createLinkSink(2)` — and a slide
+   *  carrying BOTH a picture and a link mints rId2 twice. Measured against that
+   *  exact mutant, not reasoned: `buildPptxPackage`'s own duplicate guard
+   *  THROWS `duplicate relationship id "rId2"` and the user's whole deck export
+   *  fails with no file — the same failure mode `doc-render-docx.test.ts`
+   *  records for the DOCX twin. The guard is the backstop, not the design; what
+   *  this test pins is that the reservation keeps the two families apart so the
+   *  backstop is never reached.
+   *
+   *  ★★ IT NEEDS BOTH ON ONE SLIDE. Every other test in this describe has
+   *  pictures and no links, and the "hyperlinks" describe below has links and
+   *  no pictures — each of those passes at either reservation, so neither can
+   *  see this. The fixture is one paragraph carrying an image and an anchor,
+   *  which is what puts them in the same chunk and therefore the same sink. */
+  it("keeps a picture's embed id and a hyperlink's id disjoint on one slide", async () => {
+    const zip = await zipOf(
+      [para('<p>see <a href="https://intra/spec">the spec</a><img data-asset-id="a1"></p>')],
+      wsWith(sized()),
+      inlined({ a1: PNG_B64 }),
+    );
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    const embedId = xml.match(/<a:blip r:embed="(rId\d+)"\/>/)?.[1];
+    const linkId = xml.match(/<a:hlinkClick r:id="(rId\d+)"\/>/)?.[1];
+    // Both present FIRST — a slide rendering neither satisfies the inequality
+    // below vacuously.
+    expect(embedId).toBeTruthy();
+    expect(linkId).toBeTruthy();
+    expect(embedId).not.toBe(linkId);
+
+    // `slidePictures` throws unless the embed id resolves in THIS slide's own
+    // rels to a media part the package actually holds.
+    expect(slidePictures(zip, 2).map((p) => p.relId)).toEqual([embedId]);
+    const rels = partText(zip, "ppt/slides/_rels/slide2.xml.rels");
+    expect(rels).toContain(`Id="${linkId}" `);
+    expect(rels).toContain(`Target="https://intra/spec" TargetMode="External"`);
+  });
+
   it("places a picture below the body text and embeds its bytes", async () => {
     const zip = await zipOf(
       [para('<p>intro<img data-asset-id="a1"></p>')],

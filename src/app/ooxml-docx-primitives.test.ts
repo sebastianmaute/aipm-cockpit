@@ -111,9 +111,20 @@ function tableWidth(xml: string): number {
 
 describe("buildDocxPackage — page geometry", () => {
   it("defaults to A4 landscape with the exporter's 720-twip margins", async () => {
-    // ★★ The DEFAULT is the contract, not a preference: the workspace exporter
-    // calls buildDocxPackage with two arguments, and its output is pinned by
-    // export-ooxml.test.ts. Widening the page here re-orients every export.
+    // ★★★ THE REASONING HERE WAS FALSIFIED BY THE LINKS BRANCH AND THE
+    // CONCLUSION WITH IT. It read: "the workspace exporter calls
+    // buildDocxPackage with two arguments … widening the page here re-orients
+    // every export." Both halves are now untrue. `export-docx.ts` passes five
+    // arguments with "landscape" spelled out (it has link relationships to
+    // hand over) and `doc-render-docx.ts` passes its own `PAGE = "portrait"`,
+    // so NO production caller reads this default and widening it re-orients
+    // NOTHING that ships. Reproduce before trusting this either:
+    //   grep -rn "buildDocxPackage(" src/app --include=*.ts | grep -v test
+    // ★★ So this stays an ARGUMENT-DEFAULT test, not an export-behaviour one.
+    // It is worth keeping in that narrower form precisely BECAUSE no caller
+    // covers the default any more — every site that still reads it is a TEST.
+    // Enumerate them; do not trust a count here:
+    //   grep -rn 'buildDocxPackage("<w:p/>")\|buildDocxPackage("<w:p/>", "")' src --include=*.ts
     const g = await geometry(buildDocxPackage("<w:p/>"));
     expect(g.width).toBe(A4_LONG);
     expect(g.height).toBe(A4_SHORT);
@@ -452,16 +463,20 @@ describe("docxRichParagraphs — hyperlinks", () => {
     expect(sink.rels()).toEqual([]);
   });
 
-  it("gives a dataSection block the same link fidelity as the register's own export", () => {
-    // A document embedding a register whose rich column carries a link must
-    // reach .docx as a real hyperlink, not as flattened text — the dataSection
-    // path resolves through the REAL buildExportSections, so it shares these
-    // sinks with the workspace exporter by construction.
-    const sink = createLinkSink(2);
-    const xml = docxRichParagraphs('<p><a href="https://intra/raid">mitigation</a></p>', sink);
-    expect(xml).toContain('<w:hyperlink xmlns:r=');
-    expect(sink.rels()).toHaveLength(1);
-  });
+  // ★★★ A TEST NAMED "gives a dataSection block the same link fidelity as the
+  // register's own export" WAS DELETED FROM HERE, and the deletion is the point
+  // worth recording. It imported no `doc-render-docx`, called no `renderBlock`,
+  // `resolveDataSection` or `buildExportSections`, and built no `DocBlock` — it
+  // was the first test in this describe with a different URL and a weaker pair
+  // of assertions, under a name claiming a subject it could not reach. Its
+  // comment argued the case ("shares these sinks by construction") instead of
+  // asserting it, and a reader auditing dataSection link coverage would have
+  // found the name, believed it, and stopped. A test with the right name and
+  // no view of its subject is worse than no test at all.
+  // ★ The claim is now covered where it can actually be observed: the
+  // "hyperlinks" describe in `doc-render-docx.test.ts` drives a real
+  // `{ type: "dataSection" }` block through `renderDocumentDocx` and resolves
+  // the emitted `r:id` against the rels part.
 });
 
 describe("buildDocxPackage link relationships", () => {

@@ -64,6 +64,31 @@ function parseXml(xml: string): Document {
   return parsed;
 }
 
+/** The path of the ONE relationship part every id in document.xml resolves in. */
+const DOC_RELS = "word/_rels/document.xml.rels";
+
+/** The `<Relationship>` carrying this Id, as a plain attribute bag — or
+ *  `undefined` when the part declares no such id.
+ *
+ *  ★★★ THIS EXISTS SO A TEST CANNOT ASSERT THE TWO HALVES INDEPENDENTLY.
+ *  `export-ooxml.test.ts` states the rule ("BOTH HALVES OR NEITHER"): an
+ *  `expect(body).toContain('r:id="rId2"')` beside an
+ *  `expect(rels).toContain('Id="rId2"')` passes even when the renderer emitted
+ *  a DIFFERENT id in one of the two, because each assertion restates the
+ *  literal rather than reading it. Callers here must extract the id FROM the
+ *  body and hand it to this function, so a mismatch is a missing relationship.
+ *
+ *  ★ Returns the attribute bag rather than a boolean so `TargetMode` and `Type`
+ *  are checkable on the SAME element the id resolved to — an external link and
+ *  an internal media part are told apart by exactly those two. */
+function relationship(relsXml: string, id: string): Record<string, string> | undefined {
+  for (const el of Array.from(parseXml(relsXml).getElementsByTagName("Relationship"))) {
+    if (el.getAttribute("Id") !== id) continue;
+    return Object.fromEntries(Array.from(el.attributes).map((a) => [a.name, a.value]));
+  }
+  return undefined;
+}
+
 /** Every <w:t> in document order, which is what a reader actually sees. */
 function textNodes(xml: string): string[] {
   return Array.from(parseXml(xml).getElementsByTagName("w:t")).map(
@@ -1459,6 +1484,51 @@ describe("renderDocumentDocx — S3c-2 embedded images", () => {
     expect(cx).toBe(4_572_000);
   });
 
+  /** ★★★ THE ONLY AUTOMATED EXERCISE OF `mediaIdCeiling`'S RESERVATION, and the
+   *  failure it guards is a HARD one: media relationship ids are minted DURING
+   *  the body render, so the link sink cannot measure them and reserves a bound
+   *  instead. Under-reserve — `createLinkSink(2)` rather than
+   *  `createLinkSink(2 + mediaIdCeiling(doc))` — and a document holding BOTH an
+   *  image and a link mints rId2 twice; `buildDocxPackage` throws on the
+   *  duplicate and the user's whole export fails with no file at all.
+   *
+   *  ★★ IT NEEDS BOTH IN ONE DOCUMENT, which is why it lives here beside the
+   *  media fixtures rather than in the "hyperlinks" describe below. Every other
+   *  test in this file has images or links, never both, and each of those
+   *  passes at either reservation. The shape is the block editor's own: an
+   *  image-only paragraph followed by prose carrying a link.
+   *
+   *  ★ It asserts DISJOINTNESS AND RESOLUTION, not just that the render
+   *  survived. A future collision that did NOT throw would otherwise pass here
+   *  while pointing the picture at the hyperlink's relationship. */
+  it("keeps a picture's embed id and a hyperlink's id disjoint, each resolving to its own rel", async () => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      doc([
+        { type: "paragraph", html: `<p><img data-asset-id="a1"></p>` },
+        { type: "paragraph", html: '<p>see <a href="https://intra/spec">the spec</a></p>' },
+      ], "T"),
+      wsWith(), "en-US", inlinedAssets({ a1: PNG_B64 }),
+    ));
+    const xml = partText(zip, "word/document.xml");
+    const embedId = xml.match(/r:embed="(rId\d+)"/)?.[1];
+    const linkId = xml.match(/<w:hyperlink [^>]*r:id="(rId\d+)">/)?.[1];
+    // Both halves present FIRST — a document that rendered neither would
+    // satisfy every inequality below vacuously.
+    expect(embedId).toBeTruthy();
+    expect(linkId).toBeTruthy();
+    expect(embedId).not.toBe(linkId);
+
+    const rels = partText(zip, "word/_rels/document.xml.rels");
+    const embedRel = relationship(rels, embedId!);
+    const linkRel = relationship(rels, linkId!);
+    expect(embedRel?.Type).toContain("/image");
+    expect(embedRel?.Target).toBe(`media/${mediaPaths(zip)[0].slice("word/media/".length)}`);
+    expect(embedRel?.TargetMode).toBeUndefined();   // an internal part, not external
+    expect(linkRel?.Type).toContain("/hyperlink");
+    expect(linkRel?.Target).toBe("https://intra/spec");
+    expect(linkRel?.TargetMode).toBe("External");
+  });
+
   it("numbers several images so each drawing resolves to its own part", async () => {
     const zip = await unzipBytes(renderDocumentDocx(
       imageDoc(`<p><img data-asset-id="a1"><img data-asset-id="a2"></p>`),
@@ -1515,5 +1585,110 @@ describe("renderDocumentDocx — S3c-2 embedded images", () => {
       expect(canEmbedDocxAsset(asset())).toBe(true);
       expect(canEmbedDocxAsset(asset({ mime: "image/jpeg" }))).toBe(true);
     });
+  });
+});
+
+// ─── Hyperlinks (§119) ───────────────────────────────────────────────────────
+//
+// ★★★ THE DOCX *DOCUMENT* RENDERER — the primary consumer §119 was filed about
+// — shipped with NO link assertion anywhere in this file while its PPTX twin
+// got a full end-to-end describe. Measured at the time, not assumed:
+// `grep -c "href=" doc-render-docx.test.ts` returned 0 against 3 for the pptx
+// file, and three separate mutants of `doc-render-docx.ts` were green:
+// dropping `links.rels()` from the `buildDocxPackage` call (a body full of
+// `<w:hyperlink r:id>` over a rels part that declares none — Word opens with
+// the link dead or offers to repair), under-reserving the sink's base, and
+// dropping the sink from the `dataSection` arm. `ooxml-docx-primitives.test.ts`
+// pins `docxRichParagraphs` and `buildDocxPackage` SEPARATELY and cannot see
+// any of the three: every one of them is in the WIRING between the two.
+//
+// ★★ So the load-bearing property here is RESOLUTION ACROSS THE TWO PARTS, and
+// every test below reads the id out of `word/document.xml` and looks THAT id up
+// (see `relationship`). Restating the literal on both sides is the exact shape
+// `export-ooxml.test.ts`'s "BOTH HALVES OR NEITHER" comment warns against, and
+// it would have left the first mutant alive.
+describe("renderDocumentDocx — hyperlinks", () => {
+  const linked = (html: string): ProjectDocument => doc([{ type: "paragraph", html }], "T");
+
+  it("resolves a paragraph link's r:id to an External relationship on that target", async () => {
+    const all = await parts(linked('<p>see <a href="https://intra/spec">the spec</a></p>'));
+    const id = all.get("word/document.xml")!.match(/<w:hyperlink [^>]*r:id="(rId\d+)">/)?.[1];
+    expect(id).toBeTruthy();
+    // ★ rId1 is the styles part. Minting it would silently detach the styles
+    //   and leave every paragraph unstyled, which no text assertion notices.
+    expect(id).not.toBe("rId1");
+
+    const rel = relationship(all.get(DOC_RELS)!, id!);
+    expect(rel).toBeDefined();
+    expect(rel!.Target).toBe("https://intra/spec");
+    expect(rel!.TargetMode).toBe("External");
+    expect(rel!.Type).toContain("/hyperlink");
+  });
+
+  it("adds no zip part and no content-type for a link", async () => {
+    // The property that separates an external relationship from a media one.
+    // A renderer that minted a part here would produce a package listing an
+    // entry it never wrote.
+    const all = await parts(linked('<p><a href="https://intra/spec">x</a></p>'));
+    expect([...all.keys()].filter((p) => p.startsWith("word/media/"))).toEqual([]);
+    expect(all.get("[Content_Types].xml")).not.toContain("hyperlink");
+  });
+
+  it("resolves a dataSection row's link the same way — the register's own cell", async () => {
+    // ★★ THE dataSection ARM THREADS THE SINK SEPARATELY from the paragraph
+    //    arm, through `buildDocxTable`, and `links` is OPTIONAL there — so
+    //    dropping it from this arm alone COMPILES and flattens an embedded
+    //    register's rich column straight back to §119's original defect, with
+    //    every other test in this file green.
+    const wsLinkedRaid = {
+      tasks: [],
+      raid: [{
+        id: 1,
+        title: "Vendor delay",
+        category: "Risk",
+        status: "Open",
+        description: '<p>see <a href="https://intra/raid">the mitigation</a></p>',
+      }],
+    } as unknown as Workspace;
+    const all = await parts(doc([{ type: "dataSection", key: "raid" }]), wsLinkedRaid);
+    const body = all.get("word/document.xml")!;
+    // The row reached the table at all — without this the id assertions below
+    // could pass on an empty register by failing for the wrong reason.
+    expect(textNodes(body)).toContain("Vendor delay");
+
+    const id = body.match(/<w:hyperlink [^>]*r:id="(rId\d+)">/)?.[1];
+    expect(id).toBeTruthy();
+    const rel = relationship(all.get(DOC_RELS)!, id!);
+    expect(rel?.Target).toBe("https://intra/raid");
+    expect(rel?.TargetMode).toBe("External");
+  });
+
+  it("mints ONE relationship for one address used twice, and both runs point at it", async () => {
+    const all = await parts(linked(
+      '<p><a href="https://intra/spec">one</a> and <a href="https://intra/spec">two</a></p>',
+    ));
+    const body = all.get("word/document.xml")!;
+    const ids = [...body.matchAll(/<w:hyperlink [^>]*r:id="(rId\d+)">/g)].map((m) => m[1]);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(1);
+    // ★ And the deduped id is a REAL relationship, not merely a repeated
+    //   string — the dedup lives in the sink, the declaration in the package.
+    expect(relationship(all.get(DOC_RELS)!, ids[0])?.Target).toBe("https://intra/spec");
+  });
+
+  it("degrades an unsafe scheme to a plain run rather than relating it", async () => {
+    const all = await parts(linked('<p><a href="javascript:alert(1)">click</a></p>'));
+    const body = all.get("word/document.xml")!;
+    expect(body).not.toContain("w:hyperlink");
+    // The TEXT survives — degrading must not delete the user's words.
+    expect(textNodes(body)).toContain("click");
+    expect(all.get(DOC_RELS)!).not.toContain("javascript:");
+  });
+
+  it("leaves a link-free document's rels part exactly as it was", async () => {
+    // The additive contract, end to end: no hyperlink relationship at all.
+    const all = await parts(doc([{ type: "paragraph", html: "<p>no links here</p>" }]));
+    expect(all.get(DOC_RELS)!).not.toContain("hyperlink");
+    expect(all.get(DOC_RELS)!).not.toContain("TargetMode");
   });
 });
