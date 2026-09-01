@@ -4,8 +4,19 @@ import type { ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 
 // Shared binary on/off toggle button (the gantt toolbar toggle look): a
-// bordered chip that gains an accent border + tint when pressed, so the ON
-// state is visible at a glance and reflows with the active scheme.
+// bordered chip that gains a derived accent border + tint when pressed. The
+// border rides `--control-state-border` / `--control-state-border-pink`, each
+// nudged to clear 3:1 against the unpressed `--line` (SC 1.4.11) — the raw
+// accents did not: `--ui-dark-blue` measured 1.03-1.22:1 against `--line` in
+// the three dark schemes, which is invisible to every user, not only to users
+// with a colour-vision deficiency. The non-colour cue is the trailing marker
+// below, which is a SEPARATE guarantee (SC 1.4.1) and does not substitute for
+// this one — open-followups §56 records that reading the glyph as the fix is
+// the trap here.
+// ★★ NO `dark:border-*` VARIANT. scheme-apply.ts sets these custom properties
+//    inline per active scheme AND mode, so one declaration is already
+//    mode-correct; a `dark:` variant would re-pin the raw accent in exactly
+//    the schemes that fail the floor. Pinned by toggle-button.test.tsx.
 //
 // ★★ WCAG 4.1.2 name/state coherence is STRUCTURAL here: the visible label
 // (`children`) MUST name what pressed=true ENABLES and NEVER flip with state.
@@ -27,8 +38,8 @@ const UNPRESSED =
 
 const PRESSED: Record<ToggleAccent, string> = {
   "dark-blue":
-    "border-ui-dark-blue bg-ui-dark-blue/10 text-ui-dark-blue hover:bg-ui-dark-blue/20 focus:ring-ui-dark-blue dark:border-ui-dark-blue dark:bg-ui-dark-blue/20 dark:text-ui-light-grey",
-  pink: "border-ui-pink bg-ui-pink/10 text-ui-dark-blue hover:bg-ui-pink/20 focus:ring-ui-pink dark:border-ui-pink dark:bg-ui-pink/15 dark:text-ui-light-grey",
+    "border-[var(--control-state-border)] bg-ui-dark-blue/10 text-ui-dark-blue hover:bg-ui-dark-blue/20 focus:ring-ui-dark-blue dark:bg-ui-dark-blue/20 dark:text-ui-light-grey",
+  pink: "border-[var(--control-state-border-pink)] bg-ui-pink/10 text-ui-dark-blue hover:bg-ui-pink/20 focus:ring-ui-pink dark:bg-ui-pink/15 dark:text-ui-light-grey",
 };
 
 interface ToggleButtonProps {

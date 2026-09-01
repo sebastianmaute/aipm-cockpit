@@ -32,7 +32,7 @@ describe("ToggleButton", () => {
     rerender(<ToggleButton pressed onToggle={() => {}} accent="pink">Critical path</ToggleButton>);
     btn = screen.getByRole("button");
     expect(btn.className).toContain("bg-ui-pink/10");
-    expect(btn.className).toContain("border-ui-pink");
+    expect(btn.className).toContain("border-[var(--control-state-border-pink)]");
   });
 
   it("defaults to the dark-blue accent", () => {
@@ -177,5 +177,26 @@ describe("ToggleButton", () => {
     );
     expect(screen.getByTestId("ic")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Detailed planning" })).toBeInTheDocument();
+  });
+
+  // SC 1.4.11 — the pressed border must be the DERIVED token, which
+  // scheme-apply sets per active scheme AND mode. A raw accent measured
+  // 1.03-1.22:1 against the unpressed --line in the three dark schemes.
+  // ★ The absence assertions are the load-bearing half: they are what a
+  //   reinstated `dark:border-ui-*` variant would trip, and such a variant
+  //   would re-pin the raw accent in exactly the schemes that fail.
+  it("the pressed border rides the derived state token, not a raw accent", () => {
+    const { rerender } = render(
+      <ToggleButton pressed onToggle={() => {}}>Inline milestones</ToggleButton>,
+    );
+    const btn = screen.getByRole("button", { name: "Inline milestones" });
+    expect(btn.className).toContain("border-[var(--control-state-border)]");
+    expect(btn.className).not.toContain("border-ui-dark-blue");
+
+    rerender(
+      <ToggleButton pressed onToggle={() => {}} accent="pink">Inline milestones</ToggleButton>,
+    );
+    expect(btn.className).toContain("border-[var(--control-state-border-pink)]");
+    expect(btn.className).not.toContain("border-ui-pink ");
   });
 });
