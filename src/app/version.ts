@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.272.0";
-export const APP_BUILD_DATE = "2026-08-31"; // 0.272.0: retry-reload no longer discards a send that lands inside its window, a project switch mid-reload no longer strands the old project's threads, an unsettled persist is visible to the settle, abortRef cleared only by its owner (Zoline)
+export const APP_VERSION = "0.272.1";
+export const APP_BUILD_DATE = "2026-09-01"; // 0.272.1: budget row separators draw again in the default planning view, the bucket totals follow the role filter, the people rows say where their booked hours came from, the two rate-override tooltips are told apart (Zoline)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.272.x line is "Zoline" (Pamela Zoline, American SF author and painter,
  *  "The Heat Death of the Universe"). Checked dash-agnostically BEFORE the
