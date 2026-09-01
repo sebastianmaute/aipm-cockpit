@@ -627,6 +627,30 @@ describe("renderDocumentPptx — blocks", () => {
     expect(text.some((l) => l.trim() === "second para")).toBe(false);
   });
 
+  /** ★★ PINS THE CALL SITE. `flattenCell` lays a row out as ONE LINE of text
+   *  with no cell to hang a hyperlink relationship on, so a link's address
+   *  survives only inline as "text (url)" (§119). `cellTextWithLinks` is
+   *  unit-tested in export-sections.test.ts; nothing there notices this
+   *  renderer going on calling `cellText`. */
+  it("carries a link's address inline in a dataSection row — a text row holds no link", async () => {
+    const wsLinked = {
+      tasks: [],
+      raid: [
+        {
+          id: 1,
+          title: "Vendor delay",
+          category: "Risk",
+          status: "Open",
+          description: '<p>see <a href="https://intra/spec">the spec</a></p>',
+        },
+      ],
+    } as unknown as Workspace;
+    const text = await bodyText(doc([{ type: "dataSection", key: "raid" }]), wsLinked);
+    const row = text.find((l) => l.includes("the spec"));
+    expect(row).toBeDefined();
+    expect(row).toContain("see the spec (https://intra/spec)");
+  });
+
   it("renders a table with no rows without emitting a stray blank line", async () => {
     const text = await bodyText(doc([{ type: "table", columns: ["Risk"], rows: [] }]));
     expect(text.join("\n")).toContain("Risk");

@@ -910,4 +910,24 @@ describe("buildDocx link relationships", () => {
     expect(files.get("word/_rels/document.xml.rels")!).not.toContain('TargetMode="External"');
     expect(files.get("word/document.xml")!).not.toContain("<w:hyperlink");
   });
+
+  /** ★★ THESE PIN THE CALL SITE, NOT THE PROJECTION. `cellTextWithLinks` is
+   *  unit-tested in export-sections.test.ts; nothing there notices a sink that
+   *  went on calling `cellText`, which is the shape this whole slice is about.
+   *  Both assert against the SUBSTRATE — the shared-string table and the slide
+   *  XML the reader actually opens — not against the helper's arguments. */
+  it("carries the address inline in the XLSX shared string — a cell holds no link", async () => {
+    const files = await unzipBlob(buildXlsx([sectionWith(LINKED)]));
+    const shared = files.get("xl/sharedStrings.xml")!;
+    expect(shared).toContain("see the spec (https://intra/spec)");
+  });
+
+  it("carries the address inline on the PPTX row slide — a run holds no link", async () => {
+    const files = await unzipBlob(buildPptx([sectionWith(LINKED)], "en-US"));
+    const slides = [...files.entries()]
+      .filter(([k]) => k.startsWith("ppt/slides/slide") && !k.includes("_rels"))
+      .map(([, v]) => v)
+      .join("");
+    expect(slides).toContain("see the spec (https://intra/spec)");
+  });
 });

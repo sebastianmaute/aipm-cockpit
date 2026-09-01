@@ -92,7 +92,7 @@ import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
 import type { DocumentAsset } from "./document-asset";
 import { safeBase64ToBytes } from "./document-asset-upload";
 import type { ExportCell } from "./export-sections";
-import { cellText } from "./export-sections";
+import { cellTextWithLinks } from "./export-sections";
 import type { Workspace } from "./workspace";
 import { t, type Lang } from "./i18n";
 
@@ -174,7 +174,11 @@ function flattenCell(cell: ExportCell): string {
   // renderer lays out a row as one line of text and has no cell to put a
   // second paragraph inside. Without it `String(cell)` yields "[object
   // Object]" for every rich column a dataSection carries.
-  return String(cellText(cell)).replace(/\s*[\r\n]+\s*/g, " ");
+  // ★ `cellTextWithLinks`, not `cellText`: a text-laid-out table row has no
+  // hyperlink to hang a relationship on, so an address survives only inline
+  // (§119). The collapse below stays where it is and runs AFTER — the suffix
+  // is horizontal text and a row must still be one line.
+  return String(cellTextWithLinks(cell)).replace(/\s*[\r\n]+\s*/g, " ");
 }
 
 /** ONE table layout for both the `table` block and a resolved dataSection —

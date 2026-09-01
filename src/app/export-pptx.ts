@@ -3,7 +3,7 @@
 // assembly) live in ooxml-pptx-primitives.ts; this file is only about turning
 // ExportSections into slides.
 import type { ExportCell, ExportSection } from "./export-sections";
-import { cellText } from "./export-sections";
+import { cellTextWithLinks } from "./export-sections";
 import type { Lang } from "./i18n";
 import {
   COLOR_DARK_BLUE,
@@ -99,16 +99,18 @@ function buildPptxRowSlide(
   lang: Lang,
 ): string {
   // A row slide is flat text, so a rich cell is read through its text
-  // projection. The `?? ""` stays OUTSIDE the call: `cellText`'s parameter
-  // excludes `undefined`, and a short row must still normalise to "".
-  const firstValue = String(cellText(row[0]) ?? "");
-  const secondValue = columns.length > 1 ? String(cellText(row[1]) ?? "") : "";
+  // projection. The `?? ""` stays OUTSIDE the call: `cellTextWithLinks`'s
+  // parameter excludes `undefined`, and a short row must still normalise to "".
+  // ★ `cellTextWithLinks`, not `cellText`: a row slide's `<a:t>` carries no
+  // hyperlink relationship, so a link's address survives only inline (§119).
+  const firstValue = String(cellTextWithLinks(row[0]) ?? "");
+  const secondValue = columns.length > 1 ? String(cellTextWithLinks(row[1]) ?? "") : "";
 
   // Remaining fields shown as "Label: value" lines.
   const metaLines = columns
     .slice(2, 8) // cap at 6 extra fields so text fits the slide
     .map((col, i) => {
-      const val = String(cellText(row[i + 2]) ?? "");
+      const val = String(cellTextWithLinks(row[i + 2]) ?? "");
       return val ? { text: `${col}: ${val}`, sizeHundredths: 1600 as const } : null;
     })
     .filter((p): p is { text: string; sizeHundredths: 1600 } => p !== null);

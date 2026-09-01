@@ -2,6 +2,8 @@
 import { describe, it, expect } from "vitest";
 import {
   buildExportSections,
+  cellText,
+  cellTextWithLinks,
   isRichCell,
   TASK_RICH_COLUMNS,
   RAID_RICH_COLUMNS,
@@ -816,5 +818,70 @@ describe("note logs export as readable text, not a raw JSON blob (§36b)", () =>
     const col = tasks!.columns.indexOf("noteLog");
     expect(col).toBeGreaterThanOrEqual(0);
     expect(flatCell(tasks!.rows[0][col])).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §119/§30 — a link's ADDRESS survives a sink that cannot hold a hyperlink
+// ---------------------------------------------------------------------------
+
+describe("cellTextWithLinks — the flat-sink projection (§119)", () => {
+  it("appends the address to a link's text for a flat sink", () => {
+    const cell = {
+      html: '<p>Spec: <a href="https://intra/spec">the spec</a></p>',
+      text: "Spec: the spec",
+    };
+    expect(cellTextWithLinks(cell)).toBe("Spec: the spec (https://intra/spec)");
+  });
+
+  it("leaves an unlinked value exactly as cellText produced it", () => {
+    const cell = { html: "<p>plain</p>", text: "plain" };
+    expect(cellTextWithLinks(cell)).toBe(cellText(cell));
+  });
+
+  it("passes a non-rich cell straight through", () => {
+    expect(cellTextWithLinks("raw")).toBe("raw");
+    expect(cellTextWithLinks(42)).toBe(42);
+  });
+
+  it("omits the address when the link text ALREADY is the address", () => {
+    const cell = { html: '<p><a href="https://a">https://a</a></p>', text: "https://a" };
+    expect(cellTextWithLinks(cell)).toBe("https://a");
+  });
+
+  it("drops an unsafe scheme rather than printing it", () => {
+    const cell = { html: '<p><a href="javascript:alert(1)">click</a></p>', text: "click" };
+    expect(cellTextWithLinks(cell)).toBe("click");
+  });
+
+  /** ★ ONE suffix per LINK, not per run. A link whose text carries an inline
+   *  mark is several `TextRun`s sharing one href; suffixing each of them would
+   *  print the address in the middle of its own anchor text. */
+  it("suffixes a marked-up link once, not once per styled run", () => {
+    const cell = {
+      html: '<p><a href="https://intra/spec">the <strong>spec</strong></a></p>',
+      text: "the spec",
+    };
+    expect(cellTextWithLinks(cell)).toBe("the spec (https://intra/spec)");
+  });
+
+  /** ★ DELIBERATE: an address repeated across SEPARATE links is suffixed at
+   *  every one of them. A flat cell has no back-reference — a reader meeting
+   *  the second mention cannot know it points where the first did — and
+   *  de-duplicating would make each link's rendering depend on what precedes
+   *  it, so deleting the first sentence would silently strip the second's
+   *  address. */
+  it("suffixes every separate link even when they share one address", () => {
+    const cell = {
+      html: '<p><a href="https://a/x">one</a> and <a href="https://a/x">two</a></p>',
+      text: "one and two",
+    };
+    expect(cellTextWithLinks(cell)).toBe("one (https://a/x) and two (https://a/x)");
+  });
+
+  it("keeps the block boundaries descriptionTextWithBreaks emits", () => {
+    const html = '<p>a <a href="https://a/x">link</a></p><p>b</p>';
+    const cell = { html, text: descriptionTextWithBreaks(html) };
+    expect(cellTextWithLinks(cell)).toBe("a link (https://a/x)\nb");
   });
 });

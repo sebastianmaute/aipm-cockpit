@@ -541,8 +541,11 @@ describe("buildExportSections is total", () => {
                 expect(typeof cell.html).toBe("string");
                 expect(typeof cell.text).toBe("string");
                 // The flat half a non-layout renderer reads must never be the
-                // object itself: PPTX writes cellText() straight into <a:t>, so
-                // a broken flattener ships the literal "[object Object]".
+                // object itself: PPTX writes the flat projection straight into
+                // <a:t>, so a broken flattener ships the literal "[object
+                // Object]". ★ The sinks now call `cellTextWithLinks`, which
+                // returns `cell.text` verbatim whenever the cell carries no
+                // link address — so this stays the shape they read.
                 expect(["string", "number"]).toContain(typeof cellText(cell));
                 richCellsSeen += 1;
               } else {

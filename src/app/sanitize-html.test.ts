@@ -137,6 +137,22 @@ describe("htmlToText", () => {
       "alert",
     );
   });
+
+  /** ★★★ §30 FORBIDS WIDENING THIS. `htmlToText` is the plain projection behind
+   *  global search, the AI entity digests and the inline-AI plan preview, so a
+   *  link's ADDRESS must never appear in its output — carrying one would put
+   *  raw URLs into a search index and into model prompts.
+   *
+   *  ★★ The assertion is POSITIVE on purpose. A test asserting only that the
+   *  export-only projection (`cellTextWithLinks`, export-sections.ts) DIFFERS
+   *  from this one goes green when both widen together; this one goes red the
+   *  moment anything adds "a" to the `ALLOWED_TAGS: []` here, which is the
+   *  single edit §30 exists to prevent. */
+  it("leaves htmlToText byte-unchanged — search and the AI digests read it", () => {
+    expect(htmlToText('<p>Spec: <a href="https://intra/spec">the spec</a></p>')).toBe(
+      "Spec: the spec",
+    );
+  });
 });
 
 describe("sanitizeDocumentHtml", () => {
