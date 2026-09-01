@@ -96,13 +96,19 @@ export function useDictationMic({
       // `pressHandlers`, and their keydown calls preventDefault, which
       // suppresses the synthetic click a keyboard press would otherwise emit.
       onToggle={() => {}}
-      // ★ The mic keeps its GREEN identity rather than taking the primitive's
-      //   dark-blue chrome default. The green was never the problem — the
-      //   problem was that it was the ONLY cue; `accent="green"` puts it on a
-      //   border derived to clear 3:1 against --line and leaves the shared
-      //   non-colour marker to carry SC 1.4.1. Dropping to the default would
-      //   have fixed the contrast by discarding the colour that means
-      //   "recording" everywhere else in the app.
+      // ★ Green rather than the primitive's dark-blue chrome default. The green
+      //   was never the problem — the problem was that it was the ONLY cue;
+      //   `accent="green"` puts it on a border derived to clear 3:1 against
+      //   --line and leaves the shared non-colour marker to carry SC 1.4.1.
+      // ★★ WHAT SURVIVES IS THE BORDER AND THE 10% TINT, NOT THE GLYPH, and an
+      //   earlier wording here ("keeps its GREEN identity") overstated that.
+      //   `PRESSED.green` sets `text-ui-dark-blue dark:text-ui-light-grey` and
+      //   the mic glyph is `currentColor`, so the LISTENING icon — formerly
+      //   `--ui-green-strong` — is now dark-blue in light schemes and
+      //   light-grey in dark ones. Deliberate and left alone: the marker plus
+      //   the derived border already carry the requirement, and recolouring the
+      //   glyph back would be an unmeasured change to a primitive every other
+      //   consumer shares.
       accent="green"
       // Icon-only on screen, so the (row-unique) name rides an `sr-only`
       // child rather than an `aria-label` — name-from-content yields the same

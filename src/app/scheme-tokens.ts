@@ -127,8 +127,10 @@ export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
   const out: SchemeColorMap = {};
   if (colors["--ui-green"]) out["--ui-green-strong"] = nudgeToAa(colors["--ui-green"], surface);
   if (colors["--ui-pink"]) out["--ui-pink-strong"] = nudgeToAa(colors["--ui-pink"], surface);
-  // SC 1.4.11 state borders. ToggleButton has TWO accents and §56 measured only
-  // one: the dark-blue pressed border measures 1.03-1.22:1 against --line in the
+  // SC 1.4.11 state borders. Derived here for ToggleButton's dark-blue and pink
+  // accents; the third, green, is derived below — see the note there, which is
+  // also where the accent set's history lives. §56 measured only the dark-blue
+  // one: its pressed border measures 1.03-1.22:1 against --line in the
   // three dark schemes, while the pink accent clears 3:1 in all seven combos
   // (3.04-5.08). Both are derived anyway — for pink the loop exits on its first
   // condition check and returns the base unchanged, so there is no visual change

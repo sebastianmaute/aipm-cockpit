@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, render, screen } from "@testing-library/react";
+import { renderHook, render, screen, fireEvent } from "@testing-library/react";
 import { useDictationMic } from "./dictation-mic";
 import { getActiveDictationTarget, setActiveDictationTarget } from "./dictation-target";
 import { t } from "./i18n";
@@ -7,13 +7,25 @@ import { t } from "./i18n";
 // `listening` is mutable so both states of the mic button are reachable — the
 // non-colour marker has to be asserted in BOTH, and a fixed `false` would make
 // the ON half untestable.
-const ptt = vi.hoisted(() => ({ listening: false }));
+// ★★★ `buttonHandlers` CARRIES REAL SPIES, NOT `{}`. It was an empty object in
+// every test that renders a mic, which made the ONE line wiring push-to-talk
+// into the button (`pressHandlers={ptt.buttonHandlers}`) invisible to the whole
+// unit suite: deleting it typechecks (the prop is optional), and dictation dies
+// on every surface with nothing red — `onToggle` is a deliberate no-op, so
+// there is no click fallback to mask the loss. A primitive-level test cannot
+// reach this; only wiring real handlers through the CONSUMER can.
+const ptt = vi.hoisted(() => ({
+  listening: false,
+  buttonHandlers: { onPointerDown: vi.fn(), onKeyDown: vi.fn() },
+}));
 vi.mock("./use-push-to-talk", () => ({
-  usePushToTalk: () => ({ listening: ptt.listening, transcribing: false, supported: true, buttonHandlers: {}, toggle: () => {}, press: vi.fn(), release: vi.fn() }),
+  usePushToTalk: () => ({ listening: ptt.listening, transcribing: false, supported: true, buttonHandlers: ptt.buttonHandlers, toggle: () => {}, press: vi.fn(), release: vi.fn() }),
 }));
 
 beforeEach(() => {
   ptt.listening = false;
+  ptt.buttonHandlers.onPointerDown.mockClear();
+  ptt.buttonHandlers.onKeyDown.mockClear();
   setActiveDictationTarget(null);
 });
 
@@ -79,15 +91,18 @@ describe("useDictationMic", () => {
     expect(marker()?.getAttribute("class") ?? "").not.toContain("invisible");
   });
 
-  // ★★ The mic KEEPS its green while gaining a conformant border. The default
-  //    accent is dark-blue, so without `accent="green"` the migration silently
-  //    recolours the app's "recording" signal to chrome blue — a change nobody
-  //    asked for and no contrast test would ever object to. That is what this
-  //    pins: not a ratio, but the identity.
+  // ★★ The default accent is dark-blue, so without `accent="green"` the
+  //    migration silently recolours the app's "recording" signal to chrome blue
+  //    — a change nobody asked for and no contrast test would ever object to.
+  // ★★ SCOPE, because the name used to claim more than the body: this asserts
+  //    the pressed BORDER token and the pressed FILL, and nothing else. It does
+  //    NOT pin the glyph colour, which `PRESSED.green` sets to
+  //    `text-ui-dark-blue` / `dark:text-ui-light-grey` — the mic icon is
+  //    `currentColor`, so the listening glyph is no longer green at all.
   // ★ classList, not a className substring: `bg-ui-green/10` is a substring of
   //   `hover:bg-ui-green/10`, so a substring match could not tell the pressed
   //   fill from a hover-only one.
-  it("keeps the green accent rather than the primitive's dark-blue default", () => {
+  it("takes the green pressed border and fill, not the primitive's dark-blue default", () => {
     ptt.listening = true;
     render(<Mic />);
     const btn = screen.getByRole("button", {
@@ -96,6 +111,21 @@ describe("useDictationMic", () => {
     expect(btn.classList.contains("border-[var(--control-state-border-green)]")).toBe(true);
     expect(btn.classList.contains("bg-ui-green/10")).toBe(true);
     expect(btn.classList.contains("bg-ui-dark-blue/10")).toBe(false);
+  });
+
+  // ★★★ THE ONLY THING THAT KILLS "delete `pressHandlers={ptt.buttonHandlers}`".
+  //    Push-to-talk is the mic's ENTIRE interaction: hold to record. With the
+  //    prop gone the button binds no pointer or key handler at all, and since
+  //    `onToggle` is a deliberate no-op there is nothing left to fire — a dead
+  //    control, typechecking, with every other assertion in this file still
+  //    green (they all read classes, names and the marker).
+  it("wires the push-to-talk handlers onto the mic button", () => {
+    render(<Mic />);
+    const btn = screen.getByRole("button", { name: `${t("en-US", "dictationHold")} – Notes` });
+    fireEvent.pointerDown(btn);
+    expect(ptt.buttonHandlers.onPointerDown).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(btn, { key: " " });
+    expect(ptt.buttonHandlers.onKeyDown).toHaveBeenCalledTimes(1);
   });
 
   // ★ The accessible name is unchanged by the migration and stays row-unique

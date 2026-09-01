@@ -408,24 +408,32 @@ img[data-asset-blocked]::before {
      animate-spin  — spinner.tsx, budget-panel.tsx (FX rate fetch),
                      tasks-section.tsx (Jira sync)
 
-   ★★★ THE TWO ARE NOT TREATED ALIKE, AND STOPPING BOTH WOULD BE A REGRESSION.
-   The rule this slice already established is that you may still an animation
-   only where something else still carries the state. That holds for
-   `animate-pulse`: skeleton's is decorative (`aria-hidden`, and the layout
-   itself says "loading"), and voice-button's listening state now carries a
-   shape marker — before Task 11 gave it one the pulse WAS the cue, and
-   stilling it would have left a 1.21-1.42:1 tint and nothing else. Order
-   matters if this is ever reverted.
+   ★★★ THE TWO ARE NOT TREATED ALIKE. The rule this slice established is that you
+   may still an animation only where something else still carries the state. That
+   holds for `animate-pulse`: skeleton's is decorative (`aria-hidden`, and the
+   layout itself says "loading"), and voice-button's listening state now carries a
+   shape marker — before Task 11 gave it one the pulse WAS the cue, and stilling
+   it would have left a 1.21-1.42:1 tint and nothing else. Order matters if this
+   is ever reverted.
 
-   It does NOT hold for `animate-spin`. On budget-panel and tasks-section the
-   spinner is an `aria-hidden` icon swapped into an icon-only button: the
-   rotation is the entire "in progress" signal, with no marker, no text and no
-   layout change behind it. `animation: none` there would repeat exactly the
-   mistake the ordering above exists to avoid — a conformant-looking rule that
-   deletes a state cue. So spinners are SLOWED, not stopped: 3s removes the
-   fast, attention-grabbing rotation the preference is actually about while
-   leaving the control legibly busy. Give a spinner a non-motion busy cue and
-   it can join the block above; until then, do not "tidy" these together. */
+   ★★★ THE SPIN IS SLOWED RATHER THAN STOPPED, AND NOT FOR THE REASON THIS COMMENT
+   ORIGINALLY GAVE. It claimed the budget-panel and tasks-section spinners were
+   `aria-hidden` icons in ICON-ONLY buttons where the rotation was the entire
+   "in progress" cue — "no marker, no text and no layout change behind it". Every
+   clause of that is false, and both sites refute it. Both are icon-PLUS-TEXT
+   buttons; both go `disabled` while busy and dim (`disabled:opacity-50`, from
+   `Button`'s base class on budget-panel and written inline on tasks-section); and
+   tasks-section additionally swaps its label to `jiraSyncing`. The three
+   `Spinner` consumers (actions-panel, step0-import-panel, timelog-panel) each sit
+   inside a `role="status" aria-live="polite"` card beside a text label. So there
+   is NO current `animate-spin` site where `animation: none` would delete the only
+   cue — read the five the grep above returns and check for yourself.
+
+   What the 3s therefore is: a CONSERVATIVE DEFAULT on a global utility class, not
+   a forced choice. `animate-spin` is available to any future consumer, and the
+   next one need not carry a text cue. Stopping it outright at today's five sites
+   would be defensible; that is a live question, not a settled one. Do not restore
+   the "sole cue" justification — open-followups §332 carries the adjudication. */
 @media (prefers-reduced-motion: reduce) {
   .animate-pulse {
     animation: none !important;

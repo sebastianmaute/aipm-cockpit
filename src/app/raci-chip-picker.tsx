@@ -66,8 +66,23 @@ const CHIP_BASE =
 // primitive's non-colour `data-pressed-marker` glyph, and was REVERTED by user
 // decision: a 20px circle cannot hold a 14px marker plus its gap plus the
 // letter, so it forced the chips into ~48x26px stadium pills and grew this
-// unclamped popover by ~116px. The ring buys the same non-colour cue for ~16px.
-const SELECTED_RING = "ring-2 ring-[var(--foreground)] ring-offset-2 ring-offset-[var(--surface)]";
+// unclamped popover by ~116px. The ring buys the same non-colour cue for ~20px
+// (the arithmetic is at the popover's own `gap-2`/`p-1.5` comment below).
+//
+// ★★★ `focus:ring-[var(--foreground)]` IS NOT DECORATIVE EITHER. `CHIP_BASE`
+// carries `focus:ring-ui-green`, and both utilities set the SAME custom
+// property (`--tw-ring-color`); the `focus:` variant compiles to a
+// higher-specificity selector (class + pseudo-class), so WHILE THE SELECTED
+// CHIP HAS FOCUS its neutral ring turned green — near-indistinguishable from a
+// focused UNSELECTED chip, which carries that same green ring and differs only
+// by the offset. That is precisely the state a keyboard user is in the whole
+// time they arrow through R/A/C/I, i.e. the exact user this cue was built for.
+// Re-stating the neutral under `focus:` keeps it through focus, and the ring is
+// still plainly visible (ring-2 plus the 2px `--surface` offset).
+// ★ No unit test can see the cascade resolution itself — jsdom has no cascade —
+// so the test only pins that the class is PRESENT.
+const SELECTED_RING =
+  "ring-2 ring-[var(--foreground)] focus:ring-[var(--foreground)] ring-offset-2 ring-offset-[var(--surface)]";
 
 export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPickerProps) {
   const [open, setOpen] = useState(false);
@@ -135,8 +150,14 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
         // ring), so the former `gap-1`/`p-1` (4px each) left ZERO clearance —
         // the ring landed exactly on the neighbouring chip's border and on this
         // popover's own. Only one chip is ringed at a time, so 8px of gap gives
-        // 4px of clearance and 6px of padding gives 2px. Costs ~16px of popover
-        // width (three extra gaps + two padding edges).
+        // 4px of clearance and 6px of padding gives 2px.
+        // ★★ COUNT THE CHILDREN, NOT THE ROLES: this row holds FIVE of them —
+        // `RACI_ROLES.map` gives four, plus the clear chip below, "the 5th of
+        // five chips" its own comment calls it — so five children make FOUR
+        // gaps, not three. The cost is 4px x 4 gaps + 2px x 2 padding edges =
+        // ~20px of popover width. An earlier revision said ~16px, having
+        // counted the gaps BETWEEN the four role chips and forgotten that the
+        // clear chip adds one more.
         <span
           ref={popRef}
           style={{ top: pos.top, left: pos.left }}

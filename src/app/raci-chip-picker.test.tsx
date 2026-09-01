@@ -45,10 +45,25 @@ describe("RaciChipPicker", () => {
     fireEvent.click(screen.getByRole("button", { expanded: false }));
     const chip = (role: string) => screen.getByRole("button", { name: role });
 
-    for (const cls of ["ring-2", "ring-[var(--foreground)]", "ring-offset-2", "ring-offset-[var(--surface)]"]) {
+    // ★★ `focus:ring-[var(--foreground)]` is in this list for a reason, not for
+    // symmetry: CHIP_BASE carries `focus:ring-ui-green`, which sets the same
+    // `--tw-ring-color` from a HIGHER-specificity selector, so without the
+    // restatement the selected chip's neutral ring turned green for exactly as
+    // long as it had focus — the whole time a keyboard user arrows through the
+    // roles. jsdom has no cascade, so this pins presence only.
+    for (const cls of [
+      "ring-2",
+      "ring-[var(--foreground)]",
+      "focus:ring-[var(--foreground)]",
+      "ring-offset-2",
+      "ring-offset-[var(--surface)]",
+    ]) {
       expect(chip("R").classList.contains(cls)).toBe(true);
     }
-    for (const role of ["A", "C", "I"]) expect(chip(role).classList.contains("ring-2")).toBe(false);
+    for (const role of ["A", "C", "I"]) {
+      expect(chip(role).classList.contains("ring-2")).toBe(false);
+      expect(chip(role).classList.contains("focus:ring-[var(--foreground)]")).toBe(false);
+    }
 
     // the ring MOVES — it is not merely present on a hardcoded chip
     rerender(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="x" lang="en-US" />);

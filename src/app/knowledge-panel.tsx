@@ -270,8 +270,18 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
           //   specificity resolve by their order in Tailwind's GENERATED
           //   stylesheet, which no call site controls. The pill shape is this
           //   control's visual identity, so it is pinned by the cascade rather
-          //   than by luck. Nothing else here collides: `px-2.5`/`text-xs` are
-          //   byte-identical to the primitive's own and are dropped.
+          //   than by luck. ★★ THE REST OF THE OLD BOX IS DROPPED, AND THAT IS A
+          //   REAL GEOMETRY CHANGE — an earlier wording here said "nothing else
+          //   collides", which reads as a no-op and is not. Only `px-2.5` and
+          //   `text-xs` are byte-identical to the primitive's own. `py-0.5` is
+          //   dropped for its `py-1.5` — 4px more padding per side — and the
+          //   primitive adds `font-medium`, which the old chip lacked. Intended:
+          //   the chips now match `Button size="xs"` (`px-2.5 py-1.5 text-xs`),
+          //   the same alignment the comm-templates Compare migration took.
+          //   ★ `INTERACTIVE` went too. Its focus ring is covered (BASE has
+          //   `focus:ring-2`, coloured green when off and by the accent when on),
+          //   but `transition-colors duration-150` and the `active:translate-y-px`
+          //   press feedback are simply gone from this control.
           <ToggleButton
             key={k}
             pressed={active}

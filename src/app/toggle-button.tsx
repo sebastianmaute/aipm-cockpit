@@ -183,8 +183,17 @@ export function ToggleButton({
   const fullTitle = [title, stateText].filter(Boolean).join(" · ") || undefined;
   return (
     <button
-      type="button"
+      // ★★★ EVERY ATTRIBUTE THIS PRIMITIVE OWNS MUST COME AFTER THE SPREAD.
+      //     JSX is later-wins, so an attribute written BEFORE `{...pressHandlers}`
+      //     is overridable by the bag and one written after is not. `type` sat
+      //     before it and was the sole unprotected attribute: the `Pick<>` does
+      //     not close that, because TypeScript's excess-property check applies
+      //     only to FRESH OBJECT LITERALS, so a call site passing a prebuilt
+      //     `const bag = {onPointerDown: f, type: "submit" as const}` typechecks
+      //     and would turn every toggle inside a <form> into a submit button.
+      //     Pinned by toggle-button.test.tsx.
       {...pressHandlers}
+      type="button"
       onClick={onToggle}
       onMouseDown={preventFocusSteal ? (e) => e.preventDefault() : undefined}
       {...(variant === "disclosure"
