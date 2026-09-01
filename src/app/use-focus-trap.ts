@@ -169,9 +169,8 @@ export function useFocusTrap(
       // its dialog root ONLY when the panel has no focusable content at all
       // (`initialFocusRef ?? firstFocusable ?? root`), and its Tab branch
       // special-cases that same state a few lines earlier. So focus never
-      // rests on its container while focusables exist. A first cut of this
-      // comment said the hole was live on every modal in the app; it is not.
-      // Check the guard before copying this term across.
+      // rests on its container while focusables exist. Check that guard before
+      // copying this term across.
       // ★ MEMBERSHIP IS THE WIDER TEST, and the set it adds over containment
       // is a focusable DESCENDANT that `FOCUSABLE_SELECTOR` excludes — where a
       // roving-tabindex widget parks focus. Inside a trap, Tab from such a
@@ -184,9 +183,7 @@ export function useFocusTrap(
       // containment would already have treated them as outside; and
       // `tour-overlay`'s single `tabIndex={-1}` is the CARD, i.e. the trap's
       // own CONTAINER, which is the §8 case stated above and not a descendant
-      // at all. ★ An earlier revision said "neither consumer", counting two —
-      // it was written before `tour-overlay` adopted this hook on the same
-      // branch, and was already stale when it landed.
+      // at all.
       // ★★ RE-MEASURE REPO-WIDE, NOT PER FILE, before adding a fourth consumer.
       // A two-file grep is narrower than the claim: the drawer's real surface
       // is `Sidebar` PLUS the `footer` slot, which arrives as a PROP, and
@@ -221,15 +218,12 @@ export function useFocusTrap(
       // 2026-09-01 were PROSE, not markup. This file is `.ts` and the pattern
       // is `.tsx`-scoped, which is the only reason THIS comment does not
       // inflate it. Read the hits, never the count.
-      // ★★★ AND DO NOT WRITE THE HIT LIST DOWN HERE. A first cut of this
-      // comment named four files as the ones ever focused programmatically;
-      // re-running the command refuted TWO of them within the hour —
-      // `undo-control` carries `tabIndex={0}`, not `-1`, so it is not a hit at
-      // all, and `chat-panel` is a hit that the list omitted. An enumeration
-      // pasted beside its own command reads as though the command produced it.
-      // Run it. Then, for each hit, ask the only question that matters: does
-      // anything `.focus()` that node, and is the node a descendant of a trap
-      // container? None of today's three consumers holds one.
+      // ★★★ AND DO NOT WRITE THE HIT LIST DOWN HERE — a list pasted beside its
+      // own command reads as that command's output and rots on its own. When
+      // this comment tried it, re-running refuted two of the four within
+      // the hour:
+      // `undo-control` carries `tabIndex={0}`, not `-1`, so it was never a hit,
+      // and `chat-panel` is a hit the list omitted.
       const untrapped = activeEl === null || !items.includes(activeEl);
       if (e.shiftKey && (activeEl === first || untrapped)) {
         e.preventDefault();

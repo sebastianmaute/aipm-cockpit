@@ -921,8 +921,7 @@ the live half gets skipped. Still current below: the ★★★ citation-removal 
 this line; the gate paragraph (no axe rule exists, and the tour is still outside `A11Y_VIEWS`, so
 the two new unit tests remain the only detector — do not delete them as redundant); and the note on
 `use-tour.ts`'s render-time auto-launch, which is still the one push site in the app that is not a
-user gesture. ★ The first of those three was added by the very commit that wrote this banner and
-was omitted from it — the same one-paragraph-short miss the block itself is about.
+user gesture.
 
 **Where:** `tour-overlay.tsx` — the card carries `role="dialog"` + `aria-modal="true"`, and the file
 imported `useDismissable` and nothing else; there was no `useFocusTrap` import until this fix.

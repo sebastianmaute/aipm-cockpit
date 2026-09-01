@@ -161,20 +161,7 @@ export function ModernShell({
                     `CollapsedNavFlyout` — which only exists on the collapsed
                     rail, and is the ONLY `PopoverPanel` consumer anywhere in
                     `sidebar.tsx`'s import closure — out of this focus trap.
-                    ★★★ THE JUSTIFICATION HERE CHANGED ON 2026-09-01 AND THE
-                    CONCLUSION DID NOT — read the new one, because the old one
-                    argued from a mechanism that no longer exists. This said
-                    `use-focus-trap.ts` had no `!container.contains(active)`
-                    branch, so it never yanked focus back and went INERT while
-                    focus sat in a portaled panel, leaving containment (WCAG
-                    2.4.3) to whatever that panel did for itself. Closing §318
-                    gave the hook that branch and then generalised it to
-                    MEMBERSHIP of its own focusables, so the drawer's trap now
-                    yanks a stray Tab to its first control rather than
-                    declining. It also gates on `isTopmostOfKind`, so a
-                    `PopoverPanel` above it — which pushes `"modal"` — takes
-                    containment cleanly instead of the two fighting.
-                    ★★ So this `false` is still right, for a plainer reason: it
+                    ★★ This `false` is still right, and the reason is plain: it
                     keeps `CollapsedNavFlyout` off this surface entirely, and
                     the flyout would in any case be portaled to `document.body`
                     and therefore never a descendant of this container. What is

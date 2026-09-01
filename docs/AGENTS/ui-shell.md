@@ -607,20 +607,13 @@ commits that merely added comments above it; its `onChange` is
   its `cardRef` as BOTH the container and the `initialFocusRef`, which preserves
   focusing the CARD rather than its first button — that is what makes AT announce
   the dialog and its label, and it is the state the trap's own Tab term had to be
-  widened to see (below). ★ `onSkip` must stay a stable `useCallback` at the call
+  widened to see. ★ `onSkip` must stay a stable `useCallback` at the call
   site: the hook's keydown effect has it in its deps.
   ★★★ THAT WIDENING IS MEMBERSHIP, NOT CONTAINMENT, and the difference is the
-  whole of §8. `use-focus-trap`'s Tab branch acts when focus is on NONE of its own
-  focusables, NOT when focus is outside its container: `Node.contains` is
-  REFLEXIVE, so the `tabIndex={-1}` card the tour focuses on open reports as
-  INSIDE its own container and a `!container.contains(activeEl)` term stays FALSE
-  there — measured in the real render, both Tab arms declined with
-  `defaultPrevented === false`. Membership subsumes containment and still leaves a
-  non-edge focusable alone. ★★ `modal.tsx` carries the CONTAINMENT spelling and is
-  NOT defective for it — it falls back to focusing its dialog root only when the
-  panel has no focusable content at all, and its Tab branch special-cases that
-  state separately. Check that guard before copying either term across; the hook's
-  own comment carries the reproduce and the set membership adds.
+  whole of §8 — `Node.contains` is REFLEXIVE, so a containment term cannot see
+  the card. The measurement, the reason `modal.tsx`'s containment spelling is
+  NOT defective, and the bound on how much wider membership is all live in the
+  `★★★ THE TEST IS MEMBERSHIP, NOT CONTAINMENT` block in `use-focus-trap.ts`.
   ★★★ **FOCUS-RESTORE ON UNMOUNT IS CROSS-BROWSER DIVERGENT, AND THE UNIT SUITE
   CANNOT SEE IT.** `PopoverPanel` restores focus to its anchor when it unmounts
   with focus still inside (§297), and getting there cost TWO measured-dead
