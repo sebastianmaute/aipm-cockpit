@@ -161,59 +161,58 @@ export function ResourceWorkload({
   // ★ Built over the POST-filter `managed` list, in rendered order — a row
   // `hideExternal` withholds is not on screen and must not consume an
   // occurrence index.
-  const rowTokens = useMemo(
-    () => buildRowTokens(managed.map((row) => ({ id: row.resource.id, name: row.display }))),
-    [managed],
-  );
-  // ★★★ THE UNLINKED TABLE TAKES A TOKEN TOO, and the premise this file used to
-  // carry — "`row.display` cannot repeat here, so a plain qualifier suffices" —
-  // is FALSE. `buildResourceWorkload` keys unlinked rows on
-  // `display.toLowerCase()`: a TRIM and a case-fold, but NOT a whitespace
-  // COLLAPSE. Accessible-name comparison DOES collapse internal runs (which is
-  // why `buildRowTokens` keys on `collapse(name)` and why the shared test
-  // harness collapses before comparing), so "Bob  Smith" and "Bob Smith" are
-  // TWO rows rendering ONE announced name — the exact vector the old comment
-  // denied.
+  // ★★★ ONE MAP ACROSS BOTH TABLES, and the two-map split it replaced was
+  // justified by a claim this file elsewhere REFUTED. That claim: "an unlinked
+  // row exists precisely BECAUSE its name matched no resource case-folded, so no
+  // unlinked `display` can equal a managed one." Case-folded inequality is not
+  // COLLAPSED inequality, and every join on this path folds case without
+  // collapsing whitespace — `resourceDisplayName` is `` `${first} ${last}`.trim() ``,
+  // `nameToId` keys on `display.trim().toLowerCase()`, and `resolve` looks up
+  // `name.toLowerCase()` (`resource-workload-rows.ts`). So a resource
+  // "Mary  Jane"/"Smith" and a task assigned "Mary Jane Smith" MISS each other,
+  // rendering one managed row and one unlinked row in the SAME `<table>` whose
+  // names collapse to one string. Two per-table maps each saw a unique name and
+  // emitted two BARE tokens — the identical WCAG 2.4.6 defect this module
+  // closes, one level up from the within-table case.
+  // ★ Keys are prefixed because the two populations carry different identity
+  // schemes (numeric resource id vs case-folded display); the prefix is what
+  // lets one map hold both without inventing a shared id space.
+  // ★ Built over the POST-filter `managed` list, in rendered order — a row
+  // `hideExternal` withholds is not on screen and must not consume an occurrence
+  // index — then the unlinked rows, in theirs.
   // ★ Behaviour-neutral for every name that differs today: `buildRowTokens`
-  // emits a BARE token for a name unique within its map, so only the colliding
-  // pair gains an occurrence index.
-  const unlinkedRowTokens = useMemo(
-    () => buildRowTokens(unlinked.map((row) => ({ id: row.display.toLowerCase(), name: row.display }))),
-    [unlinked],
+  // emits a BARE token for a name unique within the map, so only a colliding
+  // set gains occurrence indices.
+  const rowTokens = useMemo(
+    () =>
+      buildRowTokens([
+        ...managed.map((row) => ({ id: `m:${row.resource.id}`, name: row.display })),
+        ...unlinked.map((row) => ({ id: `u:${row.display.toLowerCase()}`, name: row.display })),
+      ]),
+    [managed, unlinked],
   );
-  // ★★ ONE MAP PER RENDERED TABLE, deliberately, even though both tables share
-  // one DOM `<table>` and uniqueness is a whole-surface property. The two lists
-  // carry different identity schemes (a numeric resource id vs a case-folded
-  // display name), and their chip names cannot collide across the split: an
-  // unlinked row exists precisely BECAUSE its name matched no resource
-  // case-folded, so no unlinked `display` can equal a managed one. A single map
-  // would have to invent a common key type to buy nothing.
   // ★ The row qualifier alone is not sufficient, which is why the composed name
   // still goes through `buildRowTokens`: one person can hold two absence
   // records with the same window and type, so the composed value can repeat.
-  const managedAbsenceTokens = useMemo(
+  // ★ Both halves compose from the ROW TOKEN, so an absence chip inherits the
+  // cross-table disambiguation rather than re-deriving it from a raw display.
+  const absenceTokens = useMemo(
     () =>
-      buildRowTokens(
-        managed.flatMap((row) =>
+      buildRowTokens([
+        ...managed.flatMap((row) =>
           row.upcoming.map((a) => ({
-            id: `${row.resource.id}:${a.id}`,
-            name: absenceChipName(a, lang, rowTokens.get(row.resource.id) ?? row.display),
+            id: `m:${row.resource.id}:${a.id}`,
+            name: absenceChipName(a, lang, rowTokens.get(`m:${row.resource.id}`) ?? row.display),
           })),
         ),
-      ),
-    [managed, rowTokens, lang],
-  );
-  const unlinkedAbsenceTokens = useMemo(
-    () =>
-      buildRowTokens(
-        unlinked.flatMap((row) =>
+        ...unlinked.flatMap((row) =>
           row.upcoming.map((a) => ({
-            id: `${row.display.toLowerCase()}:${a.id}`,
-            name: absenceChipName(a, lang, row.display),
+            id: `u:${row.display.toLowerCase()}:${a.id}`,
+            name: absenceChipName(a, lang, rowTokens.get(`u:${row.display.toLowerCase()}`) ?? row.display),
           })),
         ),
-      ),
-    [unlinked, lang],
+      ]),
+    [managed, unlinked, rowTokens, lang],
   );
   const confirm = useConfirm();
 
@@ -269,7 +268,7 @@ export function ResourceWorkload({
             // Cannot miss: the map is built over this exact list, keyed on the
             // same resource id. The fallback keeps the pre-token name rather
             // than leaving the control unnamed if it ever did.
-            const rowToken = rowTokens.get(row.resource.id) ?? row.display;
+            const rowToken = rowTokens.get(`m:${row.resource.id}`) ?? row.display;
             return (
             <tr key={`res-${row.resource.id}`} className="cursor-pointer align-top hover:bg-surface-muted" onClick={() => onEditResource(row.resource)}>
               <td className="px-3 py-2 font-medium text-foreground">
@@ -377,7 +376,7 @@ export function ResourceWorkload({
                           onClick={(e) => { e.stopPropagation(); onEditAbsence(a); }}
                           title={a.note ?? ""}
                           aria-label={
-                            managedAbsenceTokens.get(`${row.resource.id}:${a.id}`) ??
+                            absenceTokens.get(`m:${row.resource.id}:${a.id}`) ??
                             absenceChipName(a, lang, rowToken)
                           }
                           className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-ui-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
@@ -439,10 +438,10 @@ export function ResourceWorkload({
                       // collapse internal whitespace runs, while accessible-name
                       // comparison DOES — so "Bob  Smith" and "Bob Smith" are two
                       // rows announcing one name here exactly as they were on the
-                      // weekly-hours button. See `unlinkedRowTokens`.
+                      // weekly-hours button. See `rowTokens`.
                       // ★ Behaviour-neutral for names that differ today: a name
                       // unique within its map gets a BARE token.
-                      aria-label={rowLabel(t(lang, "resourcesAddAsResource"), unlinkedRowTokens.get(row.display.toLowerCase()) ?? row.display)}
+                      aria-label={rowLabel(t(lang, "resourcesAddAsResource"), rowTokens.get(`u:${row.display.toLowerCase()}`) ?? row.display)}
                       className={`ml-2 rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-normal text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >
                       {t(lang, "resourcesAddAsResource")}
@@ -457,7 +456,7 @@ export function ResourceWorkload({
                         //   `requireCollisionSeed`'s end-anchored regex cannot strip
                         //   it. Uniqueness still holds in both; only the shared
                         //   harness's seed guard is DE-blind here.
-                        label={t(lang, "resourcesClearUnlinked", unlinkedRowTokens.get(row.display.toLowerCase()) ?? row.display)}
+                        label={t(lang, "resourcesClearUnlinked", rowTokens.get(`u:${row.display.toLowerCase()}`) ?? row.display)}
                         title={t(lang, "resourcesClearUnlinkedHint")}
                         onClick={async () => {
                           if (await confirm({ message: t(lang, "resourcesClearUnlinkedConfirm", row.display), tone: "danger" })) {
@@ -511,10 +510,10 @@ export function ResourceWorkload({
                       // into a Map keyed on `display.toLowerCase()`; that key
                       // trims and case-folds but does NOT collapse internal
                       // whitespace runs, while accessible-name comparison does.
-                      // See `unlinkedRowTokens` for the full reasoning.
+                      // See `rowTokens` for the full reasoning.
                       aria-label={rowLabel(
                         String(row.weeklyHours),
-                        unlinkedRowTokens.get(row.display.toLowerCase()) ?? row.display,
+                        rowTokens.get(`u:${row.display.toLowerCase()}`) ?? row.display,
                       )}
                       className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${
                         row.shift
@@ -537,12 +536,16 @@ export function ResourceWorkload({
                               type="button"
                               onClick={() => onEditAbsence(a)}
                               title={a.note ?? ""}
-                              // A plain `row.display` qualifier is enough for
-                              // the ROW half here (unlinked rows are keyed on
-                              // `display.toLowerCase()`, so it cannot repeat),
-                              // but the CHIP half still can — hence the token.
+                              // The CHIP half can repeat — one person can hold two
+                              // absences with the same window and type — hence the
+                              // token. ★ An earlier revision justified a plain
+                              // `row.display` for the ROW half on the grounds that
+                              // unlinked rows are keyed on `display.toLowerCase()`
+                              // "so it cannot repeat"; that premise is refuted at
+                              // `rowTokens`, and the row half composes from the
+                              // token there.
                               aria-label={
-                                unlinkedAbsenceTokens.get(`${row.display.toLowerCase()}:${a.id}`) ??
+                                absenceTokens.get(`u:${row.display.toLowerCase()}:${a.id}`) ??
                                 absenceChipName(a, lang, row.display)
                               }
                               className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-ui-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}

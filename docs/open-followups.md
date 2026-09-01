@@ -541,7 +541,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720) | `retryLoad`'s in-flight guard assumed `submitPrompt` is single-flight, and nothing pinned it | — | — | **CLOSED** 2026-08-31 |
 | [§313](#313-retryload-has-no-cancelled-guard-so-a-project-switch-mid-reload-leaves-the-previous-projects-threads-on-screen--closed-2026-08-31-02720) | `retryLoad` has no `cancelled` guard, so a project switch mid-reload leaves the previous project's threads on screen | — | — | **CLOSED** 2026-08-31 |
 | [§314](#314-budget-bucket-modaltsxs-two-rate-override-tooltip-triggers-share-one-accessible-name--closed-2026-08-31) | `budget-bucket-modal.tsx`'s two rate-override tooltip triggers share one accessible name — CLOSED 2026-08-31 | — | — | **CLOSED** 2026-08-31 |
-| [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide--closed-2026-09-01) | ~~`resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide~~ | — | — | **CLOSED** 2026-09-01 (two tables, both taking the row token; three controls in the unlinked one) |
+| [§315](#315-resource-workloadtsxs-weekly-hours-button-is-content-named-so-rows-on-equal-hours-collide--closed-2026-09-01) | ~~`resource-workload.tsx`'s weekly-hours button is content-named, so rows on equal hours collide~~ | — | — | **CLOSED** 2026-09-01 (both tables take the row token, from ONE map — the collision crosses them) |
 | [§316](#316-the-row-name-scanners-data-leg-has-never-been-adjudicated--the-leg-where-a-repeating-value-actually-lives) | The row-name scanner's `DATA` leg has never been adjudicated — the leg where a repeating value actually lives | — | — | open |
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31 |
 | [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--open) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack — open | found 2026-08-31 while closing §100 | S | open |
@@ -24429,16 +24429,21 @@ edit.
 three controls (`projectsSwitch`, `projectsArchive`, `projectsDelete`), matching the archived list's
 convention. ★★★ **IT TAKES TWO TESTS, NOT ONE, AND AN EARLIER REVISION OF THIS STATUS CLAIMED
 OTHERWISE.** It cited only `projects-panel.test.tsx`'s "gives every ACTIVE row control a row-unique
-accessible name when two projects share a name (§309)" as covering "all three controls" — but that
-test renders the TURSO branch, and `projectsArchive` / `projectsDelete` are MUTUALLY EXCLUSIVE
+accessible name when two projects share a name (§309)" and claimed it covered all three controls — but
+that test renders the TURSO branch, and `projectsArchive` / `projectsDelete` are MUTUALLY EXCLUSIVE
 branches of one ternary (`projects-panel.tsx`), so the Delete button never rendered in it and was
 pinned by nothing. A second FILE-MODE test now covers it. Both carry `requireCollisionSeed: true` and
 seed two active projects sharing a display name.
 ★★ `minControls` is **7** in both, MEASURED off the harness's own error listing rather than counted
 off the JSX — the previous `4` was loose enough to let a silently narrowed scope back in, which is the
 failure mode `src/test/row-unique-names.ts` documents for a floor below its measured value.
-Mutation-proved: reverting the `projectsSwitch` label alone to raw interpolation gives **1 failed /
-20 passed**; reverting the file-mode Delete label gives **1 failed / 21 passed**. ★ The two ARCHIVED-list controls
+Mutation-proved: reverting the file-mode Delete label gives **1 failed / 21 passed**, summing to the
+file's 22 runtime tests (`grep -cE '\bit(\.(each|only|skip|todo))?\(' src/app/projects-panel.test.tsx`).
+★★★ A second tally for the `projectsSwitch` mutant stood here and was DELETED rather than re-measured:
+it read `1 failed / 20 passed`, which sums to 21 — the file's count BEFORE the same sentence's own
+file-mode test existed. It was inherited across the fixture growth, which is exactly what the §315
+bullet below warns against, and its failed-count was wrong too (both §309 tests render a Switch
+button, so that revert reddens both). One discharging tally beats two of which one is stale. ★ The two ARCHIVED-list controls
 are unchanged and stay pinned by §276's own test — this fix added a second token map, it did not widen
 the existing one.
 
@@ -24740,11 +24745,16 @@ not the detector on the unlinked side — the explicit collapsed-name assertions
   CASE-FOLDS but does **not** collapse internal whitespace runs, while accessible-name comparison
   DOES — so `"Bob  Smith"` and `"Bob Smith"` are two rows announcing one name. Two cold reviewers
   reached this independently from opposite sides, which is what promoted it from Minor.
-  ★★★ **THREE controls in that table were affected, not one.** The weekly-hours button was fixed in
-  the same pass; the add-as-resource button and the clear-unlinked ✕ carried the identical refuted
-  premise in their own comments and were fixed after a second review round found them still live
-  (`65a43493`). Fixing only the hours button would have left the entry falsely complete in exactly
-  the way §324's first cut was.
+  ★★★ **THE REFUTED PREMISE HAD SPREAD PAST THE CONTROL THIS ENTRY NAMES, and each review round found
+  another copy — do not read the list below as closed by construction.** Round 1 fixed the weekly-hours
+  button. Round 2 found the add-as-resource button and the clear-unlinked ✕ still carrying it in their
+  own comments (`65a43493`). Round 3 found two more COMMENTS stating it — at the unlinked absence chip
+  and in `resource-workload.test.tsx`'s §276 test, the latter also asserting that `buildRowTokens`
+  "would be dead code" on a surface where it is live — plus the cross-table case below. The absence
+  chip's CODE was already correct by accident (its composed name goes through `buildRowTokens`, which
+  collapse-keys); the false justification beside it is the dangerous part, because it is what gets
+  copied somewhere the collapse does not save it. ★ Enumerate before trusting this list:
+  `grep -n "cannot repeat\|can never be emitted\|dead code" src/app/resource-workload*.ts*`.
   ★★ The token also makes this half **seedable**, retiring the mutation-proof-only weakness recorded
   here before: `"Bob  Smith"` and `"Bob Smith"` collapse equal, so `requireCollisionSeed: true` is
   satisfiable against CORRECT code and the test now carries it (`minControls: 6`, measured).
@@ -24754,12 +24764,17 @@ not the detector on the unlinked side — the explicit collapsed-name assertions
   either way. The explicit collapsed-name comparisons in the test are the detectors; the flag is a
   seed guard. Measured, not reasoned: with a token reverted the `expectRowUniqueNames` call stays
   GREEN and only the collapsed assertion turns red.
-  ★★ Until those two neighbours were fixed they were what SATISFIED `requireCollisionSeed` in that
-  fixture — the guard was being certified by a defective control rather than by the one under test,
-  which is the masking hazard `src/test/row-unique-names.ts` warns about in its own docstring.
-  Mutation tallies, all re-run after the fixture grew to six controls rather than inherited across it:
-  hours **1 failed / 19 passed**, add-as-resource **1/19**, clear-unlinked **1/19**, each summing to
-  the file's 20 runtime tests.
+  ★★★ **AND THE COLLISION CROSSES THE TWO TABLES**, which is one level up again and was live behind a
+  comment asserting it could not happen ("no unlinked `display` can equal a managed one"). Case-folded
+  inequality is not COLLAPSED inequality: a resource `"Mary  Jane"`/`"Smith"` and a task assigned
+  `"Mary Jane Smith"` miss each other on every join, so one managed and one unlinked row render in the
+  SAME `<table>` announcing one name. With a token map PER TABLE each name was unique inside its own
+  map and both came out BARE. The two maps are now ONE, keyed `m:<resourceId>` / `u:<display>`; the
+  absence-chip maps merged the same way and both halves now compose from the row token.
+  Mutation tallies, all re-run after each fixture change rather than inherited across it:
+  hours **1 failed / 19 passed**, add-as-resource **1/19**, clear-unlinked **1/19** at 20 runtime
+  tests; dropping the unlinked half back out of the merged map is **2 failed / 19 passed** at 21.
+  Reproduce the divisor with `grep -cE '\bit(\.(each|only|skip|todo))?\(' src/app/resource-workload.test.tsx`.
   ★ `resourcesClearUnlinked` is `"Clear {0}"` in EN but `"{0} entfernen"` in DE, so the occurrence
   index lands MID-STRING in German and the harness's end-anchored strip cannot see it there.
   Uniqueness holds in both languages; only the seed guard is EN-shaped. Recorded, not chased — no DE
@@ -25188,20 +25203,25 @@ popover TRIGGERS (whose `ariaLabel` had been reaching the PANEL rather than the 
 overflow trigger and `ActionReasons`. The last two had used a raw `` `${title}` ``, which is
 insufficient because two rows can share a title.
 
-★★★ **THAT SENTENCE WAS FALSE WHEN WRITTEN, AND A COLD REVIEW CAUGHT IT: `AiActionRow` is a
-once-per-row control on `actions-panel.tsx` and did NOT take a token.** Its button was named
+★★★ **THE BOLDED COMPLETENESS CLAIM ABOVE — "every once-per-row control on BOTH Next-actions surfaces"
+— WAS FALSE WHEN WRITTEN, AND A COLD REVIEW CAUGHT IT: `AiActionRow` is a once-per-row control on
+`actions-panel.tsx` and did NOT take a token.** Its button was named
 `` `${t(lang, ctaKey)} – ${action.title}` `` from a MODEL-GENERATED title, which is free text and
 repeats — the exact discriminator this slice turns on — so it collided within the AI list and against
 the group rows the same commit had just qualified. Fixed in `cb5d040a`: the name is now
 `rowLabel(rowLabel(verb, actionAiSectionTitle), rowToken)` — verb, then the section, then the token,
 token LAST because `requireCollisionSeed`'s occurrence regex is END-ANCHORED. ★★ The section segment
-is what keeps the two populations INDEPENDENT: folding AI actions into the group map would renumber
-every group row the moment an analysis appears or disappears. Zero new i18n keys — the section title
-already existed. Pinned by a third `actions-panel.test.tsx` test seeding two AI actions on one title
-plus one titled like a group row; mutants **3 failed / 20 passed** for dropping the token and the same
-for dropping the section.
-★ Making `rowToken` REQUIRED rather than optional is what surfaced it at tsc — the same mechanism that
-revealed the second list owner above, working a second time.
+keeps the two lists as SEPARATE token populations, so an AI action appearing cannot perturb a group
+row's name. ★★★ An earlier revision justified that as "folding AI actions into the group map would
+renumber EVERY group row", which is the very over-generalisation this same commit range corrected at
+`action-hero-card.tsx`: `buildRowTokens` numbers a row only when its collapsed name repeats INSIDE the
+map (`counts > 1`), so a merge would move only the group rows an AI action actually shares a title
+with. Deleted rather than restated — the separate-populations reason stands on its own.
+Zero new i18n keys — the section title already existed (`git diff faa3d570..HEAD -- src/app/i18n*.ts`
+is empty). Pinned by a third `actions-panel.test.tsx` test seeding two AI actions on one title plus one
+titled like a group row; dropping the token and dropping the section are each mutation-proved
+independently. ★ No tally is quoted: the run spanned `actions-panel.test.tsx` AND
+`ai-action-row.test.tsx`, so the figure did not sum against either file alone and read as an error.
 
 ★★ **Two things surfaced that no grep would have found**, and they are the reason the widening was
 worth doing. (1) The popover triggers' bare names: the label was threaded as a PROP, so it is invisible

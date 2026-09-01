@@ -43,9 +43,11 @@ export function AiActionRow({ lang, action, rowToken, onAct }: AiActionRowProps)
         // WCAG 2.4.6 (§324) — verb, then the SECTION, then the token, in that
         // order. The section segment keeps this list from colliding with the
         // group list below it (both are gated independently and render at the
-        // same time), while leaving the two token populations independent: fold
-        // AI actions into the group map and every group row is renumbered the
-        // moment an analysis appears or disappears.
+        // same time), while leaving the two token populations independent, so an
+        // analysis appearing or disappearing cannot perturb a group row's name.
+        // ★★★ An earlier revision justified that as "fold them into the group map
+        // and EVERY group row is renumbered", which is false — `buildRowTokens`
+        // numbers only on a repeat within its own map.
         // ★★ THE TOKEN MUST STAY LAST — `requireCollisionSeed`'s occurrence
         //    regex is END-ANCHORED, so a token anywhere else defeats the
         //    harness silently rather than loudly.

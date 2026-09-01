@@ -113,9 +113,12 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   // `actionTokens` above. An `AiAction` carries no stable id, so the INDEX is
   // the id, matching the list key this section already uses.
   // ★★ SEPARATE ON PURPOSE, and the section segment in `AiActionRow` is what
-  //    makes that safe: folding AI actions into the group map would renumber
-  //    every group row whenever an analysis appears or disappears, and the
-  //    groups are the stable population the rest of the panel depends on.
+  //    makes that safe: keeping the populations apart means an analysis
+  //    appearing or disappearing cannot perturb a group row's name at all.
+  // ★★★ NOT because a merge "would renumber every group row" — an earlier
+  //    revision said that and it is false. `buildRowTokens` numbers a row only
+  //    when its collapsed name repeats INSIDE the map it was handed, so a merge
+  //    would move only the group rows an AI action actually shares a title with.
   // ★ Hoisted to a local const because `react-hooks/exhaustive-deps` rejects an
   //   `obj.member` dependency, and every lint warning is fatal here.
   const aiActions = aiAnalysis?.result?.actions;

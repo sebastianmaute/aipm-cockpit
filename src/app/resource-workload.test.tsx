@@ -168,13 +168,15 @@ describe("ResourceWorkload", () => {
   // announced one name (open-followups §276). The row's identity sits in a
   // SIBLING <span>, outside the button, so nothing disambiguated it.
   //
-  // ★★ `requireCollisionSeed` is deliberately OFF, and it is not merely
-  // unnecessary here — it would throw. `row.display` is structurally unique
-  // within the rendered list: `buildResourceWorkload` accumulates unlinked rows
-  // into a Map keyed on `display.toLowerCase()`, so two rows cannot carry the
-  // same display name (not even in different case), and the " (N)" occurrence
-  // suffix the guard looks for can never be emitted on this surface. A plain
-  // qualifier is therefore sufficient, and `buildRowTokens` would be dead code.
+  // ★★ `requireCollisionSeed` is deliberately OFF: this is a DISTINCT-name
+  // regression pin, not a collision test, which is the case the flag's own
+  // docstring says to leave it off for.
+  // ★★★ The paragraph that stood here gave a different and now FALSE reason —
+  // that `display.toLowerCase()` keying makes a shared display name structurally
+  // impossible, that " (N)" "can never be emitted on this surface", and that
+  // `buildRowTokens` "would be dead code". All three were refuted: that key
+  // trims and case-folds without collapsing whitespace, and `buildRowTokens` is
+  // live on every unlinked control this test renders.
   //
   // ★ The fixture is still collision-BEARING for the defect under test: before
   // the fix BOTH buttons are named exactly "Add as resource".
@@ -383,14 +385,15 @@ describe("ResourceWorkload", () => {
       .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
     expect(hoursNames).toHaveLength(2);
     expect(new Set(hoursNames).size).toBe(2);
-    // ★★★ THE ADD-AS-RESOURCE BUTTONS ARE A SECOND, INDEPENDENT DETECTOR, and
-    // until this assertion existed they were the DEFECT that satisfied
-    // `requireCollisionSeed` above — the guard was certified by a broken control
-    // rather than by the one under test, the masking hazard
-    // `src/test/row-unique-names.ts` warns about. They carried the same refuted
-    // "`row.display` cannot repeat here" premise and now take the same token.
-    // Collapsed, because the harness compares RAW and one space cannot separate
-    // two names a screen reader reads identically.
+    // ★★★ THE ADD-AS-RESOURCE BUTTONS ARE A SECOND, INDEPENDENT DETECTOR — they
+    // carried the same refuted "`row.display` cannot repeat here" premise and now
+    // take the same token. Collapsed, because the harness compares RAW and one
+    // space cannot separate two names a screen reader reads identically.
+    // ★★ An earlier comment here claimed these two were what SATISFIED
+    // `requireCollisionSeed` above, i.e. that the guard was being certified by a
+    // broken control. That was FALSE and self-contradictory: once tokenised, the
+    // hours pair strips to "40 – Bob  Smith" / "40 – Bob Smith" and COLLAPSES to
+    // one string, so it satisfies the guard on its own.
     const addNames = screen
       .getAllByRole("button", { name: /^Add as resource – / })
       .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
@@ -405,5 +408,37 @@ describe("ResourceWorkload", () => {
       .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
     expect(clearNames).toHaveLength(2);
     expect(new Set(clearNames).size).toBe(2);
+  });
+
+  // ★★★ THE COLLISION ALSO CROSSES THE TWO TABLES, which is one level up from
+  // everything above and was live behind a comment asserting it could not
+  // happen: "an unlinked row exists precisely BECAUSE its name matched no
+  // resource case-folded, so no unlinked `display` can equal a managed one."
+  // Case-folded inequality is not COLLAPSED inequality. `resourceDisplayName`
+  // joins with a single space and trims; `nameToId` keys on
+  // `display.trim().toLowerCase()`; `resolve` looks up `name.toLowerCase()`. So
+  // the resource below (display "Mary  Jane Smith") and the task assignee
+  // ("Mary Jane Smith") MISS each other — one managed row, one unlinked row, one
+  // `<table>`, one announced name.
+  // ★★ With a token map PER TABLE each name was unique inside its own map, so
+  // both came out BARE. That is why the maps were merged with prefixed keys
+  // rather than the claim merely deleted: two bare tokens is the defect.
+  // ★ `expectRowUniqueNames` cannot see this either (it compares RAW), so the
+  // collapsed comparison is again the detector.
+  it("keeps a managed row and an unlinked row distinct when their names differ only by whitespace (§315)", () => {
+    const wide: Resource = { id: 7, firstName: "Mary  Jane", lastName: "Smith", roleId: null, utilizationMode: "percent", utilization: {} };
+    const crossTasks = [
+      { id: 51, taskName: "Spec", assignee: "Mary Jane Smith", dueDate: "2026-07-01" },
+    ] as unknown as Task[];
+    render(<ResourceWorkload {...baseProps} resources={[wide]} tasks={crossTasks} />);
+    // Both rows reached the table: RTL's text matcher normalises whitespace the
+    // way the accessible-name computation does, so one query finds both — that
+    // is the defect seen from the query side.
+    expect(screen.getAllByText("Mary Jane Smith")).toHaveLength(2);
+    const hoursNames = screen
+      .getAllByRole("button", { name: /^\d+ – / })
+      .map((b) => (b.getAttribute("aria-label") ?? "").replace(/\s+/g, " "));
+    expect(hoursNames).toHaveLength(2);
+    expect(new Set(hoursNames).size).toBe(2);
   });
 });

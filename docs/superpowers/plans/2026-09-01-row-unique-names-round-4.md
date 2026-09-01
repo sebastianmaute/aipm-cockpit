@@ -1,5 +1,23 @@
 # Row-unique names, round 4 — Implementation Plan
 
+> ★★★ **SUPERSEDED IN PART — 2026-09-01, after execution.** This is a dated record of what was
+> PLANNED. Two of its premises were refuted while the plan was being executed, so where this file
+> disagrees with `docs/open-followups.md` §315 / §324 or with the design spec, **those are current and
+> this file is not.** It is bannered rather than rewritten, per the standing rule for dated records.
+>
+> 1. **The §315 unlinked half does NOT take a plain qualifier.** This plan argues in several places
+>    that `display.toLowerCase()` keying makes an unlinked display name unrepeatable, so a token would
+>    be dead code. That key trims and case-folds but does not collapse whitespace, while
+>    accessible-name comparison does. Every unlinked control takes the row token, from ONE map shared
+>    with the managed table — the collision crosses the two tables as well.
+> 2. **"Two maps would number each population from 1" is false** wherever this file still says it.
+>    `buildRowTokens` numbers only on a repeat INSIDE the map it was handed; a single-member map emits
+>    a BARE token. Some occurrences were corrected inline before this banner existed, which is why the
+>    file reads inconsistently — trust the banner over any surviving copy.
+>
+> The "Architecture" line below carries premise 1 in its "except where the qualifying value provably
+> cannot repeat" clause. That clause is still a real rule; this slice is simply not an instance of it.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close §309, §315, §305 and §324 — four surfaces where several controls compute the same accessible name, or two rows render the same visible text.
