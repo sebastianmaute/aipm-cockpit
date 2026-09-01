@@ -556,7 +556,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§327](#327-use-storage-backendts-sits-exactly-on-the-800-line-size-ratchet-with-zero-headroom) | `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom | found 2026-08-31, closing §303 | S | open |
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
-| [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
+| [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
 | [§333](#333-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 <!-- INDEX:END -->
 
@@ -25665,9 +25665,12 @@ this one about a format's data model.
 ## 330. The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links
 
 **Status:** OPEN as a RECORDED DECISION, not a defect. Decided 2026-09-01 while closing §30 and
-§119. Witness: `grep -n "cellTextWithLinks\|createLinkSink" src/app/doc-render-pptx.ts` returns BOTH
-in one file — the sink that mints real `<a:hlinkClick>` relationships for paragraph text boxes, and
-the flat projection used by the table path.
+§119; SCOPE CORRECTED 2026-09-01 (see the scope clause at the end — this governs
+`doc-render-pptx.ts`'s table path ALONE). Witness:
+`grep -n "cellTextWithLinks\|createLinkSink" src/app/doc-render-pptx.ts src/app/export-pptx.ts` —
+`doc-render-pptx.ts` returns BOTH (the sink that mints real `<a:hlinkClick>` relationships for
+paragraph text boxes, and the flat projection used by the table path) while `export-pptx.ts` now
+returns only the sink.
 
 `doc-render-pptx.ts` renders one deck two ways, and only one of them still has a run to hang a
 relationship on.
@@ -25695,6 +25698,22 @@ downstream assuming one line per row; it is not a link fix, and nothing owes it 
 ★ PPTX is not XLSX here, and collapsing the two is the easy mistake. §329's constraint lives in the
 FILE FORMAT (a hyperlink's unit is the cell); this one lives in THIS RENDERER's layout. A different
 PPTX renderer could do better. A different XLSX renderer could not.
+
+★★★ **SCOPE: `doc-render-pptx.ts`'s TABLE PATH, AND NOTHING ELSE — the other PPTX writer went the
+other way on 2026-09-01 and this entry must not be read as covering it.** The sentence above ("a
+different PPTX renderer could do better") was prophetic rather than hypothetical:
+`export-pptx.ts`, the WORKSPACE exporter, now mints real `<a:hlinkClick>` relationships on its row
+slides. Nothing there is flattened, which is the whole difference — `buildPptxRowSlide` emits ONE
+SLIDE PER ROW with each cell value in a paragraph of its own (`RowMeta` prefixes it with the section
+title, `RowTitle` carries it alone, each `RowFields` line prefixes it with a column label), so the
+run structure a relationship hangs on survives and `flattenCell` never enters the picture. The rule
+this entry states is unchanged and was simply applied to the second layout: **a link becomes a
+relationship wherever a run survives.** Reproduce the split with
+`grep -n "cellTextWithLinks\|createLinkSink" src/app/export-pptx.ts src/app/doc-render-pptx.ts` —
+the workspace exporter now returns only the sink, the document renderer still returns both.
+★★ So the user-visible asymmetry this entry accepts is NARROWER than it was: it is a table row
+against a paragraph INSIDE ONE document deck, never a `.docx` against a `.pptx` from the same export
+action. That second asymmetry was the one a manual pass reported, and it is gone.
 
 ---
 

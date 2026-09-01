@@ -32,7 +32,7 @@ import {
 } from "./storage";
 import { descriptionTextWithBreaks } from "./rich-text-projection";
 import { htmlToRichLines } from "./rich-text-runs";
-import type { RichLine, TextRun } from "./rich-text-runs";
+import type { RichLine, RichLineKind, TextRun } from "./rich-text-runs";
 import { TASK_MARK_CHECKED, TASK_MARK_UNCHECKED } from "./rich-text-plain";
 import { contactDisplay } from "./contact-display";
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
@@ -197,8 +197,9 @@ function collapseFlat(text: string): string {
 /** The flat projection for a sink that CANNOT hold a hyperlink — `cellText`
  *  plus each link's address, inline, as `text (url)` (§119/§30).
  *
- *  Used by the XLSX shared-string cell, the PPTX row slides and the PPTX
- *  table-cell path. `.docx`/`.pptx` PARAGRAPH renderers must NOT call it: they
+ *  Used by the XLSX shared-string cell and the PPTX table-cell path. The PPTX
+ *  ROW SLIDES left this projection when they gained a link sink — see
+ *  `cellLinkedLines` below. `.docx`/`.pptx` PARAGRAPH renderers must NOT call it: they
  *  emit a real external relationship, and printing the address as well would
  *  duplicate it.
  *
@@ -230,6 +231,52 @@ export function cellTextWithLinks(cell: ExportCell): string | number {
   return collapseFlat(
     lines.map((line) => line.marker + line.links.map(renderLink).join("")).join("\n"),
   );
+}
+
+/** One line of a rich cell as RUNS. `kind` travels because a slide has no style
+ *  part, so a renderer folds the LINE's styling into every run (`pptxRun` takes
+ *  it for exactly that). */
+export type CellRunLine = { kind: RichLineKind; runs: readonly TextRun[] };
+
+/** The STRUCTURED counterpart of `cellTextWithLinks`, for a sink that CAN mint
+ *  a relationship — the PPTX row slides. `undefined` means "no link here to
+ *  make live", and the caller must fall back to its existing `cellText` branch.
+ *
+ *  ★★★ `undefined` RATHER THAN AN EMPTY ARRAY, and that is the byte-identity
+ *  contract, not a taste call: `pptxTextBox` splits a uniform-text paragraph on
+ *  "\n" into SEVERAL `<a:p>` and emits exactly ONE for a run list, so the two
+ *  branches do not produce the same bytes. A caller that routed every cell
+ *  through runs would silently reshape every slide it has ever written.
+ *
+ *  ★★ THE PREDICATE IS `href`, NOT `isAddressed` — deliberately WIDER than the
+ *  flat projection's. `isAddressed` asks "would printing the address ADD
+ *  anything", so a pasted URL that is its own link text answers NO; this asks
+ *  "is there a link to make live", and that same pasted URL answers YES. Borrow
+ *  the flat predicate here and exactly the self-addressed link ships dead,
+ *  which is the defect this path exists to close.
+ *
+ *  ★ The task marker is prepended as its OWN run so it inherits none of the
+ *  item's marks, and it is the SAME `taskMarker` the flat projection uses — the
+ *  two cannot drift on which items get one.
+ *
+ *  ★★ NO EDGE TRIM, and one was written and then DELETED, so do not add it back
+ *  "for parity with `collapseFlat`". Measured against the real parse: for every
+ *  line kind but `pre`, `htmlToRichLines` has ALREADY dropped a line's leading
+ *  and trailing whitespace — `<p>  see <a …>x</a>  </p>` arrives as
+ *  `["see ", "x"]` — so a trim here is unobservable (its mutant survived the
+ *  whole suite). For `pre` the whitespace is preserved ON PURPOSE and a trim
+ *  would eat a code block's indentation, which is the flat projection's own
+ *  loss and not one worth copying. */
+export function cellLinkedLines(cell: ExportCell): readonly CellRunLine[] | undefined {
+  if (!isRichCell(cell)) return undefined;
+  const lines = htmlToRichLines(cell.html);
+  if (!lines.some((line) => line.runs.some((run) => run.href !== undefined))) return undefined;
+  return lines.map((line) => {
+    const marker = taskMarker(line);
+    const runs: readonly TextRun[] =
+      marker === "" ? line.runs : [{ text: marker, marks: [] }, ...line.runs];
+    return { kind: line.kind, runs };
+  });
 }
 
 export type ExportSection = {

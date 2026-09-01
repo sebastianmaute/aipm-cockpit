@@ -62,6 +62,17 @@ export type PptxRun = {
   /** Highlight fill, 6 hex digits. `<a:highlight>` takes a real colour, unlike
    *  WordprocessingML's closed `ST_HighlightColor` enum. */
   highlightRgb?: string;
+  /** Solid TEXT colour, 6 hex digits. The runs branch of `PptxParagraph` has no
+   *  paragraph-level colour — its sibling's `colorRgb` reaches only the
+   *  uniform-text shape — so a caller that must keep a slot's colour while
+   *  splitting it into runs folds the colour into each run here.
+   *
+   *  ★★ A LINKED RUN SHOULD USUALLY LEAVE IT UNSET. `buildPptxTheme` declares
+   *  an `<a:hlink>` colour and the master's `p:clrMap` binds it, so PowerPoint
+   *  colours an `<a:hlinkClick>` run from the theme — but only while the run
+   *  names no fill of its own. An explicit fill wins, and the link then reads
+   *  exactly like the prose around it. */
+  colorRgb?: string;
   /** An external hyperlink, as the RELATIONSHIP ID that resolves to it — never
    *  the URL.
    *
@@ -132,7 +143,10 @@ function pptxRunXml(run: PptxRun, lang: Lang, sizeHundredths: number): string {
   // only `xmlns:w`, whereas `wrapPptxSlide` already binds `xmlns:r` on
   // `<p:sld>` — the same asymmetry `pptxPicture`'s `r:embed` comment records.
   // A redundant declaration would be harmless XML and a misleading precedent.
+  // ★ `solidFill` LEADS: the sequence quoted above opens `ln · fill · effect ·
+  // highlight · …`, so the fill group precedes every other child here.
   const children =
+    (run.colorRgb ? `<a:solidFill><a:srgbClr val="${run.colorRgb}"/></a:solidFill>` : "") +
     (run.highlightRgb
       ? `<a:highlight><a:srgbClr val="${run.highlightRgb}"/></a:highlight>`
       : "") +

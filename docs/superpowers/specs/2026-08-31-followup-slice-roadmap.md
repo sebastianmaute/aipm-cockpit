@@ -144,7 +144,11 @@ Both entries are closed. What landed:
 - real `<w:hyperlink>` in `.docx` and real `<a:hlinkClick>` in `.pptx` text boxes, both as
   `TargetMode="External"` relationships with NO part;
 - a new `cellTextWithLinks` in `export-sections.ts` rendering `text (url)` for the FLAT sinks
-  (`export-xlsx.ts`, `export-pptx.ts`, `doc-render-pptx.ts`'s cell path). `htmlToText` was NOT
+  (`export-xlsx.ts`, `export-pptx.ts`, `doc-render-pptx.ts`'s cell path). ★ SUPERSEDED IN PART
+  2026-09-01: `export-pptx.ts` left that list — a manual pass found its row slides emitting dead
+  `text (url)` from the same action that produced live `.docx` links, and since nothing on a row
+  slide is flattened it now mints real relationships through `cellLinkedLines` instead. The two
+  remaining flat sinks are unchanged; §330's scope clause carries the split. `htmlToText` was NOT
   widened, and is now held byte-unchanged by a positive test, because search, the note logs and the
   AI digests read it.
 
