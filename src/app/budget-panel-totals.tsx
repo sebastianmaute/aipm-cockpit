@@ -307,21 +307,73 @@ export interface TotalsRow {
   actualHours: Record<string, number>;
 }
 
-/** Column + grand totals for one bucket. `budgetOf` is the caller's own
- *  `cellBudget`, so the column sums and the row sums come from the SAME
- *  accessor — which is what makes it impossible for them to disagree
- *  (`cellBudget` honours the budget-follows-plan mirroring). */
-export function bucketColumnTotals<P extends { key: string }>(
+/**
+ * The whole row × period budget grid for one bucket, evaluated ONCE, plus every
+ * total derived from it (open-followups §71).
+ *
+ * ★★★ THE POINT IS THE INVARIANT, NOT THE SPEED. This replaced
+ * `bucketColumnTotals`, which took the caller's own `cellBudget` as a `budgetOf`
+ * accessor so that the column sums and the row sums would agree. That worked,
+ * but only BY CONVENTION: it held exactly as long as every caller remembered to
+ * pass the same accessor, and nothing could enforce that. Here the row totals
+ * and the column totals are both reductions of one stored grid, so "the two axes
+ * cannot disagree" is structural — there is no second accessor to get wrong.
+ *
+ * ★★ It also collapses THREE evaluations of `cellBudget` per (row, period) into
+ * one. That is the cheaper half of the win and the less important one: the cost
+ * was never measured, no gate covers render cost, and a bucket is typically a
+ * handful of rows by a handful of periods. Do not cite this as a performance
+ * fix — `cellBudget` walks resources, absences, holidays and the
+ * budget-follows-plan mirroring rule, so it is worth calling once, but nobody
+ * has profiled it.
+ *
+ * ★ `compute` is still the caller's `cellBudget`, so the mirroring rule is
+ * honoured exactly as before; the difference is that it is consulted once per
+ * cell rather than once per consumer.
+ *
+ * ★★ Indexed by POSITION, not by period key. Two periods can carry the same
+ * `key` only through a caller bug, but a Map keyed on it would silently collapse
+ * them into one column while the rendered table still drew two — the grid stays
+ * positional so a duplicate key is a visible duplicate, not a silent merge.
+ */
+export function bucketBudgetGrid<P extends { key: string }>(
   rows: readonly TotalsRow[],
   periods: readonly P[],
-  budgetOf: (row: TotalsRow, period: P) => number,
+  compute: (row: TotalsRow, period: P) => number,
 ) {
-  const columns = periods.map((p) => ({
+  // One row of numbers per allocation, in period order. Keyed by the row OBJECT:
+  // identities are stable for the life of a render, which is all this needs.
+  const grid = new Map<TotalsRow, readonly number[]>(
+    rows.map((r) => [r, periods.map((p) => compute(r, p))] as const),
+  );
+  // ★★★ THROWS RATHER THAN FALLING BACK TO 0, and the difference is a money
+  // figure. A `?? 0` here would let a row the grid does not know about
+  // contribute SILENTLY to a budget total as zero — a plausible-looking wrong
+  // number, in a panel whose whole subject is hours and cost. The helper it
+  // replaced had no such path: it invoked `budgetOf` directly, so an unknown row
+  // still produced a real figure. Degrading quietly would also contradict this
+  // function's entire thesis, which is that the two axes cannot disagree.
+  //
+  // ★ Unreachable today — the one call site feeds `bucketBudgetGrid` the same
+  // array it then renders — so this is a guard against a FUTURE caller passing
+  // rows the grid was not built from, not a fix for a live bug.
+  const budgetAt = (row: TotalsRow, periodIndex: number): number => {
+    const cells = grid.get(row);
+    if (!cells) throw new Error("bucketBudgetGrid: row is not in the grid it is being summed against");
+    return cells[periodIndex] ?? 0;
+  };
+  const rowBudgetTotal = (row: TotalsRow): number =>
+    (grid.get(row) ?? []).reduce((s, v) => s + v, 0);
+
+  const columns = periods.map((p, i) => ({
     key: p.key,
-    budget: rows.reduce((s, r) => s + budgetOf(r, p), 0),
+    budget: rows.reduce((s, r) => s + budgetAt(r, i), 0),
     actual: rows.reduce((s, r) => s + (r.actualHours[p.key] ?? 0), 0),
   }));
+
   return {
+    budgetAt,
+    rowBudgetTotal,
     columns,
     grandBudget: columns.reduce((s, c) => s + c.budget, 0),
     grandActual: columns.reduce((s, c) => s + c.actual, 0),
@@ -329,7 +381,7 @@ export function bucketColumnTotals<P extends { key: string }>(
 }
 
 export function BucketTotalRow({
-  columns, grandBudget, grandActual, lang, roleWidth,
+  columns, grandBudget, grandActual, lang, roleWidth, filtered = false,
 }: {
   columns: readonly { key: string; budget: number; actual: number }[];
   grandBudget: number;
@@ -339,6 +391,24 @@ export function BucketTotalRow({
    *  because that column is user-resizable, so a hardcoded offset drifts the
    *  moment it is dragged. */
   roleWidth: number;
+  /**
+   * True while the role filter narrows the rows this total is computed over
+   * (open-followups §70).
+   *
+   * ★★ THE FIGURES ARE NOT WRONG — THE LABEL WAS. These totals are built from
+   * `rowsForTotals`, which is already narrowed by `filterSortAllocations`, while
+   * the CCI tiles rendered directly above the table read the whole-bucket
+   * `BucketReport` straight off the engine. So with a filter typed in, one card
+   * showed whole-bucket margin/burn/CPI above a total covering only the matching
+   * roles, and the label just said "Total". A total of what you are looking at is
+   * the RIGHT reading for a filtered table and is what every other filtered table
+   * in the app does — what was missing was anything on screen saying which of the
+   * two scopes it meant.
+   *
+   * ★ Deliberately NOT solved by making the totals unfiltered: that would leave a
+   * total whose parts are not on screen, which is the worse of the two confusions.
+   */
+  filtered?: boolean;
 }) {
   // The rule that separates the total from the allocation rows lives on the
   // CELLS, not the `<tr>`. globals.css puts every `.aipm-cockpit-thead` table in
@@ -351,7 +421,7 @@ export function BucketTotalRow({
   return (
     <tr className="font-medium">
       <BucketRowLeadCells
-        label={t(lang, "budgetTotal")}
+        label={t(lang, filtered ? "budgetTotalFiltered" : "budgetTotal")}
         budget={grandBudget}
         actual={grandActual}
         lang={lang}

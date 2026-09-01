@@ -9,6 +9,7 @@ import { roleLabel } from "./resource-foundation";
 import { type SortDir } from "./report-table";
 import type { BucketReport } from "./budget-report";
 import { t, type Lang } from "./i18n";
+import { formatFetchedAt } from "./date-format";
 import type { BucketPeriodCell } from "./timelog-actuals";
 import type { Absence, BucketAllocation, BudgetBucket, Discipline, Grade, Resource, Role } from "./types";
 
@@ -268,7 +269,7 @@ export function buildPlannedByResourcePeriod(
  *  stay in one place. */
 export function BucketRolePeople({
   bucketId, allocation, resources, actualsByPeriod, plannedByResourcePeriod, periods,
-  collapsed, roleWidth,
+  collapsed, roleWidth, lang, fetchedAt,
 }: {
   bucketId: number;
   allocation: Pick<BucketAllocation, "roleId" | "resourceIds">;
@@ -278,6 +279,9 @@ export function BucketRolePeople({
   periods: readonly Period[];
   collapsed: boolean;
   roleWidth: number;
+  lang: Lang;
+  /** See `BucketPeopleRows` — the cache timestamp behind the §122 source cue. */
+  fetchedAt?: string;
 }) {
   const rows = buildBucketPeopleRows({
     allocation, resources, actualsByPeriod, plannedByResourcePeriod, periods,
@@ -289,6 +293,8 @@ export function BucketRolePeople({
       periods={periods}
       collapsed={collapsed}
       roleWidth={roleWidth}
+      lang={lang}
+      fetchedAt={fetchedAt}
     />
   );
 }
@@ -322,6 +328,8 @@ export function BucketPeopleRows({
   periods,
   collapsed,
   roleWidth,
+  lang,
+  fetchedAt,
 }: {
   id: string;
   rows: readonly PersonRow[];
@@ -329,9 +337,53 @@ export function BucketPeopleRows({
   collapsed: boolean;
   /** LIVE width of the role column — see BucketRowLeadCells. */
   roleWidth: number;
+  lang: Lang;
+  /**
+   * `fetchedAt` of the per-device Timelog cache these rows are built from, or
+   * undefined when this device has never fetched (open-followups §122).
+   *
+   * ★★★ THESE ROWS AND THE ROLE ROW ABOVE THEM READ "BOOKED" FROM DIFFERENT
+   * SOURCES, AND THE LAYOUT SAYS OTHERWISE. The role row renders the PERSISTED
+   * `a.actualHours[p.key]` — written only when a user runs Apply in the Timelog
+   * panel, and hand-editable in the cell. These rows render the per-resource
+   * breakdown from the PER-DEVICE Timelog cache, rewritten by every fetch and
+   * editable by nobody. A disclosure opening directly under a figure reads as a
+   * BREAKDOWN of that figure; this is not one, and the two do not reconcile by
+   * construction — the engine drops bookers whose role has no line on this
+   * bucket, so the people column does not sum to the role row even when both
+   * sources are perfectly fresh.
+   *
+   * ★★ They diverge in ordinary use, not just at the edges: after every fetch
+   * and before Apply (the DEFAULT state); after a cell is hand-edited; on a
+   * device that has never fetched; on multi-device Turso where the workspace
+   * carries another device's applied actuals; and after a PARTIAL fetch (§172),
+   * where a project lost to an error makes every person who booked on it read
+   * LOW while the role row above stays complete.
+   *
+   * ★ The cue does not try to reconcile them — it says where these numbers come
+   * from and how old they are, which is what a reader needs to know the two
+   * figures are allowed to disagree.
+   */
+  fetchedAt?: string;
 }) {
+  // ★ Spans the three pinned lead cells plus one per period.
+  const cueSpan = 3 + periods.length;
   return (
     <tbody id={id} hidden={collapsed}>
+      {/* ★ `data-people-source` is a TEST HOOK, and it is load-bearing for the
+          suite rather than decoration: every assertion in
+          `budget-panel-people-rows.test.tsx` reads the person cells positionally
+          (`#people-1-10 td`), so a chrome row at the top of this tbody silently
+          shifts every index. The attribute lets those queries exclude it by
+          MEANING instead of by counting rows, which would break again the next
+          time anything is added here. */}
+      <tr className="text-xs" data-people-source>
+        <td colSpan={cueSpan} className="px-3 pb-1 pt-1.5 text-[11px] leading-snug text-muted-foreground">
+          {fetchedAt
+            ? t(lang, "budgetPeopleSource", formatFetchedAt(fetchedAt, lang))
+            : t(lang, "budgetPeopleSourceNone")}
+        </td>
+      </tr>
       {rows.map((r) => (
         <tr key={r.resourceId} className="text-xs">
           <td className="sticky bg-surface px-1 py-1 print:static" style={{ left: 0 }} />
