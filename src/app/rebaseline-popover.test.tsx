@@ -53,16 +53,16 @@ describe("RebaselinePopover milestone variant", () => {
   it("prefills the forecast date and fires onRebaselineMilestone on confirm", () => {
     const b = bundle();
     const action = milestoneAction();
-    render(<RebaselinePopover lang="en-US" action={action} bundle={b} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
+    render(<RebaselinePopover rowToken="Row" lang="en-US" action={action} bundle={b} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline – Row$/ }));
     const input = screen.getByLabelText("New target date") as HTMLInputElement;
     expect(input.value).toBe("2026-08-15"); // forecast from linked task
     fireEvent.click(screen.getByRole("button", { name: /Re-baseline now/ }));
     expect(b.onRebaselineMilestone).toHaveBeenCalledWith(action, 7, "2026-08-15");
   });
   it("disables confirm when the date is cleared", () => {
-    render(<RebaselinePopover lang="en-US" action={milestoneAction()} bundle={bundle()} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
+    render(<RebaselinePopover rowToken="Row" lang="en-US" action={milestoneAction()} bundle={bundle()} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline – Row$/ }));
     fireEvent.change(screen.getByLabelText("New target date"), { target: { value: "" } });
     expect(screen.getByRole("button", { name: /Re-baseline now/ })).toBeDisabled();
   });
@@ -72,23 +72,23 @@ describe("RebaselinePopover snapshot variant", () => {
   it("fires onRebaselineSnapshot on confirm", () => {
     const b = bundle();
     const action = scheduleAction();
-    render(<RebaselinePopover lang="en-US" action={action} bundle={b} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
+    render(<RebaselinePopover rowToken="Row" lang="en-US" action={action} bundle={b} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline – Row$/ }));
     fireEvent.click(screen.getByRole("button", { name: /Re-baseline now/ }));
     expect(b.onRebaselineSnapshot).toHaveBeenCalledTimes(1);
     expect(b.onRebaselineSnapshot).toHaveBeenCalledWith(action);
   });
   it("disables confirm when busy", () => {
-    render(<RebaselinePopover lang="en-US" action={scheduleAction()} bundle={bundle({ busy: true })} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
+    render(<RebaselinePopover rowToken="Row" lang="en-US" action={scheduleAction()} bundle={bundle({ busy: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline – Row$/ }));
     expect(screen.getByRole("button", { name: /Re-baseline now/ })).toBeDisabled();
   });
 });
 
 describe("RebaselinePopover milestone forecast hint", () => {
   it("renders the forecast hint in the milestone popover", () => {
-    render(<RebaselinePopover lang="en-US" action={milestoneAction()} bundle={bundle()} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
+    render(<RebaselinePopover rowToken="Row" lang="en-US" action={milestoneAction()} bundle={bundle()} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline – Row$/ }));
     expect(screen.getByText(/Forecast finish: 2026-08-15/)).toBeTruthy();
   });
 });
@@ -96,8 +96,8 @@ describe("RebaselinePopover milestone forecast hint", () => {
 describe("RebaselinePopover deleted-source safety", () => {
   it("suppresses the dialog body when the milestone is no longer present", () => {
     // The source milestone (id 7) was deleted between render and open.
-    render(<RebaselinePopover lang="en-US" action={milestoneAction()} bundle={bundle({ milestones: [] })} />);
-    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline$/ }));
+    render(<RebaselinePopover rowToken="Row" lang="en-US" action={milestoneAction()} bundle={bundle({ milestones: [] })} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Re-baseline – Row$/ }));
     // No dialog, no confirm, no date input — opening a stale row is a safe no-op.
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByRole("button", { name: /Re-baseline now/ })).toBeNull();

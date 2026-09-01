@@ -42,7 +42,7 @@ describe("DashboardTopActions", () => {
     expect(screen.getByText(/Alpha/)).toBeInTheDocument();
     expect(screen.getByText(/Beta/)).toBeInTheDocument();
     // Each row renders exactly one Open button (row-unique affordance)
-    const openBtns = screen.getAllByRole("button", { name: "Open" });
+    const openBtns = screen.getAllByRole("button", { name: /^Open – / });
     expect(openBtns).toHaveLength(2);
   });
 

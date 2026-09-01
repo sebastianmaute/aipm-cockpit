@@ -23,13 +23,16 @@ interface RebaselinePopoverProps {
   lang: Lang;
   action: SuggestedAction;
   bundle: RebaselineBundle;
+  /** Occurrence-qualified row name, threaded from the list owner. REQUIRED —
+   *  see `ActionPopoverTrigger` (§324). */
+  rowToken: string;
   /** Hero surface renders the trigger as a prominent filled CTA. */
   prominent?: boolean;
 }
 
 const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
 
-export function RebaselinePopover({ lang, action, bundle, prominent }: RebaselinePopoverProps) {
+export function RebaselinePopover({ lang, action, bundle, rowToken, prominent }: RebaselinePopoverProps) {
   const isMilestone = action.source === "milestone";
   const btnRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -65,6 +68,7 @@ export function RebaselinePopover({ lang, action, bundle, prominent }: Rebaselin
     <ActionPopoverTrigger
       label={t(lang, "actionRebaseline")}
       ariaLabel={t(lang, "actionRebaselineTitle")}
+      rowToken={rowToken}
       open={open}
       panelOpen={open && canRender}
       onToggle={toggleOpen}

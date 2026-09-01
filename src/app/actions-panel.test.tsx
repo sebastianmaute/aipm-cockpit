@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { t } from "./i18n";
 import { ActionsPanel } from "./actions-panel";
 import type { SuggestedAction } from "./next-actions/types";
 import type { ActionAnalysis } from "./action-ai";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const mk = (id: string, tier: SuggestedAction["tier"]): SuggestedAction => ({
   id, source: "raid", moduleId: "raid",
@@ -112,6 +114,50 @@ describe("ActionsPanel", () => {
     render(<ActionsPanel lang="en-US" actions={actions} onOpen={() => {}} />);
     expect(screen.queryByRole("region", { name: /Do this first/i })).toBeNull();
     expect(screen.getByRole("button", { name: /monitored/i })).toBeTruthy();
+  });
+
+  // §324. THREE "now" actions with the SAME title and the SAME score: one becomes
+  // the hero, the other two render as Now rows. Every control across them (the
+  // score tooltip, Open, the ⋮ overflow) used to compute its name from a value
+  // all three share. The cta ids differ so `groupNextActions` keeps them as three
+  // groups instead of collapsing them onto one entity.
+  //
+  // ★★ THREE, NOT TWO, AND THAT IS LOAD-BEARING — measured, not reasoned. With a
+  //    hero plus ONE row, removing `action-row.tsx`'s label alone leaves that row
+  //    announcing the bare "Score: 60" while the hero stays qualified: the two
+  //    names DIFFER, no name is shared, and the duplicate-name assertion below
+  //    passes against the mutant. A second row gives the row-level mutant a
+  //    row-vs-row collision to produce, so it goes red.
+  // ★★★ THE HERO IS A SINGLETON, so NO duplicate-name assertion can ever kill a
+  //    hero-only mutant — a bare hero name collides with nothing. That half is
+  //    pinned by the second assertion instead, which is why both are here and why
+  //    neither is redundant. Deleting either leaves a real mutant alive.
+  // ★ Whole-document scope on purpose: the panel's own chrome (Print, reset-size,
+  //   the learning pill) must not collide with the rows either, and there is no
+  //   confirmed chrome collision to dodge by narrowing.
+  // ★ `InfoTooltip`'s trigger is a `<span role="button">`, so the default
+  //   `["button"]` roles list picks it up alongside the real buttons.
+  const sharedTitleAndScore = () =>
+    (["s1", "s2", "s3"] as const).map((id) => ({
+      id, source: "raid", moduleId: "raid",
+      title: { key: "actionRaidTitle", params: [1, "Shared"] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] },
+      score: 60, tier: "now",
+      cta: { kind: "open", view: "raid", id },
+    })) as unknown as SuggestedAction[];
+
+  it("gives every control a row-unique name when actions share a title and score (§324)", () => {
+    render(
+      <ActionsPanel lang="en-US" actions={sharedTitleAndScore()} onOpen={() => {}} expertMode />,
+    );
+    // minControls is the MEASURED count for this fixture: 3 score tooltips +
+    // 3 Open buttons + the learning pill + Print + reset-size. Keeping it exact
+    // is the only automatic guard against a silently narrowed `roles` list.
+    expectRowUniqueNames({ minControls: 9, roles: ["button"], requireCollisionSeed: true });
+    // ★ The needle is DERIVED from i18n, not spelled out: hardcoding "Score: 60"
+    //   would keep passing if the key's value changed underneath it.
+    const bareScoreName = t("en-US", "actionScoreTooltip", 60);
+    expect(screen.queryAllByRole("button", { name: bareScoreName })).toHaveLength(0);
   });
 
   describe("AI analysis section", () => {

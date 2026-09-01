@@ -554,6 +554,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-the-default-scheme) | Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in the default scheme | found 2026-08-31 in the §300 fix round | M | open |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide) | `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide | found 2026-08-31, adding the §300 mismatch region | S | open |
 | [§327](#327-use-storage-backendts-sits-exactly-on-the-800-line-size-ratchet-with-zero-headroom) | `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom | found 2026-08-31, closing §303 | S | open |
+| [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -25229,3 +25230,43 @@ ratchet, not after — this file is past that point with no room left to defer t
 gate checks; nothing in this entry should be read as recommending it. What the actual split seams
 should be is undetermined and is exactly what is NOT machine-verified above — that assessment is
 owed before anyone attempts it.
+
+---
+
+## 328. The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise
+
+**Status:** OPEN, **never machine-verified**. Filed 2026-09-01 while fixing
+[§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name),
+which widened into every control the Next-actions row and hero render. The controls named below were
+deliberately NOT given a row token, and the justification was reasoned from the dismissal contract
+rather than measured. Nothing drives two of these panels open at once in any test, so the premise
+has never been exercised.
+
+§324's fix threads an occurrence-qualified `rowToken` into every control that renders **once per
+row**: the score tooltip, the Open button (primary and ghost), the direct verbs, the assign trigger,
+the three `ActionPopoverTrigger` buttons, the `⋮` overflow trigger and the `ActionReasons`
+disclosure. Left bare, on purpose:
+
+- the `ActionOverflowMenu` menu ITEMS (`Mark done` / `Draft message` / `Create task` /
+  `actionSnooze1h` / `actionSnooze1d`)
+- the confirm buttons inside the escalate / rebaseline / reschedule panels
+- the `ResourcePicker` inside the assign popover
+- the `ariaLabel` each panel passes to `PopoverPanel` for its own `role="dialog"`
+
+★★ **The premise is that `PopoverPanel`'s outside-click dismissal makes two panels non-simultaneous**,
+so a name inside one panel cannot repeat within a single rendered list — which is the discriminator
+the whole row-unique-names slice turns on. If that premise is wrong, every item above is a live WCAG
+2.4.6 collision the moment two rows' panels coexist, and the fix is mechanical (the token is already
+in scope at each of these call sites — `rowToken` reaches `ActionPrimaryCta` and
+`ActionOverflowMenu`, and the three popovers already take it).
+
+★ **What is owed is one measurement, not a redesign:** render two Next-actions rows, open row A's
+`⋮`, then open row B's, and assert only one menu is in the DOM. A unit test in
+`action-cta-controls.test.tsx` can do it. Until then the comment in `ActionOverflowMenu` asserting
+the items "cannot repeat in one rendered list" is a reasoned claim wearing the voice of a measured
+one — the exact shape this register keeps recording.
+
+★★ **Neither gate can see any of it.** axe has no rule that flags two controls sharing an accessible
+name, at any seed size in any view (measured against axe-core 4.12.1 — see AGENTS.md), and the
+Next-actions view's popovers are never opened by the a11y spec anyway. A unit test is the only
+detector that can exist here, as it was for §324.

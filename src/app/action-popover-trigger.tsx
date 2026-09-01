@@ -11,10 +11,12 @@
 import { type ReactNode, type RefObject } from "react";
 import { popoverTriggerClass } from "./action-cta-styles";
 import { PopoverPanel } from "./popover-panel";
+import { rowLabel } from "./row-tokens";
 
 export function ActionPopoverTrigger({
   label,
   ariaLabel,
+  rowToken,
   open,
   panelOpen,
   onToggle,
@@ -26,6 +28,15 @@ export function ActionPopoverTrigger({
 }: {
   label: string;
   ariaLabel: string;
+  /** Occurrence-qualified row name from whoever renders the LIST. REQUIRED, not
+   *  optional: the trigger's visible `label` is a bare verb ("Escalate"), so
+   *  without a token two rows render two identically-named buttons (WCAG 2.4.6).
+   *  A per-item component cannot disambiguate itself — it has no sibling
+   *  visibility — so the token is threaded down (§324).
+   *  ★ Only the BUTTON is qualified, not the panel's `ariaLabel`: the panel is a
+   *  role=dialog that `PopoverPanel` dismisses on outside click, so two of them
+   *  are never in the tree at once and there is nothing for it to collide with. */
+  rowToken: string;
   /** Raw open state — drives the button's `aria-expanded`. */
   open: boolean;
   /** Gate the PANEL on extra readiness (e.g. a loaded plan / resolvable entity).
@@ -47,6 +58,7 @@ export function ActionPopoverTrigger({
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-label={rowLabel(label, rowToken)}
         onClick={(e) => { e.stopPropagation(); onToggle(); }}
         className={popoverTriggerClass(prominent)}
       >

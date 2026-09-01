@@ -12,7 +12,7 @@ const action = {
 describe("ReschedulePopover", () => {
   it("fires onReschedule with the chosen date and closes", () => {
     const onReschedule = vi.fn();
-    render(<ReschedulePopover lang="en-US" action={action} bundle={{ onReschedule }} />);
+    render(<ReschedulePopover rowToken="Row" lang="en-US" action={action} bundle={{ onReschedule }} />);
     fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
     const input = screen.getByLabelText(/new due date/i);
     fireEvent.change(input, { target: { value: "2026-08-01" } });
@@ -21,7 +21,7 @@ describe("ReschedulePopover", () => {
   });
   it("shows the current due date and prefills the input with it", () => {
     render(
-      <ReschedulePopover
+      <ReschedulePopover rowToken="Row"
         lang="en-US"
         action={action}
         bundle={{ onReschedule: vi.fn(), currentDueDate: () => "2026-07-10" }}
@@ -33,13 +33,13 @@ describe("ReschedulePopover", () => {
   });
 
   it("disables confirm when the date is empty/invalid", () => {
-    render(<ReschedulePopover lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
+    render(<ReschedulePopover rowToken="Row" lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
     fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
     expect(screen.getByRole("button", { name: /update/i })).toBeDisabled();
   });
 
   it("portals the dialog to document.body with fixed positioning (escapes the overflow-auto clip)", () => {
-    render(<ReschedulePopover lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
+    render(<ReschedulePopover rowToken="Row" lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
     fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
     const dialog = screen.getByRole("dialog");
     // Portaled OUT of the trigger's subtree so the actions-panel scroller can't
@@ -49,14 +49,14 @@ describe("ReschedulePopover", () => {
   });
 
   it("stays open when interacting inside the portaled dialog (dismiss covers the portal)", () => {
-    render(<ReschedulePopover lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
+    render(<ReschedulePopover rowToken="Row" lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
     fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
     fireEvent.mouseDown(screen.getByLabelText(/new due date/i));
     expect(screen.queryByRole("dialog")).not.toBeNull();
   });
 
   it("closes on an outside mousedown", () => {
-    render(<ReschedulePopover lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
+    render(<ReschedulePopover rowToken="Row" lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
     fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
     expect(screen.queryByRole("dialog")).not.toBeNull();
     fireEvent.mouseDown(document.body);

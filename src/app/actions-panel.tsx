@@ -25,6 +25,7 @@ import type { RescheduleBundle } from "./reschedule-popover";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
 import { groupNextActions, type ActionGroup } from "./next-actions/group";
 import { TIER_RAG } from "./next-actions/action-cta";
+import { buildRowTokens } from "./row-tokens";
 import { Dot } from "./dot";
 
 const TIERS: { tier: ActionTier; labelKey: TranslationKey }[] = [
@@ -70,13 +71,42 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   const { ref, reset } = useResizable("aipm-cockpit:actions-size");
   const groups = useMemo(() => groupNextActions(actions), [actions]);
   const [expanded, setExpanded] = useState<Record<"now" | "soon", boolean>>({ now: false, soon: false });
+
+  // ★★ ONE map over the hero AND the rows, because they are one naming
+  //    population: the hero is `groups[0]` de-duped from its tier list, so two
+  //    maps would number each from 1 and reintroduce the hero-vs-row collision
+  //    this closes (§324).
+  // ★★ Built over `groups` — the STABLE FULL population, not the currently
+  //    VISIBLE one. Every group appears exactly once (hero, or a tier list that
+  //    filters `g.key !== heroKey`), so `groups` IS hero-plus-rows with no
+  //    double count. Tokenising the visible slice instead would make a row's
+  //    accessible name CHANGE when an unrelated tier is expanded past
+  //    `MAX_VISIBLE_PER_TIER` or the monitor group is toggled — a name that
+  //    mutates under interaction is worse than the bug being fixed. The cost is
+  //    that a row can show "(2)" while its "(1)" is currently capped out, which
+  //    is acceptable and strictly better.
+  // ★ An action title is FREE TEXT (`title.key` + params), so it can repeat; the
+  //   rule is that free text always needs a token, and a plain qualifier is only
+  //   enough for a value that cannot repeat in one rendered list.
+  const actionTokens = useMemo(
+    () => buildRowTokens(groups.map((g) => ({
+      id: g.key,
+      name: t(lang, g.primary.title.key, ...(g.primary.title.params ?? [])),
+    }))),
+    [groups, lang],
+  );
+
   // Shared handler/config props threaded identically to ActionRow and ActionHeroCard.
+  // ★ `rowToken` is deliberately NOT folded in here — `rowProps` is by definition
+  //   the props identical for every row, and this one is per-instance.
   const rowProps = {
     lang, expertMode, onOpen, onSnooze, onCreateTask, assignOwner,
     onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker,
   };
+  // ★ `?? ""` cannot actually fire: the map is keyed by `g.key` over the same
+  //   `groups` array every render site draws from.
   const renderRow = (g: ActionGroup) => (
-    <ActionRow key={g.key} action={g.primary} extraReasons={g.extra} {...rowProps} />
+    <ActionRow key={g.key} action={g.primary} extraReasons={g.extra} rowToken={actionTokens.get(g.key) ?? ""} {...rowProps} />
   );
 
   // Hero = the single top-ranked group, but only when it carries real urgency
@@ -184,7 +214,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
         <p className="text-sm text-muted-foreground">{t(lang, "actionsEmptyState")}</p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto pr-2">
-          {hero && <ActionHeroCard group={hero} {...rowProps} />}
+          {hero && <ActionHeroCard group={hero} rowToken={actionTokens.get(hero.key) ?? ""} {...rowProps} />}
           {TIERS.map(({ tier, labelKey }) => {
             const rows = groups.filter((g) => g.tier === tier && g.key !== heroKey);
             if (rows.length === 0) return null;
