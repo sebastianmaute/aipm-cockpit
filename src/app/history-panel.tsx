@@ -23,7 +23,7 @@ import { EmptyState } from "./empty-state";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { INTERACTIVE } from "./interaction-styles";
+import { IconButton } from "./icon-button";
 import { Button } from "./button";
 import { Checkbox, Input } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
@@ -348,15 +348,14 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
               >
                 {t(lang, "add")}
               </Button>
-              <button
-                type="button"
+              <IconButton
                 onClick={cancelSave}
-                aria-label={t(lang, "cancel")}
+                label={t(lang, "cancel")}
                 title={t(lang, "cancel")}
-                className={`rounded-full px-1 text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
+                variant="danger"
               >
                 ×
-              </button>
+              </IconButton>
             </span>
           ) : (
             <Button
@@ -501,15 +500,14 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   </Button>
                 </>
               )}
-              <button
-                type="button"
+              <IconButton
                 onClick={() => { setDiff(null); setSelected([]); setSelection({}); setCompareFrom(null); setRestoreFrom(null); setSideBySide(false); setCompareLabels(null); }}
-                aria-label={t(lang, "alertModalClose")}
+                label={t(lang, "alertModalClose")}
                 title={t(lang, "alertModalClose")}
-                className={`cursor-pointer rounded-full px-1 text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
+                variant="danger"
               >
                 ×
-              </button>
+              </IconButton>
             </span>
           </div>
           {compareFrom !== null && diff.length === 0 ? (
