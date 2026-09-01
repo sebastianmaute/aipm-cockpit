@@ -67,10 +67,6 @@ import { GUTTER_WIDTH_PX, colWidthStyle, tableMinWidthPx, visibleTaskCols } from
  *  reference-stable (a fresh `[]` each render would bust it). */
 const EMPTY_RESOURCES: readonly Resource[] = [];
 
-/** Fixed English friction phrase to confirm clearing all tasks (mirrors the
- *  factory-reset dialog). Deliberately not localized. */
-const CLEAR_TASKS_CONFIRM_PHRASE = "yes, clear all tasks";
-
 // Module-level accessor for useRowTokens — an inline arrow would be a fresh
 // closure every render, defeating its useMemo and tripping exhaustive-deps.
 const nameOfTask = (task: Task) => task.taskName;
@@ -806,7 +802,7 @@ export function TasksSection({
           lang={lang}
           title={t(lang, "tasksClearDialogTitle")}
           message={t(lang, "tasksClearDialogMessage", tasks.length)}
-          confirmValue={CLEAR_TASKS_CONFIRM_PHRASE}
+          confirmValue={t(lang, "tasksClearAllConfirmValue")}
           confirmLabel={t(lang, "tasksClearConfirmLabel")}
           onConfirm={() => {
             handleClearAll();
@@ -855,7 +851,7 @@ export function TasksSection({
           lang={lang}
           title={t(lang, "tasksDeleteSelectedDialogTitle")}
           message={t(lang, "tasksDeleteSelectedDialogMessage", selectedIds.size)}
-          confirmValue={`delete ${selectedIds.size} tasks`}
+          confirmValue={t(lang, "tasksDeleteSelectedConfirmValue")}
           confirmLabel={t(lang, "tasksDeleteSelectedConfirmLabel")}
           onConfirm={() => {
             handleBulkDelete(selectedIds);

@@ -490,7 +490,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     const refusalWasStanding = destructive.refusal !== null;
     const verdict = destructive.evaluate(curCollections, curRecords, armed);
     if (verdict.refuse) {
-      recordDataLossEvent({ path: "save-effect", prevCollections: destructive.readBaselines().collections, nextCollections: curCollections, refused: true });
+      // ★★★ NEW magnitude only, never `!refusalWasStanding` — see §303 and the `DestructiveEvaluation` docstring.
+      if (verdict.isNewMagnitude) recordDataLossEvent({ path: "save-effect", prevCollections: destructive.readBaselines().collections, nextCollections: curCollections, refused: true });
       // ★★ ONLY on a NEW refusal. The refusal keeps the baselines, so every
       // later save re-refuses; a toast per re-refusal would be one per edit
       // while the banner is already standing and saying the same thing.

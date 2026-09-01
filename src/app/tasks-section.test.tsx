@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { t, loadI18n } from "./i18n";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
@@ -340,12 +340,60 @@ describe("TasksSection", () => {
     expect(confirm).toBeDisabled();
 
     fireEvent.change(
-      screen.getByLabelText(t("en-US", "typeToConfirmPrompt", "yes, clear all tasks")),
-      { target: { value: "yes, clear all tasks" } },
+      screen.getByLabelText(
+        t("en-US", "typeToConfirmPrompt", t("en-US", "tasksClearAllConfirmValue")),
+      ),
+      { target: { value: t("en-US", "tasksClearAllConfirmValue") } },
     );
     expect(confirm).toBeEnabled();
     fireEvent.click(confirm);
     expect(props.handleClearAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("bulk-delete confirm phrase carries no count, but the dialog message still shows it", () => {
+    // §301: the typed phrase for this dialog changed SHAPE, not just language —
+    // from a count-bearing template literal (`delete ${n} tasks`) to a fixed
+    // localizable string. The count is deliberately NOT typed back by the user;
+    // it stays visible in the dialog MESSAGE instead. Pin both halves together,
+    // since a test that only checked the phrase would leave the count free to
+    // disappear silently — which would make that trade a straight loss.
+    const task1 = { id: 1, taskName: "T1" };
+    const task2 = { id: 2, taskName: "T2" };
+    stubWorkspace([task1, task2], [task1, task2]);
+    const props = makeProps();
+    props.selectedIds = new Set([1, 2]);
+    render(<TasksSection {...props} />);
+
+    // Opening the bulk-delete dialog; nothing is deleted yet.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "deleteSelected") }));
+    expect(screen.getByText(t("en-US", "tasksDeleteSelectedDialogTitle"))).toBeInTheDocument();
+    expect(props.handleBulkDelete).not.toHaveBeenCalled();
+
+    // The count is shown in the MESSAGE ...
+    expect(
+      screen.getByText(t("en-US", "tasksDeleteSelectedDialogMessage", 2)),
+    ).toBeInTheDocument();
+
+    // ... but the typed phrase is the fixed key and carries NO number.
+    const confirm = screen.getByRole("button", {
+      name: t("en-US", "tasksDeleteSelectedConfirmLabel"),
+    });
+    expect(confirm).toBeDisabled();
+
+    const input = screen.getByLabelText(
+      t("en-US", "typeToConfirmPrompt", t("en-US", "tasksDeleteSelectedConfirmValue")),
+    );
+    // The old count-bearing template literal must no longer satisfy this dialog.
+    fireEvent.change(input, { target: { value: "delete 2 tasks" } });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(input, {
+      target: { value: t("en-US", "tasksDeleteSelectedConfirmValue") },
+    });
+    expect(confirm).toBeEnabled();
+    fireEvent.click(confirm);
+    expect(props.handleBulkDelete).toHaveBeenCalledTimes(1);
+    expect(props.handleBulkDelete).toHaveBeenCalledWith(new Set([1, 2]));
   });
 
   it("opens the clear-all dialog from a pending voice request nonce, then consumes it", () => {
@@ -1346,5 +1394,48 @@ describe("TasksSection", () => {
       const gutter = container.querySelector("colgroup col") as HTMLTableColElement;
       expect(gutter.style.width).toBe(`${GUTTER_WIDTH_PX}px`);
     });
+  });
+});
+
+describe("TasksSection clear-all dialog — German", () => {
+  // The DE dictionary is lazy-loaded; a test asserting DE output must load it
+  // first or it silently reads EN and passes for the wrong reason.
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  beforeEach(() => {
+    stubFilters();
+    stubTaskForm();
+    stubSettings();
+    stubHolidaySet();
+  });
+
+  // ★ §301: under en-US `tasksClearAllConfirmValue` is byte-identical to the
+  // hardcoded English constant it replaced, so the EN clear-all test above
+  // passes against the reverted code. German is the one language where a
+  // hardcoded English phrase is detectable at all.
+  it("asks a German user to type the German clear-all phrase, not the English one", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    const props = makeProps();
+    props.lang = "de";
+    render(<TasksSection {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: t("de", "clearAll") }));
+    const confirm = screen.getByRole("button", { name: t("de", "tasksClearConfirmLabel") });
+    expect(confirm).toBeDisabled();
+
+    const input = screen.getByLabelText(
+      t("de", "typeToConfirmPrompt", t("de", "tasksClearAllConfirmValue")),
+    );
+
+    // The old hardcoded English phrase must NOT satisfy this dialog anymore.
+    fireEvent.change(input, { target: { value: "yes, clear all tasks" } });
+    expect(confirm).toBeDisabled();
+
+    // Only the German phrase enables confirm.
+    fireEvent.change(input, { target: { value: t("de", "tasksClearAllConfirmValue") } });
+    expect(confirm).toBeEnabled();
   });
 });

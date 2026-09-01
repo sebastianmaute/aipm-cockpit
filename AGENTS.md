@@ -1093,7 +1093,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **Open Points + Milestones toolbars = ONE flat wrapping row** (`flex flex-wrap items-center gap-2`, no
   `<h2>` heading/count) with the search input `flex-1` so it expands and pushes trailing controls right
   (mirrors the changes-panel toolbar). ★ Tasks "Clear all" opens a
-  `TypeToConfirmDialog` (type `"yes, clear all tasks"`) — the shared `handleClearAll` (`use-bulk-operations.ts`)
+  `TypeToConfirmDialog` (type the `tasksClearAllConfirmValue` phrase) — the shared `handleClearAll` (`use-bulk-operations.ts`)
   no longer self-confirms via `window.confirm`; the button path is dialog-gated. ★★ the VOICE `clearAll`
   command ALSO routes to the `TypeToConfirmDialog` now (no more one-click `window.confirm`): hook
   `requestClearAllConfirm?` → task-manager `setActiveTab("open-points")` + bumps a MONOTONIC non-null

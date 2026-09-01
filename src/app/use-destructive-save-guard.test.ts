@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
+import { useDestructiveSaveGuard, type DestructiveEvaluation } from "./use-destructive-save-guard";
 
 describe("useDestructiveSaveGuard", () => {
   it("starts unarmed with no standing refusal", () => {
@@ -74,8 +74,12 @@ describe("useDestructiveSaveGuard", () => {
     act(() => { result.current.evaluate(3, 2, false); });
     const first = result.current.refusal;
     expect(first).not.toBeNull();
-    act(() => { result.current.evaluate(3, 2, false); });
+    let second: DestructiveEvaluation | undefined;
+    act(() => { second = result.current.evaluate(3, 2, false); });
     expect(result.current.refusal).toBe(first);
+    // ★ The same loss re-refusing is NOT a new magnitude — the gate that keeps
+    // `use-storage-backend.ts` from writing one `dataloss.refused` per re-run.
+    expect(second?.isNewMagnitude).toBe(false);
   });
 
   it("replaces the refusal when the counts change", () => {
@@ -83,8 +87,12 @@ describe("useDestructiveSaveGuard", () => {
     act(() => { result.current.syncBaselines(3, 90); });
     act(() => { result.current.evaluate(3, 2, false); });
     const first = result.current.refusal;
-    act(() => { result.current.evaluate(3, 5, false); });
+    let second: DestructiveEvaluation | undefined;
+    act(() => { second = result.current.evaluate(3, 5, false); });
     expect(result.current.refusal).not.toBe(first);
     expect(result.current.refusal?.curRecords).toBe(5);
+    // ★ A worsened loss IS a new magnitude, and must be recorded — this is the
+    // case a `!refusalWasStanding` gate would silently drop (§303).
+    expect(second?.isNewMagnitude).toBe(true);
   });
 });

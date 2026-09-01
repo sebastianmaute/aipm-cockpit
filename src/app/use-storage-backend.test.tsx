@@ -2988,6 +2988,79 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     expect(result.current.destructiveRefusal).toBe(standing);
   });
 
+  // ── a refusal is recorded ONCE PER MAGNITUDE, not once per effect run ─────
+  // ★★★ COUNTED OFF `logDiag`, NOT `readDataLossLog()`. `./diagnostics` is
+  // MOCKED at the top of this file (`logDiag: vi.fn()` and nothing else), so
+  // `readDiagLog`/`clearDiagLog` do not exist on the mock and `readDataLossLog`
+  // — which reads THROUGH them — would throw rather than report a count.
+  // `recordDataLossEvent` itself is unmocked, so the `logDiag` calls it makes
+  // ARE the ring writes; filtering them by code is the faithful count here.
+  // ★ No manual clear is needed: this describe's `beforeEach` runs
+  // `vi.clearAllMocks()`, so the spy's call list starts empty every test.
+  // ★★ The code alone is NOT a sufficient filter: `use-storage-backend.ts` has
+  // THREE `dataloss.refused` writers — the save-effect guard, the empty-load
+  // refusal (`path: "load"`) and the reload refusal (`path: "reload"`) — so the
+  // `path` conjunct is what makes this count the save-effect one specifically,
+  // rather than relying on these fixtures happening not to reach the other two.
+  const refusalRecordCount = (logDiag: unknown): number =>
+    vi.mocked(logDiag as (...a: unknown[]) => void).mock.calls.filter(
+      (c) => c[1] === "dataloss.refused" && (c[2] as { path?: string } | undefined)?.path === "save-effect",
+    ).length;
+
+  // Case A — the §303 duplicate. An unrelated edit while a refusal stands
+  // re-refuses the SAME magnitude, so it is ONE data-loss event, not two.
+  // ★ The ring is CAPPED and `capRing` evicts `info` first; a `dataloss.refused`
+  // write is `warn`, so duplicates are not preferentially evicted — they evict
+  // real diagnostic history instead.
+  it("records a standing refusal ONCE, however many saves re-refuse it", async () => {
+    const { logDiag } = await import("./diagnostics");
+    useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    // An UNARMED 19-of-20 deletion: refused, and recorded.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(refusalRecordCount(logDiag)).toBe(1);
+
+    // An unrelated edit. Baselines still say 20, so this re-refuses the same
+    // magnitude (prevRecords 20, curRecords 1) — no second event happened.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "renamed" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.destructiveRefusal).toMatchObject({ prevRecords: 20, curRecords: 1 });
+    expect(refusalRecordCount(logDiag)).toBe(1);
+  });
+
+  // Case B — NOT a duplicate. Deleting further while paused makes the loss
+  // WORSE, and forensics must capture the new magnitude separately. This is
+  // exactly what gating on `refusalWasStanding` would silently drop, which is
+  // why the fix keys on the COUNTS and not on "was a refusal up".
+  it("records again when the magnitude worsens while a refusal stands", async () => {
+    const { logDiag } = await import("./diagnostics");
+    useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(refusalRecordCount(logDiag)).toBe(1);
+
+    // Now delete the LAST task while the refusal stands: curRecords 1 -> 0.
+    // A different, worse magnitude, so `sameRefusal` is false.
+    await act(async () => { result.current.setTasks([] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.destructiveRefusal).toMatchObject({ prevRecords: 20, curRecords: 0 });
+    expect(refusalRecordCount(logDiag)).toBe(2);
+  });
+
   // ★★★ The refusal keeps the baselines, so EVERY later save re-refuses (the
   // test above pins exactly that). A toast fired per refusal is therefore a
   // toast per edit, indefinitely, while the banner is already standing and
