@@ -52,12 +52,6 @@ export function useFocusTrap(
     const prevFocus = document.activeElement as HTMLElement | null;
     const focusables = () =>
       Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
-    // ★ An arrow, like `focusables`, because `onKeyDown` below is a hoisted
-    // function DECLARATION and TypeScript does not carry the `container` null
-    // narrowing into one. A null `activeElement` counts as outside, matching
-    // `modal.tsx`'s `!container.contains(active)`.
-    const contains = (node: Node | null) => node !== null && container.contains(node);
-
     (initialFocusRef?.current ?? focusables()[0])?.focus();
 
     function onKeyDown(e: KeyboardEvent) {
@@ -84,19 +78,49 @@ export function useFocusTrap(
       if (items.length === 0) return;
       const first = items[0];
       const last = items[items.length - 1];
-      const activeEl = document.activeElement;
-      // ★★★ Focus OUTSIDE the container matches NEITHER edge, so without this
-      // term the trap silently declines to act and Tab walks out of the
-      // surface. Two live states reach it: focus escaped to a portal, and
-      // focus sitting on a container node that `FOCUSABLE_SELECTOR` excludes
-      // (a `tabIndex={-1}` card focused for AT) — which is the state a surface
-      // is in on the FIRST keypress, the only one that matters. `modal.tsx`
-      // carries the same term; this hook was the outlier.
-      const outside = !contains(activeEl);
-      if (e.shiftKey && (activeEl === first || outside)) {
+      const activeEl = document.activeElement as HTMLElement | null;
+      // ★★★ Focus that is on NONE of this trap's own focusables matches
+      // NEITHER edge, so without this term the trap silently declines to act
+      // and Tab walks out of the surface. Two live states reach it: focus
+      // escaped to a portal, and focus sitting on a container node that
+      // `FOCUSABLE_SELECTOR` excludes (a `tabIndex={-1}` card focused for AT)
+      // — which is the state a surface is in on the FIRST keypress, the only
+      // one that matters.
+      // ★★★ THE TEST IS MEMBERSHIP, NOT CONTAINMENT, and the difference is the
+      // whole of §8. `Node.contains` is REFLEXIVE, so the `tabIndex={-1}` card
+      // `tour-overlay` focuses on open reports as INSIDE its own container and
+      // a `!container.contains(activeEl)` term stays FALSE there — measured in
+      // the real render, not reasoned: `activeElement === card` and
+      // `card.contains(card)` are both true, and both arms declined with
+      // `defaultPrevented === false`. Membership subsumes containment (`items`
+      // are container DESCENDANTS, so anything outside is a non-member too)
+      // and still leaves a non-edge focusable alone, which is the case the
+      // trap must not touch.
+      // ★★ `modal.tsx` carries the CONTAINMENT spelling and is NOT defective
+      // for it — a different guard covers it there. It falls back to focusing
+      // its dialog root ONLY when the panel has no focusable content at all
+      // (`initialFocusRef ?? firstFocusable ?? root`), and its Tab branch
+      // special-cases that same state a few lines earlier. So focus never
+      // rests on its container while focusables exist. A first cut of this
+      // comment said the hole was live on every modal in the app; it is not.
+      // Check the guard before copying this term across.
+      // ★ MEMBERSHIP IS THE WIDER TEST, and the set it adds over containment
+      // is a focusable DESCENDANT that `FOCUSABLE_SELECTOR` excludes — where a
+      // roving-tabindex widget parks focus. Inside a trap, Tab from such a
+      // control should reach the next tab stop rather than be yanked to
+      // `first`. Measured 2026-09-01: neither consumer reaches it.
+      // `inline-ai-edit-popover` renders no `tabIndex` at all, and the only
+      // `tabIndex={-1}` controls under the drawer are `CollapsedNavFlyout`'s
+      // menuitems — which `renderSidebar(false, …)` never renders there, and
+      // which a `PopoverPanel` portals OUT of the container regardless, so
+      // containment would already have treated them as outside. Re-measure
+      // before adding a third consumer:
+      //   grep -n tabIndex src/app/inline-ai-edit-popover.tsx src/app/sidebar-nav.tsx
+      const untrapped = activeEl === null || !items.includes(activeEl);
+      if (e.shiftKey && (activeEl === first || untrapped)) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && (activeEl === last || outside)) {
+      } else if (!e.shiftKey && (activeEl === last || untrapped)) {
         e.preventDefault();
         first.focus();
       }

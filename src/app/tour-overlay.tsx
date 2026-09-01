@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { clampStep, type TourStep } from "./app-tour";
 import { Button } from "./button";
-import { useDismissable } from "./use-dismissable";
+import { useFocusTrap } from "./use-focus-trap";
 
 export interface TourOverlayProps {
   lang: Lang;
@@ -55,21 +55,31 @@ export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, 
   // Gated on a real step: it renders null without one, and an entry that
   // claims Escape while showing nothing would swallow the key.
   //
-  // ★★ `kind: "layer"` DESPITE this being a role=dialog aria-modal surface.
-  // The kind means exactly one thing to the stack — "modal" traps Tab, "layer"
-  // does not — and this overlay implements NO Tab trap. Tagging it "modal"
-  // made `isTopmostOfKind(token,"modal")` resolve to the tour for any real
-  // `Modal` open at the same time, so that Modal stopped trapping Tab and
-  // nothing took over: focus walked out of both into the page behind (WCAG
-  // 2.4.3). Before the dismissal stack this could not happen, because the tour
-  // never joined `Modal`'s private stack at all. If this overlay ever grows a
-  // real focus trap, change this to "modal" in the SAME commit.
+  // ★★ THIS SURFACE NOW CONTAINS TAB, and `useFocusTrap` is what does it —
+  // one hook for the trap AND the stack entry, so the two can never disagree.
+  // The hook pushes `kind: "modal"`, which is the honest tag: `kind` means
+  // exactly "traps Tab" to `dismissal-stack.ts`, so the tag and the trap
+  // arrived in the SAME commit. That pairing is the rule, not a courtesy, and
+  // this file is the record of what breaking it in each direction costs.
+  // Tagged "modal" WITHOUT a trap (the state that forced this overlay down to
+  // "layer"), the tour won `isTopmostOfKind(token,"modal")` from any real
+  // `Modal` open at the same time; that Modal stood down and nothing took
+  // over, so focus walked out of both into the page behind (WCAG 2.4.3).
+  // Trapping WITHOUT the tag is the mirror: a "layer" never takes Tab from a
+  // `Modal` above it, so two document listeners would fight in registration
+  // order. Move both or neither (§8).
   //
-  // ★ This file is the proof that marking the event was never enough on its
-  // own — the old handler already called `preventDefault()` and still could
-  // not stop `Modal` closing behind it, because `Modal` had registered first
-  // and had already acted by the time this ran. Only an arbiter fixes that.
-  useDismissable({ open: step !== undefined, kind: "layer", onDismiss: onSkip });
+  // ★ `cardRef` is passed as BOTH the container and `initialFocusRef` on
+  // purpose: it preserves focusing the CARD rather than its first button,
+  // which is what makes AT announce the dialog and its `aria-label`. The
+  // per-step re-focus effect below stays — the hook's own effect is not keyed
+  // on the step index, so it does not replace it.
+  //
+  // ★ `onSkip` must stay stable at the CALL SITE (`use-tour.ts` hands down a
+  // `useCallback`): the hook's keydown effect has it in its deps, so an
+  // unstable identity would re-run the effect and re-focus the card on every
+  // parent render.
+  useFocusTrap(cardRef, step !== undefined, onSkip, cardRef);
 
   useEffect(() => {
     cardRef.current?.focus();
