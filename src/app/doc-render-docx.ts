@@ -34,6 +34,7 @@ import {
   docxRichParagraphs,
 } from "./ooxml-docx-primitives";
 import { bulletMarker } from "./rich-text-runs";
+import { createLinkSink, type LinkSink } from "./ooxml-links";
 import { resolveDataSection } from "./doc-data-section";
 import { NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
 import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
@@ -290,6 +291,7 @@ function paragraphBlock(
   byId: ReadonlyMap<string, DocumentAsset>,
   lang: Lang,
   drawingFor: (id: string) => string | null,
+  links: LinkSink,
 ): string {
   const out: string[] = [];
   /** Render one segment, and keep it unless it produced nothing.
@@ -318,7 +320,7 @@ function paragraphBlock(
    *  That now falls out of asking the right question, where before it rested on
    *  the order two separate steps happened to run in. */
   const pushSegment = (fragment: string): void => {
-    const xml = docxRichParagraphs(asMarkup(withImagePlaceholders(fragment, byId, lang)));
+    const xml = docxRichParagraphs(asMarkup(withImagePlaceholders(fragment, byId, lang)), links);
     if (xml !== EMPTY_PARAGRAPH) out.push(xml);
   };
 
@@ -337,7 +339,7 @@ function paragraphBlock(
   // image goes through UNTOUCHED — one call, on the original string — so it is
   // byte-identical to what this file produced before the split existed, and
   // the emit check cannot reach it to drop a deliberately blank paragraph.
-  if (out.length === 0) return docxRichParagraphs(withImagePlaceholders(html, byId, lang));
+  if (out.length === 0) return docxRichParagraphs(withImagePlaceholders(html, byId, lang), links);
   pushSegment(html.slice(last));
   return out.join("");
 }
@@ -348,12 +350,16 @@ function renderBlock(
   lang: Lang,
   byId: ReadonlyMap<string, DocumentAsset>,
   drawingFor: (id: string) => string | null,
+  links: LinkSink,
 ): string {
   switch (block.type) {
     case "heading":
+      // ★ `para` is the PLAIN path — it emits one run through `docxCellRuns`
+      // and never parses rich markup, so headings, bullets and captions carry
+      // no links to resolve and take no sink.
       return para(block.text, `Heading${block.level}`);
     case "paragraph":
-      return paragraphBlock(block.html, byId, lang, drawingFor);
+      return paragraphBlock(block.html, byId, lang, drawingFor, links);
     case "bullets":
       return block.items
         .map((item, i) => para(`${bulletMarker(block.ordered, i)} ${item}`, "ListParagraph"))
@@ -361,19 +367,45 @@ function renderBlock(
     case "table":
       return (
         (block.caption ? para(block.caption, "Caption") : "") +
-        buildDocxTable(block.columns, block.rows, CONTENT_WIDTH)
+        buildDocxTable(block.columns, block.rows, CONTENT_WIDTH, links)
       );
     case "dataSection": {
+      // ★★ `resolveDataSection` calls the REAL `buildExportSections`, so a
+      // register's rich column arrives here as the same `RichCell` the
+      // workspace exporter lays out. Passing the sink is what makes an embedded
+      // register's links survive identically on both paths.
       const section = resolveDataSection(block.key, ws, lang);
       if (!section) return "";
       return (
         para(section.title, "Heading2") +
-        buildDocxTable(section.columns, section.rows, CONTENT_WIDTH)
+        buildDocxTable(section.columns, section.rows, CONTENT_WIDTH, links)
       );
     }
     case "pageBreak":
       return `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
   }
+}
+
+/** An UPPER BOUND on the media parts this document can mint — the count of ids
+ *  reserved for media before the link sink starts.
+ *
+ *  ★★ It is a BOUND, not a count, and the inequality only ever goes one way:
+ *  `createMediaMinter` pushes AT MOST one part per `IMG_TAG_ASSET_ID_RE` match
+ *  in a PARAGRAPH block (`drawingFor` declines a missing, undecodable or
+ *  un-embeddable asset), and no other block type reaches it. So this can
+ *  over-reserve and never under-reserve. Over-reserving costs a gap in the id
+ *  sequence; under-reserving would cost a collision, which
+ *  `buildDocxPackage` throws on.
+ *
+ *  ★ `matchAll` on the module-singleton `/g` regex is the sanctioned use — it
+ *  clones, so no `lastIndex` travels between callers. */
+function mediaIdCeiling(doc: ProjectDocument): number {
+  let count = 0;
+  for (const block of doc.blocks) {
+    if (block.type !== "paragraph") continue;
+    count += Array.from(block.html.matchAll(IMG_TAG_ASSET_ID_RE)).length;
+  }
+  return count;
 }
 
 /** Render a project document as a `.docx` Blob. */
@@ -388,14 +420,26 @@ export function renderDocumentDocx(
 ): Blob {
   const byId = new Map((ws.documentAssets ?? []).map((a) => [a.id, a]));
   const { drawingFor, parts } = createMediaMinter(assets, byId);
+  // ★★★ THE SINK'S BASE IS RESERVED, NOT MEASURED, AND IT HAS TO BE. Media
+  //   relationship ids are minted DURING the body render (see `parts` below),
+  //   so the media COUNT does not exist until after the render that also mints
+  //   the link ids — the two families interleave. Reserving `mediaIdCeiling`
+  //   ids for media makes the two ranges disjoint by construction, at the cost
+  //   of a GAP in the id sequence when an image declines to embed. A gap is
+  //   legal: `Id` is an xsd:ID, and nothing in OPC requires contiguity.
+  // ★★ A COLLISION HERE IS NOT SILENT — `buildDocxPackage` throws on a
+  //   duplicate id across media ∪ links. That is the backstop if this bound
+  //   ever stops holding; an overlap would otherwise be valid XML resolving to
+  //   whichever relationship came first, i.e. an image becoming a link target.
+  const links = createLinkSink(2 + mediaIdCeiling(doc));
 
   const body =
     para(doc.title, "Title") +
-    doc.blocks.map((b) => renderBlock(b, ws, lang, byId, drawingFor)).join("");
+    doc.blocks.map((b) => renderBlock(b, ws, lang, byId, drawingFor, links)).join("");
 
   // ★ `parts` is populated BY the body render above — read it AFTER, never
   //   before. Building the package first ships an empty media list against a
   //   document.xml full of drawings whose relationships do not exist, which
-  //   Word reports as a corrupt file.
-  return buildDocxPackage(body, DOC_STYLES, PAGE, parts);
+  //   Word reports as a corrupt file. The same is true of `links.rels()`.
+  return buildDocxPackage(body, DOC_STYLES, PAGE, parts, links.rels());
 }

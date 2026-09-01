@@ -27,7 +27,9 @@ import {
   buildDocxTable,
   docxContentWidth,
   docxInlineDrawing,
+  docxRichParagraphs,
 } from "./ooxml-docx-primitives";
+import { createLinkSink } from "./ooxml-links";
 import { buildDocx } from "./export-docx";
 import type { ExportSection } from "./export-sections";
 import { readZipEntries } from "./unzip";
@@ -412,5 +414,78 @@ describe("docxInlineDrawing", () => {
     for (const value of values) {
       expect(value).toBe("say &quot;hi&quot;");
     }
+  });
+});
+
+// ★★★ HYPERLINKS. A link is a relationship with NO part — that is the whole
+// point of `TargetMode="External"`, and it is what makes this additive in a way
+// the media path is not: no zip entry, no content-type Default.
+//
+// ★★ The namespace declaration is asserted ON THE ELEMENT deliberately.
+// `w:document`'s root declares only `xmlns:w`; moving `xmlns:r` up there would
+// change the bytes of EVERY package, including link-free ones, and move
+// docs/baselines/ooxml-parts.json. The media path already solves the identical
+// problem the identical way, on `a:blip`.
+describe("docxRichParagraphs — hyperlinks", () => {
+  it("wraps a linked run in w:hyperlink carrying the sink's rel id", () => {
+    const sink = createLinkSink(2);
+    const xml = docxRichParagraphs('<p><a href="https://intra/spec">the spec</a></p>', sink);
+    // ★ Matched as a pattern rather than a literal prefix because `xmlns:r`
+    // precedes `r:id` in the emitted element — see the test below, which pins
+    // that order.
+    expect(xml).toMatch(/<w:hyperlink [^>]*r:id="rId2">/);
+    expect(sink.rels()).toEqual([{ relId: "rId2", target: "https://intra/spec" }]);
+  });
+
+  it("declares xmlns:r ON the hyperlink element, leaving w:document untouched", () => {
+    const sink = createLinkSink(2);
+    const xml = docxRichParagraphs('<p><a href="https://a">x</a></p>', sink);
+    expect(xml).toContain(
+      '<w:hyperlink xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
+    );
+  });
+
+  it("emits no hyperlink and mints no rel for an unlinked paragraph", () => {
+    const sink = createLinkSink(2);
+    const xml = docxRichParagraphs("<p>plain</p>", sink);
+    expect(xml).not.toContain("w:hyperlink");
+    expect(sink.rels()).toEqual([]);
+  });
+
+  it("gives a dataSection block the same link fidelity as the register's own export", () => {
+    // A document embedding a register whose rich column carries a link must
+    // reach .docx as a real hyperlink, not as flattened text — the dataSection
+    // path resolves through the REAL buildExportSections, so it shares these
+    // sinks with the workspace exporter by construction.
+    const sink = createLinkSink(2);
+    const xml = docxRichParagraphs('<p><a href="https://intra/raid">mitigation</a></p>', sink);
+    expect(xml).toContain('<w:hyperlink xmlns:r=');
+    expect(sink.rels()).toHaveLength(1);
+  });
+});
+
+describe("buildDocxPackage link relationships", () => {
+  it("writes an external relationship with TargetMode and adds NO zip part", async () => {
+    const parts = await unzipBytes(
+      buildDocxPackage("<w:p/>", "", "landscape", [], [
+        { relId: "rId2", target: "https://intra/spec?a=1&b=2" },
+      ]),
+    );
+    const rels = partText(parts, "word/_rels/document.xml.rels");
+    expect(rels).toContain(`Id="rId2"`);
+    expect(rels).toContain(`TargetMode="External"`);
+    expect(rels).toContain("relationships/hyperlink");
+    expect(rels).toContain("https://intra/spec?a=1&amp;b=2");
+    // The property that separates a link from a media part: no new zip entry.
+    expect([...parts.keys()].filter((p) => p.startsWith("word/media/"))).toEqual([]);
+    expect(partText(parts, "[Content_Types].xml")).not.toContain("hyperlink");
+  });
+
+  it("throws when a link id collides with a media id", () => {
+    expect(() =>
+      buildDocxPackage("<w:p/>", "", "landscape", [
+        { path: "word/media/image1.png", data: new Uint8Array([1]), relId: "rId2", extension: "png" },
+      ], [{ relId: "rId2", target: "https://a" }]),
+    ).toThrow(/duplicate relationship id/i);
   });
 });
