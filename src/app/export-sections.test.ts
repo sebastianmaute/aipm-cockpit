@@ -879,6 +879,32 @@ describe("cellTextWithLinks — the flat-sink projection (§119)", () => {
     expect(cellTextWithLinks(cell)).toBe("one (https://a/x) and two (https://a/x)");
   });
 
+  /** ★★★ THE CASE THE TEST ABOVE CANNOT SEE, and the reason it is separate.
+   *  That fixture puts " and " between its two anchors, so a run with no href
+   *  breaks the stretch and the two links stay two under EITHER reading of
+   *  `coalesceLinks` — by anchor, or by `href` alone. Only DIRECT adjacency
+   *  separates them, and the answer is that it coalesces by `href`: the anchor
+   *  boundary is gone by the time runs reach it. `coalesceLinks`' docblock
+   *  claimed the opposite for a release, with a green suite either way. */
+  it("merges two DIRECTLY ADJACENT anchors that share one address", () => {
+    const cell = {
+      html: '<p><a href="https://u/x">a</a><a href="https://u/x">b</a></p>',
+      text: "ab",
+    };
+    expect(cellTextWithLinks(cell)).toBe("ab (https://u/x)");
+  });
+
+  it("keeps two DIRECTLY ADJACENT anchors apart when the addresses differ", () => {
+    // ★ The other half of the same rule: adjacency is not what merges them,
+    //   an equal `href` is. This is what a per-anchor implementation and the
+    //   real per-href one agree on, so it pins the break condition itself.
+    const cell = {
+      html: '<p><a href="https://u/x">a</a><a href="https://u/y">b</a></p>',
+      text: "ab",
+    };
+    expect(cellTextWithLinks(cell)).toBe("a (https://u/x)b (https://u/y)");
+  });
+
   it("keeps the block boundaries descriptionTextWithBreaks emits", () => {
     const html = '<p>a <a href="https://a/x">link</a></p><p>b</p>';
     const cell = { html, text: descriptionTextWithBreaks(html) };

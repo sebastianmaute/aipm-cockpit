@@ -557,6 +557,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 | [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
+| [§333](#333-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme) | A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme | found 2026-09-01 in the §119/§30 cold review | S — one style plus one `w:rStyle`, blocked on a palette decision | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -25694,3 +25695,59 @@ downstream assuming one line per row; it is not a link fix, and nothing owes it 
 ★ PPTX is not XLSX here, and collapsing the two is the easy mistake. §329's constraint lives in the
 FILE FORMAT (a hyperlink's unit is the cell); this one lives in THIS RENDERER's layout. A different
 PPTX renderer could do better. A different XLSX renderer could not.
+
+---
+
+## 333. A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme
+
+**Status:** OPEN, a real cosmetic defect in shipped output. Found 2026-09-01 in the cold review of
+the §119/§30 link-fidelity branch. The asymmetry is machine-witnessed —
+`grep -c "Hyperlink" src/app/ooxml-docx-primitives.ts` returns 0 (and `grep -n "rStyle"` over the
+same file returns nothing at all, so no run in a `.docx` this app writes carries a character style),
+against `grep -n "a:hlink" src/app/ooxml-pptx-primitives.ts`, which returns both the theme's
+`<a:hlink>` colour and the `p:clrMap` entry that binds it. What is NOT machine-verified is how the
+two actually LOOK: nothing in this repo can open a `.docx` or a `.pptx`, so the rendering claims
+below are read off the formats' own semantics.
+
+`renderDocumentDocx` now emits a real `<w:hyperlink r:id>` around the linked runs, and Word follows
+it — but the run inside carries no `<w:rStyle w:val="Hyperlink"/>` and the package declares no such
+style, so Word draws the link text in ordinary body colour with no underline. **The link works and
+looks exactly like the words around it.** A reader has no way to tell there is one, which is most of
+the value §119 was filed to deliver.
+
+PPTX is the opposite and needed no per-run work: `buildPptxTheme` declares an `<a:hlink>` colour and
+the slide master's `p:clrMap` maps `hlink="hlink"`, so PowerPoint colours every `<a:hlinkClick>` run
+from the theme automatically. One renderer inherits the treatment from the format's colour model;
+the other has to declare a style and name it on each run.
+
+**The fix**, in two halves that must land together:
+
+1. Declare a `Hyperlink` CHARACTER style in `DOC_STYLES` (`w:type="character"`, with a colour and
+   `<w:u w:val="single"/>`).
+2. Emit `<w:rStyle w:val="Hyperlink"/>` from `markedRun` for a run that resolved to a relationship
+   id — first in `<w:rPr>`, since `CT_RPr` is an `xsd:sequence` and `rStyle` leads it. Doing only
+   half of this is silent: a `w:rStyle` naming a style the package does not declare is IGNORED by
+   Word with every string assertion still green, which is the trap the `DOC_STYLES` docblock already
+   records for `w:pStyle`.
+
+★★★ **THE REVIEW'S STATED REASON FOR DEFERRING THIS IS FALSE, AND MEASURING IT IS WHAT FOUND THE
+REAL ONE.** The finding was filed rather than fixed on the grounds that a new style moves every
+package digest in `docs/baselines/ooxml-parts.json`, making it a deliberate baseline regeneration and
+so out of an additive-by-contract branch's scope. It does not. The manifest subjects call
+`buildDocxPackage` with an EMPTY extra-styles argument, so `DOC_STYLES` never reaches the manifested
+`word/styles.xml` at all. Probed 2026-09-01 by adding the style and running
+`npx vitest run src/app/ooxml-package-manifest.test.ts` — 13 passed, gate green, digests unmoved.
+`export-ooxml.test.ts` and the byte-pinned `golden-workspace` suite stayed green too.
+
+★★ **The one thing that DID go red is the constraint that actually matters**, and it is a design
+question rather than a mechanical one: `renderDocumentDocx — declared styles > colours the declared
+styles from the sanctioned palette only`. Word's conventional link blue is off-palette, and this repo
+admits only the nine AIPM brand colours — so the fix has to pick a sanctioned colour for links, which
+is a branding decision nobody has taken. Underline alone would satisfy the palette test and is the
+cheaper option; it is also a weaker affordance. That choice, not a baseline regeneration, is what
+this entry is waiting on.
+
+★ Numbering: 331 and 332 are reserved by the concurrent branch `fix/colour-only-state-1-4-1` and are
+not on `origin/main` yet, so this entry took 333 rather than 331. A number is only truly reserved
+once it has merged; whichever branch lands second re-runs the register's own max-number command and
+renumbers.

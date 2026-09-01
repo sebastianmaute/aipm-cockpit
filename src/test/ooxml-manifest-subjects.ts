@@ -60,13 +60,24 @@ export const MANIFEST_SUBJECTS: readonly ManifestSubject[] = [
     buildEmptyLinks: () => buildDocxPackage("<w:p/>", "", "portrait", [], []),
   },
   {
-    // ★★★ TWO ARGUMENTS ON PURPOSE, MIRRORING THE WORKSPACE EXPORTER.
-    // `buildDocxPackage`'s `page` parameter DEFAULTS to "landscape", and
-    // `export-docx.ts` calls it with two arguments -- so the media-free docx
-    // `export-docx.ts` produces is the landscape one, and for a while
-    // the only manifested docx was the portrait subject above. Passing the
-    // default rather than spelling `"landscape"` out also puts the default
-    // itself under the gate: flip it and this subject's parts move.
+    // ★★★ TWO ARGUMENTS ON PURPOSE — BUT NO LONGER "MIRRORING THE WORKSPACE
+    // EXPORTER", WHICH IS WHAT THIS COMMENT SAID UNTIL THE LINKS BRANCH.
+    // `export-docx.ts` used to call `buildDocxPackage(body, DOC_STYLES)` and
+    // take the "landscape" DEFAULT; it now passes five arguments with
+    // "landscape" spelled out, because it has a link-relationship list to hand
+    // over. Verify before trusting either sentence:
+    //   grep -n "buildDocxPackage(" src/app/export-docx.ts
+    // ★★ The subject is KEPT, and the reason survives the correction intact:
+    // the landscape package still has to be manifested (for a while the only
+    // manifested docx was the portrait subject above), and NO production caller
+    // reads the `page` default any more — every site that still does is a TEST,
+    // so flipping the default would be caught only here and in
+    // `ooxml-docx-primitives.test.ts`. Enumerate them rather than trusting the
+    // sentence; a first draft of it said "the ONLY thing", which its own
+    // reproduce command refuted:
+    //   grep -rn 'buildDocxPackage("<w:p/>")\|buildDocxPackage("<w:p/>", "")' src --include=*.ts
+    // That makes this line MORE load-bearing than when it merely echoed a
+    // caller, not less.
     key: "docxLandscape",
     label: "docx (landscape)",
     build: () => buildDocxPackage("<w:p/>", ""),

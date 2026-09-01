@@ -123,8 +123,26 @@ type FlatLink = { text: string; href?: string };
  *  ★★ LOAD-BEARING. A link whose text carries an inline mark is SEVERAL
  *  `TextRun`s sharing one `href` (`<a …>the <strong>spec</strong></a>` is two),
  *  so a per-RUN suffix prints the address inside its own anchor text — "the
- *  (url)spec (url)". Two SEPARATE anchors never coalesce, because a run between
- *  them (or a differing href) breaks the stretch. */
+ *  (url)spec (url)".
+ *
+ *  ★★★ IT COALESCES BY `href` ALONE AND KNOWS NOTHING ABOUT ANCHORS, so TWO
+ *  DIRECTLY ADJACENT anchors sharing one address DO merge — `<a
+ *  href="https://u">a</a><a href="https://u">b</a>` renders as one "ab
+ *  (https://u)", not two. An earlier revision of this docblock asserted the
+ *  opposite ("two SEPARATE anchors never coalesce"), reasoning from the source
+ *  markup rather than from the run list this function actually receives: by the
+ *  time runs arrive the anchor boundaries are gone, and only a run with a
+ *  DIFFERENT `href` — including an unlinked one, whose `href` is undefined —
+ *  breaks the stretch. Whitespace or any other text between the two anchors is
+ *  such a run, which is why the ordinary case looks like the false claim.
+ *
+ *  ★★ THE BEHAVIOUR IS KEPT, only the claim corrected. Merging loses no
+ *  address and reads better than printing one address twice in a row, and the
+ *  markup that produces it — two anchors to one target with nothing at all
+ *  between them — is not something the editor emits. Pinned by "merges two
+ *  DIRECTLY ADJACENT anchors that share one address", which is deliberately
+ *  separate from the `and`-separated pair beside it: that fixture cannot
+ *  distinguish the two readings. */
 function coalesceLinks(runs: readonly TextRun[]): FlatLink[] {
   const out: FlatLink[] = [];
   for (const run of runs) {
