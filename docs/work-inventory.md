@@ -136,9 +136,15 @@ list, along with sp3 and sp4. A memory note calling it unmerged was stale. Do no
 ## 4. `docs/open-followups.md`
 
 **193 sections, numbered 1–201** at compile time, no duplicates, 8 gaps (17–20, 23, 25–27) left by
-the consolidation slice. ★★★ **On 2026-09-01 it is 315 sections, numbered 1–324, still no
-duplicates, 9 gaps — the eight above plus 323.** That is **+122 sections in eleven days**, and it
-is the single fastest-rotting figure in this file. Re-measure with
+the consolidation slice. ★★★ **On 2026-09-01, on `95afb789` (0.272.1), it is 315
+sections, numbered 1–324, still no duplicates, 9 gaps — the eight above plus 323.** That is
+**+122 sections in eleven days**, and it is the single fastest-rotting figure in this file.
+★★★ **A DATE DOES NOT PIN THIS NUMBER — ONLY A SHA DOES, and it re-staled within hours of being
+written.** Merging `fb66aeec` (0.273.0 "Goonan") into the branch carrying this paragraph moved it
+to **319 sections, numbered 1–327, still no duplicates, 8 gaps — 323 filled, the eight above
+left.** Same day, same file, four sections apart. Both readings above are labelled 2026-09-01 and
+they disagree, which is the whole point: quote the sha beside any figure derived from this
+register, or quote no figure. Re-measure with
 `grep -oE "^## [0-9]+." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1` for the max
 and `grep -cE "^## [0-9]+." docs/open-followups.md` for the count.
 
@@ -148,9 +154,10 @@ and `grep -cE "^## [0-9]+." docs/open-followups.md` for the count.
 (9→10) and *not closed* (135→136) while *open* stays at 118. It is substantively open, but saying
 that here would mix the two measures this paragraph exists to keep apart. Nothing checked whether
 anything else moved. ★★★ **AND ON 2026-09-01 THAT SPLIT NO LONGER DESCRIBES MOST OF THE REGISTER.**
-It covered 192 of 193 sections when compiled — effectively a census. Against today's 315 it is a
-**minority sample of roughly 61%**, and `npm run followups:status:check` scans **174 open entries**
-against its 118. A stale census reads like a census; re-derive or ignore it, but do not reconcile
+It covered 192 of 193 sections when compiled — effectively a census. Against `95afb789`'s 315 it is a
+**minority sample of roughly 61%** (60% against `fb66aeec`'s 319), and
+`npm run followups:status:check` scans **174 open entries** against its 118 — **173** after the
+0.273.0 merge, which closed five and filed four. A stale census reads like a census; re-derive or ignore it, but do not reconcile
 today's numbers against it. ★★ Do not re-derive that split with a heading regex and call it a correction: a crude
 `open|CLOSED` match over the headings today returns **106 / 55 / 32-neither**, which disagrees with
 the hand count by twelve. That gap is not drift — it is the two incompatible status conventions
