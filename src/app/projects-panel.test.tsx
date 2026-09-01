@@ -330,6 +330,24 @@ describe("ProjectsPanel turso mode", () => {
     expectRowUniqueNames({ minControls: 11, requireCollisionSeed: true });
   });
 
+  it("gives every ACTIVE row control a row-unique accessible name when two projects share a name (§309)", () => {
+    // Two ACTIVE projects (not archived) sharing a display name. currentProjectId
+    // is null so BOTH rows render as non-current — the destructive controls
+    // (Switch + Archive) live only on non-current rows, so a fixture with a
+    // current row would render just one Archive and the assertion would cover
+    // nothing.
+    const shared: ProjectRegistryEntry[] = [
+      { id: "p1", name: "Migration", code: "MIG-1", storageConfig: { kind: "turso" } as never },
+      { id: "p2", name: "Migration", code: "MIG-2", storageConfig: { kind: "turso" } as never },
+    ];
+    setup({
+      mode: "turso",
+      projects: shared,
+      currentProjectId: null,
+    });
+    expectRowUniqueNames({ minControls: 4, requireCollisionSeed: true });
+  });
+
   it("hides Load from file", () => {
     setup({ mode: "turso" });
     expect(
