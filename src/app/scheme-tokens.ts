@@ -60,7 +60,8 @@ function ratio(a: string, b: string): number {
   const lb = relLuminance(hexToRgb(b));
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
-// Nudge the base toward AA (ratio >= 4.5) against bg. Direction is mode-aware:
+// Nudge the base toward `target` contrast against bg (nudgeToAa pins 4.5, the
+// AA floor for text; state borders pin 3). Direction is mode-aware:
 // a DARK surface (relLuminance < 0.5) LIGHTENS the base toward white; a LIGHT
 // surface DARKENS toward black. Dark-on-dark can never reach AA by darkening.
 //
@@ -74,15 +75,24 @@ function ratio(a: string, b: string): number {
 // #ffffff — white text on a light card, ~1.7:1. Both inputs are user-editable
 // (ADVANCED_TOKENS), so that is reachable for a custom scheme even though every
 // built-in is clear. Whoever decides the mode must also decide the direction.
-function nudgeToAa(base: string, bg: string, lighten = relLuminance(hexToRgb(bg)) < 0.5): string {
+function nudgeToContrast(
+  base: string,
+  bg: string,
+  target: number,
+  lighten = relLuminance(hexToRgb(bg)) < 0.5,
+): string {
   const factor = lighten ? 1 / 0.85 : 0.85;
   let [r, g, b] = hexToRgb(base);
-  for (let i = 0; i < 20 && ratio(rgbToHex(r, g, b), bg) < 4.5; i++) {
+  for (let i = 0; i < 20 && ratio(rgbToHex(r, g, b), bg) < target; i++) {
     r = Math.min(255, r * factor);
     g = Math.min(255, g * factor);
     b = Math.min(255, b * factor);
   }
   return rgbToHex(r, g, b);
+}
+
+function nudgeToAa(base: string, bg: string, lighten = relLuminance(hexToRgb(bg)) < 0.5): string {
+  return nudgeToContrast(base, bg, 4.5, lighten);
 }
 
 /** Alpha of the deepest purple tint any `--ui-purple-strong` text sits on: the
@@ -117,6 +127,21 @@ export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
   const out: SchemeColorMap = {};
   if (colors["--ui-green"]) out["--ui-green-strong"] = nudgeToAa(colors["--ui-green"], surface);
   if (colors["--ui-pink"]) out["--ui-pink-strong"] = nudgeToAa(colors["--ui-pink"], surface);
+  // SC 1.4.11 state borders. ToggleButton has TWO accents and §56 measured only
+  // one: the dark-blue pressed border measures 1.03-1.22:1 against --line in the
+  // three dark schemes, while the pink accent clears 3:1 in all seven combos
+  // (3.04-5.08). Both are derived anyway — for pink the loop exits on its first
+  // condition check and returns the base unchanged, so there is no visual change
+  // and no cost, but beacon clears the floor by 0.04 and BOTH --ui-pink and
+  // --line are user-editable (ADVANCED_TOKENS), so today's pass is a property of
+  // the built-in values rather than a guarantee. Deriving makes it structural.
+  const line = colors["--line"] ?? surface;
+  if (colors["--ui-dark-blue"]) {
+    out["--control-state-border"] = nudgeToContrast(colors["--ui-dark-blue"], line, 3);
+  }
+  if (colors["--ui-pink"]) {
+    out["--control-state-border-pink"] = nudgeToContrast(colors["--ui-pink"], line, 3);
+  }
   // ★★ --ui-purple-strong is the ONE variant whose reference is NOT the card.
   // Every site that uses it puts it on a PURPLE TINT, not on a plain surface —
   // the RAID "caused this" chips, the chat AI-consent block and the read-only
