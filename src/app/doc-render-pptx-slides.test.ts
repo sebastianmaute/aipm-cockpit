@@ -132,3 +132,35 @@ describe("pptxRun — hyperlinkRelId key presence", () => {
     expect(sink.rels()).toEqual([{ relId: "rId2", target: "https://a/x" }]);
   });
 });
+
+// ─── The link's VISUAL cue, which the theme cannot supply in one slot ────────
+//
+// ★★★ A slide package carries no character-style part, so the DOCX remedy for
+// §333 (a `Hyperlink` style declaring colour AND underline) has no counterpart
+// here: a linked run names no fill and the THEME paints it `<a:hlink>` =
+// COLOR_DARK_BLUE. That is a real cue in the meta and field slots and NO cue in
+// the row TITLE, whose own text is COLOR_DARK_BLUE — the same six digits. These
+// pin the underline that makes the title slot's link visible at all, rather
+// than trusting PowerPoint's implicit hyperlink formatting, which nothing in
+// this repo can observe.
+describe("pptxRun — a linked run is underlined regardless of its marks", () => {
+  const run = (over: Partial<TextRun> = {}): TextRun => ({ text: "x", marks: [], ...over });
+
+  it("underlines a linked run that carries no underline mark", () => {
+    expect(pptxRun(run({ href: "https://a/x" }), "p", createLinkSink(2)).underline).toBe(true);
+  });
+
+  it("leaves an UNLINKED run's underline driven by its mark alone", () => {
+    // ★ The additive half. Without this the assertion above passes just as
+    //   well against a mutant that underlines every run in every deck.
+    expect(pptxRun(run(), "p", createLinkSink(2)).underline).toBe(false);
+    expect(pptxRun(run({ marks: ["underline"] }), "p", createLinkSink(2)).underline).toBe(true);
+  });
+
+  it("does not underline a run whose href minted no id because there is no sink", () => {
+    // ★ The cue follows the RELATIONSHIP, not the href: a sinkless caller
+    //   emits no `<a:hlinkClick>`, so an underline there would promise a link
+    //   the slide does not contain.
+    expect(pptxRun(run({ href: "https://a/x" }), "p", undefined).underline).toBe(false);
+  });
+});

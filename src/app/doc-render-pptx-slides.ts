@@ -295,8 +295,16 @@ export function pptxRun(run: TextRun, kind: RichLineKind, links: LinkSink | unde
   //   id into THIS SLIDE's rels part. The sink does the conversion and
   //   remembers what it minted, so `renderDocumentPptx` can hand the same
   //   list to `buildPptxPackage`.
-  // ★ No sink means no links at all — every pre-existing caller passes none
-  //   and its runs stay byte-identical.
+  // ★ No sink means no links at all, and a caller passing none keeps runs
+  //   byte-identical.
+  // ★★ THIS SAID "every pre-existing caller passes none" until 2026-09-01.
+  //   `export-pptx.ts` — the WORKSPACE exporter, a different subsystem from
+  //   this document renderer — now calls it through `slotParagraphs` and
+  //   ALWAYS passes a sink. The edge is one-directional and nothing on this
+  //   side declares it, so a change made here for document-renderer reasons
+  //   (`HIGHLIGHT_RGB`, `SUPERSCRIPT_PCT`, `kind === "pre"` ⇒ monospace, the
+  //   unconditional link underline below) silently changes workspace decks
+  //   too. Enumerate before editing: `grep -rn "pptxRun(" src/app --include=*.ts`.
   const relId =
     links === undefined || run.href === undefined ? undefined : links.relIdFor(run.href);
   return {
@@ -314,7 +322,27 @@ export function pptxRun(run: TextRun, kind: RichLineKind, links: LinkSink | unde
     ...(relId === undefined ? {} : { hyperlinkRelId: relId }),
     bold: has("bold"),
     italic: has("italic") || kind === "blockquote",
-    underline: has("underline"),
+    // ★★★ A LINKED RUN IS UNDERLINED UNCONDITIONALLY, and this is the PPTX
+    //   half of the §333 fix rather than a style preference. The DOCX side
+    //   DECLARES `<w:u w:val="single"/>` inside its `Hyperlink` character
+    //   style; the slide side has no style part, so relying on the reader's
+    //   implicit hyperlink formatting is the only alternative — and nothing
+    //   in this repo can observe whether PowerPoint applies it.
+    // ★★★ IT IS LOAD-BEARING IN EXACTLY ONE SLOT AND THAT SLOT IS WHY IT
+    //   EXISTS: the theme paints a link from `<a:hlink>` = COLOR_DARK_BLUE,
+    //   and `export-pptx.ts`'s TITLE_SLOT paints its text COLOR_DARK_BLUE
+    //   too — the SAME six digits — so in a row title the colour cue is
+    //   absent by construction and underline is the only surviving one.
+    //   Leaving it to the reader would have shipped §333's defect (a link
+    //   indistinguishable from the text around it) in the other format,
+    //   which is the shape a manual pass had just caught in the first.
+    //   Verify the collision, do not trust this comment:
+    //     grep -n "COLOR_DARK_BLUE =" src/app/export-ooxml-shared.ts
+    //     grep -n "a:hlink" src/app/ooxml-pptx-primitives.ts
+    //     grep -n "TITLE_SLOT" -A 4 src/app/export-pptx.ts
+    // ★ Additive: an unlinked run is untouched, so only runs this branch
+    //   newly links can move, in either exporter.
+    underline: has("underline") || relId !== undefined,
     strike: has("strike"),
     baselinePct: has("sup") ? SUPERSCRIPT_PCT : has("sub") ? SUBSCRIPT_PCT : undefined,
     monospace: has("code") || kind === "pre",

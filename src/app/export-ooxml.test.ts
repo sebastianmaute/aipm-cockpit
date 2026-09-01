@@ -1114,11 +1114,18 @@ describe("buildPptx link relationships", () => {
     expect(xml).toContain("<a:t>gamma</a:t>");
   });
 
-  it("keeps the slot's styling on the runs, and leaves a linked run to the theme", async () => {
+  it("keeps the slot's styling on the runs, and underlines a linked one the theme cannot distinguish", async () => {
     // ★★ The runs branch has NO paragraph-level colour, so the slot's colour is
     //    folded into each run — except a LINKED one, which must name no fill or
     //    it loses the theme's <a:hlink> colour and reads as ordinary prose
     //    (§333's defect in the other format).
+    // ★★★ AND IN THIS SLOT THE THEME COLOUR IS NOT A CUE AT ALL, which is why
+    //    the underline below is asserted rather than left to the reader:
+    //    TITLE_SLOT paints its text COLOR_DARK_BLUE and the theme paints a link
+    //    <a:hlink> = COLOR_DARK_BLUE — the SAME six digits — so colour cannot
+    //    separate the two and underline is the only surviving cue. A cold
+    //    review found this by comparing the constants; no byte assertion here
+    //    could have, because both runs are individually correct.
     const { xml } = await slide(
       buildPptx([sectionWith(1, rich(`<p>see <a href="${LINK}">the spec</a></p>`), "x")], "en-US"),
       3,
@@ -1127,10 +1134,15 @@ describe("buildPptx link relationships", () => {
     expect(xml).toContain(
       `<a:rPr lang="en-US" sz="3200" b="1" dirty="0"><a:solidFill><a:srgbClr val="${COLOR_DARK_BLUE}"/></a:solidFill></a:rPr>`,
     );
-    // … and the linked run keeps the WEIGHT while naming no fill at all.
+    // … and the linked run keeps the WEIGHT, names no fill at all, and carries
+    // the underline the colour cannot supply here.
     expect(xml).toContain(
-      `<a:rPr lang="en-US" sz="3200" b="1" dirty="0"><a:hlinkClick r:id="rId2"/></a:rPr>`,
+      `<a:rPr lang="en-US" sz="3200" b="1" u="sng" dirty="0"><a:hlinkClick r:id="rId2"/></a:rPr>`,
     );
+    // ★ The additive half: the PLAIN run beside it is NOT underlined, so a
+    //   mutant underlining every run in the deck fails here rather than
+    //   passing the assertion above.
+    expect(xml).not.toContain(`sz="3200" b="1" u="sng" dirty="0"><a:solidFill>`);
   });
 
   it("does not double the label's space on pretty-printed stored HTML", async () => {

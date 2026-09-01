@@ -482,7 +482,21 @@ async function main(): Promise<void> {
       "not a script problem — nothing was written for the failing artifacts.",
     );
   }
-  console.log(`\nAll four artifacts written to ${outDir}. Now OPEN them in Word and in LibreOffice.`);
+  // ★★★ NAME THE READER PER FORMAT. This line said "open them in Word and in
+  //   LibreOffice" for all four, and Word cannot open a .pptx — so a reporter
+  //   summarising a pass against it wrote an impossible sentence into
+  //   `docs/open-followups.md` §219, claiming a PowerPoint check that nobody
+  //   had run. The instruction is the thing that has to be precise: whoever
+  //   runs the pass reports back in its words.
+  console.log(
+    `\nAll four artifacts written to ${outDir}. Now OPEN them and report which reader you used:` +
+      `\n  .docx  -> Word AND LibreOffice Writer` +
+      `\n  .pptx  -> PowerPoint (LibreOffice Impress is a USEFUL second reader, not a substitute:` +
+      `\n            §219 item 2 names PowerPoint specifically)` +
+      `\nFor each: does it open with no repair prompt, and is every link BOTH clickable and` +
+      `\nvisibly distinct from the text around it? In a .pptx ROW TITLE the theme link colour` +
+      `\nequals the title colour, so the underline is the only cue there — check that one by eye.`,
+  );
 }
 
 main().catch((err) => {

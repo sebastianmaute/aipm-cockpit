@@ -161,7 +161,21 @@ function styledRun(run: PptxRun, style: SlotStyle): PptxRun {
  * into SEVERAL `<a:p>` and emits exactly ONE for a `{runs}` paragraph. Routing
  * every cell through runs would silently reshape every slide this exporter has
  * ever written. `cellLinkedLines` returns `undefined` for a cell with no link,
- * and that is the whole switch.
+ * and that is the whole switch — for PARAGRAPH COUNT.
+ * ★★★ IT IS NOT THE WHOLE SWITCH FOR TYPOGRAPHY, and this docblock said it was.
+ * Taking the runs branch also turns on every mark `pptxRun` honours — bold,
+ * italic, underline, strike, highlight, monospace, sup/sub baseline, and the
+ * blockquote/pre LINE styling — none of which the `{text}` branch can express
+ * at all. So ONE link anywhere in a cell re-renders that cell's WHOLE
+ * typography, and two rows carrying identical markup render differently when
+ * only one of them happens to carry a link. Measured side by side on a
+ * RowFields cell: linked gives separate `b="1"` / `<a:latin>` / `<a:highlight>`
+ * runs, unlinked gives ONE run with no marks at all.
+ * ★★ That is an improvement in isolation and a link-CONDITIONAL inconsistency
+ * in aggregate. Routing unlinked rich cells through runs too would make it
+ * uniform, and the byte contract above forbids exactly that today — so the
+ * inconsistency is the price of the contract, not an oversight. Do not "fix"
+ * one without reckoning with the other.
  * ★ The prefix is a LITERAL — a section title, a column label — never part of
  * the value, so it is one plain run on the FIRST paragraph only. That is where
  * the flat branch's "\n" split leaves it too.

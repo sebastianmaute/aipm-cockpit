@@ -17174,7 +17174,7 @@ crafted `alt` keeps a genuinely drawn image out of the drawn count, which over-r
 
 ## 219. The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them
 
-**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. 2026-09-01: PARTIALLY DISCHARGED — never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. The `.docx` ACCEPTANCE check IS discharged — Word and LibreOffice Writer, recorded below. What remains: the `.pptx` opened in **PowerPoint** specifically (both decks were opened on 2026-09-01 and reported working, but WHICH reader was never recorded, so item 2 is NOT discharged), plus items 3-7, none of which were exercised at all.
+**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. 2026-09-01: PARTIALLY DISCHARGED — never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. The `.docx` ACCEPTANCE check IS discharged — Word and LibreOffice Writer, recorded below. What remains: the `.pptx` opened in **PowerPoint** specifically (both decks were opened on 2026-09-01 and reported working, but WHICH reader was never recorded, so item 2 is NOT discharged), plus items 3-7, none of which were exercised at all. ★★★ AND THE `.pptx` PASS IS RE-OWED ON ITS MERITS, not merely unrecorded: a cold review found §333's defect reproduced in the row-title slot and the fix moved both decks' bytes (§330), so what a human signed off is no longer what the script emits. The `.docx` are byte-identical and their discharge stands.
 
 ★★ **2026-09-01 — THE ACCEPTANCE HALF IS DISCHARGED, AND IT IS THE HALF THIS ENTRY SINGLES OUT AS
 THE ONE THAT HISTORICALLY FAILS.** During the `fix/export-link-fidelity` manual pass a human opened
@@ -25714,7 +25714,45 @@ this one about a format's data model.
 
 **Status:** OPEN as a RECORDED DECISION, not a defect. Decided 2026-09-01 while closing §30 and
 §119; SCOPE CORRECTED 2026-09-01 (see the scope clause at the end — this governs
-`doc-render-pptx.ts`'s table path ALONE). Witness:
+`doc-render-pptx.ts`'s table path ALONE). Verified 2026-09-01 by
+`grep -n "cellTextWithLinks\|createLinkSink" src/app/doc-render-pptx.ts src/app/export-pptx.ts`
+and by `npx vitest run src/app/export-ooxml.test.ts src/app/doc-render-pptx-slides.test.ts src/app/export-sections.test.ts src/app/doc-render-pptx.test.ts src/app/export-sections.rich.property.test.ts --maxWorkers=1`
+(224 passed).
+
+★★★ **2026-09-01, COLD REVIEW — §333 WAS REPRODUCED IN THE PPTX ROW TITLE BY CONSTRUCTION, AND IS
+NOW FIXED.** The wiring left a linked run naming no fill on purpose, so PowerPoint would paint it
+from the theme's `<a:hlink>` = `COLOR_DARK_BLUE`. In two of the three slots that is a real cue. In
+the THIRD it is none at all: `TITLE_SLOT` paints its own text `COLOR_DARK_BLUE` — the SAME six
+digits — so a link in a row title was the colour of the text around it, leaving only PowerPoint's
+IMPLICIT hyperlink underline, which nothing in this repo can observe. That is precisely the
+affordance `doc-render-docx.test.ts` rejects two files over ("Both cues, not one"), applied to DOCX
+and silently not to PPTX. `pptxRun` now sets `underline` whenever a relationship id was minted, so
+the cue is DECLARED rather than hoped for: two cues in the meta and field slots, one guaranteed cue
+in the title. Reproduce the collision:
+`grep -n "COLOR_DARK_BLUE =" src/app/export-ooxml-shared.ts` · `grep -n "a:hlink" src/app/ooxml-pptx-primitives.ts` · `grep -n "TITLE_SLOT" -A 4 src/app/export-pptx.ts`.
+★★ THE REVIEW FOUND IT BY COMPARING TWO CONSTANTS IN DIFFERENT FILES — no byte assertion could
+have, because both runs are individually correct and the defect is only in their RELATION. It
+applies to BOTH `.pptx` exporters (the change is in the shared `pptxRun`), chosen over a
+workspace-only fix so the two decks cannot drift apart on link treatment. Mutation-proved: reverting
+to `underline: has("underline")` goes 2 failed / 222 passed across the five affected files.
+★ Both `.docx` are byte-identical after it; both `.pptx` grew 40 bytes. Consequence recorded in
+§219: the `.pptx` half of the manual pass is RE-OWED, because the bytes a human signed off changed.
+
+★ **THREE MINOR FINDINGS FROM THE SAME REVIEW, RECORDED AND DELIBERATELY NOT FIXED** — each is
+link-CONDITIONAL, which is the shared shape worth naming: they can only appear in a cell that
+carries a link, so they are invisible in every deck written before this branch.
+(a) An `<hr>` inside a linked cell emits an empty `<a:p>` the flat branch never produces —
+`bodyParagraph` special-cases `line.kind === "hr"` into `HR_TEXT` and `cellLinkedLines` has no such
+case. Valid `CT_TextParagraph` (every child optional), so it is one stray blank line.
+(b) `createLinkSink(...).rels()` returns the internal array BY REFERENCE. Harmless today because no
+minting happens after the return; freezing or copying would cost nothing.
+(c) `metaLines` is a `flatMap` producing one paragraph per `RichLine` per field while the RowFields
+box keeps a fixed `cyEmu`, so a linked multi-line field overflows sooner than the old
+one-paragraph-per-field shape. Pre-existing overflow risk, amplified.
+★★ jsdom has no layout, so nothing in the unit suite can see (a)'s blank line as a VISUAL defect or
+(c) at all — both are eye-verify items riding on §219's re-owed `.pptx` pass, not gate work.
+
+Witness:
 `grep -n "cellTextWithLinks\|createLinkSink" src/app/doc-render-pptx.ts src/app/export-pptx.ts` —
 `doc-render-pptx.ts` returns BOTH (the sink that mints real `<a:hlinkClick>` relationships for
 paragraph text boxes, and the flat projection used by the table path) while `export-pptx.ts` now
@@ -25771,7 +25809,16 @@ action. That second asymmetry was the one a manual pass reported, and it is gone
 declares a `w:type="character"` style `Hyperlink` (`COLOR_DARK_BLUE` + `<w:u w:val="single"/>`) and
 `markedRun` opens a resolved run's `<w:rPr>` with `<w:rStyle w:val="Hyperlink"/>`. Verified by
 `npx vitest run src/app/doc-render-docx.test.ts src/app/ooxml-docx-primitives.test.ts src/app/export-ooxml.test.ts src/app/ooxml-package-manifest.test.ts --maxWorkers=1`
-(179 passed) and by `git diff --stat -- docs/baselines/ooxml-parts.json` staying EMPTY.
+(179 passed).
+★★★ **AN EMPTY `docs/baselines/ooxml-parts.json` DIFF WAS ALSO CITED HERE AS VERIFICATION AND IS
+EVIDENCE OF NOTHING FOR THIS ENTRY — the §216 manifest is STRUCTURALLY BLIND to `DOC_STYLES`.** Both
+docx subjects call `buildDocxPackage("<w:p/>", "", …)` with an EMPTY extra-styles argument
+(`src/test/ooxml-manifest-subjects.ts`), so no manifested package contains `DOC_STYLES` at all and
+the `word/styles.xml` digest the baseline pins is the empty-styles one. Ten more styles would leave
+that diff just as empty. The additive claim rests on the RUN-LEVEL tests above — that an unmarked,
+unlinked run still emits no `<w:rPr>` — and on nothing else. Reproduce:
+`grep -n "buildDocxPackage(" src/test/ooxml-manifest-subjects.ts`. Filed as its own lesson because
+a citation that cannot fail reads exactly like one that passed.
 ★★ **EYE-VERIFIED 2026-09-01 — the debt this line used to record is DISCHARGED.** A human opened
 the regenerated `document-renderer.docx` and `workspace-exporter.docx` in **Word and in
 LibreOffice**: both open without a repair prompt and the links now read as links. That is what

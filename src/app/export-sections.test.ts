@@ -4,13 +4,14 @@ import {
   buildExportSections,
   cellText,
   cellTextWithLinks,
+  cellLinkedLines,
   isRichCell,
   TASK_RICH_COLUMNS,
   RAID_RICH_COLUMNS,
   MILESTONE_RICH_COLUMNS,
   CHANGE_RICH_COLUMNS,
 } from "./export-sections";
-import type { ExportCell, RichCell } from "./export-sections";
+import type { ExportCell, RichCell, CellRunLine } from "./export-sections";
 import { descriptionTextWithBreaks } from "./rich-text-projection";
 import {
   CSV_COLUMNS,
@@ -909,5 +910,65 @@ describe("cellTextWithLinks — the flat-sink projection (§119)", () => {
     const html = '<p>a <a href="https://a/x">link</a></p><p>b</p>';
     const cell = { html, text: descriptionTextWithBreaks(html) };
     expect(cellTextWithLinks(cell)).toBe("a link (https://a/x)\nb");
+  });
+});
+
+/** ★★ `cellLinkedLines` shipped with NO direct test — its three contracts were
+ *  reachable only through `buildPptx`, which is real coverage of the SLIDE and
+ *  no coverage of the stated contract. A cold review found the gap along with
+ *  the missing equivalence pin below. */
+describe("cellLinkedLines — the structural projection (§330)", () => {
+  const richCell = (html: string): RichCell => ({
+    html,
+    text: descriptionTextWithBreaks(html),
+  });
+  const flatten = (lines: readonly CellRunLine[]): string =>
+    lines.map((line) => line.runs.map((run) => run.text).join("")).join("\n");
+
+  it("returns undefined — never [] — for a rich cell carrying no link", () => {
+    expect(cellLinkedLines(richCell("<p>plain <em>words</em></p>"))).toBeUndefined();
+  });
+
+  it("returns undefined for a cell that is not rich at all", () => {
+    expect(cellLinkedLines("raw")).toBeUndefined();
+    expect(cellLinkedLines(42)).toBeUndefined();
+  });
+
+  // ★★★ THE PREDICATE IS `href !== undefined`, NOT `isAddressed`. Mirroring the
+  //   flat sink's predicate here would leave a PASTED, SELF-ADDRESSED URL dead:
+  //   `isAddressed` asks "would printing the address ADD anything", which is
+  //   false when the text already IS the address — correct for `text (url)`,
+  //   wrong for "should this be clickable".
+  it("takes the runs branch for a self-addressed URL the flat projection leaves alone", () => {
+    const cell = richCell('<p><a href="https://a/x">https://a/x</a></p>');
+    expect(cellTextWithLinks(cell)).toBe("https://a/x");
+    const lines = cellLinkedLines(cell);
+    expect(lines).toBeDefined();
+    expect(lines?.[0]?.runs.some((run) => run.href === "https://a/x")).toBe(true);
+  });
+
+  // ★★ THE EQUIVALENCE `cellTextWithLinks`' OWN DOCBLOCK BOUNDS. That docblock
+  //   promises a drift between the stored projection and a re-derivation can
+  //   only ever affect a cell that carries a link. The runs branch re-derives
+  //   from `htmlToRichLines` for exactly that class, so this is the assertion
+  //   that keeps the promise honest instead of merely narrow.
+  it("re-derives the same visible text the stored projection holds", () => {
+    const cell = richCell('<p>a <strong>bold</strong> <a href="https://a/x">link</a></p><p>b</p>');
+    const lines = cellLinkedLines(cell);
+    expect(lines).toBeDefined();
+    expect(flatten(lines ?? [])).toBe(cell.text);
+  });
+
+  // ★★ The marker branch was untested; a mutant returning `line.runs` bare
+  //   survived the whole unit suite when a cold review probed for it.
+  it("prepends the task marker, and keeps the text equal to the stored projection", () => {
+    const cell = richCell(
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="true">' +
+        '<p>see <a href="https://a/q">q</a></p></li></ul>',
+    );
+    const lines = cellLinkedLines(cell);
+    expect(lines).toBeDefined();
+    expect(lines?.[0]?.runs[0]?.text).toBe("[x] ");
+    expect(flatten(lines ?? [])).toBe(cell.text);
   });
 });
