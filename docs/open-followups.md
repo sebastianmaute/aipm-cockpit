@@ -256,7 +256,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§24](#24-named-entities-are-neither-decoded-nor-counted--open-the-named-tail-only) | NAMED entities are neither decoded nor counted — open, the named tail only | 0.209.0 (Lafferty) | S | open |
 | [§28](#28-csv--markdown--turso-never-dompurify-a-rich-field-at-load--open-needs-a-new-boundary) | CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary | 0.196.0, widened 0.209.0 and again 2026-08-11 | M | open |
 | [§29](#29-formnotelog-is-dead-state-in-the-task-form--closed-in-02111) | ~~`form.noteLog` is dead state in the task form~~ | 0.209.0, promoted 0.210.0 | S | **CLOSED** in 0.211.1 |
-| [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--open-needs-a-decision) | A link in a task description loses its address in document exports — open, needs a decision | 0.210.0 (Larbalestier) | M | open |
+| [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--closed-2026-09-01) | ~~A link in a task description loses its address in document exports~~ | 0.210.0 (Larbalestier) | M | **CLOSED** 2026-09-01 (the decision: real links where the sink allows one, `text (url)` where it does not — non-goals at §329 · §330) |
 | [§31](#31-sanitizerichtext-caps-visible-text-so-markup-bytes-are-unbounded--affects-all-four-rich-entities--closed-2026-08-28) | `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — affects all four rich entities | 0.210.0, pre-existing for 3 of 4 | M | **CLOSED** 2026-08-28 |
 | [§32](#32-html_start-misclassifies-eight-plain-text-prefixes-and-the-text-is-then-deleted--open-small) | `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — open, small | pre-existing, reach widened 0.210.0 | S | open |
 | [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--open-cosmetic) | A multi-paragraph description can overflow its PPTX box — open, cosmetic | 0.210.0 (Larbalestier) | S | open |
@@ -345,7 +345,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§116](#116-the-duplication-gate-reads-total-duplicated-lines--the-per-format-token-figure-is-a-decoy--open-a-decision) | The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision | measured 2026-08-08 during the S3a gate run; the first revision inherited AGENTS.md's "per-format" and was wrong | S — a deferred decision, not a defect | open |
 | [§117](#117-three-s3c-image-prerequisites-all-inert-today--a-fixed-2026-08-25-b-fixed-2026-08-13-by-140-c-still-open) | Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) still open | measured 2026-08-08 during the S3a review, all three inert today | M | open |
 | [§118](#118-a-legacy-plain-text-paragraph-collapses-in-every-renderer-and-the-obvious-fix-destroys-markup--closed-2026-08-10) | A legacy plain-text paragraph collapses in every renderer, and the obvious fix destroys markup | S3a; the collapse found by review, the fix's defect found by implementing it 2026-08-08 | M — blocked on §114 | **CLOSED** 2026-08-10 |
-| [§119](#119-a-href-is-dropped-by-both-ooxml-renderers--open) | `<a href>` is dropped by both OOXML renderers — open | pre-existing, confirmed 2026-08-08 during the S3a review | S | open |
+| [§119](#119-a-href-is-dropped-by-both-ooxml-renderers--closed-2026-09-01) | ~~`<a href>` is dropped by both OOXML renderers~~ | pre-existing, confirmed 2026-08-08 during the S3a review | S | **CLOSED** 2026-09-01 |
 | [§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--closed-2026-08-31) | The background insight-recommendation runner has no `AbortController` at all | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-31 |
 | [§121](#121-use-tasks-deduptsx-never-aborts-its-in-flight-call-on-unmount--closed-2026-08-08) | `use-tasks-dedup.tsx` never aborts its in-flight call on unmount | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-08 |
 | [§122](#122-the-budget-people-rows-and-the-role-row-above-them-read-booked-from-two-different-sources--closed-2026-08-31) | The budget people rows and the role row above them read BOOKED from two different sources — CLOSED 2026-08-31 | UI batch slice 3 — 0.224.0 "Emshwiller" | M — it is a design question, not a wiring bug | **CLOSED** 2026-08-31 |
@@ -555,6 +555,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide) | `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide | found 2026-08-31, adding the §300 mismatch region | S | open |
 | [§327](#327-use-storage-backendts-sits-exactly-on-the-800-line-size-ratchet-with-zero-headroom) | `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom | found 2026-08-31, closing §303 | S | open |
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
+| [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
+| [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1747,19 +1749,30 @@ been worse than deleting it.
 
 ---
 
-## 30. A link in a task description loses its address in document exports — open, needs a decision
+## 30. A link in a task description loses its address in document exports — CLOSED 2026-09-01
 
-**Status:** open — an export projection that strips a link address. Reproduced 2026-08-28 by `grep -n "ALLOWED_TAGS" src/app/sanitize-html.ts`.
+**Status:** CLOSED 2026-09-01 on `fix/export-link-fidelity`. The first of the two options below was
+taken, in the narrow form the second bullet of the closure describes. Witness:
+`grep -rn "cellTextWithLinks" src/app/export-xlsx.ts src/app/export-pptx.ts src/app/doc-render-pptx.ts`
+returns the three flat sinks that adopted it, and
+`grep -n "leaves htmlToText byte-unchanged" src/app/sanitize-html.test.ts` returns the positive pin
+that keeps the prohibition below enforced rather than merely stated.
 
-Found by the adversarial sweep of 0.210.0, after that release routed `Task.description` through the
-export projection. Recorded rather than fixed, because the fix touches four renderers.
+**What the defect was.** Found by the adversarial sweep of 0.210.0, after that release routed
+`Task.description` through the export projection.
 
-`sanitizeRichHtml` allows `<a href>`, so a description can genuinely store a link. The export
+`sanitizeRichHtml` allows `<a href>`, so a description can genuinely store a link. The flat export
 projection ends in `htmlToText`, which is `DOMPurify.sanitize(html, {ALLOWED_TAGS: [], ALLOWED_ATTR: []})`
 — that keeps the anchor's TEXT and drops its `href`.
 
-So `<p>Spec: <a href="https://intra/spec">the spec</a></p>` exports to `Spec: the spec` in PDF, DOCX,
-XLSX and PPTX, and the address is unrecoverable from the file.
+So `<p>Spec: <a href="https://intra/spec">the spec</a></p>` exported to `Spec: the spec`, and the
+address was unrecoverable from the file.
+
+★★ **THE ORIGINAL "PDF, DOCX, XLSX and PPTX" LIST WAS ALREADY ONE TOO LONG BEFORE THIS FIX, and
+saying so matters because it is the difference between four renderers and three.** PDF is built by
+`buildPdfHtml`, whose cells go through `exportCellHtml`, which for a `RichCell` emits
+`sanitizeRichHtml(...)` — markup, `<a href>` included. That stopped being a loss at §141(b), not
+here. This entry's headline claim was therefore true of DOCX, XLSX and PPTX on the day it closed.
 
 ★ Scope is TASKS ONLY as a regression: RAID / change / milestone descriptions already went through
 `descriptionText` before 0.210.0 and already lost their hrefs. But before 0.210.0 the Tasks section
@@ -1767,14 +1780,34 @@ emitted the raw markup, so for that one field family the export became more read
 LESS informative — in a release headlined "formatted descriptions survive the trip out of the app".
 CSV/MD are unaffected (they carry the stored markup verbatim, addresses included).
 
-Two options, and the cheap one is not obviously right:
+Two options were recorded, and the cheap one was not obviously right:
 - Render a link as `text (url)` in the EXPORT projection only. Keeps every address, but re-opens a
   byte question in all four renderers and in the golden-adjacent export tests, and makes a
   link-dense description noisy to read.
 - Accept the loss and say so in the UI or the export itself.
 
-★ Do NOT "fix" this by widening `htmlToText`'s allow-list — it is the shared plain-text projection
-that search, the AI digests and the inline-AI preview also use, and none of them wants markup.
+**What closed it — the first option, split by SINK rather than applied uniformly.**
+
+- Where the sink can carry a real link, it carries one. `.docx` (both the document renderer and the
+  workspace exporter) and the `.pptx` TEXT BOXES emit genuine hyperlink relationships — §119.
+- Where the sink is FLAT, a new `cellTextWithLinks` in `export-sections.ts` renders `text (url)`.
+  It is a SEPARATE export-only projection, not a widening of an existing one, and it returns
+  `cell.text` VERBATIM when the parse finds no address to add — so a drift between it and
+  `descriptionTextWithBreaks` can only ever affect a cell that actually carries a link. Consumed by
+  `export-xlsx.ts`, `export-pptx.ts` and `doc-render-pptx.ts`'s table-cell path.
+
+★★★ **`htmlToText` WAS NOT WIDENED, and the prohibition below is now ENFORCED rather than asserted.**
+It is the shared plain-text projection that search, the note logs and the AI digests read, and none
+of them wants markup. `sanitize-html.test.ts`'s "leaves `htmlToText` byte-unchanged — search and the
+AI digests read it" is a POSITIVE pin, so a future widening goes red there instead of silently
+improving one export and corrupting three consumers.
+
+★ Do NOT "fix" anything else by widening `htmlToText`'s allow-list — the rule that stood here
+survives the closure unchanged, and the test above is what makes it a rule rather than a wish.
+
+★ **Two deliberate non-goals came out of this closure and are filed separately** — real XLSX cell
+hyperlinks (§329) and the flat PPTX table cell keeping the inline form while the same deck's text
+boxes carry real links (§330). Neither is an oversight; read those entries before "finishing" this.
 
 ---
 
@@ -8908,38 +8941,69 @@ fixture, and `documentVersions` records no diff a user did not make.
 
 ---
 
-## 119. `<a href>` is dropped by both OOXML renderers — open
+## 119. `<a href>` is dropped by both OOXML renderers — CLOSED 2026-09-01
 
-**Status:** open — no hyperlink element in either OOXML renderer. Reproduced 2026-08-28 by `grep -n "hyperlink" src/app/doc-render-docx.ts`.
+**Status:** CLOSED 2026-09-01 on `fix/export-link-fidelity`. Both OOXML renderers now mint a real
+hyperlink relationship, so the three greps that were this entry's absence witness return matches
+instead of nothing — the inversion is the closure evidence, and the commands are below.
 
-A link inside a document paragraph reaches `.docx` and `.pptx` as plain text: the words
-survive, the target does not. The HTML/PDF renderer keeps both, so the same document
-carries a working link in one format and a dead phrase in two others. Meanwhile
-`chat-tool-defs-documents.ts` advertises `a` to the document-authoring model, so the model
-is invited to emit links the majority of the export paths silently flatten.
+**What the defect was.** A link inside a document paragraph reached `.docx` and `.pptx` as plain
+text: the words survived, the target did not. The HTML/PDF renderer kept both, so the same document
+carried a working link in one format and a dead phrase in two others. Meanwhile
+`chat-tool-defs-documents.ts` advertises `a` to the document-authoring model, so the model was
+invited to emit links the majority of the export paths silently flattened.
 
 ★ Pre-existing, NOT introduced by the mark-aware slice — the flat projection it replaced
-dropped the href too. Confirmed rather than assumed, three ways:
+dropped the href too. The three witnesses, which used to return nothing and now do not:
 
-    grep -n "w:hyperlink\|hyperlink" src/app/doc-render-docx.ts src/app/ooxml-docx-primitives.ts
-    grep -n "hlinkClick" src/app/doc-render-pptx.ts src/app/ooxml-pptx-primitives.ts
+    grep -n "w:hyperlink" src/app/ooxml-docx-primitives.ts
+    grep -n "hlinkClick" src/app/ooxml-pptx-primitives.ts
     grep -n "href" src/app/rich-text-runs.ts
 
-All three return nothing. `A` is in neither `MARK_BY_TAG` nor `LINE_TAGS`
-(`rich-text-runs.ts`), so an anchor falls through to the plain recursion and contributes
-only its text — which `rich-text-runs.test.ts`'s "carries no mark for a tag that only
-wraps (a link)" already pins as the intended behaviour of the parse.
+★★ **`A` IS STILL IN NEITHER `MARK_BY_TAG` NOR `LINE_TAGS`, and that is the shape of the fix rather
+than a gap in it.** A `RunMark` carries no payload, so an address cannot be one; `TextRun` gained an
+optional `href` FIELD instead, and the walk gained an `A` arm that threads it down the recursion. So
+the premise of the old body survives verbatim and only its CONCLUSION — "an anchor falls through to
+the plain recursion and contributes only its text" — is false now. Accordingly
+`rich-text-runs.test.ts`'s "carries no mark for a tag that only wraps (a link)" was deliberately
+FLIPPED to "carries no mark for a link, but does carry its href": the mark assertion is unchanged and
+an href assertion was added beside it. A reader who greps the old test name and finds nothing has
+found that flip, not a deleted test.
 
-★ Not a one-line fix in either format, but the cost below is NARROWER than this entry
-first estimated — corrected 2026-09-01, because that estimate had gone stale, not because
-the fix landed. Both OOXML renderers already collect per-part relationships: the S3c-2
-image-media slice built exactly that machinery, with caller-minted relationship ids
-assembled into `word/_rels/document.xml.rels` for `.docx` and into a per-slide rels part
-for `.pptx`. What is still missing is narrower than "the machinery does not exist": a
-hyperlink relationship carries no PART at all — no zip entry, no `[Content_Types].xml`
-Default — which is what `TargetMode="External"` licenses and neither renderer mints today;
-and the shared parse would still have to start carrying a href on `TextRun` in
-`rich-text-runs.ts`, where `A` sits in neither `MARK_BY_TAG` nor `LINE_TAGS`.
+★ The 2026-09-01 cost correction this entry already carried was right on both halves, and it is kept
+here as the record of what was actually missing: the per-part relationship machinery already existed
+from the S3c-2 image-media slice, with caller-minted ids assembled into
+`word/_rels/document.xml.rels` for `.docx` and into a per-slide rels part for `.pptx`. What a
+hyperlink needs and an image does not is a relationship with **no part at all** — no zip entry, no
+`[Content_Types].xml` Default — which is what `TargetMode="External"` licenses.
+
+**What closed it.**
+
+- `ooxml-links.ts` — `safeLinkTarget(raw)` (a scheme allowlist, `http:` / `https:` / `mailto:`, so a
+  `javascript:` target can never reach a relationship, and a RELATIVE href is dropped because there
+  is no base to resolve it against once the file has left the app), `createLinkSink(firstFreeIndex)`
+  and the shared `LinkSink` / `LinkRel` types. Pure and DOM-free, so both renderers import it.
+- `.docx` — a real `<w:hyperlink>` wrapping the run, declaring `xmlns:r` ON THE ELEMENT because the
+  document root declares only `xmlns:w`; the relationship carries `TargetMode="External"` and mints
+  no part. `buildDocxPackage`'s rId1 guard was widened to reject DUPLICATE ids across the union of
+  media and links, since the two sinks now number into one id space. Applied to BOTH the document
+  renderer and the workspace exporter `export-docx.ts`.
+- `.pptx` — `<a:hlinkClick>` emitted LAST inside `a:rPr`, which is where the DrawingML sequence puts
+  it; relationship ids scoped PER SLIDE, never deck-wide; and no local `xmlns:r`, because `p:sld`
+  already binds that prefix.
+
+★★★ **THE PART MANIFEST DID NOT MOVE.** `docs/baselines/ooxml-parts.json` is byte-unchanged, because
+a hyperlink relationship adds no zip entry and no content-type Default — the design is additive by
+contract, not by luck, and the roadmap's slice-4 row claimed the opposite until it was corrected in
+the same commit range. The property is pinned by NAME rather than left to a regeneration:
+`ooxml-package-manifest.test.ts` carries a per-subject "an empty links list adds nothing to the
+package", and the additive contract is asserted at two more levels —
+
+    grep -rn "additive contract" src/app/export-ooxml.test.ts src/app/doc-render-pptx.test.ts src/app/ooxml-pptx-primitives.test.ts
+
+★ **Residual, which does NOT reopen this entry:** nothing in this repo can open a `.docx` or a
+`.pptx`, so the Word and LibreOffice pass is owed. That debt is §219's and this entry does not
+narrow it. `scripts/sample-link-exports.ts` emits the four link-bearing sample files that pass needs.
 
 ---
 **CLOSED 2026-08-08 by `max-md:basis-full` on the group.** The group claims its own row, so the
@@ -25560,3 +25624,73 @@ DIFFERENT handlers object than the one it threads could render two same-named Op
 single row. Unreachable today — both call sites (`action-row.tsx`, `action-hero-card.tsx`) pass the
 same object to `useActionCaps` and to `handlers` — and judged not worth a guard. Listed so the next
 reader does not have to rediscover that the coupling is by convention rather than by construction.
+
+---
+
+## 329. Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several
+
+**Status:** OPEN as a RECORDED DECISION, not a defect. Decided 2026-09-01 while closing §30 and
+§119. The shipped shape is witnessed by
+`grep -n "cellTextWithLinks\|hyperlink" src/app/export-xlsx.ts`, which returns the call sites, plus
+the comment stating the constraint, and NO hyperlink emitter. Filed so a later reader does not read
+the inline form as an unfinished job.
+
+`.xlsx` CAN carry real cell hyperlinks — a worksheet holds a `hyperlinks` element whose entries each
+name a cell reference and a relationship id — and that is precisely the shape which cannot represent
+this data. **The unit is the CELL, not the run.** A shared string holds no hyperlink of its own, so a
+description containing two different addresses has no way to say which words belong to which. A real
+implementation would have to pick one address per cell and silently drop the rest, or invent a
+sub-cell structure the format does not have. Silently dropping addresses is the defect §30 was filed
+about, so "fix it properly" would have re-created it in a new place.
+
+The inline `text (url)` form from `cellTextWithLinks` was chosen instead because it is LOSSLESS at
+the level that matters: every address survives, adjacent to the words it belonged to, and a reader
+can copy it out. It is noisier than a live link, and that cost was accepted rather than overlooked.
+
+★ **What would reopen the question, so the next reader does not re-derive it.** The
+exactly-one-address-in-this-cell case IS representable, so a future slice could emit a real
+hyperlink when `cellTextWithLinks`'s parse finds one address and fall back to the inline form
+otherwise. That is a real improvement and is NOT what was rejected here; what was rejected is "make
+XLSX links real" as a blanket goal, which cannot be done without loss. The split behaviour carries
+its own cost — two visual treatments for one column, varying row by row inside a single sheet — and
+nobody has yet argued it is worth paying.
+
+★ Adjacent but NOT the same question: §330 records why the flat PPTX table cell keeps the inline
+form even though the same deck's text boxes carry real links. That one is about a renderer's layout,
+this one about a format's data model.
+
+---
+
+## 330. The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links
+
+**Status:** OPEN as a RECORDED DECISION, not a defect. Decided 2026-09-01 while closing §30 and
+§119. Witness: `grep -n "cellTextWithLinks\|createLinkSink" src/app/doc-render-pptx.ts` returns BOTH
+in one file — the sink that mints real `<a:hlinkClick>` relationships for paragraph text boxes, and
+the flat projection used by the table path.
+
+`doc-render-pptx.ts` renders one deck two ways, and only one of them still has a run to hang a
+relationship on.
+
+- A **paragraph** block becomes a text box built from `TextRun`s, each carrying its own `a:rPr`. So
+  `<a:hlinkClick>` goes on the run that was inside the anchor, and the link is real.
+- A **table row** — a `table` block, or a `dataSection` resolved through the real
+  `buildExportSections` — is laid out as ONE LINE OF TEXT per row: `flattenCell` collapses every
+  newline out of the cell so the row stays horizontal. No per-word run structure survives that, and
+  a single hyperlink spanning the whole flattened row would point one column's words at another
+  column's address.
+
+So the asymmetry is not two opinions about links. It is ONE rule applied to two layouts: **a link
+becomes a relationship wherever a run survives, and inline text wherever the renderer has already
+flattened the runs away.**
+
+★ It is filed rather than left to the source comments because it is visible to a USER inside a
+single deck: a document whose paragraphs and whose embedded register both mention the same URL shows
+one as a live link and the other as `text (url)`. That is the accepted cost, not a rendering bug.
+
+★ **What would change it:** giving the table path a real run structure — laying a cell out as runs
+instead of collapsing it to a string. That is a rewrite of the layout contract and of everything
+downstream assuming one line per row; it is not a link fix, and nothing owes it today.
+
+★ PPTX is not XLSX here, and collapsing the two is the easy mistake. §329's constraint lives in the
+FILE FORMAT (a hyperlink's unit is the cell); this one lives in THIS RENDERER's layout. A different
+PPTX renderer could do better. A different XLSX renderer could not.
