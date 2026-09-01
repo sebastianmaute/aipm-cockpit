@@ -32,9 +32,18 @@ an id that cannot repeat. Adjudicating all 56 is §245 / §316 — roadmap slice
 work — and no static report can decide a site; it needs a verdict recorded per site. Pulling it in
 here would replace a four-fix slice with an audit.
 
+★★ **EVERY COUNT IN THIS DOCUMENT WAS MEASURED AT `fb66aeec` AND IS PINNED TO IT, NOT TO ITS DATE.**
+The 56, the 139 and the 327 below are all readings of one tree. Merging `origin/main` will move some
+of them while this document still says 2026-09-01, and a date cannot distinguish two correct
+readings taken hours apart — a peer branch hit exactly this on the same day, where one merge
+re-staled three separately-correct figures at once. Re-measure after any merge and pin the new
+reading to its own sha, or cut the number. No doc gate can see this: all of them stayed green over
+both versions.
+
 ★ **What WAS enumerated, because the roadmap's rule demands it.** The rule is that an entry names
 the INSTANCE its author hit, never the CLASS, and scoping a fix to what an entry names is the
-recurring way a closure ships false. So each entry's own class was enumerated before this design:
+recurring way a closure ships false. So each entry's own class was enumerated before this design,
+at `fb66aeec`:
 
 | § | claimed | enumerated | verdict |
 |---|---|---|---|
@@ -68,12 +77,21 @@ Verified by code-point count rather than by eye, because the two are visually ne
 monospace terminal and a mismatch would be invisible in review while breaking any test that asserts
 on the whole name.
 
-★ **Which fixes route through `rowLabel` and which compose inline.** §309 and §305 are ordinary
-`rowLabel(verb, token)` calls. §315 is also a `rowLabel` call, with the hours value as the LEADING
-segment — the helper is positional, so leading with something other than a verb is a call-site
-choice, not a violation of it. §324 composes its template literal INLINE, exactly as §314 did,
-because its two segments are a title and a tooltip body rather than a verb and a row token, and
-routing them through a helper named for the latter would misdescribe the call.
+★★★ **THE TOKEN GOES LAST IN EVERY NAME, AND THIS OVERRIDES "distinguisher leads" WHEREVER THE TWO
+DISAGREE.** `requireCollisionSeed` strips the occurrence suffix with an END-ANCHORED regex
+(`/ \(\d+\)$/` in `src/test/row-unique-names.ts`). A token-first name puts `(1)` mid-string, nothing
+is stripped, the two seeded names no longer match, and the guard THROWS — against CORRECT code. So a
+token-first ordering is not merely unconventional here, it is untestable by the only harness that can
+certify these fixes. `rowLabel(verb, token)` already puts the token last; use it.
+
+★ **What LEADS is then a per-site choice, and it differs legitimately.** §309 leads with the verb
+(the ordinary `rowLabel` shape). §315 leads with the hours value, because that is the button's
+VISIBLE text and leading with it makes WCAG 2.5.3 containment hold with front-position for free.
+§324 leads with the shared tooltip string. All three still end with the token.
+
+★ **§314's "the field name LEADS" precedent does not conflict with this.** That fix had no token at
+all — its distinguisher was a field name, a value that cannot repeat, so a plain qualifier sufficed
+and ordering was free. Where a token exists, the token's position is forced.
 
 ★ **Do NOT apply front-position as if it were the rule.** It is stricter than the SC and flags
 conformant code — this repo's own dependency-type select passes 2.5.3 while failing a prefix test.
@@ -150,8 +168,30 @@ entire premise of this defect class. Two actions tying on score is ordinary, not
 list, so hero-vs-row is one pair; `action-row` renders once per row, so rows collide among
 THEMSELVES as soon as any two visible actions share a score. One label closes both.
 
-**Change.** Add a `label` at both sites reading: the action's title, an en dash, then the same
-interpolated `actionScoreTooltip` string, keeping the shared `text` as the tooltip body.
+**Change.** `actions-panel.tsx` — the LIST OWNER — mints `buildRowTokens` over the rendered actions
+and threads the row's token into `ActionRow` and `ActionHeroCard` as a prop. Each site then sets
+`label={rowLabel(t(lang, "actionScoreTooltip", action.score), rowToken)}`, keeping the shared `text`
+as the tooltip body.
+
+★★★ **A RAW TITLE QUALIFIER WAS REJECTED, AND THE REASON IS THE RULE, NOT A PREFERENCE.** The
+register prescribes qualifying by the action title, and an earlier revision of this spec said to do
+that. An action title is FREE TEXT built from `action.title.key` plus params, so it can repeat — and
+AGENTS.md's discriminator is "can this value repeat in one rendered list", never the call form: a
+value that cannot repeat needs only a plain qualifier, free text ALWAYS needs a token. A title
+qualifier would leave two actions sharing a title AND a score still colliding, closing the entry
+narrower than its own class. It is also UNCERTIFIABLE: with no occurrence suffix to strip,
+`requireCollisionSeed` throws against the corrected code, so the fix could not be pinned by the one
+harness that can see this defect.
+
+★★ **The hero and the rows are ONE naming population, not two.** The hero is the first group
+de-duped from its tier list, so a single `buildRowTokens` over the rendered set covers both
+collisions the entry names. Minting two maps — one per component — would number each population from
+1 independently and reintroduce the hero-vs-row pair.
+
+★ **A per-item component cannot disambiguate itself**, which is why the map is built by
+`actions-panel.tsx` and threaded down rather than computed inside `ActionRow`. That is the same rule
+that forced `TaskStatusSelect` and `TaskActionsImpl` to take their token as a prop from
+`task-row.tsx` / `task-kanban-card.tsx`.
 
 ★★ **Neither gate can see it** — axe as above, and §276's per-row scanner looks for controls inside a
 `.map()`, which the hero's is not.
@@ -173,14 +213,29 @@ satisfied by ANY two controls' names colliding, not necessarily the one under te
 real collision can mask a silently narrowed `roles` array. Keep `minControls` at its exact MEASURED
 value for the scope.
 
+★★★ **§305 IS NOT AN `expectRowUniqueNames` TEST AT ALL, and writing one would be false coverage.**
+Its `aria-label`s ALREADY carry the token via `rowLabel` — the accessible names are unique before the
+fix and after it. A name-uniqueness assertion therefore passes against the UNFIXED code, and a test
+that cannot fail is worse than no test, because it reads as protection and stops the next audit.
+§305's defect is VISIBLE text, so its test asserts on rendered text: two rows seeded with a shared
+`recordLabel` must render two DIFFERENT visible strings, and the mutant is reverting the render back
+to the bare `recordLabel`.
+
 Seeds, one per fix:
 
-| § | seed |
-|---|---|
-| 309 | two ACTIVE projects sharing a display name |
-| 315 | two people on EQUAL weekly hours, in each table |
-| 305 | two changes sharing a `recordLabel` |
-| 324 | two visible actions TIED on score, plus the hero-vs-row pair |
+| § | assertion | seed |
+|---|---|---|
+| 309 | `expectRowUniqueNames`, `requireCollisionSeed: true` | two ACTIVE projects sharing a display NAME |
+| 315 | `expectRowUniqueNames`, `requireCollisionSeed: true` | two people sharing a display NAME **and** on equal hours, per table |
+| 305 | visible-text assertion (see above) | two changes sharing a `recordLabel` |
+| 324 | `expectRowUniqueNames`, `requireCollisionSeed: true` | two actions sharing a TITLE and tied on score |
+
+★★★ **THE §315 SEED NEEDS A SHARED NAME, NOT MERELY EQUAL HOURS — an earlier revision of this spec
+said equal hours alone.** After the fix the name is `40 – <token>`, so two people called Anna and Bob
+both on 40h render `40 – Anna` and `40 – Bob`: nothing collides once the suffix is stripped, and
+`requireCollisionSeed` THROWS against the CORRECT code. The seed must make the TOKEN fire, which
+needs a shared display name. The same reasoning fixes §324's seed: the two actions must share a
+TITLE, not merely a score.
 
 ★★ **One knock-on, and leaving it undone quietly weakens an existing test.**
 `resource-workload.test.tsx`'s §276 test gives its two unlinked people DISTINCT part-time shifts
