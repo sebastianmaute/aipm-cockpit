@@ -77,10 +77,13 @@ describe("GeneralSection reset dialog — German", () => {
     await loadI18n("de");
   });
 
-  // ★ This is the ONLY test that can fail for §301. Under en-US the confirm-
-  // value key's value is byte-identical to the hardcoded English constant it
-  // replaced, so an EN-only test passes against the reverted code too — German
+  // ★ This is the only test that can fail for §301 AT THIS SITE. Under en-US the
+  // confirm-value key's value is byte-identical to the hardcoded English constant
+  // it replaced, so an EN-only test passes against the reverted code too — German
   // is the one language where a hardcoded English phrase is detectable at all.
+  // ★ §301's other two sites are pinned in `tasks-section.test.tsx`: a German
+  // clear-all test of this same shape, and an EN bulk-delete test that IS a
+  // genuine pin because that phrase did not survive the swap byte-identical.
   it("asks a German user to type the German confirm phrase, not the English one", () => {
     render(<GeneralSection lang="de" settings={defaultSettings} onChange={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: t("de", "settingsResetButton") }));

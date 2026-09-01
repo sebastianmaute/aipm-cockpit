@@ -92,4 +92,26 @@ describe("TypeToConfirmDialog", () => {
     fireEvent.blur(screen.getByRole("textbox"));
     expect(screen.queryByText(/does not match/i)).not.toBeInTheDocument();
   });
+
+  // A DISABLED button dispatches no mouse events, so "type the wrong phrase,
+  // press Enter" never blurs the input — the blur gate alone leaves the most
+  // natural recourse path silent. NO blur is fired here on purpose.
+  it("explains the mismatch on an Enter submit attempt, without any blur", () => {
+    render(<TypeToConfirmDialog {...base} />);
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "Apoll" } });
+    expect(screen.queryByText(/does not match/i)).not.toBeInTheDocument();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getByText(/does not match/i)).toBeInTheDocument();
+  });
+
+  // Both sides are trimmed, so a blank confirmValue would otherwise match an
+  // untouched empty field and arm an irreversible action with no typing at all.
+  it("never matches a blank confirmValue, so the gate cannot open itself", () => {
+    render(<TypeToConfirmDialog {...base} confirmValue="   " />);
+    const btn = screen.getByRole("button", { name: "Delete" });
+    expect(btn).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "   " } });
+    expect(btn).toBeDisabled();
+  });
 });

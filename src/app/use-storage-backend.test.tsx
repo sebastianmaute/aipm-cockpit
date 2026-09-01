@@ -2996,11 +2996,16 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
   // `recordDataLossEvent` itself is unmocked, so the `logDiag` calls it makes
   // ARE the ring writes; filtering them by code is the faithful count here.
   // ★ No manual clear is needed: this describe's `beforeEach` runs
-  // `vi.clearAllMocks()`, so the spy's call list starts empty every test. The
-  // code filter is the second guard — boot and a committed save write
-  // `dataloss.observed`/nothing, never `dataloss.refused`.
+  // `vi.clearAllMocks()`, so the spy's call list starts empty every test.
+  // ★★ The code alone is NOT a sufficient filter: `use-storage-backend.ts` has
+  // THREE `dataloss.refused` writers — the save-effect guard, the empty-load
+  // refusal (`path: "load"`) and the reload refusal (`path: "reload"`) — so the
+  // `path` conjunct is what makes this count the save-effect one specifically,
+  // rather than relying on these fixtures happening not to reach the other two.
   const refusalRecordCount = (logDiag: unknown): number =>
-    vi.mocked(logDiag as (...a: unknown[]) => void).mock.calls.filter((c) => c[1] === "dataloss.refused").length;
+    vi.mocked(logDiag as (...a: unknown[]) => void).mock.calls.filter(
+      (c) => c[1] === "dataloss.refused" && (c[2] as { path?: string } | undefined)?.path === "save-effect",
+    ).length;
 
   // Case A — the §303 duplicate. An unrelated edit while a refusal stands
   // re-refuses the SAME magnitude, so it is ONE data-loss event, not two.

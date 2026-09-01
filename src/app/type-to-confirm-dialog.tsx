@@ -47,12 +47,21 @@ export function TypeToConfirmDialog({
   // whitespace-bearing name unmatchable while the prompt renders it as if it
   // were fine — a permanently dead button, now compounded by a mismatch message
   // telling the user their exactly-correct input does not match.
-  const matched = typed.trim() === confirmValue.trim();
-  // ★ Gated until the first blur, live thereafter: `touched` never resets, so
-  // once the field has been blurred once the message updates on every
-  // keystroke. The text node only mutates on the false→true transition
-  // (blank/matched → mismatched), so a screen reader still gets one
-  // announcement, not one per character of a 30-character phrase.
+  // ★ A blank `confirmValue` can never match. Trimming both sides would
+  // otherwise make an untouched EMPTY field satisfy the gate the moment the
+  // dialog opens — a permanently armed irreversible action requiring no typing
+  // at all. The dialog must not depend on a caller three files away validating
+  // its phrase.
+  const matched = confirmValue.trim() !== "" && typed.trim() === confirmValue.trim();
+  // ★ Gated until the first blur OR the first Enter keypress, live thereafter:
+  // `touched` never resets, so once either has happened the message updates on
+  // every keystroke. The text node only mutates on a matched↔mismatched flip,
+  // so a screen reader gets one announcement per flip, not one per character of
+  // a 30-character phrase.
+  // ★★ Enter is the second gate because a DISABLED button dispatches no mouse
+  // events: "type the wrong phrase, click the dead Confirm" never blurs the
+  // input, so the blur gate alone leaves the most natural recourse path silent —
+  // the exact failure this message exists to end.
   // ★ The second conjunct is `typed !== ""`, NOT `typed.trim() !== ""` —
   // whitespace-only input is a real mismatch and must say so (a visibly
   // non-empty field with a dead button and no explanation is the exact
@@ -85,6 +94,9 @@ export function TypeToConfirmDialog({
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               onBlur={() => setTouched(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") setTouched(true);
+              }}
               aria-label={t(lang, "typeToConfirmPrompt", confirmValue)}
               invalid={showMismatch}
               aria-describedby={showMismatch ? MISMATCH_ID : undefined}
