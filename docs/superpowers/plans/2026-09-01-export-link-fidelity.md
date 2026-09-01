@@ -862,6 +862,10 @@ grep -oE "^## [0-9]+\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | t
 
 ★ A number is reserved only once it is on `origin/main`; two branches have minted the same one before.
 
+★★ **A concurrent branch is minting from the same range right now.** `fix/colour-only-state-1-4-1` (roadmap slice 7 + §325) has agreed to take **331-332**; this branch takes **329-330**. Whichever merges SECOND re-runs the command above and renumbers rather than assuming the agreement held — the agreement binds the two sessions, not the register.
+
+★★ That branch also edits `docs/open-followups.md`, so expect a conflict there. Adjudicate the summary table PER ROW. Resolving by taking one side wholesale loses the other branch's entries with every gate still green, and `git diff --cc` cannot see it — it is a census of INVENTED content, blind to a resolution that took one side whole. Diff against your own tip afterwards, not only against the merge base.
+
 - [ ] **Step 5: Correct the roadmap** — record the 4a/4b split, and correct its claim that hyperlink relationships move the part manifest.
 
 - [ ] **Step 6: Gates and commit**
