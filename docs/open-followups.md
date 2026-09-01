@@ -281,8 +281,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§52](#52-usecolumnresizes-v1v2-migration-pins-defaults-for-existing-users--open-deliberate) | `useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate | 0.212.0 (Nayler) | M | open |
 | [§53](#53-eslint-10-is-blocked-upstream-by-eslint-plugin-react--open-not-actionable-today) | ESLint 10 is blocked upstream by `eslint-plugin-react` — open, not actionable today | 0.211.2 | — | open |
 | [§54](#54-prod-only-csp-blocks-prosemirrors-base-css--closed-2026-08-09) | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | **CLOSED** 2026-08-09 |
-| [§55](#55-twelve-hand-rolled-aria-pressed-toggles-still-show-their-on-state-by-colour-alone--open) | Twelve hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open | 0.212.0 (Nayler) | M | open |
-| [§56](#56-togglebuttons-pressed-state-is-near-invisible-in-all-three-dark-schemes--open) | `ToggleButton`'s pressed state is near-invisible in all three DARK schemes — open | 0.212.0 (Nayler) | S–M | open |
+| [§55](#55-twelve-hand-rolled-aria-pressed-toggles-still-show-their-on-state-by-colour-alone--closed-2026-09-01) | ~~Twelve hand-rolled `aria-pressed` toggles still show their on-state by colour alone~~ | 0.212.0 (Nayler) | M | **CLOSED** 2026-09-01 (8 of 12 migrated to `ToggleButton`, RACI ringed, 3 adjudicated non-defects) |
+| [§56](#56-togglebuttons-pressed-state-is-near-invisible-in-all-three-dark-schemes--closed-2026-09-01) | ~~`ToggleButton`'s pressed state is near-invisible in all three DARK schemes~~ | 0.212.0 (Nayler) | S–M | **CLOSED** 2026-09-01 (state borders DERIVED at a 3:1 floor, so an imported theme is covered too) |
 | [§57](#57-the-four-toolbar-outlook-enable-toggles-carry-an-untested-auto-guard--open) | The four toolbar Outlook enable-toggles carry an untested `auto` guard — open | 0.212.0 (Nayler) | S | open |
 | [§58](#58-the-axe-gate-can-pass-against-a-stale-dev-server--gate-half-fixed-post-02120-sibling-worktree-half-open) | The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN | 0.212.0 (Nayler) | S | open |
 | [§59](#59-eye-verification-owed-on-02120--and-on-the-two-releases-before-it--open) | Eye verification owed on 0.212.0 — and on the two releases before it — open | 0.212.0 (Nayler) | S | open |
@@ -327,7 +327,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--open-missing-net-counters-widened-2026-08-29-live-path-found--284) | `documents` is invisible to both save-time data-loss guards — open (MISSING NET; counters WIDENED 2026-08-29, live path FOUND — §284) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open |
 | [§99](#99-the-e2e-seed-writes-only-four-of-browserbackends-ten-optional-slices-so-some-axe-scans-run-on-an-empty-state--open-partly-fixed-2026-08-08) | The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY FIXED 2026-08-08 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open |
 | [§100](#100-tab-ejects-focus-from-a-portaled-popover-opened-inside-a-modal--closed-2026-08-31) | ~~Tab ejects focus from a portaled popover opened inside a modal~~ | field controls → modal header, unreleased | M | **CLOSED** 2026-08-31 |
-| [§101](#101-segmentedcontrols-selected-segment-is-colour-only-in-the-three-dark-schemes--open-a11y) | `SegmentedControl`'s selected segment is colour-only in the three DARK schemes — open, a11y | field controls → modal header, unreleased | S | open |
+| [§101](#101-segmentedcontrols-selected-segment-is-colour-only-in-the-three-dark-schemes-and-in-beacon-light--closed-2026-09-01) | ~~`SegmentedControl`'s selected segment is colour-only in the three DARK schemes AND in beacon-light~~ | field controls → modal header, unreleased | S | **CLOSED** 2026-09-01 (title AMENDED — beacon-light measures 1.13:1 and the entry omitted it) |
 | [§102](#102-hand-rolled-ui-that-should-be-a-shared-primitive-and-glyphs-that-should-be-heroicons--open-ratchet) | Hand-rolled UI that should be a shared primitive, and glyphs that should be heroicons — open, ratchet | — | — | open |
 | [§103](#103-an-over-cap-load-silently-and-permanently-destroyed-the-excess-documents--closed) | An over-cap load silently and permanently destroyed the excess documents | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** |
 | [§104](#104-the-aidocumentwrite-deep-link-is-still-dead--activityviewof-has-no-production-caller--open) | The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open |
@@ -551,10 +551,14 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked) | The asset library offers Insert on a refused-format row, which can only ever render as blocked | found 2026-08-31 in the §230 cold review | S | open |
 | [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | open |
 | [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01) | ~~`actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name~~ | 0.272.0 (Zoline) | S | **CLOSED** 2026-09-01 (closed WIDER than its title; popover internals carved out to §328) |
-| [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-the-default-scheme) | Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in the default scheme | found 2026-08-31 in the §300 fix round | M | open |
+| [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix round | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide) | `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide | found 2026-08-31, adding the §300 mismatch region | S | open |
 | [§327](#327-use-storage-backendts-sits-exactly-on-the-800-line-size-ratchet-with-zero-headroom) | `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom | found 2026-08-31, closing §303 | S | open |
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
+| [§331](#331-aria-pressed-carries-a-mutually-exclusive-choice-at-six-sites-which-is-radio-group-semantics-in-toggle-button-clothes) | `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes | found 2026-09-01, closing §55 | M | open |
+| [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | open |
+| [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard) | The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | open |
+| [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp) | `RaciChipPicker`'s popover is positioned with no right-edge clamp | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -3694,9 +3698,14 @@ unnoticed, not a footnote to it. Anything that needs prod-CSP coverage has to po
 
 ---
 
-## 55. Twelve hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
+## 55. Twelve hand-rolled `aria-pressed` toggles still show their on-state by colour alone — CLOSED 2026-09-01
 
-**Status:** open — twelve hand-rolled toggles outside the shared primitive. Reproduced 2026-08-28 by `grep -rn "aria-pressed={" src/app --include=*.tsx`.
+**Status:** CLOSED 2026-09-01 by `219244bb`, `bfa50f21`, `838c96c0`, `361c73ef`, `2c5ab1e5`,
+`50fd2526`, `33fc8a19` and `af961732`. EIGHT of the twelve `aria-pressed` attributes migrated to
+`ToggleButton`, RACI took a ring instead, and the remaining three are adjudicated below as non-defects
+with the measurement that exempts each. Residue re-measured 2026-09-01 by
+`grep -rn "aria-pressed={" src/app --include=*.tsx | grep -v "\.test\." | grep -v "toggle-button.tsx"`
+— 4 hits, every one of them named in the closure section at the end of this entry.
 
 0.212.0 gave the shared `ToggleButton` primitive a non-colour pressed cue (a trailing check glyph).
 Twelve controls do NOT use that primitive and were left as they were. For MOST of them the only
@@ -3796,11 +3805,86 @@ next migration; the radio-like groups still want the `role="radio"` answer inste
 
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** In this entry, two of its twelve line numbers drifted — the `comm-templates-section.tsx` pair moved, the other ten did not. The file set and the count of twelve are exact. This is the fourth instance of the drift class the entry itself documents three times; the fix is to symbolise those two, never to renumber. Reproduced by `grep -rn "aria-pressed={" src/app --include=*.tsx`.
 
+### What actually shipped, 2026-09-01 — eight migrated, one ringed, three left on purpose
+
+★★ **Read the three-way split before reading any count.** Twelve was a count of `aria-pressed` JSX
+ATTRIBUTES — not of files, and not of rendered controls — and the outcome does not divide along file
+lines either: `task-form-fields.tsx` carried two of the twelve and only ONE of them moved. A reader
+must be able to tell "not a defect" from "missed", which is what this section is for.
+
+**Migrated to `ToggleButton` — 8 of the 12 attributes, across 6 files.** `create-project-wizard.tsx`
+(2, the template picker) · `settings-sections/comm-templates-section.tsx` (2, the version-compare
+buttons) · `task-form-fields.tsx` (1, the three health-override chips, which are ONE call site inside
+a `map`) · `knowledge-panel.tsx` (1, the source filters) · `voice-button.tsx` (1) ·
+`dictation-mic.tsx` (1). Each gains the primitive's `data-pressed-marker` check glyph, present in both
+states and merely `invisible` when off, so the button keeps one width.
+
+★★ **Three of those forced the PRIMITIVE to grow, and each growth was a user decision rather than an
+incidental refactor:**
+
+- `size?: "chip" | "card"` — the wizard's template options are full-width, multi-line cards, so chip
+  geometry was wrong for them. The call site had been reaching into the primitive's internals with a
+  `[&>span]:w-full` selector; the prop retires that.
+- a third accent, `green`, so `dictation-mic` keeps its recording identity instead of turning
+  dark-blue. See §56's closure for why that derivation is the MIRROR IMAGE of the dark-blue one.
+- `pressHandlers` — `dictation-mic` is PUSH-TO-TALK: it has no `onClick` at all, and its keydown
+  calls `preventDefault`, which suppresses the synthetic click. The bag is a narrow
+  `Pick<ComponentProps<"button">, …>` over six pointer/keyboard handlers, spread BEFORE the
+  primitive's own attributes so that no call site can overwrite `aria-pressed`, `aria-label` or
+  `type`. That ordering is the load-bearing part; reversing it would let a consumer silently break
+  the very state this entry is about.
+
+**RACI took a different fix, and it is the interesting one.** `raci-chip-picker.tsx`'s chips are 20px
+circles holding a single letter. A `ToggleButton` migration WAS implemented and measured first
+(`a73681b8`): a 20px circle cannot hold the 14px marker plus its gap plus the letter, so it forced the
+chips into ~48×26px stadium pills and grew the popover by ~116px. It was REVERTED (`047078f7`) by user
+decision and replaced (`af961732`) by a neutral ring —
+`ring-2 ring-[var(--foreground)] ring-offset-2 ring-offset-[var(--surface)]` — applied at the popover
+call site only, with the container's `gap-1`→`gap-2` and `p-1`→`p-1.5` for clearance, costing ~16px of
+popover width instead of ~116px.
+
+★★★ **THE RING'S COLOUR IS THE LOAD-BEARING PART, AND THE OBVIOUS CHOICE IS THE BROKEN ONE.** A ring
+in the chip's OWN role hue would be exactly as invisible as the fill it supplements — R's token IS
+`--ui-dark-blue`, the colour measuring 1.10:1 against `--surface` in harbor-dark. A luminance scan over
+the whole 0..1 range then showed that **no colour whatsoever** clears 3:1 against `--surface` AND all
+four role fills: the best achievable min-ratio is 1.90-2.54 depending on the combo — not any scheme
+token, not pure white, not pure black. That is structural rather than incidental, because
+`deriveAaVariants` derives `--ui-green-strong` (the A chip) to a mid luminance clearing AA against the
+surface, which is precisely the band that leaves no room for a third colour. `ring-offset-2` is what
+makes a neutral legitimate at all: it lays a 2px band of `--surface` between the fill and the ring, so
+the ring is adjacent to `--surface` on both sides and never touches a fill.
+★ The measured defect it fixes: **R is 1.10-1.31:1 and I is 2.70-2.84:1** against `--surface` in the
+three dark schemes. A (5.30-8.80) and C (3.33-6.15) already cleared 3:1 in every combo and were ringed
+anyway — a picker where two chips carry a cue and two do not is worse than either consistent state.
+
+**Three were deliberately NOT touched, each with the measurement that exempts it.**
+
+- `step0-import-panel.tsx` (import method) — the selected state also changes FONT WEIGHT
+  (`font-medium`) and text colour (`text-muted-foreground` → `text-foreground`). Weight is not a
+  colour channel, so 1.4.1 is satisfied without a marker.
+- `task-form-fields.tsx`'s "Auto (currently: …)" chip — the sibling of the three that DID migrate.
+  Its selected border is `--ui-dark-blue` against `--line` in the light schemes (**7.71-10.22:1**) and
+  `--ui-blue` against `--line` in the dark ones (**4.22-4.58:1**). Both clear the 3:1 floor, so this
+  chip never had §56's problem — the `dark:` variant is why, and it is the reason the two attributes
+  in one file were adjudicated differently.
+- `influence-interest-matrix.tsx` (the quadrant grid) — `ring-2 ring-ui-green ring-offset-1` PLUS a
+  `●` glyph rendered inside the cell chip. Two non-colour cues already.
+
+★ **What this closure does NOT settle.** All four surviving `aria-pressed` sites — and two of the
+eight that migrated — use a toggle role for a MUTUALLY-EXCLUSIVE choice, which is a `radiogroup`
+wearing toggle-button clothes. That is SC 4.1.2, a different criterion from the 1.4.1 defect this
+entry recorded, with a different remedy and a keyboard-interaction cost on six surfaces. It is filed
+separately as **§331**. This slice fixed the visual cue and deliberately changed no control's
+semantics.
+
 ---
 
-## 56. `ToggleButton`'s pressed state is near-invisible in all three DARK schemes — open
+## 56. `ToggleButton`'s pressed state is near-invisible in all three DARK schemes — CLOSED 2026-09-01
 
-**Status:** open — a pressed state under the 3:1 non-text contrast floor in the dark schemes. Reproduced 2026-08-28 by `grep -n "accent border" src/app/toggle-button.tsx`.
+**Status:** CLOSED 2026-09-01 by `fc0b3a47`, `6955c2e0`, `16fccf73` and `33fc8a19` — the pressed
+border now rides per-accent tokens DERIVED at a 3:1 floor rather than the raw accent. Verified
+2026-09-01 by `npx vitest run src/app/scheme-state-contrast.test.ts`, which asserts that floor for all
+three accents across all seven built-in combos.
 
 Pressed-vs-unpressed border contrast, computed from `src/app/builtin-schemes.ts`:
 
@@ -3844,6 +3928,45 @@ grep -c "{ scheme:" e2e/a11y.spec.ts   # 7
 ★★ **Adding the combo did NOT close this entry**, and reading the fix as a closure is the trap here:
 axe has no rule that evaluates a component's state border at any combo count, so scanning umber-dark
 buys a green run over the very defect this entry records. The gate was never going to catch it.
+
+### How it closed, 2026-09-01 — the fix is a DERIVATION, not a scheme edit
+
+This entry prescribed fixing it "in the dark scheme maps", and that is NOT what shipped. The pressed
+border now rides per-accent tokens computed at runtime by `deriveAaVariants` (`scheme-tokens.ts`) and
+registered in `DERIVED_TOKENS` (`color-schemes.ts`), with static pre-boot fallbacks in `globals.css`
+and `ToggleButton` consuming them in place of the raw accent.
+
+★★ **Deriving rather than editing the maps is the whole point, and it is why the closure is wider than
+the entry.** A scheme map holds only the built-ins; a user-imported theme is an arbitrary map, so
+editing the three dark maps would have fixed the three schemes that ship and left every imported one
+exactly as broken. `--ui-dark-blue` and `--line` are both user-editable `ADVANCED_TOKENS`, so a pass
+today is a property of the built-in VALUES, never a guarantee. The derivation makes the 3:1 floor
+structural for any map the app is ever handed.
+
+★★ **THREE accents, and the third splits by MODE in the opposite direction — do not generalise from
+one.** `--control-state-border` (dark-blue) fails in the three DARK schemes and passes in the light,
+which is what this entry measured. `--control-state-border-pink` clears 3:1 in all seven combos
+(3.04-5.08), so its derivation is a no-op today and exists only so that an edited `--ui-pink` or
+`--line` cannot silently drop below. `--control-state-border-green` — added when `dictation-mic`
+adopted the primitive — is the MIRROR IMAGE: raw `--ui-green` against `--line` measures 1.53-1.88:1 in
+the four LIGHT combos and 4.96-6.90:1 in the three DARK ones, so its loop runs in the light schemes
+only, landing them at 3.06-3.81. Green is therefore the one accent whose `globals.css` fallback is NOT
+its raw base.
+
+★★★ **ONE STATED LIMITATION OF THE FIX'S OWN COVERAGE, and it corrects a claim the slice plan made.**
+The plan said the test named "globals.css fallbacks match the derivation for the AIPM-light base" (in
+`scheme-state-contrast.test.ts`) was "the only thing tying the CSS fallback to the derivation". **That
+is false and must not be repeated.** The test does NOT read `globals.css` — it hardcodes the hex
+literals and asserts an identity property of the derivation at that input — so editing the stylesheet
+alone leaves it GREEN. What it genuinely catches is the derivation gaining a nudge at that base, which
+is what would make the hardcoded fallbacks wrong. The test's own comment states this correctly; only
+the plan overstated it. Nothing verifies the stylesheet itself, in either direction.
+
+★ The per-combo floor for all three accents IS pinned, across all seven built-in combos, by
+`scheme-state-contrast.test.ts`, whose combo list is derived from `BUILTIN_SCHEMES` rather than
+listed — so a new built-in scheme is covered the day it lands. That file opens with an anti-vacuity
+test asserting the seven combo ids, because an empty `flatMap` would otherwise run every `test.each`
+zero times and report green.
 
 ---
 
@@ -3978,6 +4101,11 @@ contrast. What is not covered, and what these checks are for:
 - whether the disabled row reads as **disabled** rather than merely faint. §56 is the reason to doubt
   this by default: opacity and border changes on this primitive measure far worse in the dark schemes
   than the light ones, and the 60% floor was reasoned from the light-scheme label contrast.
+  ★★ §56 CLOSED 2026-09-01, and it closed exactly HALF of what this bullet leans on: the pressed
+  BORDER is now derived to clear 3:1 against `--line` in every combo, so the border half no longer
+  measures worse in the dark. The OPACITY half is untouched — `disabled:opacity-60` is unchanged and
+  its floor is still reasoned from the light-scheme label contrast — so the doubt recorded here now
+  stands on the opacity alone. Do not read that closure as covering this check.
 
 ---
 
@@ -6215,7 +6343,8 @@ rotor) skips the remaining one — it reads as body text, not a section landmark
 was written correctly from the start — a real `<h3>` for its own title — but the pre-existing titles
 above it were left alone as out of scope for that task. Not axe-visible: axe has no rule requiring a styled
 sub-heading to be a real heading element, so the gate is silent here (same class of gap as §9's
-`aria-sort` and §55's colour-only toggles). ★★★ **THE FIX WAS NOT "SWAP THE `<span>` TO AN `<h3>`", WHICH IS WHAT THIS ENTRY PRESCRIBED UNTIL
+`aria-sort` and §55's colour-only toggles — §55 CLOSED 2026-09-01, but the gate BLINDNESS it records
+is a property of axe and is unchanged). ★★★ **THE FIX WAS NOT "SWAP THE `<span>` TO AN `<h3>`", WHICH IS WHAT THIS ENTRY PRESCRIBED UNTIL
 2026-08-25 — that would have traded an unscanned defect for a GATE-VISIBLE one, or so this entry believed.**
 `AiSection` is mounted by FOUR surfaces and only ONE supplies an `<h2>`: `settings-view.tsx` renders the
 shared rail heading, while `settings-menu.tsx`, `backend-setup-wizard.tsx` and `project-empty-state.tsx`
@@ -7106,9 +7235,12 @@ repo-wide `PopoverPanel` gap — no consumer does it — and worth folding into 
 
 ---
 
-## 101. `SegmentedControl`'s selected segment is colour-only in the three DARK schemes — open, a11y
+## 101. `SegmentedControl`'s selected segment is colour-only in the three DARK schemes AND in beacon-light — CLOSED 2026-09-01
 
-**Status:** open — a selected segment distinguished by fill alone in the dark schemes. Reproduced 2026-08-28 by `grep -c "shadow-control" src/app/builtin-schemes.ts`.
+**Status:** CLOSED 2026-09-01 by `4c491cd5` — the selected segment now renders an always-mounted
+`data-selected-marker` check glyph. Re-measured 2026-09-01 by computing the WCAG relative-luminance
+ratio of `--segment-active-bg` against `--segment-track-bg` over every map in `builtin-schemes.ts`;
+that measurement AMENDED this entry's own title and table — see the correction below.
 
 The checked segment is distinguished from its siblings by fill alone (`--segment-active-bg` against
 `--segment-track-bg`). AGENTS.md's own rule for `ToggleButton` treats a lightness difference of
@@ -7120,6 +7252,7 @@ The checked segment is distinguished from its siblings by fill alone (`--segment
 | harbor-light | 10.42:1 | pass |
 | meridian-light | 8.73:1 | pass |
 | umber-light | 10.54:1 | pass |
+| **beacon-light** | **1.13:1** | **fail** |
 | harbor-dark | **2.38:1** | fail |
 | meridian-dark | **2.43:1** | fail |
 | umber-dark | **2.25:1** | fail |
@@ -7127,11 +7260,23 @@ The checked segment is distinguished from its siblings by fill alone (`--segment
 ★★ There is no second cue to fall back on. The selected segment carries
 `shadow-[var(--shadow-control)]`, but `--shadow-control` is `none` in `globals.css` and **no scheme
 overrides it** (`grep -c "shadow-control" src/app/builtin-schemes.ts` → 0), so that class paints
-nothing in any scheme. The light schemes pass on lightness alone; the dark ones have neither.
+nothing in any scheme. THREE of the four light schemes pass on lightness alone; beacon-light does
+not, and the dark ones have neither.
+
+★★★ **THE TABLE ABOVE OMITTED `DEFAULT_SCHEME_ID` ENTIRELY UNTIL 2026-09-01, AND THE SENTENCE ABOVE
+READ "The light schemes pass on lightness alone" FLATLY.** Both were written from a six-row matrix of
+the three dark-capable schemes; Beacon is light-only and was simply never enumerated. It is the scheme
+a fresh install runs, and it is the WORST measurement in the table — `--segment-active-bg` is
+`#ffffff` on a `#eef1f3` track, i.e. **1.13:1**, worse than any dark scheme's 2.25-2.43. So this entry
+under-reported both the severity and the blast radius of its own finding for as long as it was open,
+and a reader who trusted the prose would have concluded the default scheme was fine. Reproduce by
+computing the ratio over `BEACON_LIGHT` in `builtin-schemes.ts`, the same way the other six rows were
+produced.
 
 ★ The screen-reader side is NOT affected and needs no fix: this is a real `radiogroup`, so
 `aria-checked` carries the state regardless of colour. That is the difference from the `aria-pressed`
-family in §55 — the gap here is purely visual, for sighted low-vision and CVD users.
+family in §55 (CLOSED 2026-09-01) — the gap here is purely visual, for sighted low-vision and CVD
+users.
 
 ★★ **Pre-existing and repo-wide — not introduced by moving the field tier switch into the primitive.**
 The tier switch's previous hand-rolled buttons used the very same two tokens, and the primitive has
@@ -7143,6 +7288,26 @@ touching every segmented control in the app wants its own slice and its own eye-
 evaluate CSS custom-property colour maths. The numbers above are the only coverage this has.
 
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry quotes an invocation count and file count that have both grown. The drift is in the direction that STRENGTHENS the entry. Reproduced by `grep -rn "SegmentedControl" src/app --include=*.tsx`.
+
+### How it closed, 2026-09-01
+
+`4c491cd5` gives every segment a `CheckIcon` carrying `data-selected-marker`, `aria-hidden` (the
+`radiogroup` already announces the state through `aria-checked`, so exposing the glyph would double it
+up). It is rendered in BOTH states and merely `invisible` when unselected, so every segment keeps one
+width and the control does not reflow as the selection moves — the same reasoning `ToggleButton`'s
+pressed marker follows.
+
+★★ **The marker is measured against the SEGMENT'S OWN FILL, not against the track.** That is not a
+detail: the glyph is drawn ON the selected segment, so the track is the wrong reference, and
+`--segment-active-fg` scores 1.01-1.14 against the TRACK in the light schemes — a number that would
+have read as a failure and sent someone re-tinting a control that was already correct.
+`scheme-state-contrast.test.ts` asserts `--segment-active-fg` against `--segment-active-bg` at 3:1 for
+all seven combos, and carries that reasoning in a comment beside the assertion.
+
+★ The `shadow-[var(--shadow-control)]` class on the selected segment is UNCHANGED and still paints
+nothing. It was left alone deliberately: making it paint would be a second, scheme-wide visual change
+and the marker settles 1.4.1 on its own. This entry's finding that the class is inert therefore stands
+as a live observation about the code, not as history.
 
 ## 102. Hand-rolled UI that should be a shared primitive, and glyphs that should be heroicons — open, ratchet
 
@@ -11183,7 +11348,8 @@ correct spelling.
 ★★ The mechanism is honour-system. `labelSuffix` is OPTIONAL, so a future third mount site that
 simply omits it compiles, renders, and collides **silently**. Nothing in the repo can tell: axe is
 structurally blind to a duplicate accessible name at any seed size (see §55's neighbouring
-measurement and AGENTS.md's a11y bullet), and the type system is no help either — optional means
+measurement — §55 CLOSED 2026-09-01, the axe measurement inside it stands — and AGENTS.md's a11y
+bullet), and the type system is no help either — optional means
 optional.
 
 ★ The asymmetry is worth naming, because it looks like coverage and is not: the site that is
@@ -11520,7 +11686,8 @@ seeds a task, DOM-clicks its notes badge on Open Points to open the floating not
 runs elsewhere — asserting zero critical/serious violations. The comment directly above the test cites
 this entry by number and repeats, in place, the warning this entry itself carries: a green result
 proves this ONE toolbar clears the structural rules, not that no duplicate accessible name exists —
-axe cannot see that at any seed size (§55, §126, AGENTS.md's a11y bullet).
+axe cannot see that at any seed size (§55 — CLOSED 2026-09-01, its axe measurement unaffected —
+§126, AGENTS.md's a11y bullet).
 
 ★ This closes exactly what (b) promised and nothing more: one of the toolbar's twelve real mounts
 (§144's own count, from the corrected `<RichTextEditor` enumeration above) is now reachable by a gate;
@@ -23912,7 +24079,9 @@ the FILL/BORDER one — and as small (12px) TEXT on `--surface` it measures 4.63
 DERIVED as `nudgeToAa(--ui-pink, surface)` and is the TEXT token; the fix uses it.
 ★★ NOTHING CATCHES THIS CLASS. The palette sweep accepts the token (it is on-palette by
 construction), and the axe gate never opens a modal, so no scanned view ever renders the string.
-The measurement was the only detector. The sweep for the rest of this class is **§325**.
+The measurement was the only detector. The sweep for the rest of this class was **§325**, CLOSED
+2026-09-01: every real-text site now uses `--ui-pink-strong`, and the only surviving raw match is the
+self-documenting comment in `type-to-confirm-dialog.tsx` that the §300 fix itself wrote.
 
 `TypeToConfirmDialog` interpolates the phrase into one prompt with no delimiters around it:
 
@@ -25379,13 +25548,16 @@ paragraph on the same sweep adjudicates the other three candidates as non-defect
 
 ---
 
-## 325. Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in the default scheme
+## 325. Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes — CLOSED 2026-09-01
 
-**Status:** OPEN. Filed 2026-08-31 from the
+**Status:** CLOSED 2026-09-01 by `51a2b910` (six real-text sites) and `fb18d2e4` (six hover glyphs).
+Filed 2026-08-31 from the
 [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--closed-2026-08-31)
-fix round, which found this on ONE site and fixed that one. **Never machine-verified beyond that
-single measurement** — the 3.83:1 beacon figure recorded in §300 is the only contrast number anyone
-has computed for this token as text; none of the sites below has been measured. Reproduce the
+fix round, which found this on ONE site and fixed that one. Every candidate WAS measured before being
+touched, on 2026-09-01, by computing the WCAG relative-luminance ratio of `--ui-pink` against both
+`--surface` and `--surface-muted` for all seven built-in combos — the figures are in the amendment
+below, and they widened the finding. Residue re-measured the same day with the inventory grep: ONE
+line, the self-matching comment this entry already predicted. Reproduce the
 inventory with:
 
 ```
@@ -25402,6 +25574,32 @@ lines, 12 candidate sites, 10 files.
 `--surface`, `--ui-pink` measures 3.83:1 on beacon — `DEFAULT_SCHEME_ID`, the scheme a fresh install
 runs — which is under the 4.5:1 AA threshold.
 
+★★★ **AMENDED 2026-09-01 ON CLOSING: THE FILED MEASUREMENT WAS TOO NARROW IN BOTH OF ITS TERMS.** It
+recorded ONE scheme and the WRONG surface, and correcting either one alone would still have
+understated the defect. `deriveAaVariants` derives `--ui-pink-strong` against `--surface-muted`, not
+`--surface`, precisely because the muted card is the HARDER of the two surfaces — so `--surface-muted`
+is the reference a text token has to clear, and the 3.83 above was taken against the easier one.
+Measured over all seven built-in maps:
+
+| scheme | vs `--surface-muted` | vs `--surface` | |
+|---|---|---|---|
+| harbor-light | **4.12:1** | 4.63:1 | fails AA on the card |
+| meridian-light | **4.16:1** | 4.74:1 | fails AA on the card |
+| umber-light | **4.41:1** | 5.19:1 | fails AA on the card |
+| beacon-light | **3.04:1** | **3.83:1** | fails AA on both |
+| harbor-dark | 6.24:1 | 6.78:1 | passes |
+| meridian-dark | 5.76:1 | 6.44:1 | passes |
+| umber-dark | 5.74:1 | 6.41:1 | passes |
+
+So **all four LIGHT schemes fail**, not beacon alone, and beacon fails on the plain surface too. The
+entry's title said "the default scheme" for as long as it was open; it now says all four. The three
+dark schemes were never affected — which is why the fix is a no-op there: `nudgeToAa` returns the base
+unchanged whenever it already clears the floor.
+★ Reproduce the whole table by reading the maps out of `builtin-schemes.ts` and applying the WCAG
+relative-luminance formula; `scheme-state-contrast.test.ts` pins the POST-fix half of it (that
+`--ui-pink-strong` clears 4.5:1 against `--surface-muted` in every combo) but says nothing about the
+raw token, which is what this table measures.
+
 ★★ **These 12 are CANDIDATES requiring per-site measurement, NOT 12 confirmed failures**, and the
 ratio genuinely differs per site for two reasons: the surface BEHIND the text may not be `--surface`
 (several sit on muted or chip backgrounds), and large text has a lower threshold. Several hits are
@@ -25417,6 +25615,40 @@ token (it is on-palette by construction, and the sweep checks token USE, not the
 resulting pair), and the axe gate scans only what a seeded FILE-mode workspace renders in 17 views —
 several of these sites are in modals, popovers or empty states it never opens. A contrast
 measurement is the only detector, and it has to be written by hand.
+
+### How it closed, 2026-09-01 — and the two halves are NOT the same fix
+
+The 12 candidates split cleanly once each was measured, and conflating the halves would misreport what
+this closure bought:
+
+**Six real-text sites moved to `--ui-pink-strong`** (`51a2b910`) — `document-block-notices.tsx`,
+`documents-asset-section.tsx` (two: the upload error and the cap message),
+`documents-deleted-section.tsx`, `documents-panel.tsx` and `document-block-gutter.tsx`'s delete menu
+item. These are the AA fix, and they are a no-op in the three dark schemes, where `nudgeToAa` returns
+the base unchanged.
+
+**Six hover-glyph sites adopted `IconButton`'s existing `danger` variant** (`fb18d2e4`) —
+`history-panel.tsx`, `labels-input.tsx`, `project-form-fields.tsx`,
+`settings-sections/removable-chip-row.tsx` and `stakeholder-recipient-input.tsx`.
+★★★ **THAT HALF IS NOT A CONTRAST FIX AND MUST NOT BE RECORDED AS ONE.** Every one of those glyphs
+already cleared the 3:1 non-text floor in all seven combos (worst case 3.04, beacon-light), so nothing
+about their legibility changed. What was wrong with them was PRIMITIVE NON-ADOPTION: six hand-rolled
+`<button>`s spelling out a destructive hover tint the shared primitive already owns. Reading this half
+as a contrast repair would credit the closure with an improvement it did not make, and would recommend
+the same treatment elsewhere for the wrong reason.
+★ Visual deltas from that adoption, all deliberate and all recorded in the commit: `rounded-full`
+becomes the primitive's `rounded-md`, `px-1` becomes `p-1`, and each button gains the `danger`
+variant's hover tint plus the shared `INTERACTIVE` atom — `labels-input.tsx` had no focus ring at all
+before.
+
+★★ **The residue is ONE line, and it is the self-match this entry predicted.** The inventory grep now
+returns a single hit: the COMMENT in `type-to-confirm-dialog.tsx` explaining why the strong variant is
+used there. The detector matching the note that documents the fix is exactly the shape recorded above,
+so a future reader seeing "1" should read the line before concluding anything.
+
+★ **What this closure did NOT do:** it changed no token definition and added no gate. Nothing still
+stops the next raw `text-ui-pink` from landing — the palette sweep will accept it and axe will not
+look at it — so this class can recur, and the inventory grep remains the only detector.
 
 ## 326. `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide
 
@@ -25556,3 +25788,181 @@ DIFFERENT handlers object than the one it threads could render two same-named Op
 single row. Unreachable today — both call sites (`action-row.tsx`, `action-hero-card.tsx`) pass the
 same object to `useActionCaps` and to `handlers` — and judged not worth a guard. Listed so the next
 reader does not have to rediscover that the coupling is by convention rather than by construction.
+
+---
+
+## 331. `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes
+
+**Status:** OPEN, **never machine-verified** — the six sites were enumerated by grep on 2026-09-01 and
+read, but no screen-reader or keyboard pass has been run against any of them, and there is no probe to
+run: the markup is individually valid at every site. Filed 2026-09-01 while closing §55. Enumerate the
+hand-rolled residue with
+`grep -rn "aria-pressed={" src/app --include=*.tsx | grep -v "\.test\." | grep -v "toggle-button.tsx"`
+— the two that migrated to `ToggleButton` do NOT appear there, because the primitive owns the
+attribute; find those with `grep -n "<ToggleButton" src/app/create-project-wizard.tsx src/app/knowledge-panel.tsx`.
+
+**What happens.** SC 4.1.2 is about role, name and STATE being programmatically determinable.
+`aria-pressed` says "this button is a toggle and it is currently on" — a claim about ONE control,
+independent of its siblings. Six surfaces use it for a single-select group, where exactly one member is
+on and picking a new one turns the old one off. That relationship is what `role="radio"` inside a
+`radiogroup` (with `aria-checked`) exists to express, and a screen-reader user gets none of it from a
+row of toggle buttons: no group name, no "3 of 5" position, no arrow-key model, and no announcement
+that picking B released A.
+
+The six, and what each chooses between:
+
+| site | the choice | how `aria-pressed` gets there |
+|---|---|---|
+| `create-project-wizard.tsx` | project template | via `ToggleButton` |
+| `knowledge-panel.tsx` | source filter (`all` plus one kind) | via `ToggleButton` |
+| `step0-import-panel.tsx` | import method | hand-rolled |
+| `task-form-fields.tsx` | manual health override, incl. the "Auto" chip | `ToggleButton` + one hand-rolled |
+| `raci-chip-picker.tsx` | R / A / C / I role | hand-rolled |
+| `influence-interest-matrix.tsx` | the influence/interest quadrant | hand-rolled |
+
+★★ **This is NOT what §55 was about, and merging the two would misreport both.** §55 was SC 1.4.1 —
+the on-state carried by colour alone — and it is CLOSED: every one of these six now shows its selected
+member by a non-colour cue (a marker, a ring, or a font-weight change). This entry is the SEMANTIC
+half, which that slice deliberately left alone. Different criterion, different remedy, different cost.
+
+★★★ **CONVERTING THEM CHANGES KEYBOARD INTERACTION ON SIX SURFACES, WHICH IS WHY THIS IS A SEPARATE
+SLICE AND NOT A CLEAN-UP.** A `radiogroup` is ONE tab stop, not N: the group takes focus, arrow keys
+move between members, and members carry a roving `tabIndex`. Today each of these six is N tab stops
+with no arrow handling. So a conversion is not an attribute swap — it changes how a keyboard user
+traverses the project wizard, the import panel, the task editor, the RACI matrix, the knowledge toolbar
+and the stakeholder quadrant, and **each needs its own eye-verify against a real screen reader**. Doing
+five carefully and one carelessly is worse than doing none, because the app then teaches two different
+interaction models for one visual pattern.
+
+★ **`SegmentedControl` is the precedent and the likely answer for SOME of them.** The field-visibility
+tier selector took exactly this route while §55 was open — it dropped hand-rolled `aria-pressed`
+buttons for the shared `SegmentedControl`, which is a real `radiogroup` — and left §55's list as a
+result. It fits where the options are few, short and linear. It fits POORLY for the wizard's
+multi-line template cards, and worse for the quadrant GRID, which is two-dimensional and has no linear
+arrow order at all; a grid wants `role="radiogroup"` with two-axis arrow handling, or a different
+pattern entirely.
+
+★★ **Neither gate can see any of this, and the reason is unusual.** axe has no rule objecting to
+`aria-pressed` on a single-select group, because each site's markup is individually VALID — the defect
+is a relationship between controls, not a property of one. Nor does scanning help: `knowledge` and the
+`raci` sub-tab are not in `A11Y_VIEWS` at all, and the wizard, the import panel and the task editor
+are behind flows the spec never opens. A manual screen-reader pass is the only detector that can exist.
+
+---
+
+## 332. The reduced-motion policy covers two utilities and nothing gates the next animation
+
+**Status:** OPEN, **never machine-verified — and never machine-verifiable.** jsdom does not evaluate
+media queries, so no unit test can observe the rule, and no Playwright spec here emulates the
+preference. Filed 2026-09-01 in the commit that added the rule. Reproduce the covered set with
+`grep -n -A 8 "prefers-reduced-motion" src/app/globals.css` and the animating call sites with
+`grep -rn "animate-" src/app --include=*.tsx | grep -v "\.test\."` (which also returns comment lines
+that are not call sites).
+
+**What landed.** The app had NO reduced-motion handling of any kind before 2026-09-01. `68dd1c48` added
+a single `@media (prefers-reduced-motion: reduce)` block to `globals.css`, covering the two utilities
+actually in use:
+
+- `.animate-pulse` — **stopped** (`animation: none`). Two call sites: `skeleton.tsx` (decorative and
+  `aria-hidden`, with the layout itself saying "loading") and `voice-button.tsx`, whose listening state
+  now carries the `ToggleButton` pressed marker.
+- `.animate-spin` — **slowed to 3s**, deliberately NOT stopped. Three call sites: `spinner.tsx`,
+  `budget-panel.tsx` (FX-rate fetch) and `tasks-section.tsx` (Jira sync).
+
+★★★ **THE SPLIT IS THE FINDING, NOT AN IMPLEMENTATION DETAIL.** On budget-panel and tasks-section the
+spinner is an `aria-hidden` icon swapped into an icon-only button: the rotation is the ENTIRE
+"in progress" cue, with no marker, no text and no layout change behind it. `animation: none` there
+would be a conformant-looking rule that DELETES a state cue — precisely the mistake the rest of this
+slice was ordered to avoid, and the reason the voice button's pulse could only be stilled AFTER it had
+been given a shape marker (before that, stilling it would have left a 1.21-1.42:1 tint and nothing
+else). 3s removes the fast, attention-grabbing rotation the preference is actually about while leaving
+the control legibly busy. Give a spinner a non-motion busy cue and it can join the stopped block; until
+then, do not tidy the two together.
+
+★★ **The plan expected TWO animating call sites; there are FIVE.** The set was enumerated by grep
+rather than assumed, which is the only reason the three spinners were considered at all. Anything
+relying on a remembered count here should re-run the grep first.
+
+**What is NOT covered — the reason this is open rather than done:**
+
+- **Any future animation.** The rule names two utility classes by hand. A new `animate-bounce`, a
+  component-level keyframe animation, or a Tailwind arbitrary animation gets nothing, silently.
+- **CSS transitions generally.** `transition-colors` and its relatives are all over the app and are
+  untouched. That is defensible — a colour transition is not the motion SC 2.3.3 targets — but it is a
+  DECISION recorded nowhere else, and the next reader will read it as an oversight and "fix" it.
+- **Any JS-driven motion**, which a CSS media query cannot reach at all.
+
+★★★ **NO TEST CAN OBSERVE ANY OF IT, IN EITHER LAYER, AND THAT IS PERMANENT.** A unit test can assert
+the stylesheet CONTAINS the rule and nothing more — a string check, not a behaviour check. Playwright
+can emulate the preference, but no spec here does, and even then it would be asserting a computed style
+rather than the absence of perceived motion. This surface is eye-verify-only, and a future rule added
+without an eye-verify will look exactly as green as this one does.
+
+---
+
+## 333. The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard
+
+**Status:** OPEN, **never machine-verified** — the failure is REASONED from the pattern
+`ResourcePicker` documents, not observed. No probe was run, and nothing in the suite reproduces it.
+Filed 2026-09-01 while migrating the two glyphs to `IconButton`. Reproduce the shape with
+`grep -n "IconButton\|onMouseDown" src/app/labels-input.tsx src/app/stakeholder-recipient-input.tsx`.
+
+**PRE-EXISTING — NOT introduced by the `IconButton` adoption.** Both were hand-rolled `<button>`
+elements with the same handler set before `fb18d2e4`; that commit changed their styling and gave them a
+focus ring, and carried the missing guard across unchanged. This is recorded here because the migration
+is what put a reader in front of the code, not because it caused anything.
+
+**What is reasoned to happen.** AGENTS.md's `ResourcePicker` bullet states the rule: a commit-on-blur
+editor closes on blur, so a clear button without `onMouseDown` + `preventDefault` can have its click
+land on an already-closed editor and be swallowed. `stakeholder-recipient-input.tsx` holds the pattern's
+other half already — its suggestion list DOES call `preventDefault` in `onMouseDown`, with the comment
+"Prevent input blur before the click fires" — so two controls in one file disagree about whether blur
+matters.
+
+★★ **The reasoning may not hold, which is the point of the status line above.** Whether a clear is
+actually swallowed depends on whether the surrounding editor commits or closes on blur AT ALL, and
+nobody checked: neither file puts an `onBlur` on its own input today. So this may be a latent hazard
+that becomes real the moment either input gains commit-on-blur behaviour, rather than a live defect.
+**Probe before acting on it** — a test that clicks the clear glyph while the input holds focus and
+asserts the chip is removed would settle it in either direction, and would be worth keeping either way.
+
+★ **The fix, if the probe confirms it, is one prop.** `IconButton` spreads `...props` onto its
+`<button>`, so an `onMouseDown` handler threads through with no change to the primitive. That was
+deliberately NOT done in this slice: adding a guard against a failure nobody has reproduced leaves an
+unexplained handler the next contributor cannot evaluate, and one of those is how a cargo-culted
+pattern spreads.
+
+---
+
+## 334. `RaciChipPicker`'s popover is positioned with no right-edge clamp
+
+**Status:** OPEN, **never machine-verified** — the missing clamp is read off the code; no browser probe
+has put a trigger near the viewport's right edge and watched the popover overflow. Filed 2026-09-01
+while fixing §55's RACI half. Reproduce with
+`grep -n "getBoundingClientRect\|setPos\|fixed z-" src/app/raci-chip-picker.tsx`.
+
+**PRE-EXISTING, WIDENED BY ~16px.** The popover is `fixed z-[100] flex w-max`, positioned inline at the
+trigger's own `left` (`setPos` stores `r.bottom + 4` and `r.left` from one
+`getBoundingClientRect`), with no comparison against `window.innerWidth`, no clamp and no flip. A
+trigger near the right edge of a wide RACI matrix therefore renders a popover that runs off-screen, and
+`w-max` means it never wraps to compensate. The 2026-09-01 ring fix widened it by about 16px — the
+container went `gap-1`→`gap-2` (three gaps) and `p-1`→`p-1.5` (two edges), sized for the ring's 4px
+overhang — so a trigger that previously just fitted may now just not. The measurement is in the
+component's own comment beside the class, not derived here.
+
+★ **Scale makes this less alarming than it sounds, which is why it is filed rather than fixed.** The
+popover holds four 20px chips plus a clear button, so it is narrow in absolute terms; ~16px on a
+control that size moves the overflow threshold only within a narrow band of trigger positions.
+
+★★ **`PopoverPanel` — the shared popover primitive — ALREADY SOLVES THIS, and that is the real finding.**
+It runs a post-paint clamp effect that pulls the panel into the viewport on both axes, and closes on a
+width change. `RaciChipPicker` predates it and hand-rolls its own `createPortal` + `useDismissable`
+pair instead, so it inherits none of that. The remedy is therefore adoption, not a bespoke clamp — a
+bigger change than it looks, and one that also has to preserve the two things this component does
+deliberately (positioning at the chip rather than at a menu anchor, and the ring's clearance geometry).
+
+★★ **The RACI surface is NOT in `A11Y_VIEWS`.** The a11y spec scans "Stakeholders"; `raci` is a CHILD
+view of it, and `HASH_VIEW` deep-links only Next actions and Insights, so nothing navigates there. That
+surface has therefore never been scanned — and axe would not flag an off-screen popover in any case.
+jsdom has no layout, so its unit tests cannot see this either. Eye-verify is the only detector, in
+either layer, permanently.
