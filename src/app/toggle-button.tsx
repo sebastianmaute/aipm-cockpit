@@ -1,6 +1,6 @@
 "use client";
 import { CheckIcon } from "./icons";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 
 // Shared binary on/off toggle button (the gantt toolbar toggle look): a
@@ -109,6 +109,25 @@ interface ToggleButtonProps {
    *  presses Space would otherwise re-fire whatever held focus before. Do not
    *  promote this to unconditional to save a prop at one call site. */
   preventFocusSteal?: boolean;
+  /** ★★ Pointer/keyboard handlers for a PRESS-AND-HOLD consumer — dictation's
+   *  push-to-talk mic, where the state is "held down", not "clicked on". Such
+   *  a control has no click semantic at all (its keydown calls
+   *  `preventDefault`, which suppresses the synthetic click), so it passes a
+   *  no-op `onToggle` and drives `pressed` from the hold.
+   *  ★ Deliberately a NAMED, narrow bag rather than a `...rest` spread: the
+   *  primitive must keep sole ownership of every a11y attribute it emits, and
+   *  a rest spread would let a call site quietly overwrite `aria-pressed`,
+   *  `aria-label` or `type`. Widen the bag if a consumer needs more; do not
+   *  replace it with a spread. */
+  pressHandlers?: Pick<
+    ComponentProps<"button">,
+    | "onPointerDown"
+    | "onPointerUp"
+    | "onPointerLeave"
+    | "onPointerCancel"
+    | "onKeyDown"
+    | "onKeyUp"
+  >;
 }
 
 export function ToggleButton({
@@ -127,6 +146,7 @@ export function ToggleButton({
   variant = "toggle",
   ariaControls,
   preventFocusSteal,
+  pressHandlers,
 }: ToggleButtonProps) {
   // ★★ STATE IN THE TOOLTIP. The visible label is PINNED to what pressed=true
   //    enables, so it cannot say which state is live. The tooltip says it in
@@ -158,6 +178,7 @@ export function ToggleButton({
   return (
     <button
       type="button"
+      {...pressHandlers}
       onClick={onToggle}
       onMouseDown={preventFocusSteal ? (e) => e.preventDefault() : undefined}
       {...(variant === "disclosure"
