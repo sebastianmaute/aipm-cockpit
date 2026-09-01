@@ -8,6 +8,14 @@
 > tech-debt row was resolved while another was opened. That is the intended failure mode of this
 > file, not a defect in it — but it means a reader arriving a week from now should re-run before
 > believing any figure below.
+>
+> ★★★ **RE-MEASURED 2026-09-01 against `main` at 0.272.1 "Zoline" — every JUDGEMENT here held and
+> every NUMBER had moved.** §3's backlog and §7's sequence were both still right, §5's open/resolved
+> split still matched the register row for row, and §6's substance was unchanged; §1, §4, §5's
+> duplication figure and §6's hit count were all wrong, and two reproduce commands had been falsified
+> outright (both recorded at their sites). Eleven days. That ratio — judgements durable, counts
+> perishable — is the argument for the rule in the paragraph above, and the reason this file leads
+> with a command rather than a table.
 
 ## 1. Where the planning corpus lives — recovered, and now tracked
 
@@ -17,7 +25,8 @@ archives, and no single location held all of it. The ignore rule has been droppe
 committed. What follows records the recovery, because the recovery is the only reason the older
 material still exists.
 
-The tree now holds **218 specs + 238 plans**, spanning 2026-05-19 to 2026-08-20, assembled from
+The tree held **218 specs + 238 plans** at compile time, spanning 2026-05-19 to 2026-08-20 — on
+2026-09-01 it holds **252 + 270**. It was assembled from
 three sources that each held a different subset:
 
 | Source | Contributed |
@@ -126,8 +135,10 @@ list, along with sp3 and sp4. A memory note calling it unmerged was stale. Do no
 
 ## 4. `docs/open-followups.md`
 
-**193 sections, numbered 1–201**, no duplicates, 8 gaps (17–20, 23, 25–27) left by the consolidation
-slice. Re-measure with
+**193 sections, numbered 1–201** at compile time, no duplicates, 8 gaps (17–20, 23, 25–27) left by
+the consolidation slice. ★★★ **On 2026-09-01 it is 315 sections, numbered 1–324, still no
+duplicates, 9 gaps — the eight above plus 323.** That is **+122 sections in eleven days**, and it
+is the single fastest-rotting figure in this file. Re-measure with
 `grep -oE "^## [0-9]+." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1` for the max
 and `grep -cE "^## [0-9]+." docs/open-followups.md` for the count.
 
@@ -136,7 +147,11 @@ and `grep -cE "^## [0-9]+." docs/open-followups.md` for the count.
 §201 carries **no status suffix at all**, so on that same self-declared measure it joins *unmarked*
 (9→10) and *not closed* (135→136) while *open* stays at 118. It is substantively open, but saying
 that here would mix the two measures this paragraph exists to keep apart. Nothing checked whether
-anything else moved. ★★ Do not re-derive that split with a heading regex and call it a correction: a crude
+anything else moved. ★★★ **AND ON 2026-09-01 THAT SPLIT NO LONGER DESCRIBES MOST OF THE REGISTER.**
+It covered 192 of 193 sections when compiled — effectively a census. Against today's 315 it is a
+**minority sample of roughly 61%**, and `npm run followups:status:check` scans **174 open entries**
+against its 118. A stale census reads like a census; re-derive or ignore it, but do not reconcile
+today's numbers against it. ★★ Do not re-derive that split with a heading regex and call it a correction: a crude
 `open|CLOSED` match over the headings today returns **106 / 55 / 32-neither**, which disagrees with
 the hand count by twelve. That gap is not drift — it is the two incompatible status conventions
 below, and it is the measurement this file's own warning predicts.
@@ -220,7 +235,9 @@ assigned. Re-derive with `grep -n "^| TD-" docs/tech-debt-register.md`.
 
 ★★★ **TD-6 IS RESOLVED — the goal was already met and nobody had measured.** This file first
 recorded it as "stale numbers" (about 1.92% total against a 2.4% gate). Both figures were wrong and
-so was the framing: `npm run dup:check` reports **1.20%**, the Phase 1 baseline
+so was the framing: `npm run dup:check` reported **1.20%** on 2026-08-21 (**1.17%** on 2026-09-01 —
+the resolution below is unaffected, and the figure is dated rather than overwritten because it is
+part of a decision record), the Phase 1 baseline
 (`docs/baselines/jscpd-2026-07.json`) is **3.065%**, and 1.20/3.065 is **39%** against a ≤50%
 target. ★★ Two things got it there and neither alone would have: duplicated lines fell 2701→1833
 *and* the denominator grew 88k→153k — at the baseline's absolute line count today's tree would read
@@ -231,7 +248,16 @@ The deferred structural tail it had been saving for the last stretch was never n
 ★★ **TD-8 is RESOLVED — the migration shipped in 0.255.0 "Bisson" (2026-08-22).** `@heroicons/react`
 is gone from `package.json`, every former call site imports the `src/app/icons.ts` barrel, and an
 ESLint rule blocks the package's return. Re-derive rather than quoting:
-`grep -rln "@heroicons/react" src/app | wc -l` returns **0**.
+`grep -rn "from \"@heroicons/react" src/app | wc -l` returns **0**, as does
+`grep -c "@heroicons/react" package.json`.
+
+★★★ **THE COMMAND THIS LINE USED TO CARRY IS NOW FALSIFIED BY ITS OWN FIX, AND THAT IS THE POINT.**
+It read `grep -rln "@heroicons/react" src/app | wc -l` returns **0**. On 2026-09-01 it returns
+**1** — `src/app/icons.ts`, whose comment explains that the package is no longer used. Nothing
+regressed: there is still no import and no dependency. The bare package name was matched by the
+DOCUMENTATION of its own removal, which is this repo's `self-referential-grep` landmine reaching a
+prose register. **Anchor an absence grep on the syntax that would constitute the presence** — an
+`import`/`from` clause, a manifest key — never on the bare name, which prose will reintroduce.
 
 ★ What this row said before is worth keeping as a record of how the entry read while it was open:
 heroicons and `lucide-react` shipped side by side, 78 files against 1, owned and decided but with no
@@ -246,8 +272,12 @@ errors (`a698eac2` / `da9695d0`); it is no longer deferred or pending.
 
 ## 6. Code markers
 
-**Zero** TODO, FIXME, HACK or XXX markers in `src`, `scripts` or `e2e`. The single grep hit is the
-word TODO used as an example inside a gate's own docstring. Deferred work in this repo is tracked in
+**Zero** TODO, FIXME, HACK or XXX markers in `src`, `scripts` or `e2e`. The bare word-boundary grep
+returned **one** hit at compile time and returns **two** on 2026-09-01, neither of them a marker:
+`scripts/agents-symbols-lib.mjs` uses TODO as an example inside a gate's own docstring, and
+`src/app/jira-projects.test.ts` passes `"XXX-1"` as a Jira **issue key**. ★★ The count is the thing
+that moved; the finding did not. A marker sweep on a codebase that does not use markers measures how
+often those four letters occur for other reasons, which grows with the tree. Deferred work in this repo is tracked in
 prose registers, never in code comments — so a marker sweep finds nothing and proves nothing.
 
 ## 7. Suggested sequence
