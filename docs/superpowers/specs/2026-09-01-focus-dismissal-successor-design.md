@@ -104,6 +104,30 @@ if (e.shiftKey && (activeEl === first || outside)) { e.preventDefault(); last.fo
 else if (!e.shiftKey && (activeEl === last || outside)) { e.preventDefault(); first.focus(); }
 ```
 
+★★★ **THE `outside` TERM ABOVE IS WRONG AND THE SNIPPET IS KEPT ONLY AS THE RECORD OF IT.**
+`Node.contains` is REFLEXIVE — `card.contains(card)` is `true` — so when focus rests on the
+container itself, which is the entire case this slice exists to fix, `outside` is `false` and both
+arms still decline. Measured inside the real render by the C3 implementer, not reasoned: with
+`useFocusTrap(cardRef, …, cardRef)` in place and the containment term shipped, both new tour tests
+failed with `defaultPrevented === false`, `document.activeElement === card` and
+`card.contains(card) === true`.
+
+The correct term is MEMBERSHIP in the trap's own focusables, not containment:
+
+```ts
+const untrapped = activeEl === null || !items.includes(activeEl);
+```
+
+It strictly subsumes `outside` — every member of `items` is a container descendant — leaves a
+non-edge focusable alone, and yanks exactly when focus sits on nothing the trap cycles.
+
+★★ This one is worth more than its fix. The containment spelling was copied from `modal.tsx`,
+where it is correct, and it was justified in a comment naming the very case it does not cover — a
+`tabIndex={-1}` card focused for AT. A false claim that names its own blind spot is worse than
+silence: it tells the next reader the case is handled. `modal.tsx` is NOT defective for the same
+reason, and the reason is a different guard, not this term: it focuses the dialog root only when
+there is no focusable content at all, and its Tab branch special-cases that state separately.
+
 Two independent changes with one shared justification: the hook stops being an exception to the
 arbiter and starts obeying the same rule as the other two traps.
 
