@@ -266,6 +266,31 @@ describe("renderDocumentDocx — declared styles", () => {
     for (const id of used) expect(declared).toContain(id);
   });
 
+  /** ★★★ §333. The link WORKED and looked exactly like the words around it,
+   *  because nothing declared a `Hyperlink` style and nothing named one.
+   *
+   *  ★★ `w:type` is the half that matters here and the easy one to lose: a
+   *  `w:type="paragraph"` style of this id is declared, resolvable, and can
+   *  never be applied to a RUN — so the link would go on rendering in body
+   *  colour with every styleId assertion still green. */
+  it("declares Hyperlink as a CHARACTER style carrying a colour and an underline", async () => {
+    const styles = await part(doc([]), "word/styles.xml");
+    const el = Array.from(parseXml(styles).documentElement.children).find(
+      (s) => s.getAttribute("w:styleId") === "Hyperlink",
+    );
+    expect(el).toBeDefined();
+    expect(el!.getAttribute("w:type")).toBe("character");
+    const rPr = Array.from(el!.children).find((c) => c.tagName === "w:rPr");
+    expect(rPr).toBeDefined();
+    // Order asserted, not just membership: a style's own <w:rPr> is EG_RPrBase
+    // too, where w:color precedes w:u.
+    expect(Array.from(rPr!.children).map((c) => c.tagName)).toEqual(["w:color", "w:u"]);
+    expect(rPr!.getElementsByTagName("w:u")[0].getAttribute("w:val")).toBe("single");
+    // Both cues, not one. Underline alone would satisfy the palette test below
+    // and is the weaker affordance; colour alone fails WCAG 1.4.1 reasoning.
+    expect(rPr!.getElementsByTagName("w:color")[0].getAttribute("w:val")).toBe(COLOR_DARK_BLUE);
+  });
+
   it("colours the declared styles from the sanctioned palette only", () => {
     const hexes = [...DOC_STYLES.matchAll(/w:color w:val="([0-9A-F]{6})"/g)].map((m) => m[1]);
     expect(hexes.length).toBeGreaterThan(0);
@@ -943,6 +968,16 @@ describe("DOCX invariants Word fails silently on", () => {
     // is satisfied by a run that cannot fail the check it guards. Measured in
     // both directions.
     "<p><em><strong>bi</strong></em></p>",
+    // ★★★ A LINKED, MARKED run — the ONLY shape that puts a `w:rStyle` into the
+    // sweep, and invariant 4 was blind to it until §333 added the element. It
+    // has to carry a mark as well as the link: an rStyle-only `<w:rPr>` has one
+    // child and is in sequence order whatever the builder does, so the
+    // rStyle-leads-EG_RPrBase claim would never be exercised here.
+    // ★★ Only TWO of the sweep's three body paths render it as a link. The
+    // `cell` path calls `buildDocxTable` with no sink, so its run degrades to a
+    // plain marked one — deliberate, and it is what keeps the "no rStyle
+    // without a sink" property under this fixture too.
+    '<p><a href="https://intra/spec"><strong>linked bold</strong></a></p>',
   ].join("");
 
   /** `buildDocx`'s own `word/document.xml` — the WORKSPACE exporter's package.
@@ -1096,6 +1131,10 @@ describe("DOCX invariants Word fails silently on", () => {
     // marks, and copying its 0..6 here would rank two of the elements that
     // actually appear in the wrong place.
     const ORDER = [
+      // ★★ `w:rStyle` LEADS CT_RPr, ahead of the whole of EG_RPrBase — it is
+      // not a member of that group at all, which is why `DOCX_MARK_RPR`'s rank
+      // table does not carry it. Reached only by the fixture's linked run.
+      "w:rStyle",
       "w:rFonts",
       "w:b",
       "w:i",
@@ -1676,10 +1715,62 @@ describe("renderDocumentDocx — hyperlinks", () => {
     expect(relationship(all.get(DOC_RELS)!, ids[0])?.Target).toBe("https://intra/spec");
   });
 
+  /** ★★★ THE TWO-HALVES PIN (§333), and the reason it derives BOTH sides. A
+   *  `w:rStyle` naming a style the package does not declare is SILENTLY IGNORED
+   *  by Word — the link stays followable and stays drawn in body colour with no
+   *  underline — while every string assertion about the emitted XML passes.
+   *  That is the same trap the `DOC_STYLES` docblock records for `w:pStyle`, so
+   *  the claim here is MEMBERSHIP: the `w:val` read out of word/document.xml
+   *  must be a `w:styleId` word/styles.xml actually declares, as a CHARACTER
+   *  style. Restating the literal on both sides would pass with the two halves
+   *  renamed apart. */
+  it("names on the linked run a character style the package actually declares", async () => {
+    // ★★ THE LINK IS BOLD ON PURPOSE. An rStyle-only `<w:rPr>` has ONE child
+    //    and is in sequence order whatever the builder does, so a first-child
+    //    assertion over an UNMARKED link passes with the concatenation
+    //    reversed — measured: swapping `${rStyle}${props}` in `markedRun` left
+    //    the unmarked version of this test GREEN.
+    const all = await parts(linked('<p>see <a href="https://intra/spec"><strong>the spec</strong></a></p>'));
+    const hyperlink = parseXml(all.get("word/document.xml")!)
+      .getElementsByTagName("w:hyperlink")[0];
+    expect(hyperlink).toBeDefined();
+    const rPr = hyperlink.getElementsByTagName("w:rPr")[0];
+    expect(rPr).toBeDefined();
+    // POSITION, not presence — CT_RPr is an `xsd:sequence` and rStyle leads it.
+    expect(Array.from(rPr.children).map((c) => c.tagName)).toEqual(["w:rStyle", "w:b"]);
+    const used = rPr.children[0].getAttribute("w:val");
+    expect(used).toBeTruthy();
+
+    const declared = Array.from(parseXml(all.get("word/styles.xml")!).documentElement.children)
+      .filter((s) => s.getAttribute("w:type") === "character")
+      .map((s) => s.getAttribute("w:styleId"));
+    expect(declared).toContain(used);
+
+    // ★★ AND THE COMMON SHAPE — an UNMARKED link, which is what a document
+    //    actually holds. It has no mark properties, so it only gets an
+    //    `<w:rPr>` at all because the rStyle takes part in `markedRun`'s
+    //    emptiness test instead of being appended to its result. Bolding the
+    //    fixture above to make the ORDER observable removed the only unmarked
+    //    link from this file; measured, that left `props === ""` catchable by
+    //    ooxml-docx-primitives.test.ts alone.
+    const bare = await documentXml(linked('<p><a href="https://intra/spec">bare</a></p>'));
+    expect(bare).toContain(`<w:rPr><w:rStyle w:val="${used}"/></w:rPr>`);
+  });
+
+  it("leaves a link-free document's runs carrying no character style", async () => {
+    // The additive contract at the run level: an unlinked run must be exactly
+    // what it was before §333, so nothing in a link-free package names one.
+    const xml = await documentXml(doc([{ type: "paragraph", html: "<p>no links here</p>" }]));
+    expect(xml).not.toContain("w:rStyle");
+  });
+
   it("degrades an unsafe scheme to a plain run rather than relating it", async () => {
     const all = await parts(linked('<p><a href="javascript:alert(1)">click</a></p>'));
     const body = all.get("word/document.xml")!;
     expect(body).not.toContain("w:hyperlink");
+    // ★ And no character style either — a degraded link that still LOOKED like
+    //   one would invite the click the degrade exists to prevent.
+    expect(body).not.toContain("w:rStyle");
     // The TEXT survives — degrading must not delete the user's words.
     expect(textNodes(body)).toContain("click");
     expect(all.get(DOC_RELS)!).not.toContain("javascript:");

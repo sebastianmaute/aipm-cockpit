@@ -909,6 +909,48 @@ describe("buildDocx link relationships", () => {
     const files = await unzipBlob(buildDocx([sectionWith("<p>plain</p>")]));
     expect(files.get("word/_rels/document.xml.rels")!).not.toContain('TargetMode="External"');
     expect(files.get("word/document.xml")!).not.toContain("<w:hyperlink");
+    // ★ And no character style: an unlinked run is byte-identical to what it
+    //   was before §333 declared one.
+    expect(files.get("word/document.xml")!).not.toContain("w:rStyle");
+  });
+
+  /** ★★★ §333 REACHES THIS EXPORTER TOO, and the register named only
+   *  `renderDocumentDocx`. Both consumers pass `DOC_STYLES` to
+   *  `buildDocxPackage` and both route their runs through `markedRun`, so the
+   *  defect and the fix are shared — but "shared by construction" is an
+   *  argument, not an assertion, and this file's own deleted-test comment in
+   *  `ooxml-docx-primitives.test.ts` records what that costs. So the workspace
+   *  package is opened and read here in its own right.
+   *
+   *  ★★ BOTH HALVES, DERIVED. Word SILENTLY IGNORES a `w:rStyle` naming a style
+   *  the package does not declare — the run keeps body colour while the emit
+   *  assertion stays green — so the styleId is read out of the BODY and looked
+   *  up in styles.xml, never restated on both sides. */
+  it("styles a linked run with a character style the package declares", async () => {
+    // ★★ BOLD ON PURPOSE, and it is what makes the position assertion below
+    //    mean anything: an rStyle-only `<w:rPr>` has ONE child and opens with
+    //    it whatever the builder does. Measured — reversing the concatenation
+    //    in `markedRun` leaves the UNMARKED variant of this test green.
+    const files = await unzipBlob(
+      buildDocx([sectionWith('<p>see <a href="https://intra/spec"><strong>the spec</strong></a></p>')]),
+    );
+    const doc = files.get("word/document.xml")!;
+    // POSITION, not presence: CT_RPr is an `xsd:sequence` and w:rStyle leads
+    // it, so the property must OPEN the run's <w:rPr> — ahead of the `w:b`.
+    expect(doc).toContain(`<w:rPr><w:rStyle w:val="Hyperlink"/><w:b/></w:rPr>`);
+    const used = doc.match(/<w:rStyle w:val="([^"]+)"\/>/)?.[1];
+    expect(used).toBeTruthy();
+    expect(files.get("word/styles.xml")!).toContain(
+      `<w:style w:type="character" w:styleId="${used}">`,
+    );
+
+    // ★★ AND THE COMMON SHAPE — an UNMARKED link. It carries no mark
+    //    properties, so it gets an `<w:rPr>` only because the rStyle takes part
+    //    in `markedRun`'s emptiness test rather than being appended to its
+    //    result. Bolding the fixture above to make the ORDER observable is what
+    //    made this line necessary.
+    const bare = await unzipBlob(buildDocx([sectionWith(LINKED)]));
+    expect(bare.get("word/document.xml")!).toContain(`<w:rPr><w:rStyle w:val="${used}"/></w:rPr>`);
   });
 
   /** ★★ THESE PIN THE CALL SITE, NOT THE PROJECTION. `cellTextWithLinks` is

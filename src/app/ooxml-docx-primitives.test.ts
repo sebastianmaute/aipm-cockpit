@@ -463,6 +463,89 @@ describe("docxRichParagraphs — hyperlinks", () => {
     expect(sink.rels()).toEqual([]);
   });
 
+  // ★★★ THE `Hyperlink` CHARACTER STYLE (§333). Before it, a link was
+  // followable and drawn in ordinary body colour with no underline — it looked
+  // exactly like the words around it, which is most of what §119 was filed to
+  // deliver. `w:rStyle` is the FIRST child of `<w:rPr>` (CT_RPr is an
+  // `xsd:sequence`, and rStyle leads EG_RPrBase), so these read the child ORDER
+  // off the parsed tree rather than asserting mere presence: a presence-only
+  // assertion passes at any order, and a run whose properties come out in
+  // another order is schema-INVALID.
+  //
+  // ★★ THIS FILE CANNOT WITNESS THE FIX ON ITS OWN. A `w:rStyle` naming a style
+  // the package does not DECLARE is silently ignored by Word, and
+  // `docxRichParagraphs` emits no styles.xml. The declaration half, and the
+  // derived membership check that ties the two together, live in
+  // `doc-render-docx.test.ts` and `export-ooxml.test.ts` — one per consumer.
+  describe("the Hyperlink character style", () => {
+    /** The child tag names of the `<w:rPr>` inside the fragment's first
+     *  `<w:r>`, in document order, or `[]` when that run carries none. */
+    function runRPrChildren(fragment: string): string[] {
+      const parsed = parseXml(
+        `<w:root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+          `${fragment}</w:root>`,
+      );
+      const r = parsed.getElementsByTagName("w:r")[0];
+      expect(r).toBeDefined();
+      const rPr = Array.from(r.children).find((el) => el.tagName === "w:rPr");
+      return rPr === undefined ? [] : Array.from(rPr.children).map((el) => el.tagName);
+    }
+
+    it("opens a linked run's w:rPr with the rStyle, and nothing else", () => {
+      const sink = createLinkSink(2);
+      const xml = docxRichParagraphs('<p><a href="https://intra/spec">the spec</a></p>', sink);
+      expect(runRPrChildren(xml)).toEqual(["w:rStyle"]);
+      expect(xml).toContain(`<w:rStyle w:val="Hyperlink"/>`);
+    });
+
+    it("keeps the rStyle ahead of a linked run's mark properties", () => {
+      // ★ The marks the run also carries are what make the ORDER observable —
+      //   the test above cannot tell first from only.
+      const sink = createLinkSink(2);
+      const xml = docxRichParagraphs('<p><a href="https://a"><b><i>x</i></b></a></p>', sink);
+      expect(runRPrChildren(xml)).toEqual(["w:rStyle", "w:b", "w:i"]);
+    });
+
+    it("leaves an unlinked run's properties exactly as they were", () => {
+      // The additive contract at the run level: a marked run keeps only its
+      // marks, and an unmarked one still emits NO `<w:rPr>` at all — which the
+      // empty array alone would not distinguish from an empty one.
+      const sink = createLinkSink(2);
+      const bold = docxRichParagraphs("<p><b>bold</b></p>", sink);
+      expect(runRPrChildren(bold)).toEqual(["w:b"]);
+      expect(bold).not.toContain("w:rStyle");
+      const plain = docxRichParagraphs("<p>plain</p>", sink);
+      expect(runRPrChildren(plain)).toEqual([]);
+      expect(plain).not.toContain("<w:rPr>");
+    });
+
+    /** ★★★ THE SEPARATING INPUT FOR A MUTANT THAT OTHERWISE SURVIVES ALL
+     *  THREE DOCX TEST FILES. Keying the rStyle off the parse-side `href`
+     *  rather than the resolved `hyperlinkRelId` — one identifier — was green
+     *  everywhere, measured, and the reason is that the two differ on only two
+     *  inputs. An UNSAFE scheme is not one of them: `safeLinkTarget` drops it
+     *  during the parse, so such a run reaches `markedRun` with no `href` at
+     *  all and the "degrades an unsafe scheme" tests cannot tell the two
+     *  spellings apart.
+     *
+     *  ★★ The other is THIS: a caller that passes NO SINK. `renderRun` then
+     *  returns the run untouched, `href` intact and `hyperlinkRelId` never
+     *  minted — which is the whole of the "the sink being OPTIONAL" contract
+     *  that keeps every pre-existing caller byte-identical. Under the mutant
+     *  such a run wears the `Hyperlink` style with NO `<w:hyperlink>` wrapper:
+     *  text drawn as a link that cannot be followed, which is §333's defect
+     *  inverted and worse. `buildDocxTable` is called without links today, so
+     *  this is a live path, not a hypothetical one. */
+    it("adds no character style to a link when the caller passes no sink", () => {
+      const xml = docxRichParagraphs('<p><a href="https://intra/spec">the spec</a></p>');
+      expect(xml).not.toContain("w:rStyle");
+      expect(xml).not.toContain("w:hyperlink");
+      // Positive observable — a render that dropped the run entirely would
+      // satisfy both negatives while proving nothing.
+      expect(xml).toContain("the spec");
+    });
+  });
+
   // ★★★ A TEST NAMED "gives a dataSection block the same link fidelity as the
   // register's own export" WAS DELETED FROM HERE, and the deletion is the point
   // worth recording. It imported no `doc-render-docx`, called no `renderBlock`,

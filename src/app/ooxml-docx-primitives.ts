@@ -63,7 +63,18 @@ export function docxCellRuns(value: string | number): string {
  *  style styles.xml does not carry is SILENTLY IGNORED by Word, so the line
  *  renders as body text while every string assertion about the emitted XML
  *  still passes. Splitting the emitter from the declaration is how that gets
- *  reintroduced. BOTH callers of `buildDocxPackage` must pass this. */
+ *  reintroduced. BOTH callers of `buildDocxPackage` must pass this.
+ *
+ *  ★★★ `Hyperlink` IS THE ONE `w:type="character"` STYLE HERE, and it is half
+ *  of a pair: `markedRun` below names it on every run that resolved to a
+ *  relationship id. Word ignores a `w:rStyle` naming an undeclared style
+ *  exactly as it ignores an undeclared `w:pStyle`, so shipping either half
+ *  alone is SILENT — the link stays followable and stays drawn in body colour
+ *  with no underline, which is §333's defect. Its colour is `COLOR_DARK_BLUE`,
+ *  the same value `buildPptxTheme`'s `<a:hlink>` already carries, so the two
+ *  formats agree; Word's conventional link blue is off-palette and the palette
+ *  test rejects it. Inside a style's own `<w:rPr>` the sequence is EG_RPrBase
+ *  too, so `w:color` precedes `w:u`. */
 export const DOC_STYLES = `
   <w:style w:type="paragraph" w:styleId="Heading1">
     <w:name w:val="heading 1"/>
@@ -110,6 +121,10 @@ export const DOC_STYLES = `
       <w:ind w:left="360"/>
     </w:pPr>
     <w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:color w:val="${COLOR_TEXT}"/><w:sz w:val="20"/></w:rPr>
+  </w:style>
+  <w:style w:type="character" w:styleId="Hyperlink">
+    <w:name w:val="Hyperlink"/>
+    <w:rPr><w:color w:val="${COLOR_DARK_BLUE}"/><w:u w:val="single"/></w:rPr>
   </w:style>`;
 
 /** How a mark becomes a Word run property, and WHERE inside `<w:rPr>` it goes.
@@ -220,8 +235,11 @@ function renderRun(run: TextRun, links: LinkSink | undefined): RenderRun {
  *  ★ `docxCellRuns` still does the escaping and the newline→<w:br/> mapping, so
  *  body text and table cells cannot diverge on either. It emits `<w:t>` only —
  *  the `<w:r>` wrapper is the caller's, here and in `para`.
- *  ★ An unmarked run emits NO `<w:rPr>` at all, so plain prose is byte-identical
- *  to what `para` produced before this path existed.
+ *  ★ An unmarked, UNLINKED run emits NO `<w:rPr>` at all, so plain prose is
+ *  byte-identical to what `para` produced before this path existed. A LINKED
+ *  run always carries one, because it always carries the `Hyperlink` rStyle —
+ *  which is why the rStyle takes part in the emptiness test rather than being
+ *  bolted onto its result.
  *
  *  ★ Each linked run is wrapped INDIVIDUALLY rather than grouping adjacent runs
  *  that share a target. Consecutive `<w:hyperlink>` elements are valid and Word
@@ -233,7 +251,18 @@ function markedRun(run: RenderRun): string {
     .sort((a, b) => DOCX_MARK_RPR[a].rank - DOCX_MARK_RPR[b].rank)
     .map((mark) => DOCX_MARK_RPR[mark].xml)
     .join("");
-  const rPr = props === "" ? "" : `<w:rPr>${props}</w:rPr>`;
+  // ★★★ `w:rStyle` LEADS `<w:rPr>`. CT_RPr is an `xsd:sequence` and rStyle is
+  // its FIRST child, ahead of every EG_RPrBase member `DOCX_MARK_RPR` emits —
+  // which is why it is prepended rather than given a rank in that table. It is
+  // not a mark either: it is decided by the run's RESOLVED relationship id, not
+  // by HTML nesting.
+  // ★★ It must participate in the emptiness test, not be appended to it: a
+  // linked run carrying NO marks has `props === ""` and still needs an
+  // `<w:rPr>`. An unlinked, unmarked run still emits none at all, which is what
+  // keeps plain prose byte-identical.
+  const rStyle = run.hyperlinkRelId === undefined ? "" : `<w:rStyle w:val="Hyperlink"/>`;
+  const inner = `${rStyle}${props}`;
+  const rPr = inner === "" ? "" : `<w:rPr>${inner}</w:rPr>`;
   const r = `<w:r>${rPr}${docxCellRuns(run.text)}</w:r>`;
   if (run.hyperlinkRelId === undefined) return r;
   // ★★★ `xmlns:r` IS DECLARED HERE, ON THE ELEMENT, and that is load-bearing.
