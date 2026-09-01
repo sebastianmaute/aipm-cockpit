@@ -268,6 +268,51 @@ describe("ActionsPanel", () => {
       expect(ai.onClear).toHaveBeenCalled();
     });
 
+    // §328 — every AI row's "Open"/"Discuss in chat" button used to qualify
+    // itself with the RAW `action.title`, which is model-generated FREE TEXT and
+    // can repeat. Two collisions were live at once:
+    //   · WITHIN the AI list — two AI actions sharing a title. That the title is
+    //     not unique is already conceded by the list key, `${a.title}:${i}`.
+    //   · ACROSS lists — `aiAnalysis?.result` and `groups.length` are gated
+    //     INDEPENDENTLY and render simultaneously, so an AI action titled like a
+    //     group row produced two identical "Open – <title>" names.
+    //
+    // ★★★ THE FIXTURE IS BUILT TO KILL BOTH HALVES OF THE FIX, and each half is
+    //    killed by a DIFFERENT one of the three AI rows — measured, not reasoned:
+    //      · Drop the TOKEN (name = verb + section only) and the two "Duplicate"
+    //        rows share a name.
+    //      · Drop the SECTION segment and the third AI row — whose title equals
+    //        the group's, and which is ALONE in the AI token map under that
+    //        title, so its token comes out BARE — collides with the hero's Open.
+    //    Neither row alone covers both: with only the "Duplicate" pair, dropping
+    //    the section leaves them numbered "(1)"/"(2)" and nothing collides.
+    // ★ The group's lone action becomes the HERO (`groups[0]`, tier !== monitor),
+    //   so the cross-list pair is hero-Open vs AI-Open. `expertMode` is off, so
+    //   no score tooltips render and the Open buttons carry the whole assertion.
+    it("gives every AI row a name unique within the AI list and against the group list (§328)", () => {
+      const groupTitle = t("en-US", "actionRaidTitle", 1, "Shared");
+      const result: ActionAnalysis = {
+        summary: "",
+        actions: [
+          { title: "Duplicate AI action", why: "a", severity: "now", entity: { view: "raid", id: "1" } },
+          { title: "Duplicate AI action", why: "b", severity: "now", entity: { view: "raid", id: "2" } },
+          { title: groupTitle, why: "c", severity: "now", entity: { view: "raid", id: "3" } },
+        ],
+      };
+      render(
+        <ActionsPanel
+          lang="en-US"
+          actions={[{ ...mk("g1", "now"), title: { ...SHARED_TITLE } }]}
+          onOpen={() => {}}
+          aiAnalysis={baseAi({ result })}
+        />,
+      );
+      // MEASURED for this fixture: 3 AI row buttons + the AI dismiss + the hero's
+      // Open + Analyze with AI + Print + reset-size. Exact, so a silently
+      // narrowed `roles` list cannot slip back in.
+      expectRowUniqueNames({ minControls: 8, roles: ["button"], requireCollisionSeed: true });
+    });
+
     it("shows a status-only error when present", () => {
       render(
         <ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={baseAi({ error: "429" })} />,

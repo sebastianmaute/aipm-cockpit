@@ -109,6 +109,21 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
     [groups, lang],
   );
 
+  // §328 — the AI list is its OWN naming population, tokenised separately from
+  // `actionTokens` above. An `AiAction` carries no stable id, so the INDEX is
+  // the id, matching the list key this section already uses.
+  // ★★ SEPARATE ON PURPOSE, and the section segment in `AiActionRow` is what
+  //    makes that safe: folding AI actions into the group map would renumber
+  //    every group row whenever an analysis appears or disappears, and the
+  //    groups are the stable population the rest of the panel depends on.
+  // ★ Hoisted to a local const because `react-hooks/exhaustive-deps` rejects an
+  //   `obj.member` dependency, and every lint warning is fatal here.
+  const aiActions = aiAnalysis?.result?.actions;
+  const aiActionTokens = useMemo(
+    () => buildRowTokens((aiActions ?? []).map((a, i) => ({ id: i, name: a.title }))),
+    [aiActions],
+  );
+
   // Shared handler/config props threaded identically to ActionRow and ActionHeroCard.
   // ★ `rowToken` is deliberately NOT folded in here — `rowProps` is by definition
   //   the props identical for every row, and this one is per-instance.
@@ -224,7 +239,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
           )}
           <div className="flex flex-col gap-2">
             {aiAnalysis.result.actions.map((a, i) => (
-              <AiActionRow key={`${a.title}:${i}`} lang={lang} action={a} onAct={aiAnalysis.onActAi} />
+              <AiActionRow key={`${a.title}:${i}`} lang={lang} action={a} rowToken={aiActionTokens.get(i) ?? a.title} onAct={aiAnalysis.onActAi} />
             ))}
           </div>
         </section>
