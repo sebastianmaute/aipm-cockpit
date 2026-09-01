@@ -906,19 +906,32 @@ card wraps to the FIRST in-card control" — plus a rewritten `dismissal-integra
 `npx vitest run --maxWorkers=1 src/app/tour-overlay.test.tsx src/app/dismissal-integration.test.tsx`.
 
 ★★★ **THE TERM THAT MADE IT WORK IS MEMBERSHIP, NOT CONTAINMENT, and the slice was nearly shipped
-believing containment covered it.** `Node.contains` is REFLEXIVE, so the `tabIndex={-1}` card the
-overlay focuses on open reports as INSIDE its own container: measured in the real render,
-`activeElement === card` and `card.contains(card)` are both true, and both Tab arms declined with
-`defaultPrevented === false`. `use-focus-trap`'s Tab branch now tests membership in its own
-focusables, which subsumes containment and still leaves a non-edge focusable alone. ★★ `modal.tsx`
-carries the CONTAINMENT spelling and is NOT defective for it — a different guard covers it there.
-Read the hook's own comment before copying either term across.
+believing containment covered it** — `Node.contains` is REFLEXIVE, so the `tabIndex={-1}` card the
+overlay focuses on open reports as INSIDE its own container. The measurement, the reason `modal.tsx`
+is NOT defective for carrying the containment spelling, and the bound on how much wider membership
+is, all live in ONE place: the `★★★ THE TEST IS MEMBERSHIP, NOT CONTAINMENT` block in
+`use-focus-trap.ts`. Read it there before copying either term across. ★ It is deliberately not
+restated here — this measurement had reached five near-identical copies across the docs and the
+source by the end of this slice, which is the restate-instead-of-link failure the doc-set rule in
+`AGENTS.md` exists to prevent.
 
-**Everything below is the PRE-FIX record**, kept because it is the argument for the pairing rule and
-for why the second option was rejected.
+**Most of what follows is the PRE-FIX record**, kept because it is the argument for the pairing rule
+and for why the second option was rejected — but NOT all of it, and reading it as all history is how
+the live half gets skipped. Still current below: the gate paragraph (no axe rule exists, and the
+tour is still outside `A11Y_VIEWS`, so the two new unit tests remain the only detector — do not
+delete them as redundant) and the note on `use-tour.ts`'s render-time auto-launch, which is still
+the one push site in the app that is not a user gesture.
 
-**Where:** `tour-overlay.tsx` — `role="dialog"` + `aria-modal="true"` at `:96-97`; the file imported
-`useDismissable` (`:13`) and nothing else. There was no `useFocusTrap` import until this fix.
+**Where:** `tour-overlay.tsx` — the card carries `role="dialog"` + `aria-modal="true"`, and the file
+imported `useDismissable` and nothing else; there was no `useFocusTrap` import until this fix.
+★★★ THE LINE NUMBERS THAT USED TO SIT IN THIS PARAGRAPH WERE REMOVED, NOT RENUMBERED, and the reason
+is the whole argument for citing symbols. The fix moved the file, and every one of them then pointed
+at something that CONTRADICTED the sentence carrying it: the cite for "imported `useDismissable`"
+landed on `import { useFocusTrap }`, the cite for `role="dialog"` landed on the backdrop `<div>`, and
+the cite for the `kind: "layer"` push landed inside the new comment that says the surface now
+contains Tab. `docs:claims:check` stayed green throughout — it ratchets on NEW citations and cannot
+see an old one turn into its own refutation. Reproduce today with
+`grep -n 'role="dialog"\|aria-modal\|useFocusTrap' src/app/tour-overlay.tsx`.
 
 Shift+Tab from the overlay's first button walks straight into the app behind the dimmed backdrop.
 The `aria-modal="true"` tells assistive tech a containment story the keyboard does not honour —
@@ -24840,7 +24853,11 @@ case it was written for.** This commit added a CONTAINMENT term (`!container.con
 `25b69812` replaced it with MEMBERSHIP in the trap's own focusables, because `Node.contains` is
 reflexive and a `tabIndex={-1}` container node reports as inside itself. See §8.
 
-**Everything below is the PRE-FIX record.**
+**Most of what follows is the PRE-FIX record** — but not all of it, and a blanket banner over a
+section that is part live is how the live half gets skipped. Still current below: the paragraph
+explaining why the Escape gating was deliberate (the RULE survives; only its mechanism moved from
+staying out of the stack to declining inside it), and the bannered note on the yank-versus-inert
+reproduce, which describes today's divergence between this hook and `modal.tsx`.
 
 Its Tab branch was gated on `active` ALONE (`if (!active) return;` in the keydown effect), while its
 stack PUSH was gated on `active && hasEscape`. `inline-ai-edit-popover` calls
@@ -24892,8 +24909,11 @@ grep -n -B6 -A10 "contains(active)" src/app/modal.tsx
 ★★★ **THAT REPRODUCE NOW ANSWERS DIFFERENTLY, and it is the reason this paragraph is bannered rather
 than deleted.** The hook's Tab body no longer compares against `first`/`last` and nothing else: it
 carries an `untrapped` term, so focus on none of its own focusables is pulled back in rather than
-ignored. Run the first command and you will see the term; the INERT description above is the state
-before `0c1cb2c7`, kept because the yank-versus-inert distinction is the durable lesson. ★ Note the
+ignored. ★★ The first command above will NOT show you that — its `-A14` window stops inside the
+comment block, tens of lines short of the term, so a reader runs it, sees prose, and concludes the
+entry is confused rather than dated. Use `grep -n untrapped src/app/use-focus-trap.ts` instead. The
+INERT description above is the state before `0c1cb2c7`, kept because the yank-versus-inert
+distinction is the durable lesson. ★ Note the
 hook's term is MEMBERSHIP and `modal.tsx`'s is CONTAINMENT — the second command still prints the
 containment spelling, and that is not drift; see §8 for why the two differ deliberately.
 

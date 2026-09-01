@@ -279,8 +279,15 @@ Not optional and not a follow-up. Each of these currently states the defect as l
   not an instruction.
 - `dismissal-stack.ts`'s `isTopmostOfKind` docstring names `PopoverPanel` as the example of a
   surface that flipped its kind on gaining a trap. A second example now exists.
-- `docs/open-followups.md` §8 and §318 — each a FOUR-place edit (heading marker, summary-table
-  STATUS cell, summary-table ANCHOR, and the `**Status:**` witness).
+- `docs/open-followups.md` §8 and §318. ★★★ **THE FOUR-PLACE RULE UNDERCOUNTS BOTH, and this line
+  said four.** Measured while closing them: §318 is FIVE — heading, summary-table LABEL cell,
+  summary-table STATUS cell, table ANCHOR, `**Status:**` witness — plus a sixth if you count the
+  anchored cross-reference inside §100, whose CLAIM ("with the one exception filed as §318") this
+  slice falsifies, so re-pointing the link alone would leave a correctly-linked lie. §8 is SIX: the
+  same five, plus two further live-state claims in its own body (its regression-detector paragraph,
+  whose second half the fix satisfies, and a directive pointing at AGENTS.md prose that has both
+  MOVED to `docs/AGENTS/ui-shell.md` and inverted). The rule counts the places a TEMPLATE touches;
+  it cannot count the places an entry's own prose asserts the defect is live.
 
 ★★ The AGENTS.md summary of the dismissal stack does not restate any of the above, so it needs no
 edit — verify that with a grep rather than trusting this line.

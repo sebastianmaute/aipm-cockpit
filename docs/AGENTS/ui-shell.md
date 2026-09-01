@@ -492,13 +492,17 @@ commits that merely added comments above it; its `onChange` is
   (`docs/open-followups.md` §318, CLOSED 2026-09-01). Verify rather than trust
   this — the command below now returns THREE real call sites, `modal.tsx`,
   `popover-panel.tsx` and `use-focus-trap.ts`; everything else it prints is the
-  declaration, their imports, or prose (what keeps it off THIS file, so the
-  quoted command cannot count itself, is the `src/app` PATH ROOT — NOT the
-  `--include`s, which change nothing here: re-measured 2026-09-01, the command
-  returns the SAME line count with them and without, while dropping the path
-  root multiplies it several-fold by picking up this file and its peers — no
-  total is quoted, because every added call site and every sentence like this
-  one moves one of them):
+  declaration, their imports, or prose. ★★★ TWO GUARDS KEEP IT OFF THIS FILE
+  AND EITHER ONE SUFFICES — an earlier wording credited the `src/app` PATH ROOT
+  and explicitly ACQUITTED the `--include`s, which is backwards, because a
+  `.md` file cannot match `--include=*.ts --include=*.tsx` at any path root.
+  Measured 2026-09-01, all four variants: path root WITH includes 13, path root
+  WITHOUT them 13 (so the includes are redundant *while the root is there* —
+  that much of the old claim held), root dropped but includes KEPT **14** (one
+  `.ts` spec, still no docs), and only with BOTH dropped does it reach the
+  several-fold figure the old sentence attributed to the root alone. No total
+  is quoted for the command itself, because every added call site and every
+  sentence like this one moves it:
   `grep -rn "isTopmostOfKind" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
   LANDMINE (bit twice): the keydown effect must depend on `[open]` ALONE and read `onClose` via a ref —
   if it deps `[open, onClose]`, an unstable parent `onClose` identity (re-created each render/keystroke)
