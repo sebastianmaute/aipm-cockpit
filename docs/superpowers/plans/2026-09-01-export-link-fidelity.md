@@ -568,7 +568,34 @@ Two mutants, run and reverted one at a time:
 
 Record each as `N failed / M passed`, assert each mutant landed, revert by inverse anchored write, and finish on a clean `git diff --stat`.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 8: Pin the `dataSection` consumer**
+
+★★ **`export-sections.ts` has a consumer a file-name diff does not show.** `doc-data-section.ts`'s
+`resolveDataSection` calls the REAL `buildExportSections` and returns the section unchanged, so a
+document's `dataSection` block renders through these same sinks. Five call sites resolve it —
+`doc-render-docx.ts`, `doc-render-html.ts`, `doc-render-pptx.ts`, plus `document-preview.tsx` and
+`documents-history-modal.tsx` on the UI side.
+
+The HTML path needs nothing: `tableHtml` sends every cell through `exportCellHtml`, which renders a
+`RichCell` as markup, so links already survive there and in the in-app preview. The DOCX and PPTX
+paths inherit this task's change and Task 6's. Pin that inheritance, because it is the property
+`tableHtml`'s own docblock names as the goal — "a document embedding the RAID register gets the
+same fidelity as the register's own export":
+
+```ts
+  it("gives a dataSection block the same link fidelity as the register's own export", () => {
+    // A document embedding a register whose rich column carries a link must
+    // reach .docx as a real hyperlink, not as flattened text — the dataSection
+    // path resolves through the REAL buildExportSections, so it shares these
+    // sinks with the workspace exporter by construction.
+    const sink = createLinkSink(2);
+    const xml = docxRichParagraphs('<p><a href="https://intra/raid">mitigation</a></p>', sink);
+    expect(xml).toContain('<w:hyperlink xmlns:r=');
+    expect(sink.rels()).toHaveLength(1);
+  });
+```
+
+- [ ] **Step 9: Commit**
 
 ```bash
 npx tsc --noEmit; echo "EXIT=$?"
