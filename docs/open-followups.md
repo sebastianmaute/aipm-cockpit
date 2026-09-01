@@ -1754,10 +1754,21 @@ been worse than deleting it.
 
 **Status:** CLOSED 2026-09-01 on `fix/export-link-fidelity`. The first of the two options below was
 taken, in the narrow form the second bullet of the closure describes. Witness:
-`grep -rn "cellTextWithLinks" src/app/export-xlsx.ts src/app/export-pptx.ts src/app/doc-render-pptx.ts`
-returns the three flat sinks that adopted it, and
+`grep -rn "cellTextWithLinks" src/app/export-xlsx.ts src/app/doc-render-pptx.ts`
+returns the TWO flat sinks that kept it, and
 `grep -n "leaves htmlToText byte-unchanged" src/app/sanitize-html.test.ts` returns the positive pin
 that keeps the prohibition below enforced rather than merely stated.
+
+★★★ **THAT WITNESS SAID "THREE" UNTIL 2026-09-01 AND NAMED `export-pptx.ts` AMONG THEM — corrected
+here, and the correction is the more useful record.** The workspace `.pptx` exporter LEFT the flat
+set later the same day: its row slides mint real per-slide relationships now (§330's scope clause
+carries the reasoning). So this entry's own reproduce command, run as written, returned two matches
+under a sentence claiming three — a closed entry falsified by a later commit on the same branch,
+with every doc gate green over it, because `docs:claims:check` proves only that a cited line COULD
+exist and `docs:symbols:check` only that a NAME is real. Neither reads a count or a claim.
+★★ The decision this entry records is UNCHANGED — a real link where the sink allows one, `text (url)`
+where it does not. What changed is which sinks allow one, and that is exactly the kind of fact a
+closure sentence pins by accident while meaning to pin something else.
 
 **What the defect was.** Found by the adversarial sweep of 0.210.0, after that release routed
 `Task.description` through the export projection.
@@ -17152,7 +17163,27 @@ crafted `alt` keeps a genuinely drawn image out of the drawn count, which over-r
 
 ## 219. The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them
 
-**Status:** open — OWED manual verification, not automatable in this repo. 2026-08-28: never machine-verified — and structurally unverifiable here, since the repo carries no Office-reading dependency. It needs a human opening the generated .docx in Word and in LibreOffice Writer, and the .pptx in PowerPoint, and recording what they saw in this entry.
+**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. 2026-09-01: PARTIALLY DISCHARGED — never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. What remains needs a human opening the generated .docx in Word and in LibreOffice Writer, and the .pptx in PowerPoint, and recording what they saw in this entry.
+
+★★ **2026-09-01 — THE ACCEPTANCE HALF IS DISCHARGED, AND IT IS THE HALF THIS ENTRY SINGLES OUT AS
+THE ONE THAT HISTORICALLY FAILS.** During the `fix/export-link-fidelity` manual pass a human opened
+all four artifacts emitted by `npx jiti scripts/sample-link-exports.ts <dir>` — `document-renderer`
+and `workspace-exporter`, `.docx` and `.pptx` — in **Word and in LibreOffice**. Every one opened
+with **no repair prompt**. That answers item 1's leading risk (a package byte-perfect against its
+own spec reading and still rejected over a relationship or content-type detail no substring
+assertion looks at) for the DOCX and PPTX writers as they stand today, including the newly added
+`<w:hyperlink>`, the `<w:style w:type="character">` in `styles.xml`, and the per-slide
+`<a:hlinkClick>` relationships.
+
+★★★ **DO NOT READ THAT AS COVERING THE IMAGE WORK. It was a LINK pass.** The fixture does embed a
+real truecolour PNG, so an image was present in two of the four packages — but nobody was asked to
+check render size, order, or the paragraph split around it, and a reader reporting "working" about
+links has said nothing about any of that. Items **3 (PDF through the print dialog)**, **4
+(over-budget placeholder)**, **5 (dangling asset)**, **6 (WebP in a perpetual Word)** and **7 (deck
+length)** were not exercised at all, and items 1-2 are discharged only for ACCEPTANCE, not for
+fidelity. Recording a link pass as an image pass would retire this entry while leaving the defect
+class it was filed for completely unverified — which is worse than leaving it open, because the next
+reader would stop looking.
 
 Nothing here can open an Office file. `unzipBytes` proves the package holds the parts and bytes the
 builders intended; it says nothing about whether Word, LibreOffice Writer or PowerPoint ACCEPT the
@@ -25724,10 +25755,15 @@ declares a `w:type="character"` style `Hyperlink` (`COLOR_DARK_BLUE` + `<w:u w:v
 `markedRun` opens a resolved run's `<w:rPr>` with `<w:rStyle w:val="Hyperlink"/>`. Verified by
 `npx vitest run src/app/doc-render-docx.test.ts src/app/ooxml-docx-primitives.test.ts src/app/export-ooxml.test.ts src/app/ooxml-package-manifest.test.ts --maxWorkers=1`
 (179 passed) and by `git diff --stat -- docs/baselines/ooxml-parts.json` staying EMPTY.
-★★ NOT machine-verified, and it cannot be here: how the result LOOKS in Word. Nothing in this repo
-opens a `.docx`, so the rendering claim is still read off the format's semantics — the manual pass
-that found this defect is what would confirm the fix, and it is owed (§219 carries the same debt for
-the OOXML media work).
+★★ **EYE-VERIFIED 2026-09-01 — the debt this line used to record is DISCHARGED.** A human opened
+the regenerated `document-renderer.docx` and `workspace-exporter.docx` in **Word and in
+LibreOffice**: both open without a repair prompt and the links now read as links. That is what
+closes it; nothing in this repo opens a `.docx`, so the claim could never have been machine-made.
+★ The FIRST pass — same files, before this fix — is what found the defect: the links were followable
+and drawn in body colour, exactly as the format's semantics predicted. So both the prediction and
+its remedy were confirmed by eye, in that order, which is the strongest evidence this class admits.
+★★ Scope it honestly: this discharges the STYLING claim for these two artifacts only. §219's image,
+budget, dangling, WebP, deck-length and PDF items are untouched by a link-focused pass and stay open.
 
 ★★★ **THE ENTRY'S SCOPE CLAIM WAS TOO NARROW, AND THE FIX IS WIDER THAN THE TITLE.** Everything below
 this line named `renderDocumentDocx` alone. The human's manual pass confirmed the same invisible link
