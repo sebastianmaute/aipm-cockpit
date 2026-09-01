@@ -4,13 +4,20 @@
 
 > ★★ **DATED RECORD — state as of 2026-08-31, NOT a description of today's code.**
 > This document is the plan/spec for the 0.270.0 slice and is deliberately not rewritten;
-> a signed record that is edited to match a later tree stops being one. One claim in it has
-> since been falsified — there are SEVERAL, and this is only the likeliest to mislead: it says
-> `use-focus-trap`'s Tab branch
-> "never consults the stack". That was true when written. `docs/open-followups.md` §318 —
-> CLOSED 2026-09-01 — made the hook register whenever active and gate Tab on `isTopmostOfKind`,
-> and §8 gave `tour-overlay` a real trap on top of it. Read this for what was DECIDED; read
+> a signed record that is edited to match a later tree stops being one. SEVERAL of its claims
+> have since been falsified; the likeliest to mislead is that `use-focus-trap`'s Tab branch
+> "never consults the stack" and "traps Tab UNCONDITIONALLY". Both were true when written.
+> `docs/open-followups.md` §318 — CLOSED 2026-09-01 — made the hook register whenever active,
+> decline Escape through a `claims` predicate, and gate Tab on `isTopmostOfKind`; §8 gave
+> `tour-overlay` a real trap on top of it. Read this for what was DECIDED; read
 > `docs/AGENTS/ui-shell.md`'s dismissal section for what the code DOES.
+>
+> ★★★ **AND DO NOT EXECUTE THIS PLAN.** It shipped as 0.270.0 and every task in it is done —
+> but unlike the spec beside it, this file is a set of INSTRUCTIONS, and the line directly above
+> this banner tells an agentic worker to implement it task-by-task. Its Task 7 carries a fenced
+> block of prose to paste into `docs/AGENTS/ui-shell.md` asserting the "ONE EXCEPTION" that this
+> slice removed, so a worker running it would re-insert the exact claim §318 closed. A dated
+> record is safe to leave alone; a dated record that is also a runnable instruction is not.
 
 **Goal:** Close open-followups §100, §297 and §124 — three keyboard/focus defects in the popover-modal subsystem — by moving the behaviour into the `PopoverPanel` primitive instead of leaving it to call sites.
 
