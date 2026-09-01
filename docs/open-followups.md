@@ -25251,7 +25251,14 @@ disclosure. Left bare, on purpose:
   `actionSnooze1h` / `actionSnooze1d`)
 - the confirm buttons inside the escalate / rebaseline / reschedule panels
 - the `ResourcePicker` inside the assign popover
+- the escalate panel's OWN `ResourcePicker` (labelled `actionEscalateRecipient`) and its email
+  `Input` (labelled `actionEscalateEmailPlaceholder`) — a second pair, distinct from the assign
+  popover's picker above, and missed by the first cut of this list
 - the `ariaLabel` each panel passes to `PopoverPanel` for its own `role="dialog"`
+
+★ Note the last two are not buttons, so they fall outside the default `["button"]` roles list the
+adopting tests use — a `roles: ["combobox", "textbox"]` pass would be needed to see them even once
+the premise is settled.
 
 ★★ **The premise is that `PopoverPanel`'s outside-click dismissal makes two panels non-simultaneous**,
 so a name inside one panel cannot repeat within a single rendered list — which is the discriminator
@@ -25270,3 +25277,10 @@ one — the exact shape this register keeps recording.
 name, at any seed size in any view (measured against axe-core 4.12.1 — see AGENTS.md), and the
 Next-actions view's popovers are never opened by the a11y spec anyway. A unit test is the only
 detector that can exist here, as it was for §324.
+
+★ **One accepted risk, recorded rather than guarded.** `ActionPrimaryCta` and `ActionOverflowMenu`
+each take `caps` and `handlers` as separate props, so a call site passing a `caps` derived from a
+DIFFERENT handlers object than the one it threads could render two same-named Open buttons within a
+single row. Unreachable today — both call sites (`action-row.tsx`, `action-hero-card.tsx`) pass the
+same object to `useActionCaps` and to `handlers` — and judged not worth a guard. Listed so the next
+reader does not have to rediscover that the coupling is by convention rather than by construction.

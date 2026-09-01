@@ -72,10 +72,20 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   const groups = useMemo(() => groupNextActions(actions), [actions]);
   const [expanded, setExpanded] = useState<Record<"now" | "soon", boolean>>({ now: false, soon: false });
 
-  // ★★ ONE map over the hero AND the rows, because they are one naming
-  //    population: the hero is `groups[0]` de-duped from its tier list, so two
-  //    maps would number each from 1 and reintroduce the hero-vs-row collision
-  //    this closes (§324).
+  // ★★ ONE map over the hero AND every tier's rows, because they are all
+  //    rendered in one list at one time and are therefore ONE naming population
+  //    (§324).
+  // ★★★ THE REASON IS NOT "TWO MAPS WOULD EACH NUMBER FROM 1" — an earlier
+  //    revision of this comment said exactly that and it is FALSE, measured by
+  //    mutant: `buildRowTokens` numbers only when a name REPEATS inside the map
+  //    it was given, so a map with one member emits a BARE token, never "(1)".
+  //    That is what makes splitting dangerous rather than merely redundant. Split
+  //    the map on ANY axis and two members sharing a title can each land alone in
+  //    their own map, so BOTH come out bare and collide:
+  //      · hero-vs-rows — a hero and a single row sharing a title;
+  //      · per-tier — a `now` row and a `soon` row sharing a title.
+  //    Pinned by "keeps the hero and a cross-tier row in one naming population"
+  //    in `actions-panel.test.tsx`, whose fixture is built to kill both.
   // ★★ Built over `groups` — the STABLE FULL population, not the currently
   //    VISIBLE one. Every group appears exactly once (hero, or a tier list that
   //    filters `g.key !== heroKey`), so `groups` IS hero-plus-rows with no

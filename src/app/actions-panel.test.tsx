@@ -146,7 +146,11 @@ describe("ActionsPanel", () => {
       cta: { kind: "open", view: "raid", id },
     })) as unknown as SuggestedAction[];
 
-  it("gives every control a row-unique name when actions share a title and score (§324)", () => {
+  // ★ Named for what the fixture actually renders. An `onOpen`-only panel builds
+  //   no overflow menu, no reasons disclosure, no verb buttons and no popover
+  //   triggers, so this covers the score tooltips and the Open buttons — NOT
+  //   "every control", which an earlier name claimed.
+  it("gives the score tooltips and Open buttons row-unique names when actions share a title and score (§324)", () => {
     render(
       <ActionsPanel lang="en-US" actions={sharedTitleAndScore()} onOpen={() => {}} expertMode />,
     );
@@ -158,6 +162,54 @@ describe("ActionsPanel", () => {
     //   would keep passing if the key's value changed underneath it.
     const bareScoreName = t("en-US", "actionScoreTooltip", 60);
     expect(screen.queryAllByRole("button", { name: bareScoreName })).toHaveLength(0);
+  });
+
+  // §324, the OTHER half: the panel must mint ONE token map spanning the hero and
+  // every tier, not one per surface and not one per tier.
+  //
+  // ★★★ THE FIXTURE ABOVE CANNOT PIN THIS, which is why this test exists rather
+  //    than being folded into it. `buildRowTokens` numbers a name only when it
+  //    REPEATS inside the map it was handed, so a map with ONE member emits a
+  //    BARE token — never "(1)". With three colliding actions, splitting the map
+  //    leaves the hero alone (bare) and the two rows together (numbered), so no
+  //    two names match and a split survives undetected. Measured, not reasoned.
+  // ★★ THIS fixture is built so that both REAL split-the-map mutants collide:
+  //    exactly ONE hero and exactly ONE row, sharing a title, in DIFFERENT tiers.
+  //    Split hero-vs-rows and each map holds one member; split per-tier and each
+  //    map holds one member. Either way both tokens come out bare and the two
+  //    Open buttons (and the two tooltips) share a name. Both measured RED here.
+  // ★★★ ONE MUTANT SURVIVES THIS AND THAT IS CORRECT, NOT A GAP — do not "fix"
+  //    the fixture to chase it. Splitting the hero's map ALONE while the rows
+  //    keep the full map is unkillable by ANY duplicate-name assertion, and the
+  //    reason is structural: the hero's own entry is what pushes the shared
+  //    name's count above 1, so every colliding ROW is still numbered. The hero
+  //    comes out bare ("… Shared") and the rows numbered ("… Shared (2)") —
+  //    different strings, so nothing collides and there is no 2.4.6 defect to
+  //    detect. It is a consistency wart (a "(2)" with no visible "(1)"), which
+  //    is a different claim from the one this file makes.
+  // ★ Scores differ so the tier assignment is deterministic: the 60 sorts first
+  //   and becomes the hero, the 30 renders as the lone Soon row.
+  const heroAndCrossTierRowSharingTitle = () =>
+    ([["h1", 60, "now"], ["r1", 30, "soon"]] as const).map(([id, score, tier]) => ({
+      id, source: "raid", moduleId: "raid",
+      title: { key: "actionRaidTitle", params: [1, "Shared"] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] },
+      score, tier,
+      cta: { kind: "open", view: "raid", id },
+    })) as unknown as SuggestedAction[];
+
+  it("keeps the hero and a cross-tier row in one naming population (§324)", () => {
+    render(
+      <ActionsPanel
+        lang="en-US"
+        actions={heroAndCrossTierRowSharingTitle()}
+        onOpen={() => {}}
+        expertMode
+      />,
+    );
+    // MEASURED for this fixture: 2 score tooltips + 2 Open buttons + the learning
+    // pill + Print + reset-size. Exact, so a narrowed `roles` cannot slip back in.
+    expectRowUniqueNames({ minControls: 7, roles: ["button"], requireCollisionSeed: true });
   });
 
   describe("AI analysis section", () => {
