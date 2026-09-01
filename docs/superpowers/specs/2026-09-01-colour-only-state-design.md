@@ -292,4 +292,24 @@ dark scheme and in beacon is owed and is not substitutable by any gate.
   claim that the light schemes all pass; §325 widens from one beacon measurement to all four light
   schemes against `--surface-muted`.
 
-New numbers are minted above 328, and only once they are on `origin/main`.
+### Register bookkeeping
+
+Max on `origin/main` is **328**. A concurrent slice (export fidelity) is filing at the same time, so
+the pair is split by agreement: **that slice takes 329–330, this one takes 331–332.**
+
+★★★ **A number is reserved only once it is on `origin/main`** — two branches have minted the same
+one before. Whoever merges second re-checks and renumbers rather than assuming:
+
+```
+grep -oE "^## [0-9]+\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1
+```
+
+★★ **`docs/open-followups.md` is edited by both slices, and that merge is the hazard, not the
+source tree.** Taking one side wholesale in a conflict resolution loses the other branch's entries
+with every gate still green; `--cc` cannot see it, because it is a census of invented content and is
+blind to a resolution that took one side whole. Adjudicate the summary table PER ROW, and diff
+against this branch's own tip afterwards, not only against the merge base.
+
+★★ The register is INSIDE `doc-claims-check` (`SKIP_DIRS` in `scripts/doc-claims-lib.mjs` is
+`["docs/superpowers"]`, so this spec is exempt and the register is not). Register edits cite symbols
+and reproduce commands, never `path:LINE` — the gate is a ratchet, and a new citation fails it.
