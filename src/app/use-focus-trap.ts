@@ -126,10 +126,16 @@ export function useFocusTrap(
       // 2026-09-01 were PROSE, not markup, so a bare tally over-reports by
       // two thirds. This file is `.ts` and the pattern is `.tsx`-scoped, which
       // is the only reason THIS comment does not inflate it. Read the hits,
-      // never the count. Today the ones ever focused programmatically are all
-      // `use-panel-focus` panel ROOTS (`help-menu`, `notes-window`,
-      // `undo-control`, `popover-panel`), and none is a descendant of either
-      // trap container.
+      // never the count.
+      // ★★★ AND DO NOT WRITE THE HIT LIST DOWN HERE. A first cut of this
+      // comment named four files as the ones ever focused programmatically;
+      // re-running the command refuted TWO of them within the hour —
+      // `undo-control` carries `tabIndex={0}`, not `-1`, so it is not a hit at
+      // all, and `chat-panel` is a hit that the list omitted. An enumeration
+      // pasted beside its own command reads as though the command produced it.
+      // Run it. Then, for each hit, ask the only question that matters: does
+      // anything `.focus()` that node, and is the node a descendant of a trap
+      // container? Neither of today's two consumers holds one.
       const untrapped = activeEl === null || !items.includes(activeEl);
       if (e.shiftKey && (activeEl === first || untrapped)) {
         e.preventDefault();
