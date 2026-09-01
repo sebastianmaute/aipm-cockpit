@@ -75,7 +75,7 @@ export type BlockRefusal = "empty" | "conflict";
 export function BlockRefusalNotice({ lang, refusal }: { lang: Lang; refusal: BlockRefusal }) {
   const key = refusal === "empty" ? "documentsBlockEmptyNotSaved" : "documentsBlockConflictNotSaved";
   return (
-    <p role="status" className="text-xs text-ui-pink">
+    <p role="status" className="text-xs text-ui-pink-strong">
       {t(lang, key)}
     </p>
   );
