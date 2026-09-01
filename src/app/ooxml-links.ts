@@ -14,6 +14,28 @@ export type LinkRel = { relId: string; target: string };
  *  it leaves the app. */
 const SAFE_LINK_SCHEMES = new Set(["http:", "https:", "mailto:"]);
 
+/** ★★★ WHY THE RAW STRING IS RE-CHECKED RATHER THAN THE PARSED ONE. This
+ *  function VALIDATES the parse and EMITS the trimmed input, so anything the
+ *  URL parser silently drops or rewrites is validated in a string that is not
+ *  the string written into `Target="…"`. That is a deliberate trade — emitting
+ *  `parsed.href` would normalise every address the app already round-trips
+ *  (`https://a` becomes `https://a/`), churning a contract several callers
+ *  assert verbatim — but it leaves exactly one gap, and this closes it.
+ *
+ *  ★★ C0 CONTROLS ARE THE GAP, AND BOTH ENDS OF IT ARE REAL. `String.trim`
+ *  removes only WhiteSpace, and only at the ENDS — so of the C0 range it takes
+ *  tab/LF/VT/FF/CR when they lead or trail, and nothing else anywhere. The
+ *  WHATWG URL parser is broader in both directions: it strips leading/trailing
+ *  C0 controls whatever they are, and removes tab/CR/LF from the INTERIOR
+ *  outright. Between the two, `"\u0001https://x"` and `"https://a/\nb"` both
+ *  PARSE clean and both survive `trim`, so both reach `Target="…"` carrying
+ *  their control byte. `xmlEscape` does not touch them either. A C0
+ *  control other than tab/CR/LF is ILLEGAL in XML 1.0, so the first shape ships
+ *  a package Word rejects as corrupt; tab/CR/LF are legal but attribute-value
+ *  normalised to a space by any conforming parser, so the second silently
+ *  rewrites the user's address. Rejecting the whole range answers both. */
+const CONTROL_CHARS_RE = /[\u0000-\u001f]/;
+
 /** The href to use, or undefined if this anchor must degrade to a plain run.
  *
  *  ★ A RELATIVE href is dropped, and that is deliberate rather than an
@@ -24,6 +46,7 @@ export function safeLinkTarget(raw: string | null | undefined): string | undefin
   if (!raw) return undefined;
   const trimmed = raw.trim();
   if (trimmed === "") return undefined;
+  if (CONTROL_CHARS_RE.test(trimmed)) return undefined;
   let parsed: URL;
   try {
     parsed = new URL(trimmed);

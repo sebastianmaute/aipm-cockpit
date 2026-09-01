@@ -282,20 +282,36 @@ const HR_TEXT = "—".repeat(24);
  * style part to declare a `Quote`/`CodeBlock` in — see `DOCX_LINE_STYLE`'s
  * counterpart. Italic mirrors the DOCX `Quote` style; monospace mirrors
  * `CodeBlock`. Both are no-ops on a run that already carries the mark.
+ * ★ EXPORTED FOR ONE ASSERTION ONLY — whether `hyperlinkRelId` is an OWN key.
+ * Every other property of this function is observable in the slide XML, but
+ * key presence is not: `pptxTextBox` renders an own-and-undefined field and an
+ * absent one identically, so the only way to pin the shape is to look at the
+ * object. `buildContentSlide` returns a string and cannot show it.
  */
-function pptxRun(run: TextRun, kind: RichLineKind, links: LinkSink | undefined): PptxRun {
+export function pptxRun(run: TextRun, kind: RichLineKind, links: LinkSink | undefined): PptxRun {
   const has = (mark: RunMark): boolean => run.marks.includes(mark);
+  // ★★ URL -> RELATIONSHIP ID. `TextRun.href` is an address the shared parse
+  //   already validated against the scheme allow-list; `hyperlinkRelId` is an
+  //   id into THIS SLIDE's rels part. The sink does the conversion and
+  //   remembers what it minted, so `renderDocumentPptx` can hand the same
+  //   list to `buildPptxPackage`.
+  // ★ No sink means no links at all — every pre-existing caller passes none
+  //   and its runs stay byte-identical.
+  const relId =
+    links === undefined || run.href === undefined ? undefined : links.relIdFor(run.href);
   return {
     text: run.text,
-    // ★★ URL -> RELATIONSHIP ID. `TextRun.href` is an address the shared parse
-    //   already validated against the scheme allow-list; `hyperlinkRelId` is an
-    //   id into THIS SLIDE's rels part. The sink does the conversion and
-    //   remembers what it minted, so `renderDocumentPptx` can hand the same
-    //   list to `buildPptxPackage`.
-    // ★ No sink means no links at all — every pre-existing caller passes none
-    //   and its runs stay byte-identical.
-    hyperlinkRelId:
-      links === undefined || run.href === undefined ? undefined : links.relIdFor(run.href),
+    // ★★ ABSENT on an unlinked run, never own-and-undefined — the rule the
+    //   `TextRun.href` docblock states, applied to the field href resolves
+    //   INTO. Written unconditionally the key is always own, so `toEqual`
+    //   and `JSON.stringify` both separate a run built here from one built by
+    //   hand, and `Object.hasOwn` reports true on a run with no link at all.
+    //   Pinned by "omits hyperlinkRelId entirely on an unlinked run".
+    // ★ The other optionals below keep the shape they have always had: the
+    //   rule this obeys is the one this branch's own docblock legislates, and
+    //   widening it to the mark fields is a separate decision with its own
+    //   byte-level blast radius across every existing pptx assertion.
+    ...(relId === undefined ? {} : { hyperlinkRelId: relId }),
     bold: has("bold"),
     italic: has("italic") || kind === "blockquote",
     underline: has("underline"),

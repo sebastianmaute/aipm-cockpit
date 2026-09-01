@@ -24,6 +24,44 @@ describe("safeLinkTarget", () => {
     expect(safeLinkTarget("")).toBeUndefined();
     expect(safeLinkTarget("   ")).toBeUndefined();
   });
+
+  /** ★★ THE GAP BETWEEN WHAT IS VALIDATED AND WHAT IS EMITTED. `safeLinkTarget`
+   *  validates `new URL(trimmed)` and returns `trimmed`, so any character the
+   *  URL parser drops on its way in is checked in a string that is NOT the one
+   *  written into `Target="…"`. For the SCHEME that is safe in both directions;
+   *  for C0 controls it was not, and these two are the reachable shapes.
+   *
+   *  ★ Built with `String.fromCharCode`, never a `\u` escape in the source: an
+   *  escape that loses its backslash becomes the raw byte, which renders as
+   *  NOTHING in a diff and turns the fixture into the very corruption it is
+   *  meant to reject. */
+  const ch = (code: number): string => String.fromCharCode(code);
+
+  it("drops a C0 control at EITHER end, which trim keeps and the URL parser strips", () => {
+    // U+0001 is not Unicode whitespace, so `.trim()` leaves it in place; the
+    // WHATWG parser strips it, so the parse succeeds and `https:` is admitted.
+    // Emitted verbatim it is a character XML 1.0 has no representation for at
+    // all — not even a numeric reference — so Word rejects the package.
+    expect(safeLinkTarget(`${ch(1)}https://x`)).toBeUndefined();
+    expect(safeLinkTarget(`https://x${ch(1)}`)).toBeUndefined();
+  });
+
+  it("drops an INTERIOR tab, LF or CR rather than letting a parser rewrite it", () => {
+    // Legal XML, so this one ships a package that opens — with an address the
+    // attribute-value normalisation turned into "https://a/ b". A silent
+    // corruption is the worse of the two failures, not the milder one.
+    expect(safeLinkTarget(`https://a/${ch(10)}b`)).toBeUndefined();
+    expect(safeLinkTarget(`https://a/${ch(9)}b`)).toBeUndefined();
+    expect(safeLinkTarget(`https://a/${ch(13)}b`)).toBeUndefined();
+  });
+
+  it("still returns an ordinary address VERBATIM, unnormalised", () => {
+    // ★ The reason the C0 range is rejected rather than `parsed.href` returned:
+    // `new URL("https://a").href` is "https://a/", and this contract is
+    // asserted verbatim here, in the primitives tests and in both renderers'.
+    expect(safeLinkTarget("https://a")).toBe("https://a");
+    expect(safeLinkTarget("https://intra/spec?a=1&b=2")).toBe("https://intra/spec?a=1&b=2");
+  });
 });
 
 describe("createLinkSink", () => {
