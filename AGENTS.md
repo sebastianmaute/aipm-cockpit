@@ -576,15 +576,26 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   "Compact view, pressed" ⇒ compact is on. (The dashboard's own density + Trends toggles followed this
   before they were REMOVED — density moved to Settings → Appearance, Trends is now Turso-gated.) The
   pin-the-enabled-label + `aria-pressed` pattern remains the RULE for any new toggle button.
-  ★★ THAT PIN CREATES A WCAG 1.4.1 PROBLEM IN THE DARK SCHEMES AND `ToggleButton` NOW CLOSES IT.
-  Because the label may not say which state is active, the ON state rode the accent border+tint.
-  ★★★ SCOPE IT CORRECTLY — an earlier revision here said "colour as the sole visual channel" flatly
-  and that is FALSE for the three LIGHT schemes: Understanding 1.4.1 counts a lightness difference
-  of ≥3:1 as the required additional distinction, and pressed-vs-unpressed border measures
+  ★★ THAT PIN CREATED A WCAG 1.4.1 PROBLEM IN THE DARK SCHEMES AND `ToggleButton` NOW CLOSES IT ON
+  TWO SEPARATE CHANNELS. Because the label may not say which state is active, the ON state rode the
+  accent border+tint alone.
+  ★★★ SCOPE THE HISTORY CORRECTLY — an earlier revision here said "colour as the sole visual channel"
+  flatly and that is FALSE for the three LIGHT schemes: Understanding 1.4.1 counts a lightness difference
+  of ≥3:1 as the required additional distinction, and pressed-vs-unpressed border measured
   harbor-light 8.97:1 · meridian-light 7.71:1 · umber-light 9.30:1 (computed from `builtin-schemes.ts`).
-  Those were already conformant. The DARK maps are 1.22 / 1.16 / 1.03:1 — that is the real failure,
-  and it is not merely a colour-perception one (see §56). The primitive renders a trailing
-  `data-pressed-marker` check glyph (`aria-hidden`, since `aria-pressed` already tells AT). ★ It is present in BOTH states and merely
+  Those were already conformant. The DARK maps measured 1.22 / 1.16 / 1.03:1 — that was the real
+  failure, and not merely a colour-perception one. ★★ READ THOSE FIGURES AS THE RECORD OF WHAT §56
+  MEASURED, NOT A LIVE DEFECT: §55 · §56 · §101 · §325 are all CLOSED. The CONTRAST half (SC 1.4.11) is
+  now STRUCTURAL — the pressed border rides one of THREE derived state-border tokens, each nudged to
+  clear 3:1 against `--line`, which covers a user's imported scheme for free where editing the built-in
+  maps would not. ★★★ A `dark:border-*` variant on this primitive OR on a consumer SILENTLY UNDOES
+  THAT: `scheme-apply.ts` already sets the property per active scheme AND mode, so a `dark:` override
+  re-pins the raw accent in exactly the schemes that failed. The derivations, the per-accent
+  measurements, the three accents, the `card` size and the `pressHandlers` bag are all in
+  [`docs/AGENTS/theming.md`](docs/AGENTS/theming.md) — open it before touching either.
+  The NON-COLOUR half (SC 1.4.1) is a trailing
+  `data-pressed-marker` check glyph (`aria-hidden`, since `aria-pressed` already tells AT) — a SEPARATE
+  guarantee, and reading it as the CONTRAST fix is the trap §56 records. ★ It is present in BOTH states and merely
   `invisible` when off, so the button keeps ONE width — conditional rendering would make the button
   ~20px narrower when off, moving a toolbar's neighbouring controls under the pointer on every click
   (reasoned, not measured — jsdom has no layout, so nothing here can test it). ★ `invisible` vs
@@ -614,10 +625,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   background sync from a row the user had switched off (pinned by a test).
   ★★ axe 4.12.1's ONLY `wcag141` rule is `link-in-text-block` (links vs surrounding text) — nothing
   in axe evaluates whether a CONTROL's state is colour-only, so the gate is silent on this for every
-  toggle in the app and the primitive's unit test is the only coverage. (An earlier revision said
+  toggle in the app and the primitives' own unit tests are the only coverage — `toggle-button.test.tsx`,
+  `segmented-control.test.tsx` for its `data-selected-marker`, and `scheme-state-contrast.test.ts` for
+  the 3:1 floor across every built-in combo. (An earlier revision said
   "axe has NO rule for colour-as-sole-cue"; a contributor grepping the tag list finds one and stops
   trusting the bullet.) A hand-rolled `aria-pressed` button gets neither the cue nor the test — use
-  `ToggleButton`.
+  `ToggleButton`, or `SegmentedControl` for a one-of-N choice.
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.

@@ -198,7 +198,7 @@
   briefly written here: `--ui-purple-strong` is in `DERIVED_TOKENS`, which `VALID_TOKENS` includes, so
   `cleanColors` KEEPS it (that is exactly how an imported AIPM/Mockup scheme survives a save).
   `resolveSchemeColors` is now BASE-WINS (`{...deriveAaVariants(colors), ...colors}`): derivation only FILLS
-  missing AA variants; an explicitly PINNED `-strong`/`-text`/`muted-foreground` SURVIVES — that is why
+  missing AA variants; an explicitly PINNED `-strong`/`-text`/`muted-foreground`/state-border SURVIVES — that is why
   AIPM/Mockup reproduce the shipping look exactly (landmine 1). ★★ `effectiveDark(themeDark, schemeSupportsDark)`
   DROPPED the `style` arg; pin-light = `!activeScheme.supportsDark` (Mockup `supportsDark:false`, honours theme
   for a dark-capable scheme). `use-theme` (sole `.dark` writer) reads `data-scheme-dark` ONLY — the mockup
@@ -245,6 +245,72 @@
   (5) The palette guards do NOT scan the `.ts` scheme data files (`shell-palette-guard` = fixed shell-file
   list; `palette-chrome-sweep` = `.tsx` only), so structural shadow/gradient STRINGS in
   `builtin-schemes.ts`/`scheme-tokens.ts` don't trip them — no allowlist needed.
+- **★★ Control state-border tokens (SC 1.4.11) — THREE derived, one per accent.** `deriveAaVariants`
+  emits `--control-state-border` (from `--ui-dark-blue`), `--control-state-border-pink` (from
+  `--ui-pink`) and `--control-state-border-green` (from `--ui-green`), each through
+  `nudgeToContrast(base, line, 3)` against `--line` — the UNPRESSED border, which is what a pressed
+  control has to be told apart from. `nudgeToAa` was not replaced: it is now a 4.5 wrapper over
+  `nudgeToContrast`, so every pre-existing `-strong`/`-text` call site is untouched.
+  ★★ THE THREE DERIVATIONS BEHAVE DIFFERENTLY AND COPYING ONE ONTO ANOTHER IS THE TRAP — dark-blue and
+  green are MIRROR IMAGES. Dark-blue is inert in the light schemes and actually nudges in the dark ones
+  (its raw value measured 1.03-1.22:1 against `--line` there — what `docs/open-followups.md` §56
+  recorded, now CLOSED). Green is the opposite: it nudges in all four LIGHT combos (raw 1.53-1.88 →
+  derived 3.06-3.81) and is inert in the three dark ones (4.96-6.90). Pink is inert in all seven against
+  today's built-ins (3.04-5.08) — that arm is KNOWINGLY VACUOUS today and exists because both `--ui-pink`
+  and `--line` are user-editable `ADVANCED_TOKENS`, so a passing built-in is a property of the values,
+  not a guarantee. Read `deriveAaVariants`' own comments before changing any of the three.
+  ★★★ GREEN IS THE ONE WHOSE `globals.css` PRE-BOOT FALLBACK IS NOT ITS RAW BASE (`#2bc4b6` → `#1f8e83`),
+  because the derivation genuinely runs at the static light base. Copying the neighbours' pattern and
+  hardcoding the raw hex ships a fallback that fails the floor the runtime meets. All three fallbacks
+  and the runtime derivation are pinned equivalent by `scheme-state-contrast.test.ts`, which also asserts
+  the 3:1 floor per token across every built-in combo.
+  ★★ All three are in `DERIVED_TOKENS`, so an IMPORTED theme is covered for free — deriving reaches every
+  scheme, where editing the built-in maps would have reached only the built-ins. ★ The corollary is the
+  base-wins rule above, not an exception to it: a theme that explicitly PINS one keeps its pin and is
+  never re-derived, so the floor is guaranteed for schemes that do NOT pin, not for every scheme.
+  ★★★ NEVER add a `dark:border-*` variant to a control that consumes these. `scheme-apply.ts` sets the
+  custom property inline per active scheme AND mode, so ONE declaration is already mode-correct; a
+  `dark:` override re-pins the raw accent in exactly the schemes that fail the floor. `ToggleButton`'s
+  own `dark:border-*` variants were DELETED rather than remapped for this reason, and
+  `toggle-button.test.tsx` pins their absence.
+- **★★ Non-colour state markers on the two toggle primitives (SC 1.4.1).** The state-border tokens above
+  close CONTRAST; they do NOT close colour-as-sole-cue, which is a separate guarantee. `ToggleButton`
+  renders a trailing `data-pressed-marker` check glyph and `SegmentedControl` a `data-selected-marker`
+  one; both are `aria-hidden` (`aria-pressed`/`aria-checked` already tell AT) and both are ALWAYS
+  mounted, merely `invisible` when off, so the control keeps ONE width.
+  ★★ `SegmentedControl`'s marker is measured against the SELECTED SEGMENT'S OWN FILL, NOT the track:
+  the glyph is drawn ON the selected segment, so the track is the wrong reference. `--segment-active-fg`
+  scores only 1.01-1.14 against the TRACK in the light schemes — a number that reads as a failure and
+  sends someone re-tinting a control that was already correct. `scheme-state-contrast.test.ts` asserts
+  it against `--segment-active-bg` at 3:1 for all seven combos and carries that reasoning beside the
+  assertion.
+  ★★ `ToggleButton` now carries THREE accents (`dark-blue` default · `pink` · `green`), a `size` of
+  `chip` (the toolbar look) or `card` (`items-start px-3 py-2 text-sm` plus a full-width children
+  wrapper, for multi-line option cards), and a NARROW, NAMED `pressHandlers` bag for push-to-talk
+  consumers that have no click semantic at all. ★ `pressHandlers` is a `Pick<>` of six pointer/keyboard
+  handlers on purpose, never a `...rest` spread — the primitive must keep sole ownership of every a11y
+  attribute it emits, and a spread would let a call site quietly overwrite `aria-pressed` or `type`.
+  ★ Widen the bag if a consumer needs more; do not replace it with a spread.
+  ★ Green exists so the dictation mic could KEEP its identity colour through the fix rather than be
+  repainted with the chrome default — a new accent is justified by an identity colour, not by taste.
+  ★★ THE GLYPH IS NOT THE RULE — a non-colour CHANNEL is, and two surfaces reach it another way. A
+  marker was tried on the RACI chips and REVERTED by user decision: a 20px circle cannot hold a 14px
+  marker plus its gap plus the LETTER, so it forced the chips into ~48x26px stadium pills and grew that
+  unclamped popover by ~116px; those chips ring instead
+  (`SELECTED_RING`, ~16px). Three further `aria-pressed` sites stayed exempt on their own measurements —
+  all three, and what exempts each, are in `docs/open-followups.md` §55.
+- **★★ Reduced motion (`globals.css` `@media (prefers-reduced-motion: reduce)`).** A single block, and it
+  is deliberately NARROW and deliberately ASYMMETRIC: `.animate-pulse` is stopped outright
+  (`animation: none`) while `.animate-spin` is only SLOWED to a 3s duration.
+  ★★★ THE ASYMMETRY IS THE POINT AND THE ORDER MATTERS IF THIS IS EVER REVERTED. Stopping is safe for
+  the pulse only because everything wearing it now carries a non-motion cue as well — the voice button's
+  listening state got its shape marker FIRST, and before that the pulse WAS the cue. The spinner has no
+  such backstop: on `budget-panel` and `tasks-section` it is an `aria-hidden` icon swapped into an
+  icon-only button, so the rotation is the ENTIRE "in progress" signal, with no marker, no text and no
+  layout change behind it. `animation: none` there would delete a state cue under a conformant-looking
+  rule. Give a spinner a non-motion busy cue and it can join the stopped block; until then do not tidy
+  the two together. ★ The block reaches those two Tailwind utilities and nothing else — a new bespoke
+  `@keyframes` animation is NOT covered and must opt in itself (`docs/open-followups.md` §332).
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.

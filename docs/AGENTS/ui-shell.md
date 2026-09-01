@@ -425,7 +425,7 @@
   in Chromium: `:hover` on the label paints that button's hover state (reported as "hovering the text
   field highlights Bold"), and clicking anywhere non-interactive in the label forwards a synthetic click
   to it. Whether the click DOES anything depends on that button's own handlers, so the two halves diverge
-  — the dictation mic binds pointerdown/keydown with no `onClick` (hover bleed only), while
+  — the dictation mic is hover bleed ONLY, while
   `SegmentedControl`'s radios carry a real DOM `onClick` (the `onClick` on the `role="radio"` button in
 `segmented-control.tsx` — cited by SYMBOL, not line: this read `:99` and was falsified twice by
 commits that merely added comments above it; its `onChange` is
@@ -438,6 +438,12 @@ commits that merely added comments above it; its `onChange` is
   first button is a different one, so "Documents" with nothing linked opens the picker (the Add button) and
   an empty chip row lets the input win and merely focuses it. A test that forgets to seed a row passes
   against the unfixed code.
+  ★★ THE MIC'S "HOVER BLEED ONLY" HALF IS NOW TRUE FOR A WEAKER REASON THAN IT WAS — do not read it as
+  structural. This line used to say the mic "binds pointerdown/keydown with no `onClick`", and that was
+  literally true until it adopted `ToggleButton` (via the `pressHandlers` bag). The primitive ALWAYS
+  emits `onClick={onToggle}`, and the mic passes a NO-OP `onToggle` because push-to-talk has no click
+  semantic at all. So a forwarded label click DOES reach a real handler and merely finds it empty: give
+  that `onToggle` a body and this surface joins the shipped-instances list above.
   ★★ TWO sanctioned fixes, and picking the wrong one strips an accessible name. The deciding question is
   **what the caption is FOR**, not whether the widget self-names. (a) If the block has no single input the
   caption could name — a chip row, a radiogroup, a contenteditable, or several controls — use
