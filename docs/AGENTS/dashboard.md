@@ -487,6 +487,30 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   prop (omitted → read-only popout mirror, chips not draggable); reuses `handleSaveStakeholder` (functional setter +
   `localModifiedAt` stamp + `stakeholder.updated` log). Chips stay plain (no level badge). The map is NOT in axe
   `A11Y_VIEWS` — drag is a mouse enhancement; the edit modal's High/Med/Low selects are the keyboard path.
+  ★★★ **THE DROP-TARGET HIGHLIGHT MUST BE CLEARED ON `relatedTarget`, NEVER ON `target`.** `dragleave`
+  mirrors `mouseout`, NOT `mouseleave`: moving the pointer from a quadrant's own padding onto one of its
+  CHILDREN fires `dragleave` ON THE QUADRANT with `target === currentTarget` — by those two fields alone it
+  is byte-identical to leaving the quadrant for good. A `currentTarget === target` guard therefore drops the
+  ring over every chip and over the quadrant label, so the region that LOOKS droppable is the cell MINUS its
+  content. Measured in Chromium against the seeded sample workspace, not reasoned: the ring survived on 37%
+  of the keep-satisfied quadrant's area against 60 / 49 / 48% for its three siblings, and a real
+  Playwright-driven drag logged `dragleave target=DIV[quadrant-keep-satisfied] related=P`. ★★ The DROP was
+  never affected — `dragover` bubbles from the child and the cell cancels it, measured accepting at 100/100
+  sampled points in all four quadrants — so this reads to a user as "the drop area is much smaller here"
+  while every drop they actually attempt works. ★★ Real Chromium DOES populate `relatedTarget` on
+  `dragleave`; that is the load-bearing fact and it was measured with a real drag, because a synthesised
+  `new DragEvent("dragleave")` carries none and a probe built that way "confirms" the bug is unfixed.
+  Same guard as `gantt-rows.tsx`'s row drop indicator — those two are the only `onDragLeave` in `src/app`
+  (`grep -rn "onDragLeave" src/app --include=*.tsx | grep -v "\.test\."`).
+  ★★ **jsdom implements no `DragEvent`**, so RTL falls back to plain `Event` and an init's `relatedTarget`
+  is DROPPED — `fireEvent.dragLeave(el, { relatedTarget })` silently delivers `undefined` and collapses
+  every case into one. `stakeholder-map-panel.test.tsx` attaches it to a `createEvent.dragLeave` instead.
+  ★★ **`grid-rows-2` on the 2×2 is load-bearing, not decoration.** Without it the implicit rows are `auto`
+  and size to their CONTENT, so the row holding the fewer or shorter chips collapses and its two quadrants
+  become smaller drop targets than the other two — measured 95px/71px rows before, 83px/83px after. Each
+  cell already carries `overflow-auto`, so the trade is deliberate: a quadrant with more chips than fit
+  now SCROLLS (measured `scrollHeight` 90 against `clientHeight` 81 at the pane's default half height)
+  rather than stretching its row. jsdom has no layout, so the class is the only detector a unit test has.
 - **OOXML export map:** hand-rolled Office export (no lib; own `zip.ts` writer) split by format:
   `export-docx.ts` (`buildDocx`), `export-xlsx.ts` (`buildXlsx`), `export-pptx.ts` (`buildPptx`) over shared
   `export-ooxml-shared.ts` (brand palette consts, `xmlEscape`, `todayHuman`, `PPTX_MAX_ROWS_PER_SECTION`).
