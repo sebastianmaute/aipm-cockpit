@@ -372,6 +372,21 @@ describe("AssetLibrary — image preview", () => {
     );
     expectRowUniqueNames({ scope: container, minControls: 11, requireCollisionSeed: true });
   });
+
+  // ★ This is expected to pass with NO implementation change here: the shared
+  // `Modal` (`modal.tsx`) already captures the previously-focused element on
+  // open and restores it on close — `AssetLibrary` does not need to do
+  // anything of its own. Pinning it at THIS call site is still worth doing —
+  // it is the behaviour a real user depends on, and nothing else in this
+  // file exercises the open→close focus round-trip.
+  it("returns focus to the row control that opened the preview", async () => {
+    render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_GIF)} />);
+    const opener = screen.getAllByRole("button", { name: /^Preview image – / })[0];
+    await userEvent.click(opener);
+    await screen.findByRole("dialog");
+    await userEvent.keyboard("{Escape}");
+    expect(opener).toHaveFocus();
+  });
 });
 
 describe("AssetLibrary — the upload empty-state box", () => {
