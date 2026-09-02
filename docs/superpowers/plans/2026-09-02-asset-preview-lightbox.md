@@ -222,13 +222,13 @@ node -e "const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');for(con
 git ls-files --eol src/app/i18n.de.ts
 node -e "const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');console.log('lone LF:',(s.match(/(?<!\r)\n/g)||[]).length)"
 ```
-Expected: `"Nächstes Bild"`, `"Vorschau schließen"`, the long sentence — real `ä`/`ß`, straight `"` quotes; `w/crlf`; lone LF `0`.
+Expected: `"Nächstes Bild"` and the two long sentences (`"Die Bilddaten fehlen…"`, `"Das Bildformat wird nicht mehr unterstützt…"`) — real `ä`, straight `"` quotes; `w/crlf`; lone LF `0`. ★ Those three keys are exactly what the probe reads; there is no close key to check (see Task 3's note on `alertModalClose`).
 
 - [ ] **Step 4: Typecheck — this is what enforces EN/DE parity**
 
 ```bash
-npx tsc --noEmit > /tmp/tsc.log 2>&1; echo "EXIT=$?"
-grep -E "^(src|e2e)/" /tmp/tsc.log || echo "no source diagnostics"
+npx tsc --noEmit > C:/Users/SEBAST~1.MAU/AppData/Local/Temp/claude/C--Projects-aipm-cockpit/628bd54e-9e78-4bdb-86f3-b2e46f1a8c77/scratchpad/tsc.log 2>&1; echo "EXIT=$?"
+grep -E "^(src|e2e)/" C:/Users/SEBAST~1.MAU/AppData/Local/Temp/claude/C--Projects-aipm-cockpit/628bd54e-9e78-4bdb-86f3-b2e46f1a8c77/scratchpad/tsc.log || echo "no source diagnostics"
 ```
 Expected: EXIT=0. A missing DE key fails here with a key-parity error.
 
@@ -259,12 +259,15 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AssetPreviewModal } from "./asset-preview-modal";
 import { t } from "./i18n";
-import type { DocumentAsset } from "./document-model";
+import type { DocumentAsset } from "./document-asset";
 
 const TINY_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
+// ★ Every REQUIRED field of `DocumentAsset` (`document-asset.ts:27`), so no
+// `as DocumentAsset` cast is needed — a cast would hide a field the real type
+// gains later. `hash` is required; `width`/`height` are the only optionals.
 function asset(id: string, name: string, mime = "image/gif"): DocumentAsset {
-  return { id, name, mime, size: 42, createdAt: "2026-01-01T00:00:00.000Z" } as DocumentAsset;
+  return { id, name, mime, size: 42, hash: `hash-${id}`, createdAt: "2026-01-01T00:00:00.000Z" };
 }
 
 function renderModal(over: Partial<Parameters<typeof AssetPreviewModal>[0]> = {}) {
@@ -323,7 +326,7 @@ Expected: FAIL — cannot resolve `./asset-preview-modal`.
 
 - [ ] **Step 3: Write the shell**
 
-Create `src/app/asset-preview-modal.tsx`. ★ Before writing, read `src/app/notes-window.tsx` lines 1-60 for the drag/resize wiring and `src/app/modal.tsx`'s `Modal` signature (`open`, `onClose`, `ariaLabel`, `ariaLabelledby`, `initialFocusRef`, `align`, `zIndex`). Confirm `ModalHeader`'s exact props with `grep -n "export function ModalHeader" -A 20 src/app/modal.tsx`.
+Create `src/app/asset-preview-modal.tsx`. ★ Before writing, read `src/app/task-form-modal.tsx:99-135` for the drag/resize wiring — **not** `notes-window.tsx`, whose mouse-event API does not fit `ModalHeader` (see "Read before you start") — and `src/app/modal.tsx`'s `Modal` signature (`open`, `onClose`, `ariaLabel`, `ariaLabelledby`, `initialFocusRef`, `align`, `zIndex`). Confirm `ModalHeader`'s exact props with `grep -n "export function ModalHeader" -A 20 src/app/modal-header.tsx` — it lives in `modal-header.tsx`, so the same grep against `modal.tsx` returns nothing and reads as "no such export".
 
 ```tsx
 "use client";
@@ -338,7 +341,9 @@ Create `src/app/asset-preview-modal.tsx`. ★ Before writing, read `src/app/note
 // claimer for one layer is exactly the double-fire the stack exists to stop.
 // `notes-window.tsx` DOES hand-roll a conditional Escape claim; that is
 // correct THERE because it is non-modal and stays open while the user works
-// elsewhere. Copy its drag/resize wiring only.
+// elsewhere. Do NOT copy its drag wiring either: it is `useDraggableWindow`'s
+// mouse API, and `ModalHeader` takes only `useDraggable`'s pointer handlers.
+// `task-form-modal.tsx` is the precedent for the window mechanics below.
 //
 // ★★ LIST-AGNOSTIC ON PURPOSE. "Next" means next in the list you opened this
 // from — the library's current sort, or a document's visual order. A single
@@ -346,7 +351,7 @@ Create `src/app/asset-preview-modal.tsx`. ★ Before writing, read `src/app/note
 // where the user clicked.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
-import type { DocumentAsset } from "./document-model";
+import type { DocumentAsset } from "./document-asset";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
@@ -942,8 +947,8 @@ git commit -m "test(assets): pin focus returning to the preview's opener"
 - [ ] **Step 1: Typecheck**
 
 ```bash
-npx tsc --noEmit > /tmp/tsc.log 2>&1; echo "EXIT=$? (2 means diagnostics)"
-grep -E "^(src|e2e)/" /tmp/tsc.log || echo "no source diagnostics"
+npx tsc --noEmit > C:/Users/SEBAST~1.MAU/AppData/Local/Temp/claude/C--Projects-aipm-cockpit/628bd54e-9e78-4bdb-86f3-b2e46f1a8c77/scratchpad/tsc.log 2>&1; echo "EXIT=$? (2 means diagnostics)"
+grep -E "^(src|e2e)/" C:/Users/SEBAST~1.MAU/AppData/Local/Temp/claude/C--Projects-aipm-cockpit/628bd54e-9e78-4bdb-86f3-b2e46f1a8c77/scratchpad/tsc.log || echo "no source diagnostics"
 ```
 ★ Diagnostics under `.next/` are a corrupted dev cache, not your code — clear with PowerShell `Remove-Item -Recurse -Force .next` (never `rm -rf`, it is gate-blocked) with the dev server stopped.
 
@@ -957,9 +962,9 @@ Expected: 0. Warnings are fatal in CI.
 - [ ] **Step 3: Touched unit files**
 
 ```bash
-npx vitest run src/app/asset-object-url.test.ts src/app/asset-preview-modal.test.tsx src/app/asset-library.test.tsx src/app/documents-asset-section.test.tsx src/app/document-preview.test.tsx --reporter=dot > /tmp/units.log 2>&1
+npx vitest run src/app/asset-object-url.test.ts src/app/asset-preview-modal.test.tsx src/app/asset-library.test.tsx src/app/documents-asset-section.test.tsx src/app/document-preview.test.tsx --reporter=dot > C:/Users/SEBAST~1.MAU/AppData/Local/Temp/claude/C--Projects-aipm-cockpit/628bd54e-9e78-4bdb-86f3-b2e46f1a8c77/scratchpad/units.log 2>&1
 echo "EXIT=$?"
-grep -E "Test Files|Tests " /tmp/units.log
+grep -E "Test Files|Tests " C:/Users/SEBAST~1.MAU/AppData/Local/Temp/claude/C--Projects-aipm-cockpit/628bd54e-9e78-4bdb-86f3-b2e46f1a8c77/scratchpad/units.log
 ```
 
 - [ ] **Step 4: Size ratchet**
