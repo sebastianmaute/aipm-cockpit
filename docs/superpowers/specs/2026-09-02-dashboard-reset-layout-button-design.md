@@ -70,23 +70,54 @@ which axe cannot see — a name merely existing satisfies it). They do not:
 `dashboardResetLayout` is "Reset layout", `tableResetSizeHint` is "Reset back to
 the default size."
 
-### 3. Icon — `ResetLayoutIcon` wrapping `LayoutGridIcon`
+### 3. Icon — `ResetLayoutIcon` wrapping a NEW barrel export, `RotateCcwSquareIcon`
 
 A thin wrapper mirroring `ResetSizeIcon` (`ArrowsPointingInIcon`) and
 `ResetColWidthsIcon` (`ViewColumnsIcon`), both declared in `task-manager-ui.tsx`.
 
-★★ **Both existing reset glyphs depict WHAT resets, never "reset" generically.**
-A grid glyph for the tile board follows that. `LayoutGridIcon` is exported from
-`icons.ts` and used nowhere in the app today.
+★★★ **CORRECTED 2026-09-02, BEFORE ANY CODE WAS WRITTEN. THE FIRST VERSION OF
+THIS SECTION CHOSE `LayoutGridIcon` AND REJECTED `Squares2X2Icon` — THEY ARE THE
+SAME PICTURE.** `icons.ts` re-exports lucide glyphs under the OLD HEROICONS
+names, so its line `LayoutGridIcon as Squares2X2Icon` means lucide's
+`LayoutGridIcon` IS this app's `Squares2X2Icon`. `LayoutGridIcon` is the import
+side of an alias and is **not an export at all** — importing it would not
+compile. The error came from grepping the barrel for icon-shaped names and
+reading a source name as an available export, which is the trap AGENTS.md
+already records: *a name there is NOT a claim about what lucide calls that
+glyph*. Verify before substituting anything here:
+`grep -n "LayoutGridIcon" src/app/icons.ts`.
 
-★★★ **`Squares2X2Icon` IS REJECTED AND MUST NOT BE SUBSTITUTED.** It is the
-DASHBOARD's own nav icon (`nav-icons.tsx`, `dashboard: Squares2X2Icon`), so
-inside the dashboard that glyph already means "dashboard" — a button wearing it
-reads as navigation, not as a reset. `ArrowPathIcon` is rejected for the same
-class of reason: it means refresh/sync at its live call sites (`budget-panel.tsx`
-FX reload, `project-switcher.tsx`), and "reload the data" is a different promise
-from "discard my arrangement". Gantt has a recorded bug from two adjacent resets
-wearing indistinguishable glyphs; this is that hazard, one surface over.
+★★ **EVERY BOARD-SHAPED GLYPH IN THE BARREL IS ALREADY SPOKEN FOR**, which is
+why the "depict WHAT resets" rule cannot be satisfied from stock:
+
+| Export | Real lucide glyph | Already means |
+|---|---|---|
+| `Squares2X2Icon` | `LayoutGrid` | the Dashboard NAV icon |
+| `ViewColumnsIcon` | `Columns3` | reset-columns, the sibling reset |
+| `TableCellsIcon` | `Table` | the RACI nav icon |
+| `RectangleStackIcon` | `GalleryVerticalEnd` | the templates menu |
+| `ArrowUturnLeftIcon` | `Undo2` | the app's real UNDO control |
+
+★★★ `ArrowUturnLeftIcon` IS THE MOST DANGEROUS OF THOSE and must not be
+borrowed: the app has a genuine undo, reset is NOT undoable, and wearing the
+undo arrow would promise recovery that does not exist.
+
+**The decision: add ONE new glyph to the barrel** — `RotateCcwSquare` from
+lucide-react 1.31.0 (verified present; `displayName` is exactly
+`"RotateCcwSquare"`), exported as `RotateCcwSquareIcon`. A square carrying a
+counter-clockwise arrow depicts the board AND the restore, and collides with
+nothing. `Grid2x2` and `LayoutDashboard` were considered and rejected: both read
+as near-identical to the nav's `LayoutGrid`, which re-creates the Gantt
+two-indistinguishable-glyphs hazard against the sidebar instead of against the
+neighbouring button.
+
+★★ **ADDING A BARREL EXPORT IS A THREE-PLACE EDIT, ratchet by design.**
+`icons.test.ts` holds an `EXPECTED` map (app name → lucide `displayName`), a
+key-set equality test, and a deliberately redundant `exports 69 icons` COUNT
+whose comment says to bump the literal only on purpose. So: barrel line,
+`EXPECTED` row, and 69 → 70. Its ★★★ "maps no two app names onto the same
+glyph" test is what makes the collision analysis above enforceable rather than
+prose — `RotateCcwSquare` is not a target of any existing row.
 
 ### 4. The read-only guard — the one real trap
 
@@ -153,6 +184,8 @@ ratchet has room.
 
 | File | Change |
 |---|---|
+| `src/app/icons.ts` | add one export: `RotateCcwSquare as RotateCcwSquareIcon` |
+| `src/app/icons.test.ts` | add the `EXPECTED` row and bump the count 69 → 70 |
 | `src/app/task-manager-ui.tsx` | add `ResetLayoutIcon` + `ResetLayoutButton` beside their siblings |
 | `src/app/dashboard-panel.tsx` | render it in the top stack under `!arrangement.readOnly`; delete the old ghost button and its wrapper |
 | `src/app/dashboard-panel.test.tsx` | de-vacuum the popout assertion; add the three tests above |
