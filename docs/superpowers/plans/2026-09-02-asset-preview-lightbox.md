@@ -544,8 +544,14 @@ Add to `asset-preview-modal.tsx`, inside the component above the `return`:
   useEffect(() => {
     if (!open || !id) return;
     let cancelled = false;
-    setView(null);
     void (async () => {
+      // ★★★ `setView(null)` MUST BE INSIDE THIS IIFE, NOT ABOVE IT. As a bare
+      // statement in the effect body it is a FATAL `react-hooks/set-state-in-
+      // effect` error, not a warning. Nesting it changes NOTHING at runtime —
+      // an async function body runs synchronously up to its first `await`, so
+      // this still clears the stale image on the effect's own tick; it only
+      // changes what the rule can see. Do not "simplify" it back out.
+      setView(null);
       const base64 = await loadImage(id).catch(() => null);
       if (cancelled) return;
       if (base64 === null) { setView({ kind: "unavailable" }); return; }
@@ -563,6 +569,7 @@ And replace the body placeholder with:
 
 ```tsx
           {view?.kind === "ok" && (
+            // eslint-disable-next-line @next/next/no-img-element -- a blob: URL has nothing for next/image to optimise
             <img src={view.url} alt={current?.name ?? ""} className="min-h-0 flex-1 object-contain" />
           )}
           {view?.kind === "unavailable" && (
@@ -572,6 +579,8 @@ And replace the body placeholder with:
             <p className="flex-1 p-4 text-sm text-muted-foreground">{t(lang, "assetPreviewBlocked")}</p>
           )}
 ```
+
+★★ **THREE THINGS IN THIS SNIPPET FAIL THE GATES AS WRITTEN, all fatal under `--max-warnings=0`.** (a) The test file's vitest import must be widened to include `beforeEach`/`afterEach` — Task 3 correctly trimmed them as unused, so pasting the block above throws `ReferenceError: beforeEach is not defined` and collects ZERO tests, which reads as a broken suite rather than a missing import. (b) `setView(null)` in the effect body is a fatal `react-hooks/set-state-in-effect` error (fixed inline above). (c) The `<img>` trips `@next/next/no-img-element`, a WARNING and therefore fatal here — the repo's established answer is a targeted disable, as in `branding-image-input.tsx`, `app-header.tsx`, `sidebar.tsx` and `project-empty-state.tsx`.
 
 ★ If `react-hooks/exhaustive-deps` objects to `current?.mime` as a member expression, hoist it: `const currentMime = current?.mime;` and depend on `currentMime`. That rule is **fatal** here (`--max-warnings=0`).
 
