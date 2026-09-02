@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AssetPreviewModal } from "./asset-preview-modal";
@@ -63,5 +63,86 @@ describe("AssetPreviewModal — shell", () => {
     await screen.findByRole("dialog");
     await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AssetPreviewModal — object URL lifecycle", () => {
+  let created: string[];
+  let revoked: string[];
+  beforeEach(() => {
+    created = [];
+    revoked = [];
+    let n = 0;
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => { const u = `blob:${++n}`; created.push(u); return u; }),
+      revokeObjectURL: vi.fn((u: string) => { revoked.push(u); }),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("shows the image with the asset name as alt text", async () => {
+    renderModal();
+    const img = await screen.findByRole("img", { name: "Alpha" });
+    expect(img).toHaveAttribute("src", created[0]);
+  });
+
+  // ★★★ THE LEAK TEST. Navigating mints a new URL; the previous one must be
+  // revoked at that moment, not merely at close.
+  it("revokes the previous object URL when navigating", async () => {
+    renderModal();
+    await screen.findByRole("img", { name: "Alpha" });
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") }));
+    await screen.findByRole("img", { name: "Beta" });
+    expect(revoked).toContain(created[0]);
+  });
+
+  it("revokes the current object URL on close", async () => {
+    const { rerender } = renderModal();
+    await screen.findByRole("img", { name: "Alpha" });
+    rerender(
+      <AssetPreviewModal
+        lang="en-US" open={false} onClose={vi.fn()}
+        assets={[asset("a", "Alpha"), asset("b", "Beta")]}
+        startIndex={0} loadImage={vi.fn(async () => TINY_GIF)}
+      />,
+    );
+    expect(revoked).toContain(created[created.length - 1]);
+  });
+});
+
+describe("AssetPreviewModal — navigation", () => {
+  it("disables previous at the first item and next at the last", async () => {
+    renderModal({ startIndex: 0 });
+    await screen.findByRole("dialog");
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewPrev") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") }));
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewPrev") })).toBeEnabled();
+  });
+
+  // ★★ NO WRAPPING, DECIDED DELIBERATELY. With two images, wrapping makes
+  // "next" and "previous" land on the same picture, which reads as a broken
+  // control.
+  it("does not wrap past the end", async () => {
+    renderModal({ startIndex: 1 });
+    await screen.findByRole("dialog");
+    const next = screen.getByRole("button", { name: t("en-US", "assetPreviewNext") });
+    expect(next).toBeDisabled();
+    await userEvent.click(next);
+    expect(await screen.findByRole("dialog", { name: /Beta/ })).toBeInTheDocument();
+  });
+
+  it("renders position as 'n of total'", async () => {
+    renderModal({ startIndex: 0 });
+    expect(await screen.findByText(t("en-US", "assetPreviewPosition", 1, 2))).toBeInTheDocument();
+  });
+
+  it("renders inert navigation for a single-asset list", async () => {
+    renderModal({ assets: [asset("solo", "Solo")], startIndex: 0 });
+    await screen.findByRole("dialog");
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewPrev") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") })).toBeDisabled();
   });
 });

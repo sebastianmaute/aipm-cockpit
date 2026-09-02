@@ -17,13 +17,15 @@
 // from — the library's current sort, or a document's visual order. A single
 // global ordering would make "next" jump to an image that is not visible
 // where the user clicked.
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import type { DocumentAsset } from "./document-asset";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { Button } from "./button";
 import { useResizable } from "./use-resizable";
 import { useDraggable } from "./use-draggable";
+import { assetBytesToObjectUrl } from "./asset-object-url";
 
 // ★ Neither key collides. Enumerate today's set rather than trusting a list
 // written here — a quoted enumeration rots on the next modal:
@@ -46,7 +48,7 @@ export interface AssetPreviewModalProps {
 }
 
 export function AssetPreviewModal({
-  lang, open, onClose, assets, startIndex,
+  lang, open, onClose, assets, startIndex, loadImage,
 }: AssetPreviewModalProps) {
   const [index, setIndex] = useState(startIndex);
   const { offset, reset: dragReset, handleProps } = useDraggable(open, STORAGE_KEY_POS);
@@ -61,6 +63,41 @@ export function AssetPreviewModal({
   }
 
   const current = assets[index];
+  const atFirst = index <= 0;
+  const atLast = index >= assets.length - 1;
+  const go = useCallback((delta: number) => {
+    setIndex((i) => Math.min(Math.max(i + delta, 0), assets.length - 1));
+  }, [assets.length]);
+
+  const [view, setView] = useState<{ kind: "ok"; url: string } | { kind: "blocked" } | { kind: "unavailable" } | null>(null);
+  // Holds the URL currently minted so cleanup revokes exactly one thing.
+  const urlRef = useRef<string | null>(null);
+
+  const release = useCallback(() => {
+    if (urlRef.current) { URL.revokeObjectURL(urlRef.current); urlRef.current = null; }
+  }, []);
+
+  // ★★★ REVOKE ON NAVIGATE **AND** ON CLOSE. This effect's cleanup covers
+  // both: it runs when `id` changes (navigate) and on unmount/close. Revoking
+  // only in a close handler leaks one URL per arrow-press for the whole
+  // session, and nothing but a revokeObjectURL spy can see it.
+  const id = current?.id;
+  const currentMime = current?.mime;
+  useEffect(() => {
+    if (!open || !id) return;
+    let cancelled = false;
+    void (async () => {
+      setView(null);
+      const base64 = await loadImage(id).catch(() => null);
+      if (cancelled) return;
+      if (base64 === null) { setView({ kind: "unavailable" }); return; }
+      const r = assetBytesToObjectUrl(base64, currentMime);
+      if (cancelled) { if (r.kind === "ok") URL.revokeObjectURL(r.url); return; }
+      if (r.kind === "ok") urlRef.current = r.url;
+      setView(r);
+    })();
+    return () => { cancelled = true; release(); };
+  }, [open, id, loadImage, release, currentMime]);
 
   return (
     // `ariaLabelledby` over `ariaLabel` so the dialog's accessible name IS the
@@ -82,7 +119,31 @@ export function AssetPreviewModal({
           onResetLayout={() => { dragReset(); sizeReset(); }}
         />
         <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
-          {/* body arrives in Task 4 */}
+          {view?.kind === "ok" && (
+            // A blob: object URL — next/image cannot optimize it (there is no
+            // remote src to fetch), so the native element is correct here.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={view.url} alt={current?.name ?? ""} className="min-h-0 flex-1 object-contain" />
+          )}
+          {view?.kind === "unavailable" && (
+            <p className="flex-1 p-4 text-sm text-muted-foreground">{t(lang, "assetPreviewUnavailable")}</p>
+          )}
+          {view?.kind === "blocked" && (
+            <p className="flex-1 p-4 text-sm text-muted-foreground">{t(lang, "assetPreviewBlocked")}</p>
+          )}
+          <div className="flex items-center justify-between gap-2">
+            <Button variant="secondary" size="sm" onClick={() => go(-1)} disabled={atFirst}
+              aria-label={t(lang, "assetPreviewPrev")}>
+              {t(lang, "assetPreviewPrev")}
+            </Button>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {t(lang, "assetPreviewPosition", index + 1, assets.length)}
+            </span>
+            <Button variant="secondary" size="sm" onClick={() => go(1)} disabled={atLast}
+              aria-label={t(lang, "assetPreviewNext")}>
+              {t(lang, "assetPreviewNext")}
+            </Button>
+          </div>
         </div>
       </div>
     </Modal>
