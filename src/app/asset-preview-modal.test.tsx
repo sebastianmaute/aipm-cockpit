@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { AssetPreviewModal } from "./asset-preview-modal";
 import { t } from "./i18n";
 import type { DocumentAsset } from "./document-asset";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const TINY_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
@@ -144,5 +145,63 @@ describe("AssetPreviewModal — navigation", () => {
     await screen.findByRole("dialog");
     expect(screen.getByRole("button", { name: t("en-US", "assetPreviewPrev") })).toBeDisabled();
     expect(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") })).toBeDisabled();
+  });
+});
+
+describe("AssetPreviewModal — degraded assets", () => {
+  it("states that the data is missing rather than rendering a broken image", async () => {
+    renderModal({ loadImage: vi.fn(async () => null) });
+    expect(await screen.findByText(t("en-US", "assetPreviewUnavailable"))).toBeInTheDocument();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it("states that the format is unsupported for a blocked mime", async () => {
+    renderModal({ assets: [asset("a", "Alpha", "image/svg+xml"), asset("b", "Beta")] });
+    expect(await screen.findByText(t("en-US", "assetPreviewBlocked"))).toBeInTheDocument();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  // ★★ Navigation must still work PAST a broken asset — otherwise one missing
+  // image strands the user on it.
+  it("navigates past an unavailable asset", async () => {
+    const loadImage = vi.fn(async (id: string) => (id === "a" ? null : TINY_GIF));
+    renderModal({ loadImage });
+    await screen.findByText(t("en-US", "assetPreviewUnavailable"));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") }));
+    expect(await screen.findByRole("img", { name: "Beta" }));
+  });
+});
+
+describe("AssetPreviewModal — accessible names", () => {
+  it("gives every control in the dialog a distinct accessible name", async () => {
+    renderModal();
+    const dialog = await screen.findByRole("dialog");
+    // ★ `scope` is load-bearing: without it the helper counts every button in
+    // the document. `minControls` is the MEASURED count for this dialog —
+    // prev, next, plus the shared ModalHeader's ✕ (`alertModalClose`) and its
+    // reset-layout button (`modalResetSize`), which `onResetLayout` renders.
+    // No `VoiceCommandButton` renders here: `useVoiceCommand()` reads a
+    // context whose default is `null` and this test wraps no
+    // `VoiceCommandProvider`. Keep the floor exact; a floor set too low
+    // passes silently.
+    expectRowUniqueNames({ scope: dialog, minControls: 4, roles: ["button"] });
+  });
+
+  // ★★★ NOTHING ELSE PINS `ariaLabelledby` OVER `ariaLabel`, and the obvious
+  // test does not. The shell's "labels the dialog with the current asset name"
+  // matches on the COMPUTED accessible name, so switching the component to
+  // `ariaLabel` with the identical string passes it unchanged. `ModalProps` is
+  // a discriminated union, so the compiler forces exactly one of the two — but
+  // it does not care WHICH, and the entire reason for choosing
+  // `ariaLabelledby` is that the dialog's name and the heading a sighted user
+  // reads then CANNOT drift apart. Assert the mechanism, not the string.
+  it("names the dialog FROM its visible heading, so the two cannot drift", async () => {
+    renderModal();
+    const dialog = await screen.findByRole("dialog");
+    const labelledBy = dialog.getAttribute("aria-labelledby");
+    expect(labelledBy, "the dialog must be labelled BY an element, not by a bare string").toBeTruthy();
+    const heading = document.getElementById(labelledBy!);
+    expect(heading, `no element with id "${labelledBy}"`).not.toBeNull();
+    expect(heading).toHaveTextContent("Alpha");
   });
 });
