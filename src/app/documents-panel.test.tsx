@@ -2466,3 +2466,41 @@ describe("DocumentsPanel — the documents empty-state box", () => {
     expect(screen.getByText(t("en-US", "documentsNoneYet"))).toBeInTheDocument();
   });
 });
+
+describe("DocumentsPanel — the list is sized by its rows, not crushed by the preview", () => {
+  // ★★★ THE DEFECT THIS PINS. The list box and the preview box are BOTH
+  // `overflow-auto` children of the pane's fixed-height flex column, and
+  // `overflow` other than `visible` makes `min-height: auto` resolve to 0 — so
+  // both are crushable all the way down, and flex distributes the shrink in
+  // PROPORTION to content height. Both therefore keep the same FRACTION of
+  // themselves. That is fine for a 2000px preview (20% is still ~390px) and
+  // useless for a one-row list (20% is ~14px: the header and a scrollbar, no
+  // row). It got WORSE the fewer documents there were, which is the opposite
+  // of what a reader expects and is why it read as "the section collapsed".
+  //
+  // ★★ jsdom HAS NO LAYOUT ENGINE, so nothing here can measure a height — this
+  // pins the CLASS PLUMBING only, exactly as `budget-panel-totals.tsx`'s
+  // geometry is pinned. `shrink-0` is what makes the box uncrushable; the
+  // `max-h-*` ceiling is what stops a large register pushing the preview off
+  // screen; `overflow-auto` is what makes the box scroll internally past that
+  // ceiling. Remove any ONE of the three and the behaviour is wrong in a
+  // different direction, so all three are asserted.
+  function listBox(): HTMLElement {
+    // The documents table is the only table on this surface when no assetPane
+    // is supplied, so its nearest div ancestor is the list's own scroll box.
+    const box = screen.getByRole("table").closest("div");
+    if (!box) throw new Error("no scroll box around the documents table");
+    return box;
+  }
+
+  it("never shrinks below its rows", () => {
+    renderPanel([doc(1, "Alpha")]);
+    expect(listBox()).toHaveClass("shrink-0");
+  });
+
+  it("caps its height and scrolls internally past the cap", () => {
+    renderPanel([doc(1, "Alpha")]);
+    expect(listBox()).toHaveClass("max-h-80");
+    expect(listBox()).toHaveClass("overflow-auto");
+  });
+});

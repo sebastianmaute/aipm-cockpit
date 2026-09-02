@@ -118,7 +118,21 @@ export function DocumentsList({
   }
 
   return (
-    <div ref={containerRef} className="overflow-auto rounded-md border border-line">
+    // ★★★ `shrink-0` IS LOAD-BEARING AND IS NOT COSMETIC. This box and the
+    // preview's are both `overflow-auto` children of the pane's fixed-height
+    // flex column, and `overflow` other than `visible` makes `min-height: auto`
+    // resolve to 0 — so both are crushable to nothing, and flex distributes the
+    // shrink in PROPORTION to content height, leaving each the same FRACTION of
+    // itself. At ~20% that is a still-usable ~390px of preview and a useless
+    // ~14px of list: the header and a scrollbar, with the row clipped away. The
+    // fewer documents there were, the worse it got. Without `shrink-0` that
+    // returns, and no unit test can see it — jsdom has no layout engine.
+    // ★★ `max-h-80` (20rem ≈ 8 rows at this table's `py-2`) is the other half:
+    // uncrushable ALONE would let a large register push the preview off screen.
+    // Past the cap `overflow-auto` scrolls the list internally. All three
+    // classes are pinned in `documents-panel.test.tsx`; drop any one and the
+    // behaviour breaks in a different direction.
+    <div ref={containerRef} className="max-h-80 shrink-0 overflow-auto rounded-md border border-line">
       <DataTable
         tbodyClassName="divide-y divide-line"
         head={
