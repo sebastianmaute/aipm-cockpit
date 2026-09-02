@@ -17174,7 +17174,7 @@ crafted `alt` keeps a genuinely drawn image out of the drawn count, which over-r
 
 ## 219. The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them
 
-**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. 2026-09-01: PARTIALLY DISCHARGED — never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. The `.docx` ACCEPTANCE check IS discharged — Word and LibreOffice Writer, recorded below. What remains: the `.pptx` opened in **PowerPoint** specifically (both decks were opened on 2026-09-01 and reported working, but WHICH reader was never recorded, so item 2 is NOT discharged), plus items 3-7, none of which were exercised at all. ★★★ AND THE `.pptx` PASS IS RE-OWED ON ITS MERITS, not merely unrecorded: a cold review found §333's defect reproduced in the row-title slot and the fix moved both decks' bytes (§330), so what a human signed off is no longer what the script emits. The `.docx` are byte-identical and their discharge stands.
+**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. 2026-09-01: PARTIALLY DISCHARGED — never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. The `.docx` ACCEPTANCE check IS discharged — Word and LibreOffice Writer, recorded below. 2026-09-02: item 2 is now DISCHARGED for acceptance too — see the PowerPoint pass below. What remains is items **3-7**, none of which have been exercised at all, and the FIDELITY half of items 1-2, which no pass so far has looked at.
 
 ★★ **2026-09-01 — THE ACCEPTANCE HALF IS DISCHARGED, AND IT IS THE HALF THIS ENTRY SINGLES OUT AS
 THE ONE THAT HISTORICALLY FAILS.** During the `fix/export-link-fidelity` manual pass a human opened
@@ -17196,9 +17196,25 @@ real truecolour PNG, so an image was present in two of the four packages — but
 check render size, order, or the paragraph split around it, and a reader reporting "working" about
 links has said nothing about any of that. Items **3 (PDF through the print dialog)**, **4
 (over-budget placeholder)**, **5 (dangling asset)**, **6 (WebP in a perpetual Word)** and **7 (deck
-length)** were not exercised at all; item **1** is discharged only for ACCEPTANCE, not for
-fidelity; and item **2** is not discharged at all, because it names PowerPoint and no reader was
-recorded for either deck. Recording a link pass as an image pass would retire this entry while leaving the defect
+length)** were not exercised at all; and items **1-2** are discharged only for ACCEPTANCE, not for
+fidelity.
+
+★★★ **2026-09-02 — ITEM 2 DISCHARGED IN POWERPOINT, ON THE SECOND PASS, AND THE FIRST PASS IS THE
+LESSON.** After the §330 underline fix moved both decks' bytes, the regenerated
+`document-renderer.pptx` (25,014 B) and `workspace-exporter.pptx` (36,531 B) were opened in
+**PowerPoint** — the reader item 2 names — and both were reported clean, including the row-title
+link whose colour cue is absent by construction (§330). Item 2's acceptance half is closed.
+★★★ **THE READER WAS ASKED FOR EXPLICITLY BOTH TIMES IT WAS RECORDED, AND INFERRED THE FIRST TIME.**
+On 2026-09-01 a human reported four artifacts working and named no application; the reporter wrote
+"in **Word and in LibreOffice**" into this entry, which is impossible for a `.pptx` and claimed a
+PowerPoint check nobody had run. A cold review caught it. The second time the question was put
+before anything was written down. The generating cause was a PROMPT, not a lapse — the sample
+script's closing line told the operator to open all four "in Word and in LibreOffice", so the
+instruction itself made the impossible pairing the natural thing to report back. That line now
+names the reader per format and asks which one was used (`scripts/sample-link-exports.ts`).
+★★ Read the DISCHARGE narrowly: acceptance only, for the artifacts THIS script emits, at these
+bytes. Any change to the OOXML writers re-owes it — as the underline fix did, one day after the
+first pass. Recording a link pass as an image pass would retire this entry while leaving the defect
 class it was filed for completely unverified — which is worse than leaving it open, because the next
 reader would stop looking.
 
@@ -25735,8 +25751,13 @@ have, because both runs are individually correct and the defect is only in their
 applies to BOTH `.pptx` exporters (the change is in the shared `pptxRun`), chosen over a
 workspace-only fix so the two decks cannot drift apart on link treatment. Mutation-proved: reverting
 to `underline: has("underline")` goes 2 failed / 222 passed across the five affected files.
-★ Both `.docx` are byte-identical after it; both `.pptx` grew 40 bytes. Consequence recorded in
-§219: the `.pptx` half of the manual pass is RE-OWED, because the bytes a human signed off changed.
+★ Both `.docx` are byte-identical after it; both `.pptx` grew 40 bytes, which re-owed the `.pptx`
+half of §219's manual pass.
+★★ **EYE-VERIFIED 2026-09-02 — the underline does what the collision requires.** Both regenerated
+decks were opened in **PowerPoint** and reported clean, the row-title link included. So the fix is
+confirmed by the only instrument that can see it: nothing in this repo can tell whether a reader
+draws a link as distinct, and the two constants that collide are individually correct, so neither a
+gate nor a byte assertion was ever going to answer this one.
 
 ★ **THREE MINOR FINDINGS FROM THE SAME REVIEW, RECORDED AND DELIBERATELY NOT FIXED** — each is
 link-CONDITIONAL, which is the shared shape worth naming: they can only appear in a cell that
