@@ -69,13 +69,14 @@ export interface DocumentsToolbarProps {
   /** Whether the deleted-documents section is shown. */
   showDeleted: boolean;
   onShowDeletedChange: (next: boolean) => void;
-  /** ★ Rendered as a language-neutral number beside the label. It is the ONLY
-   *  signal the user gets that the derivation has handed the pane something
-   *  implausible — a corrupted `documents` blob beside a valid versions blob
-   *  makes EVERY version read as a deleted document, and a count of 200 next
-   *  to an empty pane says that far better than the list itself does. A
-   *  worded warning would be better and needs an i18n key this task was told
-   *  not to add; see the report. */
+  /** ★ Rendered as a language-neutral number beside the label — just the
+   *  count of genuinely deleted (tombstoned) documents. The worded
+   *  implausibility caution is a SEPARATE signal, rendered inside
+   *  `DocumentsDeletedSection` (`documentsDeletedImplausible`) and driven by
+   *  orphaned-version detection (`orphanedDocumentVersions`,
+   *  document-versions.ts), not by this count — a corrupted `documents`
+   *  blob beside a valid versions blob no longer inflates this number,
+   *  because `deletedDocumentVersions` requires `op === "delete"`. */
   deletedCount: number;
   editToolbar: DocumentsEditToolbarProps;
   /** Popout mirrors are read-only: the CREATE affordance goes inert. Download,

@@ -1459,17 +1459,36 @@ describe("DocumentsPanel — the implausible-deleted-list guard", () => {
     );
   }
 
-  // ★★★ MUTATION-PROVED. The signature of a `documents` blob that failed to
-  // parse beside a versions blob that did not: every version reads as deleted.
-  it("cautions when more documents look deleted than exist", async () => {
+  // ★★★ RE-POINTED. This used to assert a CAUTION here (the old
+  // `deleted.length > documentCount` heuristic: 2 > 0) — the exact
+  // false-positive shape the user reported, just generalised past N=1.
+  // Deleting documents, however many, is an ordinary workflow and must stay
+  // quiet; only an ORPHAN (a version whose newest op is neither "delete" nor
+  // "restored", for a document absent from `documents`) is evidence of a
+  // failed load now.
+  it("stays quiet no matter how many documents were genuinely deleted", async () => {
     const user = userEvent.setup();
     renderWith([], [tombstone(1, 10, "Gone A"), tombstone(2, 11, "Gone B")]);
     await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
 
-    expect(screen.getByRole("status").textContent).toMatch(/may not have loaded correctly/i);
-    // ★ It CAUTIONS, it does not hide or disable: a user who really did delete
-    // most of their documents must still be able to restore them.
+    expect(screen.queryByRole("status")).toBeNull();
+    // Positive observable: the section really rendered both tombstones, so
+    // "no caution" is not "nothing rendered".
     expect(screen.getAllByRole("button", { name: /^Restore –/ })).toHaveLength(2);
+  });
+
+  // ★★★ THE USER'S EXACT REPORT: one document, ever created, now deleted.
+  // Under the old `deleted.length > documentCount` heuristic this was 1 > 0 —
+  // a caution on the single most ordinary shape a delete can take.
+  it("does not caution over the user's exact bug case: deleting your only document", async () => {
+    const user = userEvent.setup();
+    renderWith([], [tombstone(1, 10, "Gone")]);
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    expect(screen.queryByRole("status")).toBeNull();
+    // Positive observable: the tombstone's Restore row really rendered, so a
+    // caution that never fires under any condition cannot pass this test.
+    expect(screen.getByRole("button", { name: /^Restore –/ })).toBeInTheDocument();
   });
 
   it("stays quiet when the deleted list is a plausible size", async () => {
@@ -1484,13 +1503,52 @@ describe("DocumentsPanel — the implausible-deleted-list guard", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("cautions on the boundary only when deleted strictly exceeds live", async () => {
+  // ★★★ A GENUINE ORPHAN — the signature the guard is now aimed at. A document
+  // id absent from `documents` whose newest version is an ORDINARY edit
+  // (never a delete) is exactly what a truncation artifact, a `documents`
+  // blob that failed to parse beside a valid versions blob, or a partial
+  // import leaves behind.
+  it("cautions over a genuine orphan: a document missing from `documents` whose newest version was an ordinary edit", async () => {
     const user = userEvent.setup();
-    // Equal counts is the boundary: one deleted, one live is an ordinary
-    // project, not a failed load.
-    renderWith([doc(1, "Alpha")], [tombstone(1, 99, "Gone")]);
+    const orphan: DocVersion = {
+      id: 2,
+      documentId: 77,
+      title: "Vanished",
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "update",
+    };
+    renderWith([doc(1, "Alpha")], [orphan]);
     await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    expect(screen.getByRole("status").textContent).toMatch(/may not have loaded correctly/i);
+  });
+
+  // ★★★ THE TRAP. Restoring a deleted document mints a NEW id and leaves a
+  // `"restored"` marker version on the OLD one (RESTORED_MARKER_OP,
+  // document-versions.ts) — that old id is permanently absent from
+  // `documents` and is NOT a tombstone. Without excluding it, every ordinary
+  // restore would caution as if the load had failed.
+  it("does not caution over a restored-marker id", async () => {
+    const user = userEvent.setup();
+    const restoredMarker: DocVersion = {
+      id: 3,
+      documentId: 55,
+      title: "Restored Elsewhere",
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "restored",
+    };
+    renderWith([doc(1, "Alpha")], [restoredMarker]);
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
     expect(screen.queryByRole("status")).toBeNull();
+    // Positive observable: the section really rendered (empty — a marker is
+    // not a tombstone either, so the deleted list itself is empty too), so
+    // "no caution" is not "nothing rendered".
+    expect(screen.getByText(t("en-US", "documentsNoVersions"))).toBeInTheDocument();
   });
 });
 

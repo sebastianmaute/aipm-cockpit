@@ -18,37 +18,43 @@ export interface DocumentsDeletedSectionProps {
   lang: Lang;
   /** Tombstone versions of deleted documents, newest first. */
   deleted: readonly DocVersion[];
-  /** Count of LIVE documents — drives the implausibility heuristic only. */
-  documentCount: number;
+  /** Count of ORPHANED non-tombstone versions (`orphanedDocumentVersions` in
+   *  document-versions.ts) — drives the implausibility caution only, and is
+   *  independent of `deleted.length`: a document can be genuinely deleted
+   *  (and appear in `deleted`) without ever being orphaned, and vice versa. */
+  orphanedCount: number;
   isReadOnly?: boolean;
   onRestore: (versionId: number) => void;
 }
 
 export function DocumentsDeletedSection({
-  lang, deleted, documentCount, isReadOnly, onRestore,
+  lang, deleted, orphanedCount, isReadOnly, onRestore,
 }: DocumentsDeletedSectionProps) {
   return (
     <section aria-label={t(lang, "documentsShowDeleted")} className="rounded-md border border-line p-3">
-      {/* ★★★ THE IMPLAUSIBILITY GUARD. `documents` and `documentVersions`
-          are parsed with INDEPENDENT try/catch on every backend, so a
-          corrupted `documents` blob beside a valid versions blob makes
-          EVERY version read as a deleted document — the pane then shows
-          "all N of your documents are deleted", which is a load failure
-          wearing the costume of an ordinary list. Truncation artifacts
-          (a file of `MAX_DOCUMENTS + 5` documents capped to
-          `MAX_DOCUMENTS` while ALL its versions survive) produce a milder
-          version of the same thing.
-          ★★ `deleted.length > documentCount` is the test because it is
-          the shape a genuine workflow does not have: deleting more
-          documents than you currently hold is normal over a long
-          project, but not while the surviving set is SMALLER than the
-          deleted one in the same load. It is a heuristic and deliberately
-          a soft one — it CAUTIONS, it does not hide or disable anything,
-          because a user who really did delete most of their documents
-          must still be able to restore them.
+      {/* ★★★ THE IMPLAUSIBILITY GUARD, pointed at ORPHANS, not at a
+          deleted-vs-live count comparison. `documents` and
+          `documentVersions` are parsed with INDEPENDENT try/catch on every
+          backend, so a `documents` blob that fails to parse beside a valid
+          versions blob — or a truncation artifact, or a partial import —
+          leaves a document id absent from `documents` whose newest version
+          is an ORDINARY edit (update/rename/duplicate), never a delete.
+          `orphanedCount` (`orphanedDocumentVersions`, document-versions.ts)
+          counts exactly that, and excludes restore markers too (see that
+          function's docstring for why).
+          ★★ IT USED TO BE `deleted.length > documentCount` — comparing the
+          tombstone count to the LIVE document count. That fired on deleting
+          your ONLY document (0 live, 1 tombstone: 1 > 0), the single most
+          ordinary shape a delete can take, while `deletedDocumentVersions`'s
+          own `op === "delete"` narrowing had already made the load-failure
+          shape it was meant to catch impossible to produce through this
+          list. It kept its false positives and had lost its true ones.
+          ★ It CAUTIONS, it does not hide or disable anything, because a
+          user who really did delete most of their documents must still be
+          able to restore them.
           ★ Not a row cap: capping the list without saying why is the
           false-affordance trap this pane avoids elsewhere. */}
-      {deleted.length > documentCount && (
+      {orphanedCount > 0 && (
         <p role="status" className="mb-2 text-sm text-ui-pink-strong">
           {t(lang, "documentsDeletedImplausible")}
         </p>

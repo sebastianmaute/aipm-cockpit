@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { type ProjectDocument, MAX_TITLE_CHARS } from "./document-model";
 import type { DocMutation, DocResult } from "./document-mutations";
-import { deletedDocumentVersions, type DocVersion, type DocVersionSource } from "./document-versions";
+import { deletedDocumentVersions, orphanedDocumentVersions, type DocVersion, type DocVersionSource } from "./document-versions";
 import type { Workspace } from "./workspace";
 import { DocumentsAssetSection, assetPaneLoader, type DocumentAssetPaneProps } from "./documents-asset-section";
 import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
@@ -311,25 +311,26 @@ export function DocumentsPanel({
   // ★★★ DERIVED, never a stored flag — a flag would have to be cleared on
   // restore and can desync from the documents array.
   //
-  // ★★ THIS LIST CAN CONTAIN THINGS THAT WERE NEVER DELETED, and the pane
-  // cannot tell. `deletedDocumentVersions` reports any version whose
-  // `documentId` is absent from `documents`, which is also true of
-  // (a) TRUNCATION ARTIFACTS — an over-cap file loads as MAX_DOCUMENTS
-  // documents but keeps ALL its versions, because `sanitizeProjectDocuments`
-  // caps the count while `sanitizeDocumentVersions` structurally cannot. (The
-  // cap was raised to 1000 and a truncating load now warns and pauses saving
-  // — open-followups §103 — so this is rarer than it was, but a file built
-  // against the old limit can still arrive in this shape.) And (b) ORPHANS from
-  // a partial import, or a text-backend load where the `documents` blob failed
-  // to parse and the `documentVersions` blob succeeded (they have independent
-  // try/catch on every backend). In that last case EVERY version reads as a
-  // deleted document. The toolbar shows the COUNT for exactly that reason —
-  // "Deleted documents (200)" beside an empty pane is the signal.
-  // ★ The engine-side narrowing (requiring `op === "delete"`) is a separate
-  // change; this pane deliberately does not duplicate it, so it inherits the
-  // fix rather than masking whether it landed.
+  // ★ `deletedDocumentVersions` requires `op === "delete"` (document-versions.ts)
+  // — a document id absent from `documents` whose newest version is an
+  // ordinary edit (a truncation artifact, a `documents` blob that failed to
+  // parse beside a valid versions blob, a partial import) does NOT appear
+  // here. That is `orphaned` below, which feeds the implausible-deleted-list
+  // caution instead of this list.
   const deleted = useMemo(
     () => deletedDocumentVersions(documentVersions, documents),
+    [documentVersions, documents],
+  );
+
+  // ★★★ Feeds the implausible-deleted-list caution in DocumentsDeletedSection.
+  // A document id absent from `documents` whose newest version is neither a
+  // real delete nor a restore marker is the signature of a failed or partial
+  // load — never of ordinary deleting, however many documents were deleted in
+  // the same load. REPLACES a `deleted.length > documentCount` heuristic that
+  // fired on deleting your ONLY document (0 live, 1 tombstone: 1 > 0); see
+  // `orphanedDocumentVersions`'s own docstring for the full account.
+  const orphaned = useMemo(
+    () => orphanedDocumentVersions(documentVersions, documents),
     [documentVersions, documents],
   );
 
@@ -637,7 +638,7 @@ export function DocumentsPanel({
           <DocumentsDeletedSection
             lang={lang}
             deleted={deleted}
-            documentCount={documents.length}
+            orphanedCount={orphaned.length}
             isReadOnly={isReadOnly}
             onRestore={handleRestore}
           />
