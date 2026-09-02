@@ -35,8 +35,7 @@ interface AddFirstItemButtonProps {
 }
 
 /**
- * The clickable dashed "add first item" empty-state box shared by the entity panels
- * (budget · gantt · milestones · changes · stakeholders · raid · open-points · knowledge).
+ * The clickable dashed "add first item" empty-state box shared by the entity panels.
  * Rendered ONLY for a truly-empty register (never filtered-empty); the panel keeps its own
  * empty-vs-filtered branching and swaps this box in for the <table>/rows. With `text` it is a
  * two-line flex box (description + CTA); without, a single centred CTA line (budget).

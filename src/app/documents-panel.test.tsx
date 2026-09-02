@@ -174,7 +174,7 @@ function boxMutator(box: Box) {
 
 function renderPanel(
   initial: readonly ProjectDocument[] = [],
-  opts: { allowDestructiveSave?: () => void } = {},
+  opts: { allowDestructiveSave?: () => void; isReadOnly?: boolean } = {},
 ) {
   const box: Box = { docs: initial, versions: [] };
   const mutateDocuments = boxMutator(box);
@@ -190,6 +190,7 @@ function renderPanel(
         ws={emptyWorkspace()}
         onResetSize={onResetSize}
         allowDestructiveSave={opts.allowDestructiveSave}
+        isReadOnly={opts.isReadOnly}
       />
     </PanelHost>,
   );
@@ -1459,17 +1460,36 @@ describe("DocumentsPanel — the implausible-deleted-list guard", () => {
     );
   }
 
-  // ★★★ MUTATION-PROVED. The signature of a `documents` blob that failed to
-  // parse beside a versions blob that did not: every version reads as deleted.
-  it("cautions when more documents look deleted than exist", async () => {
+  // ★★★ RE-POINTED. This used to assert a CAUTION here (the old
+  // `deleted.length > documentCount` heuristic: 2 > 0) — the exact
+  // false-positive shape the user reported, just generalised past N=1.
+  // Deleting documents, however many, is an ordinary workflow and must stay
+  // quiet; only an ORPHAN (a version whose newest op is neither "delete" nor
+  // "restored", for a document absent from `documents`) is evidence of a
+  // failed load now.
+  it("stays quiet no matter how many documents were genuinely deleted", async () => {
     const user = userEvent.setup();
     renderWith([], [tombstone(1, 10, "Gone A"), tombstone(2, 11, "Gone B")]);
     await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
 
-    expect(screen.getByRole("status").textContent).toMatch(/may not have loaded correctly/i);
-    // ★ It CAUTIONS, it does not hide or disable: a user who really did delete
-    // most of their documents must still be able to restore them.
+    expect(screen.queryByRole("status")).toBeNull();
+    // Positive observable: the section really rendered both tombstones, so
+    // "no caution" is not "nothing rendered".
     expect(screen.getAllByRole("button", { name: /^Restore –/ })).toHaveLength(2);
+  });
+
+  // ★★★ THE USER'S EXACT REPORT: one document, ever created, now deleted.
+  // Under the old `deleted.length > documentCount` heuristic this was 1 > 0 —
+  // a caution on the single most ordinary shape a delete can take.
+  it("does not caution over the user's exact bug case: deleting your only document", async () => {
+    const user = userEvent.setup();
+    renderWith([], [tombstone(1, 10, "Gone")]);
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    expect(screen.queryByRole("status")).toBeNull();
+    // Positive observable: the tombstone's Restore row really rendered, so a
+    // caution that never fires under any condition cannot pass this test.
+    expect(screen.getByRole("button", { name: /^Restore –/ })).toBeInTheDocument();
   });
 
   it("stays quiet when the deleted list is a plausible size", async () => {
@@ -1484,13 +1504,52 @@ describe("DocumentsPanel — the implausible-deleted-list guard", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("cautions on the boundary only when deleted strictly exceeds live", async () => {
+  // ★★★ A GENUINE ORPHAN — the signature the guard is now aimed at. A document
+  // id absent from `documents` whose newest version is an ORDINARY edit
+  // (never a delete) is exactly what a truncation artifact, a `documents`
+  // blob that failed to parse beside a valid versions blob, or a partial
+  // import leaves behind.
+  it("cautions over a genuine orphan: a document missing from `documents` whose newest version was an ordinary edit", async () => {
     const user = userEvent.setup();
-    // Equal counts is the boundary: one deleted, one live is an ordinary
-    // project, not a failed load.
-    renderWith([doc(1, "Alpha")], [tombstone(1, 99, "Gone")]);
+    const orphan: DocVersion = {
+      id: 2,
+      documentId: 77,
+      title: "Vanished",
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "update",
+    };
+    renderWith([doc(1, "Alpha")], [orphan]);
     await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    expect(screen.getByRole("status").textContent).toMatch(/may not have loaded correctly/i);
+  });
+
+  // ★★★ THE TRAP. Restoring a deleted document mints a NEW id and leaves a
+  // `"restored"` marker version on the OLD one (RESTORED_MARKER_OP,
+  // document-versions.ts) — that old id is permanently absent from
+  // `documents` and is NOT a tombstone. Without excluding it, every ordinary
+  // restore would caution as if the load had failed.
+  it("does not caution over a restored-marker id", async () => {
+    const user = userEvent.setup();
+    const restoredMarker: DocVersion = {
+      id: 3,
+      documentId: 55,
+      title: "Restored Elsewhere",
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "restored",
+    };
+    renderWith([doc(1, "Alpha")], [restoredMarker]);
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
     expect(screen.queryByRole("status")).toBeNull();
+    // Positive observable: the section really rendered (empty — a marker is
+    // not a tombstone either, so the deleted list itself is empty too), so
+    // "no caution" is not "nothing rendered".
+    expect(screen.getByText(t("en-US", "documentsNoVersions"))).toBeInTheDocument();
   });
 });
 
@@ -2253,14 +2312,17 @@ describe("DocumentsPanel — asset loader", () => {
     return { tursoConfig, projectId, assets: [], setAssets: () => {} };
   }
 
-  function renderWithAssets(assetPane: DocumentAssetPaneProps | undefined) {
+  function renderWithAssets(
+    assetPane: DocumentAssetPaneProps | undefined,
+    documents: readonly ProjectDocument[] = [doc(1, "Alpha"), doc(2, "Beta")],
+  ) {
     vi.mocked(downloadDocument).mockClear();
     vi.mocked(loadAssetData).mockClear();
     return render(
       <PanelHost>
         <DocumentsPanel
           lang="en-US"
-          documents={[doc(1, "Alpha"), doc(2, "Beta")]}
+          documents={documents}
           mutateDocuments={inertMutate}
           documentVersions={[]}
           ws={emptyWorkspace()}
@@ -2313,5 +2375,148 @@ describe("DocumentsPanel — asset loader", () => {
 
     expect(capturedLoader()).toBeUndefined();
     expect(loadAssetData).not.toHaveBeenCalled();
+  });
+
+  // ★★★ WHY THIS TEST EXISTS — it is the only possible detector. On an empty
+  // Turso project BOTH the documents empty-state box and the asset-library
+  // empty-state box render at once, in one pane. Two buttons sharing an
+  // accessible name is a WCAG 2.4.6 failure, and axe cannot see it: of
+  // axe-core 4.12.1's 105 rules, 69 carry one of the four tags
+  // `e2e/a11y.spec.ts` requests, and not one of them flags two controls
+  // sharing an accessible name (measured elsewhere in this repo — see
+  // AGENTS.md's a11y hard-constraint bullet). Documents IS an axe-scanned
+  // view, so a fully green axe run says nothing here, at every seed size,
+  // forever. This unit test is the entire coverage for this property.
+  it("gives the two empty-state boxes distinct accessible names", () => {
+    // Both sections empty, assets ENABLED — the only state in which both
+    // boxes are on screen at once, which is an empty Turso project.
+    renderWithAssets(assetPaneProps(TURSO_CONFIG, "proj-42"), []);
+
+    // Both boxes must actually be on screen, or the uniqueness claim below
+    // is vacuous.
+    expect(
+      screen.getByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "assetLibraryUploadFirst") }),
+    ).toBeInTheDocument();
+
+    // ★★ The shared helper (`src/test/row-unique-names.ts`), never a
+    // hand-rolled enumeration: `minControls` throws if the scope rendered
+    // fewer controls than measured, so a query typo or a silently narrowed
+    // scope cannot read as a pass.
+    // ★ `requireCollisionSeed` stays OFF: this is a distinct-name
+    // regression pin, not a test certifying a collision fixture. Turning it
+    // on would make the assertion throw against correct code.
+    expectRowUniqueNames({ minControls: 11 });
+  });
+});
+
+describe("DocumentsPanel — the documents empty-state box", () => {
+  it("offers the create box when the register is truly empty", () => {
+    renderPanel([]);
+    expect(
+      screen.getByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    ).toBeInTheDocument();
+  });
+
+  // ★★ Asserts the SUBSTRATE, not a mock's arguments: `boxMutator` is real, so
+  // a working create actually grows `box.docs`. Asserting on the arguments
+  // handed to a mock would prove spelling, not behaviour.
+  it("creates a document when the box is clicked", async () => {
+    const user = userEvent.setup();
+    const { box } = renderPanel([]);
+    expect(box.docs).toHaveLength(0);
+    await user.click(
+      screen.getByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    );
+    expect(box.docs).toHaveLength(1);
+  });
+
+  // ★★★ A popout is a read-only mirror whose create affordance is inert by
+  // design.
+  // ★★ READ THE SECOND ASSERTION FOR WHAT IT IS. `documentsNoneYet` is the
+  // passive EmptyState's title AND the box's own `text` line, so it renders in
+  // BOTH branches and CANNOT discriminate between them — it proves only that
+  // the pane rendered something rather than throwing. The `queryByRole` half is
+  // the whole load-bearing assertion.
+  it("shows the passive message instead of the box when read-only", () => {
+    renderPanel([], { isReadOnly: true });
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    ).toBeNull();
+    expect(screen.getByText(t("en-US", "documentsNoneYet"))).toBeInTheDocument();
+  });
+
+  // ★ The mirror of the asset side's own populated-register test. Paired with a
+  // positive observable so it cannot pass against a pane that rendered nothing.
+  it("does not offer the create box once the register has a document", () => {
+    renderPanel([doc(1, "Alpha")]);
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    ).toBeNull();
+  });
+
+  // ★★★ The one case where the gate's two candidate readings DISAGREE.
+  // `documents` (the register) is non-empty; `visibleRows` (filtered) is empty.
+  // Reading the filtered array here would offer "Create your first document" to
+  // someone who has documents and a filter applied. The passive message is the
+  // positive observable, so this cannot pass against a pane that rendered nothing.
+  it("shows the passive message, not the create box, when an armed filter matches none of the documents", () => {
+    const documents = [linkedDoc(), doc(11, "Minutes")];
+    render(
+      <PanelHost>
+        <EntityFilterTrigger kind="raid" id={999} />
+        {panelWith(documents)}
+      </PanelHost>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "arm-filter" }));
+
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    ).toBeNull();
+    expect(screen.getByText(t("en-US", "documentsNoneYet"))).toBeInTheDocument();
+  });
+});
+
+describe("DocumentsPanel — the list is sized by its rows, not crushed by the preview", () => {
+  // ★★★ THE DEFECT THIS PINS. The list box and the preview box are BOTH
+  // `overflow-auto` children of the pane's fixed-height flex column, and
+  // `overflow` other than `visible` makes `min-height: auto` resolve to 0 — so
+  // both are crushable all the way down, and flex distributes the shrink in
+  // PROPORTION to content height. Both therefore keep the same FRACTION of
+  // themselves. That is fine for a 2000px preview (20% is still ~390px) and
+  // useless for a one-row list (20% is ~14px: the header and a scrollbar, no
+  // row). It got WORSE the fewer documents there were, which is the opposite
+  // of what a reader expects and is why it read as "the section collapsed".
+  //
+  // ★★ jsdom HAS NO LAYOUT ENGINE, so nothing here can measure a height — this
+  // pins the CLASS PLUMBING only, exactly as `budget-panel-totals.tsx`'s
+  // geometry is pinned. `shrink-0` is what makes the box uncrushable; the
+  // `max-h-*` ceiling is what stops a large register pushing the preview off
+  // screen; `overflow-auto` is what makes the box scroll internally past that
+  // ceiling. Remove any ONE of the three and the behaviour is wrong in a
+  // different direction, so all three are asserted.
+  function listBox(): HTMLElement {
+    // The documents table is the only table on this surface when no assetPane
+    // is supplied, so its nearest div ancestor is the list's own scroll box.
+    const box = screen.getByRole("table").closest("div");
+    if (!box) throw new Error("no scroll box around the documents table");
+    return box;
+  }
+
+  // ★★ These read `className` and nothing else — jsdom has no layout engine.
+  // The geometry itself is pinned by `e2e/documents-list-geometry.spec.ts`.
+  it("carries shrink-0 on the list scroll box", () => {
+    renderPanel([doc(1, "Alpha")]);
+    expect(listBox()).toHaveClass("shrink-0");
+  });
+
+  it("carries max-h-80 and overflow-auto on the list scroll box", () => {
+    renderPanel([doc(1, "Alpha")]);
+    expect(listBox()).toHaveClass("max-h-80");
+    expect(listBox()).toHaveClass("overflow-auto");
   });
 });

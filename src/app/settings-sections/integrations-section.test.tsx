@@ -237,6 +237,50 @@ describe("IntegrationsSection weekly digest control", () => {
   });
 });
 
+describe("IntegrationsSection Turso credentials supplied by the environment", () => {
+  // ★★★ THE URL AND TOKEN INPUTS ARE HIDDEN WHENEVER THE MATCHING
+  // `NEXT_PUBLIC_TURSO_*` VAR IS SET, and that is deliberate: `getTursoConfig`
+  // lets a non-empty env value WIN over anything typed here, so an editable
+  // field would be inert. Nothing SAID so, and an env-configured deployment
+  // therefore rendered an empty bordered box that reads as a broken settings
+  // panel — reported 2026-09-02 against a working Turso backend. These pin the
+  // disclosure, which is the only thing standing between the two readings.
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("names the env var that supplies the database URL instead of leaving a gap", () => {
+    vi.stubEnv("NEXT_PUBLIC_TURSO_DATABASE_URL", "libsql://env-db.turso.io");
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(
+      screen.queryByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")),
+    ).toBeNull();
+    expect(screen.getByText(/NEXT_PUBLIC_TURSO_DATABASE_URL/)).toBeInTheDocument();
+  });
+
+  it("names the env var that supplies the auth token instead of leaving a gap", () => {
+    vi.stubEnv("NEXT_PUBLIC_TURSO_AUTH_TOKEN", "env-tok");
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(
+      screen.queryByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")),
+    ).toBeNull();
+    expect(screen.getByText(/NEXT_PUBLIC_TURSO_AUTH_TOKEN/)).toBeInTheDocument();
+  });
+
+  // The positive observable. Without it an inverted gate — notice always, fields
+  // never — passes both assertions above.
+  it("keeps both fields and shows no env notice when neither var is set", () => {
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/NEXT_PUBLIC_TURSO_/)).toBeNull();
+  });
+});
+
 describe("IntegrationsSection Turso auth token sealing", () => {
   it("device-seals the Turso auth token when edited", async () => {
     const { container } = render(

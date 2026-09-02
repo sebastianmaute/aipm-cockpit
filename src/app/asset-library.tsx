@@ -25,13 +25,16 @@ import { t, localeFor, type Lang } from "./i18n";
 import type { DocumentAsset } from "./document-asset";
 import { ASSET_MIME_ALLOWED, isBlockedAssetMime } from "./document-asset-upload";
 import { DataTable } from "./data-table";
-import { EmptyState } from "./empty-state";
+import { AddFirstItemButton } from "./add-first-item-button";
+import { useFilePicker } from "./use-file-picker";
 import { Button } from "./button";
 import { Input } from "./form-controls";
 import { FilePickerButton } from "./file-picker-button";
 import { type SortDir, SortResizeTh, useSortHeaderProps, compareStrOrNum, nextSortDir } from "./report-table";
 import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { AssetPreviewModal } from "./asset-preview-modal";
+import type { AssetByteLoader } from "./document-asset-images";
 
 export interface AssetLibraryProps {
   lang: Lang;
@@ -47,6 +50,12 @@ export interface AssetLibraryProps {
   /** Absent in the management mounting — no insert control renders then. */
   onInsert?: (id: string) => void;
   onUpload: (file: File) => void;
+  /** Injected byte loader (`documents-asset-section.tsx` builds it from the
+   *  pane's own already-normalised Turso config + project id). Absent → no
+   *  preview control renders — there would be nothing for it to show, and
+   *  Turso gating is INHERITED from the call site rather than re-checked
+   *  here. */
+  loadImage?: AssetByteLoader;
 }
 
 type AssetSortKey = "name" | "size";
@@ -78,8 +87,32 @@ export function AssetLibrary({
   onDelete,
   onInsert,
   onUpload,
+  loadImage,
 }: AssetLibraryProps) {
   const confirm = useConfirm();
+  // Index into `sorted` of the asset currently open in the preview lightbox;
+  // `null` means closed. Kept as an index rather than an id so "next"/"prev"
+  // inside AssetPreviewModal walk the SAME order these rows render in.
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  // ★★ ONE derivation, TWO pickers. This pane mounts two independent file
+  // dialogs — the toolbar `FilePickerButton` and, on the empty branch, the
+  // dashed box's own hidden input — and they must agree on what they accept
+  // and when they are inert. Both sites below read THESE bindings; keep it
+  // that way.
+  const pickerAccept = ASSET_MIME_ALLOWED.join(",");
+  // ★★ UNREACHABLE TODAY, AND DELIBERATELY KEPT. `useDocumentAssets` commits
+  // the metadata row BEFORE it sets `busyId` (see its "METADATA FIRST" note),
+  // and React batches the pair — so `assets` is never empty while `busyId` is
+  // set, and the empty branch holding the box is already unmounted. The
+  // argument is defence against that ordering being reversed. ★★★ IF IT EVER
+  // IS, THIS IS NOT ENOUGH: `AddFirstItemButton` has no `disabled` prop, so
+  // the box would render fully live while its input is disabled and the click
+  // would be a silent no-op. Give the box a disabled state before relying on
+  // this flag reaching it.
+  const pickerDisabled = busyId !== null;
+  // ★ The empty-state box's OWN picker, distinct from the toolbar
+  // FilePickerButton's.
+  const boxPicker = useFilePicker(onUpload, pickerAccept, pickerDisabled);
   const [sort, setSort] = useState<{ key: AssetSortKey; dir: SortDir }>({ key: "name", dir: "off" });
   // In-place rename draft. `onRename` takes the new name directly — there is
   // no separate rename modal, so the edit state lives here.
@@ -177,9 +210,9 @@ export function AssetLibrary({
       <div className="flex flex-wrap items-center gap-2">
         <FilePickerButton
           label={t(lang, "upload")}
-          accept={ASSET_MIME_ALLOWED.join(",")}
+          accept={pickerAccept}
           onFile={onUpload}
-          disabled={busyId !== null}
+          disabled={pickerDisabled}
         />
         {/* Disclosure only — no per-workspace cap is enforced. */}
         <span className="text-xs text-muted-foreground">
@@ -188,7 +221,16 @@ export function AssetLibrary({
       </div>
 
       {assets.length === 0 ? (
-        <EmptyState title={t(lang, "assetLibraryEmpty")} />
+        <>
+          <AddFirstItemButton
+            onAdd={boxPicker.open}
+            text={t(lang, "assetLibraryEmpty")}
+            addLabel={`+ ${t(lang, "assetLibraryUploadFirst")}…`}
+            ariaLabel={t(lang, "assetLibraryUploadFirst")}
+            rounded="xl"
+          />
+          <input {...boxPicker.inputProps} />
+        </>
       ) : (
         <div className="overflow-auto rounded-md border border-line">
           <DataTable
@@ -214,7 +256,7 @@ export function AssetLibrary({
               </tr>
             }
           >
-            {sorted.map((asset) => {
+            {sorted.map((asset, index) => {
               const token = rowTokens.get(asset.id) ?? asset.name;
               const isDangling = danglingIds.has(asset.id);
               // §230 — a refused mime is NOT dangling: the byte row exists, so
@@ -333,6 +375,42 @@ export function AssetLibrary({
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap items-center gap-1">
+                      {/* ★ Read-only: never gated on `isBusy` (a rename/delete
+                          in flight on this row) or on the caller's own
+                          read-only state — it mutates nothing, so it stays
+                          available in a read-only popout and while this row
+                          is mid-write. */}
+                      {loadImage && (
+                        <Button
+                          variant="secondary"
+                          size="xs"
+                          onClick={() => setPreviewIndex(index)}
+                          // ★★★ THE ACCESSIBLE NAME IS COMPOSED FROM THE
+                          // VISIBLE-TEXT KEY, AND THAT IS THE WHOLE POINT. This
+                          // read `t(lang, "assetPreviewOpen", token)` — an
+                          // independently authored key — and that SHIPPED A
+                          // WCAG 2.5.3 (label in name) FAILURE IN GERMAN: the
+                          // visible label is `documentsPreview` = "Vorschau"
+                          // while `assetPreviewOpen` = "Bild anzeigen – {0}",
+                          // which contains no such word, so a German speech-
+                          // input user saying the label they can see could not
+                          // activate this control. EN passed only by
+                          // coincidence ("Preview" ⊂ "Preview image – …").
+                          // Composing the name from the same key that renders
+                          // the text makes containment STRUCTURAL — true in
+                          // every language, and not defeatable by a future
+                          // translation of either string. `SortResizeTh` builds
+                          // its header names from `label` for exactly this
+                          // reason, and `documents-history-modal.tsx` spells
+                          // this same pair one file over. The DE containment
+                          // test in `asset-library.test.tsx` is what catches a
+                          // revert; AGENTS.md's a11y section carries the
+                          // measurement of why no gate can.
+                          aria-label={`${t(lang, "documentsPreview")} – ${token}`}
+                        >
+                          {t(lang, "documentsPreview")}
+                        </Button>
+                      )}
                       {onInsert && (
                         <Button
                           variant="secondary"
@@ -395,6 +473,20 @@ export function AssetLibrary({
             })}
           </DataTable>
         </div>
+      )}
+      {/* Always mounted while `loadImage` is supplied, never conditionally on
+          `previewIndex` — `Modal` itself returns null while `open` is false,
+          and `AssetPreviewModal`'s own re-seed-on-reopen logic depends on
+          staying mounted across opens. No loader ⇒ nothing to show. */}
+      {loadImage && (
+        <AssetPreviewModal
+          lang={lang}
+          open={previewIndex !== null}
+          onClose={() => setPreviewIndex(null)}
+          assets={sorted}
+          startIndex={previewIndex ?? 0}
+          loadImage={loadImage}
+        />
       )}
     </div>
   );

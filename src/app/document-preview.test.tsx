@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useState } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DocumentPreview } from "./document-preview";
 import type { ProjectDocument } from "./document-model";
@@ -16,6 +16,7 @@ import { emptyWorkspace } from "./workspace";
 import { renderDocumentHtml } from "./doc-render-html";
 import { hashBytes } from "./document-asset-upload";
 import { useDocumentAssets } from "./use-document-assets";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 vi.mock("./document-assets-store", () => ({
   loadAssetData: vi.fn(), saveAssetData: vi.fn(), deleteAssetData: vi.fn(), loadAssetDataIds: vi.fn(),
@@ -224,5 +225,157 @@ describe("DocumentPreview + useDocumentAssets — a repair reaches a placed imag
     expect(loadAssetData).not.toHaveBeenCalled();
     expect(img.hasAttribute("data-asset-missing")).toBe(false);
     expect(img.hasAttribute("src")).toBe(false);
+  });
+});
+
+// ★★★ THE SECOND ENTRY POINT INTO THE LIGHTBOX, AND WHY IT CANNOT BE A REACT
+// `onClick`. The preview body is ONE `dangerouslySetInnerHTML` string, so the
+// `<img data-asset-id>` nodes inside it are not React elements — there is
+// nothing to hand a handler or a `tabIndex` to. Activation is DELEGATED from
+// the container element, and the interactive attributes are stamped in the
+// same imperative register `attachAssetImages` already writes `src` in.
+//
+// ★★ THE LIST THE LIGHTBOX WALKS IS THE CONTAINER'S IMAGES IN DOM ORDER — the
+// document's visual order. A global asset ordering would make "next" jump to a
+// picture that is not on the page the user clicked from.
+describe("DocumentPreview — opening the lightbox from an inserted image", () => {
+  // `as never` matches the sibling describe above: the component only forwards
+  // this to the (mocked) byte store, so no real shape is needed. `typeof TURSO`
+  // is therefore `never`, which is why the config parameter below reads oddly —
+  // it accepts TURSO and `null` and nothing else.
+  const TURSO = { httpUrl: "https://db.turso.io", authToken: "t" } as never;
+
+  const asset = (id: string, name: string): DocumentAsset => ({
+    id, name, mime: "image/png", size: 24, hash: `h-${id}`, createdAt: NOW,
+  });
+
+  const D: ProjectDocument = {
+    id: 1, title: "Steering update", blocks: [], createdAt: NOW, updatedAt: NOW,
+  };
+
+  function renderPreview(assets: readonly DocumentAsset[], config: typeof TURSO | null = TURSO) {
+    return render(
+      <DocumentPreview
+        lang="en-US" doc={D} ws={{ ...emptyWorkspace(), documentAssets: assets }}
+        tursoConfig={config} projectId="p1"
+      />,
+    );
+  }
+
+  beforeEach(() => {
+    vi.mocked(renderDocumentHtml).mockReturnValue(
+      '<p><img data-asset-id="a1" alt="chart"><img data-asset-id="a2" alt="table"></p>',
+    );
+    // ★ Null bytes on every path, deliberately: the lightbox then reports
+    // "unavailable" and NOTHING mints an object URL, so these tests need no
+    // `URL` stubbing to assert WHICH image the lightbox opened on.
+    vi.mocked(loadAssetData).mockReset().mockResolvedValue(null);
+  });
+
+  // Restores the file-wide default rather than relying on describe ORDER —
+  // `npm run test:shuffle` is a blocking gate and shuffles within a file.
+  afterEach(() => { vi.mocked(renderDocumentHtml).mockReturnValue("<p>body</p>"); });
+
+  it("opens the lightbox on the image the user clicked", async () => {
+    renderPreview([asset("a1", "chart.png"), asset("a2", "table.png")]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Preview image – table.png" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Preview – table.png" })).toBeInTheDocument();
+    expect(within(dialog).getByText("2 of 2")).toBeInTheDocument();
+  });
+
+  it("steps through the images in the document's own visual order", async () => {
+    // ★ The control that makes the previous test mean something: opening on the
+    // FIRST image and stepping forward has to land on the image that follows it
+    // IN THE DOCUMENT, which is what pins the list to the container's DOM order
+    // rather than to `ws.documentAssets` (seeded here in the opposite order).
+    renderPreview([asset("a2", "table.png"), asset("a1", "chart.png")]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Preview image – chart.png" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("1 of 2")).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Next image" }));
+    expect(within(dialog).getByRole("heading", { name: "Preview – table.png" })).toBeInTheDocument();
+  });
+
+  it("reaches an inserted image with Tab and opens it with Enter", async () => {
+    // ★★★ `userEvent.tab()`, NEVER `.focus()`. `.focus()` succeeds on any
+    // element a script points it at and so proves nothing about whether a
+    // keyboard user can REACH the image; only a real Tab walk does. The
+    // scrollable region (tabIndex={0}) is the first stop, the images follow.
+    renderPreview([asset("a1", "chart.png"), asset("a2", "table.png")]);
+
+    await userEvent.tab();
+    expect(screen.getByRole("region", { name: "Steering update" })).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByRole("button", { name: "Preview image – chart.png" })).toHaveFocus();
+
+    await userEvent.keyboard("{Enter}");
+    expect(within(await screen.findByRole("dialog")).getByText("1 of 2")).toBeInTheDocument();
+  });
+
+  it("opens an inserted image with Space too", async () => {
+    // A `role="button"` announces itself as operable by BOTH keys; wiring only
+    // Enter leaves a control that lies about what it accepts.
+    renderPreview([asset("a1", "chart.png"), asset("a2", "table.png")]);
+
+    await userEvent.tab();
+    await userEvent.tab();
+    await userEvent.tab();
+    expect(screen.getByRole("button", { name: "Preview image – table.png" })).toHaveFocus();
+
+    await userEvent.keyboard(" ");
+    expect(within(await screen.findByRole("dialog")).getByText("2 of 2")).toBeInTheDocument();
+  });
+
+  it("keeps two images of the SAME asset name distinct", () => {
+    // ★★★ THE ONLY DETECTOR THAT CAN EXIST. axe carries no rule flagging two
+    // controls that share an accessible name, in any view at any seed size, so
+    // a green a11y gate says nothing here. Two images naming one asset is not
+    // exotic — inserting the same picture twice reaches it immediately.
+    renderPreview([asset("a1", "chart.png"), asset("a2", "chart.png")]);
+
+    // Whole-document scope: the lightbox is closed (Modal renders null), so the
+    // only controls on the page are the two images. `minControls` at exactly 2
+    // is the measured value — a floor of 0 would let a broken query pass.
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+  });
+
+  it("names the SAME asset inserted twice distinctly as well", () => {
+    // ★★★ THE SINGLE-MEMBER TOKEN-MAP TRAP. `buildRowTokens` keys its output by
+    // the row id, so keying on the ASSET id would collapse both occurrences of
+    // one asset into a single map entry and emit a BARE token for both — a
+    // collision no `documentAssets` fixture can produce. The tokens are keyed
+    // by POSITION for exactly this case.
+    vi.mocked(renderDocumentHtml).mockReturnValue(
+      '<p><img data-asset-id="a1" alt="chart"><img data-asset-id="a1" alt="chart"></p>',
+    );
+    renderPreview([asset("a1", "chart.png")]);
+
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+  });
+
+  it("falls back to the image's alt text when the asset has no metadata row", async () => {
+    // A byte row can outlive its metadata (an import that dropped the slice).
+    // The label still has to say WHICH picture, so it falls through to the alt
+    // the insert path wrote — never to a bare uuid.
+    renderPreview([]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Preview image – table" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("makes no image interactive when asset storage is off", () => {
+    // ★★ The same bail the resolve effect carries: a null config means asset
+    // storage is OFF, so no byte can ever load and an affordance promising a
+    // lightbox would be a lie. Mirrors "does not reach the byte store" above.
+    renderPreview([asset("a1", "chart.png")], null);
+
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    const img = document.querySelector("img[data-asset-id='a1']")!;
+    expect(img.hasAttribute("tabindex")).toBe(false);
   });
 });

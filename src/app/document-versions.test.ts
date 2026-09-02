@@ -6,6 +6,8 @@ import {
   sanitizeDocumentVersions,
   trimVersions,
   deletedDocumentVersions,
+  orphanedDocumentVersions,
+  RESTORED_MARKER_OP,
   type DocVersion,
 } from "./document-versions";
 import {
@@ -505,5 +507,62 @@ describe("deletedDocumentVersions reports DELETIONS, not merely absences", () =>
     expect(deletedDocumentVersions([deleted, later], [])).toEqual([]);
     // ...and the same group with nothing newer IS a tombstone.
     expect(deletedDocumentVersions([deleted], []).map((k) => k.id)).toEqual([1]);
+  });
+});
+
+// ★★★ THE COMPLEMENT of the describe block above. `deletedDocumentVersions`
+// now correctly EXCLUDES orphans (a truncation artifact, a `documents` blob
+// that failed to parse beside a valid versions blob, a partial import); this
+// function is where that signal has to go instead, and it feeds the
+// implausible-deleted-list caution in DocumentsDeletedSection.
+describe("orphanedDocumentVersions", () => {
+  it("reports an orphan whose newest version is an ordinary edit", () => {
+    const orphan = v({ id: 1, documentId: 900, title: "Truncated away", op: "update" });
+    expect(orphanedDocumentVersions([orphan], []).map((k) => k.id)).toEqual([1]);
+  });
+
+  it.each(["update", "rename", "duplicate"] as const)(
+    "reports an orphan whose newest op is %s",
+    (op) => {
+      expect(orphanedDocumentVersions([v({ id: 1, documentId: 900, op })], []).map((k) => k.id)).toEqual([1]);
+    },
+  );
+
+  it("excludes a genuine tombstone — a real delete is not an orphan", () => {
+    const real = v({ id: 1, documentId: 900, op: "delete" });
+    expect(orphanedDocumentVersions([real], [])).toEqual([]);
+  });
+
+  it("stays quiet no matter how many documents were genuinely deleted", () => {
+    // ★★★ THE USER'S REPORTED BUG, at the engine layer: deleting your only
+    // document (or several) must never look like a failed load.
+    const tombstones = [
+      v({ id: 1, documentId: 900, op: "delete" }),
+      v({ id: 2, documentId: 901, op: "delete" }),
+    ];
+    expect(orphanedDocumentVersions(tombstones, [])).toEqual([]);
+  });
+
+  // ★★★ THE TRAP. Restoring a deleted document mints a NEW id and leaves a
+  // `"restored"` marker on the OLD one — permanently absent from `documents`
+  // and not a tombstone. Without this exclusion every ordinary restore would
+  // report as an orphan.
+  it("excludes a restored-marker id", () => {
+    const marker = v({ id: 1, documentId: 900, op: RESTORED_MARKER_OP });
+    expect(orphanedDocumentVersions([marker], [])).toEqual([]);
+  });
+
+  it("does not treat a live document as orphaned, even if its newest version is an ordinary edit", () => {
+    const version = v({ id: 1, documentId: 1, op: "update" });
+    expect(orphanedDocumentVersions([version], [doc({ id: 1 })])).toEqual([]);
+  });
+
+  it("reads only the NEWEST entry per document", () => {
+    // A genuine delete followed by nothing newer is not an orphan...
+    const deleted = v({ id: 1, documentId: 99, savedAt: "2026-01-01T00:00:00.000Z", op: "delete" });
+    expect(orphanedDocumentVersions([deleted], [])).toEqual([]);
+    // ...but a later ordinary edit landing under a truncated document IS.
+    const later = v({ id: 2, documentId: 99, savedAt: "2026-02-01T00:00:00.000Z", op: "update" });
+    expect(orphanedDocumentVersions([deleted, later], []).map((k) => k.id)).toEqual([2]);
   });
 });

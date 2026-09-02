@@ -10,6 +10,7 @@ import { t } from "./i18n";
 import * as dashboardModule from "./dashboard";
 import type { ActivityEntry } from "./activity-log";
 import type { BudgetBucket, RaidItem, Milestone, ChangeItem } from "./types";
+import { expectButtonOrder } from "../test/toolbar-order";
 
 /**
  * The `scrollRef` every render hands `useListReorderDnd`, captured through a
@@ -802,9 +803,12 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
 
 // ★★ EVERY TEST HERE NEEDS ITS OWN `projectId`. `useDashboardLayout` keys its
 // stored arrangement on it, so a shared id would let one test's hide leak into
-// the next. (The 400ms debounce means nothing is actually written inside a
-// synchronous test — the effect's cleanup clears the timer on unmount — but the
-// isolation must not rest on that timing.)
+// the next. ★★★ THIS IS STRICTLY LOAD-BEARING, NOT BELT-AND-BRACES — an earlier
+// version of this comment claimed the 400ms debounce meant nothing was ever
+// written inside a synchronous test. It is written: `use-dashboard-layout.ts`
+// has a flush-on-unmount effect (`useEffect(() => flush, …)`) that exists
+// exactly so an unmount inside the debounce window is not discarded, and RTL
+// cleanup triggers it. Reusing an id WILL leak.
 const EN = "en-US" as const;
 const grip = (title: string) => `${t(EN, "reorderHandle")} – ${title}`;
 const kebab = (title: string) => `${t(EN, "actionMoreActions")} – ${title}`;
@@ -848,7 +852,13 @@ describe("DashboardPanel arrangeable tile grid", () => {
     expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: grip("Progress") })).toBeNull();
     expect(screen.queryByRole("button", { name: kebab("Progress") })).toBeNull();
-    expect(screen.queryByText(t(EN, "dashboardResetLayout"))).toBeNull();
+    // ★★★ queryByRole, NOT queryByText. This button is icon-only, so it renders
+    // no text node and a text query passes whether it is guarded or not — the
+    // assertion would read as coverage while pinning nothing. The accessible
+    // name is the only observable that survives the icon-only form.
+    expect(
+      screen.queryByRole("button", { name: t(EN, "dashboardResetLayout") }),
+    ).toBeNull();
     expect(screen.queryByRole("button", { name: t(EN, "dashboardShelfCount", 0) })).toBeNull();
   });
 
@@ -1029,6 +1039,42 @@ describe("DashboardPanel arrangeable tile grid", () => {
     const registers = screen.getByText("Top open RAID");
     const progress = screen.getByText("Progress");
     expect(registers.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("DashboardPanel reset-layout control", () => {
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it("renders the reset button in the top control stack", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-reset-present" />, { wrapper });
+    expect(
+      screen.getByRole("button", { name: t(EN, "dashboardResetLayout") }),
+    ).toBeInTheDocument();
+  });
+
+  // ★ AGENTS.md pins the trailing group as Print · reset-columns ·
+  // reset-pane-size. Reset layout is the reset-columns ANALOGUE (it restores
+  // content arrangement, where reset-size restores the pane box), so it sorts
+  // between them.
+  it("orders the stack Print, Reset layout, Reset size", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-reset-order" />, { wrapper });
+    expectButtonOrder(["printHint", "dashboardResetLayout", "tableResetSizeHint"], {
+      contiguous: true,
+    });
+  });
+
+  it("restores a hidden tile when the reset button is clicked", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-reset-click" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+    expect(screen.queryByTestId("tile-progress")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: t(EN, "dashboardResetLayout") }));
+    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
   });
 });
 

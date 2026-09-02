@@ -44,7 +44,7 @@ describe("DocumentsDeletedSection", () => {
           version({ id: 1, title: "Plan", savedAt: "2026-08-01T09:00:00.000Z" }),
           version({ id: 2, title: "Plan", savedAt: "2026-08-01T09:00:00.000Z" }),
         ]}
-        documentCount={5}
+        orphanedCount={0}
         onRestore={vi.fn()}
       />,
     );
@@ -58,12 +58,16 @@ describe("DocumentsDeletedSection", () => {
     expectRowUniqueNames({ minControls: 2 });
   });
 
-  it("cautions when more documents are deleted than survive, and never hides a row", () => {
+  // ★ The section itself does not compute the count any more — it only
+  // renders on `orphanedCount > 0` — so this pins the RENDER contract, not
+  // the derivation (that lives in `orphanedDocumentVersions`,
+  // document-versions.ts, and is pinned there and in documents-panel.test.tsx).
+  it("cautions when orphanedCount is positive, and never hides a row", () => {
     render(
       <DocumentsDeletedSection
         lang="en-US"
         deleted={[version({ id: 1 }), version({ id: 2 }), version({ id: 3 })]}
-        documentCount={1}
+        orphanedCount={2}
         onRestore={vi.fn()}
       />,
     );
@@ -74,12 +78,12 @@ describe("DocumentsDeletedSection", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
   });
 
-  it("does not caution when the deleted count is plausible", () => {
+  it("does not caution when orphanedCount is zero", () => {
     render(
       <DocumentsDeletedSection
         lang="en-US"
         deleted={[version({ id: 1 })]}
-        documentCount={5}
+        orphanedCount={0}
         onRestore={vi.fn()}
       />,
     );
@@ -96,7 +100,7 @@ describe("DocumentsDeletedSection", () => {
       <DocumentsDeletedSection
         lang="en-US"
         deleted={[version({ id: 42, documentId: 7 })]}
-        documentCount={5}
+        orphanedCount={0}
         onRestore={onRestore}
       />,
     );

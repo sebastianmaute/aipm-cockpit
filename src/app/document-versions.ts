@@ -368,3 +368,48 @@ export function deletedDocumentVersions(
   }
   return [...newestByDoc.values()].filter((version) => isTombstone(version, live)).sort(byNewest);
 }
+
+/**
+ * Documents that vanished from `documents` WITHOUT being deleted — the
+ * signature a failed or partial load leaves behind now that
+ * `deletedDocumentVersions` requires `op === "delete"` (see `isTombstone`
+ * above). A document id absent from `documents` whose newest version is an
+ * ORDINARY edit — `update`, `rename` or `duplicate` — is exactly what a
+ * truncation artifact, a `documents` blob that failed to parse beside a
+ * valid `documentVersions` blob (independent try/catch on every backend), or
+ * a partial import leaves behind. Ordinary deleting never produces this: a
+ * real delete's newest version is `"delete"` and is excluded here, however
+ * many documents were deleted in the same load.
+ *
+ * ★★★ EXCLUDES `RESTORED_MARKER_OP` TOO, not only `"delete"`. Restoring a
+ * deleted document mints a NEW id rather than resurrecting the old one, and
+ * writes a `"restored"` marker version against the OLD id — which is then
+ * permanently absent from `documents` and is not a tombstone either. Without
+ * this exclusion every ordinary restore would report as an orphan.
+ *
+ * REPLACES a `deleted.length > documentCount` heuristic that lived in
+ * `DocumentsDeletedSection` and compared the tombstone count to the live
+ * document count. That heuristic fired on deleting your ONLY document (0
+ * live, 1 tombstone: 1 > 0) — the single most ordinary shape a delete can
+ * take — while `deletedDocumentVersions`'s own `op === "delete"` narrowing had
+ * already made the load-failure shape it was trying to catch impossible to
+ * produce through this list in the first place (a truncation artifact's
+ * newest op is whatever the last real edit was, so it drops OUT of
+ * `deletedDocumentVersions`, never inflates it). The heuristic kept its false
+ * positives and lost the true positives it was built for.
+ */
+export function orphanedDocumentVersions(
+  versions: readonly DocVersion[],
+  documents: readonly ProjectDocument[],
+): DocVersion[] {
+  const live = new Set(documents.map((d) => d.id));
+  const newestByDoc = new Map<number, DocVersion>();
+  for (const version of versions) {
+    if (live.has(version.documentId)) continue;
+    const current = newestByDoc.get(version.documentId);
+    if (!current || byNewest(version, current) < 0) newestByDoc.set(version.documentId, version);
+  }
+  return [...newestByDoc.values()]
+    .filter((version) => version.op !== "delete" && version.op !== RESTORED_MARKER_OP)
+    .sort(byNewest);
+}
