@@ -873,7 +873,13 @@ grep -rn "<AssetLibrary" src/app --include=*.tsx | grep -v test
 ```
 Expected: a `(id: string) => loadAssetData(config, id, projectId)` builder, and **two** mount sites.
 
-- [ ] **Step 2: Write the failing test**
+- [ ] ★★★ **THE TWO SNIPPETS BELOW ARE BOTH WRONG, and the second is a WCAG 2.4.6 VIOLATION the axe gate cannot see.** `asset-library.test.tsx`'s fixture deliberately gives BOTH assets the name `"image.png"` — it is that file's collision fixture, and the collision is the point.
+
+So: (a) `findByRole("dialog", { name: new RegExp(assets[1].name) })` matches whichever row you clicked, and cannot prove `startIndex` tracked the right one — assert on the position text (`assetPreviewPosition`, "2 of 2") instead. (b) `aria-label={t(lang, "assetPreviewOpen", asset.name)}` gives the two rows an IDENTICAL accessible name, which is the exact defect the rest of this file exists to prevent, and no gate in this repo would report it.
+
+Use the row TOKEN, not the raw name. `asset-library.tsx` already computes `buildRowTokens(sorted)` and every existing per-row control is named from it; the new control must use the same map. Substituting the token into `assetPreviewOpen` yields the same `"verb – token"` shape `rowLabel` produces, so it is that mechanism, not a second one.
+
+**Step 2: Write the failing test**
 
 Append to `src/app/asset-library.test.tsx`:
 
