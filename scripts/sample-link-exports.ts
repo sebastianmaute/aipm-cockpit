@@ -1,5 +1,10 @@
 // scripts/sample-link-exports.ts — emit four link-bearing sample exports for
-// the MANUAL pass (open them in Word and in LibreOffice).
+// the MANUAL pass. ★★★ THE READER DEPENDS ON THE FORMAT and this line said
+// "open them in Word and in LibreOffice" until 2026-09-02: Word cannot open a
+// .pptx, and that instruction is the recorded generating cause of a false
+// report into open-followups §219 — the operator answered the question they
+// were asked. The closing prompt this script prints names a reader per format
+// and asks which was used; keep the two in step.
 //
 // Run: npx jiti scripts/sample-link-exports.ts <output-dir>
 //

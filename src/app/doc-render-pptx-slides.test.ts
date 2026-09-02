@@ -138,11 +138,14 @@ describe("pptxRun — hyperlinkRelId key presence", () => {
 // ★★★ A slide package carries no character-style part, so the DOCX remedy for
 // §333 (a `Hyperlink` style declaring colour AND underline) has no counterpart
 // here: a linked run names no fill and the THEME paints it `<a:hlink>` =
-// COLOR_DARK_BLUE. That is a real cue in the meta and field slots and NO cue in
-// the row TITLE, whose own text is COLOR_DARK_BLUE — the same six digits. These
-// pin the underline that makes the title slot's link visible at all, rather
-// than trusting PowerPoint's implicit hyperlink formatting, which nothing in
-// this repo can observe.
+// COLOR_DARK_BLUE. Measured 2026-09-02, after a cold review refuted an earlier
+// wording here that called that "a real cue in the meta and field slots": it is
+// a cue in META_SLOT alone (939598, 3.68:1). It is NO cue in the row TITLE,
+// whose own text is COLOR_DARK_BLUE — the same six digits — and effectively
+// none in FIELD_SLOT or in this renderer's own body slides, which declare no
+// colour and so resolve to COLOR_TEXT (1A1A1A) at 1.58:1. These pin the
+// underline that makes those links visible at all, rather than trusting
+// PowerPoint's implicit hyperlink formatting, which nothing here can observe.
 describe("pptxRun — a linked run is underlined regardless of its marks", () => {
   const run = (over: Partial<TextRun> = {}): TextRun => ({ text: "x", marks: [], ...over });
 

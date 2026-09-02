@@ -1139,9 +1139,18 @@ describe("buildPptx link relationships", () => {
     expect(xml).toContain(
       `<a:rPr lang="en-US" sz="3200" b="1" u="sng" dirty="0"><a:hlinkClick r:id="rId2"/></a:rPr>`,
     );
-    // ★ The additive half: the PLAIN run beside it is NOT underlined, so a
-    //   mutant underlining every run in the deck fails here rather than
-    //   passing the assertion above.
+    // ★★ THE ADDITIVE HALF IS THE FIRST ASSERTION, NOT THIS ONE, and this
+    //   comment claimed the opposite until it was measured on 2026-09-02.
+    //   It read "a mutant underlining every run in the deck fails HERE rather
+    //   than passing the assertion above". It does not: `underline: true`
+    //   inserts `u="sng"` into the plain run's exact `rPr` too, so the
+    //   `toContain` above throws first and vitest never reaches this line.
+    //   Measured — that mutant reports `export-ooxml.test.ts:1134`, which is
+    //   that assertion, and every mutant this line would catch on its own is
+    //   caught there too. Kept for explicitness about what must NOT appear;
+    //   do not cite it as the thing that catches the mutant. A comment
+    //   claiming coverage nothing provides reads as protection and stops the
+    //   next audit, which is the failure class this branch keeps finding.
     expect(xml).not.toContain(`sz="3200" b="1" u="sng" dirty="0"><a:solidFill>`);
   });
 

@@ -1807,8 +1807,10 @@ Two options were recorded, and the cheap one was not obviously right:
   `cell.text` VERBATIM when the parse finds no address to add — so a drift between it and
   `descriptionTextWithBreaks` can only ever affect a cell that actually carries a link. Consumed by
   `export-xlsx.ts` and `doc-render-pptx.ts`'s table-cell path. ★★★ THAT SET SAID THREE AND NAMED
-  `export-pptx.ts` UNTIL 2026-09-01, 47 lines below the Status line corrected for the identical
-  reason — the correction was applied to the witness and not to the claim the witness supported, so
+  `export-pptx.ts` UNTIL 2026-09-01, in this entry's own body, below the Status line corrected for
+  the identical reason. (★ A line DISTANCE stood here and was wrong — it counted from the wrong
+  anchor, which is the very form AGENTS.md bans and this branch has now got wrong twice.)
+  The correction was applied to the witness and not to the claim the witness supported, so
   the entry asserted and denied one fact in one body. `export-pptx.ts` left the flat set the same
   day (§330). Reproduce: `grep -c "cellTextWithLinks" src/app/export-pptx.ts` → 0.
 
@@ -9021,8 +9023,11 @@ package", and the additive contract is asserted at two more levels —
 `.pptx`. ★★ THAT PASS HAS SINCE BEEN RUN — 2026-09-01, on the same branch and in the same commit
 range that closed this entry, and it found a real defect (§333). This residual said the debt was
 outstanding while its own commit was recording it as discharged; §219 and §333 were updated and
-this entry was not. Read §219 for what the pass covered and what it left open — the `.pptx`
-reader was never recorded, so that half of the debt is still real. `scripts/sample-link-exports.ts` emits the four link-bearing sample files that pass needs.
+this entry was not. Read §219 for what the pass covered and what it left open — deliberately no
+summary of it here, because the first attempt at one ("the `.pptx` reader was never recorded, so
+that half of the debt is still real") was written on 2026-09-01 and falsified the next day by the
+PowerPoint pass, in this same commit range. A pointer cannot rot; a restatement of another entry's
+status always does. `scripts/sample-link-exports.ts` emits the four link-bearing sample files that pass needs.
 
 ---
 **CLOSED 2026-08-08 by `max-md:basis-full` on the group.** The group claims its own row, so the
@@ -17174,18 +17179,24 @@ crafted `alt` keeps a genuinely drawn image out of the drawn count, which over-r
 
 ## 219. The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them
 
-**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. 2026-09-01: PARTIALLY DISCHARGED — never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. The `.docx` ACCEPTANCE check IS discharged — Word and LibreOffice Writer, recorded below. 2026-09-02: item 2 is now DISCHARGED for acceptance too — see the PowerPoint pass below. What remains is items **3-7**, none of which have been exercised at all, and the FIDELITY half of items 1-2, which no pass so far has looked at.
+**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. Never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. 2026-09-02: item **2**'s ACCEPTANCE half is DISCHARGED — opened in PowerPoint, the reader that item names, and corroborated in LibreOffice Impress; see the passes below. Item **1**'s acceptance is discharged for **LibreOffice Writer ONLY** — ★★★ **WORD HAS NEVER BEEN NAMED BY ANY HUMAN REPORT**, and this Status line claimed it until 2026-09-02, when a cold review caught the entry contradicting itself nine lines apart. Item 1 names Word AND LibreOffice Writer, so half of it is still owed. What remains: the Word half of item 1, items **3-7** (unexercised entirely), and the FIDELITY half of items 1-2, which no pass has looked at. Re-verify with a human, never from this file: `sed -n '/^## 219\./,/^## 220\./p' docs/open-followups.md`
 
 ★★ **2026-09-01 — THE ACCEPTANCE HALF IS DISCHARGED, AND IT IS THE HALF THIS ENTRY SINGLES OUT AS
 THE ONE THAT HISTORICALLY FAILS.** During the `fix/export-link-fidelity` manual pass a human opened
 all four artifacts emitted by `npx jiti scripts/sample-link-exports.ts <dir>` — `document-renderer`
 and `workspace-exporter`, `.docx` and `.pptx`. Every one opened
-with **no repair prompt**. ★★★ **THE READER IS RECORDED ONLY FOR THE TWO `.docx`** — Word and
-LibreOffice Writer. The two `.pptx` were opened and reported working, but nobody recorded WHICH
-application opened them. This paragraph read "all four … in **Word and in LibreOffice**" until a
-cold review caught it: Word cannot open a `.pptx`, so the sentence was impossible on its face, and
-it was the REPORTER'S summary that invented the pair, not the human's report. Item 2 names
-PowerPoint specifically and stays OPEN. That answers item 1's leading risk (a package byte-perfect against its
+with **no repair prompt**. ★★★ **NO READER WAS RECORDED ON THIS DATE AT ALL, FOR ANY OF THE FOUR.**
+This paragraph read "all four … in **Word and in LibreOffice**" until a cold review caught it: Word
+cannot open a `.pptx`, so the sentence was impossible on its face, and it was the REPORTER'S summary
+that invented the pair, not the human's report. ★★★ **THE FIRST CORRECTION THEN KEPT HALF THE
+INVENTION**, and a second cold review caught that on 2026-09-02: it withdrew "Word" for the `.pptx`
+and left "Word and LibreOffice Writer" standing for the two `.docx` — from the same report that had
+named no application. The `.docx` attribution was the reporter's inference by exactly the same
+mechanism, sitting nine lines from the sentence saying no application was named. Everything a human
+has actually named is below, under 2026-09-02, and it does not include Word. Item 2 named
+PowerPoint specifically and stayed OPEN until that pass. What was answered on 2026-09-01 is
+narrower than it looked — four artifacts opened somewhere without a repair prompt, which still
+answers item 1's leading risk (a package byte-perfect against its
 own spec reading and still rejected over a relationship or content-type detail no substring
 assertion looks at) for the DOCX and PPTX writers as they stand today, including the newly added
 `<w:hyperlink>`, the `<w:style w:type="character">` in `styles.xml`, and the per-slide
@@ -17201,7 +17212,7 @@ fidelity.
 
 ★★★ **2026-09-02 — ITEM 2 DISCHARGED IN POWERPOINT, ON THE SECOND PASS, AND THE FIRST PASS IS THE
 LESSON.** After the §330 underline fix moved both decks' bytes, the regenerated
-`document-renderer.pptx` (25,014 B) and `workspace-exporter.pptx` (36,531 B) were opened in
+`document-renderer.pptx` and `workspace-exporter.pptx` were opened in
 **PowerPoint** — the reader item 2 names — and both were reported clean, including the row-title
 link whose colour cue is absent by construction (§330). Item 2's acceptance half is closed.
 ★★ **AND A SECOND INDEPENDENT ENGINE AGREES, ACROSS ALL FOUR ARTIFACTS.** The same day, all four —
@@ -17212,7 +17223,12 @@ DIFFERENT parts of OOXML, and have historically disagreed on exactly the relatio
 content-type details item 1 names. A package accepted by both is accepted for reasons, not by luck.
 ★ Note what it does NOT do: LibreOffice is not a substitute for item 2's named reader, so this is a
 CORROBORATION of the PowerPoint pass above, never a replacement for it. Recorded in that order
-deliberately.
+deliberately. ★★★ **AND IT IS THE ONLY READER EVER NAMED FOR THE TWO `.docx`.** Item 1 names Word
+AND LibreOffice Writer; Writer is now recorded and **Word is not, on any date** — so item 1's
+acceptance half is HALF discharged, not discharged. That asymmetry is the whole reason to name the
+reader rather than the outcome: "all four opened clean" is compatible with a reader item 1 does not
+accept, and item 1's leading risk is specifically a package Word rejects over a relationship or
+content-type detail LibreOffice tolerates.
 ★★★ **THE READER WAS ASKED FOR EXPLICITLY BOTH TIMES IT WAS RECORDED, AND INFERRED THE FIRST TIME.**
 On 2026-09-01 a human reported four artifacts working and named no application; the reporter wrote
 "in **Word and in LibreOffice**" into this entry, which is impossible for a `.pptx` and claimed a
@@ -25752,15 +25768,26 @@ digits — so a link in a row title was the colour of the text around it, leavin
 IMPLICIT hyperlink underline, which nothing in this repo can observe. That is precisely the
 affordance `doc-render-docx.test.ts` rejects two files over ("Both cues, not one"), applied to DOCX
 and silently not to PPTX. `pptxRun` now sets `underline` whenever a relationship id was minted, so
-the cue is DECLARED rather than hoped for: two cues in the meta and field slots, one guaranteed cue
-in the title. Reproduce the collision:
+the cue is DECLARED rather than hoped for. ★★★ **"TWO CUES IN THE META AND FIELD SLOTS" WAS THIS
+ENTRY'S OWN OVER-CLAIM AND A SECOND COLD REVIEW MEASURED IT AWAY (2026-09-02).** `FIELD_SLOT`
+declares no `colorRgb`, so an unlinked run resolves through the master's `clrMap tx1="dk1"` to
+`COLOR_TEXT` (1A1A1A) and the theme's `004159` sits at **1.58:1** against it — under the 3:1 this
+repo already treats as the floor for a non-text distinction. `META_SLOT` (939598) is the ONLY slot
+where colour alone carries a link, at 3.68:1; the title slot is absent by IDENTITY and the field
+slot by CONTRAST, as are this renderer's own body slides. So the underline is load-bearing in every
+slot but one, and the error mattered in the dangerous direction: it invited a later narrowing to
+the title slot that would have restored an effectively invisible link everywhere else. Reproduce the collision:
 `grep -n "COLOR_DARK_BLUE =" src/app/export-ooxml-shared.ts` · `grep -n "a:hlink" src/app/ooxml-pptx-primitives.ts` · `grep -n "TITLE_SLOT" -A 4 src/app/export-pptx.ts`.
 ★★ THE REVIEW FOUND IT BY COMPARING TWO CONSTANTS IN DIFFERENT FILES — no byte assertion could
 have, because both runs are individually correct and the defect is only in their RELATION. It
 applies to BOTH `.pptx` exporters (the change is in the shared `pptxRun`), chosen over a
 workspace-only fix so the two decks cannot drift apart on link treatment. Mutation-proved: reverting
 to `underline: has("underline")` goes 2 failed / 222 passed across the five affected files.
-★ Both `.docx` are byte-identical after it; both `.pptx` grew 40 bytes, which re-owed the `.pptx`
+★★ NO BYTE COMPARISON IS QUOTED HERE ANY MORE. This said "both `.docx` are byte-identical after it;
+both `.pptx` grew 40 bytes" until a cold review checked it against `zip.ts`, whose `modified` date
+is the container's one nondeterministic field — two runs of the sample script are never
+byte-identical, so the claim could not have been measured as stated. What is true and load-bearing
+is that the `.pptx` writers moved and the `.docx` writers did not, which re-owed the `.pptx`
 half of §219's manual pass.
 ★★ **EYE-VERIFIED 2026-09-02 — the underline does what the collision requires.** Both regenerated
 decks were opened in **PowerPoint** and reported clean, the row-title link included, and all four

@@ -206,8 +206,12 @@ relationship `Type` URI or a missing `TargetMode` unzips clean, asserts clean, a
 link dead or the file repaired. Nothing in this repo can open a `.docx` or a `.pptx`.
 
 The branch therefore produces four sample files — DOCX and PPTX, each from the document renderer and
-from the workspace exporter — and DOES NOT SHIP until the user has opened them in Word and in
-LibreOffice and confirmed the links are live. The samples are MEDIA-BEARING, so the same pass also
+from the workspace exporter — and DOES NOT SHIP until the user has opened them and confirmed the
+links are live: the `.docx` in **Word and LibreOffice Writer**, the `.pptx` in **PowerPoint and
+LibreOffice Impress**. ★★★ This read "in Word and in LibreOffice" for all four until 2026-09-02.
+Word cannot open a `.pptx`, and that phrasing — here, and in the sample script's own prompt — is the
+recorded generating cause of a false reader report into §219. A requirement that names an impossible
+reader gets answered as if it were possible. The samples are MEDIA-BEARING, so the same pass also
 discharges §219, which has been owed since the last export slice.
 
 ★ Record exactly what was opened and what was confirmed. An owed eye-verify is a gate; a vague

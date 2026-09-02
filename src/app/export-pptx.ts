@@ -166,11 +166,25 @@ function styledRun(run: PptxRun, style: SlotStyle): PptxRun {
  * Taking the runs branch also turns on every mark `pptxRun` honours — bold,
  * italic, underline, strike, highlight, monospace, sup/sub baseline, and the
  * blockquote/pre LINE styling — none of which the `{text}` branch can express
- * at all. So ONE link anywhere in a cell re-renders that cell's WHOLE
+ * PER RUN. ★★ Read that "per run" literally: a second cold review caught this
+ * clause saying "none of which the `{text}` branch can express AT ALL", which
+ * is false for bold and italic — the uniform-text member carries `bold?` and
+ * `italic?` and the branch below spreads `...style` into them, so a link in the
+ * bold title stays bold either way. What that branch cannot do is vary any of
+ * them BETWEEN runs of one cell.
+ * So ONE link anywhere in a cell re-renders that cell's WHOLE
  * typography, and two rows carrying identical markup render differently when
  * only one of them happens to carry a link. Measured side by side on a
  * RowFields cell: linked gives separate `b="1"` / `<a:latin>` / `<a:highlight>`
- * runs, unlinked gives ONE run with no marks at all.
+ * runs, unlinked gives ONE run per LINE with no per-run marks at all.
+ * ★★★ AND FOR ONE LINE KIND IT CHANGES THE TEXT, NOT ONLY THE TYPOGRAPHY.
+ * `htmlToRichLines` preserves a `<pre>` block's whitespace on purpose while
+ * `descriptionTextWithBreaks` collapses and trims it (`cellLinkedLines`' own
+ * docblock names this as the flat projection's loss). So a `<pre>` cell WITH a
+ * link keeps its indentation and the same cell WITHOUT one does not — a
+ * link-conditional divergence in content, which is a stronger claim than
+ * anything the word "typography" covers. Pinned by "diverges from the stored
+ * projection for pre, the one kind that keeps whitespace".
  * ★★ That is an improvement in isolation and a link-CONDITIONAL inconsistency
  * in aggregate. Routing unlinked rich cells through runs too would make it
  * uniform, and the byte contract above forbids exactly that today — so the

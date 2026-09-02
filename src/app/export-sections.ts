@@ -75,8 +75,10 @@ import type { KnowledgeLink } from "./document-link";
  *
  *  ★★ This split said "(XLSX, PPTX)" until 2026-09-01, when export-pptx.ts's
  *  row slides gained a link sink and moved to the structural side — while the
- *  cellTextWithLinks docblock ~130 lines below, in THIS FILE, was updated in
- *  the same commit. One file disagreeing with itself is the cheap version of
+ *  `cellTextWithLinks` docblock further down THIS FILE was updated in the same
+ *  commit. (No line distance is quoted here on purpose: this file's own
+ *  register entry records two such distances found wrong, and any insertion
+ *  above invalidates one silently.) One file disagreeing with itself is the cheap version of
  *  this failure; the expensive one is a reader trusting whichever half they
  *  reach first.
  *

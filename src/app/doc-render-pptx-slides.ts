@@ -296,15 +296,26 @@ export function pptxRun(run: TextRun, kind: RichLineKind, links: LinkSink | unde
   //   remembers what it minted, so `renderDocumentPptx` can hand the same
   //   list to `buildPptxPackage`.
   // ★ No sink means no links at all, and a caller passing none keeps runs
-  //   byte-identical.
+  //   byte-identical. ★★ That is now a TEST-ONLY path: both production callers
+  //   pass a sink — this renderer's own `buildContentSlide` and, since
+  //   2026-09-01, `export-pptx.ts`'s `slotParagraphs`, whose `links` parameter
+  //   is not even optional. It is pinned by "does not underline a run whose
+  //   href minted no id because there is no sink".
   // ★★ THIS SAID "every pre-existing caller passes none" until 2026-09-01.
   //   `export-pptx.ts` — the WORKSPACE exporter, a different subsystem from
-  //   this document renderer — now calls it through `slotParagraphs` and
-  //   ALWAYS passes a sink. The edge is one-directional and nothing on this
-  //   side declares it, so a change made here for document-renderer reasons
-  //   (`HIGHLIGHT_RGB`, `SUPERSCRIPT_PCT`, `kind === "pre"` ⇒ monospace, the
-  //   unconditional link underline below) silently changes workspace decks
-  //   too. Enumerate before editing: `grep -rn "pptxRun(" src/app --include=*.ts`.
+  //   this document renderer — now calls it through `slotParagraphs`. The
+  //   IMPORT edge is one-directional and nothing on this side declares it, but
+  //   the BLAST RADIUS runs BOTH ways, and a first cut of this comment named
+  //   only one of them:
+  //     · a change made here for document-renderer reasons (`HIGHLIGHT_RGB`,
+  //       `SUPERSCRIPT_PCT`, `kind === "pre"` ⇒ monospace) silently changes
+  //       workspace decks;
+  //     · and a change made here for WORKSPACE-exporter reasons silently
+  //       changes document decks — which is exactly what the unconditional
+  //       link underline below did. It exists for `export-pptx.ts`'s
+  //       TITLE_SLOT collision, and it moved `document-renderer.pptx`'s bytes
+  //       on the way past, re-owing §219's manual pass for that deck.
+  //   Enumerate before editing: `grep -rn "pptxRun(" src/app --include=*.ts`.
   const relId =
     links === undefined || run.href === undefined ? undefined : links.relIdFor(run.href);
   return {
@@ -328,18 +339,32 @@ export function pptxRun(run: TextRun, kind: RichLineKind, links: LinkSink | unde
     //   style; the slide side has no style part, so relying on the reader's
     //   implicit hyperlink formatting is the only alternative — and nothing
     //   in this repo can observe whether PowerPoint applies it.
-    // ★★★ IT IS LOAD-BEARING IN EXACTLY ONE SLOT AND THAT SLOT IS WHY IT
-    //   EXISTS: the theme paints a link from `<a:hlink>` = COLOR_DARK_BLUE,
-    //   and `export-pptx.ts`'s TITLE_SLOT paints its text COLOR_DARK_BLUE
-    //   too — the SAME six digits — so in a row title the colour cue is
-    //   absent by construction and underline is the only surviving one.
-    //   Leaving it to the reader would have shipped §333's defect (a link
-    //   indistinguishable from the text around it) in the other format,
-    //   which is the shape a manual pass had just caught in the first.
-    //   Verify the collision, do not trust this comment:
-    //     grep -n "COLOR_DARK_BLUE =" src/app/export-ooxml-shared.ts
-    //     grep -n "a:hlink" src/app/ooxml-pptx-primitives.ts
-    //     grep -n "TITLE_SLOT" -A 4 src/app/export-pptx.ts
+    // ★★★ IT IS LOAD-BEARING IN EVERY SLOT BUT ONE, and this comment said
+    //   "EXACTLY ONE SLOT" until a cold review measured it on 2026-09-02.
+    //   The theme paints a link from `<a:hlink>` = COLOR_DARK_BLUE, and what
+    //   that is worth depends on the colour BESIDE it:
+    //     · TITLE_SLOT declares COLOR_DARK_BLUE — the SAME six digits, so the
+    //       cue is absent by IDENTITY.
+    //     · FIELD_SLOT declares no `colorRgb` at all, so an unlinked run
+    //       resolves through the master's `clrMap tx1="dk1"` to COLOR_TEXT
+    //       (1A1A1A) — 004159 against 1A1A1A is 1.58:1, below the 3:1 this
+    //       repo already treats as the floor for a non-text distinction. The
+    //       cue is absent by CONTRAST. The same holds for every body slide in
+    //       THIS renderer, which declares no `colorRgb` either.
+    //     · META_SLOT (939598) is the one slot where colour alone carries it,
+    //       at 3.68:1.
+    //   So narrowing this to `style === TITLE_SLOT` would restore an
+    //   effectively invisible link in the RowFields box and in every document
+    //   deck. The DOCX half of this same branch reached the same conclusion
+    //   independently — `ooxml-docx-primitives.ts` declares colour AND
+    //   underline for every link. Leaving it to the reader's implicit
+    //   formatting would have shipped §333's defect (a link indistinguishable
+    //   from the text around it) in the other format, which is the shape a
+    //   manual pass had just caught in the first.
+    //   Verify the collision and the contrasts, do not trust this comment:
+    //     grep -n "COLOR_DARK_BLUE =\|COLOR_TEXT =\|COLOR_MEDIUM_GREY =" src/app/export-ooxml-shared.ts
+    //     grep -n "a:hlink\|<a:dk1>\|clrMap" src/app/ooxml-pptx-primitives.ts
+    //     grep -n "TITLE_SLOT\|FIELD_SLOT\|META_SLOT" -A 4 src/app/export-pptx.ts
     // ★ Additive: an unlinked run is untouched, so only runs this branch
     //   newly links can move, in either exporter.
     underline: has("underline") || relId !== undefined,
