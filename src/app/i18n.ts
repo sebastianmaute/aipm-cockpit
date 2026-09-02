@@ -2726,6 +2726,7 @@ const enUS = {
   documentsDuplicate: "Duplicate",
   documentsDelete: "Delete",
   documentsNoneYet: "No documents yet.",
+  documentsCreateFirst: "Create your first document",
   documentsBlockCount: "Blocks",
   documentsUpdated: "Updated",
   documentsTitleLabel: "Title",
@@ -4245,6 +4246,7 @@ const enUS = {
   // Asset library (S3c-1 — document images)
   assetLibraryTitle: "Image library",
   assetLibraryEmpty: "No images yet.",
+  assetLibraryUploadFirst: "Upload your first image",
   assetLibrarySize: "Size",
   assetLibraryUsage: "Used in",
   assetLibraryActions: "Actions",

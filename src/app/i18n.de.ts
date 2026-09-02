@@ -2643,6 +2643,7 @@ export const de: Record<TranslationKey, string> = {
   documentsDuplicate: "Duplizieren",
   documentsDelete: "Löschen",
   documentsNoneYet: "Noch keine Dokumente.",
+  documentsCreateFirst: "Erstes Dokument erstellen",
   documentsBlockCount: "Blöcke",
   documentsUpdated: "Aktualisiert",
   documentsTitleLabel: "Titel",
@@ -4137,6 +4138,7 @@ export const de: Record<TranslationKey, string> = {
   // Asset library (S3c-1 — document images)
   assetLibraryTitle: "Bildbibliothek",
   assetLibraryEmpty: "Noch keine Bilder.",
+  assetLibraryUploadFirst: "Erstes Bild hochladen",
   assetLibrarySize: "Größe",
   assetLibraryUsage: "Verwendet in",
   assetLibraryActions: "Aktionen",
