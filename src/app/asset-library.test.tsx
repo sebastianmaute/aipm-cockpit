@@ -335,3 +335,43 @@ describe("AssetLibrary", () => {
     expect(screen.queryByRole("table")).toBeNull();
   });
 });
+
+describe("AssetLibrary — the upload empty-state box", () => {
+  it("offers the upload box when the library is empty", () => {
+    render(<AssetLibrary {...base} assets={[]} />);
+    expect(
+      screen.getByRole("button", { name: t("en-US", "assetLibraryUploadFirst") }),
+    ).toBeInTheDocument();
+  });
+
+  // ★★ Assert the DIALOG opens, not that a File arrives — jsdom cannot produce
+  // a real file-picker selection, so asserting `onUpload` fired would assert
+  // something the harness cannot cause.
+  //
+  // ★★★ TWO inputs on this surface by design: the toolbar FilePickerButton's
+  // (first in DOM order) and the box's own (second). A bare `querySelector`
+  // would grab the toolbar's and go red against correct code.
+  it("opens its OWN file dialog when the box is clicked", async () => {
+    const user = userEvent.setup();
+    render(<AssetLibrary {...base} assets={[]} />);
+    const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    expect(inputs).toHaveLength(2);
+    const toolbarClick = vi.spyOn(inputs[0], "click");
+    const boxClick = vi.spyOn(inputs[1], "click");
+
+    await user.click(
+      screen.getByRole("button", { name: t("en-US", "assetLibraryUploadFirst") }),
+    );
+
+    expect(boxClick).toHaveBeenCalled();
+    // The box owns its own picker rather than reaching for the toolbar's.
+    expect(toolbarClick).not.toHaveBeenCalled();
+  });
+
+  it("does not offer the box once the library has an asset", () => {
+    render(<AssetLibrary {...base} />); // `base.assets` is the 2-item fixture
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "assetLibraryUploadFirst") }),
+    ).toBeNull();
+  });
+});

@@ -228,6 +228,32 @@ describe("documents asset library gating", () => {
   });
 });
 
+// ★★★ INHERITED GATING IS NOT TESTED GATING. `AssetLibrary`'s own empty-state
+// upload box only ever renders once this section decides `enabled`, so these
+// pin that neither disabled branch offers it — and each pairs the absence
+// with the branch's OWN message, so neither can pass against a section that
+// rendered nothing at all.
+describe("DocumentsAssetSection — the upload box stays out of the disabled branches", () => {
+  it("offers no box and keeps its own message on a non-Turso backend", () => {
+    renderSection({ tursoConfig: null });
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "assetLibraryUploadFirst") }),
+    ).toBeNull();
+    expect(screen.getByText(t("en-US", "assetLibraryTursoOnly"))).toBeInTheDocument();
+  });
+
+  // ★★ A DIFFERENT message, deliberately: `assetLibraryTursoOnly` is simply
+  // untrue for a read-only popout on a fully configured Turso project, and
+  // would send the reader off to check storage settings that are correct.
+  it("offers no box and keeps its own message in a read-only popout", () => {
+    const { container } = renderSection({ tursoConfig: TURSO_CONFIG, isReadOnly: true });
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "assetLibraryUploadFirst") }),
+    ).toBeNull();
+    expect(container).toHaveTextContent(t("en-US", "assetLibraryReadOnly"));
+  });
+});
+
 describe("documents asset insertion", () => {
   it("inserts a NEW sanitized paragraph block via structural.insert (picker path)", async () => {
     const user = userEvent.setup();

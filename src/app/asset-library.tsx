@@ -25,7 +25,8 @@ import { t, localeFor, type Lang } from "./i18n";
 import type { DocumentAsset } from "./document-asset";
 import { ASSET_MIME_ALLOWED, isBlockedAssetMime } from "./document-asset-upload";
 import { DataTable } from "./data-table";
-import { EmptyState } from "./empty-state";
+import { AddFirstItemButton } from "./add-first-item-button";
+import { useFilePicker } from "./use-file-picker";
 import { Button } from "./button";
 import { Input } from "./form-controls";
 import { FilePickerButton } from "./file-picker-button";
@@ -80,6 +81,10 @@ export function AssetLibrary({
   onUpload,
 }: AssetLibraryProps) {
   const confirm = useConfirm();
+  // ★ The empty-state box's OWN picker, distinct from the toolbar
+  // FilePickerButton's — see the accept/disabled derivation on that button
+  // above, which this mirrors so the two pickers cannot diverge.
+  const boxPicker = useFilePicker(onUpload, ASSET_MIME_ALLOWED.join(","), busyId !== null);
   const [sort, setSort] = useState<{ key: AssetSortKey; dir: SortDir }>({ key: "name", dir: "off" });
   // In-place rename draft. `onRename` takes the new name directly — there is
   // no separate rename modal, so the edit state lives here.
@@ -188,7 +193,16 @@ export function AssetLibrary({
       </div>
 
       {assets.length === 0 ? (
-        <EmptyState title={t(lang, "assetLibraryEmpty")} />
+        <>
+          <AddFirstItemButton
+            onAdd={boxPicker.open}
+            text={t(lang, "assetLibraryEmpty")}
+            addLabel={`+ ${t(lang, "assetLibraryUploadFirst")}…`}
+            ariaLabel={t(lang, "assetLibraryUploadFirst")}
+            rounded="xl"
+          />
+          <input {...boxPicker.inputProps} />
+        </>
       ) : (
         <div className="overflow-auto rounded-md border border-line">
           <DataTable
