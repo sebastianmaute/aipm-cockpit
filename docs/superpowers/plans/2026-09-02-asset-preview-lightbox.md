@@ -76,7 +76,7 @@ describe("assetBytesToObjectUrl", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("returns an object URL for an allowed mime", () => {
-    const r = assetBytesToObjectUrl(TINY_GIF, "image/gif");
+    const r = assetBytesToObjectUrl(TINY_GIF, "image/png");
     expect(r).toEqual({ kind: "ok", url: "blob:stub-url" });
   });
 
@@ -251,6 +251,9 @@ Build the window chrome first, with a stub body. No image loading yet.
 
 - [ ] **Step 1: Write the failing test**
 
+★★★ **THE FIXTURE MIME MUST BE ON THE ALLOWLIST, AND `image/gif` IS NOT.** `ASSET_MIME_ALLOWED` (`document-asset-upload.ts:15`) is PNG + JPEG + WebP only — GIF is excluded deliberately ("downscaling re-encodes and would silently destroy animation"), so `isBlockedAssetMime("image/gif")` is `true`. Every fixture here therefore declares `image/png` while carrying GIF bytes, which is legitimate: the decode trusts the passed mime string and never sniffs content. Defaulting the fixture to `image/gif` (as an earlier revision of this plan did) makes every "shows the image" test in Tasks 3-6 render the BLOCKED state instead, which reads as a broken component rather than a bad fixture.
+
+
 Create `src/app/asset-preview-modal.test.tsx`:
 
 ```tsx
@@ -266,7 +269,7 @@ const TINY_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 // ★ Every REQUIRED field of `DocumentAsset` (`document-asset.ts:27`), so no
 // `as DocumentAsset` cast is needed — a cast would hide a field the real type
 // gains later. `hash` is required; `width`/`height` are the only optionals.
-function asset(id: string, name: string, mime = "image/gif"): DocumentAsset {
+function asset(id: string, name: string, mime = "image/png"): DocumentAsset {
   return { id, name, mime, size: 42, hash: `hash-${id}`, createdAt: "2026-01-01T00:00:00.000Z" };
 }
 
