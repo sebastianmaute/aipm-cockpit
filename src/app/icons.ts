@@ -160,7 +160,7 @@ export {
   PrinterIcon,
   CircleQuestionMarkIcon as QuestionMarkCircleIcon,
   GalleryVerticalEndIcon as RectangleStackIcon,
-  RotateCcwSquare as RotateCcwSquareIcon,
+  RotateCcwSquareIcon,
   ShieldCheckIcon,
   SparklesIcon,
   LayoutGridIcon as Squares2X2Icon,
