@@ -40,7 +40,7 @@
 | `src/app/asset-preview-modal.test.tsx` | NEW. All behavioural tests including the revoke spy and the row-unique-names check. |
 | `src/app/asset-library.tsx` | MODIFY. New optional `loadImage` prop; row image button opens the lightbox. |
 | `src/app/documents-asset-section.tsx` | MODIFY. Thread the existing loader into `AssetLibrary`. |
-| `src/app/asset-library-modal.tsx` | MODIFY. Second `AssetLibrary` mount — thread the same prop or explicitly pass nothing. |
+| `src/app/asset-library-modal.tsx` | ★★ **NO CHANGE NEEDED.** `AssetLibraryModalProps extends AssetLibraryProps` and the component spreads `{...rest}` into `AssetLibrary`, so a new optional prop on the base interface reaches this mount for free. The plan listed it as MODIFY; it is not. |
 | `src/app/document-preview.tsx` | MODIFY. Click/keyboard on an inserted `<img data-asset-id>` opens the lightbox. |
 | `src/app/i18n.ts` / `src/app/i18n.de.ts` | MODIFY. New keys, EN/DE parity enforced by tsc. |
 
@@ -847,7 +847,17 @@ then call `loadImageRef.current(id)` in the loading effect and drop `loadImage` 
 
 ### Task 8: Entry point A — open from an image library row
 
-`AssetLibrary` has **no** `tursoConfig` and **no** `projectId`, so it cannot call `loadAssetData` itself. Thread the loader instead. `documents-asset-section.tsx` already builds exactly this shape.
+`AssetLibrary` has **no** `tursoConfig` and **no** `projectId`, so it cannot call `loadAssetData` itself. Thread the loader instead.
+
+★★★ **THREE THINGS ALREADY EXIST THAT THIS TASK WAS ABOUT TO REINVENT.**
+
+1. **The type.** `AssetByteLoader` (`document-asset-images.ts:15`) is `(id: string) => Promise<string | null>` — byte-identical to the `loadImage` signature this plan invented. Import it; do not redeclare it. `AssetPreviewModal`'s own prop should use it too.
+2. **The loader, gated.** `assetPaneLoader(pane)` (`documents-asset-section.tsx:102`, exported and already used twice by `documents-panel.tsx` for downloads) returns `AssetByteLoader | undefined`, returning `undefined` when the config or project id is missing. That `undefined` IS the Turso gate — Decision 6's "inherited, never re-implemented" is satisfied by using it rather than writing a new check.
+3. **The second mount needs no code.** See the File Structure note on `asset-library-modal.tsx`.
+
+★★ **BUT `assetPaneLoader` AND THE SECTION DISAGREE ABOUT A BLANK PROJECT ID, and the preview is where it would show.** `assetPaneLoader` bails on a falsy `projectId`; `DocumentsAssetSection` normalises it (`assetPane?.projectId || ASSET_PARTITION_FALLBACK`, and the comment above that line explains at length why the blank case must not open a second partition). So for a blank id, upload/rename/delete all work against the fallback partition while `assetPaneLoader` returns `undefined` — the preview affordance would silently not render on a pane where every other asset control works.
+
+Prefer building the loader from the section's OWN already-normalised `tursoConfig` and `projectId` locals, so the preview cannot disagree with the surface it sits on. If you instead reuse `assetPaneLoader`, say so and say why. Either way, REPORT the divergence — it is pre-existing and affects downloads today, and it is not this task's job to fix it.
 
 **Files:**
 - Modify: `src/app/asset-library.tsx`
