@@ -177,9 +177,18 @@ Run the block under "Non-`<button>` hand-rolled elements" and the `role="dialog"
 returns the snapshot's figures:
 
 ```bash
-NT='--include=*.tsx --exclude=*.test.tsx'
-grep -rc 'role="dialog"' src/app $NT | grep -v ":0$" | awk -F: '{s+=$NF} END{print "lines="s" files="NR}'
+git grep -c 'role="dialog"' ebeb30d3 -- 'src/app/*.tsx' | grep -v '\.test\.tsx' \
+  | awk -F: '{s+=$NF} END{print "lines="s" files="NR}'
 ```
+
+★★★ **PINNED TO A SHA ON PURPOSE — the working-tree form of this command COUNTS ITSELF.** Run it
+against a checkout instead and it returns **33 lines / 25 files**, because the commit that wrote
+this very section also added a comment in `raci-chip-picker.tsx` explaining why that file carries
+`role="dialog"` — and a comment NAMING the string is a hit. So the picker holds two matching lines
+(`:105` prose, `:238` the attribute) where the row wants one. That is the same self-counting trap
+`popover-panel.tsx`'s census answers with a bracketed character class, and it is a second reason —
+beyond the prop-vs-attribute conflation above — that a bare grep can no longer answer this row's
+question.
 
 | | snapshot (`63e4d768`, 2026-08-07) | today (`ebeb30d3`, 2026-09-02) |
 |---|---|---|

@@ -84,12 +84,6 @@ describe("selectionAfterInsert", () => {
   //  inserted heading/table/etc. would be resolved away on the very next
   //  render — a no-op. Every OTHER addable kind therefore keeps the plain
   //  shift-past-the-insert-point rule.
-  // ★ NAMED for the RULE, not for "nothing moves" — two of the three assertions
-  // below DO move the selection (`selectionAfterInsert(2, 0, kind)` is 3). What
-  // is pinned is that every non-paragraph kind keeps the PLAIN shift-past rule:
-  // an insert at or before the selection shifts it by one, an insert after it
-  // leaves it, and a null selection stays null. The paragraph special case —
-  // adopting the new block — is pinned separately above.
   it("keeps the plain shift-past rule for every non-paragraph kind", () => {
     for (const kind of ["heading", "bullets", "table", "dataSection", "pageBreak"] as const) {
       expect(selectionAfterInsert(2, 0, kind)).toBe(3);
