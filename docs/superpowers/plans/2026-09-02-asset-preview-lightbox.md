@@ -821,6 +821,30 @@ git commit -m "test(assets): pin the preview controls to distinct accessible nam
 
 ---
 
+### Task 7b: Two fixes that MUST land before Task 8 wires a real call site
+
+Both were found reviewing Tasks 4+5. Both are cheap now and expensive later.
+
+**1. ★★★ `loadImage` MUST COME OUT OF THE EFFECT'S DEPENDENCY ARRAY.** It is a FUNCTION prop, and the natural way to write either call site — `loadImage={(id) => loadAssetData(cfg, id, projectId)}` — is a NEW IDENTITY on every render of the parent. With it in the deps, any incidental parent re-render while the modal is open fires the cleanup, which revokes **the URL currently on screen**, blanks the image and refetches. That is not a leak; it is the opposite, a revoke that happens neither on navigate nor on close, and it reaches a user as "the preview flickers sometimes".
+
+It is unreachable TODAY only because no call site exists yet (`grep -rn "AssetPreviewModal" src/app --include=*.tsx | grep -v asset-preview-modal` returns nothing). Task 8 is what makes it reachable, so it is fixed first.
+
+Use a latest-ref so the effect always calls the current loader without depending on its identity:
+
+```tsx
+const loadImageRef = useRef(loadImage);
+useEffect(() => { loadImageRef.current = loadImage; });
+```
+then call `loadImageRef.current(id)` in the loading effect and drop `loadImage` from its deps. `react-hooks/exhaustive-deps` does not flag `.current` reads, so this needs no disable comment — ★ but VERIFY that against `npx eslint --max-warnings=0`, because every warning is fatal here. If assigning the ref during render passes the gates it is shorter, but the effect form above is the one that cannot trip a render-purity rule; use whichever is green and say which.
+
+★★ Do NOT "fix" this by asking Tasks 8 and 9 to wrap their loaders in `useCallback`. Nothing enforces that, it silently regresses the first time someone writes the obvious inline arrow, and the failure is invisible until a user reports flicker.
+
+**2. `view`'s state type duplicates `AssetObjectUrl` verbatim.** That type is exported by `./asset-object-url` and already imported in this file for `assetBytesToObjectUrl`. Replace the inline union with `useState<AssetObjectUrl | null>(null)` plus `import type { AssetObjectUrl } from "./asset-object-url";`. Structurally identical today, so nothing breaks — the point is that a third outcome added to the helper must not be able to leave this component silently behind.
+
+**Optional, if cheap:** `loadImage(id).catch(() => null)` collapses a thrown loader error and "no bytes stored" into one indistinguishable state with no diagnostics. The user-facing side is covered by the unavailable message, so no toast — but a `reportSilentFailure` (`guard-feedback.ts:11`) or a `console.error` on the catch keeps a real loader failure legible in the diagnostics ring.
+
+---
+
 ### Task 8: Entry point A — open from an image library row
 
 `AssetLibrary` has **no** `tursoConfig` and **no** `projectId`, so it cannot call `loadAssetData` itself. Thread the loader instead. `documents-asset-section.tsx` already builds exactly this shape.
