@@ -1027,6 +1027,40 @@ describe("DocumentEditor — structural editing", () => {
       expect(expandedRows(4)).toEqual([4]);
     });
 
+    // ★★★ §199 AT ITS CALL SITE, which is a DIFFERENT claim from the one
+    //  `document-block-selection.test.ts` pins. That file calls the pure
+    //  function directly and cannot see which `kind` `insertSeeded` hands it;
+    //  every OTHER real insert driven through this fixture seeds a
+    //  `pageBreak`, so hardcoding that third argument to any non-paragraph
+    //  kind reverted §199 to a total no-op with the whole file green
+    //  (measured — the mutant survived 59 passed / 0 failed). The mirror
+    //  direction was already caught: hardcoding `"paragraph"` breaks the
+    //  page-break test directly above.
+    //  ★★ THE THREE CANDIDATE ROWS ARE DELIBERATELY DISTINCT, so no wrong
+    //   answer can land on the right one. Inserting at index 1 with the
+    //   selection on index 2: the fix SELECTS the new block (row 2); the
+    //   pre-§199 shift-past would ride the old selection to row 4; and a
+    //   selection resolved away to null falls back to `firstParagraph`,
+    //   row 1. Inserting at 0 would have collapsed the first and third of
+    //   those onto the same row.
+    it("selects an inserted paragraph instead of shifting past it", async () => {
+      const user = userEvent.setup();
+      render(<Controlled onMoveSpy={vi.fn()} initialBlocks={paragraphs} narrow />);
+
+      await user.click(screen.getByRole("button", { name: selectName(2) }));
+      expect(expandedRows(3)).toEqual([3]);
+
+      const menu = await openActions(user, 1);
+      await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockAddAbove") }));
+      await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockParagraph") }));
+
+      // The insert really landed — without this the row assertion below could
+      // pass on a fixture that never grew a block.
+      expect(kindOrder()).toHaveLength(4);
+      // The paragraph the user just asked for is the one they can type in.
+      expect(expandedRows(4)).toEqual([2]);
+    });
+
     // ★★★ THE `r?.changed` GATE ON INSERT AND DELETE, which nothing pinned
     //  until these two. `onMove` had its refusal test from the start, but the
     //  `Controlled` fixture's `insert`/`remove` both returned `changed: true`
