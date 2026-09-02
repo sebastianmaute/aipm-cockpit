@@ -151,15 +151,38 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-2">
-            {/* 2×2 grid */}
-            <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
+            {/* 2×2 grid. ★★ `grid-rows-2` is load-bearing, not decoration: without it
+                the implicit rows are `auto` and size to their CONTENT, so the row
+                holding the fewer/shorter chips collapses (measured 95px vs 71px on
+                the sample workspace) and a sparse quadrant becomes a visibly smaller
+                drop target than its siblings. A 2×2 influence/interest matrix must
+                read as four equal quadrants. Each cell already carries `overflow-auto`,
+                so a quadrant with more chips than fit scrolls instead of stretching
+                its row. */}
+            <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-2">
               {QUADRANTS.map((q) => (
                 <div
                   key={q.id}
                   data-testid={q.testId}
                   onDragOver={editable ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } : undefined}
                   onDragEnter={editable ? () => setDragOverQ(q.id) : undefined}
-                  onDragLeave={editable ? (e) => { if (e.currentTarget === e.target) setDragOverQ(null); } : undefined}
+                  // ★★ Only a leave for a target OUTSIDE this cell clears the highlight.
+                  // `dragleave` mirrors `mouseout`, not `mouseleave`, so moving onto a
+                  // CHILD (a chip, the label) fires it on the cell with
+                  // `target === currentTarget` — indistinguishable by target alone from
+                  // a real exit. Testing `target` alone dropped the ring over every chip,
+                  // shrinking the region that LOOKS droppable to the cell minus its
+                  // content. Same guard as `gantt-rows.tsx`'s row drop indicator.
+                  onDragLeave={editable ? (e) => {
+                    if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return;
+                    // ★★ FUNCTIONAL SETTER, and it is load-bearing: this leave runs LAST.
+                    // `dragenter` on the new element precedes `dragleave` on the old, so a
+                    // pointer jumping straight to the neighbouring quadrant — fast enough to
+                    // skip the 8px `gap-2` — sets THAT quadrant and is then nulled by this
+                    // one's leave. `onDragOver` never re-sets the state, so nothing recovers
+                    // it. Clear only a highlight this cell still owns.
+                    setDragOverQ((prev) => (prev === q.id ? null : prev));
+                  } : undefined}
                   onDrop={editable ? (e) => { onDropInto(q.id, e); setDragOverQ(null); } : undefined}
                   className={`flex flex-col gap-1.5 overflow-auto rounded-lg border border-line p-3 ${q.tintClass} ${dragOverQ === q.id ? "ring-2 ring-ui-green" : ""}`}
                 >

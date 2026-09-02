@@ -8,6 +8,47 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.277.1] - 2026-09-02 "Ozeki"
+
+### Fixed
+
+- **Dropping a stakeholder into a quadrant now highlights the whole quadrant.**
+  On the Influence / Interest map the green drop highlight vanished the moment
+  the pointer crossed one of the target quadrant's own children — a stakeholder
+  chip, or the quadrant's label — so the region that *looked* droppable was the
+  quadrant minus its contents. Measured on the sample workspace, that left only
+  37% of the "Keep satisfied" quadrant lit against 48-60% for its three
+  siblings, which is exactly what it looked like: a much smaller drop area in
+  one quadrant than in the others. The drop itself always worked anywhere in
+  the quadrant; only the feedback was wrong.
+- **A pointer jumping straight to the neighbouring quadrant keeps a highlight.**
+  `dragenter` on the new quadrant fires before `dragleave` on the old, so a jump
+  fast enough to skip the 8px gap between two quadrants set the new one and was
+  then immediately cleared by the old one's leave — and nothing re-set it, so the
+  highlight stayed lost for as long as the pointer sat there. Pre-existing, found
+  by a pre-release review rather than by the original report. Each quadrant's
+  leave now clears only a highlight it still owns.
+- **The four quadrants are drawn the same size.** The grid sized its two rows to
+  their contents, so the row holding the fewer or shorter names collapsed
+  (measured 95px against 71px) and its two quadrants became visibly smaller
+  drop targets. A quadrant with more names than fit now scrolls inside its own
+  cell instead of stretching its row. On a printout the map is correspondingly
+  taller (measured 676px against 456px), since the sparse quadrants pad up to
+  the tallest; nothing is clipped.
+
+### Documentation
+
+- Folded in the tooltip and work-inventory re-measurement: `tooltip-inventory.md`
+  gains its measured baseline, `work-inventory.md` and the tech-debt register are
+  re-measured and dated. TD-7's size figure is pinned to a commit (`fb66aeec`);
+  TD-5's is dated only, so the register's own "pin a size figure by a SHA, never
+  by a day" rule is not yet satisfied one row above where it is stated. Both
+  numbers are true at HEAD.
+- Corrected two `stakeholder-map-panel.tsx` line citations in
+  `handrolled-ui-inventory.md` that this release's own edits had shifted. The
+  doc-claims ratchet cannot see this class: a citation that merely moves stays
+  in range and passes.
+
 ## [0.277.0] - 2026-09-02 "Ozeki"
 
 ### Added

@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.277.0";
-export const APP_BUILD_DATE = "2026-09-02"; // 0.277.0: a link in a task description, a risk or a change now survives export — the .docx and .pptx carry real, clickable hyperlinks instead of printing the address as text, and each one is drawn so you can see it is a link (Ozeki)
+export const APP_VERSION = "0.277.1";
+export const APP_BUILD_DATE = "2026-09-02"; // 0.277.1: dragging a stakeholder across the Influence / Interest map now highlights the whole target quadrant instead of losing the highlight over the chips and the label inside it, and the four quadrants are drawn the same size (Ozeki)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.277.x line is "Ozeki" (Ruth Ozeki, American-Canadian novelist, "A Tale
  *  for the Time Being"). Checked dash-agnostically BEFORE the bump with the
