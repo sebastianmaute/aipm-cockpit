@@ -130,6 +130,59 @@ describe("AssetPreviewModal — object URL lifecycle", () => {
     expect(screen.getByRole("img", { name: "Alpha" })).toHaveAttribute("src", shownUrl);
   });
 
+  // ★★★ THE MIRROR OF THE LEAK TEST, AND THE ONE THAT WAS MISSING. Every
+  // other assertion in this describe checks that a URL IS revoked; none
+  // checked that a revoked one is never RENDERED. Those are different
+  // properties and the component satisfied only the first: `view` held the
+  // last successful result forever, the loading effect's `if (!open || !id)
+  // return` bailed before it could clear it, so a reopen committed a freshly
+  // mounted `<img>` pointing at a blob the close had already revoked. The
+  // browser paints its broken-image glyph for that frame.
+  // ★★★ THE REOPEN FLASH ITSELF IS NOT TESTABLE HERE, AND A FIRST CUT OF THIS
+  // TEST CLAIMED IT WAS. It drove open → close → reopen and asserted
+  // SYNCHRONOUSLY after `rerender`, on the theory that the passive effect had
+  // not yet replaced the stale result. RTL's `rerender` wraps in `act()`,
+  // which FLUSHES passive effects before returning — so the repair always
+  // lands first and the mutant SURVIVED (19/19 green). There is no
+  // un-flushed frame for a unit test to observe; only a real browser sees it.
+  // Do not re-add that test believing a missing `await` is what makes it work.
+  //
+  // ★★ THIS case is flush-independent, because the effect does not run at
+  // all: when the list shrinks under an open modal, `index` falls out of
+  // range, `id` goes `undefined`, and the effect's `if (!open || !id) return`
+  // bails BEFORE it could clear anything. Flushing changes nothing, so the
+  // difference between holding the last result and gating it is directly
+  // observable. Same root cause and same fix as the reopen flash — this is
+  // the half that can be pinned.
+  // ★ Mutation: `const shown = open && view?.forId === id ? view.result :
+  // null` → `const shown = view?.result ?? null`. Red here (the departed
+  // asset's image stays on screen under a blanked alt).
+  it("stops rendering an asset that has left the list", async () => {
+    const two = [asset("a", "Alpha"), asset("b", "Beta")];
+    const props = {
+      lang: "en-US" as const,
+      onClose: vi.fn(),
+      loadImage: vi.fn(async () => TINY_GIF),
+    };
+    const { container, rerender } = render(
+      <AssetPreviewModal {...props} assets={two} open startIndex={1} />,
+    );
+    await screen.findByRole("img", { name: "Beta" });
+    // Anti-vacuity: the image really is on screen before the list shrinks, so
+    // its later absence is caused by the shrink and not by never rendering.
+    expect(created).toHaveLength(1);
+
+    rerender(<AssetPreviewModal {...props} assets={two.slice(0, 1)} open startIndex={1} />);
+    // ★★★ QUERIED AS AN ELEMENT, NOT BY ROLE, AND THAT IS LOAD-BEARING. The
+    // departed asset leaves `current` undefined, so the defective render emits
+    // `<img alt="">` — and an empty `alt` gives the element role
+    // `presentation`, not `img`. `queryByRole("img")` therefore returns null
+    // for BOTH the fixed and the broken component, and an earlier draft of
+    // this assertion used it and let the mutant survive 19/19. The stale
+    // picture is still painted on screen; only its accessible role changed.
+    expect(container.querySelector("img")).toBeNull();
+  });
+
   it("revokes the current object URL on close", async () => {
     const { rerender } = renderModal();
     await screen.findByRole("img", { name: "Alpha" });

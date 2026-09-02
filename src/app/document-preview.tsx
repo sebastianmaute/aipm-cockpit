@@ -245,8 +245,21 @@ export function DocumentPreview({
   }, [html, assetsById, lang, tursoConfig]);
 
   // The lightbox's list, snapshotted from the DOM at activation. Ids and names
-  // only — the DocumentAsset rows are re-derived at render, so a repair landing
-  // while the lightbox is open is picked up rather than frozen.
+  // only — the DocumentAsset rows are re-derived at render, so a METADATA
+  // change (a rename) landing while the lightbox is open is picked up rather
+  // than frozen.
+  //
+  // ★★★ A REPAIR IS NOT SUCH A CHANGE, AND AN EARLIER WORDING HERE SAID IT
+  // WAS. It claimed re-derivation picked up a repair; the refutation is a
+  // hundred lines up in this same file, where `assetRepairGeneration` is
+  // introduced: a §212 repair rewrites BYTES over an existing id and writes NO
+  // metadata, so `documentAssets` keeps its identity, `assetsById` is
+  // unchanged, and the re-derived rows are byte-for-byte what they were. The
+  // lightbox's own load effect keys on the asset id and mime, so nothing in it
+  // moves either — it would go on showing "Data missing" while the pane behind
+  // it went healthy in the same commit. That is why the generation is threaded
+  // to the modal as `reloadNonce` below, and why re-deriving the rows is NOT
+  // on its own the mechanism this comment used to claim.
   const [preview, setPreview] = useState<
     { readonly images: readonly { id: string; name: string }[]; readonly index: number } | null
   >(null);
@@ -256,6 +269,15 @@ export function DocumentPreview({
   // of the live DOM inside the ACTIVATION handler, which is also the more
   // correct moment: it is exactly what the reader had in front of them.
   const openPreview = useCallback((target: Element) => {
+    // ★★ GATE THE HANDLER, NOT ONLY THE STAMPING. The interactivity effect
+    // removes `role`/`tabindex`/`aria-label` when storage is off, but
+    // `data-asset-id` lives in the rendered document HTML and survives — so
+    // `closest(ASSET_IMG)` still matches and this still fired in file mode.
+    // Nothing rendered (the modal below is behind the same `tursoConfig`), so
+    // the state was simply stuck set with no way to clear it — and if storage
+    // was later switched on, the modal mounted with `open` ALREADY true and
+    // the lightbox popped up unbidden on an image clicked in another mode.
+    if (tursoConfig === null) return;
     const el = bodyRef.current;
     if (!el) return;
     const imgs = assetImagesIn(el);
@@ -267,7 +289,7 @@ export function DocumentPreview({
       })),
       index,
     });
-  }, [assetsById]);
+  }, [assetsById, tursoConfig]);
 
   // ★ Scoped to the container, never to `document` — a document-level key
   // listener would fire for every view in the app, and the shared `Modal`
@@ -337,6 +359,7 @@ export function DocumentPreview({
           assets={previewAssets}
           startIndex={preview?.index ?? 0}
           loadImage={(id) => loadAssetData(tursoConfig, id, projectId)}
+          reloadNonce={assetRepairGeneration}
         />
       )}
     </>

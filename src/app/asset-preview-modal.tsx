@@ -46,10 +46,21 @@ export interface AssetPreviewModalProps {
   /** Injected byte loader — never a TursoConfig. Keeps this component
    *  storage-agnostic, and Turso gating stays inherited from the call site. */
   loadImage: (id: string) => Promise<string | null>;
+  /** ★★★ THE ONE SIGNAL NO OTHER PROP CARRIES: "the BYTES behind this id may
+   *  have changed." Bump it and the open image reloads. Nothing else can say
+   *  this — `id` and `mime` are metadata, and a §212 repair rewrites bytes
+   *  over an existing id while writing NO metadata, so every other dependency
+   *  this component has is unchanged across one. Without it the lightbox goes
+   *  on showing "Data missing" while the pane behind it goes healthy in the
+   *  same commit. Deliberately a plain counter, not the loader identity: the
+   *  loader is a function prop whose identity churns on every parent render
+   *  for reasons that have nothing to do with the bytes (see `loadImageRef`
+   *  below). Optional — a caller with no such signal omits it. */
+  reloadNonce?: number;
 }
 
 export function AssetPreviewModal({
-  lang, open, onClose, assets, startIndex, loadImage,
+  lang, open, onClose, assets, startIndex, loadImage, reloadNonce,
 }: AssetPreviewModalProps) {
   const [index, setIndex] = useState(startIndex);
   const { offset, reset: dragReset, handleProps } = useDraggable(open, STORAGE_KEY_POS);
@@ -85,7 +96,22 @@ export function AssetPreviewModal({
     setIndex((i) => Math.min(Math.max(i + delta, 0), assets.length - 1));
   }, [assets.length]);
 
-  const [view, setView] = useState<AssetObjectUrl | null>(null);
+  // ★★★ THE RESULT CARRIES THE ID IT WAS MINTED FOR, AND RENDERING IS GATED ON
+  // THAT MATCHING. A bare `AssetObjectUrl` here ships a revoked URL as a live
+  // `src` on the most ordinary interaction there is — open, close, reopen:
+  // closing runs the effect's cleanup (revoking the URL) but the effect BODY
+  // early-returns on `!open`, so nothing can clear the state, and the reopen
+  // render commits a freshly mounted `<img>` pointing at the dead blob before
+  // the passive effect gets to replace it. The browser paints its broken-image
+  // glyph for that frame. Clearing it from an effect is not available to us —
+  // `react-hooks/set-state-in-effect` is banned and fatal — so the state is
+  // made SELF-INVALIDATING instead: a result minted for another id (or while
+  // closed) simply does not render.
+  // ★★ This also covers the case the reconcile above cannot: if `assets`
+  // shrinks while open so `index` falls out of range, `id` goes undefined and
+  // the departed asset's image would otherwise stay on screen under a blanked
+  // title and alt.
+  const [view, setView] = useState<{ forId: string; result: AssetObjectUrl } | null>(null);
   // Holds the URL currently minted so cleanup revokes exactly one thing.
   const urlRef = useRef<string | null>(null);
 
@@ -120,14 +146,17 @@ export function AssetPreviewModal({
         return null;
       });
       if (cancelled) return;
-      if (base64 === null) { setView({ kind: "unavailable" }); return; }
+      if (base64 === null) { setView({ forId: id, result: { kind: "unavailable" } }); return; }
       const r = assetBytesToObjectUrl(base64, currentMime);
       if (cancelled) { if (r.kind === "ok") URL.revokeObjectURL(r.url); return; }
       if (r.kind === "ok") urlRef.current = r.url;
-      setView(r);
+      setView({ forId: id, result: r });
     })();
     return () => { cancelled = true; release(); };
-  }, [open, id, release, currentMime]);
+  }, [open, id, release, currentMime, reloadNonce]);
+
+  // Only a result minted for the asset on screen, in an open modal, may render.
+  const shown = open && view?.forId === id ? view.result : null;
 
   return (
     // `ariaLabelledby` over `ariaLabel` so the dialog's accessible name IS the
@@ -149,16 +178,16 @@ export function AssetPreviewModal({
           onResetLayout={() => { dragReset(); sizeReset(); }}
         />
         <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
-          {view?.kind === "ok" && (
+          {shown?.kind === "ok" && (
             // A blob: object URL — next/image cannot optimize it (there is no
             // remote src to fetch), so the native element is correct here.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={view.url} alt={current?.name ?? ""} className="min-h-0 flex-1 object-contain" />
+            <img src={shown.url} alt={current?.name ?? ""} className="min-h-0 flex-1 object-contain" />
           )}
-          {view?.kind === "unavailable" && (
+          {shown?.kind === "unavailable" && (
             <p className="flex-1 p-4 text-sm text-muted-foreground">{t(lang, "assetPreviewUnavailable")}</p>
           )}
-          {view?.kind === "blocked" && (
+          {shown?.kind === "blocked" && (
             <p className="flex-1 p-4 text-sm text-muted-foreground">{t(lang, "assetPreviewBlocked")}</p>
           )}
           <div className="flex items-center justify-between gap-2">
