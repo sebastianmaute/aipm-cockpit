@@ -385,7 +385,33 @@ export function AssetLibrary({
                           variant="secondary"
                           size="xs"
                           onClick={() => setPreviewIndex(index)}
-                          aria-label={t(lang, "assetPreviewOpen", token)}
+                          // ★★★ THE ACCESSIBLE NAME IS COMPOSED FROM THE
+                          // VISIBLE-TEXT KEY, AND THAT IS THE WHOLE POINT. This
+                          // read `t(lang, "assetPreviewOpen", token)` — an
+                          // independently authored key — and that SHIPPED A
+                          // WCAG 2.5.3 (label in name) FAILURE IN GERMAN: the
+                          // visible label is `documentsPreview` = "Vorschau"
+                          // while `assetPreviewOpen` = "Bild anzeigen – {0}",
+                          // which contains no such word, so a German speech-
+                          // input user saying the label they can see could not
+                          // activate this control. EN passed only by
+                          // coincidence ("Preview" ⊂ "Preview image – …").
+                          // Composing the name from the same key that renders
+                          // the text makes containment STRUCTURAL — true in
+                          // every language, and not defeatable by a future
+                          // translation of either string. `SortResizeTh` builds
+                          // its header names from `label` for exactly this
+                          // reason, and `documents-history-modal.tsx` spells
+                          // this same pair one file over.
+                          // ★★ No gate in this repo can see a regression here:
+                          // axe's `label-content-name-mismatch` is tagged
+                          // `experimental` and axe's default tagExclude drops
+                          // it, and this surface is Turso-gated so the a11y
+                          // gate never renders it at all. The DE containment
+                          // test in `asset-library.test.tsx` is the only
+                          // detector that will ever exist — an EN-only test
+                          // passes against the broken code.
+                          aria-label={`${t(lang, "documentsPreview")} – ${token}`}
                         >
                           {t(lang, "documentsPreview")}
                         </Button>
