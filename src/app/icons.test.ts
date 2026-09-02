@@ -70,6 +70,7 @@ const EXPECTED: Record<string, string> = {
   // now re-export CircleQuestionMark verbatim.
   QuestionMarkCircleIcon: "CircleQuestionMark",
   RectangleStackIcon: "GalleryVerticalEnd",
+  RotateCcwSquareIcon: "RotateCcwSquare",
   ShieldCheckIcon: "ShieldCheck",
   SparklesIcon: "Sparkles",
   Squares2X2Icon: "LayoutGrid",
@@ -94,8 +95,8 @@ describe("icons barrel", () => {
   //   to both the barrel and EXPECTED passes that test and fails only this one,
   //   so growing the icon set is always a conscious edit rather than a
   //   side-effect. Bump the literal only when you mean to.
-  it("exports 69 icons", () => {
-    expect(Object.keys(icons)).toHaveLength(69);
+  it("exports 70 icons", () => {
+    expect(Object.keys(icons)).toHaveLength(70);
   });
 
   it.each(Object.entries(EXPECTED))(
