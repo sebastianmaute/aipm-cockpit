@@ -2312,14 +2312,17 @@ describe("DocumentsPanel — asset loader", () => {
     return { tursoConfig, projectId, assets: [], setAssets: () => {} };
   }
 
-  function renderWithAssets(assetPane: DocumentAssetPaneProps | undefined) {
+  function renderWithAssets(
+    assetPane: DocumentAssetPaneProps | undefined,
+    documents: readonly ProjectDocument[] = [doc(1, "Alpha"), doc(2, "Beta")],
+  ) {
     vi.mocked(downloadDocument).mockClear();
     vi.mocked(loadAssetData).mockClear();
     return render(
       <PanelHost>
         <DocumentsPanel
           lang="en-US"
-          documents={[doc(1, "Alpha"), doc(2, "Beta")]}
+          documents={documents}
           mutateDocuments={inertMutate}
           documentVersions={[]}
           ws={emptyWorkspace()}
@@ -2372,6 +2375,40 @@ describe("DocumentsPanel — asset loader", () => {
 
     expect(capturedLoader()).toBeUndefined();
     expect(loadAssetData).not.toHaveBeenCalled();
+  });
+
+  // ★★★ WHY THIS TEST EXISTS — it is the only possible detector. On an empty
+  // Turso project BOTH the documents empty-state box and the asset-library
+  // empty-state box render at once, in one pane. Two buttons sharing an
+  // accessible name is a WCAG 2.4.6 failure, and axe cannot see it: of
+  // axe-core 4.12.1's 105 rules, 69 carry one of the four tags
+  // `e2e/a11y.spec.ts` requests, and not one of them flags two controls
+  // sharing an accessible name (measured elsewhere in this repo — see
+  // AGENTS.md's a11y hard-constraint bullet). Documents IS an axe-scanned
+  // view, so a fully green axe run says nothing here, at every seed size,
+  // forever. This unit test is the entire coverage for this property.
+  it("gives the two empty-state boxes distinct accessible names", () => {
+    // Both sections empty, assets ENABLED — the only state in which both
+    // boxes are on screen at once, which is an empty Turso project.
+    renderWithAssets(assetPaneProps(TURSO_CONFIG, "proj-42"), []);
+
+    // Both boxes must actually be on screen, or the uniqueness claim below
+    // is vacuous.
+    expect(
+      screen.getByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "assetLibraryUploadFirst") }),
+    ).toBeInTheDocument();
+
+    // ★★ The shared helper (`src/test/row-unique-names.ts`), never a
+    // hand-rolled enumeration: `minControls` throws if the scope rendered
+    // fewer controls than measured, so a query typo or a silently narrowed
+    // scope cannot read as a pass.
+    // ★ `requireCollisionSeed` stays OFF: this is a distinct-name
+    // regression pin, not a test certifying a collision fixture. Turning it
+    // on would make the assertion throw against correct code.
+    expectRowUniqueNames({ minControls: 11 });
   });
 });
 
