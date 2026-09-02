@@ -1,0 +1,996 @@
+# Asset preview lightbox Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Let a user look at an uploaded image full-size, from the image library and from an image already inserted in a document.
+
+**Architecture:** One new modal component (`asset-preview-modal.tsx`) built on the shared `Modal` + `ModalHeader` primitives with `useDraggableWindow` + `useResizable` for the window mechanics. It is list-agnostic: callers hand it an ordered asset list and a start index. Byte loading is injected as a `loadImage` function prop, never a Turso config, so the component stays storage-agnostic and inherits Turso gating from its two call sites.
+
+**Tech Stack:** React 19, Next 16, TypeScript, Tailwind v4, vitest + @testing-library/react.
+
+**Branch:** `fix/turso-env-disclosure` at `15cf0149`, off `main` `2805ba57`. Fold into this branch — do NOT create a new one. No release, no version bump.
+
+---
+
+## Read before you start
+
+- **`docs/AGENTS/ui-shell.md`, the "dismissal: Escape & Tab ownership" section.** It owns the Escape/Tab protocol for every modal in this app. You must NOT hand-roll dismissal. The shared `Modal` already joins `dismissal-stack.ts`, so Escape and the Tab trap are handled for you the moment you render inside it.
+- **`src/app/task-form-modal.tsx:99-135` is the precedent to copy** — a draggable, resizable modal. It is `useDraggable(open, posKey)` → `{offset, reset, handleProps}` plus `useResizable(sizeKey)` → `{ref, reset}`, rendered as `<Modal>` → `<div data-modal-panel style={{transform: translate(offset)}} className="... resize ...">` → `<ModalHeader dragHandleProps={handleProps} onResetLayout={...}>`.
+- **`src/app/asset-library-modal.tsx`** is the closest sibling (it is also a file you will modify) and shows the `ariaLabelledby` + `titleId` convention: the dialog's accessible name IS the heading a sighted user reads, so the two cannot drift.
+- ★★ **`src/app/notes-window.tsx` is NOT the precedent, despite the spec naming it.** It is explicitly **NON-modal** — no backdrop, no focus trap — and it uses `useDraggableWindow` (a `onTitleBarMouseDown` mouse API) plus a hand-rolled conditional Escape claim, all three of which are correct *there* and wrong here. `ModalHeader` takes **pointer** handlers via `dragHandleProps`, which only `useDraggable` produces. Copying the notes-window block into a `Modal` child would register a second Escape claimer for one layer.
+- **Do NOT use `EditModalShell`** (`edit-modal-chrome.tsx`). It is chrome for entity *edit* modals and carries `onSubmit`, `ModalFieldControls`, `useConfirm` and a save/delete footer. A lightbox is not a form.
+
+## Repo landmines that apply to this work
+
+- `src/app/*.ts(x)` and `e2e/*.ts` are **CRLF** (`i/lf w/crlf`). Use the **Edit** tool. **Never `Write`** on an existing file (it re-lines to LF) and **never `sed -i`** (it re-lines the whole file invisibly to `git diff`).
+- **`src/app/i18n.de.ts` must never be touched with the Edit tool** — it corrupts umlauts and curls quotes. Patch it with a node utf8 write using `\r\n` anchors (exact recipe in Task 2).
+- `npx tsc --noEmit` **exits 2** on diagnostics, not 1.
+- `npm run lint` exits 1 from gitignored leftovers — use `npx eslint --max-warnings=0 src`.
+- **Never read a gate's exit code through a pipe** — you get the pipe's status. Redirect to a file, echo `$?` unpiped, then grep the file.
+- Never run two vitest processes at once. A vitest failure mentioning `Failed to start forks worker` is machine contention, not a red suite — re-run the file alone.
+- Never `git add -A` or `git add .`. There is an untracked `not-in-use.env.local.bak` holding live credentials and a foreign-modified `sample-workspace-huge.json`. Stage named paths only.
+
+## File Structure
+
+| File | Responsibility |
+|---|---|
+| `src/app/asset-object-url.ts` | NEW. One exported function turning stored base64 + mime into an object URL or a typed refusal. Extracted so the modal and `document-asset-images.ts` cannot disagree about what "no mime" or "blocked mime" means. |
+| `src/app/asset-object-url.test.ts` | NEW. Unit tests for the three outcomes. |
+| `src/app/asset-preview-modal.tsx` | NEW. The lightbox: window chrome, image/unavailable states, prev/next, object-URL lifecycle. |
+| `src/app/asset-preview-modal.test.tsx` | NEW. All behavioural tests including the revoke spy and the row-unique-names check. |
+| `src/app/asset-library.tsx` | MODIFY. New optional `loadImage` prop; row image button opens the lightbox. |
+| `src/app/documents-asset-section.tsx` | MODIFY. Thread the existing loader into `AssetLibrary`. |
+| `src/app/asset-library-modal.tsx` | MODIFY. Second `AssetLibrary` mount — thread the same prop or explicitly pass nothing. |
+| `src/app/document-preview.tsx` | MODIFY. Click/keyboard on an inserted `<img data-asset-id>` opens the lightbox. |
+| `src/app/i18n.ts` / `src/app/i18n.de.ts` | MODIFY. New keys, EN/DE parity enforced by tsc. |
+
+---
+
+### Task 1: Shared object-URL helper
+
+`document-asset-images.ts` already decodes stored base64 into an object URL, and its mime test is load-bearing: the check is **truthy** (`mime ? ... : ...`), not `!== undefined`, because an asset whose stored mime is `""` survives sanitising and has always rendered by content-sniffing. `isBlockedAssetMime` is a separate, third outcome. The lightbox must not reimplement this.
+
+**Files:**
+- Create: `src/app/asset-object-url.ts`
+- Create: `src/app/asset-object-url.test.ts`
+
+- [ ] **Step 1: Write the failing test**
+
+Create `src/app/asset-object-url.test.ts`:
+
+```tsx
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { assetBytesToObjectUrl } from "./asset-object-url";
+
+// A 1x1 transparent GIF, base64 — small, real, and decodes under jsdom's atob.
+const TINY_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+describe("assetBytesToObjectUrl", () => {
+  beforeEach(() => {
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:stub-url"),
+      revokeObjectURL: vi.fn(),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("returns an object URL for an allowed mime", () => {
+    const r = assetBytesToObjectUrl(TINY_GIF, "image/gif");
+    expect(r).toEqual({ kind: "ok", url: "blob:stub-url" });
+  });
+
+  // ★★★ THE CASE A `!== undefined` TEST GETS WRONG. A blank mime survives
+  // sanitising and such an asset has always rendered by content-sniffing, so
+  // it must produce a URL, not a refusal.
+  it("still returns a URL when the stored mime is blank", () => {
+    const r = assetBytesToObjectUrl(TINY_GIF, "");
+    expect(r).toEqual({ kind: "ok", url: "blob:stub-url" });
+  });
+
+  it("refuses a blocked mime without minting a URL", () => {
+    const r = assetBytesToObjectUrl(TINY_GIF, "image/svg+xml");
+    expect(r).toEqual({ kind: "blocked" });
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("reports undecodable bytes rather than throwing", () => {
+    const r = assetBytesToObjectUrl("!!!not base64!!!", "image/png");
+    expect(r).toEqual({ kind: "unavailable" });
+  });
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+```bash
+npx vitest run src/app/asset-object-url.test.ts --reporter=dot
+```
+Expected: FAIL — `Failed to resolve import "./asset-object-url"`.
+
+- [ ] **Step 3: Write the implementation**
+
+Create `src/app/asset-object-url.ts`:
+
+```ts
+// One decode for stored asset bytes, shared by the document preview's
+// `attachAssetImages` and the asset preview lightbox.
+//
+// ★★★ THE MIME TEST IS TRUTHY, NOT `!== undefined`, AND THE DIFFERENCE BREAKS
+// WORKING IMAGES. `sanitizeDocumentAsset` requires only an `id`; its mime is
+// `sanitizeText(...)`, which yields "" for anything non-string — so a missing,
+// blank or non-string mime survives every load path as "", and such an asset
+// has always rendered by content-sniffing. Declining it would stamp a repair
+// marker on an image that works.
+// Both come from ONE module. `safeBase64ToBytes` (not `base64ToBytes`) is the
+// variant `document-asset-images.ts` already uses: it returns null for a
+// malformed row AND for an empty one, so no try/catch is needed here.
+import { isBlockedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
+
+export type AssetObjectUrl =
+  | { kind: "ok"; url: string }
+  /** Metadata says a format we refuse to render (e.g. image/svg+xml). */
+  | { kind: "blocked" }
+  /** Bytes absent or undecodable — the dangling case. */
+  | { kind: "unavailable" };
+
+export function assetBytesToObjectUrl(base64: string, mime: string | undefined): AssetObjectUrl {
+  if (isBlockedAssetMime(mime)) return { kind: "blocked" };
+  const decoded = safeBase64ToBytes(base64);
+  if (decoded === null) return { kind: "unavailable" };
+  // Re-wrap onto a fresh, non-shared ArrayBuffer: the decoder returns
+  // `Uint8Array<ArrayBufferLike>`, which admits SharedArrayBuffer and so does
+  // not satisfy BlobPart on its own (mirrors use-document-assets.ts).
+  const bytes = new Uint8Array(decoded);
+  const blob = mime ? new Blob([bytes], { type: mime }) : new Blob([bytes]);
+  return { kind: "ok", url: URL.createObjectURL(blob) };
+}
+```
+
+★ Verified 2026-09-02: `isBlockedAssetMime` (`document-asset-upload.ts:51`) and `safeBase64ToBytes` (`:381`) both live in `./document-asset-upload`, and `document-asset-images.ts:13` imports exactly that pair. Do NOT hand-roll an `atob` loop and do NOT reach for `base64ToBytes`, which throws.
+
+- [ ] **Step 4: Run the test**
+
+```bash
+npx vitest run src/app/asset-object-url.test.ts --reporter=dot
+```
+Expected: PASS, 4 tests.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/app/asset-object-url.ts src/app/asset-object-url.test.ts
+git commit -m "refactor(assets): extract the stored-bytes to object-URL decode"
+```
+
+---
+
+### Task 2: The i18n keys, EN and DE
+
+**Files:**
+- Modify: `src/app/i18n.ts` (near the existing `assetLibrary*` block, ~line 4268)
+- Modify: `src/app/i18n.de.ts` (node write only — see the landmine)
+
+- [ ] **Step 1: Add the EN keys**
+
+Use the **Edit** tool on `src/app/i18n.ts`. Insert after `assetLibraryPasteDropZone`:
+
+```ts
+  assetPreviewTitle: "Preview – {0}",
+  assetPreviewOpen: "Preview image – {0}",
+  assetPreviewPrev: "Previous image",
+  assetPreviewNext: "Next image",
+  assetPreviewPosition: "{0} of {1}",
+  assetPreviewUnavailable: "This image's data is missing, so it cannot be shown.",
+  assetPreviewBlocked: "This image's format is no longer supported, so it cannot be shown.",
+```
+
+★ Placeholders are 0-based positional: `t(lang, "assetPreviewPosition", i + 1, total)` → `{0}`/`{1}`.
+
+- [ ] **Step 2: Add the DE keys by node write, NEVER the Edit tool**
+
+`i18n.de.ts` is CRLF and the Edit tool corrupts umlauts and curls quotes there. Both new DE strings below carry umlauts, so this is not optional. Run from the repo root:
+
+```bash
+node -e '
+const fs = require("fs");
+const p = "src/app/i18n.de.ts";
+const s = fs.readFileSync(p, "utf8");
+const anchor = "  assetLibraryPasteDropZone:";
+if (s.split(anchor).length !== 2) throw new Error("anchor not unique: " + (s.split(anchor).length - 1));
+const line = s.slice(s.indexOf(anchor)).split("\r\n")[0];
+const add = [
+  "  assetPreviewTitle: \"Vorschau – {0}\",",
+  "  assetPreviewOpen: \"Bild anzeigen – {0}\",",
+  "  assetPreviewPrev: \"Vorheriges Bild\",",
+  "  assetPreviewNext: \"Nächstes Bild\",",
+  "  assetPreviewPosition: \"{0} von {1}\",",
+  "  assetPreviewUnavailable: \"Die Bilddaten fehlen, daher kann das Bild nicht angezeigt werden.\",",
+  "  assetPreviewBlocked: \"Das Bildformat wird nicht mehr unterstützt, daher kann das Bild nicht angezeigt werden.\",",
+].join("\r\n");
+const out = s.replace(line, line + "\r\n" + add);
+if (out === s) throw new Error("no replacement made");
+fs.writeFileSync(p, out, "utf8");
+console.log("ok");
+'
+```
+
+- [ ] **Step 3: Verify the umlauts survived and the file is still CRLF**
+
+```bash
+node -e "const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');for(const k of ['assetPreviewNext','assetPreviewClose','assetPreviewUnavailable'])console.log(k, JSON.stringify(s.match(new RegExp(k+': \"([^\"]*)\"'))[1]));"
+git ls-files --eol src/app/i18n.de.ts
+node -e "const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');console.log('lone LF:',(s.match(/(?<!\r)\n/g)||[]).length)"
+```
+Expected: `"Nächstes Bild"`, `"Vorschau schließen"`, the long sentence — real `ä`/`ß`, straight `"` quotes; `w/crlf`; lone LF `0`.
+
+- [ ] **Step 4: Typecheck — this is what enforces EN/DE parity**
+
+```bash
+npx tsc --noEmit > /tmp/tsc.log 2>&1; echo "EXIT=$?"
+grep -E "^(src|e2e)/" /tmp/tsc.log || echo "no source diagnostics"
+```
+Expected: EXIT=0. A missing DE key fails here with a key-parity error.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/app/i18n.ts src/app/i18n.de.ts
+git commit -m "i18n: add the asset preview lightbox keys"
+```
+
+---
+
+### Task 3: The lightbox shell — opens, closes, is labelled
+
+Build the window chrome first, with a stub body. No image loading yet.
+
+**Files:**
+- Create: `src/app/asset-preview-modal.tsx`
+- Create: `src/app/asset-preview-modal.test.tsx`
+
+- [ ] **Step 1: Write the failing test**
+
+Create `src/app/asset-preview-modal.test.tsx`:
+
+```tsx
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { AssetPreviewModal } from "./asset-preview-modal";
+import { t } from "./i18n";
+import type { DocumentAsset } from "./document-model";
+
+const TINY_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+function asset(id: string, name: string, mime = "image/gif"): DocumentAsset {
+  return { id, name, mime, size: 42, createdAt: "2026-01-01T00:00:00.000Z" } as DocumentAsset;
+}
+
+function renderModal(over: Partial<Parameters<typeof AssetPreviewModal>[0]> = {}) {
+  const onClose = vi.fn();
+  const utils = render(
+    <AssetPreviewModal
+      lang="en-US"
+      open
+      onClose={onClose}
+      assets={[asset("a", "Alpha"), asset("b", "Beta")]}
+      startIndex={0}
+      loadImage={vi.fn(async () => TINY_GIF)}
+      {...over}
+    />,
+  );
+  return { ...utils, onClose };
+}
+
+describe("AssetPreviewModal — shell", () => {
+  it("renders nothing when closed", () => {
+    renderModal({ open: false });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("labels the dialog with the current asset name", async () => {
+    renderModal();
+    expect(await screen.findByRole("dialog", { name: /Alpha/ })).toBeInTheDocument();
+  });
+
+  // ★ The ✕ is the SHARED ModalHeader's, named by the existing
+  //   `alertModalClose` key — this component adds no close key of its own.
+  it("closes from the shared header's close control", async () => {
+    const { onClose } = renderModal();
+    await userEvent.click(await screen.findByRole("button", { name: t("en-US", "alertModalClose") }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★ Escape is handled by the shared `Modal` via dismissal-stack.ts. This
+  // asserts we are INSIDE that machinery — it is not a test of our own key
+  // handler, because we must not have one.
+  it("closes on Escape through the shared modal machinery", async () => {
+    const { onClose } = renderModal();
+    await screen.findByRole("dialog");
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+```bash
+npx vitest run src/app/asset-preview-modal.test.tsx --reporter=dot
+```
+Expected: FAIL — cannot resolve `./asset-preview-modal`.
+
+- [ ] **Step 3: Write the shell**
+
+Create `src/app/asset-preview-modal.tsx`. ★ Before writing, read `src/app/notes-window.tsx` lines 1-60 for the drag/resize wiring and `src/app/modal.tsx`'s `Modal` signature (`open`, `onClose`, `ariaLabel`, `ariaLabelledby`, `initialFocusRef`, `align`, `zIndex`). Confirm `ModalHeader`'s exact props with `grep -n "export function ModalHeader" -A 20 src/app/modal.tsx`.
+
+```tsx
+"use client";
+
+// The asset preview lightbox: a draggable, resizable modal that shows ONE
+// uploaded image at a time and steps through the list the caller handed it.
+//
+// ★★★ DISMISSAL IS THE SHARED `Modal`'S JOB, NOT OURS. It joins
+// `dismissal-stack.ts`, so Escape routing and the Tab trap are already correct
+// and already stack-aware for a nested layer. Do NOT add a `useDismissable`,
+// a `useFocusTrap`, or a document-level Escape listener here — a second
+// claimer for one layer is exactly the double-fire the stack exists to stop.
+// `notes-window.tsx` DOES hand-roll a conditional Escape claim; that is
+// correct THERE because it is non-modal and stays open while the user works
+// elsewhere. Copy its drag/resize wiring only.
+//
+// ★★ LIST-AGNOSTIC ON PURPOSE. "Next" means next in the list you opened this
+// from — the library's current sort, or a document's visual order. A single
+// global ordering would make "next" jump to an image that is not visible
+// where the user clicked.
+import { useCallback, useEffect, useRef, useState } from "react";
+import { type Lang, t } from "./i18n";
+import type { DocumentAsset } from "./document-model";
+import { Modal } from "./modal";
+import { ModalHeader } from "./modal-header";
+import { Button } from "./button";
+import { useResizable } from "./use-resizable";
+import { useDraggable } from "./use-draggable";
+import { assetBytesToObjectUrl } from "./asset-object-url";
+
+// ★ Both follow the established conventions and neither collides: the size
+// keys in use are task-form / budget-bucket / sharepoint / shift-edit plus the
+// `sizeKey` values passed through EditModalShell (absence-edit, calendar-event,
+// change-edit, milestone-edit, raid-edit, resource-edit-v2, stakeholder-edit).
+// Verify before changing either:
+//   grep -rn "modal-size:\|modal-pos:" src/app --include=*.tsx | grep -v test
+const STORAGE_KEY_POS = "aipm-cockpit:modal-pos:asset-preview";
+const STORAGE_KEY_SIZE = "aipm-cockpit:modal-size:asset-preview";
+
+const TITLE_ID = "asset-preview-modal-title";
+
+export interface AssetPreviewModalProps {
+  lang: Lang;
+  open: boolean;
+  onClose: () => void;
+  /** The caller's own order. Prev/next walk THIS list, and do not wrap. */
+  assets: readonly DocumentAsset[];
+  startIndex: number;
+  /** Injected byte loader — never a TursoConfig. Keeps this component
+   *  storage-agnostic, and Turso gating stays inherited from the call site. */
+  loadImage: (id: string) => Promise<string | null>;
+}
+
+export function AssetPreviewModal({
+  lang, open, onClose, assets, startIndex, loadImage,
+}: AssetPreviewModalProps) {
+  const [index, setIndex] = useState(startIndex);
+  const { offset, reset: dragReset, handleProps } = useDraggable(open, STORAGE_KEY_POS);
+  const { ref: sizeRef, reset: sizeReset } = useResizable(STORAGE_KEY_SIZE);
+
+  // Re-seed when a fresh open targets a different asset. Render-time reconcile,
+  // NOT a useEffect — `react-hooks/set-state-in-effect` is banned and fatal.
+  const [seenStart, setSeenStart] = useState(startIndex);
+  if (startIndex !== seenStart) {
+    setSeenStart(startIndex);
+    setIndex(startIndex);
+  }
+
+  const current = assets[index];
+
+  return (
+    // `ariaLabelledby` over `ariaLabel` so the dialog's accessible name IS the
+    // heading a sighted user reads and the two cannot drift — the convention
+    // `asset-library-modal.tsx` states at its own Modal.
+    <Modal open={open} onClose={onClose} ariaLabelledby={TITLE_ID} align="center">
+      <div
+        ref={sizeRef}
+        data-modal-panel
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+        className="relative flex h-[720px] max-h-[95vh] min-h-[360px] w-[900px] min-w-[380px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
+      >
+        <ModalHeader
+          lang={lang}
+          title={t(lang, "assetPreviewTitle", current?.name ?? "")}
+          titleId={TITLE_ID}
+          onClose={onClose}
+          dragHandleProps={handleProps}
+          onResetLayout={() => { dragReset(); sizeReset(); }}
+        />
+        <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
+          {/* body arrives in Task 4 */}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+```
+
+★ Verified 2026-09-02 against `task-form-modal.tsx:99-135`: `useDraggable(open, key)` returns `{offset, reset, handleProps}`; `useResizable(key)` returns `{ref, reset}`; `ModalHeader` (from `./modal-header`) takes `lang`, `title`, `titleId?`, `onClose`, `dragHandleProps?`, `headerExtra?`, `onResetLayout?`. It has **no** `closeLabel` — the ✕ gets its name from the shared header, so `assetPreviewClose` is used on the ✕ only if you pass one; otherwise drop that key in Task 2 rather than leaving it unused (an unused i18n key is dead weight, and `tsc` will not flag it). Decide this when you write Task 3 and keep EN/DE in step.
+
+- [ ] **Step 4: Run the test**
+
+```bash
+npx vitest run src/app/asset-preview-modal.test.tsx --reporter=dot
+```
+Expected: PASS, 4 tests.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/app/asset-preview-modal.tsx src/app/asset-preview-modal.test.tsx
+git commit -m "feat(assets): add the asset preview lightbox shell"
+```
+
+---
+
+### Task 4: Load the image, and revoke every object URL
+
+★★★ A leaked object URL is invisible to every assertion except an explicit `revokeObjectURL` spy. Every arrow-press mints a new URL, so revoking only on close leaks one per navigation for the life of the session.
+
+**Files:**
+- Modify: `src/app/asset-preview-modal.tsx`
+- Modify: `src/app/asset-preview-modal.test.tsx`
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `asset-preview-modal.test.tsx`:
+
+```tsx
+describe("AssetPreviewModal — object URL lifecycle", () => {
+  let created: string[];
+  let revoked: string[];
+  beforeEach(() => {
+    created = [];
+    revoked = [];
+    let n = 0;
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => { const u = `blob:${++n}`; created.push(u); return u; }),
+      revokeObjectURL: vi.fn((u: string) => { revoked.push(u); }),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("shows the image with the asset name as alt text", async () => {
+    renderModal();
+    const img = await screen.findByRole("img", { name: "Alpha" });
+    expect(img).toHaveAttribute("src", created[0]);
+  });
+
+  // ★★★ THE LEAK TEST. Navigating mints a new URL; the previous one must be
+  // revoked at that moment, not merely at close.
+  it("revokes the previous object URL when navigating", async () => {
+    renderModal();
+    await screen.findByRole("img", { name: "Alpha" });
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") }));
+    await screen.findByRole("img", { name: "Beta" });
+    expect(revoked).toContain(created[0]);
+  });
+
+  it("revokes the current object URL on close", async () => {
+    const { rerender } = renderModal();
+    await screen.findByRole("img", { name: "Alpha" });
+    rerender(
+      <AssetPreviewModal
+        lang="en-US" open={false} onClose={vi.fn()}
+        assets={[asset("a", "Alpha"), asset("b", "Beta")]}
+        startIndex={0} loadImage={vi.fn(async () => TINY_GIF)}
+      />,
+    );
+    expect(revoked).toContain(created[created.length - 1]);
+  });
+});
+```
+
+- [ ] **Step 2: Run and watch them fail**
+
+```bash
+npx vitest run src/app/asset-preview-modal.test.tsx --reporter=dot
+```
+Expected: FAIL — no `img` role found (body is still a stub).
+
+- [ ] **Step 3: Implement loading + revocation**
+
+Add to `asset-preview-modal.tsx`, inside the component above the `return`:
+
+```tsx
+  const [view, setView] = useState<{ kind: "ok"; url: string } | { kind: "blocked" } | { kind: "unavailable" } | null>(null);
+  // Holds the URL currently minted so cleanup revokes exactly one thing.
+  const urlRef = useRef<string | null>(null);
+
+  const release = useCallback(() => {
+    if (urlRef.current) { URL.revokeObjectURL(urlRef.current); urlRef.current = null; }
+  }, []);
+
+  // ★★★ REVOKE ON NAVIGATE **AND** ON CLOSE. This effect's cleanup covers
+  // both: it runs when `id` changes (navigate) and on unmount/close. Revoking
+  // only in a close handler leaks one URL per arrow-press for the whole
+  // session, and nothing but a revokeObjectURL spy can see it.
+  const id = current?.id;
+  useEffect(() => {
+    if (!open || !id) return;
+    let cancelled = false;
+    setView(null);
+    void (async () => {
+      const base64 = await loadImage(id).catch(() => null);
+      if (cancelled) return;
+      if (base64 === null) { setView({ kind: "unavailable" }); return; }
+      const r = assetBytesToObjectUrl(base64, current?.mime);
+      if (cancelled) { if (r.kind === "ok") URL.revokeObjectURL(r.url); return; }
+      if (r.kind === "ok") urlRef.current = r.url;
+      setView(r);
+    })();
+    return () => { cancelled = true; release(); };
+    // `current?.mime` is intentionally read inside; `id` identifies the asset.
+  }, [open, id, loadImage, release, current?.mime]);
+```
+
+And replace the body placeholder with:
+
+```tsx
+          {view?.kind === "ok" && (
+            <img src={view.url} alt={current?.name ?? ""} className="min-h-0 flex-1 object-contain" />
+          )}
+          {view?.kind === "unavailable" && (
+            <p className="flex-1 p-4 text-sm text-muted-foreground">{t(lang, "assetPreviewUnavailable")}</p>
+          )}
+          {view?.kind === "blocked" && (
+            <p className="flex-1 p-4 text-sm text-muted-foreground">{t(lang, "assetPreviewBlocked")}</p>
+          )}
+```
+
+★ If `react-hooks/exhaustive-deps` objects to `current?.mime` as a member expression, hoist it: `const currentMime = current?.mime;` and depend on `currentMime`. That rule is **fatal** here (`--max-warnings=0`).
+
+- [ ] **Step 4: Run the tests**
+
+```bash
+npx vitest run src/app/asset-preview-modal.test.tsx --reporter=dot
+```
+Expected: PASS (Task 3's 4 + these 3; the navigate test needs Task 5's button, so if `assetPreviewNext` does not exist yet, do Task 5 first and re-run — the two are ordered this way only for narrative).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/app/asset-preview-modal.tsx src/app/asset-preview-modal.test.tsx
+git commit -m "feat(assets): load preview bytes and revoke every object URL"
+```
+
+---
+
+### Task 5: Prev/next that do not wrap
+
+**Files:**
+- Modify: `src/app/asset-preview-modal.tsx`
+- Modify: `src/app/asset-preview-modal.test.tsx`
+
+- [ ] **Step 1: Write the failing tests**
+
+```tsx
+describe("AssetPreviewModal — navigation", () => {
+  it("disables previous at the first item and next at the last", async () => {
+    renderModal({ startIndex: 0 });
+    await screen.findByRole("dialog");
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewPrev") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") }));
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewPrev") })).toBeEnabled();
+  });
+
+  // ★★ NO WRAPPING, DECIDED DELIBERATELY. With two images, wrapping makes
+  // "next" and "previous" land on the same picture, which reads as a broken
+  // control.
+  it("does not wrap past the end", async () => {
+    renderModal({ startIndex: 1 });
+    await screen.findByRole("dialog");
+    const next = screen.getByRole("button", { name: t("en-US", "assetPreviewNext") });
+    expect(next).toBeDisabled();
+    await userEvent.click(next);
+    expect(await screen.findByRole("dialog", { name: /Beta/ })).toBeInTheDocument();
+  });
+
+  it("renders position as 'n of total'", async () => {
+    renderModal({ startIndex: 0 });
+    expect(await screen.findByText(t("en-US", "assetPreviewPosition", 1, 2))).toBeInTheDocument();
+  });
+
+  it("renders inert navigation for a single-asset list", async () => {
+    renderModal({ assets: [asset("solo", "Solo")], startIndex: 0 });
+    await screen.findByRole("dialog");
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewPrev") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") })).toBeDisabled();
+  });
+});
+```
+
+- [ ] **Step 2: Run and watch them fail**
+
+```bash
+npx vitest run src/app/asset-preview-modal.test.tsx -t "navigation" --reporter=dot
+```
+Expected: FAIL — no prev/next buttons.
+
+- [ ] **Step 3: Implement**
+
+Add above the `return`:
+
+```tsx
+  const atFirst = index <= 0;
+  const atLast = index >= assets.length - 1;
+  const go = useCallback((delta: number) => {
+    setIndex((i) => Math.min(Math.max(i + delta, 0), assets.length - 1));
+  }, [assets.length]);
+```
+
+Add into the body, below the image block:
+
+```tsx
+          <div className="flex items-center justify-between gap-2">
+            <Button variant="secondary" size="sm" onClick={() => go(-1)} disabled={atFirst}
+              aria-label={t(lang, "assetPreviewPrev")}>
+              {t(lang, "assetPreviewPrev")}
+            </Button>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {t(lang, "assetPreviewPosition", index + 1, assets.length)}
+            </span>
+            <Button variant="secondary" size="sm" onClick={() => go(1)} disabled={atLast}
+              aria-label={t(lang, "assetPreviewNext")}>
+              {t(lang, "assetPreviewNext")}
+            </Button>
+          </div>
+```
+
+★★ **Do NOT add a document-level Left/Right key listener.** Put arrow handling on the panel element (`onKeyDown` on the `div ref={panelRef}`) so it cannot fight the modal's focus trap, and call `e.preventDefault()` only when you actually consume the key. A disabled button dispatches no events, so the end state is carried by `disabled`, which is also visible before it is pressed.
+
+- [ ] **Step 4: Run the tests**
+
+```bash
+npx vitest run src/app/asset-preview-modal.test.tsx --reporter=dot
+```
+Expected: PASS, all of Tasks 3-5.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/app/asset-preview-modal.tsx src/app/asset-preview-modal.test.tsx
+git commit -m "feat(assets): step through the preview list without wrapping"
+```
+
+---
+
+### Task 6: Unavailable and blocked states, and navigating past them
+
+**Files:**
+- Modify: `src/app/asset-preview-modal.test.tsx`
+
+The rendering already landed in Task 4; this task proves it and proves navigation survives it.
+
+- [ ] **Step 1: Write the failing tests**
+
+```tsx
+describe("AssetPreviewModal — degraded assets", () => {
+  it("states that the data is missing rather than rendering a broken image", async () => {
+    renderModal({ loadImage: vi.fn(async () => null) });
+    expect(await screen.findByText(t("en-US", "assetPreviewUnavailable"))).toBeInTheDocument();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it("states that the format is unsupported for a blocked mime", async () => {
+    renderModal({ assets: [asset("a", "Alpha", "image/svg+xml"), asset("b", "Beta")] });
+    expect(await screen.findByText(t("en-US", "assetPreviewBlocked"))).toBeInTheDocument();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  // ★★ Navigation must still work PAST a broken asset — otherwise one missing
+  // image strands the user on it.
+  it("navigates past an unavailable asset", async () => {
+    const loadImage = vi.fn(async (id: string) => (id === "a" ? null : TINY_GIF));
+    renderModal({ loadImage });
+    await screen.findByText(t("en-US", "assetPreviewUnavailable"));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") }));
+    expect(await screen.findByRole("img", { name: "Beta" })).toBeInTheDocument();
+  });
+});
+```
+
+- [ ] **Step 2: Run**
+
+```bash
+npx vitest run src/app/asset-preview-modal.test.tsx -t "degraded" --reporter=dot
+```
+Expected: PASS if Task 4 is correct. If the blocked case fails, check that `mime` is being passed into `assetBytesToObjectUrl` — a missed pass makes blocked and ok indistinguishable.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/app/asset-preview-modal.test.tsx
+git commit -m "test(assets): pin the preview's unavailable and blocked states"
+```
+
+---
+
+### Task 7: Row-unique accessible names
+
+★★★ The axe gate **cannot** see two controls sharing an accessible name, in any view, at any seed size. A unit test is the only possible detector. Use the shared helper — never a hand-rolled enumeration.
+
+**Files:**
+- Modify: `src/app/asset-preview-modal.test.tsx`
+
+- [ ] **Step 1: Read the helper's contract first**
+
+```bash
+sed -n '1,60p' src/test/row-unique-names.ts
+```
+Note what `minControls` proves (only non-emptiness — it counts controls of the requested roles over the whole document unless `scope` is passed) and what `requireCollisionSeed` does.
+
+- [ ] **Step 2: Write the test**
+
+```tsx
+import { expectRowUniqueNames } from "../test/row-unique-names";
+
+describe("AssetPreviewModal — accessible names", () => {
+  it("gives every control in the dialog a distinct accessible name", async () => {
+    renderModal();
+    const dialog = await screen.findByRole("dialog");
+    // ★ `scope` is load-bearing: without it the helper counts every button in
+    // the document. `minControls` is the MEASURED count for this dialog —
+    // prev, next, plus the shared ModalHeader's ✕ (`alertModalClose`) and its
+    // reset-layout button (`modalResetSize`), which `onResetLayout` renders.
+    // Keep it exact; a floor set too low passes silently.
+    expectRowUniqueNames({ scope: dialog, minControls: 4, roles: ["button"] });
+  });
+});
+```
+
+- [ ] **Step 3: Run, and measure the real floor**
+
+```bash
+npx vitest run src/app/asset-preview-modal.test.tsx -t "accessible names" --reporter=dot
+```
+If it fails with `minControls is 3 but the scope rendered N`, **set `minControls` to N** — the helper's rule is that the floor sits at its exact measured value. Do not round it down to make it pass.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/app/asset-preview-modal.test.tsx
+git commit -m "test(assets): pin the preview controls to distinct accessible names"
+```
+
+---
+
+### Task 8: Entry point A — open from an image library row
+
+`AssetLibrary` has **no** `tursoConfig` and **no** `projectId`, so it cannot call `loadAssetData` itself. Thread the loader instead. `documents-asset-section.tsx` already builds exactly this shape.
+
+**Files:**
+- Modify: `src/app/asset-library.tsx`
+- Modify: `src/app/documents-asset-section.tsx`
+- Modify: `src/app/asset-library-modal.tsx`
+- Modify: `src/app/asset-library.test.tsx`
+
+- [ ] **Step 1: Confirm the loader already exists at the section level**
+
+```bash
+sed -n '100,110p' src/app/documents-asset-section.tsx
+grep -rn "<AssetLibrary" src/app --include=*.tsx | grep -v test
+```
+Expected: a `(id: string) => loadAssetData(config, id, projectId)` builder, and **two** mount sites.
+
+- [ ] **Step 2: Write the failing test**
+
+Append to `src/app/asset-library.test.tsx`:
+
+```tsx
+it("opens the preview from a row and starts on that row's image", async () => {
+  render(<AssetLibrary {...base} loadImage={vi.fn(async () => "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")} />);
+  const openers = screen.getAllByRole("button", { name: /^Preview image – / });
+  expect(openers.length).toBe(base.assets.length);
+  await userEvent.click(openers[1]);
+  expect(await screen.findByRole("dialog", { name: new RegExp(base.assets[1].name) })).toBeInTheDocument();
+});
+
+// ★ Without a loader there is nothing to show, so no false affordance.
+it("offers no preview control when no loader is supplied", () => {
+  render(<AssetLibrary {...base} />);
+  expect(screen.queryByRole("button", { name: /^Preview image – / })).toBeNull();
+});
+```
+
+- [ ] **Step 3: Run and watch it fail**
+
+```bash
+npx vitest run src/app/asset-library.test.tsx --reporter=dot
+```
+Expected: FAIL — no matching buttons.
+
+- [ ] **Step 4: Implement**
+
+In `asset-library.tsx`, add to `AssetLibraryProps`:
+
+```tsx
+  /** Injected byte loader. Absent → no preview affordance renders (there
+   *  would be nothing to show). Turso gating is INHERITED: the only mounts
+   *  that can supply this already require `tursoConfig !== null`. */
+  loadImage?: (id: string) => Promise<string | null>;
+```
+
+Add state and the modal mount, and a per-row opener button whose name is row-unique (`t(lang, "assetPreviewOpen", asset.name)`); render it only when `loadImage` is supplied. Preview is **not** gated on `isReadOnly` or `busyId` — it mutates nothing.
+
+In `documents-asset-section.tsx`, pass the existing loader to both `AssetLibrary` mounts. In `asset-library-modal.tsx`, forward a `loadImage` prop through so the modal mount behaves identically.
+
+- [ ] **Step 5: Run**
+
+```bash
+npx vitest run src/app/asset-library.test.tsx src/app/documents-asset-section.test.tsx --reporter=dot
+```
+Expected: PASS, including the pre-existing tests unchanged.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/app/asset-library.tsx src/app/asset-library.test.tsx src/app/documents-asset-section.tsx src/app/asset-library-modal.tsx
+git commit -m "feat(assets): open the preview from an image library row"
+```
+
+---
+
+### Task 9: Entry point B — open from an inserted image
+
+**Files:**
+- Modify: `src/app/document-preview.tsx`
+- Modify: `src/app/document-preview.test.tsx`
+
+- [ ] **Step 1: Read how images are attached**
+
+```bash
+sed -n '120,150p' src/app/document-preview.tsx
+```
+`attachAssetImages` resolves `<img data-asset-id>` inside a ref'd container. The images are injected into DOM the component does not render declaratively, so the opener must be a delegated listener on the container, not a React `onClick` per image.
+
+- [ ] **Step 2: Write the failing test**
+
+```tsx
+it("opens the preview when an inserted image is activated", async () => {
+  // Render a document containing one asset image, then click it.
+  // (Mirror the fixture the existing image tests in this file use.)
+  renderPreview(/* doc with an <img data-asset-id="a"> block */);
+  const img = await screen.findByRole("img", { name: /Alpha/ });
+  await userEvent.click(img);
+  expect(await screen.findByRole("dialog", { name: /Alpha/ })).toBeInTheDocument();
+});
+```
+
+★ Match the existing fixture helpers in `document-preview.test.tsx` rather than inventing one — read the file's existing image tests first and reuse their document shape.
+
+- [ ] **Step 3: Implement**
+
+Add a delegated `click` handler on the preview container that finds `closest("img[data-asset-id]")`, collects the ordered ids of every `img[data-asset-id]` in the container (that IS the document's visual order — the correct list for this surface), and opens `AssetPreviewModal` at the clicked index with a loader built from the `tursoConfig`/`projectId` already in scope.
+
+★★ **Keyboard reachability is required** — a click-only region fails the spec's trigger rule. Give each asset image `tabIndex=0`, `role="button"` and an Enter/Space handler, or wrap it in a real button during attach. Verify with `userEvent.tab()`, never `.focus()`.
+
+- [ ] **Step 4: Run**
+
+```bash
+npx vitest run src/app/document-preview.test.tsx --reporter=dot
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/app/document-preview.tsx src/app/document-preview.test.tsx
+git commit -m "feat(assets): open the preview from an inserted document image"
+```
+
+---
+
+### Task 10: Focus returns to the opener
+
+**Files:**
+- Modify: `src/app/asset-library.test.tsx`
+
+- [ ] **Step 1: Write the test**
+
+```tsx
+it("returns focus to the row control that opened the preview", async () => {
+  render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_GIF)} />);
+  const opener = screen.getAllByRole("button", { name: /^Preview image – / })[0];
+  await userEvent.click(opener);
+  await screen.findByRole("dialog");
+  await userEvent.keyboard("{Escape}");
+  expect(opener).toHaveFocus();
+});
+```
+
+- [ ] **Step 2: Run**
+
+```bash
+npx vitest run src/app/asset-library.test.tsx -t "returns focus" --reporter=dot
+```
+
+- [ ] **Step 3: Implement if red**
+
+Keep a ref to the opening element and restore focus in the close handler. ★ Check whether the shared `Modal` already restores focus to the previously-focused element before adding your own — if it does, this test simply passes and you add nothing.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/app/asset-library.tsx src/app/asset-library.test.tsx
+git commit -m "test(assets): pin focus returning to the preview's opener"
+```
+
+---
+
+### Task 11: Full gates
+
+- [ ] **Step 1: Typecheck**
+
+```bash
+npx tsc --noEmit > /tmp/tsc.log 2>&1; echo "EXIT=$? (2 means diagnostics)"
+grep -E "^(src|e2e)/" /tmp/tsc.log || echo "no source diagnostics"
+```
+★ Diagnostics under `.next/` are a corrupted dev cache, not your code — clear with PowerShell `Remove-Item -Recurse -Force .next` (never `rm -rf`, it is gate-blocked) with the dev server stopped.
+
+- [ ] **Step 2: Lint at CI strictness**
+
+```bash
+npx eslint --max-warnings=0 src; echo "EXIT=$?"
+```
+Expected: 0. Warnings are fatal in CI.
+
+- [ ] **Step 3: Touched unit files**
+
+```bash
+npx vitest run src/app/asset-object-url.test.ts src/app/asset-preview-modal.test.tsx src/app/asset-library.test.tsx src/app/documents-asset-section.test.tsx src/app/document-preview.test.tsx --reporter=dot > /tmp/units.log 2>&1
+echo "EXIT=$?"
+grep -E "Test Files|Tests " /tmp/units.log
+```
+
+- [ ] **Step 4: Size ratchet**
+
+```bash
+npm run size:check; echo "EXIT=$?"
+```
+`asset-library.tsx` and `documents-asset-section.tsx` both grow here. Measure with the gate's own arithmetic if it fails:
+```bash
+node -e "console.log(require('fs').readFileSync('src/app/asset-library.tsx','utf8').split('\n').length)"
+```
+
+- [ ] **Step 5: Commit any fixes**
+
+```bash
+git add <named paths>
+git commit -m "fix(assets): satisfy the gates for the preview lightbox"
+```
+
+---
+
+## Self-review notes
+
+**Spec coverage.** Decision 1 (modal not popout) → Task 3. Decision 2 (drag/resize on existing hooks, correct storage key) → Task 3. Decision 3 (both entry points, caller-supplied order) → Tasks 8, 9. Decision 4 (revoke on navigate and close) → Task 4. Decision 5 (missing renders a message, navigation works past it) → Task 6. Decision 6 (available in read-only, Turso inherited) → Task 8, via the `loadImage` injection. Decision 7 (accessible name, keyboard, unique names, alt) → Tasks 3, 5, 7, 9, 10.
+
+**Deviations from the spec, and why.**
+1. The spec models two failure states; the code has **three**. `isBlockedAssetMime` is a distinct outcome the library already surfaces as `assetLibraryBlocked`, so the plan adds `assetPreviewBlocked` rather than showing a blocked image as "data missing", which would be a false statement to the user.
+2. The spec says `AssetLibrary` opens the lightbox but does not say how it gets bytes. It has neither `tursoConfig` nor `projectId`. The plan injects a `loadImage` function — which is also what keeps Turso gating *inherited* rather than re-implemented, as Decision 6 requires.
+3. **The spec's named precedent is wrong and the plan replaces it.** `notes-window.tsx` is non-modal and uses `useDraggableWindow`, a mouse-event API; `ModalHeader` accepts only `dragHandleProps` **pointer** handlers, which `useDraggable` produces. The precedent is `task-form-modal.tsx` — the app's actual draggable+resizable modal. The spec was right that the hooks are `useDraggable`/`useResizable`; only its example file was wrong.
+4. The spec implies a bespoke close control. The shared `ModalHeader` already renders the ✕ (named by the existing `alertModalClose` key) and a reset-layout button, so this component adds **no** close key of its own — an `assetPreviewClose` key was drafted and then removed rather than shipped unused.
+
+**API facts verified 2026-09-02, not assumed.** `isBlockedAssetMime` `document-asset-upload.ts:51` · `safeBase64ToBytes` `:381` (returns null for malformed AND empty) · `ModalHeader` lives in `./modal-header`, not `./modal` · `useDraggable(open, key) → {offset, reset, handleProps}` · `useResizable(key) → {ref, reset}` · `AssetLibrary` has two mount sites and neither `tursoConfig` nor `projectId` in its props.
+
+**Known gap.** `document-preview.tsx` injects images imperatively via `attachAssetImages`, so Task 9's opener is a delegated listener plus added keyboard affordances on nodes React does not own. That is the least-specified task here; read the existing image tests in `document-preview.test.tsx` before writing it, and expect to adjust the fixture shape.
