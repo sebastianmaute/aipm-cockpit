@@ -149,11 +149,31 @@ export function useListReorderDnd<Id>({
         : {
             onDragOver: (e) => {
               e.preventDefault();
+              // ★★★ THE DRAGGED ITEM IS ITSELF A DROP TARGET, AND FOR A
+              // `previewOrder` CONSUMER THE CURSOR ENDS UP OVER IT BY
+              // CONSTRUCTION: rendering the would-be order puts the dragged
+              // item in the hovered slot, i.e. under the pointer, so the
+              // browser fires `dragover` on it. Adopting it as the target set
+              // `dragOverId === dragId`, and `reorderIds(ids, X, X)` returns
+              // `ids` BY IDENTITY — the preview snapped back to the stored
+              // order, the reflow put the previous target under the cursor
+              // again, and the two alternated at dragover rate. That is the
+              // dashboard's "flickers strongly / have to wiggle it" report
+              // (2026-09-02). Holding the standing target instead is what
+              // makes the preview settle.
+              if (dragId !== null && id === dragId) return;
               if (dragOverId !== id) setDragOverId(id);
             },
             onDrop: (e) => {
               e.preventDefault();
-              if (dragId !== null) commit(dragId, id);
+              // ★★ SAME GEOMETRY, AND THIS HALF SILENTLY DISCARDED THE MOVE: the
+              // release lands on the dragged item, `commit(X, X)` is a no-op,
+              // and the order the user was looking at was thrown away. Fall
+              // back to the standing target, which is exactly what the preview
+              // (and an edge marker, which only draws where `dragOverId ===
+              // id`) has been showing.
+              const target = dragId !== null && id === dragId ? dragOverId : id;
+              if (dragId !== null && target !== null) commit(dragId, target);
               endDrag();
             },
           },
