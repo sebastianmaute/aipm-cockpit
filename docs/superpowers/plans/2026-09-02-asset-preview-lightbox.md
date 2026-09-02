@@ -4,7 +4,7 @@
 
 **Goal:** Let a user look at an uploaded image full-size, from the image library and from an image already inserted in a document.
 
-**Architecture:** One new modal component (`asset-preview-modal.tsx`) built on the shared `Modal` + `ModalHeader` primitives with `useDraggableWindow` + `useResizable` for the window mechanics. It is list-agnostic: callers hand it an ordered asset list and a start index. Byte loading is injected as a `loadImage` function prop, never a Turso config, so the component stays storage-agnostic and inherits Turso gating from its two call sites.
+**Architecture:** One new modal component (`asset-preview-modal.tsx`) built on the shared `Modal` + `ModalHeader` primitives with `useDraggable` + `useResizable` for the window mechanics, copying `task-form-modal.tsx`. It is list-agnostic: callers hand it an ordered asset list and a start index. Byte loading is injected as a `loadImage` function prop, never a Turso config, so the component stays storage-agnostic and inherits Turso gating from its two call sites.
 
 **Tech Stack:** React 19, Next 16, TypeScript, Tailwind v4, vitest + @testing-library/react.
 
@@ -218,7 +218,7 @@ console.log("ok");
 - [ ] **Step 3: Verify the umlauts survived and the file is still CRLF**
 
 ```bash
-node -e "const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');for(const k of ['assetPreviewNext','assetPreviewClose','assetPreviewUnavailable'])console.log(k, JSON.stringify(s.match(new RegExp(k+': \"([^\"]*)\"'))[1]));"
+node -e "const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');for(const k of ['assetPreviewNext','assetPreviewUnavailable','assetPreviewBlocked'])console.log(k, JSON.stringify(s.match(new RegExp(k+': \"([^\"]*)\"'))[1]));"
 git ls-files --eol src/app/i18n.de.ts
 node -e "const s=require('fs').readFileSync('src/app/i18n.de.ts','utf8');console.log('lone LF:',(s.match(/(?<!\r)\n/g)||[]).length)"
 ```
@@ -422,7 +422,7 @@ export function AssetPreviewModal({
 }
 ```
 
-★ Verified 2026-09-02 against `task-form-modal.tsx:99-135`: `useDraggable(open, key)` returns `{offset, reset, handleProps}`; `useResizable(key)` returns `{ref, reset}`; `ModalHeader` (from `./modal-header`) takes `lang`, `title`, `titleId?`, `onClose`, `dragHandleProps?`, `headerExtra?`, `onResetLayout?`. It has **no** `closeLabel` — the ✕ gets its name from the shared header, so `assetPreviewClose` is used on the ✕ only if you pass one; otherwise drop that key in Task 2 rather than leaving it unused (an unused i18n key is dead weight, and `tsc` will not flag it). Decide this when you write Task 3 and keep EN/DE in step.
+★ Verified 2026-09-02 against `task-form-modal.tsx:99-135`: `useDraggable(open, key)` returns `{offset, reset, handleProps}`; `useResizable(key)` returns `{ref, reset}`; `ModalHeader` (from `./modal-header`) takes `lang`, `title`, `titleId?`, `onClose`, `dragHandleProps?`, `headerExtra?`, `onResetLayout?`. It has **no** `closeLabel`: the ✕ is named by the existing `alertModalClose` key and the reset-layout button by `modalResetSize`, both supplied by the shared header. That is why Task 2 adds **no** close key — do not reintroduce one, and note both header buttons count toward Task 7's `minControls`.
 
 - [ ] **Step 4: Run the test**
 
