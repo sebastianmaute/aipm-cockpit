@@ -100,7 +100,7 @@ Wiring: `placement="bottom-end"`, `autoFocus={false}` so opening cannot land foc
 `role="menu"`, and an `id` for the trigger's `aria-controls`. The trigger keeps its `aria-haspopup`
 and `aria-expanded`.
 
-**Two accepted behaviour changes, both visible rather than silent:**
+**Three behaviour changes to accept, and the third was missed by the first draft of this spec:**
 
 1. `bottom-end` **right-aligns** the panel to the anchor, where the picker left-aligns today. Under a
    20px chip trigger the whole row shifts left. The primitive's clamp covers a leftmost-column
@@ -110,6 +110,21 @@ and `aria-expanded`.
    than it needs to. **Decision deferred to the probe:** either accept the eager flip, or give
    `PopoverPanel` the minimum as an optional prop defaulting to today's value. Deciding it before
    seeing the flip in a browser would be guessing.
+3. ★★★ **The panel starts TRAPPING TAB, and it changes the picker's dismissal kind.** The primitive
+   registers `kind: "modal"`, not `layer`, and `docs/AGENTS/ui-shell.md` states why: `kind` means
+   "traps Tab", and a surface gaining a real trap flips its kind in the same commit. The picker
+   registers `layer` today and traps nothing, so a user who opens it and presses Tab currently walks
+   out into the RACI matrix; afterwards Tab cycles the five chips. The primitive also restores focus
+   to the anchor on Escape and on unmount-with-focus-inside, which the picker does not do at all
+   today.
+
+   This is the one change here that could be argued either way, and it is not a detail of the clamp:
+   a five-chip row is menu-shaped, and cycling is defensible — but a matrix cell picker the user
+   tabs *through* is a different interaction from a dialog they tab *within*. **The probe decides
+   it**, on the same footing as `MIN_SPACE_BELOW`: drive the picker by keyboard alone before and
+   after, and if the trap makes the matrix worse to traverse, the adoption is reverted to the
+   minimal clamp and §334 closes that way with the measurement recorded. Adopting a primitive is
+   only correct while the primitive's contract is the one this surface wants.
 
 **Test.** jsdom has no layout, so no unit test can see the clamp. The unit test pins that the picker
 renders *through* `PopoverPanel` and no longer emits its own `fixed`-positioned span; the clamp
@@ -128,8 +143,19 @@ Paragraph" yields a fresh seeded paragraph rendered read-only behind an "Edit th
 **Decision — option (a).** Asking for a paragraph is asking to write one. `selectionAfterInsert`
 branches on the inserted **kind**:
 
-- text-editable kinds (paragraph, heading, bullets) — the selection moves to the new block;
-- kinds with no selection concept (table, page break, data section) — the selection is unchanged.
+- `paragraph` — the selection moves to the new block;
+- every other addable kind (heading, bullets, table, data section, page break) — the selection is
+  unchanged.
+
+★★★ **CORRECTED 2026-09-02, and the first draft of this section was wrong in a way that would have
+shipped a no-op.** It said "text-editable kinds (paragraph, heading, bullets)", reasoning from what a
+user can type into rather than from the selection model. `document-editor.tsx` admits ONLY paragraphs
+to that model on two independent counts: `resolvedSelection` re-checks
+`doc.blocks[chosen]?.type === "paragraph"` and falls back to `firstParagraph` otherwise, and the
+collapse itself is `collapseParagraph={narrow && index !== selected}`, passed to a branch that only
+a paragraph row reads. So selecting a newly-inserted heading would be resolved away on the very next
+render — a change with no observable effect, pinned by a test that passes either way. Headings and
+bullets are not collapsed at a narrow pane at all, so they have nothing to be rescued from.
 
 The branch is on the KIND, never on the position: the pre-fix code's index-0-only special case is
 what made this inconsistent in the first place, and reintroducing a positional rule would recreate
@@ -163,6 +189,11 @@ in the session scratchpad, echo the status unpiped, then read the file.
 - `AGENTS.md` and `docs/AGENTS/ui-shell.md`: the `PopoverPanel` consumer story gains this picker; the
   `MIN_SPACE_BELOW` decision is recorded wherever it lands.
 - Any prose describing the pre-fix behaviour of the four surfaces is swept in the same commit.
+- ★★ `popover-panel.tsx`'s own comments name `raci-chip-picker.tsx` twice — once in the
+  `createPortal` census behind the nested-portal note, and once asserting that no `PopoverPanel`
+  consumer renders `RaciChipPicker`. The adoption falsifies the second and changes the first. Both
+  sit inside the file the change edits, which is the easiest place for a stale claim to survive a
+  review that is looking at the diff rather than at the comments around it.
 
 ## Release
 
