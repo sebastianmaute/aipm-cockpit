@@ -848,7 +848,13 @@ describe("DashboardPanel arrangeable tile grid", () => {
     expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: grip("Progress") })).toBeNull();
     expect(screen.queryByRole("button", { name: kebab("Progress") })).toBeNull();
-    expect(screen.queryByText(t(EN, "dashboardResetLayout"))).toBeNull();
+    // ★★★ queryByRole, NOT queryByText. This button is icon-only, so it renders
+    // no text node and a text query passes whether it is guarded or not — the
+    // assertion would read as coverage while pinning nothing. The accessible
+    // name is the only observable that survives the icon-only form.
+    expect(
+      screen.queryByRole("button", { name: t(EN, "dashboardResetLayout") }),
+    ).toBeNull();
     expect(screen.queryByRole("button", { name: t(EN, "dashboardShelfCount", 0) })).toBeNull();
   });
 
