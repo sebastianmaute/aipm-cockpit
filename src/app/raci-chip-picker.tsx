@@ -1,9 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useId, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { PopoverPanel } from "./popover-panel";
 import { RACI_ROLES, type RaciRole } from "./types";
-import { useDismissable } from "./use-dismissable";
 import { XMarkIcon } from "./icons";
 
 interface RaciChipPickerProps {
@@ -86,36 +85,11 @@ const SELECTED_RING =
 
 export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPickerProps) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLSpanElement>(null);
-
-  // Escape goes through the dismissal stack. No `claims` gate: this is a
-  // transient anchored popover that already closes on scroll, never a
-  // persistent floating surface left open while the user works elsewhere.
-  useDismissable({ open, kind: "layer", onDismiss: () => setOpen(false) });
-
-  // Position the popover via a body portal so it is never clipped by the RACI
-  // matrix's overflow-auto scroll container. Close on outside pointerdown or
-  // scroll/resize (a fixed popover must not drift from its trigger).
-  useEffect(() => {
-    if (!open) return;
-    const r = triggerRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: r.left });
-    const onPointerDown = (e: PointerEvent) => {
-      const tgt = e.target as Node;
-      if (!triggerRef.current?.contains(tgt) && !popRef.current?.contains(tgt)) setOpen(false);
-    };
-    const onScroll = () => setOpen(false);
-    document.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onScroll);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [open]);
+  const panelId = useId();
+  // ★★ MUST be stable — `PopoverPanel` documents that an unstable `onClose`
+  // re-subscribes its listeners on every render.
+  const close = useCallback(() => setOpen(false), []);
 
   const pick = (role: RaciRole | "") => {
     setOpen(false);
@@ -131,6 +105,7 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
         type="button"
         aria-haspopup="true"
         aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
         aria-label={`${ariaPrefix} — ${triggerLabel}`}
         title={t(lang, "raciSetHint")}
         onClick={(e) => {
@@ -143,72 +118,106 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
       >
         {value === "" ? "+" : value}
       </button>
-      {open && pos && typeof document !== "undefined" &&
-        createPortal(
-        // ★★ `gap-2`/`p-1.5` below are sized for SELECTED_RING, not chosen for
-        // looks. The ring extends 4px past the 20px chip (2px offset + 2px
-        // ring), so the former `gap-1`/`p-1` (4px each) left ZERO clearance —
-        // the ring landed exactly on the neighbouring chip's border and on this
-        // popover's own. Only one chip is ringed at a time, so 8px of gap gives
-        // 4px of clearance and 6px of padding gives 2px.
-        // ★★ COUNT THE CHILDREN, NOT THE ROLES: this row holds FIVE of them —
-        // `RACI_ROLES.map` gives four, plus the clear chip below, "the 5th of
-        // five chips" its own comment calls it — so five children make FOUR
-        // gaps, not three. The cost is 4px x 4 gaps + 2px x 2 padding edges =
-        // ~20px of popover width. An earlier revision said ~16px, having
-        // counted the gaps BETWEEN the four role chips and forgotten that the
-        // clear chip adds one more.
-        <span
-          ref={popRef}
-          style={{ top: pos.top, left: pos.left }}
-          className="fixed z-[100] flex w-max items-center gap-2 rounded-md border border-line bg-surface p-1.5 shadow-[var(--shadow-control)]"
+      {/* ★★★ §334. This popover was a hand-rolled `createPortal` span placed by
+          an inline `left` taken from the trigger's rect, with NO viewport clamp
+          of any kind — and MEASURED in Chromium it overflowed the RIGHT edge at
+          EVERY width sampled from 1280px down to 520px: over by ~9px at 1280 (an
+          ordinary desktop, not an edge case) and by ~76px at 520. Adopting
+          `PopoverPanel` buys the clamp and changes three behaviours. None is a
+          regression, but do not read any of the three as untouched:
+
+          1. ALIGNMENT. `bottom-end` right-aligns the panel to the trigger, then
+             clamps its LEFT edge back inside the viewport margin post-paint. The
+             old code left-aligned and clamped nothing, which IS the defect.
+          2. THE FLIP. The panel now moves ABOVE the trigger when less than the
+             primitive's minimum space remains beneath it. ★ UNMEASURED rather
+             than verified-fine: the probe covered only the matrix's TOP row at a
+             900px viewport, where 599-645px sit below the trigger, so the flip
+             cannot fire there at all. Lower rows at a short viewport were never
+             exercised.
+          3. TAB. `PopoverPanel` registers `kind: "modal"` (this file used
+             `kind: "layer"`) and traps Tab, so the five chips become reachable.
+             ★★★ Do NOT restate the intuition this replaced — that the old portal
+             "let Tab walk OUT into the matrix". It did not walk IN either:
+             `createPortal` appends to the END of `<body>`, so tab order was
+             divorced from visual position. MEASURED: focus stayed on the trigger
+             after the click, the next Tab went to the NEXT ROW's trigger, and
+             across a 40-press trace the first press landing inside the popover
+             was the 16th — after all 21 matrix triggers had been walked.
+
+          ★ `role` is deliberately OMITTED. `PopoverPanel` accepts a menu role,
+          but these five children are `aria-pressed` buttons rather than
+          menuitems, and a menu without menuitem children is an axe
+          `aria-required-children` violation on a scanned view.
+          ★ `autoFocus` is left at the primitive's DEFAULT; the test file carries
+          why passing `false` here would be actively worse, not merely different. */}
+      {/* ★★ `gap-2`/`p-1.5` below are sized for SELECTED_RING, not chosen for
+          looks. The ring extends 4px past the 20px chip (2px offset + 2px
+          ring), so the former `gap-1`/`p-1` (4px each) left ZERO clearance —
+          the ring landed exactly on the neighbouring chip's border and on this
+          popover's own. Only one chip is ringed at a time, so 8px of gap gives
+          4px of clearance and 6px of padding gives 2px.
+          ★★ COUNT THE CHILDREN, NOT THE ROLES: this row holds FIVE of them —
+          `RACI_ROLES.map` gives four, plus the clear chip below, "the 5th of
+          five chips" its own comment calls it — so five children make FOUR
+          gaps, not three. The cost is 4px x 4 gaps + 2px x 2 padding edges =
+          ~20px of popover width. An earlier revision said ~16px, having
+          counted the gaps BETWEEN the four role chips and forgotten that the
+          clear chip adds one more.
+          ★ `rounded-md border border-line bg-surface` are NOT repeated here —
+          `PopoverPanel` supplies them, along with `fixed z-[100]`. */}
+      <PopoverPanel
+        open={open}
+        anchorRef={triggerRef}
+        onClose={close}
+        id={panelId}
+        ariaLabel={ariaPrefix}
+        className="flex w-max items-center gap-2 p-1.5 shadow-[var(--shadow-control)]"
+      >
+        {RACI_ROLES.map((role) => {
+          const c = CHIP[role];
+          return (
+            <button
+              key={role}
+              type="button"
+              aria-pressed={value === role}
+              aria-label={role}
+              onClick={(e) => {
+                e.stopPropagation();
+                pick(role);
+              }}
+              className={`${CHIP_BASE} ${
+                value === role ? `${c.on} ${SELECTED_RING}` : `bg-surface ${c.off} hover:bg-surface-muted`
+              }`}
+            >
+              {role}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          aria-label={t(lang, "raciClear")}
+          title={t(lang, "raciClearHint")}
+          onClick={(e) => {
+            e.stopPropagation();
+            pick("");
+          }}
+          className={`${CHIP_BASE} border-line text-muted-foreground hover:bg-surface-muted`}
         >
-          {RACI_ROLES.map((role) => {
-            const c = CHIP[role];
-            return (
-              <button
-                key={role}
-                type="button"
-                aria-pressed={value === role}
-                aria-label={role}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  pick(role);
-                }}
-                className={`${CHIP_BASE} ${
-                  value === role ? `${c.on} ${SELECTED_RING}` : `bg-surface ${c.off} hover:bg-surface-muted`
-                }`}
-              >
-                {role}
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            aria-label={t(lang, "raciClear")}
-            title={t(lang, "raciClearHint")}
-            onClick={(e) => {
-              e.stopPropagation();
-              pick("");
-            }}
-            className={`${CHIP_BASE} border-line text-muted-foreground hover:bg-surface-muted`}
-          >
-            {/* ★ NOT an `IconButton`. This is the 5th of five chips that must
-                render identically (R/A/C/I + clear), and `CHIP_BASE` pins them
-                to a 20px `rounded-full` box. Still true under SELECTED_RING: a
-                ring is a box-shadow, so it adds no layout and the five stay one
-                size — and it is correctly absent HERE, because clear is not a
-                role and is never the selected value. `IconButton` hard-codes
-                `rounded-md` + `p-1`; a caller `className` cannot reliably win
-                either, because Tailwind resolves conflicting utilities by
-                stylesheet source order, not class-attribute order — and `p-1`
-                sorts AFTER `p-0`, so the padding override loses outright.
-                Glyph-only conversion here; the wrapper stays hand-rolled. */}
-            <XMarkIcon aria-hidden="true" className="h-3 w-3" />
-          </button>
-        </span>,
-        document.body,
-      )}
+          {/* ★ NOT an `IconButton`. This is the 5th of five chips that must
+              render identically (R/A/C/I + clear), and `CHIP_BASE` pins them
+              to a 20px `rounded-full` box. Still true under SELECTED_RING: a
+              ring is a box-shadow, so it adds no layout and the five stay one
+              size — and it is correctly absent HERE, because clear is not a
+              role and is never the selected value. `IconButton` hard-codes
+              `rounded-md` + `p-1`; a caller `className` cannot reliably win
+              either, because Tailwind resolves conflicting utilities by
+              stylesheet source order, not class-attribute order — and `p-1`
+              sorts AFTER `p-0`, so the padding override loses outright.
+              Glyph-only conversion here; the wrapper stays hand-rolled. */}
+          <XMarkIcon aria-hidden="true" className="h-3 w-3" />
+        </button>
+      </PopoverPanel>
     </span>
   );
 }
