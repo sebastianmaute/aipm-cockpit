@@ -2084,8 +2084,12 @@ const enUS = {
   integrationsTursoHint: "Store your workspace in a Turso (libSQL) database. The auth token is stored in this browser — use a scoped token.",
   integrationsTursoUrl: "Database URL",
   integrationsTursoUrlPlaceholder: "libsql://your-db.turso.io",
+  integrationsTursoUrlFromEnv:
+    "Set by NEXT_PUBLIC_TURSO_DATABASE_URL in this deployment. An environment value overrides this setting, so the field is hidden.",
   integrationsTursoToken: "Auth token",
   integrationsTursoTokenPlaceholder: "Turso database token",
+  integrationsTursoTokenFromEnv:
+    "Set by NEXT_PUBLIC_TURSO_AUTH_TOKEN in this deployment. An environment value overrides this setting, so the field is hidden.",
   integrationsTursoLearnMore: "Learn more about Turso ↗",
   integrationsComingSoon: "Available in 0.22.0+",
   versionHighlightM365Auth: "Microsoft 365 integration foundation: sign in with your work account to unlock upcoming SharePoint, Outlook contacts, and calendar features. All integrations default to OFF.",

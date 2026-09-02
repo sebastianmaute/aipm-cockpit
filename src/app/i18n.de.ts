@@ -2033,8 +2033,12 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoHint: "Speichern Sie Ihren Workspace in einer Turso-(libSQL-)Datenbank. Das Auth-Token wird in diesem Browser gespeichert – verwenden Sie ein eingeschränktes Token.",
   integrationsTursoUrl: "Datenbank-URL",
   integrationsTursoUrlPlaceholder: "libsql://ihre-db.turso.io",
+  integrationsTursoUrlFromEnv:
+    "Wird in dieser Installation über NEXT_PUBLIC_TURSO_DATABASE_URL gesetzt. Ein Wert aus der Umgebung hat Vorrang vor dieser Einstellung, daher ist das Feld ausgeblendet.",
   integrationsTursoToken: "Auth-Token",
   integrationsTursoTokenPlaceholder: "Turso-Datenbank-Token",
+  integrationsTursoTokenFromEnv:
+    "Wird in dieser Installation über NEXT_PUBLIC_TURSO_AUTH_TOKEN gesetzt. Ein Wert aus der Umgebung hat Vorrang vor dieser Einstellung, daher ist das Feld ausgeblendet.",
   integrationsTursoLearnMore: "Mehr über Turso erfahren ↗",
   integrationsComingSoon: "Verfügbar ab 0.22.0",
   versionHighlightM365Auth: "Microsoft-365-Grundlage: Mit dem Arbeitskonto anmelden, um künftige SharePoint-, Outlook-Kontakte- und Kalender-Funktionen freizuschalten. Alle Integrationen sind standardmäßig deaktiviert.",
