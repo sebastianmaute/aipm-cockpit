@@ -123,8 +123,9 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
           of any kind — and MEASURED in Chromium it overflowed the RIGHT edge at
           EVERY width sampled from 1280px down to 520px: over by ~9px at 1280 (an
           ordinary desktop, not an edge case) and by ~76px at 520. Adopting
-          `PopoverPanel` buys the clamp and changes three behaviours. None is a
-          regression, but do not read any of the three as untouched:
+          `PopoverPanel` buys the clamp and changes AT LEAST three behaviours.
+          None is a regression, but do not read any of them as untouched. The
+          three that needed judgement:
 
           1. ALIGNMENT. `bottom-end` right-aligns the panel to the trigger, then
              clamps its LEFT edge back inside the viewport margin post-paint. The
@@ -144,6 +145,21 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
              after the click, the next Tab went to the NEXT ROW's trigger, and
              across a 40-press trace the first press landing inside the popover
              was the 16th — after all 21 matrix triggers had been walked.
+
+          ★★ "Three" counts what needed JUDGEMENT, NOT what changed, and an
+          earlier revision said "changes three behaviours ... do not read any of
+          the three as untouched" — a stated bound narrower than the fix, which
+          is the dangerous direction: narrowing reads as tightening and every
+          test still passes either way. FOUR more ride along, all
+          neutral-or-better and none of them weighed above. Outside-dismiss
+          moved `pointerdown` to `mousedown`. Close-on-resize narrowed from ANY
+          resize to a WIDTH change only, so a mobile keyboard no longer
+          dismisses. Close-on-scroll narrowed too — this file closed on EVERY
+          scroll, the primitive ignores ones originating inside the panel. And
+          the panel gained the §297 focus-restore-to-anchor on unmount, plus
+          Escape restoring focus before `onClose`, neither of which this file
+          had. ★ Enumerated against `popover-panel.tsx` itself, not inferred
+          from the diff.
 
           ★ `role` is deliberately OMITTED. `PopoverPanel` accepts a menu role,
           but these five children are `aria-pressed` buttons rather than

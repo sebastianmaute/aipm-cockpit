@@ -195,8 +195,18 @@ export function PopoverPanel({
     // child the panel itself portals elsewhere is not `panel.contains(...)`, so
     // focusing it would record "outside" and silently disable the restore.
     // Verified no consumer does that today — re-run the census rather than
-    // trusting this list, which has already gone stale once:
-    //   grep -rln createPortal src/app --include=*.tsx --include=*.ts | grep -v test
+    // trusting this list, which has already gone stale once. ★★★ IT NEEDS TWO
+    // ANTI-SELF-COUNTING GUARDS AND SHIPPED WITH NEITHER, which is worse than a
+    // wrong number: a reader following the instruction got output that appeared
+    // to prove the fix had never landed. The trailing PAREN excludes prose
+    // mentions — `raci-chip-picker.tsx` names the function twice in its own
+    // §334 comment WITHOUT calling it, so a bare-name grep returns FOUR and
+    // lists the very file the next sentence says has left. The BRACKET then
+    // stops this quoted command from matching itself, the same trick and the
+    // same reason as the `<[M]odal` census ~200 lines below. Run it from the
+    // repo root, and run it AFTER any edit to this comment — a self-counting
+    // grep is invisible on the first pass and only shows up on the second.
+    //   grep -rln "createPorta[l](" src/app --include=*.tsx --include=*.ts | grep -v test
     // returns THREE files as of §334 — `info-tooltip.tsx`, this file, and
     // `rich-text-editor.tsx`. ★★ `raci-chip-picker.tsx` was the fourth and is
     // NOT merely gone from the list: it now renders its picker THROUGH this
