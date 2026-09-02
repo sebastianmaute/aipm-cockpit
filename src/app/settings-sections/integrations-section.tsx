@@ -495,6 +495,15 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
       {turso.enabled && (
         <div className="mt-2 space-y-2 border-l-2 border-line pl-3">
+          {envTursoUrlSet && (
+            <div className="block text-xs">
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                {t(lang, "integrationsTursoUrl")}
+                <InfoTooltip text={t(lang, "integrationsTursoUrlTooltip")} />
+              </span>
+              <FieldHint className="mt-1">{t(lang, "integrationsTursoUrlFromEnv")}</FieldHint>
+            </div>
+          )}
           {!envTursoUrlSet && (
             <label className="block text-xs">
               <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -510,6 +519,15 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 className="mt-1 w-full"
               />
             </label>
+          )}
+          {envTursoTokenSet && (
+            <div className="block text-xs">
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                {t(lang, "integrationsTursoToken")}
+                <InfoTooltip text={t(lang, "integrationsTursoTokenTooltip")} />
+              </span>
+              <FieldHint className="mt-1">{t(lang, "integrationsTursoTokenFromEnv")}</FieldHint>
+            </div>
           )}
           {!envTursoTokenSet && (
             <label className="block text-xs">

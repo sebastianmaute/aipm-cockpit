@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AssetLibrary } from "./asset-library";
 import { ConfirmProvider } from "./confirm-dialog";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // ★★★ BOTH ROWS DELIBERATELY SHARE A NAME, AND THE SUITE IS WORTHLESS
@@ -333,5 +333,200 @@ describe("AssetLibrary", () => {
   it("renders an empty state rather than a headerless table", () => {
     render(<AssetLibrary {...base} assets={[]} usage={{}} />);
     expect(screen.queryByRole("table")).toBeNull();
+  });
+});
+
+describe("AssetLibrary — image preview", () => {
+  const TINY_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+  it("opens the preview from a row and starts on that row's image", async () => {
+    const user = userEvent.setup();
+    render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_GIF)} />);
+    const openers = screen.getAllByRole("button", { name: /^Preview – / });
+    expect(openers.length).toBe(base.assets.length);
+    await user.click(openers[1]);
+    const dialog = await screen.findByRole("dialog");
+    // ★ Both fixture rows share the display name "image.png" (see this file's
+    //   own note at the top), so the dialog's NAME cannot distinguish which
+    //   row opened — both would match. The position indicator can: the
+    //   SECOND row's preview control must open on index 1, i.e. "2 of 2".
+    expect(within(dialog).getByText(t("en-US", "assetPreviewPosition", 2, 2))).toBeInTheDocument();
+  });
+
+  // ★★★ THE SORTED-ORDER CONTRACT, WHICH NOTHING ELSE IN THIS FILE PINS. The
+  //     component's own comment says the index is "kept as an index rather
+  //     than an id so next/prev walk the SAME order these rows render in" —
+  //     but the default sort dir is "off", so `sorted === assets` by identity
+  //     in every other test here, and `assets={sorted}` → `assets={assets}`
+  //     on the modal was undetectable by the entire suite.
+  // ★★ IT MUST ASSERT IDENTITY, NOT POSITION. Both fixture rows are named
+  //     "image.png" on purpose, so the dialog heading cannot say which asset
+  //     opened and "1 of 2" is a position that is true either way. The loader
+  //     argument is the only observable that names the asset — hence
+  //     `toHaveBeenCalledWith("a2")`.
+  // ★ Sorting by size ASC puts a2 (1024) before a1 (2048), inverting the
+  //     fixture order, so row 0 is a2 under sort and a1 without it.
+  it("walks the SORTED order, not the incoming asset order", async () => {
+    const user = userEvent.setup();
+    const loadImage = vi.fn(async () => TINY_GIF);
+    render(<AssetLibrary {...base} loadImage={loadImage} />);
+
+    await user.click(screen.getByRole("button", { name: /size/i }));
+    // Anti-vacuity: if the click did not sort, row 0 is still a1 and the
+    // assertion below would pass against the unsorted list it is meant to
+    // rule out. ★ a2's 1024 bytes render as "1.0 KB", NOT "1,024 B" —
+    // `formatBytes` branches on `bytes < 1024`, which 1024 fails, so it takes
+    // the KB path. a1's 2048 would render "2.0 KB".
+    const firstRow = within(screen.getByRole("table")).getAllByRole("row")[1];
+    expect(within(firstRow).getByText(/1\.0 KB/)).toBeInTheDocument();
+
+    await user.click(
+      within(firstRow).getAllByRole("button").filter((b) => b.textContent?.trim() === t("en-US", "documentsPreview"))[0],
+    );
+    await screen.findByRole("dialog");
+    expect(loadImage).toHaveBeenCalledWith("a2");
+  });
+
+  // ★ Without a loader there is nothing to show, so no false affordance.
+  it("offers no preview control when no loader is supplied", () => {
+    render(<AssetLibrary {...base} />);
+    expect(screen.queryByRole("button", { name: /^Preview – / })).toBeNull();
+  });
+
+  // ★★★ Row-unique naming (WCAG 2.4.6) is mandatory here and axe cannot
+  //     detect a violation in any view at any seed size (see AGENTS.md) — a
+  //     unit test is the only possible detector. This checks the preview
+  //     control specifically, alongside every other per-row control AND the
+  //     toolbar's own Upload/sort-header buttons, so a naming scheme that
+  //     collides the preview verb with an unrelated control would still be
+  //     caught.
+  it("keeps the preview control's accessible name row-unique from every other control", () => {
+    const { container } = render(
+      <AssetLibrary {...base} onInsert={vi.fn()} loadImage={vi.fn(async () => TINY_GIF)} />,
+    );
+    expectRowUniqueNames({ scope: container, minControls: 11, requireCollisionSeed: true });
+  });
+
+  // ★★★ THE ONLY DETECTOR THIS DEFECT WILL EVER HAVE, AND AN EN-ONLY TEST
+  //     CANNOT BE IT. The shipped code read `aria-label={t(lang,
+  //     "assetPreviewOpen", token)}` against a visible `documentsPreview`, and
+  //     those are two INDEPENDENTLY AUTHORED keys. In EN they happen to
+  //     contain one another ("Preview" ⊂ "Preview image – …") so every test in
+  //     this file passed; in DE they do not ("Vorschau" ⊄ "Bild anzeigen – …")
+  //     and the control was a straight WCAG 2.5.3 failure — a German speech-
+  //     input user saying the label printed on the button could not activate
+  //     it. Rendering in `de` is what makes this test able to fail at all.
+  // ★★ NO GATE AS CONFIGURED CATCHES IT. axe ships `label-content-name-mismatch` and
+  //     it carries `wcag21a`, so a rule listing reads as coverage — but it is
+  //     also tagged `experimental` and axe's default tagExclude is
+  //     `experimental,deprecated`, so the tag-only runOnly in `e2e/a11y.spec.ts`
+  //     never RUNS it. This surface is Turso-gated besides, so the gate never
+  //     renders it in any view at any seed size.
+  // ★★ 2.5.3 containment is case-INSENSITIVE and position-INDEPENDENT
+  //     (Understanding SC 2.5.3, "Punctuation and capitalization"), so this
+  //     asserts containment, NOT a prefix — a prefix test is STRICTER than the
+  //     SC and would flag conformant code.
+  // ★ Both languages are asserted so a future edit cannot fix one and break
+  //     the other silently. Mutation: restore `t(lang, "assetPreviewOpen",
+  //     token)` as the aria-label and the `de` case goes red while `en-US`
+  //     stays green — which is precisely the shape that shipped.
+  it.each(["en-US", "de"] as const)(
+    "contains the visible label inside the preview control's accessible name (%s)",
+    async (lang) => {
+      await loadI18n(lang);
+      render(<AssetLibrary {...base} lang={lang} loadImage={vi.fn(async () => TINY_GIF)} />);
+      const visible = t(lang, "documentsPreview");
+      // Anti-vacuity: a blank visible label is contained in everything.
+      expect(visible.trim().length).toBeGreaterThan(0);
+      // ★★★ LOCATED BY VISIBLE TEXT, NEVER BY THE ACCESSIBLE NAME'S FORMAT.
+      //     The first cut of this test selected on `^${visible} – `, and that
+      //     made it a LABEL-FORMAT test wearing a containment test's name:
+      //     under the mutant below the selector matched nothing, so BOTH
+      //     languages died at this length check and the `toContain` assertion
+      //     — the only line that is actually about 2.5.3 — never ran. It also
+      //     failed EN, which genuinely CONFORMS. `getByRole`'s `name` reads the
+      //     accessible name, so it cannot be used here at all; the visible
+      //     string is the one thing the SC compares that is independent of how
+      //     the name is built.
+      const openers = screen
+        .getAllByRole("button")
+        .filter((b) => b.textContent?.trim() === visible);
+      expect(openers).toHaveLength(base.assets.length);
+      for (const b of openers) {
+        const accessible = b.getAttribute("aria-label") ?? "";
+        expect(accessible.toLowerCase()).toContain(visible.toLowerCase());
+      }
+    },
+  );
+
+  // ★ This is expected to pass with NO implementation change here: the shared
+  // `Modal` (`modal.tsx`) already captures the previously-focused element on
+  // open and restores it on close — `AssetLibrary` does not need to do
+  // anything of its own. Pinning it at THIS call site is still worth doing —
+  // it is the behaviour a real user depends on, and nothing else in this
+  // file exercises the open→close focus round-trip.
+  it("returns focus to the row control that opened the preview", async () => {
+    render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_GIF)} />);
+    const opener = screen.getAllByRole("button", { name: /^Preview – / })[0];
+    await userEvent.click(opener);
+    await screen.findByRole("dialog");
+    await userEvent.keyboard("{Escape}");
+    expect(opener).toHaveFocus();
+  });
+});
+
+describe("AssetLibrary — the upload empty-state box", () => {
+  it("offers the upload box when the library is empty", () => {
+    render(<AssetLibrary {...base} assets={[]} />);
+    expect(
+      screen.getByRole("button", { name: t("en-US", "assetLibraryUploadFirst") }),
+    ).toBeInTheDocument();
+  });
+
+  // ★★ Assert the DIALOG opens, not that a File arrives — jsdom cannot produce
+  // a real file-picker selection, so asserting `onUpload` fired would assert
+  // something the harness cannot cause.
+  //
+  // ★★★ TWO inputs on this surface by design: the toolbar FilePickerButton's
+  // (first in DOM order) and the box's own (second). A bare `querySelector`
+  // would grab the toolbar's and go red against correct code.
+  it("opens its OWN file dialog when the box is clicked", async () => {
+    const user = userEvent.setup();
+    render(<AssetLibrary {...base} assets={[]} />);
+    const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    expect(inputs).toHaveLength(2);
+    const toolbarClick = vi.spyOn(inputs[0], "click");
+    const boxClick = vi.spyOn(inputs[1], "click");
+
+    await user.click(
+      screen.getByRole("button", { name: t("en-US", "assetLibraryUploadFirst") }),
+    );
+
+    expect(boxClick).toHaveBeenCalled();
+    // The box owns its own picker rather than reaching for the toolbar's.
+    expect(toolbarClick).not.toHaveBeenCalled();
+  });
+
+  it("does not offer the box once the library has an asset", () => {
+    render(<AssetLibrary {...base} />); // `base.assets` is the 2-item fixture
+    // ★★ THE POSITIVE OBSERVABLE, and it is not decoration. The table is the
+    // else-branch of the very ternary under test, so it proves the populated
+    // branch actually ran — the absence below is then evidence about the
+    // branch rather than about the fixture.
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "assetLibraryUploadFirst") }),
+    ).toBeNull();
+  });
+
+  // ★ The two pickers must agree, and since they now read one pair of consts
+  // this is cheap insurance rather than a real risk — it goes red if someone
+  // re-inlines either expression at one site only.
+  it("gives both file inputs the same accept list", () => {
+    render(<AssetLibrary {...base} assets={[]} />);
+    const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1].accept).toBe(inputs[0].accept);
+    expect(inputs[0].accept).not.toBe("");
   });
 });

@@ -4,6 +4,7 @@ import {
   ArrowTopRightOnSquareIcon,
   BackspaceIcon,
   PrinterIcon as PrinterHeroIcon,
+  RotateCcwSquareIcon,
   ViewColumnsIcon,
 } from "./icons";
 import type React from "react";
@@ -75,6 +76,10 @@ export function ResetSizeIcon() {
 
 export function ResetColWidthsIcon() {
   return <ViewColumnsIcon aria-hidden="true" className="h-4 w-4" />;
+}
+
+export function ResetLayoutIcon() {
+  return <RotateCcwSquareIcon aria-hidden="true" className="h-4 w-4" />;
 }
 
 export function EraserIcon() {
@@ -195,6 +200,33 @@ export function ResetSizeButton({
       className={className}
     >
       <ResetSizeIcon />
+    </IconButton>
+  );
+}
+
+/** Icon button that restores a dashboard's tile arrangement to DEFAULT_LAYOUT.
+ *
+ *  ★★ Its accessible name MUST differ from `ResetSizeButton`'s. Two adjacent
+ *  reset buttons sharing a name is a WCAG 2.4.6 failure that axe cannot see —
+ *  a name merely existing satisfies every rule the gate runs. Here
+ *  `dashboardResetLayout` ("Reset layout") and `tableResetSizeHint` ("Reset
+ *  back to the default size.") are distinct, and must stay so. */
+export function ResetLayoutButton({
+  onClick,
+  lang,
+}: {
+  onClick: () => void;
+  lang: Lang;
+}) {
+  return (
+    <IconButton
+      variant="bordered"
+      size="md"
+      onClick={onClick}
+      label={t(lang, "dashboardResetLayout")}
+      title={t(lang, "dashboardResetLayout")}
+    >
+      <ResetLayoutIcon />
     </IconButton>
   );
 }

@@ -11,7 +11,7 @@ import { formatCurrency } from "./resource-cost";
 import type { SuggestedAction } from "./next-actions/types";
 import type { InsightActions } from "./insights/insight";
 import { useResizable } from "./use-resizable";
-import { PrintButton, ResetSizeButton } from "./task-manager-ui";
+import { PrintButton, ResetLayoutButton, ResetSizeButton } from "./task-manager-ui";
 import type { VarianceRow, SnapshotRecord } from "./snapshot";
 import { useLandingDelta } from "./use-landing-delta";
 import { buildGreeting, type RagScope } from "./dashboard-delta";
@@ -27,7 +27,6 @@ import { type AppView } from "./nav-config";
 import { NarrativeSummary, NarrativeEditor } from "./dashboard-sections/dashboard-narrative";
 import { DashboardHero } from "./dashboard-sections/dashboard-hero";
 import type { Insight, InsightEntityRef } from "./insights/insight";
-import { Button } from "./button";
 import { PopoverPanel } from "./popover-panel";
 import { DashboardGrid } from "./dashboard-grid";
 import { DashboardTile, type TileDragProps } from "./dashboard-tile";
@@ -473,6 +472,14 @@ export function DashboardPanel(props: DashboardPanelProps) {
           </div>
           <div className="flex shrink-0 flex-col gap-2 print:hidden">
             <PrintButton lang={lang} />
+            {/* ★★★ The `!arrangement.readOnly` guard is LOAD-BEARING and is not
+                inherited here. It used to come from the block below the grid
+                that this button was lifted out of; the stack itself is gated
+                only on `print:hidden`. Without it a popout — a surface with no
+                grip, no ⋮ menu and no shelf by design — gains a working reset. */}
+            {!arrangement.readOnly && (
+              <ResetLayoutButton onClick={arrangement.reset} lang={lang} />
+            )}
             <ResetSizeButton onClick={resetSize} lang={lang} />
           </div>
         </div>
@@ -539,15 +546,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
           })}
         </DashboardGrid>
 
-        {/* Popout is READ-ONLY: no shelf, no reset, no menu — and the tile
-            chrome drops its own grip and ⋮ on the same flag. */}
+        {/* Popout is READ-ONLY: no shelf, no menu (the reset is guarded at its
+            own site in the top control stack) — and the tile chrome drops its
+            own grip and ⋮ on the same flag. */}
         {!arrangement.readOnly && (
           <div className="print:hidden">
-            <div className="flex justify-end">
-              <Button variant="ghost" size="xs" onClick={arrangement.reset}>
-                {t(lang, "dashboardResetLayout")}
-              </Button>
-            </div>
             <DashboardShelf
               lang={lang}
               // flatMap, not map + `!`: `reconcile` drops unknown ids from

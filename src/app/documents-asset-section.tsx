@@ -77,13 +77,10 @@ export interface DocumentAssetPaneProps {
  * The export-time image loader for a pane, or `undefined` when the asset
  * feature is off.
  *
- * ★★★ IT LIVES HERE, NOT IN documents-panel.tsx, PURELY FOR SIZE. That file
- * sits at EXACTLY the 800-line ratchet cap (`check-file-sizes.mjs` counts
- * `split("
-").length`, i.e. `wc -l` + 1), so it has room for neither the
- * derivation nor its comment — the same pressure that split this whole file
- * out of it. The panel folds this onto its existing import of this module and
- * calls it inline at both download sites, which costs zero net lines.
+ * ★★★ IT LIVES HERE, NOT IN documents-panel.tsx, FOR SIZE — the same pressure
+ * that split this whole file out of it.
+ * The panel folds this onto its existing import of this module and calls it
+ * inline at both download sites, which costs zero net lines either way.
  *
  * ★★★ WITHOUT IT THE EXPORT SILENTLY LOSES EVERY IMAGE, and nothing in this
  * repo would say so. `downloadDocument`'s loader is its OPTIONAL fifth
@@ -165,6 +162,22 @@ export function DocumentsAssetSection({
   const [modalOpen, setModalOpen] = useState(false);
   const [capMessage, setCapMessage] = useState<number | null>(null);
   const enabled = tursoConfig !== null && !isReadOnly;
+
+  // ★★ Built from THIS section's own already-normalised `tursoConfig` +
+  // `projectId` locals, deliberately NOT via `assetPaneLoader(assetPane)`.
+  // `assetPaneLoader` bails on a falsy `projectId`, while the two mounts
+  // below (and every other control on this pane) run against the NORMALISED
+  // `projectId` above (`assetPane?.projectId || ASSET_PARTITION_FALLBACK`) —
+  // reusing that helper here would make the preview silently fail to render
+  // on exactly the blank-id pane where upload/rename/delete all still work.
+  // The `tursoConfig ? … : Promise.resolve(null)` guard is defensive only:
+  // `AssetLibrary` renders no preview control unless `loadImage` is passed,
+  // and this section passes it only inside the `enabled` (non-null config)
+  // branch below, so the null arm should never actually run.
+  const loadImage = useCallback<AssetByteLoader>(
+    (id) => (tursoConfig ? loadAssetData(tursoConfig, id, projectId) : Promise.resolve(null)),
+    [tursoConfig, projectId],
+  );
 
   // ★★★ ONE BATCH, ONE RUNNING STATE — this is a BATCH function even for the
   // single-asset picker path, and collapsing it back to a per-asset one
@@ -454,6 +467,7 @@ export function DocumentsAssetSection({
         onRename={rename}
         onDelete={remove}
         onUpload={(f) => void upload(f)}
+        loadImage={loadImage}
       />
       <AssetLibraryModal
         open={modalOpen}
@@ -467,6 +481,7 @@ export function DocumentsAssetSection({
         onRename={rename}
         onDelete={remove}
         onUpload={(f) => void upload(f)}
+        loadImage={loadImage}
       />
     </div>
   );

@@ -26,9 +26,9 @@ function Harness({ onReorder, keyboard = true, disabled = false }: { onReorder: 
 }
 
 /** Renders previewOrder so the live-reflow contract is observable. */
-function PreviewHarness() {
+function PreviewHarness({ onReorder = () => {} }: { onReorder?: (ids: string[]) => void } = {}) {
   const ids = ["A", "B", "C"];
-  const dnd = useListReorderDnd<string>({ ids, onReorder: () => {} });
+  const dnd = useListReorderDnd<string>({ ids, onReorder });
   return (
     <div>
       <output data-testid="preview">{dnd.previewOrder.join(",")}</output>
@@ -263,5 +263,53 @@ describe("useListReorderDnd", () => {
     fireEvent.drop(screen.getByTestId("sink"));
     expect(screen.queryByTestId("item-A")).toBeNull();
     expect(screen.getByTestId("dragging").textContent).toBe("true");
+  });
+});
+
+describe("useListReorderDnd — the dragged item sits under the cursor once the consumer reflows", () => {
+  // ★★★ A PREVIEW-RENDERING CONSUMER PUTS THE DRAGGED ITEM WHERE THE CURSOR IS,
+  // AND THE BROWSER THEN FIRES `dragover` ON IT. `dashboard-panel.tsx` renders
+  // `previewOrder`, so the instant the preview moves the dragged tile into the
+  // hovered slot, the element under the pointer IS the dragged tile. Treating
+  // that as an ordinary target set `dragOverId` to the dragged id, and
+  // `reorderIds(ids, A, A)` returns `ids` BY IDENTITY — so the preview reverted
+  // to the stored order, the reflow put the old target back under the cursor,
+  // and the two states alternated at dragover rate. Reported 2026-09-02 as
+  // "it flickers strongly" and "I have to wiggle it before it snaps".
+  // ★★ jsdom has NO LAYOUT, so nothing here can prove the reflow puts the tile
+  // under the pointer — that half was established by reading the grid. What
+  // these pin is the hook's response to the EVENT SEQUENCE a browser produces
+  // once it does, which is the half that was wrong.
+  it("keeps the standing preview when dragover fires on the dragged item itself", () => {
+    render(<PreviewHarness />);
+    fireEvent.dragStart(screen.getByLabelText("Move A"));
+    fireEvent.dragOver(screen.getByTestId("item-C"));
+    expect(screen.getByTestId("preview").textContent).toBe("B,C,A");
+    fireEvent.dragOver(screen.getByTestId("item-A"));
+    expect(screen.getByTestId("preview").textContent).toBe("B,C,A");
+  });
+
+  // ★★ THE SAME GEOMETRY MAKES THE RELEASE LAND ON THE DRAGGED ITEM. Committing
+  // the pair (A, A) is a no-op, so the move the user was looking at was
+  // discarded on drop — the other half of "I have to wiggle it".
+  it("commits the standing preview when the drop lands on the dragged item", () => {
+    const onReorder = vi.fn();
+    render(<PreviewHarness onReorder={onReorder} />);
+    fireEvent.dragStart(screen.getByLabelText("Move A"));
+    fireEvent.dragOver(screen.getByTestId("item-C"));
+    fireEvent.drop(screen.getByTestId("item-A"));
+    expect(onReorder).toHaveBeenCalledWith(["B", "C", "A"]);
+  });
+
+  // The positive observable. Without it, a guard that ignored EVERY dragover
+  // and every drop would satisfy both assertions above.
+  it("still tracks an ordinary target and commits the one dropped on", () => {
+    const onReorder = vi.fn();
+    render(<PreviewHarness onReorder={onReorder} />);
+    fireEvent.dragStart(screen.getByLabelText("Move A"));
+    fireEvent.dragOver(screen.getByTestId("item-B"));
+    expect(screen.getByTestId("preview").textContent).toBe("B,A,C");
+    fireEvent.drop(screen.getByTestId("item-C"));
+    expect(onReorder).toHaveBeenCalledWith(["B", "C", "A"]);
   });
 });

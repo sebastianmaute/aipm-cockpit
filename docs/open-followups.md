@@ -445,7 +445,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§216](#216-there-is-no-docx-or-pptx-byte-fixture-so-the-builders-additive-contract-is-pinned-only-by-their-own-unit-tests--closed-2026-08-24) | There is no `.docx` or `.pptx` byte fixture, so the builders' additive contract is pinned only by their own unit tests | — | — | **CLOSED** 2026-08-24 |
 | [§217](#217-media-parts-are-minted-per-occurrence-not-per-asset--one-image-used-twice-ships-twice) | Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice | — | — | open |
 | [§218](#218-span-data-asset-id-counts-against-asset_max_per_document-but-is-invisible-to-the-export-resolver--closed-2026-08-24) | `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver | — | — | **CLOSED** 2026-08-24 |
-| [§219](#219-the-produced-docx-pptx-and-pdf-have-never-been-opened-by-the-applications-that-read-them) | The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them | — | — | open |
+| [§219](#219-the-produced-docx-and-pptx-are-accepted-by-their-readers-but-nothing-has-checked-fidelity-and-the-pdf-and-edge-cases-have-never-been-opened-at-all) | The produced `.docx` and `.pptx` are accepted by their readers but nothing has checked FIDELITY, and the PDF and edge cases have never been opened at all | — | — | open |
 | [§220](#220-documents-paneltsx-sits-at-exactly-the-800-line-cap-with-no-baseline-entry-and-the-cheap-extract-seam-is-spent--closed-2026-08-23) | `documents-panel.tsx` sits at EXACTLY the 800-line cap with no baseline entry, and the cheap extract seam is spent | — | — | **CLOSED** 2026-08-23 |
 | [§221](#221-a-stored-imagewebp-is-embedded-verbatim-into-docxpptx-and-builds-that-cannot-draw-it-show-nothing) | A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing | — | — | open |
 | [§222](#222-one-ordinary-screenshot-costs-more-than-a-whole-pptx-slide-so-it-always-lands-alone-and-lengthens-the-deck) | One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck | — | — | open |
@@ -563,6 +563,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp) | `RaciChipPicker`'s popover is positioned with no right-edge clamp | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | open |
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
+| [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--open) | A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all — open | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; the DISCLOSURE half of that report is fixed, this is the residue | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -17394,9 +17395,9 @@ exactly the case where removing those references would free nothing.
 user merely TYPED into a paragraph supplies room reclaimable only by deleting that sentence, and a
 crafted `alt` keeps a genuinely drawn image out of the drawn count, which over-reports the room.
 
-## 219. The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them
+## 219. The produced `.docx` and `.pptx` are accepted by their readers but nothing has checked FIDELITY, and the PDF and edge cases have never been opened at all
 
-**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. Never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. 2026-09-02: item **2**'s ACCEPTANCE half is DISCHARGED — opened in PowerPoint, the reader that item names, and corroborated in LibreOffice Impress; see the passes below. Item **1**'s acceptance is discharged for **LibreOffice Writer ONLY** — ★★★ **WORD HAS NEVER BEEN NAMED BY ANY HUMAN REPORT**, and this Status line claimed it until 2026-09-02, when a cold review caught the entry contradicting itself nine lines apart. Item 1 names Word AND LibreOffice Writer, so half of it is still owed. What remains: the Word half of item 1, items **3-7** (unexercised entirely), and the FIDELITY half of items 1-2, which no pass has looked at. Re-verify with a human, never from this file: `sed -n '/^## 219\./,/^## 220\./p' docs/open-followups.md`
+**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. Never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. 2026-09-02: the ACCEPTANCE half of items **1** and **2** is DISCHARGED in every reader those items name — the `.docx` in **Word** and in **LibreOffice Writer**, the `.pptx` in **PowerPoint** and corroborated in **LibreOffice Impress**. ★★ Read the Word half narrowly: that report named the APPLICATIONS and no per-file observation, so it answers acceptance and nothing else — the ★★★ blocks below record how this entry twice INVENTED a reader nobody had named, which is why the wording of a discharge matters here. What remains: items **3-7** (unexercised entirely), and the FIDELITY half of items 1-2, which no pass has looked at. Re-verify with a human, never from this file: `sed -n '/^## 219\./,/^## 220\./p' docs/open-followups.md`
 
 ★★ **2026-09-01 — THE ACCEPTANCE HALF IS DISCHARGED, AND IT IS THE HALF THIS ENTRY SINGLES OUT AS
 THE ONE THAT HISTORICALLY FAILS.** During the `fix/export-link-fidelity` manual pass a human opened
@@ -17442,8 +17443,10 @@ content-type details item 1 names. A package accepted by both is accepted for re
 CORROBORATION of the PowerPoint pass above, never a replacement for it. Recorded in that order
 deliberately. ★★★ **AND IT IS THE ONLY READER EVER NAMED FOR THE TWO `.docx`.** Item 1 names Word
 AND LibreOffice Writer; Writer is now recorded and **Word is not, on any date** — so item 1's
-acceptance half is HALF discharged, not discharged. That asymmetry is the whole reason to name the
-reader rather than the outcome: "all four opened clean" is compatible with a reader item 1 does not
+acceptance half is HALF discharged, not discharged. ★★★ **SUPERSEDED LATER THE SAME DAY — Word was
+named, and item 1's acceptance half is now discharged outright; see the block below. This paragraph
+is left standing as the record of what was true when it was written, and its point is unchanged.**
+That asymmetry is the whole reason to name the reader rather than the outcome: "all four opened clean" is compatible with a reader item 1 does not
 accept, and item 1's leading risk is specifically a package Word rejects over a relationship or
 content-type detail LibreOffice tolerates.
 ★★★ **THE READER WAS ASKED FOR EXPLICITLY BOTH TIMES IT WAS RECORDED, AND INFERRED THE FIRST TIME.**
@@ -17459,6 +17462,23 @@ bytes. Any change to the OOXML writers re-owes it — as the underline fix did, 
 first pass. Recording a link pass as an image pass would retire this entry while leaving the defect
 class it was filed for completely unverified — which is worse than leaving it open, because the next
 reader would stop looking.
+
+★★★ **2026-09-02, LATER THE SAME DAY — WORD IS NAMED AT LAST, AND ITEM 1'S ACCEPTANCE HALF IS
+CLOSED.** The human reported checking the produced documents in **Word**, in **PowerPoint** and in
+**LibreOffice**. Word is the reader item 1 names, the one this entry twice ATTRIBUTED to a report
+that had never named it (both ★★★ blocks above), and the one whose leading risk — a package that
+unzips and asserts clean and is still rejected over a relationship or content-type detail
+LibreOffice tolerates — is the whole reason item 1 names two readers rather than one. Both readers
+it names are now recorded, so its acceptance half is discharged outright.
+★★ **READ IT NARROWLY, AND MORE NARROWLY THAN THE PASSES ABOVE.** The report names APPLICATIONS
+— not artifacts, not a per-file observation, not the no-repair-prompt wording the 2026-09-01 pass
+carried. Nothing in it speaks to FIDELITY: no image size, no ordering, no paragraph split, no
+pagination. It answers "does Word accept the package", which is item 1's leading risk, and it
+answers nothing else. Items **3-7** and the fidelity half of items 1-2 are exactly as owed as they
+were an hour earlier.
+★ It also does not say WHICH bytes were opened. The only artifacts that have existed since the
+§330 underline fix are the four regenerated by `npx jiti scripts/sample-link-exports.ts <dir>`, so
+those are the likely subject — stated as an inference, not as something the report established.
 
 Nothing here can open an Office file. `unzipBytes` proves the package holds the parts and bytes the
 builders intended; it says nothing about whether Word, LibreOffice Writer or PowerPoint ACCEPT the
@@ -26448,9 +26468,16 @@ unlinked run still emits no `<w:rPr>` — and on nothing else. Reproduce:
 `grep -n "buildDocxPackage(" src/test/ooxml-manifest-subjects.ts`. Filed as its own lesson because
 a citation that cannot fail reads exactly like one that passed.
 ★★ **EYE-VERIFIED 2026-09-01 — the debt this line used to record is DISCHARGED.** A human opened
-the regenerated `document-renderer.docx` and `workspace-exporter.docx` in **Word and in
-LibreOffice**: both open without a repair prompt and the links now read as links. That is what
-closes it; nothing in this repo opens a `.docx`, so the claim could never have been machine-made.
+the regenerated `document-renderer.docx` and `workspace-exporter.docx`: both open without a
+repair prompt and the links now read as links. That is what closes it; nothing in this repo opens a
+`.docx`, so the claim could never have been machine-made.
+★★★ **CORRECTED 2026-09-02 — THAT REPORT NAMED NO APPLICATION, AND THIS SITE SURVIVED THE
+CORRECTION THAT CAUGHT IT ELSEWHERE.** The sentence above read "in **Word and in LibreOffice**"; the
+pair was the REPORTER'S inference, the same invention §219 records itself making twice, and when
+§219 was corrected on 2026-09-02 nobody swept this entry. So the invention outlived its own
+post-mortem by one file. The readers are recorded on **2026-09-02**, not on this date: **Word**,
+**PowerPoint** and **LibreOffice** (§219). Which reader confirmed WHICH artifact is still unrecorded
+for the `.docx` pair — what is discharged is that they open and the links read as links.
 ★ The FIRST pass — same files, before this fix — is what found the defect: the links were followable
 and drawn in body colour, exactly as the format's semantics predicted. So both the prediction and
 its remedy were confirmed by eye, in that order, which is the strongest evidence this class admits.
@@ -26539,3 +26566,161 @@ REUSED by the other branch, so every `§333` left in `src/` would resolve to the
 entry: not a dangling reference a reader notices, a confidently wrong one they do not. Fourteen
 comments across five files were rewritten to `§336` in the merge commit. `grep -rn "§333\|§336"
 src/app --include=*.ts` enumerates both; a `§333` surviving there is a defect, not a leftover.
+
+## 337. A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all — open
+
+**Status:** open — **never machine-verified** (2026-09-02). Found by reading, not by a failing run:
+the two predicates below are three lines apart in different files. Re-check with
+`grep -n "envTursoUrlSet|envTursoTokenSet" src/app/settings-sections/integrations-section.tsx`
+against `sed -n '/^export function getTursoConfig/,/^}/p' src/app/turso-config.ts`.
+
+★★★ **TWO PREDICATES THAT MUST AGREE AND DO NOT, AND EACH IS CORRECT ON ITS OWN.**
+`integrations-section.tsx` hides the Turso URL and token fields on **presence** —
+`!!process.env.NEXT_PUBLIC_TURSO_DATABASE_URL`, any non-empty string. `getTursoConfig` resolves on
+**usability** — a non-empty env value WINS over the settings value, then must parse to an https (or
+loopback http) origin and, for https, carry a token. So a env var that is set but unusable
+— a typo, a `postgres://` paste, a stray quote, a value from a different deployment — puts the app
+in a state with no way out **from the UI**: the field is hidden because the var is present, and the
+settings value it would write is ignored because the var is present. The Storage section then shows
+`storageTursoNeedsConfig` — *"Enter the Turso URL and token in Settings."* — pointing at a screen
+that deliberately renders no such fields.
+
+★★ **A SECOND, QUIETER ARM: a valid URL with a STALE token.** Both fields hide, `getTursoConfig`
+returns non-null, and `TursoBackend.isReady()` is `config !== null` — so the UI reports READY with a
+✓ line while every pipeline call 401s. Worse than the first arm, because nothing on screen is
+even wrong-looking.
+
+★ **WHAT WAS ALREADY FIXED, AND WHY THIS IS THE REMAINDER.** The reported symptom — enabling Turso
+showed no configuration fields and nothing said why — was a SILENT HIDE, and that is closed: each
+hidden field now renders its label plus a hint naming the env var that supplies it
+(`integrationsTursoUrlFromEnv` / `integrationsTursoTokenFromEnv`, pinned by three tests in
+`integrations-section.test.tsx`, each mutation-proved at 1 failed / 19 passed of 20). That
+disclosure also makes the first arm SURVIVABLE — a reader now learns which lever to pull — but it
+does not make the app configurable from the UI, and it does not touch the second arm at all.
+
+★★ **DO NOT "FIX" THIS BY UN-HIDING THE FIELD.** An editable field whose value `getTursoConfig`
+will discard is worse than an absent one: it invites the user to type a correct URL and watch
+nothing happen. The choices are (a) let a settings value override an UNUSABLE env value — which
+changes the documented env-wins precedence and needs its own decision, or (b) keep env winning and
+say so precisely: when the env var is present but does not resolve, the notice should say the
+DEPLOYMENT is misconfigured and that this screen cannot repair it. (b) is the smaller change and
+the honest one; (a) is a policy change, not a bug fix.
+
+★ Nothing here is reachable on a checkout with no `.env.local`, which is every CI run — so no gate
+will ever see either arm.
+
+## 338. `useResizable` is a no-op in every modal that stays mounted while closed — open
+
+**Status:** open — **never machine-verified** (2026-09-02). Found by reading during review of the
+asset preview lightbox, and confirmed against source, not by a failing run. Re-check with
+`grep -n "}, \[storageKey, axis\]" src/app/use-resizable.ts` against
+`grep -n "wasOpen" src/app/use-draggable.ts`.
+
+`useResizable`'s single effect has deps `[storageKey, axis]`, both constant for the life of a
+component, so it runs exactly ONCE — at mount. Modals that stay mounted while closed (the pattern
+`asset-preview-modal.tsx` and `task-form-modal.tsx` both use, so that their own `useState` survives
+an open/close cycle) render `Modal`, which returns `null` while closed. So at that one and only
+run, `ref.current` is `null` and the effect bails immediately.
+
+Consequences: the saved size is never restored on open, and the `pointerdown`/`pointerup` listeners
+are never attached, so a drag-resize is never persisted. Native CSS `resize` still works within the
+session and `sizeReset()` still clears inline styles, so NOTHING LOOKS BROKEN — the persistence is
+simply dead.
+
+★★ The asymmetry is the tell: `useDraggable` takes `open` and re-loads on the false→true
+transition, so drag POSITION is restored correctly. `useResizable` has no such hook.
+
+★ Repo-wide, not slice-local. `task-form-modal.tsx` — the precedent the lightbox cites for its
+window mechanics — has the identical shape. Enumerate other affected call sites before fixing;
+a fix belongs in the hook (take `open`, mirroring `useDraggable`), not at each call site.
+
+## 339. A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — open
+
+**Status:** open — **never machine-verified** (2026-09-02). Reported by a cold a11y reviewer against
+source; no test exercises the rename x broken-image combination. Re-check by reading `imageName` in
+`src/app/document-preview.tsx` against the `alt` written at insert time in
+`src/app/documents-asset-section.tsx`.
+
+The `alt` attribute is baked into the persisted block HTML AT INSERT TIME and never rewritten.
+`imageName()` deliberately prefers the LIVE metadata name, because after a rename the current name
+is the better answer. Those two diverge permanently after any rename.
+
+When bytes are unavailable the `<img>` gets no `src` at all and the browser paints the (stale) alt
+text in its place. So: insert "chart.png" -> rename the asset to "diagram.png" -> bytes later go
+dangling => the VISIBLE painted text is "chart.png" while the `aria-label` says "Preview image –
+diagram.png". Visible label not contained in the accessible name: a 2.5.3 failure, reachable in
+production.
+
+★★ No gate can see it — axe's `label-content-name-mismatch` is tagged `experimental` and axe's
+default tagExclude drops it, and this surface is Turso-gated so the a11y gate never renders it.
+
+## 340. Two tests in the asset-preview slice pass for the wrong reason — open
+
+**Status:** open — **never machine-verified** (2026-09-02). Both were reported by a cold
+test-validity reviewer WITH a named minimal mutation; neither mutation has been RUN. Run them
+before acting: each is one token, and a surviving mutant is a question, not a verdict.
+
+(a) `asset-library.test.tsx` "returns focus to the row control that opened the preview" cannot
+distinguish a restore from focus never having left. `Modal` moves focus into the dialog inside a
+`requestAnimationFrame`; neither `findByRole("dialog")` nor `userEvent.keyboard` guarantees that
+frame fired. If it did not, focus never left the opener and the assertion passes vacuously.
+**Mutation:** delete the `previouslyFocused.focus()` restore in `modal.tsx`. If the test still
+passes, it was vacuous.
+
+(b) `document-preview.test.tsx` "makes no image interactive when asset storage is off" does not
+cover the branch its own comment claims. The comment says attributes are REMOVED rather than merely
+not added, because `html` is unchanged when the config flips to null. The test renders with
+`tursoConfig={null}` from the start, so the removal loop only ever runs as a no-op over unstamped
+nodes. **Mutation:** replace that branch's loop body with a bare `return;` — all tests stay green.
+
+## 341. Neither asset-preview entry point has ever been exercised against a real Turso project — open
+
+**Status:** open — **never machine-verified** (2026-09-02), and that is the entry's point.
+
+Both surfaces that mount `AssetPreviewModal` are Turso-gated, and `e2e/seed.ts` seeds FILE mode, so
+the axe gate renders neither in any view at any seed size. Unit tests are the only coverage that
+will ever exist for them. Nothing has confirmed the lightbox opens, loads bytes, navigates or
+degrades correctly against a live database.
+
+★ This is the same blind-spot class as the other Turso-gated views. An owed eye-verify is a GATE,
+not a nicety — record the result here when it is done, including what was NOT checked.
+
+## 342. `role="button"` on an `<img>` removes its image semantics — open
+
+**Status:** open — **never machine-verified** (2026-09-02). Reasoned from the ARIA role
+model, not measured with a screen reader; measuring it is the work this entry asks for.
+
+`document-preview.tsx` stamps `role="button"` onto each inserted `<img>` so it can be activated.
+An explicit role REPLACES the implicit one, so the element is no longer exposed as an image: a
+screen-reader user hears "Preview image – chart.png, button" and is never told there is a picture
+there. The `alt` text is not lost as a NAME source, but "this is an image" is gone.
+
+★ Alternatives to weigh — a wrapping `<button>` around an untouched `<img>`; or leaving the image
+alone and putting activation on a separate adjacent control. Both cost layout work on rendered
+document HTML we do not own the structure of. Verify with a real screen reader before choosing;
+this is exactly the class of question jsdom cannot answer.
+
+## 343. The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it — open
+
+**Status:** open — **never machine-verified** (2026-09-02), and this entry exists because it
+CANNOT be, in the unit layer. Reproduce the gap with: delete `if (!open) setView(null);` from the
+render reconcile in `src/app/asset-preview-modal.tsx` and run
+`npx vitest run src/app/asset-preview-modal.test.tsx src/app/asset-library.test.tsx src/app/document-preview.test.tsx`
+— measured 2026-09-02 at 67 passed, 0 failed, with the fix deleted.
+
+Closing the modal revokes the object URL (the load effect's cleanup) while the effect BODY
+early-returns on `!open` and so cannot clear the state holding it. On reopen only `open` has
+changed — the asset id has not — so any id-tag comparison still matches and the render commits
+`<img src={revokedUrl}>` before the passive effect replaces it. The browser paints its
+broken-image glyph for that frame. Fixed by clearing `view` in the render-time reconcile.
+
+★★★ RTL CANNOT OBSERVE IT, IN EITHER DIRECTION. `rerender` wraps in `act()`, which flushes
+passive effects before returning, so the stale frame is already replaced by the time any
+assertion runs — for the broken component AND the fixed one. A first cut asserted synchronously
+after `rerender` believing it could outrun the effect; its mutant survived 19/19.
+
+★★ OWED: an eye-verify against a real Turso project — open a preview, close it, reopen the same
+row, and confirm no broken-image flash. That is the only layer that can answer this.
+
+★ The sibling `forId` tag is NOT this fix and does not cover this path; it covers navigate and
+list-shrink, where the id genuinely changes, and the shrink case IS pinned by a test.

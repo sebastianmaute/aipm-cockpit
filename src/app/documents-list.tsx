@@ -10,6 +10,7 @@ import { type Lang, t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
+import { AddFirstItemButton } from "./add-first-item-button";
 import { Button } from "./button";
 import { type SortDir, SortResizeTh, useSortHeaderProps } from "./report-table";
 import { INTERACTIVE } from "./interaction-styles";
@@ -65,6 +66,19 @@ export interface DocumentsListProps {
   /** Attached to the scroll box. ★ NOT attached on the empty-state branch —
    *  there is no row to find, so the querySelector no-ops either way. */
   containerRef: Ref<HTMLDivElement>;
+  /** Offered ONLY for a truly-empty register. ★★★ The orchestrator decides:
+   *  this component receives `visibleRows`, which is FILTERED, so its own
+   *  `documents.length === 0` is also true for a filtered-empty list — and
+   *  `AddFirstItemButton` is contractually never rendered filtered-empty.
+   *  Omit to render the passive message; NEVER pass a no-op, which would draw
+   *  a box that looks clickable and does nothing.
+   *  ★★ THE FILTERED REASON IS NOT THE ONLY ONE — read-only is the other, and
+   *  this prop does NOT encode it. The panel omits `onCreate` when read-only,
+   *  but the render below ALSO checks `isReadOnly` directly rather than
+   *  trusting that: every other control on this surface self-guards on it
+   *  (rename/duplicate/delete), and a create box that guarded only at the one
+   *  call site would silently become live the day a second call site appears. */
+  onCreate?: () => void;
 }
 
 export function DocumentsList({
@@ -85,6 +99,7 @@ export function DocumentsList({
   isReadOnly,
   flashId,
   containerRef,
+  onCreate,
 }: DocumentsListProps) {
   const th = useSortHeaderProps(sortKey, sortDir, onSort, onResize);
   // ★ Derived from `documents` — already sorted/filtered as the orchestrator
@@ -96,11 +111,37 @@ export function DocumentsList({
   );
 
   if (documents.length === 0) {
-    return <EmptyState title={t(lang, "documentsNoneYet")} />;
+    if (!onCreate || isReadOnly) return <EmptyState title={t(lang, "documentsNoneYet")} />;
+    return (
+      <AddFirstItemButton
+        onAdd={onCreate}
+        text={t(lang, "documentsNoneYet")}
+        addLabel={`+ ${t(lang, "documentsCreateFirst")}…`}
+        ariaLabel={t(lang, "documentsCreateFirst")}
+        rounded="xl"
+      />
+    );
   }
 
   return (
-    <div ref={containerRef} className="overflow-auto rounded-md border border-line">
+    // ★★★ `shrink-0` IS LOAD-BEARING AND IS NOT COSMETIC. This box and the
+    // preview's are both `overflow-auto` children of the pane's fixed-height
+    // flex column, and `overflow` other than `visible` makes `min-height: auto`
+    // resolve to 0 — so both are crushable to nothing, and flex distributes the
+    // shrink in PROPORTION to content height, leaving each the same FRACTION of
+    // itself — so whatever fraction survives, a tall preview stays usable at it
+    // and a short list does not: the fewer documents there were, the worse it
+    // got. Without `shrink-0` that returns, and no unit test can see it — jsdom
+    // has no layout engine.
+    // ★★ `max-h-80` (20rem) is the other half: uncrushable ALONE would let a
+    // large register push the preview off screen. ★ The sticky header lives
+    // INSIDE the capped box, so the usable row budget is the cap MINUS the
+    // header, not the cap — `e2e/documents-list-geometry.spec.ts` computes it
+    // against the live row height rather than trusting a figure written here.
+    // Past the cap `overflow-auto` scrolls the list internally. All three
+    // classes are pinned in `documents-panel.test.tsx`; drop any one and the
+    // behaviour breaks in a different direction.
+    <div ref={containerRef} className="max-h-80 shrink-0 overflow-auto rounded-md border border-line">
       <DataTable
         tbodyClassName="divide-y divide-line"
         head={

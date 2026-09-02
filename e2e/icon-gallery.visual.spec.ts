@@ -10,7 +10,7 @@ test.use({ viewport: { width: 1280, height: 1400 } });
 
 test("visual: icon gallery", async ({ page }) => {
   await page.goto("/icon-gallery");
-  await expect(page.locator("[data-icon-cell]")).toHaveCount(69);
+  await expect(page.locator("[data-icon-cell]")).toHaveCount(70);
   await page.evaluate(() => document.fonts.ready);
 
   await expect(page).toHaveScreenshot("icon-gallery.png", {

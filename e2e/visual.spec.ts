@@ -21,6 +21,22 @@ test.use({ viewport: { width: 1440, height: 900 } });
 
 for (const name of VISUAL_VIEWS) {
   test(`visual: ${name}`, async ({ page }) => {
+    // ★★★ SUPPRESS THE GUIDED TOUR, or this spec photographs the tour instead
+    //   of the view. It auto-launches on a fresh device and drops a
+    //   `fixed inset-0` overlay, so every capture here was a DIMMED page behind
+    //   a "Welcome to the PM Tracker" modal — a ~0.71 whole-image delta that
+    //   reads as a catastrophic layout regression and is nothing of the kind.
+    //   ★★ Regenerating the baselines WITHOUT this is the trap: it bakes the
+    //   modal in, hides the very UI these snapshots exist to guard, and goes
+    //   red on any tour copy change. This spec predates the tour; the rest of
+    //   e2e/ already suppresses it the same way (documents-images-interactive,
+    //   meta-decode-loss, rich-text-toolbar-keyboard).
+    //   ★ Settings are a SHALLOW merge over defaults, so this leaves
+    //   storageConfig and everything else untouched. Must run BEFORE the goto
+    //   inside gotoApp, which is why it is not folded into that helper.
+    await page.addInitScript(() => {
+      localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
+    });
     // gotoApp freezes the clock (see seed.ts FROZEN_NOW) for determinism.
     await gotoApp(page);
     await openView(page, name);
