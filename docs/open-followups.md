@@ -17204,6 +17204,15 @@ LESSON.** After the §330 underline fix moved both decks' bytes, the regenerated
 `document-renderer.pptx` (25,014 B) and `workspace-exporter.pptx` (36,531 B) were opened in
 **PowerPoint** — the reader item 2 names — and both were reported clean, including the row-title
 link whose colour cue is absent by construction (§330). Item 2's acceptance half is closed.
+★★ **AND A SECOND INDEPENDENT ENGINE AGREES, ACROSS ALL FOUR ARTIFACTS.** The same day, all four —
+both `.docx` and both `.pptx` — were opened in **LibreOffice** (Writer and Impress respectively) at
+these same bytes, all clean. That is the strongest form this evidence takes here and it is worth
+more than a repeat in one reader: the two implementations are independent, are strict about
+DIFFERENT parts of OOXML, and have historically disagreed on exactly the relationship and
+content-type details item 1 names. A package accepted by both is accepted for reasons, not by luck.
+★ Note what it does NOT do: LibreOffice is not a substitute for item 2's named reader, so this is a
+CORROBORATION of the PowerPoint pass above, never a replacement for it. Recorded in that order
+deliberately.
 ★★★ **THE READER WAS ASKED FOR EXPLICITLY BOTH TIMES IT WAS RECORDED, AND INFERRED THE FIRST TIME.**
 On 2026-09-01 a human reported four artifacts working and named no application; the reporter wrote
 "in **Word and in LibreOffice**" into this entry, which is impossible for a `.pptx` and claimed a
@@ -25754,10 +25763,11 @@ to `underline: has("underline")` goes 2 failed / 222 passed across the five affe
 ★ Both `.docx` are byte-identical after it; both `.pptx` grew 40 bytes, which re-owed the `.pptx`
 half of §219's manual pass.
 ★★ **EYE-VERIFIED 2026-09-02 — the underline does what the collision requires.** Both regenerated
-decks were opened in **PowerPoint** and reported clean, the row-title link included. So the fix is
-confirmed by the only instrument that can see it: nothing in this repo can tell whether a reader
-draws a link as distinct, and the two constants that collide are individually correct, so neither a
-gate nor a byte assertion was ever going to answer this one.
+decks were opened in **PowerPoint** and reported clean, the row-title link included, and all four
+artifacts were then confirmed in **LibreOffice** at the same bytes. So the fix is confirmed by the
+only instrument that can see it, in two independent engines: nothing in this repo can tell whether a
+reader draws a link as distinct, and the two constants that collide are individually correct, so
+neither a gate nor a byte assertion was ever going to answer this one.
 
 ★ **THREE MINOR FINDINGS FROM THE SAME REVIEW, RECORDED AND DELIBERATELY NOT FIXED** — each is
 link-CONDITIONAL, which is the shared shape worth naming: they can only appear in a cell that
