@@ -8111,10 +8111,14 @@ sample fixture does. Unmeasured in the wild — the mechanism is read from the c
 ---
 ## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet
 
-**Status:** the one name defect (`workspace-section-chrome.tsx`'s collapse chevron) fixed 2026-08-31 by
-adding an `aria-label`, verified by `npx vitest run src/app/workspace-section-chrome.test.tsx`. The
-tooltip inventory (Class B's held B1, the blocked-on-i18n row, the fifteen hardcoded-English names) is
-unaffected and stays open — never machine-verified by a committed probe beyond the counts below.
+**Status:** open, narrowed. Re-measured 2026-09-01 on `95afb789` (0.272.1) by running the parser
+embedded in `docs/tooltip-inventory.md` — untitled icon-only surface **31**, of which the real-control
+count is unchanged in substance. What remains open is **B1**, the **four** untranslated names that are
+judgement calls rather than defects, and the ratchet itself. The one name defect
+(`workspace-section-chrome.tsx`'s collapse chevron) was fixed by adding an `aria-label`, verified by
+`npx vitest run src/app/workspace-section-chrome.test.tsx`. The **blocked-on-i18n row is FIXED**
+(`32433366`) and **eleven of the fifteen** hardcoded-English names are gone (`32433366`, `82d9bb0c`) —
+both were held open by name here until 2026-09-01.
 
 ★ **Filed as §103** on `feat/ui-batch-slice-2`, renumbered to §105 when that branch first merged
 (main had already taken 103 for the over-cap document load), then renumbered AGAIN to §109 when
@@ -8230,6 +8234,23 @@ the inventory's ★★★ predicted would recur and which did). The two survivor
 exactly the two this entry already holds open by name: **B1** and the **blocked-on-i18n** row.
 ★ The **15 hardcoded-English accessible names** bullet above is unaffected and still open — the
 inventory's own "Still open, unchanged" section says so in as many words.
+
+★★★ **RE-MEASURED AGAIN 2026-09-01 ON `95afb789` (0.272.1), AND THE TWO ROWS THIS ENTRY HELD OPEN BY
+NAME ARE NOW ONE.** Everything above is left standing as the dated record it is. The
+**blocked-on-i18n row** — `stakeholder-recipient-input.tsx`'s remove-recipient button — was
+translated AND row-token'd in `32433366` (``aria-label={rowLabel(t(lang, "remove"), name)}``), so it
+cleared the i18n block and the row-unique-names bar together. **The sole survivor of the original 23
+is B1.** The **15 hardcoded-English names are down to 4**, eleven having gone in `32433366` and
+`82d9bb0c`, and the four left are exactly the ones the inventory itself argued were not
+straightforward i18n defects: `task-editor-raid-mini.tsx` ×2 (a literal `RAID` prefix in front of a
+translated key) and `budget-panel-totals.tsx` ×2 (machine-readable test hooks used as accessible
+names — a real problem, but a different one). ★★ The paragraph immediately above says that bullet is
+"unaffected and still open", and the inventory's "Still open, unchanged" list says the same; **both
+are dated 2026-08-21 and both are now wrong on those two points.** They are bannered, not rewritten.
+★ The scan's own counts moved too (621 → 592 scanned, 30 → 31 untitled) and the inventory's
+2026-09-01 section carries the decomposition, including a **false NEGATIVE** from the
+`endOfOpenTag` apostrophe bug that dropped a real control out of the population — the opposite
+direction from the one that bug is documented to fail in.
 
 ★ Nothing here is gated either. axe has no rule for a missing `title`, and the one name defect above
 is a control axe passes. The counts are reproducible with the script embedded in the inventory; the
@@ -8436,9 +8457,15 @@ grep -n "^## 202\." docs/open-followups.md                              # → "�
 sed -n '/^## \[0\.256\.0\]/,/^## \[0\.255\./p' CHANGELOG.md | grep -i "images in them"
 ```
 
-★ `docs/work-inventory.md` §3 is NOT corrected here and still lists S3c-2 as designed-but-unbuilt,
-in its backlog table and twice more below it (`grep -n "S3c-2" docs/work-inventory.md`). That is a
-separate document with its own sweep; do not read this entry's update as covering it.
+★ **CORRECTED 2026-09-01 — that separate sweep HAPPENED, and this line outlived its subject.** It
+used to say `docs/work-inventory.md` §3 "is NOT corrected here and still lists S3c-2 as
+designed-but-unbuilt, in its backlog table and twice more below it", and told the reader not to take
+this entry's update as covering it. §3 was swept on 2026-08-25: its backlog table is down to three
+rows (**S6 · S7 · `optimize_wbs`**), and every S3c-2 mention left in that file records the slice as
+SHIPPED — `grep -n "S3c-2" docs/work-inventory.md` returns seven lines, not one of them a backlog
+row. ★★ The caveat was true when written and went stale a week later, which is the same rot it was
+warning about, one document over. A pointer at another document's staleness needs re-checking on
+exactly the same schedule as the claim it points at.
 
 ★★★ **THE DESIGN DOCUMENT IS TRACKED AND IS NOW LINKED, NOT REPRODUCED-BECAUSE-UNREACHABLE:**
 [`superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md`](superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md).
