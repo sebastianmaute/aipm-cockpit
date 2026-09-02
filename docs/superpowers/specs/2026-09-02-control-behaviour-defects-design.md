@@ -157,9 +157,19 @@ a paragraph row reads. So selecting a newly-inserted heading would be resolved a
 render — a change with no observable effect, pinned by a test that passes either way. Headings and
 bullets are not collapsed at a narrow pane at all, so they have nothing to be rescued from.
 
-The branch is on the KIND, never on the position: the pre-fix code's index-0-only special case is
-what made this inconsistent in the first place, and reintroducing a positional rule would recreate
-it.
+The branch is on the KIND, never on the position — a paragraph inserted at ANY index, including 0,
+must become the selection.
+
+★★★ **CORRECTED 2026-09-02. The struck justification was FALSE and did NOT ship:** ~~"the pre-fix
+code's index-0-only special case is what made this inconsistent in the first place, and reintroducing
+a positional rule would recreate it."~~ **There was no index-0 special case in
+`selectionAfterInsert`.** The module arrived whole in `af704299`, and before it `insertSeeded` was
+`(at, type) => structural.insert(at, blockSeed(lang, type))` — it never touched the selection at all
+(`git show af704299^:src/app/document-editor.tsx | grep -A1 "insertSeeded ="`). What actually produced
+the index-0 coincidence was `resolvedSelection`'s `firstParagraph` fallback re-resolving a null
+selection on the new list — a DIFFERENT function, and one this fix does not change. The conclusion
+(branch on kind, not position) is right; the reason given for it was invented. The shipped docstring
+in `document-block-selection.ts` states only the conclusion, which is correct.
 
 **Scope.** Narrow-pane only. At a wide pane every paragraph is live and the selection is invisible,
 so nothing observable changes there.
@@ -185,7 +195,15 @@ in the session scratchpad, echo the status unpiped, then read the file.
 - `docs/open-followups.md`: §326, §334 and §199 close in the heading, four-place-edit style
   (heading · table status · table anchor · `isClosed` witness). §333 closes either way — as a fix or
   as a measured disproof.
-- §102's hand-rolled-UI ratchet loses the `RaciChipPicker` row if the adoption lands.
+- ~~§102's hand-rolled-UI ratchet loses the `RaciChipPicker` row if the adoption lands.~~
+  ★★★ **CORRECTED 2026-09-02 — THERE IS NO SUCH ROW, AND NONE WAS DELETED.**
+  `docs/handrolled-ui-inventory.md` carries exactly three `raci-chip-picker` rows — the popover
+  TRIGGER (`aria-expanded`), the `aria-pressed` role chips, and the clear ✕ — and **all three survive
+  the adoption unchanged**: the trigger is still correctly hand-rolled, the chips are still
+  `aria-pressed`, the ✕ is still a hand-rolled 20px circle. The inventory never had a row for the
+  hand-rolled portal/popover, which is the thing the adoption actually removed, so §102 loses nothing.
+  Enumerate with `grep -n "raci-chip-picker" docs/handrolled-ui-inventory.md`. Do not go hunting for
+  the row, and do not delete a surviving one to make the original sentence true.
 - `AGENTS.md` and `docs/AGENTS/ui-shell.md`: the `PopoverPanel` consumer story gains this picker; the
   `MIN_SPACE_BELOW` decision is recorded wherever it lands.
 - Any prose describing the pre-fix behaviour of the four surfaces is swept in the same commit.

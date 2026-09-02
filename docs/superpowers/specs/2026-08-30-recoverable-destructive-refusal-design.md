@@ -268,6 +268,14 @@ tier. Therefore:
 **Landmine:** `TypeToConfirmDialog` holds `TITLE_ID` as a module constant, so only one may be open
 at a time without duplicate ids. `Modal` stacks, so this is reachable.
 
+> ★★★ **SUPERSEDED 2026-09-02 — this landmine no longer exists, and it is left in place only as the
+> record of what was known on 2026-08-30. Do NOT carry it into new work.** Both ids are per-instance
+> via `useId()` (`docs/open-followups.md` §326, commit `dced5a68`), so two mounted
+> `TypeToConfirmDialog`s no longer collide and the "only one may be open at a time" constraint is
+> retired. The surviving reason the recourse lives on the banner and not also on the toast is
+> different and unrelated: a toast auto-dismisses and is single-slot, a bad host for an irreversible
+> button. Verify with `grep -n "useId" src/app/type-to-confirm-dialog.tsx`.
+
 ### i18n keys
 
 New, EN + DE. Placeholders are 0-based positional (`{0}`, `{1}`).

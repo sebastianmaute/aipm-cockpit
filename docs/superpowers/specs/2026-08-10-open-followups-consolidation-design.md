@@ -89,6 +89,16 @@ A sixth (`ai-rich-text.ts` — "Deliberately NOT fixed here … Deferred to its 
 slice") existed at `e9211280` and **is gone on `origin/main`**, closed by
 Marillier. This is why the baseline is pinned to a commit.
 
+> ★★ **A seventh has gone the same way, and it is the FALSE POSITIVE at the top of that block.** The
+> "floating surface left open" comment in `raci-chip-picker.tsx` was **deleted on 2026-09-02** when the
+> picker adopted `PopoverPanel` (`docs/open-followups.md` §334) — `git log -S "floating surface" --
+> src/app/raci-chip-picker.tsx` names `3fe6b4f6` as the remover. The `:43` above had ALSO drifted off
+> that comment well before then and now lands on unrelated ring prose; both are left unrenumbered on
+> purpose, exactly as the paragraph above argues. The citation sits inside a fence, so
+> `docs:claims:check` never scanned it and the rot was silent in both directions. **The census is
+> unaffected either way**: that row was already classified as not-an-item, so "5 hits, 4 real" still
+> holds against the pinned baseline.
+
 **`AGENTS.md` + `docs/AGENTS/*.md`: 5 lines carrying 4 distinct claims**, all in
 `AGENTS.md`. Nothing in `docs/AGENTS/*.md` qualifies.
 

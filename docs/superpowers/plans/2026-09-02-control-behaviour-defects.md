@@ -678,6 +678,19 @@ Replace `selectionAfterInsert` in `src/app/document-block-selection.ts`:
  *  index-0-only special case that made this behaviour inconsistent, and a
  *  positional rule here would recreate it.
  */
+```
+
+★★★ **CORRECTED 2026-09-02 — the last ★ of that drafted docstring is FALSE and was NOT shipped.**
+There was no index-0-only special case in `selectionAfterInsert`: the module arrived whole in
+`af704299`, and before it `insertSeeded` was
+`(at, type) => structural.insert(at, blockSeed(lang, type))`, which never touched the selection
+(`git show af704299^:src/app/document-editor.tsx | grep -A1 "insertSeeded ="`). The index-0
+coincidence lived in `resolvedSelection`'s `firstParagraph` fallback — a different function, untouched
+by this fix. The implementer refuted the claim rather than transcribing it; the shipped docstring says
+only "a paragraph can be inserted at any index, including 0, and must become the selection at every one
+of them", which is the correct form.
+
+```ts
 export function selectionAfterInsert(
   chosen: number | null,
   at: number,
@@ -815,8 +828,15 @@ grep -rn "type-to-confirm-title\|type-to-confirm-mismatch" src docs AGENTS.md
 grep -rn "selectionAfterInsert" src docs AGENTS.md
 ```
 
-Every hit is a claim to re-read against the new code, not a string to bulk-replace. Note §102's
-hand-rolled-UI ratchet loses its `RaciChipPicker` row only if the adoption stood.
+Every hit is a claim to re-read against the new code, not a string to bulk-replace. ~~Note §102's
+hand-rolled-UI ratchet loses its `RaciChipPicker` row only if the adoption stood.~~
+
+★★★ **CORRECTED 2026-09-02 — THERE IS NO SUCH ROW.** `docs/handrolled-ui-inventory.md` carries exactly
+three `raci-chip-picker` rows (the popover TRIGGER, the `aria-pressed` role chips, the clear ✕) and
+**all three survive the adoption unchanged**. The inventory never had a row for the hand-rolled
+portal/popover — the only thing the adoption removed — so §102 loses nothing. Verify with
+`grep -n "raci-chip-picker" docs/handrolled-ui-inventory.md`. Do not delete a surviving row to make
+the struck sentence true.
 
 - [ ] **Step 4: Commit**
 

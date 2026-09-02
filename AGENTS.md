@@ -1479,9 +1479,22 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   wrong one: each row's key carries `doc.id` (`` `${doc.id}-${index}` ``), forcing a full remount of the
   block-editor subtree on any switch. ★★ At a narrow PANE (not viewport — `use-narrow-element.ts`, the
   repo's first `ResizeObserver`, measured against `NARROW_PANE_PX` on `document-editor.tsx`), every
-  paragraph but the SELECTED one collapses read-only with a "select this block" button, and the selected
+  paragraph but the SELECTED one collapses read-only with an **"Edit this block"** button
+  (`documentsBlockSelect` — ★ this line said "select this block" for four releases; read the value, do
+  not paraphrase the key), and the selected
   block's toolbar docks once above the list via an opt-in `toolbarContainer` prop on `RichTextEditor` —
-  replacing an earlier cut that collapsed the first paragraph unconditionally with no way back in. ★★ A
+  replacing an earlier cut that collapsed the first paragraph unconditionally with no way back in.
+  ★★★ **"SELECTED" DOES NOT IMPLY "TYPABLE", so never restate this as "the selected block is the
+  editable one".** `ParagraphBlockEditor` returns `BlockReadOnlyNotice` for ANY image-bearing paragraph
+  at ANY pane width (`documentsBlockImageReadOnly`) — measured 2026-09-02 in Chromium on a seeded
+  3-paragraph document where two carried `<img data-asset-id>`: at 1400px, ONE of the three had a
+  `contenteditable`. The collapse rule above is about the PANE; this one is about the CONTENT, and they
+  compose. ★★ A NEWLY INSERTED paragraph is never image-bearing, so §199's "an inserted paragraph
+  becomes the selection" is unaffected — do not merge the two rules into one invariant.
+  ★★ **Neither seeded document can exercise the collapse at all** — the sample master has ONE
+  paragraph so nothing collapses, and the other seeded document's paragraphs are image-bearing per
+  above. A probe of this surface must seed its own plain-paragraph document; same class as "a view in
+  `A11Y_VIEWS` is not the same as a view being covered". ★★ A
   zero-block document explains itself and offers a control labelled "Add a block" (`documentsAddBlock` —
   REWORDED from "Add a paragraph" when the kind picker landed) that opens a `BlockKindMenu` over the
   SAME `BlockKindList` the per-row gutter renders, covering every member of `ADDABLE_BLOCK_TYPES`

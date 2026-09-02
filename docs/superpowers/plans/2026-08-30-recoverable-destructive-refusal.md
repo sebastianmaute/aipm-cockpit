@@ -1171,6 +1171,15 @@ Add this docstring above the component, recording why the tiers differ from the 
  *  the toast: two triggers would need two instances. */
 ```
 
+> ★★★ **SUPERSEDED 2026-09-02 — the last clause of that comment is no longer true, and the SHIPPED
+> comment in `notifications.tsx` was rewritten accordingly (`48cbef17`). This block is left verbatim as
+> the dated record of what the plan specified.** `TypeToConfirmDialog`'s ids are per-instance via
+> `useId()` (`docs/open-followups.md` §326, commit `dced5a68`), so two mounted dialogs no longer
+> collide and the "only one may be open at a time" constraint is retired. The reason the recourse lives
+> on the banner rather than also on the toast SURVIVES, but it is the other one: a toast auto-dismisses
+> and is single-slot, a bad host for an irreversible button. The same correction applies to the toast
+> paragraph further down this plan — there are TWO occurrences, not one.
+
 - [ ] **Step 4: Run the tests**
 
 ```bash
@@ -1250,6 +1259,13 @@ In `src/app/use-storage-backend.ts`, the refusal branch already toasts. Convert 
 ```
 
 ★ The toast action deliberately does **not** carry the destructive action. A toast auto-dismisses and is single-slot, so it is a bad host for an irreversible button; and `TypeToConfirmDialog`'s module-level `TITLE_ID` means only one instance may exist, so a second trigger would need a second dialog. The toast points at the persistent surface, which is what `storageSavingPausedAction` already says.
+
+> ★★★ **SUPERSEDED 2026-09-02 (the SECOND of two occurrences in this plan — the other is in the
+> `SavingPausedBanner` docstring above).** The second half of that sentence is no longer true:
+> `TypeToConfirmDialog`'s ids are per-instance via `useId()` (`docs/open-followups.md` §326, commit
+> `dced5a68`), so a second trigger does NOT need a second dialog to avoid an id collision. The first
+> half — auto-dismissing and single-slot — is the reason that survives and is the one the shipped
+> comment in `use-storage-backend.ts` now gives alone. Left verbatim as the dated record.
 
 Three things have to be threaded, not one — `args.showToastAction` does not exist on this hook yet:
 
