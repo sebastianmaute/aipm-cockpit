@@ -84,10 +84,8 @@ export function AssetLibrary({
   // ★★ ONE derivation, TWO pickers. This pane mounts two independent file
   // dialogs — the toolbar `FilePickerButton` and, on the empty branch, the
   // dashed box's own hidden input — and they must agree on what they accept
-  // and when they are inert. These consts are what makes that structural: an
-  // earlier cut wrote both expressions out twice and carried a comment
-  // claiming they "mirror so they cannot diverge", which was simply false.
-  // Both sites below read THESE bindings; keep it that way.
+  // and when they are inert. Both sites below read THESE bindings; keep it
+  // that way.
   const pickerAccept = ASSET_MIME_ALLOWED.join(",");
   // ★★ UNREACHABLE TODAY, AND DELIBERATELY KEPT. `useDocumentAssets` commits
   // the metadata row BEFORE it sets `busyId` (see its "METADATA FIRST" note),
@@ -100,7 +98,7 @@ export function AssetLibrary({
   // this flag reaching it.
   const pickerDisabled = busyId !== null;
   // ★ The empty-state box's OWN picker, distinct from the toolbar
-  // FilePickerButton's (rendered ~100 lines BELOW, in the return).
+  // FilePickerButton's.
   const boxPicker = useFilePicker(onUpload, pickerAccept, pickerDisabled);
   const [sort, setSort] = useState<{ key: AssetSortKey; dir: SortDir }>({ key: "name", dir: "off" });
   // In-place rename draft. `onRename` takes the new name directly — there is

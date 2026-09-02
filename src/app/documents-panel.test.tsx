@@ -2439,8 +2439,7 @@ describe("DocumentsPanel — the documents empty-state box", () => {
   // passive EmptyState's title AND the box's own `text` line, so it renders in
   // BOTH branches and CANNOT discriminate between them — it proves only that
   // the pane rendered something rather than throwing. The `queryByRole` half is
-  // the whole load-bearing assertion. An earlier comment here called the
-  // message "the POSITIVE OBSERVABLE", which overstated it.
+  // the whole load-bearing assertion.
   it("shows the passive message instead of the box when read-only", () => {
     renderPanel([], { isReadOnly: true });
     expect(
@@ -2508,10 +2507,8 @@ describe("DocumentsPanel — the list is sized by its rows, not crushed by the p
     return box;
   }
 
-  // ★★ THESE NAMES DELIBERATELY SAY "carries", NOT "never shrinks" / "caps its
-  // height". They read `className` and nothing else; a name promising geometry
-  // is what a future audit greps and mistakes for a measurement, and the real
-  // check is a Chromium pass, not this file.
+  // ★★ These read `className` and nothing else — jsdom has no layout engine.
+  // The geometry itself is pinned by `e2e/documents-list-geometry.spec.ts`.
   it("carries shrink-0 on the list scroll box", () => {
     renderPanel([doc(1, "Alpha")]);
     expect(listBox()).toHaveClass("shrink-0");

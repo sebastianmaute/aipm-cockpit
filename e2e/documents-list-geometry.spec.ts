@@ -22,9 +22,12 @@ import { test, expect, gotoApp, openView } from "./seed";
 //      measurement lands on a zero-height element in another view.
 //   3. The document PREVIEW renders tables of its own inside the same column.
 // The anchor below is therefore semantic and independent of the classes under
-// test: a visible table whose rows carry `data-deeplink-row`, which
-// `documents-list.tsx` sets and the preview's tables do not. Anchoring on
-// `.max-h-80` instead would make the class assertions circular.
+// test. ★★ BOTH halves of it are load-bearing: `data-deeplink-row` is set by
+// nine non-test files (RAID's rows among them, inside the permanently-mounted
+// `panel-raid`), so the attribute alone does NOT discriminate — the
+// `getBoundingClientRect().height > 0` filter is what excludes the hidden
+// panes. Do not drop either. Anchoring on `.max-h-80` instead would make the
+// class assertions circular.
 async function listBoxMetrics(page: import("@playwright/test").Page) {
   return page.evaluate(() => {
     const table = [...document.querySelectorAll("table")].find(
@@ -72,7 +75,7 @@ test.describe("Documents — the list is sized by its rows, not crushed by the p
     expect(m.overflowY).toBe("auto");
   });
 
-  test("the 20rem cap admits at least six rows, and the header eats into it", async ({ page }) => {
+  test("the 20rem cap admits at least six rows", async ({ page }) => {
     await gotoApp(page);
     await openView(page, "Documents");
 
@@ -83,10 +86,12 @@ test.describe("Documents — the list is sized by its rows, not crushed by the p
       return;
     }
 
-    // ★★ THE NUMBER THE SOURCE COMMENT QUOTES. `max-h-80` is 320px and the
-    // sticky header lives INSIDE the capped box, so the usable row budget is
-    // 320 - headHeight, NOT 320. documents-list.tsx says "~7 visible rows";
-    // this is what that claim is measured against.
+    // ★★ `max-h-80` is 320px and the sticky header lives INSIDE the capped
+    // box, so the usable row budget is 320 - headHeight, NOT 320.
+    // ★★ THE LOWER BOUND IS THE LOAD-BEARING HALF and it sits exactly on the
+    // measured value — a taller row or header turns it red. The upper bound is
+    // slack by construction: nothing here pins the row height from below, so
+    // this test cannot certify any specific row COUNT quoted elsewhere.
     const usable = 320 - m.headHeight;
     const rowsThatFit = Math.floor(usable / m.rowHeight);
     console.log(
@@ -151,7 +156,7 @@ test.describe("Documents — the list is sized by its rows, not crushed by the p
 
     // ★★★ ANTI-VACUITY GUARD. If the squeeze did not take, every number above
     // describes the pane at its natural height and the assertion below passes
-    // for the wrong reason. An earlier cut of this spec did exactly that.
+    // for the wrong reason.
     expect(
       result.paneHeight,
       `pane did not shrink (measured ${result.paneHeight}px) — this spec cannot answer the clipping question`,

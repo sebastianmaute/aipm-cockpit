@@ -5,15 +5,6 @@ import { DocumentsList, DOCUMENTS_COL_DEFAULTS } from "./documents-list";
 import { t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 
-// ★★★ WHY THIS FILE EXISTS, and it is a narrow reason. `DocumentsPanel` already
-// omits `onCreate` when the pane is read-only, so every assertion reachable
-// through `documents-panel.test.tsx` is satisfied by the `!onCreate` half of the
-// guard alone — the `|| isReadOnly` half is UNREACHABLE from the panel and would
-// ship as an untested line carrying a comment that claims it protects something.
-// The only way to exercise it is to render this component directly with BOTH
-// props set, which is precisely the combination a second call site would
-// eventually pass. Rendering the component directly is the point, not a
-// shortcut.
 function doc(id: number, title: string): ProjectDocument {
   return { id, title, blocks: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" };
 }

@@ -129,21 +129,15 @@ export function DocumentsList({
     // flex column, and `overflow` other than `visible` makes `min-height: auto`
     // resolve to 0 — so both are crushable to nothing, and flex distributes the
     // shrink in PROPORTION to content height, leaving each the same FRACTION of
-    // itself. ★ The illustrative figures that used to sit here (~390px of
-    // preview against ~14px of list) were ARITHMETIC OVER AN ASSUMED PANE
-    // HEIGHT, never a measurement — the shape is what matters: whatever
-    // fraction survives, a tall preview stays usable at it and a short list
-    // does not, so the fewer documents there were, the worse it got. Without
-    // `shrink-0` that returns, and no unit test can see it — jsdom has no
-    // layout engine.
+    // itself — so whatever fraction survives, a tall preview stays usable at it
+    // and a short list does not: the fewer documents there were, the worse it
+    // got. Without `shrink-0` that returns, and no unit test can see it — jsdom
+    // has no layout engine.
     // ★★ `max-h-80` (20rem) is the other half: uncrushable ALONE would let a
-    // large register push the preview off screen. ★★ IT BUYS SIX ROWS, not the
-    // eight a bare 20rem ÷ row-height suggests and not the seven a first
-    // correction guessed. MEASURED in Chromium by
-    // `e2e/documents-list-geometry.spec.ts`, which prints the arithmetic:
-    // row 46px, sticky header 32px living INSIDE the capped box, so the usable
-    // budget is 320 - 32 = 288px -> 6 rows. Do not re-derive this by hand; the
-    // spec recomputes it against whatever the row height actually is.
+    // large register push the preview off screen. ★ The sticky header lives
+    // INSIDE the capped box, so the usable row budget is the cap MINUS the
+    // header, not the cap — `e2e/documents-list-geometry.spec.ts` computes it
+    // against the live row height rather than trusting a figure written here.
     // Past the cap `overflow-auto` scrolls the list internally. All three
     // classes are pinned in `documents-panel.test.tsx`; drop any one and the
     // behaviour breaks in a different direction.

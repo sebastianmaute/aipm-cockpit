@@ -78,12 +78,7 @@ export interface DocumentAssetPaneProps {
  * feature is off.
  *
  * ★★★ IT LIVES HERE, NOT IN documents-panel.tsx, FOR SIZE — the same pressure
- * that split this whole file out of it. ★★ DO NOT RE-QUOTE A HEADROOM FIGURE
- * HERE. This said documents-panel.tsx "sits at EXACTLY the 800-line ratchet
- * cap"; it was 759 when a cold review checked, and any number written here
- * rots on the next commit to that file. Measure it instead —
- * `node -e "console.log(require('fs').readFileSync('src/app/documents-panel.tsx','utf8').split('\n').length)"`
- * is the gate's own arithmetic (`check-file-sizes.mjs`, i.e. `wc -l` + 1).
+ * that split this whole file out of it.
  * The panel folds this onto its existing import of this module and calls it
  * inline at both download sites, which costs zero net lines either way.
  *

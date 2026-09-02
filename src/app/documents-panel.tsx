@@ -612,12 +612,7 @@ export function DocumentsPanel({
           excess has to go SOMEWHERE, and this column sits inside a
           `print-root` that is `overflow-hidden` — so with `overflow: visible`
           here the surplus is CLIPPED with no scrollbar at any level, i.e.
-          unreachable by any gesture, keyboard included.
-          ★★ MEASURED, not reasoned: at the pane's `min-h-[300px]` floor,
-          `e2e/documents-list-geometry.spec.ts` recorded 96px of content past
-          the pane with `overflow: visible`, against 0px clipped before
-          `shrink-0` existed — the list-crush fix is what made this reachable,
-          so the two belong together. That spec fails if this regresses. */}
+          unreachable by any gesture, keyboard included. */}
       <div ref={paneRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
         {/* ★ Title falls back to `#id` — an entity deleted since the badge was clicked
             must still name what is filtered. ★★ Clear does BOTH, or a re-visit re-applies. */}
