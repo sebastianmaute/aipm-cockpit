@@ -55,12 +55,27 @@ export function AssetPreviewModal({
   const { offset, reset: dragReset, handleProps } = useDraggable(open, STORAGE_KEY_POS);
   const { ref: sizeRef, reset: sizeReset } = useResizable(STORAGE_KEY_SIZE);
 
-  // Re-seed when a fresh open targets a different asset. Render-time reconcile,
-  // NOT a useEffect — `react-hooks/set-state-in-effect` is banned and fatal.
+  // Re-seed on a `startIndex` change AND on the closed→open transition.
+  // Render-time reconcile, NOT a useEffect — `react-hooks/set-state-in-effect`
+  // is banned and fatal.
+  //
+  // ★★ Both call sites collapse `startIndex` to a fixed value (often 0) while
+  // closed, so a `startIndex`-only reconcile misses the transition entirely:
+  // open row 0 (index 0) → next (index 1) → close (startIndex settles back to
+  // 0, already equal to `seenStart`, so nothing reseeds) → reopen row 0
+  // (`startIndex` is still 0 === `seenStart`) → the modal shows the SECOND
+  // image for a click that asked for the first. Tracking `open` alongside
+  // `startIndex` closes that gap: any reopen re-arms the reconcile regardless
+  // of what `startIndex` collapsed to while closed.
   const [seenStart, setSeenStart] = useState(startIndex);
-  if (startIndex !== seenStart) {
+  const [seenOpen, setSeenOpen] = useState(open);
+  if (startIndex !== seenStart || open !== seenOpen) {
     setSeenStart(startIndex);
-    setIndex(startIndex);
+    setSeenOpen(open);
+    // Only move the index on an actual OPEN — collapsing `startIndex` while
+    // closed must not itself relocate the (invisible) index, and closing
+    // should not trigger an extra render for nothing.
+    if (open) setIndex(startIndex);
   }
 
   const current = assets[index];

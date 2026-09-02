@@ -178,6 +178,38 @@ describe("AssetPreviewModal — navigation", () => {
     expect(screen.getByRole("button", { name: t("en-US", "assetPreviewPrev") })).toBeDisabled();
     expect(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") })).toBeDisabled();
   });
+
+  // ★★★ THE REOPEN-ON-THE-WRONG-IMAGE REGRESSION. Both call sites collapse
+  // `startIndex` to a fixed value (often 0) while CLOSED, so a reconcile that
+  // only watches `startIndex` cannot see the closed→open transition: navigate
+  // to index 1, close (startIndex settles back to 0, already equal to the
+  // last-seen value), reopen at index 0 — nothing reseeds `index`, and the
+  // modal shows the SECOND image for a click that asked for the first. This
+  // drives the component through exactly that sequence via the PUBLIC props
+  // only (no internals), the way both real call sites re-mount/re-render it.
+  it("reopens on the requested image, not wherever a previous session left off", async () => {
+    const props = {
+      lang: "en-US" as const,
+      onClose: vi.fn(),
+      assets: [asset("a", "Alpha"), asset("b", "Beta")],
+      loadImage: vi.fn(async () => "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
+    };
+    const { rerender } = render(<AssetPreviewModal {...props} open startIndex={0} />);
+    await screen.findByText(t("en-US", "assetPreviewPosition", 1, 2));
+
+    // Navigate to the second image.
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "assetPreviewNext") }));
+    await screen.findByText(t("en-US", "assetPreviewPosition", 2, 2));
+
+    // Close — the caller collapses startIndex back to 0 while closed.
+    rerender(<AssetPreviewModal {...props} open={false} startIndex={0} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    // Reopen on row 0 (startIndex 0 again — unchanged from what it was while closed).
+    rerender(<AssetPreviewModal {...props} open startIndex={0} />);
+
+    expect(await screen.findByText(t("en-US", "assetPreviewPosition", 1, 2))).toBeInTheDocument();
+  });
 });
 
 describe("AssetPreviewModal — degraded assets", () => {
