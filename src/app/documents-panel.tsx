@@ -633,6 +633,7 @@ export function DocumentsPanel({
           isReadOnly={isReadOnly}
           flashId={flashId}
           containerRef={containerRef}
+          onCreate={documents.length === 0 && !isReadOnly ? handleCreate : undefined}
         />
         {showDeleted && (
           <DocumentsDeletedSection

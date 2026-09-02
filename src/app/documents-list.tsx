@@ -10,6 +10,7 @@ import { type Lang, t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
+import { AddFirstItemButton } from "./add-first-item-button";
 import { Button } from "./button";
 import { type SortDir, SortResizeTh, useSortHeaderProps } from "./report-table";
 import { INTERACTIVE } from "./interaction-styles";
@@ -65,6 +66,13 @@ export interface DocumentsListProps {
   /** Attached to the scroll box. ★ NOT attached on the empty-state branch —
    *  there is no row to find, so the querySelector no-ops either way. */
   containerRef: Ref<HTMLDivElement>;
+  /** Offered ONLY for a truly-empty register. ★★★ The orchestrator decides:
+   *  this component receives `visibleRows`, which is FILTERED, so its own
+   *  `documents.length === 0` is also true for a filtered-empty list — and
+   *  `AddFirstItemButton` is contractually never rendered filtered-empty.
+   *  Omit to render the passive message; NEVER pass a no-op, which would draw
+   *  a box that looks clickable and does nothing. */
+  onCreate?: () => void;
 }
 
 export function DocumentsList({
@@ -85,6 +93,7 @@ export function DocumentsList({
   isReadOnly,
   flashId,
   containerRef,
+  onCreate,
 }: DocumentsListProps) {
   const th = useSortHeaderProps(sortKey, sortDir, onSort, onResize);
   // ★ Derived from `documents` — already sorted/filtered as the orchestrator
@@ -96,7 +105,16 @@ export function DocumentsList({
   );
 
   if (documents.length === 0) {
-    return <EmptyState title={t(lang, "documentsNoneYet")} />;
+    if (!onCreate) return <EmptyState title={t(lang, "documentsNoneYet")} />;
+    return (
+      <AddFirstItemButton
+        onAdd={onCreate}
+        text={t(lang, "documentsNoneYet")}
+        addLabel={`+ ${t(lang, "documentsCreateFirst")}…`}
+        ariaLabel={t(lang, "documentsCreateFirst")}
+        rounded="xl"
+      />
+    );
   }
 
   return (

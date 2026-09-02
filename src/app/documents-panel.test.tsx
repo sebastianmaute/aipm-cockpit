@@ -174,7 +174,7 @@ function boxMutator(box: Box) {
 
 function renderPanel(
   initial: readonly ProjectDocument[] = [],
-  opts: { allowDestructiveSave?: () => void } = {},
+  opts: { allowDestructiveSave?: () => void; isReadOnly?: boolean } = {},
 ) {
   const box: Box = { docs: initial, versions: [] };
   const mutateDocuments = boxMutator(box);
@@ -190,6 +190,7 @@ function renderPanel(
         ws={emptyWorkspace()}
         onResetSize={onResetSize}
         allowDestructiveSave={opts.allowDestructiveSave}
+        isReadOnly={opts.isReadOnly}
       />
     </PanelHost>,
   );
@@ -2371,5 +2372,38 @@ describe("DocumentsPanel — asset loader", () => {
 
     expect(capturedLoader()).toBeUndefined();
     expect(loadAssetData).not.toHaveBeenCalled();
+  });
+});
+
+describe("DocumentsPanel — the documents empty-state box", () => {
+  it("offers the create box when the register is truly empty", () => {
+    renderPanel([]);
+    expect(
+      screen.getByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    ).toBeInTheDocument();
+  });
+
+  // ★★ Asserts the SUBSTRATE, not a mock's arguments: `boxMutator` is real, so
+  // a working create actually grows `box.docs`. Asserting on the arguments
+  // handed to a mock would prove spelling, not behaviour.
+  it("creates a document when the box is clicked", async () => {
+    const user = userEvent.setup();
+    const { box } = renderPanel([]);
+    expect(box.docs).toHaveLength(0);
+    await user.click(
+      screen.getByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    );
+    expect(box.docs).toHaveLength(1);
+  });
+
+  // ★★★ A popout is a read-only mirror whose create affordance is inert by
+  // design. The passive message is the POSITIVE OBSERVABLE, so this cannot
+  // pass against a box that never renders under any conditions.
+  it("shows the passive message instead of the box when read-only", () => {
+    renderPanel([], { isReadOnly: true });
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    ).toBeNull();
+    expect(screen.getByText(t("en-US", "documentsNoneYet"))).toBeInTheDocument();
   });
 });
