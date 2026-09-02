@@ -773,6 +773,26 @@ describe("AssetPreviewModal — accessible names", () => {
     // Keep it exact; a floor set too low passes silently.
     expectRowUniqueNames({ scope: dialog, minControls: 4, roles: ["button"] });
   });
+
+  // ★★★ NOTHING ELSE PINS `ariaLabelledby` OVER `ariaLabel`, and the obvious
+  // test does not. Task 3's "labels the dialog with the current asset name"
+  // matches on the COMPUTED accessible name, so switching the component to
+  // `ariaLabel` with the identical string passes it unchanged. `ModalProps` is
+  // a discriminated union, so the compiler forces you to pass exactly one of
+  // the two — but it does not care WHICH, and the entire reason for choosing
+  // `ariaLabelledby` is that the dialog's name and the heading a sighted user
+  // reads then CANNOT drift apart. Assert the mechanism, not the string.
+  it("names the dialog FROM its visible heading, so the two cannot drift", async () => {
+    renderModal();
+    const dialog = await screen.findByRole("dialog");
+    const labelledBy = dialog.getAttribute("aria-labelledby");
+    expect(labelledBy, "the dialog must be labelled BY an element, not by a bare string").toBeTruthy();
+    const heading = document.getElementById(labelledBy!);
+    expect(heading, `no element with id "${labelledBy}"`).not.toBeNull();
+    // The heading a sighted user reads carries the asset name, and it is the
+    // SAME node the accessible name resolves to.
+    expect(heading).toHaveTextContent("Alpha");
+  });
 });
 ```
 
