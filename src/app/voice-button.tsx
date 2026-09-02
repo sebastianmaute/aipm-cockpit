@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MicrophoneIcon } from "./icons";
 import { type Lang, t } from "./i18n";
+import { ToggleButton } from "./toggle-button";
 import {
   type Command,
   isVoiceSupported,
@@ -94,12 +95,30 @@ export function VoiceCommandButton({
   // pressed state conveys listening, so it announces "Voice command, pressed"
   // — not "Listening, pressed" (WCAG 4.1.2 pin-the-enabled-label). The visible
   // title still flips for sighted hover.
+  //
+  // ★★ WCAG 1.4.1. The listening tint measured 1.21-1.42:1 against the idle
+  //    background in ALL SEVEN scheme combos, i.e. it is not a distinction any
+  //    user perceives — `animate-pulse` was carrying the entire state cue, and
+  //    motion is no substitute (it is suppressed under prefers-reduced-motion
+  //    and says nothing in a still frame). `ToggleButton` supplies the shared
+  //    non-colour marker; the pulse is kept as a secondary cue, not the cue.
+  // ★ Adopting the primitive turns this bare top-bar icon into a bordered
+  //   chip. That footprint change was put to the user and approved on
+  //   2026-09-01 under the confirm-before-window-changes rule (the top bar is
+  //   window chrome) — do not "restore" the borderless look.
+  // ★ The label is icon-only on screen, so it goes in an `sr-only` child,
+  //   which still contributes the accessible name from content. `lang` is
+  //   passed so the primitive appends the on/off state to the TOOLTIP (the
+  //   accessible description) — the name above stays fixed either way. While
+  //   unsupported the button is `disabled`, and the primitive suppresses that
+  //   suffix, so the unsupported title stays the bare explanation.
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      aria-pressed={listening}
-      aria-label={t(lang, "voiceCommand")}
+    <ToggleButton
+      pressed={listening}
+      onToggle={handleClick}
+      disabled={!supported}
+      accent="pink"
+      icon={<MicIcon />}
       title={
         supported
           ? listening
@@ -107,14 +126,10 @@ export function VoiceCommandButton({
             : t(lang, "voiceCommandTip")
           : t(lang, "voiceUnsupported")
       }
-      disabled={!supported}
-      className={`rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-ui-green disabled:cursor-not-allowed disabled:opacity-50 ${
-        listening
-          ? "animate-pulse bg-ui-pink/15 text-ui-dark-blue dark:bg-ui-pink/20 dark:text-ui-light-grey"
-          : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
-      }`}
+      className={listening ? "animate-pulse" : undefined}
+      lang={lang}
     >
-      <MicIcon />
-    </button>
+      <span className="sr-only">{t(lang, "voiceCommand")}</span>
+    </ToggleButton>
   );
 }

@@ -266,7 +266,7 @@ describe("renderDocumentDocx — declared styles", () => {
     for (const id of used) expect(declared).toContain(id);
   });
 
-  /** ★★★ §333. The link WORKED and looked exactly like the words around it,
+  /** ★★★ §336. The link WORKED and looked exactly like the words around it,
    *  because nothing declared a `Hyperlink` style and nothing named one.
    *
    *  ★★ `w:type` is the half that matters here and the easy one to lose: a
@@ -969,7 +969,7 @@ describe("DOCX invariants Word fails silently on", () => {
     // both directions.
     "<p><em><strong>bi</strong></em></p>",
     // ★★★ A LINKED, MARKED run — the ONLY shape that puts a `w:rStyle` into the
-    // sweep, and invariant 4 was blind to it until §333 added the element. It
+    // sweep, and invariant 4 was blind to it until §336 added the element. It
     // has to carry a mark as well as the link: an rStyle-only `<w:rPr>` has one
     // child and is in sequence order whatever the builder does, so the
     // rStyle-leads-EG_RPrBase claim would never be exercised here.
@@ -1715,7 +1715,7 @@ describe("renderDocumentDocx — hyperlinks", () => {
     expect(relationship(all.get(DOC_RELS)!, ids[0])?.Target).toBe("https://intra/spec");
   });
 
-  /** ★★★ THE TWO-HALVES PIN (§333), and the reason it derives BOTH sides. A
+  /** ★★★ THE TWO-HALVES PIN (§336), and the reason it derives BOTH sides. A
    *  `w:rStyle` naming a style the package does not declare is SILENTLY IGNORED
    *  by Word — the link stays followable and stays drawn in body colour with no
    *  underline — while every string assertion about the emitted XML passes.
@@ -1759,7 +1759,7 @@ describe("renderDocumentDocx — hyperlinks", () => {
 
   it("leaves a link-free document's runs carrying no character style", async () => {
     // The additive contract at the run level: an unlinked run must be exactly
-    // what it was before §333, so nothing in a link-free package names one.
+    // what it was before §336, so nothing in a link-free package names one.
     const xml = await documentXml(doc([{ type: "paragraph", html: "<p>no links here</p>" }]));
     expect(xml).not.toContain("w:rStyle");
   });

@@ -2,10 +2,17 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.275.0";
-export const APP_BUILD_DATE = "2026-09-01"; // 0.275.0: every control that repeats once per row on the Next-actions, Projects, Resources and version-history surfaces now announces a name unique to its row, so a screen reader can tell two rows apart when the people, projects or actions in them share a name (Nagata)
+export const APP_VERSION = "0.276.0";
+export const APP_BUILD_DATE = "2026-09-01"; // 0.276.0: toggle buttons, the RACI chips and the dictation mic no longer signal their on/off state by colour alone — each carries a non-colour marker and a border derived to stay visible against the surface, in every colour scheme and in dark mode (Cadigan)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.274.x line is "Varley" (John Varley, American SF author, the Gaea
+ *  0.276.x line is "Cadigan" (Pat Cadigan, American-British SF author,
+ *  "Synners"). ★★ THIS ONE IS A PERMITTED REUSE, NOT A FRESH NAME, and it is
+ *  recorded as such deliberately — the rule is uniqueness per MINOR LINE, not
+ *  across history, and 0.93.0 (2026-06-16) already ran under it. Verified
+ *  before the bump: `grep -nE '^## \[0\.[0-9]+\.[0-9]+\].*"Cadigan"'
+ *  CHANGELOG.md` returns that one header and nothing on the 0.276 line.
+ *  Writing "genuinely fresh" here would have been false.
+ *  0.274.x was "Varley" (John Varley, American SF author, the Gaea
  *  trilogy). Checked dash-agnostically BEFORE the bump with the command
  *  below: zero hits, against a pattern proved to see all 365 named headers,
  *  so this one is genuinely fresh rather than a permitted reuse.
@@ -126,7 +133,7 @@ export const APP_BUILD_DATE = "2026-09-01"; // 0.275.0: every control that repea
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Nagata";
+export const APP_MILESTONE = "Cadigan";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

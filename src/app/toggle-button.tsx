@@ -1,17 +1,41 @@
 "use client";
 import { CheckIcon } from "./icons";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 
 // Shared binary on/off toggle button (the gantt toolbar toggle look): a
-// bordered chip that gains an accent border + tint when pressed, so the ON
-// state is visible at a glance and reflows with the active scheme.
+// bordered chip that gains a derived accent border + tint when pressed. The
+// border rides `--control-state-border` / `--control-state-border-pink`, each
+// nudged to clear 3:1 against the unpressed `--line` (SC 1.4.11) — the raw
+// accents did not: `--ui-dark-blue` measured 1.03-1.22:1 against `--line` in
+// the three dark schemes, which is invisible to every user, not only to users
+// with a colour-vision deficiency. The non-colour cue is the trailing marker
+// below, which is a SEPARATE guarantee (SC 1.4.1) and does not substitute for
+// this one — open-followups §56 records that reading the glyph as the fix is
+// the trap here.
+// ★★ NO `dark:border-*` VARIANT. scheme-apply.ts sets these custom properties
+//    inline per active scheme AND mode, so one declaration is already
+//    mode-correct; a `dark:` variant would re-pin the raw accent in exactly
+//    the schemes that fail the floor. Pinned by toggle-button.test.tsx.
 //
 // ★★ WCAG 4.1.2 name/state coherence is STRUCTURAL here: the visible label
 // (`children`) MUST name what pressed=true ENABLES and NEVER flip with state.
 // `aria-pressed` tracks that same state, so "Inline milestones, pressed" ⇒
 // inline is on. Do not pass a label that flips to the opposite action.
-export type ToggleAccent = "dark-blue" | "pink";
+// ★ Three accents, and each exists because some consumer's IDENTITY colour had
+// to survive the 1.4.11 fix rather than be replaced by the chrome default.
+// Green is the dictation mic's: its listening cue was a green ICON, which
+// clears 3:1 against the idle glyph in exactly one of seven combos.
+export type ToggleAccent = "dark-blue" | "pink" | "green";
+
+// Geometry family. "chip" is the toolbar look every consumer started with;
+// "card" is a full-width, multi-line OPTION card (a title, a description, a
+// badge row) — the create-project wizard's Step-2 templates.
+// ★★ The card variant lives HERE rather than at the call site because the call
+//    site's only way to stretch the children wrapper was `[&>span]:w-full`,
+//    i.e. reaching into this component's internal markup. A primitive whose
+//    consumers have to know its DOM is not a primitive.
+export type ToggleSize = "chip" | "card";
 
 // ★★ `disabled` was accepted by this component from the start but styled NOTHING
 //    — no call site had ever passed it, so an inoperable toggle was pixel-identical
@@ -20,15 +44,26 @@ export type ToggleAccent = "dark-blue" | "pink";
 //    WCAG 1.4.3 exempts inactive components from contrast, which is NOT true of the
 //    enabled-state alpha traps recorded in AGENTS.md — don't generalise it.
 const BASE =
-  "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex gap-1.5 rounded-md border focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60";
+
+// Geometry only — everything else about the two sizes is identical.
+// ★★ `font-medium` is deliberately CHIP-ONLY. On a card the weight belongs to
+//    the title span the call site already emits; spreading it over the whole
+//    control would bold the description paragraphs too.
+const SIZE: Record<ToggleSize, string> = {
+  chip: "items-center px-2.5 py-1.5 text-xs font-medium",
+  card: "items-start px-3 py-2 text-sm",
+};
 
 const UNPRESSED =
   "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-ui-green";
 
 const PRESSED: Record<ToggleAccent, string> = {
   "dark-blue":
-    "border-ui-dark-blue bg-ui-dark-blue/10 text-ui-dark-blue hover:bg-ui-dark-blue/20 focus:ring-ui-dark-blue dark:border-ui-dark-blue dark:bg-ui-dark-blue/20 dark:text-ui-light-grey",
-  pink: "border-ui-pink bg-ui-pink/10 text-ui-dark-blue hover:bg-ui-pink/20 focus:ring-ui-pink dark:border-ui-pink dark:bg-ui-pink/15 dark:text-ui-light-grey",
+    "border-[var(--control-state-border)] bg-ui-dark-blue/10 text-ui-dark-blue hover:bg-ui-dark-blue/20 focus:ring-ui-dark-blue dark:bg-ui-dark-blue/20 dark:text-ui-light-grey",
+  pink: "border-[var(--control-state-border-pink)] bg-ui-pink/10 text-ui-dark-blue hover:bg-ui-pink/20 focus:ring-ui-pink dark:bg-ui-pink/15 dark:text-ui-light-grey",
+  green:
+    "border-[var(--control-state-border-green)] bg-ui-green/10 text-ui-dark-blue hover:bg-ui-green/20 focus:ring-ui-green dark:bg-ui-green/20 dark:text-ui-light-grey",
 };
 
 interface ToggleButtonProps {
@@ -39,6 +74,10 @@ interface ToggleButtonProps {
   children: ReactNode;
   /** Pressed accent family; defaults to the app's dark-blue chrome accent. */
   accent?: ToggleAccent;
+  /** Geometry family — a toolbar chip (default) or a full-width, multi-line
+   *  option card. `card` also stretches the children wrapper, so no call site
+   *  has to reach into this component's markup to do it. */
+  size?: ToggleSize;
   /** Optional leading icon (aria-hidden svg), rendered before the label. */
   icon?: ReactNode;
   /** Overrides the accessible name when the visible label needs qualifying. */
@@ -76,6 +115,25 @@ interface ToggleButtonProps {
    *  presses Space would otherwise re-fire whatever held focus before. Do not
    *  promote this to unconditional to save a prop at one call site. */
   preventFocusSteal?: boolean;
+  /** ★★ Pointer/keyboard handlers for a PRESS-AND-HOLD consumer — dictation's
+   *  push-to-talk mic, where the state is "held down", not "clicked on". Such
+   *  a control has no click semantic at all (its keydown calls
+   *  `preventDefault`, which suppresses the synthetic click), so it passes a
+   *  no-op `onToggle` and drives `pressed` from the hold.
+   *  ★ Deliberately a NAMED, narrow bag rather than a `...rest` spread: the
+   *  primitive must keep sole ownership of every a11y attribute it emits, and
+   *  a rest spread would let a call site quietly overwrite `aria-pressed`,
+   *  `aria-label` or `type`. Widen the bag if a consumer needs more; do not
+   *  replace it with a spread. */
+  pressHandlers?: Pick<
+    ComponentProps<"button">,
+    | "onPointerDown"
+    | "onPointerUp"
+    | "onPointerLeave"
+    | "onPointerCancel"
+    | "onKeyDown"
+    | "onKeyUp"
+  >;
 }
 
 export function ToggleButton({
@@ -83,6 +141,7 @@ export function ToggleButton({
   onToggle,
   children,
   accent = "dark-blue",
+  size = "chip",
   icon,
   ariaLabel,
   title,
@@ -93,6 +152,7 @@ export function ToggleButton({
   variant = "toggle",
   ariaControls,
   preventFocusSteal,
+  pressHandlers,
 }: ToggleButtonProps) {
   // ★★ STATE IN THE TOOLTIP. The visible label is PINNED to what pressed=true
   //    enables, so it cannot say which state is live. The tooltip says it in
@@ -123,6 +183,16 @@ export function ToggleButton({
   const fullTitle = [title, stateText].filter(Boolean).join(" · ") || undefined;
   return (
     <button
+      // ★★★ EVERY ATTRIBUTE THIS PRIMITIVE OWNS MUST COME AFTER THE SPREAD.
+      //     JSX is later-wins, so an attribute written BEFORE `{...pressHandlers}`
+      //     is overridable by the bag and one written after is not. `type` sat
+      //     before it and was the sole unprotected attribute: the `Pick<>` does
+      //     not close that, because TypeScript's excess-property check applies
+      //     only to FRESH OBJECT LITERALS, so a call site passing a prebuilt
+      //     `const bag = {onPointerDown: f, type: "submit" as const}` typechecks
+      //     and would turn every toggle inside a <form> into a submit button.
+      //     Pinned by toggle-button.test.tsx.
+      {...pressHandlers}
       type="button"
       onClick={onToggle}
       onMouseDown={preventFocusSteal ? (e) => e.preventDefault() : undefined}
@@ -133,10 +203,10 @@ export function ToggleButton({
       aria-describedby={ariaDescribedBy}
       title={fullTitle}
       disabled={disabled}
-      className={`${BASE} ${pressed ? PRESSED[accent] : UNPRESSED}${className ? ` ${className}` : ""}`}
+      className={`${BASE} ${SIZE[size]} ${pressed ? PRESSED[accent] : UNPRESSED}${className ? ` ${className}` : ""}`}
     >
       {icon}
-      <span>{children}</span>
+      <span className={size === "card" ? "w-full" : undefined}>{children}</span>
       {/* ★★ THE NON-COLOUR CUE (WCAG 1.4.1). Without it the ON state is carried
           by the accent border+tint ALONE, which a user who cannot distinguish
           those colours reads as an ordinary chip. `aria-pressed` already tells

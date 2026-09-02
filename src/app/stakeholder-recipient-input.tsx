@@ -14,7 +14,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { XMarkIcon } from "./icons";
 import type React from "react";
-import { INTERACTIVE } from "./interaction-styles";
+import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
 import { rowLabel } from "./row-tokens";
 
@@ -155,17 +155,20 @@ export function StakeholderRecipientInput({
                   />
                 )}
                 {name}
-                <button
-                  type="button"
+                {/* ★ Row-unique name (rowLabel), threaded through `label`
+                    unchanged — recipients can repeat a display name and no
+                    gate can see a collision. */}
+                <IconButton
                   onClick={(e) => {
                     e.stopPropagation();
                     remove(name);
                   }}
-                  aria-label={rowLabel(t(lang, "remove"), name)}
-                  className={`-mr-1 rounded-full text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
+                  label={rowLabel(t(lang, "remove"), name)}
+                  variant="danger"
+                  className="-mr-1"
                 >
                   <XMarkIcon aria-hidden="true" className="h-3 w-3" />
-                </button>
+                </IconButton>
               </span>
             );
           })}

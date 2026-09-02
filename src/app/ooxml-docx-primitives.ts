@@ -70,7 +70,7 @@ export function docxCellRuns(value: string | number): string {
  *  relationship id. Word ignores a `w:rStyle` naming an undeclared style
  *  exactly as it ignores an undeclared `w:pStyle`, so shipping either half
  *  alone is SILENT — the link stays followable and stays drawn in body colour
- *  with no underline, which is §333's defect. Its colour is `COLOR_DARK_BLUE`,
+ *  with no underline, which is §336's defect. Its colour is `COLOR_DARK_BLUE`,
  *  the same value `buildPptxTheme`'s `<a:hlink>` already carries, so the two
  *  formats agree; Word's conventional link blue is off-palette and the palette
  *  test rejects it. Inside a style's own `<w:rPr>` the sequence is EG_RPrBase

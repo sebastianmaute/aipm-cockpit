@@ -137,7 +137,7 @@ function slotText(cell: ExportCell): string {
  *  colours an `<a:hlinkClick>` run from the theme — but ONLY while the run
  *  names no fill of its own. Painting the slot's colour over it would leave the
  *  link followable and indistinguishable from the words around it, which is
- *  §333's defect in the other format. The slot's WEIGHT still applies, so a
+ *  §336's defect in the other format. The slot's WEIGHT still applies, so a
  *  link in the bold title stays bold.
  *  ★ A conditional SPREAD, never `colorRgb: undefined`: `pptxRun` keeps
  *  `hyperlinkRelId` ABSENT rather than own-and-undefined on an unlinked run and

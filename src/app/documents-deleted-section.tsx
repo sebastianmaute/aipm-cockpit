@@ -49,7 +49,7 @@ export function DocumentsDeletedSection({
           ★ Not a row cap: capping the list without saying why is the
           false-affordance trap this pane avoids elsewhere. */}
       {deleted.length > documentCount && (
-        <p role="status" className="mb-2 text-sm text-ui-pink">
+        <p role="status" className="mb-2 text-sm text-ui-pink-strong">
           {t(lang, "documentsDeletedImplausible")}
         </p>
       )}

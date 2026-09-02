@@ -124,10 +124,16 @@ describe("ResourceEditModal", () => {
     // — `hover:text-ui-pink`, not `hover:text-ui-pink-strong`.
     // ★ So the conversion CHANGED the hover token: `--ui-pink` (#c24a76) →
     // `--ui-pink-strong` (#a53f64), darker and AA-safer. An improvement, but a real
-    // change, not a like-for-like port — four controls in this batch moved the same
-    // way (reproduce: `git diff f6e85d55..HEAD -- src/app | grep -E
+    // change, not a like-for-like port — four controls in that batch moved the same
+    // way (reproduce: `git diff f6e85d55..f81a3ee6 -- src/app | grep -E
     // "^-.*hover:text-ui-pink\b" | grep -v pink-strong`). Do not describe any of them
     // as "already carried this recipe".
+    // ★★ BOTH ENDS ARE PINNED COMMITS ON PURPOSE. This range is the ui-batch-slice-2
+    // branch (f6e85d55 = slice-1's merge, f81a3ee6 = slice-2's), and the "four" is a
+    // claim about THAT batch alone. It was written as `..HEAD`, which made the number
+    // rot the moment a later slice converted more controls the same way: the identical
+    // command returned 10 on the colour-only-state-1.4.1 branch, and the comment still
+    // read as freshly verified.
     // ★ `(^|\s)…(\s|$)`, never `\b` — `-` is a non-word character, so `\b` sits
     // INSIDE a hyphenated token and `\bhover:text-ui-pink-strong\b` would also
     // match `dark:hover:text-ui-pink-stronger`. (`\b` does bound a standalone

@@ -64,6 +64,22 @@
      surface. The old #5f57a8 cleared the card but not that hover state. */
   --ui-purple-strong: #514a8f;
 
+  /* SC 1.4.11 state borders — the pre-boot/no-JS FALLBACK only; at runtime
+     scheme-apply.ts overrides these inline per active scheme AND mode, so no
+     `dark:` variant is needed at the consuming component. The first two are the
+     AIPM-light bases UNCHANGED, because both already clear 3:1 against the
+     static --line #dbe2ea (dark-blue 8.97:1, pink 3.55:1) — the derivation
+     returns the base when the floor is already met.
+     ★★ THE GREEN ONE IS NOT ITS BASE, and copying the pattern from its two
+     neighbours is the trap. Raw --ui-green #2bc4b6 scores only 1.66:1 against
+     that same --line, so nudgeToContrast actually runs and returns #1f8e83
+     (3.06:1). Hardcoding #2bc4b6 here would ship a fallback that fails the
+     floor the runtime derivation meets. Keep all three in step with
+     deriveAaVariants — scheme-state-contrast.test.ts pins the equivalence. */
+  --control-state-border: #153a5c;
+  --control-state-border-pink: #c24a76;
+  --control-state-border-green: #1f8e83;
+
   /* ---- CI-style role tokens. These AIPM-light values are the static no-JS /
      pre-boot FALLBACK; at runtime the active scheme (AIPM / Mockup / Harbor /
      user) overrides them inline via setProperty (see scheme-apply.ts). ---- */
@@ -379,4 +395,51 @@ img[data-asset-blocked]::before {
   /* Hide portalled tooltip bubbles — they are appended to document.body and would
      otherwise print if a tooltip was open at the moment window.print() was called. */
   [data-tooltip-portal] { display: none !important; }
+}
+
+/* SC 2.2.2 / SC 2.3.3 — honour an OS-level reduced-motion preference. The app
+   had no such handling at all until this slice.
+
+   FIVE call sites animate, not the two this was scoped for (verify with
+   `grep -rn "animate-" src/app --include=*.tsx | grep -v "\.test\."`, which also
+   returns two COMMENT lines that are not call sites):
+     animate-pulse — skeleton.tsx (loading placeholder), voice-button.tsx (the
+                     listening pulse)
+     animate-spin  — spinner.tsx, budget-panel.tsx (FX rate fetch),
+                     tasks-section.tsx (Jira sync)
+
+   ★★★ THE TWO ARE NOT TREATED ALIKE. The rule this slice established is that you
+   may still an animation only where something else still carries the state. That
+   holds for `animate-pulse`: skeleton's is decorative (`aria-hidden`, and the
+   layout itself says "loading"), and voice-button's listening state now carries a
+   shape marker — before Task 11 gave it one the pulse WAS the cue, and stilling
+   it would have left a 1.21-1.42:1 tint and nothing else. Order matters if this
+   is ever reverted.
+
+   ★★★ THE SPIN IS SLOWED RATHER THAN STOPPED, AND NOT FOR THE REASON THIS COMMENT
+   ORIGINALLY GAVE. It claimed the budget-panel and tasks-section spinners were
+   `aria-hidden` icons in ICON-ONLY buttons where the rotation was the entire
+   "in progress" cue — "no marker, no text and no layout change behind it". Every
+   clause of that is false, and both sites refute it. Both are icon-PLUS-TEXT
+   buttons; both go `disabled` while busy and dim (`disabled:opacity-50`, from
+   `Button`'s base class on budget-panel and written inline on tasks-section); and
+   tasks-section additionally swaps its label to `jiraSyncing`. The three
+   `Spinner` consumers (actions-panel, step0-import-panel, timelog-panel) each sit
+   inside a `role="status" aria-live="polite"` card beside a text label. So there
+   is NO current `animate-spin` site where `animation: none` would delete the only
+   cue — read the five the grep above returns and check for yourself.
+
+   What the 3s therefore is: a CONSERVATIVE DEFAULT on a global utility class, not
+   a forced choice. `animate-spin` is available to any future consumer, and the
+   next one need not carry a text cue. Stopping it outright at today's five sites
+   would be defensible; that is a live question, not a settled one. Do not restore
+   the "sole cue" justification — open-followups §332 carries the adjudication. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse {
+    animation: none !important;
+  }
+
+  .animate-spin {
+    animation-duration: 3s !important;
+  }
 }

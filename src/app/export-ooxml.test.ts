@@ -914,11 +914,11 @@ describe("buildDocx link relationships", () => {
     expect(files.get("word/_rels/document.xml.rels")!).not.toContain('TargetMode="External"');
     expect(files.get("word/document.xml")!).not.toContain("<w:hyperlink");
     // ★ And no character style: an unlinked run is byte-identical to what it
-    //   was before §333 declared one.
+    //   was before §336 declared one.
     expect(files.get("word/document.xml")!).not.toContain("w:rStyle");
   });
 
-  /** ★★★ §333 REACHES THIS EXPORTER TOO, and the register named only
+  /** ★★★ §336 REACHES THIS EXPORTER TOO, and the register named only
    *  `renderDocumentDocx`. Both consumers pass `DOC_STYLES` to
    *  `buildDocxPackage` and both route their runs through `markedRun`, so the
    *  defect and the fix are shared — but "shared by construction" is an
@@ -1118,7 +1118,7 @@ describe("buildPptx link relationships", () => {
     // ★★ The runs branch has NO paragraph-level colour, so the slot's colour is
     //    folded into each run — except a LINKED one, which must name no fill or
     //    it loses the theme's <a:hlink> colour and reads as ordinary prose
-    //    (§333's defect in the other format).
+    //    (§336's defect in the other format).
     // ★★★ AND IN THIS SLOT THE THEME COLOUR IS NOT A CUE AT ALL, which is why
     //    the underline below is asserted rather than left to the reader:
     //    TITLE_SLOT paints its text COLOR_DARK_BLUE and the theme paints a link

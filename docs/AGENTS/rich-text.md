@@ -252,14 +252,18 @@ register's fix to another is how two of them broke. Read the note that names you
   bullet above).
   ★★ EVERY BUTTON IN THE ROW SUPPRESSES THE MOUSEDOWN DEFAULT: a control that takes focus on mousedown
   blurs the contenteditable and destroys the selection the command applies to. `ToggleButton` carries an
-  OPT-IN `preventFocusSteal` prop for its own 25 call sites; the rich-text toolbar's separate
+  OPT-IN `preventFocusSteal` prop for its own call sites; the rich-text toolbar's separate
   `ToolbarButton` (`rich-text-toolbar-button.tsx`) carries the identical opt-in prop for all twelve
   toggles PLUS Link/Unlink now — one mechanism, not the two hand-rolled ones (`ToggleButton` prop vs a
   plain `Button`'s manual `onMouseDown`+`preventDefault`) this used to describe.
-  ★★ OPT-IN IS LOAD-BEARING: 25 other `<ToggleButton` call sites across 14 files rely on native
-  focus-on-click, so an unconditional guard would change every toggle in the app. Both branches are
-  pinned in `toggle-button.test.tsx`. Re-derive the population, don't trust the number:
+  ★★ OPT-IN IS LOAD-BEARING: every OTHER `<ToggleButton` call site relies on native focus-on-click, so
+  an unconditional guard would change every toggle in the app. Both branches are
+  pinned in `toggle-button.test.tsx`. ★★ NO TALLY IS QUOTED HERE AND RESTORING ONE IS A REGRESSION —
+  this line said "25 call sites across 14 files" and the WCAG colour-only slice moved it in a single
+  release by migrating eight hand-rolled `aria-pressed` controls onto the primitive. Any new toggle
+  anywhere in the app moves it again. Derive the population instead:
   `grep -rn "<ToggleButton" src/app --include="*.tsx" | grep -v "\.test\." | grep -v rich-text-toolbar | wc -l`
+  (drop the `wc -l` and pipe through `sed 's/:.*//' | sort -u` for the file split).
   ★ The heading menu TRIGGER also gets no mousedown guard, but for a different reason than the
   `<select>` it replaced: opening a `PopoverPanel` is a normal click, not a native form-control picker,
   so there is no analogous "preventing default breaks the picker" failure mode to guard against. Neither

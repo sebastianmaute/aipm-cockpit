@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import type React from "react";
 import { XMarkIcon } from "./icons";
+import { IconButton } from "./icon-button";
 import { FieldNotice } from "./field-feedback";
 import { type Lang, t } from "./i18n";
 import {
@@ -112,18 +113,18 @@ export function LabelsInput({
           >
             {label}
             {!disabled && (
-              <button
-                type="button"
+              <IconButton
                 onClick={(e) => {
                   e.stopPropagation();
                   removeAt(idx);
                 }}
-                aria-label={`${t(lang, "remove")} ${label}`}
+                label={`${t(lang, "remove")} ${label}`}
                 title={`${t(lang, "remove")} ${label}`}
-                className="-mr-1 rounded-full text-muted-foreground hover:text-ui-pink"
+                variant="danger"
+                className="-mr-1"
               >
                 <XMarkIcon aria-hidden="true" className="h-3 w-3" />
-              </button>
+              </IconButton>
             )}
           </span>
         ))}

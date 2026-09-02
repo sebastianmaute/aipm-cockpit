@@ -22,6 +22,7 @@
 //     | grep -v "segmented-control.tsx" | wc -l
 
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import { CheckIcon } from "./icons";
 
 const NAV_KEYS = ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "Home", "End"];
 
@@ -138,7 +139,7 @@ export function SegmentedControl<T extends string>({
             disabled={disabled}
             onClick={() => onChange(opt.value)}
             className={[
-              "px-3 py-1.5 text-sm font-medium focus:outline-none focus:relative focus:z-10 focus:ring-2 focus:ring-ui-green",
+              "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium focus:outline-none focus:relative focus:z-10 focus:ring-2 focus:ring-ui-green",
               first ? "rounded-l-md" : "",
               last ? "rounded-r-md" : "",
               idx > 0 ? "border-l border-line" : "",
@@ -149,6 +150,11 @@ export function SegmentedControl<T extends string>({
               .filter(Boolean)
               .join(" ")}
           >
+            <CheckIcon
+              aria-hidden="true"
+              data-selected-marker={selected ? "on" : "off"}
+              className={`h-3 w-3 shrink-0${selected ? "" : " invisible"}`}
+            />
             {opt.label}
           </button>
         );

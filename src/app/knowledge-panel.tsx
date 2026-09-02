@@ -17,6 +17,7 @@ import { FieldGroup, Input, Select } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { AddButton } from "./pane-toolbar";
 import { Button } from "./button";
+import { ToggleButton } from "./toggle-button";
 import { IconButton } from "./icon-button";
 import { Card } from "./card";
 import { AddFirstItemButton } from "./add-first-item-button";
@@ -258,19 +259,38 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
         const active = effFilter === k;
         const label = k === "all" ? t(lang, "documentsFilterAll") : t(lang, SOURCE_LABEL[k]);
         return (
-          <button
+          // ★ ToggleButton, not a hand-rolled `aria-pressed` button: the selected
+          //   chip was carried by the --ui-dark-blue fill ALONE, which measures
+          //   1.01-1.17:1 against the unselected --surface-muted in the three
+          //   dark schemes (WCAG 1.4.1, open-followups §55). The primitive adds
+          //   the trailing non-colour marker, in both states.
+          // ★★ `rounded-full!` — the trailing `!` is LOAD-BEARING. `className`
+          //   is APPENDED to the primitive's own `rounded-md`, but class-attribute
+          //   ORDER decides nothing in CSS: two same-property utilities of equal
+          //   specificity resolve by their order in Tailwind's GENERATED
+          //   stylesheet, which no call site controls. The pill shape is this
+          //   control's visual identity, so it is pinned by the cascade rather
+          //   than by luck. ★★ THE REST OF THE OLD BOX IS DROPPED, AND THAT IS A
+          //   REAL GEOMETRY CHANGE — an earlier wording here said "nothing else
+          //   collides", which reads as a no-op and is not. Only `px-2.5` and
+          //   `text-xs` are byte-identical to the primitive's own. `py-0.5` is
+          //   dropped for its `py-1.5` — 4px more padding per side — and the
+          //   primitive adds `font-medium`, which the old chip lacked. Intended:
+          //   the chips now match `Button size="xs"` (`px-2.5 py-1.5 text-xs`),
+          //   the same alignment the comm-templates Compare migration took.
+          //   ★ `INTERACTIVE` went too. Its focus ring is covered (BASE has
+          //   `focus:ring-2`, coloured green when off and by the accent when on),
+          //   but `transition-colors duration-150` and the `active:translate-y-px`
+          //   press feedback are simply gone from this control.
+          <ToggleButton
             key={k}
-            type="button"
-            aria-pressed={active}
-            onClick={() => setSourceFilter(k)}
-            className={`rounded-full border px-2.5 py-0.5 text-xs ${
-              active
-                ? "border-ui-dark-blue bg-ui-dark-blue text-white"
-                : "border-line bg-surface-muted text-foreground"
-            } ${INTERACTIVE}`}
+            pressed={active}
+            onToggle={() => setSourceFilter(k)}
+            className="rounded-full!"
+            lang={lang}
           >
             {label} <span className="opacity-60">{counts[k]}</span>
-          </button>
+          </ToggleButton>
         );
       })}
     </div>

@@ -463,7 +463,7 @@ describe("docxRichParagraphs — hyperlinks", () => {
     expect(sink.rels()).toEqual([]);
   });
 
-  // ★★★ THE `Hyperlink` CHARACTER STYLE (§333). Before it, a link was
+  // ★★★ THE `Hyperlink` CHARACTER STYLE (§336). Before it, a link was
   // followable and drawn in ordinary body colour with no underline — it looked
   // exactly like the words around it, which is most of what §119 was filed to
   // deliver. `w:rStyle` is the FIRST child of `<w:rPr>` (CT_RPr is an
@@ -533,7 +533,7 @@ describe("docxRichParagraphs — hyperlinks", () => {
      *  minted — which is the whole of the "the sink being OPTIONAL" contract
      *  that keeps every pre-existing caller byte-identical. Under the mutant
      *  such a run wears the `Hyperlink` style with NO `<w:hyperlink>` wrapper:
-     *  text drawn as a link that cannot be followed, which is §333's defect
+     *  text drawn as a link that cannot be followed, which is §336's defect
      *  inverted and worse. `buildDocxTable` is called without links today, so
      *  this is a live path, not a hypothetical one. */
     it("adds no character style to a link when the caller passes no sink", () => {

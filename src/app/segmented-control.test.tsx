@@ -315,4 +315,43 @@ describe("SegmentedControl palette", () => {
     expect(group.className).toContain("bg-[var(--segment-track-bg)]");
     expect(group.className).not.toContain("bg-surface");
   });
+
+  test("marks the selected segment with a non-colour glyph, rendered in BOTH states", () => {
+    render(
+      <SegmentedControl
+        value="b"
+        onChange={() => {}}
+        options={[
+          { value: "a", label: "Alpha" },
+          { value: "b", label: "Bravo" },
+        ]}
+      />,
+    );
+    const alpha = screen.getByRole("radio", { name: "Alpha" });
+    const bravo = screen.getByRole("radio", { name: "Bravo" });
+
+    // Present on BOTH, so the segment keeps one width regardless of selection —
+    // conditional rendering would resize every segment on each click.
+    expect(alpha.querySelector("[data-selected-marker]")).not.toBeNull();
+    expect(bravo.querySelector("[data-selected-marker]")).not.toBeNull();
+
+    expect(bravo.querySelector("[data-selected-marker]")?.getAttribute("data-selected-marker"))
+      .toBe("on");
+    expect(alpha.querySelector("[data-selected-marker]")?.getAttribute("data-selected-marker"))
+      .toBe("off");
+    // ★ `getAttribute("class")`, NOT `.className` — the marker is an <svg>, and on
+    // an SVGElement `className` is an SVGAnimatedString, so `.toContain` reads it
+    // as an empty iterable and fails whether or not the class is there.
+    expect(alpha.querySelector("[data-selected-marker]")?.getAttribute("class")).toContain(
+      "invisible",
+    );
+    // The selected one must NOT be hidden — otherwise "contains invisible" would
+    // also pass against a marker that is invisible in both states.
+    expect(bravo.querySelector("[data-selected-marker]")?.getAttribute("class")).not.toContain(
+      "invisible",
+    );
+
+    // The glyph is decoration; aria-checked already carries the state.
+    expect(bravo.querySelector("[data-selected-marker]")?.getAttribute("aria-hidden")).toBe("true");
+  });
 });

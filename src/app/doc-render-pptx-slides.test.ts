@@ -136,7 +136,7 @@ describe("pptxRun — hyperlinkRelId key presence", () => {
 // ─── The link's VISUAL cue, which the theme cannot supply in one slot ────────
 //
 // ★★★ A slide package carries no character-style part, so the DOCX remedy for
-// §333 (a `Hyperlink` style declaring colour AND underline) has no counterpart
+// §336 (a `Hyperlink` style declaring colour AND underline) has no counterpart
 // here: a linked run names no fill and the THEME paints it `<a:hlink>` =
 // COLOR_DARK_BLUE. Measured 2026-09-02, after a cold review refuted an earlier
 // wording here that called that "a real cue in the meta and field slots": it is

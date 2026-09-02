@@ -334,7 +334,7 @@ export function pptxRun(run: TextRun, kind: RichLineKind, links: LinkSink | unde
     bold: has("bold"),
     italic: has("italic") || kind === "blockquote",
     // ★★★ A LINKED RUN IS UNDERLINED UNCONDITIONALLY, and this is the PPTX
-    //   half of the §333 fix rather than a style preference. The DOCX side
+    //   half of the §336 fix rather than a style preference. The DOCX side
     //   DECLARES `<w:u w:val="single"/>` inside its `Hyperlink` character
     //   style; the slide side has no style part, so relying on the reader's
     //   implicit hyperlink formatting is the only alternative — and nothing
@@ -358,7 +358,7 @@ export function pptxRun(run: TextRun, kind: RichLineKind, links: LinkSink | unde
     //   deck. The DOCX half of this same branch reached the same conclusion
     //   independently — `ooxml-docx-primitives.ts` declares colour AND
     //   underline for every link. Leaving it to the reader's implicit
-    //   formatting would have shipped §333's defect (a link indistinguishable
+    //   formatting would have shipped §336's defect (a link indistinguishable
     //   from the text around it) in the other format, which is the shape a
     //   manual pass had just caught in the first.
     //   Verify the collision and the contrasts, do not trust this comment:

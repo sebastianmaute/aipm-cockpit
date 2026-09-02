@@ -44,8 +44,25 @@ import { WizardStepIndicator } from "./wizard-step-indicator";
 import { Checkbox } from "./form-controls";
 import { Badge } from "./badge";
 import { Button } from "./button";
+import { ToggleButton } from "./toggle-button";
 
 type CreateFormat = "json" | "csv" | "md";
+
+// Layout overrides for the Step-2 template cards, which are `ToggleButton`s
+// (open-followups §55 — the old green selected border measured 1.53-1.88:1
+// against the unselected `border-line` in all four LIGHT schemes, so selection
+// now also carries the primitive's non-colour marker).
+// ★★ These are full-width, multi-line OPTION cards — a title, a badge row, a
+//    description, a seed count — not toolbar chips, so they take the
+//    primitive's `size="card"` geometry (items-start px-3 py-2 text-sm) rather
+//    than restyling it from here. That size also stretches the children wrapper
+//    inside the primitive, which is what lets the inner `justify-between`
+//    header row push its badges to the card's right edge; this const used to
+//    carry a `[&>span]:w-full` reaching into `ToggleButton`'s own markup to do
+//    it. Only the outer box (full width, left-aligned content) is a call-site
+//    concern and stays here. jsdom has no layout — nothing in the unit suite
+//    can see any of it.
+const TEMPLATE_CARD_CLASS = "w-full justify-start text-left";
 
 const MODE_LABEL_KEY = {
   simple: "modeSimple",
@@ -302,15 +319,12 @@ export function CreateProjectWizard({
               </p>
             )}
             <fieldset className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => chooseTemplate(null)}
-                aria-pressed={selectedTemplate === null}
-                className={`rounded-md border px-3 py-2 text-left text-sm hover:bg-surface-muted ${
-                  selectedTemplate === null
-                    ? "border-ui-green bg-ui-green/10"
-                    : "border-line bg-surface"
-                }`}
+              <ToggleButton
+                pressed={selectedTemplate === null}
+                onToggle={() => chooseTemplate(null)}
+                size="card"
+                className={TEMPLATE_CARD_CLASS}
+                lang={lang}
               >
                 <span className="font-medium text-foreground">
                   {t(lang, "wizardBlankTemplate")}
@@ -318,7 +332,7 @@ export function CreateProjectWizard({
                 <p className="mt-1 text-xs text-muted-foreground">
                   {t(lang, "wizardIncludeContent")}: {t(lang, "none")}
                 </p>
-              </button>
+              </ToggleButton>
 
               {templates.map((tpl) => {
                 const selected = selectedTemplate?.id === tpl.id;
@@ -330,14 +344,13 @@ export function CreateProjectWizard({
                     )
                   : 0;
                 return (
-                  <button
+                  <ToggleButton
                     key={tpl.id}
-                    type="button"
-                    onClick={() => chooseTemplate(tpl)}
-                    aria-pressed={selected}
-                    className={`rounded-md border px-3 py-2 text-left text-sm hover:bg-surface-muted ${
-                      selected ? "border-ui-green bg-ui-green/10" : "border-line bg-surface"
-                    }`}
+                    pressed={selected}
+                    onToggle={() => chooseTemplate(tpl)}
+                    size="card"
+                    className={TEMPLATE_CARD_CLASS}
+                    lang={lang}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-foreground">{tpl.name}</span>
@@ -360,7 +373,7 @@ export function CreateProjectWizard({
                         {t(lang, "wizardIncludeContent")}: {seedCount}
                       </p>
                     )}
-                  </button>
+                  </ToggleButton>
                 );
               })}
             </fieldset>
