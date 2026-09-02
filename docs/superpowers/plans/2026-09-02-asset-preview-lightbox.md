@@ -46,6 +46,13 @@
 
 ---
 
+★★ **`git commit --only` CANNOT STAGE AN UNTRACKED FILE**, and every task here that CREATES one hits this. It fails with `error: pathspec '<path>' did not match any file(s) known to git`, which reads like a typo in the path. Two steps, both naming the paths explicitly — never `git add -A` or `git add .`, because this tree holds an untracked credentials file:
+
+```bash
+git add -- <exact paths>
+git commit --only <exact paths> -m "..."
+```
+
 ### Task 1: Shared object-URL helper
 
 `document-asset-images.ts` already decodes stored base64 into an object URL, and its mime test is load-bearing: the check is **truthy** (`mime ? ... : ...`), not `!== undefined`, because an asset whose stored mime is `""` survives sanitising and has always rendered by content-sniffing. `isBlockedAssetMime` is a separate, third outcome. The lightbox must not reimplement this.
@@ -449,6 +456,8 @@ git commit -m "feat(assets): add the asset preview lightbox shell"
 ---
 
 ### Task 4: Load the image, and revoke every object URL
+
+★★★ **TASKS 4 AND 5 MUST BE DONE AS ONE UNIT.** Task 4's central test — "revokes the previous object URL when navigating" — clicks the `assetPreviewNext` button, which Task 5 is what creates. Split, Task 4 cannot go green on its own, and an implementer following the steps literally hits a red run that looks like a broken effect and is nothing of the kind. Implement Task 5's prev/next controls first (or both before running anything), then run the two suites together. They may land as one commit or two; the ordering below is narrative, not a dependency order.
 
 ★★★ A leaked object URL is invisible to every assertion except an explicit `revokeObjectURL` spy. Every arrow-press mints a new URL, so revoking only on close leaks one per navigation for the life of the session.
 
