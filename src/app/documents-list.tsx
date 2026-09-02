@@ -71,7 +71,13 @@ export interface DocumentsListProps {
    *  `documents.length === 0` is also true for a filtered-empty list — and
    *  `AddFirstItemButton` is contractually never rendered filtered-empty.
    *  Omit to render the passive message; NEVER pass a no-op, which would draw
-   *  a box that looks clickable and does nothing. */
+   *  a box that looks clickable and does nothing.
+   *  ★★ THE FILTERED REASON IS NOT THE ONLY ONE — read-only is the other, and
+   *  this prop does NOT encode it. The panel omits `onCreate` when read-only,
+   *  but the render below ALSO checks `isReadOnly` directly rather than
+   *  trusting that: every other control on this surface self-guards on it
+   *  (rename/duplicate/delete), and a create box that guarded only at the one
+   *  call site would silently become live the day a second call site appears. */
   onCreate?: () => void;
 }
 
@@ -105,7 +111,7 @@ export function DocumentsList({
   );
 
   if (documents.length === 0) {
-    if (!onCreate) return <EmptyState title={t(lang, "documentsNoneYet")} />;
+    if (!onCreate || isReadOnly) return <EmptyState title={t(lang, "documentsNoneYet")} />;
     return (
       <AddFirstItemButton
         onAdd={onCreate}
@@ -123,12 +129,17 @@ export function DocumentsList({
     // flex column, and `overflow` other than `visible` makes `min-height: auto`
     // resolve to 0 — so both are crushable to nothing, and flex distributes the
     // shrink in PROPORTION to content height, leaving each the same FRACTION of
-    // itself. At ~20% that is a still-usable ~390px of preview and a useless
-    // ~14px of list: the header and a scrollbar, with the row clipped away. The
-    // fewer documents there were, the worse it got. Without `shrink-0` that
-    // returns, and no unit test can see it — jsdom has no layout engine.
-    // ★★ `max-h-80` (20rem ≈ 8 rows at this table's `py-2`) is the other half:
-    // uncrushable ALONE would let a large register push the preview off screen.
+    // itself. ★ The illustrative figures that used to sit here (~390px of
+    // preview against ~14px of list) were ARITHMETIC OVER AN ASSUMED PANE
+    // HEIGHT, never a measurement — the shape is what matters: whatever
+    // fraction survives, a tall preview stays usable at it and a short list
+    // does not, so the fewer documents there were, the worse it got. Without
+    // `shrink-0` that returns, and no unit test can see it — jsdom has no
+    // layout engine.
+    // ★★ `max-h-80` (20rem) is the other half: uncrushable ALONE would let a
+    // large register push the preview off screen. ★ It caps the BOX, and the
+    // sticky header lives INSIDE that box, so the cap buys ~7 visible rows at
+    // this table's `py-2`, not the 8 a bare 20rem ÷ row-height suggests.
     // Past the cap `overflow-auto` scrolls the list internally. All three
     // classes are pinned in `documents-panel.test.tsx`; drop any one and the
     // behaviour breaks in a different direction.

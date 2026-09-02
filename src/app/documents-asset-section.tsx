@@ -77,13 +77,15 @@ export interface DocumentAssetPaneProps {
  * The export-time image loader for a pane, or `undefined` when the asset
  * feature is off.
  *
- * ★★★ IT LIVES HERE, NOT IN documents-panel.tsx, PURELY FOR SIZE. That file
- * sits at EXACTLY the 800-line ratchet cap (`check-file-sizes.mjs` counts
- * `split("
-").length`, i.e. `wc -l` + 1), so it has room for neither the
- * derivation nor its comment — the same pressure that split this whole file
- * out of it. The panel folds this onto its existing import of this module and
- * calls it inline at both download sites, which costs zero net lines.
+ * ★★★ IT LIVES HERE, NOT IN documents-panel.tsx, FOR SIZE — the same pressure
+ * that split this whole file out of it. ★★ DO NOT RE-QUOTE A HEADROOM FIGURE
+ * HERE. This said documents-panel.tsx "sits at EXACTLY the 800-line ratchet
+ * cap"; it was 759 when a cold review checked, and any number written here
+ * rots on the next commit to that file. Measure it instead —
+ * `node -e "console.log(require('fs').readFileSync('src/app/documents-panel.tsx','utf8').split('\n').length)"`
+ * is the gate's own arithmetic (`check-file-sizes.mjs`, i.e. `wc -l` + 1).
+ * The panel folds this onto its existing import of this module and calls it
+ * inline at both download sites, which costs zero net lines either way.
  *
  * ★★★ WITHOUT IT THE EXPORT SILENTLY LOSES EVERY IMAGE, and nothing in this
  * repo would say so. `downloadDocument`'s loader is its OPTIONAL fifth

@@ -45,9 +45,12 @@ describe("useFilePicker", () => {
     expect(click).toHaveBeenCalledTimes(1);
   });
 
-  // ★ THE UNCOVERED BRANCH: user-event's upload() refuses an empty file list,
-  //   so it structurally cannot reach `if (!file) return`. A raw change event
-  //   with an empty files list is the only way to exercise it.
+  // ★ THE UNCOVERED BRANCH: user-event's upload() does not dispatch at all for
+  //   an empty selection — its fileDialog handler compares the new list against
+  //   `input.files` by length and object identity and returns early when they
+  //   match, so an empty upload is a silent no-op rather than a refusal. A raw
+  //   change event with an empty files list is the only way to reach
+  //   `if (!file) return`.
   it("does not call onFile when the change event carries no file", () => {
     const onFile = vi.fn();
     const { input } = setup(onFile);
@@ -55,15 +58,17 @@ describe("useFilePicker", () => {
     expect(onFile).not.toHaveBeenCalled();
   });
 
-  // ★ The reset is deliberately BEFORE the early return, so a re-pick after a
-  //   no-file event must still fire — pin the reset on the no-file path too,
-  //   not only after a successful pick.
-  it("resets the input value on the no-file path too", () => {
-    const onFile = vi.fn();
-    const { input } = setup(onFile);
-    fireEvent.change(input, { target: { files: [] } });
-    expect(input.value).toBe("");
-  });
+  // ★★★ NO TEST HERE PINS `e.target.value = ""`, AND NONE CAN — do not add one.
+  //   jsdom's HTMLInputElement.value getter derives from the IMPL's FileList,
+  //   while fireEvent shadows `files` as an own property on the WRAPPER, so
+  //   `input.value` reads "" in every state: before the event, after a no-file
+  //   event, and after a successful pick (measured against jsdom 29.1.1 with a
+  //   real File attached). An `expect(input.value).toBe("")` therefore cannot
+  //   fail, and a test built on it reads as protection while guarding nothing.
+  //   The reset IS pinned, by behaviour rather than by value: see
+  //   `file-picker-button.test.tsx`'s "fires again when the same file is picked
+  //   twice", which carries its own note about the fresh-File variant that
+  //   shipped green against the deleted reset in 0.211.1.
 
   it("calls onFile with the picked file on a real change event", () => {
     const onFile = vi.fn();

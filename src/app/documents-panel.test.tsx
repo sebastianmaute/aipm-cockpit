@@ -2434,14 +2434,29 @@ describe("DocumentsPanel — the documents empty-state box", () => {
   });
 
   // ★★★ A popout is a read-only mirror whose create affordance is inert by
-  // design. The passive message is the POSITIVE OBSERVABLE, so this cannot
-  // pass against a box that never renders under any conditions.
+  // design.
+  // ★★ READ THE SECOND ASSERTION FOR WHAT IT IS. `documentsNoneYet` is the
+  // passive EmptyState's title AND the box's own `text` line, so it renders in
+  // BOTH branches and CANNOT discriminate between them — it proves only that
+  // the pane rendered something rather than throwing. The `queryByRole` half is
+  // the whole load-bearing assertion. An earlier comment here called the
+  // message "the POSITIVE OBSERVABLE", which overstated it.
   it("shows the passive message instead of the box when read-only", () => {
     renderPanel([], { isReadOnly: true });
     expect(
       screen.queryByRole("button", { name: t("en-US", "documentsCreateFirst") }),
     ).toBeNull();
     expect(screen.getByText(t("en-US", "documentsNoneYet"))).toBeInTheDocument();
+  });
+
+  // ★ The mirror of the asset side's own populated-register test. Paired with a
+  // positive observable so it cannot pass against a pane that rendered nothing.
+  it("does not offer the create box once the register has a document", () => {
+    renderPanel([doc(1, "Alpha")]);
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    ).toBeNull();
   });
 
   // ★★★ The one case where the gate's two candidate readings DISAGREE.
@@ -2493,12 +2508,16 @@ describe("DocumentsPanel — the list is sized by its rows, not crushed by the p
     return box;
   }
 
-  it("never shrinks below its rows", () => {
+  // ★★ THESE NAMES DELIBERATELY SAY "carries", NOT "never shrinks" / "caps its
+  // height". They read `className` and nothing else; a name promising geometry
+  // is what a future audit greps and mistakes for a measurement, and the real
+  // check is a Chromium pass, not this file.
+  it("carries shrink-0 on the list scroll box", () => {
     renderPanel([doc(1, "Alpha")]);
     expect(listBox()).toHaveClass("shrink-0");
   });
 
-  it("caps its height and scrolls internally past the cap", () => {
+  it("carries max-h-80 and overflow-auto on the list scroll box", () => {
     renderPanel([doc(1, "Alpha")]);
     expect(listBox()).toHaveClass("max-h-80");
     expect(listBox()).toHaveClass("overflow-auto");

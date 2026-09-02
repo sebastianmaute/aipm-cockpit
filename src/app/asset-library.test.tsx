@@ -370,8 +370,26 @@ describe("AssetLibrary — the upload empty-state box", () => {
 
   it("does not offer the box once the library has an asset", () => {
     render(<AssetLibrary {...base} />); // `base.assets` is the 2-item fixture
+    // ★★ THE POSITIVE OBSERVABLE, and it is not decoration. Without it this
+    // assertion passes for a component that rendered NOTHING AT ALL — a broken
+    // `base`, a throwing child swallowed by a boundary, a renamed export. The
+    // table proves the populated branch actually ran, so the absence below is
+    // evidence about the branch rather than about the fixture.
+    expect(screen.getByRole("table")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: t("en-US", "assetLibraryUploadFirst") }),
     ).toBeNull();
+  });
+
+  // ★ The two pickers must agree, and since they now read one pair of consts
+  // this is cheap insurance rather than a real risk — it goes red if someone
+  // re-inlines either expression at one site only, which is how the pane
+  // looked before the cold review.
+  it("gives both file inputs the same accept list", () => {
+    render(<AssetLibrary {...base} assets={[]} />);
+    const inputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1].accept).toBe(inputs[0].accept);
+    expect(inputs[0].accept).not.toBe("");
   });
 });

@@ -81,10 +81,27 @@ export function AssetLibrary({
   onUpload,
 }: AssetLibraryProps) {
   const confirm = useConfirm();
+  // ★★ ONE derivation, TWO pickers. This pane mounts two independent file
+  // dialogs — the toolbar `FilePickerButton` and, on the empty branch, the
+  // dashed box's own hidden input — and they must agree on what they accept
+  // and when they are inert. These consts are what makes that structural: an
+  // earlier cut wrote both expressions out twice and carried a comment
+  // claiming they "mirror so they cannot diverge", which was simply false.
+  // Both sites below read THESE bindings; keep it that way.
+  const pickerAccept = ASSET_MIME_ALLOWED.join(",");
+  // ★★ UNREACHABLE TODAY, AND DELIBERATELY KEPT. `useDocumentAssets` commits
+  // the metadata row BEFORE it sets `busyId` (see its "METADATA FIRST" note),
+  // and React batches the pair — so `assets` is never empty while `busyId` is
+  // set, and the empty branch holding the box is already unmounted. The
+  // argument is defence against that ordering being reversed. ★★★ IF IT EVER
+  // IS, THIS IS NOT ENOUGH: `AddFirstItemButton` has no `disabled` prop, so
+  // the box would render fully live while its input is disabled and the click
+  // would be a silent no-op. Give the box a disabled state before relying on
+  // this flag reaching it.
+  const pickerDisabled = busyId !== null;
   // ★ The empty-state box's OWN picker, distinct from the toolbar
-  // FilePickerButton's — see the accept/disabled derivation on that button
-  // above, which this mirrors so the two pickers cannot diverge.
-  const boxPicker = useFilePicker(onUpload, ASSET_MIME_ALLOWED.join(","), busyId !== null);
+  // FilePickerButton's (rendered ~100 lines BELOW, in the return).
+  const boxPicker = useFilePicker(onUpload, pickerAccept, pickerDisabled);
   const [sort, setSort] = useState<{ key: AssetSortKey; dir: SortDir }>({ key: "name", dir: "off" });
   // In-place rename draft. `onRename` takes the new name directly — there is
   // no separate rename modal, so the edit state lives here.
@@ -182,9 +199,9 @@ export function AssetLibrary({
       <div className="flex flex-wrap items-center gap-2">
         <FilePickerButton
           label={t(lang, "upload")}
-          accept={ASSET_MIME_ALLOWED.join(",")}
+          accept={pickerAccept}
           onFile={onUpload}
-          disabled={busyId !== null}
+          disabled={pickerDisabled}
         />
         {/* Disclosure only — no per-workspace cap is enforced. */}
         <span className="text-xs text-muted-foreground">

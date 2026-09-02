@@ -35,8 +35,11 @@ interface AddFirstItemButtonProps {
 }
 
 /**
- * The clickable dashed "add first item" empty-state box shared by the entity panels
- * (budget · gantt · milestones · changes · stakeholders · raid · open-points · knowledge).
+ * The clickable dashed "add first item" empty-state box shared by the entity panels.
+ * ★ Enumerate today's callers rather than trusting a list here — this docstring named
+ * eight panels and silently omitted Documents, which mounts TWO of these boxes (the
+ * document register and the image library):
+ *   grep -rn "AddFirstItemButton" src/app --include=*.tsx | grep -v test
  * Rendered ONLY for a truly-empty register (never filtered-empty); the panel keeps its own
  * empty-vs-filtered branching and swaps this box in for the <table>/rows. With `text` it is a
  * two-line flex box (description + CTA); without, a single centred CTA line (budget).
