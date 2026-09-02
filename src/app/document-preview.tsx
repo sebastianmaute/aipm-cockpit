@@ -31,9 +31,10 @@
 // paragraph path is unguarded — worse than an uncited claim, because the note
 // advertises itself as checked. Line numbers rot on the next edit above them.
 
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
-import { type Lang } from "./i18n";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type Lang, t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
+import type { DocumentAsset } from "./document-asset";
 import type { Workspace } from "./workspace";
 import type { TursoConfig } from "./turso-config";
 import { renderDocumentHtml } from "./doc-render-html";
@@ -43,6 +44,43 @@ import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 import {
   subscribeAssetRepairs, getAssetRepairGeneration, getServerAssetRepairGeneration,
 } from "./document-asset-repairs";
+import { AssetPreviewModal } from "./asset-preview-modal";
+import { buildRowTokens } from "./row-tokens";
+
+const ASSET_IMG = "img[data-asset-id]";
+
+/** The inserted asset images, in the order the reader sees them. ★★ THIS ORDER
+ *  IS THE CONTRACT with the lightbox: "next" must mean the next picture ON THE
+ *  PAGE, so the list comes from the DOM and never from `ws.documentAssets`
+ *  (which is the library's order, and holds assets this document never
+ *  placed). */
+function assetImagesIn(root: HTMLElement): HTMLImageElement[] {
+  return Array.from(root.querySelectorAll<HTMLImageElement>(ASSET_IMG));
+}
+
+/**
+ * What one inserted image is CALLED, for its accessible name and the lightbox
+ * title.
+ *
+ * ★ Metadata first, `alt` second, id last. The insert path writes the asset's
+ * name into `alt`, so the two normally agree; they diverge after a rename,
+ * where the CURRENT name is the better answer. A byte row can also outlive its
+ * metadata (an import that dropped the slice) — then `alt` is all there is, and
+ * the id is a last resort rather than the label, because a uuid reads as 36
+ * characters of character-salad aloud.
+ */
+function imageName(img: HTMLImageElement, byId: ReadonlyMap<string, DocumentAsset>): string {
+  const id = img.getAttribute("data-asset-id") ?? "";
+  return byId.get(id)?.name || img.getAttribute("alt") || id;
+}
+
+/** One image as the lightbox wants it. A placed image whose metadata row is
+ *  gone still has to occupy its POSITION in the list, or every index after it
+ *  points at the wrong picture — so it is synthesised rather than dropped, and
+ *  the byte load then reports it unavailable, which is the truth. */
+function asAsset(id: string, name: string, byId: ReadonlyMap<string, DocumentAsset>): DocumentAsset {
+  return byId.get(id) ?? { id, name, mime: "", size: 0, hash: "", createdAt: "" };
+}
 
 export interface DocumentPreviewProps {
   lang: Lang;
@@ -152,7 +190,94 @@ export function DocumentPreview({
     };
   }, [html, documentAssets, tursoConfig, projectId, assetRepairGeneration]);
 
+  const assetsById = useMemo(
+    () => new Map((documentAssets ?? []).map((a) => [a.id, a] as const)),
+    [documentAssets],
+  );
+
+  // ★★★ THE IMAGES ARE MADE INTERACTIVE IMPERATIVELY, FOR THE SAME REASON THEIR
+  // `src` IS. The body below is one `dangerouslySetInnerHTML` string, so these
+  // `<img>` nodes are not React elements — there is no element to hand a
+  // `tabIndex`, a role or a handler to. This stamps the attributes; activation
+  // itself is DELEGATED from the container (see the handlers on that div).
+  // ★★ IT MUST DEPEND ON `html`. React re-assigns `innerHTML` whenever that
+  // string changes, discarding every attribute written here — the same hazard
+  // the `bodyHtml` memo above exists to bound.
+  // ★★ KEYBOARD REACHABILITY IS NOT OPTIONAL: a click-only region is unusable
+  // for keyboard and touch users, so `tabIndex` and `role="button"` go on with
+  // the name, never after it as a follow-up.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const imgs = assetImagesIn(el);
+    // ★★★ A NULL CONFIG MEANS ASSET STORAGE IS OFF — the same bail the resolve
+    // effect above carries. No byte can ever load, so an affordance promising a
+    // lightbox would be a lie. Attributes are REMOVED rather than merely not
+    // added: `html` is unchanged when the config flips to null, so React keeps
+    // the very nodes a previous run stamped.
+    if (tursoConfig === null) {
+      for (const img of imgs) {
+        img.removeAttribute("role");
+        img.removeAttribute("tabindex");
+        img.removeAttribute("aria-label");
+        img.style.removeProperty("cursor");
+      }
+      return;
+    }
+    // ★★★ TOKENS ARE KEYED BY POSITION, NOT BY ASSET ID. `buildRowTokens`
+    // returns a Map keyed on the row id, so keying on the ASSET id would
+    // collapse the same picture inserted twice into ONE entry — both images
+    // would then read the same BARE name, which is the WCAG 2.4.6 failure this
+    // is here to prevent and which no `documentAssets` fixture can reproduce.
+    const tokens = buildRowTokens(imgs.map((img, i) => ({ id: i, name: imageName(img, assetsById) })));
+    imgs.forEach((img, i) => {
+      img.setAttribute("role", "button");
+      img.setAttribute("tabindex", "0");
+      // ★ `aria-label` OVERRIDES `alt` as the accessible name here, which is
+      // wanted: the control is "open this picture", not the picture itself, and
+      // the token it carries is what disambiguates two of them.
+      img.setAttribute("aria-label", t(lang, "assetPreviewOpen", tokens.get(i) ?? ""));
+      // Inline rather than a Tailwind class: these nodes come from an HTML
+      // string, so no class written here would be in Tailwind's scan set for
+      // any file it actually reads.
+      img.style.cursor = "pointer";
+    });
+  }, [html, assetsById, lang, tursoConfig]);
+
+  // The lightbox's list, snapshotted from the DOM at activation. Ids and names
+  // only — the DocumentAsset rows are re-derived at render, so a repair landing
+  // while the lightbox is open is picked up rather than frozen.
+  const [preview, setPreview] = useState<
+    { readonly images: readonly { id: string; name: string }[]; readonly index: number } | null
+  >(null);
+
+  // ★★ NO STATE IS SET FROM AN EFFECT here, deliberately —
+  // `react-hooks/set-state-in-effect` is banned and fatal. The list is read out
+  // of the live DOM inside the ACTIVATION handler, which is also the more
+  // correct moment: it is exactly what the reader had in front of them.
+  const openPreview = useCallback((target: Element) => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const imgs = assetImagesIn(el);
+    const index = imgs.indexOf(target as HTMLImageElement);
+    if (index < 0) return;
+    setPreview({
+      images: imgs.map((img) => ({
+        id: img.getAttribute("data-asset-id") ?? "", name: imageName(img, assetsById),
+      })),
+      index,
+    });
+  }, [assetsById]);
+
+  // ★ Scoped to the container, never to `document` — a document-level key
+  // listener would fire for every view in the app, and the shared `Modal`
+  // already owns Escape through the dismissal stack.
+  const activationTarget = (e: { target: EventTarget | null }): Element | null =>
+    e.target instanceof Element ? e.target.closest(ASSET_IMG) : null;
+
   if (!doc) return null;
+
+  const previewAssets = (preview?.images ?? []).map((i) => asAsset(i.id, i.name, assetsById));
 
   const titleId = `document-preview-title-${doc.id}`;
 
@@ -170,20 +295,50 @@ export function DocumentPreview({
     // <section> is implicitly `role="region"`, so an explicit role would be
     // redundant. Do not swap this for an aria-label literal: that is both a
     // hardcoded English string and a less specific name.
-    <section
-      tabIndex={0}
-      aria-labelledby={titleId}
-      className="overflow-auto rounded-md border border-line bg-surface p-4"
-    >
-      <h2 id={titleId} className="mb-3 text-base font-semibold text-foreground">
-        {doc.title}
-      </h2>
-      <div
-        ref={bodyRef}
-        data-document-preview-body
-        className="text-sm text-foreground"
-        dangerouslySetInnerHTML={bodyHtml}
-      />
-    </section>
+    <>
+      <section
+        tabIndex={0}
+        aria-labelledby={titleId}
+        className="overflow-auto rounded-md border border-line bg-surface p-4"
+      >
+        <h2 id={titleId} className="mb-3 text-base font-semibold text-foreground">
+          {doc.title}
+        </h2>
+        <div
+          ref={bodyRef}
+          data-document-preview-body
+          className="text-sm text-foreground"
+          // ★★★ DELEGATED, because there is no React element for the image. A
+          // handler on THIS div still sees the bubbled event from a node React
+          // only ever wrote as innerHTML, and `closest` finds the image the
+          // reader actually hit.
+          onClick={(e) => { const img = activationTarget(e); if (img) openPreview(img); }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            const img = activationTarget(e);
+            if (!img) return;
+            // Space would otherwise scroll the region this body sits in.
+            e.preventDefault();
+            openPreview(img);
+          }}
+          dangerouslySetInnerHTML={bodyHtml}
+        />
+      </section>
+      {/* Mounted whenever asset storage is on, never conditionally on
+          `preview` — `Modal` returns null while closed, and the lightbox's
+          re-seed-on-reopen logic depends on staying mounted across opens.
+          ★ Turso gating is INHERITED from `tursoConfig`, the same prop the
+          resolve effect bails on; nothing here re-derives it. */}
+      {tursoConfig !== null && (
+        <AssetPreviewModal
+          lang={lang}
+          open={preview !== null}
+          onClose={() => setPreview(null)}
+          assets={previewAssets}
+          startIndex={preview?.index ?? 0}
+          loadImage={(id) => loadAssetData(tursoConfig, id, projectId)}
+        />
+      )}
+    </>
   );
 }
