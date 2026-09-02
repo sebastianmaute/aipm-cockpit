@@ -8,6 +8,38 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.277.0] - 2026-09-02 "Ozeki"
+
+### Added
+
+- **Links survive export.** A hyperlink written into a task description, a RAID
+  item, a change or a milestone now arrives in the exported `.docx` and `.pptx`
+  as a real, clickable hyperlink. Until now the exporters flattened every link
+  to its visible words and, on the flat paths, printed the address beside them
+  as plain text — so a reader either lost the destination or had to copy it out
+  by hand.
+- The DOCX writer gained a `Hyperlink` character style, so a link is drawn as a
+  link — dark blue and underlined — rather than being followable but
+  indistinguishable from the words around it.
+- The PPTX writer mints per-slide link relationships, and underlines every
+  linked run. The deck theme already colours hyperlinks, but the row-title slot
+  paints its own text in exactly that colour, so on a title the colour said
+  nothing; the underline is the cue that works in every slot.
+
+### Changed
+
+- The workspace exporter's PPTX row slides now render rich cells as styled runs
+  when they carry a link, which also carries their bold, italic, highlight and
+  code formatting onto the slide.
+- XLSX and the PPTX table cells keep the existing `text (url)` form. Those sinks
+  have no per-cell link model to mint into, and the reasoning is recorded rather
+  than left implicit.
+
+### Fixed
+
+- A `.docx` hyperlink was followable but invisible — no character style declared
+  colour or underline for it.
+
 ## [0.276.0] - 2026-09-01 "Cadigan"
 
 ### Fixed
