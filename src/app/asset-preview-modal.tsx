@@ -63,6 +63,10 @@ export function AssetPreviewModal({
   lang, open, onClose, assets, startIndex, loadImage, reloadNonce,
 }: AssetPreviewModalProps) {
   const [index, setIndex] = useState(startIndex);
+  // ★★ The decoded result, tagged with the id it was minted for. Declared
+  // HERE, above the reconcile, only so the reconcile can clear it — see the
+  // open→closed branch below.
+  const [view, setView] = useState<{ forId: string; result: AssetObjectUrl } | null>(null);
   const { offset, reset: dragReset, handleProps } = useDraggable(open, STORAGE_KEY_POS);
   const { ref: sizeRef, reset: sizeReset } = useResizable(STORAGE_KEY_SIZE);
 
@@ -84,9 +88,22 @@ export function AssetPreviewModal({
     setSeenStart(startIndex);
     setSeenOpen(open);
     // Only move the index on an actual OPEN — collapsing `startIndex` while
-    // closed must not itself relocate the (invisible) index, and closing
-    // should not trigger an extra render for nothing.
+    // closed must not itself relocate the (invisible) index.
     if (open) setIndex(startIndex);
+    // ★★★ CLEARING `view` ON CLOSE IS WHAT CLOSES THE REOPEN FLASH, AND THE
+    // `forId` TAG BELOW DOES NOT. Closing revokes the URL (the load effect's
+    // cleanup) but the effect BODY early-returns on `!open`, so it can never
+    // clear the state that holds the now-dead URL. On reopen only `open` has
+    // changed — the asset id has NOT — so a tag comparison still matches and
+    // the render commits `<img src={revokedUrl}>` before the passive effect
+    // can replace it. A first cut of this component shipped exactly that, with
+    // a comment claiming the tag had fixed it; the tag earns its place on the
+    // NAVIGATE and list-SHRINK paths, where the id genuinely changes, and on
+    // this path it is inert. Clearing here is the fix.
+    // ★★ This is a render-phase update on this same component, which is the
+    // repo's prescribed alternative to `set-state-in-effect` — the same
+    // mechanism `index` above uses, so it costs one extra render and settles.
+    if (!open) setView(null);
   }
 
   const current = assets[index];
@@ -96,22 +113,6 @@ export function AssetPreviewModal({
     setIndex((i) => Math.min(Math.max(i + delta, 0), assets.length - 1));
   }, [assets.length]);
 
-  // ★★★ THE RESULT CARRIES THE ID IT WAS MINTED FOR, AND RENDERING IS GATED ON
-  // THAT MATCHING. A bare `AssetObjectUrl` here ships a revoked URL as a live
-  // `src` on the most ordinary interaction there is — open, close, reopen:
-  // closing runs the effect's cleanup (revoking the URL) but the effect BODY
-  // early-returns on `!open`, so nothing can clear the state, and the reopen
-  // render commits a freshly mounted `<img>` pointing at the dead blob before
-  // the passive effect gets to replace it. The browser paints its broken-image
-  // glyph for that frame. Clearing it from an effect is not available to us —
-  // `react-hooks/set-state-in-effect` is banned and fatal — so the state is
-  // made SELF-INVALIDATING instead: a result minted for another id (or while
-  // closed) simply does not render.
-  // ★★ This also covers the case the reconcile above cannot: if `assets`
-  // shrinks while open so `index` falls out of range, `id` goes undefined and
-  // the departed asset's image would otherwise stay on screen under a blanked
-  // title and alt.
-  const [view, setView] = useState<{ forId: string; result: AssetObjectUrl } | null>(null);
   // Holds the URL currently minted so cleanup revokes exactly one thing.
   const urlRef = useRef<string | null>(null);
 
@@ -155,8 +156,21 @@ export function AssetPreviewModal({
     return () => { cancelled = true; release(); };
   }, [open, id, release, currentMime, reloadNonce]);
 
-  // Only a result minted for the asset on screen, in an open modal, may render.
-  const shown = open && view?.forId === id ? view.result : null;
+  // Only a result minted for the asset on screen may render. This covers the
+  // NAVIGATE path (the render after `id` changes commits before the load
+  // effect can replace the previous asset's result) and the list-SHRINK path
+  // (`id` goes undefined, and the effect early-returns without clearing
+  // anything, so nothing else would). It does NOT cover open→close→reopen,
+  // where `id` is unchanged and this comparison still matches — the reconcile
+  // above clears `view` on close for that.
+  // ★★★ BOTH NULL CHECKS ARE LOAD-BEARING AND THE OBVIOUS SHORTENING CRASHES.
+  // `view?.forId === id` reads as safe and is not: with no result yet AND no
+  // current asset, it compares `undefined === undefined`, takes the TRUE
+  // branch, and dereferences `view.result` on null. That is the ordinary
+  // first render of a modal opened on an empty list — it threw in nine tests.
+  // Compare the two things explicitly rather than leaning on optional
+  // chaining, which narrows nothing here.
+  const shown = view !== null && id !== undefined && view.forId === id ? view.result : null;
 
   return (
     // `ariaLabelledby` over `ariaLabel` so the dialog's accessible name IS the

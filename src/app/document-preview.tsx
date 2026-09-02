@@ -249,10 +249,8 @@ export function DocumentPreview({
   // change (a rename) landing while the lightbox is open is picked up rather
   // than frozen.
   //
-  // ★★★ A REPAIR IS NOT SUCH A CHANGE, AND AN EARLIER WORDING HERE SAID IT
-  // WAS. It claimed re-derivation picked up a repair; the refutation is a
-  // hundred lines up in this same file, where `assetRepairGeneration` is
-  // introduced: a §212 repair rewrites BYTES over an existing id and writes NO
+  // ★★★ A REPAIR IS NOT SUCH A CHANGE. As `assetRepairGeneration` above
+  // records, a §212 repair rewrites BYTES over an existing id and writes NO
   // metadata, so `documentAssets` keeps its identity, `assetsById` is
   // unchanged, and the re-derived rows are byte-for-byte what they were. The
   // lightbox's own load effect keys on the asset id and mime, so nothing in it

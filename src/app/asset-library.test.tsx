@@ -371,14 +371,12 @@ describe("AssetLibrary — image preview", () => {
     const loadImage = vi.fn(async () => TINY_GIF);
     render(<AssetLibrary {...base} loadImage={loadImage} />);
 
-    // One click on the Size header moves "off" → ascending.
     await user.click(screen.getByRole("button", { name: /size/i }));
     // Anti-vacuity: if the click did not sort, row 0 is still a1 and the
     // assertion below would pass against the unsorted list it is meant to
     // rule out. ★ a2's 1024 bytes render as "1.0 KB", NOT "1,024 B" —
     // `formatBytes` branches on `bytes < 1024`, which 1024 fails, so it takes
-    // the KB path. (This guard caught that mistake in its own first draft,
-    // which is what it is for.) a1's 2048 would render "2.0 KB".
+    // the KB path. a1's 2048 would render "2.0 KB".
     const firstRow = within(screen.getByRole("table")).getAllByRole("row")[1];
     expect(within(firstRow).getByText(/1\.0 KB/)).toBeInTheDocument();
 
@@ -418,7 +416,7 @@ describe("AssetLibrary — image preview", () => {
   //     and the control was a straight WCAG 2.5.3 failure — a German speech-
   //     input user saying the label printed on the button could not activate
   //     it. Rendering in `de` is what makes this test able to fail at all.
-  // ★★ NOTHING ELSE CAN CATCH IT. axe ships `label-content-name-mismatch` and
+  // ★★ NO GATE AS CONFIGURED CATCHES IT. axe ships `label-content-name-mismatch` and
   //     it carries `wcag21a`, so a rule listing reads as coverage — but it is
   //     also tagged `experimental` and axe's default tagExclude is
   //     `experimental,deprecated`, so the tag-only runOnly in `e2e/a11y.spec.ts`

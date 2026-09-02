@@ -402,15 +402,10 @@ export function AssetLibrary({
                           // translation of either string. `SortResizeTh` builds
                           // its header names from `label` for exactly this
                           // reason, and `documents-history-modal.tsx` spells
-                          // this same pair one file over.
-                          // ★★ No gate in this repo can see a regression here:
-                          // axe's `label-content-name-mismatch` is tagged
-                          // `experimental` and axe's default tagExclude drops
-                          // it, and this surface is Turso-gated so the a11y
-                          // gate never renders it at all. The DE containment
-                          // test in `asset-library.test.tsx` is the only
-                          // detector that will ever exist — an EN-only test
-                          // passes against the broken code.
+                          // this same pair one file over. The DE containment
+                          // test in `asset-library.test.tsx` is what catches a
+                          // revert; AGENTS.md's a11y section carries the
+                          // measurement of why no gate can.
                           aria-label={`${t(lang, "documentsPreview")} – ${token}`}
                         >
                           {t(lang, "documentsPreview")}

@@ -130,32 +130,26 @@ describe("AssetPreviewModal — object URL lifecycle", () => {
     expect(screen.getByRole("img", { name: "Alpha" })).toHaveAttribute("src", shownUrl);
   });
 
-  // ★★★ THE MIRROR OF THE LEAK TEST, AND THE ONE THAT WAS MISSING. Every
-  // other assertion in this describe checks that a URL IS revoked; none
-  // checked that a revoked one is never RENDERED. Those are different
-  // properties and the component satisfied only the first: `view` held the
-  // last successful result forever, the loading effect's `if (!open || !id)
-  // return` bailed before it could clear it, so a reopen committed a freshly
-  // mounted `<img>` pointing at a blob the close had already revoked. The
-  // browser paints its broken-image glyph for that frame.
-  // ★★★ THE REOPEN FLASH ITSELF IS NOT TESTABLE HERE, AND A FIRST CUT OF THIS
-  // TEST CLAIMED IT WAS. It drove open → close → reopen and asserted
-  // SYNCHRONOUSLY after `rerender`, on the theory that the passive effect had
-  // not yet replaced the stale result. RTL's `rerender` wraps in `act()`,
-  // which FLUSHES passive effects before returning — so the repair always
-  // lands first and the mutant SURVIVED (19/19 green). There is no
-  // un-flushed frame for a unit test to observe; only a real browser sees it.
-  // Do not re-add that test believing a missing `await` is what makes it work.
-  //
-  // ★★ THIS case is flush-independent, because the effect does not run at
-  // all: when the list shrinks under an open modal, `index` falls out of
-  // range, `id` goes `undefined`, and the effect's `if (!open || !id) return`
-  // bails BEFORE it could clear anything. Flushing changes nothing, so the
-  // difference between holding the last result and gating it is directly
-  // observable. Same root cause and same fix as the reopen flash — this is
-  // the half that can be pinned.
-  // ★ Mutation: `const shown = open && view?.forId === id ? view.result :
-  // null` → `const shown = view?.result ?? null`. Red here (the departed
+  // ★★★ THE MIRROR OF THE LEAK TEST. Every other assertion in this describe
+  // checks that a URL IS revoked; none checked that a revoked one is never
+  // RENDERED. Those are different properties, and the component satisfied
+  // only the first.
+  // ★★★ THIS PINS THE list-SHRINK PATH ONLY, AND THE OTHER TWO ARE NOT
+  // PINNED HERE — do not read a green run as covering them. The shrink path
+  // is testable because the load effect does not run at all: `id` goes
+  // `undefined`, its `if (!open || !id) return` bails before it could clear
+  // anything, and no amount of flushing changes the result.
+  // ★★ The open→close→reopen path is NOT testable in jsdom, in either
+  // direction. RTL's `rerender` wraps in `act()`, which FLUSHES passive
+  // effects before returning, so the frame where a stale result is committed
+  // has already been replaced by the time any assertion can run — that holds
+  // for the broken component AND the fixed one, so no assertion can tell them
+  // apart. A first cut of this test asserted synchronously after `rerender`
+  // believing it could outrun the effect; its mutant survived 19/19. Only a
+  // real browser paints that frame. Do not re-add it believing a missing
+  // `await` is the trick.
+  // ★ Mutation for THIS test: `const shown = view?.forId === id ? view.result
+  // : null` → `const shown = view?.result ?? null`. Red here (the departed
   // asset's image stays on screen under a blanked alt).
   it("stops rendering an asset that has left the list", async () => {
     const two = [asset("a", "Alpha"), asset("b", "Beta")];
@@ -177,9 +171,8 @@ describe("AssetPreviewModal — object URL lifecycle", () => {
     // departed asset leaves `current` undefined, so the defective render emits
     // `<img alt="">` — and an empty `alt` gives the element role
     // `presentation`, not `img`. `queryByRole("img")` therefore returns null
-    // for BOTH the fixed and the broken component, and an earlier draft of
-    // this assertion used it and let the mutant survive 19/19. The stale
-    // picture is still painted on screen; only its accessible role changed.
+    // for BOTH the fixed and the broken component. The stale picture is still
+    // painted on screen; only its accessible role changed.
     expect(container.querySelector("img")).toBeNull();
   });
 
