@@ -1410,7 +1410,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **★ Toolbar button ORDER convention (this is the RULE, not a claim every pane already follows it — read the
   pane's own toolbar before assuming compliance):** every pane's toolbar ends with the contiguous trailing group
   **Print · reset-columns · reset-pane-size**, in that order. Destructive/bulk actions (Activity's "Clear log")
-  and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members. Drift has
+  and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members.
+  ★★ THE DASHBOARD'S GROUP IS VERTICAL AND ITS MIDDLE MEMBER IS **reset-LAYOUT**, not reset-columns —
+  `ResetLayoutButton`, restoring the tile arrangement to `DEFAULT_LAYOUT`. That pane has no columns to reset, and
+  arrangement is the reset-columns ANALOGUE (it restores CONTENT arrangement, where reset-pane-size restores the
+  BOX), so it sorts into the same slot: Print · reset-layout · reset-size. Do NOT "correct" it to the spelling
+  above. It is pinned by `expectButtonOrder` with `contiguous: true` in `dashboard-panel.test.tsx`, and that
+  assertion is mutation-proved — reordering the two resets turns it red. ★ It is also the one member carrying its
+  own `!arrangement.readOnly` guard, because the stack around it is gated only on `print:hidden`; a popout is
+  read-only by design and would otherwise gain a working reset. Drift has
   been caught and fixed more than once: Outlook once sat between the two resets in Resources; Clear once sat
   after them in Activity; Open Points had the worst case — Print/reset-size/reset-columns sat BEFORE the
   destructive Clear-all AND the two resets were in the wrong relative order (reset-size before reset-columns),
