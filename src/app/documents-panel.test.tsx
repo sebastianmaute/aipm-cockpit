@@ -2406,4 +2406,26 @@ describe("DocumentsPanel — the documents empty-state box", () => {
     ).toBeNull();
     expect(screen.getByText(t("en-US", "documentsNoneYet"))).toBeInTheDocument();
   });
+
+  // ★★★ The one case where the gate's two candidate readings DISAGREE.
+  // `documents` (the register) is non-empty; `visibleRows` (filtered) is empty.
+  // Reading the filtered array here would offer "Create your first document" to
+  // someone who has documents and a filter applied. The passive message is the
+  // positive observable, so this cannot pass against a pane that rendered nothing.
+  it("shows the passive message, not the create box, when an armed filter matches none of the documents", () => {
+    const documents = [linkedDoc(), doc(11, "Minutes")];
+    render(
+      <PanelHost>
+        <EntityFilterTrigger kind="raid" id={999} />
+        {panelWith(documents)}
+      </PanelHost>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "arm-filter" }));
+
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "documentsCreateFirst") }),
+    ).toBeNull();
+    expect(screen.getByText(t("en-US", "documentsNoneYet"))).toBeInTheDocument();
+  });
 });
