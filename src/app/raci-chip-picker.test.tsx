@@ -87,11 +87,15 @@ describe("RaciChipPicker", () => {
   // down to 520px — by ~9px at 1280 (an ordinary desktop, not an edge case) and
   // by ~76px at 520.
   //
-  // ★★★ THE CLASS AND PARENT ASSERTIONS ARE NOT THE PIN AND MUST NOT BE READ AS
-  // ONE. The hand-rolled span already carried `rounded-md border-line
-  // bg-surface` and was already portaled to `document.body`, so all four of them
-  // PASS against the unfixed code — kept only to prove we are looking at the
-  // panel and not at some other `.fixed` span. The STYLE PAIR is the whole pin:
+  // ★★★ THE CLASS AND PARENT ASSERTIONS ARE NOT THE PIN FOR THE ADOPTION and
+  // must not be read as one: the hand-rolled span already carried `rounded-md
+  // border-line bg-surface` and was already portaled to `document.body`, so all
+  // four PASS against the unfixed code. ★★ They are NOT decorative either, and
+  // an earlier revision here dismissed them as "kept only to prove we are
+  // looking at the panel". Those three classes are no longer in this file's own
+  // `className` — the primitive supplies them — so they now pin its base
+  // styling FROM THE CONSUMER SIDE and would catch it dropping one. Two
+  // different jobs, both worth keeping. The STYLE PAIR is the adoption pin:
   // the hand-rolled panel set an inline `left` and no `right`, while
   // `PopoverPanel`'s `bottom-end` placement drives `right` (+ the post-paint
   // clamp that pulls the left edge back inside `VIEWPORT_MARGIN`) and never
@@ -132,5 +136,96 @@ describe("RaciChipPicker", () => {
     render(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="x" lang="en-US" />);
     fireEvent.click(screen.getByRole("button", { expanded: false }));
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "R" }));
+  });
+
+  // ★★★ §334. RACI is NOT in `A11Y_VIEWS`, so no axe run will ever reach this
+  // surface — and the three tests below are the only coverage the popover's
+  // keyboard and naming contract will ever have. Do not delete one as redundant
+  // with the primitive's own suite: `popover-panel.test.tsx` pins that the
+  // PRIMITIVE behaves, never that this consumer is wired to it.
+  //
+  // ★★★ JSDOM CANNOT MOVE FOCUS ON Tab — it implements no sequential
+  // navigation — so this test pins the two EDGE wraps and the pull-in, which is
+  // all the trap actually executes. The interior steps are browser-native and
+  // unreachable from here; asserting them would mean asserting on my own
+  // `.focus()` calls, which proves nothing. A Chromium probe measured the full
+  // cycle on this code (R->A->C->I->Clear->R for 40 presses without escaping);
+  // if this test ever contradicts that, this test is wrong.
+  it("wraps Tab at both edges so focus cannot leave the five chips", () => {
+    render(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="x" lang="en-US" />);
+    const trigger = screen.getByRole("button", { expanded: false });
+    fireEvent.click(trigger);
+    const first = screen.getByRole("button", { name: "R" });
+    const last = screen.getByRole("button", { name: /clear/i });
+
+    // forward Tab off the LAST chip wraps to the first, rather than escaping
+    // into the matrix row behind the portal
+    last.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+
+    // Shift+Tab off the FIRST chip wraps backwards to the last
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+
+    // and a Tab arriving from OUTSIDE the panel is pulled in. This is the arm
+    // that makes the chips reachable at all: the trigger is the ANCHOR, which
+    // lives outside the portaled panel, so `panel.contains(active)` is false
+    // for it and the trap's escape branch fires.
+    trigger.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+  });
+
+  // ★★★ §334. `ariaLabel` WITHOUT `role` is inert, and that is why this test
+  // asserts the role and the name together rather than either alone. A bare
+  // `<span>` maps to `role=generic`, and ARIA 1.2 prohibits naming a generic —
+  // so the milestone-and-stakeholder context was computed, passed down, and
+  // then dropped by AT. ★★ Nothing in CI could report it: axe's
+  // `aria-prohibited-attr` puts a role-less span in `incomplete`, the a11y spec
+  // filters `violations`, and RACI is not in `A11Y_VIEWS` anyway.
+  // ★ `dialog` is the honest role, not a decoration to satisfy the rule: the
+  // panel registers as a modal on the dismissal stack and really does trap Tab.
+  it("points the trigger's aria-controls at the panel, which is a NAMED dialog", () => {
+    render(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="M1 · Ada" lang="en-US" />);
+    const trigger = screen.getByRole("button", { expanded: false });
+    // closed: nothing to point at, so the attribute must be absent rather than
+    // dangling at an id that is not in the document
+    expect(trigger.getAttribute("aria-controls")).toBeNull();
+
+    fireEvent.click(trigger);
+    const panel = screen.getByRole("dialog", { name: "M1 · Ada" });
+    expect(panel.id).not.toBe("");
+    expect(trigger.getAttribute("aria-controls")).toBe(panel.id);
+  });
+
+  // ★★★ §334. The Escape contract CHANGED with the adoption and had no test at
+  // all before this one: the hand-rolled popover registered `kind: "layer"` and
+  // dismissed with a bare `setOpen(false)`, leaving focus on `document.body`
+  // with the matrix behind it arrow-dead. The primitive registers
+  // `kind: "modal"` and restores focus to the anchor BEFORE closing, so there
+  // is never a frame in which `activeElement` is `body`.
+  //
+  // ★★★ THIS TEST SURVIVES EITHER RESTORE MECHANISM BEING DELETED ALONE, AND
+  // THAT IS NOT VACUITY — do not "fix" it by narrowing the assertion. MEASURED
+  // by mutation: disabling `closeRestoringFocus`'s anchor focus leaves 9
+  // passed, disabling the §297 unmount guard's `focusAnchor()` leaves 9 passed,
+  // and disabling BOTH gives 1 failed / 8 passed. The primitive genuinely
+  // restores twice over on this path — its own comment says the two "compose
+  // and cannot double-fire", the first moving focus outside the panel so the
+  // second's recorded containment answer reads false. What this pins is the
+  // OBSERVABLE contract a user has (focus ends on the trigger, never `body`),
+  // which is exactly what should survive one of two redundant mechanisms being
+  // refactored away. A single-mutant survival here is a report about the
+  // PRIMITIVE's redundancy, not evidence this test is asleep.
+  it("closes on Escape and restores focus to the trigger", () => {
+    render(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="x" lang="en-US" />);
+    const trigger = screen.getByRole("button", { expanded: false });
+    fireEvent.click(trigger);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "R" }));
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("button", { name: "C" })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 });

@@ -146,25 +146,60 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
              across a 40-press trace the first press landing inside the popover
              was the 16th — after all 21 matrix triggers had been walked.
 
-          ★★ "Three" counts what needed JUDGEMENT, NOT what changed, and an
-          earlier revision said "changes three behaviours ... do not read any of
-          the three as untouched" — a stated bound narrower than the fix, which
-          is the dangerous direction: narrowing reads as tightening and every
-          test still passes either way. FOUR more ride along, all
-          neutral-or-better and none of them weighed above. Outside-dismiss
-          moved `pointerdown` to `mousedown`. Close-on-resize narrowed from ANY
-          resize to a WIDTH change only, so a mobile keyboard no longer
-          dismisses. Close-on-scroll narrowed too — this file closed on EVERY
-          scroll, the primitive ignores ones originating inside the panel. And
-          the panel gained the §297 focus-restore-to-anchor on unmount, plus
-          Escape restoring focus before `onClose`, neither of which this file
-          had. ★ Enumerated against `popover-panel.tsx` itself, not inferred
-          from the diff.
+          ★★★ NO TOTAL IS STATED, DELIBERATELY, AND RESTORING ONE IS A
+          REGRESSION. Two successive revisions here gave a count — first
+          "changes three behaviours ... do not read any of the three as
+          untouched", then "FOUR more ride along" — and BOTH were bounds
+          narrower than the fix. That is the dangerous direction: narrowing
+          reads as tightening, and every test passes either way. The second was
+          written as the correction FOR the first, closed with "enumerated
+          against `popover-panel.tsx` itself", and still missed the item below.
+          The three above are the ones that needed judgement; these ride along,
+          and the list is not promised to be complete.
 
-          ★ `role` is deliberately OMITTED. `PopoverPanel` accepts a menu role,
-          but these five children are `aria-pressed` buttons rather than
-          menuitems, and a menu without menuitem children is an axe
-          `aria-required-children` violation on a scanned view.
+          ★★★ ARMING — the strongest thing the adoption bought, and the one both
+          counts missed. This file registered its scroll and resize listeners
+          INSIDE the measure effect, so they were live while the panel was still
+          gated behind `open && pos` — before it had ever been in the DOM. That
+          is exactly the pre-§124 shape the primitive's own comment documents as
+          having shipped a real defect; the primitive arms on `rendered`
+          instead. ★★ NOT a generic ride-along for THIS consumer: `raci-panel`
+          puts the matrix in an `overflow-auto` container with one column per
+          visible stakeholder, so it scrolls once there are enough. Clicking a
+          partially-visible trigger makes the browser scroll the container to
+          reveal it, and that scroll dispatches AFTER the click handler and its
+          effects — landing on the just-registered listener, closing a panel
+          that never rendered, `aria-expanded` straight back to false. ★ Read
+          that as LATENT and now foreclosed, not as a reproduced bug: the shape
+          matches §124 exactly, but nobody drove it in a browser here.
+
+          Also: outside-dismiss moved to the primitive's pointer event;
+          close-on-resize narrowed to a width change only, so a mobile keyboard
+          no longer dismisses; close-on-scroll narrowed to ignore scrolls
+          originating inside the panel, where this file closed on every scroll;
+          and the panel gained the §297 focus restore on unmount plus Escape
+          restoring focus before it closes, neither of which this file had.
+          ★ Phrased against the primitive's BEHAVIOUR rather than its constant
+          names and event spellings on purpose — a verbatim restatement here
+          goes silently false the day the primitive changes, and `popover-panel`
+          already states each of these where it can be kept true.
+
+          ★★★ `role` IS REQUIRED HERE, and an earlier revision omitted it while
+          still passing `ariaLabel` — which made the name INERT. A bare `<span>`
+          maps to `role=generic`, ARIA 1.2 prohibits naming a generic, so the
+          milestone-and-stakeholder context was computed, threaded down, and
+          then dropped by AT: announced to nobody. This was the only
+          `PopoverPanel` call site passing a name without a role.
+          ★★ NOT `menu`, which is the other role the primitive accepts: these
+          five children are `aria-pressed` buttons rather than menuitems, and a
+          menu without menuitem children is an axe `aria-required-children`
+          violation. `dialog` is TRUTHFUL rather than a shim chosen to satisfy
+          the naming rule — the panel registers on the dismissal stack as a
+          modal and genuinely traps Tab, which is what a dialog is.
+          ★★ No gate could have caught the omission: axe's
+          `aria-prohibited-attr` classes a role-less span as INCOMPLETE rather
+          than a violation, `e2e/a11y.spec.ts` filters violations, and RACI is
+          not in `A11Y_VIEWS` at all. The unit test is the only detector.
           ★ `autoFocus` is left at the primitive's DEFAULT; the test file carries
           why passing `false` here would be actively worse, not merely different. */}
       {/* ★★ `gap-2`/`p-1.5` below are sized for SELECTED_RING, not chosen for
@@ -187,6 +222,7 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
         anchorRef={triggerRef}
         onClose={close}
         id={panelId}
+        role="dialog"
         ariaLabel={ariaPrefix}
         className="flex w-max items-center gap-2 p-1.5 shadow-[var(--shadow-control)]"
       >
