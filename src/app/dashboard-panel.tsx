@@ -546,8 +546,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
           })}
         </DashboardGrid>
 
-        {/* Popout is READ-ONLY: no shelf, no reset, no menu — and the tile
-            chrome drops its own grip and ⋮ on the same flag. */}
+        {/* Popout is READ-ONLY: no shelf, no menu (the reset is guarded at its
+            own site in the top control stack) — and the tile chrome drops its
+            own grip and ⋮ on the same flag. */}
         {!arrangement.readOnly && (
           <div className="print:hidden">
             <DashboardShelf

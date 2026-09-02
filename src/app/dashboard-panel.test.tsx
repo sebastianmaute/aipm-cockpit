@@ -803,9 +803,12 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
 
 // ★★ EVERY TEST HERE NEEDS ITS OWN `projectId`. `useDashboardLayout` keys its
 // stored arrangement on it, so a shared id would let one test's hide leak into
-// the next. (The 400ms debounce means nothing is actually written inside a
-// synchronous test — the effect's cleanup clears the timer on unmount — but the
-// isolation must not rest on that timing.)
+// the next. ★★★ THIS IS STRICTLY LOAD-BEARING, NOT BELT-AND-BRACES — an earlier
+// version of this comment claimed the 400ms debounce meant nothing was ever
+// written inside a synchronous test. It is written: `use-dashboard-layout.ts`
+// has a flush-on-unmount effect (`useEffect(() => flush, …)`) that exists
+// exactly so an unmount inside the debounce window is not discarded, and RTL
+// cleanup triggers it. Reusing an id WILL leak.
 const EN = "en-US" as const;
 const grip = (title: string) => `${t(EN, "reorderHandle")} – ${title}`;
 const kebab = (title: string) => `${t(EN, "actionMoreActions")} – ${title}`;
@@ -1040,6 +1043,10 @@ describe("DashboardPanel arrangeable tile grid", () => {
 });
 
 describe("DashboardPanel reset-layout control", () => {
+  afterEach(() => {
+    localStorage.clear();
+  });
+
   it("renders the reset button in the top control stack", () => {
     render(<DashboardPanel {...fullProps} projectId="p-reset-present" />, { wrapper });
     expect(
