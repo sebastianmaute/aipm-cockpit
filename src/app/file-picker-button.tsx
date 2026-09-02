@@ -3,23 +3,18 @@
 // One way to open a file dialog. Replaces two hand-rolled shapes that had
 // diverged onto the same settings surface (open-followups §15).
 //
-// ★★ The Button is the control; the input is only its file dialog. Three
-// properties are load-bearing and each closes a real defect:
-//   1. `sr-only`, never `display:none` — a display:none input cannot be
-//      clicked in every browser.
-//   2. `tabIndex={-1}` + `aria-hidden` — an sr-only input is otherwise a
-//      SECOND tab stop announcing the same accessible name as the Button.
-//      axe reports missing names, never duplicated ones, so nothing
-//      automated catches a regression here; the unit test does.
-//   3. A real <button> rather than a styled <label>. A <label> is not
-//      focusable, so a focus ring on it can never render — the label shape
-//      this replaces had no visible focus indicator at all (WCAG 2.4.7),
-//      and axe has no focus-visibility rule to catch that either.
+// ★★ The Button is the control; the input is only its file dialog. The
+// hidden-input mechanism — including the three load-bearing properties
+// (sr-only not display:none, tabIndex={-1}+aria-hidden, a real focusable
+// trigger) and why each closes a real defect — now lives in `useFilePicker`
+// (`use-file-picker.ts`), so a second trigger shape (a dashed empty-state
+// box) can open a file dialog without hand-rolling a second input. This
+// component is just that hook wired to a `Button`.
 //
 // Owns NO validation: mime/size/parse rules stay with the caller, which is
 // why `onFile` hands back the raw File.
 
-import { useRef, type ChangeEvent } from "react";
+import { useFilePicker } from "./use-file-picker";
 import { Button, type ButtonSize, type ButtonVariant } from "./button";
 
 export interface FilePickerButtonProps {
@@ -36,15 +31,7 @@ export interface FilePickerButtonProps {
 export function FilePickerButton({
   label, accept, onFile, disabled = false, variant = "secondary", size = "sm",
 }: FilePickerButtonProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  function onChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    // Reset BEFORE dispatching so re-picking the same file fires again.
-    e.target.value = "";
-    if (!file) return;
-    onFile(file);
-  }
+  const { open, inputProps } = useFilePicker(onFile, accept, disabled);
 
   return (
     <>
@@ -52,20 +39,11 @@ export function FilePickerButton({
         variant={variant}
         size={size}
         disabled={disabled}
-        onClick={() => inputRef.current?.click()}
+        onClick={open}
       >
         {label}
       </Button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        disabled={disabled}
-        className="sr-only"
-        tabIndex={-1}
-        aria-hidden="true"
-        onChange={onChange}
-      />
+      <input {...inputProps} />
     </>
   );
 }
