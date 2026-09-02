@@ -10,6 +10,7 @@ import { t } from "./i18n";
 import * as dashboardModule from "./dashboard";
 import type { ActivityEntry } from "./activity-log";
 import type { BudgetBucket, RaidItem, Milestone, ChangeItem } from "./types";
+import { expectButtonOrder } from "../test/toolbar-order";
 
 /**
  * The `scrollRef` every render hands `useListReorderDnd`, captured through a
@@ -1035,6 +1036,38 @@ describe("DashboardPanel arrangeable tile grid", () => {
     const registers = screen.getByText("Top open RAID");
     const progress = screen.getByText("Progress");
     expect(registers.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("DashboardPanel reset-layout control", () => {
+  it("renders the reset button in the top control stack", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-reset-present" />, { wrapper });
+    expect(
+      screen.getByRole("button", { name: t(EN, "dashboardResetLayout") }),
+    ).toBeInTheDocument();
+  });
+
+  // ★ AGENTS.md pins the trailing group as Print · reset-columns ·
+  // reset-pane-size. Reset layout is the reset-columns ANALOGUE (it restores
+  // content arrangement, where reset-size restores the pane box), so it sorts
+  // between them.
+  it("orders the stack Print, Reset layout, Reset size", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-reset-order" />, { wrapper });
+    expectButtonOrder(["printHint", "dashboardResetLayout", "tableResetSizeHint"], {
+      contiguous: true,
+    });
+  });
+
+  it("restores a hidden tile when the reset button is clicked", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-reset-click" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+    expect(screen.queryByTestId("tile-progress")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: t(EN, "dashboardResetLayout") }));
+    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
   });
 });
 
