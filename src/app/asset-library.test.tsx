@@ -336,6 +336,44 @@ describe("AssetLibrary", () => {
   });
 });
 
+describe("AssetLibrary — image preview", () => {
+  const TINY_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+  it("opens the preview from a row and starts on that row's image", async () => {
+    const user = userEvent.setup();
+    render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_GIF)} />);
+    const openers = screen.getAllByRole("button", { name: /^Preview image – / });
+    expect(openers.length).toBe(base.assets.length);
+    await user.click(openers[1]);
+    const dialog = await screen.findByRole("dialog");
+    // ★ Both fixture rows share the display name "image.png" (see this file's
+    //   own note at the top), so the dialog's NAME cannot distinguish which
+    //   row opened — both would match. The position indicator can: the
+    //   SECOND row's preview control must open on index 1, i.e. "2 of 2".
+    expect(within(dialog).getByText(t("en-US", "assetPreviewPosition", 2, 2))).toBeInTheDocument();
+  });
+
+  // ★ Without a loader there is nothing to show, so no false affordance.
+  it("offers no preview control when no loader is supplied", () => {
+    render(<AssetLibrary {...base} />);
+    expect(screen.queryByRole("button", { name: /^Preview image – / })).toBeNull();
+  });
+
+  // ★★★ Row-unique naming (WCAG 2.4.6) is mandatory here and axe cannot
+  //     detect a violation in any view at any seed size (see AGENTS.md) — a
+  //     unit test is the only possible detector. This checks the preview
+  //     control specifically, alongside every other per-row control AND the
+  //     toolbar's own Upload/sort-header buttons, so a naming scheme that
+  //     collides the preview verb with an unrelated control would still be
+  //     caught.
+  it("keeps the preview control's accessible name row-unique from every other control", () => {
+    const { container } = render(
+      <AssetLibrary {...base} onInsert={vi.fn()} loadImage={vi.fn(async () => TINY_GIF)} />,
+    );
+    expectRowUniqueNames({ scope: container, minControls: 11, requireCollisionSeed: true });
+  });
+});
+
 describe("AssetLibrary — the upload empty-state box", () => {
   it("offers the upload box when the library is empty", () => {
     render(<AssetLibrary {...base} assets={[]} />);

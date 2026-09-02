@@ -163,6 +163,22 @@ export function DocumentsAssetSection({
   const [capMessage, setCapMessage] = useState<number | null>(null);
   const enabled = tursoConfig !== null && !isReadOnly;
 
+  // ★★ Built from THIS section's own already-normalised `tursoConfig` +
+  // `projectId` locals, deliberately NOT via `assetPaneLoader(assetPane)`.
+  // `assetPaneLoader` bails on a falsy `projectId`, while the two mounts
+  // below (and every other control on this pane) run against the NORMALISED
+  // `projectId` above (`assetPane?.projectId || ASSET_PARTITION_FALLBACK`) —
+  // reusing that helper here would make the preview silently fail to render
+  // on exactly the blank-id pane where upload/rename/delete all still work.
+  // The `tursoConfig ? … : Promise.resolve(null)` guard is defensive only:
+  // `AssetLibrary` renders no preview control unless `loadImage` is passed,
+  // and this section passes it only inside the `enabled` (non-null config)
+  // branch below, so the null arm should never actually run.
+  const loadImage = useCallback<AssetByteLoader>(
+    (id) => (tursoConfig ? loadAssetData(tursoConfig, id, projectId) : Promise.resolve(null)),
+    [tursoConfig, projectId],
+  );
+
   // ★★★ ONE BATCH, ONE RUNNING STATE — this is a BATCH function even for the
   // single-asset picker path, and collapsing it back to a per-asset one
   // reopens both defects below.
@@ -451,6 +467,7 @@ export function DocumentsAssetSection({
         onRename={rename}
         onDelete={remove}
         onUpload={(f) => void upload(f)}
+        loadImage={loadImage}
       />
       <AssetLibraryModal
         open={modalOpen}
@@ -464,6 +481,7 @@ export function DocumentsAssetSection({
         onRename={rename}
         onDelete={remove}
         onUpload={(f) => void upload(f)}
+        loadImage={loadImage}
       />
     </div>
   );

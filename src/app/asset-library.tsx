@@ -33,6 +33,8 @@ import { FilePickerButton } from "./file-picker-button";
 import { type SortDir, SortResizeTh, useSortHeaderProps, compareStrOrNum, nextSortDir } from "./report-table";
 import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { AssetPreviewModal } from "./asset-preview-modal";
+import type { AssetByteLoader } from "./document-asset-images";
 
 export interface AssetLibraryProps {
   lang: Lang;
@@ -48,6 +50,12 @@ export interface AssetLibraryProps {
   /** Absent in the management mounting — no insert control renders then. */
   onInsert?: (id: string) => void;
   onUpload: (file: File) => void;
+  /** Injected byte loader (`documents-asset-section.tsx` builds it from the
+   *  pane's own already-normalised Turso config + project id). Absent → no
+   *  preview control renders — there would be nothing for it to show, and
+   *  Turso gating is INHERITED from the call site rather than re-checked
+   *  here. */
+  loadImage?: AssetByteLoader;
 }
 
 type AssetSortKey = "name" | "size";
@@ -79,8 +87,13 @@ export function AssetLibrary({
   onDelete,
   onInsert,
   onUpload,
+  loadImage,
 }: AssetLibraryProps) {
   const confirm = useConfirm();
+  // Index into `sorted` of the asset currently open in the preview lightbox;
+  // `null` means closed. Kept as an index rather than an id so "next"/"prev"
+  // inside AssetPreviewModal walk the SAME order these rows render in.
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   // ★★ ONE derivation, TWO pickers. This pane mounts two independent file
   // dialogs — the toolbar `FilePickerButton` and, on the empty branch, the
   // dashed box's own hidden input — and they must agree on what they accept
@@ -243,7 +256,7 @@ export function AssetLibrary({
               </tr>
             }
           >
-            {sorted.map((asset) => {
+            {sorted.map((asset, index) => {
               const token = rowTokens.get(asset.id) ?? asset.name;
               const isDangling = danglingIds.has(asset.id);
               // §230 — a refused mime is NOT dangling: the byte row exists, so
@@ -362,6 +375,21 @@ export function AssetLibrary({
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap items-center gap-1">
+                      {/* ★ Read-only: never gated on `isBusy` (a rename/delete
+                          in flight on this row) or on the caller's own
+                          read-only state — it mutates nothing, so it stays
+                          available in a read-only popout and while this row
+                          is mid-write. */}
+                      {loadImage && (
+                        <Button
+                          variant="secondary"
+                          size="xs"
+                          onClick={() => setPreviewIndex(index)}
+                          aria-label={t(lang, "assetPreviewOpen", token)}
+                        >
+                          {t(lang, "documentsPreview")}
+                        </Button>
+                      )}
                       {onInsert && (
                         <Button
                           variant="secondary"
@@ -424,6 +452,20 @@ export function AssetLibrary({
             })}
           </DataTable>
         </div>
+      )}
+      {/* Always mounted while `loadImage` is supplied, never conditionally on
+          `previewIndex` — `Modal` itself returns null while `open` is false,
+          and `AssetPreviewModal`'s own re-seed-on-reopen logic depends on
+          staying mounted across opens. No loader ⇒ nothing to show. */}
+      {loadImage && (
+        <AssetPreviewModal
+          lang={lang}
+          open={previewIndex !== null}
+          onClose={() => setPreviewIndex(null)}
+          assets={sorted}
+          startIndex={previewIndex ?? 0}
+          loadImage={loadImage}
+        />
       )}
     </div>
   );
