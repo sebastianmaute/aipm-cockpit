@@ -553,7 +553,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01) | ~~`actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name~~ | 0.272.0 (Zoline) | S | **CLOSED** 2026-09-01 (closed WIDER than its title; popover internals carved out to §328) |
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix round | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide--closed-2026-09-02) | ~~`TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide~~ | found 2026-08-31, adding the §300 mismatch region | S | **CLOSED** 2026-09-02 (`useId()` for both; the probe REFUTED the entry's click path and found the voice-nonce one) |
-| [§327](#327-use-storage-backendts-sits-exactly-on-the-800-line-size-ratchet-with-zero-headroom) | `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom | found 2026-08-31, closing §303 | S | open |
+| [§327](#327-use-storage-backendts-sits-one-line-under-the-800-line-size-ratchet-with-no-usable-headroom) | `use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom | found 2026-08-31, closing §303 | S | open |
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 | [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
@@ -15795,10 +15795,24 @@ the selected block can still be uneditable for a reason that has nothing to do w
 is unaffected — a newly inserted paragraph never carries an image — but do not restate the invariant as
 "the selected block is the editable one".
 
-★★ **Neither seeded document can exercise this surface**, which is why the browser verification had to
-seed its own. The sample master has a single paragraph, so nothing ever collapses; the other seeded
-document's paragraphs are image-bearing per above. Same class as "a view in `A11Y_VIEWS` is not the
-same as a view being covered" — the e2e seed has a blind spot over the whole narrow-pane block editor.
+★★ **The seeded documents CAN exercise this surface, and an earlier revision of this paragraph said
+they could not.** The sample master has a single paragraph, so nothing collapses there — but
+`e2e/seed.ts`'s Kickoff document has THREE paragraphs and only TWO carry `data-asset-id`; block
+index 1 (`"<p>Agenda and owners for the kickoff session.</p>"`) is plain. And the collapse has no
+content term at all: `collapseParagraph={narrow && index !== selected}` turns on width and selection
+only. So at a narrow pane that document DOES collapse, and its plain paragraph is fully editable
+once selected. Reproduce both halves:
+
+```bash
+grep -n 'type: "paragraph"' e2e/seed.ts
+grep -n "collapseParagraph={" src/app/document-editor.tsx
+```
+
+★ The browser verification still seeded its own document, and that remains the better choice — but
+for a plain reason (a fixture with one plain paragraph and nothing else is unambiguous about which
+block the assertion is about), **not** because the seeded ones are incapable. The blind spot that IS
+real is narrower than the old sentence claimed: no e2e spec drives the narrow-pane block editor, so
+the surface is unexercised by the seed even though it is reachable from it.
 
 ## 200. Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public
 
@@ -25961,12 +25975,20 @@ duplicate-id constraint that no longer exists. ★★ Two dated design records �
 recoverable-destructive-refusal **spec** and **plan** — still state the old constraint; they are
 bannered as superseded rather than rewritten, because a dated record is only worth what it recorded.
 
-## 327. `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom
+## 327. `use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom
 
 **Status:** OPEN. Filed 2026-08-31 while closing
 [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31).
+**Re-measured 2026-09-02: the count is now 799, not the 800 this entry was filed at.** Commit
+`48cbef17` removed two comment lines and added one (`git diff --numstat 48509bf1..ebeb30d3 --
+src/app/use-storage-backend.ts` → `1 2`), so the file gained exactly one line of room. ★ **That
+does not resolve this entry** — one line is the state the ★ paragraph below says gives no visible
+signal, and the file is still unbaselined against a hard 800 ceiling
+(`docs/baselines/file-sizes.json` holds four files and this is not one of them). The heading and
+this measurement were carried at "exactly 800 / zero headroom" for one release after the change
+falsified them.
 **Partially machine-verified, partially not.** Measured: the file's line count by the gate's own
-method (`readFileSync(...).split("\n").length`, per `check-file-sizes.mjs`) is **800**, and
+method (`readFileSync(...).split("\n").length`, per `check-file-sizes.mjs`) is **799**, and
 `npm run size:check` exits **0** printing "file-size ratchet ok" against that count. Reproduce:
 
 ```
@@ -25986,6 +26008,12 @@ the guard's call site into one line and moving the reasoning onto the `isNewMagn
 `DestructiveEvaluation` (`src/app/use-destructive-save-guard.ts`) — a better home for it, since the
 property it documents belongs to the evaluator, not the call site. That trick is now **spent**:
 there is no second comment block in this file left to harvest the same way.
+
+★ **The one line recovered since was not harvested — it was a correction.** `48cbef17` deleted two
+comment lines here and added one, a §326 prose sweep striking a claim that `TypeToConfirmDialog`
+holds `TITLE_ID` as a MODULE constant, which the per-instance-id fix had made false. Deleting a
+false claim is not a headroom strategy; nothing here should be read as suggesting the next line be
+found the same way.
 
 ★ **Nobody checked the file was one line under the ceiling before adding to it.** That is the
 process gap this entry exists to flag — a file sitting at 799 gives no visible signal that it has
@@ -26375,7 +26403,10 @@ made the entry look like a defect.
 
 ★★★ **WHY IT CANNOT BE SWALLOWED — and this is the deliverable, not the passing probe.** The rule is
 correct; it simply does not reach this shape. `labels-input.tsx` gets its open/close state from
-`useCombobox` (`combobox-shared.tsx`), whose ONLY close path is a document-level `mousedown` listener
+`useCombobox` (`combobox-shared.tsx`), whose only close path — **the HOOK's**, not the consumer's, which
+also closes from its own Escape handler (`grep -n "setOpen(" src/app/labels-input.tsx` returns four call
+sites, one of them a `setOpen(false)` under `e.key === "Escape"`) — is a document-level `mousedown`
+listener
 gated on **`rootRef.current.contains(e.target)`** — it closes only for a target OUTSIDE the root. The
 clear `IconButton` renders INSIDE that same root (`labels-input.tsx` puts `ref={rootRef}` on the
 wrapping `<div>` and the chip row within it), so the very listener that could close the editor is the

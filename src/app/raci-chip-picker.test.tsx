@@ -186,25 +186,42 @@ describe("RaciChipPicker", () => {
   // filters `violations`, and RACI is not in `A11Y_VIEWS` anyway.
   // ★ `dialog` is the honest role, not a decoration to satisfy the rule: the
   // panel registers as a modal on the dismissal stack and really does trap Tab.
+  // ★★ THE `aria-haspopup` ASSERTION IS NOT DECORATION EITHER, and it is the one
+  // thing here no other test covers. The trigger shipped `aria-haspopup="true"`,
+  // which ARIA defines as equivalent to `"menu"` — so it CONTRADICTED the panel
+  // role this same test asserts, and this test passed either way. A mismatch is
+  // invisible to every gate: axe has no rule comparing a trigger's haspopup
+  // against the popup's actual role, and RACI is not in `A11Y_VIEWS`.
+  // ★★ The NAME asserted below is the coordinates PLUS the purpose. `ariaPrefix`
+  // alone only repeated what the trigger had just announced; asserting the full
+  // string is what makes a silent revert to the bare prefix go red.
   it("points the trigger's aria-controls at the panel, which is a NAMED dialog", () => {
     render(<RaciChipPicker value="A" onChange={() => {}} ariaPrefix="M1 · Ada" lang="en-US" />);
     const trigger = screen.getByRole("button", { expanded: false });
     // closed: nothing to point at, so the attribute must be absent rather than
     // dangling at an id that is not in the document
     expect(trigger.getAttribute("aria-controls")).toBeNull();
+    expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
 
     fireEvent.click(trigger);
-    const panel = screen.getByRole("dialog", { name: "M1 · Ada" });
+    const panel = screen.getByRole("dialog", { name: "M1 · Ada — Set RACI" });
     expect(panel.id).not.toBe("");
     expect(trigger.getAttribute("aria-controls")).toBe(panel.id);
   });
 
   // ★★★ §334. The Escape contract CHANGED with the adoption and had no test at
   // all before this one: the hand-rolled popover registered `kind: "layer"` and
-  // dismissed with a bare `setOpen(false)`, leaving focus on `document.body`
-  // with the matrix behind it arrow-dead. The primitive registers
+  // dismissed with a bare `setOpen(false)`, leaving focus on `document.body` —
+  // from which the next Tab restarts at the TOP of the document rather than
+  // resuming at the chip the user opened. The primitive registers
   // `kind: "modal"` and restores focus to the anchor BEFORE closing, so there
   // is never a frame in which `activeElement` is `body`.
+  // ★★ DO NOT restate the cost as the matrix being "arrow-dead" — that phrase
+  // belongs to `popover-panel.tsx`'s own restore comment, where it is TRUE of
+  // the rich-text toolbar's roving tabindex. It is FALSE here: the RACI matrix
+  // has no arrow navigation and no roving tabindex at all. Reproduce —
+  // `grep -n "Arrow\|role=\"grid\"\|tabIndex\|onKeyDown" src/app/raci-panel.tsx`
+  // returns ONE hit, an Enter handler on the filter combobox input.
   //
   // ★★★ THIS TEST SURVIVES EITHER RESTORE MECHANISM BEING DELETED ALONE, AND
   // THAT IS NOT VACUITY — do not "fix" it by narrowing the assertion. MEASURED

@@ -18,10 +18,11 @@ longer carries its own changelog comment.
   It now stays within the viewport on both axes, closes on Escape, on an outside
   click and on scroll, and returns focus to the chip you opened it from.
 - **The RACI role picker can now be reached and left with the keyboard.** Its
-  five role chips were previously unreachable by Tab — the first press that
-  landed inside the panel was the sixteenth — and the panel announced nothing to
-  a screen reader. It is now announced as a named dialog and Tab cycles its
-  chips, with Escape as the way out.
+  four role chips and the clear chip beside them were effectively out of reach on
+  the forward Tab path — the first press that landed inside the panel was the
+  sixteenth, after Tab had walked all 21 chips in the matrix behind it — and the
+  panel announced nothing to a screen reader. It is now announced as a named
+  dialog and Tab cycles its chips, with Escape as the way out.
 - **Adding a paragraph in a narrow Documents pane now selects it.** In a pane
   narrow enough to collapse all but the selected block, choosing "Add above" or
   "Add below" → Paragraph created a block you then had to click a second time

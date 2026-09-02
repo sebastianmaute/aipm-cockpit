@@ -100,10 +100,15 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
 
   return (
     <span className="relative inline-flex items-center">
+      {/* ★★ `aria-haspopup` is `"dialog"`, NOT `"true"` — ARIA defines the bare
+          `"true"` as equivalent to `"menu"`, so it would contradict the panel's
+          own `role="dialog"` below. Every other `role="dialog"` PopoverPanel
+          trigger in the app spells it out the same way; enumerate them with
+          `grep -rn "aria-haspopup" src/app --include=*.tsx | grep -v test`. */}
       <button
         ref={triggerRef}
         type="button"
-        aria-haspopup="true"
+        aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-label={`${ariaPrefix} — ${triggerLabel}`}
@@ -201,7 +206,15 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
           than a violation, `e2e/a11y.spec.ts` filters violations, and RACI is
           not in `A11Y_VIEWS` at all. The unit test is the only detector.
           ★ `autoFocus` is left at the primitive's DEFAULT; the test file carries
-          why passing `false` here would be actively worse, not merely different. */}
+          why passing `false` here would be actively worse, not merely different.
+          ★★ THE NAME IS THE COORDINATES PLUS WHAT THE DIALOG IS FOR. `ariaPrefix`
+          alone ("M1 · Ada") only repeats what the trigger has just announced and
+          never says what opened — so the panel is named
+          `${ariaPrefix} — raciSetLabel`. ★ That key already exists in BOTH
+          dictionaries ("Set RACI" / "RACI setzen"); do not mint one for this.
+          ★ It duplicates the TRIGGER's name only in the unset state, where the
+          trigger's own label is already `raciSetLabel` — a set chip reads
+          "M1 · Ada — Accountable" against the panel's "M1 · Ada — Set RACI". */}
       {/* ★★ `gap-2`/`p-1.5` below are sized for SELECTED_RING, not chosen for
           looks. The ring extends 4px past the 20px chip (2px offset + 2px
           ring), so the former `gap-1`/`p-1` (4px each) left ZERO clearance —
@@ -223,7 +236,7 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
         onClose={close}
         id={panelId}
         role="dialog"
-        ariaLabel={ariaPrefix}
+        ariaLabel={`${ariaPrefix} — ${t(lang, "raciSetLabel")}`}
         className="flex w-max items-center gap-2 p-1.5 shadow-[var(--shadow-control)]"
       >
         {RACI_ROLES.map((role) => {
