@@ -272,7 +272,7 @@ export function DocumentEditor({
 
   const insertSeeded = (at: number, type: AddableBlockType) => {
     const r = structural.insert(at, blockSeed(lang, type));
-    if (r?.changed) setChosen(selectionAfterInsert(resolvedSelection, at));
+    if (r?.changed) setChosen(selectionAfterInsert(resolvedSelection, at, type));
   };
 
   const deleteBlock = async (index: number) => {
