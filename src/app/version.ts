@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.277.1";
-export const APP_BUILD_DATE = "2026-09-02"; // 0.277.1: dragging a stakeholder across the Influence / Interest map now highlights the whole target quadrant instead of losing the highlight over the chips and the label inside it, and the four quadrants are drawn the same size (Ozeki)
+export const APP_VERSION = "0.278.0";
+export const APP_BUILD_DATE = "2026-09-02"; // 0.278.0: click any uploaded picture — in the image library or in a document — to open it full size in a window you can drag, resize and step through, and the Documents tab now offers a box to create your first document or add your first image instead of an empty pane (Gilman)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.277.x line is "Ozeki" (Ruth Ozeki, American-Canadian novelist, "A Tale
  *  for the Time Being"). Checked dash-agnostically BEFORE the bump with the
@@ -138,7 +138,7 @@ export const APP_BUILD_DATE = "2026-09-02"; // 0.277.1: dragging a stakeholder a
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Ozeki";
+export const APP_MILESTONE = "Gilman";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

@@ -8,6 +8,42 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.278.0] - 2026-09-02 "Gilman"
+
+### Added
+
+- **Click an uploaded picture to see it full size.** Images in the document
+  image library, and images already placed inside a document, now open in a
+  preview window you can drag, resize and step through with Previous / Next.
+  "Next" means the next picture where you clicked it — the library's current
+  sort order, or the document's own visual order — so the arrows follow what
+  you were looking at rather than some global list. The window remembers its
+  position and can be reset from its header. Nothing is edited by opening a
+  preview, so it stays available in read-only pop-outs.
+- **An image whose data is missing says so.** Rather than a broken image icon,
+  the preview states that the data is missing, or that the format is not one
+  we display — and Previous / Next still work, so one bad picture no longer
+  strands you.
+- **The Documents tab offers a starting point when it is empty.** With no
+  documents yet, the list shows a dashed box that creates the first one; with
+  no images yet, the library shows one that opens the file picker. Previously
+  both were simply blank panes.
+
+### Fixed
+
+- **The document list no longer collapses to its header.** A long preview could
+  squeeze the list beside it down to nothing, hiding every row.
+- **German: the image Preview button can be reached by voice.** Its spoken name
+  was "Bild anzeigen" while the button read "Vorschau", so speech-input users
+  saying the word printed on the button could not activate it (WCAG 2.5.3). The
+  name is now built from the visible label in every language.
+- **Repairing an image's data updates an open preview.** It kept reporting the
+  data as missing while the pane behind it had already recovered.
+- **A closed preview no longer flashes the previous picture when reopened.**
+- **Turso settings say which environment variable is filling a hidden field.**
+  When a `NEXT_PUBLIC_TURSO_*` variable is set, the matching settings field is
+  hidden; it now names the variable instead of simply disappearing.
+
 ## [0.277.1] - 2026-09-02 "Ozeki"
 
 ### Fixed

@@ -26608,3 +26608,119 @@ the honest one; (a) is a policy change, not a bug fix.
 
 ★ Nothing here is reachable on a checkout with no `.env.local`, which is every CI run — so no gate
 will ever see either arm.
+
+## 338. `useResizable` is a no-op in every modal that stays mounted while closed — open
+
+**Status:** open — **never machine-verified** (2026-09-02). Found by reading during review of the
+asset preview lightbox, and confirmed against source, not by a failing run. Re-check with
+`grep -n "}, \[storageKey, axis\]" src/app/use-resizable.ts` against
+`grep -n "wasOpen" src/app/use-draggable.ts`.
+
+`useResizable`'s single effect has deps `[storageKey, axis]`, both constant for the life of a
+component, so it runs exactly ONCE — at mount. Modals that stay mounted while closed (the pattern
+`asset-preview-modal.tsx` and `task-form-modal.tsx` both use, so that their own `useState` survives
+an open/close cycle) render `Modal`, which returns `null` while closed. So at that one and only
+run, `ref.current` is `null` and the effect bails immediately.
+
+Consequences: the saved size is never restored on open, and the `pointerdown`/`pointerup` listeners
+are never attached, so a drag-resize is never persisted. Native CSS `resize` still works within the
+session and `sizeReset()` still clears inline styles, so NOTHING LOOKS BROKEN — the persistence is
+simply dead.
+
+★★ The asymmetry is the tell: `useDraggable` takes `open` and re-loads on the false→true
+transition, so drag POSITION is restored correctly. `useResizable` has no such hook.
+
+★ Repo-wide, not slice-local. `task-form-modal.tsx` — the precedent the lightbox cites for its
+window mechanics — has the identical shape. Enumerate other affected call sites before fixing;
+a fix belongs in the hook (take `open`, mirroring `useDraggable`), not at each call site.
+
+## 339. A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 — open
+
+**Status:** open — **never machine-verified** (2026-09-02). Reported by a cold a11y reviewer against
+source; no test exercises the rename x broken-image combination. Re-check by reading `imageName` in
+`src/app/document-preview.tsx` against the `alt` written at insert time in
+`src/app/documents-asset-section.tsx`.
+
+The `alt` attribute is baked into the persisted block HTML AT INSERT TIME and never rewritten.
+`imageName()` deliberately prefers the LIVE metadata name, because after a rename the current name
+is the better answer. Those two diverge permanently after any rename.
+
+When bytes are unavailable the `<img>` gets no `src` at all and the browser paints the (stale) alt
+text in its place. So: insert "chart.png" -> rename the asset to "diagram.png" -> bytes later go
+dangling => the VISIBLE painted text is "chart.png" while the `aria-label` says "Preview image –
+diagram.png". Visible label not contained in the accessible name: a 2.5.3 failure, reachable in
+production.
+
+★★ No gate can see it — axe's `label-content-name-mismatch` is tagged `experimental` and axe's
+default tagExclude drops it, and this surface is Turso-gated so the a11y gate never renders it.
+
+## 340. Two tests in the asset-preview slice pass for the wrong reason — open
+
+**Status:** open — **never machine-verified** (2026-09-02). Both were reported by a cold
+test-validity reviewer WITH a named minimal mutation; neither mutation has been RUN. Run them
+before acting: each is one token, and a surviving mutant is a question, not a verdict.
+
+(a) `asset-library.test.tsx` "returns focus to the row control that opened the preview" cannot
+distinguish a restore from focus never having left. `Modal` moves focus into the dialog inside a
+`requestAnimationFrame`; neither `findByRole("dialog")` nor `userEvent.keyboard` guarantees that
+frame fired. If it did not, focus never left the opener and the assertion passes vacuously.
+**Mutation:** delete the `previouslyFocused.focus()` restore in `modal.tsx`. If the test still
+passes, it was vacuous.
+
+(b) `document-preview.test.tsx` "makes no image interactive when asset storage is off" does not
+cover the branch its own comment claims. The comment says attributes are REMOVED rather than merely
+not added, because `html` is unchanged when the config flips to null. The test renders with
+`tursoConfig={null}` from the start, so the removal loop only ever runs as a no-op over unstamped
+nodes. **Mutation:** replace that branch's loop body with a bare `return;` — all tests stay green.
+
+## 341. Neither asset-preview entry point has ever been exercised against a real Turso project — open
+
+**Status:** open — **never machine-verified** (2026-09-02), and that is the entry's point.
+
+Both surfaces that mount `AssetPreviewModal` are Turso-gated, and `e2e/seed.ts` seeds FILE mode, so
+the axe gate renders neither in any view at any seed size. Unit tests are the only coverage that
+will ever exist for them. Nothing has confirmed the lightbox opens, loads bytes, navigates or
+degrades correctly against a live database.
+
+★ This is the same blind-spot class as the other Turso-gated views. An owed eye-verify is a GATE,
+not a nicety — record the result here when it is done, including what was NOT checked.
+
+## 342. `role="button"` on an `<img>` removes its image semantics — open
+
+**Status:** open — **never machine-verified** (2026-09-02). Reasoned from the ARIA role
+model, not measured with a screen reader; measuring it is the work this entry asks for.
+
+`document-preview.tsx` stamps `role="button"` onto each inserted `<img>` so it can be activated.
+An explicit role REPLACES the implicit one, so the element is no longer exposed as an image: a
+screen-reader user hears "Preview image – chart.png, button" and is never told there is a picture
+there. The `alt` text is not lost as a NAME source, but "this is an image" is gone.
+
+★ Alternatives to weigh — a wrapping `<button>` around an untouched `<img>`; or leaving the image
+alone and putting activation on a separate adjacent control. Both cost layout work on rendered
+document HTML we do not own the structure of. Verify with a real screen reader before choosing;
+this is exactly the class of question jsdom cannot answer.
+
+## 343. The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it — open
+
+**Status:** open — **never machine-verified** (2026-09-02), and this entry exists because it
+CANNOT be, in the unit layer. Reproduce the gap with: delete `if (!open) setView(null);` from the
+render reconcile in `src/app/asset-preview-modal.tsx` and run
+`npx vitest run src/app/asset-preview-modal.test.tsx src/app/asset-library.test.tsx src/app/document-preview.test.tsx`
+— measured 2026-09-02 at 67 passed, 0 failed, with the fix deleted.
+
+Closing the modal revokes the object URL (the load effect's cleanup) while the effect BODY
+early-returns on `!open` and so cannot clear the state holding it. On reopen only `open` has
+changed — the asset id has not — so any id-tag comparison still matches and the render commits
+`<img src={revokedUrl}>` before the passive effect replaces it. The browser paints its
+broken-image glyph for that frame. Fixed by clearing `view` in the render-time reconcile.
+
+★★★ RTL CANNOT OBSERVE IT, IN EITHER DIRECTION. `rerender` wraps in `act()`, which flushes
+passive effects before returning, so the stale frame is already replaced by the time any
+assertion runs — for the broken component AND the fixed one. A first cut asserted synchronously
+after `rerender` believing it could outrun the effect; its mutant survived 19/19.
+
+★★ OWED: an eye-verify against a real Turso project — open a preview, close it, reopen the same
+row, and confirm no broken-image flash. That is the only layer that can answer this.
+
+★ The sibling `forId` tag is NOT this fix and does not cover this path; it covers navigate and
+list-shrink, where the id genuinely changes, and the shrink case IS pinned by a test.
