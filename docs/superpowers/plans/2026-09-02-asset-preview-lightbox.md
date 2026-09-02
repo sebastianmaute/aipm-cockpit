@@ -34,7 +34,7 @@
 
 | File | Responsibility |
 |---|---|
-| `src/app/asset-object-url.ts` | NEW. One exported function turning stored base64 + mime into an object URL or a typed refusal. Extracted so the modal and `document-asset-images.ts` cannot disagree about what "no mime" or "blocked mime" means. |
+| `src/app/asset-object-url.ts` | NEW. One exported function turning stored base64 + mime into an object URL or a typed refusal, so the lightbox does not reimplement the rule from scratch. ★★ It does NOT make the rule shared: no task here migrates `document-asset-images.ts`, which keeps its own inline copy, so the two agree by coincidence rather than by construction. Migrating it is a separate change — the two differ in check ORDER (this tests the blocked mime before decoding; `attachAssetImages` decodes first), so they disagree on bytes that are both undecodable and blocked. |
 | `src/app/asset-object-url.test.ts` | NEW. Unit tests for the three outcomes. |
 | `src/app/asset-preview-modal.tsx` | NEW. The lightbox: window chrome, image/unavailable states, prev/next, object-URL lifecycle. |
 | `src/app/asset-preview-modal.test.tsx` | NEW. All behavioural tests including the revoke spy and the row-unique-names check. |
