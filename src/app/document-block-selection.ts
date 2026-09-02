@@ -1,9 +1,20 @@
 /**
- * Carry a block SELECTION (a bare index) through the three structural ops.
+ * Decide where a block SELECTION (a bare index) lands after each of the three
+ * structural ops.
  *
- * NO React, NO DOM, NO i18n — index arithmetic and nothing else, so it is
- * unit-testable without a jsdom environment and exhaustively checkable against
- * the splice it mirrors.
+ * ★ "Carry" is what this header used to say and it is now too narrow for one
+ *  case: `selectionAfterInsert` REPLACES the selection when the inserted kind
+ *  is a paragraph (open-followups §199), rather than carrying the old one.
+ *  Move and delete still carry.
+ *
+ * NO React, NO DOM, NO i18n, so it is unit-testable without a jsdom environment
+ * and exhaustively checkable against the splice it mirrors. ★ It is no longer
+ * PURELY index arithmetic — the insert op branches on a block-kind string — but
+ * the kind arrives as an erased `import type` and the arithmetic is otherwise
+ * unchanged. ★★ NOTHING ENFORCES ANY OF THAT: turning the type-only import
+ * below into a VALUE import silently pulls i18n and DOMPurify into this module
+ * graph, and `vitest.config.ts` sets `environment: "jsdom"` globally, so no test
+ * would fail. Recorded as open-followups §345.
  *
  * ★★★ THE FALLBACK IN `document-editor.tsx` CANNOT DO THIS JOB, and that is the
  * whole reason this module exists. That component resolves an out-of-range or
@@ -18,6 +29,11 @@
  * refused by the engine's `expect` precondition, and remapping a selection past
  * a refusal moves it for a change that never happened.
  */
+
+// ★ TYPE-ONLY, so it erases at compile time and keeps the "NO i18n" promise
+//  above — `document-block-seeds.ts` itself imports `t`/`Lang` for `blockSeed`,
+//  but nothing from that module is imported here in VALUE position.
+import type { AddableBlockType } from "./document-block-seeds";
 
 /**
  * Where a selection lands after `reorderIds`' splice: remove at `from`, insert
@@ -38,8 +54,32 @@ export function selectionAfterMove(
   return afterRemoval >= to ? afterRemoval + 1 : afterRemoval;
 }
 
-/** A block inserted AT or BEFORE the selection pushes it up by one. */
-export function selectionAfterInsert(chosen: number | null, at: number): number | null {
+/**
+ * Where a selection lands after a block is inserted at `at`.
+ *
+ * ★★★ §199. A block inserted AT or BEFORE the selection pushes it up by one —
+ *  EXCEPT for a paragraph, which BECOMES the selection. At a narrow pane
+ *  `document-editor.tsx` collapses every paragraph but the selected one, so
+ *  shifting the old selection past the insertion handed the user a fresh
+ *  paragraph rendered read-only behind an "Edit this block" button: the block
+ *  they had just asked for was the one block they could not type in.
+ *
+ * ★★ PARAGRAPH ONLY. Nothing else is in the selection model:
+ *  `resolvedSelection` re-checks `type === "paragraph"`, and the collapse prop
+ *  is read by a paragraph row alone. Selecting an inserted heading or table
+ *  would be resolved away on the next render — a no-op that a test would
+ *  happily pass either way.
+ *
+ * ★ The branch is on the KIND, never on the position — a paragraph can be
+ *  inserted at any index, including 0, and must become the selection at
+ *  every one of them.
+ */
+export function selectionAfterInsert(
+  chosen: number | null,
+  at: number,
+  kind: AddableBlockType,
+): number | null {
+  if (kind === "paragraph") return at;
   if (chosen === null) return null;
   return chosen >= at ? chosen + 1 : chosen;
 }

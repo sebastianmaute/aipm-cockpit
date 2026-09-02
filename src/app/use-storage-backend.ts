@@ -497,8 +497,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // while the banner is already standing and saying the same thing.
       // ★ The action REVEALS the banner rather than carrying the destructive
       // action itself: a toast auto-dismisses and is single-slot, a bad host for
-      // an irreversible button — and `TypeToConfirmDialog` holds `TITLE_ID` as a
-      // MODULE constant, so a second trigger would need a second instance.
+      // an irreversible button.
       if (!refusalWasStanding) {
         emitToastAction("info", t(langRef.current, "storageRefusedWipe"), {
           labelKey: "storageSavingPausedAction",

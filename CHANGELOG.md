@@ -8,6 +8,32 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.278.1] - 2026-09-02 "Gilman"
+
+### Fixed
+
+- **The RACI role picker no longer opens off the edge of the screen.** On a wide
+  responsibility matrix, opening the picker on a column near the right edge used
+  to render it partly outside the window, where it could not be read or clicked.
+  It now stays within the viewport on both axes, closes on Escape, on an outside
+  click and on scroll, and returns focus to the chip you opened it from.
+- **The RACI role picker can now be reached and left with the keyboard.** Its
+  four role chips and the clear chip beside them were effectively out of reach on
+  the forward Tab path — the first press that landed inside the panel was the
+  sixteenth, after Tab had walked all 21 chips in the matrix behind it — and the
+  panel announced nothing to a screen reader. It is now announced as a named
+  dialog and Tab cycles its chips, with Escape as the way out.
+- **Adding a paragraph in a narrow Documents pane now selects it.** In a pane
+  narrow enough to collapse all but the selected block, choosing "Add above" or
+  "Add below" → Paragraph created a block you then had to click a second time
+  before you could type in it. Asking for a paragraph is asking to write one, so
+  the new paragraph becomes the selected block. Every other kind — heading,
+  bullets, table, data section, page break — leaves your place alone, as before.
+- **Two confirmation dialogs open at once no longer borrow each other's text.**
+  Type-to-confirm dialogs shared fixed element ids, so with two of them mounted a
+  screen reader could announce the wrong dialog's title or the wrong mismatch
+  warning. Each dialog now carries its own.
+
 ## [0.278.0] - 2026-09-02 "Gilman"
 
 ### Added

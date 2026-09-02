@@ -50,6 +50,12 @@ Document-level closers, all registered on `document`:
 | `tour-overlay` | bubble | no | yes — but `Modal` already ran, so it does nothing |
 | `chat-panel` | bubble | no | no — Escape *aborts an AI call*, gated by an ad-hoc `querySelector('[aria-modal="true"]')` plus a focus check |
 
+> ★★ **One row of the table above has since moved, and this note is here rather than in the table
+> because the table is a dated 2026-07-27 baseline that must stay as recorded.** `raci-chip-picker` is
+> no longer a document-level closer of its own at all: on 2026-09-02 it adopted `PopoverPanel`
+> (`docs/open-followups.md` §334), so it registers no `useDismissable` and inherits the primitive's
+> capture-phase behaviour — and it DOES trap Tab. See the note under the Migration table below.
+
 Element-scoped React `onKeyDown` handlers, bound to their own input rather
 than to `document`: `entity-link-picker`, `resource-picker`, `combo-input`,
 `labels-input`, `stakeholder-recipient-input`, and `global-search-box`.
@@ -179,6 +185,15 @@ same-commit double-push exists today.
 | `help-menu` | `layer` | `claimsWhenFocusWithin(panelRef)` | gains both the protocol and the focus gate |
 | `raci-chip-picker` | `layer` | — | gains the protocol; stays transient (still closes on scroll) |
 | `tour-overlay` | `modal` | — | its `preventDefault` currently does nothing; now it wins |
+
+> ★★★ **SUPERSEDED 2026-09-02 FOR ONE ROW — `raci-chip-picker`. Left as written, because this table is
+> the dated record of what the migration planned; read this note, not the row, for today's behaviour.**
+> The row says `layer` / "gains the protocol; stays transient". That was implemented and has since been
+> replaced: the picker adopted `PopoverPanel` (`docs/open-followups.md` §334) and now registers **no
+> `useDismissable` of its own** — the primitive pushes for it, as **`kind: "modal"`**, and it therefore
+> **traps Tab**. That flip obeys this spec's own rule that a surface gaining a real trap flips its kind
+> in the SAME commit; it is not a third independent flip but a consumer of the `popover-panel` row
+> above. Verify with `grep -n "PopoverPanel\|useDismissable" src/app/raci-chip-picker.tsx`.
 
 **Deliberately not in the stack:** `global-search-box`, the five combobox
 inputs, and `chat-panel`. The first six are element-scoped and bound to their

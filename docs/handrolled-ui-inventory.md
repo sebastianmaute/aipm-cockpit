@@ -156,6 +156,88 @@ governs: **treat every unread row as unverified.**
 
 ---
 
+## Re-measured 2026-09-02, on `ebeb30d3` (0.278.1) — the `role="dialog"` row only
+
+★★ **The snapshot below is still NOT rewritten**, for the reason the 2026-08-21 banner gives. This
+section records what moved under the `role="dialog"` row and, more importantly, **what the row's
+grep can no longer tell you**.
+
+### A `role="dialog"` hit is no longer evidence of a hand-rolled dialog
+
+`raci-chip-picker.tsx` gained one (open-followups §334). Its panel is a `PopoverPanel` and the role
+arrives as a **PROP** — `ariaLabel` on a role-less `<span>` maps to `role=generic`, which ARIA 1.2
+prohibits naming, so the name was being computed, threaded down and then dropped by AT. The row's
+tag is still right for the sites the snapshot counted, but the grep it rests on now conflates two
+different things. **Check whether the hit is an attribute on the consumer's own element or a prop
+handed to the primitive before reading anything into it.**
+
+### What the row's reproduce command returns today
+
+Run the block under "Non-`<button>` hand-rolled elements" and the `role="dialog"` line no longer
+returns the snapshot's figures:
+
+```bash
+git grep -c 'role="dialog"' ebeb30d3 -- 'src/app/*.tsx' | grep -v '\.test\.tsx' \
+  | awk -F: '{s+=$NF} END{print "lines="s" files="NR}'
+```
+
+★★★ **PINNED TO A SHA ON PURPOSE — the working-tree form of this command COUNTS ITSELF.** Run it
+against a checkout instead and it returns **33 lines / 25 files**, because the commit that wrote
+this very section also added a comment in `raci-chip-picker.tsx` explaining why that file carries
+`role="dialog"` — and a comment NAMING the string is a hit. So the picker holds two matching lines
+(`:105` prose, `:238` the attribute) where the row wants one. That is the same self-counting trap
+`popover-panel.tsx`'s census answers with a bracketed character class, and it is a second reason —
+beyond the prop-vs-attribute conflation above — that a bare grep can no longer answer this row's
+question.
+
+| | snapshot (`63e4d768`, 2026-08-07) | today (`ebeb30d3`, 2026-09-02) |
+|---|---|---|
+| total, non-test `src/app/*.tsx` | 26 lines / 22 files | **32 lines / 25 files** |
+| `modal.tsx` | 2 | 2 |
+| `popover-panel.tsx` | 0 | 0 |
+| row figure (total − `modal.tsx`) | 24 / 21 | **30 / 24** |
+
+★★ **Most of that drift is NOT this branch** — one line and one file of it is `raci-chip-picker.tsx`
+and the rest accumulated between the two commits. It is not a pure addition either: **five files
+gained the attribute and two lost it**, which is why +6 lines lands at only +3 files. Enumerate
+rather than trusting this list:
+
+```bash
+git grep -l 'role="dialog"' 63e4d768 -- 'src/app/*.tsx' | grep -v '\.test\.tsx' | sed 's|.*:||' | sort > /tmp/snap.txt
+grep -rl 'role="dialog"' src/app --include=*.tsx --exclude=*.test.tsx | sort > /tmp/today.txt
+comm -13 /tmp/snap.txt /tmp/today.txt   # gained: dashboard-panel · dashboard-tile-menu · document-block-gutter · raci-chip-picker · rich-text-toolbar
+comm -23 /tmp/snap.txt /tmp/today.txt   # lost: task-row · tasks-section
+```
+
+**None of the four files this branch did not touch has been read**, so do not carry the snapshot's
+"correctly hand-rolled" tag onto them.
+
+★★★ **The snapshot's arithmetic was NEVER inconsistent, and a 2026-09-02 edit that said so was
+wrong three ways.** That edit claimed the "26" came from counting JSX *attribute* lines while the
+"2" subtracted for `modal.tsx` counted all mentions, so the subtraction was "one too many". All
+three parts are false, and the same commands that motivated the edit refute it:
+
+```bash
+git grep -c 'role="dialog"' b0eeface -- 'src/app/*.tsx' | grep -v '\.test\.tsx' \
+  | awk -F: '{s+=$NF} END{print "lines="s" files="NR}'   # lines=26 files=22 — the ALL-MENTIONS method
+git grep -nE '^\s*role="dialog"' b0eeface -- 'src/**' | wc -l   # 22 — the attribute-only method
+git grep -n 'role="dialog"' b0eeface -- 'src/app/modal.tsx'     # 2 mentions: a header comment and the attribute
+```
+
+The 26 is the all-mentions figure, produced by the row's OWN reproduce command; the attribute-only
+count is 22, so 26 was never an attribute count and no two methods were mixed. `modal.tsx` really
+does hold 2 mentions, so subtracting 2 from 26 is right. And the replacement's parenthetical —
+"including tests, the way this row has always counted" — contradicts this document's Scope line,
+which excludes `*.test.tsx`.
+
+★★★ **The edit also renumbered a dated snapshot cell in place**, which the 2026-08-21 banner
+forbids in as many words. Both are corrected here: the cell is back to what it recorded, and this
+section carries what actually changed. **A correction is a NEW claim and inherits none of the
+verification of the thing it corrects** — run a command against the replacement text, not only
+against the error you found.
+
+---
+
 ## Counts — reproduce, do not trust
 
 ```bash
@@ -403,7 +485,11 @@ a primitive there risks the import graph that failed being the reason the bounda
 ### Non-`<button>` hand-rolled elements
 
 ★ Every count in this table is **lines**, and each is a total minus the primitive that legitimately
-owns the element. Reproduce — the per-file counts are what make the subtraction checkable:
+owns the element. Reproduce — the per-file counts are what make the subtraction checkable. ★★ These
+are the numbers **at the snapshot commit**, and every line below counts ALL mentions (a comment
+naming the attribute included), consistently on both sides of each subtraction. The `role="dialog"`
+line no longer returns them: see "Re-measured 2026-09-02" above for today's figures and for why the
+count alone stopped answering that row's question.
 
 ```bash
 NT='--include=*.tsx --exclude=*.test.tsx'
@@ -419,7 +505,7 @@ grep -rn 'role="listbox"' src/app $NT                  # 5
 | Raw `<select>` outside `form-controls.tsx` | 37 lines / 23 files, of which **~15 are comment mentions** | **convertible** | Real sites cluster in `budget-bucket-modal.tsx` (4) · `project-form-fields.tsx` (4) · `bulk-edit-modal.tsx` (3) · `roles-editor.tsx` (2). ★ `task-status-select.tsx:21` is the shared inline status select — that one is a primitive in its own right, **keep**. |
 | Raw `<textarea>` outside `form-controls.tsx` | **7** lines / 4 files | **convertible** | 10 lines total − 3 in `form-controls.tsx`. `bulk-edit-modal.tsx` (2) · `project-form-fields.tsx` (3) · `chat-panel.tsx:809` · `task-row.tsx:323` — which sums to 7, as it should. ★ `chat-panel.tsx` and `task-row.tsx` are auto-growing composers with their own key handling — read first. |
 | Raw `<table>` outside `data-table.tsx` / `report-table.tsx` | **12** lines / 10 files | **correctly hand-rolled** | 17 lines total − 5 in `data-table.tsx`; `report-table.tsx` holds **no** `<table` at all, so it subtracts nothing. `raid-report-panel.tsx` (2) · `markdown.tsx` (2, at 391 and one more) · `add-first-item-button.tsx` · `change-report-panel.tsx` · `learning-insights.tsx` · `panel-table-scaffold.tsx` · `resource-calendar-band.tsx` · `resource-calendar.tsx:524` · `resources-panel-rows.tsx:94` · `tasks-section.tsx:958`. Each carries panel-specific geometry — sticky columns placed by arithmetic, `w-max`, a `<tbody>` band interleaved with other rows. `markdown.tsx` renders user markdown and cannot use a typed table at all. |
-| `role="dialog"` outside `modal.tsx` / `popover-panel.tsx` | **24** lines / **21** files | **correctly hand-rolled** | 26 lines / 22 files total − the 2 in `modal.tsx` (`popover-panel.tsx` has none). ★ Every other row in this document counts LINES; the "21" this row used to carry was the FILE count. Every one is a popover panel or floating window that already routes through `PopoverPanel` or owns its own drag/dismiss wiring. No hand-rolled modal was found that should be `Modal` — this was the cleanest result in the audit. |
+| `role="dialog"` outside `modal.tsx` / `popover-panel.tsx` | **24** lines / **21** files | **correctly hand-rolled** | 26 lines / 22 files total − the 2 in `modal.tsx` (`popover-panel.tsx` has none). ★ Every other row in this document counts LINES; the "21" this row used to carry was the FILE count. Every one is a popover panel or floating window that already routes through `PopoverPanel` or owns its own drag/dismiss wiring. No hand-rolled modal was found that should be `Modal` — this was the cleanest result in the audit. ★★ **This row's premise changed after the snapshot — see "Re-measured 2026-09-02" above before acting on the tag.** |
 | `role="listbox"` | **5** lines / 5 files — `combobox-shared.tsx:116` · `entity-link-picker.tsx:299` · `global-search-box.tsx:278` · `resource-picker.tsx:260` · `stakeholder-recipient-input.tsx:193` | **correctly hand-rolled** | Real combobox listboxes; `combobox-shared.tsx` is the primitive and the rest are its peers with divergent option shapes. ★ The row said "4 sites" while naming five files — all five are real. |
 | `role="tooltip"` | 1 — `info-tooltip.tsx:61` | **correctly hand-rolled** | The primitive itself. |
 

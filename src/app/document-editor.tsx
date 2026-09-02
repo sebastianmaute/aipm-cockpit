@@ -138,10 +138,16 @@ export function DocumentEditor({
   //   written as one.
   const resolvedSelection = selected === -1 ? null : selected;
 
-  // ★ `useId`, not a module constant: two editors could in principle mount at
-  //  once (a popout beside the main window), and two `<p>` nodes sharing one
-  //  id makes every describedby on this surface resolve to whichever the
-  //  browser found first.
+  // ★ `useId`, not a module constant: two `<p>` nodes sharing one id would make
+  //  every describedby on this surface resolve to whichever the browser found
+  //  first, and `useId` costs nothing to be right by construction.
+  // ★★★ THE REASON THIS COMMENT USED TO GIVE — "a popout beside the main
+  //  window" — IS FALSE, and it is left named here so it is not re-derived.
+  //  `openPopoutWindow` (`broadcast-sync.ts`) calls `window.open` on
+  //  `?popout=<tab>`, so a popout is a SEPARATE top-level document: ids in it
+  //  can never collide with the main window's. No path mounts two of these
+  //  editors in ONE document today. See open-followups §344 — the id choice is
+  //  right regardless; only its stated justification was wrong.
   const hintId = useId();
   // ★★ ONE source for "is the hint on screen": the `<p>` and the id handed to
   //  every grip must never disagree, or a describedby points at nothing.
@@ -272,7 +278,7 @@ export function DocumentEditor({
 
   const insertSeeded = (at: number, type: AddableBlockType) => {
     const r = structural.insert(at, blockSeed(lang, type));
-    if (r?.changed) setChosen(selectionAfterInsert(resolvedSelection, at));
+    if (r?.changed) setChosen(selectionAfterInsert(resolvedSelection, at, type));
   };
 
   const deleteBlock = async (index: number) => {

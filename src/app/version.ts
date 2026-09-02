@@ -2,10 +2,28 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.278.0";
-export const APP_BUILD_DATE = "2026-09-02"; // 0.278.0: click any uploaded picture — in the image library or in a document — to open it full size in a window you can drag, resize and step through, and the Documents tab now offers a box to create your first document or add your first image instead of an empty pane (Gilman)
+export const APP_VERSION = "0.278.1";
+export const APP_BUILD_DATE = "2026-09-02"; // 0.278.1: the RACI role picker no longer opens off the right edge of a wide matrix, can be reached and left with the keyboard, and announces itself; adding a paragraph to a document in a narrow pane now selects the new block, so you can type in the thing you just asked for (Gilman)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.277.x line is "Ozeki" (Ruth Ozeki, American-Canadian novelist, "A Tale
+ *  0.278.x line is "Gilman" (Charlotte Perkins Gilman, American author,
+ *  "The Yellow Wall-Paper" and the utopian "Herland"). ★★ Checked
+ *  dash-agnostically but AFTER the bump, which is the weaker order this
+ *  docstring's own note warns about: the command now matches the two headers
+ *  the release itself wrote, so the evidence is that BOTH hits are on the
+ *  0.278 line and none is on any other. Nothing on a second minor line, so the
+ *  name is fresh rather than a permitted reuse:
+ *  `grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md | grep -i gilman`
+ *  → `[0.278.1]` and `[0.278.0]` only, against a pattern proved to see all 372
+ *  named headers.
+ *  ★★★ THIS ENTRY AND THE LEAD SENTENCE WERE BOTH MISSING FOR A WHOLE LINE.
+ *  0.278.0 shipped with `APP_MILESTONE` already "Gilman" while this docstring
+ *  still opened "The 0.277.x line is 'Ozeki'" and the ledger jumped 0.277.x
+ *  straight to 0.276.x — so the file that IS the source of truth for the
+ *  codename described the previous line as current. `version:check` cannot see
+ *  it: it compares the satellites against `APP_MILESTONE`, never against the
+ *  prose beside it. Bumping the constants is not the whole edit — move the old
+ *  line into the "was" list below in the same commit.
+ *  0.277.x was "Ozeki" (Ruth Ozeki, American-Canadian novelist, "A Tale
  *  for the Time Being"). Checked dash-agnostically BEFORE the bump with the
  *  command below: zero hits, against a pattern proved to see all 368 named
  *  headers (and returning 2 for "Cadigan" as a positive control), so this one

@@ -259,6 +259,14 @@ const TITLE_ID = "type-to-confirm-title";
 const MISMATCH_ID = "type-to-confirm-mismatch";
 ```
 
+> ★★★ **SUPERSEDED 2026-09-02 — do NOT copy this shape into a new dialog.** Both ids are now
+> per-instance `useId()` values (`docs/open-followups.md` §326, commit `dced5a68`). The
+> module-constant form this plan shipped put duplicate ids in the document whenever two
+> `TypeToConfirmDialog`s were mounted, which `tasks-section.tsx` can reach through the voice
+> `clearAll` nonce reconcile — reproduced in Chromium before the fix. This step is left as written
+> because it is the dated record of what the recourse slice did; §326 records what replaced it.
+> Verify with `grep -n "useId" src/app/type-to-confirm-dialog.tsx`.
+
 Replace the state line:
 
 ```tsx

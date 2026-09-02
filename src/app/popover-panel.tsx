@@ -194,11 +194,28 @@ export function PopoverPanel({
     // ★ NESTED PORTALS STAY UNFIXED BY THIS (a note, not a fix): a focusable
     // child the panel itself portals elsewhere is not `panel.contains(...)`, so
     // focusing it would record "outside" and silently disable the restore.
-    // Verified no consumer does that today — `createPortal` appears only in
-    // `info-tooltip.tsx`, `popover-panel.tsx`, `raci-chip-picker.tsx` and
-    // `rich-text-editor.tsx`, no `PopoverPanel` consumer renders `InfoTooltip`
-    // or `RaciChipPicker`, and `ResourcePicker` (which several do render) does
-    // not portal.
+    // Verified no consumer does that today — re-run the census rather than
+    // trusting this list, which has already gone stale once. ★★★ IT NEEDS TWO
+    // ANTI-SELF-COUNTING GUARDS AND SHIPPED WITH NEITHER, which is worse than a
+    // wrong number: a reader following the instruction got output that appeared
+    // to prove the fix had never landed. The trailing PAREN excludes prose
+    // mentions — `raci-chip-picker.tsx` names the function twice in its own
+    // §334 comment WITHOUT calling it, so a bare-name grep returns FOUR and
+    // lists the very file the next sentence says has left. The BRACKET then
+    // stops this quoted command from matching itself, the same trick and the
+    // same reason as the `<[M]odal` census ~200 lines below. Run it from the
+    // repo root, and run it AFTER any edit to this comment — a self-counting
+    // grep is invisible on the first pass and only shows up on the second.
+    //   grep -rln "createPorta[l](" src/app --include=*.tsx --include=*.ts | grep -v test
+    // returns THREE files as of §334 — `info-tooltip.tsx`, this file, and
+    // `rich-text-editor.tsx`. ★★ `raci-chip-picker.tsx` was the fourth and is
+    // NOT merely gone from the list: it now renders its picker THROUGH this
+    // primitive, so it is a CONSUMER, and an earlier revision here asserted that
+    // no `PopoverPanel` consumer renders `RaciChipPicker`. That sentence cannot
+    // be repaired by deleting the name — the live question is whether any
+    // consumer nests a portal, and the picker no longer does one of its own.
+    // `InfoTooltip` is still rendered by no consumer, and `ResourcePicker`
+    // (which several do render) does not portal.
     const onOut = (e: FocusEvent) => {
       if (e.relatedTarget === null) return;
       focusInsideRef.current = panel.contains(e.relatedTarget as Node);
