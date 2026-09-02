@@ -971,4 +971,33 @@ describe("cellLinkedLines — the structural projection (§330)", () => {
     expect(lines?.[0]?.runs[0]?.text).toBe("[x] ");
     expect(flatten(lines ?? [])).toBe(cell.text);
   });
+
+  // ★★★ `kind` TRAVELS, AND NOTHING PINNED IT UNTIL 2026-09-02. The field
+  //   exists only so a slide renderer can fold the LINE's styling into every
+  //   run — `pptxRun` turns `blockquote` into italic and `pre` into monospace —
+  //   and `slotParagraphs` feeds it straight there. A cold review named the
+  //   mutant `kind: line.kind` -> `kind: "p"` and it SURVIVED the five affected
+  //   files whole (0 failed / 224 passed, 2026-09-02), so linked blockquote and
+  //   code cells could have shipped rendered as plain prose with every gate
+  //   green. Reproduce the renderer's half:
+  //     grep -n "blockquote\|=== \"pre\"" src/app/doc-render-pptx-slides.ts
+  it.each([
+    ["blockquote", '<blockquote><p>see <a href="https://a/x">x</a></p></blockquote>'],
+    ["pre", '<pre>see <a href="https://a/x">x</a></pre>'],
+  ])("carries the line's %s kind through to the renderer", (kind, html) => {
+    expect(cellLinkedLines(richCell(html))?.[0]?.kind).toBe(kind);
+  });
+
+  // ★★ THE EQUIVALENCE ABOVE IS NOT UNIVERSAL, and `pre` is the exception
+  //   `cellLinkedLines`' own docblock already names: `htmlToRichLines` keeps a
+  //   code block's whitespace ON PURPOSE while `descriptionTextWithBreaks`
+  //   collapses and trims it. So for a `<pre>` cell the runs branch changes the
+  //   rendered TEXT and not merely its typography — which makes the switch
+  //   link-conditional over content, the strongest form of the inconsistency
+  //   `slotParagraphs`' docblock weighs. Pinned here so a future "parity" trim
+  //   in either projection has to argue with a red test.
+  it("diverges from the stored projection for pre, the one kind that keeps whitespace", () => {
+    const cell = richCell('<pre>  see <a href="https://a/x">x</a></pre>');
+    expect(flatten(cellLinkedLines(cell) ?? [])).not.toBe(cell.text);
+  });
 });
