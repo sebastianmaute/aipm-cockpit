@@ -131,7 +131,9 @@ describe("TypeToConfirmDialog", () => {
     const dialogs = screen.getAllByRole("dialog");
     expect(dialogs).toHaveLength(2);
     const titles = dialogs.map((d) => {
-      const el = document.getElementById(d.getAttribute("aria-labelledby")!)!;
+      const id = d.getAttribute("aria-labelledby");
+      expect(id).toBeTruthy();
+      const el = document.getElementById(id as string)!;
       // The whole assertion: each name resolves INSIDE the dialog that claims it.
       expect(d.contains(el)).toBe(true);
       return el.textContent;
@@ -139,7 +141,7 @@ describe("TypeToConfirmDialog", () => {
     expect(titles).toEqual(["First", "Second"]);
   });
 
-  it("gives two mounted dialogs distinct mismatch regions", () => {
+  it("gives two mounted dialogs mismatch ids that resolve inside their own dialog", () => {
     render(
       <>
         <TypeToConfirmDialog {...base} title="First" />
@@ -151,7 +153,9 @@ describe("TypeToConfirmDialog", () => {
       const input = within(d).getByRole("textbox");
       fireEvent.change(input, { target: { value: "wrong" } });
       fireEvent.blur(input);
-      const described = document.getElementById(input.getAttribute("aria-describedby")!)!;
+      const id = input.getAttribute("aria-describedby");
+      expect(id).toBeTruthy();
+      const described = document.getElementById(id as string)!;
       expect(d.contains(described)).toBe(true);
     }
   });

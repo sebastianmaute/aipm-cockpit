@@ -38,12 +38,11 @@ export function TypeToConfirmDialog({
   // order, so the wrong dialog's title and mismatch text were announced — no
   // visible symptom, nothing thrown. Measured in Chromium: with both open, the
   // Delete-selected dialog announced "Clear all tasks?" as its own name.
-  // ★ Reachable via the VOICE clearAll path, not by two toolbar clicks —
-  // `Modal`'s `fixed inset-0` backdrop intercepts pointer events, so a second
-  // toolbar button cannot be clicked while a dialog is open. The nonce
-  // reconcile in `tasks-section.tsx` opens the second dialog with no click at
-  // all. This also retires an unwritten "only one may be mounted" rule that no
-  // gate could ever have enforced.
+  // ★ The "only one may be mounted" rule this defect depended on WAS written,
+  // twice, in `src/` — as design-decision prose in `notifications.tsx`
+  // (`SavingPausedBanner`'s doc-block) and `use-storage-backend.ts` (the
+  // save-effect's toast comment) — and no gate could ever have checked either
+  // claim. Both have been swept to state the constraint is gone.
   const titleId = useId();
   const mismatchId = useId();
   const [typed, setTyped] = useState("");
