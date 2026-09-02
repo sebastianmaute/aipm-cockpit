@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.278.0";
-export const APP_BUILD_DATE = "2026-09-02"; // 0.278.0: click any uploaded picture — in the image library or in a document — to open it full size in a window you can drag, resize and step through, and the Documents tab now offers a box to create your first document or add your first image instead of an empty pane (Gilman)
+export const APP_VERSION = "0.278.1";
+export const APP_BUILD_DATE = "2026-09-02"; // 0.278.1: the RACI role picker no longer opens off the right edge of a wide matrix, can be reached and left with the keyboard, and announces itself; adding a paragraph to a document in a narrow pane now selects the new block, so you can type in the thing you just asked for (Gilman)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.277.x line is "Ozeki" (Ruth Ozeki, American-Canadian novelist, "A Tale
  *  for the Time Being"). Checked dash-agnostically BEFORE the bump with the
