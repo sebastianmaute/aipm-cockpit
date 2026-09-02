@@ -4266,6 +4266,13 @@ const enUS = {
   assetLibraryMaxPerDocumentFreeable:
     "This document already has the maximum of {0} images. Removing the references no export can draw would make room for {1} more.",
   assetLibraryPasteDropZone: "Paste or drop an image to add it",
+  assetPreviewTitle: "Preview – {0}",
+  assetPreviewOpen: "Preview image – {0}",
+  assetPreviewPrev: "Previous image",
+  assetPreviewNext: "Next image",
+  assetPreviewPosition: "{0} of {1}",
+  assetPreviewUnavailable: "This image's data is missing, so it cannot be shown.",
+  assetPreviewBlocked: "This image's format is no longer supported, so it cannot be shown.",
   assetUploadErrorFormat: "Unsupported image format. Use PNG, JPEG or WebP.",
   assetUploadErrorTooLargeRaw: "That image is too large to upload.",
   assetUploadErrorTooLargeStored: "That image is still too large after downscaling.",

@@ -4154,6 +4154,13 @@ export const de: Record<TranslationKey, string> = {
   assetLibraryMaxPerDocumentFreeable:
     "Dieses Dokument enthält bereits die maximale Anzahl von {0} Bildern. Wenn Sie die Verweise entfernen, die kein Export darstellen kann, wird Platz für {1} weitere frei.",
   assetLibraryPasteDropZone: "Bild einfügen oder hierher ziehen, um es hinzuzufügen",
+  assetPreviewTitle: "Vorschau – {0}",
+  assetPreviewOpen: "Bild anzeigen – {0}",
+  assetPreviewPrev: "Vorheriges Bild",
+  assetPreviewNext: "Nächstes Bild",
+  assetPreviewPosition: "{0} von {1}",
+  assetPreviewUnavailable: "Die Bilddaten fehlen, daher kann das Bild nicht angezeigt werden.",
+  assetPreviewBlocked: "Das Bildformat wird nicht mehr unterstützt, daher kann das Bild nicht angezeigt werden.",
   assetUploadErrorFormat: "Nicht unterstütztes Bildformat. Verwenden Sie PNG, JPEG oder WebP.",
   assetUploadErrorTooLargeRaw: "Dieses Bild ist zu groß zum Hochladen.",
   assetUploadErrorTooLargeStored: "Dieses Bild ist auch nach der Verkleinerung noch zu groß.",
