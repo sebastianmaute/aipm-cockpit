@@ -27,7 +27,9 @@ import {
   buildDocxTable,
   docxContentWidth,
   docxInlineDrawing,
+  docxRichParagraphs,
 } from "./ooxml-docx-primitives";
+import { createLinkSink } from "./ooxml-links";
 import { buildDocx } from "./export-docx";
 import type { ExportSection } from "./export-sections";
 import { readZipEntries } from "./unzip";
@@ -109,9 +111,20 @@ function tableWidth(xml: string): number {
 
 describe("buildDocxPackage — page geometry", () => {
   it("defaults to A4 landscape with the exporter's 720-twip margins", async () => {
-    // ★★ The DEFAULT is the contract, not a preference: the workspace exporter
-    // calls buildDocxPackage with two arguments, and its output is pinned by
-    // export-ooxml.test.ts. Widening the page here re-orients every export.
+    // ★★★ THE REASONING HERE WAS FALSIFIED BY THE LINKS BRANCH AND THE
+    // CONCLUSION WITH IT. It read: "the workspace exporter calls
+    // buildDocxPackage with two arguments … widening the page here re-orients
+    // every export." Both halves are now untrue. `export-docx.ts` passes five
+    // arguments with "landscape" spelled out (it has link relationships to
+    // hand over) and `doc-render-docx.ts` passes its own `PAGE = "portrait"`,
+    // so NO production caller reads this default and widening it re-orients
+    // NOTHING that ships. Reproduce before trusting this either:
+    //   grep -rn "buildDocxPackage(" src/app --include=*.ts | grep -v test
+    // ★★ So this stays an ARGUMENT-DEFAULT test, not an export-behaviour one.
+    // It is worth keeping in that narrower form precisely BECAUSE no caller
+    // covers the default any more — every site that still reads it is a TEST.
+    // Enumerate them; do not trust a count here:
+    //   grep -rn 'buildDocxPackage("<w:p/>")\|buildDocxPackage("<w:p/>", "")' src --include=*.ts
     const g = await geometry(buildDocxPackage("<w:p/>"));
     expect(g.width).toBe(A4_LONG);
     expect(g.height).toBe(A4_SHORT);
@@ -412,5 +425,165 @@ describe("docxInlineDrawing", () => {
     for (const value of values) {
       expect(value).toBe("say &quot;hi&quot;");
     }
+  });
+});
+
+// ★★★ HYPERLINKS. A link is a relationship with NO part — that is the whole
+// point of `TargetMode="External"`, and it is what makes this additive in a way
+// the media path is not: no zip entry, no content-type Default.
+//
+// ★★ The namespace declaration is asserted ON THE ELEMENT deliberately.
+// `w:document`'s root declares only `xmlns:w`; moving `xmlns:r` up there would
+// change the bytes of EVERY package, including link-free ones, and move
+// docs/baselines/ooxml-parts.json. The media path already solves the identical
+// problem the identical way, on `a:blip`.
+describe("docxRichParagraphs — hyperlinks", () => {
+  it("wraps a linked run in w:hyperlink carrying the sink's rel id", () => {
+    const sink = createLinkSink(2);
+    const xml = docxRichParagraphs('<p><a href="https://intra/spec">the spec</a></p>', sink);
+    // ★ Matched as a pattern rather than a literal prefix because `xmlns:r`
+    // precedes `r:id` in the emitted element — see the test below, which pins
+    // that order.
+    expect(xml).toMatch(/<w:hyperlink [^>]*r:id="rId2">/);
+    expect(sink.rels()).toEqual([{ relId: "rId2", target: "https://intra/spec" }]);
+  });
+
+  it("declares xmlns:r ON the hyperlink element, leaving w:document untouched", () => {
+    const sink = createLinkSink(2);
+    const xml = docxRichParagraphs('<p><a href="https://a">x</a></p>', sink);
+    expect(xml).toContain(
+      '<w:hyperlink xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
+    );
+  });
+
+  it("emits no hyperlink and mints no rel for an unlinked paragraph", () => {
+    const sink = createLinkSink(2);
+    const xml = docxRichParagraphs("<p>plain</p>", sink);
+    expect(xml).not.toContain("w:hyperlink");
+    expect(sink.rels()).toEqual([]);
+  });
+
+  // ★★★ THE `Hyperlink` CHARACTER STYLE (§336). Before it, a link was
+  // followable and drawn in ordinary body colour with no underline — it looked
+  // exactly like the words around it, which is most of what §119 was filed to
+  // deliver. `w:rStyle` is the FIRST child of `<w:rPr>` (CT_RPr is an
+  // `xsd:sequence`, and rStyle leads EG_RPrBase), so these read the child ORDER
+  // off the parsed tree rather than asserting mere presence: a presence-only
+  // assertion passes at any order, and a run whose properties come out in
+  // another order is schema-INVALID.
+  //
+  // ★★ THIS FILE CANNOT WITNESS THE FIX ON ITS OWN. A `w:rStyle` naming a style
+  // the package does not DECLARE is silently ignored by Word, and
+  // `docxRichParagraphs` emits no styles.xml. The declaration half, and the
+  // derived membership check that ties the two together, live in
+  // `doc-render-docx.test.ts` and `export-ooxml.test.ts` — one per consumer.
+  describe("the Hyperlink character style", () => {
+    /** The child tag names of the `<w:rPr>` inside the fragment's first
+     *  `<w:r>`, in document order, or `[]` when that run carries none. */
+    function runRPrChildren(fragment: string): string[] {
+      const parsed = parseXml(
+        `<w:root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+          `${fragment}</w:root>`,
+      );
+      const r = parsed.getElementsByTagName("w:r")[0];
+      expect(r).toBeDefined();
+      const rPr = Array.from(r.children).find((el) => el.tagName === "w:rPr");
+      return rPr === undefined ? [] : Array.from(rPr.children).map((el) => el.tagName);
+    }
+
+    it("opens a linked run's w:rPr with the rStyle, and nothing else", () => {
+      const sink = createLinkSink(2);
+      const xml = docxRichParagraphs('<p><a href="https://intra/spec">the spec</a></p>', sink);
+      expect(runRPrChildren(xml)).toEqual(["w:rStyle"]);
+      expect(xml).toContain(`<w:rStyle w:val="Hyperlink"/>`);
+    });
+
+    it("keeps the rStyle ahead of a linked run's mark properties", () => {
+      // ★ The marks the run also carries are what make the ORDER observable —
+      //   the test above cannot tell first from only.
+      const sink = createLinkSink(2);
+      const xml = docxRichParagraphs('<p><a href="https://a"><b><i>x</i></b></a></p>', sink);
+      expect(runRPrChildren(xml)).toEqual(["w:rStyle", "w:b", "w:i"]);
+    });
+
+    it("leaves an unlinked run's properties exactly as they were", () => {
+      // The additive contract at the run level: a marked run keeps only its
+      // marks, and an unmarked one still emits NO `<w:rPr>` at all — which the
+      // empty array alone would not distinguish from an empty one.
+      const sink = createLinkSink(2);
+      const bold = docxRichParagraphs("<p><b>bold</b></p>", sink);
+      expect(runRPrChildren(bold)).toEqual(["w:b"]);
+      expect(bold).not.toContain("w:rStyle");
+      const plain = docxRichParagraphs("<p>plain</p>", sink);
+      expect(runRPrChildren(plain)).toEqual([]);
+      expect(plain).not.toContain("<w:rPr>");
+    });
+
+    /** ★★★ THE SEPARATING INPUT FOR A MUTANT THAT OTHERWISE SURVIVES ALL
+     *  THREE DOCX TEST FILES. Keying the rStyle off the parse-side `href`
+     *  rather than the resolved `hyperlinkRelId` — one identifier — was green
+     *  everywhere, measured, and the reason is that the two differ on only two
+     *  inputs. An UNSAFE scheme is not one of them: `safeLinkTarget` drops it
+     *  during the parse, so such a run reaches `markedRun` with no `href` at
+     *  all and the "degrades an unsafe scheme" tests cannot tell the two
+     *  spellings apart.
+     *
+     *  ★★ The other is THIS: a caller that passes NO SINK. `renderRun` then
+     *  returns the run untouched, `href` intact and `hyperlinkRelId` never
+     *  minted — which is the whole of the "the sink being OPTIONAL" contract
+     *  that keeps every pre-existing caller byte-identical. Under the mutant
+     *  such a run wears the `Hyperlink` style with NO `<w:hyperlink>` wrapper:
+     *  text drawn as a link that cannot be followed, which is §336's defect
+     *  inverted and worse. `buildDocxTable` is called without links today, so
+     *  this is a live path, not a hypothetical one. */
+    it("adds no character style to a link when the caller passes no sink", () => {
+      const xml = docxRichParagraphs('<p><a href="https://intra/spec">the spec</a></p>');
+      expect(xml).not.toContain("w:rStyle");
+      expect(xml).not.toContain("w:hyperlink");
+      // Positive observable — a render that dropped the run entirely would
+      // satisfy both negatives while proving nothing.
+      expect(xml).toContain("the spec");
+    });
+  });
+
+  // ★★★ A TEST NAMED "gives a dataSection block the same link fidelity as the
+  // register's own export" WAS DELETED FROM HERE, and the deletion is the point
+  // worth recording. It imported no `doc-render-docx`, called no `renderBlock`,
+  // `resolveDataSection` or `buildExportSections`, and built no `DocBlock` — it
+  // was the first test in this describe with a different URL and a weaker pair
+  // of assertions, under a name claiming a subject it could not reach. Its
+  // comment argued the case ("shares these sinks by construction") instead of
+  // asserting it, and a reader auditing dataSection link coverage would have
+  // found the name, believed it, and stopped. A test with the right name and
+  // no view of its subject is worse than no test at all.
+  // ★ The claim is now covered where it can actually be observed: the
+  // "hyperlinks" describe in `doc-render-docx.test.ts` drives a real
+  // `{ type: "dataSection" }` block through `renderDocumentDocx` and resolves
+  // the emitted `r:id` against the rels part.
+});
+
+describe("buildDocxPackage link relationships", () => {
+  it("writes an external relationship with TargetMode and adds NO zip part", async () => {
+    const parts = await unzipBytes(
+      buildDocxPackage("<w:p/>", "", "landscape", [], [
+        { relId: "rId2", target: "https://intra/spec?a=1&b=2" },
+      ]),
+    );
+    const rels = partText(parts, "word/_rels/document.xml.rels");
+    expect(rels).toContain(`Id="rId2"`);
+    expect(rels).toContain(`TargetMode="External"`);
+    expect(rels).toContain("relationships/hyperlink");
+    expect(rels).toContain("https://intra/spec?a=1&amp;b=2");
+    // The property that separates a link from a media part: no new zip entry.
+    expect([...parts.keys()].filter((p) => p.startsWith("word/media/"))).toEqual([]);
+    expect(partText(parts, "[Content_Types].xml")).not.toContain("hyperlink");
+  });
+
+  it("throws when a link id collides with a media id", () => {
+    expect(() =>
+      buildDocxPackage("<w:p/>", "", "landscape", [
+        { path: "word/media/image1.png", data: new Uint8Array([1]), relId: "rId2", extension: "png" },
+      ], [{ relId: "rId2", target: "https://a" }]),
+    ).toThrow(/duplicate relationship id/i);
   });
 });

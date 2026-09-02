@@ -64,6 +64,31 @@ function parseXml(xml: string): Document {
   return parsed;
 }
 
+/** The path of the ONE relationship part every id in document.xml resolves in. */
+const DOC_RELS = "word/_rels/document.xml.rels";
+
+/** The `<Relationship>` carrying this Id, as a plain attribute bag — or
+ *  `undefined` when the part declares no such id.
+ *
+ *  ★★★ THIS EXISTS SO A TEST CANNOT ASSERT THE TWO HALVES INDEPENDENTLY.
+ *  `export-ooxml.test.ts` states the rule ("BOTH HALVES OR NEITHER"): an
+ *  `expect(body).toContain('r:id="rId2"')` beside an
+ *  `expect(rels).toContain('Id="rId2"')` passes even when the renderer emitted
+ *  a DIFFERENT id in one of the two, because each assertion restates the
+ *  literal rather than reading it. Callers here must extract the id FROM the
+ *  body and hand it to this function, so a mismatch is a missing relationship.
+ *
+ *  ★ Returns the attribute bag rather than a boolean so `TargetMode` and `Type`
+ *  are checkable on the SAME element the id resolved to — an external link and
+ *  an internal media part are told apart by exactly those two. */
+function relationship(relsXml: string, id: string): Record<string, string> | undefined {
+  for (const el of Array.from(parseXml(relsXml).getElementsByTagName("Relationship"))) {
+    if (el.getAttribute("Id") !== id) continue;
+    return Object.fromEntries(Array.from(el.attributes).map((a) => [a.name, a.value]));
+  }
+  return undefined;
+}
+
 /** Every <w:t> in document order, which is what a reader actually sees. */
 function textNodes(xml: string): string[] {
   return Array.from(parseXml(xml).getElementsByTagName("w:t")).map(
@@ -239,6 +264,31 @@ describe("renderDocumentDocx — declared styles", () => {
     // The whole point of DOC_STYLES: no pStyle may fall through to a Word
     // latent built-in, which would render in Word's palette, not Acme's.
     for (const id of used) expect(declared).toContain(id);
+  });
+
+  /** ★★★ §336. The link WORKED and looked exactly like the words around it,
+   *  because nothing declared a `Hyperlink` style and nothing named one.
+   *
+   *  ★★ `w:type` is the half that matters here and the easy one to lose: a
+   *  `w:type="paragraph"` style of this id is declared, resolvable, and can
+   *  never be applied to a RUN — so the link would go on rendering in body
+   *  colour with every styleId assertion still green. */
+  it("declares Hyperlink as a CHARACTER style carrying a colour and an underline", async () => {
+    const styles = await part(doc([]), "word/styles.xml");
+    const el = Array.from(parseXml(styles).documentElement.children).find(
+      (s) => s.getAttribute("w:styleId") === "Hyperlink",
+    );
+    expect(el).toBeDefined();
+    expect(el!.getAttribute("w:type")).toBe("character");
+    const rPr = Array.from(el!.children).find((c) => c.tagName === "w:rPr");
+    expect(rPr).toBeDefined();
+    // Order asserted, not just membership: a style's own <w:rPr> is EG_RPrBase
+    // too, where w:color precedes w:u.
+    expect(Array.from(rPr!.children).map((c) => c.tagName)).toEqual(["w:color", "w:u"]);
+    expect(rPr!.getElementsByTagName("w:u")[0].getAttribute("w:val")).toBe("single");
+    // Both cues, not one. Underline alone would satisfy the palette test below
+    // and is the weaker affordance; colour alone fails WCAG 1.4.1 reasoning.
+    expect(rPr!.getElementsByTagName("w:color")[0].getAttribute("w:val")).toBe(COLOR_DARK_BLUE);
   });
 
   it("colours the declared styles from the sanctioned palette only", () => {
@@ -918,6 +968,16 @@ describe("DOCX invariants Word fails silently on", () => {
     // is satisfied by a run that cannot fail the check it guards. Measured in
     // both directions.
     "<p><em><strong>bi</strong></em></p>",
+    // ★★★ A LINKED, MARKED run — the ONLY shape that puts a `w:rStyle` into the
+    // sweep, and invariant 4 was blind to it until §336 added the element. It
+    // has to carry a mark as well as the link: an rStyle-only `<w:rPr>` has one
+    // child and is in sequence order whatever the builder does, so the
+    // rStyle-leads-EG_RPrBase claim would never be exercised here.
+    // ★★ Only TWO of the sweep's three body paths render it as a link. The
+    // `cell` path calls `buildDocxTable` with no sink, so its run degrades to a
+    // plain marked one — deliberate, and it is what keeps the "no rStyle
+    // without a sink" property under this fixture too.
+    '<p><a href="https://intra/spec"><strong>linked bold</strong></a></p>',
   ].join("");
 
   /** `buildDocx`'s own `word/document.xml` — the WORKSPACE exporter's package.
@@ -1071,6 +1131,10 @@ describe("DOCX invariants Word fails silently on", () => {
     // marks, and copying its 0..6 here would rank two of the elements that
     // actually appear in the wrong place.
     const ORDER = [
+      // ★★ `w:rStyle` LEADS CT_RPr, ahead of the whole of EG_RPrBase — it is
+      // not a member of that group at all, which is why `DOCX_MARK_RPR`'s rank
+      // table does not carry it. Reached only by the fixture's linked run.
+      "w:rStyle",
       "w:rFonts",
       "w:b",
       "w:i",
@@ -1459,6 +1523,51 @@ describe("renderDocumentDocx — S3c-2 embedded images", () => {
     expect(cx).toBe(4_572_000);
   });
 
+  /** ★★★ THE ONLY AUTOMATED EXERCISE OF `mediaIdCeiling`'S RESERVATION, and the
+   *  failure it guards is a HARD one: media relationship ids are minted DURING
+   *  the body render, so the link sink cannot measure them and reserves a bound
+   *  instead. Under-reserve — `createLinkSink(2)` rather than
+   *  `createLinkSink(2 + mediaIdCeiling(doc))` — and a document holding BOTH an
+   *  image and a link mints rId2 twice; `buildDocxPackage` throws on the
+   *  duplicate and the user's whole export fails with no file at all.
+   *
+   *  ★★ IT NEEDS BOTH IN ONE DOCUMENT, which is why it lives here beside the
+   *  media fixtures rather than in the "hyperlinks" describe below. Every other
+   *  test in this file has images or links, never both, and each of those
+   *  passes at either reservation. The shape is the block editor's own: an
+   *  image-only paragraph followed by prose carrying a link.
+   *
+   *  ★ It asserts DISJOINTNESS AND RESOLUTION, not just that the render
+   *  survived. A future collision that did NOT throw would otherwise pass here
+   *  while pointing the picture at the hyperlink's relationship. */
+  it("keeps a picture's embed id and a hyperlink's id disjoint, each resolving to its own rel", async () => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      doc([
+        { type: "paragraph", html: `<p><img data-asset-id="a1"></p>` },
+        { type: "paragraph", html: '<p>see <a href="https://intra/spec">the spec</a></p>' },
+      ], "T"),
+      wsWith(), "en-US", inlinedAssets({ a1: PNG_B64 }),
+    ));
+    const xml = partText(zip, "word/document.xml");
+    const embedId = xml.match(/r:embed="(rId\d+)"/)?.[1];
+    const linkId = xml.match(/<w:hyperlink [^>]*r:id="(rId\d+)">/)?.[1];
+    // Both halves present FIRST — a document that rendered neither would
+    // satisfy every inequality below vacuously.
+    expect(embedId).toBeTruthy();
+    expect(linkId).toBeTruthy();
+    expect(embedId).not.toBe(linkId);
+
+    const rels = partText(zip, "word/_rels/document.xml.rels");
+    const embedRel = relationship(rels, embedId!);
+    const linkRel = relationship(rels, linkId!);
+    expect(embedRel?.Type).toContain("/image");
+    expect(embedRel?.Target).toBe(`media/${mediaPaths(zip)[0].slice("word/media/".length)}`);
+    expect(embedRel?.TargetMode).toBeUndefined();   // an internal part, not external
+    expect(linkRel?.Type).toContain("/hyperlink");
+    expect(linkRel?.Target).toBe("https://intra/spec");
+    expect(linkRel?.TargetMode).toBe("External");
+  });
+
   it("numbers several images so each drawing resolves to its own part", async () => {
     const zip = await unzipBytes(renderDocumentDocx(
       imageDoc(`<p><img data-asset-id="a1"><img data-asset-id="a2"></p>`),
@@ -1515,5 +1624,162 @@ describe("renderDocumentDocx — S3c-2 embedded images", () => {
       expect(canEmbedDocxAsset(asset())).toBe(true);
       expect(canEmbedDocxAsset(asset({ mime: "image/jpeg" }))).toBe(true);
     });
+  });
+});
+
+// ─── Hyperlinks (§119) ───────────────────────────────────────────────────────
+//
+// ★★★ THE DOCX *DOCUMENT* RENDERER — the primary consumer §119 was filed about
+// — shipped with NO link assertion anywhere in this file while its PPTX twin
+// got a full end-to-end describe. Measured at the time, not assumed:
+// `grep -c "href=" doc-render-docx.test.ts` returned 0 against 3 for the pptx
+// file, and three separate mutants of `doc-render-docx.ts` were green:
+// dropping `links.rels()` from the `buildDocxPackage` call (a body full of
+// `<w:hyperlink r:id>` over a rels part that declares none — Word opens with
+// the link dead or offers to repair), under-reserving the sink's base, and
+// dropping the sink from the `dataSection` arm. `ooxml-docx-primitives.test.ts`
+// pins `docxRichParagraphs` and `buildDocxPackage` SEPARATELY and cannot see
+// any of the three: every one of them is in the WIRING between the two.
+//
+// ★★ So the load-bearing property here is RESOLUTION ACROSS THE TWO PARTS, and
+// every test below reads the id out of `word/document.xml` and looks THAT id up
+// (see `relationship`). Restating the literal on both sides is the exact shape
+// `export-ooxml.test.ts`'s "BOTH HALVES OR NEITHER" comment warns against, and
+// it would have left the first mutant alive.
+describe("renderDocumentDocx — hyperlinks", () => {
+  const linked = (html: string): ProjectDocument => doc([{ type: "paragraph", html }], "T");
+
+  it("resolves a paragraph link's r:id to an External relationship on that target", async () => {
+    const all = await parts(linked('<p>see <a href="https://intra/spec">the spec</a></p>'));
+    const id = all.get("word/document.xml")!.match(/<w:hyperlink [^>]*r:id="(rId\d+)">/)?.[1];
+    expect(id).toBeTruthy();
+    // ★ rId1 is the styles part. Minting it would silently detach the styles
+    //   and leave every paragraph unstyled, which no text assertion notices.
+    expect(id).not.toBe("rId1");
+
+    const rel = relationship(all.get(DOC_RELS)!, id!);
+    expect(rel).toBeDefined();
+    expect(rel!.Target).toBe("https://intra/spec");
+    expect(rel!.TargetMode).toBe("External");
+    expect(rel!.Type).toContain("/hyperlink");
+  });
+
+  it("adds no zip part and no content-type for a link", async () => {
+    // The property that separates an external relationship from a media one.
+    // A renderer that minted a part here would produce a package listing an
+    // entry it never wrote.
+    const all = await parts(linked('<p><a href="https://intra/spec">x</a></p>'));
+    expect([...all.keys()].filter((p) => p.startsWith("word/media/"))).toEqual([]);
+    expect(all.get("[Content_Types].xml")).not.toContain("hyperlink");
+  });
+
+  it("resolves a dataSection row's link the same way — the register's own cell", async () => {
+    // ★★ THE dataSection ARM THREADS THE SINK SEPARATELY from the paragraph
+    //    arm, through `buildDocxTable`, and `links` is OPTIONAL there — so
+    //    dropping it from this arm alone COMPILES and flattens an embedded
+    //    register's rich column straight back to §119's original defect, with
+    //    every other test in this file green.
+    const wsLinkedRaid = {
+      tasks: [],
+      raid: [{
+        id: 1,
+        title: "Vendor delay",
+        category: "Risk",
+        status: "Open",
+        description: '<p>see <a href="https://intra/raid">the mitigation</a></p>',
+      }],
+    } as unknown as Workspace;
+    const all = await parts(doc([{ type: "dataSection", key: "raid" }]), wsLinkedRaid);
+    const body = all.get("word/document.xml")!;
+    // The row reached the table at all — without this the id assertions below
+    // could pass on an empty register by failing for the wrong reason.
+    expect(textNodes(body)).toContain("Vendor delay");
+
+    const id = body.match(/<w:hyperlink [^>]*r:id="(rId\d+)">/)?.[1];
+    expect(id).toBeTruthy();
+    const rel = relationship(all.get(DOC_RELS)!, id!);
+    expect(rel?.Target).toBe("https://intra/raid");
+    expect(rel?.TargetMode).toBe("External");
+  });
+
+  it("mints ONE relationship for one address used twice, and both runs point at it", async () => {
+    const all = await parts(linked(
+      '<p><a href="https://intra/spec">one</a> and <a href="https://intra/spec">two</a></p>',
+    ));
+    const body = all.get("word/document.xml")!;
+    const ids = [...body.matchAll(/<w:hyperlink [^>]*r:id="(rId\d+)">/g)].map((m) => m[1]);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(1);
+    // ★ And the deduped id is a REAL relationship, not merely a repeated
+    //   string — the dedup lives in the sink, the declaration in the package.
+    expect(relationship(all.get(DOC_RELS)!, ids[0])?.Target).toBe("https://intra/spec");
+  });
+
+  /** ★★★ THE TWO-HALVES PIN (§336), and the reason it derives BOTH sides. A
+   *  `w:rStyle` naming a style the package does not declare is SILENTLY IGNORED
+   *  by Word — the link stays followable and stays drawn in body colour with no
+   *  underline — while every string assertion about the emitted XML passes.
+   *  That is the same trap the `DOC_STYLES` docblock records for `w:pStyle`, so
+   *  the claim here is MEMBERSHIP: the `w:val` read out of word/document.xml
+   *  must be a `w:styleId` word/styles.xml actually declares, as a CHARACTER
+   *  style. Restating the literal on both sides would pass with the two halves
+   *  renamed apart. */
+  it("names on the linked run a character style the package actually declares", async () => {
+    // ★★ THE LINK IS BOLD ON PURPOSE. An rStyle-only `<w:rPr>` has ONE child
+    //    and is in sequence order whatever the builder does, so a first-child
+    //    assertion over an UNMARKED link passes with the concatenation
+    //    reversed — measured: swapping `${rStyle}${props}` in `markedRun` left
+    //    the unmarked version of this test GREEN.
+    const all = await parts(linked('<p>see <a href="https://intra/spec"><strong>the spec</strong></a></p>'));
+    const hyperlink = parseXml(all.get("word/document.xml")!)
+      .getElementsByTagName("w:hyperlink")[0];
+    expect(hyperlink).toBeDefined();
+    const rPr = hyperlink.getElementsByTagName("w:rPr")[0];
+    expect(rPr).toBeDefined();
+    // POSITION, not presence — CT_RPr is an `xsd:sequence` and rStyle leads it.
+    expect(Array.from(rPr.children).map((c) => c.tagName)).toEqual(["w:rStyle", "w:b"]);
+    const used = rPr.children[0].getAttribute("w:val");
+    expect(used).toBeTruthy();
+
+    const declared = Array.from(parseXml(all.get("word/styles.xml")!).documentElement.children)
+      .filter((s) => s.getAttribute("w:type") === "character")
+      .map((s) => s.getAttribute("w:styleId"));
+    expect(declared).toContain(used);
+
+    // ★★ AND THE COMMON SHAPE — an UNMARKED link, which is what a document
+    //    actually holds. It has no mark properties, so it only gets an
+    //    `<w:rPr>` at all because the rStyle takes part in `markedRun`'s
+    //    emptiness test instead of being appended to its result. Bolding the
+    //    fixture above to make the ORDER observable removed the only unmarked
+    //    link from this file; measured, that left `props === ""` catchable by
+    //    ooxml-docx-primitives.test.ts alone.
+    const bare = await documentXml(linked('<p><a href="https://intra/spec">bare</a></p>'));
+    expect(bare).toContain(`<w:rPr><w:rStyle w:val="${used}"/></w:rPr>`);
+  });
+
+  it("leaves a link-free document's runs carrying no character style", async () => {
+    // The additive contract at the run level: an unlinked run must be exactly
+    // what it was before §336, so nothing in a link-free package names one.
+    const xml = await documentXml(doc([{ type: "paragraph", html: "<p>no links here</p>" }]));
+    expect(xml).not.toContain("w:rStyle");
+  });
+
+  it("degrades an unsafe scheme to a plain run rather than relating it", async () => {
+    const all = await parts(linked('<p><a href="javascript:alert(1)">click</a></p>'));
+    const body = all.get("word/document.xml")!;
+    expect(body).not.toContain("w:hyperlink");
+    // ★ And no character style either — a degraded link that still LOOKED like
+    //   one would invite the click the degrade exists to prevent.
+    expect(body).not.toContain("w:rStyle");
+    // The TEXT survives — degrading must not delete the user's words.
+    expect(textNodes(body)).toContain("click");
+    expect(all.get(DOC_RELS)!).not.toContain("javascript:");
+  });
+
+  it("leaves a link-free document's rels part exactly as it was", async () => {
+    // The additive contract, end to end: no hyperlink relationship at all.
+    const all = await parts(doc([{ type: "paragraph", html: "<p>no links here</p>" }]));
+    expect(all.get(DOC_RELS)!).not.toContain("hyperlink");
+    expect(all.get(DOC_RELS)!).not.toContain("TargetMode");
   });
 });

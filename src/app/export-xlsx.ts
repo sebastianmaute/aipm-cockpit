@@ -1,7 +1,7 @@
 // Hand-rolled XLSX (OOXML) builder. Shared helpers in export-ooxml-shared.ts.
 import { type ZipEntry, buildZip } from "./zip";
 import type { ExportCell, ExportSection } from "./export-sections";
-import { cellText } from "./export-sections";
+import { cellTextWithLinks } from "./export-sections";
 import {
   COLOR_DARK_BLUE,
   COLOR_LIGHT_GREY,
@@ -94,7 +94,10 @@ export function buildXlsx(sections: ExportSection[]): Blob {
             // A worksheet cell cannot lay out paragraphs, so a rich cell is
             // read through its flat text projection. `s()` already normalises
             // a missing cell via `?? ""`, which is what a short row relies on.
-            return `<c r="${ref}" t="s" s="${styleId}"><v>${s(cellText(row[ci]))}</v></c>`;
+            // ★ `cellTextWithLinks`, not `cellText`: a shared string holds no
+            // hyperlink, so a link's address has to be carried inline as
+            // "text (url)" or it is lost outright (§119).
+            return `<c r="${ref}" t="s" s="${styleId}"><v>${s(cellTextWithLinks(row[ci]))}</v></c>`;
           })
           .join("");
         return `<row r="${rowNum}">${cells}</row>`;

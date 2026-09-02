@@ -38,7 +38,8 @@ command. Two qualifications that bound how far that goes:
 | # | Slice | §§ | User-visible? | Size | Risk |
 |---|---|---|---|---|---|
 | 3 | Type-to-confirm + destructive-refusal recourse | 300 · 301 · 302 · 307 · 303 | yes (DE + AT users) | 5 src, new i18n keys | low, wide surface |
-| 4 | Export fidelity: links + export i18n | 119 · 30 · 93 · 304 | yes | 6-8 src, many i18n keys | touches rich-text sanitizers |
+| 4a | Export fidelity: links — **TAKEN AND SHIPPED** | 119 · 30 | yes | 9 src + `ooxml-links.ts` | done; non-goals filed as 329 · 330 |
+| 4b | Export i18n: translated column and section labels | 93 · 304 | yes | many i18n keys — see the split note | low per key, high volume |
 | 5 | Budget panel correctness | 70 · 122 · 68 · 314 · 71 | yes | 4-5 src, 1-2 i18n | low |
 | 6 | Row-unique names round 4 | 309 · 315 · 305 · 314 | yes (AT) | 3-4 src + tests | low |
 | 7 | Colour-only state (WCAG 1.4.1) | 55 · 101 · 56 · 302 | yes | 10+ src | palette + a11y gates |
@@ -105,26 +106,98 @@ an editor that re-lines CRLF or curls quotes; patch it with an anchored node utf
 
 The only slice here whose headline claim is MEASURED rather than never-verified.
 
-- **§119** — verified: `grep -c "hyperlink\|hlinkClick"` returns **0** in all four of
-  `doc-render-docx.ts`, `doc-render-pptx.ts`, `ooxml-docx-primitives.ts`, `ooxml-pptx-primitives.ts`.
-  A link exports as dead text in DOCX and PPTX while HTML and PDF keep it — and the AI document model
-  is told the `a` tag is supported, so it will keep emitting them.
-- **§30** — the export projection ends in `htmlToText` with `ALLOWED_TAGS: []`, so a task
-  description's `href` is unrecoverable in PDF, DOCX, XLSX and PPTX alike.
+★★★ **SPLIT INTO 4a AND 4b ON 2026-09-01, AND 4a HAS SHIPPED.** The two halves share a heading and
+nothing else: 4a (§119 · §30) is renderer and package work with almost no strings, 4b (§93 · §304) is
+i18n volume with no renderer work at all. Bundling them would have put a many-hundred-key translation
+job behind a package-format change, and each half would have gated the other's review.
+
+**The volume is what justified the split, and it is bigger than a first estimate suggested.** 4b has
+to mint a display label — EN and DE — for every export column. Measured 2026-09-01: **14** column
+constants carrying **139** distinct column strings, not the "12 constants, ~110 strings" an earlier
+estimate gave. Derive it rather than trusting this line, because both numbers move on any schema
+change:
+
+```bash
+grep -h "^export const [A-Z_]*CSV_COLUMNS" src/app/*.ts | wc -l
+node -e '
+const fs=require("fs");
+const set=new Set();
+for(const f of ["src/app/csv-codecs-core.ts","src/app/csv-codecs-config.ts","src/app/document-asset-codecs.ts"]){
+  const s=fs.readFileSync(f,"utf8");
+  const re=/export const ([A-Z_]*CSV_COLUMNS)[^=]*=\s*\[([\s\S]*?)\]/g; let m;
+  while((m=re.exec(s))) for(const q of m[2].matchAll(/"([^"]+)"/g)) set.add(q[1]);
+}
+console.log(set.size);'
+```
+
+★ The count above covers only the builders that READ a `*_CSV_COLUMNS` constant. §304's own figure —
+10 of 15 `ExportSection` builders — means five more hand-write their column arrays, and those are
+outside the two commands above. Enumerate them from §304 before scoping 4b.
+
+### 4a — links (§119 · §30) — SHIPPED on `fix/export-link-fidelity`
+
+Both entries are closed. What landed:
+
+- a shared `ooxml-links.ts` — `safeLinkTarget` (scheme allowlist), `createLinkSink`, `LinkSink` /
+  `LinkRel`; `TextRun` gained an `href` FIELD (not a `RunMark`, which carries no payload) and the
+  walk gained an `A` arm;
+- real `<w:hyperlink>` in `.docx` and real `<a:hlinkClick>` in `.pptx` text boxes, both as
+  `TargetMode="External"` relationships with NO part;
+- a new `cellTextWithLinks` in `export-sections.ts` rendering `text (url)` for the FLAT sinks
+  (`export-xlsx.ts`, `export-pptx.ts`, `doc-render-pptx.ts`'s cell path). ★ SUPERSEDED IN PART
+  2026-09-01: `export-pptx.ts` left that list — a manual pass found its row slides emitting dead
+  `text (url)` from the same action that produced live `.docx` links, and since nothing on a row
+  slide is flattened it now mints real relationships through `cellLinkedLines` instead. The two
+  remaining flat sinks are unchanged; §330's scope clause carries the split. `htmlToText` was NOT
+  widened, and is now held byte-unchanged by a positive test, because search, the note logs and the
+  AI digests read it.
+
+★★ **Two deliberate non-goals came out of it and are filed so nobody reads them as unfinished work:**
+§329 (real XLSX cell hyperlinks — the format's unit is the CELL, so a multi-link description cannot
+be represented without dropping addresses) and §330 (the flat PPTX table cell keeps the inline form
+because `flattenCell` has already collapsed the runs a relationship would attach to).
+
+★★★ **THE PART-MANIFEST TRAP DESCRIBED HERE DOES NOT EXIST, and this row asserted it did.** The
+original text said "adding hyperlink relationships MOVES the part manifest — regenerate
+deliberately". It does not move it, and there was nothing to regenerate: a hyperlink relationship
+adds NO zip entry and NO `[Content_Types].xml` Default, which is exactly what `TargetMode="External"`
+licenses. `docs/baselines/ooxml-parts.json` is byte-unchanged across the whole slice, and the
+additive property is now pinned by name — `ooxml-package-manifest.test.ts` carries a per-subject
+"an empty links list adds nothing to the package". ★ The prove-RED-after-regeneration discipline is
+still right in general; it simply had no subject here. Do not carry the false half into 4b.
+
+★ The `isHtmlStart` warning below WAS live and was hit: splitting rich HTML re-enters the per-sink
+landmine — `CONTAINS_TAG` needs `<` plus a LETTER, so a fragment carrying only a CLOSING tag
+classifies as plain text and gets escaped into the reader's document.
+
+★★★ **Nothing in this repo can open a `.docx` or a `.pptx`.** Verification is unzip-and-byte-compare
+plus an OWED manual pass in Word and LibreOffice. That debt is REAL for 4a and is §219's;
+`scripts/sample-link-exports.ts` emits four link-bearing sample files for it. Do not read 4a's green
+gates as covering it.
+
+### 4b — export i18n (§93 · §304) — NOT started
+
 - **§93** — a hardcoded English frame wraps an already-translated section title, producing
   "Showing the first 100 of 125 **Aufgaben** rows".
 - **§304** — no `ExportSection` builder puts a translated label in `columns`; 10 of 15 take them from
   `*_CSV_COLUMNS`, so a German user gets raw storage field names as export headers.
 
-★★ **Two traps this slice walks straight into.** The `ooxml-parts.json` manifest gate is MEDIA-FREE
-only, and adding hyperlink relationships MOVES the part manifest — regenerate deliberately and prove
-RED → regenerate → still RED on a real mutant, because a baseline gate is blind immediately after its
-own regeneration. And splitting rich HTML re-enters the per-sink `isHtmlStart` landmine: `CONTAINS_TAG`
-needs `<` plus a LETTER, so a fragment carrying only a CLOSING tag classifies as plain text and gets
-escaped into the reader's document.
-★★★ **Nothing in this repo can open a `.docx` or a `.pptx`.** Verification is unzip-and-byte-compare
-plus an OWED manual pass in Word and LibreOffice. Budget for it; §219 already records one such debt
-unpaid.
+★★ EN/DE key parity is tsc-enforced and DE must carry real umlauts — at this key volume that is the
+whole risk. Patch `i18n.de.ts` with an anchored node utf8 write, never an editor that re-lines CRLF
+or curls quotes.
+★ The two closed entries are still worth reading before starting: §30 records why `htmlToText` must
+not be widened, and both record what the flat projection now emits, which 4b's labels sit beside.
+
+**For the record — what the original slice-4 row said about §119 and §30, now historical:**
+
+- **§119** — verified: `grep -c "hyperlink\|hlinkClick"` returns **0** in all four of
+  `doc-render-docx.ts`, `doc-render-pptx.ts`, `ooxml-docx-primitives.ts`, `ooxml-pptx-primitives.ts`.
+  A link exports as dead text in DOCX and PPTX while HTML and PDF keep it — and the AI document model
+  is told the `a` tag is supported, so it will keep emitting them.
+- **§30** — the export projection ends in `htmlToText` with `ALLOWED_TAGS: []`, so a task
+  description's `href` is unrecoverable in PDF, DOCX, XLSX and PPTX alike. ★ That list was one too
+  long even then: PDF goes through `exportCellHtml`, which emits `sanitizeRichHtml` markup for a
+  rich cell and has kept `<a href>` since §141(b). The claim held for DOCX, XLSX and PPTX.
 
 ## Slice 5 — Budget panel correctness
 

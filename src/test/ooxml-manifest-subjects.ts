@@ -31,6 +31,25 @@ export type ManifestSubject = {
   /** Names the subject in the gate's failure text and in its test title. */
   label: string;
   build: () => Blob;
+  /** The SAME package, built with an EXPLICITLY empty `links` list.
+   *
+   *  ★★ REQUIRED, not optional, so a new subject cannot quietly opt out of the
+   *  links additive contract the gate asserts over this list.
+   *
+   *  ★★★ IT IS NOT ALWAYS A DIFFERENT CALL, and that is the point of pairing
+   *  the two spellings here rather than asserting one of them. `buildDocxPackage`
+   *  DEFAULTS `links` to `[]`, so for the two docx subjects "omitted" and
+   *  "explicitly empty" are the same call and comparing them proves nothing on
+   *  its own -- which is why the gate also compares this build against the
+   *  committed baseline, the one reference that predates links. For pptx the
+   *  distinction IS real: `PptxSlide.links` is an optional FIELD, so the
+   *  builder sees `undefined` here and `[]` there.
+   *
+   *  ★ Spelling `page` out below is forced (`links` trails it positionally) and
+   *  would re-open the drift this file exists to close -- except that the gate
+   *  compares the two builds part-for-part, so a twin that stops matching its
+   *  subject goes red rather than silent. */
+  buildEmptyLinks: () => Blob;
 };
 
 export const MANIFEST_SUBJECTS: readonly ManifestSubject[] = [
@@ -38,22 +57,36 @@ export const MANIFEST_SUBJECTS: readonly ManifestSubject[] = [
     key: "docx",
     label: "docx (portrait)",
     build: () => buildDocxPackage("<w:p/>", "", "portrait"),
+    buildEmptyLinks: () => buildDocxPackage("<w:p/>", "", "portrait", [], []),
   },
   {
-    // ★★★ TWO ARGUMENTS ON PURPOSE, MIRRORING THE WORKSPACE EXPORTER.
-    // `buildDocxPackage`'s `page` parameter DEFAULTS to "landscape", and
-    // `export-docx.ts` calls it with two arguments -- so the media-free docx
-    // `export-docx.ts` produces is the landscape one, and for a while
-    // the only manifested docx was the portrait subject above. Passing the
-    // default rather than spelling `"landscape"` out also puts the default
-    // itself under the gate: flip it and this subject's parts move.
+    // ★★★ TWO ARGUMENTS ON PURPOSE — BUT NO LONGER "MIRRORING THE WORKSPACE
+    // EXPORTER", WHICH IS WHAT THIS COMMENT SAID UNTIL THE LINKS BRANCH.
+    // `export-docx.ts` used to call `buildDocxPackage(body, DOC_STYLES)` and
+    // take the "landscape" DEFAULT; it now passes five arguments with
+    // "landscape" spelled out, because it has a link-relationship list to hand
+    // over. Verify before trusting either sentence:
+    //   grep -n "buildDocxPackage(" src/app/export-docx.ts
+    // ★★ The subject is KEPT, and the reason survives the correction intact:
+    // the landscape package still has to be manifested (for a while the only
+    // manifested docx was the portrait subject above), and NO production caller
+    // reads the `page` default any more — every site that still does is a TEST,
+    // so flipping the default would be caught only here and in
+    // `ooxml-docx-primitives.test.ts`. Enumerate them rather than trusting the
+    // sentence; a first draft of it said "the ONLY thing", which its own
+    // reproduce command refuted:
+    //   grep -rn 'buildDocxPackage("<w:p/>")\|buildDocxPackage("<w:p/>", "")' src --include=*.ts
+    // That makes this line MORE load-bearing than when it merely echoed a
+    // caller, not less.
     key: "docxLandscape",
     label: "docx (landscape)",
     build: () => buildDocxPackage("<w:p/>", ""),
+    buildEmptyLinks: () => buildDocxPackage("<w:p/>", "", "landscape", [], []),
   },
   {
     key: "pptx",
     label: "pptx",
     build: () => buildPptxPackage([{ xml: "<p:sld/>", media: [] }]),
+    buildEmptyLinks: () => buildPptxPackage([{ xml: "<p:sld/>", media: [], links: [] }]),
   },
 ];

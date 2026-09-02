@@ -2,13 +2,16 @@
 import { describe, it, expect } from "vitest";
 import {
   buildExportSections,
+  cellText,
+  cellTextWithLinks,
+  cellLinkedLines,
   isRichCell,
   TASK_RICH_COLUMNS,
   RAID_RICH_COLUMNS,
   MILESTONE_RICH_COLUMNS,
   CHANGE_RICH_COLUMNS,
 } from "./export-sections";
-import type { ExportCell, RichCell } from "./export-sections";
+import type { ExportCell, RichCell, CellRunLine } from "./export-sections";
 import { descriptionTextWithBreaks } from "./rich-text-projection";
 import {
   CSV_COLUMNS,
@@ -816,5 +819,185 @@ describe("note logs export as readable text, not a raw JSON blob (§36b)", () =>
     const col = tasks!.columns.indexOf("noteLog");
     expect(col).toBeGreaterThanOrEqual(0);
     expect(flatCell(tasks!.rows[0][col])).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §119/§30 — a link's ADDRESS survives a sink that cannot hold a hyperlink
+// ---------------------------------------------------------------------------
+
+describe("cellTextWithLinks — the flat-sink projection (§119)", () => {
+  it("appends the address to a link's text for a flat sink", () => {
+    const cell = {
+      html: '<p>Spec: <a href="https://intra/spec">the spec</a></p>',
+      text: "Spec: the spec",
+    };
+    expect(cellTextWithLinks(cell)).toBe("Spec: the spec (https://intra/spec)");
+  });
+
+  it("leaves an unlinked value exactly as cellText produced it", () => {
+    const cell = { html: "<p>plain</p>", text: "plain" };
+    expect(cellTextWithLinks(cell)).toBe(cellText(cell));
+  });
+
+  it("passes a non-rich cell straight through", () => {
+    expect(cellTextWithLinks("raw")).toBe("raw");
+    expect(cellTextWithLinks(42)).toBe(42);
+  });
+
+  it("omits the address when the link text ALREADY is the address", () => {
+    const cell = { html: '<p><a href="https://a">https://a</a></p>', text: "https://a" };
+    expect(cellTextWithLinks(cell)).toBe("https://a");
+  });
+
+  it("drops an unsafe scheme rather than printing it", () => {
+    const cell = { html: '<p><a href="javascript:alert(1)">click</a></p>', text: "click" };
+    expect(cellTextWithLinks(cell)).toBe("click");
+  });
+
+  /** ★ ONE suffix per LINK, not per run. A link whose text carries an inline
+   *  mark is several `TextRun`s sharing one href; suffixing each of them would
+   *  print the address in the middle of its own anchor text. */
+  it("suffixes a marked-up link once, not once per styled run", () => {
+    const cell = {
+      html: '<p><a href="https://intra/spec">the <strong>spec</strong></a></p>',
+      text: "the spec",
+    };
+    expect(cellTextWithLinks(cell)).toBe("the spec (https://intra/spec)");
+  });
+
+  /** ★ DELIBERATE: an address repeated across SEPARATE links is suffixed at
+   *  every one of them. A flat cell has no back-reference — a reader meeting
+   *  the second mention cannot know it points where the first did — and
+   *  de-duplicating would make each link's rendering depend on what precedes
+   *  it, so deleting the first sentence would silently strip the second's
+   *  address. */
+  it("suffixes every separate link even when they share one address", () => {
+    const cell = {
+      html: '<p><a href="https://a/x">one</a> and <a href="https://a/x">two</a></p>',
+      text: "one and two",
+    };
+    expect(cellTextWithLinks(cell)).toBe("one (https://a/x) and two (https://a/x)");
+  });
+
+  /** ★★★ THE CASE THE TEST ABOVE CANNOT SEE, and the reason it is separate.
+   *  That fixture puts " and " between its two anchors, so a run with no href
+   *  breaks the stretch and the two links stay two under EITHER reading of
+   *  `coalesceLinks` — by anchor, or by `href` alone. Only DIRECT adjacency
+   *  separates them, and the answer is that it coalesces by `href`: the anchor
+   *  boundary is gone by the time runs reach it. `coalesceLinks`' docblock
+   *  claimed the opposite for a release, with a green suite either way. */
+  it("merges two DIRECTLY ADJACENT anchors that share one address", () => {
+    const cell = {
+      html: '<p><a href="https://u/x">a</a><a href="https://u/x">b</a></p>',
+      text: "ab",
+    };
+    expect(cellTextWithLinks(cell)).toBe("ab (https://u/x)");
+  });
+
+  it("keeps two DIRECTLY ADJACENT anchors apart when the addresses differ", () => {
+    // ★ The other half of the same rule: adjacency is not what merges them,
+    //   an equal `href` is. This is what a per-anchor implementation and the
+    //   real per-href one agree on, so it pins the break condition itself.
+    const cell = {
+      html: '<p><a href="https://u/x">a</a><a href="https://u/y">b</a></p>',
+      text: "ab",
+    };
+    expect(cellTextWithLinks(cell)).toBe("a (https://u/x)b (https://u/y)");
+  });
+
+  it("keeps the block boundaries descriptionTextWithBreaks emits", () => {
+    const html = '<p>a <a href="https://a/x">link</a></p><p>b</p>';
+    const cell = { html, text: descriptionTextWithBreaks(html) };
+    expect(cellTextWithLinks(cell)).toBe("a link (https://a/x)\nb");
+  });
+});
+
+/** ★★ `cellLinkedLines` shipped with NO direct test — its three contracts were
+ *  reachable only through `buildPptx`, which is real coverage of the SLIDE and
+ *  no coverage of the stated contract. A cold review found the gap along with
+ *  the missing equivalence pin below. */
+describe("cellLinkedLines — the structural projection (§330)", () => {
+  const richCell = (html: string): RichCell => ({
+    html,
+    text: descriptionTextWithBreaks(html),
+  });
+  const flatten = (lines: readonly CellRunLine[]): string =>
+    lines.map((line) => line.runs.map((run) => run.text).join("")).join("\n");
+
+  it("returns undefined — never [] — for a rich cell carrying no link", () => {
+    expect(cellLinkedLines(richCell("<p>plain <em>words</em></p>"))).toBeUndefined();
+  });
+
+  it("returns undefined for a cell that is not rich at all", () => {
+    expect(cellLinkedLines("raw")).toBeUndefined();
+    expect(cellLinkedLines(42)).toBeUndefined();
+  });
+
+  // ★★★ THE PREDICATE IS `href !== undefined`, NOT `isAddressed`. Mirroring the
+  //   flat sink's predicate here would leave a PASTED, SELF-ADDRESSED URL dead:
+  //   `isAddressed` asks "would printing the address ADD anything", which is
+  //   false when the text already IS the address — correct for `text (url)`,
+  //   wrong for "should this be clickable".
+  it("takes the runs branch for a self-addressed URL the flat projection leaves alone", () => {
+    const cell = richCell('<p><a href="https://a/x">https://a/x</a></p>');
+    expect(cellTextWithLinks(cell)).toBe("https://a/x");
+    const lines = cellLinkedLines(cell);
+    expect(lines).toBeDefined();
+    expect(lines?.[0]?.runs.some((run) => run.href === "https://a/x")).toBe(true);
+  });
+
+  // ★★ THE EQUIVALENCE `cellTextWithLinks`' OWN DOCBLOCK BOUNDS. That docblock
+  //   promises a drift between the stored projection and a re-derivation can
+  //   only ever affect a cell that carries a link. The runs branch re-derives
+  //   from `htmlToRichLines` for exactly that class, so this is the assertion
+  //   that keeps the promise honest instead of merely narrow.
+  it("re-derives the same visible text the stored projection holds", () => {
+    const cell = richCell('<p>a <strong>bold</strong> <a href="https://a/x">link</a></p><p>b</p>');
+    const lines = cellLinkedLines(cell);
+    expect(lines).toBeDefined();
+    expect(flatten(lines ?? [])).toBe(cell.text);
+  });
+
+  // ★★ The marker branch was untested; a mutant returning `line.runs` bare
+  //   survived the whole unit suite when a cold review probed for it.
+  it("prepends the task marker, and keeps the text equal to the stored projection", () => {
+    const cell = richCell(
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="true">' +
+        '<p>see <a href="https://a/q">q</a></p></li></ul>',
+    );
+    const lines = cellLinkedLines(cell);
+    expect(lines).toBeDefined();
+    expect(lines?.[0]?.runs[0]?.text).toBe("[x] ");
+    expect(flatten(lines ?? [])).toBe(cell.text);
+  });
+
+  // ★★★ `kind` TRAVELS, AND NOTHING PINNED IT UNTIL 2026-09-02. The field
+  //   exists only so a slide renderer can fold the LINE's styling into every
+  //   run — `pptxRun` turns `blockquote` into italic and `pre` into monospace —
+  //   and `slotParagraphs` feeds it straight there. A cold review named the
+  //   mutant `kind: line.kind` -> `kind: "p"` and it SURVIVED the five affected
+  //   files whole (0 failed / 224 passed, 2026-09-02), so linked blockquote and
+  //   code cells could have shipped rendered as plain prose with every gate
+  //   green. Reproduce the renderer's half:
+  //     grep -n "blockquote\|=== \"pre\"" src/app/doc-render-pptx-slides.ts
+  it.each([
+    ["blockquote", '<blockquote><p>see <a href="https://a/x">x</a></p></blockquote>'],
+    ["pre", '<pre>see <a href="https://a/x">x</a></pre>'],
+  ])("carries the line's %s kind through to the renderer", (kind, html) => {
+    expect(cellLinkedLines(richCell(html))?.[0]?.kind).toBe(kind);
+  });
+
+  // ★★ THE EQUIVALENCE ABOVE IS NOT UNIVERSAL, and `pre` is the exception
+  //   `cellLinkedLines`' own docblock already names: `htmlToRichLines` keeps a
+  //   code block's whitespace ON PURPOSE while `descriptionTextWithBreaks`
+  //   collapses and trims it. So for a `<pre>` cell the runs branch changes the
+  //   rendered TEXT and not merely its typography — which makes the switch
+  //   link-conditional over content, the strongest form of the inconsistency
+  //   `slotParagraphs`' docblock weighs. Pinned here so a future "parity" trim
+  //   in either projection has to argue with a red test.
+  it("diverges from the stored projection for pre, the one kind that keeps whitespace", () => {
+    const cell = richCell('<pre>  see <a href="https://a/x">x</a></pre>');
+    expect(flatten(cellLinkedLines(cell) ?? [])).not.toBe(cell.text);
   });
 });

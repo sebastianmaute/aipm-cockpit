@@ -256,7 +256,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§24](#24-named-entities-are-neither-decoded-nor-counted--open-the-named-tail-only) | NAMED entities are neither decoded nor counted — open, the named tail only | 0.209.0 (Lafferty) | S | open |
 | [§28](#28-csv--markdown--turso-never-dompurify-a-rich-field-at-load--open-needs-a-new-boundary) | CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary | 0.196.0, widened 0.209.0 and again 2026-08-11 | M | open |
 | [§29](#29-formnotelog-is-dead-state-in-the-task-form--closed-in-02111) | ~~`form.noteLog` is dead state in the task form~~ | 0.209.0, promoted 0.210.0 | S | **CLOSED** in 0.211.1 |
-| [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--open-needs-a-decision) | A link in a task description loses its address in document exports — open, needs a decision | 0.210.0 (Larbalestier) | M | open |
+| [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--closed-2026-09-01) | ~~A link in a task description loses its address in document exports~~ | 0.210.0 (Larbalestier) | M | **CLOSED** 2026-09-01 (the decision: real links where the sink allows one, `text (url)` where it does not — non-goals at §329 · §330) |
 | [§31](#31-sanitizerichtext-caps-visible-text-so-markup-bytes-are-unbounded--affects-all-four-rich-entities--closed-2026-08-28) | `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — affects all four rich entities | 0.210.0, pre-existing for 3 of 4 | M | **CLOSED** 2026-08-28 |
 | [§32](#32-html_start-misclassifies-eight-plain-text-prefixes-and-the-text-is-then-deleted--open-small) | `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — open, small | pre-existing, reach widened 0.210.0 | S | open |
 | [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--open-cosmetic) | A multi-paragraph description can overflow its PPTX box — open, cosmetic | 0.210.0 (Larbalestier) | S | open |
@@ -345,7 +345,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§116](#116-the-duplication-gate-reads-total-duplicated-lines--the-per-format-token-figure-is-a-decoy--open-a-decision) | The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision | measured 2026-08-08 during the S3a gate run; the first revision inherited AGENTS.md's "per-format" and was wrong | S — a deferred decision, not a defect | open |
 | [§117](#117-three-s3c-image-prerequisites-all-inert-today--a-fixed-2026-08-25-b-fixed-2026-08-13-by-140-c-still-open) | Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) still open | measured 2026-08-08 during the S3a review, all three inert today | M | open |
 | [§118](#118-a-legacy-plain-text-paragraph-collapses-in-every-renderer-and-the-obvious-fix-destroys-markup--closed-2026-08-10) | A legacy plain-text paragraph collapses in every renderer, and the obvious fix destroys markup | S3a; the collapse found by review, the fix's defect found by implementing it 2026-08-08 | M — blocked on §114 | **CLOSED** 2026-08-10 |
-| [§119](#119-a-href-is-dropped-by-both-ooxml-renderers--open) | `<a href>` is dropped by both OOXML renderers — open | pre-existing, confirmed 2026-08-08 during the S3a review | S | open |
+| [§119](#119-a-href-is-dropped-by-both-ooxml-renderers--closed-2026-09-01) | ~~`<a href>` is dropped by both OOXML renderers~~ | pre-existing, confirmed 2026-08-08 during the S3a review | S | **CLOSED** 2026-09-01 |
 | [§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--closed-2026-08-31) | The background insight-recommendation runner has no `AbortController` at all | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-31 |
 | [§121](#121-use-tasks-deduptsx-never-aborts-its-in-flight-call-on-unmount--closed-2026-08-08) | `use-tasks-dedup.tsx` never aborts its in-flight call on unmount | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-08 |
 | [§122](#122-the-budget-people-rows-and-the-role-row-above-them-read-booked-from-two-different-sources--closed-2026-08-31) | The budget people rows and the role row above them read BOOKED from two different sources — CLOSED 2026-08-31 | UI batch slice 3 — 0.224.0 "Emshwiller" | M — it is a design question, not a wiring bug | **CLOSED** 2026-08-31 |
@@ -555,11 +555,14 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide) | `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide | found 2026-08-31, adding the §300 mismatch region | S | open |
 | [§327](#327-use-storage-backendts-sits-exactly-on-the-800-line-size-ratchet-with-zero-headroom) | `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom | found 2026-08-31, closing §303 | S | open |
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
+| [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
+| [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
 | [§331](#331-aria-pressed-carries-a-mutually-exclusive-choice-at-six-sites-which-is-radio-group-semantics-in-toggle-button-clothes) | `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes | found 2026-09-01, closing §55 | M | open |
 | [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | open |
 | [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard) | The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | open |
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp) | `RaciChipPicker`'s popover is positioned with no right-edge clamp | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | open |
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
+| [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1752,19 +1755,41 @@ been worse than deleting it.
 
 ---
 
-## 30. A link in a task description loses its address in document exports — open, needs a decision
+## 30. A link in a task description loses its address in document exports — CLOSED 2026-09-01
 
-**Status:** open — an export projection that strips a link address. Reproduced 2026-08-28 by `grep -n "ALLOWED_TAGS" src/app/sanitize-html.ts`.
+**Status:** CLOSED 2026-09-01 on `fix/export-link-fidelity`. The first of the two options below was
+taken, in the narrow form the second bullet of the closure describes. Witness:
+`grep -rn "cellTextWithLinks" src/app/export-xlsx.ts src/app/doc-render-pptx.ts`
+returns the TWO flat sinks that kept it, and
+`grep -n "leaves htmlToText byte-unchanged" src/app/sanitize-html.test.ts` returns the positive pin
+that keeps the prohibition below enforced rather than merely stated.
 
-Found by the adversarial sweep of 0.210.0, after that release routed `Task.description` through the
-export projection. Recorded rather than fixed, because the fix touches four renderers.
+★★★ **THAT WITNESS SAID "THREE" UNTIL 2026-09-01 AND NAMED `export-pptx.ts` AMONG THEM — corrected
+here, and the correction is the more useful record.** The workspace `.pptx` exporter LEFT the flat
+set later the same day: its row slides mint real per-slide relationships now (§330's scope clause
+carries the reasoning). So this entry's own reproduce command, run as written, returned two matches
+under a sentence claiming three — a closed entry falsified by a later commit on the same branch,
+with every doc gate green over it, because `docs:claims:check` proves only that a cited line COULD
+exist and `docs:symbols:check` only that a NAME is real. Neither reads a count or a claim.
+★★ The decision this entry records is UNCHANGED — a real link where the sink allows one, `text (url)`
+where it does not. What changed is which sinks allow one, and that is exactly the kind of fact a
+closure sentence pins by accident while meaning to pin something else.
 
-`sanitizeRichHtml` allows `<a href>`, so a description can genuinely store a link. The export
+**What the defect was.** Found by the adversarial sweep of 0.210.0, after that release routed
+`Task.description` through the export projection.
+
+`sanitizeRichHtml` allows `<a href>`, so a description can genuinely store a link. The flat export
 projection ends in `htmlToText`, which is `DOMPurify.sanitize(html, {ALLOWED_TAGS: [], ALLOWED_ATTR: []})`
 — that keeps the anchor's TEXT and drops its `href`.
 
-So `<p>Spec: <a href="https://intra/spec">the spec</a></p>` exports to `Spec: the spec` in PDF, DOCX,
-XLSX and PPTX, and the address is unrecoverable from the file.
+So `<p>Spec: <a href="https://intra/spec">the spec</a></p>` exported to `Spec: the spec`, and the
+address was unrecoverable from the file.
+
+★★ **THE ORIGINAL "PDF, DOCX, XLSX and PPTX" LIST WAS ALREADY ONE TOO LONG BEFORE THIS FIX, and
+saying so matters because it is the difference between four renderers and three.** PDF is built by
+`buildPdfHtml`, whose cells go through `exportCellHtml`, which for a `RichCell` emits
+`sanitizeRichHtml(...)` — markup, `<a href>` included. That stopped being a loss at §141(b), not
+here. This entry's headline claim was therefore true of DOCX, XLSX and PPTX on the day it closed.
 
 ★ Scope is TASKS ONLY as a regression: RAID / change / milestone descriptions already went through
 `descriptionText` before 0.210.0 and already lost their hrefs. But before 0.210.0 the Tasks section
@@ -1772,14 +1797,40 @@ emitted the raw markup, so for that one field family the export became more read
 LESS informative — in a release headlined "formatted descriptions survive the trip out of the app".
 CSV/MD are unaffected (they carry the stored markup verbatim, addresses included).
 
-Two options, and the cheap one is not obviously right:
+Two options were recorded, and the cheap one was not obviously right:
 - Render a link as `text (url)` in the EXPORT projection only. Keeps every address, but re-opens a
   byte question in all four renderers and in the golden-adjacent export tests, and makes a
   link-dense description noisy to read.
 - Accept the loss and say so in the UI or the export itself.
 
-★ Do NOT "fix" this by widening `htmlToText`'s allow-list — it is the shared plain-text projection
-that search, the AI digests and the inline-AI preview also use, and none of them wants markup.
+**What closed it — the first option, split by SINK rather than applied uniformly.**
+
+- Where the sink can carry a real link, it carries one. `.docx` (both the document renderer and the
+  workspace exporter) and the `.pptx` TEXT BOXES emit genuine hyperlink relationships — §119.
+- Where the sink is FLAT, a new `cellTextWithLinks` in `export-sections.ts` renders `text (url)`.
+  It is a SEPARATE export-only projection, not a widening of an existing one, and it returns
+  `cell.text` VERBATIM when the parse finds no address to add — so a drift between it and
+  `descriptionTextWithBreaks` can only ever affect a cell that actually carries a link. Consumed by
+  `export-xlsx.ts` and `doc-render-pptx.ts`'s table-cell path. ★★★ THAT SET SAID THREE AND NAMED
+  `export-pptx.ts` UNTIL 2026-09-01, in this entry's own body, below the Status line corrected for
+  the identical reason. (★ A line DISTANCE stood here and was wrong — it counted from the wrong
+  anchor, which is the very form AGENTS.md bans and this branch has now got wrong twice.)
+  The correction was applied to the witness and not to the claim the witness supported, so
+  the entry asserted and denied one fact in one body. `export-pptx.ts` left the flat set the same
+  day (§330). Reproduce: `grep -c "cellTextWithLinks" src/app/export-pptx.ts` → 0.
+
+★★★ **`htmlToText` WAS NOT WIDENED, and the prohibition below is now ENFORCED rather than asserted.**
+It is the shared plain-text projection that search, the note logs and the AI digests read, and none
+of them wants markup. `sanitize-html.test.ts`'s "leaves `htmlToText` byte-unchanged — search and the
+AI digests read it" is a POSITIVE pin, so a future widening goes red there instead of silently
+improving one export and corrupting three consumers.
+
+★ Do NOT "fix" anything else by widening `htmlToText`'s allow-list — the rule that stood here
+survives the closure unchanged, and the test above is what makes it a rule rather than a wish.
+
+★ **Two deliberate non-goals came out of this closure and are filed separately** — real XLSX cell
+hyperlinks (§329) and the flat PPTX table cell keeping the inline form while the same deck's text
+boxes carry real links (§330). Neither is an oversight; read those entries before "finishing" this.
 
 ---
 
@@ -9096,34 +9147,75 @@ fixture, and `documentVersions` records no diff a user did not make.
 
 ---
 
-## 119. `<a href>` is dropped by both OOXML renderers — open
+## 119. `<a href>` is dropped by both OOXML renderers — CLOSED 2026-09-01
 
-**Status:** open — no hyperlink element in either OOXML renderer. Reproduced 2026-08-28 by `grep -n "hyperlink" src/app/doc-render-docx.ts`.
+**Status:** CLOSED 2026-09-01 on `fix/export-link-fidelity`. Both OOXML renderers now mint a real
+hyperlink relationship, so the three greps that were this entry's absence witness return matches
+instead of nothing — the inversion is the closure evidence, and the commands are below.
 
-A link inside a document paragraph reaches `.docx` and `.pptx` as plain text: the words
-survive, the target does not. The HTML/PDF renderer keeps both, so the same document
-carries a working link in one format and a dead phrase in two others. Meanwhile
-`chat-tool-defs-documents.ts` advertises `a` to the document-authoring model, so the model
-is invited to emit links the majority of the export paths silently flatten.
+**What the defect was.** A link inside a document paragraph reached `.docx` and `.pptx` as plain
+text: the words survived, the target did not. The HTML/PDF renderer kept both, so the same document
+carried a working link in one format and a dead phrase in two others. Meanwhile
+`chat-tool-defs-documents.ts` advertises `a` to the document-authoring model, so the model was
+invited to emit links the majority of the export paths silently flattened.
 
 ★ Pre-existing, NOT introduced by the mark-aware slice — the flat projection it replaced
-dropped the href too. Confirmed rather than assumed, three ways:
+dropped the href too. The three witnesses, which used to return nothing and now do not:
 
-    grep -n "w:hyperlink\|hyperlink" src/app/doc-render-docx.ts src/app/ooxml-docx-primitives.ts
-    grep -n "hlinkClick" src/app/doc-render-pptx.ts src/app/ooxml-pptx-primitives.ts
+    grep -n "w:hyperlink" src/app/ooxml-docx-primitives.ts
+    grep -n "hlinkClick" src/app/ooxml-pptx-primitives.ts
     grep -n "href" src/app/rich-text-runs.ts
 
-All three return nothing. `A` is in neither `MARK_BY_TAG` nor `LINE_TAGS`
-(`rich-text-runs.ts`), so an anchor falls through to the plain recursion and contributes
-only its text — which `rich-text-runs.test.ts`'s "carries no mark for a tag that only
-wraps (a link)" already pins as the intended behaviour of the parse.
+★★ **`A` IS STILL IN NEITHER `MARK_BY_TAG` NOR `LINE_TAGS`, and that is the shape of the fix rather
+than a gap in it.** A `RunMark` carries no payload, so an address cannot be one; `TextRun` gained an
+optional `href` FIELD instead, and the walk gained an `A` arm that threads it down the recursion. So
+the premise of the old body survives verbatim and only its CONCLUSION — "an anchor falls through to
+the plain recursion and contributes only its text" — is false now. Accordingly
+`rich-text-runs.test.ts`'s "carries no mark for a tag that only wraps (a link)" was deliberately
+FLIPPED to "carries no mark for a link, but does carry its href": the mark assertion is unchanged and
+an href assertion was added beside it. A reader who greps the old test name and finds nothing has
+found that flip, not a deleted test.
 
-★ Not a one-line fix in either format, which is why it is filed rather than done: a real
-`.docx` hyperlink is a `w:hyperlink` element carrying an `r:id` into a RELATIONSHIP part,
-so `buildDocxPackage` would have to collect per-part relationships it does not model
-today; `.pptx` needs the equivalent `a:hlinkClick` plus its own slide relationship. The
-shared parse would also have to start carrying a href on `TextRun`, which is a change to
-the type both renderers consume.
+★ The 2026-09-01 cost correction this entry already carried was right on both halves, and it is kept
+here as the record of what was actually missing: the per-part relationship machinery already existed
+from the S3c-2 image-media slice, with caller-minted ids assembled into
+`word/_rels/document.xml.rels` for `.docx` and into a per-slide rels part for `.pptx`. What a
+hyperlink needs and an image does not is a relationship with **no part at all** — no zip entry, no
+`[Content_Types].xml` Default — which is what `TargetMode="External"` licenses.
+
+**What closed it.**
+
+- `ooxml-links.ts` — `safeLinkTarget(raw)` (a scheme allowlist, `http:` / `https:` / `mailto:`, so a
+  `javascript:` target can never reach a relationship, and a RELATIVE href is dropped because there
+  is no base to resolve it against once the file has left the app), `createLinkSink(firstFreeIndex)`
+  and the shared `LinkSink` / `LinkRel` types. Pure and DOM-free, so both renderers import it.
+- `.docx` — a real `<w:hyperlink>` wrapping the run, declaring `xmlns:r` ON THE ELEMENT because the
+  document root declares only `xmlns:w`; the relationship carries `TargetMode="External"` and mints
+  no part. `buildDocxPackage`'s rId1 guard was widened to reject DUPLICATE ids across the union of
+  media and links, since the two sinks now number into one id space. Applied to BOTH the document
+  renderer and the workspace exporter `export-docx.ts`.
+- `.pptx` — `<a:hlinkClick>` emitted LAST inside `a:rPr`, which is where the DrawingML sequence puts
+  it; relationship ids scoped PER SLIDE, never deck-wide; and no local `xmlns:r`, because `p:sld`
+  already binds that prefix.
+
+★★★ **THE PART MANIFEST DID NOT MOVE.** `docs/baselines/ooxml-parts.json` is byte-unchanged, because
+a hyperlink relationship adds no zip entry and no content-type Default — the design is additive by
+contract, not by luck, and the roadmap's slice-4 row claimed the opposite until it was corrected in
+the same commit range. The property is pinned by NAME rather than left to a regeneration:
+`ooxml-package-manifest.test.ts` carries a per-subject "an empty links list adds nothing to the
+package", and the additive contract is asserted at two more levels —
+
+    grep -rn "additive contract" src/app/export-ooxml.test.ts src/app/doc-render-pptx.test.ts src/app/ooxml-pptx-primitives.test.ts
+
+★ **Residual, which does NOT reopen this entry:** nothing in this repo can open a `.docx` or a
+`.pptx`. ★★ THAT PASS HAS SINCE BEEN RUN — 2026-09-01, on the same branch and in the same commit
+range that closed this entry, and it found a real defect (§336). This residual said the debt was
+outstanding while its own commit was recording it as discharged; §219 and §336 were updated and
+this entry was not. Read §219 for what the pass covered and what it left open — deliberately no
+summary of it here, because the first attempt at one ("the `.pptx` reader was never recorded, so
+that half of the debt is still real") was written on 2026-09-01 and falsified the next day by the
+PowerPoint pass, in this same commit range. A pointer cannot rot; a restatement of another entry's
+status always does. `scripts/sample-link-exports.ts` emits the four link-bearing sample files that pass needs.
 
 ---
 **CLOSED 2026-08-08 by `max-md:basis-full` on the group.** The group claims its own row, so the
@@ -12607,6 +12699,10 @@ ordering change is how an ordering change acquires a behavioural regression.
 
 Opened 2026-08-16 out of §141(b), which gave DOCX and the HTML/PDF path full structural fidelity for
 the seven rich entity fields and deliberately left both PPTX paths on the flat `.text` projection.
+★ SCOPE, 2026-09-01: that clause is now false for `export-pptx.ts`, whose row slides read `.html`
+through `cellLinkedLines` and render marks (§330). It does NOT touch this entry's own finding —
+`columns.slice(2, 8)` still keeps three of the seven fields off a slide at any fidelity, which is
+what §153 is about — so this is a scope correction, not a closure.
 That was the right call for that slice — but the reason PPTX is hard is NOT the missing bullet XML,
 and recording only "PPTX still flat" would send the next reader to the wrong file.
 
@@ -17273,7 +17369,69 @@ crafted `alt` keeps a genuinely drawn image out of the drawn count, which over-r
 
 ## 219. The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them
 
-**Status:** open — OWED manual verification, not automatable in this repo. 2026-08-28: never machine-verified — and structurally unverifiable here, since the repo carries no Office-reading dependency. It needs a human opening the generated .docx in Word and in LibreOffice Writer, and the .pptx in PowerPoint, and recording what they saw in this entry.
+**Status:** open, NARROWED — OWED manual verification, not automatable in this repo. Never machine-verified, and structurally unverifiable here, since the repo carries no Office-reading dependency. 2026-09-02: item **2**'s ACCEPTANCE half is DISCHARGED — opened in PowerPoint, the reader that item names, and corroborated in LibreOffice Impress; see the passes below. Item **1**'s acceptance is discharged for **LibreOffice Writer ONLY** — ★★★ **WORD HAS NEVER BEEN NAMED BY ANY HUMAN REPORT**, and this Status line claimed it until 2026-09-02, when a cold review caught the entry contradicting itself nine lines apart. Item 1 names Word AND LibreOffice Writer, so half of it is still owed. What remains: the Word half of item 1, items **3-7** (unexercised entirely), and the FIDELITY half of items 1-2, which no pass has looked at. Re-verify with a human, never from this file: `sed -n '/^## 219\./,/^## 220\./p' docs/open-followups.md`
+
+★★ **2026-09-01 — THE ACCEPTANCE HALF IS DISCHARGED, AND IT IS THE HALF THIS ENTRY SINGLES OUT AS
+THE ONE THAT HISTORICALLY FAILS.** During the `fix/export-link-fidelity` manual pass a human opened
+all four artifacts emitted by `npx jiti scripts/sample-link-exports.ts <dir>` — `document-renderer`
+and `workspace-exporter`, `.docx` and `.pptx`. Every one opened
+with **no repair prompt**. ★★★ **NO READER WAS RECORDED ON THIS DATE AT ALL, FOR ANY OF THE FOUR.**
+This paragraph read "all four … in **Word and in LibreOffice**" until a cold review caught it: Word
+cannot open a `.pptx`, so the sentence was impossible on its face, and it was the REPORTER'S summary
+that invented the pair, not the human's report. ★★★ **THE FIRST CORRECTION THEN KEPT HALF THE
+INVENTION**, and a second cold review caught that on 2026-09-02: it withdrew "Word" for the `.pptx`
+and left "Word and LibreOffice Writer" standing for the two `.docx` — from the same report that had
+named no application. The `.docx` attribution was the reporter's inference by exactly the same
+mechanism, sitting nine lines from the sentence saying no application was named. Everything a human
+has actually named is below, under 2026-09-02, and it does not include Word. Item 2 named
+PowerPoint specifically and stayed OPEN until that pass. What was answered on 2026-09-01 is
+narrower than it looked — four artifacts opened somewhere without a repair prompt, which still
+answers item 1's leading risk (a package byte-perfect against its
+own spec reading and still rejected over a relationship or content-type detail no substring
+assertion looks at) for the DOCX and PPTX writers as they stand today, including the newly added
+`<w:hyperlink>`, the `<w:style w:type="character">` in `styles.xml`, and the per-slide
+`<a:hlinkClick>` relationships.
+
+★★★ **DO NOT READ THAT AS COVERING THE IMAGE WORK. It was a LINK pass.** The fixture does embed a
+real truecolour PNG, so an image was present in two of the four packages — but nobody was asked to
+check render size, order, or the paragraph split around it, and a reader reporting "working" about
+links has said nothing about any of that. Items **3 (PDF through the print dialog)**, **4
+(over-budget placeholder)**, **5 (dangling asset)**, **6 (WebP in a perpetual Word)** and **7 (deck
+length)** were not exercised at all; and items **1-2** are discharged only for ACCEPTANCE, not for
+fidelity.
+
+★★★ **2026-09-02 — ITEM 2 DISCHARGED IN POWERPOINT, ON THE SECOND PASS, AND THE FIRST PASS IS THE
+LESSON.** After the §330 underline fix moved both decks' bytes, the regenerated
+`document-renderer.pptx` and `workspace-exporter.pptx` were opened in
+**PowerPoint** — the reader item 2 names — and both were reported clean, including the row-title
+link whose colour cue is absent by construction (§330). Item 2's acceptance half is closed.
+★★ **AND A SECOND INDEPENDENT ENGINE AGREES, ACROSS ALL FOUR ARTIFACTS.** The same day, all four —
+both `.docx` and both `.pptx` — were opened in **LibreOffice** (Writer and Impress respectively) at
+these same bytes, all clean. That is the strongest form this evidence takes here and it is worth
+more than a repeat in one reader: the two implementations are independent, are strict about
+DIFFERENT parts of OOXML, and have historically disagreed on exactly the relationship and
+content-type details item 1 names. A package accepted by both is accepted for reasons, not by luck.
+★ Note what it does NOT do: LibreOffice is not a substitute for item 2's named reader, so this is a
+CORROBORATION of the PowerPoint pass above, never a replacement for it. Recorded in that order
+deliberately. ★★★ **AND IT IS THE ONLY READER EVER NAMED FOR THE TWO `.docx`.** Item 1 names Word
+AND LibreOffice Writer; Writer is now recorded and **Word is not, on any date** — so item 1's
+acceptance half is HALF discharged, not discharged. That asymmetry is the whole reason to name the
+reader rather than the outcome: "all four opened clean" is compatible with a reader item 1 does not
+accept, and item 1's leading risk is specifically a package Word rejects over a relationship or
+content-type detail LibreOffice tolerates.
+★★★ **THE READER WAS ASKED FOR EXPLICITLY BOTH TIMES IT WAS RECORDED, AND INFERRED THE FIRST TIME.**
+On 2026-09-01 a human reported four artifacts working and named no application; the reporter wrote
+"in **Word and in LibreOffice**" into this entry, which is impossible for a `.pptx` and claimed a
+PowerPoint check nobody had run. A cold review caught it. The second time the question was put
+before anything was written down. The generating cause was a PROMPT, not a lapse — the sample
+script's closing line told the operator to open all four "in Word and in LibreOffice", so the
+instruction itself made the impossible pairing the natural thing to report back. That line now
+names the reader per format and asks which one was used (`scripts/sample-link-exports.ts`).
+★★ Read the DISCHARGE narrowly: acceptance only, for the artifacts THIS script emits, at these
+bytes. Any change to the OOXML writers re-owes it — as the underline fix did, one day after the
+first pass. Recording a link pass as an image pass would retire this entry while leaving the defect
+class it was filed for completely unverified — which is worse than leaving it open, because the next
+reader would stop looking.
 
 Nothing here can open an Office file. `unzipBytes` proves the package holds the parts and bytes the
 builders intended; it says nothing about whether Word, LibreOffice Writer or PowerPoint ACCEPT the
@@ -25821,6 +25979,150 @@ reader does not have to rediscover that the coupling is by convention rather tha
 
 ---
 
+## 329. Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several
+
+**Status:** OPEN as a RECORDED DECISION, not a defect. Decided 2026-09-01 while closing §30 and
+§119. The shipped shape is witnessed by
+`grep -n "cellTextWithLinks\|hyperlink" src/app/export-xlsx.ts`, which returns the call sites, plus
+the comment stating the constraint, and NO hyperlink emitter. Filed so a later reader does not read
+the inline form as an unfinished job.
+
+`.xlsx` CAN carry real cell hyperlinks — a worksheet holds a `hyperlinks` element whose entries each
+name a cell reference and a relationship id — and that is precisely the shape which cannot represent
+this data. **The unit is the CELL, not the run.** A shared string holds no hyperlink of its own, so a
+description containing two different addresses has no way to say which words belong to which. A real
+implementation would have to pick one address per cell and silently drop the rest, or invent a
+sub-cell structure the format does not have. Silently dropping addresses is the defect §30 was filed
+about, so "fix it properly" would have re-created it in a new place.
+
+The inline `text (url)` form from `cellTextWithLinks` was chosen instead because it is LOSSLESS at
+the level that matters: every address survives, adjacent to the words it belonged to, and a reader
+can copy it out. It is noisier than a live link, and that cost was accepted rather than overlooked.
+
+★ **What would reopen the question, so the next reader does not re-derive it.** The
+exactly-one-address-in-this-cell case IS representable, so a future slice could emit a real
+hyperlink when `cellTextWithLinks`'s parse finds one address and fall back to the inline form
+otherwise. That is a real improvement and is NOT what was rejected here; what was rejected is "make
+XLSX links real" as a blanket goal, which cannot be done without loss. The split behaviour carries
+its own cost — two visual treatments for one column, varying row by row inside a single sheet — and
+nobody has yet argued it is worth paying.
+
+★ Adjacent but NOT the same question: §330 records why the flat PPTX table cell keeps the inline
+form even though the same deck's text boxes carry real links. That one is about a renderer's layout,
+this one about a format's data model.
+
+---
+
+## 330. The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links
+
+**Status:** OPEN as a RECORDED DECISION, not a defect. Decided 2026-09-01 while closing §30 and
+§119; SCOPE CORRECTED 2026-09-01 (see the scope clause at the end — this governs
+`doc-render-pptx.ts`'s table path ALONE). Verified 2026-09-01 by
+`grep -n "cellTextWithLinks\|createLinkSink" src/app/doc-render-pptx.ts src/app/export-pptx.ts`
+and by `npx vitest run src/app/export-ooxml.test.ts src/app/doc-render-pptx-slides.test.ts src/app/export-sections.test.ts src/app/doc-render-pptx.test.ts src/app/export-sections.rich.property.test.ts --maxWorkers=1`
+(224 passed).
+
+★★★ **2026-09-01, COLD REVIEW — §336 WAS REPRODUCED IN THE PPTX ROW TITLE BY CONSTRUCTION, AND IS
+NOW FIXED.** The wiring left a linked run naming no fill on purpose, so PowerPoint would paint it
+from the theme's `<a:hlink>` = `COLOR_DARK_BLUE`. In two of the three slots that is a real cue. In
+the THIRD it is none at all: `TITLE_SLOT` paints its own text `COLOR_DARK_BLUE` — the SAME six
+digits — so a link in a row title was the colour of the text around it, leaving only PowerPoint's
+IMPLICIT hyperlink underline, which nothing in this repo can observe. That is precisely the
+affordance `doc-render-docx.test.ts` rejects two files over ("Both cues, not one"), applied to DOCX
+and silently not to PPTX. `pptxRun` now sets `underline` whenever a relationship id was minted, so
+the cue is DECLARED rather than hoped for. ★★★ **"TWO CUES IN THE META AND FIELD SLOTS" WAS THIS
+ENTRY'S OWN OVER-CLAIM AND A SECOND COLD REVIEW MEASURED IT AWAY (2026-09-02).** `FIELD_SLOT`
+declares no `colorRgb`, so an unlinked run resolves through the master's `clrMap tx1="dk1"` to
+`COLOR_TEXT` (1A1A1A) and the theme's `004159` sits at **1.58:1** against it — under the 3:1 this
+repo already treats as the floor for a non-text distinction. `META_SLOT` (939598) is the ONLY slot
+where colour alone carries a link, at 3.68:1; the title slot is absent by IDENTITY and the field
+slot by CONTRAST, as are this renderer's own body slides. So the underline is load-bearing in every
+slot but one, and the error mattered in the dangerous direction: it invited a later narrowing to
+the title slot that would have restored an effectively invisible link everywhere else. Reproduce the collision:
+`grep -n "COLOR_DARK_BLUE =" src/app/export-ooxml-shared.ts` · `grep -n "a:hlink" src/app/ooxml-pptx-primitives.ts` · `grep -n "TITLE_SLOT" -A 4 src/app/export-pptx.ts`.
+★★ THE REVIEW FOUND IT BY COMPARING TWO CONSTANTS IN DIFFERENT FILES — no byte assertion could
+have, because both runs are individually correct and the defect is only in their RELATION. It
+applies to BOTH `.pptx` exporters (the change is in the shared `pptxRun`), chosen over a
+workspace-only fix so the two decks cannot drift apart on link treatment. Mutation-proved: reverting
+to `underline: has("underline")` goes 2 failed / 222 passed across the five affected files.
+★★ NO BYTE COMPARISON IS QUOTED HERE ANY MORE. This said "both `.docx` are byte-identical after it;
+both `.pptx` grew 40 bytes" until a cold review checked it against `zip.ts`, whose `modified` date
+is the container's one nondeterministic field — two runs of the sample script are never
+byte-identical, so the claim could not have been measured as stated. What is true and load-bearing
+is that the `.pptx` writers moved and the `.docx` writers did not, which re-owed the `.pptx`
+half of §219's manual pass.
+★★ **EYE-VERIFIED 2026-09-02 — the underline does what the collision requires.** Both regenerated
+decks were opened in **PowerPoint** and reported clean, the row-title link included, and all four
+artifacts were then confirmed in **LibreOffice** at the same bytes. So the fix is confirmed by the
+only instrument that can see it, in two independent engines: nothing in this repo can tell whether a
+reader draws a link as distinct, and the two constants that collide are individually correct, so
+neither a gate nor a byte assertion was ever going to answer this one.
+
+★ **THREE MINOR FINDINGS FROM THE SAME REVIEW, RECORDED AND DELIBERATELY NOT FIXED** — each is
+link-CONDITIONAL, which is the shared shape worth naming: they can only appear in a cell that
+carries a link, so they are invisible in every deck written before this branch.
+(a) An `<hr>` inside a linked cell emits an empty `<a:p>` the flat branch never produces —
+`bodyParagraph` special-cases `line.kind === "hr"` into `HR_TEXT` and `cellLinkedLines` has no such
+case. Valid `CT_TextParagraph` (every child optional), so it is one stray blank line.
+(b) `createLinkSink(...).rels()` returns the internal array BY REFERENCE. Harmless today because no
+minting happens after the return; freezing or copying would cost nothing.
+(c) `metaLines` is a `flatMap` producing one paragraph per `RichLine` per field while the RowFields
+box keeps a fixed `cyEmu`, so a linked multi-line field overflows sooner than the old
+one-paragraph-per-field shape. Pre-existing overflow risk, amplified.
+★★ jsdom has no layout, so nothing in the unit suite can see (a)'s blank line as a VISUAL defect or
+(c) at all — both are eye-verify items riding on §219's re-owed `.pptx` pass, not gate work.
+
+Witness:
+`grep -n "cellTextWithLinks\|createLinkSink" src/app/doc-render-pptx.ts src/app/export-pptx.ts` —
+`doc-render-pptx.ts` returns BOTH (the sink that mints real `<a:hlinkClick>` relationships for
+paragraph text boxes, and the flat projection used by the table path) while `export-pptx.ts` now
+returns only the sink.
+
+`doc-render-pptx.ts` renders one deck two ways, and only one of them still has a run to hang a
+relationship on.
+
+- A **paragraph** block becomes a text box built from `TextRun`s, each carrying its own `a:rPr`. So
+  `<a:hlinkClick>` goes on the run that was inside the anchor, and the link is real.
+- A **table row** — a `table` block, or a `dataSection` resolved through the real
+  `buildExportSections` — is laid out as ONE LINE OF TEXT per row: `flattenCell` collapses every
+  newline out of the cell so the row stays horizontal. No per-word run structure survives that, and
+  a single hyperlink spanning the whole flattened row would point one column's words at another
+  column's address.
+
+So the asymmetry is not two opinions about links. It is ONE rule applied to two layouts: **a link
+becomes a relationship wherever a run survives, and inline text wherever the renderer has already
+flattened the runs away.**
+
+★ It is filed rather than left to the source comments because it is visible to a USER inside a
+single deck: a document whose paragraphs and whose embedded register both mention the same URL shows
+one as a live link and the other as `text (url)`. That is the accepted cost, not a rendering bug.
+
+★ **What would change it:** giving the table path a real run structure — laying a cell out as runs
+instead of collapsing it to a string. That is a rewrite of the layout contract and of everything
+downstream assuming one line per row; it is not a link fix, and nothing owes it today.
+
+★ PPTX is not XLSX here, and collapsing the two is the easy mistake. §329's constraint lives in the
+FILE FORMAT (a hyperlink's unit is the cell); this one lives in THIS RENDERER's layout. A different
+PPTX renderer could do better. A different XLSX renderer could not.
+
+★★★ **SCOPE: `doc-render-pptx.ts`'s TABLE PATH, AND NOTHING ELSE — the other PPTX writer went the
+other way on 2026-09-01 and this entry must not be read as covering it.** The sentence above ("a
+different PPTX renderer could do better") was prophetic rather than hypothetical:
+`export-pptx.ts`, the WORKSPACE exporter, now mints real `<a:hlinkClick>` relationships on its row
+slides. Nothing there is flattened, which is the whole difference — `buildPptxRowSlide` emits ONE
+SLIDE PER ROW with each cell value in a paragraph of its own (`RowMeta` prefixes it with the section
+title, `RowTitle` carries it alone, each `RowFields` line prefixes it with a column label), so the
+run structure a relationship hangs on survives and `flattenCell` never enters the picture. The rule
+this entry states is unchanged and was simply applied to the second layout: **a link becomes a
+relationship wherever a run survives.** Reproduce the split with
+`grep -n "cellTextWithLinks\|createLinkSink" src/app/export-pptx.ts src/app/doc-render-pptx.ts` —
+the workspace exporter now returns only the sink, the document renderer still returns both.
+★★ So the user-visible asymmetry this entry accepts is NARROWER than it was: it is a table row
+against a paragraph INSIDE ONE document deck, never a `.docx` against a `.pptx` from the same export
+action. That second asymmetry was the one a manual pass reported, and it is gone.
+
+---
+
 ## 331. `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes
 
 **Status:** OPEN, **never machine-verified** — the six sites were enumerated by grep on 2026-09-01 and
@@ -26102,3 +26404,111 @@ the consumer's `!` meets the primitive's own class. jsdom applies no stylesheet,
 any shape can answer that. A witness therefore has to be a BROWSER-CONTEXT probe in the eye-verify
 spec's shape — computed styles against a real stylesheet — which is the limit the Status line's
 `never machine-verified` is already naming.
+## 336. A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme — CLOSED 2026-09-01
+
+**Status:** CLOSED 2026-09-01. Both halves landed together in `ooxml-docx-primitives.ts`: `DOC_STYLES`
+declares a `w:type="character"` style `Hyperlink` (`COLOR_DARK_BLUE` + `<w:u w:val="single"/>`) and
+`markedRun` opens a resolved run's `<w:rPr>` with `<w:rStyle w:val="Hyperlink"/>`. Verified by
+`npx vitest run src/app/doc-render-docx.test.ts src/app/ooxml-docx-primitives.test.ts src/app/export-ooxml.test.ts src/app/ooxml-package-manifest.test.ts --maxWorkers=1`
+(179 passed).
+★★★ **AN EMPTY `docs/baselines/ooxml-parts.json` DIFF WAS ALSO CITED HERE AS VERIFICATION AND IS
+EVIDENCE OF NOTHING FOR THIS ENTRY — the §216 manifest is STRUCTURALLY BLIND to `DOC_STYLES`.** Both
+docx subjects call `buildDocxPackage("<w:p/>", "", …)` with an EMPTY extra-styles argument
+(`src/test/ooxml-manifest-subjects.ts`), so no manifested package contains `DOC_STYLES` at all and
+the `word/styles.xml` digest the baseline pins is the empty-styles one. Ten more styles would leave
+that diff just as empty. The additive claim rests on the RUN-LEVEL tests above — that an unmarked,
+unlinked run still emits no `<w:rPr>` — and on nothing else. Reproduce:
+`grep -n "buildDocxPackage(" src/test/ooxml-manifest-subjects.ts`. Filed as its own lesson because
+a citation that cannot fail reads exactly like one that passed.
+★★ **EYE-VERIFIED 2026-09-01 — the debt this line used to record is DISCHARGED.** A human opened
+the regenerated `document-renderer.docx` and `workspace-exporter.docx` in **Word and in
+LibreOffice**: both open without a repair prompt and the links now read as links. That is what
+closes it; nothing in this repo opens a `.docx`, so the claim could never have been machine-made.
+★ The FIRST pass — same files, before this fix — is what found the defect: the links were followable
+and drawn in body colour, exactly as the format's semantics predicted. So both the prediction and
+its remedy were confirmed by eye, in that order, which is the strongest evidence this class admits.
+★★ Scope it honestly: this discharges the STYLING claim for these two artifacts only. §219's image,
+budget, dangling, WebP, deck-length and PDF items are untouched by a link-focused pass and stay open.
+
+★★★ **THE ENTRY'S SCOPE CLAIM WAS TOO NARROW, AND THE FIX IS WIDER THAN THE TITLE.** Everything below
+this line named `renderDocumentDocx` alone. The human's manual pass confirmed the same invisible link
+in the WORKSPACE exporter's `.docx` too, and the code says why: `doc-render-docx.ts` and
+`export-docx.ts` both hand `DOC_STYLES` to `buildDocxPackage` and both route their runs through
+`markedRun`, so one defect and one fix serve both. That is the register-names-the-instance-not-the-class
+shape this file records repeatedly. Both consumers now carry their own end-to-end test — a
+"shared by construction" argument is not an assertion.
+
+★★ **The machine witness quoted below is now falsified by the fix, which is what a closure looks like
+— it is kept as the record of what was MEASURED at filing time, not as a description of today's
+tree.** At filing, `grep -c "Hyperlink" src/app/ooxml-docx-primitives.ts` returned 0 and
+`grep -n "rStyle"` over the same file returned nothing at all, so no run in any `.docx` this app wrote
+carried a character style; `grep -n "a:hlink" src/app/ooxml-pptx-primitives.ts` returned both the
+theme's `<a:hlink>` colour and the `p:clrMap` entry that binds it. Today both greps over the DOCX file
+return hits — that is the fix, and re-running them is the cheapest confirmation it is still in place.
+
+At filing, `renderDocumentDocx` emitted a real `<w:hyperlink r:id>` around the linked runs and Word
+followed it — but the run inside carried no `<w:rStyle w:val="Hyperlink"/>` and the package declared
+no such style, so Word drew the link text in ordinary body colour with no underline. **The link
+worked and looked exactly like the words around it.** A reader had no way to tell there was one,
+which was most of the value §119 was filed to deliver.
+
+PPTX is the opposite and needed no per-run work: `buildPptxTheme` declares an `<a:hlink>` colour and
+the slide master's `p:clrMap` maps `hlink="hlink"`, so PowerPoint colours every `<a:hlinkClick>` run
+from the theme automatically. One renderer inherits the treatment from the format's colour model;
+the other has to declare a style and name it on each run.
+
+**The fix**, in two halves that must land together:
+
+1. Declare a `Hyperlink` CHARACTER style in `DOC_STYLES` (`w:type="character"`, with a colour and
+   `<w:u w:val="single"/>`).
+2. Emit `<w:rStyle w:val="Hyperlink"/>` from `markedRun` for a run that resolved to a relationship
+   id — first in `<w:rPr>`, since `CT_RPr` is an `xsd:sequence` and `rStyle` leads it. Doing only
+   half of this is silent: a `w:rStyle` naming a style the package does not declare is IGNORED by
+   Word with every string assertion still green, which is the trap the `DOC_STYLES` docblock already
+   records for `w:pStyle`.
+
+★★★ **THE REVIEW'S STATED REASON FOR DEFERRING THIS IS FALSE, AND MEASURING IT IS WHAT FOUND THE
+REAL ONE.** The finding was filed rather than fixed on the grounds that a new style moves every
+package digest in `docs/baselines/ooxml-parts.json`, making it a deliberate baseline regeneration and
+so out of an additive-by-contract branch's scope. It does not. The manifest subjects call
+`buildDocxPackage` with an EMPTY extra-styles argument, so `DOC_STYLES` never reaches the manifested
+`word/styles.xml` at all. Probed 2026-09-01 by adding the style and running
+`npx vitest run src/app/ooxml-package-manifest.test.ts` — 13 passed, gate green, digests unmoved.
+`export-ooxml.test.ts` and the byte-pinned `golden-workspace` suite stayed green too.
+
+★★ **The one thing that DID go red is the constraint that actually mattered**, and it was a design
+question rather than a mechanical one: `renderDocumentDocx — declared styles > colours the declared
+styles from the sanctioned palette only`. Word's conventional link blue is off-palette, and this repo
+admits only the nine AIPM brand colours — so the fix had to pick a sanctioned colour for links.
+**Decided: `COLOR_DARK_BLUE` (`004159`), plus the underline** — not either/or. It is already in that
+test's allow-list, and it is the SAME value `buildPptxTheme`'s `<a:hlink>` carries, so the two OOXML
+formats now agree on what a link looks like instead of one being coloured by a theme and the other
+not at all. Underline-alone was the cheaper option this entry floated and was rejected: it satisfies
+the palette test by carrying no colour at all, which is a weaker affordance for no saving.
+
+★★ **What the fix cost beyond the two halves, because none of it was foreseen here.** (a) `markedRun`'s
+`<w:rPr>` emptiness test had to be RESTRUCTURED, not appended to — a linked run with no marks has
+`props === ""` and still needs an `<w:rPr>`, while an unlinked unmarked run must still emit none, and
+that is what keeps plain prose byte-identical. (b) `doc-render-docx.test.ts`'s invariant 4 ("orders
+every `<w:rPr>`'s children by the EG_RPrBase sequence") would have REJECTED `w:rStyle` as an unranked
+element, and its fixture carried no link — so the fixture gained a linked, marked run and `ORDER`
+gained `w:rStyle` at position 0. `w:rStyle` is not an EG_RPrBase member at all; it leads CT_RPr ahead
+of the whole group, which is why `DOCX_MARK_RPR`'s rank table does not carry it. (c) Keying the style
+off the parse-side `href` instead of the RESOLVED `hyperlinkRelId` is a one-identifier mutant that
+survived all three DOCX test files — an unsafe scheme never reaches `markedRun` with an `href`
+(`safeLinkTarget` drops it during the parse), so the only separating input is a caller that passes NO
+SINK, where the mutant draws link styling around text with no `<w:hyperlink>` wrapper. A test for that
+was added; it is the sole thing that kills it.
+
+★★ Numbering, and the prediction came true: this entry was MINTED AS **§333**, because 331 and 332
+were reserved by the concurrent branch `fix/colour-only-state-1-4-1` and were not on `origin/main`
+yet. That branch then merged as 0.276.0 "Cadigan" and took **331 through 335** — its own §333 is the
+chip-clear-button entry, a different defect entirely — so this one landed second and renumbered to
+**§336** on the 2026-09-02 merge. A number is only truly reserved once it has merged; whichever
+branch lands second re-runs the register's own max-number command and renumbers.
+★★★ **THE SOURCE COMMENTS WERE SWEPT TO MATCH, and leaving them was considered and rejected.** A
+renumber normally argues for leaving citations alone — but here the vacated number was immediately
+REUSED by the other branch, so every `§333` left in `src/` would resolve to the chip-clear-button
+entry: not a dangling reference a reader notices, a confidently wrong one they do not. Fourteen
+comments across five files were rewritten to `§336` in the merge commit. `grep -rn "§333\|§336"
+src/app --include=*.ts` enumerates both; a `§333` surviving there is a defect, not a leftover.

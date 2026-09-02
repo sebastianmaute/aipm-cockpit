@@ -36,6 +36,7 @@ import {
 } from "./rich-text-runs";
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
+import type { LinkRel, LinkSink } from "./ooxml-links";
 
 /** One cell's text as Word runs, mapping the export projection's newlines to
  *  <w:br/>. A cell with no newline emits exactly the single <w:t> it always
@@ -62,7 +63,18 @@ export function docxCellRuns(value: string | number): string {
  *  style styles.xml does not carry is SILENTLY IGNORED by Word, so the line
  *  renders as body text while every string assertion about the emitted XML
  *  still passes. Splitting the emitter from the declaration is how that gets
- *  reintroduced. BOTH callers of `buildDocxPackage` must pass this. */
+ *  reintroduced. BOTH callers of `buildDocxPackage` must pass this.
+ *
+ *  ★★★ `Hyperlink` IS THE ONE `w:type="character"` STYLE HERE, and it is half
+ *  of a pair: `markedRun` below names it on every run that resolved to a
+ *  relationship id. Word ignores a `w:rStyle` naming an undeclared style
+ *  exactly as it ignores an undeclared `w:pStyle`, so shipping either half
+ *  alone is SILENT — the link stays followable and stays drawn in body colour
+ *  with no underline, which is §336's defect. Its colour is `COLOR_DARK_BLUE`,
+ *  the same value `buildPptxTheme`'s `<a:hlink>` already carries, so the two
+ *  formats agree; Word's conventional link blue is off-palette and the palette
+ *  test rejects it. Inside a style's own `<w:rPr>` the sequence is EG_RPrBase
+ *  too, so `w:color` precedes `w:u`. */
 export const DOC_STYLES = `
   <w:style w:type="paragraph" w:styleId="Heading1">
     <w:name w:val="heading 1"/>
@@ -109,6 +121,10 @@ export const DOC_STYLES = `
       <w:ind w:left="360"/>
     </w:pPr>
     <w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:color w:val="${COLOR_TEXT}"/><w:sz w:val="20"/></w:rPr>
+  </w:style>
+  <w:style w:type="character" w:styleId="Hyperlink">
+    <w:name w:val="Hyperlink"/>
+    <w:rPr><w:color w:val="${COLOR_DARK_BLUE}"/><w:u w:val="single"/></w:rPr>
   </w:style>`;
 
 /** How a mark becomes a Word run property, and WHERE inside `<w:rPr>` it goes.
@@ -195,20 +211,67 @@ const DOCX_MARK_RPR: Record<RunMark, { rank: number; xml: string }> = {
   sup: { rank: 6, xml: `<w:vertAlign w:val="superscript"/>` },
 };
 
+/** A run as the RENDERER sees it: the parse-side `href` (a URL) already
+ *  resolved through a `LinkSink` into `hyperlinkRelId` (a relationship id).
+ *
+ *  ★★ THE TWO NAMES ARE DELIBERATELY DIFFERENT. One is an address, the other an
+ *  id local to ONE relationship part, and a field carrying both names at
+ *  different moments is how a URL ends up interpolated into an `r:id` attribute
+ *  — valid XML that resolves to nothing. */
+type RenderRun = TextRun & { hyperlinkRelId?: string };
+
+/** Resolve a run's link through the sink, if there is both a link and a sink.
+ *
+ *  ★ The sink being OPTIONAL is what keeps every pre-existing caller
+ *  byte-identical: with no sink, a linked run renders exactly as it did before
+ *  links existed. */
+function renderRun(run: TextRun, links: LinkSink | undefined): RenderRun {
+  if (links === undefined || run.href === undefined) return run;
+  return { ...run, hyperlinkRelId: links.relIdFor(run.href) };
+}
+
 /** One run, carrying its marks.
  *
  *  ★ `docxCellRuns` still does the escaping and the newline→<w:br/> mapping, so
  *  body text and table cells cannot diverge on either. It emits `<w:t>` only —
  *  the `<w:r>` wrapper is the caller's, here and in `para`.
- *  ★ An unmarked run emits NO `<w:rPr>` at all, so plain prose is byte-identical
- *  to what `para` produced before this path existed. */
-function markedRun(run: TextRun): string {
+ *  ★ An unmarked, UNLINKED run emits NO `<w:rPr>` at all, so plain prose is
+ *  byte-identical to what `para` produced before this path existed. A LINKED
+ *  run always carries one, because it always carries the `Hyperlink` rStyle —
+ *  which is why the rStyle takes part in the emptiness test rather than being
+ *  bolted onto its result.
+ *
+ *  ★ Each linked run is wrapped INDIVIDUALLY rather than grouping adjacent runs
+ *  that share a target. Consecutive `<w:hyperlink>` elements are valid and Word
+ *  renders them as separate links to the same place; grouping is an
+ *  optimisation with a correctness risk (a mark boundary inside a link) and is
+ *  not worth it here. */
+function markedRun(run: RenderRun): string {
   const props = [...run.marks]
     .sort((a, b) => DOCX_MARK_RPR[a].rank - DOCX_MARK_RPR[b].rank)
     .map((mark) => DOCX_MARK_RPR[mark].xml)
     .join("");
-  const rPr = props === "" ? "" : `<w:rPr>${props}</w:rPr>`;
-  return `<w:r>${rPr}${docxCellRuns(run.text)}</w:r>`;
+  // ★★★ `w:rStyle` LEADS `<w:rPr>`. CT_RPr is an `xsd:sequence` and rStyle is
+  // its FIRST child, ahead of every EG_RPrBase member `DOCX_MARK_RPR` emits —
+  // which is why it is prepended rather than given a rank in that table. It is
+  // not a mark either: it is decided by the run's RESOLVED relationship id, not
+  // by HTML nesting.
+  // ★★ It must participate in the emptiness test, not be appended to it: a
+  // linked run carrying NO marks has `props === ""` and still needs an
+  // `<w:rPr>`. An unlinked, unmarked run still emits none at all, which is what
+  // keeps plain prose byte-identical.
+  const rStyle = run.hyperlinkRelId === undefined ? "" : `<w:rStyle w:val="Hyperlink"/>`;
+  const inner = `${rStyle}${props}`;
+  const rPr = inner === "" ? "" : `<w:rPr>${inner}</w:rPr>`;
+  const r = `<w:r>${rPr}${docxCellRuns(run.text)}</w:r>`;
+  if (run.hyperlinkRelId === undefined) return r;
+  // ★★★ `xmlns:r` IS DECLARED HERE, ON THE ELEMENT, and that is load-bearing.
+  // `w:document`'s root declares only `xmlns:w` — the media path solves the
+  // same problem the same way, declaring xmlns:r locally on `a:blip`. Adding
+  // the namespace to the ROOT would change the bytes of EVERY package,
+  // including one with no links, breaking the additive contract and moving
+  // docs/baselines/ooxml-parts.json.
+  return `<w:hyperlink xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${run.hyperlinkRelId}">${r}</w:hyperlink>`;
 }
 
 /** The paragraph style a non-`p` line is rendered with. Every id here is
@@ -285,6 +348,7 @@ const LIST_INDENT_TWIPS = 720;
 export function docxRichParagraph(
   line: RichLine,
   styleOf: (line: RichLine) => string | undefined,
+  links?: LinkSink,
 ): string {
   if (line.kind === "hr") return HR_PARAGRAPH;
   const style = styleOf(line);
@@ -308,7 +372,8 @@ export function docxRichParagraph(
     line.kind === "li" && !line.continuation
       ? `<w:r>${docxCellRuns(`${bulletMarker(line.ordered, line.index, line.task)} `)}</w:r>`
       : "";
-  return `<w:p>${pPr}${marker}${line.runs.map(markedRun).join("")}</w:p>`;
+  const runs = line.runs.map((run) => markedRun(renderRun(run, links))).join("");
+  return `<w:p>${pPr}${marker}${runs}</w:p>`;
 }
 
 /** Rich HTML as one or more Word paragraphs.
@@ -326,10 +391,16 @@ export function docxRichParagraph(
  *  ★★ THE EMPTY GUARD IS STRUCTURAL, not cosmetic. `htmlToRichLines("")`
  *  returns no lines, and a `<w:tc>` with no block-level child is INVALID —
  *  Word refuses the whole file rather than showing an empty cell. Every rich
- *  entity field is optional, so the empty case is the COMMON one. */
-export function docxRichParagraphs(html: string): string {
+ *  entity field is optional, so the empty case is the COMMON one.
+ *
+ *  ★★ `links` is OPTIONAL so every pre-existing caller stays byte-identical: a
+ *  sink-less call renders a linked run as the plain run it always was. It is
+ *  also the OWNER of the sink for this call — the sink spans one relationship
+ *  part, so a caller emitting several fields into ONE document.xml must pass
+ *  the SAME sink to each. */
+export function docxRichParagraphs(html: string, links?: LinkSink): string {
   const paragraphs = htmlToRichLines(descriptionHtml(html, RENDER_SINK))
-    .map((line) => docxRichParagraph(line, docxStyleFor))
+    .map((line) => docxRichParagraph(line, docxStyleFor, links))
     .join("");
   return paragraphs === "" ? "<w:p/>" : paragraphs;
 }
@@ -431,6 +502,12 @@ export function buildDocxTable(
   columns: string[],
   rows: ExportCell[][],
   contentWidthTwips: number = docxContentWidth("landscape"),
+  /** ★ The sink belongs to the caller, not to the table: one `<w:tbl>` is a
+   *  fragment of ONE document.xml, and every rich cell in it mints into that
+   *  document's single relationship part. Omitted, a linked cell renders as the
+   *  plain run it always did — which is what keeps the byte-pinned workspace
+   *  export unchanged until its own caller passes a sink. */
+  links?: LinkSink,
 ): string {
   // Fallback width when we have no pixel hint: share page width evenly.
   const colWidth = columns.length > 0
@@ -470,7 +547,7 @@ export function buildDocxTable(
           .map((_, i) => {
             const cell = row[i] ?? "";
             const body = isRichCell(cell)
-              ? docxRichParagraphs(cell.html)
+              ? docxRichParagraphs(cell.html, links)
               : `<w:p>
               <w:r>${docxCellRuns(cellText(cell))}</w:r>
             </w:p>`;
@@ -515,16 +592,18 @@ export function buildDocxTable(
  *  content-types / rels / sectPr boilerplate. `extraStyles` is appended inside
  *  <w:styles> for callers that need styles beyond Title + TableHeader.
  *
- *  ★★ `page` defaults to `landscape` — the workspace exporter calls this with
- *  two arguments and its bytes are pinned by the export-ooxml suite, so the
- *  default is not a preference, it is the contract. */
+ *  ★★ `page` defaults to `landscape` — the workspace exporter's bytes are
+ *  pinned by the export-ooxml suite, so the default is not a preference, it is
+ *  the contract. ★ That exporter now spells `"landscape"` out rather than
+ *  relying on the default, because `links` trails it positionally; the value
+ *  is the same one and the obligation is unchanged. */
 export function buildDocxPackage(
   bodyXml: string,
   extraStyles = "",
   page: DocxPageLayout = "landscape",
   /** ★★★ ADDITIVE BY CONTRACT: an empty array must add no Default entry, no
    *  part and no relationship, because the workspace exporter shares this
-   *  builder and calls it with two or three arguments.
+   *  builder and passes an empty array here — it emits no media at all.
    *
    *  ★★ THIS FILE'S OWN TEST IS NO LONGER THE ONLY THING ENFORCING IT, and an
    *  earlier revision of this comment said it was.
@@ -549,6 +628,11 @@ export function buildDocxPackage(
    *  package blob deliberately, being diffable and not regenerable by
    *  accident. */
   media: readonly MediaPart[] = [],
+  /** ★★★ ADDITIVE BY CONTRACT TOO, and MORE so than `media`: a link has NO
+   *  part. An empty array must add no relationship — and a NON-empty one must
+   *  still add no zip entry and no content-type Default, which is exactly what
+   *  `TargetMode="External"` licenses. */
+  links: readonly LinkRel[] = [],
 ): Blob {
   // ★★ Relationship ids are minted by the CALLER, because the body XML already
   // references them by the time it gets here. rId1 is the styles part; a media
@@ -559,6 +643,23 @@ export function buildDocxPackage(
     if (part.relId === "rId1") {
       throw new Error(`media relId "rId1" is reserved for the styles part (${part.path})`);
     }
+  }
+  // ★★ ONE namespace, two families. rId1 is the styles part; media and links
+  // both mint above it. A DUPLICATE id is valid XML that resolves to whichever
+  // relationship appears FIRST — an image silently becoming a link target,
+  // with no schema error and no visible symptom. The rId1 check alone could
+  // not see that.
+  // ★ The rId1 arm here is reachable for a LINK only — the media loop above
+  // runs first and keeps its own message, which names the offending part and
+  // which a test asserts. Deliberately not merged into one loop: losing that
+  // path from the message would make a real failure harder to place.
+  const seen = new Set<string>();
+  for (const relId of [...media.map((m) => m.relId), ...links.map((l) => l.relId)]) {
+    if (relId === "rId1") {
+      throw new Error(`relId "rId1" is reserved for the styles part`);
+    }
+    if (seen.has(relId)) throw new Error(`duplicate relationship id "${relId}"`);
+    seen.add(relId);
   }
 
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -615,9 +716,21 @@ export function buildDocxPackage(
     )
     .join("");
 
+  // ★★ Unlike a media Target, this one is NOT part-relative. A media Target
+  // resolves against `word/`; a hyperlink Target is the raw absolute URL, and
+  // making it relative would be the same class of silent breakage in the other
+  // direction. `TargetMode="External"` is what licenses a relationship with no
+  // part in the package at all.
+  const linkRels = links
+    .map(
+      (l) =>
+        `\n  <Relationship Id="${l.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${xmlEscape(l.target)}" TargetMode="External"/>`,
+    )
+    .join("");
+
   const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${mediaRels}
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${mediaRels}${linkRels}
 </Relationships>`;
 
   const entries: ZipEntry[] = [

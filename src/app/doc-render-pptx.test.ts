@@ -627,6 +627,30 @@ describe("renderDocumentPptx — blocks", () => {
     expect(text.some((l) => l.trim() === "second para")).toBe(false);
   });
 
+  /** ★★ PINS THE CALL SITE. `flattenCell` lays a row out as ONE LINE of text
+   *  with no cell to hang a hyperlink relationship on, so a link's address
+   *  survives only inline as "text (url)" (§119). `cellTextWithLinks` is
+   *  unit-tested in export-sections.test.ts; nothing there notices this
+   *  renderer going on calling `cellText`. */
+  it("carries a link's address inline in a dataSection row — a text row holds no link", async () => {
+    const wsLinked = {
+      tasks: [],
+      raid: [
+        {
+          id: 1,
+          title: "Vendor delay",
+          category: "Risk",
+          status: "Open",
+          description: '<p>see <a href="https://intra/spec">the spec</a></p>',
+        },
+      ],
+    } as unknown as Workspace;
+    const text = await bodyText(doc([{ type: "dataSection", key: "raid" }]), wsLinked);
+    const row = text.find((l) => l.includes("the spec"));
+    expect(row).toBeDefined();
+    expect(row).toContain("see the spec (https://intra/spec)");
+  });
+
   it("renders a table with no rows without emitting a stray blank line", async () => {
     const text = await bodyText(doc([{ type: "table", columns: ["Risk"], rows: [] }]));
     expect(text.join("\n")).toContain("Risk");
@@ -1300,6 +1324,46 @@ describe("renderDocumentPptx — S3c-2 placed pictures", () => {
     });
   }
 
+  /** ★★★ THE ONLY AUTOMATED EXERCISE OF `mediaIdCeiling`'S RESERVATION ON THIS
+   *  SIDE. A slide's media relationship ids are minted DURING the slide build,
+   *  so the link sink cannot measure them and reserves `2 + mediaIdCeiling
+   *  (chunk)` instead. Under-reserve — `createLinkSink(2)` — and a slide
+   *  carrying BOTH a picture and a link mints rId2 twice. Measured against that
+   *  exact mutant, not reasoned: `buildPptxPackage`'s own duplicate guard
+   *  THROWS `duplicate relationship id "rId2"` and the user's whole deck export
+   *  fails with no file — the same failure mode `doc-render-docx.test.ts`
+   *  records for the DOCX twin. The guard is the backstop, not the design; what
+   *  this test pins is that the reservation keeps the two families apart so the
+   *  backstop is never reached.
+   *
+   *  ★★ IT NEEDS BOTH ON ONE SLIDE. Every other test in this describe has
+   *  pictures and no links, and the "hyperlinks" describe below has links and
+   *  no pictures — each of those passes at either reservation, so neither can
+   *  see this. The fixture is one paragraph carrying an image and an anchor,
+   *  which is what puts them in the same chunk and therefore the same sink. */
+  it("keeps a picture's embed id and a hyperlink's id disjoint on one slide", async () => {
+    const zip = await zipOf(
+      [para('<p>see <a href="https://intra/spec">the spec</a><img data-asset-id="a1"></p>')],
+      wsWith(sized()),
+      inlined({ a1: PNG_B64 }),
+    );
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    const embedId = xml.match(/<a:blip r:embed="(rId\d+)"\/>/)?.[1];
+    const linkId = xml.match(/<a:hlinkClick r:id="(rId\d+)"\/>/)?.[1];
+    // Both present FIRST — a slide rendering neither satisfies the inequality
+    // below vacuously.
+    expect(embedId).toBeTruthy();
+    expect(linkId).toBeTruthy();
+    expect(embedId).not.toBe(linkId);
+
+    // `slidePictures` throws unless the embed id resolves in THIS slide's own
+    // rels to a media part the package actually holds.
+    expect(slidePictures(zip, 2).map((p) => p.relId)).toEqual([embedId]);
+    const rels = partText(zip, "ppt/slides/_rels/slide2.xml.rels");
+    expect(rels).toContain(`Id="${linkId}" `);
+    expect(rels).toContain(`Target="https://intra/spec" TargetMode="External"`);
+  });
+
   it("places a picture below the body text and embeds its bytes", async () => {
     const zip = await zipOf(
       [para('<p>intro<img data-asset-id="a1"></p>')],
@@ -1577,5 +1641,64 @@ describe("renderDocumentPptx — S3c-2 placed pictures", () => {
       expect(canEmbedPptxAsset(sized())).toBe(true);
       expect(canEmbedPptxAsset(sized({ mime: "image/jpeg" }))).toBe(true);
     });
+  });
+});
+
+// ─── Hyperlinks (§119) ───────────────────────────────────────────────────────
+//
+// ★★★ THE RELATIONSHIP SCOPE IS THE WHOLE POINT, AND ONLY A TWO-SLIDE DECK CAN
+// SEE IT. `ooxml-pptx-primitives.test.ts` pins that `buildPptxPackage` writes a
+// slide's links into that slide's own rels part, but it hands the builder
+// slides it built by hand — so it says nothing about whether THIS renderer
+// mints one sink per slide or one per deck. Measured, not assumed: a deck-wide
+// sink here passed all 134 tests of the three pptx files before this block
+// existed. A one-slide fixture is equally blind, since both shapes agree on the
+// first slide.
+describe("hyperlinks", () => {
+  const twoLinkedSlides = doc([
+    { type: "heading", level: 1, text: "One" },
+    { type: "paragraph", html: '<p>see <a href="https://a.example/one">A</a></p>' },
+    { type: "heading", level: 1, text: "Two" },
+    { type: "paragraph", html: '<p>see <a href="https://b.example/two">B</a></p>' },
+  ]);
+
+  it("restarts relationship ids at rId2 on every slide and keeps each target local", async () => {
+    const all = await parts(twoLinkedSlides);
+    const rels2 = all.get("ppt/slides/_rels/slide2.xml.rels")!;
+    const rels3 = all.get("ppt/slides/_rels/slide3.xml.rels")!;
+
+    // ★ rId1 is the LAYOUT on both, so both links are rId2 — the ids do NOT
+    //   run on across slides. A deck-wide sink gives slide 3's link rId3.
+    expect(rels2).toContain(`Id="rId2"`);
+    expect(rels2).toContain(`Target="https://a.example/one" TargetMode="External"`);
+    expect(rels3).toContain(`Id="rId2"`);
+    expect(rels3).toContain(`Target="https://b.example/two" TargetMode="External"`);
+    expect(rels3).not.toContain("rId3");
+
+    // ★★ And neither part carries the OTHER slide's relationship. A deck-wide
+    //    sink accumulates, so slide 3's part would declare slide 2's link too —
+    //    a target the slide never references, pointing somewhere else entirely.
+    expect(rels3).not.toContain("https://a.example/one");
+    expect(rels2).not.toContain("https://b.example/two");
+  });
+
+  it("points each slide's linked run at that slide's own relationship", async () => {
+    const [, second, third] = await slides(twoLinkedSlides);
+    // ★ Resolving the reference chain, not just asserting an element exists:
+    //   the id here is what the rels assertions above look up.
+    expect(second).toContain(`<a:hlinkClick r:id="rId2"/>`);
+    expect(third).toContain(`<a:hlinkClick r:id="rId2"/>`);
+    // The unlinked run in the same paragraph carries no link at all.
+    const linkedRuns = [...third.matchAll(/<a:hlinkClick/g)];
+    expect(linkedRuns).toHaveLength(1);
+  });
+
+  it("leaves a link-free deck with no hyperlink relationship at all", async () => {
+    // ★ The additive contract, end to end — omitted `links` and an empty one
+    //   must both leave the package where it was.
+    const all = await parts(doc([{ type: "paragraph", html: "<p>no links here</p>" }]));
+    for (const [path, xml] of all) {
+      if (path.endsWith(".rels")) expect(xml).not.toContain("hyperlink");
+    }
   });
 });

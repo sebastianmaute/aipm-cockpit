@@ -31,6 +31,9 @@ import {
   statusToCsv,
 } from "./storage";
 import { descriptionTextWithBreaks } from "./rich-text-projection";
+import { htmlToRichLines } from "./rich-text-runs";
+import type { RichLine, RichLineKind, TextRun } from "./rich-text-runs";
+import { TASK_MARK_CHECKED, TASK_MARK_UNCHECKED } from "./rich-text-plain";
 import { contactDisplay } from "./contact-display";
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
 import { linkKindOf, type KnowledgeItem } from "./document-link";
@@ -64,11 +67,30 @@ import type { KnowledgeLink } from "./document-link";
  *  the whole guarantee — a flat consumer can never accidentally receive markup,
  *  which is what a mode flag or a side-channel would have risked.
  *
- *  ★★ THE CELL IS CARRIED, NEVER PARSED, and that is the whole property.
- *  `htmlToRichLines` is DOMParser-bound, so every parse of this html lives in
- *  a DOM-bound renderer — which is exactly what lets ONE section model feed
- *  both the structural consumers (DOCX runs, HTML markup) and the flat ones
- *  (XLSX, PPTX). Parsing "helpfully" one level up here collapses that.
+ *  ★★ THE SECTION BUILDERS CARRY THE CELL AND NEVER PARSE IT, and that is the
+ *  whole property — it is what lets ONE section model feed both the structural
+ *  consumers (DOCX runs, HTML markup, and the workspace .pptx row slides) and
+ *  the flat ones (XLSX, doc-render-pptx's table cells). A builder that parsed
+ *  "helpfully" on the way in would collapse that.
+ *
+ *  ★★ This split said "(XLSX, PPTX)" until 2026-09-01, when export-pptx.ts's
+ *  row slides gained a link sink and moved to the structural side — while the
+ *  `cellTextWithLinks` docblock further down THIS FILE was updated in the same
+ *  commit. (No line distance is quoted here on purpose: this file's own
+ *  register entry records two such distances found wrong, and any insertion
+ *  above invalidates one silently.) One file disagreeing with itself is the cheap version of
+ *  this failure; the expensive one is a reader trusting whichever half they
+ *  reach first.
+ *
+ *  ★★★ THAT IS A RULE ABOUT THE BUILDERS, NOT ABOUT THIS MODULE, and an earlier
+ *  revision of this comment stated it as the latter ("the cell is carried, NEVER
+ *  parsed"). `cellTextWithLinks` below DOES parse, through the very same
+ *  `htmlToRichLines` the OOXML renderers use — deliberately, because a sink that
+ *  cannot hold a hyperlink still has to print the address, and the only way to
+ *  learn where a link sits inside the text is to read the parse the renderers
+ *  already read. It is an explicit opt-in projection a flat sink asks for, never
+ *  something a builder does behind one's back, and reusing the renderers' parse
+ *  is what keeps it from becoming a second anchor walk that drifts.
  *
  *  ★★★ IT IS NOT A DOM-FREE CLAIM ABOUT THIS MODULE, and an earlier revision of
  *  this comment made one. `richCell` derives `text` through
@@ -101,6 +123,170 @@ export function isRichCell(cell: ExportCell): cell is RichCell {
  *  the raw cell did before this indirection existed. Keep those guards. */
 export function cellText(cell: ExportCell): string | number {
   return isRichCell(cell) ? cell.text : cell;
+}
+
+/** One maximal stretch of a line's runs sharing a single link target. */
+type FlatLink = { text: string; href?: string };
+
+/** Adjacent runs under ONE anchor collapsed into ONE link.
+ *
+ *  ★★ LOAD-BEARING. A link whose text carries an inline mark is SEVERAL
+ *  `TextRun`s sharing one `href` (`<a …>the <strong>spec</strong></a>` is two),
+ *  so a per-RUN suffix prints the address inside its own anchor text — "the
+ *  (url)spec (url)".
+ *
+ *  ★★★ IT COALESCES BY `href` ALONE AND KNOWS NOTHING ABOUT ANCHORS, so TWO
+ *  DIRECTLY ADJACENT anchors sharing one address DO merge — `<a
+ *  href="https://u">a</a><a href="https://u">b</a>` renders as one "ab
+ *  (https://u)", not two. An earlier revision of this docblock asserted the
+ *  opposite ("two SEPARATE anchors never coalesce"), reasoning from the source
+ *  markup rather than from the run list this function actually receives: by the
+ *  time runs arrive the anchor boundaries are gone, and only a run with a
+ *  DIFFERENT `href` — including an unlinked one, whose `href` is undefined —
+ *  breaks the stretch. Whitespace or any other text between the two anchors is
+ *  such a run, which is why the ordinary case looks like the false claim.
+ *
+ *  ★★ THE BEHAVIOUR IS KEPT, only the claim corrected. Merging loses no
+ *  address and reads better than printing one address twice in a row, and the
+ *  markup that produces it — two anchors to one target with nothing at all
+ *  between them — is not something the editor emits. Pinned by "merges two
+ *  DIRECTLY ADJACENT anchors that share one address", which is deliberately
+ *  separate from the `and`-separated pair beside it: that fixture cannot
+ *  distinguish the two readings. */
+function coalesceLinks(runs: readonly TextRun[]): FlatLink[] {
+  const out: FlatLink[] = [];
+  for (const run of runs) {
+    const prev = out[out.length - 1];
+    if (prev !== undefined && prev.href === run.href) {
+      out[out.length - 1] = { ...prev, text: prev.text + run.text };
+    } else {
+      out.push({ text: run.text, href: run.href });
+    }
+  }
+  return out;
+}
+
+/** ★ A link whose text ALREADY IS its address gets no suffix: a pasted URL is
+ *  its own link text, and "https://a (https://a)" is worse than the value it
+ *  replaced. Compared against the TRIMMED text because a run can carry the
+ *  anchor's surrounding whitespace. */
+function isAddressed(link: FlatLink): boolean {
+  return link.href !== undefined && link.href !== link.text.trim();
+}
+
+function renderLink(link: FlatLink): string {
+  return isAddressed(link) ? `${link.text} (${link.href})` : link.text;
+}
+
+/** The task marker `markTaskItems` would have put in front of this line.
+ *
+ *  ★★ REUSES THE FLAT PROJECTION'S OWN CONSTANTS so the two cannot drift on the
+ *  marker itself — the same argument `bulletMarker` makes in rich-text-runs.ts.
+ *  ★★ A CONTINUATION gets NONE: `markTaskItems` rewrites the item's OPENING tag
+ *  exactly once, so the text after a `<br>` carries no second "[x] ", while a
+ *  continuation `RichLine` copies `task` off the item it continues. */
+function taskMarker(line: RichLine): string {
+  if (line.kind !== "li" || !line.task || line.continuation) return "";
+  return line.task === "checked" ? TASK_MARK_CHECKED : TASK_MARK_UNCHECKED;
+}
+
+/** ★★ The whitespace shape `descriptionTextWithBreaks` ends on — `htmlToText`'s
+ *  `preserveBreaks` branch: a run CONTAINING a newline collapses to one "\n", a
+ *  purely horizontal run to one " ", then trim. Duplicated rather than imported
+ *  because `htmlToText` runs DOMPurify FIRST, and feeding it already-extracted
+ *  plain text would strip any "<" the user actually typed. If you tighten
+ *  `htmlToText`'s break-mode collapse, track it here — this projection's whole
+ *  contract is that it equals `cell.text` plus the addresses. */
+function collapseFlat(text: string): string {
+  return text
+    .replace(/[^\S\n]*\n\s*/g, "\n")
+    .replace(/[^\S\n]+/g, " ")
+    .trim();
+}
+
+/** The flat projection for a sink that CANNOT hold a hyperlink — `cellText`
+ *  plus each link's address, inline, as `text (url)` (§119/§30).
+ *
+ *  Used by the XLSX shared-string cell and the PPTX table-cell path. The PPTX
+ *  ROW SLIDES left this projection when they gained a link sink — see
+ *  `cellLinkedLines` below. `.docx`/`.pptx` PARAGRAPH renderers must NOT call it: they
+ *  emit a real external relationship, and printing the address as well would
+ *  duplicate it.
+ *
+ *  ★★★ IT MUST NOT BECOME `htmlToText`. That projection feeds global search,
+ *  the AI entity digests and the inline-AI plan preview; widening it would put
+ *  raw addresses into a search index and into model prompts, which §30 forbids
+ *  explicitly. This is a SEPARATE, export-only projection for that reason, and
+ *  `sanitize-html.test.ts` carries a POSITIVE byte-unchanged pin on the other
+ *  one so a widening goes red there rather than silently passing here.
+ *
+ *  ★★ ADDRESSLESS CONTENT TAKES THE IDENTITY PATH — `cell.text` is returned
+ *  VERBATIM when the parse finds no address to add. The rebuild below is meant
+ *  to reproduce `descriptionTextWithBreaks` exactly (same line join, same task
+ *  markers, same final collapse), so the two paths should agree; returning the
+ *  stored projection when there is nothing to add means a drift between them
+ *  can only ever affect a cell that actually carries a link, instead of
+ *  silently re-deriving every rich cell in every flat export.
+ *
+ *  ★ A non-rich cell passes through UNCHANGED, number included — same contract
+ *  as `cellText`, including its `undefined`-at-runtime tolerance for a short
+ *  row, so every caller keeps its own `?? ""` guard. */
+export function cellTextWithLinks(cell: ExportCell): string | number {
+  if (!isRichCell(cell)) return cell;
+  const lines = htmlToRichLines(cell.html).map((line) => ({
+    marker: taskMarker(line),
+    links: coalesceLinks(line.runs),
+  }));
+  if (!lines.some((line) => line.links.some(isAddressed))) return cell.text;
+  return collapseFlat(
+    lines.map((line) => line.marker + line.links.map(renderLink).join("")).join("\n"),
+  );
+}
+
+/** One line of a rich cell as RUNS. `kind` travels because a slide has no style
+ *  part, so a renderer folds the LINE's styling into every run (`pptxRun` takes
+ *  it for exactly that). */
+export type CellRunLine = { kind: RichLineKind; runs: readonly TextRun[] };
+
+/** The STRUCTURED counterpart of `cellTextWithLinks`, for a sink that CAN mint
+ *  a relationship — the PPTX row slides. `undefined` means "no link here to
+ *  make live", and the caller must fall back to its existing `cellText` branch.
+ *
+ *  ★★★ `undefined` RATHER THAN AN EMPTY ARRAY, and that is the byte-identity
+ *  contract, not a taste call: `pptxTextBox` splits a uniform-text paragraph on
+ *  "\n" into SEVERAL `<a:p>` and emits exactly ONE for a run list, so the two
+ *  branches do not produce the same bytes. A caller that routed every cell
+ *  through runs would silently reshape every slide it has ever written.
+ *
+ *  ★★ THE PREDICATE IS `href`, NOT `isAddressed` — deliberately WIDER than the
+ *  flat projection's. `isAddressed` asks "would printing the address ADD
+ *  anything", so a pasted URL that is its own link text answers NO; this asks
+ *  "is there a link to make live", and that same pasted URL answers YES. Borrow
+ *  the flat predicate here and exactly the self-addressed link ships dead,
+ *  which is the defect this path exists to close.
+ *
+ *  ★ The task marker is prepended as its OWN run so it inherits none of the
+ *  item's marks, and it is the SAME `taskMarker` the flat projection uses — the
+ *  two cannot drift on which items get one.
+ *
+ *  ★★ NO EDGE TRIM, and one was written and then DELETED, so do not add it back
+ *  "for parity with `collapseFlat`". Measured against the real parse: for every
+ *  line kind but `pre`, `htmlToRichLines` has ALREADY dropped a line's leading
+ *  and trailing whitespace — `<p>  see <a …>x</a>  </p>` arrives as
+ *  `["see ", "x"]` — so a trim here is unobservable (its mutant survived the
+ *  whole suite). For `pre` the whitespace is preserved ON PURPOSE and a trim
+ *  would eat a code block's indentation, which is the flat projection's own
+ *  loss and not one worth copying. */
+export function cellLinkedLines(cell: ExportCell): readonly CellRunLine[] | undefined {
+  if (!isRichCell(cell)) return undefined;
+  const lines = htmlToRichLines(cell.html);
+  if (!lines.some((line) => line.runs.some((run) => run.href !== undefined))) return undefined;
+  return lines.map((line) => {
+    const marker = taskMarker(line);
+    const runs: readonly TextRun[] =
+      marker === "" ? line.runs : [{ text: marker, marks: [] }, ...line.runs];
+    return { kind: line.kind, runs };
+  });
 }
 
 export type ExportSection = {

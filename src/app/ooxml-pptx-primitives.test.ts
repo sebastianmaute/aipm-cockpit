@@ -1,8 +1,9 @@
 // src/app/ooxml-pptx-primitives.test.ts
 //
-// PresentationML primitives. Today this covers `pptxPicture` only — the shape
-// that puts real image bytes on a slide instead of the text placeholder that
-// preceded it.
+// PresentationML primitives: `pptxPicture` (the shape that puts real image
+// bytes on a slide instead of the text placeholder that preceded it), the
+// hyperlink half of `pptxTextBox`, and `buildPptxPackage`'s per-slide media and
+// link relationships.
 //
 // ★★ These assertions are SUBSTRING matches, which is the right granularity for
 // a fragment that is not a whole part (a `<p:pic>` is spliced into a slide by
@@ -14,7 +15,12 @@ import { describe, expect, it } from "vitest";
 
 import { unzipBytes, partText } from "../test/unzip-bytes";
 
-import { buildPptxPackage, pptxPicture } from "./ooxml-pptx-primitives";
+import {
+  type PptxRun,
+  buildPptxPackage,
+  pptxPicture,
+  pptxTextBox,
+} from "./ooxml-pptx-primitives";
 
 describe("pptxPicture", () => {
   it("places and sizes the shape and embeds by relationship id", () => {
@@ -196,5 +202,160 @@ describe("buildPptxPackage media", () => {
     );
     // And no image machinery leaks into an image-free deck.
     expect([...parts.keys()].some((p) => p.startsWith("ppt/media/"))).toBe(false);
+  });
+});
+
+// ★★ THE PPTX HYPERLINK IS THE MIRROR OF THE DOCX ONE AND DIFFERS FROM IT IN
+// BOTH DIRECTIONS, which is why these are pinned here and not assumed from
+// `ooxml-docx-primitives`:
+//   · `<a:hlinkClick>` carries NO local `xmlns:r`, where `<w:hyperlink>` must —
+//     `wrapPptxSlide` binds the prefix on `<p:sld>` and `w:document` does not.
+//   · A link relationship id is scoped to ONE SLIDE, so two slides may both
+//     mint `rId2` for different targets. Numbering them deck-wide would pass a
+//     test that only ever built one slide.
+describe("pptxTextBox hyperlinks", () => {
+  const box = (runs: readonly PptxRun[]): string =>
+    pptxTextBox({
+      id: 3,
+      name: "Body",
+      lang: "en-US",
+      xEmu: 457200,
+      yEmu: 1188720,
+      cxEmu: 8229600,
+      cyEmu: 3474720,
+      paragraphs: [{ runs }],
+    });
+
+  it("emits a:hlinkClick inside a:rPr for a linked run", () => {
+    const xml = box([{ text: "the spec", hyperlinkRelId: "rId2" }]);
+    expect(xml).toContain(`<a:hlinkClick r:id="rId2"/>`);
+    // …inside the properties element, not loose in the run.
+    expect(xml).toContain(`<a:hlinkClick r:id="rId2"/></a:rPr>`);
+  });
+
+  it("needs no local xmlns:r — p:sld already binds it", () => {
+    const xml = box([{ text: "x", hyperlinkRelId: "rId2" }]);
+    // ★ Both halves, or this is vacuous: an emitter that dropped the element
+    // entirely would satisfy the `not` alone.
+    expect(xml).toContain("<a:hlinkClick");
+    expect(xml).not.toContain("xmlns:r=");
+  });
+
+  it("places a:hlinkClick LAST, where CT_TextCharacterProperties sequences it", () => {
+    // ★★★ The sequence is `… highlight · uLn · uFill · latin · ea · cs · sym ·
+    // hlinkClick · …`, so the link comes after BOTH children this module
+    // already emits. A run carrying all three is the only fixture that can
+    // observe the order — one with a single child passes whatever the order is.
+    const xml = box([
+      { text: "x", hyperlinkRelId: "rId2", highlightRgb: "00FF00", monospace: true },
+    ]);
+    expect(xml).toContain(
+      `<a:highlight><a:srgbClr val="00FF00"/></a:highlight>` +
+        `<a:latin typeface="Consolas"/>` +
+        `<a:hlinkClick r:id="rId2"/>`,
+    );
+  });
+
+  it("adds nothing at all to an unlinked run", () => {
+    expect(box([{ text: "plain" }])).not.toContain("hlink");
+  });
+});
+
+describe("buildPptxPackage links", () => {
+  const png = {
+    path: "ppt/media/image1.png",
+    data: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+    extension: "png" as const,
+    relId: "rId2",
+  };
+
+  it("writes each slide's link rels into that slide's own rels part", async () => {
+    // ★★★ BOTH SLIDES REUSE rId2 ON PURPOSE. Slide relationship ids restart at
+    // rId2 on every slide (rId1 is that slide's layout), so this is the real
+    // shape — a fixture numbering them rId2/rId3 deck-wide would pass while
+    // pinning the WRONG rule, and the deck-wide mutant would survive it.
+    const parts = await unzipBytes(
+      buildPptxPackage([
+        { xml: "<p:sp/>", media: [], links: [{ relId: "rId2", target: "https://a.example/one" }] },
+        { xml: "<p:sp/>", media: [], links: [{ relId: "rId2", target: "https://b.example/two" }] },
+      ]),
+    );
+    const rels1 = partText(parts, "ppt/slides/_rels/slide1.xml.rels");
+    const rels2 = partText(parts, "ppt/slides/_rels/slide2.xml.rels");
+    expect(rels1).toContain("https://a.example/one");
+    expect(rels2).toContain("https://b.example/two");
+    expect(rels1).not.toContain("https://b.example/two");
+    expect(rels2).not.toContain("https://a.example/one");
+  });
+
+  it("marks the relationship External and adds no part for it", async () => {
+    const parts = await unzipBytes(
+      buildPptxPackage([
+        { xml: "<p:sp/>", media: [], links: [{ relId: "rId2", target: "https://x.example/" }] },
+      ]),
+    );
+    expect(partText(parts, "ppt/slides/_rels/slide1.xml.rels")).toContain(
+      `Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://x.example/" TargetMode="External"`,
+    );
+    // A link has NO part and NO content-type Default — that is what
+    // TargetMode="External" licenses, and it is why a link-bearing deck still
+    // holds exactly the eleven parts of a media-free one.
+    expect([...parts.keys()]).toHaveLength(11);
+    expect(partText(parts, "[Content_Types].xml")).not.toContain("hyperlink");
+  });
+
+  it("xml-escapes the target", async () => {
+    const parts = await unzipBytes(
+      buildPptxPackage([
+        {
+          xml: "<p:sp/>",
+          media: [],
+          links: [{ relId: "rId2", target: "https://e.example/?a=1&b=2" }],
+        },
+      ]),
+    );
+    const rels = partText(parts, "ppt/slides/_rels/slide1.xml.rels");
+    expect(rels).toContain("a=1&amp;b=2");
+    expect(rels).not.toContain("a=1&b=2");
+  });
+
+  it("throws when a slide's link id collides with that slide's media id", () => {
+    expect(() =>
+      buildPptxPackage([
+        {
+          xml: "<p:sp/>",
+          media: [png],
+          links: [{ relId: "rId2", target: "https://a.example/" }],
+        },
+      ]),
+    ).toThrow(/duplicate relationship id/i);
+  });
+
+  it("refuses rId1 for a link, which is the slide layout on every slide", () => {
+    expect(() =>
+      buildPptxPackage([
+        { xml: "<p:sp/>", media: [], links: [{ relId: "rId1", target: "https://a.example/" }] },
+      ]),
+    ).toThrow(/rId1/);
+  });
+
+  it("lets two SLIDES reuse one id — the scope is the slide, not the deck", () => {
+    // ★ The mirror of the collision test above: the same id in two different
+    // rels parts is correct, so a guard written deck-wide would throw here.
+    expect(() =>
+      buildPptxPackage([
+        { xml: "<p:sp/>", media: [png], links: [] },
+        { xml: "<p:sp/>", media: [], links: [{ relId: "rId2", target: "https://a.example/" }] },
+      ]),
+    ).not.toThrow();
+  });
+
+  it("adds no external relationship to a link-free slide", async () => {
+    // ★ The additive contract at this level. `links` omitted entirely, which is
+    // the shape every pre-existing caller has.
+    const parts = await unzipBytes(buildPptxPackage([{ xml: "<p:sld/>", media: [] }]));
+    const rels = partText(parts, "ppt/slides/_rels/slide1.xml.rels");
+    expect(rels).not.toContain(`TargetMode="External"`);
+    expect(rels).not.toContain("hyperlink");
   });
 });

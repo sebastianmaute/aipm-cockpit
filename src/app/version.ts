@@ -2,10 +2,15 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.276.0";
-export const APP_BUILD_DATE = "2026-09-01"; // 0.276.0: toggle buttons, the RACI chips and the dictation mic no longer signal their on/off state by colour alone — each carries a non-colour marker and a border derived to stay visible against the surface, in every colour scheme and in dark mode (Cadigan)
+export const APP_VERSION = "0.277.0";
+export const APP_BUILD_DATE = "2026-09-02"; // 0.277.0: a link in a task description, a risk or a change now survives export — the .docx and .pptx carry real, clickable hyperlinks instead of printing the address as text, and each one is drawn so you can see it is a link (Ozeki)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.276.x line is "Cadigan" (Pat Cadigan, American-British SF author,
+ *  0.277.x line is "Ozeki" (Ruth Ozeki, American-Canadian novelist, "A Tale
+ *  for the Time Being"). Checked dash-agnostically BEFORE the bump with the
+ *  command below: zero hits, against a pattern proved to see all 368 named
+ *  headers (and returning 2 for "Cadigan" as a positive control), so this one
+ *  is genuinely fresh rather than a permitted reuse.
+ *  0.276.x was "Cadigan" (Pat Cadigan, American-British SF author,
  *  "Synners"). ★★ THIS ONE IS A PERMITTED REUSE, NOT A FRESH NAME, and it is
  *  recorded as such deliberately — the rule is uniqueness per MINOR LINE, not
  *  across history, and 0.93.0 (2026-06-16) already ran under it. Verified
@@ -133,7 +138,7 @@ export const APP_BUILD_DATE = "2026-09-01"; // 0.276.0: toggle buttons, the RACI
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Cadigan";
+export const APP_MILESTONE = "Ozeki";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

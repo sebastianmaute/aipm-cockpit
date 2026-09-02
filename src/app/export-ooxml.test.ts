@@ -10,8 +10,9 @@
 import { describe, it, expect } from "vitest";
 import { buildDocx, buildXlsx, buildPptx } from "./export-ooxml";
 import { buildPdfHtml } from "./export";
-import { buildExportSections } from "./export-sections";
-import type { ExportSection } from "./export-sections";
+import { buildExportSections, cellTextWithLinks } from "./export-sections";
+import type { ExportCell, ExportSection } from "./export-sections";
+import { COLOR_DARK_BLUE } from "./export-ooxml-shared";
 import { descriptionTextWithBreaks } from "./rich-text-projection";
 import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
@@ -750,8 +751,11 @@ describe("PPTX export text", () => {
   });
 
   it("emits the same package parts for a rich cell as for its flat projection (§141(b))", async () => {
-    // PPTX row slides cannot lay out paragraphs, so they read the rich cell's
-    // `text` — output must not move by one byte from the flat era.
+    // A row slide reads the rich cell's `text` whenever the cell carries NO
+    // link — output must not move by one byte from the flat era. (A LINKED cell
+    // now takes a runs branch instead; see "buildPptx link relationships"
+    // below. None of the three cells here carries one, which is what keeps this
+    // an equality about the flat path.)
     //
     // ★ ALL THREE cells are rich on purpose: buildPptxRowSlide reads row[0]
     // (RowMeta), row[1] (RowTitle) and row[2..] (meta lines) through three
@@ -859,5 +863,358 @@ describe("XLSX carries a projected paragraph break", () => {
     // equality above while proving nothing about the projection.
     expect(richText).toContain('<t xml:space="preserve">Plan\none</t>');
     expect(richText).not.toContain("object Object");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Workspace .docx export — link fidelity (§119 / §30)
+// ---------------------------------------------------------------------------
+
+// ★★ BOTH HALVES OR NEITHER. A `<w:hyperlink r:id="rId2">` whose relationship
+// was never written names an id Word cannot resolve — it opens the document
+// with the text unlinked and no error — and a relationship nothing references
+// is an orphan the reader never sees. Either assertion passes alone while the
+// export is broken, so the pair is the claim.
+describe("buildDocx link relationships", () => {
+  function sectionWith(html: string): ExportSection {
+    return {
+      key: "tasks",
+      title: "Tasks",
+      columns: ["description"],
+      rows: [[{ html, text: descriptionTextWithBreaks(html) }]],
+    };
+  }
+
+  const LINKED = '<p>see <a href="https://intra/spec">the spec</a></p>';
+
+  it("wraps a linked rich cell's run in w:hyperlink in the body", async () => {
+    const files = await unzipBlob(buildDocx([sectionWith(LINKED)]));
+    const doc = files.get("word/document.xml")!;
+    // ★ `xmlns:r` precedes `r:id` on the element, so this is matched as a
+    // pattern rather than a literal prefix (same reason as the primitives'
+    // own hyperlink tests).
+    expect(doc).toMatch(/<w:hyperlink [^>]*r:id="rId2">/);
+    expect(doc).toContain("the spec");
+  });
+
+  it("writes the referenced external relationship into document.xml.rels", async () => {
+    const files = await unzipBlob(buildDocx([sectionWith(LINKED)]));
+    const rels = files.get("word/_rels/document.xml.rels")!;
+    expect(rels).toContain('Id="rId2"');
+    expect(rels).toContain('TargetMode="External"');
+    expect(rels).toContain("https://intra/spec");
+    // A link has no part — that is what TargetMode="External" licenses.
+    expect([...files.keys()].filter((p) => p.startsWith("word/media/"))).toEqual([]);
+  });
+
+  it("mints no external relationship for a section carrying no link", async () => {
+    // ★ The additive contract: threading a sink must leave a link-free export
+    // exactly as it was, which is what keeps the byte-pinned package unmoved.
+    const files = await unzipBlob(buildDocx([sectionWith("<p>plain</p>")]));
+    expect(files.get("word/_rels/document.xml.rels")!).not.toContain('TargetMode="External"');
+    expect(files.get("word/document.xml")!).not.toContain("<w:hyperlink");
+    // ★ And no character style: an unlinked run is byte-identical to what it
+    //   was before §336 declared one.
+    expect(files.get("word/document.xml")!).not.toContain("w:rStyle");
+  });
+
+  /** ★★★ §336 REACHES THIS EXPORTER TOO, and the register named only
+   *  `renderDocumentDocx`. Both consumers pass `DOC_STYLES` to
+   *  `buildDocxPackage` and both route their runs through `markedRun`, so the
+   *  defect and the fix are shared — but "shared by construction" is an
+   *  argument, not an assertion, and this file's own deleted-test comment in
+   *  `ooxml-docx-primitives.test.ts` records what that costs. So the workspace
+   *  package is opened and read here in its own right.
+   *
+   *  ★★ BOTH HALVES, DERIVED. Word SILENTLY IGNORES a `w:rStyle` naming a style
+   *  the package does not declare — the run keeps body colour while the emit
+   *  assertion stays green — so the styleId is read out of the BODY and looked
+   *  up in styles.xml, never restated on both sides. */
+  it("styles a linked run with a character style the package declares", async () => {
+    // ★★ BOLD ON PURPOSE, and it is what makes the position assertion below
+    //    mean anything: an rStyle-only `<w:rPr>` has ONE child and opens with
+    //    it whatever the builder does. Measured — reversing the concatenation
+    //    in `markedRun` leaves the UNMARKED variant of this test green.
+    const files = await unzipBlob(
+      buildDocx([sectionWith('<p>see <a href="https://intra/spec"><strong>the spec</strong></a></p>')]),
+    );
+    const doc = files.get("word/document.xml")!;
+    // POSITION, not presence: CT_RPr is an `xsd:sequence` and w:rStyle leads
+    // it, so the property must OPEN the run's <w:rPr> — ahead of the `w:b`.
+    expect(doc).toContain(`<w:rPr><w:rStyle w:val="Hyperlink"/><w:b/></w:rPr>`);
+    const used = doc.match(/<w:rStyle w:val="([^"]+)"\/>/)?.[1];
+    expect(used).toBeTruthy();
+    expect(files.get("word/styles.xml")!).toContain(
+      `<w:style w:type="character" w:styleId="${used}">`,
+    );
+
+    // ★★ AND THE COMMON SHAPE — an UNMARKED link. It carries no mark
+    //    properties, so it gets an `<w:rPr>` only because the rStyle takes part
+    //    in `markedRun`'s emptiness test rather than being appended to its
+    //    result. Bolding the fixture above to make the ORDER observable is what
+    //    made this line necessary.
+    const bare = await unzipBlob(buildDocx([sectionWith(LINKED)]));
+    expect(bare.get("word/document.xml")!).toContain(`<w:rPr><w:rStyle w:val="${used}"/></w:rPr>`);
+  });
+
+  /** ★★ THESE PIN THE CALL SITE, NOT THE PROJECTION. `cellTextWithLinks` is
+   *  unit-tested in export-sections.test.ts; nothing there notices a sink that
+   *  went on calling `cellText`, which is the shape this whole slice is about.
+   *  Both assert against the SUBSTRATE — the shared-string table and the slide
+   *  XML the reader actually opens — not against the helper's arguments. */
+  it("carries the address inline in the XLSX shared string — a cell holds no link", async () => {
+    const files = await unzipBlob(buildXlsx([sectionWith(LINKED)]));
+    const shared = files.get("xl/sharedStrings.xml")!;
+    expect(shared).toContain("see the spec (https://intra/spec)");
+  });
+
+  it("carries the address inline in the PPTX TABLE cell — that path is flattened (§330)", async () => {
+    // ★ The workspace exporter's ROW SLIDES left this form behind (see the
+    //   suite below); `doc-render-pptx.ts`'s table path did not, and §330
+    //   records why. Pinned here so the XLSX line above is not the only
+    //   surviving witness that the inline projection is still someone's answer.
+    expect(cellTextWithLinks({ html: LINKED, text: descriptionTextWithBreaks(LINKED) })).toBe(
+      "see the spec (https://intra/spec)",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Workspace .pptx export — link fidelity (§119 / §330's scope)
+// ---------------------------------------------------------------------------
+
+/** ★★ BOTH HALVES OR NEITHER, and here the id is looked UP rather than
+ *  restated: an `<a:hlinkClick r:id="rId2">` whose slide rels part never
+ *  declared rId2 opens as dead text with no error, and a relationship nothing
+ *  references is an orphan. Two independent `toContain`s both pass on a
+ *  mismatch, so every test below reads the id out of the SLIDE and resolves
+ *  THAT id in that slide's own rels part. */
+describe("buildPptx link relationships", () => {
+  const HYPERLINK_REL =
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
+  const LINK = "https://intra/spec";
+  const LINKED = `<p>see <a href="${LINK}">the spec</a></p>`;
+
+  function rich(html: string) {
+    return { html, text: descriptionTextWithBreaks(html) };
+  }
+
+  /** The slide XML and the rels part that resolves its ids, for slide N
+   *  (1-based, as the package names them). */
+  async function slide(blob: Blob, n: number) {
+    const files = await unzipBlob(blob);
+    return {
+      xml: files.get(`ppt/slides/slide${n}.xml`)!,
+      rels: files.get(`ppt/slides/_rels/slide${n}.xml.rels`)!,
+    };
+  }
+
+  /** Every relationship id the slide's runs reference, in document order. */
+  function linkedIds(xml: string): string[] {
+    return [...xml.matchAll(/<a:hlinkClick r:id="([^"]+)"\/>/g)].map((m) => m[1]!);
+  }
+
+  /** The id on the run whose text is exactly `text` — so a per-slot assertion
+   *  names the SLOT it means rather than a position in a list. `hlinkClick`
+   *  closes the run's `<a:rPr>`, and the `<a:t>` follows it. */
+  function idForText(xml: string, text: string): string | undefined {
+    const at = new RegExp(`<a:hlinkClick r:id="([^"]+)"/></a:rPr>\\s*<a:t>${text}</a:t>`);
+    return xml.match(at)?.[1];
+  }
+
+  function sectionWith(...cells: ExportCell[]): ExportSection {
+    return {
+      key: "tasks",
+      title: "Tasks",
+      columns: ["id", "taskName", "description"],
+      rows: [cells],
+    };
+  }
+
+  it("resolves a row slide's hyperlink id in that slide's own rels part", async () => {
+    // slide1 = title, slide2 = Tasks divider, slide3 = the single row slide.
+    const { xml, rels } = await slide(buildPptx([sectionWith(1, "Task one", rich(LINKED))], "en-US"), 3);
+    const ids = linkedIds(xml);
+    expect(ids).toEqual(["rId2"]);
+    // ★ RESOLVE the id that is actually in the slide — restating "rId2" on both
+    //   sides would pass while the two disagreed.
+    expect(rels).toContain(
+      `<Relationship Id="${ids[0]}" Type="${HYPERLINK_REL}" Target="${LINK}" TargetMode="External"/>`,
+    );
+    expect(xml).toContain("<a:t>the spec</a:t>");
+  });
+
+  it("drops the inline (url) suffix once the link is live", async () => {
+    const { xml, rels } = await slide(buildPptx([sectionWith(1, "Task one", rich(LINKED))], "en-US"), 3);
+    // The address survives ONCE, as a relationship target — never doubled into
+    // the text the reader sees.
+    expect(xml).not.toContain(LINK);
+    expect(xml).not.toContain("(https://intra/spec)");
+    expect((rels.match(new RegExp(LINK, "g")) ?? []).length).toBe(1);
+  });
+
+  it("restarts relationship ids at rId2 on EVERY slide", async () => {
+    // ★★ A deck-wide sink passes a one-row fixture and fails only here: the
+    //    second row would mint rId3 into a rels part that has no rId2.
+    const two: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      columns: ["id", "taskName", "description"],
+      rows: [
+        [1, "One", rich('<p>a <a href="https://intra/one">x</a></p>')],
+        [2, "Two", rich('<p>b <a href="https://intra/two">y</a></p>')],
+      ],
+    };
+    const blob = buildPptx([two], "en-US");
+    const rowA = await slide(blob, 3);
+    const rowB = await slide(blob, 4);
+    expect(linkedIds(rowA.xml)).toEqual(["rId2"]);
+    expect(linkedIds(rowB.xml)).toEqual(["rId2"]);
+    expect(rowA.rels).toContain('Target="https://intra/one"');
+    expect(rowB.rels).toContain('Target="https://intra/two"');
+    // Each slide declares ITS OWN target and not the other's.
+    expect(rowA.rels).not.toContain("https://intra/two");
+    expect(rowB.rels).not.toContain("https://intra/one");
+  });
+
+  it("makes the link live in all three composition slots", async () => {
+    // ★★ RowMeta (col 0, prefixed by the section title), RowTitle (col 1, the
+    //    value alone) and RowFields (col 2+, prefixed by the column label) are
+    //    three SEPARATE expressions in the builder — a fix applied to one of
+    //    them still passes a fixture whose link sits in another.
+    const { xml, rels } = await slide(
+      buildPptx(
+        [
+          sectionWith(
+            rich('<p><a href="https://intra/a">alpha</a></p>'),
+            rich('<p><a href="https://intra/b">beta</a></p>'),
+            rich('<p><a href="https://intra/c">gamma</a></p>'),
+          ),
+        ],
+        "en-US",
+      ),
+      3,
+    );
+    expect(linkedIds(xml)).toEqual(["rId2", "rId3", "rId4"]);
+    // ★ Per SLOT, resolved: the id is read off the run carrying that slot's
+    //   text, then looked up. A bare set of targets would pass with all three
+    //   ids pointing at one address.
+    for (const [text, target] of [
+      ["alpha", "https://intra/a"],
+      ["beta", "https://intra/b"],
+      ["gamma", "https://intra/c"],
+    ] as const) {
+      const id = idForText(xml, text);
+      expect(id).toBeTruthy();
+      expect(rels).toContain(`Id="${id}" Type="${HYPERLINK_REL}" Target="${target}" TargetMode="External"/>`);
+    }
+    // The literal parts stay plain runs beside the linked ones.
+    expect(xml).toContain("<a:t>Tasks · </a:t>");
+    expect(xml).toContain("<a:t>description: </a:t>");
+    expect(xml).toContain("<a:t>gamma</a:t>");
+  });
+
+  it("keeps the slot's styling on the runs, and underlines a linked one the theme cannot distinguish", async () => {
+    // ★★ The runs branch has NO paragraph-level colour, so the slot's colour is
+    //    folded into each run — except a LINKED one, which must name no fill or
+    //    it loses the theme's <a:hlink> colour and reads as ordinary prose
+    //    (§336's defect in the other format).
+    // ★★★ AND IN THIS SLOT THE THEME COLOUR IS NOT A CUE AT ALL, which is why
+    //    the underline below is asserted rather than left to the reader:
+    //    TITLE_SLOT paints its text COLOR_DARK_BLUE and the theme paints a link
+    //    <a:hlink> = COLOR_DARK_BLUE — the SAME six digits — so colour cannot
+    //    separate the two and underline is the only surviving cue. A cold
+    //    review found this by comparing the constants; no byte assertion here
+    //    could have, because both runs are individually correct.
+    const { xml } = await slide(
+      buildPptx([sectionWith(1, rich(`<p>see <a href="${LINK}">the spec</a></p>`), "x")], "en-US"),
+      3,
+    );
+    // RowTitle is bold 3200 dark blue: the plain run keeps the fill …
+    expect(xml).toContain(
+      `<a:rPr lang="en-US" sz="3200" b="1" dirty="0"><a:solidFill><a:srgbClr val="${COLOR_DARK_BLUE}"/></a:solidFill></a:rPr>`,
+    );
+    // … and the linked run keeps the WEIGHT, names no fill at all, and carries
+    // the underline the colour cannot supply here.
+    expect(xml).toContain(
+      `<a:rPr lang="en-US" sz="3200" b="1" u="sng" dirty="0"><a:hlinkClick r:id="rId2"/></a:rPr>`,
+    );
+    // ★★ THE ADDITIVE HALF IS THE FIRST ASSERTION, NOT THIS ONE, and this
+    //   comment claimed the opposite until it was measured on 2026-09-02.
+    //   It read "a mutant underlining every run in the deck fails HERE rather
+    //   than passing the assertion above". It does not: `underline: true`
+    //   inserts `u="sng"` into the plain run's exact `rPr` too, so the
+    //   `toContain` above throws first and vitest never reaches this line.
+    //   Measured — that mutant reports `export-ooxml.test.ts:1134`, which is
+    //   that assertion, and every mutant this line would catch on its own is
+    //   caught there too. Kept for explicitness about what must NOT appear;
+    //   do not cite it as the thing that catches the mutant. A comment
+    //   claiming coverage nothing provides reads as protection and stops the
+    //   next audit, which is the failure class this branch keeps finding.
+    expect(xml).not.toContain(`sz="3200" b="1" u="sng" dirty="0"><a:solidFill>`);
+  });
+
+  it("does not double the label's space on pretty-printed stored HTML", async () => {
+    // ★★ THE GUARANTEE IS THE PARSE'S, NOT THIS EXPORTER'S, and that is worth
+    //    pinning because a trim was written HERE for parity with `collapseFlat`
+    //    and deleted once its mutant survived: `htmlToRichLines` has already
+    //    dropped a line's edge whitespace for every kind but `pre`. If that ever
+    //    changes, a linked cell renders "description:  see" against the same
+    //    cell unlinked rendering one space, and this is what says so.
+    const { xml } = await slide(
+      buildPptx(
+        [sectionWith(1, "Task one", rich(`<p>\n  see <a href="${LINK}">the spec</a>\n</p>`))],
+        "en-US",
+      ),
+      3,
+    );
+    expect(xml).toContain("<a:t>description: </a:t>");
+    expect(xml).toContain("<a:t>see </a:t>");
+    expect(xml).not.toContain("<a:t> see </a:t>"); // leading edge
+    expect(xml).not.toContain("<a:t> </a:t>"); // trailing edge
+  });
+
+  it("leaves a link-free deck exactly as it was — no relationship, no runs branch", async () => {
+    // ★★★ THE ADDITIVE CONTRACT. `pptxTextBox` splits a uniform-text paragraph
+    //     on "\n" into SEVERAL <a:p> and emits exactly ONE for a run list, so a
+    //     cell routed through runs when it has no link silently reshapes the
+    //     slide. The newline shape is the observable that catches it.
+    const blob = buildPptx([sectionWith(1, "Task one", rich("<p>one</p><p>two</p>"))], "en-US");
+    const { xml, rels } = await slide(blob, 3);
+    expect(rels).not.toContain('TargetMode="External"');
+    expect(xml).not.toContain("<a:hlinkClick");
+    expect(xml).toContain("<a:t>description: one</a:t>");
+    expect(xml).toContain("<a:t>two</a:t>");
+    expect(xml).toMatch(/<a:t>description: one<\/a:t>[\s\S]*?<\/a:p>\s*<a:p>[\s\S]*?<a:t>two<\/a:t>/);
+  });
+
+  it("leaves a non-rich cell and a short row alone", async () => {
+    // A number, a plain string, and a row shorter than its column list — the
+    // `?? ""` guard the flat contract requires.
+    const short: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      columns: ["id", "taskName", "description"],
+      rows: [[7, "Task seven"]],
+    };
+    const { xml, rels } = await slide(buildPptx([short], "en-US"), 3);
+    expect(xml).toContain("<a:t>Tasks · 7</a:t>");
+    expect(xml).toContain("<a:t>Task seven</a:t>");
+    expect(xml).not.toContain("undefined");
+    expect(rels).not.toContain('TargetMode="External"');
+  });
+
+  it("degrades an unsafe scheme to plain text with no relationship", async () => {
+    // ★ `safeLinkTarget` drops it during the PARSE, so the run reaching the
+    //   sink carries no href at all — there is nothing to mint.
+    const blob = buildPptx(
+      [sectionWith(1, "Task one", rich('<p>see <a href="javascript:alert(1)">the spec</a></p>'))],
+      "en-US",
+    );
+    const { xml, rels } = await slide(blob, 3);
+    expect(xml).toContain("<a:t>description: see the spec</a:t>");
+    expect(xml).not.toContain("javascript:");
+    expect(xml).not.toContain("<a:hlinkClick");
+    expect(rels).not.toContain('TargetMode="External"');
   });
 });

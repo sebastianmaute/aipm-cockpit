@@ -541,8 +541,17 @@ describe("buildExportSections is total", () => {
                 expect(typeof cell.html).toBe("string");
                 expect(typeof cell.text).toBe("string");
                 // The flat half a non-layout renderer reads must never be the
-                // object itself: PPTX writes cellText() straight into <a:t>, so
-                // a broken flattener ships the literal "[object Object]".
+                // object itself: a flat sink writes the projection straight
+                // into <a:t>, so a broken flattener ships the literal "[object
+                // Object]". ★ The flat sinks call `cellTextWithLinks`, which
+                // returns `cell.text` verbatim whenever the cell carries no
+                // link address — so this stays the shape they read.
+                // ★★ "PPTX writes the flat projection" was true of BOTH decks
+                // until 2026-09-01. `export-pptx.ts` now reads `.html` for a
+                // linked cell and only falls back to this shape; the flat
+                // readers are `export-xlsx.ts` and doc-render-pptx's table
+                // cells. The assertion below is unaffected — the fallback is
+                // still reached, and it must still be a primitive.
                 expect(["string", "number"]).toContain(typeof cellText(cell));
                 richCellsSeen += 1;
               } else {

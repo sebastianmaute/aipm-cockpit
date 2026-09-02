@@ -39,6 +39,7 @@ import {
   type MediaExtension,
   type MediaPart,
 } from "./ooxml-media";
+import type { LinkSink } from "./ooxml-links";
 import { isAllowedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
 import type { DocumentAsset } from "./document-asset";
 import type { ExportAssets } from "./document-export-assets";
@@ -281,14 +282,92 @@ const HR_TEXT = "—".repeat(24);
  * style part to declare a `Quote`/`CodeBlock` in — see `DOCX_LINE_STYLE`'s
  * counterpart. Italic mirrors the DOCX `Quote` style; monospace mirrors
  * `CodeBlock`. Both are no-ops on a run that already carries the mark.
+ * ★ EXPORTED FOR ONE ASSERTION ONLY — whether `hyperlinkRelId` is an OWN key.
+ * Every other property of this function is observable in the slide XML, but
+ * key presence is not: `pptxTextBox` renders an own-and-undefined field and an
+ * absent one identically, so the only way to pin the shape is to look at the
+ * object. `buildContentSlide` returns a string and cannot show it.
  */
-function pptxRun(run: TextRun, kind: RichLineKind): PptxRun {
+export function pptxRun(run: TextRun, kind: RichLineKind, links: LinkSink | undefined): PptxRun {
   const has = (mark: RunMark): boolean => run.marks.includes(mark);
+  // ★★ URL -> RELATIONSHIP ID. `TextRun.href` is an address the shared parse
+  //   already validated against the scheme allow-list; `hyperlinkRelId` is an
+  //   id into THIS SLIDE's rels part. The sink does the conversion and
+  //   remembers what it minted, so `renderDocumentPptx` can hand the same
+  //   list to `buildPptxPackage`.
+  // ★ No sink means no links at all, and a caller passing none keeps runs
+  //   byte-identical. ★★ That is now a TEST-ONLY path: both production callers
+  //   pass a sink — this renderer's own `buildContentSlide` and, since
+  //   2026-09-01, `export-pptx.ts`'s `slotParagraphs`, whose `links` parameter
+  //   is not even optional. It is pinned by "does not underline a run whose
+  //   href minted no id because there is no sink".
+  // ★★ THIS SAID "every pre-existing caller passes none" until 2026-09-01.
+  //   `export-pptx.ts` — the WORKSPACE exporter, a different subsystem from
+  //   this document renderer — now calls it through `slotParagraphs`. The
+  //   IMPORT edge is one-directional and nothing on this side declares it, but
+  //   the BLAST RADIUS runs BOTH ways, and a first cut of this comment named
+  //   only one of them:
+  //     · a change made here for document-renderer reasons (`HIGHLIGHT_RGB`,
+  //       `SUPERSCRIPT_PCT`, `kind === "pre"` ⇒ monospace) silently changes
+  //       workspace decks;
+  //     · and a change made here for WORKSPACE-exporter reasons silently
+  //       changes document decks — which is exactly what the unconditional
+  //       link underline below did. It exists for `export-pptx.ts`'s
+  //       TITLE_SLOT collision, and it moved `document-renderer.pptx`'s bytes
+  //       on the way past, re-owing §219's manual pass for that deck.
+  //   Enumerate before editing: `grep -rn "pptxRun(" src/app --include=*.ts`.
+  const relId =
+    links === undefined || run.href === undefined ? undefined : links.relIdFor(run.href);
   return {
     text: run.text,
+    // ★★ ABSENT on an unlinked run, never own-and-undefined — the rule the
+    //   `TextRun.href` docblock states, applied to the field href resolves
+    //   INTO. Written unconditionally the key is always own, so `toEqual`
+    //   and `JSON.stringify` both separate a run built here from one built by
+    //   hand, and `Object.hasOwn` reports true on a run with no link at all.
+    //   Pinned by "omits hyperlinkRelId entirely on an unlinked run".
+    // ★ The other optionals below keep the shape they have always had: the
+    //   rule this obeys is the one this branch's own docblock legislates, and
+    //   widening it to the mark fields is a separate decision with its own
+    //   byte-level blast radius across every existing pptx assertion.
+    ...(relId === undefined ? {} : { hyperlinkRelId: relId }),
     bold: has("bold"),
     italic: has("italic") || kind === "blockquote",
-    underline: has("underline"),
+    // ★★★ A LINKED RUN IS UNDERLINED UNCONDITIONALLY, and this is the PPTX
+    //   half of the §336 fix rather than a style preference. The DOCX side
+    //   DECLARES `<w:u w:val="single"/>` inside its `Hyperlink` character
+    //   style; the slide side has no style part, so relying on the reader's
+    //   implicit hyperlink formatting is the only alternative — and nothing
+    //   in this repo can observe whether PowerPoint applies it.
+    // ★★★ IT IS LOAD-BEARING IN EVERY SLOT BUT ONE, and this comment said
+    //   "EXACTLY ONE SLOT" until a cold review measured it on 2026-09-02.
+    //   The theme paints a link from `<a:hlink>` = COLOR_DARK_BLUE, and what
+    //   that is worth depends on the colour BESIDE it:
+    //     · TITLE_SLOT declares COLOR_DARK_BLUE — the SAME six digits, so the
+    //       cue is absent by IDENTITY.
+    //     · FIELD_SLOT declares no `colorRgb` at all, so an unlinked run
+    //       resolves through the master's `clrMap tx1="dk1"` to COLOR_TEXT
+    //       (1A1A1A) — 004159 against 1A1A1A is 1.58:1, below the 3:1 this
+    //       repo already treats as the floor for a non-text distinction. The
+    //       cue is absent by CONTRAST. The same holds for every body slide in
+    //       THIS renderer, which declares no `colorRgb` either.
+    //     · META_SLOT (939598) is the one slot where colour alone carries it,
+    //       at 3.68:1.
+    //   So narrowing this to `style === TITLE_SLOT` would restore an
+    //   effectively invisible link in the RowFields box and in every document
+    //   deck. The DOCX half of this same branch reached the same conclusion
+    //   independently — `ooxml-docx-primitives.ts` declares colour AND
+    //   underline for every link. Leaving it to the reader's implicit
+    //   formatting would have shipped §336's defect (a link indistinguishable
+    //   from the text around it) in the other format, which is the shape a
+    //   manual pass had just caught in the first.
+    //   Verify the collision and the contrasts, do not trust this comment:
+    //     grep -n "COLOR_DARK_BLUE =\|COLOR_TEXT =\|COLOR_MEDIUM_GREY =" src/app/export-ooxml-shared.ts
+    //     grep -n "a:hlink\|<a:dk1>\|clrMap" src/app/ooxml-pptx-primitives.ts
+    //     grep -n "TITLE_SLOT\|FIELD_SLOT\|META_SLOT" -A 4 src/app/export-pptx.ts
+    // ★ Additive: an unlinked run is untouched, so only runs this branch
+    //   newly links can move, in either exporter.
+    underline: has("underline") || relId !== undefined,
     strike: has("strike"),
     baselinePct: has("sup") ? SUPERSCRIPT_PCT : has("sub") ? SUBSCRIPT_PCT : undefined,
     monospace: has("code") || kind === "pre",
@@ -299,10 +378,10 @@ function pptxRun(run: TextRun, kind: RichLineKind): PptxRun {
 /** One body line as one paragraph for `pptxTextBox`. A plain string keeps the
  *  uniform-text shape it always had — byte-identical, since that branch splits
  *  on "\n" and these lines are already split. */
-function bodyParagraph(line: string | RichLine): PptxParagraph {
+function bodyParagraph(line: string | RichLine, links: LinkSink | undefined): PptxParagraph {
   if (typeof line === "string") return { text: line, sizeHundredths: BODY_SIZE };
   if (line.kind === "hr") return { runs: [{ text: HR_TEXT }], sizeHundredths: BODY_SIZE };
-  const runs = line.runs.map((run) => pptxRun(run, line.kind));
+  const runs = line.runs.map((run) => pptxRun(run, line.kind, links));
   // ★★ The marker is a RUN, not a paragraph property: this path emits no
   // bullet properties at all (see `bulletMarker`), so the ordinal has to be
   // text or it is lost outright. It is its OWN run so it inherits none of the
@@ -427,11 +506,42 @@ export function createDeckMedia(ctx: RenderCtx) {
   };
 }
 
+/**
+ * An UPPER BOUND on how many media relationship ids ONE slide will mint, so a
+ * link sink can start above them.
+ *
+ * ★★★ IT HAS TO BE A BOUND RATHER THAN A COUNT, and that is a property of
+ * `buildContentSlide`, not of this list: the body text box — which is where the
+ * link ids are minted — is built BEFORE `mint` runs over the picture lines, so
+ * the media count does not exist yet at the moment the first link id is needed.
+ * This is the same reservation `doc-render-docx.ts`'s own `mediaIdCeiling`
+ * makes for the same reason.
+ *
+ * ★★ THE TWO ARE NOT DERIVED THE SAME WAY, though, and reading this as a copy
+ * would mislead: DOCX cannot see its candidate set at all before the render and
+ * re-scans each block's HTML for `<img data-asset-id>`; here the candidates are
+ * already `ImageLine`s in the chunk, so the only slack is whether `mint`
+ * DECLINES one (bytes or metadata gone since `paragraphLines` accepted them —
+ * "unreachable by construction", per its docstring). So this over-reserves only
+ * on that path and can never under-reserve.
+ *
+ * ★ Over-reserving costs a GAP in the id sequence, which is legal — `Id` is an
+ * xsd:ID and nothing in OPC requires contiguity. Under-reserving would cost a
+ * collision, which `buildPptxPackage` throws on rather than shipping an image
+ * that silently resolves to a link.
+ */
+export function mediaIdCeiling(lines: readonly SlideLine[]): number {
+  return lines.filter(isImageLine).length;
+}
+
 export function buildContentSlide(
   title: string,
   lines: readonly SlideLine[],
   ctx: RenderCtx,
   mint: (line: ImageLine) => MediaPart | null,
+  /** ★ ONE SINK PER SLIDE — its ids land in THIS slide's rels part. Optional so
+   *  a caller that wants no links keeps the bytes it always had. */
+  links?: LinkSink,
 ): string {
   const { lang } = ctx;
   const titleShape = title
@@ -461,7 +571,7 @@ export function buildContentSlide(
         // One <a:p> per line. ★ A plain line still goes through the uniform
         // -text branch, which splits `text` on "\n" itself — so a bullet item
         // or table cell that smuggled a newline in behaves exactly as before.
-        paragraphs: textLines.map(bodyParagraph),
+        paragraphs: textLines.map((line) => bodyParagraph(line, links)),
       })
     : "";
 
