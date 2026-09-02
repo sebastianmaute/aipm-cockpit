@@ -98,6 +98,38 @@ describe("AssetPreviewModal — object URL lifecycle", () => {
     expect(revoked).toContain(created[0]);
   });
 
+  // ★★★ THE IDENTITY-STABILITY TEST. Task 8's real call site passes an inline
+  // arrow as `loadImage` — a fresh function identity on every parent render.
+  // A re-render while the modal is open (for any reason unrelated to
+  // navigate/close) must NOT revoke or re-mint the URL currently on screen.
+  // Every other test in this file passes a STABLE `vi.fn()` loader across
+  // renders, so none of them can see this defect — this is the only one
+  // that varies the loader's identity between renders of the SAME asset.
+  it("does not revoke or re-mint the visible URL when only the loadImage identity changes", async () => {
+    const loader1 = vi.fn(async () => TINY_GIF);
+    const { rerender } = renderModal({ loadImage: loader1 });
+    const img = await screen.findByRole("img", { name: "Alpha" });
+    const shownUrl = img.getAttribute("src")!;
+    expect(created).toHaveLength(1);
+
+    const loader2 = vi.fn(async () => TINY_GIF);
+    rerender(
+      <AssetPreviewModal
+        lang="en-US" open onClose={vi.fn()}
+        assets={[asset("a", "Alpha"), asset("b", "Beta")]}
+        startIndex={0} loadImage={loader2}
+      />,
+    );
+
+    // Give any wrongly-fired effect a chance to run.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(created).toHaveLength(1);
+    expect(revoked).not.toContain(shownUrl);
+    expect(screen.getByRole("img", { name: "Alpha" })).toHaveAttribute("src", shownUrl);
+  });
+
   it("revokes the current object URL on close", async () => {
     const { rerender } = renderModal();
     await screen.findByRole("img", { name: "Alpha" });

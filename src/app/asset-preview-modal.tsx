@@ -25,7 +25,8 @@ import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
 import { useResizable } from "./use-resizable";
 import { useDraggable } from "./use-draggable";
-import { assetBytesToObjectUrl } from "./asset-object-url";
+import { type AssetObjectUrl, assetBytesToObjectUrl } from "./asset-object-url";
+import { logDiag } from "./diagnostics";
 
 // ★ Neither key collides. Enumerate today's set rather than trusting a list
 // written here — a quoted enumeration rots on the next modal:
@@ -69,13 +70,24 @@ export function AssetPreviewModal({
     setIndex((i) => Math.min(Math.max(i + delta, 0), assets.length - 1));
   }, [assets.length]);
 
-  const [view, setView] = useState<{ kind: "ok"; url: string } | { kind: "blocked" } | { kind: "unavailable" } | null>(null);
+  const [view, setView] = useState<AssetObjectUrl | null>(null);
   // Holds the URL currently minted so cleanup revokes exactly one thing.
   const urlRef = useRef<string | null>(null);
 
   const release = useCallback(() => {
     if (urlRef.current) { URL.revokeObjectURL(urlRef.current); urlRef.current = null; }
   }, []);
+
+  // ★★ `loadImage` is a function PROP. The natural call site (Task 8) passes
+  // an inline arrow, a new identity on every parent render — with `loadImage`
+  // itself in the deps below, an incidental parent re-render while the modal
+  // is open would fire this effect's cleanup and revoke the URL currently ON
+  // SCREEN, for no navigate/close reason. A latest-ref sidesteps that: the
+  // effect always calls the CURRENT loader without depending on its identity.
+  // Declared BEFORE the loading effect so a render that changes `loadImage`
+  // refreshes the ref before that effect can read it.
+  const loadImageRef = useRef(loadImage);
+  useEffect(() => { loadImageRef.current = loadImage; });
 
   // ★★★ REVOKE ON NAVIGATE **AND** ON CLOSE. This effect's cleanup covers
   // both: it runs when `id` changes (navigate) and on unmount/close. Revoking
@@ -88,7 +100,10 @@ export function AssetPreviewModal({
     let cancelled = false;
     void (async () => {
       setView(null);
-      const base64 = await loadImage(id).catch(() => null);
+      const base64 = await loadImageRef.current(id).catch((err: unknown) => {
+        logDiag("error", "assetPreview.loadFailed", { message: err instanceof Error ? err.message : String(err) });
+        return null;
+      });
       if (cancelled) return;
       if (base64 === null) { setView({ kind: "unavailable" }); return; }
       const r = assetBytesToObjectUrl(base64, currentMime);
@@ -97,7 +112,7 @@ export function AssetPreviewModal({
       setView(r);
     })();
     return () => { cancelled = true; release(); };
-  }, [open, id, loadImage, release, currentMime]);
+  }, [open, id, release, currentMime]);
 
   return (
     // `ariaLabelledby` over `ariaLabel` so the dialog's accessible name IS the
