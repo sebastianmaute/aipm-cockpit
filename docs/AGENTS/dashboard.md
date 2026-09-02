@@ -16,9 +16,13 @@
 **Layout = an ORDERED, user-arrangeable grid. NOT masonry any more, and NOT coordinates.**
 `dashboard-panel.tsx` stays a thin orchestrator (data derivation + the `computeDashboard` memo) and
 renders three zones: a full-width HEADLINE (`DashboardDeltaStrip` · `NarrativeSummary` ·
-`DashboardCoachingCard` · `DashboardTipCard` · `DigestCardConnected` · `DashboardHero`) → the
-arrangeable tile grid (`DashboardGrid`, the reset-arrangement button, `DashboardShelf`) → a full-width
-FOOTER (`NarrativeEditor`). ★ The footer was described here as `NarrativeEditor` **plus a
+`DashboardCoachingCard` · `DashboardTipCard` · `DigestCardConnected` · `DashboardHero`), whose
+right-hand vertical control stack is `PrintButton` · `ResetLayoutButton` · `ResetSizeButton` → the
+arrangeable tile grid (`DashboardGrid`, `DashboardShelf`) → a full-width
+FOOTER (`NarrativeEditor`). ★★ `ResetLayoutButton` MOVED INTO that stack (0.277.0+) from a ghost text
+button that used to sit between the grid and the shelf; this line named it in the middle zone until
+then. It is the only member of the stack carrying its own `!arrangement.readOnly` guard — the stack is
+gated only on `print:hidden`, and a popout is read-only by design. ★ The footer was described here as `NarrativeEditor` **plus a
 Recent-activity `<details>`** — nothing has rendered one since 0.151.0. `dashboard.ts` still computes
 `recentActivity` and both dictionaries still carry `dashboardRecentActivity`, but no component consumes
 either (`grep -rln "dashboardRecentActivity" src/app --include="*.tsx"` returns nothing). A dead claim

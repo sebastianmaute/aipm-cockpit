@@ -1033,7 +1033,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   on purpose, so a name there is NOT a claim about what lucide calls that glyph.
   ★★★ A NAME MATCH IS NOT A GLYPH MATCH: lucide's `Bolt` is a hardware nut and its `ChartBar` is
   horizontal, so both were remapped — check `/icon-gallery` in dev, and note `icons.test.ts` pins
-  every row by `displayName`, which is alias-invariant. ★★ **Five of the 69 render no `<path>`**
+  every row by `displayName`, which is alias-invariant. ★★ **Five of the 70 render no `<path>`**
   (`Bars2Icon` a `<line>`, both ellipsis icons `<circle>`, `Squares2X2Icon`/`StopIcon` `<rect>`), and
   lucide prepends its own `lucide lucide-<name>` classes — so an icon test must assert on
   `svg.children.length`, never `querySelector("path")`, and never on an exact `class` string. Three
