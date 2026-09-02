@@ -5,7 +5,7 @@
 // the input. Used for permanent (hard) project deletion. Palette-safe: the
 // destructive action uses ui-pink.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Input } from "./form-controls";
 import { Modal } from "./modal";
@@ -23,9 +23,6 @@ export interface TypeToConfirmDialogProps {
   onCancel: () => void;
 }
 
-const TITLE_ID = "type-to-confirm-title";
-const MISMATCH_ID = "type-to-confirm-mismatch";
-
 export function TypeToConfirmDialog({
   lang,
   title,
@@ -35,6 +32,20 @@ export function TypeToConfirmDialog({
   onConfirm,
   onCancel,
 }: TypeToConfirmDialogProps) {
+  // ★★ §326. Per-INSTANCE ids. These were module constants, and two mounted
+  // dialogs then put duplicate ids in the document: `aria-labelledby` and
+  // `aria-describedby` resolve to whichever element comes first in document
+  // order, so the wrong dialog's title and mismatch text were announced — no
+  // visible symptom, nothing thrown. Measured in Chromium: with both open, the
+  // Delete-selected dialog announced "Clear all tasks?" as its own name.
+  // ★ Reachable via the VOICE clearAll path, not by two toolbar clicks —
+  // `Modal`'s `fixed inset-0` backdrop intercepts pointer events, so a second
+  // toolbar button cannot be clicked while a dialog is open. The nonce
+  // reconcile in `tasks-section.tsx` opens the second dialog with no click at
+  // all. This also retires an unwritten "only one may be mounted" rule that no
+  // gate could ever have enforced.
+  const titleId = useId();
+  const mismatchId = useId();
   const [typed, setTyped] = useState("");
   const [touched, setTouched] = useState(false);
   // ★ Trim, do NOT case-fold. A trailing space arrives whenever the phrase is
@@ -73,7 +84,7 @@ export function TypeToConfirmDialog({
     <Modal
       open
       onClose={onCancel}
-      ariaLabelledby={TITLE_ID}
+      ariaLabelledby={titleId}
       align="center"
       backdropClassName="bg-ui-dark-blue/50"
       zIndex={60}
@@ -82,7 +93,7 @@ export function TypeToConfirmDialog({
         data-modal-panel
         className="relative flex w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
-        <ModalHeader lang={lang} title={title} titleId={TITLE_ID} onClose={onCancel} />
+        <ModalHeader lang={lang} title={title} titleId={titleId} onClose={onCancel} />
         <div className="flex flex-col gap-4 p-6">
           <p className="text-sm text-foreground">{message}</p>
           <label className="flex flex-col gap-1 text-sm">
@@ -99,7 +110,7 @@ export function TypeToConfirmDialog({
               }}
               aria-label={t(lang, "typeToConfirmPrompt", confirmValue)}
               invalid={showMismatch}
-              aria-describedby={showMismatch ? MISMATCH_ID : undefined}
+              aria-describedby={showMismatch ? mismatchId : undefined}
               autoComplete="off"
             />
             {/* ★ ALWAYS mounted, content swapped — a live region added to the DOM
@@ -111,7 +122,7 @@ export function TypeToConfirmDialog({
                 role="status" (polite) instead. `text-ui-pink-strong` (not the raw
                 `text-ui-pink` fill/border token) is the AA-derived text color — see
                 globals.css and scheme-tokens.ts `nudgeToAa`. */}
-            <span id={MISMATCH_ID} role="status" className="text-xs text-ui-pink-strong">
+            <span id={mismatchId} role="status" className="text-xs text-ui-pink-strong">
               {showMismatch ? t(lang, "typeToConfirmMismatch") : ""}
             </span>
           </label>
