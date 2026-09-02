@@ -175,7 +175,13 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
                   // content. Same guard as `gantt-rows.tsx`'s row drop indicator.
                   onDragLeave={editable ? (e) => {
                     if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return;
-                    setDragOverQ(null);
+                    // ★★ FUNCTIONAL SETTER, and it is load-bearing: this leave runs LAST.
+                    // `dragenter` on the new element precedes `dragleave` on the old, so a
+                    // pointer jumping straight to the neighbouring quadrant — fast enough to
+                    // skip the 8px `gap-2` — sets THAT quadrant and is then nulled by this
+                    // one's leave. `onDragOver` never re-sets the state, so nothing recovers
+                    // it. Clear only a highlight this cell still owns.
+                    setDragOverQ((prev) => (prev === q.id ? null : prev));
                   } : undefined}
                   onDrop={editable ? (e) => { onDropInto(q.id, e); setDragOverQ(null); } : undefined}
                   className={`flex flex-col gap-1.5 overflow-auto rounded-lg border border-line p-3 ${q.tintClass} ${dragOverQ === q.id ? "ring-2 ring-ui-green" : ""}`}

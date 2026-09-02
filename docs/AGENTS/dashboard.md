@@ -511,6 +511,20 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   cell already carries `overflow-auto`, so the trade is deliberate: a quadrant with more chips than fit
   now SCROLLS (measured `scrollHeight` 90 against `clientHeight` 81 at the pane's default half height)
   rather than stretching its row. jsdom has no layout, so the class is the only detector a unit test has.
+  ★ It also makes the PRINTED map taller — 676px against 456px under the print overrides, because the
+  sparse quadrants pad up to the tallest. Nothing is clipped (every cell measured `scrollHeight` ==
+  `clientHeight` there, so the `minmax(0,1fr)`-in-an-auto-height-grid collapse hazard does not
+  materialise in Chromium); it is whitespace, and it is the cost of the equal-quadrant guarantee.
+  ★★★ **THE LEAVE HANDLER MUST USE A FUNCTIONAL SETTER, because it runs LAST.** `dragenter` on the new
+  element precedes `dragleave` on the old, so a pointer jumping straight from one quadrant to its
+  neighbour — fast enough to skip the 8px `gap-2` — sets the NEW quadrant and is then nulled by the OLD
+  quadrant's own leave, and `onDragOver` never re-sets `dragOverQ`, so nothing recovers it: the
+  highlight stays lost for as long as the pointer sits in the new quadrant. `setDragOverQ(prev => prev
+  === q.id ? null : prev)` clears only a highlight this cell still owns. ★★ This is INDEPENDENT of the
+  `relatedTarget` guard above and survived it — the guard fixes crossing into a cell's own children, and
+  this fixes crossing between two cells. Fixing one and declaring the highlight correct is the trap: the
+  first shipped fix did exactly that, and a cold review found this one. Both are pinned by
+  `stakeholder-map-panel.test.tsx`, and the pins are mutation-proved separately.
 - **OOXML export map:** hand-rolled Office export (no lib; own `zip.ts` writer) split by format:
   `export-docx.ts` (`buildDocx`), `export-xlsx.ts` (`buildXlsx`), `export-pptx.ts` (`buildPptx`) over shared
   `export-ooxml-shared.ts` (brand palette consts, `xmlEscape`, `todayHuman`, `PPTX_MAX_ROWS_PER_SECTION`).

@@ -269,4 +269,24 @@ describe("StakeholderMapPanel drop highlight", () => {
     dragLeaveTo(cell, null);
     expect(cell).not.toHaveClass("ring-2");
   });
+
+  // ★★ The LEAVE runs LAST, so it must not wipe a highlight it does not own.
+  // `dragenter` on the new element precedes `dragleave` on the old one, so a
+  // pointer jumping straight from one quadrant to its neighbour — fast enough to
+  // skip the 8px `gap-2` between them — sets the new quadrant and is then nulled
+  // by the old quadrant's own leave. `onDragOver` never re-sets the state, so
+  // nothing recovers it: the highlight stays lost for as long as the pointer sits
+  // in the new quadrant. The functional setter makes each cell's leave clear ONLY
+  // its own highlight.
+  it("keeps the new quadrant's highlight when the pointer jumps straight from a neighbour", () => {
+    renderEditable();
+    const from = screen.getByTestId("quadrant-monitor");
+    const to = screen.getByTestId("quadrant-keep-informed");
+    fireEvent.dragEnter(from);
+    expect(from).toHaveClass("ring-2");
+    fireEvent.dragEnter(to);
+    dragLeaveTo(from, to);
+    expect(to).toHaveClass("ring-2");
+    expect(from).not.toHaveClass("ring-2");
+  });
 });
