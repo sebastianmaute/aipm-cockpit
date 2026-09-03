@@ -17,6 +17,7 @@
 // wrong write through cannot be recovered from within the session that made it.
 import type { DocOp } from "./document-mutations";
 import type { ProjectDocument } from "./document-model";
+import { blockToken } from "./document-block-token";
 
 export type DocumentSummary = {
   id: number;
@@ -186,7 +187,15 @@ export async function runDocumentTool(
       const id = requireDocId(input);
       const doc = d.getDocument(id);
       if (!doc) throw new Error(`document #${id} not found`);
-      return doc;
+      // ★★★ THE ONLY PLACE A CONCURRENCY TOKEN IS HANDED OUT, which is what
+      // makes this read a precondition of every targeted write:
+      // `update_document` REFUSES replace/delete/move without one, so a model
+      // that skipped this call cannot edit a block at all.
+      // ★★ A PARALLEL ARRAY, never a field on DocBlock: the token is
+      // model-facing plumbing and must not leak into the persisted block type,
+      // which is sanitized and written across the six storage paths. Indices
+      // line up with `blocks`, which is also how the op `index` is addressed.
+      return { ...doc, blockTokens: doc.blocks.map(blockToken) };
     }
 
     case "create_document": {

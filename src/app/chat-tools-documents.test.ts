@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { runDocumentTool, isDocumentTool, type DocumentToolDispatcher } from "./chat-tools-documents";
 import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
 import { sanitizeAiDocumentRichText } from "./ai-rich-text";
+import { blockToken } from "./document-block-token";
+import type { DocBlock } from "./document-model";
 
 const doc = {
   id: 1,
@@ -380,8 +382,44 @@ describe("the read and create routes", () => {
     ]);
   });
 
+  // ★★ THE DOCUMENT IS STILL RETURNED IN FULL — `blockTokens` is ADDITIVE. The
+  // model needs the blocks themselves to compose an edit, so this asserts the
+  // whole document is present and the tokens ride ALONGSIDE it. A fix that
+  // returned tokens INSTEAD of blocks would satisfy the token test below while
+  // making update_document unusable.
   it("reads one document in full", async () => {
-    await expect(runDocumentTool(makeDispatcher(), "get_document", { id: 1 })).resolves.toEqual(doc);
+    await expect(runDocumentTool(makeDispatcher(), "get_document", { id: 1 })).resolves.toEqual({
+      ...doc,
+      blockTokens: doc.blocks.map(blockToken),
+    });
+  });
+
+  // ★★★ THE OTHER HALF OF THE CONCURRENCY LOOP. `update_document` REFUSES a
+  // replace/delete/move with no `expectHash` (see below), so a model that
+  // cannot obtain one here cannot make a targeted edit at all. The two are a
+  // pair: this is the only place a token is handed out.
+  // ★★ A PARALLEL ARRAY, never a field on DocBlock — the token is model-facing
+  // plumbing, and a field on the block would be sanitized away on some write
+  // paths and persisted on others.
+  it("returns one blockToken per block, in block order", async () => {
+    const twoBlocks = {
+      ...doc,
+      blocks: [
+        { type: "paragraph" as const, html: "<p>a</p>" },
+        { type: "heading" as const, level: 2 as const, text: "B" },
+      ],
+    };
+    const res = (await runDocumentTool(makeDispatcher({ getDocument: () => twoBlocks }), "get_document", {
+      id: 1,
+    })) as { blocks: DocBlock[]; blockTokens: string[] };
+    expect(res.blockTokens).toEqual(twoBlocks.blocks.map(blockToken));
+    // ★ ORDER, not just membership: a token array the model indexes in
+    // parallel with `blocks` is wrong in the most dangerous way if it is
+    // sorted or deduplicated, so the two distinct blocks must yield two
+    // distinct tokens in the same positions as the blocks that made them.
+    expect(res.blockTokens).toHaveLength(2);
+    expect(res.blockTokens[0]).not.toBe(res.blockTokens[1]);
+    expect(res.blocks).toHaveLength(2);
   });
 
   it("requires a non-blank title to create", async () => {
