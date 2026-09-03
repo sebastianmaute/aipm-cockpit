@@ -494,6 +494,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const found = resourcesRef.current.find((r) => r.id === id);
         return found ? toResourceSummary(found) : null;
       },
+      // The FULL row, for the concurrency token only. `getResource` above is
+      // the model-facing read and returns a SUMMARY, which drops fields an
+      // edit can touch — hashing that would be a false PERMIT for each one.
+      getResourceRow: (id) => resourcesRef.current.find((r) => r.id === id) ?? null,
       updateResource: (id: number, patch: Partial<ResourceInput>) => {
         if (args.isReadOnly) throw readOnlyError();
         const existing = resourcesRef.current.find((r) => r.id === id);
