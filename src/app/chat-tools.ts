@@ -463,7 +463,7 @@ export {
   toCalendarEventSummary,
   toBudgetBucketSummary,
 } from "./chat-tool-summaries";
-import { listTasksEnvelope } from "./chat-tools-lists";
+import { listTasksEnvelope, withRowTokens, withToken } from "./chat-tools-lists";
 
 export async function runTool(
   d: ToolDispatcher,
@@ -484,7 +484,7 @@ export async function runTool(
       if (!Number.isFinite(id)) throw new Error("id must be a number");
       const task = d.getTask(id);
       if (!task) throw new Error(`task #${id} not found`);
-      return task;
+      return withToken("task", task, task);
     }
 
     case "create_task": {
@@ -602,20 +602,22 @@ export async function runTool(
     case "get_dashboard_snapshot":
       return d.getDashboardSnapshot();
 
+    // ★★★ Every row carries its `expectedToken`; the second argument is always
+    // the FULL-row getter, never the summary. `withRowTokens` says why both.
     case "list_raid":
-      return d.listRaid();
+      return withRowTokens("raid", d.listRaid(), (id) => d.getRaidRow(id));
 
     case "list_changes":
-      return d.listChanges();
+      return withRowTokens("change", d.listChanges(), (id) => d.getChangeRow(id));
 
     case "list_milestones":
-      return d.listMilestones();
+      return withRowTokens("milestone", d.listMilestones(), (id) => d.getMilestoneRow(id));
 
     case "list_stakeholders":
-      return d.listStakeholders();
+      return withRowTokens("stakeholder", d.listStakeholders(), (id) => d.getStakeholderRow(id));
 
     case "list_resources":
-      return d.listResources();
+      return withRowTokens("resource", d.listResources(), (id) => d.getResourceRow(id));
 
     case "list_allocations":
       return d.listAllocations();
@@ -734,7 +736,8 @@ export async function runTool(
       const id = requireId(input);
       const found = d.getResource(id);
       if (!found) throw new Error(`resource #${id} not found`);
-      return found;
+      // `found` is a SUMMARY — the token must come from the stored row.
+      return withToken("resource", found, d.getResourceRow(id));
     }
 
     case "update_resource": {

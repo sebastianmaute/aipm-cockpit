@@ -185,13 +185,34 @@
   `update_settings` is not an entity with a projection, and `update_document` persists as a meta-blob with no
   CSV projection, so `entityToken` structurally cannot cover it — documents carry their own per-block
   optimistic concurrency through `DocOp`'s `expect`, which is currently NOT advertised on the tool schema.
-  ★★★ **NO READ TOOL RETURNS A TOKEN TODAY, so the chat path has no advertised way to obtain one.** The
-  schema text says "the token returned when you read this record", and no case in `runTool` emits one —
-  `get_task` returns the row and the `list_*` tools return rows or an envelope of them, none of them carrying
-  a token, and the value is a 16-hex hash of an internal projection that a model cannot compute. The two IN-APP callers derive it themselves (below) and are
-  unaffected; a model-driven `update_*` is refused for want of a token it was never given. Verify before
-  relying on this either way: `grep -rn "entityToken" src --include=*.ts | grep -v "\.test\."` returns the
-  only three non-test derivation points.
+  ★★★ **THE READ PATH EMITS THE TOKEN, AND IT RIDES EVERY ROW.** Eight read tools carry an `expectedToken`
+  field: `get_task` and `get_resource` on the returned object, and `list_tasks` / `list_raid` / `list_changes`
+  / `list_milestones` / `list_stakeholders` / `list_resources` on EACH ROW. `withToken` / `withRowTokens`
+  (`chat-tools-lists.ts`) attach it; `patchWithoutId` strips it back off on the write, so a model may echo a
+  read row straight into an `update_*` call. ★★ IT HAD TO RIDE THE LIST, and that is not a convenience:
+  RAID, changes, milestones and stakeholders have NO `get_*` tool at all (`grep -oE 'name: "get_[a-z_]+"'
+  src/app/chat-tool-defs.ts` returns `get_task`, `get_resource`, `get_app_state`, `get_dashboard_snapshot` —
+  no register among them), so attaching the token to single-entity reads alone would leave four of the six
+  guarded entities permanently unwritable. ★★ ADJACENCY OVER A SIDECAR MAP: an `{id: token}` map beside the
+  rows would ask the model to pair a token with a row through a second structure, and every mispairing it
+  makes is a token that is valid for SOME row and wrong for THIS one. ★★★ EVERY TOKEN IS DERIVED FROM THE
+  FULL STORED ROW, NEVER FROM THE ROW THE MODEL SEES — that is why `withToken` takes the two as separate
+  arguments and why the five row getters below exist. Deriving from the `*Summary` (or, for `list_tasks`,
+  from the markup-stripped item) is a false PERMIT for every field the projection drops, and it is the
+  easiest way to reintroduce the defect the whole guard exists to stop.
+  ★★ THIS GAP SHIPPED ONCE AND THE ROUND TRIP IS WHAT NOW PINS IT. The guard landed with every refusal
+  tested and NOTHING asserting that a read hands out a token the write accepts, so every chat-driven
+  `update_*` was refused for want of a value the chat path never produced — a full green suite over a
+  permanently broken write path, unrecoverable because the token is a 16-hex hash of an internal projection
+  no model can compute. The "the read path hands out a token the write path accepts" block in
+  `chat-tools.test.ts` reads through each of the eight tools, takes the token OUT OF THE RESPONSE and spends
+  it on the matching update, for all six entities. ★ Its `toBe(FRESH_*_TOKEN)` lines are not redundant with
+  the write succeeding: a bug deriving BOTH halves from the summary would round-trip perfectly.
+  ★ RESPONSE COST, measured over the 14 tasks of `sample-workspace-small.json`: `list_tasks` is **10673**
+  bytes with tokens against **10183** without and **12153** before the envelope/slimming projection — so the
+  token gives back about a quarter of that saving (~35 bytes per row, net −12.2% rather than −16.2%).
+  ★ `withRowTokens` does one `find` per row via the full-row getter. Stated, not optimised: these registers
+  are project-scale, and an id→row Map per call buys nothing at that size.
   ★★ THE TWO IN-APP CALLERS DIFFER IN *WHEN* THEY DERIVE, and in both cases that is the whole design.
   (1) Inline "Ask Claude" edit takes the token in `submit`, from the SAME object serialized into the prompt,
   so the window it covers is the AI round-trip PLUS the user's read of the preview and their click on Apply

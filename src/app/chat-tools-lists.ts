@@ -16,8 +16,78 @@
 // ★ Pure and DOM-free. `htmlToPlainText` is regex-only (it never reaches
 // DOMPurify), so this module is safe to import from the tool layer, which runs
 // in both the browser and bare node under vitest.
+import { entityToken, type TokenEntity } from "./ai-entity-token";
 import { htmlToPlainText } from "./html-to-text";
 import type { NoteLogEntry, Task } from "./types";
+
+/** A read-path row carrying the optimistic-concurrency token the matching
+ *  `update_*` tool demands back.
+ *
+ *  ★★★ THE TOKEN RIDES THE ROW, NOT A SIDECAR MAP, AND THAT IS A SAFETY CHOICE
+ *  RATHER THAN A STYLISTIC ONE. The alternative shape — one `{id: token}` map
+ *  beside `items` — asks the model to pair a token with a row by looking the id
+ *  up in a second structure, and every mispairing it makes is a token that is
+ *  *valid* (it is some real row's token) but belongs to the WRONG row. A
+ *  mispaired-but-valid token is refused only by luck: `requireToken` compares
+ *  it against the row being edited, so it refuses here — but the shape makes
+ *  the model's job harder for no gain, and the failure it invites is the same
+ *  false-permit family this whole guard exists for. Adjacency makes the
+ *  pairing structural: the token the model copies is the one sitting inside the
+ *  object it is editing.
+ *
+ *  ★★ OPTIONAL, AND THE ABSENT CASE IS THE SAFE ONE. A token is emitted only
+ *  when the FULL stored row is in hand; when the lookup misses (a row that
+ *  vanished between the list read and the per-row lookup — both synchronous
+ *  reads of the same ref, so effectively unreachable) the field is simply
+ *  omitted. `requireToken` refuses on absence, so the model is told to re-read
+ *  rather than handed a token derived from something weaker. Never fall back to
+ *  deriving one from the SUMMARY: see `withRowTokens`. */
+export type Tokened<T> = T & { expectedToken?: string };
+
+/** Attach `full`'s token to the model-facing row `row`.
+ *
+ *  ★★★ `row` AND `full` ARE DELIBERATELY TWO ARGUMENTS AND MUST NOT BE COLLAPSED
+ *  INTO ONE. `row` is what the model reads (often a `*Summary`); `full` is the
+ *  stored entity the token is derived from. Deriving from `row` would be a
+ *  FALSE PERMIT for every field the summary omits — `RaidSummary` drops
+ *  `description` and `mitigation`, so a summary-derived token is byte-identical
+ *  before and after an edit to either, and the guard would permit the overwrite
+ *  it exists to stop. Pinned by the summary-vs-full-row case in
+ *  `ai-entity-token.test.ts`. */
+export function withToken<T extends object>(
+  kind: TokenEntity,
+  row: T,
+  full: object | null,
+): Tokened<T> {
+  if (!full) return row;
+  return { ...row, expectedToken: entityToken(kind, full) };
+}
+
+/** Attach a per-row token to every row of a list tool's result.
+ *
+ *  ★★★ THE LIST PATH IS NOT AN OPTIMISATION OF THE `get_*` PATH — FOR FOUR OF
+ *  THE SIX GUARDED ENTITIES IT IS THE ONLY PATH. RAID, changes, milestones and
+ *  stakeholders have no `get_*` tool at all (`grep -oE 'name: "get_[a-z_]+"'
+ *  src/app/chat-tool-defs.ts` returns `get_task`, `get_resource`,
+ *  `get_app_state`, `get_dashboard_snapshot` — no register among them), so a
+ *  model reads them only through `list_raid` / `list_changes` /
+ *  `list_milestones` / `list_stakeholders`. Attaching the token to single-entity
+ *  reads alone would leave those four permanently unwritable: their `update_*`
+ *  tools refuse on absence, and the token is a hash the model cannot compute.
+ *
+ *  ★ `getRow` is called once per row, so this is O(n) `find`s over the live
+ *  array — quadratic in the register's size. Stated rather than optimised: the
+ *  registers this runs over are project-scale (tens to low hundreds of rows),
+ *  the work is a synchronous field compare per row, and an id→row Map built per
+ *  call would trade that for an allocation the small case does not need. If a
+ *  register ever grows past a few thousand rows, index first and measure. */
+export function withRowTokens<T extends { id: number }>(
+  kind: TokenEntity,
+  rows: readonly T[],
+  getRow: (id: number) => object | null,
+): Tokened<T>[] {
+  return rows.map((row) => withToken(kind, row, getRow(row.id)));
+}
 
 /** A `noteLog` entry as the list path reports it: the entry minus its `html`
  *  body. Dropping the markup is not a truncation — `NoteLogEntry.text` is the
@@ -74,14 +144,18 @@ export function slimTaskForList(task: Task): TaskListItem {
 export function listTasksEnvelope(
   tasks: readonly Task[],
   rawLimit: unknown,
-): ListEnvelope<TaskListItem> {
+): ListEnvelope<Tokened<TaskListItem>> {
   const limit =
     typeof rawLimit === "number" && Number.isFinite(rawLimit) && rawLimit > 0
       ? Math.floor(rawLimit)
       : undefined;
   const page = limit === undefined ? tasks : tasks.slice(0, limit);
   return {
-    items: page.map(slimTaskForList),
+    // ★ The token comes from the FULL `task`, never from the slimmed item the
+    // model sees: `slimTaskForList` projects `description` and `noteLog` to
+    // text, and a token derived from that projection could not tell two
+    // descriptions apart that differ only in markup.
+    items: page.map((task) => withToken("task", slimTaskForList(task), task)),
     total: tasks.length,
     ...(limit === undefined ? {} : { limit }),
   };

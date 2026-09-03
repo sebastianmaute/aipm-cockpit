@@ -4,6 +4,11 @@ import {
   runTool,
   TOOL_DEFS,
   CALENDAR_SUMMARY_KEYS,
+  toRaidSummary,
+  toChangeSummary,
+  toMilestoneSummary,
+  toStakeholderSummary,
+  toResourceSummary,
   toKnowledgeSummary,
   toCalendarEventSummary,
   toBudgetBucketSummary,
@@ -20,7 +25,7 @@ import {
   type TaskDependency,
   type NoteLogEntry,
 } from "./types";
-import { entityToken } from "./ai-entity-token";
+import { entityToken, type TokenEntity } from "./ai-entity-token";
 import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
 import type { ActivitySummary } from "./history-search";
 
@@ -79,11 +84,19 @@ function makeChangeItem(over: Partial<ChangeItem> = {}): ChangeItem {
   } as ChangeItem;
 }
 
+// ★★★ `description` IS LOAD-BEARING AND IS NOT DECORATION. `MilestoneSummary`
+//   omits it while `entityToken` covers it, so it is what makes this fixture
+//   able to TELL a full-row token from a summary-derived one. Measured: without
+//   it the milestone round-trip case survives the "derive from the summary"
+//   mutant — every other token-covered field this row carries is byte-identical
+//   between the two objects, so the false permit is invisible here. The same
+//   goes for `notes` on `makeStakeholder` below.
 function makeMilestone(over: Partial<Milestone> = {}): Milestone {
   return {
     id: 30,
     name: "Phase 1 complete",
     date: "2026-07-01",
+    description: "Sign-off with the sponsor",
     linkedTaskIds: [],
     ...over,
   } as Milestone;
@@ -100,6 +113,8 @@ function makeStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
     category: "Sponsor",
     influence: "High",
     interest: "Low",
+    // Summary-omitted, token-covered — see the note on `makeMilestone`.
+    notes: "Prefers email",
     raci: {},
     ...over,
   } as Stakeholder;
@@ -388,7 +403,7 @@ describe("runTool — list_tasks / get_task", () => {
     const d = makeDispatcher({ getTask: vi.fn(() => task), listTasks: vi.fn(() => [task]) });
 
     const full = (await runTool(d, "get_task", { id: 1 })) as Task;
-    expect(full).toEqual(task);
+    expect(full).toEqual({ ...task, expectedToken: entityToken("task", task) });
     expect(full.description).toBe(RICH_DESCRIPTION);
     expect(full.noteLog?.[0].html).toBe("<p>Partner call moved to <em>Friday</em></p>");
 
@@ -400,7 +415,7 @@ describe("runTool — list_tasks / get_task", () => {
     const d = makeDispatcher();
     const result = await runTool(d, "get_task", { id: "1" });
     expect(d.getTask).toHaveBeenCalledWith(1);
-    expect(result).toEqual(makeTask());
+    expect(result).toEqual({ ...makeTask(), expectedToken: FRESH_TASK_TOKEN });
   });
 
   it("get_task throws when id is not a finite number", async () => {
@@ -1105,6 +1120,7 @@ describe("runTool — list_raid", () => {
         severity: "High",
         owner: "Alice",
         stakeholderIds: [1, 2],
+        expectedToken: FRESH_RAID_TOKEN,
       },
     ]);
   });
@@ -1137,6 +1153,7 @@ describe("runTool — list_changes", () => {
         impact: "High",
         decisionDate: undefined,
         stakeholderIds: [3],
+        expectedToken: FRESH_CHANGE_TOKEN,
       },
     ]);
   });
@@ -1162,6 +1179,7 @@ describe("runTool — list_milestones", () => {
         name: "Phase 1 complete",
         date: "2026-07-01",
         achievedDate: undefined,
+        expectedToken: FRESH_MILESTONE_TOKEN,
       },
     ]);
   });
@@ -1184,7 +1202,14 @@ describe("runTool — list_stakeholders", () => {
     const result = await runTool(d, "list_stakeholders", {});
     expect(d.listStakeholders).toHaveBeenCalledOnce();
     expect(result).toEqual([
-      { id: 40, name: "Jane Roe", category: "Sponsor", influence: "High", interest: "Low" },
+      {
+        id: 40,
+        name: "Jane Roe",
+        category: "Sponsor",
+        influence: "High",
+        interest: "Low",
+        expectedToken: FRESH_STAKEHOLDER_TOKEN,
+      },
     ]);
   });
 });
@@ -1856,4 +1881,223 @@ describe("runTool — search_chats", () => {
     });
     await expect(runTool(d, "search_chats", {})).rejects.toThrow(/switched off/i);
   });
+});
+
+// ★★★ THE ROUND TRIP IS THE ASSERTION THAT MATTERS, AND ITS ABSENCE IS EXACTLY
+//   WHAT SHIPPED THE GAP THIS BLOCK CLOSES. The six entity `update_*` tools were
+//   guarded — each re-derives the stored row's token, refuses on mismatch AND on
+//   absence — and every one of those refusals was pinned. What nothing pinned
+//   was that the READ path hands out a token the WRITE path accepts. It did not:
+//   no `runTool` case emitted one, so every chat-driven update was refused for
+//   want of a value the chat path never produced, and the whole suite was green.
+//   Each case below reads through the tool a model would actually call, takes
+//   the token OUT OF THE RESPONSE, and spends it on the matching update — so the
+//   two halves can only drift apart by turning this red.
+//
+// ★★ THE `toBe(FRESH_*_TOKEN)` LINE IS NOT REDUNDANT WITH THE WRITE SUCCEEDING,
+//   and dropping it as belt-and-braces would be a real loss. It pins the token
+//   to the FULL stored row rather than merely to "whatever the update tool also
+//   computes": a bug deriving BOTH halves from the summary would round-trip
+//   perfectly and be a false PERMIT for every field the summary omits. The
+//   `FRESH_*` constants come from the fixture makers, not from either path.
+const ROUND_TRIP: Array<{
+  entity: string;
+  readTool: string;
+  updateTool: string;
+  method: keyof ToolDispatcher;
+  id: number;
+  token: string;
+  patch: Record<string, unknown>;
+  pick: (result: unknown) => Record<string, unknown>;
+}> = (() => {
+  const one = (r: unknown) => r as Record<string, unknown>;
+  const first = (r: unknown) => (r as Record<string, unknown>[])[0];
+  const item = (r: unknown) => (r as { items: Record<string, unknown>[] }).items[0];
+  return [
+    { entity: "task", readTool: "get_task", updateTool: "update_task", method: "updateTask" as const,
+      id: 1, token: FRESH_TASK_TOKEN, patch: { taskName: "Renamed by the AI" }, pick: one },
+    // ★ The list path slims `description` to plain text; the token must still be
+    //   the FULL row's, so this case shares FRESH_TASK_TOKEN with the one above.
+    { entity: "task", readTool: "list_tasks", updateTool: "update_task", method: "updateTask" as const,
+      id: 1, token: FRESH_TASK_TOKEN, patch: { taskName: "Renamed by the AI" }, pick: item },
+    { entity: "raid", readTool: "list_raid", updateTool: "update_raid_item", method: "updateRaid" as const,
+      id: 10, token: FRESH_RAID_TOKEN, patch: { title: "Renamed by the AI" }, pick: first },
+    { entity: "change", readTool: "list_changes", updateTool: "update_change", method: "updateChange" as const,
+      id: 20, token: FRESH_CHANGE_TOKEN, patch: { title: "Renamed by the AI" }, pick: first },
+    { entity: "milestone", readTool: "list_milestones", updateTool: "update_milestone", method: "updateMilestone" as const,
+      id: 30, token: FRESH_MILESTONE_TOKEN, patch: { name: "Renamed by the AI" }, pick: first },
+    { entity: "stakeholder", readTool: "list_stakeholders", updateTool: "update_stakeholder", method: "updateStakeholder" as const,
+      id: 40, token: FRESH_STAKEHOLDER_TOKEN, patch: { name: "Renamed by the AI" }, pick: first },
+    { entity: "resource", readTool: "get_resource", updateTool: "update_resource", method: "updateResource" as const,
+      id: 7, token: FRESH_RESOURCE_TOKEN, patch: { title: "Renamed by the AI" }, pick: one },
+    { entity: "resource", readTool: "list_resources", updateTool: "update_resource", method: "updateResource" as const,
+      id: 7, token: FRESH_RESOURCE_TOKEN, patch: { title: "Renamed by the AI" }, pick: first },
+  ];
+})();
+
+describe("the read path hands out a token the write path accepts", () => {
+  it.each(ROUND_TRIP)(
+    "$entity: a token read through $readTool is spent successfully on $updateTool",
+    async ({ readTool, updateTool, method, id, token, patch, pick }) => {
+      const d = makeDispatcher();
+
+      const row = pick(await runTool(d, readTool, { id }));
+      expect(row.id, `${readTool} must return the row under test`).toBe(id);
+      // Equality, not presence: a token that is present but wrong is refused at
+      // runtime, which is the very failure this block exists to catch.
+      expect(row.expectedToken, `${readTool} must emit the FULL row's token`).toBe(token);
+
+      const updated = await runTool(d, updateTool, {
+        id,
+        expectedToken: row.expectedToken,
+        ...patch,
+      });
+
+      expect(updated).toBeDefined();
+      expect(d[method] as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  // ★★★ THE `list_tasks` CASE ABOVE CANNOT SEE THIS ONE, AND THAT WAS MEASURED
+  //   RATHER THAN ANTICIPATED. `makeTask()`'s description is plain text, so
+  //   slimming it is a no-op and the slimmed item's token equals the full task's
+  //   — the round-trip case therefore SURVIVES a mutant deriving the list token
+  //   from the slimmed item (measured: 140/140 green with it in place). Only a
+  //   task carrying real markup separates the two objects, so this case supplies
+  //   one and asserts the difference exists before relying on it.
+  it("list_tasks derives the token from the FULL task, not from the slimmed item", async () => {
+    const task = makeTask({ description: RICH_DESCRIPTION });
+    const d = makeDispatcher({ listTasks: vi.fn(() => [task]), getTask: vi.fn(() => task) });
+
+    const { items } = (await runTool(d, "list_tasks", {})) as {
+      items: { description: string; expectedToken: string }[];
+    };
+    // The item the model reads has had its markup stripped …
+    expect(items[0].description).not.toContain("<strong>");
+    // … so a token derived from IT would not be the stored task's. Asserted, not
+    // assumed: this is what makes the next line non-vacuous.
+    expect(entityToken("task", items[0])).not.toBe(entityToken("task", task));
+    expect(items[0].expectedToken).toBe(entityToken("task", task));
+
+    // And the whole point: that token is spendable on the guarded write.
+    await runTool(d, "update_task", {
+      id: 1,
+      expectedToken: items[0].expectedToken,
+      taskName: "Renamed by the AI",
+    });
+    expect(d.updateTask).toHaveBeenCalledTimes(1);
+  });
+
+  // Anti-vacuity for the block above. Every case there passes a token that the
+  // guard accepts, so none of them can tell an enforcing guard from an absent
+  // one — with `requireToken` deleted they would all still be green. This case
+  // is what proves the guard is live on the same path.
+  it("still refuses the same write when the token is withheld", async () => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "update_raid_item", { id: 10, title: "No token" })).rejects.toThrow(
+      /expectedToken is required/i,
+    );
+    expect(d.updateRaid).not.toHaveBeenCalled();
+  });
+
+  it("refuses a token read from a list row once that row has changed", async () => {
+    // ★ `getRaidRow` closes over the LIVE `row`, so the human edit below is
+    //   visible to the re-derivation — which is the whole mechanism. Copying
+    //   the row into the mock instead would freeze it and the case would pass
+    //   whatever the guard did.
+    const row = makeRaidItem();
+    const d = makeDispatcher({
+      listRaid: vi.fn(() => [
+        {
+          id: row.id, category: row.category, title: row.title, status: row.status,
+          severity: row.severity, owner: row.owner, stakeholderIds: row.stakeholderIds ?? [],
+        },
+      ]),
+      getRaidRow: vi.fn(() => ({ ...row })),
+    });
+
+    const [read] = (await runTool(d, "list_raid", {})) as { expectedToken: string }[];
+    // A human edits the same RAID item between the model's read and its write.
+    row.title = "Renamed by a human";
+
+    await expect(
+      runTool(d, "update_raid_item", {
+        id: 10,
+        expectedToken: read.expectedToken,
+        title: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/i);
+    expect(d.updateRaid).not.toHaveBeenCalled();
+
+    // Control: re-reading yields a token the guard accepts, so the case above
+    // failed on staleness and not because a list token is never usable.
+    const [reread] = (await runTool(d, "list_raid", {})) as { expectedToken: string }[];
+    await runTool(d, "update_raid_item", {
+      id: 10,
+      expectedToken: reread.expectedToken,
+      title: "Renamed by the AI",
+    });
+    expect(d.updateRaid).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ★★★ THE FALSE PERMIT THIS SHAPE EXISTS TO AVOID, DEMONSTRATED RATHER THAN
+//   ASSERTED. Each row below is a pair of stored entities differing ONLY in a
+//   field the model-facing `*Summary` omits. A token derived from the summary
+//   is byte-identical across the pair, so it would PERMIT an overwrite of an
+//   edit it cannot see — the exact defect the concurrency guard exists to stop,
+//   reintroduced by deriving the token from the wrong object. The real token,
+//   derived from the stored row, separates them.
+//
+// ★ `task` is absent by construction, not by omission: it is the one entity
+//   whose list projection is not a `*Summary` but a slimming of the full row,
+//   and it is covered by the two `FRESH_TASK_TOKEN` cases above, which pin the
+//   list token to the FULL task rather than to the plain-text projection.
+const SUMMARY_TRAP: Array<{
+  entity: string;
+  kind: TokenEntity;
+  /** The field the summary drops — named so a failure says which one. */
+  field: string;
+  a: () => object;
+  b: () => object;
+  summarize: (row: object) => object;
+}> = [
+  { entity: "raid", kind: "raid", field: "description",
+    a: () => makeRaidItem({ description: "<p>Mitigate by Q3</p>" }),
+    b: () => makeRaidItem({ description: "<p>Accept the risk</p>" }),
+    summarize: (r) => toRaidSummary(r as RaidItem) },
+  { entity: "change", kind: "change", field: "description",
+    a: () => makeChangeItem({ description: "Add new module" }),
+    b: () => makeChangeItem({ description: "Drop the module" }),
+    summarize: (r) => toChangeSummary(r as ChangeItem) },
+  { entity: "milestone", kind: "milestone", field: "description",
+    a: () => makeMilestone({ description: "Sign-off with the sponsor" }),
+    b: () => makeMilestone({ description: "Sign-off with the steering committee" }),
+    summarize: (r) => toMilestoneSummary(r as Milestone) },
+  { entity: "stakeholder", kind: "stakeholder", field: "notes",
+    a: () => makeStakeholder({ notes: "Prefers email" }),
+    b: () => makeStakeholder({ notes: "Prefers a call" }),
+    summarize: (r) => toStakeholderSummary(r as Stakeholder) },
+  { entity: "resource", kind: "resource", field: "notes",
+    a: () => makeResource({ notes: "On the Berlin team" }),
+    b: () => makeResource({ notes: "On the Munich team" }),
+    summarize: (r) => toResourceSummary(r as Resource) },
+];
+
+describe("a summary-derived token would be a false permit", () => {
+  it.each(SUMMARY_TRAP)(
+    "$entity: rows differing only in `$field` share ONE summary token but two real ones",
+    ({ kind, a, b, summarize }) => {
+      const summaryA = summarize(a());
+      const summaryB = summarize(b());
+
+      // The summaries are indistinguishable, so anything derived from them is.
+      expect(summaryA).toEqual(summaryB);
+      expect(entityToken(kind, summaryA)).toBe(entityToken(kind, summaryB));
+
+      // The stored rows are not — so the real token refuses the overwrite that
+      // a summary-derived one would have permitted.
+      expect(entityToken(kind, a())).not.toBe(entityToken(kind, b()));
+    },
+  );
 });
