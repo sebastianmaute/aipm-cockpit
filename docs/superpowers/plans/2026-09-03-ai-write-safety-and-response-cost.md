@@ -248,11 +248,17 @@ export function entityToken(kind: TokenEntity, entity: object): string {
     if (excluded.has(column)) continue;
     // The column name rides along so a value moving BETWEEN columns cannot
     // leave the concatenation unchanged.
-    parts.push(column + " " + (render as (e: object, c: string) => string)(entity, column));
+    parts.push(column + "\u0000" + (render as (e: object, c: string) => string)(entity, column));
   }
-  return hash(parts.join(""));
+  return hash(parts.join("\u0001"));
 }
 ```
+
+> **Superseded during implementation (2026-09-03).** The shipped separator is
+> length-prefixed — `column + ":" + value.length + ":" + value` — not the
+> control-character scheme above. Commit `6851e3ba` made the projection
+> injective, which a separator scheme only achieves while the separator cannot
+> occur in a value. Read this block as what was planned, not as what ships.
 
 - [ ] **Step 4: Run the test to verify it passes**
 
