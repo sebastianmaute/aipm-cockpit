@@ -572,6 +572,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--closed-2026-09-03) | ~~The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | **CLOSED** 2026-09-03 (eye-verified via a DevTools Performance screenshot capture; the entry records that the deletion control was not captured, so read it at that strength) |
 | [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | open |
 | [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | open |
+| [§346](#346-no-mcp-server--the-ai-can-only-act-from-inside-the-app--open) | No MCP server — the AI can only act from inside the app | found 2026-09-03 benchmarking OpenProject 17.8 | L (architecture decision first) | open |
+| [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
+| [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -26986,3 +26989,51 @@ in the module's own test — there, a comment-stripped scan for DOM references; 
 every `import` line begins `import type`. Three lines, and it is the only thing that could see this.
 ★★ Deliberately NOT written in the §199 slice: it is a new guard rather than a defect, the plan did
 not carry it, and adding untasked guards to a fix commit is how a slice stops being reviewable.
+
+## 346. No MCP server — the AI can only act from inside the app — open
+
+**Status:** open — **never machine-verified** (2026-09-03). Reproduce the absence with
+`grep -rli "modelcontextprotocol\|mcp-server" src package.json` (no hits) and `ls src/app/api`
+(`_shared confluence ecb jira stt timelog` — every route is an OUTBOUND proxy; nothing inbound).
+
+Filed after benchmarking OpenProject 17.8 (2026-09-02), which extended its MCP server so external
+assistants can create and update work packages, write comments and manage relations. Cockpit's AI
+surface is larger than theirs — 33 tools spanning create/update/delete over tasks, RAID, changes,
+milestones, stakeholders and resources, unpaywalled where OpenProject gates writes behind
+Professional/Premium/Corporate — but it is reachable ONLY from the in-app assistant. No external
+MCP client (Claude Desktop, an IDE, another agent) can see a Cockpit workspace.
+
+★★★ THIS IS AN ARCHITECTURE DECISION, NOT A FEATURE, and it should not be picked up as a slice
+without one. Cockpit is a browser-local app over file / IndexedDB / Turso backends with no server
+holding workspace state, so an MCP server implies a process that can reach the data AND an auth
+story for it — neither exists today. The three storage backends do not answer it equally: Turso is
+reachable from a server, a local file and IndexedDB are not.
+
+★★ Do NOT read this entry as "add an MCP server". It records that the capability is absent and why
+the obvious implementation is not obvious. The decision to take first is whether Cockpit wants a
+server-side surface at all.
+
+## 347. No global guardrails on time entries — roadmap, after the AI-write-safety slice — open
+
+**Status:** open — **never machine-verified** (2026-09-03); sequenced, not yet designed.
+
+OpenProject 17.8 added instance-wide time-entry validations: a cap per entry, a cap per user per
+day, restriction to a user's defined working hours, a block on non-working days, and a block on
+months already closed. All default to OFF there, so an upgrade changes no behaviour.
+
+Cockpit has the Timelog integration and already holds the data those rules need — working days,
+holidays and absences all exist — so the gap is the rule layer, not the inputs.
+
+★ Sequenced deliberately AFTER the AI-write-safety slice (§348 follows it): that slice touches the
+AI write path, this one touches a different subsystem, and interleaving them would make neither
+reviewable.
+
+## 348. A meeting's activity is invisible from the work it concerns — roadmap, after §347 — open
+
+**Status:** open — **never machine-verified** (2026-09-03); sequenced, not yet designed.
+
+OpenProject 17.8 surfaces meeting activity directly in a work package. Cockpit has calendar events
+and the steering committee, but a task's own history says nothing about the meetings that discussed
+it, so the connection exists in the data and not in the surface a user reads.
+
+★ Read the ordering as a preference, not a dependency — nothing in §347 blocks this.
