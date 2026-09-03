@@ -17,11 +17,27 @@
 const SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 const MAXREGSECT = 0xfffffffa;
 const FREESECT = 0xffffffff;
-/** Hard ceiling on any one stream, whatever the directory entry claims. */
+/** Hard ceiling on any one stream, whatever the directory entry claims.
+ *  ★ NO UNIT TEST CAN KILL A MUTANT ON THIS CLAMP. It bounds the UPFRONT
+ *  `new Uint8Array(size)` allocation from an attacker-controlled size field —
+ *  not the RETURNED length, which readEntryBytes truncates to what the FAT
+ *  chain actually delivers regardless of this clamp (a corrupted size with
+ *  only a few real sectors behind it still returns a few sectors' worth of
+ *  bytes either way). Measured: dropping this clamp entirely does not fail
+ *  any test here, because a ~4.29 GB allocation didn't visibly throw or hang
+ *  in this environment either (large TypedArray pages are not committed until
+ *  touched) — the risk this guards is cumulative memory pressure across many
+ *  entries/calls, which no single-call unit assertion observes. Keep it. */
 export const MAX_CFBF_STREAM_BYTES = 64 * 1024 * 1024;
 /** Hard ceiling on the number of directory entries walked. A cyclic or
  *  adversarially large directory chain must not let the walk grow unbounded
- *  even with a visited-set (each visited sector still yields up to 4 entries). */
+ *  even with a visited-set (each visited sector still yields up to 4 entries).
+ *  ★ NO UNIT TEST CAN KILL A MUTANT ON THIS CAP either — proving it needs a
+ *  fixture with on the order of 200,000 directory entries (tens of MB just
+ *  for the directory stream), which isn't worth carrying as a synthetic
+ *  fixture. Keep it anyway: `chain()`'s visited-set only bounds a SECTOR from
+ *  being read twice, not the total entries a long-but-acyclic, otherwise
+ *  file-length-legal chain can enumerate. */
 const MAX_DIRECTORY_ENTRIES = 200_000;
 
 export type CfbfEntry = {
@@ -94,6 +110,14 @@ function buildContext(bytes: Uint8Array): Ctx | null {
   const ctx: Ctx = { b: bytes, dv, sec, mini, cutoff, fat: [], miniFat: [], miniSectors: [], entries: [] };
 
   // --- DIFAT: 109 in the header, then the chain ---
+  // ★★★ NO SYNTHETIC FIXTURE CAN KILL A MUTANT ON THIS BLOCK. Deleting it
+  //  outright leaves every test in cfbf.test.ts green — measured, not
+  //  assumed. The failure it guards against only appears past ~7.1 MB of FAT
+  //  (109 header pointers × a 512-byte sector), where a header-only reader
+  //  returns an EMPTY DIRECTORY SILENTLY rather than an error (measured on a
+  //  real 17.8 MB Outlook .msg, which needed two chained DIFAT sectors). A
+  //  synthetic fixture that size is not worth carrying in this repo — Task 16's
+  //  real inlined .msg fixture is what proves this block, not a unit test here.
   const difat: number[] = [];
   for (let i = 0; i < 109; i++) { const v = u32(0x4c + i * 4); if (v <= MAXREGSECT) difat.push(v); }
   {

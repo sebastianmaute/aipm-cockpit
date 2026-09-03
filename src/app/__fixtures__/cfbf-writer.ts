@@ -6,8 +6,13 @@
 // VERIFIED: this exact layout round-trips through a reference reader — a simple
 // stream yields 1 reachable entry, two same-named streams in two storages yield
 // 4 and resolve to distinct paths, and each defect flag reproduces its hostile
-// condition. illegalSectorShift crashes an UNGUARDED reader with
-// ERR_BUFFER_OUT_OF_BOUNDS, which is why cfbf.ts rejects the shift outright.
+// condition. illegalSectorShift crashes a NAIVE reader that lacks the
+// downstream sector-bounds checks cfbf.ts has (it derives sector size directly
+// from the shift and indexes into the buffer with it) with
+// ERR_BUFFER_OUT_OF_BOUNDS. In cfbf.ts itself the other bounds checks already
+// catch the resulting garbage offsets for THIS fixture's size, so the explicit
+// shift check is redundant here — it is kept because a differently-shaped
+// corrupt file could reach an offset the other checks do not cover.
 
 const SEC = 512;
 const FREE = 0xffffffff;
@@ -51,7 +56,14 @@ export function buildCfbf(root: CfbfEntryInput[], defects: CfbfDefects = {}): Ui
     return idxs[0];
   };
   E[0].child = addAll(root);
-  if (defects.cyclicDirTree && E.length > 1) E[E.length - 1].child = 1;
+  // ★ Point the ROOT's own child pointer back at itself, not at the last
+  //  flattened entry. The last entry is very often a STREAM (a leaf), and
+  //  readCfbfTree only recurses into `.child` for storage/root types — a
+  //  cycle planted on a stream's `.child` is silently dead code the walker
+  //  never reaches. Root Entry (index 0) is always type "root" and is always
+  //  visited first, so this is guaranteed reachable regardless of the tree
+  //  shape the caller builds.
+  if (defects.cyclicDirTree) E[0].child = 0;
 
   // --- 2. allocate sectors: [FAT][directory][streams] ---
   const nDir = Math.ceil(E.length / 4);
