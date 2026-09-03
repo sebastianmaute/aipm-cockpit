@@ -28,7 +28,7 @@ import { isPassphraseLocked } from "./secrets-store";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { type AttachmentBlock, ATTACHMENT_ACCEPT } from "./chat-attachments";
-import { ingestFile } from "./attachment-ingest";
+import { flattenIngestBlocks, ingestFile } from "./attachment-ingest";
 import { buildAttachmentSummary } from "./chat-attachment-summary";
 import {
   buildSystemPrompt,
@@ -49,10 +49,15 @@ import type { TursoConfig } from "./turso-config";
 import { useChatThreads } from "./use-chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
 
-// A staged upload: the Anthropic content block plus display metadata.
+// A staged upload: the Anthropic content blocks plus display metadata.
 // summary is the non-error disclosure of what the tree under this file
-// contained (null for a flat file with no children).
-type StagedAttachment = { id: string; name: string; block: AttachmentBlock; summary: string | null };
+// contained (null for a flat file with nothing to disclose).
+//
+// ★★ `blocks` IS PLURAL AND ONE CHIP STAYS ONE CHIP: the chip is per dropped
+// FILE, the blocks are per walked NODE, so a mail carrying a spreadsheet is
+// one chip and two blocks. Collapsing this back to a single `block` is how
+// the walk's output went unsent — see flattenIngestBlocks.
+type StagedAttachment = { id: string; name: string; blocks: AttachmentBlock[]; summary: string | null };
 
 // Full-width, drag-to-resize pane (same chrome as the primary views).
 const CHAT_PANE_CLASS = VIEW_PANE_RESIZABLE_CLASS;
@@ -315,7 +320,7 @@ function ChatPanelInner({
       atts.length > 0
         ? [
             ...(text ? [{ type: "text", text } as TextBlock] : []),
-            ...atts.map((a) => a.block),
+            ...atts.flatMap((a) => a.blocks),
           ]
         : text;
     // Heal any dangling tool_use left by a prior truncated/stopped turn before
@@ -632,7 +637,7 @@ function ChatPanelInner({
       staged.push({
         id: `att-${(attachSeqRef.current += 1)}`,
         name: file.name,
-        block: result.node.block,
+        blocks: flattenIngestBlocks(result.node),
         summary,
       });
     }

@@ -885,6 +885,82 @@ describe("document attachments", () => {
     expect(await screen.findByText("m.eml")).toBeInTheDocument();
     expect(await screen.findByText(/1 attachment/i)).toBeInTheDocument();
   });
+
+  // ★★★ THE ASSERTION THIS WHOLE BRANCH EXISTS FOR. The recursive walk in
+  // attachment-ingest.ts was computed and thrown away: chat-panel staged
+  // `result.node.block` alone, so a mail reached the model as its headers,
+  // its body and an attachment LIST NAMING the spreadsheet — with not one
+  // word of the spreadsheet in the payload. The chip said "1 attachment", so
+  // the user believed it had gone, and asking about the attached budget got
+  // an answer invented from the filename.
+  //
+  // ★★ It asserts on the PAYLOAD TEXT, deliberately not on a block count: a
+  // count is satisfied by any second block, including an empty one.
+  it("sends a mail attachment's content, not just its name", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "text", text: "ok" }],
+            stop_reason: "end_turn",
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }),
+      } as unknown as Response),
+    );
+    const { container } = renderWithKey();
+    const eml = new File(
+      [[
+        'Content-Type: multipart/mixed; boundary="B"', "Subject: Q3 status", "",
+        "--B", "Content-Type: text/plain", "", "See the attached budget.",
+        "--B", 'Content-Type: text/plain; name="Q3-budget.txt"',
+        'Content-Disposition: attachment; filename="Q3-budget.txt"', "",
+        "Budget line: TOTALCAPEX-4711-EUR",
+        "--B--", "",
+      ].join("\r\n")],
+      "status.eml",
+      { type: "message/rfc822" },
+    );
+    await userEvent.upload(fileInputOf(container), eml);
+    await screen.findByText("status.eml");
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+
+    type Block = { type: string; source?: { type: string; data: string } };
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+    const userMsg = body.messages[body.messages.length - 1];
+    const payload = (userMsg.content as Block[])
+      .map((b) => b.source?.data ?? "")
+      .join("\n");
+    // The mail names the file — that half always worked, and is what made the
+    // omission actively misleading rather than merely incomplete.
+    expect(payload).toContain("Q3-budget.txt");
+    // ...and now the file's own words are there too.
+    expect(payload).toContain("TOTALCAPEX-4711-EUR");
+  });
+
+  // The chip is per dropped FILE; the blocks are per walked NODE. Sending the
+  // tree must not split one mail into several chips.
+  it("stages exactly one chip for one dropped mail, however many nodes it holds", async () => {
+    const { container } = renderWithKey();
+    const eml = new File(
+      [[
+        'Content-Type: multipart/mixed; boundary="B"', "Subject: S", "",
+        "--B", "Content-Type: text/plain", "", "body",
+        "--B", 'Content-Type: text/plain; name="a.txt"',
+        'Content-Disposition: attachment; filename="a.txt"', "", "alpha",
+        "--B", 'Content-Type: text/plain; name="b.txt"',
+        'Content-Disposition: attachment; filename="b.txt"', "", "bravo",
+        "--B--", "",
+      ].join("\r\n")],
+      "m.eml",
+      { type: "message/rfc822" },
+    );
+    await userEvent.upload(fileInputOf(container), eml);
+    await screen.findByText(/2 attachments/i);
+    expect(screen.getAllByRole("button", { name: /^Remove / })).toHaveLength(1);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -456,6 +456,23 @@ export async function ingestBytes(
  *  implementation — the wizard already had a bytes-oriented path and the
  *  assistant a File-oriented one, and they had diverged. ingestBytes
  *  re-classifies, which costs nothing. */
+/** Every block in the walked tree, a node's own block before the blocks of
+ *  everything under it, depth-first — the order a reader meets them in the
+ *  mail.
+ *
+ *  ★★★ BOTH CONSUMERS MUST SEND THIS, NEVER `node.block` ALONE. A mail's
+ *  rendered block NAMES its attachments in an attachment-list summary, so
+ *  sending only the root tells the model a spreadsheet is attached and
+ *  withholds every word of it — worse than under-informing it, because the
+ *  model then answers about a document it was told exists and never saw. The
+ *  whole recursive walk above was computed and discarded for exactly one
+ *  release because chat-panel.tsx and step0-import-panel.tsx each pushed
+ *  `result.node.block` on its own; the chip still said "1 attachment", so
+ *  nothing looked wrong from the outside. */
+export function flattenIngestBlocks(node: IngestNode): AttachmentBlock[] {
+  return [node.block, ...node.children.flatMap(flattenIngestBlocks)];
+}
+
 export async function ingestFile(file: File): Promise<IngestResult> {
   const kind = classifyAttachment(file.type, file.name);
   if (!kind) return { ok: false, error: "unsupported-type" };

@@ -109,6 +109,36 @@ describe("Step0ImportPanel multi-file", () => {
     expect(onIngest).not.toHaveBeenCalled();
   });
 
+  // ★★★ The wizard pushed `result.node.block` alone, so importing a mail sent
+  // the model its headers, its body and an attachment LIST naming the
+  // spreadsheet — and none of the spreadsheet. Asserts on the PAYLOAD TEXT,
+  // not a block count: a count is satisfied by any second block.
+  it("imports a mail attachment's content, not just its name", async () => {
+    const onIngest = vi.fn().mockResolvedValue(undefined);
+    render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
+    selectFileMethod();
+    const eml = new File(
+      [[
+        'Content-Type: multipart/mixed; boundary="B"', "Subject: Q3 status", "",
+        "--B", "Content-Type: text/plain", "", "See the attached budget.",
+        "--B", 'Content-Type: text/plain; name="Q3-budget.txt"',
+        'Content-Disposition: attachment; filename="Q3-budget.txt"', "",
+        "Budget line: TOTALCAPEX-4711-EUR",
+        "--B--", "",
+      ].join("\r\n")],
+      "status.eml",
+      { type: "message/rfc822" },
+    );
+    fireEvent.change(fileInput(), { target: { files: [eml] } });
+    await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
+    type Block = { type: string; source?: { type: string; data: string } };
+    const payload = (onIngest.mock.calls[0][0] as Block[])
+      .map((b) => b.source?.data ?? "")
+      .join("\n");
+    expect(payload).toContain("Q3-budget.txt");
+    expect(payload).toContain("TOTALCAPEX-4711-EUR");
+  });
+
   // ★★ The wizard's hand-written accept string was a strict subset of the
   //  assistant's — missing .markdown and every MIME token. Assert against the
   //  shared constant, not a literal, or this test drifts the same way.

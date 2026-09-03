@@ -18,7 +18,7 @@ import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
 import { type ProposalContent } from "./use-project-proposal";
 import { classifyAttachment, ATTACHMENT_ACCEPT, type AttachmentBlock } from "./chat-attachments";
-import { ingestBytes, ingestFile } from "./attachment-ingest";
+import { flattenIngestBlocks, ingestBytes, ingestFile } from "./attachment-ingest";
 import { officeKindOf } from "./office-extract";
 import { isSharePointEnabled, fetchSharePointFileContent } from "./m365-sharepoint";
 import { fetchConfluencePage } from "./confluence-api";
@@ -123,12 +123,24 @@ export function Step0ImportPanel({
             dropped.push({ name: file.name, reason: "unsupported" });
             continue;
           }
-          // A genuine read error (read-failed/encrypted) abandons the batch:
-          // any `dropped` entries collected before this throw are not
-          // surfaced (the source error is shown instead).
-          throw new Error(result.error);
+          // A genuine read error abandons the batch: any `dropped` entries
+          // collected before this throw are not surfaced (the source error is
+          // shown instead).
+          //
+          // ★★ THE ANNOTATION IS THE EXHAUSTIVENESS CHECK, and it is here
+          // because abandoning the batch is the SEVERE branch — a sixth
+          // IngestResult error variant would otherwise join it silently and
+          // discard valid files already collected, with nothing to review.
+          // Spelling the three literals out (rather than deriving them with
+          // Exclude<>) is what makes a new variant a compile error: a derived
+          // type would simply widen to admit it. chat-panel.tsx gets the same
+          // property for free, since attachmentErrorText names the full union.
+          const fatal: "read-failed" | "encrypted" | "budget-exhausted" = result.error;
+          throw new Error(fatal);
         }
-        blocks.push(result.node.block);
+        // The whole walked tree, not just the mail envelope — see
+        // flattenIngestBlocks. One dropped .eml can contribute several blocks.
+        blocks.push(...flattenIngestBlocks(result.node));
       }
     } catch {
       setImportError(t(lang, "wizardImportErrorSource"));
@@ -193,7 +205,8 @@ export function Step0ImportPanel({
       }
       content = [
         { type: "text", text: t(lang, "wizardImportFilePrompt") },
-        result.node.block,
+        // A SharePoint-picked .eml is a tree exactly like a dropped one.
+        ...flattenIngestBlocks(result.node),
       ];
     } catch {
       setImportError(t(lang, "wizardImportErrorSource"));
