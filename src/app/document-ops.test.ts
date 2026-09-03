@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { applyOps, type DocOp } from "./document-ops";
+import { blockToken } from "./document-block-token";
 import type { DocBlock } from "./document-model";
 
 const P = (t: string): DocBlock => ({ type: "paragraph", html: `<p>${t}</p>` });
@@ -117,6 +118,86 @@ describe("delete precondition", () => {
   it("still applies when `expect` is absent", () => {
     const { next } = run([{ op: "delete", index: 1 }]);
     expect(next).toEqual([A, C]);
+  });
+});
+
+describe("expectHash", () => {
+  const LIVE = P("live"), STALE = P("stale"), AI = P("ai");
+
+  it("refuses a replace whose expectHash does not match, and leaves the block UNCHANGED", () => {
+    // ★★ Asserts on the BLOCK, not merely on a rejection. A test that only
+    //  checks the refusal message passes against code that pushed the message
+    //  AFTER writing.
+    // ★★★ THE SECOND OP IS LOAD-BEARING, and the obvious one-op version of
+    //  this test is VACUOUS: applyOps copies its input (`next = [...blocks]`),
+    //  so asserting the CALLER's array is untouched is true however the engine
+    //  behaves, and a wholly-refused batch returns null with no array to read.
+    //  The append makes the batch partially apply, so there IS a result whose
+    //  index 0 can be checked against the live block.
+    const appended = P("appended");
+    const { next, rejected } = run(
+      [
+        { op: "replace", index: 0, block: AI, expectHash: blockToken(STALE) },
+        { op: "append", block: appended },
+      ],
+      [LIVE],
+    );
+    expect(next).toEqual([LIVE, appended]);
+    expect(rejected[0]).toMatch(/changed by another writer/);
+  });
+
+  it("applies a replace whose expectHash matches", () => {
+    const { next, rejected } = run([{ op: "replace", index: 0, block: AI, expectHash: blockToken(LIVE) }], [LIVE]);
+    expect(next).not.toBeNull();
+    expect(next?.[0]).toEqual(AI);
+    expect(rejected).toEqual([]);
+  });
+
+  it("reads the EVOLVING list, not the original", () => {
+    // ★★★ This is why the check cannot live in the tool layer. After op 0
+    //  deletes index 0, the block the model tokenised as index 1 IS index 0.
+    const { next, rejected } = run(
+      [
+        { op: "delete", index: 0, expectHash: blockToken(A) },
+        { op: "replace", index: 0, block: C, expectHash: blockToken(B) },
+      ],
+      [A, B],
+    );
+    expect(rejected).toEqual([]);
+    expect(next).toEqual([C]);
+  });
+
+  it("refuses a delete and a move on mismatch too", () => {
+    const stale = blockToken(STALE);
+
+    const del = run([{ op: "delete", index: 0, expectHash: stale }], [LIVE]);
+    expect(del.next).toBeNull();
+    expect(del.rejected[0]).toMatch(/changed by another writer/);
+
+    const mov = run([{ op: "move", from: 0, to: 1, expectHash: stale }], [LIVE, P("x")]);
+    expect(mov.next).toBeNull();
+    expect(mov.rejected[0]).toMatch(/changed by another writer/);
+  });
+
+  it("an ABSENT expectHash still applies — the engine stays permissive", () => {
+    // ★★★ document-ops.ts's stated contract: an absent precondition must never
+    //  be read as "expected nothing". The hand block editor shares this engine
+    //  and omits the field. Strictness lives in the TOOL layer.
+    const { next, rejected } = run([{ op: "replace", index: 0, block: AI }], [LIVE]);
+    expect(next).toEqual([AI]);
+    expect(rejected).toEqual([]);
+  });
+
+  it("checks BOTH preconditions when both are supplied", () => {
+    // ★ `expect` MATCHES here on purpose, so only the hash check can refuse —
+    //  a mismatching `expect` would let the pre-existing check kill this test
+    //  and it would pin nothing new.
+    const { next, rejected } = run(
+      [{ op: "replace", index: 0, block: AI, expect: LIVE, expectHash: blockToken(STALE) }],
+      [LIVE],
+    );
+    expect(next).toBeNull();
+    expect(rejected[0]).toMatch(/changed by another writer/);
   });
 });
 
