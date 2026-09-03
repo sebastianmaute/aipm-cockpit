@@ -1,8 +1,72 @@
 import { describe, it, expect } from "vitest";
 import { readCfbfStreams, readCfbfTree } from "./cfbf";
-import { buildCfbf } from "./__fixtures__/cfbf-writer";
+import { buildCfbf, type CfbfEntryInput } from "./__fixtures__/cfbf-writer";
 
 const enc = (s: string) => new TextEncoder().encode(s.padEnd(5000, " "));
+const tiny = () => new TextEncoder().encode("x".repeat(8));
+
+/** A hostile header whose DIFAT chain names ONE valid FAT sector over and over.
+ *  Every sector in the file is a DIFAT sector; all of its pointer slots name
+ *  FAT sector 0 and its last slot chains to the next sector. `nFat` and
+ *  `nDifat` are set to MAXREGSECT so no HEADER field bounds the walk — that is
+ *  the point: the only sound bound is the file's own length.
+ *  ★ A 4096-byte sector is used because it is the worse of the two legal
+ *  shifts: 1023 pointer slots x 1024 FAT entries per pointer = 256 `ctx.fat`
+ *  slots per input BYTE, against 32 at a 512-byte sector. That is what keeps
+ *  this fixture at 768 KB instead of the 6 MB the same proof needs at shift 9. */
+function difatAmplifier(totalBytes: number): Uint8Array {
+  const SEC = 4096;
+  const MAXREGSECT = 0xfffffffa;
+  const ENDOFCHAIN = 0xfffffffe;
+  const FREESECT = 0xffffffff;
+  const buf = new Uint8Array(totalBytes);
+  const dv = new DataView(buf.buffer);
+  buf.set([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1], 0);
+  dv.setUint16(0x1e, 12, true);          // sector shift — 4096-byte sectors
+  dv.setUint16(0x20, 6, true);           // mini shift
+  dv.setUint32(0x2c, MAXREGSECT, true);  // nFat: attacker-set, bounds nothing
+  dv.setUint32(0x30, ENDOFCHAIN, true);  // dirStart: no directory to read
+  dv.setUint32(0x38, 4096, true);        // mini-stream cutoff
+  dv.setUint32(0x3c, ENDOFCHAIN, true);  // miniFatStart
+  dv.setUint32(0x40, 0, true);           // nMiniFat
+  dv.setUint32(0x44, 0, true);           // difatStart = sector 0
+  dv.setUint32(0x48, MAXREGSECT, true);  // nDifat: attacker-set too
+  for (let i = 0; i < 109; i++) dv.setUint32(0x4c + i * 4, FREESECT, true);
+  const per = SEC / 4 - 1;
+  const sectors = Math.floor(totalBytes / SEC) - 1;
+  for (let s = 0; s < sectors; s++) {
+    const base = (s + 1) * SEC;
+    for (let i = 0; i < per; i++) dv.setUint32(base + i * 4, 0, true);
+    dv.setUint32(base + per * 4, s + 1 < sectors ? s + 1 : ENDOFCHAIN, true);
+  }
+  return buf;
+}
+
+/** Repoint EVERY directory entry at the FIRST entry's sector chain and make
+ *  each of them claim 4 GB. `buildCfbf` gives every stream sectors of its own,
+ *  so nothing it emits can exercise the CUMULATIVE bound — the per-entry
+ *  "clamp to what this chain can deliver" already covers that shape. This is
+ *  the shape that needs a budget: N entries each LEGITIMATELY delivering the
+ *  same sectors, so no per-entry clamp can see the total.
+ *  ★ It patches a `buildCfbf` output in place rather than extending the writer,
+ *  so the directory layout assumed here (contiguous sectors from the header's
+ *  dirStart, four 128-byte entries per 512-byte sector, `start` at +116 and
+ *  `size` at +120) is the writer's — check `cfbf-writer.ts` if this stops
+ *  finding entries. */
+function shareOneChain(bytes: Uint8Array, entryCount: number): Uint8Array {
+  const SEC = 512;
+  const out = bytes.slice();
+  const dv = new DataView(out.buffer);
+  const off = (sector: number) => (sector + 1) * SEC;
+  const dirStart = dv.getUint32(0x30, true);
+  const entryAt = (i: number) => off(dirStart + Math.floor(i / 4)) + (i % 4) * 128;
+  const sharedStart = dv.getUint32(entryAt(1) + 116, true);   // index 0 is the Root Entry
+  for (let i = 1; i <= entryCount; i++) {
+    dv.setUint32(entryAt(i) + 116, sharedStart, true);
+    dv.setUint32(entryAt(i) + 120, 0xffffff00, true);
+  }
+  return out;
+}
 
 describe("readCfbfStreams", () => {
   it("round-trips named streams", () => {
@@ -35,21 +99,137 @@ describe("cfbf guards", () => {
     expect(() => readCfbfTree(buildCfbf([{ name: "A", data: enc("x") }], { cyclicDirTree: true }))).not.toThrow();
   });
 
+  // ★★★ MEASURED VACUOUS AGAINST THE CONSTANT IT NAMES, re-verified 2026-09-03
+  //  on the CURRENT reader: dropping `MAX_CFBF_STREAM_BYTES` from
+  //  readEntryBytes' `Math.min` leaves all 12 tests in this file green. It is
+  //  now doubly redundant here — `sectors.length * ctx.sec` clamps this
+  //  fixture's entry to 5,120 bytes long before either the 64 MB ceiling or
+  //  `ctx.b.length` is consulted, so the assertion cannot see the constant at
+  //  any fixture this writer can emit. What it DOES still pin is the
+  //  chain-derived clamp: see "retains no more stream bytes in total than the
+  //  file is long" below, which goes red when that term is removed.
+  //  Not a bug to fix here — closing it is filed separately.
   it("clamps an absurd declared stream size rather than allocating it", () => {
     const streams = readCfbfStreams(buildCfbf([{ name: "A", data: enc("x") }], { hugeStreamSize: true }));
     const a = streams.get("A");
     expect(a === undefined || a.length < 1_000_000).toBe(true);
   });
 
+  // ★★★ MEASURED VACUOUS, re-verified 2026-09-03: deleting
+  //  `if (shift !== 9 && shift !== 12) return null;` from buildContext leaves
+  //  all 12 tests in this file green. The fixture's illegal shift is 7, and at
+  //  that size the downstream bounds checks reject the resulting garbage
+  //  offsets on their own, so `.size` is 0 either way. The guard is kept
+  //  because a differently-SHAPED corrupt file could reach an offset those
+  //  checks do not cover — `cfbf-writer.ts`'s own header says the same — but
+  //  this assertion does not discriminate it. Do not read a green run here as
+  //  cover for the shift check.
   it("rejects an illegal sector shift", () => {
     expect(readCfbfStreams(buildCfbf([{ name: "A", data: enc("x") }], { illegalSectorShift: true })).size).toBe(0);
   });
 
+  // ★★★ MEASURED VACUOUS AND DOCUMENTED NOWHERE ELSE, verified 2026-09-03.
+  //  Deleting `if (s >= ctx.fat.length) break;` from `chain()` leaves all 12
+  //  tests green — and so does deleting BOTH that line and the
+  //  `offsetOf(...) > ctx.b.length` line beside it, which is the measurement
+  //  that shows how little this assertion is worth. `not.toThrow()` cannot
+  //  fail here: the fixture links to sector `totalSectors + 500`, and with
+  //  every bound removed `ctx.fat[s]` is `undefined`, `undefined <= MAXREGSECT`
+  //  is false, and the loop exits cleanly. Both guards are real (an unbounded
+  //  `s` is what a hostile file drives), but only their RESOURCE effect is
+  //  observable, and nothing here observes it. Not a bug to fix here.
   it("stops a chain that runs past the end of the file", () => {
     expect(() => readCfbfStreams(buildCfbf([{ name: "A", data: enc("x") }], { chainPastEnd: true }))).not.toThrow();
   });
 
   it("returns an empty map for a non-CFBF file rather than guessing", () => {
     expect(readCfbfStreams(new TextEncoder().encode("not a compound file")).size).toBe(0);
+  });
+});
+
+describe("cfbf resource bounds", () => {
+  // ★★★ MEASURED DoS, NOT A HYPOTHETICAL. Before the file-derived FAT bound,
+  //  repeated FAT-sector pointers each pushed another sector's worth of numbers
+  //  onto `ctx.fat`: at a 512-byte sector 1 MB of input became 543 MB of heap
+  //  in 299 ms, 4 MB became 1038 MB, and 6 MB threw `RangeError: Invalid array
+  //  length` out of Array.push — a THROW escaping a reader whose contract is
+  //  partial results, reachable through the 64 MB mail ceiling.
+  //  ★★ WHAT THIS ASSERTION CAN AND CANNOT DO. Every FAT slot past the file's
+  //  own sector count is unreachable through `chain`'s offset check, so the fix
+  //  changes no returned BYTE at any input and there is nothing else to assert
+  //  on. It also discriminates the PAIR of guards, not either half: dedup alone
+  //  and the `fileSectors` cap alone each suppress the growth, so a mutation of
+  //  one survives. Verified RED by restoring the pre-fix block verbatim, which
+  //  turns this into `RangeError: Invalid array length`.
+  it("does not amplify a DIFAT that repeats one FAT sector pointer", () => {
+    const bytes = difatAmplifier(768 * 1024);
+    let tree: Map<string, Uint8Array> | undefined;
+    expect(() => { tree = readCfbfTree(bytes); }).not.toThrow();
+    expect(tree?.size).toBe(0);          // dirStart is ENDOFCHAIN: nothing to read
+  });
+
+  // ★★★ MEASURED DoS. `readCfbfTree`'s walk used to recurse on `left` and
+  //  `right` BEFORE doing any work, so its depth was the SIBLING COUNT — and
+  //  siblings are a linked list, not a balanced red-black tree, in this repo's
+  //  own writer (`cfbf-writer.ts` chains `E[idxs[i]].right = idxs[i + 1]`) and
+  //  in any hostile .msg. Measured under node 24 on this machine with the
+  //  pre-fix reader: 8,600 sibling storages walked and 8,700 threw `RangeError:
+  //  Maximum call stack size exceeded`, from a 1.1 MB file.
+  //  ★★ 12,000 IS DELIBERATE HEADROOM OVER THAT 8,700, not a measurement: the
+  //  threshold moves with frame size, with the engine, and with the host — a
+  //  browser gives less stack than node, so the reachable count there is lower.
+  //  Do NOT tune this down towards the measured threshold; the fixture is
+  //  1.6 MB and the test runs in well under a second either way.
+  //  ★ The stream hangs off the LAST sibling — the deepest point of the old
+  //  recursion — so a reader that silently truncated the walk instead of
+  //  overflowing would fail this too, rather than passing with an empty map.
+  const SIBLINGS = 12_000;
+  it("walks a long sibling chain iteratively rather than once per frame", () => {
+    const items: CfbfEntryInput[] = [];
+    for (let i = 0; i < SIBLINGS - 1; i++) items.push({ name: `s${i}` });
+    items.push({ name: `s${SIBLINGS - 1}`, children: [{ name: "Leaf", data: enc("deep") }] });
+    const tree = readCfbfTree(buildCfbf(items));
+    expect(tree.size).toBe(1);
+    expect(new TextDecoder().decode(tree.get(`s${SIBLINGS - 1}/Leaf`)!).trim()).toBe("deep");
+  });
+
+  // ★★★ MEASURED: 1,000 entries in a 631 KB file retained 616 MB (~1000x).
+  //  `readEntryBytes` sized its buffer from the DECLARED size clamped only by
+  //  the file's total length, and `out.subarray(...)` keeps its whole backing
+  //  store alive — so every entry that lied about its size retained one
+  //  file-sized buffer. The invariant asserted here is the one that makes the
+  //  fix sound: a compound file cannot hold more stream bytes than it is long,
+  //  because streams occupy disjoint sectors.
+  //  ★ `.buffer.byteLength`, not `.length`, is the whole point — the pre-fix
+  //  reader returned SHORT views onto huge buffers, so a `.length` assertion
+  //  passes against the defect.
+  it("retains no more stream bytes in total than the file is long", () => {
+    const items: CfbfEntryInput[] = [];
+    for (let i = 0; i < 200; i++) items.push({ name: `s${i}`, data: tiny() });
+    const bytes = buildCfbf(items, { hugeStreamSize: true });
+    const streams = readCfbfStreams(bytes);
+    expect(streams.size).toBe(200);
+    let retained = 0;
+    for (const v of streams.values()) retained += v.buffer.byteLength;
+    expect(retained).toBeLessThanOrEqual(bytes.length);
+  });
+
+  // ★★★ THE SAME INVARIANT, AGAINST THE SHAPE THE TEST ABOVE CANNOT REACH, and
+  //  it exists because the obvious single test was measured NOT to pin the
+  //  cumulative budget: deleting `budget` from readEntryBytes' `Math.min` left
+  //  all eleven other tests in this file green. Every stream `buildCfbf` emits
+  //  owns its sectors, so the per-entry "what can this chain deliver" clamp
+  //  bounds the total there for free. Point 200 entries at ONE 100 KB chain and
+  //  each of them delivers 100 KB LEGITIMATELY — 20 MB out of a 228 KB file,
+  //  which only a cumulative cap can stop.
+  it("bounds the total even when every entry shares one long chain", () => {
+    const items: CfbfEntryInput[] = [{ name: "s0", data: new TextEncoder().encode("L".repeat(100_000)) }];
+    for (let i = 1; i < 200; i++) items.push({ name: `s${i}`, data: tiny() });
+    const bytes = shareOneChain(buildCfbf(items), items.length);
+    const streams = readCfbfStreams(bytes);
+    expect(streams.size).toBe(200);
+    let retained = 0;
+    for (const v of streams.values()) retained += v.buffer.byteLength;
+    expect(retained).toBeLessThanOrEqual(bytes.length);
   });
 });
