@@ -170,9 +170,64 @@ describe("rtfToPlainText", () => {
     expect(rtfToPlainText("{\\rtf1 caf\\'e9}")).toContain("café");
   });
 
+  // ★★ THIS TEST PASSED AGAINST A MATCHER THAT COULD NOT STRIP A SINGLE REAL
+  //  GROUP, which is why it is kept and immediately followed by the ones that
+  //  cannot. `{\*\htmltag <p>}` uses a SPACE delimiter — the bare form Outlook
+  //  never writes — and `not.toContain("htmltag")` is satisfied anyway by the
+  //  catch-all control-word strip further down `rtfToPlainText`, whatever the
+  //  destination matcher does. Keep it as a delimiter case; do not read it as
+  //  cover for the numeric-parameter form.
   it("de-encapsulates HTML rather than emitting rtf markup", () => {
     const out = rtfToPlainText("{\\rtf1\\fromhtml1 {\\*\\htmltag <p>}Hi{\\*\\htmltag </p>}}");
     expect(out).toContain("Hi");
     expect(out).not.toContain("htmltag");
+  });
+
+  // ★★★ REGRESSION, MEASURED ON THE REAL `.msg` FIXTURE. The destination
+  //  matcher delimited the name with `\b`, which requires a NON-WORD character
+  //  next. Real Outlook writes a numeric parameter — `\htmltag19`,
+  //  `\htmltag34`, `\htmltag161` — and both the `g` and the digit are word
+  //  characters, so no boundary exists and the group was never stripped: all
+  //  108 `\htmltag<digit>` groups in the committed fixture survived,
+  //  `rtfToPlainText` returned 40,948 characters of Word `<style>` preamble
+  //  carrying 531 residual HTML tags, and the message text began only at index
+  //  38,329 — past the 20,000-character `MAIL_BODY_FLOOR`, so the model was
+  //  handed the preamble and never the body. Per the RTF specification a
+  //  control word ends at the first NON-ALPHABETIC character with an optional
+  //  numeric parameter after it, hence `(?![A-Za-z])`.
+  //  ★ The surrounding text is asserted on BOTH sides deliberately: a matcher
+  //  that over-runs its group would take the following text with it, and an
+  //  assertion only on what is ABSENT cannot tell that apart from a fix.
+  it("strips a destination group carrying a numeric parameter", () => {
+    const out = rtfToPlainText("{\\rtf1 BEFORE {\\*\\htmltag19 <b>x</b>} AFTER\\par}");
+    expect(out).not.toContain("<b>x</b>");
+    expect(out).toContain("BEFORE");
+    expect(out).toContain("AFTER");
+  });
+
+  it("strips a destination group carrying a multi-digit parameter", () => {
+    const out = rtfToPlainText("{\\rtf1 BEFORE {\\*\\htmltag161 <table>} AFTER\\par}");
+    expect(out).not.toContain("<table>");
+    expect(out).toContain("BEFORE");
+    expect(out).toContain("AFTER");
+  });
+
+  // Both directions of the delimiter, because only together do they say what
+  // it means: a following LETTER makes a DIFFERENT control word and must not
+  // be swallowed (`\infobar` is not `\info`), while a following DIGIT is this
+  // control word's numeric parameter and must be.
+  // ★ Verified rather than assumed: the `\infobar` half is UNCHANGED
+  //  behaviour — `\b` refused that one too, since `o` and `b` are both word
+  //  characters — so it is a pin, not a regression test. Only the `\info1`
+  //  half goes red against the old matcher. Recorded so nobody reads the pair
+  //  as two regressions.
+  it("treats a following letter as a different control word and a following digit as a parameter", () => {
+    const kept = rtfToPlainText("{\\rtf1 {\\info{\\author X}}{\\infobar KEEPME} AFTER\\par}");
+    expect(kept).toContain("KEEPME");
+    expect(kept).not.toContain("author");
+
+    const stripped = rtfToPlainText("{\\rtf1 {\\info1{\\author X} SECRET} AFTER\\par}");
+    expect(stripped).not.toContain("SECRET");
+    expect(stripped).toContain("AFTER");
   });
 });

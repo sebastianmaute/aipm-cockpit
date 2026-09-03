@@ -10,8 +10,11 @@
 // initial dictionary below, so no third-party code enters the tree.
 
 /** ★★★ TRANSCRIBED FROM MS-OXRTFCP, NOT FROM MEMORY OR A BLOG POST. It is the
- *  specification's fixed initial dictionary, it is byte-exact, and one wrong
- *  byte does not fail loudly — it silently corrupts every decompressed body.
+ *  specification's fixed initial dictionary, it is byte-exact, and a wrong
+ *  byte does not fail loudly — it corrupts whichever decompressed bodies
+ *  happen to back-reference that position, silently. (This sentence used to
+ *  read "every decompressed body"; see the measurement below for why it does
+ *  not.)
  *
  *  Source: [MS-OXRTFCP] "Rich Text Format (RTF) Compression Algorithm",
  *  Release: May 20, 2025 (protocol revision 15.0), section 2.1.2.1
@@ -34,11 +37,22 @@
  *  the same source converging exactly, which is the corroboration this
  *  transcription rests on.
  *
- *  ★ VERIFY IT BY DECOMPRESSING A REAL STREAM, never by its length: Task 16's
- *  real `.msg` fixture carries an LZFu-compressed body, and a wrong dictionary
- *  turns its output into garbage that the fixture's body-marker assertion
- *  catches. That test is the dictionary's only real proof — it is UNPROVEN
- *  until then. */
+ *  ★★★ WHAT IS ACTUALLY PROVEN, WHICH IS LESS THAN THIS COMMENT USED TO CLAIM.
+ *  It said a dictionary "off by even one byte" turns the real fixture's output
+ *  into garbage that the body-marker assertion catches. That is FALSE, and was
+ *  disproved by mutation rather than argued: substituting a single SAME-LENGTH
+ *  character at index 0, 50 and 120 in turn each left `FIXTURE-BODY-MARKER`
+ *  present in the decoded output of the real `.msg` fixture (index 0 moved the
+ *  output length 75 -> 78; the other two changed it not at all). Only some
+ *  dictionary positions are ever back-referenced by a given stream, so a wrong
+ *  byte is detected only by luck.
+ *
+ *  So, precisely: the LENGTH is pinned, loudly, by the throw below. The
+ *  CONTENT is corroborated — not proven — by `msg-integration.test.ts`
+ *  decoding a real Outlook LZFu stream into readable text, which a wholesale
+ *  mistranscription would wreck. NO test in this repo detects a same-length
+ *  content error. Do not upgrade that sentence without writing the test that
+ *  earns it. */
 export const LZFU_INIT_DICT =
   "{\\rtf1\\ansi\\mac\\deff0\\deftab720{\\fonttbl;}{\\f0\\fnil \\froman \\fswiss \\fmodern \\fscript \\fdecor MS Sans SerifSymbolArialTimes New RomanCourier{\\colortbl\\red0\\green0\\blue0\r\n\\par \\pard\\plain\\f0\\fs20\\b\\i\\u\\tab\\tx";
 
@@ -117,7 +131,19 @@ export function decompressRtf(input: Uint8Array): Uint8Array {
  *  this function promises. Depth-counting from the opening brace is the only
  *  correct way to find the matching close. */
 function stripDestinationGroups(input: string, dest: string): string {
-  const open = new RegExp(`^\\{(?:\\\\\\*)?\\\\${dest}\\b`, "i");
+  // ★★★ THE DELIMITER IS `(?![A-Za-z])`, NEVER `\b`, and this was a shipped
+  //  defect rather than a hypothetical. Per the RTF specification a control
+  //  word ends at the first NON-ALPHABETIC character, with an OPTIONAL numeric
+  //  parameter following it — so real Outlook writes `\htmltag19`,
+  //  `\htmltag34`, `\htmltag161`. A digit is a WORD character and so is the
+  //  `g` before it, so `\b` finds no boundary there and the group is never
+  //  stripped: measured on this repo's own real `.msg` fixture, all 108
+  //  `\htmltag<digit>` groups survived, `rtfToPlainText` returned 40,948
+  //  characters of Word `<style>` preamble carrying 531 residual HTML tags,
+  //  and the message text sat at index 38,329 — past `MAIL_BODY_FLOOR`, so the
+  //  model received the preamble and never the body. The same fixture under
+  //  this delimiter yields 75 characters and 0 residual tags.
+  const open = new RegExp(`^\\{(?:\\\\\\*)?\\\\${dest}(?![A-Za-z])`, "i");
   let out = "";
   let i = 0;
   while (i < input.length) {
@@ -143,10 +169,15 @@ function stripDestinationGroups(input: string, dest: string): string {
   return out;
 }
 
-/** RTF -> plain text, including \fromhtml1 de-encapsulation.
+/** RTF -> plain text.
  *  ★★ Not a full RTF renderer and must not become one: the goal is readable
  *  text for a model, so groups that carry no reader-visible content are dropped
- *  wholesale rather than interpreted. */
+ *  wholesale rather than interpreted.
+ *  ★★ IT DOES NOT DE-ENCAPSULATE HTML, and this line used to say it did. For a
+ *  `\fromhtml1` message it DISCARDS the `\htmltag` groups that carry the HTML
+ *  markup and keeps the interleaved literal text; it never reconstructs or
+ *  parses an HTML document. That is the right trade for feeding a model plain
+ *  text, but a caller wanting the original HTML will not find it here. */
 export function rtfToPlainText(rtf: string): string {
   let s = rtf;
   // Destination groups whose content is metadata, never body text.

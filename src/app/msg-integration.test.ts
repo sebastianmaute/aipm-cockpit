@@ -19,15 +19,41 @@ describe("a real Outlook .msg", () => {
     expect([...tree.keys()].some((k) => k.startsWith("__substg1.0_"))).toBe(true);
   });
 
-  // ★★★ THIS IS ALSO THE LZFU DICTIONARY'S ONLY REAL PROOF. Outlook writes the
-  //  formatted body as an LZFu-compressed RTF stream, so if lzfu.ts's
-  //  transcribed initial dictionary is off by even one byte, decompression
-  //  produces garbage and this marker is absent. A length assertion on the
-  //  dictionary proves nothing; this does.
-  it("extracts the subject and body, proving the LZFu dictionary is correct", () => {
+  // ★★★ THIS CORROBORATES THE LZFU DICTIONARY; IT DOES NOT PROVE IT, AND THIS
+  //  COMMENT USED TO CLAIM OTHERWISE. It said a dictionary "off by even one
+  //  byte" yields garbage and an absent marker. Disproved by mutation, not by
+  //  argument: substituting a single SAME-LENGTH character into
+  //  `LZFU_INIT_DICT` at index 0, 50 and 120 in turn each left this marker
+  //  PRESENT (index 0 moved the decoded length 75 -> 78; the other two changed
+  //  nothing observable). Only the dictionary positions a given stream
+  //  actually back-references can be detected at all.
+  //  What this test does earn: a real Outlook LZFu stream decodes to readable
+  //  text, which a wholesale mistranscription would wreck. The dictionary's
+  //  LENGTH is pinned separately and loudly by the throw in `lzfu.ts`. NO test
+  //  here detects a same-length content error — do not restore a stronger
+  //  claim without writing the test that earns it.
+  it("extracts the subject and body, corroborating the LZFu dictionary", () => {
     const mail = msgToParsedMail(readCfbfTree(fixtureBytes()));
     expect(mail.headers.subject).toContain("Ingest fixture");
     expect(mail.body.content).toContain("FIXTURE-BODY-MARKER");
+  });
+
+  // ★★★ THE ASSERTION ABOVE SITS OUTSIDE THE PATH OF THE DEFECT IT LOOKS LIKE
+  //  IT GUARDS, which is why this one exists. It reads `ParsedMail.body`
+  //  directly — the value BEFORE `renderMailParts` truncates the body at
+  //  `MAIL_BODY_FLOOR` (20,000 characters) — so it stayed green throughout a
+  //  release in which `rtfToPlainText` left every `\htmltag<digit>` group in
+  //  place: the body was 40,948 characters of Word `<style>` preamble with the
+  //  marker at index 38,329, and what the model actually received was the
+  //  first 20,000 characters of that preamble. This goes through the real
+  //  ingest + render path and asserts on the RENDERED block instead, so the
+  //  truncation is inside the assertion's reach.
+  it("keeps the body marker inside what the model actually receives", async () => {
+    const r = await ingestBytes(fixtureBytes(), "application/vnd.ms-outlook", "fixture.msg");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const rendered = r.node.block.source as { data: string };
+    expect(rendered.data).toContain("FIXTURE-BODY-MARKER");
   });
 
   // ★★★ WHAT THIS FIXTURE ACTUALLY CONTAINS, NOT WHAT WAS REQUESTED OF IT.
