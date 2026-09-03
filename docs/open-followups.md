@@ -578,6 +578,14 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--open) | `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model | found 2026-09-03 in the AI write-concurrency slice | S–M | open |
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
 | [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--open) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | open |
+| [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--open) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--open) | RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish from the tree | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§354](#354-negative-rtf-un-values-are-dropped-losing-every-code-point-above-u7fff--open) | Negative RTF `\uN` values are dropped, losing every code point above U+7FFF | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§355](#355-a-pt_string8-msg-yields-an-entirely-empty-mail-with-no-diagnostic--open) | A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§356](#356-three-cfbf-guard-assertions-do-not-discriminate-the-guard-they-name--open) | Three cfbf guard assertions do not discriminate the guard they name | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--open) | `rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
+| [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27223,3 +27231,159 @@ rediscover.
   row, weakening what the token asserts. Related to [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open).
 - Split the replay into create-then-update phases with the updates' refusal rolling back the
   creates, which is the only option that actually preserves retryability and is much the largest.
+
+## 352. The `"encrypted"` attachment error variant has no producer — OPEN
+
+**Status:** OPEN. Filed 2026-09-03 from the ingest-breadth review. **Measured**, not reasoned —
+nothing in `src` returns it:
+`grep -rn '"encrypted"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'` returns the
+union member in `attachment-ingest.ts` plus the declaration and branch in `chat-panel.tsx`, and no
+producer anywhere.
+
+The design spec made `chatAttachmentEncrypted` a named requirement: RMS-protected mail and
+password-protected workbooks were to stop surfacing as a generic read failure. The union member,
+the chat-panel branch and both dictionary strings (EN and DE) shipped; the detector did not. A
+password-protected `.docx` throws inside `extractOfficeMarkdown`, is caught, and becomes
+`"read-failed"` — so the user is told "Could not read plan.docx" and never told to remove the
+password, which is the one thing that string exists to say. An RMS-protected `.msg` finds no body
+streams and renders an empty mail with no rejection at all.
+
+★★ This is the **false-coverage shape** this register tracks: a reader greps for the capability,
+finds the variant, the branch and two translated strings, and concludes it exists. Either wire a
+detector or delete the variant and both i18n keys — a dead user-facing string reads as coverage.
+
+## 353. RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish — OPEN
+
+**Status:** OPEN. Filed 2026-09-03 from the ingest-breadth review. **Never machine-verified** as a
+user-visible loss; the code path was verified by reading it and by a reviewer's probe, and no test
+covers it. Read the parameter reader with `grep -n "function paramOf" -A 8 src/app/mime-parse.ts`.
+
+`paramOf` matches `name` followed by `\s*=`. For `filename*=UTF-8''Bericht.pdf` the next character
+is `*`, so it correctly does not false-positive — but nothing else handles the RFC 2231 form, and
+`name` is usually absent too, so `fileName` stays `null`. `eml-extract.ts` keeps only parts with
+`fileName !== null || isMessage`, so the part is dropped from `ParsedMail.attachments` entirely and
+never recursed into. The continuation form (`filename*0=` / `filename*1=`) behaves the same way.
+No diagnostic is emitted, so neither the user nor the model learns anything was dropped.
+
+RFC 2231 — not RFC 2047 — is what modern clients use for non-ASCII filenames, so this is an
+everyday German/French case rather than a hostile one.
+
+## 354. Negative RTF `\uN` values are dropped, losing every code point above U+7FFF — OPEN
+
+**Status:** OPEN. Filed 2026-09-03 from the ingest-breadth review, **measured** by a reviewer
+against the real module. Read the substitution with
+`grep -n "0x10ffff" -B 3 -A 2 src/app/lzfu.ts`.
+
+RTF's `\uN` carries a **signed 16-bit** value: Word and Outlook emit any code point above U+7FFF as
+a negative number, and a non-BMP character as a negative surrogate pair. The regex captures the
+minus sign and the `code >= 0` test then yields `""`. Measured: `荤` gives `"A€B"`, while
+`\u-190` gives `"AB"` (wanted U+FF21) and a negative surrogate pair gives `"AB"` (wanted the
+emoji). So in an `rtf-degraded` body, CJK above U+8000, fullwidth forms and every emoji vanish
+silently.
+
+The fix is understood — add 65536 to a negative value before the range test — and is left filed
+rather than applied because it wants its own test fixtures; `lzfu.test.ts` has five
+`rtfToPlainText` cases and none uses a negative `\u`.
+
+## 355. A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic — OPEN
+
+**Status:** OPEN. Filed 2026-09-03 from the ingest-breadth review, **measured** by a reviewer with a
+synthetic stream map. Read the tag table with `grep -n "const TAG" -A 12 src/app/msg-extract.ts`.
+
+Every entry in `TAG` is a PT_UNICODE (`…001F`) or PT_BINARY (`…0102`) tag. There is no PT_STRING8
+(`…001E`) fallback, and no diagnostic for "the stream map was non-empty but no recognised tag
+matched". Measured against streams `__substg1.0_0037001E`, `_0C1A001E` and `_1000001E`, all
+populated: `subject=""`, `from=""`, `body=""`, `diagnostics=[]`.
+
+★★ This is the silent-wrong-answer shape rather than a crash: the user gets a mail block with an
+empty subject and an empty body, and nothing anywhere says the message was not understood. The
+committed fixture is Unicode and `msg-extract.test.ts` only ever builds `001F`/`0102` maps, so
+nothing covers it. The minimum honest fix is the diagnostic; the fuller one is the `001E` branch.
+
+## 356. Three cfbf guard assertions do not discriminate the guard they name — OPEN
+
+**Status:** OPEN. Filed 2026-09-03. **Measured twice** — by a reviewer and independently re-verified
+by the agent that later hardened the module, each mutating a scratchpad copy: all three tests still
+pass with the guard they name deleted. Each carries an in-file annotation recording its mutant;
+read them with `grep -n "does not discriminate" src/app/cfbf.test.ts`.
+
+- *rejects an illegal sector shift* — deleting the `shift !== 9 && shift !== 12` rejection still
+  passes; the fixture uses shift 7 and downstream bounds checks catch it at this size.
+- *clamps an absurd declared stream size* — dropping `MAX_CFBF_STREAM_BYTES` from the `Math.min`
+  still passes, and is now **doubly** redundant since the per-chain clamp added in the hardening
+  commit bounds that fixture first.
+- *stops a chain that runs past the end of the file* — still passes with the length guard deleted,
+  and **also** with both that guard and the adjacent offset bound deleted. Two independent guards,
+  neither observable through `not.toThrow()`.
+
+★ Filed rather than fixed because making them discriminate needs fixtures that reach each guard
+before any other bound does, which is a different exercise from the DoS hardening they sat beside.
+The annotations exist so a later mutation run does not read the survival as "the guard is dead".
+
+## 357. `rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group — OPEN
+
+**Status:** OPEN. Filed 2026-09-03, **measured** while fixing the destination-name delimiter. It is
+**pre-existing and not introduced by that fix**, but the fix makes it reachable on inputs where the
+unstripped brace previously separated the tokens. Reproduce with a probe calling `rtfToPlainText`
+directly; the catch-all is at `grep -n "a-zA-Z" src/app/lzfu.ts`.
+
+After a destination group is removed, a preceding control word can end up butted directly against
+following literal text — `\ansi` against `VISIBLE` — and the catch-all control-word strip is greedy
+on `[a-zA-Z]+`, so it consumes `\ansiVISIBLE` whole and the visible text is lost. Measured:
+`{\rtf1\ansi{\*\htmltag19 <b>tag</b>}VISIBLE\par` yields `""`.
+
+★ Real Outlook RTF puts a space or a brace after a control word, so the committed fixture and every
+message seen so far are unaffected — which is also why no test covers it. The de-encapsulation
+tests were deliberately written with a delimiter after the preceding control word so they exercise
+the matcher rather than this quirk; that choice is recorded in their comments.
+
+## 358. The ingest-breadth plan document contradicts the shipped code in roughly 23 places — OPEN
+
+**Status:** OPEN. Filed 2026-09-03. A reviewer enumerated the contradictions with line references
+against `docs/superpowers/plans/2026-09-03-ingest-breadth.md`, which was written before
+implementation and never corrected as the defects in it were discovered and worked around during
+execution. The **full list is not machine-verified**; the headline contradiction is, and each side
+of it returns exactly 1:
+`grep -c "charsRemaining: Math.min" docs/superpowers/plans/2026-09-03-ingest-breadth.md` (the plan
+cloning the budget) against `grep -c "NEVER cloned per child" src/app/attachment-ingest.ts` (the
+shipped code forbidding it), plus
+`grep -c "this is the gap the real fixture in Task 16 closes" docs/superpowers/plans/2026-09-03-ingest-breadth.md`
+for the DIFAT claim.
+
+★★★ **The four that would cost a day**, because a reader copying them reintroduces a fixed bug:
+- The Task 10 reference recursion **clones the budget per child**. `attachment-ingest.ts` now
+  forbids exactly that in a `★★★` comment — cloning breaks "shared", so a tree-wide cap would bound
+  one branch at a time.
+- The same snippet **double-charges** each child, deducting a serialized block length on top of what
+  the child already spent from its clone.
+- Its `cap()` deducts `room` but returns `room + note.length`, the under-charging bug the shipped
+  code records as *found and fixed during execution*. The plan still carries the buggy version.
+- It claims the real `.msg` fixture closes the DIFAT chain-walk gap. It cannot: the fixture's
+  `FirstDIFATSectorLocation` is ENDOFCHAIN, so that loop is never entered at all. The plan
+  contradicts itself on this — its own Task 16 step anticipates the mutant surviving.
+
+The rest are stale expected test counts, names and signatures that differ from what shipped
+(`bytesToBase64` moved to its own module; a fifth error variant the plan never introduces; two
+files the plan's File Structure table never lists), fixtures that cannot exercise what they claim,
+and a stale environment fact (the file-size LIMIT doubled to 1600 on 2026-09-03, so the plan's
+worked example is half the real number).
+
+★ Filed rather than fixed because correcting a 3,148-line plan is its own slice, and because the
+shipped code plus its tests are now the better record. **Anyone resuming this track should read the
+code first and the plan only for intent.**
+
+## 359. No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model — OPEN
+
+**Status:** OPEN. Filed 2026-09-03, raised by the agent that wired the tree into the payload.
+**Never machine-verified:** no probe has driven a multi-file import to the ceiling. The disclosure
+is in the module: `grep -n "belongs in the caller" src/app/attachment-ingest.ts`.
+
+`newBudget()` is per-`ingestBytes` call, so `MAX_TREE_EXTRACT_CHARS` (400,000) bounds one dropped
+file's tree and nothing bounds a batch. `attachment-ingest.ts` says so deliberately — a whole-batch
+ceiling belongs to the caller and is unimplemented.
+
+★ **What changed on 2026-09-03**: before the wiring fix, only one block per file was ever sent, so
+the per-file budget was academic in the wizard's multi-file path. Now the full 400,000-character
+budget per file genuinely reaches the model, so a 10-file import can carry roughly 4M characters.
+Behaviour is exactly as designed and no cap was weakened — but the unimplemented batch ceiling is
+materially more reachable than it was the day before, which is the reason to record it now.
