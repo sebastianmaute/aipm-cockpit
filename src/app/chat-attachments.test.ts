@@ -331,13 +331,14 @@ describe("ATTACHMENT_ACCEPT", () => {
     const tokens = ATTACHMENT_ACCEPT.split(",");
     for (const ext of [".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp",
                        ".txt", ".md", ".markdown", ".csv", ".html", ".htm",
-                       ".vtt", ".docx", ".xlsx", ".xlsm", ".pptx"]) {
+                       ".vtt", ".docx", ".xlsx", ".xlsm", ".pptx",
+                       ".eml", ".mhtml", ".mht"]) {
       expect(tokens).toContain(ext);
       expect(classifyAttachment("application/octet-stream", `f${ext}`)).not.toBeNull();
     }
-    // A sixth extension set added to ATTACHMENT_ACCEPT's spread and forgotten
+    // A seventh extension set added to ATTACHMENT_ACCEPT's spread and forgotten
     // above would be invisible to the loop — pin the count too.
-    expect(tokens.filter((t) => t.startsWith(".")).length).toBe(17);
+    expect(tokens.filter((t) => t.startsWith(".")).length).toBe(20);
   });
 
   // ★ Round-trips every DERIVED token, not just a fixed trio — 8 of the 11
@@ -355,7 +356,7 @@ describe("ATTACHMENT_ACCEPT", () => {
     // "image/*" (which the loop below skips) still fails: the loop over an
     // absent token does nothing, so this count is the only thing that would
     // catch it.
-    expect(tokens.filter((t) => !t.startsWith(".")).length).toBe(11);
+    expect(tokens.filter((t) => !t.startsWith(".")).length).toBe(12);
     for (const token of tokens) {
       if (token === "image/*") continue;
       if (token.startsWith(".")) {
@@ -388,5 +389,19 @@ describe("html classification", () => {
       type: "document",
       source: { type: "text", media_type: "text/plain", data: "## Title" },
     });
+  });
+});
+
+describe("mail classification", () => {
+  it("classifies eml, mhtml and mht as mail", () => {
+    expect(classifyAttachment("message/rfc822", "a.eml")).toBe("mail");
+    expect(classifyAttachment("application/octet-stream", "a.eml")).toBe("mail");
+    expect(classifyAttachment("application/octet-stream", "page.mhtml")).toBe("mail");
+    expect(classifyAttachment("multipart/related", "page.mht")).toBe("mail");
+  });
+
+  it("offers the mail extensions in the shared accept list", () => {
+    const tokens = ATTACHMENT_ACCEPT.split(",");
+    for (const ext of [".eml", ".mhtml", ".mht"]) expect(tokens).toContain(ext);
   });
 });

@@ -51,6 +51,7 @@ export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([".png", ".jpg", ".
 export const TEXT_EXTENSIONS: ReadonlySet<string> = new Set([".txt", ".md", ".markdown", ".csv", ".vtt"]);
 export const HTML_EXTENSIONS: ReadonlySet<string> = new Set([".html", ".htm"]);
 export const OFFICE_EXTENSIONS: ReadonlySet<string> = new Set([".docx", ".xlsx", ".xlsm", ".pptx"]);
+export const MAIL_EXTENSIONS: ReadonlySet<string> = new Set([".eml", ".mhtml", ".mht"]);
 
 /** Extra MIME tokens the picker should offer. Extensions alone are not enough:
  *  a file arriving as application/octet-stream with no extension is classified
@@ -58,6 +59,7 @@ export const OFFICE_EXTENSIONS: ReadonlySet<string> = new Set([".docx", ".xlsx",
  *  classifyAttachment ever sees it. */
 const ACCEPT_MIMES = [
   "application/pdf",
+  "message/rfc822",
   // Deliberately OVER-offers relative to SUPPORTED_IMAGE_MIMES — this is what
   // triggers camera capture in mobile file pickers (this app ships as a PWA).
   // An image type the picker admits but the classifier does not recognise
@@ -88,6 +90,7 @@ export const ATTACHMENT_ACCEPT = [
   ...TEXT_EXTENSIONS,
   ...HTML_EXTENSIONS,
   ...OFFICE_EXTENSIONS,
+  ...MAIL_EXTENSIONS,
   ...ACCEPT_MIMES,
 ].join(",");
 
@@ -122,6 +125,9 @@ export function classifyAttachment(
   // --- HTML (extracted to Markdown; raw markup would spend the budget on chrome) ---
   if (mime === "text/html") return "html";
 
+  // --- Mail (.eml / .mhtml / .mht — extracted to Markdown, same as html) ---
+  if (mime === "message/rfc822" || mime === "multipart/related") return "mail";
+
   // --- Text (read natively as UTF-8; Claude parses VTT without a lib) ---
   if (
     mime === "text/plain" ||
@@ -138,6 +144,7 @@ export function classifyAttachment(
   if (ext !== "" && IMAGE_EXTENSIONS.has(ext)) return "image";
   if (ext !== "" && TEXT_EXTENSIONS.has(ext)) return "text";
   if (ext !== "" && HTML_EXTENSIONS.has(ext)) return "html";
+  if (ext !== "" && MAIL_EXTENSIONS.has(ext)) return "mail";
 
   // --- Office (OOXML: docx/xlsx/xlsm/pptx) — MIME or extension ---
   if (officeKindOf(mimeType, fileName)) return "office";
