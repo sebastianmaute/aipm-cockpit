@@ -553,7 +553,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01) | ~~`actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name~~ | 0.272.0 (Zoline) | S | **CLOSED** 2026-09-01 (closed WIDER than its title; popover internals carved out to §328) |
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix round | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide--closed-2026-09-02) | ~~`TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide~~ | found 2026-08-31, adding the §300 mismatch region | S | **CLOSED** 2026-09-02 (`useId()` for both; the probe REFUTED the entry's click path and found the voice-nonce one) |
-| [§327](#327-use-storage-backendts-sits-one-line-under-the-800-line-size-ratchet-with-no-usable-headroom) | `use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom | found 2026-08-31, closing §303 | S | open |
+| [§327](#327-use-storage-backendts-sits-one-line-under-the-800-line-size-ratchet-with-no-usable-headroom--closed-2026-09-03) | ~~`use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom~~ | found 2026-08-31, closing §303 | S | **CLOSED** 2026-09-03 |
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 | [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
@@ -577,6 +577,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--open) | `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model | found 2026-09-03 in the AI write-concurrency slice | S–M | open |
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
+| [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--open) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -25986,9 +25987,28 @@ duplicate-id constraint that no longer exists. ★★ Two dated design records �
 recoverable-destructive-refusal **spec** and **plan** — still state the old constraint; they are
 bannered as superseded rather than rewritten, because a dated record is only worth what it recorded.
 
-## 327. `use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom
+## 327. ~~`use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom~~ — CLOSED 2026-09-03
 
-**Status:** OPEN. Filed 2026-08-31 while closing
+**Status:** CLOSED 2026-09-03 — resolved by raising the ratchet rather than by splitting the file.
+`LIMIT` in `scripts/check-file-sizes.mjs` went 800 → 1600 and every entry in
+`docs/baselines/file-sizes.json` was doubled in the same change, on an explicit decision that the
+ratchet was biting routine work. This file is 799 lines against a 1600 limit, so the "no usable
+headroom" premise no longer holds and the extraction this entry was reserving is not needed.
+Reproduce:
+
+```
+node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
+grep -n "^const LIMIT" scripts/check-file-sizes.mjs
+npm run size:check
+```
+
+★★ **What is NOT resolved, and would revive this entry:** `node scripts/check-file-sizes.mjs
+--update` rewrites the baseline to CURRENT sizes, discarding the doubling — and the gate's own
+failure message recommends running it. The 1600 limit lives in one `const`; nothing pins it, so a
+revert to 800 silently restores the exact condition described below. The never-machine-verified half
+stands untouched: nobody has assessed this file's split seams.
+
+**Original status when open:** Filed 2026-08-31 while closing
 [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31).
 **Re-measured 2026-09-02: the count is now 799, not the 800 this entry was filed at.** Commit
 `48cbef17` removed two comment lines and added one (`git diff --numstat 48509bf1..ebeb30d3 --
@@ -27124,3 +27144,64 @@ reworded at any time; a caller sniffing the string would break **silently and in
 direction**. `use-insight-recommendations` depends on that distinction — its replay `catch` advances
 an insight to `applied` for a failure that MAY have committed, and must not for one that is known to
 have written nothing.
+
+## 351. A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade — OPEN
+
+**Status:** OPEN. Filed 2026-09-03 in the AI write-concurrency slice, from a review finding against
+the slice's own early-return. **Never machine-verified:** no test drives a mixed create+update plan
+through `confirmInsightRecommendation` on a pre-slice recommendation, and the effect has not been
+reproduced against a real stored insight. The code path it describes is verified to EXIST by reading
+it; what is unverified is the user-visible outcome. Reproduce the shape (not the effect):
+
+```
+grep -n "committed === 0 && failed === 0 && stale > 0" src/app/use-insight-recommendations.ts
+grep -n "update_\|create_" src/app/insights/insight.ts
+```
+
+**What happens.** `stampRecommendationTokens` stamps a token onto every guarded `update_*` call in a
+recommendation's `proposedCalls`. A recommendation PERSISTED BEFORE this slice carries no token on
+any of them, and nothing back-fills one — the stamp runs at generation and proposal time, not at
+load. So on upgrade, every `update_*` call in a stored recommendation is refused as unauthenticated.
+
+For a recommendation whose plan is ALL updates that is handled: `committed === 0 && failed === 0 &&
+stale > 0` fires, the insight is left `proposed`, the toast says the data moved, and the user can
+regenerate. The defect is the MIXED plan — some `create_*`, some `update_*`, which
+`ALLOWED_REC_TOOLS` permits together:
+
+1. the `create_*` calls succeed, so `committed > 0`;
+2. every `update_*` call throws `ConcurrencyTokenError`, so `stale > 0`;
+3. `committed === 0` is false, so the early return does NOT fire;
+4. the insight advances to `acted` and the recommendation to `applied`;
+5. the update half is now unreachable — an `applied` recommendation is not re-offered.
+
+The user is told: `insightRecommendationStalePartial` ("some of this was refused because the data
+moved — generate a new one"), so the outcome IS disclosed at the moment it happens. What is missing
+is any durable record: the insight reads `applied` afterwards, with nothing distinguishing it from
+one that fully landed, and the created entities are left behind with the updates that were meant to
+accompany them never made.
+
+★★ **The early return is deliberately the narrowest fix and this entry is the part it left.** Its
+own comment says so: a run with even one committed call still advances "exactly as before", because
+a hard failure may have written something and re-opening that rule was out of scope. Widening the
+guard to `stale > 0 && failed === 0` regardless of `committed` would trade this for a WORSE hazard —
+the created rows stay committed while the insight returns to `proposed`, so regenerating and
+confirming again creates them a SECOND time. That duplicate-create hazard is the reason the advance
+exists at all, so the fix is not a condition change.
+
+★ **Scope, honestly.** This affects only recommendations stored before the slice AND holding both a
+create and a guarded update. Nobody has counted how many such rows exist in practice — plausibly
+zero in most workspaces, since a recommendation is usually acted on or discarded soon after
+generation. It is filed because the failure is silent in the record rather than because it is
+frequent, and because the reasoning above is what a future widening of the guard needs to not
+rediscover.
+
+**Candidate fixes**, none chosen:
+- Record the partial outcome on the insight — a distinct partially-applied status value (no such
+  member exists today, so it would be a new one) or a note naming which calls were refused — so
+  `applied` stops meaning two different things. Smallest, and it addresses the recording gap rather
+  than the loss.
+- Stamp tokens at LOAD for stored recommendations (`sanitizeInsights`), which removes the
+  unauthenticated-on-upgrade case entirely but derives a token at a moment the user has not read the
+  row, weakening what the token asserts. Related to [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open).
+- Split the replay into create-then-update phases with the updates' refusal rolling back the
+  creates, which is the only option that actually preserves retryability and is much the largest.

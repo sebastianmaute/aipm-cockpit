@@ -236,10 +236,20 @@ npm run dup:check           # jscpd duplication GATE (--threshold in package.jso
                             # "found too many duplicates (1.2%)". See open-followups.md §116.
                             # ★ docs/baselines/jscpd-2026-07.json is a RETAINED July-2026 report, NOT a
                             # gate input — dup:check passes only --threshold and there is no .jscpd.json.
-npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
+npm run size:check          # file-size ratchet — fails on a NEW file over the LIMIT, or a baselined file that grew
+                            # ★★★ THE LIMIT IS 1600, DOUBLED FROM 800 ON 2026-09-03, and every entry in
+                            # `docs/baselines/file-sizes.json` was doubled in the same change — the ratchet was
+                            # biting on routine work. Read the number from `scripts/check-file-sizes.mjs` (`LIMIT`)
+                            # rather than any prose, this line included. ★★★ `--update` DISCARDS THE DOUBLING: it
+                            # rewrites the baseline to CURRENT sizes, so running it (which the gate's own failure
+                            # message recommends) silently restores a no-headroom ratchet. Re-double by hand.
+                            # ★ CONSEQUENCE: three of the four baseline entries are now INERT, because a file is
+                            # only compared against its entry when it is over the LIMIT — chat-panel,
+                            # tasks-section and workspace-section are governed by the LIMIT alone until they pass
+                            # 1600. Only `task-manager.tsx` is still held by its entry.
                             # ★★ IT COUNTS `wc -l` + 1. The script measures `readFileSync().split("\n").length`,
                             # which for a newline-terminated file is one MORE than `wc -l`. So a file at `wc -l`
-                            # 799 is already AT the 800 limit with ZERO headroom, and a 2971-line file is at a
+                            # 1599 is already AT the limit with ZERO headroom, and a 2971-line file is at a
                             # 2972 baseline. Budgeting a change from `wc -l` overstates your room by exactly one
                             # line and the gate fails on the commit — it cost a build on `use-storage-backend.ts`.
                             # Read the real number with:
@@ -967,7 +977,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      normalize/auth/URL. Do NOT parameterize the divergent guard chains into one `createProxyHelpers`
      factory (parameterizing divergent security guards is where a config slip silently weakens a guard).
   5. **Panel split (gantt pattern).** A panel crossing ~700 lines splits into orchestrator + `*-rows` +
-     `*-toolbar` (+ a `*-columns` leaf for shared metadata) BEFORE it crosses the 800-line ratchet — rows
+     `*-toolbar` (+ a `*-columns` leaf for shared metadata) WELL BEFORE it reaches the size ratchet — rows
      and toolbar are PURE presentational (data + handlers as props). Precedent: gantt, reports, raid-panel.
 - `src/app/` is flat, organized by feature. Pure domain logic lives in i18n-free modules/subdirs
   (e.g. `next-actions/`, serializers); React surfaces import them and translate — keep engines i18n-free.
@@ -1255,7 +1265,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `budget-panel-totals.tsx` — `HoursCell`/`HoursTd` (the editable period cells), `TotalsTd` (the fixed
   Total column's cells and every cell of a bucket total row), `BucketRowLeadCells` (the three PINNED
   leading cells: RAG dot · label · Total), `BucketTotalRow`, `RowDot`, and the pure `bucketColumnTotals`
-  arithmetic. Split out to keep the orchestrator under the 800-line ratchet.
+  arithmetic. Split out to keep the orchestrator under the size ratchet, which was 800 at the time.
   ★★ The three leading columns are PINNED by arithmetic — role at `DOT_COL_PX`, Total at `DOT_COL_PX +
   the LIVE role width` (the role column is user-resizable, so a hardcoded offset drifts the moment it is
   dragged). That arithmetic is only true while every column to a pinned one's LEFT renders exactly as
