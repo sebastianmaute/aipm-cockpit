@@ -348,6 +348,14 @@ describe("ATTACHMENT_ACCEPT", () => {
   //  it is a wildcard, not a concrete type classifyAttachment recognises.
   it("offers the MIME types too, so an extensionless file still passes the picker", () => {
     const tokens = ATTACHMENT_ACCEPT.split(",");
+    expect(tokens).toContain("application/pdf");
+    expect(tokens).toContain("text/plain");
+    expect(tokens).toContain("image/*");
+    // Pins the MIME-token count so emptying ACCEPT_MIMES down to just
+    // "image/*" (which the loop below skips) still fails: the loop over an
+    // absent token does nothing, so this count is the only thing that would
+    // catch it.
+    expect(tokens.filter((t) => !t.startsWith(".")).length).toBe(11);
     for (const token of tokens) {
       if (token === "image/*") continue;
       if (token.startsWith(".")) {
