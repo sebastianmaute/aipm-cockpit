@@ -149,12 +149,26 @@ const KIND_CASES: Array<{ kind: TokenEntity; base: Record<string, unknown>; cove
 ];
 
 describe("every projector is exercised, not just task", () => {
-  // ★★★ FIVE OF THE SIX PROJECTORS HAD ZERO COVERAGE when this module shipped,
-  //   and the failure they hide is silent rather than loud: a projector paired
-  //   with the WRONG renderer does not throw, it renders every column the
-  //   renderer does not recognise as "" -- so the entity still gets a token,
-  //   just a near-constant one, and the guard permits every stale write for
-  //   that kind. Only a per-kind covered-field assertion can see it.
+  // ★★★ THESE CASES ARE THE SOLE DETECTOR OF A KEY/TYPE MISPAIRING, and that
+  //   is a NARROWER claim than the one that stood here. `PROJECTORS` is
+  //   `Record<TokenEntity, ErasedProjector>`, so nothing binds a KEY to its
+  //   entity type: `task: projector<RaidItem>({columns: RAID_CSV_COLUMNS,
+  //   render: raidFieldToString})` is internally consistent and COMPILES.
+  //   Measured with that mutant in place -- tsc exits 0, and these cases fail
+  //   2 of 35: "'task': a covered field moves the token" and the injectivity
+  //   case.
+  //
+  // ★★★ THEY ARE BLIND TO THE COLUMNS/RENDERER MISPAIRING, which is the one
+  //   `Projector<T>` exists for. This comment used to claim "only a per-kind
+  //   covered-field assertion can see it" of that mispairing, and it is FALSE:
+  //   measured with `raid: projector<RaidItem>({columns: RAID_CSV_COLUMNS,
+  //   render: fieldToString})`, tsc exits 2 and this suite is 35/35 GREEN. A
+  //   false coverage claim is worse than none -- it reads as protection and
+  //   stops the next audit -- so state which guard does which job.
+  //
+  // ★ Five of the six projectors had no coverage at all when this module
+  //   shipped, which is what these cases fix; the detection split above is a
+  //   separate point about what they can and cannot see.
 
   it.each(KIND_CASES)("$kind: a covered field moves the token", ({ kind, base, covered }) => {
     expect(entityToken(kind, { ...base, [covered]: "CHANGED VALUE" }))

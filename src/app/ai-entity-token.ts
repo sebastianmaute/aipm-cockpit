@@ -40,22 +40,34 @@ export type TokenEntity =
 
 /** Columns deliberately OUTSIDE the token, per entity.
  *
- *  ★★★ A FIELD MAY BE EXCLUDED ONLY IF NO `update_*` TOOL CAN WRITE IT.
- *  Excluding a writable field reintroduces a false permit for exactly that
- *  field — two writers could both change it with neither detected. This is not
- *  a convention to remember: `ai-entity-token.test.ts` asserts the exclusion
- *  set is disjoint from what those tools accept, so a tool that starts writing
- *  an excluded field turns that test red.
+ *  ★★★ A FIELD MAY BE EXCLUDED ONLY IF NO `update_*` TOOL LETS THE MODEL
+ *  CHOOSE ITS VALUE. Excluding a field the model can set reintroduces a false
+ *  permit for exactly that field — two writers could both change it with
+ *  neither detected. This is not a convention to remember:
+ *  `ai-entity-token.test.ts` asserts the exclusion set is disjoint from what
+ *  those tools ACCEPT (driving the real dispatch path, not the advertised
+ *  schema), so a tool that starts forwarding an excluded field turns it red.
  *
- *  ★★★ THE `update_*` QUALIFIER IS LOAD-BEARING AND THE UNQUALIFIED CLAIM IS
- *  FALSE. `send_inquiry` is an AI tool and it writes an excluded field —
- *  `inquiriesSent: (row.inquiriesSent ?? 0) + 1` in `use-chat-dispatcher.ts` —
- *  which is the very write this exclusion's rationale names. So the token IS
- *  blind to a concurrent `send_inquiry`, deliberately: the only thing at stake
- *  is a counter, so a lost bump costs an off-by-one in a "chased N times"
- *  figure, not an overwritten field of content. Stating the absolute version
- *  would read as a guarantee the code does not provide and stop the next audit
- *  looking.
+ *  ★★★ "LETS THE MODEL CHOOSE" IS THE LOAD-BEARING PHRASE, AND EVERY SHORTER
+ *  WORDING OF THIS RULE HAS BEEN FALSE. "No `update_*` tool can WRITE an
+ *  excluded field" is refuted by the handlers themselves: all five stamp
+ *  `localModifiedAt: new Date().toISOString()` over the patch —
+ *  `updateRaid`/`updateChange`/`updateMilestone`/`updateStakeholder` in
+ *  `use-register-tools.ts`, `updateResource` in `use-chat-dispatcher.ts`. That
+ *  is the app choosing the value, which is precisely what an exclusion is for.
+ *
+ *  ★★ TWO CLASSES OF WRITE SIT OUTSIDE THE RULE, AND NAMING ONLY ONE MAKES THE
+ *  CARVE-OUT READ AS COMPLETE WHEN IT IS NOT.
+ *    (1) The `update_*` handlers' own stamps, above.
+ *    (2) OTHER tools that write an excluded field: `send_inquiry` bumps
+ *        `inquiriesSent: (row.inquiriesSent ?? 0) + 1`, and
+ *        `set_task_dependencies` stamps `localModifiedAt` — the second being
+ *        neither an `update_*` tool nor `send_inquiry`, which is why an
+ *        enumeration by tool NAME cannot be trusted here.
+ *  In both classes the value is computed by the app, never supplied by the
+ *  model, so the token is deliberately blind to them: what is at stake is a
+ *  counter or a timestamp, so a lost concurrent bump costs an off-by-one in a
+ *  "chased N times" figure, not an overwritten field of content.
  *
  *  Each entry is bookkeeping that moves without anyone editing the substance
  *  the model is acting on:
@@ -77,16 +89,34 @@ export const TOKEN_EXCLUDED: Readonly<Record<TokenEntity, readonly string[]>> = 
 
 /** A column list and a renderer BOUND TO THE SAME ENTITY TYPE.
  *
- *  ★★★ THE BINDING IS THE WHOLE POINT OF THIS TYPE. With the two halves typed
- *  independently (`columns: readonly string[]` beside a renderer cast to
- *  accept `never`), a MISPAIRED entry — raid columns with the task renderer —
- *  COMPILES CLEANLY. It does not throw either: `fieldToString`'s switch misses
- *  every column it does not know and falls through to `""`, so 21 of raid's 23
- *  columns render empty and every raid item collapses to a near-constant
- *  token. That is a silent, MAXIMAL false permit — the guard would accept
- *  every stale write for that entity — and no test that only exercises `task`
- *  can see it. Tying both halves to `T` makes tsc reject the mispairing at the
- *  call site instead. */
+ *  ★★★ THIS TYPE CLOSES ONE MISPAIRING AND TSC IS ITS ONLY DETECTOR. Swapping
+ *  a RENDERER against its columns — `{columns: RAID_CSV_COLUMNS, render:
+ *  fieldToString}` — is rejected here (TS2322, "Type 'RaidItem' is missing the
+ *  following properties from type 'Task'"). Measured: with that mutant in
+ *  place `tsc --noEmit` exits 2 and the unit suite is 35/35 GREEN. The tests
+ *  cannot see it, so do not weaken this type on the assumption that they
+ *  would.
+ *
+ *  ★★★ THE OTHER MISPAIRING IS NOT CLOSED HERE, AND `PROJECTORS` IS WHY. That
+ *  table is `Record<TokenEntity, ErasedProjector>`, so nothing ties a KEY to
+ *  its `T`: `task: projector<RaidItem>({columns: RAID_CSV_COLUMNS, render:
+ *  raidFieldToString})` is internally consistent and COMPILES (measured, tsc
+ *  exits 0). Its only detector is the per-kind cases in the test file, which
+ *  catch it 2 failed / 33 passed. The two guards are complementary — each is
+ *  blind to exactly what the other catches — so neither may be dropped as
+ *  redundant.
+ *
+ *  ★★ DO NOT REPEAT THE MECHANISM THIS COMMENT USED TO CLAIM. It said a
+ *  mispaired renderer sends unknown columns through a switch's `default:
+ *  return ""`, collapsing raid to a near-constant token. NEITHER renderer has
+ *  a switch: both are short `if` chains ending in generic property access
+ *  (`String(t[c] ?? "")`), so a mispaired renderer reads the field anyway and
+ *  mostly AGREES. Measured over a fully-populated item: swapping the two
+ *  changes 3 of RAID_CSV_COLUMNS' 23 columns (the `|`-joined id lists
+ *  linkedTaskIds/causedByRaidIds/stakeholderIds, which degrade to `,`-joined)
+ *  and 1 of CSV_COLUMNS' 28 (`labels`, the same way). That makes the defect
+ *  SUBTLER than the old comment implied, not milder: a token that still moves
+ *  for most fields is harder to notice than one that never moves. */
 type Projector<T> = {
   readonly columns: readonly (keyof T)[];
   readonly render: (entity: T, column: keyof T) => string;
@@ -178,6 +208,15 @@ export function entityToken(kind: TokenEntity, entity: object): string {
     // runs inside a tool dispatch on the write path, so it must degrade to a
     // conservative token rather than throw: a throw here fails the user's
     // write outright, which is strictly worse than comparing "".
+    // ★★ THIS IS A DELIBERATE DIVERGENCE FROM THE HEADER'S "rides the
+    // byte-stable serializers" CLAIM, which should not be read as byte-for-byte
+    // agreement with the CSV. For a missing field the CSV path emits the string
+    // "undefined" and the token emits "", so the token maps "missing" and
+    // "empty" together where the CSV separates them. Both mean "no value" and
+    // both are unreachable for a well-formed entity; where they differ, the
+    // token merges two states rather than splitting one, which can only cost a
+    // missed distinction between two equally-absent values — never a missed
+    // real edit. Conservative in the safe direction.
     const value = String(render(entity, column) ?? "");
     // ★★ LENGTH-PREFIXED, and the length is what makes the concatenation
     // unambiguous. Naming the column is NOT sufficient on its own: with
