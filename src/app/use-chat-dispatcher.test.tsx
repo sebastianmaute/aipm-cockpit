@@ -1397,6 +1397,24 @@ describe("useChatDispatcher – resource directory", () => {
     expect(updated).toMatchObject({ firstName: "Ada", lastName: "Lovelace", title: "Lead" });
   });
 
+  // ★★ A JSON `null` PART IS NEITHER A STRING NOR `undefined`, and under the
+  //   first cut's `=== undefined` test that combination was the worst of both:
+  //   the split was skipped AND `firstName: null` spread over the stored row,
+  //   which `sanitizeResource` reduces to `""`. Net was `{firstName: "",
+  //   lastName: "Lovelace"}` — rename dropped, first name WIPED, and the record
+  //   still valid enough to save because the last name survived. A model emitting
+  //   an explicit null for "leave this alone" is entirely plausible.
+  it("updateResource splits a `name` even when a part is an explicit null", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+    const updated = result.current.updateResource(created.id, {
+      name: "Grace Hopper", firstName: null,
+    } as unknown as Parameters<typeof result.current.updateResource>[1]);
+    expect(updated).toMatchObject({ firstName: "Grace", lastName: "Hopper" });
+    // The wipe is the half that made this destructive rather than merely inert.
+    expect(updated?.firstName).not.toBe("");
+  });
+
   it("deleteResource removes a resource and returns false for a missing id", () => {
     const { result } = renderDispatcher();
     const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });

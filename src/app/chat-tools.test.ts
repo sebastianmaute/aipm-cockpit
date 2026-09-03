@@ -410,8 +410,20 @@ describe("runTool — list_tasks / get_task", () => {
   //   blowup this envelope exists to bound, silently, on a request whose meaning
   //   was never in doubt. `"abc"` is the neighbour that must STILL mean "no
   //   limit", so the fix cannot be "coerce anything". `"0.5"` pins that coercion
-  //   does not reopen the (0,1) hole above, and `""` that an empty string is not
-  //   read as `Number("") === 0`.
+  //   does not reopen the (0,1) hole above.
+  // ★★ `""` AND `"abc"` ARE NOT LOAD-BEARING, AND THIS COMMENT USED TO CLAIM
+  //   `""` WAS. It said `""` pins "that an empty string is not read as
+  //   `Number("") === 0`" — but being read as 0 yields the IDENTICAL observable,
+  //   since 0 already means "no limit" (`floored > 0`). Measured over 16 inputs
+  //   (`""`, `"  "`, `"\t\n"`, NBSP, ZWSP, `"abc"`, `"0x10"`, `" 10 "`,
+  //   `"Infinity"`, `1e21`, booleans, null, `{}`, `[]`): deleting the
+  //   `trim() !== ""` conjunct changes the observable limit for NONE of them, so
+  //   that case passes against the very mutant it named. `"abc"` likewise dies
+  //   to no plausible mutant — `Number("abc")` is `NaN` under any form of this
+  //   code. Both are kept as domain documentation, NOT as guards.
+  // ★★ `true` IS load-bearing, against the OPPOSITE mutant: coercing
+  //   unconditionally makes `Number(true) === 1` and silently returns a page of
+  //   one, which no other case here would catch.
   it.each([
     { label: "a fraction under 1 is no limit, not an empty page", limit: 0.5, ids: [1, 2, 3], out: undefined },
     { label: "a fraction above 1 still floors to a real page", limit: 1.7, ids: [1], out: 1 },

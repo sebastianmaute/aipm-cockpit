@@ -214,18 +214,46 @@ type Projected<T, C extends readonly string[]> = Unprojected<T, C> extends never
   ? true
   : ["field(s) missing from the CSV column list:", Unprojected<T, C>];
 
-const _PROJECTION_COVERS_EVERY_FIELD: {
-  readonly task: Projected<Task, typeof CSV_COLUMNS>;
-  readonly raid: Projected<RaidItem, typeof RAID_CSV_COLUMNS>;
-  readonly milestone: Projected<Milestone, typeof MILESTONES_CSV_COLUMNS>;
-  readonly change: Projected<ChangeItem, typeof CHANGES_CSV_COLUMNS>;
-  readonly stakeholder: Projected<Stakeholder, typeof STAKEHOLDERS_CSV_COLUMNS>;
-  readonly resource: Projected<Resource, typeof RESOURCES_CSV_COLUMNS>;
-} = {
-  task: true, raid: true, milestone: true,
-  change: true, stakeholder: true, resource: true,
+/** ★★★ `Assert` IS WHAT MAKES THE ROWS BELOW BITE. Without it the type merely
+ *  COMPUTES each row's `Projected<…>` and discards it — a type alias asserts
+ *  nothing by existing, so an unprojected field would produce a tuple that
+ *  nothing rejects. That inert form was written first and looked identical. The
+ *  `extends true` constraint IS the guard: a tuple does not extend `true`, so
+ *  the row fails to satisfy it and tsc reports the tuple, which names the field.
+ *  ★★ The rows are spelled out with CONCRETE types rather than mapped over
+ *  `TokenEntity`, deliberately: under a mapped type the check type is generic,
+ *  tsc cannot resolve it per-key, and it reports one unresolvable constraint
+ *  error for ALL rows instead of naming the offending field. Exhaustiveness is
+ *  bought separately, below. */
+type Assert<T extends true> = T;
+
+type ProjectedRows = {
+  task: Assert<Projected<Task, typeof CSV_COLUMNS>>;
+  raid: Assert<Projected<RaidItem, typeof RAID_CSV_COLUMNS>>;
+  milestone: Assert<Projected<Milestone, typeof MILESTONES_CSV_COLUMNS>>;
+  change: Assert<Projected<ChangeItem, typeof CHANGES_CSV_COLUMNS>>;
+  stakeholder: Assert<Projected<Stakeholder, typeof STAKEHOLDERS_CSV_COLUMNS>>;
+  resource: Assert<Projected<Resource, typeof RESOURCES_CSV_COLUMNS>>;
 };
-void _PROJECTION_COVERS_EVERY_FIELD;
+
+/** Fails compilation unless every `TokenEntity`'s declared fields are all
+ *  projected, AND every `TokenEntity` member has a row above.
+ *
+ *  ★★★ THE SECOND HALF IS NOT DECORATION — without it a SEVENTH tokened entity
+ *  gets no row and nothing complains, which is the exact moment the check is
+ *  most needed (a new entity's column list is what a copy-paste is most likely
+ *  to get wrong). `TOKEN_EXCLUDED` and `PROJECTORS` are both
+ *  `Record<TokenEntity, …>` and so force a new member; `ProjectedRows` is a
+ *  plain literal and does not, so the key set is tied to the union here instead.
+ *  ★ The `[…]` tuple wrapping is load-bearing: a bare `TokenEntity extends
+ *  keyof ProjectedRows` DISTRIBUTES over the union and would report only that
+ *  some member failed. Wrapped, it compares the union as a whole.
+ *
+ *  Exported only so both are used bindings — these are types, so they cost zero
+ *  runtime bytes; nothing should import this. */
+export type ProjectionCoverage = ProjectedRows & {
+  everyTokenEntityHasARow: Assert<[TokenEntity] extends [keyof ProjectedRows] ? true : false>;
+};
 
 /** The `lowbias32` finalizer. Avalanches the accumulator so that every output
  *  bit depends non-linearly on the whole input.

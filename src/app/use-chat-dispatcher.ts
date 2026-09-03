@@ -517,11 +517,20 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // ★ A blank `name` is ignored rather than applied — splitting it yields
         // two empty parts, which the sanitizer rejects, turning a meaningless
         // request into a failed write of every other field in the same patch.
+        // ★★ THE PART TESTS ARE `typeof … !== "string"`, NOT `=== undefined`,
+        // because a JSON `null` is neither. With `=== undefined`, a payload of
+        // `{name: "Grace Hopper", firstName: null}` skipped the split AND then
+        // spread `firstName: null` over the stored row, which `sanitizeResource`
+        // reduces to `""` — the rename silently dropped and the first name
+        // WIPED, with the surviving last name keeping the record valid enough
+        // to save. Measured before the fix: `{f: "", l: "Lovelace"}`. Any
+        // non-string part now falls through to the split, which is the
+        // behaviour the schema advertises.
         const renamed =
           typeof patch.name === "string"
           && patch.name.trim() !== ""
-          && patch.firstName === undefined
-          && patch.lastName === undefined
+          && typeof patch.firstName !== "string"
+          && typeof patch.lastName !== "string"
             ? splitName(patch.name)
             : null;
         const merged = sanitizeResource({
