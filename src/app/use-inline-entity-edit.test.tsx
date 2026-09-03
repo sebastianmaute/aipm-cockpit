@@ -7,6 +7,7 @@ import * as tools from "./chat-tools";
 import { useInlineAiEdit, type InlineAiEditDeps } from "./use-inline-ai-edit";
 import { useInlineEntityEdit, type InlineEntityEditDeps } from "./use-inline-entity-edit";
 import { entityToken } from "./ai-entity-token";
+import { t, loadI18n } from "./i18n";
 import { type Task } from "./types";
 
 afterEach(() => vi.restoreAllMocks());
@@ -496,6 +497,38 @@ describe("optimistic concurrency across the submit → apply window", () => {
     // Nothing committed, so the hook stays in `error` rather than closing with
     // a partial-apply toast.
     expect(result.current.phase).toBe("error");
-    expect(result.current.errorText).not.toBe("");
+    // ★★★ THE MESSAGE IS ASSERTED, NOT MERELY ITS NON-EMPTINESS. This line read
+    //   `.not.toBe("")` for a release and passed while the user was shown the
+    //   generic "Could not apply the change." — a NEW failure mode with the
+    //   widest human-scale staleness window in the app (model round-trip, then
+    //   a preview read, then an Apply click), and no hint that re-running would
+    //   help. Any message satisfies a non-emptiness check, so it cannot tell a
+    //   recovery message from a dead end.
+    expect(result.current.errorText).toBe(t("en-US", "inlineAiEditStale"));
+  });
+
+  // Control for the case above: the stale branch must DISCRIMINATE, not just
+  // fire. Without this, replacing `inlineAiEditApplyFailed` with the stale key
+  // unconditionally would pass — and every ordinary failure would then lie to
+  // the user about why it failed and tell them to retry something that cannot
+  // succeed.
+  it("keeps the generic message for a failure that is not a staleness refusal", async () => {
+    const store = mkStore();
+    const { result } = await openSubmit(store);
+    vi.spyOn(tools, "runTool").mockRejectedValue(new Error("sanitizer rejected the value"));
+    await act(async () => { await result.current.apply(); });
+    expect(result.current.phase).toBe("error");
+    expect(result.current.errorText).toBe(t("en-US", "inlineAiEditApplyFailed"));
+  });
+
+  // ★★ THE EN ASSERTIONS ABOVE CANNOT PIN THE DE SIDE. `t` falls back to the EN
+  //   dictionary for a key the DE one lacks, so an `inlineAiEditStale` missing
+  //   from `i18n.de.ts` would render the ENGLISH sentence to a German user with
+  //   every EN test green. The DE dict is lazy, hence the explicit load.
+  it("has a real German string for the staleness message", async () => {
+    await loadI18n("de");
+    const de = t("de", "inlineAiEditStale");
+    expect(de).not.toBe(t("en-US", "inlineAiEditStale"));
+    expect(de).toMatch(/geändert/);
   });
 });

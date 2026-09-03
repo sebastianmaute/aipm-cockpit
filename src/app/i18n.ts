@@ -2191,6 +2191,7 @@ const enUS = {
   inlineAiEditNoChanges: "No changes to apply.",
   inlineAiEditApplyFailed: "Could not apply the change.",
   inlineAiEditPartial: "Some changes were applied, but a later step failed.",
+  inlineAiEditStale: "Nothing was changed — this record changed since Claude read it. Run the edit again to pick up the new state.",
   inlineAiEditClarify: "Claude needs more detail:",
   inlineAiEditError: "Couldn’t reach Claude. Try again.",
   inlineAiEditApplied: "Updated “{0}”",

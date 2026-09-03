@@ -11,6 +11,7 @@ import { type Lang, t } from "./i18n";
 import { type Workspace } from "./workspace";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { entityToken } from "./ai-entity-token";
+import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { type AiConfig, isAiEnabled } from "./settings-types";
 import { type OperatingGuide } from "./operating-guide";
 import { callInlineEdit } from "./inline-ai-edit-call";
@@ -257,12 +258,29 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       // and the `ai.inlineEdit` ban beside it would be scanning nothing.
       deps.showToast("info", t(deps.lang, "inlineAiEditApplied", d.titleOf(activeItem)));
       cancel();
-    } catch {
+    } catch (err) {
       if (applied > 0) {
         deps.showToast("error", t(deps.lang, "inlineAiEditPartial"));
         cancel();
       } else {
-        setErrorText(t(deps.lang, "inlineAiEditApplyFailed")); setPhase("error");
+        // ★★★ A STALENESS REFUSAL NEEDS ITS OWN MESSAGE, and this path is where
+        // refusals will actually be SEEN: it has the widest human-scale
+        // staleness window in the app (model round-trip, then a preview the
+        // user reads, then an Apply click), and the token guard is a NEW
+        // user-visible failure mode. "Could not apply the change." names no
+        // cause and no remedy, so the user's only move is to retry the same
+        // stale token and be refused identically.
+        // ★★ ONE KEY, NOT A PAIR, AND THE ASYMMETRY WITH THE INSIGHT PATH IS
+        // DELIBERATE. `insightRecommendation*` has a Stale AND a StalePartial
+        // because a recommendation replays several guarded updates. Here the
+        // single guarded call is the FIRST one — creates and deletes follow it
+        // and no `create_*`/`delete_*` tool calls `requireToken` — so a
+        // ConcurrencyTokenError always arrives with `applied === 0` and the
+        // partial branch above is unreachable for it. If a guarded call is ever
+        // added AFTER the update, that branch needs the same treatment.
+        const stale = err instanceof ConcurrencyTokenError;
+        setErrorText(t(deps.lang, stale ? "inlineAiEditStale" : "inlineAiEditApplyFailed"));
+        setPhase("error");
       }
     }
   };

@@ -2138,6 +2138,7 @@ export const de: Record<TranslationKey, string> = {
   inlineAiEditApply: "Anwenden",
   inlineAiEditApplyFailed: "Änderung konnte nicht angewendet werden.",
   inlineAiEditPartial: "Einige Änderungen wurden angewendet, aber ein späterer Schritt ist fehlgeschlagen.",
+  inlineAiEditStale: "Es wurde nichts geändert — dieser Datensatz hat sich geändert, seit Claude ihn gelesen hat. Führen Sie die Bearbeitung erneut aus, um den neuen Stand zu übernehmen.",
   inlineAiEditNoChanges: "Keine Änderungen anzuwenden.",
   inlineAiEditClarify: "Claude braucht mehr Details:",
   inlineAiEditError: "Claude nicht erreichbar. Bitte erneut versuchen.",
