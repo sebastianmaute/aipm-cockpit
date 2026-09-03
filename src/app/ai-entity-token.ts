@@ -64,10 +64,21 @@ export type TokenEntity =
  *        `set_task_dependencies` stamps `localModifiedAt` — the second being
  *        neither an `update_*` tool nor `send_inquiry`, which is why an
  *        enumeration by tool NAME cannot be trusted here.
- *  In both classes the value is computed by the app, never supplied by the
- *  model, so the token is deliberately blind to them: what is at stake is a
- *  counter or a timestamp, so a lost concurrent bump costs an off-by-one in a
- *  "chased N times" figure, not an overwritten field of content.
+ *  In both classes the EXCLUDED FIELD's value is computed by the app, never
+ *  supplied by the model, so the token is deliberately blind to that field:
+ *  what is at stake is a counter or a timestamp, so a lost concurrent bump
+ *  costs an off-by-one in a "chased N times" figure, not an overwritten field
+ *  of content.
+ *
+ *  ★★★ THAT LAST SENTENCE IS ABOUT THE FIELD, NOT ABOUT THE TOOL, AND READING
+ *  IT AS A CLEARANCE FOR `set_task_dependencies` IS EXACTLY THE MISTAKE THIS
+ *  CARVE-OUT ONCE INVITED. The tool ALSO writes `dependencies`, which is IN
+ *  `CSV_COLUMNS`, is NOT excluded here, and comes STRAIGHT FROM MODEL INPUT as
+ *  a whole-list replace. For a whole release this comment named the tool,
+ *  accounted only for its stamp, and so read as protection while the tool
+ *  itself carried no `requireToken` at all — a comment that stops an audit
+ *  without earning it. It is guarded now (`requireTaskWriteToken`,
+ *  `chat-tools-updates.ts`); the carve-out below concerns the STAMP alone.
  *
  *  Each entry is bookkeeping that moves without anyone editing the substance
  *  the model is acting on:

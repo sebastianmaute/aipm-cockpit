@@ -6,6 +6,7 @@ import {
   asString,
   buildPatch,
   patchWithoutId,
+  requireTaskWriteToken,
   requireToken,
 } from "./chat-tools-updates";
 import {
@@ -542,6 +543,9 @@ export async function runTool(
       // string, an omitted field) must never silently wipe a task's
       // dependency graph with zero visible rejection.
       if (!Array.isArray(input.dependencies)) throw new Error("dependencies must be an array");
+      // Token-guarded like the six `update_*` tools — `dependencies` is
+      // token-COVERED and model-supplied. Reasoning: requireTaskWriteToken.
+      requireTaskWriteToken(d.getTask(id), id, input);
       const result = d.setTaskDependencies(id, input.dependencies);
       if (!result) throw new Error(`Task #${id} not found`);
       return result;

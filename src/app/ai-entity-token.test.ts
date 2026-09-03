@@ -84,6 +84,34 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
     expect(defined.slice().sort()).toEqual(covered);
   });
 
+  /** Token-guarded tools whose NAME sits outside the `update_*` convention. */
+  const GUARDED_NON_UPDATE = ["set_task_dependencies"];
+
+  // ★★★ THE `update_*` NAME IS NOT THE GUARDED SET, AND THE CASE ABOVE CANNOT
+  //   SEE THAT. It filters `TOOL_DEFS` on `startsWith("update_")`, so a
+  //   token-guarded tool named anything else is invisible to it BY
+  //   CONSTRUCTION — which is exactly how `set_task_dependencies` shipped
+  //   unguarded through the slice that introduced the token. It is a WHOLE-LIST
+  //   REPLACE of `dependencies`: a field that is in `CSV_COLUMNS`, is not in
+  //   `TOKEN_EXCLUDED.task`, and comes straight from model input, behind a
+  //   `case` with no `requireToken` at all. Worse, `ai-entity-token.ts`'s
+  //   carve-out NAMED the tool while accounting only for its `localModifiedAt`
+  //   stamp, so an auditor read it as cleared and moved on.
+  //   This case enumerates by what a schema ADVERTISES instead — a property of
+  //   the TOOL, not of its name — so it is equality in both directions: a new
+  //   guarded tool must be listed here, and a listed tool that silently drops
+  //   `expectedTokenField` turns it red.
+  it("names every tool that advertises a token, so a guarded tool outside the update_* naming cannot slip past", () => {
+    const advertising = TOOL_DEFS.filter(
+      (d) =>
+        "expectedToken" in
+        ((d.input_schema as { properties?: Record<string, unknown> }).properties ?? {}),
+    )
+      .map((d) => d.name)
+      .sort();
+    expect(advertising).toEqual(Object.keys(UPDATE_TOOLS).concat(GUARDED_NON_UPDATE).sort());
+  });
+
   it.each(Object.entries(UPDATE_TOOLS))("%s ADVERTISES no excluded field", (toolName, kind) => {
     const def = TOOL_DEFS.find((d) => d.name === toolName);
     expect(def, `${toolName} must exist`).toBeDefined();

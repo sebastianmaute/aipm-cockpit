@@ -199,3 +199,37 @@ export function requireToken(
     );
   }
 }
+
+/** Resolve-then-guard for a task write that is NOT an `update_*` tool. Throws
+ *  not-found first, then delegates to `requireToken`.
+ *
+ *  ★★★ IT EXISTS BECAUSE `set_task_dependencies` IS A TOKEN-COVERED,
+ *  MODEL-SUPPLIED WRITE THAT THE `update_*` NAMING HIDES. `dependencies` is in
+ *  `CSV_COLUMNS` and is NOT in `TOKEN_EXCLUDED.task`, so the token already
+ *  covers the field — the guard was simply never applied to the one tool that
+ *  writes it. And it is the worst shape to leave open: a WHOLE-LIST REPLACE
+ *  whose own schema tells the model to `list_tasks` first, i.e. to perform
+ *  exactly the read-reason-write sequence this guard exists to make safe. A
+ *  human adding a link in the interval had it silently dropped, and the tool
+ *  reports success.
+ *
+ *  ★★ ENUMERATE THE GUARDED SET BY WHAT A SCHEMA ADVERTISES, NEVER BY THE TOOL
+ *  NAME. `ai-entity-token.test.ts`'s anti-vacuity case reads
+ *  `TOOL_DEFS.filter(name.startsWith("update_"))`, which is blind to this tool
+ *  by construction; the companion case there enumerates every tool carrying
+ *  `expectedTokenField` instead, so a future guarded tool outside the naming
+ *  convention cannot slip past either.
+ *
+ *  ★ NOT-FOUND FIRST is structural, not stylistic — the token is derived from
+ *  the stored row, so there is nothing to compare against until the row is in
+ *  hand. See `requireToken` for the full reasoning. The message spelling
+ *  (`Task #N not found`) is the one this tool already threw post-write; it is
+ *  preserved so the existing not-found contract is unchanged. */
+export function requireTaskWriteToken(
+  current: Task | null | undefined,
+  id: number,
+  input: Record<string, unknown>,
+): void {
+  if (!current) throw new Error(`Task #${id} not found`);
+  requireToken("task", current, input, `task #${id}`);
+}

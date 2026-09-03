@@ -272,6 +272,9 @@ export const TOOL_DEFS = [
       type: "object",
       properties: {
         id: { type: "number", description: "Id of the task whose links are being replaced." },
+        // ★ The seventh tool carrying this field, and the only one outside the
+        //   `update_*` naming: a whole-list replace of a token-COVERED field.
+        ...expectedTokenField,
         dependencies: {
           type: "array",
           description: "The complete new list of predecessor links. An empty array clears them.",
@@ -285,7 +288,7 @@ export const TOOL_DEFS = [
           },
         },
       },
-      required: ["id", "dependencies"],
+      required: ["id", "expectedToken", "dependencies"],
     },
   },
   {

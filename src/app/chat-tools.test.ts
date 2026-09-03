@@ -1363,9 +1363,18 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
 });
 
 describe("set_task_dependencies", () => {
+  // ★★ THE TOKEN GUARD PUTS `getTask` IN THIS TOOL'S DISPATCHER CONTRACT. It is
+  //   a token-COVERED, model-supplied WHOLE-LIST REPLACE (`dependencies` is in
+  //   CSV_COLUMNS and not in TOKEN_EXCLUDED.task), so it is guarded exactly like
+  //   the six `update_*` tools — which means every case that expects to reach
+  //   the dispatcher must supply the getter AND a matching token.
+  const DEP_TASK = makeTask({ id: 7 });
+  const DEP_TOKEN = entityToken("task", DEP_TASK);
+
   it("passes the id and the raw list to the dispatcher", async () => {
     const calls: unknown[] = [];
     const d = {
+      getTask: () => DEP_TASK,
       setTaskDependencies: (id: number, raw: unknown) => {
         calls.push([id, raw]);
         return { id, dependencies: [], rejected: [] };
@@ -1374,18 +1383,95 @@ describe("set_task_dependencies", () => {
 
     await runTool(d, "set_task_dependencies", {
       id: 7,
+      expectedToken: DEP_TOKEN,
       dependencies: [{ taskId: 3, type: "FS" }],
     });
 
+    // `expectedToken` is a control value, not a link — it must not reach the
+    // dispatcher's raw list.
     expect(calls).toEqual([[7, [{ taskId: 3, type: "FS" }]]]);
   });
 
   it("throws when the task is missing", async () => {
-    const d = { setTaskDependencies: () => null } as unknown as ToolDispatcher;
+    // Not-found is resolved BEFORE the token, so this needs no token: there is
+    // nothing to derive one from until the row is in hand, and "not found" is
+    // the more useful error than "changed since you read it".
+    const d = {
+      getTask: () => null,
+      setTaskDependencies: () => null,
+    } as unknown as ToolDispatcher;
 
     await expect(runTool(d, "set_task_dependencies", { id: 9, dependencies: [] })).rejects.toThrow(
       "#9 not found",
     );
+  });
+
+  // ★★★ THE STALE CASE IS WHAT THE GUARD IS FOR, AND THE FRESH CONTROL BELOW IS
+  //   NOT BELT-AND-BRACES. Without it a hardcoded `throw` in the handler would
+  //   satisfy both this case and the withheld-token one, and the tool would be
+  //   entirely broken with the suite green.
+  it("refuses a stale write and leaves the dependency list untouched", async () => {
+    // `getTask` closes over the LIVE row, so the human edit below is visible to
+    // the re-derivation — that IS the mechanism. Handing the mock a frozen copy
+    // would make this case pass whatever the guard did.
+    const row = makeTask({ id: 7, dependencies: [{ taskId: 3, type: "FS" }] });
+    const setTaskDependencies = vi.fn();
+    const d = { getTask: () => row, setTaskDependencies } as unknown as ToolDispatcher;
+
+    const readToken = entityToken("task", row);
+    // A human renames the task between the model's read and its write.
+    row.taskName = "Renamed by a human in the interval";
+
+    await expect(
+      runTool(d, "set_task_dependencies", {
+        id: 7,
+        expectedToken: readToken,
+        dependencies: [],
+      }),
+    ).rejects.toThrow(/changed since you read it/i);
+    expect(setTaskDependencies).not.toHaveBeenCalled();
+    // The refused call was a clear-all, so this is the assertion that the WRITE
+    // did not happen — not merely that a mock went uncalled.
+    expect(row.dependencies).toEqual([{ taskId: 3, type: "FS" }]);
+  });
+
+  it("refuses a write that carries no token at all", async () => {
+    // Absence is refused deliberately: if a missing token meant "skip the
+    // check", omitting one field would bypass the guard entirely.
+    const setTaskDependencies = vi.fn();
+    const d = { getTask: () => DEP_TASK, setTaskDependencies } as unknown as ToolDispatcher;
+
+    await expect(
+      runTool(d, "set_task_dependencies", { id: 7, dependencies: [] }),
+    ).rejects.toThrow(/expectedToken is required/i);
+    expect(setTaskDependencies).not.toHaveBeenCalled();
+  });
+
+  it("accepts a fresh token — the control for the two refusals above", async () => {
+    const row = makeTask({ id: 7, dependencies: [{ taskId: 3, type: "FS" }] });
+    const setTaskDependencies = vi.fn(() => ({ id: 7, dependencies: [], rejected: [] }));
+    const d = { getTask: () => row, setTaskDependencies } as unknown as ToolDispatcher;
+
+    await runTool(d, "set_task_dependencies", {
+      id: 7,
+      expectedToken: entityToken("task", row),
+      dependencies: [],
+    });
+
+    expect(setTaskDependencies).toHaveBeenCalledTimes(1);
+  });
+
+  it("advertises the token on its own schema, so a model can spend one", async () => {
+    // The enforcement above is worthless if the schema never tells the model to
+    // send a token — that exact read/write split shipped once already (see the
+    // ROUND_TRIP block below).
+    const def = TOOL_DEFS.find((x) => x.name === "set_task_dependencies");
+    const schema = def!.input_schema as {
+      properties: Record<string, unknown>;
+      required: string[];
+    };
+    expect(Object.keys(schema.properties)).toContain("expectedToken");
+    expect(schema.required).toContain("expectedToken");
   });
 
   it("throws when id is not a number", async () => {
@@ -1416,10 +1502,13 @@ describe("set_task_dependencies", () => {
 
   it("still clears every link for a real empty array", async () => {
     const d = {
+      getTask: () => DEP_TASK,
       setTaskDependencies: (id: number, raw: unknown) => ({ id, dependencies: raw, rejected: [] }),
     } as unknown as ToolDispatcher;
 
-    await expect(runTool(d, "set_task_dependencies", { id: 7, dependencies: [] })).resolves.toEqual({
+    await expect(runTool(d, "set_task_dependencies", {
+      id: 7, expectedToken: DEP_TOKEN, dependencies: [],
+    })).resolves.toEqual({
       id: 7,
       dependencies: [],
       rejected: [],

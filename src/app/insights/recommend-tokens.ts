@@ -38,10 +38,18 @@ import type { RecommendPlanWorkspace } from "./recommend-plan";
  *  and the workspace list its rows live in.
  *
  *  ★★ THE `create_*` HALF OF `ALLOWED_REC_TOOLS` IS ABSENT BY DESIGN, not by
- *  omission: a create has no stored row to derive a token from, and the six
- *  update tools are the only ones `requireToken` guards. A seventh update tool
- *  added to the allow-set without a row here would be replayed with no token
- *  and refused outright — loud, and in the safe direction. */
+ *  omission: a create has no stored row to derive a token from, and no
+ *  `create_*` tool is guarded. Any GUARDED tool added to the allow-set without
+ *  a row here would be replayed with no token and refused outright — loud, and
+ *  in the safe direction.
+ *
+ *  ★★ "THE SIX `update_*` TOOLS ARE THE ONLY GUARDED ONES" IS NO LONGER TRUE
+ *  AND THIS COMMENT SAID IT. `set_task_dependencies` is guarded too — a
+ *  token-covered, model-supplied whole-list replace — and it is simply not in
+ *  `ALLOWED_REC_TOOLS`, so this table is unaffected TODAY. Adding it to that
+ *  allow-set means adding a row here in the same commit. Enumerate the guarded
+ *  set by what a schema advertises (`expectedTokenField`), never by the
+ *  `update_*` name. */
 const UPDATE_TARGET: Readonly<
   Record<string, { readonly kind: TokenEntity; readonly key: keyof RecommendPlanWorkspace }>
 > = {
