@@ -8,6 +8,30 @@
 //   one token — a false PERMIT, the exact failure the token exists to prevent.
 //   Hence a presence flag beside every optional value, and `undefined`
 //   normalised to the absent spelling.
+//   ★★ THAT AGREEMENT IS CONDITIONAL — it holds over blocks that PASSED a
+//   sanitiser (`sanitizeBlock`, reached from `normalizeBlockForStorage`, or
+//   `sanitizeAiDocBlocks`), each of which rebuilds a block field by field from
+//   a fixed registry. A RAW op payload is outside the precondition, and four
+//   classes disagree there — measured, not reasoned; all four are tokens-EQUAL
+//   while `blockChanged` is true, i.e. false PERMITS:
+//     · an extra property outside the union — `deepEqual` unions BOTH objects'
+//       keys, and this fixed projection cannot see one;
+//     · `heading.level` `2` vs `"2"`, and `bullets.ordered` `true` vs `"true"`
+//       — both sides go through `String(...)` below;
+//     · any unregistered `type` — the switch has no `default:`, so such a block
+//       emits `field("type", …)` and nothing else.
+//   The sanitisers close all four: they return null for an unregistered type,
+//   push `level` through `Number` + clamp, admit `ordered` only on `=== true`,
+//   and copy no field they did not build.
+//   ★★ SAME PRECONDITION, SECOND SYMPTOM: a field-INCOMPLETE block of a KNOWN
+//   type THROWS here (`{type:"paragraph"}` → `TypeError` reading `.length`),
+//   and that escapes `applyOps`, whose own header calls the module pure. Not
+//   model-reachable today — `sanitizeAiDocBlocks` runs on every `op.block` and
+//   the hand editor never sets `expectHash`. Deliberately undefended: the
+//   engine's `isBlockShaped` stops at "shaped like a block at all" on purpose
+//   (it refuses to keep a second copy of the block registry), so the shape
+//   guard does NOT narrow enough to make this function total — the sanitiser
+//   is what does, and it is the precondition to state rather than to duplicate.
 //
 // ★★ LENGTH-PREFIXED, copying `ai-entity-token.ts`. A value cannot contain its
 //   own length, so prefixing makes the concatenation injective.

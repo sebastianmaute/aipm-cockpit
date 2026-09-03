@@ -170,7 +170,17 @@ function requirePayload(op: unknown, i: number): void {
       throw new Error(`op ${i}: ${kind} requires a block`);
     }
   }
-  // ★★★ REFUSE ON ABSENCE, mirroring `requireToken` on the six entity tools.
+  // ★★★ REFUSE ON ABSENCE, in the same spirit as `requireToken` — but NOT as a
+  // mirror of it, and this comment claimed to be one. Two corrections:
+  // ★★ `requireToken` guards SEVEN tools, not six: the six `update_*` plus
+  // `set_task_dependencies`, which reaches it through `requireTaskWriteToken`.
+  // Enumerate rather than trusting the number, which rots on the next tool:
+  //   awk '/case "/{c=$0} /requireToken\("|requireTaskWriteToken\(/{print c}' src/app/chat-tools.ts
+  // ★★ AND THIS GUARD IS STRICTLY STRONGER. `requireToken` tests `typeof sent
+  // !== "string" || sent.length === 0`, so it ACCEPTS `"   "` and lets it fail
+  // one layer down as "changed since you read it" — precisely the misleading
+  // reason the blank-string check below exists to avoid. `requirePayload`
+  // trims, so the same input is refused here as the malformed call it is.
   // The ENGINE (document-ops.ts) is deliberately permissive about a missing
   // `expectHash` — the hand block editor shares those arms and omits the field
   // — so the strictness has to live HERE, at the boundary where the caller is

@@ -1727,6 +1727,100 @@ describe("useChatDispatcher – document tools", () => {
     expect(stored).not.toContain("user text");
   });
 
+  // ★★★ THE ONLY TEST THAT JOINS THE TWO HALVES OF THE PROTOCOL — that the
+  // token a model RECEIVES from `get_document` is the one the engine ACCEPTS.
+  // Every other test in the slice pins one side and assumes the other:
+  // `chat-tools-documents.test.ts` mocks the dispatcher, so its tokens are
+  // placeholders nothing ever compares; the two tests directly above call
+  // `updateDocument` on the dispatcher and RECOMPUTE the token with
+  // `blockToken`, which proves the engine's comparison but says nothing about
+  // what the read handed out. A read that emitted a token computed some other
+  // way would leave all of them green and every guarded op refused in
+  // production.
+  //
+  // ★ ANTI-VACUITY: the token below is taken from the `get_document` RESPONSE
+  // and never recomputed — recomputing is exactly what makes the neighbouring
+  // test tautological about the VALUE. Mutating `get_document` to hand out a
+  // constant token turns this red and leaves the rest of the file green.
+  it("applies a replace guarded by the very token get_document handed out", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Doc",
+        blocks: [
+          { type: "paragraph", html: "<p>first block</p>" },
+          { type: "paragraph", html: "<p>second block</p>" },
+        ],
+      });
+    });
+    const id = result.current.listDocuments()[0].id;
+    let read!: { blockTokens: string[] };
+    await act(async () => {
+      read = (await runTool(result.current, "get_document", { id })) as { blockTokens: string[] };
+    });
+    let out!: DocumentUpdateResult;
+    await act(async () => {
+      out = (await runTool(result.current, "update_document", {
+        id,
+        ops: [
+          {
+            op: "replace",
+            index: 1,
+            block: { type: "paragraph", html: "<p>model text</p>" },
+            expectHash: read.blockTokens[1],
+          },
+        ],
+      })) as DocumentUpdateResult;
+    });
+    expect(out.rejected).toEqual([]);
+    expect(out.applied).toBe(1);
+    const stored = JSON.stringify(result.current.getDocument(id)!.blocks);
+    expect(stored).toContain("model text");
+    expect(stored).not.toContain("second block");
+    // ★ The untargeted block is still there — a replace, not a replaceAll.
+    expect(stored).toContain("first block");
+  });
+
+  // ★ The negative half of the round trip, and the reason it is a DIFFERENT
+  // BLOCK OF THE SAME DOCUMENT rather than an invented string: a token is only
+  // useful if it names one block, so the failure this has to exclude is a read
+  // handing out tokens that do not discriminate between rows. The explicit
+  // `not.toBe` is what keeps it from passing on two identical tokens.
+  it("refuses the replace when the token names a DIFFERENT block of the same document", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Doc",
+        blocks: [
+          { type: "paragraph", html: "<p>first block</p>" },
+          { type: "paragraph", html: "<p>second block</p>" },
+        ],
+      });
+    });
+    const id = result.current.listDocuments()[0].id;
+    let read!: { blockTokens: string[] };
+    await act(async () => {
+      read = (await runTool(result.current, "get_document", { id })) as { blockTokens: string[] };
+    });
+    expect(read.blockTokens[0]).not.toBe(read.blockTokens[1]);
+    await expect(
+      runTool(result.current, "update_document", {
+        id,
+        ops: [
+          {
+            op: "replace",
+            index: 1,
+            block: { type: "paragraph", html: "<p>model text</p>" },
+            expectHash: read.blockTokens[0],
+          },
+        ],
+      }),
+    ).rejects.toThrow(/changed by another writer/i);
+    const stored = JSON.stringify(result.current.getDocument(id)!.blocks);
+    expect(stored).toContain("second block");
+    expect(stored).not.toContain("model text");
+  });
+
   // ★★★ THE HASH-MISMATCH REFUSAL IS AN ENGINE MESSAGE, so it arrives in the
   // ENGINE's op-index space and has to be renumbered into the CALLER's before
   // the model or the chat card reads it (`remapOpIndex`). It is remapped today

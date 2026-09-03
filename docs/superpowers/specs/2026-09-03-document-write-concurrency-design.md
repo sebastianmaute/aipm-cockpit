@@ -1,7 +1,8 @@
 # Document write concurrency — design
 
 **Date:** 2026-09-03
-**Status:** SHIPPED 2026-09-03 — `docs/open-followups.md` §349 is CLOSED. ★ This is a DATED DESIGN
+**Status:** IMPLEMENTED 2026-09-03 on branch `fix/turso-env-disclosure`, UNMERGED — no version carries
+it and none was bumped, deliberately. `docs/open-followups.md` §349 is CLOSED. ★ This is a DATED DESIGN
 RECORD: everything below states the tree as it stood on 2026-09-03 BEFORE the slice landed, in the
 present tense, and is deliberately left that way. Read the §349 entry, not this file, for what the
 code does now.

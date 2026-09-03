@@ -200,8 +200,21 @@
   "through `DocOp`'s `expect`, which is currently NOT advertised on the tool schema" — true when written,
   false since 2026-09-03, `docs/open-followups.md` §349). `update_document` now REQUIRES a per-block
   `expectHash` on `replace`/`delete`/`move`, refused on absence or blankness at the tool boundary
-  (`requirePayload`) exactly as `requireToken` refuses the six entity tools; `get_document` hands out a
-  parallel `blockTokens` array to satisfy it. ★★ The MECHANISM differs and that is deliberate: a HASH
+  (`requirePayload`) in the same spirit as `requireToken`; `get_document` hands out a
+  parallel `blockTokens` array to satisfy it.
+  ★★ NOT "exactly as `requireToken` refuses the six entity tools", which this line said and which is
+  wrong twice. `requireToken` covers SEVEN tools — the six `update_*` plus `set_task_dependencies`
+  through `requireTaskWriteToken`; enumerate them rather than trusting a count with
+  `awk '/case "/{c=$0} /requireToken\("|requireTaskWriteToken\(/{print c}' src/app/chat-tools.ts`.
+  And `requirePayload` is STRICTLY STRONGER, not a mirror: `requireToken` tests
+  `typeof sent !== "string" || sent.length === 0`, so `"   "` is ACCEPTED and then fails a layer down
+  as "changed since you read it" — the misleading-reason failure `requirePayload`'s own trim exists to
+  avoid.
+  ★★★ THE TOKENS DO NOT SURVIVE THE WRITE THEY GUARD, and nothing hands out fresh ones:
+  `DocumentUpdateResult` carries no tokens, so after any applied op every token the model still holds
+  for a changed block is stale and every index at or after an insert/delete/move has shifted. The
+  protocol is to re-read with `get_document`, and the `update_document` tool description is the only
+  place the model is told so. ★★ The MECHANISM differs and that is deliberate: a HASH
   (`blockToken`), not the full-block `expect` echo, because `blockChanged` is structural `deepEqual` and a
   model cannot reproduce rich HTML byte-for-byte. ★ The ENGINE (`document-ops.ts`) stays permissive on an
   absent `expectHash` — the hand block editor shares those arms — so the strictness lives at the tool

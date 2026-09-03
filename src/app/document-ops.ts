@@ -26,8 +26,15 @@ export type DocOp =
   //  ★ OPTIONAL, and an absent one must never be read as "expected nothing":
   //   every AI/tool caller omits it and must keep applying.
   //  ★★ `expectHash` is the SAME precondition for a caller that holds a TOKEN
-  //   rather than the block: `get_document` hands one out per block and
-  //   `update_document` returns it. It exists because `blockChanged` is
+  //   rather than the block: `get_document` hands one out per block, and that
+  //   read is the ONLY source — `update_document` returns NONE
+  //   (`DocumentUpdateResult` is `{id,title,blockCount,applied,rejected,removed}`).
+  //   ★★★ SO THE TOKENS DO NOT SURVIVE THE WRITE THEY GUARD: after any applied
+  //   op, every token the caller still holds for a changed block is stale, and
+  //   every index at or after an insert/delete/move has shifted. The protocol
+  //   is re-read — call `get_document` again before the next guarded op — and
+  //   the `update_document` tool description is where a model is told so.
+  //   It exists because `blockChanged` is
   //   structural deepEqual, so `expect` would require a model to reproduce
   //   rich HTML byte-for-byte — which misfires on whitespace and entity
   //   encoding, and an optional precondition that misfires is one the caller
