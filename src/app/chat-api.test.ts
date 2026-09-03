@@ -4,7 +4,6 @@ import {
   buildSystemPrompt,
   closeDanglingToolUses,
   maxOutputTokensFor,
-  readAttachmentData,
   toolsFor,
   toolNamesFor,
   type ApiMessage,
@@ -339,25 +338,10 @@ describe("tool list gating", () => {
   });
 });
 
-// ★★★ REGRESSION GUARD (0b4d23e5 widened AttachmentKind with "html", and this
-// reader's branch stayed a strict `=== "text"` check — an HTML attachment fell
-// into the base64 else-branch and the model received base64 gibberish instead
-// of the HTML source). Assert on the DECODED CONTENT, not merely non-empty, so
-// a base64 string containing no "<p>" cannot pass by accident.
-describe("readAttachmentData — html decodes as text, not base64", () => {
-  it("returns the raw decoded text of an html file", async () => {
-    const file = new File(["<p>hello</p>"], "note.html", { type: "text/html" });
-    const data = await readAttachmentData(file, "html");
-    expect(data).toBe("<p>hello</p>");
-  });
-
-  it("still base64-encodes pdf/image kinds (control: html is not a blanket text switch)", async () => {
-    const file = new File(["not-really-a-pdf"], "note.pdf", { type: "application/pdf" });
-    const data = await readAttachmentData(file, "pdf");
-    expect(data).not.toContain("<p>");
-    expect(Buffer.from(data, "base64").toString("utf8")).toBe("not-really-a-pdf");
-  });
-});
+// The html-decodes-as-text-not-base64 regression this described (0b4d23e5) is
+// now covered at the source: readAttachmentData was retired in favour of the
+// single attachment-ingest.ts pipeline (attachment-ingest.test.ts's "routes
+// html through the html extractor" / "base64-encodes a pdf" pair).
 
 describe("tool variants", () => {
   const ALL = {};

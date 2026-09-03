@@ -27,20 +27,14 @@ import { useConfirm } from "./confirm-dialog";
 import { isPassphraseLocked } from "./secrets-store";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
-import {
-  type AttachmentBlock,
-  type AttachmentError,
-  classifyAttachment,
-  checkAttachmentSize,
-  buildAttachmentBlock, ATTACHMENT_ACCEPT,
-} from "./chat-attachments";
+import { type AttachmentBlock, ATTACHMENT_ACCEPT } from "./chat-attachments";
+import { ingestFile } from "./attachment-ingest";
 import {
   buildSystemPrompt,
   callClaude,
   closeDanglingToolUses,
   CONTINUE_NUDGE,
   INTERRUPTED_TOOL_RESULT,
-  readAttachmentData,
   stringifyResult,
   type TextBlock,
   type ContentBlock,
@@ -604,12 +598,13 @@ function ChatPanelInner({
     setAttachments([]);
   }
 
-  function attachmentErrorText(err: AttachmentError, name: string): string {
-    return t(
-      lang,
-      err === "too-large" ? "chatAttachmentTooLarge" : "chatAttachmentUnsupported",
-      name,
-    );
+  function attachmentErrorText(
+    err: "too-large" | "unsupported-type" | "read-failed" | "encrypted",
+    name: string,
+  ): string {
+    if (err === "too-large") return t(lang, "chatAttachmentTooLarge", name);
+    if (err === "unsupported-type") return t(lang, "chatAttachmentUnsupported", name);
+    return t(lang, "chatAttachmentReadFailed", name);
   }
 
   async function handleFiles(files: FileList | null) {
@@ -620,26 +615,16 @@ function ChatPanelInner({
     // error state per file, so only the LAST failure was ever shown.
     const errors: string[] = [];
     for (const file of Array.from(files)) {
-      const sizeErr = checkAttachmentSize(file.size);
-      if (sizeErr) {
-        errors.push(attachmentErrorText(sizeErr, file.name));
+      const result = await ingestFile(file);
+      if (!result.ok) {
+        errors.push(attachmentErrorText(result.error, file.name));
         continue;
       }
-      const kind = classifyAttachment(file.type, file.name);
-      if (!kind) {
-        errors.push(t(lang, "chatAttachmentUnsupported", file.name));
-        continue;
-      }
-      try {
-        const data = await readAttachmentData(file, kind);
-        staged.push({
-          id: `att-${(attachSeqRef.current += 1)}`,
-          name: file.name,
-          block: buildAttachmentBlock(kind, file.type, data),
-        });
-      } catch {
-        errors.push(t(lang, "chatAttachmentReadFailed", file.name));
-      }
+      staged.push({
+        id: `att-${(attachSeqRef.current += 1)}`,
+        name: file.name,
+        block: result.node.block,
+      });
     }
     if (staged.length > 0) setAttachments((prev) => [...prev, ...staged]);
     if (errors.length > 0) setError(errors.join("\n"));

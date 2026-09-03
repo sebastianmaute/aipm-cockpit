@@ -17,15 +17,9 @@ import { t, type Lang } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
 import { type ProposalContent } from "./use-project-proposal";
-import {
-  classifyAttachment,
-  checkAttachmentSize,
-  buildAttachmentBlock,
-  ATTACHMENT_ACCEPT,
-  type AttachmentKind,
-} from "./chat-attachments";
+import { ATTACHMENT_ACCEPT, type AttachmentBlock } from "./chat-attachments";
+import { ingestBytes, ingestFile } from "./attachment-ingest";
 import { isSharePointEnabled, fetchSharePointFileContent } from "./m365-sharepoint";
-import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { fetchConfluencePage } from "./confluence-api";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useMsAuth } from "./use-ms-auth";
@@ -42,58 +36,6 @@ const MAX_IMPORT_FILES = 10;
 
 /** Step-0 source picker: describe (default), file upload, SharePoint, Confluence. */
 type ImportMethod = "describe" | "file" | "sharepoint" | "confluence";
-
-/** Fallback MIME when a picked file/blob reports an empty content type. */
-function mimeForKind(kind: AttachmentKind): string {
-  if (kind === "pdf") return "application/pdf";
-  if (kind === "image") return "image/png";
-  return "text/plain";
-}
-
-/** Read a File into the shape buildAttachmentBlock expects: base64 (no data:
- *  prefix) for pdf/image, decoded UTF-8 string for text. */
-function readFileData(file: File, kind: AttachmentKind): Promise<string> {
-  if (kind === "office") {
-    const fmt = officeKindOf(file.type, file.name);
-    if (!fmt) return Promise.reject(new Error("read"));
-    return file.arrayBuffer().then((buf) => extractOfficeMarkdown(buf, fmt));
-  }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("read"));
-    // "html" decodes the same way as "text" — buildAttachmentBlock wraps its raw
-    // markup as a text/plain document block (extraction to Markdown is a later
-    // step, not this one). Do NOT add "mail" here: .eml is text but .msg is a
-    // binary CFBF compound file, and TextDecoder would corrupt the bytes its
-    // parser needs — mail gets its own reader when classifyAttachment starts
-    // producing "mail".
-    if (kind === "text" || kind === "html") {
-      reader.onload = () => {
-        if (typeof reader.result !== "string") return reject(new Error("read"));
-        resolve(reader.result);
-      };
-      reader.readAsText(file);
-    } else {
-      reader.onload = () => {
-        if (typeof reader.result !== "string") return reject(new Error("read"));
-        resolve(reader.result.split(",")[1] ?? "");
-      };
-      reader.readAsDataURL(file);
-    }
-  });
-}
-
-/** Base64-encode an ArrayBuffer in chunks (avoids String.fromCharCode call-stack
- *  limits on large buffers). */
-function arrayBufferToBase64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  const CHUNK = 0x8000;
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  }
-  return btoa(binary);
-}
 
 export interface Step0ImportPanelProps {
   lang: Lang;
@@ -161,7 +103,7 @@ export function Step0ImportPanel({
     setSkipped([]);
     onResetAi();
     const dropped: { name: string; reason: "too-large" | "unsupported" | "too-many" }[] = [];
-    const blocks: ReturnType<typeof buildAttachmentBlock>[] = [];
+    const blocks: AttachmentBlock[] = [];
     setReading(true);
     try {
       for (let i = 0; i < files.length; i++) {
@@ -170,20 +112,23 @@ export function Step0ImportPanel({
           dropped.push({ name: file.name, reason: "too-many" });
           continue;
         }
-        if (checkAttachmentSize(file.size)) {
-          dropped.push({ name: file.name, reason: "too-large" });
-          continue;
+        const result = await ingestFile(file);
+        if (!result.ok) {
+          if (result.error === "too-large") {
+            dropped.push({ name: file.name, reason: "too-large" });
+            continue;
+          }
+          if (result.error === "unsupported-type") {
+            dropped.push({ name: file.name, reason: "unsupported" });
+            continue;
+          }
+          // A genuine read error (read-failed/encrypted) abandons the batch:
+          // any `dropped` entries collected before this throw are not
+          // surfaced (the source error is shown instead).
+          throw new Error(result.error);
         }
-        const kind = classifyAttachment(file.type, file.name);
-        if (!kind) {
-          dropped.push({ name: file.name, reason: "unsupported" });
-          continue;
-        }
-        const data = await readFileData(file, kind);
-        blocks.push(buildAttachmentBlock(kind, file.type || mimeForKind(kind), data));
+        blocks.push(result.node.block);
       }
-      // A genuine read error abandons the batch: any `dropped` entries collected
-      // before the throw are not surfaced (the source error is shown instead).
     } catch {
       setImportError(t(lang, "wizardImportErrorSource"));
       setReading(false);
@@ -222,34 +167,23 @@ export function Step0ImportPanel({
         link.name,
         acquireToken,
       );
-      if (checkAttachmentSize(bytes.byteLength)) {
-        setImportError(t(lang, "wizardImportErrorTooLarge"));
+      const result = await ingestBytes(new Uint8Array(bytes), mime, name);
+      if (!result.ok) {
+        setImportError(
+          t(
+            lang,
+            result.error === "too-large"
+              ? "wizardImportErrorTooLarge"
+              : result.error === "unsupported-type"
+                ? "wizardImportErrorUnsupported"
+                : "wizardImportErrorSource",
+          ),
+        );
         return;
       }
-      const kind = classifyAttachment(mime, name);
-      if (!kind) {
-        setImportError(t(lang, "wizardImportErrorUnsupported"));
-        return;
-      }
-      // Derive the office format once (null for non-office kinds). classifyAttachment
-      // returning "office" implies officeKindOf is non-null, but branch on the captured
-      // value rather than a bare `!` assertion; an unexpected null reads as unsupported.
-      const officeFmt = kind === "office" ? officeKindOf(mime, name) : null;
-      if (kind === "office" && !officeFmt) {
-        setImportError(t(lang, "wizardImportErrorUnsupported"));
-        return;
-      }
-      // "html" decodes like "text" here too — see the readFileData comment above
-      // for why "mail" is deliberately excluded (.msg is binary CFBF, not text).
-      const data =
-        kind === "text" || kind === "html"
-          ? new TextDecoder().decode(bytes)
-          : officeFmt
-            ? await extractOfficeMarkdown(bytes, officeFmt)
-            : arrayBufferToBase64(bytes);
       content = [
         { type: "text", text: t(lang, "wizardImportFilePrompt") },
-        buildAttachmentBlock(kind, mime, data),
+        result.node.block,
       ];
     } catch {
       setImportError(t(lang, "wizardImportErrorSource"));

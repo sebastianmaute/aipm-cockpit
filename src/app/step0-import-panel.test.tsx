@@ -98,31 +98,33 @@ describe("Step0ImportPanel multi-file", () => {
     expect(fileInput().getAttribute("accept")).toBe(ATTACHMENT_ACCEPT);
   });
 
-  // ★★★ REGRESSION GUARD (0b4d23e5 widened AttachmentKind with "html" and the
-  // wizard's readFileData branch stayed a strict `=== "text"` check — an HTML
-  // pick fell into the base64 else-branch). Assert on the DECODED content, not
-  // merely non-empty, so a base64 blob with no "<p>" cannot pass by accident.
-  it("reads an html file's raw text, not base64", async () => {
+  // ★★★ REGRESSION GUARD, now for the attachment-ingest orchestrator: an html
+  // pick must reach the model as EXTRACTED MARKDOWN (not raw markup, and not
+  // base64) — assert the script is stripped and the text survives, so neither
+  // a pass-through nor a base64 blob can pass by accident.
+  it("reads an html file as extracted markdown, not raw markup or base64", async () => {
     const onIngest = vi.fn().mockResolvedValue(undefined);
     render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
     selectFileMethod();
-    const html = new File(["<p>hello</p>"], "note.html", { type: "text/html" });
+    const html = new File(["<p>Hi</p><script>x()</script>"], "note.html", { type: "text/html" });
     fireEvent.change(fileInput(), { target: { files: [html] } });
     await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
     const content = onIngest.mock.calls[0][0];
     const block = content[1] as DocumentBlock;
     expect(block.source.type).toBe("text");
-    expect((block.source as { data: string }).data).toBe("<p>hello</p>");
+    const data = (block.source as { data: string }).data;
+    expect(data).toContain("Hi");
+    expect(data).not.toContain("x()");
   });
 });
 
 describe("Step0ImportPanel SharePoint import", () => {
-  // ★★★ REGRESSION GUARD for the SAME defect at the SharePoint site
-  // (step0-import-panel.tsx's onSharePointPick ternary), which is reached
-  // through a separate hand-rolled `kind === "text"` check, not readFileData.
-  it("reads an html SharePoint file's raw text, not base64", async () => {
+  // ★★★ REGRESSION GUARD for the SAME orchestrator behaviour at the
+  // SharePoint site (step0-import-panel.tsx's onSharePointPick, reached
+  // through ingestBytes rather than the file-picker's ingestFile).
+  it("reads an html SharePoint file as extracted markdown, not raw markup or base64", async () => {
     const { fetchSharePointFileContent } = await import("./m365-sharepoint");
-    const bytes = new TextEncoder().encode("<p>hello</p>").buffer;
+    const bytes = new TextEncoder().encode("<p>Hi</p><script>x()</script>").buffer;
     vi.mocked(fetchSharePointFileContent).mockResolvedValue({
       name: "note.html",
       mime: "text/html",
@@ -141,6 +143,8 @@ describe("Step0ImportPanel SharePoint import", () => {
     const content = onIngest.mock.calls[0][0];
     const block = content[1] as DocumentBlock;
     expect(block.source.type).toBe("text");
-    expect((block.source as { data: string }).data).toBe("<p>hello</p>");
+    const data = (block.source as { data: string }).data;
+    expect(data).toContain("Hi");
+    expect(data).not.toContain("x()");
   });
 });

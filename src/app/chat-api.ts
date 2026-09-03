@@ -6,8 +6,7 @@ import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import type { Lang } from "./i18n";
 import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./operating-guide";
-import type { AttachmentBlock, AttachmentKind } from "./chat-attachments";
-import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
+import type { AttachmentBlock } from "./chat-attachments";
 import { buildInsightsPromptBlock } from "./insights/insight-prompt";
 import { buildViewScopeBlock, buildViewStateBlock } from "./view-ai-scope-block";
 import { buildActivityRecapBlock } from "./activity-recap";
@@ -66,41 +65,6 @@ export function maxOutputTokensFor(model: string): number {
  *  max_tokens, so the loop can stitch the full answer without the user prodding. */
 export const CONTINUE_NUDGE =
   "Your previous message was cut off at the length limit. Continue exactly where you left off — do not repeat anything you already wrote.";
-
-/** Read a File into the data shape `buildAttachmentBlock` expects: base64 (no
- *  data: prefix) for pdf/image, decoded UTF-8 text for text. */
-export function readAttachmentData(
-  file: File,
-  kind: AttachmentKind,
-): Promise<string> {
-  if (kind === "office") {
-    const fmt = officeKindOf(file.type, file.name);
-    if (!fmt) return Promise.reject(new Error("unknown office format"));
-    return file.arrayBuffer().then((buf) => extractOfficeMarkdown(buf, fmt));
-  }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error("read failed"));
-    // "html" decodes the same way as "text" — buildAttachmentBlock wraps its raw
-    // markup as a text/plain document block (extraction to Markdown is a later
-    // step, not this one). Do NOT add "mail" here: .eml is text but .msg is a
-    // binary CFBF compound file, and TextDecoder would corrupt the bytes its
-    // parser needs — mail gets its own reader when classifyAttachment starts
-    // producing "mail".
-    if (kind === "text" || kind === "html") {
-      reader.onload = () => resolve(String(reader.result ?? ""));
-      reader.readAsText(file);
-    } else {
-      reader.onload = () => {
-        // readAsDataURL → "data:<mime>;base64,<DATA>"; keep only <DATA>.
-        const result = String(reader.result ?? "");
-        const comma = result.indexOf(",");
-        resolve(comma >= 0 ? result.slice(comma + 1) : result);
-      };
-      reader.readAsDataURL(file);
-    }
-  });
-}
 
 export function buildSystemPrompt(
   lang: Lang,
