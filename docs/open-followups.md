@@ -573,7 +573,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | open |
 | [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | open |
 | [§346](#346-no-mcp-server--the-ai-can-only-act-from-inside-the-app--open) | No MCP server — the AI can only act from inside the app | found 2026-09-03 benchmarking OpenProject 17.8 | L (architecture decision first) | open |
-| [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
+| [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries | found 2026-09-03 benchmarking OpenProject 17.8 | L | open |
 | [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--open) | `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model | found 2026-09-03 in the AI write-concurrency slice | S–M | open |
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
@@ -27053,18 +27053,84 @@ server-side surface at all.
 
 ## 347. No global guardrails on time entries — roadmap, after the AI-write-safety slice — open
 
-**Status:** open — **never machine-verified** (2026-09-03); sequenced, not yet designed.
+**Status:** open — probed and DESIGNED 2026-09-03, not built. The premise needed correcting: reproduce with `grep -rnE 'method: "(POST|PUT|PATCH|DELETE)"' src/app/api/timelog src/app/timelog-api.ts`.
 
 OpenProject 17.8 added instance-wide time-entry validations: a cap per entry, a cap per user per
 day, restriction to a user's defined working hours, a block on non-working days, and a block on
 months already closed. All default to OFF there, so an upgrade changes no behaviour.
 
-Cockpit has the Timelog integration and already holds the data those rules need — working days,
-holidays and absences all exist — so the gap is the rule layer, not the inputs.
+Cockpit has the Timelog integration and already holds the data FOUR of the five rules need — working
+days, holidays, shifts and absences all exist. — CORRECTED 2026-09-03 by the probe below: the fifth,
+the closed-month block, has NO input in the tree at all, so "the gap is the rule layer, not the inputs"
+was true of four rules and false of one.
 
 ★ Sequenced deliberately AFTER the AI-write-safety slice (§348 follows it): that slice touches the
 AI write path, this one touches a different subsystem, and interleaving them would make neither
 reviewable.
+
+**Probed and designed 2026-09-03 — the premise above needed correcting first.**
+
+OpenProject's five validations are CREATE-time checks on entries its own users write. Cockpit never
+writes a time entry, so the analogue here is REVIEW-time: flagging bookings already made elsewhere.
+
+★★ The reproduce in the Status line returns ONE hit and it is NOT a write — the `POST` in
+`timelog-api.ts` is the browser calling Cockpit's OWN proxy with the credentials in the body, and the
+route's upstream call passes `method: "GET"`. A reader who greps for POST and stops has it backwards.
+
+Rule feasibility, measured the same day:
+
+| OpenProject rule | Input in Cockpit | Verdict |
+|---|---|---|
+| Cap per entry | `item.hours` + a policy number | available |
+| Cap per user per day | group by `userId`+`date`; needs no resource link | available, with a scope caveat |
+| Non-working day | `holidaysForCountries` and a shift's zero-hour weekday | available, two sources |
+| Working hours | `Shift.hoursPerWeekday` via the user link | conditional — dark until links exist |
+| Closed month | nothing | ABSENT — needs a new concept |
+
+`grep -rniE "closedMonth|periodLock|lockedPeriod|monthClosed|freezePeriod" src/app --include=*.ts --include=*.tsx | grep -v test`
+returns 0. `grep -n "DEFAULT_WEEK_HOURS" src/app/types.ts` shows the sanctioned fallback for a
+resource with no shift, so sparse shifts are not a blocker.
+
+★★★ **THE LOAD-BEARING FINDING, and it is in `reconcile.ts`, not in the rules.** Bookings are a
+per-device cache while `Workspace.insights` is shared and exported. `clear()` treats a stored insight
+whose key is absent from the detection set as gone: untouched ones are PRUNED, and one the user had
+`acted` on is resolved with `computeClearedOutcome`, which always emits `"improved"`. So on any device
+where TimeLog is not configured, guardrail insights vanish from the shared blob and fabricate a win
+that then rides every AI turn through the outcomes section. `overdueTrend`'s inertness is NOT a
+precedent covering this: an inert detector produces nothing, and producing nothing is what triggers
+`clear()`. Reconcile cannot today distinguish "not violated" from "not evaluated".
+
+Design approved 2026-09-03, not yet planned or built:
+
+- `reconcileInsights` gains a REQUIRED evaluated-scope argument; `clear()` only runs for types that
+  were actually evaluated. Required rather than defaulted-to-all, so a future detector that forgets to
+  declare itself is a compile error instead of silent pruning.
+- A rule counts as evaluated only when bookings are non-null AND that rule is enabled, so switching a
+  rule off FREEZES its insights rather than resolving them into a false win.
+- FIVE `InsightType` members, one per rule, because evaluated scope is keyed per type — a single type
+  with a `data.rule` discriminator would let one enabled rule clear the other four.
+- Rule logic lives in a new pure `timelog-guardrails.ts`; `detect.ts` receives already-computed
+  violations and never learns what a booking is, mirroring `priorOverdueCount`'s null-when-unknown shape.
+- Violations aggregate per (rule × `timelogUserId`), never per booking — per-booking keys would put
+  hundreds of rows in a shared, exported blob and churn the key set on every fetch. The `count` is
+  lower-is-better, which is what `metricAtAction`/`delta` require.
+- Policy rides the existing `TimelogLinks` meta-blob. Only CSV and Markdown need code:
+  `grep -rn "timelogLinksToCsv|timelogLinksToMarkdown" src/app --include=*.ts | grep -v test` returns 4,
+  and those two are hand-written field-by-field projections, while Turso stringifies the whole blob
+  (one write site) and JSON/IndexedDB carry the object whole.
+- `sanitizeTimelogLinks` must return `undefined`, never `{}`, for absent policy — a `{}` adds a key to
+  the CSV/MD projections and moves `golden-workspace.test`'s pinned bytes, which reads as a real format change.
+
+★★ Two rules do NOT match OpenProject's and the gap is deliberate. Theirs restricts entries to a
+CLOCK-TIME window; `TimelogTimeItem` carries `hours` and no start/end, so the closest honest rule is
+"booked more than that weekday's defined hours". And the daily cap sums only the FETCHED customer and
+projects, so it under-reports and can never over-report — false negatives only, which means a clean
+result is not a claim about the person's whole day.
+
+★ NON-GOAL, recorded so it is not read as an oversight: booking time on a day the person was ABSENT
+is the strongest signal available and `AbsenceType` even separates `training` (legitimately bookable)
+from `vacation`/`sick` — but it is not one of OpenProject's five, and this entry is scoped to parity.
+Worth its own entry when someone takes it.
 
 ## 348. A meeting's activity is invisible from the work it concerns — roadmap, after §347 — open
 
