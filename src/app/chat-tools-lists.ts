@@ -52,8 +52,17 @@ export type Tokened<T> = T & { expectedToken?: string };
  *  FALSE PERMIT for every field the summary omits — `RaidSummary` drops
  *  `description` and `mitigation`, so a summary-derived token is byte-identical
  *  before and after an edit to either, and the guard would permit the overwrite
- *  it exists to stop. Pinned by the summary-vs-full-row case in
- *  `ai-entity-token.test.ts`. */
+ *  it exists to stop.
+ *
+ *  ★★ PINNED BY `chat-tools.test.ts`, in the describe "the read path hands out
+ *  a token the write path accepts" — specifically its `it.each(ROUND_TRIP)`
+ *  case's `expect(row.expectedToken).toBe(FRESH_*_TOKEN)`, whose `FRESH_*`
+ *  constants come from the fixture makers rather than from either path, so a
+ *  summary-derived token cannot satisfy them. `ai-entity-token.test.ts` does
+ *  NOT pin it and this comment cited that file for a release: measured, a
+ *  summary-derivation mutant leaves `ai-entity-token.test.ts` fully green
+ *  (`grep -ci summary src/app/ai-entity-token.test.ts` returns 0 — it never
+ *  mentions the concept) while `chat-tools.test.ts` goes red. */
 export function withToken<T extends object>(
   kind: TokenEntity,
   row: T,
