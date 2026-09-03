@@ -2,7 +2,12 @@ import { sanitizeGroup, sanitizeLabels } from "./sanitize";
 import { TOKEN_EXCLUDED, type TokenEntity } from "./ai-entity-token";
 import {
   PRIORITIES,
+  type ChangeItem,
+  type Milestone,
   type Priority,
+  type RaidItem,
+  type Resource,
+  type Stakeholder,
   type Task,
   type TaskDependency,
   type BucketStatus,
@@ -294,6 +299,16 @@ export type ToolDispatcher = {
   setFilters(filters: Filters): void;
   setLanguage(lang: Lang): void;
   listRaid(): RaidSummary[];
+  /** FULL rows, for the concurrency token only.
+   *
+   *  ★★★ THE SUMMARY GETTERS CANNOT SUBSTITUTE. `RaidSummary` and its peers
+   *  omit exactly the rich fields an edit is most likely to touch
+   *  (`description`, `mitigation`, …), so a token derived from a summary would
+   *  be a false PERMIT for every omitted field. These return the stored row. */
+  getRaidRow(id: number): RaidItem | null;
+  getChangeRow(id: number): ChangeItem | null;
+  getMilestoneRow(id: number): Milestone | null;
+  getStakeholderRow(id: number): Stakeholder | null;
   listChanges(): ChangeSummary[];
   listMilestones(): MilestoneSummary[];
   listStakeholders(): StakeholderSummary[];
@@ -315,6 +330,9 @@ export type ToolDispatcher = {
   updateSettings(patch: SettingsUpdateInput): Record<string, unknown>;
   createResource(input: ResourceInput): ResourceSummary;
   getResource(id: number): ResourceSummary | null;
+  /** The FULL stored resource. `getResource` above returns a SUMMARY and is
+   *  the model-facing read; this one exists only to derive the token. */
+  getResourceRow(id: number): Resource | null;
   updateResource(id: number, patch: Partial<ResourceInput>): ResourceSummary | null;
   deleteResource(id: number): boolean;
   getSnapshot(): {

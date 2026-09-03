@@ -10,7 +10,15 @@ import {
   type ToolDispatcher,
   type Filters,
 } from "./chat-tools";
-import { type Task, type RaidItem, type ChangeItem, type Milestone, type TaskDependency } from "./types";
+import {
+  type Task,
+  type RaidItem,
+  type ChangeItem,
+  type Milestone,
+  type Resource,
+  type Stakeholder,
+  type TaskDependency,
+} from "./types";
 import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
 import type { ActivitySummary } from "./history-search";
 
@@ -107,6 +115,25 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     listStakeholders: vi.fn(() => [
       { id: 40, name: "Jane Roe", category: "Sponsor", influence: "High", interest: "Low" },
     ]),
+    // FULL rows, backed by the same makers the summaries above project from,
+    // so a token derived here matches what the list tools describe. Ids match
+    // the `update*`/`delete*` stubs (raid 10, change 20, milestone 30,
+    // stakeholder 40) — a miss must return null, not a stand-in row.
+    getRaidRow: vi.fn((id: number) => (id === 10 ? makeRaidItem() : null)),
+    getChangeRow: vi.fn((id: number) => (id === 20 ? makeChangeItem() : null)),
+    getMilestoneRow: vi.fn((id: number) => (id === 30 ? makeMilestone() : null)),
+    getStakeholderRow: vi.fn((id: number) =>
+      id === 40
+        ? ({
+            id: 40,
+            name: "Jane Roe",
+            category: "Sponsor",
+            influence: "High",
+            interest: "Low",
+            raci: {},
+          } as Stakeholder)
+        : null,
+    ),
     createRaid: vi.fn((input) => ({
       id: 11, category: "R", title: "T", status: "Open", stakeholderIds: [], ...(input as object),
     })),
@@ -144,6 +171,19 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     })),
     getResource: vi.fn((id: number) =>
       id === 7 ? { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" } : null,
+    ),
+    getResourceRow: vi.fn((id: number) =>
+      id === 7
+        ? ({
+            id: 7,
+            firstName: "Ada",
+            lastName: "Lovelace",
+            email: "ada@x.com",
+            roleId: null,
+            utilizationMode: "percent",
+            utilization: {},
+          } as Resource)
+        : null,
     ),
     updateResource: vi.fn((id: number, patch) =>
       id === 7 ? { id: 7, firstName: "Ada", lastName: "Lovelace", ...(patch as object) } : null,

@@ -50,6 +50,10 @@ import { useWorkspace } from "./workspace-context";
 export type RegisterToolDispatcher = Pick<
   ToolDispatcher,
   | "listRaid"
+  | "getRaidRow"
+  | "getChangeRow"
+  | "getMilestoneRow"
+  | "getStakeholderRow"
   | "createRaid"
   | "updateRaid"
   | "deleteRaid"
@@ -134,6 +138,15 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       listChanges: () => changesRef.current.map(toChangeSummary),
       listMilestones: () => milestonesRef.current.map(toMilestoneSummary),
       listStakeholders: () => stakeholdersRef.current.map(toStakeholderSummary),
+
+      // FULL rows, for the concurrency token only — never a model-facing read.
+      // The four `list*` summaries above drop the rich fields (`description`,
+      // `mitigation`, …), so a token hashed from one of them would be identical
+      // before and after an edit to any dropped field: a false PERMIT.
+      getRaidRow: (id: number) => raidRef.current.find((r) => r.id === id) ?? null,
+      getChangeRow: (id: number) => changesRef.current.find((c) => c.id === id) ?? null,
+      getMilestoneRow: (id: number) => milestonesRef.current.find((m) => m.id === id) ?? null,
+      getStakeholderRow: (id: number) => stakeholdersRef.current.find((s) => s.id === id) ?? null,
 
       createRaid: (input) => {
         if (isReadOnly) throw readOnlyError();
