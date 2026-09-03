@@ -15,9 +15,9 @@ import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
 // header row emitted by the encoder; the decoder reads by column name so
 // reordering files by hand still works. Bytes live in the side table, never
 // in this row — see document-asset.ts.
-export const DOCUMENT_ASSETS_CSV_COLUMNS: Array<keyof DocumentAsset> = [
+export const DOCUMENT_ASSETS_CSV_COLUMNS = [
   "id", "name", "mime", "size", "width", "height", "hash", "createdAt",
-];
+] as const satisfies readonly (keyof DocumentAsset)[];
 
 // The default branch already renders `undefined` as "" — spelled out here only
 // because an absent width/height is the COMMON case for a non-raster asset, and

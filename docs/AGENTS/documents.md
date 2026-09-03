@@ -1578,7 +1578,13 @@ no key union, registry or allowlist, so a new channel needs no registration anyw
 ★★ **CORRECTED: this said the file "sits exactly at" 800 and that splitting them "re-breaks the
 gate". Measured, it is 799** — so a split reaches 800, which the gate PASSES (`if (n <= LIMIT)
 continue`), and it takes TWO added lines to fail. Keep them paired anyway; the margin is one line
-and the next edit to this file spends it. ★★ §220 used to carry the wider problem — that
+and the next edit to this file spends it.
+★★ **SUPERSEDED 2026-09-03: the margin argument is void.** The ratchet LIMIT was doubled 800 → 1600,
+so at 799 lines this file has ~800 lines of room and the pairing buys nothing the gate cares about.
+The size cap was the ONLY recorded reason for it (verified: nothing else in this file gives another),
+so unpairing is now free on readability grounds. ★ One consequence to keep in mind either way, and it
+argues for UNpairing: a shared source line hides `setDocumentAssets` from the line-based setter greps
+in [`activity-log.md`](activity-log.md), which is a documented gotcha there. ★★ §220 used to carry the wider problem — that
 `documents-panel.tsx` and `document-block-editors.tsx` were both AT 800 — and **§220 is now CLOSED**:
 three modules were extracted and the two sit well under the cap (measure them with the command below;
 they were 733 and 657 on 2026-08-24). This sentence outlived that fix by pointing at an entry whose

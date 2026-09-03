@@ -4,6 +4,7 @@
 //   `use-chat-dispatcher.ts` (2), following the `chat-task-patch.ts` precedent.
 //   Being its own module also makes it directly testable.
 import { searchChats, type ChatSearchResult } from "./chat-search";
+import { coerceNumericInput } from "./resolve-limit";
 import type { PublishedThreads } from "./chat-threads-registry";
 
 /** Model-supplied tool input, before coercion. */
@@ -43,7 +44,10 @@ export function runChatSearch(
       query: str(input.query),
       since: str(input.since),
       until: str(input.until),
-      limit: typeof input.limit === "number" ? input.limit : undefined,
+      // Coerced, so a model-supplied `"5"` is honoured rather than silently
+      // widening to the default page size. `resolveLimit` still owns the floor,
+      // the positivity fallback and the clamp.
+      limit: coerceNumericInput(input.limit),
     },
     tz,
     published.available,

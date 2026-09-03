@@ -1188,9 +1188,32 @@ function TaskManagerInner() {
   );
 
   // Version history. Turso-only, main-window-only; the hook is inert otherwise.
+  // ★★★ DO NOT RE-GATE THIS `projectId` ON `portfolioMode`. It used to read
+  // `portfolioMode === "turso" ? (tursoProjectId ?? "") : ""`, and that ternary
+  // discarded an id which was ALREADY correct: `use-storage-backend.ts` seeds
+  // `tursoProjectId` from `loadCurrentTursoProjectId()` on mount whatever the
+  // portfolio mode is. So in single-DB Turso STORAGE — a configuration the app
+  // deliberately supports, and which `trendsActive` above and
+  // `workspace-section.tsx`'s `chatTursoMode` both handle by ORing the two
+  // signals — the ternary forced `""`, `use-version-history.ts` folds
+  // `!!projectId` into its `active` predicate, and the whole feature switched
+  // off while its view stayed visible: an empty timeline and a "save version"
+  // that silently did nothing, with no error, because the store was never
+  // reached and `onError` never fired.
+  // ★★★ THE DAMAGE WAS NOT MERELY A DEAD FEATURE. A user who had been on the
+  // Turso PORTFOLIO and was later detached to file mode (`use-storage-file-ops`
+  // writes `savePortfolioMode("file")` on a cross-mode file load and on the
+  // demo load — both non-destructive) still has every version stored under
+  // their real project id. Keying new ones anywhere else would fork the
+  // history and leave the originals unreachable, which is why this resolves to
+  // the SAME id the rest of the app uses rather than to a fallback constant.
+  // ★★ SAFE MODE IS COVERED FOR FREE, and that is load-bearing rather than
+  // incidental: `loadCurrentTursoProjectId()` returns null under `?safe`, so
+  // `tursoProjectId` seeds null, this stays `""`, and the hook is inert —
+  // Safe Mode must never write history under a key normal boot will not read.
   const versionHistory = useVersionHistory({
     config: tursoConfig,
-    projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
+    projectId: tursoProjectId ?? "",
     enabled: settings.storageConfig.kind === "turso" && !isPopout && isModuleEnabled("history", settings.features),
     idleMs: VERSION_IDLE_MS,
     retention: settings.versionHistoryRetention ?? DEFAULT_VERSION_RETENTION,

@@ -18,6 +18,9 @@ import {
   TASK_STATUSES,
 } from "./types";
 import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
+// ★ The ADVERTISED token field is declared beside the code that ENFORCES it
+//   (`requireToken`), so the schema and the refusal cannot drift apart.
+import { expectedTokenField } from "./chat-tools-updates";
 // ★ INTERPOLATED, never a literal number in the prose: search_history's
 //   description tells the model how many events the log retains, and a
 //   hardcoded copy would go quietly false the day the cap moves.
@@ -217,8 +220,16 @@ export const TOOL_DEFS = [
   {
     name: "list_tasks",
     description:
-      "List every task in the app with all fields. Use this whenever you need to know what's in the app.",
-    input_schema: { type: "object", properties: {} },
+      "List the tasks in the app. Use this whenever you need to know what's in the app. Returns `{items, total}` — `total` is ALWAYS the number of tasks that exist, so you never need a second call to count them. Each item carries every task field, with `description` and each `noteLog` entry projected to PLAIN TEXT (the markup is stripped); call get_task when you need a description's original HTML, e.g. before editing it.",
+    input_schema: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "number",
+          description: "Optional. Return at most this many tasks. `total` always reports the full count.",
+        },
+      },
+    },
   },
   {
     name: "get_task",
@@ -247,9 +258,10 @@ export const TOOL_DEFS = [
       type: "object",
       properties: {
         id: { type: "number" },
+        ...expectedTokenField,
         ...taskFields,
       },
-      required: ["id"],
+      required: ["id", "expectedToken"],
     },
   },
   {
@@ -260,6 +272,9 @@ export const TOOL_DEFS = [
       type: "object",
       properties: {
         id: { type: "number", description: "Id of the task whose links are being replaced." },
+        // ★ The seventh tool carrying this field, and the only one outside the
+        //   `update_*` naming: a whole-list replace of a token-COVERED field.
+        ...expectedTokenField,
         dependencies: {
           type: "array",
           description: "The complete new list of predecessor links. An empty array clears them.",
@@ -273,7 +288,7 @@ export const TOOL_DEFS = [
           },
         },
       },
-      required: ["id", "dependencies"],
+      required: ["id", "expectedToken", "dependencies"],
     },
   },
   {
@@ -591,8 +606,8 @@ export const TOOL_DEFS = [
     description: "Update fields on an existing resource. Only the fields you pass change.",
     input_schema: {
       type: "object",
-      properties: { id: { type: "number" }, ...resourceFields },
-      required: ["id"],
+      properties: { id: { type: "number" }, ...expectedTokenField, ...resourceFields },
+      required: ["id", "expectedToken"],
     },
   },
   {
@@ -619,8 +634,8 @@ export const TOOL_DEFS = [
     description: "Update fields on an existing RAID item. Only the fields you pass change.",
     input_schema: {
       type: "object",
-      properties: { id: { type: "number" }, ...raidFields },
-      required: ["id"],
+      properties: { id: { type: "number" }, ...expectedTokenField, ...raidFields },
+      required: ["id", "expectedToken"],
     },
   },
   {
@@ -647,8 +662,8 @@ export const TOOL_DEFS = [
     description: "Update fields on an existing change item. Only the fields you pass change.",
     input_schema: {
       type: "object",
-      properties: { id: { type: "number" }, ...changeFields },
-      required: ["id"],
+      properties: { id: { type: "number" }, ...expectedTokenField, ...changeFields },
+      required: ["id", "expectedToken"],
     },
   },
   {
@@ -674,8 +689,8 @@ export const TOOL_DEFS = [
     description: "Update fields on an existing milestone. Only the fields you pass change.",
     input_schema: {
       type: "object",
-      properties: { id: { type: "number" }, ...milestoneFields },
-      required: ["id"],
+      properties: { id: { type: "number" }, ...expectedTokenField, ...milestoneFields },
+      required: ["id", "expectedToken"],
     },
   },
   {
@@ -702,8 +717,8 @@ export const TOOL_DEFS = [
     description: "Update fields on an existing stakeholder. Only the fields you pass change.",
     input_schema: {
       type: "object",
-      properties: { id: { type: "number" }, ...stakeholderFields },
-      required: ["id"],
+      properties: { id: { type: "number" }, ...expectedTokenField, ...stakeholderFields },
+      required: ["id", "expectedToken"],
     },
   },
   {

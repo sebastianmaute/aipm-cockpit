@@ -28,8 +28,7 @@ import { buildTaskSeedFromAction } from "./action-task-seed";
 import { emptyForm } from "./task-form-context";
 import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
 import { isValidEmail } from "./sanitize";
-import { htmlToPlainText } from "./html-to-text";
-import { renderTemplate, buildStakeholderUpdateVars, type CommTemplateCategory } from "./comm-templates";
+import { renderTemplateForSend, buildStakeholderUpdateVars, type CommTemplateCategory } from "./comm-templates";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { plainTextToHtml } from "./comm-send";
 import { planEscalation, applyEscalation, buildEscalationMail } from "./action-escalate";
@@ -188,13 +187,16 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
         );
         if (!email) return;
         const subject = t(lang, "commsEmailSubject", project?.name ?? "");
-        const tplBody = resolveCommBody("stakeholder-update");
-        const body = tplBody != null
-          ? htmlToPlainText(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
-          : t(lang, "commsEmailBodyTemplate", sh.name);
-        const html = tplBody != null
-          ? sanitizeRichHtml(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
-          : plainTextToHtml(body);
+        // Same guard as the task status-inquiry: an empty default template
+        // falls back to the i18n body rather than drafting an empty message.
+        // See `renderTemplateForSend`'s docstring for the reachability chain.
+        const tpl = renderTemplateForSend(
+          resolveCommBody("stakeholder-update"),
+          "stakeholder-update",
+          buildStakeholderUpdateVars(sh, project?.name ?? ""),
+        );
+        const body = tpl !== null ? tpl.plain : t(lang, "commsEmailBodyTemplate", sh.name);
+        const html = tpl !== null ? sanitizeRichHtml(tpl.rendered) : plainTextToHtml(body);
         commSend.send({ to: email, subject, html, plain: body });
         void recordLearning(action, "acted");
       }

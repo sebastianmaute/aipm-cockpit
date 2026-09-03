@@ -8,6 +8,48 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.279.0] - 2026-09-03 "Sriduangkaew"
+
+### Added
+
+- **The assistant can no longer overwrite a change it never saw.** Every one of
+  the assistant's edit tools — tasks, RAID items, changes, milestones,
+  stakeholders, resources and task dependencies — now has to hand back a marker
+  proving it is editing the row it actually read. If you, a second tab, a Jira
+  sync or a scheduled job changed that row in between, the edit is refused and
+  the assistant re-reads before trying again. Previously the edit went through
+  and your change was silently replaced.
+- **A refused edit explains what to do next.** The inline "edit with AI" flow
+  now says the row moved on and offers to re-read it, rather than reporting a
+  bare failure.
+
+### Changed
+
+- **Asking the assistant for a list is cheaper and faster.** `list_tasks` now
+  reports how many tasks exist alongside the page it returns, so "how many are
+  there?" no longer costs a second call, and it honours a requested page size.
+  Task descriptions and note entries come back as plain text on the list path —
+  the assistant reasons about the words, not the markup. Opening a single task
+  still returns the full formatting, because editing a description needs it.
+- **More of a row reaches the assistant.** Register and resource lookups now
+  expose the full row rather than a trimmed summary, so the assistant answers
+  from what is actually stored.
+
+### Fixed
+
+- **Renaming a person through the assistant works again.** `update_resource`
+  advertised a `name` field it then ignored, so asking the assistant to rename
+  someone silently did nothing.
+- **Version history no longer looks empty on a project it cannot read.** It was
+  being handed a blank project id, so it reported "no versions yet" for
+  documents that had them. It now uses the project id the app already resolved,
+  and says "unavailable" — rather than "none yet" — when version history is
+  switched off entirely.
+- **A message template that renders to nothing falls back to its standard
+  wording** instead of producing an empty draft.
+- **The assistant's chat search honours a page size given as text.** A limit of
+  `"5"` was being dropped and the search quietly widened to its default page.
+
 ## [0.278.1] - 2026-09-02 "Gilman"
 
 ### Fixed

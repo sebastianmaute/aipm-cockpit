@@ -2,20 +2,27 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.278.1";
-export const APP_BUILD_DATE = "2026-09-02"; // 0.278.1: the RACI role picker no longer opens off the right edge of a wide matrix, can be reached and left with the keyboard, and announces itself; adding a paragraph to a document in a narrow pane now selects the new block, so you can type in the thing you just asked for (Gilman)
+export const APP_VERSION = "0.279.0";
+export const APP_BUILD_DATE = "2026-09-03"; // 0.279.0: the assistant's edit tools must now prove they are editing the row they read, so a concurrent change is refused instead of silently overwritten; list responses carry a total and an honoured page size, and descriptions reach the model as plain text (Sriduangkaew)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.278.x line is "Gilman" (Charlotte Perkins Gilman, American author,
+ *  0.279.x line is "Sriduangkaew" (Benjanun Sriduangkaew, Thai SF author,
+ *  "Winterglass" and the Machine Mandate series). Checked dash-agnostically
+ *  BEFORE the bump — the stronger order, and the one the note below argues
+ *  for — with the command quoted further down: zero hits, against a pattern
+ *  proved in the same run to see all 372 named headers and returning 2 for
+ *  "Cadigan" as a positive control. So this one is genuinely fresh rather
+ *  than a permitted reuse.
+ *  0.278.x was "Gilman" (Charlotte Perkins Gilman, American author,
  *  "The Yellow Wall-Paper" and the utopian "Herland"). ★★ Checked
  *  dash-agnostically but AFTER the bump, which is the weaker order this
- *  docstring's own note warns about: the command now matches the two headers
+ *  docstring's own note warns about: the command matched the two headers
  *  the release itself wrote, so the evidence is that BOTH hits are on the
  *  0.278 line and none is on any other. Nothing on a second minor line, so the
- *  name is fresh rather than a permitted reuse:
+ *  name was fresh rather than a permitted reuse:
  *  `grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md | grep -i gilman`
  *  → `[0.278.1]` and `[0.278.0]` only, against a pattern proved to see all 372
  *  named headers.
- *  ★★★ THIS ENTRY AND THE LEAD SENTENCE WERE BOTH MISSING FOR A WHOLE LINE.
+ *  ★★★ THE 0.278.x ENTRY AND ITS LEAD SENTENCE WERE BOTH MISSING FOR A WHOLE LINE.
  *  0.278.0 shipped with `APP_MILESTONE` already "Gilman" while this docstring
  *  still opened "The 0.277.x line is 'Ozeki'" and the ledger jumped 0.277.x
  *  straight to 0.276.x — so the file that IS the source of truth for the
@@ -156,7 +163,7 @@ export const APP_BUILD_DATE = "2026-09-02"; // 0.278.1: the RACI role picker no 
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Gilman";
+export const APP_MILESTONE = "Sriduangkaew";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
