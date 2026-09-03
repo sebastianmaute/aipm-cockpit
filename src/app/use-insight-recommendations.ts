@@ -38,6 +38,8 @@ import { buildRecommendContext } from "./insights/recommend-context";
 import { describeRecommendationPlan } from "./insights/recommend-plan";
 import { buildGroundingIndex } from "./action-ai";
 import { runTool, type ToolDispatcher } from "./chat-tools";
+import { ConcurrencyTokenError } from "./chat-tools-updates";
+import { stampRecommendationTokens } from "./insights/recommend-tokens";
 import { descriptionText } from "./rich-text-projection";
 import { effectivePersonName } from "./resource-foundation";
 import type { ToastKind } from "./use-toast";
@@ -170,11 +172,20 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     },
     [project, today, tasks, resolveInsightEntity],
   );
+  // ★★ THE SINGLE CHOKE POINT FOR STORING A GENERATED RECOMMENDATION — both the
+  // on-demand `useInsightRecommend` and the background
+  // `useInsightRecommendRunner` write through this one callback, so stamping the
+  // concurrency tokens here covers both paths with no change to either hook.
+  // ★ Its identity now moves whenever any of the five entity lists does. Safe by
+  // construction at both consumers: `useInsightRecommend` mirrors its args into
+  // a ref every render and `useInsightRecommendRunner` mirrors each arg into its
+  // own ref, so neither re-subscribes a listener or re-arms an interval on it.
   const applyInsightRecommendation = useCallback(
     (id: number, rec: InsightRecommendation) => {
-      setInsights((prev) => (prev ?? []).map((i) => (i.id === id ? { ...i, recommendation: rec } : i)));
+      const stamped = stampRecommendationTokens(rec, { tasks, raid, changes, milestones, stakeholders });
+      setInsights((prev) => (prev ?? []).map((i) => (i.id === id ? { ...i, recommendation: stamped } : i)));
     },
-    [setInsights],
+    [setInsights, tasks, raid, changes, milestones, stakeholders],
   );
   const {
     generatingId: insightGeneratingId,
@@ -270,13 +281,41 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // silently-skipped stale updates.) We ALWAYS advance the insight to
     // acted/applied afterwards (even on partial failure) so a retry can never
     // re-run the calls that DID commit — that would duplicate create_* entities.
+    //
+    // ★★★ A STALENESS REFUSAL IS COUNTED SEPARATELY, AND IT IS THE ONE FAILURE
+    // THE UNCONDITIONAL ADVANCE ABOVE MUST NOT SWALLOW. The rule's whole
+    // justification is that a failed call MAY have committed, so re-running it
+    // could duplicate `create_*` entities. A `ConcurrencyTokenError` is thrown
+    // by `requireToken` BEFORE the dispatcher is reached, so that call wrote
+    // nothing — and folding it into `failed` would mark the insight applied,
+    // making a recommendation that was correctly refused as stale unretryable
+    // and, to the user, indistinguishable from one that partly landed. That is
+    // strictly worse than the overwrite the token exists to prevent.
+    // ★★ MATCHED ON THE ERROR TYPE, never its message: both messages are
+    // model-facing recovery instructions and may be reworded at any time.
     let failed = 0;
+    let stale = 0;
+    let committed = 0;
     for (const call of calls) {
       try {
         await runTool(dispatcher, call.name, call.input as Record<string, unknown>);
-      } catch {
-        failed++;
+        committed++;
+      } catch (e) {
+        if (e instanceof ConcurrencyTokenError) stale++;
+        else failed++;
       }
+    }
+    // ★★★ THE ONE BEHAVIOUR CHANGE, AND IT IS DELIBERATELY THE NARROWEST THAT
+    // CLOSES THE DROP: nothing committed AND every failure was a refusal ⇒ no
+    // write happened at all, so the duplicate-create hazard that forces the
+    // advance does not exist and the insight is left exactly where it was. The
+    // recommendation stays `proposed`, so the user can regenerate it against
+    // the moved data. Any run with a HARD failure, or with even one committed
+    // call, still advances exactly as before — a hard failure may have written
+    // something, and this task is not the place to re-open that rule.
+    if (committed === 0 && failed === 0 && stale > 0) {
+      showToast("error", t(lang, "insightRecommendationStale"));
+      return;
     }
     setInsights((prev) =>
       (prev ?? []).map((i) =>
@@ -293,6 +332,13 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       ),
     );
     logActivityAs("ai", "ai.insightRecommendation", insight.id, rec.summary);
+    // ★ The stale message wins over the generic one when both kinds occurred:
+    // "some of this was refused because the data moved — generate a new one" is
+    // actionable, where "couldn't be applied" leaves the user with no next step.
+    if (stale > 0) {
+      showToast("error", t(lang, "insightRecommendationStalePartial"));
+      return;
+    }
     showToast(
       failed > 0 ? "error" : "info",
       t(lang, failed > 0 ? "insightRecommendationApplyFailed" : "insightRecommendationApplied"),

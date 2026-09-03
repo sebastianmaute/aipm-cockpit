@@ -4101,6 +4101,8 @@ export const de: Record<TranslationKey, string> = {
   insightRecommendationError: "Es konnte gerade keine Empfehlung generiert werden.",
   insightRecommendationApplied: "Empfehlung angewendet.",
   insightRecommendationApplyFailed: "Einige Änderungen dieser Empfehlung konnten nicht angewendet werden.",
+  insightRecommendationStale: "Diese Empfehlung wurde nicht angewendet — die Projektdaten haben sich seit der Erstellung geändert. Erstellen Sie eine neue Empfehlung.",
+  insightRecommendationStalePartial: "Einige Änderungen wurden nicht angewendet — die Projektdaten haben sich seit der Erstellung dieser Empfehlung geändert. Erstellen Sie für den Rest eine neue Empfehlung.",
   insightRecommendationSkipped: "{0} vorgeschlagene Änderung(en) sind nicht mehr anwendbar und werden übersprungen.",
   insightRecommendationGenerating: "Wird erstellt…",
   insightRecommendationSuggests: "KI schlägt vor: {0}",

@@ -135,6 +135,32 @@ export const expectedTokenField = {
   },
 };
 
+/** The refusal `requireToken` throws, as its own type.
+ *
+ *  ★★★ IT EXISTS SO A CALLER CAN TELL "REFUSED, NOTHING WAS WRITTEN" APART FROM
+ *  EVERY OTHER TOOL FAILURE, and that distinction is load-bearing rather than
+ *  cosmetic. `use-insight-recommendations` replays a stored recommendation
+ *  inside a `try/catch` that advances the insight to `applied` even when a call
+ *  failed — correct for a failure that MAY have committed (re-running it would
+ *  duplicate `create_*` entities), and wrong for this one, which is refused
+ *  BEFORE the dispatcher is reached. Without a type the two are one bucket, and
+ *  a legitimately-stale recommendation becomes a silent, unretryable drop.
+ *
+ *  ★★ MATCH ON THE TYPE, NEVER THE MESSAGE. Both messages are model-facing
+ *  recovery instructions (see below) and may be reworded for the model at any
+ *  time; a caller sniffing them would break silently, in the permissive
+ *  direction.
+ *
+ *  ★ `extends Error` is safe at this repo's `target: ES2017` — native classes,
+ *  so `instanceof` holds. It would NOT be under a downlevel ES5 target, where
+ *  TypeScript's subclass emit breaks the prototype chain. */
+export class ConcurrencyTokenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConcurrencyTokenError";
+  }
+}
+
 /** Re-derive the token for `current` and compare it with what the model sent.
  *  Throws on absence and on mismatch; returns nothing when the write may
  *  proceed.
@@ -162,13 +188,13 @@ export function requireToken(
 ): void {
   const sent = input.expectedToken;
   if (typeof sent !== "string" || sent.length === 0) {
-    throw new Error(
+    throw new ConcurrencyTokenError(
       `expectedToken is required for ${label}. Read the ${label} first and pass the token it returns.`,
     );
   }
   const now = entityToken(kind, current);
   if (sent !== now) {
-    throw new Error(
+    throw new ConcurrencyTokenError(
       `${label} changed since you read it — re-read it and retry with the new expectedToken.`,
     );
   }

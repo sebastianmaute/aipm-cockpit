@@ -4209,6 +4209,8 @@ const enUS = {
   insightRecommendationError: "Couldn't generate a recommendation right now.",
   insightRecommendationApplied: "Recommendation applied.",
   insightRecommendationApplyFailed: "Some changes in this recommendation couldn't be applied.",
+  insightRecommendationStale: "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.",
+  insightRecommendationStalePartial: "Some changes weren't applied — the project data changed since this recommendation was generated. Generate a new one for the rest.",
   insightRecommendationSkipped: "{0} proposed change(s) no longer apply and will be skipped.",
   insightRecommendationGenerating: "Generating…",
   insightRecommendationSuggests: "AI suggests: {0}",
