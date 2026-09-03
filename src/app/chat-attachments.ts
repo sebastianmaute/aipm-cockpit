@@ -32,7 +32,7 @@ export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024; // 20 MB
 // Exported narrower types
 // ---------------------------------------------------------------------------
 
-export type AttachmentKind = "pdf" | "image" | "text" | "office";
+export type AttachmentKind = "pdf" | "image" | "text" | "office" | "html" | "mail";
 export type AttachmentError = "unsupported-type" | "too-large";
 
 // ---------------------------------------------------------------------------
@@ -119,12 +119,14 @@ export function classifyAttachment(
     return SUPPORTED_IMAGE_MIMES.has(mime) ? "image" : null;
   }
 
-  // --- Text (read natively as UTF-8; Claude parses HTML/VTT without a lib) ---
+  // --- HTML (extracted to Markdown; raw markup would spend the budget on chrome) ---
+  if (mime === "text/html") return "html";
+
+  // --- Text (read natively as UTF-8; Claude parses VTT without a lib) ---
   if (
     mime === "text/plain" ||
     mime === "text/markdown" ||
     mime === "text/csv" ||
-    mime === "text/html" ||
     mime === "text/vtt"
   ) {
     return "text";
@@ -135,7 +137,7 @@ export function classifyAttachment(
   if (ext !== "" && PDF_EXTENSIONS.has(ext)) return "pdf";
   if (ext !== "" && IMAGE_EXTENSIONS.has(ext)) return "image";
   if (ext !== "" && TEXT_EXTENSIONS.has(ext)) return "text";
-  if (ext !== "" && HTML_EXTENSIONS.has(ext)) return "text";
+  if (ext !== "" && HTML_EXTENSIONS.has(ext)) return "html";
 
   // --- Office (OOXML: docx/xlsx/xlsm/pptx) — MIME or extension ---
   if (officeKindOf(mimeType, fileName)) return "office";
@@ -189,6 +191,14 @@ export function buildAttachmentBlock(
 
   if (kind === "office") {
     // `data` is already the extracted Markdown (produced by the file reader).
+    return {
+      type: "document",
+      source: { type: "text", media_type: "text/plain", data },
+    };
+  }
+
+  if (kind === "html" || kind === "mail") {
+    // `data` is already extracted Markdown, produced by the ingest orchestrator.
     return {
       type: "document",
       source: { type: "text", media_type: "text/plain", data },

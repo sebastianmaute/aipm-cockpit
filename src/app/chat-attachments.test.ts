@@ -49,8 +49,8 @@ describe("classifyAttachment — mime type", () => {
     expect(classifyAttachment("text/csv", "data.csv")).toBe("text");
   });
 
-  it("classifies text/html as text", () => {
-    expect(classifyAttachment("text/html", "page.html")).toBe("text");
+  it("classifies text/html as html, not text", () => {
+    expect(classifyAttachment("text/html", "page.html")).toBe("html");
   });
 
   it("classifies text/vtt as text", () => {
@@ -116,12 +116,12 @@ describe("classifyAttachment — extension fallback", () => {
     expect(classifyAttachment(GENERIC, "data.csv")).toBe("text");
   });
 
-  it("falls back to .html extension → text", () => {
-    expect(classifyAttachment(GENERIC, "page.HTML")).toBe("text");
+  it("falls back to .html extension → html", () => {
+    expect(classifyAttachment(GENERIC, "page.HTML")).toBe("html");
   });
 
-  it("falls back to .htm extension → text", () => {
-    expect(classifyAttachment(GENERIC, "page.htm")).toBe("text");
+  it("falls back to .htm extension → html", () => {
+    expect(classifyAttachment(GENERIC, "page.htm")).toBe("html");
   });
 
   it("falls back to .vtt extension → text", () => {
@@ -369,5 +369,24 @@ describe("ATTACHMENT_ACCEPT", () => {
   it("lists no token twice", () => {
     const tokens = ATTACHMENT_ACCEPT.split(",");
     expect(new Set(tokens).size).toBe(tokens.length);
+  });
+});
+
+describe("html classification", () => {
+  it("classifies html as its own kind, not as text", () => {
+    expect(classifyAttachment("text/html", "page.html")).toBe("html");
+    expect(classifyAttachment("application/octet-stream", "page.htm")).toBe("html");
+  });
+
+  it("still classifies plain text as text", () => {
+    expect(classifyAttachment("text/plain", "notes.txt")).toBe("text");
+    expect(classifyAttachment("text/csv", "rows.csv")).toBe("text");
+  });
+
+  it("builds a text block for html, since the caller passes extracted Markdown", () => {
+    expect(buildAttachmentBlock("html", "text/html", "## Title")).toEqual({
+      type: "document",
+      source: { type: "text", media_type: "text/plain", data: "## Title" },
+    });
   });
 });

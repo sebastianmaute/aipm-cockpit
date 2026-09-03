@@ -6,7 +6,7 @@ import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import type { Lang } from "./i18n";
 import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./operating-guide";
-import type { AttachmentBlock } from "./chat-attachments";
+import type { AttachmentBlock, AttachmentKind } from "./chat-attachments";
 import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { buildInsightsPromptBlock } from "./insights/insight-prompt";
 import { buildViewScopeBlock, buildViewStateBlock } from "./view-ai-scope-block";
@@ -71,7 +71,7 @@ export const CONTINUE_NUDGE =
  *  data: prefix) for pdf/image, decoded UTF-8 text for text. */
 export function readAttachmentData(
   file: File,
-  kind: "pdf" | "image" | "text" | "office",
+  kind: AttachmentKind,
 ): Promise<string> {
   if (kind === "office") {
     const fmt = officeKindOf(file.type, file.name);
