@@ -374,3 +374,143 @@ describe("parseMimeMessage", () => {
     expect(m.parts.length).toBeLessThan(partCount);
   }, 20000);
 });
+
+// RFC 5322 mandates CRLF on the wire, but LF-only .eml is what Unix mail
+// stores, mbox exports, git send-email and anything that has been through a
+// text-mode tool produce. Every test above joins with CRLF via `msg`, which
+// is exactly why a splitter that required a literal CRLF before each
+// delimiter passed a fully green suite while silently losing EVERY
+// attachment of an LF-only message and handing the raw MIME source — part
+// headers and base64 blobs included — back as the mail body.
+describe("parseMimeMessage line endings", () => {
+  const msgLf = (lines: string[]) => lines.join("\n");
+
+  const multipart = [
+    "MIME-Version: 1.0",
+    'Content-Type: multipart/mixed; boundary="B"', "",
+    "preamble that is not a part",
+    "--B", "Content-Type: text/plain", "", "hello",
+    "--B", 'Content-Type: text/csv; name="rows.csv"',
+    "Content-Transfer-Encoding: base64", "", "YSxiCjEsMg==",
+    "--B--", "",
+  ];
+
+  // Asserts the SAME observations for every ending: nothing about a part
+  // count, a filename, the decoded bytes or the diagnostics may depend on
+  // which line break the sender used.
+  const expectSplitCleanly = (raw: string) => {
+    const m = parseMimeMessage(raw);
+    expect(m.parts).toHaveLength(2);
+    expect(m.parts[0].mimeType).toBe("text/plain");
+    // Exact, not toContain: the line break in front of a delimiter belongs
+    // to the delimiter, so it must NOT be left on the end of the part before
+    // it. A `toContain` assertion passes either way.
+    expect(m.parts[0].text).toBe("hello");
+    expect(m.parts[1].fileName).toBe("rows.csv");
+    expect(new TextDecoder().decode(m.parts[1].bytes)).toBe("a,b\n1,2");
+    // The closing "--B--" was recognised as a terminator under this ending.
+    expect(m.diagnostics).toEqual([]);
+    return m;
+  };
+
+  it("splits an LF-only multipart body and keeps its attachment", () => {
+    expectSplitCleanly(msgLf(multipart));
+  });
+
+  it("splits a CRLF multipart body identically (the control)", () => {
+    expectSplitCleanly(multipart.join("\r\n"));
+  });
+
+  // Headers rewritten by one tool, body left alone by another — the shape a
+  // real mixed-ending message takes. splitHeaders already accepted "\r?\n",
+  // so this direction reached the multipart splitter and died there.
+  it("splits a message with CRLF headers and an LF-only body", () => {
+    expectSplitCleanly(multipart.slice(0, 3).join("\r\n") + "\r\n" + multipart.slice(3).join("\n"));
+  });
+
+  it("splits a message with LF-only headers and a CRLF body", () => {
+    expectSplitCleanly(multipart.slice(0, 3).join("\n") + "\n" + multipart.slice(3).join("\r\n"));
+  });
+
+  // The endings alternate delimiter by delimiter, so no single "detect the
+  // message's ending once" shortcut can pass this: the leading break and the
+  // trailing break of one delimiter can even differ from each other.
+  it("splits a body whose delimiters alternate between CRLF and LF", () => {
+    const raw =
+      'Content-Type: multipart/mixed; boundary="B"\r\n\r\n' +
+      "--B\nContent-Type: text/plain\n\nhello\r\n" +
+      "--B\r\nContent-Type: text/csv; name=\"rows.csv\"\nContent-Transfer-Encoding: base64\r\n\r\nYSxiCjEsMg==\n" +
+      "--B--\n";
+    expectSplitCleanly(raw);
+  });
+
+  // ★★ SECURITY. The widening above must not become a forgery hole: the
+  // leading-break requirement is the whole §5.1.1 anchor. The CRLF case is
+  // pinned by "does not let boundary text mid-line forge a second part"
+  // above; this is the same message under the ending that used to collapse
+  // it into one undivided blob, where the anchoring was only VACUOUSLY safe.
+  const forged = [
+    'Content-Type: multipart/mixed; boundary="B"', "",
+    "--B", "Content-Type: text/plain", "",
+    "benign text --B", "Content-Type: application/x-forged",
+    'Content-Disposition: attachment; filename="evil.exe"', "",
+    "FORGED",
+    "--B--", "",
+  ];
+
+  const expectNoForgedPart = (raw: string) => {
+    const m = parseMimeMessage(raw);
+    expect(m.parts).toHaveLength(1);
+    expect(m.parts[0].mimeType).toBe("text/plain");
+    expect(m.parts.map((p) => p.mimeType)).not.toContain("application/x-forged");
+    expect(m.parts.map((p) => p.fileName)).toEqual([null]);
+    // The forged block stayed inside the benign part's text.
+    expect(m.parts[0].text).toContain("benign text --B");
+    expect(m.parts[0].text).toContain("FORGED");
+    // Non-vacuity, and the assertion that makes this a real test rather than
+    // a tautology: the message DID split — its real "--B" delimiters and its
+    // "--B--" terminator were all recognised under this ending. Without it,
+    // a parser that simply failed to split anything at all would pass every
+    // line above, which is exactly what the pre-fix code did for LF-only.
+    expect(m.diagnostics).toEqual([]);
+  };
+
+  it("does not let mid-line boundary text forge a part in an LF-only message", () => {
+    expectNoForgedPart(msgLf(forged));
+  });
+
+  it("does not let mid-line boundary text forge a part in a mixed-ending message", () => {
+    // CRLF everywhere except the line carrying the mid-line marker, which
+    // ends in a bare LF — so the forged headers follow a real line break and
+    // only the marker's own position rejects them.
+    const raw = forged.join("\r\n").replace("benign text --B\r\n", "benign text --B\n");
+    expect(raw).toContain("benign text --B\nContent-Type: application/x-forged");
+    expectNoForgedPart(raw);
+  });
+
+  it("does not treat a single-dash line as a delimiter in an LF-only message", () => {
+    const m = parseMimeMessage(msgLf([
+      'Content-Type: multipart/mixed; boundary="B"', "",
+      "--B", "Content-Type: text/plain", "", "line one", "-B", "line two",
+      "--B--", "",
+    ]));
+    expect(m.parts).toHaveLength(1);
+    expect(m.parts[0].text).toBe("line one\n-B\nline two");
+  });
+
+  // The C2 property (an inner boundary that extends the outer one) under the
+  // widened anchor: "--B1" must not be consumed by the outer "--B" marker.
+  it("does not let an outer boundary swallow an extending inner one in an LF-only message", () => {
+    const m = parseMimeMessage(msgLf([
+      'Content-Type: multipart/mixed; boundary="B"', "",
+      "--B",
+      'Content-Type: multipart/mixed; boundary="B1"', "",
+      "--B1", "Content-Type: text/plain", "", "inner part",
+      "--B1--",
+      "--B--", "",
+    ]));
+    expect(m.parts).toHaveLength(1);
+    expect(m.parts[0].text).toBe("inner part");
+    expect(m.diagnostics.join(" ")).not.toContain("no closing boundary");
+  });
+});

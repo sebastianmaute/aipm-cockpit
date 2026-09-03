@@ -15,12 +15,22 @@
 // the cap even on its own). All boundary/part splitting uses
 // String.prototype.indexOf on a literal marker, never a backtracking regex,
 // so it stays linear in input size — and RFC 2046 §5.1.1 anchored: a
-// delimiter must be a whole line (preceded by CRLF, followed by CRLF/"--"),
-// so boundary text appearing mid-line — accidentally in quoted text, or
-// deliberately to forge a part with attacker-chosen headers — is not
-// treated as a split point.
+// delimiter must be a whole line (preceded by a line break, followed by a
+// line break or "--"), so boundary text appearing mid-line — accidentally
+// in quoted text, or deliberately to forge a part with attacker-chosen
+// headers — is not treated as a split point.
+//
+// A "line break" here is CRLF or a bare LF, matched independently on each
+// side of the delimiter — the same "\r?\n" the header splitter already
+// accepts. RFC 5322 mandates CRLF on the wire, but LF-only .eml is what
+// Unix mail stores, mbox exports, git send-email and any text-mode tool
+// produce, and a message whose headers and body carry DIFFERENT endings is
+// a real hazard rather than a contrived one. Accepting both widens the
+// ANCHOR, never weakens it: a "--boundary" that does not begin a line is
+// still rejected under either ending, so the forgery this guard exists to
+// stop remains impossible.
 
-const CRLF = "\r\n";
+const LF = "\n";
 const textEncoder = new TextEncoder();
 
 export const MAX_MIME_DEPTH = 10;
@@ -286,9 +296,14 @@ function walkNode(headers: Map<string, string>, body: string, depth: number, out
 }
 
 /**
- * RFC 2046 §5.1.1: a delimiter is CRLF, then "--boundary", then either more
- * CRLF (a part follows) or "--" (terminator) — optionally with linear
- * whitespace before that CRLF/"--". Scanned with indexOf (never a
+ * RFC 2046 §5.1.1: a delimiter is a line break, then "--boundary", then
+ * either another line break (a part follows) or "--" (terminator) —
+ * optionally with linear whitespace before it. A line break is CRLF or a
+ * bare LF, matched independently on each side, so an LF-only message — and
+ * one that mixes the two — splits exactly like a CRLF one, while a match
+ * that does not begin a line is still rejected. The line break preceding a
+ * delimiter belongs to the delimiter, not to the part before it, so it is
+ * trimmed off that part's raw text whichever form it took. Scanned with indexOf (never a
  * backtracking regex) on the literal marker text, so it stays linear even
  * over a body engineered to contain many near-miss occurrences: a rejected
  * (mid-line) match advances the search position by exactly one character,
@@ -297,10 +312,10 @@ function walkNode(headers: Map<string, string>, body: string, depth: number, out
  * rejection.
  */
 function walkMultipartChildren(body: string, boundary: string, depth: number, out: MimePart[], diagnostics: string[], budget: Budget): void {
-  const marker = CRLF + "--" + boundary;
-  // Prepend a CRLF so the very first delimiter — which has no literal
-  // leading CRLF in `body` — matches the same way as every later one.
-  const scan = CRLF + body;
+  const marker = "--" + boundary;
+  // Prepend a bare LF so the very first delimiter — which has no literal
+  // leading line break in `body` — matches the same way as every later one.
+  const scan = LF + body;
   let cursor = 0;
   let partStart = -1; // -1 while still in the preamble, before any delimiter.
   let sawTerminator = false;
@@ -308,12 +323,27 @@ function walkMultipartChildren(body: string, boundary: string, depth: number, ou
   for (;;) {
     const idx = scan.indexOf(marker, cursor);
     if (idx === -1) break;
+
+    // The delimiter must BEGIN a line: the character before it has to be the
+    // LF of a CRLF or of a bare LF. This is the §5.1.1 anchoring — without
+    // it, "--boundary" occurring mid-line in body content would split, and
+    // an attacker could forge a sibling part with headers of their choosing.
+    if (idx === 0 || scan[idx - 1] !== LF) {
+      cursor = idx + 1;
+      continue;
+    }
+    // That LF, plus a CR in front of it if present, is the delimiter's own
+    // leading break — it is not part of the preceding part's body.
+    const breakStart = idx >= 2 && scan[idx - 2] === "\r" ? idx - 2 : idx - 1;
     const afterMarker = idx + marker.length;
 
     let i = afterMarker;
     while (i < scan.length && (scan[i] === " " || scan[i] === "\t")) i++;
     const isTerminator = scan.startsWith("--", i);
-    const isDelimiter = isTerminator || scan.startsWith(CRLF, i) || i === scan.length;
+    // Length of the trailing break, resolved independently of the leading
+    // one so a message that mixes endings still splits.
+    const trailingBreak = scan[i] === LF ? 1 : scan[i] === "\r" && scan[i + 1] === LF ? 2 : 0;
+    const isDelimiter = isTerminator || trailingBreak > 0 || i === scan.length;
     if (!isDelimiter) {
       // Marker text mid-line — a coincidental match (or a forged part
       // attempt). Keep scanning forward past it rather than splitting here.
@@ -326,7 +356,7 @@ function walkMultipartChildren(body: string, boundary: string, depth: number, ou
         noteOnce(budget, "parts", diagnostics, "part count exceeded the cap");
         break;
       }
-      const partRaw = scan.slice(partStart, idx);
+      const partRaw = scan.slice(partStart, breakStart);
       const { headers, body: partBody, diagnostics: hd } = splitHeaders(partRaw);
       diagnostics.push(...hd);
       walkNode(headers, partBody, depth + 1, out, diagnostics, budget);
@@ -334,7 +364,7 @@ function walkMultipartChildren(body: string, boundary: string, depth: number, ou
 
     if (isTerminator) { sawTerminator = true; break; }
 
-    partStart = i + CRLF.length; // skip the CRLF that follows the delimiter
+    partStart = i + trailingBreak; // skip the line break that follows the delimiter
     cursor = partStart;
   }
 
