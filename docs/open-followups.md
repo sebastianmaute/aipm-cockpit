@@ -27186,6 +27186,14 @@ exactly how it was missed when this slice was planned; the anti-vacuity case in
 array** rather than off a file. **A claim about the tool surface derived from one defs file is
 incomplete by construction** — enumerate against `TOOL_DEFS` itself.
 
+★★ DESIGNED 2026-09-03 in `docs/superpowers/specs/2026-09-03-document-write-concurrency-design.md`,
+not yet planned. Two things that design established which change this entry: closing it is NOT
+advertising-only — the chosen mechanism is a per-block HASH (`blockToken`) rather than the full-block
+`expect` echo, because `blockChanged` is structural `deepEqual` and a model cannot reliably reproduce
+rich HTML byte-for-byte; and the check CANNOT sit in the tool layer, because `applyOps` walks an
+evolving list, so `expectHash` joins `expect` on the three engine arms while required-ness stays at
+the tool layer. The `rejected` reporting this needs already exists and only wants new messages.
+
 ## 350. The insight recommendation token does not cover the model round-trip — open
 
 **Status:** open — **never machine-verified** (2026-09-03). This is a **disclosed bound**, stated in
