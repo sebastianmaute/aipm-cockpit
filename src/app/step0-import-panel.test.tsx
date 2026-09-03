@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Step0ImportPanel } from "./step0-import-panel";
 import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
+import { ATTACHMENT_ACCEPT } from "./chat-attachments";
 
 const baseProps = {
   lang: "en-US" as const,
@@ -62,5 +63,16 @@ describe("Step0ImportPanel multi-file", () => {
     });
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
     expect(onIngest).not.toHaveBeenCalled();
+  });
+
+  // ★★ The wizard's hand-written accept string was a strict subset of the
+  //  assistant's — missing .markdown and every MIME token. Assert against the
+  //  shared constant, not a literal, or this test drifts the same way.
+  it("offers the shared accept list, not a hand-written subset", () => {
+    render(<Step0ImportPanel {...baseProps} onIngest={vi.fn()} />);
+    selectFileMethod();
+    const input = document.querySelector('input[type="file"]');
+    expect(input).not.toBeNull();
+    expect(input?.getAttribute("accept")).toBe(ATTACHMENT_ACCEPT);
   });
 });
