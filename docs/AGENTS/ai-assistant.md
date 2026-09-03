@@ -15,8 +15,11 @@
 
 - **Wire layer:** `chat-panel.tsx` is the React surface; the non-React WIRE LAYER (Anthropic protocol types
   `TextBlock`/`ContentBlock`/`SystemBlock`/`ApiMessage`/`DisplayItem`, `callClaude`, `buildSystemPrompt`,
-  `systemBlocksText`, `readAttachmentData`, `stringifyResult`) lives in pure i18n-free `chat-api.ts` — import
-  from there, NOT chat-panel. Calls Anthropic directly (browser,
+  `systemBlocksText`, `stringifyResult`) lives in pure i18n-free `chat-api.ts` — import
+  from there, NOT chat-panel. File-attachment reading/classifying/extracting is a separate pipeline,
+  `ingestFile`/`ingestBytes` in `attachment-ingest.ts`, shared by chat-panel and the wizard's
+  Step0ImportPanel (`readAttachmentData` used to live in `chat-api.ts`; it was retired when that
+  pipeline was unified). Calls Anthropic directly (browser,
   `anthropic-dangerous-direct-browser-access`). `buildSystemPrompt` returns `SystemBlock[]`, NOT a string.
   ★★ Anthropic prompt caching is PREFIX-based: stable/cacheable content (instructions + operating-guide text)
   MUST come FIRST with `cache_control:{type:"ephemeral"}` breakpoint after it, and volatile data (today, task

@@ -17,8 +17,9 @@ import { t, type Lang } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
 import { type ProposalContent } from "./use-project-proposal";
-import { ATTACHMENT_ACCEPT, type AttachmentBlock } from "./chat-attachments";
+import { classifyAttachment, ATTACHMENT_ACCEPT, type AttachmentBlock } from "./chat-attachments";
 import { ingestBytes, ingestFile } from "./attachment-ingest";
+import { officeKindOf } from "./office-extract";
 import { isSharePointEnabled, fetchSharePointFileContent } from "./m365-sharepoint";
 import { fetchConfluencePage } from "./confluence-api";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
@@ -169,12 +170,21 @@ export function Step0ImportPanel({
       );
       const result = await ingestBytes(new Uint8Array(bytes), mime, name);
       if (!result.ok) {
+        // classifyAttachment returning "office" implies officeKindOf is
+        // non-null, so this is provably unreachable — kept as a defensive
+        // restatement of the pre-orchestrator check so a genuinely
+        // unresolvable office format still reports "unsupported", not the
+        // generic source-failure message a corrupt/unreadable file gets.
+        const unresolvableOffice =
+          result.error === "read-failed" &&
+          classifyAttachment(mime, name) === "office" &&
+          !officeKindOf(mime, name);
         setImportError(
           t(
             lang,
             result.error === "too-large"
               ? "wizardImportErrorTooLarge"
-              : result.error === "unsupported-type"
+              : result.error === "unsupported-type" || unresolvableOffice
                 ? "wizardImportErrorUnsupported"
                 : "wizardImportErrorSource",
           ),

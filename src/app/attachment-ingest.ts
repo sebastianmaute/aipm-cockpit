@@ -18,6 +18,7 @@ import {
 } from "./chat-attachments";
 import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { extractHtmlMarkdown } from "./html-extract";
+import { bytesToBase64 } from "./base64";
 
 export type IngestNode = {
   fileName: string;
@@ -31,13 +32,26 @@ export type IngestResult =
   | { ok: true; node: IngestNode }
   | { ok: false; error: AttachmentError | "read-failed" | "encrypted" };
 
-export function bytesToBase64(bytes: Uint8Array): string {
-  let s = "";
-  // Chunked so a large attachment cannot blow the argument limit of String.fromCharCode.
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(s);
+/** Fallback `media_type` for an image whose `File.type` is empty — common on
+ *  drag-drop. buildAttachmentBlock passes an image's mimeType straight into
+ *  `source.media_type` (every other kind builds a fixed value instead), so an
+ *  empty mimeType would otherwise emit `media_type: ""` and the API 400s.
+ *  classifyAttachment can only reach "image" via this same extension set when
+ *  mimeType does not start with "image/" (chat-attachments.ts's
+ *  IMAGE_EXTENSIONS / SUPPORTED_IMAGE_MIMES), so this always resolves when it
+ *  fires. */
+const IMAGE_EXT_MIME: Readonly<Record<string, string>> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+};
+
+function imageMimeFallback(fileName: string): string | null {
+  const dot = fileName.lastIndexOf(".");
+  const ext = dot >= 0 ? fileName.slice(dot).toLowerCase() : "";
+  return IMAGE_EXT_MIME[ext] ?? null;
 }
 
 /** Extract one file's model-facing payload. Bytes in, `data` for
@@ -67,23 +81,33 @@ export async function ingestBytes(
   if (sizeErr) return { ok: false, error: sizeErr };
   const kind = classifyAttachment(mimeType, fileName);
   if (!kind) return { ok: false, error: "unsupported-type" };
+  const outputMime =
+    kind === "image" && mimeType.trim() === "" ? (imageMimeFallback(fileName) ?? mimeType) : mimeType;
   try {
     const data = await payloadFor(kind, bytes, mimeType, fileName);
     return {
       ok: true,
-      node: { fileName, kind, block: buildAttachmentBlock(kind, mimeType, data), children: [] },
+      node: { fileName, kind, block: buildAttachmentBlock(kind, outputMime, data), children: [] },
     };
   } catch {
     return { ok: false, error: "read-failed" };
   }
 }
 
-/** Browser entry point. Reads the File, then defers to ingestBytes so both
- *  paths share one implementation — the wizard already had a bytes-oriented
- *  path and the assistant a File-oriented one, and they had diverged. */
+/** Browser entry point. Classifies (cheap) before reading the File's bytes
+ *  so a large unsupported file is rejected without being loaded into memory,
+ *  and so a read failure on a file that would have classified as unsupported
+ *  still surfaces as "unsupported-type" rather than "read-failed" — the
+ *  wizard treats those two very differently (drop-and-continue vs.
+ *  abandon-the-batch). Then defers to ingestBytes so both paths share one
+ *  implementation — the wizard already had a bytes-oriented path and the
+ *  assistant a File-oriented one, and they had diverged. ingestBytes
+ *  re-classifies, which costs nothing. */
 export async function ingestFile(file: File): Promise<IngestResult> {
   const sizeErr = checkAttachmentSize(file.size);
   if (sizeErr) return { ok: false, error: sizeErr };
+  const kind = classifyAttachment(file.type, file.name);
+  if (!kind) return { ok: false, error: "unsupported-type" };
   let bytes: Uint8Array;
   try {
     bytes = new Uint8Array(await file.arrayBuffer());

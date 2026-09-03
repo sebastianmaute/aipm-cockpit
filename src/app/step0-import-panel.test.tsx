@@ -76,6 +76,26 @@ describe("Step0ImportPanel multi-file", () => {
     expect(screen.getByText(/skipped|übersprungen/i)).toBeTruthy();
   });
 
+  // ★★★ REGRESSION GUARD: ingestFile's "too-large"/"unsupported-type" must
+  // drop just that one file and continue the batch — only a genuine read
+  // failure (read-failed/encrypted) is allowed to abandon the whole batch.
+  // Reordering ingestFile to read before classifying/sizing once inverted
+  // this: a too-large file's failed arrayBuffer() read (or, before the read
+  // reorder fix, its skipped size check) surfaced as "read-failed" instead of
+  // "too-large", which this onFile handler would have thrown into the
+  // batch-abandoning catch instead of the per-file `dropped` list.
+  it("drops a too-large file from a batch and still imports the valid one", async () => {
+    const onIngest = vi.fn().mockResolvedValue(undefined);
+    render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
+    selectFileMethod();
+    const good = new File(["hi"], "good.txt", { type: "text/plain" });
+    const big = new File([new Uint8Array(21 * 1024 * 1024)], "big.png", { type: "image/png" });
+    fireEvent.change(fileInput(), { target: { files: [good, big] } });
+    await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
+    expect(onIngest.mock.calls[0][0].length).toBe(2); // prompt + 1 block (good only)
+    expect(screen.getByText(/skipped|übersprungen/i)).toBeTruthy();
+  });
+
   it("errors and does not ingest when all files are invalid", async () => {
     const onIngest = vi.fn();
     render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
