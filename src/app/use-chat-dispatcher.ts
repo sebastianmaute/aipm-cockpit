@@ -22,7 +22,7 @@ import { useChatSearchBindings } from "./use-chat-search-bindings";
 import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
 import { greetingName } from "./contacts";
 import { mintId } from "./id-mint-session";
-import { effectivePersonEmail } from "./resource-foundation";
+import { effectivePersonEmail, splitName } from "./resource-foundation";
 import { resolveDependencyWrite } from "./task-dependency-write";
 import { useFilters } from "./filters-context";
 import { t } from "./i18n";
@@ -502,9 +502,32 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (args.isReadOnly) throw readOnlyError();
         const existing = resourcesRef.current.find((r) => r.id === id);
         if (!existing) return null;
+        // ★★★ `name` HAS TO BE SPLIT HERE OR IT IS A SILENT NO-OP ON UPDATE, and
+        // it was one. `ResourceInput.name` is documented as "split into
+        // first/last when the parts aren't given", and `sanitizeResource`
+        // honours that — but only when firstName AND lastName are both empty,
+        // because it is a FALLBACK. On an update the spread below merges over
+        // `existing`, which always supplies at least one of them (the sanitizer
+        // rejects a resource with neither), so the fallback could never fire and
+        // `update_resource({name: "Grace Hopper"})` returned SUCCESS with the old
+        // name intact — the model is told the rename worked and cannot see that
+        // it did not. Create was unaffected: there is no `existing` to merge.
+        // ★ Deliberately does NOT override explicit parts: a caller passing
+        // firstName/lastName means those, and `name` stays the convenience form.
+        // ★ A blank `name` is ignored rather than applied — splitting it yields
+        // two empty parts, which the sanitizer rejects, turning a meaningless
+        // request into a failed write of every other field in the same patch.
+        const renamed =
+          typeof patch.name === "string"
+          && patch.name.trim() !== ""
+          && patch.firstName === undefined
+          && patch.lastName === undefined
+            ? splitName(patch.name)
+            : null;
         const merged = sanitizeResource({
           ...existing,
           ...patch,
+          ...(renamed ?? {}),
           id,
           localModifiedAt: new Date().toISOString(),
         });
