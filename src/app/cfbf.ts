@@ -116,8 +116,14 @@ function buildContext(bytes: Uint8Array): Ctx | null {
   //  (109 header pointers × a 512-byte sector), where a header-only reader
   //  returns an EMPTY DIRECTORY SILENTLY rather than an error (measured on a
   //  real 17.8 MB Outlook .msg, which needed two chained DIFAT sectors). A
-  //  synthetic fixture that size is not worth carrying in this repo — Task 16's
-  //  real inlined .msg fixture is what proves this block, not a unit test here.
+  //  synthetic fixture that size is not worth carrying in this repo.
+  //  ★★★ TASK 16's REAL INLINED .msg FIXTURE DOES NOT PROVE THIS BLOCK
+  //  EITHER — it is 82KB, nowhere near the ~7.1 MB threshold. Measured, not
+  //  assumed: reverting this DIFAT-chain block to the header-only 109
+  //  entries still leaves msg-integration.test.ts fully green. That gap is
+  //  accepted and recorded in msg-integration.test.ts rather than closed —
+  //  see the comment there. Only a second, ~8 MB+ fixture forcing a chained
+  //  DIFAT sector would prove this block; nothing in this repo does yet.
   const difat: number[] = [];
   for (let i = 0; i < 109; i++) { const v = u32(0x4c + i * 4); if (v <= MAXREGSECT) difat.push(v); }
   {
