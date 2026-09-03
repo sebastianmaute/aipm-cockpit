@@ -672,6 +672,11 @@ export async function runTool(
 
     case "update_raid_item": {
       const id = requireId(input);
+      // Not-found first, then the token: see the `update_task` case above for
+      // why that order is structural rather than a preference.
+      const current = d.getRaidRow(id);
+      if (!current) throw new Error(`RAID item #${id} not found`);
+      requireToken("raid", current, input, `RAID item #${id}`);
       const updated = d.updateRaid(id, patchWithoutId(input, "raid"));
       if (!updated) throw new Error(`RAID item #${id} not found`);
       return updated;
@@ -688,6 +693,9 @@ export async function runTool(
 
     case "update_change": {
       const id = requireId(input);
+      const current = d.getChangeRow(id);
+      if (!current) throw new Error(`change #${id} not found`);
+      requireToken("change", current, input, `change #${id}`);
       const updated = d.updateChange(id, patchWithoutId(input, "change"));
       if (!updated) throw new Error(`change #${id} not found`);
       return updated;
@@ -704,6 +712,9 @@ export async function runTool(
 
     case "update_milestone": {
       const id = requireId(input);
+      const current = d.getMilestoneRow(id);
+      if (!current) throw new Error(`milestone #${id} not found`);
+      requireToken("milestone", current, input, `milestone #${id}`);
       const updated = d.updateMilestone(id, patchWithoutId(input, "milestone"));
       if (!updated) throw new Error(`milestone #${id} not found`);
       return updated;
@@ -727,6 +738,9 @@ export async function runTool(
 
     case "update_resource": {
       const id = requireId(input);
+      const current = d.getResourceRow(id);
+      if (!current) throw new Error(`resource #${id} not found`);
+      requireToken("resource", current, input, `resource #${id}`);
       const updated = d.updateResource(id, patchWithoutId(input, "resource") as Partial<ResourceInput>);
       if (!updated) throw new Error(`resource #${id} not found`);
       return updated;
@@ -743,6 +757,9 @@ export async function runTool(
 
     case "update_stakeholder": {
       const id = requireId(input);
+      const current = d.getStakeholderRow(id);
+      if (!current) throw new Error(`stakeholder #${id} not found`);
+      requireToken("stakeholder", current, input, `stakeholder #${id}`);
       const updated = d.updateStakeholder(id, patchWithoutId(input, "stakeholder"));
       if (!updated) throw new Error(`stakeholder #${id} not found`);
       return updated;

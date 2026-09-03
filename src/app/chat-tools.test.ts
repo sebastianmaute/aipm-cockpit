@@ -88,6 +88,35 @@ function makeMilestone(over: Partial<Milestone> = {}): Milestone {
   } as Milestone;
 }
 
+// ★ Stakeholder and resource rows were inline literals inside `makeDispatcher`.
+//   They are factories now for the same reason the three above are: a token test
+//   has to derive its token from the SAME row the getter returns, and a second
+//   hand-written copy of the literal is a token that silently stops matching.
+function makeStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
+  return {
+    id: 40,
+    name: "Jane Roe",
+    category: "Sponsor",
+    influence: "High",
+    interest: "Low",
+    raci: {},
+    ...over,
+  } as Stakeholder;
+}
+
+function makeResource(over: Partial<Resource> = {}): Resource {
+  return {
+    id: 7,
+    firstName: "Ada",
+    lastName: "Lovelace",
+    email: "ada@x.com",
+    roleId: null,
+    utilizationMode: "percent",
+    utilization: {},
+    ...over,
+  } as Resource;
+}
+
 function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
   return {
     listTasks: vi.fn(() => [makeTask()]),
@@ -123,18 +152,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     getRaidRow: vi.fn((id: number) => (id === 10 ? makeRaidItem() : null)),
     getChangeRow: vi.fn((id: number) => (id === 20 ? makeChangeItem() : null)),
     getMilestoneRow: vi.fn((id: number) => (id === 30 ? makeMilestone() : null)),
-    getStakeholderRow: vi.fn((id: number) =>
-      id === 40
-        ? ({
-            id: 40,
-            name: "Jane Roe",
-            category: "Sponsor",
-            influence: "High",
-            interest: "Low",
-            raci: {},
-          } as Stakeholder)
-        : null,
-    ),
+    getStakeholderRow: vi.fn((id: number) => (id === 40 ? makeStakeholder() : null)),
     createRaid: vi.fn((input) => ({
       id: 11, category: "R", title: "T", status: "Open", stakeholderIds: [], ...(input as object),
     })),
@@ -173,19 +191,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     getResource: vi.fn((id: number) =>
       id === 7 ? { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" } : null,
     ),
-    getResourceRow: vi.fn((id: number) =>
-      id === 7
-        ? ({
-            id: 7,
-            firstName: "Ada",
-            lastName: "Lovelace",
-            email: "ada@x.com",
-            roleId: null,
-            utilizationMode: "percent",
-            utilization: {},
-          } as Resource)
-        : null,
-    ),
+    getResourceRow: vi.fn((id: number) => (id === 7 ? makeResource() : null)),
     updateResource: vi.fn((id: number, patch) =>
       id === 7 ? { id: 7, firstName: "Ada", lastName: "Lovelace", ...(patch as object) } : null,
     ),
@@ -433,6 +439,14 @@ describe("runTool — create_task", () => {
 //   on the patch are the ones proving the token never reaches it, and passing
 //   the field explicitly is what makes that visible at the call site.
 const FRESH_TASK_TOKEN = entityToken("task", makeTask());
+// The same for the five register entities, each derived from the very row its
+// full-row getter hands back (raid 10, change 20, milestone 30, stakeholder 40,
+// resource 7).
+const FRESH_RAID_TOKEN = entityToken("raid", makeRaidItem());
+const FRESH_CHANGE_TOKEN = entityToken("change", makeChangeItem());
+const FRESH_MILESTONE_TOKEN = entityToken("milestone", makeMilestone());
+const FRESH_STAKEHOLDER_TOKEN = entityToken("stakeholder", makeStakeholder());
+const FRESH_RESOURCE_TOKEN = entityToken("resource", makeResource());
 
 describe("runTool — update_task / buildPatch", () => {
   it("builds a partial patch from only the provided fields", async () => {
@@ -562,6 +576,265 @@ describe("runTool — update_task concurrency token", () => {
     });
 
     expect(d.getTask(1)?.taskName).toBe("Renamed by the AI");
+  });
+});
+
+// ★★★ THE FIVE REGISTER ENTITIES ARE WRITTEN OUT, NOT LOOPED, AND THAT IS
+//   DELIBERATE. A `test.each` table over the five shares one fixture and one
+//   set of assertions; if the shared shape stops reaching one entity — a getter
+//   renamed, a kind mispointed, a seed that no longer moves that entity's token
+//   — the row still runs and still passes, and nothing reports that the entity
+//   went uncovered. Five hand-written blocks fail individually and name
+//   themselves. `dup:check` excludes test files, so the duplication is free.
+//
+// ★ Each needs a MUTABLE backing row for the same reason tasks did:
+//   `makeDispatcher`'s `updateRaid`/`updateChange`/`updateMilestone`/
+//   `updateStakeholder`/`updateResource` return fixed literals and store
+//   nothing, so a "concurrent write" against them never moves the token and the
+//   stale case would fail for a reason unrelated to the guard.
+//
+// ★ The `update*` methods return a SUMMARY, not the full row, so each helper
+//   keeps the row for its getter and projects a summary on write — the same
+//   split the real dispatcher has.
+
+function statefulRaidDispatcher(seed: RaidItem): ToolDispatcher {
+  let row: RaidItem = { ...seed };
+  return makeDispatcher({
+    getRaidRow: vi.fn((id: number) => (id === 10 ? { ...row } : null)),
+    updateRaid: vi.fn((id: number, patch) => {
+      if (id !== 10) return null;
+      row = { ...row, ...(patch as Partial<RaidItem>) };
+      return {
+        id: row.id, category: row.category, title: row.title,
+        status: row.status, severity: row.severity, owner: row.owner,
+        stakeholderIds: row.stakeholderIds ?? [],
+      };
+    }),
+  });
+}
+
+describe("runTool — update_raid_item concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulRaidDispatcher(makeRaidItem());
+    const stale = entityToken("raid", d.getRaidRow(10)!);
+
+    d.updateRaid(10, { title: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_raid_item", {
+        id: 10, expectedToken: stale, title: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/);
+    expect(d.getRaidRow(10)?.title).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulRaidDispatcher(makeRaidItem());
+    await expect(
+      runTool(d, "update_raid_item", { id: 10, title: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getRaidRow(10)?.title).toBe("Budget overrun risk");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    const d = statefulRaidDispatcher(makeRaidItem());
+    await runTool(d, "update_raid_item", {
+      id: 10,
+      expectedToken: entityToken("raid", d.getRaidRow(10)!),
+      title: "Renamed by the AI",
+    });
+    expect(d.getRaidRow(10)?.title).toBe("Renamed by the AI");
+  });
+});
+
+function statefulChangeDispatcher(seed: ChangeItem): ToolDispatcher {
+  let row: ChangeItem = { ...seed };
+  return makeDispatcher({
+    getChangeRow: vi.fn((id: number) => (id === 20 ? { ...row } : null)),
+    updateChange: vi.fn((id: number, patch) => {
+      if (id !== 20) return null;
+      row = { ...row, ...(patch as Partial<ChangeItem>) };
+      return {
+        id: row.id, title: row.title, status: row.status,
+        impact: row.impact, decisionDate: row.decisionDate,
+        stakeholderIds: row.stakeholderIds ?? [],
+      };
+    }),
+  });
+}
+
+describe("runTool — update_change concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulChangeDispatcher(makeChangeItem());
+    const stale = entityToken("change", d.getChangeRow(20)!);
+
+    d.updateChange(20, { title: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_change", {
+        id: 20, expectedToken: stale, title: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/);
+    expect(d.getChangeRow(20)?.title).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulChangeDispatcher(makeChangeItem());
+    await expect(
+      runTool(d, "update_change", { id: 20, title: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getChangeRow(20)?.title).toBe("Scope expansion");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    const d = statefulChangeDispatcher(makeChangeItem());
+    await runTool(d, "update_change", {
+      id: 20,
+      expectedToken: entityToken("change", d.getChangeRow(20)!),
+      title: "Renamed by the AI",
+    });
+    expect(d.getChangeRow(20)?.title).toBe("Renamed by the AI");
+  });
+});
+
+function statefulMilestoneDispatcher(seed: Milestone): ToolDispatcher {
+  let row: Milestone = { ...seed };
+  return makeDispatcher({
+    getMilestoneRow: vi.fn((id: number) => (id === 30 ? { ...row } : null)),
+    updateMilestone: vi.fn((id: number, patch) => {
+      if (id !== 30) return null;
+      row = { ...row, ...(patch as Partial<Milestone>) };
+      return { id: row.id, name: row.name, date: row.date, achievedDate: row.achievedDate };
+    }),
+  });
+}
+
+describe("runTool — update_milestone concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulMilestoneDispatcher(makeMilestone());
+    const stale = entityToken("milestone", d.getMilestoneRow(30)!);
+
+    d.updateMilestone(30, { name: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_milestone", {
+        id: 30, expectedToken: stale, name: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/);
+    expect(d.getMilestoneRow(30)?.name).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulMilestoneDispatcher(makeMilestone());
+    await expect(
+      runTool(d, "update_milestone", { id: 30, name: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getMilestoneRow(30)?.name).toBe("Phase 1 complete");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    const d = statefulMilestoneDispatcher(makeMilestone());
+    await runTool(d, "update_milestone", {
+      id: 30,
+      expectedToken: entityToken("milestone", d.getMilestoneRow(30)!),
+      name: "Renamed by the AI",
+    });
+    expect(d.getMilestoneRow(30)?.name).toBe("Renamed by the AI");
+  });
+});
+
+function statefulStakeholderDispatcher(seed: Stakeholder): ToolDispatcher {
+  let row: Stakeholder = { ...seed };
+  return makeDispatcher({
+    getStakeholderRow: vi.fn((id: number) => (id === 40 ? { ...row } : null)),
+    updateStakeholder: vi.fn((id: number, patch) => {
+      if (id !== 40) return null;
+      row = { ...row, ...(patch as Partial<Stakeholder>) };
+      return {
+        id: row.id, name: row.name, category: row.category,
+        influence: row.influence, interest: row.interest,
+      };
+    }),
+  });
+}
+
+describe("runTool — update_stakeholder concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulStakeholderDispatcher(makeStakeholder());
+    const stale = entityToken("stakeholder", d.getStakeholderRow(40)!);
+
+    d.updateStakeholder(40, { name: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_stakeholder", {
+        id: 40, expectedToken: stale, name: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/);
+    expect(d.getStakeholderRow(40)?.name).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulStakeholderDispatcher(makeStakeholder());
+    await expect(
+      runTool(d, "update_stakeholder", { id: 40, name: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getStakeholderRow(40)?.name).toBe("Jane Roe");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    const d = statefulStakeholderDispatcher(makeStakeholder());
+    await runTool(d, "update_stakeholder", {
+      id: 40,
+      expectedToken: entityToken("stakeholder", d.getStakeholderRow(40)!),
+      name: "Renamed by the AI",
+    });
+    expect(d.getStakeholderRow(40)?.name).toBe("Renamed by the AI");
+  });
+});
+
+function statefulResourceDispatcher(seed: Resource): ToolDispatcher {
+  let row: Resource = { ...seed };
+  return makeDispatcher({
+    getResourceRow: vi.fn((id: number) => (id === 7 ? { ...row } : null)),
+    updateResource: vi.fn((id: number, patch) => {
+      if (id !== 7) return null;
+      row = { ...row, ...(patch as Partial<Resource>) };
+      return { id: row.id, firstName: row.firstName, lastName: row.lastName };
+    }),
+  });
+}
+
+describe("runTool — update_resource concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulResourceDispatcher(makeResource());
+    const stale = entityToken("resource", d.getResourceRow(7)!);
+
+    d.updateResource(7, { firstName: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_resource", {
+        id: 7, expectedToken: stale, firstName: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/);
+    expect(d.getResourceRow(7)?.firstName).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulResourceDispatcher(makeResource());
+    await expect(
+      runTool(d, "update_resource", { id: 7, firstName: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getResourceRow(7)?.firstName).toBe("Ada");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    const d = statefulResourceDispatcher(makeResource());
+    await runTool(d, "update_resource", {
+      id: 7,
+      expectedToken: entityToken("resource", d.getResourceRow(7)!),
+      firstName: "Renamed by the AI",
+    });
+    expect(d.getResourceRow(7)?.firstName).toBe("Renamed by the AI");
   });
 });
 
@@ -887,7 +1160,12 @@ describe("runTool — RAID write tools", () => {
 
   it("update_raid_item strips id from the patch and forwards the rest", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_raid_item", { id: 10, severity: "Critical" });
+    await runTool(d, "update_raid_item", {
+      id: 10, expectedToken: FRESH_RAID_TOKEN, severity: "Critical",
+    });
+    // Also the anti-leak case for the token: unlike tasks, this tool forwards
+    // the whole input, so `expectedToken` reaches the stored row unless
+    // `patchWithoutId` strips it.
     expect(d.updateRaid).toHaveBeenCalledWith(10, { severity: "Critical" });
   });
 
@@ -925,7 +1203,9 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
 
   it("update_change strips id and delete_change echoes id", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_change", { id: 20, status: "Approved" });
+    await runTool(d, "update_change", {
+      id: 20, expectedToken: FRESH_CHANGE_TOKEN, status: "Approved",
+    });
     expect(d.updateChange).toHaveBeenCalledWith(20, { status: "Approved" });
     expect(await runTool(d, "delete_change", { id: 20 })).toEqual({ deleted: 20 });
   });
@@ -934,7 +1214,9 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
     const d = makeDispatcher();
     await runTool(d, "create_milestone", { name: "GA", date: "2026-09-01" });
     expect(d.createMilestone).toHaveBeenCalledWith({ name: "GA", date: "2026-09-01" });
-    await runTool(d, "update_milestone", { id: 30, achievedDate: "2026-09-02" });
+    await runTool(d, "update_milestone", {
+      id: 30, expectedToken: FRESH_MILESTONE_TOKEN, achievedDate: "2026-09-02",
+    });
     expect(d.updateMilestone).toHaveBeenCalledWith(30, { achievedDate: "2026-09-02" });
     expect(await runTool(d, "delete_milestone", { id: 30 })).toEqual({ deleted: 30 });
   });
@@ -943,7 +1225,9 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
     const d = makeDispatcher();
     await runTool(d, "create_stakeholder", { name: "Acme Corp", category: "Vendor" });
     expect(d.createStakeholder).toHaveBeenCalledWith({ name: "Acme Corp", category: "Vendor" });
-    await runTool(d, "update_stakeholder", { id: 40, influence: "Low" });
+    await runTool(d, "update_stakeholder", {
+      id: 40, expectedToken: FRESH_STAKEHOLDER_TOKEN, influence: "Low",
+    });
     expect(d.updateStakeholder).toHaveBeenCalledWith(40, { influence: "Low" });
     expect(await runTool(d, "delete_stakeholder", { id: 40 })).toEqual({ deleted: 40 });
   });
@@ -958,7 +1242,9 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
   it("get_resource fetches by id; update strips id; delete echoes id", async () => {
     const d = makeDispatcher();
     expect(await runTool(d, "get_resource", { id: 7 })).toMatchObject({ id: 7, firstName: "Ada" });
-    await runTool(d, "update_resource", { id: 7, title: "Lead" });
+    await runTool(d, "update_resource", {
+      id: 7, expectedToken: FRESH_RESOURCE_TOKEN, title: "Lead",
+    });
     expect(d.updateResource).toHaveBeenCalledWith(7, { title: "Lead" });
     expect(await runTool(d, "delete_resource", { id: 7 })).toEqual({ deleted: 7 });
   });
