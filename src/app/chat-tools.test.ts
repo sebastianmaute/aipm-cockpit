@@ -4,13 +4,28 @@ import {
   runTool,
   TOOL_DEFS,
   CALENDAR_SUMMARY_KEYS,
+  toRaidSummary,
+  toChangeSummary,
+  toMilestoneSummary,
+  toStakeholderSummary,
+  toResourceSummary,
   toKnowledgeSummary,
   toCalendarEventSummary,
   toBudgetBucketSummary,
   type ToolDispatcher,
   type Filters,
 } from "./chat-tools";
-import { type Task, type RaidItem, type ChangeItem, type Milestone, type TaskDependency } from "./types";
+import {
+  type Task,
+  type RaidItem,
+  type ChangeItem,
+  type Milestone,
+  type Resource,
+  type Stakeholder,
+  type TaskDependency,
+  type NoteLogEntry,
+} from "./types";
+import { entityToken, type TokenEntity } from "./ai-entity-token";
 import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
 import type { ActivitySummary } from "./history-search";
 
@@ -69,14 +84,53 @@ function makeChangeItem(over: Partial<ChangeItem> = {}): ChangeItem {
   } as ChangeItem;
 }
 
+// ★★★ `description` IS LOAD-BEARING AND IS NOT DECORATION. `MilestoneSummary`
+//   omits it while `entityToken` covers it, so it is what makes this fixture
+//   able to TELL a full-row token from a summary-derived one. Measured: without
+//   it the milestone round-trip case survives the "derive from the summary"
+//   mutant — every other token-covered field this row carries is byte-identical
+//   between the two objects, so the false permit is invisible here. The same
+//   goes for `notes` on `makeStakeholder` below.
 function makeMilestone(over: Partial<Milestone> = {}): Milestone {
   return {
     id: 30,
     name: "Phase 1 complete",
     date: "2026-07-01",
+    description: "Sign-off with the sponsor",
     linkedTaskIds: [],
     ...over,
   } as Milestone;
+}
+
+// ★ Stakeholder and resource rows were inline literals inside `makeDispatcher`.
+//   They are factories now for the same reason the three above are: a token test
+//   has to derive its token from the SAME row the getter returns, and a second
+//   hand-written copy of the literal is a token that silently stops matching.
+function makeStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
+  return {
+    id: 40,
+    name: "Jane Roe",
+    category: "Sponsor",
+    influence: "High",
+    interest: "Low",
+    // Summary-omitted, token-covered — see the note on `makeMilestone`.
+    notes: "Prefers email",
+    raci: {},
+    ...over,
+  } as Stakeholder;
+}
+
+function makeResource(over: Partial<Resource> = {}): Resource {
+  return {
+    id: 7,
+    firstName: "Ada",
+    lastName: "Lovelace",
+    email: "ada@x.com",
+    roleId: null,
+    utilizationMode: "percent",
+    utilization: {},
+    ...over,
+  } as Resource;
 }
 
 function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
@@ -107,6 +161,14 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     listStakeholders: vi.fn(() => [
       { id: 40, name: "Jane Roe", category: "Sponsor", influence: "High", interest: "Low" },
     ]),
+    // FULL rows, backed by the same makers the summaries above project from,
+    // so a token derived here matches what the list tools describe. Ids match
+    // the `update*`/`delete*` stubs (raid 10, change 20, milestone 30,
+    // stakeholder 40) — a miss must return null, not a stand-in row.
+    getRaidRow: vi.fn((id: number) => (id === 10 ? makeRaidItem() : null)),
+    getChangeRow: vi.fn((id: number) => (id === 20 ? makeChangeItem() : null)),
+    getMilestoneRow: vi.fn((id: number) => (id === 30 ? makeMilestone() : null)),
+    getStakeholderRow: vi.fn((id: number) => (id === 40 ? makeStakeholder() : null)),
     createRaid: vi.fn((input) => ({
       id: 11, category: "R", title: "T", status: "Open", stakeholderIds: [], ...(input as object),
     })),
@@ -145,6 +207,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     getResource: vi.fn((id: number) =>
       id === 7 ? { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" } : null,
     ),
+    getResourceRow: vi.fn((id: number) => (id === 7 ? makeResource() : null)),
     updateResource: vi.fn((id: number, patch) =>
       id === 7 ? { id: 7, firstName: "Ada", lastName: "Lovelace", ...(patch as object) } : null,
     ),
@@ -265,19 +328,147 @@ describe("runTool — update_settings", () => {
   });
 });
 
+const RICH_DESCRIPTION = "<p>Ship <strong>the thing</strong></p>";
+const RICH_NOTE: NoteLogEntry = {
+  id: 7,
+  timestamp: "2026-05-01T00:00:00.000Z",
+  authorName: "Alice",
+  html: "<p>Partner call moved to <em>Friday</em></p>",
+  text: "Partner call moved to Friday",
+};
+
+/** The list path's WIRE shape, spelled out here rather than imported, so these
+ *  tests describe what a caller receives instead of restating the projection's
+ *  own types back at it. `html` is optional because the projection drops it. */
+type ListNote = Omit<NoteLogEntry, "html"> & { html?: string };
+type ListEnvelope = {
+  items: (Omit<Task, "noteLog"> & { noteLog?: ListNote[] })[];
+  total: number;
+  limit?: number;
+};
+
 describe("runTool — list_tasks / get_task", () => {
-  it("list_tasks returns the dispatcher's task list", async () => {
+  it("list_tasks wraps the dispatcher's task list in an items/total envelope", async () => {
     const d = makeDispatcher();
-    const result = await runTool(d, "list_tasks", {});
-    expect(result).toEqual([makeTask()]);
+    const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    expect(result.total).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].id).toBe(1);
+    expect(result.items[0].taskName).toBe("Alpha");
+    // Omitting `limit` must return everything and say nothing about a page
+    // size — an existing prompt that never passes one sees no new key.
+    expect("limit" in result).toBe(false);
     expect(d.listTasks).toHaveBeenCalledOnce();
+  });
+
+  it("list_tasks plain-texts the rich description", async () => {
+    const d = makeDispatcher({
+      listTasks: vi.fn(() => [makeTask({ description: RICH_DESCRIPTION })]),
+    });
+    const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    expect(result.items[0].description).toContain("Ship the thing");
+    expect(result.items[0].description).not.toContain("<strong>");
+    expect(result.items[0].description).not.toContain("<p>");
+  });
+
+  it("list_tasks drops each note's html body and keeps its text projection", async () => {
+    const d = makeDispatcher({ listTasks: vi.fn(() => [makeTask({ noteLog: [RICH_NOTE] })]) });
+    const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    const note = result.items[0].noteLog?.[0];
+    expect(note?.text).toBe("Partner call moved to Friday");
+    expect(note?.html).toBeUndefined();
+    // Everything else about the entry survives — this is a projection, not a
+    // truncation, so the model still sees when and by whom a note was written.
+    expect(note?.id).toBe(7);
+    expect(note?.timestamp).toBe("2026-05-01T00:00:00.000Z");
+    expect(note?.authorName).toBe("Alice");
+  });
+
+  it("list_tasks slices items by limit while total still counts every row", async () => {
+    const rows = [makeTask({ id: 1 }), makeTask({ id: 2 }), makeTask({ id: 3 })];
+    const d = makeDispatcher({ listTasks: vi.fn(() => rows) });
+    const result = (await runTool(d, "list_tasks", { limit: 2 })) as ListEnvelope;
+    expect(result.items.map((t) => t.id)).toEqual([1, 2]);
+    // The whole point of the envelope: "how many tasks exist?" is answerable
+    // from ONE call even when the caller asked for a page.
+    expect(result.total).toBe(3);
+    expect(result.limit).toBe(2);
+  });
+
+  // ★★★ A FRACTIONAL LIMIT UNDER 1 MEANS "NO LIMIT", NOT "NO ROWS". `0.5` is
+  //   positive and finite, so it passed the old `rawLimit > 0` test, floored to
+  //   `0`, and returned `{items: [], limit: 0}` — every row withheld from a
+  //   model that asked for a page, as a successful empty result indistinguishable
+  //   from "there are no tasks". The docstring already said a value like this
+  //   means "no limit"; the code disagreed with it on the open interval (0,1).
+  //   `1.7` is the neighbour that must still floor to a real page of 1, so the
+  //   fix cannot be "ignore every fractional limit".
+  // ★★★ A NUMERIC STRING IS THE OPPOSITE CASE AND MUST NOT SHARE THAT FATE.
+  //   `"2"` is unambiguous intent expressed in the wrong type — models emit it
+  //   routinely — and the old `typeof rawLimit === "number"` test dropped it
+  //   through to "no limit", returning the WHOLE register: the response-cost
+  //   blowup this envelope exists to bound, silently, on a request whose meaning
+  //   was never in doubt. `"abc"` is the neighbour that must STILL mean "no
+  //   limit", so the fix cannot be "coerce anything". `"0.5"` pins that coercion
+  //   does not reopen the (0,1) hole above.
+  // ★★ `""` AND `"abc"` ARE NOT LOAD-BEARING, AND THIS COMMENT USED TO CLAIM
+  //   `""` WAS. It said `""` pins "that an empty string is not read as
+  //   `Number("") === 0`" — but being read as 0 yields the IDENTICAL observable,
+  //   since 0 already means "no limit" (`floored > 0`). Measured over 16 inputs
+  //   (`""`, `"  "`, `"\t\n"`, NBSP, ZWSP, `"abc"`, `"0x10"`, `" 10 "`,
+  //   `"Infinity"`, `1e21`, booleans, null, `{}`, `[]`): the blank-string guard
+  //   that case named changed the observable limit for NONE of them, so it
+  //   passed against its own mutant. The guard has since been DELETED as dead
+  //   code (`coerceNumericInput`, `resolve-limit.ts`), which is why no conjunct
+  //   here answers for it. `"abc"` likewise dies to no plausible mutant —
+  //   `Number("abc")` is `NaN` under any form of this code. Both cases are kept
+  //   as domain documentation, NOT as guards.
+  // ★★ `true` IS load-bearing, against the OPPOSITE mutant: coercing
+  //   unconditionally makes `Number(true) === 1` and silently returns a page of
+  //   one, which no other case here would catch.
+  it.each([
+    { label: "a fraction under 1 is no limit, not an empty page", limit: 0.5, ids: [1, 2, 3], out: undefined },
+    { label: "a fraction above 1 still floors to a real page", limit: 1.7, ids: [1], out: 1 },
+    { label: "zero is no limit", limit: 0, ids: [1, 2, 3], out: undefined },
+    { label: "a negative is no limit", limit: -2, ids: [1, 2, 3], out: undefined },
+    { label: "a numeric string is honoured, not ignored", limit: "2", ids: [1, 2], out: 2 },
+    { label: "a fractional numeric string floors like the number", limit: "0.5", ids: [1, 2, 3], out: undefined },
+    { label: "a non-numeric string is no limit", limit: "abc", ids: [1, 2, 3], out: undefined },
+    { label: "an empty string is no limit, not zero", limit: "", ids: [1, 2, 3], out: undefined },
+    { label: "a boolean is no limit", limit: true, ids: [1, 2, 3], out: undefined },
+  ])("list_tasks: $label", async ({ limit, ids, out }) => {
+    const rows = [makeTask({ id: 1 }), makeTask({ id: 2 }), makeTask({ id: 3 })];
+    const d = makeDispatcher({ listTasks: vi.fn(() => rows) });
+    const result = (await runTool(d, "list_tasks", { limit })) as ListEnvelope;
+    expect(result.items.map((t) => t.id)).toEqual(ids);
+    expect(result.total).toBe(3);
+    // `undefined` here means the key must be ABSENT, not present-and-undefined:
+    // `limit: 0` in the payload is the very defect above.
+    expect(result.limit).toBe(out);
+    expect("limit" in result).toBe(out !== undefined);
+  });
+
+  // ★ THE CONTROL. Slimming BOTH paths would satisfy every assertion above; only
+  // this pins that an assistant about to EDIT a description still gets the markup
+  // it is editing. Both tools read the SAME row here, so a shared projection fails.
+  it("get_task keeps the full markup that the list projection strips", async () => {
+    const task = makeTask({ description: RICH_DESCRIPTION, noteLog: [RICH_NOTE] });
+    const d = makeDispatcher({ getTask: vi.fn(() => task), listTasks: vi.fn(() => [task]) });
+
+    const full = (await runTool(d, "get_task", { id: 1 })) as Task;
+    expect(full).toEqual({ ...task, expectedToken: entityToken("task", task) });
+    expect(full.description).toBe(RICH_DESCRIPTION);
+    expect(full.noteLog?.[0].html).toBe("<p>Partner call moved to <em>Friday</em></p>");
+
+    const list = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    expect(list.items[0].description).not.toContain("<strong>");
   });
 
   it("get_task coerces a numeric-string id and returns the task", async () => {
     const d = makeDispatcher();
     const result = await runTool(d, "get_task", { id: "1" });
     expect(d.getTask).toHaveBeenCalledWith(1);
-    expect(result).toEqual(makeTask());
+    expect(result).toEqual({ ...makeTask(), expectedToken: FRESH_TASK_TOKEN });
   });
 
   it("get_task throws when id is not a finite number", async () => {
@@ -384,40 +575,65 @@ describe("runTool — create_task", () => {
   });
 });
 
+// `makeDispatcher`'s `getTask(1)` hands back a pristine `makeTask()`, so this is
+// the token an honest read of task #1 yields. Every patch-shape case below has
+// to carry it now that `update_task` refuses an unauthenticated write.
+//
+// ★ It is deliberately NOT hoisted into `makeDispatcher`: the cases that assert
+//   on the patch are the ones proving the token never reaches it, and passing
+//   the field explicitly is what makes that visible at the call site.
+const FRESH_TASK_TOKEN = entityToken("task", makeTask());
+// The same for the five register entities, each derived from the very row its
+// full-row getter hands back (raid 10, change 20, milestone 30, stakeholder 40,
+// resource 7).
+const FRESH_RAID_TOKEN = entityToken("raid", makeRaidItem());
+const FRESH_CHANGE_TOKEN = entityToken("change", makeChangeItem());
+const FRESH_MILESTONE_TOKEN = entityToken("milestone", makeMilestone());
+const FRESH_STAKEHOLDER_TOKEN = entityToken("stakeholder", makeStakeholder());
+const FRESH_RESOURCE_TOKEN = entityToken("resource", makeResource());
+
 describe("runTool — update_task / buildPatch", () => {
   it("builds a partial patch from only the provided fields", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, notes: "hello", blockers: "wait" });
+    await runTool(d, "update_task", {
+      id: 1, expectedToken: FRESH_TASK_TOKEN, notes: "hello", blockers: "wait",
+    });
     expect(d.updateTask).toHaveBeenCalledWith(1, { description: "hello", blockers: "wait" });
   });
 
   it("coerces a non-string field value to empty string when key is present", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, taskName: 123 });
+    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, taskName: 123 });
     expect(d.updateTask).toHaveBeenCalledWith(1, { taskName: "" });
   });
 
   it("omits an unknown priority from the patch entirely", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, priority: "Nope" });
+    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, priority: "Nope" });
+    // Also the anti-leak case for the token itself: `buildPatch` is a
+    // whitelist, so `expectedToken` cannot reach the stored entity.
     expect(d.updateTask).toHaveBeenCalledWith(1, {});
   });
 
   it("keeps a valid priority in the patch", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, priority: "Low" });
+    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, priority: "Low" });
     expect(d.updateTask).toHaveBeenCalledWith(1, { priority: "Low" });
   });
 
   it("carries a status value through in the patch", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, status: "In Progress" });
+    await runTool(d, "update_task", {
+      id: 1, expectedToken: FRESH_TASK_TOKEN, status: "In Progress",
+    });
     expect(d.updateTask).toHaveBeenCalledWith(1, { status: "In Progress" });
   });
 
   it("sanitizes group and labels in the patch", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, group: "  Phase 1  ", labels: ["a", "a"] });
+    await runTool(d, "update_task", {
+      id: 1, expectedToken: FRESH_TASK_TOKEN, group: "  Phase 1  ", labels: ["a", "a"],
+    });
     const [, patch] = (d.updateTask as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(patch.group).toBe("Phase 1");
     expect(patch.labels).toEqual(["a"]);
@@ -433,9 +649,336 @@ describe("runTool — update_task / buildPatch", () => {
 
   it("throws when the task to update is not found", async () => {
     const d = makeDispatcher();
+    // ★ NO `expectedToken` HERE, ON PURPOSE. It pins the ORDER of the two
+    //   guards: not-found is resolved first, so a vanished task still reports
+    //   "not found" rather than the token's "changed since you read it", which
+    //   would send the model re-reading a row that is gone. Add a token here
+    //   and the case passes whichever order the code uses.
     await expect(runTool(d, "update_task", { id: 7 })).rejects.toThrow(
       "task #7 not found",
     );
+  });
+});
+
+/** A dispatcher over a MUTABLE row, so a concurrent write actually moves the
+ *  token.
+ *
+ *  ★★★ `makeDispatcher` CANNOT SUBSTITUTE AND THE FAILURE IS SILENT. Its
+ *  `getTask` returns a pristine `makeTask()` every call and its `updateTask`
+ *  stores nothing, so no write ever changes what a later read sees. A staleness
+ *  test written against it can never produce a mismatch: the guard is never
+ *  reached, nothing throws, and the case fails for a reason unrelated to the
+ *  thing it claims to cover. */
+function statefulTaskDispatcher(seed: Task): ToolDispatcher {
+  let row: Task = { ...seed };
+  return makeDispatcher({
+    getTask: vi.fn((id: number) => (id === 1 ? { ...row } : null)),
+    updateTask: vi.fn((id: number, patch: Partial<Task>) =>
+      id === 1 ? (row = { ...row, ...patch }) : null,
+    ),
+  });
+}
+
+describe("runTool — update_task concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulTaskDispatcher(makeTask());
+    // The model reads the task and derives a token from what it got back.
+    const read = (await runTool(d, "get_task", { id: 1 })) as Task;
+    const stale = entityToken("task", read);
+
+    // A human edits the same task while the model is still thinking.
+    d.updateTask(1, { taskName: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_task", { id: 1, expectedToken: stale, taskName: "Renamed by the AI" }),
+    ).rejects.toThrow(/changed since you read it/);
+
+    // ★★ THE LOAD-BEARING ASSERTION. Asserting only that it threw would pass
+    //    against a tool that refused AND wrote anyway — the overwrite this
+    //    guard exists to stop, reported as a refusal.
+    expect(d.getTask(1)?.taskName).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulTaskDispatcher(makeTask());
+    await expect(
+      runTool(d, "update_task", { id: 1, taskName: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getTask(1)?.taskName).toBe("Alpha");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    // ★★ THE CONTROL. Without it a guard hardcoded to refuse every write —
+    //    `if (true) throw` — passes both cases above.
+    const d = statefulTaskDispatcher(makeTask());
+    const read = (await runTool(d, "get_task", { id: 1 })) as Task;
+
+    await runTool(d, "update_task", {
+      id: 1,
+      expectedToken: entityToken("task", read),
+      taskName: "Renamed by the AI",
+    });
+
+    expect(d.getTask(1)?.taskName).toBe("Renamed by the AI");
+  });
+});
+
+// ★★★ THE FIVE REGISTER ENTITIES ARE WRITTEN OUT, NOT LOOPED, AND THAT IS
+//   DELIBERATE. A `test.each` table over the five shares one fixture and one
+//   set of assertions; if the shared shape stops reaching one entity — a getter
+//   renamed, a kind mispointed, a seed that no longer moves that entity's token
+//   — the row still runs and still passes, and nothing reports that the entity
+//   went uncovered. Five hand-written blocks fail individually and name
+//   themselves. `dup:check` excludes test files, so the duplication is free.
+//
+// ★ Each needs a MUTABLE backing row for the same reason tasks did:
+//   `makeDispatcher`'s `updateRaid`/`updateChange`/`updateMilestone`/
+//   `updateStakeholder`/`updateResource` return fixed literals and store
+//   nothing, so a "concurrent write" against them never moves the token and the
+//   stale case would fail for a reason unrelated to the guard.
+//
+// ★ The `update*` methods return a SUMMARY, not the full row, so each helper
+//   keeps the row for its getter and projects a summary on write — the same
+//   split the real dispatcher has.
+
+function statefulRaidDispatcher(seed: RaidItem): ToolDispatcher {
+  let row: RaidItem = { ...seed };
+  return makeDispatcher({
+    getRaidRow: vi.fn((id: number) => (id === 10 ? { ...row } : null)),
+    updateRaid: vi.fn((id: number, patch) => {
+      if (id !== 10) return null;
+      row = { ...row, ...(patch as Partial<RaidItem>) };
+      return {
+        id: row.id, category: row.category, title: row.title,
+        status: row.status, severity: row.severity, owner: row.owner,
+        stakeholderIds: row.stakeholderIds ?? [],
+      };
+    }),
+  });
+}
+
+describe("runTool — update_raid_item concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulRaidDispatcher(makeRaidItem());
+    const stale = entityToken("raid", d.getRaidRow(10)!);
+
+    d.updateRaid(10, { title: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_raid_item", {
+        id: 10, expectedToken: stale, title: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/);
+    expect(d.getRaidRow(10)?.title).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulRaidDispatcher(makeRaidItem());
+    await expect(
+      runTool(d, "update_raid_item", { id: 10, title: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getRaidRow(10)?.title).toBe("Budget overrun risk");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    const d = statefulRaidDispatcher(makeRaidItem());
+    await runTool(d, "update_raid_item", {
+      id: 10,
+      expectedToken: entityToken("raid", d.getRaidRow(10)!),
+      title: "Renamed by the AI",
+    });
+    expect(d.getRaidRow(10)?.title).toBe("Renamed by the AI");
+  });
+});
+
+function statefulChangeDispatcher(seed: ChangeItem): ToolDispatcher {
+  let row: ChangeItem = { ...seed };
+  return makeDispatcher({
+    getChangeRow: vi.fn((id: number) => (id === 20 ? { ...row } : null)),
+    updateChange: vi.fn((id: number, patch) => {
+      if (id !== 20) return null;
+      row = { ...row, ...(patch as Partial<ChangeItem>) };
+      return {
+        id: row.id, title: row.title, status: row.status,
+        impact: row.impact, decisionDate: row.decisionDate,
+        stakeholderIds: row.stakeholderIds ?? [],
+      };
+    }),
+  });
+}
+
+describe("runTool — update_change concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulChangeDispatcher(makeChangeItem());
+    const stale = entityToken("change", d.getChangeRow(20)!);
+
+    d.updateChange(20, { title: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_change", {
+        id: 20, expectedToken: stale, title: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/);
+    expect(d.getChangeRow(20)?.title).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulChangeDispatcher(makeChangeItem());
+    await expect(
+      runTool(d, "update_change", { id: 20, title: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getChangeRow(20)?.title).toBe("Scope expansion");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    const d = statefulChangeDispatcher(makeChangeItem());
+    await runTool(d, "update_change", {
+      id: 20,
+      expectedToken: entityToken("change", d.getChangeRow(20)!),
+      title: "Renamed by the AI",
+    });
+    expect(d.getChangeRow(20)?.title).toBe("Renamed by the AI");
+  });
+});
+
+function statefulMilestoneDispatcher(seed: Milestone): ToolDispatcher {
+  let row: Milestone = { ...seed };
+  return makeDispatcher({
+    getMilestoneRow: vi.fn((id: number) => (id === 30 ? { ...row } : null)),
+    updateMilestone: vi.fn((id: number, patch) => {
+      if (id !== 30) return null;
+      row = { ...row, ...(patch as Partial<Milestone>) };
+      return { id: row.id, name: row.name, date: row.date, achievedDate: row.achievedDate };
+    }),
+  });
+}
+
+describe("runTool — update_milestone concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulMilestoneDispatcher(makeMilestone());
+    const stale = entityToken("milestone", d.getMilestoneRow(30)!);
+
+    d.updateMilestone(30, { name: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_milestone", {
+        id: 30, expectedToken: stale, name: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/);
+    expect(d.getMilestoneRow(30)?.name).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulMilestoneDispatcher(makeMilestone());
+    await expect(
+      runTool(d, "update_milestone", { id: 30, name: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getMilestoneRow(30)?.name).toBe("Phase 1 complete");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    const d = statefulMilestoneDispatcher(makeMilestone());
+    await runTool(d, "update_milestone", {
+      id: 30,
+      expectedToken: entityToken("milestone", d.getMilestoneRow(30)!),
+      name: "Renamed by the AI",
+    });
+    expect(d.getMilestoneRow(30)?.name).toBe("Renamed by the AI");
+  });
+});
+
+function statefulStakeholderDispatcher(seed: Stakeholder): ToolDispatcher {
+  let row: Stakeholder = { ...seed };
+  return makeDispatcher({
+    getStakeholderRow: vi.fn((id: number) => (id === 40 ? { ...row } : null)),
+    updateStakeholder: vi.fn((id: number, patch) => {
+      if (id !== 40) return null;
+      row = { ...row, ...(patch as Partial<Stakeholder>) };
+      return {
+        id: row.id, name: row.name, category: row.category,
+        influence: row.influence, interest: row.interest,
+      };
+    }),
+  });
+}
+
+describe("runTool — update_stakeholder concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulStakeholderDispatcher(makeStakeholder());
+    const stale = entityToken("stakeholder", d.getStakeholderRow(40)!);
+
+    d.updateStakeholder(40, { name: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_stakeholder", {
+        id: 40, expectedToken: stale, name: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/);
+    expect(d.getStakeholderRow(40)?.name).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulStakeholderDispatcher(makeStakeholder());
+    await expect(
+      runTool(d, "update_stakeholder", { id: 40, name: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getStakeholderRow(40)?.name).toBe("Jane Roe");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    const d = statefulStakeholderDispatcher(makeStakeholder());
+    await runTool(d, "update_stakeholder", {
+      id: 40,
+      expectedToken: entityToken("stakeholder", d.getStakeholderRow(40)!),
+      name: "Renamed by the AI",
+    });
+    expect(d.getStakeholderRow(40)?.name).toBe("Renamed by the AI");
+  });
+});
+
+function statefulResourceDispatcher(seed: Resource): ToolDispatcher {
+  let row: Resource = { ...seed };
+  return makeDispatcher({
+    getResourceRow: vi.fn((id: number) => (id === 7 ? { ...row } : null)),
+    updateResource: vi.fn((id: number, patch) => {
+      if (id !== 7) return null;
+      row = { ...row, ...(patch as Partial<Resource>) };
+      return { id: row.id, firstName: row.firstName, lastName: row.lastName };
+    }),
+  });
+}
+
+describe("runTool — update_resource concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulResourceDispatcher(makeResource());
+    const stale = entityToken("resource", d.getResourceRow(7)!);
+
+    d.updateResource(7, { firstName: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_resource", {
+        id: 7, expectedToken: stale, firstName: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/);
+    expect(d.getResourceRow(7)?.firstName).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulResourceDispatcher(makeResource());
+    await expect(
+      runTool(d, "update_resource", { id: 7, firstName: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getResourceRow(7)?.firstName).toBe("Ada");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    const d = statefulResourceDispatcher(makeResource());
+    await runTool(d, "update_resource", {
+      id: 7,
+      expectedToken: entityToken("resource", d.getResourceRow(7)!),
+      firstName: "Renamed by the AI",
+    });
+    expect(d.getResourceRow(7)?.firstName).toBe("Renamed by the AI");
   });
 });
 
@@ -574,8 +1117,12 @@ describe("runTool — get_app_state and edge cases", () => {
 
   it("tolerates a null/non-object rawInput (treated as empty)", async () => {
     const d = makeDispatcher();
-    // list_tasks ignores input; a null rawInput must not throw on property access.
-    expect(await runTool(d, "list_tasks", null)).toEqual([makeTask()]);
+    // list_tasks reads only an optional `limit`; a null rawInput must not throw
+    // on property access, and an absent limit means "return everything".
+    const listed = (await runTool(d, "list_tasks", null)) as ListEnvelope;
+    expect(listed.total).toBe(1);
+    expect(listed.items).toHaveLength(1);
+    expect("limit" in listed).toBe(false);
     // get_task with no usable input → id is NaN → validation error.
     await expect(runTool(d, "get_task", null)).rejects.toThrow("id must be a number");
   });
@@ -626,6 +1173,7 @@ describe("runTool — list_raid", () => {
         severity: "High",
         owner: "Alice",
         stakeholderIds: [1, 2],
+        expectedToken: FRESH_RAID_TOKEN,
       },
     ]);
   });
@@ -658,6 +1206,7 @@ describe("runTool — list_changes", () => {
         impact: "High",
         decisionDate: undefined,
         stakeholderIds: [3],
+        expectedToken: FRESH_CHANGE_TOKEN,
       },
     ]);
   });
@@ -683,6 +1232,7 @@ describe("runTool — list_milestones", () => {
         name: "Phase 1 complete",
         date: "2026-07-01",
         achievedDate: undefined,
+        expectedToken: FRESH_MILESTONE_TOKEN,
       },
     ]);
   });
@@ -705,27 +1255,40 @@ describe("runTool — list_stakeholders", () => {
     const result = await runTool(d, "list_stakeholders", {});
     expect(d.listStakeholders).toHaveBeenCalledOnce();
     expect(result).toEqual([
-      { id: 40, name: "Jane Roe", category: "Sponsor", influence: "High", interest: "Low" },
+      {
+        id: 40,
+        name: "Jane Roe",
+        category: "Sponsor",
+        influence: "High",
+        interest: "Low",
+        expectedToken: FRESH_STAKEHOLDER_TOKEN,
+      },
     ]);
   });
 });
 
 describe("TOOL_DEFS — write tools are registered with required fields", () => {
+  // ★ Every entity `update_*` requires `expectedToken` as well as `id`. That
+  //   is the ADVERTISED surface only — nothing rejects a call that omits it,
+  //   which is why `requireToken` refuses absence on the ACCEPTED surface. The
+  //   create/delete tools take no token: a create has no prior version to be
+  //   stale against, and a delete of a changed row is covered by the register's
+  //   own confirm step rather than by this guard.
   const expectedRequired: Record<string, string[]> = {
     create_raid_item: ["title"],
-    update_raid_item: ["id"],
+    update_raid_item: ["id", "expectedToken"],
     delete_raid_item: ["id"],
     create_change: ["title"],
-    update_change: ["id"],
+    update_change: ["id", "expectedToken"],
     delete_change: ["id"],
     create_milestone: ["name", "date"],
-    update_milestone: ["id"],
+    update_milestone: ["id", "expectedToken"],
     delete_milestone: ["id"],
     create_stakeholder: ["name"],
-    update_stakeholder: ["id"],
+    update_stakeholder: ["id", "expectedToken"],
     delete_stakeholder: ["id"],
     get_resource: ["id"],
-    update_resource: ["id"],
+    update_resource: ["id", "expectedToken"],
     delete_resource: ["id"],
   };
 
@@ -755,7 +1318,12 @@ describe("runTool — RAID write tools", () => {
 
   it("update_raid_item strips id from the patch and forwards the rest", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_raid_item", { id: 10, severity: "Critical" });
+    await runTool(d, "update_raid_item", {
+      id: 10, expectedToken: FRESH_RAID_TOKEN, severity: "Critical",
+    });
+    // Also the anti-leak case for the token: unlike tasks, this tool forwards
+    // the whole input, so `expectedToken` reaches the stored row unless
+    // `patchWithoutId` strips it.
     expect(d.updateRaid).toHaveBeenCalledWith(10, { severity: "Critical" });
   });
 
@@ -793,7 +1361,9 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
 
   it("update_change strips id and delete_change echoes id", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_change", { id: 20, status: "Approved" });
+    await runTool(d, "update_change", {
+      id: 20, expectedToken: FRESH_CHANGE_TOKEN, status: "Approved",
+    });
     expect(d.updateChange).toHaveBeenCalledWith(20, { status: "Approved" });
     expect(await runTool(d, "delete_change", { id: 20 })).toEqual({ deleted: 20 });
   });
@@ -802,7 +1372,9 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
     const d = makeDispatcher();
     await runTool(d, "create_milestone", { name: "GA", date: "2026-09-01" });
     expect(d.createMilestone).toHaveBeenCalledWith({ name: "GA", date: "2026-09-01" });
-    await runTool(d, "update_milestone", { id: 30, achievedDate: "2026-09-02" });
+    await runTool(d, "update_milestone", {
+      id: 30, expectedToken: FRESH_MILESTONE_TOKEN, achievedDate: "2026-09-02",
+    });
     expect(d.updateMilestone).toHaveBeenCalledWith(30, { achievedDate: "2026-09-02" });
     expect(await runTool(d, "delete_milestone", { id: 30 })).toEqual({ deleted: 30 });
   });
@@ -811,7 +1383,9 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
     const d = makeDispatcher();
     await runTool(d, "create_stakeholder", { name: "Acme Corp", category: "Vendor" });
     expect(d.createStakeholder).toHaveBeenCalledWith({ name: "Acme Corp", category: "Vendor" });
-    await runTool(d, "update_stakeholder", { id: 40, influence: "Low" });
+    await runTool(d, "update_stakeholder", {
+      id: 40, expectedToken: FRESH_STAKEHOLDER_TOKEN, influence: "Low",
+    });
     expect(d.updateStakeholder).toHaveBeenCalledWith(40, { influence: "Low" });
     expect(await runTool(d, "delete_stakeholder", { id: 40 })).toEqual({ deleted: 40 });
   });
@@ -826,7 +1400,9 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
   it("get_resource fetches by id; update strips id; delete echoes id", async () => {
     const d = makeDispatcher();
     expect(await runTool(d, "get_resource", { id: 7 })).toMatchObject({ id: 7, firstName: "Ada" });
-    await runTool(d, "update_resource", { id: 7, title: "Lead" });
+    await runTool(d, "update_resource", {
+      id: 7, expectedToken: FRESH_RESOURCE_TOKEN, title: "Lead",
+    });
     expect(d.updateResource).toHaveBeenCalledWith(7, { title: "Lead" });
     expect(await runTool(d, "delete_resource", { id: 7 })).toEqual({ deleted: 7 });
   });
@@ -840,9 +1416,18 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
 });
 
 describe("set_task_dependencies", () => {
+  // ★★ THE TOKEN GUARD PUTS `getTask` IN THIS TOOL'S DISPATCHER CONTRACT. It is
+  //   a token-COVERED, model-supplied WHOLE-LIST REPLACE (`dependencies` is in
+  //   CSV_COLUMNS and not in TOKEN_EXCLUDED.task), so it is guarded exactly like
+  //   the six `update_*` tools — which means every case that expects to reach
+  //   the dispatcher must supply the getter AND a matching token.
+  const DEP_TASK = makeTask({ id: 7 });
+  const DEP_TOKEN = entityToken("task", DEP_TASK);
+
   it("passes the id and the raw list to the dispatcher", async () => {
     const calls: unknown[] = [];
     const d = {
+      getTask: () => DEP_TASK,
       setTaskDependencies: (id: number, raw: unknown) => {
         calls.push([id, raw]);
         return { id, dependencies: [], rejected: [] };
@@ -851,18 +1436,102 @@ describe("set_task_dependencies", () => {
 
     await runTool(d, "set_task_dependencies", {
       id: 7,
+      expectedToken: DEP_TOKEN,
       dependencies: [{ taskId: 3, type: "FS" }],
     });
 
+    // `expectedToken` is a control value, not a link — it must not reach the
+    // dispatcher's raw list.
     expect(calls).toEqual([[7, [{ taskId: 3, type: "FS" }]]]);
   });
 
   it("throws when the task is missing", async () => {
-    const d = { setTaskDependencies: () => null } as unknown as ToolDispatcher;
+    // Not-found is resolved BEFORE the token, so this needs no token: there is
+    // nothing to derive one from until the row is in hand, and "not found" is
+    // the more useful error than "changed since you read it".
+    const d = {
+      getTask: () => null,
+      setTaskDependencies: () => null,
+    } as unknown as ToolDispatcher;
 
+    // ★★ THE FULL MESSAGE, not the `"#9 not found"` SUBSTRING this asserted
+    //   before. The capital `T` is this tool's inherited spelling and the six
+    //   `update_*` tools use lowercase (see `requireTaskWriteToken`); a
+    //   substring match cannot see a change in either direction, so moving the
+    //   check earlier could have silently reworded a model-facing string.
+    //   ★ ANCHORED. `toThrow("...")` is itself a SUBSTRING match, so passing
+    //   the whole sentence as a string would not have pinned it either.
     await expect(runTool(d, "set_task_dependencies", { id: 9, dependencies: [] })).rejects.toThrow(
-      "#9 not found",
+      /^Task #9 not found$/,
     );
+  });
+
+  // ★★★ THE STALE CASE IS WHAT THE GUARD IS FOR, AND THE FRESH CONTROL BELOW IS
+  //   NOT BELT-AND-BRACES. Without it a hardcoded `throw` in the handler would
+  //   satisfy both this case and the withheld-token one, and the tool would be
+  //   entirely broken with the suite green.
+  it("refuses a stale write and leaves the dependency list untouched", async () => {
+    // `getTask` closes over the LIVE row, so the human edit below is visible to
+    // the re-derivation — that IS the mechanism. Handing the mock a frozen copy
+    // would make this case pass whatever the guard did.
+    const row = makeTask({ id: 7, dependencies: [{ taskId: 3, type: "FS" }] });
+    const setTaskDependencies = vi.fn();
+    const d = { getTask: () => row, setTaskDependencies } as unknown as ToolDispatcher;
+
+    const readToken = entityToken("task", row);
+    // A human renames the task between the model's read and its write.
+    row.taskName = "Renamed by a human in the interval";
+
+    await expect(
+      runTool(d, "set_task_dependencies", {
+        id: 7,
+        expectedToken: readToken,
+        dependencies: [],
+      }),
+    ).rejects.toThrow(/changed since you read it/i);
+    expect(setTaskDependencies).not.toHaveBeenCalled();
+    // The refused call was a clear-all, so this is the assertion that the WRITE
+    // did not happen — not merely that a mock went uncalled.
+    expect(row.dependencies).toEqual([{ taskId: 3, type: "FS" }]);
+  });
+
+  it("refuses a write that carries no token at all", async () => {
+    // Absence is refused deliberately: if a missing token meant "skip the
+    // check", omitting one field would bypass the guard entirely.
+    const setTaskDependencies = vi.fn();
+    const d = { getTask: () => DEP_TASK, setTaskDependencies } as unknown as ToolDispatcher;
+
+    await expect(
+      runTool(d, "set_task_dependencies", { id: 7, dependencies: [] }),
+    ).rejects.toThrow(/expectedToken is required/i);
+    expect(setTaskDependencies).not.toHaveBeenCalled();
+  });
+
+  it("accepts a fresh token — the control for the two refusals above", async () => {
+    const row = makeTask({ id: 7, dependencies: [{ taskId: 3, type: "FS" }] });
+    const setTaskDependencies = vi.fn(() => ({ id: 7, dependencies: [], rejected: [] }));
+    const d = { getTask: () => row, setTaskDependencies } as unknown as ToolDispatcher;
+
+    await runTool(d, "set_task_dependencies", {
+      id: 7,
+      expectedToken: entityToken("task", row),
+      dependencies: [],
+    });
+
+    expect(setTaskDependencies).toHaveBeenCalledTimes(1);
+  });
+
+  it("advertises the token on its own schema, so a model can spend one", async () => {
+    // The enforcement above is worthless if the schema never tells the model to
+    // send a token — that exact read/write split shipped once already (see the
+    // ROUND_TRIP block below).
+    const def = TOOL_DEFS.find((x) => x.name === "set_task_dependencies");
+    const schema = def!.input_schema as {
+      properties: Record<string, unknown>;
+      required: string[];
+    };
+    expect(Object.keys(schema.properties)).toContain("expectedToken");
+    expect(schema.required).toContain("expectedToken");
   });
 
   it("throws when id is not a number", async () => {
@@ -893,10 +1562,13 @@ describe("set_task_dependencies", () => {
 
   it("still clears every link for a real empty array", async () => {
     const d = {
+      getTask: () => DEP_TASK,
       setTaskDependencies: (id: number, raw: unknown) => ({ id, dependencies: raw, rejected: [] }),
     } as unknown as ToolDispatcher;
 
-    await expect(runTool(d, "set_task_dependencies", { id: 7, dependencies: [] })).resolves.toEqual({
+    await expect(runTool(d, "set_task_dependencies", {
+      id: 7, expectedToken: DEP_TOKEN, dependencies: [],
+    })).resolves.toEqual({
       id: 7,
       dependencies: [],
       rejected: [],
@@ -1358,4 +2030,223 @@ describe("runTool — search_chats", () => {
     });
     await expect(runTool(d, "search_chats", {})).rejects.toThrow(/switched off/i);
   });
+});
+
+// ★★★ THE ROUND TRIP IS THE ASSERTION THAT MATTERS, AND ITS ABSENCE IS EXACTLY
+//   WHAT SHIPPED THE GAP THIS BLOCK CLOSES. The six entity `update_*` tools were
+//   guarded — each re-derives the stored row's token, refuses on mismatch AND on
+//   absence — and every one of those refusals was pinned. What nothing pinned
+//   was that the READ path hands out a token the WRITE path accepts. It did not:
+//   no `runTool` case emitted one, so every chat-driven update was refused for
+//   want of a value the chat path never produced, and the whole suite was green.
+//   Each case below reads through the tool a model would actually call, takes
+//   the token OUT OF THE RESPONSE, and spends it on the matching update — so the
+//   two halves can only drift apart by turning this red.
+//
+// ★★ THE `toBe(FRESH_*_TOKEN)` LINE IS NOT REDUNDANT WITH THE WRITE SUCCEEDING,
+//   and dropping it as belt-and-braces would be a real loss. It pins the token
+//   to the FULL stored row rather than merely to "whatever the update tool also
+//   computes": a bug deriving BOTH halves from the summary would round-trip
+//   perfectly and be a false PERMIT for every field the summary omits. The
+//   `FRESH_*` constants come from the fixture makers, not from either path.
+const ROUND_TRIP: Array<{
+  entity: string;
+  readTool: string;
+  updateTool: string;
+  method: keyof ToolDispatcher;
+  id: number;
+  token: string;
+  patch: Record<string, unknown>;
+  pick: (result: unknown) => Record<string, unknown>;
+}> = (() => {
+  const one = (r: unknown) => r as Record<string, unknown>;
+  const first = (r: unknown) => (r as Record<string, unknown>[])[0];
+  const item = (r: unknown) => (r as { items: Record<string, unknown>[] }).items[0];
+  return [
+    { entity: "task", readTool: "get_task", updateTool: "update_task", method: "updateTask" as const,
+      id: 1, token: FRESH_TASK_TOKEN, patch: { taskName: "Renamed by the AI" }, pick: one },
+    // ★ The list path slims `description` to plain text; the token must still be
+    //   the FULL row's, so this case shares FRESH_TASK_TOKEN with the one above.
+    { entity: "task", readTool: "list_tasks", updateTool: "update_task", method: "updateTask" as const,
+      id: 1, token: FRESH_TASK_TOKEN, patch: { taskName: "Renamed by the AI" }, pick: item },
+    { entity: "raid", readTool: "list_raid", updateTool: "update_raid_item", method: "updateRaid" as const,
+      id: 10, token: FRESH_RAID_TOKEN, patch: { title: "Renamed by the AI" }, pick: first },
+    { entity: "change", readTool: "list_changes", updateTool: "update_change", method: "updateChange" as const,
+      id: 20, token: FRESH_CHANGE_TOKEN, patch: { title: "Renamed by the AI" }, pick: first },
+    { entity: "milestone", readTool: "list_milestones", updateTool: "update_milestone", method: "updateMilestone" as const,
+      id: 30, token: FRESH_MILESTONE_TOKEN, patch: { name: "Renamed by the AI" }, pick: first },
+    { entity: "stakeholder", readTool: "list_stakeholders", updateTool: "update_stakeholder", method: "updateStakeholder" as const,
+      id: 40, token: FRESH_STAKEHOLDER_TOKEN, patch: { name: "Renamed by the AI" }, pick: first },
+    { entity: "resource", readTool: "get_resource", updateTool: "update_resource", method: "updateResource" as const,
+      id: 7, token: FRESH_RESOURCE_TOKEN, patch: { title: "Renamed by the AI" }, pick: one },
+    { entity: "resource", readTool: "list_resources", updateTool: "update_resource", method: "updateResource" as const,
+      id: 7, token: FRESH_RESOURCE_TOKEN, patch: { title: "Renamed by the AI" }, pick: first },
+  ];
+})();
+
+describe("the read path hands out a token the write path accepts", () => {
+  it.each(ROUND_TRIP)(
+    "$entity: a token read through $readTool is spent successfully on $updateTool",
+    async ({ readTool, updateTool, method, id, token, patch, pick }) => {
+      const d = makeDispatcher();
+
+      const row = pick(await runTool(d, readTool, { id }));
+      expect(row.id, `${readTool} must return the row under test`).toBe(id);
+      // Equality, not presence: a token that is present but wrong is refused at
+      // runtime, which is the very failure this block exists to catch.
+      expect(row.expectedToken, `${readTool} must emit the FULL row's token`).toBe(token);
+
+      const updated = await runTool(d, updateTool, {
+        id,
+        expectedToken: row.expectedToken,
+        ...patch,
+      });
+
+      expect(updated).toBeDefined();
+      expect(d[method] as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  // ★★★ THE `list_tasks` CASE ABOVE CANNOT SEE THIS ONE, AND THAT WAS MEASURED
+  //   RATHER THAN ANTICIPATED. `makeTask()`'s description is plain text, so
+  //   slimming it is a no-op and the slimmed item's token equals the full task's
+  //   — the round-trip case therefore SURVIVES a mutant deriving the list token
+  //   from the slimmed item (measured: 140/140 green with it in place). Only a
+  //   task carrying real markup separates the two objects, so this case supplies
+  //   one and asserts the difference exists before relying on it.
+  it("list_tasks derives the token from the FULL task, not from the slimmed item", async () => {
+    const task = makeTask({ description: RICH_DESCRIPTION });
+    const d = makeDispatcher({ listTasks: vi.fn(() => [task]), getTask: vi.fn(() => task) });
+
+    const { items } = (await runTool(d, "list_tasks", {})) as {
+      items: { description: string; expectedToken: string }[];
+    };
+    // The item the model reads has had its markup stripped …
+    expect(items[0].description).not.toContain("<strong>");
+    // … so a token derived from IT would not be the stored task's. Asserted, not
+    // assumed: this is what makes the next line non-vacuous.
+    expect(entityToken("task", items[0])).not.toBe(entityToken("task", task));
+    expect(items[0].expectedToken).toBe(entityToken("task", task));
+
+    // And the whole point: that token is spendable on the guarded write.
+    await runTool(d, "update_task", {
+      id: 1,
+      expectedToken: items[0].expectedToken,
+      taskName: "Renamed by the AI",
+    });
+    expect(d.updateTask).toHaveBeenCalledTimes(1);
+  });
+
+  // Anti-vacuity for the block above. Every case there passes a token that the
+  // guard accepts, so none of them can tell an enforcing guard from an absent
+  // one — with `requireToken` deleted they would all still be green. This case
+  // is what proves the guard is live on the same path.
+  it("still refuses the same write when the token is withheld", async () => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "update_raid_item", { id: 10, title: "No token" })).rejects.toThrow(
+      /expectedToken is required/i,
+    );
+    expect(d.updateRaid).not.toHaveBeenCalled();
+  });
+
+  it("refuses a token read from a list row once that row has changed", async () => {
+    // ★ `getRaidRow` closes over the LIVE `row`, so the human edit below is
+    //   visible to the re-derivation — which is the whole mechanism. Copying
+    //   the row into the mock instead would freeze it and the case would pass
+    //   whatever the guard did.
+    const row = makeRaidItem();
+    const d = makeDispatcher({
+      listRaid: vi.fn(() => [
+        {
+          id: row.id, category: row.category, title: row.title, status: row.status,
+          severity: row.severity, owner: row.owner, stakeholderIds: row.stakeholderIds ?? [],
+        },
+      ]),
+      getRaidRow: vi.fn(() => ({ ...row })),
+    });
+
+    const [read] = (await runTool(d, "list_raid", {})) as { expectedToken: string }[];
+    // A human edits the same RAID item between the model's read and its write.
+    row.title = "Renamed by a human";
+
+    await expect(
+      runTool(d, "update_raid_item", {
+        id: 10,
+        expectedToken: read.expectedToken,
+        title: "Renamed by the AI",
+      }),
+    ).rejects.toThrow(/changed since you read it/i);
+    expect(d.updateRaid).not.toHaveBeenCalled();
+
+    // Control: re-reading yields a token the guard accepts, so the case above
+    // failed on staleness and not because a list token is never usable.
+    const [reread] = (await runTool(d, "list_raid", {})) as { expectedToken: string }[];
+    await runTool(d, "update_raid_item", {
+      id: 10,
+      expectedToken: reread.expectedToken,
+      title: "Renamed by the AI",
+    });
+    expect(d.updateRaid).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ★★★ THE FALSE PERMIT THIS SHAPE EXISTS TO AVOID, DEMONSTRATED RATHER THAN
+//   ASSERTED. Each row below is a pair of stored entities differing ONLY in a
+//   field the model-facing `*Summary` omits. A token derived from the summary
+//   is byte-identical across the pair, so it would PERMIT an overwrite of an
+//   edit it cannot see — the exact defect the concurrency guard exists to stop,
+//   reintroduced by deriving the token from the wrong object. The real token,
+//   derived from the stored row, separates them.
+//
+// ★ `task` is absent by construction, not by omission: it is the one entity
+//   whose list projection is not a `*Summary` but a slimming of the full row,
+//   and it is covered by the two `FRESH_TASK_TOKEN` cases above, which pin the
+//   list token to the FULL task rather than to the plain-text projection.
+const SUMMARY_TRAP: Array<{
+  entity: string;
+  kind: TokenEntity;
+  /** The field the summary drops — named so a failure says which one. */
+  field: string;
+  a: () => object;
+  b: () => object;
+  summarize: (row: object) => object;
+}> = [
+  { entity: "raid", kind: "raid", field: "description",
+    a: () => makeRaidItem({ description: "<p>Mitigate by Q3</p>" }),
+    b: () => makeRaidItem({ description: "<p>Accept the risk</p>" }),
+    summarize: (r) => toRaidSummary(r as RaidItem) },
+  { entity: "change", kind: "change", field: "description",
+    a: () => makeChangeItem({ description: "Add new module" }),
+    b: () => makeChangeItem({ description: "Drop the module" }),
+    summarize: (r) => toChangeSummary(r as ChangeItem) },
+  { entity: "milestone", kind: "milestone", field: "description",
+    a: () => makeMilestone({ description: "Sign-off with the sponsor" }),
+    b: () => makeMilestone({ description: "Sign-off with the steering committee" }),
+    summarize: (r) => toMilestoneSummary(r as Milestone) },
+  { entity: "stakeholder", kind: "stakeholder", field: "notes",
+    a: () => makeStakeholder({ notes: "Prefers email" }),
+    b: () => makeStakeholder({ notes: "Prefers a call" }),
+    summarize: (r) => toStakeholderSummary(r as Stakeholder) },
+  { entity: "resource", kind: "resource", field: "notes",
+    a: () => makeResource({ notes: "On the Berlin team" }),
+    b: () => makeResource({ notes: "On the Munich team" }),
+    summarize: (r) => toResourceSummary(r as Resource) },
+];
+
+describe("a summary-derived token would be a false permit", () => {
+  it.each(SUMMARY_TRAP)(
+    "$entity: rows differing only in `$field` share ONE summary token but two real ones",
+    ({ kind, a, b, summarize }) => {
+      const summaryA = summarize(a());
+      const summaryB = summarize(b());
+
+      // The summaries are indistinguishable, so anything derived from them is.
+      expect(summaryA).toEqual(summaryB);
+      expect(entityToken(kind, summaryA)).toBe(entityToken(kind, summaryB));
+
+      // The stored rows are not — so the real token refuses the overwrite that
+      // a summary-derived one would have permitted.
+      expect(entityToken(kind, a())).not.toBe(entityToken(kind, b()));
+    },
+  );
 });

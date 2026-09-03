@@ -399,6 +399,40 @@ describe("useTaskRowHandlers — onSendInquiry", () => {
     expect(decodeURIComponent(hrefValue)).not.toContain("{{taskName}}");
   });
 
+  // ★★★ AN EMPTY DEFAULT TEMPLATE MUST FALL BACK, NOT SEND AN EMPTY BODY.
+  // This is reachable on the FIRST use of the feature, with no partial input:
+  // `createTemplate` (settings-sections/comm-templates-section.tsx) creates
+  // every new template with body `""`, and `create` (use-comm-templates.ts)
+  // makes the first template in a category its default on purpose. So a user
+  // who names a template and clicks Create — without ever typing a body — has
+  // a DEFAULT whose body is `""`. A `!= null` guard reads that as a usable
+  // template, skips the i18n fallback `use-comm-templates.ts`'s own header
+  // promises, and opens the mail client with a literal `&body=`.
+  // ★★ The rich-text editor reaches the same state from the other side: its
+  // empty document serialises to `<p></p>` / `<p><br></p>`, which is a
+  // non-empty STRING that `htmlToPlainText` trims to `""`. Testing only `""`
+  // would leave that half unpinned, so both shapes are enumerated here.
+  it.each([
+    ["an empty string", ""],
+    ["an empty rich-text paragraph", "<p></p>"],
+    ["an empty rich-text paragraph with a break", "<p><br></p>"],
+    ["whitespace only", "   "],
+  ])("falls back to the i18n body when the default template renders to nothing (%s)", (_label, tplBody) => {
+    const setTasks = vi.fn();
+    const task = makeTask({ id: 1, assigneeEmail: "alice@example.com", taskName: "Ship It" });
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ setTasks, resolveTemplateBody: () => tplBody })),
+    );
+    act(() => result.current.onSendInquiry(task));
+    // ★★ Slice the `body` PARAM rather than asserting over the whole href: the
+    // SUBJECT also carries the task name, so `expect(decoded).toContain("Ship
+    // It")` over the full URL passes with an entirely empty body — the exact
+    // defect this test exists to catch.
+    const bodyParam = decodeURIComponent(hrefValue.split("&body=")[1] ?? "");
+    expect(bodyParam).not.toBe("");
+    expect(bodyParam).toContain("Ship It");
+  });
+
   it("delegates to sendCommTemplate when provided", () => {
     const sendCommTemplate = vi.fn();
     const setTasks = vi.fn();

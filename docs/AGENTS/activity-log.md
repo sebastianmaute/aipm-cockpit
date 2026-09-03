@@ -64,6 +64,11 @@ it has no table of its own, NOT because it sits outside the workspace.
   back there: `use-storage-backend.ts` stands at **799** of the 800-line cap (`size:check` counts
   `wc -l` plus one) — ONE line of headroom, not the two this used to imply — and this file is outside
   that gate's `src` walk, so the command lives here.
+  ★★ **SUPERSEDED 2026-09-03 — the headroom half of that argument no longer holds.** The ratchet
+  LIMIT was doubled 800 → 1600, so `use-storage-backend.ts` (still 799) now has ~800 lines of room
+  and the command COULD go back into the source comment. The reason to keep it HERE is unchanged and
+  is the one that always mattered: prose describing a command is not a command, and a comment that
+  gets condensed loses it again. Read the paragraph above as the rationale, not the line count.
   `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **29**
   `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
   `comm -23 <(sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`

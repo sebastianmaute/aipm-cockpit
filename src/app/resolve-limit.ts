@@ -23,6 +23,37 @@
  * test before it can reach the clamp. Defensible (it is not a number the caller
  * meant) and pinned by a test so it cannot change silently.
  */
+/**
+ * Coerce raw model-supplied JSON into a finite number, or `undefined`.
+ *
+ * ★★★ A NUMERIC STRING IS COMPREHENSIBLE INTENT, NOT MALFORMED INPUT. Models
+ * emit `"10"` for a numeric field routinely, and a bare `typeof raw ===
+ * "number"` test drops it — silently, on a request whose meaning was never in
+ * doubt. What that costs depends on the caller's fallback: `list_tasks` returned
+ * the WHOLE register, while `search_chats` merely widens to its default page
+ * size. Both are wrong in the same direction, so the coercion lives here once
+ * rather than being re-spelled per call site.
+ *
+ * ★★ POLICY STAYS WITH THE CALLER. This applies NO floor, NO positivity test
+ * and NO clamp — `resolveLimit` falls back on a non-positive value while
+ * `listTasksEnvelope` reads it as "no limit", and collapsing those two into one
+ * helper would force a single answer on two different contracts.
+ *
+ * ★★ A BLANK STRING NEEDS NO SPECIAL CASE, and adding one is dead code: an
+ * earlier version guarded `raw.trim() !== ""`, but `Number("")` and
+ * `Number("  ")` are both `0`, and every caller already treats 0 as "no usable
+ * limit". Measured over 16 inputs (`""`, `"  "`, `"\t\n"`, NBSP, ZWSP, `"abc"`,
+ * `"0x10"`, `" 10 "`, `"Infinity"`, `1e21`, booleans, null, `{}`, `[]`): the
+ * guard changed the observable result for NONE of them.
+ *
+ * ★ Booleans and `null` are deliberately NOT coerced — `Number(true)` is 1, so
+ * a `true` would otherwise become a real, very specific page size of one.
+ */
+export function coerceNumericInput(raw: unknown): number | undefined {
+  const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
+  return Number.isFinite(n) ? n : undefined;
+}
+
 export function resolveLimit(
   raw: number | undefined,
   fallback: number,

@@ -10,6 +10,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { type Workspace } from "./workspace";
 import { type ToolDispatcher, runTool } from "./chat-tools";
+import { entityToken } from "./ai-entity-token";
+import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { type AiConfig, isAiEnabled } from "./settings-types";
 import { type OperatingGuide } from "./operating-guide";
 import { callInlineEdit } from "./inline-ai-edit-call";
@@ -70,6 +72,32 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   // AbortController for the in-flight callInlineEdit, so cancel()/openFor() stop
   // the actual (billed) network call — not just discard its result via reqId.
   const abortRef = useRef<AbortController | null>(null);
+  // ★★★ THE CONCURRENCY TOKEN FOR THE ROW AS THE MODEL SAW IT, and WHEN it is
+  // derived is the whole design. It is taken in `submit`, from the same `target`
+  // that is serialized into the prompt — so the window it covers is the AI
+  // round-trip PLUS the user's read of the preview and their click on Apply. A
+  // human (or a background sync, or a second tab) editing the row anywhere in
+  // that window makes the write refuse, which is the race this feature actually
+  // has: the model reasoned about a row that has since moved.
+  // ★★★ DERIVING IT IN `apply` INSTEAD IS VACUOUS BY CONSTRUCTION, and it is
+  // the obvious-looking simplification — you would read the row and hand back a
+  // token derived from that same read, so the comparison in `requireToken`
+  // could never fail. That is not a weaker guard, it is no guard: it would
+  // report success while restoring exactly the silent-overwrite behaviour this
+  // slice exists to remove. Pinned by "refuses, and writes nothing, when a
+  // human edited the row while the model was thinking"
+  // (`use-inline-entity-edit.test.tsx`, describe "optimistic concurrency across
+  // the submit → apply window"). ★ This citation used to be a PARAPHRASE of
+  // that name rather than the name itself, so it resolved to nothing under
+  // grep. The case is real, so it was a broken citation and not a false
+  // coverage claim — but a reader who greps a cited name and finds nothing
+  // cannot tell those two apart, which is what makes it worth fixing. The old
+  // wording is described rather than quoted, so a grep for the defect cannot
+  // hit this correction and report it as still live.
+  // ★ Null until a submit has been ACCEPTED. `apply` forwards it as-is: a null
+  // reaches `requireToken` as an absent token and is refused, which is the safe
+  // direction — never a silent unguarded write.
+  const tokenRef = useRef<string | null>(null);
 
   // Close a stale edit when this entity's pane is no longer active. Non-mouse
   // nav (global search / deep-link / back-forward / programmatic tab change)
@@ -129,6 +157,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       if (!aiEditEnabled(item)) return;
       abortRef.current?.abort(); // stop the previous item's billed call
       reqIdRef.current++; // supersede any in-flight submit for a previous item
+      tokenRef.current = null; // the previous item's token must never reach this one
       setActiveItem(item); setPhase("idle"); setPlan(null); setClarifyText(""); setErrorText("");
     },
     [aiEditEnabled],
@@ -139,6 +168,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   const cancel = useCallback(() => {
     abortRef.current?.abort(); // stop the billed call, not just discard its result
     reqIdRef.current++; // supersede any in-flight submit
+    tokenRef.current = null;
     setActiveItem(null); setPhase("idle"); setPlan(null); setClarifyText(""); setErrorText("");
   }, []);
 
@@ -146,6 +176,9 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     if (!activeItem || !instruction.trim() || phase === "thinking" || phase === "applying") return;
     const reqId = ++reqIdRef.current;
     const target = activeItem;
+    // Derived from the SAME object that goes into the prompt below, before the
+    // await — see tokenRef's comment for why the derivation point is the design.
+    const readToken = entityToken(deps.entity, target);
     const controller = new AbortController();
     abortRef.current = controller;
     setPhase("thinking"); setErrorText(""); setClarifyText("");
@@ -165,6 +198,11 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       deps.recordUsage?.(usage);
       const next = describeEntityCalls(blocks, { descriptor: d, item: target, ws: deps.ws });
       if (isEmptyPlan(next)) { setClarifyText(text || t(deps.lang, "inlineAiEditNoChanges")); setPhase("clarify"); return; }
+      // Committed only for the response that WON the reqId check above, so a
+      // superseded submit can never leave its item's token behind for another
+      // item's apply. Written beside setPlan for that reason: the token and the
+      // plan it belongs to are adopted together or not at all.
+      tokenRef.current = readToken;
       setPlan(next); setPhase("preview");
     } catch (err) {
       if (reqId !== reqIdRef.current) return; // stale failure — don't clobber current state
@@ -182,7 +220,11 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     let applied = 0;
     try {
       if (plan.updates.length > 0) {
-        const patch: Record<string, unknown> = { id: activeItem.id };
+        // `expectedToken` is the control value `requireToken` consumes, not a
+        // field of the entity — `buildPatch`/`patchWithoutId` strip it before
+        // anything is persisted. It cannot be overwritten by the loop below:
+        // every key there comes from the descriptor's `diffFields` whitelist.
+        const patch: Record<string, unknown> = { id: activeItem.id, expectedToken: tokenRef.current };
         // ★★★ `raw`, NOT `after`. `after` is forPreview() output, which for any
         // RICH_FIELDS entry is descriptionText(html) — plain text. Applying it
         // wrote the projection over the user's markup, silently flattening every
@@ -224,12 +266,29 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       // and the `ai.inlineEdit` ban beside it would be scanning nothing.
       deps.showToast("info", t(deps.lang, "inlineAiEditApplied", d.titleOf(activeItem)));
       cancel();
-    } catch {
+    } catch (err) {
       if (applied > 0) {
         deps.showToast("error", t(deps.lang, "inlineAiEditPartial"));
         cancel();
       } else {
-        setErrorText(t(deps.lang, "inlineAiEditApplyFailed")); setPhase("error");
+        // ★★★ A STALENESS REFUSAL NEEDS ITS OWN MESSAGE, and this path is where
+        // refusals will actually be SEEN: it has the widest human-scale
+        // staleness window in the app (model round-trip, then a preview the
+        // user reads, then an Apply click), and the token guard is a NEW
+        // user-visible failure mode. "Could not apply the change." names no
+        // cause and no remedy, so the user's only move is to retry the same
+        // stale token and be refused identically.
+        // ★★ ONE KEY, NOT A PAIR, AND THE ASYMMETRY WITH THE INSIGHT PATH IS
+        // DELIBERATE. `insightRecommendation*` has a Stale AND a StalePartial
+        // because a recommendation replays several guarded updates. Here the
+        // single guarded call is the FIRST one — creates and deletes follow it
+        // and no `create_*`/`delete_*` tool calls `requireToken` — so a
+        // ConcurrencyTokenError always arrives with `applied === 0` and the
+        // partial branch above is unreachable for it. If a guarded call is ever
+        // added AFTER the update, that branch needs the same treatment.
+        const stale = err instanceof ConcurrencyTokenError;
+        setErrorText(t(deps.lang, stale ? "inlineAiEditStale" : "inlineAiEditApplyFailed"));
+        setPhase("error");
       }
     }
   };

@@ -553,7 +553,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01) | ~~`actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name~~ | 0.272.0 (Zoline) | S | **CLOSED** 2026-09-01 (closed WIDER than its title; popover internals carved out to §328) |
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix round | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide--closed-2026-09-02) | ~~`TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide~~ | found 2026-08-31, adding the §300 mismatch region | S | **CLOSED** 2026-09-02 (`useId()` for both; the probe REFUTED the entry's click path and found the voice-nonce one) |
-| [§327](#327-use-storage-backendts-sits-one-line-under-the-800-line-size-ratchet-with-no-usable-headroom) | `use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom | found 2026-08-31, closing §303 | S | open |
+| [§327](#327-use-storage-backendts-sits-one-line-under-the-800-line-size-ratchet-with-no-usable-headroom--closed-2026-09-03) | ~~`use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom~~ | found 2026-08-31, closing §303 | S | **CLOSED** 2026-09-03 |
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 | [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
@@ -564,8 +564,20 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--open) | A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all — open | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; the DISCLOSURE half of that report is fixed, this is the residue | S | open |
+| [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--open) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | open |
+| [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--open) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
+| [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--open) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
+| [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
+| [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--open) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
+| [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--closed-2026-09-03) | ~~The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | **CLOSED** 2026-09-03 (eye-verified via a DevTools Performance screenshot capture; the entry records that the deletion control was not captured, so read it at that strength) |
 | [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | open |
 | [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | open |
+| [§346](#346-no-mcp-server--the-ai-can-only-act-from-inside-the-app--open) | No MCP server — the AI can only act from inside the app | found 2026-09-03 benchmarking OpenProject 17.8 | L (architecture decision first) | open |
+| [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
+| [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
+| [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--open) | `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model | found 2026-09-03 in the AI write-concurrency slice | S–M | open |
+| [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
+| [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--open) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -15049,6 +15061,22 @@ this is, it is not the size cap.
 2026-08-19. **Deferred the same day**, to be done as its own slice rather than
 riding on an unrelated branch. Never machine-verified by a committed probe.
 
+★★★ **THE SIZE-CAP HALF IS SUPERSEDED — 2026-09-03. DO NOT IMPLEMENT IT AS
+WRITTEN: it would move the cap BACKWARDS.** `LIMIT` in
+`scripts/check-file-sizes.mjs` was raised 800 → **1600** (and every
+`docs/baselines/file-sizes.json` entry doubled) on an explicit decision that the
+ratchet was biting routine work. Everything below that says "the cap is 800" and
+proposes raising it to **900** now describes a lower ceiling than the one in
+force, so an implementer following this entry literally would halve the budget.
+★★ The COUPLING ARGUMENT below is what actually dissolves: it says the two
+halves must move together because reformatting at `printWidth: 120` grows files
+and the cap must absorb that growth. At 1600 there is ~800 lines of slack on the
+largest affected file, so Prettier can now be adopted on its own merits with no
+cap change at all. ★ The Prettier half is otherwise untouched and still open —
+formatting consistency was always the point, and none of the reasoning about
+churn, review noise or the migration commit is affected. The original text is
+left below as the record of what was decided on 2026-08-19.
+
 The repo has no formatter. `scripts/check-file-sizes.mjs` caps a `src` file at
 `LIMIT = 800` lines. The decision is to adopt Prettier at `printWidth: 120` and
 raise that cap to **900** in the same change.
@@ -25975,9 +26003,28 @@ duplicate-id constraint that no longer exists. ★★ Two dated design records �
 recoverable-destructive-refusal **spec** and **plan** — still state the old constraint; they are
 bannered as superseded rather than rewritten, because a dated record is only worth what it recorded.
 
-## 327. `use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom
+## 327. ~~`use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom~~ — CLOSED 2026-09-03
 
-**Status:** OPEN. Filed 2026-08-31 while closing
+**Status:** CLOSED 2026-09-03 — resolved by raising the ratchet rather than by splitting the file.
+`LIMIT` in `scripts/check-file-sizes.mjs` went 800 → 1600 and every entry in
+`docs/baselines/file-sizes.json` was doubled in the same change, on an explicit decision that the
+ratchet was biting routine work. This file is 799 lines against a 1600 limit, so the "no usable
+headroom" premise no longer holds and the extraction this entry was reserving is not needed.
+Reproduce:
+
+```
+node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
+grep -n "^const LIMIT" scripts/check-file-sizes.mjs
+npm run size:check
+```
+
+★★ **What is NOT resolved, and would revive this entry:** `node scripts/check-file-sizes.mjs
+--update` rewrites the baseline to CURRENT sizes, discarding the doubling — and the gate's own
+failure message recommends running it. The 1600 limit lives in one `const`; nothing pins it, so a
+revert to 800 silently restores the exact condition described below. The never-machine-verified half
+stands untouched: nobody has assessed this file's split seams.
+
+**Original status when open:** Filed 2026-08-31 while closing
 [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31).
 **Re-measured 2026-09-02: the count is now 799, not the 800 this entry was filed at.** Commit
 `48cbef17` removed two comment lines and added one (`git diff --numstat 48509bf1..ebeb30d3 --
@@ -26833,17 +26880,34 @@ not added, because `html` is unchanged when the config flips to null. The test r
 `tursoConfig={null}` from the start, so the removal loop only ever runs as a no-op over unstamped
 nodes. **Mutation:** replace that branch's loop body with a bare `return;` — all tests stay green.
 
-## 341. Neither asset-preview entry point has ever been exercised against a real Turso project — open
+## 341. Neither asset-preview entry point has ever been exercised against a real Turso project — CLOSED 2026-09-02
 
-**Status:** open — **never machine-verified** (2026-09-02), and that is the entry's point.
+**Status:** CLOSED 2026-09-02 — verified BY EYE against a live Turso project; **never
+machine-verified**, and it cannot be. The scope of that pass is recorded below, and it is
+NARROWER than the title. Read it before treating this surface as covered.
 
 Both surfaces that mount `AssetPreviewModal` are Turso-gated, and `e2e/seed.ts` seeds FILE mode, so
 the axe gate renders neither in any view at any seed size. Unit tests are the only coverage that
-will ever exist for them. Nothing has confirmed the lightbox opens, loads bytes, navigates or
+will ever exist for them. Nothing had confirmed the lightbox opens, loads bytes, navigates or
 degrades correctly against a live database.
 
 ★ This is the same blind-spot class as the other Turso-gated views. An owed eye-verify is a GATE,
 not a nicety — record the result here when it is done, including what was NOT checked.
+
+**What the 2026-09-02 pass covered**, at both mount points (`asset-library.tsx`'s row control and
+an inserted image in `document-preview.tsx`): the lightbox opens; bytes load and render; prev/next
+walk the caller's own row order; both controls disable at the ends and do NOT wrap; an asset with
+missing bytes shows the stated `assetPreviewUnavailable` text rather than a broken `<img>`, and
+navigation still works past it.
+
+★★★ **WHAT IT DID NOT COVER — do not read this closure as wider than the list above.** Unverified
+against a live database: the `assetPreviewBlocked` branch (a disallowed mime, a DIFFERENT render
+path from `unavailable`); the `reloadNonce` reload after a §212 byte repair, which is the one
+signal no other prop carries; the drag/resize/reset-layout persistence behind
+`aipm-cockpit:modal-pos:asset-preview` and `aipm-cockpit:modal-size:asset-preview` (and see §338 —
+`useResizable` is a no-op in a modal that stays mounted while closed, which this surface may be);
+Escape/Tab dismissal through the shared `Modal`; and the DE locale. Each is a separate eye-verify,
+owed but not filed — file one before relying on it.
 
 ## 342. `role="button"` on an `<img>` removes its image semantics — open
 
@@ -26860,10 +26924,20 @@ alone and putting activation on a separate adjacent control. Both cost layout wo
 document HTML we do not own the structure of. Verify with a real screen reader before choosing;
 this is exactly the class of question jsdom cannot answer.
 
-## 343. The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it — open
+## 343. The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it — CLOSED 2026-09-03
 
-**Status:** open — **never machine-verified** (2026-09-02), and this entry exists because it
-CANNOT be, in the unit layer. Reproduce the gap with: delete `if (!open) setView(null);` from the
+**Status:** CLOSED 2026-09-03 by eye-verify against a live Turso project — **never
+machine-verified**, and it cannot be, in the unit layer. Open a preview, close it, reopen the SAME
+row: no broken-image frame. Captured with Chrome DevTools Performance recording WITH SCREENSHOTS
+rather than watched live, which is the part worth copying — the defect is a single paint, at the
+edge of what an eye catches, so "I looked and saw nothing" would not have been evidence.
+★★ WHAT THIS RECORD DOES NOT CLAIM: it does not state that the same capture was repeated with
+`if (!open) setView(null);` DELETED. Without that control, a clean capture is consistent with both
+"the fix works" and "the capture never sampled that frame" — screenshot capture is throttled, not
+per-frame. Read the closure at that strength and no higher; re-running the control is what would
+raise it.
+The gap this entry was filed for is unchanged and still real: delete `if (!open) setView(null);`
+from the
 render reconcile in `src/app/asset-preview-modal.tsx` and run
 `npx vitest run src/app/asset-preview-modal.test.tsx src/app/asset-library.test.tsx src/app/document-preview.test.tsx`
 — measured 2026-09-02 at 67 passed, 0 failed, with the fix deleted.
@@ -26879,8 +26953,9 @@ passive effects before returning, so the stale frame is already replaced by the 
 assertion runs — for the broken component AND the fixed one. A first cut asserted synchronously
 after `rerender` believing it could outrun the effect; its mutant survived 19/19.
 
-★★ OWED: an eye-verify against a real Turso project — open a preview, close it, reopen the same
-row, and confirm no broken-image flash. That is the only layer that can answer this.
+★★ That eye-verify is DONE (2026-09-03, see Status) and was always the only layer that could
+answer this. The entry stays readable as the record of WHY no test covers the line, which is still
+true — do not let a later round "add the missing test". There isn't one.
 
 ★ The sibling `forId` tag is NOT this fix and does not cover this path; it covers navigate and
 list-shrink, where the id genuinely changes, and the shrink case IS pinned by a test.
@@ -26952,3 +27027,199 @@ in the module's own test — there, a comment-stripped scan for DOM references; 
 every `import` line begins `import type`. Three lines, and it is the only thing that could see this.
 ★★ Deliberately NOT written in the §199 slice: it is a new guard rather than a defect, the plan did
 not carry it, and adding untasked guards to a fix commit is how a slice stops being reviewable.
+
+## 346. No MCP server — the AI can only act from inside the app — open
+
+**Status:** open — **never machine-verified** (2026-09-03). Reproduce the absence with
+`grep -rli "modelcontextprotocol\|mcp-server" src package.json` (no hits) and `ls src/app/api`
+(`_shared confluence ecb jira stt timelog` — every route is an OUTBOUND proxy; nothing inbound).
+
+Filed after benchmarking OpenProject 17.8 (2026-09-02), which extended its MCP server so external
+assistants can create and update work packages, write comments and manage relations. Cockpit's AI
+surface is larger than theirs — 33 tools spanning create/update/delete over tasks, RAID, changes,
+milestones, stakeholders and resources, unpaywalled where OpenProject gates writes behind
+Professional/Premium/Corporate — but it is reachable ONLY from the in-app assistant. No external
+MCP client (Claude Desktop, an IDE, another agent) can see a Cockpit workspace.
+
+★★★ THIS IS AN ARCHITECTURE DECISION, NOT A FEATURE, and it should not be picked up as a slice
+without one. Cockpit is a browser-local app over file / IndexedDB / Turso backends with no server
+holding workspace state, so an MCP server implies a process that can reach the data AND an auth
+story for it — neither exists today. The three storage backends do not answer it equally: Turso is
+reachable from a server, a local file and IndexedDB are not.
+
+★★ Do NOT read this entry as "add an MCP server". It records that the capability is absent and why
+the obvious implementation is not obvious. The decision to take first is whether Cockpit wants a
+server-side surface at all.
+
+## 347. No global guardrails on time entries — roadmap, after the AI-write-safety slice — open
+
+**Status:** open — **never machine-verified** (2026-09-03); sequenced, not yet designed.
+
+OpenProject 17.8 added instance-wide time-entry validations: a cap per entry, a cap per user per
+day, restriction to a user's defined working hours, a block on non-working days, and a block on
+months already closed. All default to OFF there, so an upgrade changes no behaviour.
+
+Cockpit has the Timelog integration and already holds the data those rules need — working days,
+holidays and absences all exist — so the gap is the rule layer, not the inputs.
+
+★ Sequenced deliberately AFTER the AI-write-safety slice (§348 follows it): that slice touches the
+AI write path, this one touches a different subsystem, and interleaving them would make neither
+reviewable.
+
+## 348. A meeting's activity is invisible from the work it concerns — roadmap, after §347 — open
+
+**Status:** open — **never machine-verified** (2026-09-03); sequenced, not yet designed.
+
+OpenProject 17.8 surfaces meeting activity directly in a work package. Cockpit has calendar events
+and the steering committee, but a task's own history says nothing about the meetings that discussed
+it, so the connection exists in the data and not in the surface a user reads.
+
+★ Read the ordering as a preference, not a dependency — nothing in §347 blocks this.
+
+## 349. `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model — open
+
+**Status:** open — reproduced 2026-09-03 as an ABSENCE witness, which is the whole of what a `grep`
+can be here: `grep -c expect src/app/chat-tool-defs-documents.ts` prints `0`, and
+`grep -n 'enum: \["append"' src/app/chat-tool-defs-documents.ts` prints an op enum of
+`append insert replace delete replaceAll` with no `move`. Filed 2026-09-03 in the AI
+write-concurrency slice. No probe drove a concurrent write through the tool path.
+
+**What the slice did, and what it deliberately did not.** The six entity `update_*` tools gained an
+`expectedToken` field (`expectedTokenField`): a read hands out `entityToken(kind, entity)`, derived
+by hashing the entity's byte-stable CSV projection, and `requireToken` refuses the write on mismatch
+**or absence**. `update_document` is not covered and **structurally cannot be by that mechanism** — a
+`ProjectDocument` persists as a meta-blob (one JSON row in `meta`) with no CSV projection, so
+`PROJECTORS` has no entry and `entityToken` has nothing to hash. That exemption is deliberate,
+documented beside `expectedTokenField`, and pinned: `NOT_TOKEN_GUARDED` in `ai-entity-token.test.ts`
+names `update_document` and `update_settings`, and the exhaustiveness case turns red if the field is
+ever spread onto either. **This entry is not asking for that field on documents.**
+
+**What IS open.** A mechanism already exists and is simply **not advertised**. `DocOp` carries an
+optional `expect: DocBlock` on its `replace`, `delete` and `move` arms — per-block optimistic
+concurrency, enforced in the engine against live state at call time via `blockChanged`
+(`grep -c 'expect?: DocBlock' src/app/document-ops.ts` → `3`, and the same file holds three
+enforcement sites). The hand block editor supplies its draft's baseline. The tool schema in
+`chat-tool-defs-documents.ts` exposes `op`/`index`/`block`/`blocks` and **no `expect` at all**, and
+its op enum **omits `move` entirely**. So the AI document write path has no concurrency protection
+available to it while the engine beneath it does: an AI `replace` at an index the user has since
+edited overwrites that edit silently, and chat tool writes have no undo capture in this app.
+
+★ **Closing it is advertising, not building.** Exposing `expect` requires that the model has READ
+the block it is replacing — which `get_document`'s own description already demands ("you MUST call
+this before update_document"). The `move` omission is a separate, cheaper item: the engine's `move`
+is deliberately ONE op rather than a composed `delete` + `insert`, because `applyOps` bails wholesale
+only when nothing applied, so the composed spelling can delete a block and then have the re-insert
+refused — losing it. The model has no way to express the safe spelling today.
+
+★★ **How it was missed, which is the transferable part.** `TOOL_DEFS` ends by spreading
+`DOCUMENT_TOOL_DEFS` from a **second file** (`grep -n "DOCUMENT_TOOL_DEFS" src/app/chat-tool-defs.ts`
+shows the import and the trailing spread), so `grep -c 'name: "update_' src/app/chat-tool-defs.ts`
+returns `7` — the six entity tools plus `update_settings` — and never sees `update_document`. That is
+exactly how it was missed when this slice was planned; the anti-vacuity case in
+`ai-entity-token.test.ts` caught it by enumerating `update_*` names off the **live `TOOL_DEFS`
+array** rather than off a file. **A claim about the tool surface derived from one defs file is
+incomplete by construction** — enumerate against `TOOL_DEFS` itself.
+
+## 350. The insight recommendation token does not cover the model round-trip — open
+
+**Status:** open — **never machine-verified** (2026-09-03). This is a **disclosed bound**, stated in
+the `recommend-tokens.ts` header rather than an observed failure, and no probe has raced a human edit
+against an in-flight call. Read the disclosure with
+`grep -n "does NOT" src/app/insights/recommend-tokens.ts`.
+
+**What is covered.** `applyInsightRecommendation` is the single choke point for storing a generated
+recommendation — both the on-demand `useInsightRecommend` and the background
+`useInsightRecommendRunner` write through it — and it calls `stampRecommendationTokens`, which stamps
+`expectedToken` onto each stored `update_*` call from the caller's entity arrays. A recommendation
+that sat unreviewed while its target entity changed is then **refused** at confirm rather than
+silently overwriting.
+
+**The bound that is not closed.** The token is derived at the moment the recommendation comes back
+from the model, from live render-scope arrays — so the window it protects is **proposal-stored →
+confirm**, not the model round-trip. A human editing the entity *while the AI call is in flight*
+(context build → response) is not detected: the stamp is taken from arrays that **already include**
+that edit, so the confirm compares equal and the stale write commits.
+
+★ **Direction of the risk, stated plainly rather than softened: this is a FALSE PERMIT for a narrow
+window, not a false refusal.** The long window — a background recommendation sitting unreviewed for
+days — is fully covered. The short one is not.
+
+**Closing it** means threading an entity snapshot, frozen when the prompt is built, through
+`runInsightRecommendation` / `parseRecommendation` and into both generate hooks, so the stamp derives
+from that instead of from live arrays. Judged larger than the slice that filed this. ★ The module
+header warns against the opposite "simplification" — re-deriving at apply time — which is **vacuous**:
+it would compare a value against the very read it came from, so `requireToken` could never refuse.
+
+★ **Scope the fix to FIVE tools, not six.** `UPDATE_TARGET` covers task / raid / milestone / change /
+stakeholder; `update_resource` is absent from `ALLOWED_REC_TOOLS`, so a recommendation cannot propose
+one. Any fix here inherits that set, not the six the general mechanism guards.
+
+★ **Refusals are matched on the ERROR TYPE (`ConcurrencyTokenError`), never on message text**, and a
+fix must keep it that way. Both refusal messages are model-facing recovery instructions that may be
+reworded at any time; a caller sniffing the string would break **silently and in the permissive
+direction**. `use-insight-recommendations` depends on that distinction — its replay `catch` advances
+an insight to `applied` for a failure that MAY have committed, and must not for one that is known to
+have written nothing.
+
+## 351. A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade — OPEN
+
+**Status:** OPEN. Filed 2026-09-03 in the AI write-concurrency slice, from a review finding against
+the slice's own early-return. **Never machine-verified:** no test drives a mixed create+update plan
+through `confirmInsightRecommendation` on a pre-slice recommendation, and the effect has not been
+reproduced against a real stored insight. The code path it describes is verified to EXIST by reading
+it; what is unverified is the user-visible outcome. Reproduce the shape (not the effect):
+
+```
+grep -n "committed === 0 && failed === 0 && stale > 0" src/app/use-insight-recommendations.ts
+grep -n "update_\|create_" src/app/insights/insight.ts
+```
+
+**What happens.** `stampRecommendationTokens` stamps a token onto every guarded `update_*` call in a
+recommendation's `proposedCalls`. A recommendation PERSISTED BEFORE this slice carries no token on
+any of them, and nothing back-fills one — the stamp runs at generation and proposal time, not at
+load. So on upgrade, every `update_*` call in a stored recommendation is refused as unauthenticated.
+
+For a recommendation whose plan is ALL updates that is handled: `committed === 0 && failed === 0 &&
+stale > 0` fires, the insight is left `proposed`, the toast says the data moved, and the user can
+regenerate. The defect is the MIXED plan — some `create_*`, some `update_*`, which
+`ALLOWED_REC_TOOLS` permits together:
+
+1. the `create_*` calls succeed, so `committed > 0`;
+2. every `update_*` call throws `ConcurrencyTokenError`, so `stale > 0`;
+3. `committed === 0` is false, so the early return does NOT fire;
+4. the insight advances to `acted` and the recommendation to `applied`;
+5. the update half is now unreachable — an `applied` recommendation is not re-offered.
+
+The user is told: `insightRecommendationStalePartial` — "Some changes weren't applied — the project
+data changed since this recommendation was generated. Generate a new one for the rest."
+(`src/app/i18n.ts`, EN; read it there rather than trusting this copy) — so the outcome IS disclosed
+at the moment it happens. What is missing
+is any durable record: the insight reads `applied` afterwards, with nothing distinguishing it from
+one that fully landed, and the created entities are left behind with the updates that were meant to
+accompany them never made.
+
+★★ **The early return is deliberately the narrowest fix and this entry is the part it left.** Its
+own comment says so: a run with even one committed call still advances "exactly as before", because
+a hard failure may have written something and re-opening that rule was out of scope. Widening the
+guard to `stale > 0 && failed === 0` regardless of `committed` would trade this for a WORSE hazard —
+the created rows stay committed while the insight returns to `proposed`, so regenerating and
+confirming again creates them a SECOND time. That duplicate-create hazard is the reason the advance
+exists at all, so the fix is not a condition change.
+
+★ **Scope, honestly.** This affects only recommendations stored before the slice AND holding both a
+create and a guarded update. Nobody has counted how many such rows exist in practice — plausibly
+zero in most workspaces, since a recommendation is usually acted on or discarded soon after
+generation. It is filed because the failure is silent in the record rather than because it is
+frequent, and because the reasoning above is what a future widening of the guard needs to not
+rediscover.
+
+**Candidate fixes**, none chosen:
+- Record the partial outcome on the insight — a distinct partially-applied status value (no such
+  member exists today, so it would be a new one) or a note naming which calls were refused — so
+  `applied` stops meaning two different things. Smallest, and it addresses the recording gap rather
+  than the loss.
+- Stamp tokens at LOAD for stored recommendations (`sanitizeInsights`), which removes the
+  unauthenticated-on-upgrade case entirely but derives a token at a moment the user has not read the
+  row, weakening what the token asserts. Related to [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open).
+- Split the replay into create-then-update phases with the updates' refusal rolling back the
+  creates, which is the only option that actually preserves retryability and is much the largest.

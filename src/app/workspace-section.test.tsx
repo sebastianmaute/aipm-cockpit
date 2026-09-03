@@ -165,6 +165,9 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     versionHistory: {
       versions: [],
       busy: false,
+      // See the note in workspace-section.characterization.test.tsx: `true`
+      // preserves the pre-`active` rendered output for an empty list.
+      active: true,
       notifySaved: vi.fn(),
       captureNow: vi.fn(async () => {}),
       loadDiff: vi.fn().mockResolvedValue([]),

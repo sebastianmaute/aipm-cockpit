@@ -49,7 +49,7 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run docs:scripts` | Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json` |
 | `npm run docs:scripts:check` | Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode) |
 | `npm run dup:check` | Duplication gate for `src/` via jscpd — BLOCKING in CI (total duplicated-line % vs --threshold) |
-| `npm run size:check` | Fail if a src file exceeds 800 lines or grows past its baselined size (ratchet) |
+| `npm run size:check` | Fail if a src file exceeds the LIMIT in scripts/check-file-sizes.mjs (1600 since 2026-09-03, doubled from 800 with every baseline entry) or grows past its baselined size (ratchet) |
 | `npm run docs:symbols:check` | Fail if AGENTS.md or any docs/AGENTS/*.md names a code symbol that does not exist (nothing else gates them) |
 | `npm run docs:claims:check` | Fail if a doc gains a new `path:LINE` citation or cites a line that cannot exist (ratchet; prefer a symbol, a line number rots on any insertion above it) |
 | `npm run followups:check` | Report which claims in docs/open-followups.md a machine can still check — REPORTING ONLY, never blocking, and it rules claims OUT rather than IN (a CLEAN entry may still be stale) |

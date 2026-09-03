@@ -1,7 +1,21 @@
-import { sanitizeGroup, sanitizeLabels } from "./sanitize";
+import { sanitizeLabels } from "./sanitize";
+// ★ The update path's input helpers live in ./chat-tools-updates (moved for the
+//   800-line file-size ratchet, which this file had already crossed).
 import {
-  PRIORITIES,
+  asPriority,
+  asString,
+  buildPatch,
+  patchWithoutId,
+  requireTaskWriteToken,
+  requireToken,
+} from "./chat-tools-updates";
+import {
+  type ChangeItem,
+  type Milestone,
   type Priority,
+  type RaidItem,
+  type Resource,
+  type Stakeholder,
   type Task,
   type TaskDependency,
   type BucketStatus,
@@ -293,6 +307,16 @@ export type ToolDispatcher = {
   setFilters(filters: Filters): void;
   setLanguage(lang: Lang): void;
   listRaid(): RaidSummary[];
+  /** FULL rows, for the concurrency token only.
+   *
+   *  ★★★ THE SUMMARY GETTERS CANNOT SUBSTITUTE. `RaidSummary` and its peers
+   *  omit exactly the rich fields an edit is most likely to touch
+   *  (`description`, `mitigation`, …), so a token derived from a summary would
+   *  be a false PERMIT for every omitted field. These return the stored row. */
+  getRaidRow(id: number): RaidItem | null;
+  getChangeRow(id: number): ChangeItem | null;
+  getMilestoneRow(id: number): Milestone | null;
+  getStakeholderRow(id: number): Stakeholder | null;
   listChanges(): ChangeSummary[];
   listMilestones(): MilestoneSummary[];
   listStakeholders(): StakeholderSummary[];
@@ -314,6 +338,9 @@ export type ToolDispatcher = {
   updateSettings(patch: SettingsUpdateInput): Record<string, unknown>;
   createResource(input: ResourceInput): ResourceSummary;
   getResource(id: number): ResourceSummary | null;
+  /** The FULL stored resource. `getResource` above returns a SUMMARY and is
+   *  the model-facing read; this one exists only to derive the token. */
+  getResourceRow(id: number): Resource | null;
   updateResource(id: number, patch: Partial<ResourceInput>): ResourceSummary | null;
   deleteResource(id: number): boolean;
   getSnapshot(): {
@@ -417,67 +444,11 @@ export type ToolDispatcher = {
   // ratchet.
 } & DocumentToolDispatcher;
 
-function asString(v: unknown): string | undefined {
-  return typeof v === "string" ? v : undefined;
-}
-
-function asPriority(v: unknown): Priority | undefined {
-  if (typeof v === "string" && (PRIORITIES as unknown as string[]).includes(v))
-    return v as Priority;
-  return undefined;
-}
-
-function buildPatch(input: Record<string, unknown>): Partial<Task> {
-  const patch: Partial<Task> = {};
-  if (input.taskName !== undefined) patch.taskName = asString(input.taskName) ?? "";
-  if (input.assignee !== undefined) patch.assignee = asString(input.assignee) ?? "";
-  if (input.assigneeEmail !== undefined)
-    patch.assigneeEmail = asString(input.assigneeEmail) ?? "";
-  if (input.dueDate !== undefined) patch.dueDate = asString(input.dueDate) ?? "";
-  if (input.lastUpdateDate !== undefined)
-    patch.lastUpdateDate = asString(input.lastUpdateDate) ?? "";
-  if (input.priority !== undefined) {
-    const p = asPriority(input.priority);
-    if (p) patch.priority = p;
-  }
-  if (input.status !== undefined) {
-    const s = asString(input.status);
-    // Carry the raw value through; the dispatcher validates against
-    // TASK_STATUSES and routes it through applyStatusChange, which keeps the
-    // Done/completedDate invariant. A non-string is ignored.
-    if (s !== undefined) patch.status = s as Task["status"];
-  }
-  if (input.blockers !== undefined) patch.blockers = asString(input.blockers) ?? "";
-  // Plain text from the model; wrapped to HTML at the dispatcher (single write
-  // boundary — see use-chat-dispatcher updateTask).
-  //
-  // `description` is the field, and the only one the tool SCHEMA advertises
-  // (chat-tool-defs taskFields); `notes` is its pre-0.196.0 name, kept as a
-  // WRITE ALIAS deliberately.
-  //
-  // ★★ Do NOT retire it. A persisted insight recommendation stores its
-  // proposedCalls verbatim and replays them through runTool at apply time, so a
-  // proposal generated before the rename can still carry a `notes` key. Dropping
-  // the alias would break replay of an already-stored recommendation.
-  if (input.description !== undefined || input.notes !== undefined)
-    patch.description = asString(input.description ?? input.notes) ?? "";
-  if (input.group !== undefined) patch.group = sanitizeGroup(input.group);
-  if (input.labels !== undefined) patch.labels = sanitizeLabels(input.labels);
-  return patch;
-}
-
 /** Parse the numeric `id` field, throwing if absent/non-numeric. */
 function requireId(input: Record<string, unknown>): number {
   const id = Number(input.id);
   if (!Number.isFinite(id)) throw new Error("id must be a number");
   return id;
-}
-
-/** A shallow copy of the tool input with `id` removed — the update patch. */
-function patchWithoutId<T>(input: Record<string, unknown>): Partial<T> {
-  const patch = { ...input };
-  delete patch.id;
-  return patch as Partial<T>;
 }
 
 // ★ The eight entity → summary projections live in ./chat-tool-summaries (moved
@@ -493,6 +464,7 @@ export {
   toCalendarEventSummary,
   toBudgetBucketSummary,
 } from "./chat-tool-summaries";
+import { listTasksEnvelope, withRowTokens, withToken } from "./chat-tools-lists";
 
 export async function runTool(
   d: ToolDispatcher,
@@ -506,14 +478,14 @@ export async function runTool(
 
   switch (name) {
     case "list_tasks":
-      return d.listTasks();
+      return listTasksEnvelope(d.listTasks(), input.limit);
 
     case "get_task": {
       const id = Number(input.id);
       if (!Number.isFinite(id)) throw new Error("id must be a number");
       const task = d.getTask(id);
       if (!task) throw new Error(`task #${id} not found`);
-      return task;
+      return withToken("task", task, task);
     }
 
     case "create_task": {
@@ -544,6 +516,18 @@ export async function runTool(
     case "update_task": {
       const id = Number(input.id);
       if (!Number.isFinite(id)) throw new Error("id must be a number");
+      // ★★ NOT-FOUND IS RESOLVED FIRST, AND THAT ORDER IS STRUCTURAL RATHER
+      //    THAN A PREFERENCE: the token is DERIVED from the stored row, so
+      //    there is nothing to compare against until the row is in hand. It is
+      //    also the better error — a deleted task reports "not found" instead
+      //    of "changed since you read it", which would send the model
+      //    re-reading a row that no longer exists.
+      const current = d.getTask(id);
+      if (!current) throw new Error(`task #${id} not found`);
+      // Before the patch is built, so a refused write does no work and — more
+      // to the point — cannot reach `updateTask` by any later edit to this
+      // block.
+      requireToken("task", current, input, `task #${id}`);
       const patch = buildPatch(input);
       const updated = d.updateTask(id, patch);
       if (!updated) throw new Error(`task #${id} not found`);
@@ -559,6 +543,9 @@ export async function runTool(
       // string, an omitted field) must never silently wipe a task's
       // dependency graph with zero visible rejection.
       if (!Array.isArray(input.dependencies)) throw new Error("dependencies must be an array");
+      // Token-guarded like the six `update_*` tools — `dependencies` is
+      // token-COVERED and model-supplied. Reasoning: requireTaskWriteToken.
+      requireTaskWriteToken(d.getTask(id), id, input);
       const result = d.setTaskDependencies(id, input.dependencies);
       if (!result) throw new Error(`Task #${id} not found`);
       return result;
@@ -619,20 +606,22 @@ export async function runTool(
     case "get_dashboard_snapshot":
       return d.getDashboardSnapshot();
 
+    // ★★★ Every row carries its `expectedToken`; the second argument is always
+    // the FULL-row getter, never the summary. `withRowTokens` says why both.
     case "list_raid":
-      return d.listRaid();
+      return withRowTokens("raid", d.listRaid(), (id) => d.getRaidRow(id));
 
     case "list_changes":
-      return d.listChanges();
+      return withRowTokens("change", d.listChanges(), (id) => d.getChangeRow(id));
 
     case "list_milestones":
-      return d.listMilestones();
+      return withRowTokens("milestone", d.listMilestones(), (id) => d.getMilestoneRow(id));
 
     case "list_stakeholders":
-      return d.listStakeholders();
+      return withRowTokens("stakeholder", d.listStakeholders(), (id) => d.getStakeholderRow(id));
 
     case "list_resources":
-      return d.listResources();
+      return withRowTokens("resource", d.listResources(), (id) => d.getResourceRow(id));
 
     case "list_allocations":
       return d.listAllocations();
@@ -690,7 +679,12 @@ export async function runTool(
 
     case "update_raid_item": {
       const id = requireId(input);
-      const updated = d.updateRaid(id, patchWithoutId(input));
+      // Not-found first, then the token: see the `update_task` case above for
+      // why that order is structural rather than a preference.
+      const current = d.getRaidRow(id);
+      if (!current) throw new Error(`RAID item #${id} not found`);
+      requireToken("raid", current, input, `RAID item #${id}`);
+      const updated = d.updateRaid(id, patchWithoutId(input, "raid"));
       if (!updated) throw new Error(`RAID item #${id} not found`);
       return updated;
     }
@@ -706,7 +700,10 @@ export async function runTool(
 
     case "update_change": {
       const id = requireId(input);
-      const updated = d.updateChange(id, patchWithoutId(input));
+      const current = d.getChangeRow(id);
+      if (!current) throw new Error(`change #${id} not found`);
+      requireToken("change", current, input, `change #${id}`);
+      const updated = d.updateChange(id, patchWithoutId(input, "change"));
       if (!updated) throw new Error(`change #${id} not found`);
       return updated;
     }
@@ -722,7 +719,10 @@ export async function runTool(
 
     case "update_milestone": {
       const id = requireId(input);
-      const updated = d.updateMilestone(id, patchWithoutId(input));
+      const current = d.getMilestoneRow(id);
+      if (!current) throw new Error(`milestone #${id} not found`);
+      requireToken("milestone", current, input, `milestone #${id}`);
+      const updated = d.updateMilestone(id, patchWithoutId(input, "milestone"));
       if (!updated) throw new Error(`milestone #${id} not found`);
       return updated;
     }
@@ -740,12 +740,16 @@ export async function runTool(
       const id = requireId(input);
       const found = d.getResource(id);
       if (!found) throw new Error(`resource #${id} not found`);
-      return found;
+      // `found` is a SUMMARY — the token must come from the stored row.
+      return withToken("resource", found, d.getResourceRow(id));
     }
 
     case "update_resource": {
       const id = requireId(input);
-      const updated = d.updateResource(id, patchWithoutId(input) as Partial<ResourceInput>);
+      const current = d.getResourceRow(id);
+      if (!current) throw new Error(`resource #${id} not found`);
+      requireToken("resource", current, input, `resource #${id}`);
+      const updated = d.updateResource(id, patchWithoutId(input, "resource") as Partial<ResourceInput>);
       if (!updated) throw new Error(`resource #${id} not found`);
       return updated;
     }
@@ -761,7 +765,10 @@ export async function runTool(
 
     case "update_stakeholder": {
       const id = requireId(input);
-      const updated = d.updateStakeholder(id, patchWithoutId(input));
+      const current = d.getStakeholderRow(id);
+      if (!current) throw new Error(`stakeholder #${id} not found`);
+      requireToken("stakeholder", current, input, `stakeholder #${id}`);
+      const updated = d.updateStakeholder(id, patchWithoutId(input, "stakeholder"));
       if (!updated) throw new Error(`stakeholder #${id} not found`);
       return updated;
     }

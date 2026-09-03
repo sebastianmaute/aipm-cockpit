@@ -62,13 +62,20 @@ interface HistoryPanelProps {
   lang: Lang;
   versions: ProjectVersionMeta[];
   busy: boolean;
+  /** True when version history cannot run in this configuration at all (no
+   *  Turso config, or no project id to key versions by). ★★ It is NOT "the
+   *  list is empty" — an inactive hook and a brand-new project both hand this
+   *  panel `[]`, and rendering the same "no versions yet" for both is what let
+   *  a switched-off feature read as deleted history. Defaults to false so a
+   *  caller that does not know keeps the old wording. */
+  unavailable?: boolean;
   onCaptureNow: (label: string) => void;
   loadDiff: (fromId: string, to: string | "now") => Promise<VersionChange[]>;
   restore: (versionId: string, selection: RestoreSelection, versionLabel: string) => Promise<boolean>;
   onDelete?: (versionId: string) => Promise<boolean>;
 }
 
-export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, restore, onDelete }: HistoryPanelProps) {
+export function HistoryPanel({ lang, versions, busy, unavailable = false, onCaptureNow, loadDiff, restore, onDelete }: HistoryPanelProps) {
   const { displayTz } = useDisplayTimezone();
   const showToast = useToastContext();
   const confirm = useConfirm();
@@ -373,7 +380,12 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
 
       <div className="min-h-0 flex-1 overflow-auto pr-2">
       {versions.length === 0 ? (
-        <EmptyState compact title={t(lang, "historyEmpty")} />
+        // ★★ `unavailable` is checked FIRST and the order is load-bearing: an
+        // inactive hook always yields an empty list, so testing length alone
+        // would report "no versions yet" over a feature that is switched off
+        // and cannot capture anything — the reading that turned a recoverable
+        // configuration slip into "my history is gone".
+        <EmptyState compact title={t(lang, unavailable ? "historyUnavailable" : "historyEmpty")} />
       ) : (
         <ul className="flex flex-col gap-1">
           {versions.map((v) => {

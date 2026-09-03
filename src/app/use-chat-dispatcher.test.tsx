@@ -1359,6 +1359,62 @@ describe("useChatDispatcher – resource directory", () => {
     expect(result.current.updateResource(999999, { title: "X" })).toBeNull();
   });
 
+  // ★★★ `name` ON AN UPDATE WAS A SILENT NO-OP AND REPORTED SUCCESS. It is
+  //   advertised by `update_resource` and documented on `ResourceInput` as
+  //   "split into first/last when the parts aren't given", but
+  //   `sanitizeResource` only splits it as a FALLBACK for both parts being
+  //   empty — and an update merges over the stored row, which always has one, so
+  //   the fallback could never fire. The first case is the one that was red
+  //   before the fix: it returned `Ada Lovelace` unchanged, with no error, so
+  //   the model was told the rename had happened.
+  it("updateResource splits a `name` into first/last, the shape create already honoured", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+    const updated = result.current.updateResource(created.id, { name: "Grace Hopper" });
+    expect(updated).toMatchObject({ firstName: "Grace", lastName: "Hopper" });
+    expect(result.current.getResource(created.id)).toMatchObject({
+      firstName: "Grace", lastName: "Hopper",
+    });
+  });
+
+  it("updateResource lets explicit firstName/lastName win over a `name`", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+    const updated = result.current.updateResource(created.id, {
+      name: "Grace Hopper", firstName: "Katherine", lastName: "Johnson",
+    });
+    expect(updated).toMatchObject({ firstName: "Katherine", lastName: "Johnson" });
+  });
+
+  // A blank name is meaningless, and applying it would split to two empty parts
+  // that the sanitizer rejects — failing the whole patch, including the fields
+  // the caller did mean. It is ignored instead, and `title` proves the rest of
+  // the patch still landed rather than the write having been dropped wholesale.
+  it("updateResource ignores a blank `name` without failing the rest of the patch", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+    const updated = result.current.updateResource(created.id, { name: "   ", title: "Lead" });
+    expect(updated).toMatchObject({ firstName: "Ada", lastName: "Lovelace", title: "Lead" });
+  });
+
+  // ★★ A JSON `null` PART IS NEITHER A STRING NOR `undefined`, and under the
+  //   first cut's `=== undefined` test that combination was the worst of both:
+  //   the split was skipped AND `firstName: null` spread over the stored row,
+  //   which `sanitizeResource` reduces to `""`. Net was `{firstName: "",
+  //   lastName: "Lovelace"}` — rename dropped, first name WIPED, and the record
+  //   still valid enough to save because the last name survived. A model emitting
+  //   an explicit null for "leave this alone" is entirely plausible.
+  it("updateResource splits a `name` even when a part is an explicit null", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+    const updated = result.current.updateResource(created.id, {
+      name: "Grace Hopper", firstName: null,
+    } as unknown as Parameters<typeof result.current.updateResource>[1]);
+    expect(updated).toMatchObject({ firstName: "Grace", lastName: "Hopper" });
+    // The wipe is the half that made this destructive rather than merely inert.
+    expect(updated?.firstName).not.toBe("");
+  });
+
   it("deleteResource removes a resource and returns false for a missing id", () => {
     const { result } = renderDispatcher();
     const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });

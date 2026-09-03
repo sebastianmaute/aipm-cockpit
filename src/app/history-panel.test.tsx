@@ -516,3 +516,43 @@ describe("recordSelection", () => {
     expect(recordSelection(changeKey("tasks", 99), [change("tasks", 1)])).toBeNull();
   });
 });
+
+describe("HistoryPanel — empty vs unavailable", () => {
+  // ★★★ AN EMPTY LIST HAS TWO CAUSES AND ONLY ONE OF THEM IS "nothing captured
+  //   yet". `use-version-history` returns `[]` whenever it is inactive — no
+  //   Turso config, or no project id to key versions by — which is
+  //   byte-identical to a brand-new project's list. Rendering "No versions yet"
+  //   over the inactive case is what let a switched-off feature read as DELETED
+  //   history: the user saw an empty timeline, pressed "save version", got no
+  //   error, and concluded their data was gone.
+  const noop = {
+    onCaptureNow: vi.fn(),
+    loadDiff: vi.fn().mockResolvedValue([]),
+    restore: vi.fn().mockResolvedValue(undefined),
+  };
+
+  it("says the feature is unavailable, not that there are no versions yet", () => {
+    renderPanel(<HistoryPanel lang="en-US" versions={[]} busy={false} unavailable {...noop} />);
+    expect(screen.getByText(t("en-US", "historyUnavailable"))).toBeInTheDocument();
+    // The load-bearing half: the reassuring-but-wrong copy must be ABSENT.
+    // Without this the test passes with the branch deleted, because both
+    // strings would render from the same empty list.
+    expect(screen.queryByText(t("en-US", "historyEmpty"))).toBeNull();
+  });
+
+  it("still says there are no versions yet when history IS available", () => {
+    // Control. Without it, a panel hardcoded to the unavailable copy — or one
+    // that ignored `unavailable` and always showed it — satisfies the block
+    // above.
+    renderPanel(<HistoryPanel lang="en-US" versions={[]} busy={false} {...noop} />);
+    expect(screen.getByText(t("en-US", "historyEmpty"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "historyUnavailable"))).toBeNull();
+  });
+
+  it("shows neither message once versions exist", () => {
+    // `unavailable` must not leak into the populated case: the list wins.
+    renderPanel(<HistoryPanel lang="en-US" versions={metas} busy={false} unavailable {...noop} />);
+    expect(screen.queryByText(t("en-US", "historyUnavailable"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "historyEmpty"))).toBeNull();
+  });
+});

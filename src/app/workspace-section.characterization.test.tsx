@@ -147,6 +147,11 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     versionHistory: {
       versions: [],
       busy: false,
+      // `true` keeps this stub's RENDERED output what it was before `active`
+      // existed: an empty-but-available history shows "no versions yet".
+      // Flipping it to false would swap in the unavailable copy and change what
+      // this characterization pins, for a reason unrelated to its subject.
+      active: true,
       notifySaved: vi.fn(),
       captureNow: vi.fn(async () => {}),
       loadDiff: vi.fn().mockResolvedValue([]),

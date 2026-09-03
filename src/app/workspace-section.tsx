@@ -277,9 +277,6 @@ export function WorkspaceSection({
   const raidEnabledForChanges = isModuleEnabled("raid", features);
   const stakeholdersEnabled = isModuleEnabled("stakeholders", features);
 
-  // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
-  // in fullBleed the strip is hidden, so we drop it to align the per-view card
-  // with the modern shell's inset edge (matching the Tasks pane exactly).
   const effectiveTz = resolveTimezone(effectiveSettings.timezone, project?.operatingTimezone);
   // Mirrors portfolio-health-panel.tsx's getTursoConfig(settings...) pattern.
   // FRESH object every call — memoize on the credential strings, or an unstable
@@ -292,6 +289,9 @@ export function WorkspaceSection({
   // `chatTursoConfig !== null` — mirrors task-manager.tsx's `trendsActive`,
   // which reads storageConfig.kind unguarded; storageConfig is non-optional.
   const chatTursoMode = (settings.storageConfig.kind === "turso" || mode === "turso") && chatTursoConfig !== null;
+  // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
+  // in fullBleed the strip is hidden, so we drop it to align the per-view card
+  // with the modern shell's inset edge (matching the Tasks pane exactly).
   const panelClass = fullBleed ? "min-h-0 flex-1" : "min-h-0 flex-1 pt-4";
   const panelScrollClass = fullBleed
     ? "min-h-0 flex-1 overflow-y-auto"
@@ -895,6 +895,16 @@ export function WorkspaceSection({
               lang={lang}
               versions={versionHistory.versions}
               busy={versionHistory.busy}
+              // ★★★ `!active`, NEVER `versions.length === 0`. An inactive hook
+              // (no Turso config, or no project id to key versions by) and a
+              // brand-new project BOTH hand this panel `[]`, so deriving this
+              // from the list makes a switched-off feature render "no versions
+              // yet" — which reads as history having been deleted. The full
+              // rationale is on `HistoryPanelProps.unavailable` in
+              // `history-panel.tsx`; this pointer exists because the prop name
+              // alone does not warn you, and the rationale was previously
+              // deleted from here to buy size-ratchet headroom.
+              unavailable={!versionHistory.active}
               onCaptureNow={(label) => void versionHistory.captureNow(label)}
               loadDiff={versionHistory.loadDiff}
               restore={versionHistory.restore}
@@ -983,7 +993,6 @@ export function WorkspaceSection({
             />
           </div>
         )}
-
       </div>
       {!isPopout && !fullBleed && !workspaceCollapsed && (
         <span

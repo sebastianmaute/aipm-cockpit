@@ -27,7 +27,7 @@ before your first edit — the rest is reference, reachable from here.
 | [ui-shell](docs/AGENTS/ui-shell.md) | Help · nav · focus/keyboard · surfaces · ★ **dismissal owns the Escape/Tab protocol — read it before touching any modal, popover or panel** |
 | [theming](docs/AGENTS/theming.md) | colour schemes · `--ui-*` tokens · AA derivation · branding · print · DS primitives |
 | [insights](docs/AGENTS/insights.md) | detect · reconcile · recommend · outcome · digest |
-| [ai-assistant](docs/AGENTS/ai-assistant.md) | wire layer · tools · inline edit · dedup · scheduled jobs |
+| [ai-assistant](docs/AGENTS/ai-assistant.md) | wire layer · tools · write-concurrency tokens · inline edit · dedup · scheduled jobs |
 | [integrations](docs/AGENTS/integrations.md) | steering committee · calendar write-back + two-way pull · Timelog |
 | [platform](docs/AGENTS/platform.md) | diagnostics · guard transparency · dictation · AI master switch |
 | [features](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
@@ -236,11 +236,26 @@ npm run dup:check           # jscpd duplication GATE (--threshold in package.jso
                             # "found too many duplicates (1.2%)". See open-followups.md §116.
                             # ★ docs/baselines/jscpd-2026-07.json is a RETAINED July-2026 report, NOT a
                             # gate input — dup:check passes only --threshold and there is no .jscpd.json.
-npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
+npm run size:check          # file-size ratchet — fails on a NEW file over the LIMIT, or a baselined file that grew
+                            # ★★★ THE LIMIT IS 1600, DOUBLED FROM 800 ON 2026-09-03, and every entry in
+                            # `docs/baselines/file-sizes.json` was doubled in the same change — the ratchet was
+                            # biting on routine work. Read the number from `scripts/check-file-sizes.mjs` (`LIMIT`)
+                            # rather than any prose, this line included. ★★★ `--update` DISCARDS THE DOUBLING, AND
+                            # IT DELETES RATHER THAN HALVES: it writes only files ABOVE the LIMIT, so at 1600 it
+                            # emits `task-manager.tsx` ALONE and the other three entries VANISH. Running it (which
+                            # the gate's own failure message still recommends) restores a no-headroom ratchet and
+                            # makes "re-double by hand" impossible for the dropped rows without git archaeology.
+                            # ★ CONSEQUENCE: three of the four baseline entries are ALREADY INERT, because a file is
+                            # only compared against its entry when it is over the LIMIT — chat-panel,
+                            # tasks-section and workspace-section are governed by the LIMIT alone until they pass
+                            # 1600. Only `task-manager.tsx` is still consulted, and at a 6040 entry against 2975
+                            # actual lines it constrains nothing in practice either — read the four as recorded
+                            # intent, not as live limits.
                             # ★★ IT COUNTS `wc -l` + 1. The script measures `readFileSync().split("\n").length`,
                             # which for a newline-terminated file is one MORE than `wc -l`. So a file at `wc -l`
-                            # 799 is already AT the 800 limit with ZERO headroom, and a 2971-line file is at a
-                            # 2972 baseline. Budgeting a change from `wc -l` overstates your room by exactly one
+                            # 1599 is already AT the limit with ZERO headroom. The same +1 applies to a baselined
+                            # file, which is how an `--update`-derived baseline lands one above `wc -l`.
+                            # Budgeting a change from `wc -l` overstates your room by exactly one
                             # line and the gate fails on the commit — it cost a build on `use-storage-backend.ts`.
                             # Read the real number with:
                             #   node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"
@@ -967,7 +982,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      normalize/auth/URL. Do NOT parameterize the divergent guard chains into one `createProxyHelpers`
      factory (parameterizing divergent security guards is where a config slip silently weakens a guard).
   5. **Panel split (gantt pattern).** A panel crossing ~700 lines splits into orchestrator + `*-rows` +
-     `*-toolbar` (+ a `*-columns` leaf for shared metadata) BEFORE it crosses the 800-line ratchet — rows
+     `*-toolbar` (+ a `*-columns` leaf for shared metadata) WELL BEFORE it reaches the size ratchet — rows
      and toolbar are PURE presentational (data + handlers as props). Precedent: gantt, reports, raid-panel.
 - `src/app/` is flat, organized by feature. Pure domain logic lives in i18n-free modules/subdirs
   (e.g. `next-actions/`, serializers); React surfaces import them and translate — keep engines i18n-free.
@@ -1255,7 +1270,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `budget-panel-totals.tsx` — `HoursCell`/`HoursTd` (the editable period cells), `TotalsTd` (the fixed
   Total column's cells and every cell of a bucket total row), `BucketRowLeadCells` (the three PINNED
   leading cells: RAG dot · label · Total), `BucketTotalRow`, `RowDot`, and the pure `bucketColumnTotals`
-  arithmetic. Split out to keep the orchestrator under the 800-line ratchet.
+  arithmetic. Split out to keep the orchestrator under the size ratchet, which was 800 at the time.
   ★★ The three leading columns are PINNED by arithmetic — role at `DOT_COL_PX`, Total at `DOT_COL_PX +
   the LIVE role width` (the role column is user-resizable, so a hardcoded offset drifts the moment it is
   dragged). That arithmetic is only true while every column to a pinned one's LEFT renders exactly as
@@ -1682,7 +1697,7 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 | [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
 | [theming.md](docs/AGENTS/theming.md) | colour schemes · the `--ui-*` token families · AA derivation · the dark-mode hover trap · branding · print · design-system primitives |
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |
-| [ai-assistant.md](docs/AGENTS/ai-assistant.md) | wire layer · tools · inline edit · dedup · scheduled jobs · allocation & RACI planning |
+| [ai-assistant.md](docs/AGENTS/ai-assistant.md) | wire layer · tools · write-concurrency tokens on the six `update_*` tools · inline edit · dedup · scheduled jobs · allocation & RACI planning |
 | [integrations.md](docs/AGENTS/integrations.md) | steering committee · Outlook calendar write-back and two-way pull · Timelog |
 | [platform.md](docs/AGENTS/platform.md) | diagnostics ring · guard transparency · dictation · the AI master switch |
 | [features.md](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |

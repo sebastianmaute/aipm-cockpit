@@ -45,6 +45,28 @@ describe("runChatSearch", () => {
     expect(res.hits).toHaveLength(1);
   });
 
+  // ★★★ THE `limit: "10"` CASE ABOVE CANNOT SEE THIS, and that is why this one
+  //   exists rather than an assertion added there. `LIVE` yields exactly one
+  //   hit, so an honoured limit and a dropped one produce the identical
+  //   `toHaveLength(1)` — that case pins coerce-or-drop-without-throwing, not
+  //   the limit. Discriminating it needs MORE hits than the limit asks for.
+  //   Before the fix, `typeof input.limit === "number"` sent a string straight
+  //   to `undefined`, so a model asking for `"1"` silently got the default page
+  //   size — the same defect class as `list_tasks`, just with a milder blast
+  //   radius (a default page, not the whole register).
+  it("honours a numeric-STRING limit rather than falling back to the default page", () => {
+    const threads = ["a", "b", "c"].map((id) => ({
+      ...T,
+      id,
+      display: [{ kind: "user" as const, text: "the vendor decision" }],
+    }));
+    const live: PublishedThreads = { threads, activeThreadId: null, available: true };
+    // Anti-vacuity: unlimited really does return more than the limit asks for,
+    // so the assertion below is about the limit and not about a thin fixture.
+    expect(runChatSearch({ query: "vendor" }, live, "UTC", true).hits.length).toBeGreaterThan(1);
+    expect(runChatSearch({ query: "vendor", limit: "1" }, live, "UTC", true).hits).toHaveLength(1);
+  });
+
   it("reports unavailable coverage rather than an empty search", () => {
     const res = runChatSearch({}, { threads: [], activeThreadId: null, available: false }, "UTC", true);
     expect(res.coverage).toBe("unavailable");

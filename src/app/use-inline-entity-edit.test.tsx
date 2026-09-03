@@ -6,6 +6,8 @@ import * as call from "./inline-ai-edit-call";
 import * as tools from "./chat-tools";
 import { useInlineAiEdit, type InlineAiEditDeps } from "./use-inline-ai-edit";
 import { useInlineEntityEdit, type InlineEntityEditDeps } from "./use-inline-entity-edit";
+import { entityToken } from "./ai-entity-token";
+import { t, loadI18n } from "./i18n";
 import { type Task } from "./types";
 
 afterEach(() => vi.restoreAllMocks());
@@ -185,7 +187,13 @@ it("apply routes each block through runTool and logs + toasts, then closes", asy
   act(() => result.current.openFor(task));
   await act(async () => { await result.current.submit("mark done"); });
   await act(async () => { await result.current.apply(); });
-  expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_task", { id: 42, status: "Done" });
+  // ★★ EQUALITY, NOT PRESENCE — the patch must carry the token derived from the
+  // row the model was shown. A constant or an empty string would satisfy a
+  // presence check and then be REFUSED by requireToken at runtime, which is the
+  // breakage this threading exists to fix.
+  expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_task", {
+    id: 42, status: "Done", expectedToken: entityToken("task", task),
+  });
   expect(deps.showToast).toHaveBeenCalledWith("info", expect.stringContaining("Fix login bug"));
   expect(result.current.phase).toBe("idle");
 });
@@ -300,7 +308,9 @@ describe("useInlineEntityEdit — raid", () => {
     expect(result.current.phase).toBe("preview");
     expect(result.current.plan?.updates).toEqual([{ field: "title", before: "Old", after: "New", raw: "New" }]);
     await act(async () => { await result.current.apply(); });
-    expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", { id: 7, title: "New" });
+    expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
+      id: 7, title: "New", expectedToken: entityToken("raid", raidItem),
+    });
     expect(result.current.phase).toBe("idle");
   });
 
@@ -341,6 +351,7 @@ describe("useInlineEntityEdit — raid", () => {
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
       id: 7,
       description: "<p>one</p><p>two</p>",
+      expectedToken: entityToken("raid", raidItem),
     });
   });
 
@@ -367,7 +378,7 @@ describe("useInlineEntityEdit — raid", () => {
     });
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
-      id: 7, category: "I", status: "Open",
+      id: 7, category: "I", status: "Open", expectedToken: entityToken("raid", item),
     });
   });
 
@@ -420,5 +431,104 @@ describe("writes no activity summary row of its own", () => {
     // Positive control: the apply path still routes through runTool, which is
     // what logs the per-entity rows this row was redundant with.
     expect(code).toMatch(/runTool\(deps\.dispatcher/);
+  });
+});
+
+// ★★★ THE BEHAVIOUR THE TOKEN EXISTS FOR, driven through the REAL `runTool` and
+// a real dispatcher rather than a spy — a spy would prove the argument was
+// spelled, never that the guard acts on it. The two cases share one fixture and
+// differ only in whether the stored row moves between submit and apply, so the
+// success case is the anti-vacuity control: it proves this fixture CAN commit,
+// and therefore that the refusal below is the guard and not a broken setup.
+describe("optimistic concurrency across the submit → apply window", () => {
+  function mkStore() {
+    // The row as the pane rendered it — the object handed to openFor. `stored`
+    // is REPLACED (not mutated) to model a concurrent writer, exactly as a
+    // functional setState would.
+    const opened = { id: 42, taskName: "Fix login bug", status: "To Do", dueDate: "2026-08-12" };
+    let stored: Record<string, unknown> = { ...opened };
+    const dispatcher = {
+      getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }),
+      getTask: (id: number) => (stored.id === id ? stored : null),
+      updateTask: (id: number, patch: Record<string, unknown>) => {
+        if (stored.id !== id) return null;
+        stored = { ...stored, ...patch };
+        return stored;
+      },
+    } as unknown as InlineAiEditDeps["dispatcher"];
+    return {
+      opened,
+      dispatcher,
+      read: () => stored,
+      moveIt: () => { stored = { ...stored, taskName: "Renamed by a human" }; },
+    };
+  }
+
+  async function openSubmit(store: ReturnType<typeof mkStore>) {
+    vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+      blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 42, status: "Done" } }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    const deps = mkDeps({ dispatcher: store.dispatcher });
+    const { result } = renderHook(() => useInlineAiEdit(deps));
+    act(() => result.current.openFor(store.opened as unknown as Task));
+    await act(async () => { await result.current.submit("mark done"); });
+    expect(result.current.phase, "submit did not reach preview").toBe("preview");
+    return { deps, result };
+  }
+
+  it("commits when nothing touched the row in between", async () => {
+    const store = mkStore();
+    const { result } = await openSubmit(store);
+    await act(async () => { await result.current.apply(); });
+    expect(store.read().status).toBe("Done");
+    expect(result.current.phase).toBe("idle");
+  });
+
+  it("refuses, and writes nothing, when a human edited the row while the model was thinking", async () => {
+    const store = mkStore();
+    const { result } = await openSubmit(store);
+    store.moveIt(); // the concurrent edit the old code silently overwrote
+    await act(async () => { await result.current.apply(); });
+    // The write never reached the dispatcher: the status is untouched AND the
+    // human's edit survived, which is the whole point.
+    expect(store.read().status).toBe("To Do");
+    expect(store.read().taskName).toBe("Renamed by a human");
+    // Nothing committed, so the hook stays in `error` rather than closing with
+    // a partial-apply toast.
+    expect(result.current.phase).toBe("error");
+    // ★★★ THE MESSAGE IS ASSERTED, NOT MERELY ITS NON-EMPTINESS. This line read
+    //   `.not.toBe("")` for a release and passed while the user was shown the
+    //   generic "Could not apply the change." — a NEW failure mode with the
+    //   widest human-scale staleness window in the app (model round-trip, then
+    //   a preview read, then an Apply click), and no hint that re-running would
+    //   help. Any message satisfies a non-emptiness check, so it cannot tell a
+    //   recovery message from a dead end.
+    expect(result.current.errorText).toBe(t("en-US", "inlineAiEditStale"));
+  });
+
+  // Control for the case above: the stale branch must DISCRIMINATE, not just
+  // fire. Without this, replacing `inlineAiEditApplyFailed` with the stale key
+  // unconditionally would pass — and every ordinary failure would then lie to
+  // the user about why it failed and tell them to retry something that cannot
+  // succeed.
+  it("keeps the generic message for a failure that is not a staleness refusal", async () => {
+    const store = mkStore();
+    const { result } = await openSubmit(store);
+    vi.spyOn(tools, "runTool").mockRejectedValue(new Error("sanitizer rejected the value"));
+    await act(async () => { await result.current.apply(); });
+    expect(result.current.phase).toBe("error");
+    expect(result.current.errorText).toBe(t("en-US", "inlineAiEditApplyFailed"));
+  });
+
+  // ★★ THE EN ASSERTIONS ABOVE CANNOT PIN THE DE SIDE. `t` falls back to the EN
+  //   dictionary for a key the DE one lacks, so an `inlineAiEditStale` missing
+  //   from `i18n.de.ts` would render the ENGLISH sentence to a German user with
+  //   every EN test green. The DE dict is lazy, hence the explicit load.
+  it("has a real German string for the staleness message", async () => {
+    await loadI18n("de");
+    const de = t("de", "inlineAiEditStale");
+    expect(de).not.toBe(t("en-US", "inlineAiEditStale"));
+    expect(de).toMatch(/geändert/);
   });
 });
