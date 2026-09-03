@@ -895,6 +895,10 @@ export function WorkspaceSection({
               lang={lang}
               versions={versionHistory.versions}
               busy={versionHistory.busy}
+              // An inactive hook yields an EMPTY list, byte-identical to a
+              // project that simply has no versions yet — so the panel is told
+              // which it is rather than inferring from the length.
+              unavailable={!versionHistory.active}
               onCaptureNow={(label) => void versionHistory.captureNow(label)}
               loadDiff={versionHistory.loadDiff}
               restore={versionHistory.restore}

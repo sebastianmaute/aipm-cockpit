@@ -32,6 +32,13 @@ export interface UseVersionHistoryArgs {
 export interface UseVersionHistoryResult {
   versions: ProjectVersionMeta[];
   busy: boolean;
+  /** Whether the hook can actually reach the store — `enabled && config &&
+   *  projectId`. Exposed so a SURFACE can tell "no versions yet" apart from
+   *  "switched off", which an empty `versions` array cannot: both render as an
+   *  empty timeline, and reading the second as the first is how a dead feature
+   *  was mistaken for deleted data. Never gate WRITES on this from outside —
+   *  every method already no-ops when inactive; it is for display only. */
+  active: boolean;
   notifySaved: () => void;
   captureNow: (label: string) => Promise<void>;
   loadDiff: (fromId: string, to: string | "now") => Promise<VersionChange[]>;
@@ -316,5 +323,5 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     }
   }, [active, config, projectId, refresh, onError]);
 
-  return { versions, busy, notifySaved, captureNow, loadDiff, restore, remove, refresh };
+  return { versions, busy, active, notifySaved, captureNow, loadDiff, restore, remove, refresh };
 }

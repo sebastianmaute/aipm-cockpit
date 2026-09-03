@@ -3736,6 +3736,8 @@ export const de: Record<TranslationKey, string> = {
   projectContactPersons: "Ansprechpartner",
   historyTitle: "Versionsverlauf",
   historyEmpty: "Noch keine Versionen — Ihre Änderungen werden hier erfasst.",
+  historyUnavailable:
+    "Der Versionsverlauf ist in dieser Konfiguration nicht verfügbar — er benötigt ein aktives Turso-Projekt. Bereits gespeicherte Versionen werden nicht gelöscht.",
   historySaveNow: "Version jetzt speichern",
   historyManualLabelPrompt: "Diese Version benennen",
   historyAuto: "Automatisch",

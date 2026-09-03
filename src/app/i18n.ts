@@ -3828,6 +3828,8 @@ const enUS = {
   projectContactPersons: "Contact persons",
   historyTitle: "Version history",
   historyEmpty: "No versions yet — changes you make will be captured here.",
+  historyUnavailable:
+    "Version history is unavailable in this configuration — it needs an active Turso project. Any versions already stored are not deleted.",
   historySaveNow: "Save version now",
   historyManualLabelPrompt: "Name this version",
   historyAuto: "Auto",
