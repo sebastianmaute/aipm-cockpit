@@ -196,7 +196,16 @@
   `ai-entity-token.test.ts` (whose exhaustiveness case turns red if the field is spread onto either):
   `update_settings` is not an entity with a projection, and `update_document` persists as a meta-blob with no
   CSV projection, so `entityToken` structurally cannot cover it — documents carry their own per-block
-  optimistic concurrency through `DocOp`'s `expect`, which is currently NOT advertised on the tool schema.
+  optimistic concurrency instead. ★★★ **THAT EXEMPTION IS NOT A HOLE, AND THIS LINE SAID IT WAS** (it read
+  "through `DocOp`'s `expect`, which is currently NOT advertised on the tool schema" — true when written,
+  false since 2026-09-03, `docs/open-followups.md` §349). `update_document` now REQUIRES a per-block
+  `expectHash` on `replace`/`delete`/`move`, refused on absence or blankness at the tool boundary
+  (`requirePayload`) exactly as `requireToken` refuses the six entity tools; `get_document` hands out a
+  parallel `blockTokens` array to satisfy it. ★★ The MECHANISM differs and that is deliberate: a HASH
+  (`blockToken`), not the full-block `expect` echo, because `blockChanged` is structural `deepEqual` and a
+  model cannot reproduce rich HTML byte-for-byte. ★ The ENGINE (`document-ops.ts`) stays permissive on an
+  absent `expectHash` — the hand block editor shares those arms — so the strictness lives at the tool
+  boundary alone, the mirror image of `requireToken`.
   ★★★ **THE READ PATH EMITS THE TOKEN, AND IT RIDES EVERY ROW.** Eight read tools carry an `expectedToken`
   field: `get_task` and `get_resource` on the returned object, and `list_tasks` / `list_raid` / `list_changes`
   / `list_milestones` / `list_stakeholders` / `list_resources` on EACH ROW. `withToken` / `withRowTokens`

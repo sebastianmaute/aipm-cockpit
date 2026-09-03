@@ -575,7 +575,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§346](#346-no-mcp-server--the-ai-can-only-act-from-inside-the-app--open) | No MCP server — the AI can only act from inside the app | found 2026-09-03 benchmarking OpenProject 17.8 | L (architecture decision first) | open |
 | [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries | found 2026-09-03 benchmarking OpenProject 17.8 | L | open |
 | [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
-| [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--open) | `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model | found 2026-09-03 in the AI write-concurrency slice | S–M | open |
+| [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--closed-2026-09-03) | ~~`update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model~~ | found 2026-09-03 in the AI write-concurrency slice | S–M | **CLOSED** 2026-09-03 (per-block `expectHash` on the three guarded engine arms, required at the tool boundary, tokens handed out by `get_document`; the concurrent-edit RACE itself is still not reproduced end to end) |
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
 | [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--open) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | open |
 <!-- INDEX:END -->
@@ -27142,13 +27142,25 @@ it, so the connection exists in the data and not in the surface a user reads.
 
 ★ Read the ordering as a preference, not a dependency — nothing in §347 blocks this.
 
-## 349. `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model — open
+## 349. `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model — CLOSED 2026-09-03
 
-**Status:** open — reproduced 2026-09-03 as an ABSENCE witness, which is the whole of what a `grep`
-can be here: `grep -c expect src/app/chat-tool-defs-documents.ts` prints `0`, and
-`grep -n 'enum: \["append"' src/app/chat-tool-defs-documents.ts` prints an op enum of
-`append insert replace delete replaceAll` with no `move`. Filed 2026-09-03 in the AI
-write-concurrency slice. No probe drove a concurrent write through the tool path.
+**Status:** CLOSED 2026-09-03 by the AI document write-concurrency slice. Verified 2026-09-03 by
+`npx tsc --noEmit` (exit 0), `npx eslint --max-warnings=0 src/app` (exit 0), `npm run test:run`
+(exit 0 — 983 test files, 14257 passed / 2 skipped) and `npm run size:check` (exit 0).
+
+★★★ **THE ORIGINAL ABSENCE WITNESS IS NOW INVERTED, AND ONE HALF OF IT NO LONGER DISCRIMINATES AT
+ALL.** This entry opened by citing `grep -c expect src/app/chat-tool-defs-documents.ts` printing
+`0`. That command now prints `2` — but NOT because the full-block `expect` was exposed (it
+deliberately was not): `expectHash` CONTAINS the substring `expect`, so the witness answers a
+different question than it was written to answer and would print `2` either way. Use the
+`expectHash` spelling instead. The other half inverted honestly:
+`grep -n 'enum: \["append"' src/app/chat-tool-defs-documents.ts` printed an op enum of
+`append insert replace delete replaceAll` and now prints one carrying `move`.
+
+★ **NOT machine-verified, and this is the bound to read the closure at:** no probe has raced a real
+human edit against an in-flight model call through the running app. What is pinned is the MECHANISM,
+at all three layers — the engine's comparison, the tool boundary's refusal-on-absence, and the
+dispatcher seam between them.
 
 **What the slice did, and what it deliberately did not.** The six entity `update_*` tools gained an
 `expectedToken` field (`expectedTokenField`): a read hands out `entityToken(kind, entity)`, derived
@@ -27160,22 +27172,50 @@ documented beside `expectedTokenField`, and pinned: `NOT_TOKEN_GUARDED` in `ai-e
 names `update_document` and `update_settings`, and the exhaustiveness case turns red if the field is
 ever spread onto either. **This entry is not asking for that field on documents.**
 
-**What IS open.** A mechanism already exists and is simply **not advertised**. `DocOp` carries an
+**What WAS open.** A mechanism already existed and was simply **not advertised**. `DocOp` carried an
 optional `expect: DocBlock` on its `replace`, `delete` and `move` arms — per-block optimistic
 concurrency, enforced in the engine against live state at call time via `blockChanged`
 (`grep -c 'expect?: DocBlock' src/app/document-ops.ts` → `3`, and the same file holds three
 enforcement sites). The hand block editor supplies its draft's baseline. The tool schema in
-`chat-tool-defs-documents.ts` exposes `op`/`index`/`block`/`blocks` and **no `expect` at all**, and
-its op enum **omits `move` entirely**. So the AI document write path has no concurrency protection
-available to it while the engine beneath it does: an AI `replace` at an index the user has since
-edited overwrites that edit silently, and chat tool writes have no undo capture in this app.
+`chat-tool-defs-documents.ts` exposed `op`/`index`/`block`/`blocks` and **no precondition field at
+all**, and its op enum **omitted `move` entirely**. So the AI document write path had no concurrency
+protection available to it while the engine beneath it did: an AI `replace` at an index the user had
+since edited overwrote that edit silently, and chat tool writes have no undo capture in this app.
 
-★ **Closing it is advertising, not building.** Exposing `expect` requires that the model has READ
-the block it is replacing — which `get_document`'s own description already demands ("you MUST call
-this before update_document"). The `move` omission is a separate, cheaper item: the engine's `move`
-is deliberately ONE op rather than a composed `delete` + `insert`, because `applyOps` bails wholesale
+**What closed it.** A per-block TOKEN rather than a full-block echo, in four layers:
+
+- `blockToken` (`document-block-token.ts`) hashes one block through the `hash` extracted from
+  `ai-entity-token.ts` into `token-hash.ts`. It is length-prefixed and presence-flagged so it agrees
+  with `blockChanged` on both pairs that deepEqual separates — omitted vs explicit `undefined`, and
+  present-empty vs absent.
+- `expectHash?: string` joins `expect` on the SAME three engine arms (`replace`/`delete`/`move`),
+  compared against the EVOLVING list at each op's own step. ★★ The engine stays **permissive on
+  absence**, deliberately: the hand block editor shares those arms and omits both fields, so
+  strictness cannot live here.
+- `get_document` returns a parallel `blockTokens` array, so the model holds a token per block without
+  having to reproduce rich HTML byte-for-byte — the reason a full-block `expect` was rejected as the
+  mechanism.
+- `requirePayload` (`chat-tools-documents.ts`) REFUSES a `replace`/`delete`/`move` carrying no
+  `expectHash`, or a blank one, and the schema advertises `expectHash`, `move` and `from`/`to`.
+  Required-ness lives here because this is the boundary where the caller is known to be a model.
+
+★★ **The seam between the tool boundary and the engine is its own defect surface, and it had no
+cover until this entry was closed.** `use-document-tools.ts` rebuilds every op through `keepOp` as
+`{...op, block}` and then explicitly `delete`s the sibling `expect` — so "strip a precondition here"
+is an established shape one line from the field the tool layer now demands. Had `expectHash` been
+dropped there, the model would have been made to send a token that was discarded before `applyOps`
+ever compared it, and the tool-boundary and engine tests would BOTH have stayed green because
+neither crosses the seam. Pinned by three tests in `use-chat-dispatcher.test.tsx` driving the real
+hook dispatcher: a STALE token refuses the replace and leaves the stored block untouched, a token
+read off the live block applies it, and a hash-mismatch refusal is renumbered through `remapOpIndex`
+into the CALLER's op space rather than naming an op the model never sent. ★ Mutation-proved, not
+assumed: adding `delete rest.expectHash` beside the existing `delete rest.expect` turned 2 of the
+file's 199 tests red, and neutering the remap turned 4 red.
+
+★ **The `move` omission was the cheaper half, and it shipped with the rest.** The engine's `move` is
+deliberately ONE op rather than a composed `delete` + `insert`, because `applyOps` bails wholesale
 only when nothing applied, so the composed spelling can delete a block and then have the re-insert
-refused — losing it. The model has no way to express the safe spelling today.
+refused — losing it. The model can now express the safe spelling.
 
 ★★ **How it was missed, which is the transferable part.** `TOOL_DEFS` ends by spreading
 `DOCUMENT_TOOL_DEFS` from a **second file** (`grep -n "DOCUMENT_TOOL_DEFS" src/app/chat-tool-defs.ts`
@@ -27186,13 +27226,18 @@ exactly how it was missed when this slice was planned; the anti-vacuity case in
 array** rather than off a file. **A claim about the tool surface derived from one defs file is
 incomplete by construction** — enumerate against `TOOL_DEFS` itself.
 
-★★ DESIGNED 2026-09-03 in `docs/superpowers/specs/2026-09-03-document-write-concurrency-design.md`,
-not yet planned. Two things that design established which change this entry: closing it is NOT
-advertising-only — the chosen mechanism is a per-block HASH (`blockToken`) rather than the full-block
-`expect` echo, because `blockChanged` is structural `deepEqual` and a model cannot reliably reproduce
-rich HTML byte-for-byte; and the check CANNOT sit in the tool layer, because `applyOps` walks an
-evolving list, so `expectHash` joins `expect` on the three engine arms while required-ness stays at
-the tool layer. The `rejected` reporting this needs already exists and only wants new messages.
+★★★ **THE ENTRY'S OWN "closing it is advertising, not building" FRAMING WAS WRONG, and it survived
+into the design doc that quotes it.** Two things the design established, both of which the
+implementation confirmed: the mechanism had to be a per-block HASH (`blockToken`) rather than the
+full-block `expect` echo, because `blockChanged` is structural `deepEqual` and a model cannot
+reliably reproduce rich HTML byte-for-byte; and the check CANNOT sit in the tool layer, because
+`applyOps` walks an EVOLVING list, so `expectHash` joins `expect` on the three engine arms while
+required-ness stays at the tool layer. Advertising an existing field would have shipped a
+precondition the model could not satisfy — a refusal it would learn to route around. ★ The `rejected`
+reporting was indeed already there and only wanted new messages, which is the one part of the
+original estimate that held. Designed in
+`docs/superpowers/specs/2026-09-03-document-write-concurrency-design.md`; that file is a DATED design
+record and its own pre-fix present tense is left standing rather than rewritten.
 
 ## 350. The insight recommendation token does not cover the model round-trip — open
 

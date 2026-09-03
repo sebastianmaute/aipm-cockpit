@@ -1,7 +1,10 @@
 # Document write concurrency — design
 
 **Date:** 2026-09-03
-**Status:** approved design, not yet planned
+**Status:** SHIPPED 2026-09-03 — `docs/open-followups.md` §349 is CLOSED. ★ This is a DATED DESIGN
+RECORD: everything below states the tree as it stood on 2026-09-03 BEFORE the slice landed, in the
+present tense, and is deliberately left that way. Read the §349 entry, not this file, for what the
+code does now.
 **Origin:** `docs/open-followups.md` §349, filed by the review of the AI write-safety slice
 (0.279.0 "Sriduangkaew"). That slice gave the six entity `update_*` tools an `expectedToken` and
 deliberately exempted `update_document`; this closes the hole the exemption left.
