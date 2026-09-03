@@ -9,16 +9,26 @@
 // MAX_HEADER_BYTES), total part count across the whole tree (MAX_PARTS,
 // container nodes included — this is what stops a shallow-but-wide or a
 // wide-at-every-level "MIME bomb" that the depth cap alone cannot catch),
-// and total decoded output across every part (MAX_TOTAL_OUTPUT_BYTES). All
-// boundary/part splitting uses String.prototype.split on a literal marker,
-// never a backtracking regex, so it stays linear in input size.
+// and decoded output (MAX_TOTAL_OUTPUT_BYTES bounds both the running total
+// AND any single part — a part whose raw body is already longer than the
+// remaining budget is dropped rather than decoded, so no one part can blow
+// the cap even on its own). All boundary/part splitting uses
+// String.prototype.indexOf on a literal marker, never a backtracking regex,
+// so it stays linear in input size — and RFC 2046 §5.1.1 anchored: a
+// delimiter must be a whole line (preceded by CRLF, followed by CRLF/"--"),
+// so boundary text appearing mid-line — accidentally in quoted text, or
+// deliberately to forge a part with attacker-chosen headers — is not
+// treated as a split point.
+
+const CRLF = "\r\n";
+const textEncoder = new TextEncoder();
 
 export const MAX_MIME_DEPTH = 10;
 export const MAX_HEADERS = 512;
 export const MAX_HEADER_BYTES = 64 * 1024;
 /** Total nodes (containers + leaves) visited across the whole message. */
 export const MAX_PARTS = 1000;
-/** Total decoded bytes summed across every leaf part in the message. */
+/** Bounds the running total AND any single part's decoded byte count. */
 export const MAX_TOTAL_OUTPUT_BYTES = 20 * 1024 * 1024;
 
 export type MimePart = {
@@ -42,44 +52,80 @@ export type MimeMessage = {
 type Budget = {
   partsLeft: number;
   bytesLeft: number;
-  notedParts: boolean;
-  notedBytes: boolean;
+  notedReasons: Set<string>;
 };
 
-function noteOnce(budget: Budget, kind: "parts" | "bytes", diagnostics: string[], message: string): void {
-  if (kind === "parts") {
-    if (budget.notedParts) return;
-    budget.notedParts = true;
-  } else {
-    if (budget.notedBytes) return;
-    budget.notedBytes = true;
-  }
+function noteOnce(budget: Budget, key: string, diagnostics: string[], message: string): void {
+  if (budget.notedReasons.has(key)) return;
+  budget.notedReasons.add(key);
   diagnostics.push(message);
 }
 
-function decodeBase64(s: string): Uint8Array {
-  try {
-    const clean = s.replace(/[^A-Za-z0-9+/=]/g, "");
-    const bin = atob(clean);
-    const out = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-    return out;
-  } catch {
-    return new Uint8Array(0);
+/**
+ * Never throws. On a malformed input (bad alphabet, wrong padding, a stray
+ * character), decodes the largest valid prefix instead of returning nothing
+ * — a single mangled byte must not drop an entire attachment.
+ */
+function decodeBase64(s: string): { bytes: Uint8Array; malformed: boolean } {
+  const clean = s.replace(/[^A-Za-z0-9+/=]/g, "");
+  const attempt = (input: string): Uint8Array | null => {
+    if (input.length === 0) return new Uint8Array(0);
+    const aligned = input.slice(0, input.length - (input.length % 4));
+    if (aligned.length === 0) return null;
+    try {
+      const bin = atob(aligned);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    } catch {
+      return null;
+    }
+  };
+
+  const primary = attempt(clean);
+  if (primary !== null) {
+    return { bytes: primary, malformed: clean.length % 4 !== 0 };
   }
+  // The 4-aligned prefix itself failed (e.g. a stray "=" mid-string, not just
+  // at the end). Retry once with every padding character stripped, rather
+  // than giving up and returning nothing.
+  const fallback = attempt(clean.replace(/=+/g, ""));
+  return { bytes: fallback ?? new Uint8Array(0), malformed: true };
 }
 
+/**
+ * Preallocates its output (no per-byte JS array) and encodes a non-ASCII
+ * literal run through TextEncoder rather than masking each char code to a
+ * single byte, so a literal (non-escaped) multi-byte character round-trips
+ * instead of being truncated to garbage.
+ */
 function decodeQuotedPrintable(s: string): Uint8Array {
-  const joined = s.replace(/=\r?\n/g, "");             // soft line breaks
-  const out: number[] = [];
-  for (let i = 0; i < joined.length; i++) {
+  const joined = s.replace(/=\r?\n/g, "");           // soft line breaks
+  // Worst-case UTF-8 expansion of a UTF-16 string is 3 bytes per code unit.
+  const buf = new Uint8Array(joined.length * 3 + 16);
+  let n = 0;
+  let literalStart = 0;
+  const flushLiteral = (end: number) => {
+    if (end <= literalStart) return;
+    const { written } = textEncoder.encodeInto(joined.slice(literalStart, end), buf.subarray(n));
+    n += written;
+  };
+  let i = 0;
+  while (i < joined.length) {
     if (joined[i] === "=" && i + 2 < joined.length) {
       const hex = joined.slice(i + 1, i + 3);
-      if (/^[0-9A-Fa-f]{2}$/.test(hex)) { out.push(Number.parseInt(hex, 16)); i += 2; continue; }
+      if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
+        flushLiteral(i);
+        buf[n++] = Number.parseInt(hex, 16);
+        i += 3;
+        literalStart = i;
+        continue;
+      }
     }
-    out.push(joined.charCodeAt(i) & 0xff);
+    i++;
   }
-  return new Uint8Array(out);
+  flushLiteral(joined.length);
+  return buf.subarray(0, n);
 }
 
 /** RFC 2047 encoded-words in a header value. */
@@ -87,7 +133,7 @@ export function decodeEncodedWords(v: string): string {
   return v.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (whole, charset: string, enc: string, data: string) => {
     try {
       const bytes = enc.toUpperCase() === "B"
-        ? decodeBase64(data)
+        ? decodeBase64(data).bytes
         : decodeQuotedPrintable(data.replace(/_/g, " "));
       return new TextDecoder(charset.toLowerCase()).decode(bytes);
     } catch {
@@ -96,27 +142,50 @@ export function decodeEncodedWords(v: string): string {
   });
 }
 
+/** Strips control characters and reduces to a basename, closing off header/
+ * log injection and path traversal that an RFC 2047 encoded-word can smuggle
+ * into a filename invisibly (the raw header looks innocuous; only the
+ * decoded value carries the attack). */
+function sanitizeFileName(name: string): string {
+  const noControl = name.replace(/[\x00-\x1F\x7F]/g, "").trim();
+  const base = noControl.split(/[\\/]+/).pop();
+  return base && base.length > 0 ? base : noControl;
+}
+
+// Anchored so a parameter name cannot be hijacked by a longer name sharing
+// its suffix (xboundary vs boundary, xcharset vs charset, xfilename vs
+// filename) — the char before the name must be ";", whitespace, or the
+// start of the string.
 function paramOf(headerValue: string, name: string): string | null {
-  const re = new RegExp(`${name}\\s*=\\s*("([^"]*)"|([^;\\s]+))`, "i");
+  const re = new RegExp(`(?:^|[;\\s])${name}\\s*=\\s*("([^"]*)"|([^;\\s]+))`, "i");
   const m = re.exec(headerValue);
   return m ? (m[2] ?? m[3] ?? null) : null;
 }
+
+const FIRST_WINS_HEADERS = new Set(["content-type", "content-transfer-encoding"]);
 
 function splitHeaders(raw: string): { headers: Map<string, string>; body: string; diagnostics: string[] } {
   const diagnostics: string[] = [];
   const sep = /\r?\n\r?\n/.exec(raw);
   const headerText = sep ? raw.slice(0, sep.index) : raw;
-  const body = sep ? raw.slice(sep.index + sep[0].length) : "";
+  const bodyAfterSep = sep ? raw.slice(sep.index + sep[0].length) : "";
   const capped = headerText.length > MAX_HEADER_BYTES;
   if (capped) diagnostics.push("header block truncated at the size cap");
   const lines = (capped ? headerText.slice(0, MAX_HEADER_BYTES) : headerText).split(/\r?\n/);
 
   const headers = new Map<string, string>();
+  let droppedHeader = false;
   let name = "", value = "";
   const commit = () => {
     if (name === "") return;
-    if (headers.size >= MAX_HEADERS) return;
-    headers.set(name.toLowerCase(), decodeEncodedWords(value.trim()));
+    const key = name.toLowerCase();
+    if (headers.size >= MAX_HEADERS) { droppedHeader = true; return; }
+    const decoded = decodeEncodedWords(value.trim());
+    if (FIRST_WINS_HEADERS.has(key) && headers.has(key)) {
+      diagnostics.push(`duplicate ${key} header ignored (kept the first)`);
+      return;
+    }
+    headers.set(key, decoded);
   };
   for (const line of lines) {
     if (/^[ \t]/.test(line) && name !== "") { value += " " + line.trim(); continue; }
@@ -127,89 +196,175 @@ function splitHeaders(raw: string): { headers: Map<string, string>; body: string
     value = line.slice(colon + 1);
   }
   commit();
-  if (headers.size >= MAX_HEADERS) diagnostics.push("header count capped");
-  return { headers, body, diagnostics };
+  if (droppedHeader) diagnostics.push("header count capped");
+
+  if (headers.size === 0) {
+    // Nothing here parsed as a real header — either there was no blank
+    // line at all (a header-less body part, which RFC 2046 explicitly
+    // permits), or every line lacked a ":" (this was never a header block
+    // to begin with, e.g. free text with a coincidental blank line in it).
+    // Either way, treat the WHOLE original chunk as body rather than
+    // silently discarding content that merely failed to look like headers.
+    return { headers, body: raw, diagnostics };
+  }
+  return { headers, body: bodyAfterSep, diagnostics };
 }
 
-function decodePartBody(body: string, encoding: string, charset: string): { text: string; bytes: Uint8Array } {
+function decodePartBody(body: string, encoding: string, charset: string): { text: string; bytes: Uint8Array; diagnostics: string[] } {
+  const partDiagnostics: string[] = [];
   const enc = encoding.trim().toLowerCase();
-  const bytes = enc === "base64" ? decodeBase64(body)
-    : enc === "quoted-printable" ? decodeQuotedPrintable(body)
-    : new TextEncoder().encode(body);
+  let bytes: Uint8Array;
+  if (enc === "base64") {
+    const decoded = decodeBase64(body);
+    bytes = decoded.bytes;
+    if (decoded.malformed) partDiagnostics.push("part had malformed base64; decoded the largest valid prefix");
+  } else if (enc === "quoted-printable") {
+    bytes = decodeQuotedPrintable(body);
+  } else {
+    bytes = textEncoder.encode(body);
+  }
   let text = "";
   try {
     text = new TextDecoder(charset.toLowerCase() || "utf-8").decode(bytes);
   } catch {
     text = new TextDecoder().decode(bytes);
   }
-  return { text, bytes };
+  return { text, bytes, diagnostics: partDiagnostics };
 }
 
-function walk(raw: string, depth: number, out: MimePart[], diagnostics: string[], budget: Budget): void {
-  if (depth > MAX_MIME_DEPTH) {
-    diagnostics.push("multipart nesting exceeded the depth cap");
+function walkNode(headers: Map<string, string>, body: string, depth: number, out: MimePart[], diagnostics: string[], budget: Budget): void {
+  // Every node — container or leaf — spends one unit of the shared part
+  // budget BEFORE the depth check, not after: otherwise a node past the
+  // depth cap costs nothing, and an attacker can hang arbitrarily many
+  // over-depth children off one multipart for free.
+  if (budget.partsLeft <= 0) {
+    noteOnce(budget, "parts", diagnostics, "part count exceeded the cap");
     return;
   }
-  // Every node — container or leaf — spends one unit of the shared part
-  // budget. The multipart loop below checks it BEFORE recursing into each
-  // child (and is the sole enforcement point — every call into walk() is
-  // either this function's own initial invocation, whose budget always
-  // starts positive, or a loop iteration gated on the same check), so this
-  // bounds a wide-but-shallow multipart (thousands of sibling parts at depth
-  // 1) as well as a wide-at-every-level tree (a few children per level, many
-  // levels), neither of which the depth cap alone limits: depth stays small
-  // while the total node count explodes.
   budget.partsLeft--;
 
-  const { headers, body, diagnostics: hd } = splitHeaders(raw);
-  diagnostics.push(...hd);
+  if (depth > MAX_MIME_DEPTH) {
+    noteOnce(budget, "depth", diagnostics, "multipart nesting exceeded the depth cap");
+    return;
+  }
+
   const ctype = headers.get("content-type") ?? "text/plain";
   const mimeType = ctype.split(";")[0].trim().toLowerCase();
   const boundary = paramOf(ctype, "boundary");
 
   if (mimeType.startsWith("multipart/") && boundary) {
-    const marker = `--${boundary}`;
-    const chunks = body.split(marker);
-    // chunks[0] is the preamble; a chunk starting with "--" is the terminator.
-    let sawTerminator = false;
-    for (const chunk of chunks.slice(1)) {
-      if (budget.partsLeft <= 0) {
-        noteOnce(budget, "parts", diagnostics, "part count exceeded the cap");
-        break;
-      }
-      if (chunk.startsWith("--")) { sawTerminator = true; break; }
-      walk(chunk.replace(/^\r?\n/, ""), depth + 1, out, diagnostics, budget);
-    }
-    if (!sawTerminator) diagnostics.push("multipart body had no closing boundary");
-    return;
-  }
-
-  if (budget.bytesLeft <= 0) {
-    noteOnce(budget, "bytes", diagnostics, "output size exceeded the cap");
+    walkMultipartChildren(body, boundary, depth, out, diagnostics, budget);
     return;
   }
 
   const disp = headers.get("content-disposition") ?? "";
-  const fileName = paramOf(disp, "filename") ?? paramOf(ctype, "name");
-  const { text, bytes } = decodePartBody(
+  const rawFileName = paramOf(disp, "filename") ?? paramOf(ctype, "name");
+
+  // A part whose raw (still-encoded) body is already longer than what
+  // remains of the output budget cannot possibly decode to fit inside it —
+  // skip it without decoding, so the cap bounds a single oversized part,
+  // not only the running total across many smaller ones.
+  if (body.length > budget.bytesLeft) {
+    noteOnce(budget, "bytes", diagnostics, "output size exceeded the cap");
+    return;
+  }
+
+  const { text, bytes, diagnostics: bodyDiagnostics } = decodePartBody(
     body,
     headers.get("content-transfer-encoding") ?? "",
     paramOf(ctype, "charset") ?? "utf-8",
   );
+  diagnostics.push(...bodyDiagnostics);
   budget.bytesLeft -= bytes.byteLength;
   out.push({
     mimeType,
-    fileName: fileName ? decodeEncodedWords(fileName) : null,
+    fileName: rawFileName ? sanitizeFileName(decodeEncodedWords(rawFileName)) : null,
     text,
     bytes,
     isMessage: mimeType === "message/rfc822",
   });
 }
 
+/**
+ * RFC 2046 §5.1.1: a delimiter is CRLF, then "--boundary", then either more
+ * CRLF (a part follows) or "--" (terminator) — optionally with linear
+ * whitespace before that CRLF/"--". Scanned with indexOf (never a
+ * backtracking regex) on the literal marker text, so it stays linear even
+ * over a body engineered to contain many near-miss occurrences: a rejected
+ * (mid-line) match advances the search position by exactly one character,
+ * and the search position only ever moves forward, so the total work across
+ * every indexOf call is bounded by the body length once, not once per
+ * rejection.
+ */
+function walkMultipartChildren(body: string, boundary: string, depth: number, out: MimePart[], diagnostics: string[], budget: Budget): void {
+  const marker = CRLF + "--" + boundary;
+  // Prepend a CRLF so the very first delimiter — which has no literal
+  // leading CRLF in `body` — matches the same way as every later one.
+  const scan = CRLF + body;
+  let cursor = 0;
+  let partStart = -1; // -1 while still in the preamble, before any delimiter.
+  let sawTerminator = false;
+
+  for (;;) {
+    const idx = scan.indexOf(marker, cursor);
+    if (idx === -1) break;
+    const afterMarker = idx + marker.length;
+
+    let i = afterMarker;
+    while (i < scan.length && (scan[i] === " " || scan[i] === "\t")) i++;
+    const isTerminator = scan.startsWith("--", i);
+    const isDelimiter = isTerminator || scan.startsWith(CRLF, i) || i === scan.length;
+    if (!isDelimiter) {
+      // Marker text mid-line — a coincidental match (or a forged part
+      // attempt). Keep scanning forward past it rather than splitting here.
+      cursor = idx + 1;
+      continue;
+    }
+
+    if (partStart >= 0) {
+      if (budget.partsLeft <= 0) {
+        noteOnce(budget, "parts", diagnostics, "part count exceeded the cap");
+        break;
+      }
+      const partRaw = scan.slice(partStart, idx);
+      const { headers, body: partBody, diagnostics: hd } = splitHeaders(partRaw);
+      diagnostics.push(...hd);
+      walkNode(headers, partBody, depth + 1, out, diagnostics, budget);
+    }
+
+    if (isTerminator) { sawTerminator = true; break; }
+
+    partStart = i + CRLF.length; // skip the CRLF that follows the delimiter
+    cursor = partStart;
+  }
+
+  if (sawTerminator) return;
+
+  diagnostics.push("multipart body had no closing boundary");
+  if (partStart >= 0) {
+    // Ran off the end mid-part: the trailing content is still a real part,
+    // just never explicitly closed — emit it rather than losing it.
+    if (budget.partsLeft <= 0) {
+      noteOnce(budget, "parts", diagnostics, "part count exceeded the cap");
+      return;
+    }
+    const partRaw = scan.slice(partStart);
+    const { headers, body: partBody, diagnostics: hd } = splitHeaders(partRaw);
+    diagnostics.push(...hd);
+    walkNode(headers, partBody, depth + 1, out, diagnostics, budget);
+  } else if (budget.partsLeft > 0) {
+    // The declared boundary never appeared at all — not even once. Fall
+    // back to the raw body as a single part instead of discarding it.
+    walkNode(new Map(), body, depth + 1, out, diagnostics, budget);
+  } else {
+    noteOnce(budget, "parts", diagnostics, "part count exceeded the cap");
+  }
+}
+
 export function parseMimeMessage(raw: string): MimeMessage {
-  const { headers, diagnostics } = splitHeaders(raw);
   const parts: MimePart[] = [];
-  const budget: Budget = { partsLeft: MAX_PARTS, bytesLeft: MAX_TOTAL_OUTPUT_BYTES, notedParts: false, notedBytes: false };
-  walk(raw, 0, parts, diagnostics, budget);
+  const budget: Budget = { partsLeft: MAX_PARTS, bytesLeft: MAX_TOTAL_OUTPUT_BYTES, notedReasons: new Set() };
+  const { headers, body, diagnostics } = splitHeaders(raw);
+  walkNode(headers, body, 0, parts, diagnostics, budget);
   return { headers, parts, diagnostics };
 }
