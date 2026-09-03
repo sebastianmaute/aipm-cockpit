@@ -148,6 +148,10 @@ describe("msgToParsedMail", () => {
     expect(p.body.content).toContain("From RTF");
   });
 
+  // ★★ CHANGED: this asserted `content` EQUALS the raw markup, which pinned the
+  //  defect that the HTML body bypassed extractHtmlMarkdown entirely. The
+  //  subject of the test — HTML wins over RTF — is unchanged; only the shape
+  //  of the winning body is, and it now matches eml-extract.ts's.
   it("prefers a real HTML body over RTF", () => {
     const html = "<html><body>" + "x".repeat(40) + "</body></html>";
     const p = msgToParsedMail(streams({
@@ -155,7 +159,7 @@ describe("msgToParsedMail", () => {
       "__substg1.0_10090102": new Uint8Array([1, 2, 3, 4]), // malformed, must not be reached
     }));
     expect(p.body.kind).toBe("html");
-    expect(p.body.content).toBe(html);
+    expect(p.body.content).toBe("x".repeat(40));
   });
 
   it("returns an empty mail rather than throwing on an empty stream map", () => {
@@ -192,11 +196,20 @@ describe("msgToParsedMail", () => {
     expect(p.diagnostics.some((d) => d.includes("property value(s) truncated"))).toBe(true);
   });
 
+  // ★★ CHANGED: this asserted the rendered length EQUALS MAX_BODY_PROPERTY_BYTES,
+  //  which was only true while the body was emitted as raw undecoded markup.
+  //  The body now passes through extractHtmlMarkdown, whose own (smaller)
+  //  input clamp decides the final length — pinning that number here would
+  //  pin ANOTHER module's constant, so only the bound is asserted. The
+  //  DIAGNOSTIC is what pins this module's clamp, and deleting the clamp
+  //  turns it red; the clamp is no longer observable in `content`, because
+  //  html-extract.ts cuts further in than it does either way.
   it("clamps an HTML body at MAX_BODY_PROPERTY_BYTES", () => {
     const oversized = new Uint8Array(MAX_BODY_PROPERTY_BYTES + 100).fill(0x61); // "aaaa..."
     const p = msgToParsedMail(streams({ "__substg1.0_10130102": oversized }));
     expect(p.body.kind).toBe("html");
-    expect(p.body.content.length).toBe(MAX_BODY_PROPERTY_BYTES);
+    expect(p.body.content.length).toBeLessThan(MAX_BODY_PROPERTY_BYTES);
+    expect(p.body.content.length).toBeGreaterThan(0);
     expect(p.diagnostics.some((d) => d.includes("property value(s) truncated"))).toBe(true);
   });
 
@@ -234,5 +247,119 @@ describe("msgToParsedMail", () => {
     const p = msgToParsedMail(streams(entries));
     expect(p.attachments).toHaveLength(MAX_ATTACHMENTS);
     expect(p.diagnostics.some((d) => d.startsWith("attachment list truncated"))).toBe(false);
+  });
+
+  // --- The HTML body: extraction, charset, and the PT_UNICODE tag variant ---
+  //
+  // ★★ THESE FIXTURES CARRY LITERAL NON-ASCII CHARACTERS, and that makes the
+  //  test source itself part of what is under test: a fixture and its expected
+  //  value are the same literal, so an editor that mangles one mangles both
+  //  and the test goes on passing while proving nothing. It cannot be a
+  //  self-check. Byte-scan the file after editing anything below — every
+  //  character outside ASCII here should be one of
+  //  U+00DF U+00E2 U+00E4 U+00F6 U+00FC U+20AC U+FFFD, and nothing else:
+  //    node -e "const s=require('fs').readFileSync(process.argv[1],'utf8');
+  //      const m=new Set(); for(const c of s) if(c.codePointAt(0)>127) m.add(c);
+  //      console.log([...m].join(' '))" src/app/msg-extract.test.ts
+  //  (the em dash and ★ of these comments will show up too).
+
+  /** windows-1252 bytes. Every character used here is in the 0x00-0xFF range
+   *  where windows-1252 and the code point agree, so this is exact. */
+  const cp1252 = (s: string) => Uint8Array.from(s, (ch) => ch.codePointAt(0) ?? 0);
+
+  it("routes the HTML body through the Markdown extractor instead of emitting raw markup", () => {
+    const rich =
+      "<html><head><style>p{color:red}</style></head><body>"
+      + "<h1>Quarterly plan</h1>"
+      + '<div style="font-family:Calibri"><p>Ship <b>on time</b>.</p></div>'
+      + "<ul><li>Alpha</li><li>Beta</li></ul>"
+      + "</body></html>";
+    const p = msgToParsedMail(streams({ "__substg1.0_10130102": new TextEncoder().encode(rich) }));
+    expect(p.body.kind).toBe("html");
+    // The structure a reader saw, as Markdown — not the markup that carried it.
+    expect(p.body.content).toBe("# Quarterly plan\n\nShip on time .\n\n- Alpha\n- Beta");
+    expect(p.body.content).not.toContain("<div");
+    expect(p.body.content).not.toContain("color:red"); // the <style> subtree is gone
+  });
+
+  it("decodes an undeclared windows-1252 HTML body without losing its umlauts", () => {
+    const bytes = cp1252(
+      "<html><body><p>Preisverhältnis und Maßnahmen für München</p></body></html>",
+    );
+    const p = msgToParsedMail(streams({ "__substg1.0_10130102": bytes }));
+    expect(p.body.content).toBe("Preisverhältnis und Maßnahmen für München");
+    expect(p.body.content).not.toContain("�");
+  });
+
+  // ★ A legacy body MISLABELLED as UTF-8 is the common case, not a contrived
+  //  one — Outlook stamps the meta declaration from the composing client, not
+  //  from the bytes. Honouring a declared UTF-8 label would lose the eszett.
+  it("falls back to windows-1252 for a body whose own declaration claims UTF-8", () => {
+    const bytes = cp1252(
+      '<html><head><meta charset="utf-8"></head><body><p>Maßnahmen</p></body></html>',
+    );
+    const p = msgToParsedMail(streams({ "__substg1.0_10130102": bytes }));
+    expect(p.body.content).toBe("Maßnahmen");
+  });
+
+  it("honours a charset declared in the http-equiv Content-Type form", () => {
+    const bytes = cp1252(
+      '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">'
+      + "</head><body><p>Größe</p></body></html>",
+    );
+    const p = msgToParsedMail(streams({ "__substg1.0_10130102": bytes }));
+    expect(p.body.content).toBe("Größe");
+  });
+
+  it("still decodes a real UTF-8 HTML body exactly", () => {
+    const bytes = new TextEncoder().encode(
+      "<html><body><p>Preisverhältnis und Maßnahmen für München</p></body></html>",
+    );
+    const p = msgToParsedMail(streams({ "__substg1.0_10130102": bytes }));
+    expect(p.body.content).toBe("Preisverhältnis und Maßnahmen für München");
+  });
+
+  // ★★ THE CLAMP CAN CUT A MULTI-BYTE SEQUENCE IN HALF. A non-streaming
+  //  `fatal: true` decode throws on that tail, which would send an entire
+  //  valid UTF-8 body down the windows-1252 branch — one lost character
+  //  becoming whole-body mojibake. The euro sign is 3 bytes and the cap is
+  //  not a multiple of 3, so this fixture guarantees the mid-sequence cut.
+  it("does not mistake a clamp-truncated UTF-8 tail for a legacy body", () => {
+    expect(MAX_BODY_PROPERTY_BYTES % 3).not.toBe(0);
+    const n = Math.ceil((MAX_BODY_PROPERTY_BYTES + 30) / 3);
+    const bytes = new TextEncoder().encode("€".repeat(n));
+    const p = msgToParsedMail(streams({ "__substg1.0_10130102": bytes }));
+    expect(p.body.content.startsWith("€€€€")).toBe(true);
+    expect(p.body.content).not.toContain("�");
+    expect(p.body.content).not.toContain("â"); // the cp1252 reading of a euro sign's lead byte
+    expect(p.diagnostics.some((d) => d.includes("property value(s) truncated"))).toBe(true);
+  });
+
+  // ★★ PidTagHtml is PT_BINARY (10130102) in MS-OXPROPS, but some producers
+  //  write the PT_UNICODE variant. A map carrying only that tag reported an
+  //  EMPTY text body before it was accepted here.
+  it("honours the PT_UNICODE variant of the HTML body tag", () => {
+    const p = msgToParsedMail(streams({
+      "__substg1.0_1013001F": uni("<html><body><p>Maßnahmen aus dem Unicode-Tag</p></body></html>"),
+    }));
+    expect(p.body.kind).toBe("html");
+    expect(p.body.content).toBe("Maßnahmen aus dem Unicode-Tag");
+  });
+
+  it("prefers the spec-canonical PT_BINARY HTML tag when both variants are present", () => {
+    const p = msgToParsedMail(streams({
+      "__substg1.0_10130102": new TextEncoder().encode("<html><body><p>From the binary tag body</p></body></html>"),
+      "__substg1.0_1013001F": uni("<html><body><p>From the unicode tag body</p></body></html>"),
+    }));
+    expect(p.body.content).toBe("From the binary tag body");
+  });
+
+  it("ignores a PT_UNICODE HTML stream too short to be a real body", () => {
+    const p = msgToParsedMail(streams({
+      "__substg1.0_1013001F": uni("<p>hi</p>"), // 18 bytes, below MIN_HTML_BODY_BYTES
+      "__substg1.0_1000001F": uni("plain fallback"),
+    }));
+    expect(p.body.kind).toBe("text");
+    expect(p.body.content).toBe("plain fallback");
   });
 });

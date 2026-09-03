@@ -41,6 +41,7 @@
 // Property tags come from MS-OXPROPS. Tags are facts from a specification,
 // not creative expression.
 
+import { extractHtmlMarkdown } from "./html-extract";
 import { decompressRtf, rtfToPlainText } from "./lzfu";
 import type { ParsedMail } from "./mail-extract";
 
@@ -52,6 +53,7 @@ const TAG = {
   DISPLAY_CC: "0E03001F",
   BODY_PLAIN: "1000001F",
   BODY_HTML: "10130102",
+  BODY_HTML_UNICODE: "1013001F",
   BODY_RTF: "10090102",
   ATTACH_LONG_FILENAME: "3707001F",
   ATTACH_FILENAME: "3704001F",
@@ -85,6 +87,83 @@ export const MAX_ADDRESSES_PER_LIST = 100;
 /** Minimum HTML byte length worth treating as a real body rather than a
  *  degenerate placeholder stream. */
 const MIN_HTML_BODY_BYTES = 32;
+
+/** Bytes at the head of an HTML body scanned for a charset declaration. The
+ *  HTML standard's own encoding pre-scan stops at 1024 bytes; a declaration
+ *  further in than that is one no browser would honour either, and scanning
+ *  the whole (up to MAX_BODY_PROPERTY_BYTES) body would pay a megabyte-scale
+ *  cost for a header-shaped fact. */
+const MAX_CHARSET_SNIFF_BYTES = 1024;
+
+/** Matches BOTH declaration shapes in one pass — `<meta charset="utf-8">` and
+ *  `<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">`.
+ *  The gap is bounded (never `[^>]*`) so an unterminated "<meta" in hostile
+ *  input cannot force a long backtracking scan, the same reasoning as
+ *  html-extract.ts's MAX_TAG_SCAN_CHARS. */
+const META_CHARSET_RE = /<meta[^>]{0,512}?charset\s*=\s*["']?\s*([A-Za-z0-9_.:-]+)/i;
+
+/** The declared charset label, or "" when the body declares none. Scanned as
+ *  latin1 so the window is byte-transparent and cannot itself throw or emit a
+ *  replacement character — every byte a declaration can be written in is
+ *  ASCII, so nothing a real label contains is lost by reading it that way. */
+function sniffCharset(bytes: Uint8Array): string {
+  const window = bytes.subarray(0, MAX_CHARSET_SNIFF_BYTES);
+  const head = new TextDecoder("latin1").decode(window);
+  return META_CHARSET_RE.exec(head)?.[1] ?? "";
+}
+
+/** Decode a PT_BINARY HTML body (PR_HTML) to text.
+ *
+ *  ★★ PR_HTML carries bytes in the message's internet code page
+ *  (PR_INTERNET_CPID, 3FDE0003), which lives in the fixed-length
+ *  `__properties_version1.0` stream this parser deliberately does not parse.
+ *  Decoding as UTF-8 unconditionally — what this did before — turns every
+ *  umlaut and eszett of a windows-1252 body into U+FFFD irrecoverably, which
+ *  on a German or French tenant is the everyday case, not a hostile one.
+ *  The deterministic substitute, in order:
+ *
+ *    1. a charset declared in the body's own head (sniffCharset). Honoured
+ *       only when it names something OTHER than UTF-8, because a label of
+ *       UTF-8 is exactly what a mislabelled legacy body carries — it goes to
+ *       step 2 so it can still fall back.
+ *    2. strict UTF-8. `fatal: true` throws on an invalid sequence instead of
+ *       substituting U+FFFD, so a modern body decodes exactly and a legacy
+ *       one is DETECTED rather than silently rotted.
+ *    3. windows-1252, which cannot fail and is what a legacy Outlook body on
+ *       a Western-European tenant actually is.
+ *
+ *  ★★ `stream: true` on the strict attempt is load-bearing, not incidental.
+ *  The caller clamps at MAX_BODY_PROPERTY_BYTES, which can cut a multi-byte
+ *  sequence in half; a non-streaming fatal decode THROWS on that truncated
+ *  tail (measured) and would send an entire valid 4MB UTF-8 body down the
+ *  windows-1252 branch — turning one lost character into whole-body mojibake.
+ *  Streaming buffers an INCOMPLETE trailing sequence and drops it, while an
+ *  invalid INTERIOR sequence still throws, so the fallback stays reachable
+ *  (both measured). */
+function decodeHtmlBytes(bytes: Uint8Array): string {
+  const label = sniffCharset(bytes);
+  if (label !== "") {
+    try {
+      const declared = new TextDecoder(label);
+      // "replacement" is the Encoding Standard's deliberate dead end for
+      // labels like iso-2022-kr: its decoder emits one U+FFFD for the whole
+      // input. Node throws on constructing those (measured), a browser does
+      // not, so this keeps both environments on the ladder below instead of
+      // blanking the body on one of them.
+      if (declared.encoding !== "utf-8" && declared.encoding !== "replacement") {
+        return declared.decode(bytes);
+      }
+    } catch {
+      // An unknown or malformed label is not a reason to fail — fall through
+      // to the ladder, which always produces something.
+    }
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes, { stream: true });
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
+}
 
 type DecodeBudget = { truncatedProperties: number };
 
@@ -146,15 +225,30 @@ export function msgToParsedMail(streams: Map<string, Uint8Array>): ParsedMail {
   const decBody = (b: Uint8Array | undefined): string => decodeUnicode(b, MAX_BODY_PROPERTY_BYTES, budget);
 
   const plain = decBody(rootProp(streams, TAG.BODY_PLAIN));
+  // ★★ PR_HTML is PT_BINARY (10130102) in MS-OXPROPS and that is what real
+  //  Outlook writes, so it wins when both are present — but a PT_UNICODE
+  //  variant (1013001F) is written by some producers and is just as much a
+  //  real HTML body. Looking up only the binary tag reported a map carrying
+  //  only the unicode one as an EMPTY text body (measured). The two decode
+  //  differently and must not be merged: PT_UNICODE is UTF-16LE by
+  //  definition, PT_BINARY is code-page bytes (see decodeHtmlBytes).
   const htmlBytes = rootProp(streams, TAG.BODY_HTML);
+  const htmlUnicodeBytes = rootProp(streams, TAG.BODY_HTML_UNICODE);
   const rtfBytes = rootProp(streams, TAG.BODY_RTF);
 
+  // ★★ The extracted body carries `kind: "html"` holding MARKDOWN, not
+  //  markup — eml-extract.ts's convention exactly, because mail-extract.ts's
+  //  renderMailParts prints body.content verbatim and nothing downstream
+  //  post-processes it. Handing the model up to 4MB of raw `<div style=…>`
+  //  is what this path did before.
   let body: ParsedMail["body"];
   if (htmlBytes && htmlBytes.length > MIN_HTML_BODY_BYTES) {
     const clamped = htmlBytes.length > MAX_BODY_PROPERTY_BYTES;
     const htmlSlice = clamped ? htmlBytes.subarray(0, MAX_BODY_PROPERTY_BYTES) : htmlBytes;
     if (clamped) budget.truncatedProperties++;
-    body = { kind: "html", content: new TextDecoder("utf-8").decode(htmlSlice) };
+    body = { kind: "html", content: extractHtmlMarkdown(decodeHtmlBytes(htmlSlice)) };
+  } else if (htmlUnicodeBytes && htmlUnicodeBytes.length > MIN_HTML_BODY_BYTES) {
+    body = { kind: "html", content: extractHtmlMarkdown(decBody(htmlUnicodeBytes)) };
   } else if (rtfBytes && rtfBytes.length > 0) {
     const raw = decompressRtf(rtfBytes);
     const text = rtfToPlainText(new TextDecoder("latin1").decode(raw));
