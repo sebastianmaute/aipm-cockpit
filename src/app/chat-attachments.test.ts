@@ -404,4 +404,12 @@ describe("mail classification", () => {
     const tokens = ATTACHMENT_ACCEPT.split(",");
     for (const ext of [".eml", ".mhtml", ".mht"]) expect(tokens).toContain(ext);
   });
+
+  // ★ Pins the MIME half of the mail branch on its own, with no mail
+  //  extension in the filename to fall back on. Every other multipart/related
+  //  assertion in this file pairs it with ".mht", so the extension fallback
+  //  alone would keep them green even if this MIME check were deleted.
+  it("classifies multipart/related as mail from the MIME type alone", () => {
+    expect(classifyAttachment("multipart/related", "file")).toBe("mail");
+  });
 });

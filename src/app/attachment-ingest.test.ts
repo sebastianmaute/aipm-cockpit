@@ -48,6 +48,42 @@ describe("ingestBytes", () => {
     if (r.ok) expect(r.node.children).toEqual([]);
   });
 
+  // ★★★ REGRESSION GUARD: before this branch existed, "mail" fell through to
+  // the base64 path (payloadFor's default) while buildAttachmentBlock's
+  // "mail" branch treats `data` as pre-extracted Markdown — so a dropped
+  // .eml silently sent the model a base64 blob presented as prose. Assert
+  // BOTH that real header/body content comes through AND that the output
+  // does not look like the base64 of the raw message.
+  it("routes eml through the mail extractor to readable Markdown, not base64", async () => {
+    const eml = [
+      "Subject: Weekly status",
+      "From: alice@example.com",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      "Hello team, the migration is done.",
+    ].join("\r\n");
+    const r = await ingestBytes(enc(eml), "message/rfc822", "status.eml");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.node.kind).toBe("mail");
+    const src = r.node.block.source as { type: string; data: string };
+    expect(src.type).toBe("text");
+    expect(src.data).toContain("**Subject:** Weekly status");
+    expect(src.data).toContain("Hello team, the migration is done.");
+    // The raw message contains no "@" once base64-encoded, and base64 of a
+    // message this size is one unbroken run with no space or literal "@" —
+    // the readable Markdown has both.
+    expect(src.data).toContain("alice@example.com");
+    expect(src.data).not.toMatch(/^[A-Za-z0-9+/=\s]+$/);
+  });
+
+  it("reports no children for a flat mail message (recursion is Task 10's job)", async () => {
+    const eml = ["Subject: x", "", "body"].join("\r\n");
+    const r = await ingestBytes(enc(eml), "message/rfc822", "x.eml");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.node.children).toEqual([]);
+  });
+
   // ★★★ REGRESSION GUARD: buildAttachmentBlock passes an image's mimeType
   // straight into source.media_type (unlike every other kind, which builds a
   // fixed internal value) — an empty File.type (common on drag-drop) must not

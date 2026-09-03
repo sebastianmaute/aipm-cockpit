@@ -19,6 +19,9 @@ import {
 import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { extractHtmlMarkdown } from "./html-extract";
 import { bytesToBase64 } from "./base64";
+import { parseMimeMessage } from "./mime-parse";
+import { emlToParsedMail } from "./eml-extract";
+import { renderMailMarkdown, MAIL_BODY_FLOOR } from "./mail-extract";
 
 export type IngestNode = {
   fileName: string;
@@ -55,7 +58,9 @@ function imageMimeFallback(fileName: string): string | null {
 }
 
 /** Extract one file's model-facing payload. Bytes in, `data` for
- *  buildAttachmentBlock out. Mail kinds are handled in Phase 2. */
+ *  buildAttachmentBlock out. Mail is rendered flat (no attachment recursion
+ *  yet — that lands in Task 10, which threads the shared extraction budget
+ *  through this function). */
 async function payloadFor(
   kind: AttachmentKind,
   bytes: Uint8Array,
@@ -69,6 +74,21 @@ async function payloadFor(
   }
   if (kind === "html") return extractHtmlMarkdown(new TextDecoder().decode(bytes));
   if (kind === "text") return new TextDecoder().decode(bytes);
+  if (kind === "mail") {
+    // Decoding `bytes` as UTF-8 text is safe ONLY because every mail format
+    // classifyAttachment maps to "mail" today — .eml, .mhtml, .mht — is text.
+    // .msg (Task 15) is binary CFBF; decoding it as text here would destroy
+    // the bytes its own parser needs. Whoever adds it must branch on format
+    // BEFORE this decode, not inherit it — same caveat as the html/text
+    // branches above, which are text-only kinds by construction.
+    //
+    // No recursion here: Task 10 owns the attachment tree walk and the
+    // shared extraction budget. ParsedMail.attachments carries raw,
+    // unwalked bytes and IngestNode.children stays empty — this call is
+    // flat by design, not an oversight.
+    const mail = emlToParsedMail(parseMimeMessage(new TextDecoder().decode(bytes)));
+    return renderMailMarkdown(mail, MAIL_BODY_FLOOR);
+  }
   return bytesToBase64(bytes);
 }
 
