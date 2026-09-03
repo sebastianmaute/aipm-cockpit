@@ -416,11 +416,13 @@ describe("runTool — list_tasks / get_task", () => {
   //   `Number("") === 0`" — but being read as 0 yields the IDENTICAL observable,
   //   since 0 already means "no limit" (`floored > 0`). Measured over 16 inputs
   //   (`""`, `"  "`, `"\t\n"`, NBSP, ZWSP, `"abc"`, `"0x10"`, `" 10 "`,
-  //   `"Infinity"`, `1e21`, booleans, null, `{}`, `[]`): deleting the
-  //   `trim() !== ""` conjunct changes the observable limit for NONE of them, so
-  //   that case passes against the very mutant it named. `"abc"` likewise dies
-  //   to no plausible mutant — `Number("abc")` is `NaN` under any form of this
-  //   code. Both are kept as domain documentation, NOT as guards.
+  //   `"Infinity"`, `1e21`, booleans, null, `{}`, `[]`): the blank-string guard
+  //   that case named changed the observable limit for NONE of them, so it
+  //   passed against its own mutant. The guard has since been DELETED as dead
+  //   code (`coerceNumericInput`, `resolve-limit.ts`), which is why no conjunct
+  //   here answers for it. `"abc"` likewise dies to no plausible mutant —
+  //   `Number("abc")` is `NaN` under any form of this code. Both cases are kept
+  //   as domain documentation, NOT as guards.
   // ★★ `true` IS load-bearing, against the OPPOSITE mutant: coercing
   //   unconditionally makes `Number(true) === 1` and silently returns a page of
   //   one, which no other case here would catch.

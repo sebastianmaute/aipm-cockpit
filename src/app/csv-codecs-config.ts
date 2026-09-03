@@ -387,7 +387,7 @@ export function csvToActivityLog(text: string): ActivityEntry[] | undefined {
 // keeps the Markdown `- field: value` bullet parser robust.
 
 /** All ProjectMeta fields, in a fixed serialization order. */
-export const PROJECT_CSV_COLUMNS: Array<keyof ProjectMeta> = [
+export const PROJECT_CSV_COLUMNS = [
   "name", "code", "description",
   "sponsor", "projectManager", "keyStakeholdersInternal", "keyStakeholdersExternal",
   "customer", "naceSection", "identityTypes", "identityCount", "stakeholderCount",
@@ -396,7 +396,7 @@ export const PROJECT_CSV_COLUMNS: Array<keyof ProjectMeta> = [
   "operatingTimezone",
   "contactPersons", "docRepoLocation", "regulatory", "notes",
   "knowledgeLinks",
-];
+] as const satisfies readonly (keyof ProjectMeta)[];
 
 /** The list delimiter used across this file for joined string arrays. */
 const PROJECT_LIST_DELIM = "|";

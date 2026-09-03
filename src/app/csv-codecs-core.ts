@@ -133,7 +133,7 @@ export const RAID_CSV_COLUMNS = [
 // Columns persisted for Absence items in CSV and Markdown. Order matches
 // the header row emitted by the encoder; the decoder reads by column name
 // so reordering files by hand still works.
-export const ABSENCES_CSV_COLUMNS: Array<keyof Absence> = [
+export const ABSENCES_CSV_COLUMNS = [
   "id",
   "assignee",
   "assigneeEmail",
@@ -144,13 +144,13 @@ export const ABSENCES_CSV_COLUMNS: Array<keyof Absence> = [
   "localModifiedAt",
   "resourceId",
   "outlookEventId",
-];
+] as const satisfies readonly (keyof Absence)[];
 
 // Columns persisted for CalendarEvent items in CSV and Turso (single + tenant).
 // Order matches the header row emitted by the encoder; the decoder reads by
 // column name so reordering files by hand still works. `recurrence` /
 // `exceptions` / `attendeeResourceIds` are JSON-in-cell (see calendar-event.ts).
-export const EVENTS_CSV_COLUMNS: Array<keyof CalendarEvent> = [
+export const EVENTS_CSV_COLUMNS = [
   "id",
   "title",
   "startDate",
@@ -164,7 +164,7 @@ export const EVENTS_CSV_COLUMNS: Array<keyof CalendarEvent> = [
   "sendInvitations",
   "localModifiedAt",
   "outlookEventId",
-];
+] as const satisfies readonly (keyof CalendarEvent)[];
 
 // DOCUMENT_ASSETS_CSV_COLUMNS / documentAssetFieldToString /
 // buildDocumentAssetFromObj / documentAssetsToCsv moved to

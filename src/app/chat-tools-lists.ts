@@ -18,6 +18,7 @@
 // in both the browser and bare node under vitest.
 import { entityToken, type TokenEntity } from "./ai-entity-token";
 import { htmlToPlainText } from "./html-to-text";
+import { coerceNumericInput } from "./resolve-limit";
 import type { NoteLogEntry, Task } from "./types";
 
 /** A read-path row carrying the optimistic-concurrency token the matching
@@ -170,10 +171,15 @@ export function slimTaskForList(task: Task): TaskListItem {
  * field routinely, and the rule below used to test `typeof rawLimit ===
  * "number"` alone, so `"10"` fell through to "no limit" and returned the WHOLE
  * register — the exact response-cost blowup this envelope exists to bound,
- * silently, on a request whose meaning was never in doubt. Coercing it honours
- * the ask; `"abc"` still cannot be read as a page size and still means "no
- * limit". ★ This does NOT reopen the (0,1) hole below: `"0.5"` coerces to 0.5
- * and floors to 0 exactly as the bare number does.
+ * silently, on a request whose meaning was never in doubt. `coerceNumericInput`
+ * honours the ask; `"abc"` still cannot be read as a page size and still means
+ * "no limit". ★ This does NOT reopen the (0,1) hole below: `"0.5"` coerces to
+ * 0.5 and floors to 0 exactly as the bare number does.
+ * ★★ THE COERCION IS SHARED, THE POLICY IS NOT. `coerceNumericInput`
+ * (`resolve-limit.ts`) only answers "is this a finite number?"; the floor, the
+ * positivity test and what a non-positive value MEANS stay here, because
+ * `resolveLimit`'s answer to the same input is its own fallback page size while
+ * this envelope's is "no limit at all". Do not fold the two together.
  *
  * ★ `limit` in the result is the BOUND that was applied to the slice, not a row
  * count — `items.length` is the page size, and a bound larger than `total` is
@@ -195,13 +201,8 @@ export function listTasksEnvelope(
   tasks: readonly Task[],
   rawLimit: unknown,
 ): ListEnvelope<Tokened<TaskListItem>> {
-  const asNumber =
-    typeof rawLimit === "number"
-      ? rawLimit
-      : typeof rawLimit === "string" && rawLimit.trim() !== ""
-        ? Number(rawLimit)
-        : NaN;
-  const floored = Number.isFinite(asNumber) ? Math.floor(asNumber) : 0;
+  const asNumber = coerceNumericInput(rawLimit);
+  const floored = asNumber === undefined ? 0 : Math.floor(asNumber);
   const limit = floored > 0 ? floored : undefined;
   const page = limit === undefined ? tasks : tasks.slice(0, limit);
   return {
