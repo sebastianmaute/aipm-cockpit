@@ -39,16 +39,51 @@ export type AttachmentError = "unsupported-type" | "too-large";
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-const SUPPORTED_IMAGE_MIMES = new Set([
+export const SUPPORTED_IMAGE_MIMES = new Set([
   "image/png",
   "image/jpeg",
   "image/gif",
   "image/webp",
 ]);
 
-const PDF_EXTENSIONS = new Set([".pdf"]);
-const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
-const TEXT_EXTENSIONS = new Set([".txt", ".md", ".markdown", ".csv", ".html", ".htm", ".vtt"]);
+export const PDF_EXTENSIONS = new Set([".pdf"]);
+export const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
+export const TEXT_EXTENSIONS = new Set([".txt", ".md", ".markdown", ".csv", ".vtt"]);
+export const HTML_EXTENSIONS = new Set([".html", ".htm"]);
+export const OFFICE_EXTENSIONS = new Set([".docx", ".xlsx", ".xlsm", ".pptx"]);
+
+/** Extra MIME tokens the picker should offer. Extensions alone are not enough:
+ *  a file arriving as application/octet-stream with no extension is classified
+ *  by MIME, and a picker listing only extensions filters it out before
+ *  classifyAttachment ever sees it. */
+const ACCEPT_MIMES = [
+  "application/pdf",
+  "image/*",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "text/html",
+  "text/vtt",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel.sheet.macroEnabled.12",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+];
+
+/** ★★★ THE SINGLE SOURCE FOR EVERY FILE PICKER IN THE APP. Three consumers
+ *  (chat-panel, step0-import-panel, and anything added later) must use this and
+ *  never hand-write an accept string. They did hand-write them once and drifted
+ *  by six tokens — .markdown plus every MIME type — so the wizard silently
+ *  rejected files the assistant accepted. Deriving it from the same sets
+ *  classifyAttachment consults makes that class of drift unrepresentable. */
+export const ATTACHMENT_ACCEPT = [
+  ...PDF_EXTENSIONS,
+  ...IMAGE_EXTENSIONS,
+  ...TEXT_EXTENSIONS,
+  ...HTML_EXTENSIONS,
+  ...OFFICE_EXTENSIONS,
+  ...ACCEPT_MIMES,
+].join(",");
 
 function fileExtension(fileName: string): string {
   const dot = fileName.lastIndexOf(".");
@@ -94,6 +129,7 @@ export function classifyAttachment(
   if (ext !== "" && PDF_EXTENSIONS.has(ext)) return "pdf";
   if (ext !== "" && IMAGE_EXTENSIONS.has(ext)) return "image";
   if (ext !== "" && TEXT_EXTENSIONS.has(ext)) return "text";
+  if (ext !== "" && HTML_EXTENSIONS.has(ext)) return "text";
 
   // --- Office (OOXML: docx/xlsx/xlsm/pptx) — MIME or extension ---
   if (officeKindOf(mimeType, fileName)) return "office";

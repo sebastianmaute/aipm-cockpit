@@ -5,6 +5,7 @@ import {
   buildAttachmentBlock,
   checkAttachmentSize,
   MAX_ATTACHMENT_BYTES,
+  ATTACHMENT_ACCEPT,
   type AttachmentKind,
   type AttachmentBlock,
   type ImageBlock,
@@ -315,5 +316,36 @@ describe("AttachmentBlock type narrowing", () => {
       const _doc: DocumentBlock = block;
       expect(_doc.source.type).toBe("base64");
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ATTACHMENT_ACCEPT — single source for every file picker's accept= string
+// ---------------------------------------------------------------------------
+describe("ATTACHMENT_ACCEPT", () => {
+  // ★ THE DEFECT THIS EXISTS FOR. Three consumers hand-wrote this string and
+  //  drifted: the wizard's list was a strict subset missing .markdown and every
+  //  MIME type, so a correctly-typed file with no extension was filtered out of
+  //  its picker while classifyAttachment would have accepted it.
+  it("offers every extension classifyAttachment accepts", () => {
+    const tokens = ATTACHMENT_ACCEPT.split(",");
+    for (const ext of [".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp",
+                       ".txt", ".md", ".markdown", ".csv", ".html", ".htm",
+                       ".vtt", ".docx", ".xlsx", ".xlsm", ".pptx"]) {
+      expect(tokens).toContain(ext);
+      expect(classifyAttachment("application/octet-stream", `f${ext}`)).not.toBeNull();
+    }
+  });
+
+  it("offers the MIME types too, so an extensionless file still passes the picker", () => {
+    const tokens = ATTACHMENT_ACCEPT.split(",");
+    expect(tokens).toContain("application/pdf");
+    expect(tokens).toContain("text/plain");
+    expect(tokens).toContain("image/*");
+  });
+
+  it("lists no token twice", () => {
+    const tokens = ATTACHMENT_ACCEPT.split(",");
+    expect(new Set(tokens).size).toBe(tokens.length);
   });
 });
