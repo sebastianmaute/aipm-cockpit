@@ -1625,8 +1625,19 @@ describe("useChatDispatcher – document tools", () => {
     });
     const id = result.current.listDocuments()[0].id;
     await expect(
-      runTool(result.current, "update_document", { id, ops: [{ op: "delete", index: 42 }] }),
-    ).rejects.toThrow();
+      // ★★★ `expectHash` IS REQUIRED AT THE TOOL BOUNDARY, and it has to be
+      // here or this test silently stops testing what it is named for.
+      // Without it `runDocumentTool` refuses the op before the dispatcher is
+      // ever called, so the bare `rejects.toThrow()` below still passed while
+      // the ENGINE's range guard — the thing under test — was never reached.
+      // The value is a placeholder: index 42 names no block, so no real token
+      // exists for it, and the engine checks the RANGE before it compares any
+      // token (document-ops.ts's delete arm), which is why the range guard is
+      // still what rejects.
+      runTool(result.current, "update_document", { id, ops: [{ op: "delete", index: 42, expectHash: "t42" }] }),
+      // ★ Assert the REASON, not merely that something threw — that is what
+      // makes the drift above impossible to repeat unnoticed.
+    ).rejects.toThrow(/out of range/i);
     expect(JSON.stringify(result.current.getDocument(id)!.blocks)).toContain("keep me");
   });
 

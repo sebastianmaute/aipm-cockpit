@@ -170,6 +170,34 @@ function requirePayload(op: unknown, i: number): void {
       throw new Error(`op ${i}: ${kind} requires a block`);
     }
   }
+  // ★★★ REFUSE ON ABSENCE, mirroring `requireToken` on the six entity tools.
+  // The ENGINE (document-ops.ts) is deliberately permissive about a missing
+  // `expectHash` — the hand block editor shares those arms and omits the field
+  // — so the strictness has to live HERE, at the boundary where the caller is
+  // known to be a model. Without it a model can overwrite a block the user
+  // edited after it read the document, and chat tool writes have NO undo
+  // capture, so that loss cannot be recovered from within the session.
+  //
+  // ★★ ORDER IS LOAD-BEARING: this sits AFTER the block-shape check above, so
+  // a `replace` carrying neither a block nor a token still reports the missing
+  // BLOCK. Hoisting it would silently re-point the "refuses a %s with no
+  // block" cases at this message and stop them pinning the shape guard.
+  //
+  // ★★ Only these three ops. append/insert/replaceAll have no target block
+  // that could have been concurrently changed, and no token can name a block
+  // that does not exist yet — requiring one there would be unsatisfiable.
+  if (kind === "replace" || kind === "delete" || kind === "move") {
+    // ★ A BLANK STRING IS NOT A TOKEN. `typeof x === "string"` alone admits
+    // `""`, which the engine would compare against a real token and reject one
+    // layer down as "changed by another writer" — a misleading reason for what
+    // is really a malformed call.
+    const expectHash = (op as { expectHash?: unknown }).expectHash;
+    if (typeof expectHash !== "string" || expectHash.trim() === "") {
+      throw new Error(
+        `op ${i}: ${kind} requires expectHash — call get_document, then send the blockTokens entry for the block you are targeting`,
+      );
+    }
+  }
 }
 
 export async function runDocumentTool(

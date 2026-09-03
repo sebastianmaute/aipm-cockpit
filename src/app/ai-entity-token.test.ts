@@ -63,14 +63,16 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
    *    update_document  a `ProjectDocument` persists as a meta-blob (one JSON
    *                     row in `meta`) with no CSV projection, so `PROJECTORS`
    *                     has no entry and `entityToken` structurally cannot
-   *                     cover it. ★ It does NOT follow that documents need a
-   *                     new mechanism: `DocOp` already carries an optional
-   *                     `expect` on `replace`/`delete`/`move` (`document-ops.ts`),
-   *                     which is per-block optimistic concurrency. It is
-   *                     merely UNADVERTISED — `chat-tool-defs-documents.ts`
-   *                     exposes op/index/block/blocks with no `expect`, and
-   *                     its op enum omits `move` entirely. Wiring documents up
-   *                     means advertising what exists, not building it. */
+   *                     cover it. ★ It does NOT follow that documents are
+   *                     UNGUARDED: they carry per-BLOCK optimistic concurrency
+   *                     instead of a per-ENTITY token. `DocOp` takes an
+   *                     `expectHash` on `replace`/`delete`/`move`
+   *                     (`document-ops.ts`), `get_document` hands out one
+   *                     `blockTokens` entry per block, and
+   *                     `chat-tools-documents.ts` REFUSES those three ops
+   *                     without it. So `update_document` is outside THIS
+   *                     table's mechanism by design, not by omission — do not
+   *                     read its row here as an unguarded write path. */
   const NOT_TOKEN_GUARDED = ["update_settings", "update_document"];
 
   it("names every update tool that exists, so a new one cannot slip past", () => {

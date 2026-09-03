@@ -272,7 +272,12 @@ describe("boundary guards", () => {
     });
     const out = await runDocumentTool(d, "update_document", {
       id: 1,
-      ops: [{ op: "append", block: { type: "pageBreak" } }, { op: "delete", index: 9 }],
+      // ★ `expectHash` is REQUIRED on a delete at this boundary now. It is a
+      // placeholder rather than a real token because the dispatcher is MOCKED
+      // here — the engine never runs, so nothing compares it. What this test
+      // pins is that a partial application's `rejected` list reaches the
+      // caller, not the range guard that produced the canned string.
+      ops: [{ op: "append", block: { type: "pageBreak" } }, { op: "delete", index: 9, expectHash: "t9" }],
     });
     expect(out).toMatchObject({ applied: 1, rejected: ["op 1: delete index 9 out of range"] });
   });
@@ -291,7 +296,11 @@ describe("boundary guards", () => {
     const d = makeDispatcher({ updateDocument: refusing });
 
     await expect(
-      runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "delete", index: 9 }] }),
+      // ★ Placeholder token — see the partial-application test above. It must
+      // be PRESENT so the refusal under test is the dispatcher's `applied: 0`,
+      // not this layer's missing-expectHash guard; the paired
+      // `toHaveBeenCalledTimes(1)` below is what proves the difference.
+      runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "delete", index: 9, expectHash: "t9" }] }),
     ).rejects.toThrow(/no operation could be applied/i);
     // Paired positive: the throw is the ROUTING layer's, not a failure to
     // reach the dispatcher — it was called, and its refusal is what threw.
@@ -316,7 +325,9 @@ describe("boundary guards", () => {
     const out = await runDocumentTool(d, "update_document", {
       id: 1,
       title: "Renamed",
-      ops: [{ op: "delete", index: 9 }],
+      // ★ Placeholder token — the dispatcher is mocked, so nothing compares
+      // it; it must merely be present to reach the dispatcher at all.
+      ops: [{ op: "delete", index: 9, expectHash: "t9" }],
     });
     expect(out).toMatchObject({ applied: 0, rejected: ["op 0: delete index 9 out of range"] });
   });
@@ -525,8 +536,15 @@ describe("per-op payload guards", () => {
     // field, so a guard that demanded one on every op would break it. Asserted
     // through to the dispatcher so "accepted" means reached, not merely
     // not-thrown.
+    // ★★ It DOES need an `expectHash` — that is a separate precondition from
+    // the block-shape guard this case exists for, and the two are pinned
+    // apart: this one proves a delete needs no BLOCK, while the expectHash
+    // describe block proves it needs a TOKEN.
     const d = makeDispatcher();
-    const ops = [{ op: "append", block: { type: "pageBreak" } }, { op: "delete", index: 0 }];
+    const ops = [
+      { op: "append", block: { type: "pageBreak" } },
+      { op: "delete", index: 0, expectHash: "t0" },
+    ];
     await expect(runDocumentTool(d, "update_document", { id: 1, ops })).resolves.toMatchObject({ id: 1 });
     expect(d.updateDocument).toHaveBeenCalledWith(1, ops, undefined);
   });
@@ -566,9 +584,16 @@ describe("per-op payload guards", () => {
   it("treats a whitespace-only title as absent, like create_document does", async () => {
     const d = makeDispatcher();
     await expect(
-      runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "delete", index: 0 }], title: "   " }),
+      runDocumentTool(d, "update_document", {
+        id: 1,
+        // ★ Present only to satisfy the expectHash precondition — this case is
+        // about the TITLE being trimmed to absent, and needs a delete that
+        // actually reaches the dispatcher to show it.
+        ops: [{ op: "delete", index: 0, expectHash: "t0" }],
+        title: "   ",
+      }),
     ).resolves.toMatchObject({ id: 1 });
-    expect(d.updateDocument).toHaveBeenCalledWith(1, [{ op: "delete", index: 0 }], undefined);
+    expect(d.updateDocument).toHaveBeenCalledWith(1, [{ op: "delete", index: 0, expectHash: "t0" }], undefined);
   });
 
   it("refuses a whitespace-only title with NO ops, rather than passing an empty rename down", async () => {
@@ -586,6 +611,81 @@ describe("per-op payload guards", () => {
     const d = makeDispatcher();
     await expect(runDocumentTool(d, "update_document", { id: 1, title: "  Renamed  " })).resolves.toMatchObject({ id: 1 });
     expect(d.updateDocument).toHaveBeenCalledWith(1, [], "Renamed");
+  });
+
+  // ★★★ REFUSE ON ABSENCE — the mirror of `requireToken` on the six entity
+  // tools. The ENGINE is deliberately permissive about a missing `expectHash`
+  // (the hand block editor shares it and omits the field), so strictness has
+  // to live HERE, where the caller is known to be a model. Without this the
+  // model can overwrite a block the user edited after it read the document,
+  // and chat tool writes have NO undo capture, so that loss is unrecoverable.
+  //
+  // ★★ it.each, NOT a `for` loop inside one `it`: a loop aborts at the first
+  // failing assertion, so a regression in `move` would be INVISIBLE while
+  // `replace` was also broken. Three legs report three verdicts.
+  describe("the expectHash precondition", () => {
+    it.each([
+      ["replace", { op: "replace", index: 0, block: { type: "paragraph", html: "<p>x</p>" } }],
+      ["delete", { op: "delete", index: 0 }],
+      ["move", { op: "move", from: 0, to: 1 }],
+    ])("refuses a %s with no expectHash, and names get_document as the way to get one", async (_kind, op) => {
+      const d = makeDispatcher();
+      // ★ The message must name the REMEDY, not just the rule: this is read by
+      // a model that has to repair its own call without a second round trip.
+      // ★ `[\s\S]` rather than the `/s` dotAll flag: this repo's tsc target is
+      // below es2018, so `/s` is a TS1501 error — and vitest never
+      // typechecks, so it runs GREEN while `npx tsc --noEmit` (CI) fails.
+      await expect(runDocumentTool(d, "update_document", { id: 1, ops: [op] })).rejects.toThrow(
+        /expectHash[\s\S]*get_document/,
+      );
+      // ★★ Refused BEFORE the write, which is the whole point — a guard that
+      // threw afterwards would satisfy the rejects assertion above while the
+      // block was already overwritten.
+      expect(d.updateDocument).not.toHaveBeenCalled();
+    });
+
+    // ★★ A BLANK STRING IS NOT A TOKEN. `typeof x === "string"` alone would
+    // admit `""`, which the engine then compares against a real token and
+    // rejects one layer down as "changed by another writer" — a misleading
+    // reason for what is actually a malformed call.
+    it.each([[""], ["   "]])("refuses a blank expectHash %j rather than passing it down", async (bad) => {
+      const d = makeDispatcher();
+      await expect(
+        runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "delete", index: 0, expectHash: bad }] }),
+      ).rejects.toThrow(/expectHash/);
+      expect(d.updateDocument).not.toHaveBeenCalled();
+    });
+
+    // ★★★ THE CONTROL, and without it every assertion above is satisfied by a
+    // guard that refuses the three ops unconditionally — which would disable
+    // targeted editing entirely while every refusal test stayed green.
+    it.each([
+      ["replace", { op: "replace", index: 0, block: { type: "paragraph", html: "<p>x</p>" }, expectHash: "t0" }],
+      ["delete", { op: "delete", index: 0, expectHash: "t0" }],
+      ["move", { op: "move", from: 0, to: 1, expectHash: "t0" }],
+    ])("accepts a %s that carries one, passing it through UNTOUCHED", async (_kind, op) => {
+      const d = makeDispatcher();
+      await expect(runDocumentTool(d, "update_document", { id: 1, ops: [op] })).resolves.toMatchObject({ id: 1 });
+      // ★ Through to the dispatcher verbatim: the engine is what compares the
+      // token, so this layer must not normalise or strip it.
+      expect(d.updateDocument).toHaveBeenCalledWith(1, [op], undefined);
+    });
+
+    // ★★★ THE OTHER CONTROL. append/insert/replaceAll have NO target block to
+    // have been concurrently changed — `insert` at a shifted index merely puts
+    // a new block one position off, which is recoverable by eye, while a
+    // shifted delete removes something the user never pointed at. Requiring a
+    // token here would be unsatisfiable, since no token names a block that
+    // does not exist yet.
+    it.each([
+      ["append", { op: "append", block: { type: "paragraph", html: "<p>x</p>" } }],
+      ["insert", { op: "insert", index: 0, block: { type: "paragraph", html: "<p>x</p>" } }],
+      ["replaceAll", { op: "replaceAll", blocks: [] }],
+    ])("accepts a %s with no expectHash — it has no target block", async (_kind, op) => {
+      const d = makeDispatcher();
+      await expect(runDocumentTool(d, "update_document", { id: 1, ops: [op] })).resolves.toMatchObject({ id: 1 });
+      expect(d.updateDocument).toHaveBeenCalledWith(1, [op], undefined);
+    });
   });
 
   it("refuses BEFORE reaching the dispatcher, so nothing is written", async () => {
