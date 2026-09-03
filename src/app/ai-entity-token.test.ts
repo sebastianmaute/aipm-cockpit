@@ -142,13 +142,20 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
   //   on a missing getter, and the anti-vacuity assertion below then reports it
   //   honestly rather than passing. The getter is threaded for all six because
   //   all six are guarded.
-  //   ★★ THIS COMMENT SAID "enforcement has so far landed on `update_task`
-  //   only -- the case keeps working, unedited, as the remaining five are
-  //   guarded". That was written mid-slice and describes PRE-FIX code as
-  //   current: the other five were guarded in the same slice, in the commit
-  //   right after the one this sentence shipped in. It read as a live TODO for
-  //   work already done, which is the direction that wastes a reader's time
-  //   rather than misleading them into a defect -- but it is the same rot.
+  //   ★★ THIS COMMENT USED TO SINGLE OUT `update_task` as the only tool
+  //   enforcement had reached, and to describe the other five as still to
+  //   come. It was written mid-slice and described PRE-FIX code as current:
+  //   the five were guarded in the same slice, in the commit right after the
+  //   one that sentence shipped in, and `set_task_dependencies` later made
+  //   seven. It read as a live TODO for finished work -- the direction that
+  //   wastes a reader's time rather than misleading them into a defect, but
+  //   the same rot.
+  //   ★★ THE OLD WORDING IS DESCRIBED HERE, NOT QUOTED, AND THAT IS
+  //   DELIBERATE. A verbatim quotation of a corrected string makes a `grep`
+  //   for the defect hit the CORRECTION and report it as still live -- which
+  //   is exactly what happened on this comment: a reviewer grepped the old
+  //   sentence, found it inside the fix, and re-reported the item as
+  //   outstanding. Correct a claim by describing what it used to say.
   const DISPATCH: Array<{
     tool: string;
     kind: TokenEntity;

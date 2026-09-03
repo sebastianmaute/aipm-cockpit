@@ -166,8 +166,8 @@ export function slimTaskForList(task: Task): TaskListItem {
  * one means.
  *
  * ★★★ FLOOR FIRST, THEN TEST POSITIVITY — THE OTHER ORDER HAS A HOLE ON THE
- * OPEN INTERVAL (0,1). This read `rawLimit > 0 ? Math.floor(rawLimit) :
- * undefined`, so `0.5` passed the positivity test as written, floored to `0`,
+ * OPEN INTERVAL (0,1). This used to test `> 0` against the RAW value and floor
+ * afterwards, so `0.5` passed the positivity test, floored to `0`,
  * and produced `{items: [], limit: 0, total: N}` — every row withheld from a
  * model that asked for a page, reported as a successful empty result it cannot
  * distinguish from "there are no tasks". `total` would contradict it, but
