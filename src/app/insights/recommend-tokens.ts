@@ -50,7 +50,13 @@ import type { RecommendPlanWorkspace } from "./recommend-plan";
  *  allow-set means adding a row here in the same commit. Enumerate the guarded
  *  set by what a schema advertises (`expectedTokenField`), never by the
  *  `update_*` name. */
-const UPDATE_TARGET: Readonly<
+/** ★ EXPORTED FOR ITS DRIFT TEST, not for use as a tool allow-list. The test in
+ *  `recommend-tokens.test.ts` asserts that every tool which is BOTH in
+ *  `ALLOWED_REC_TOOLS` and token-guarded has a row here — the invariant the
+ *  comment above states and which nothing enforced, so adding a guarded tool to
+ *  the allow-set used to yield replays that are refused UNRETRYABLY on a path
+ *  with no human in the loop. */
+export const UPDATE_TARGET: Readonly<
   Record<string, { readonly kind: TokenEntity; readonly key: keyof RecommendPlanWorkspace }>
 > = {
   update_task: { kind: "task", key: "tasks" },

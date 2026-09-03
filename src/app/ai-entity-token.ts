@@ -154,6 +154,65 @@ const PROJECTORS: Readonly<Record<TokenEntity, ErasedProjector>> = {
   resource: projector<Resource>({ columns: RESOURCES_CSV_COLUMNS, render: resourceFieldToString }),
 };
 
+/** ★★★ EVERY DECLARED FIELD OF EVERY TOKENED ENTITY MUST BE IN THAT ENTITY'S
+ *  `*_CSV_COLUMNS`, AND TSC IS THE ONLY DETECTOR. This closes the hazard the
+ *  exclusion-set rule above CANNOT see, because the two say different things: a
+ *  field in `TOKEN_EXCLUDED` was deliberately left out, whereas a field that is
+ *  simply ABSENT from the column list was never projected at all — the token is
+ *  blind to it, and a model write to it is a false PERMIT of exactly the kind
+ *  this module exists to stop. `ai-entity-token.test.ts` asserts DISJOINTNESS
+ *  (writable ∩ excluded = ∅), which is satisfied either way, so before this
+ *  guard a field added to `Task` and not to `CSV_COLUMNS` went untokened with
+ *  the whole suite GREEN.
+ *
+ *  Verified 2026-09-03 by diffing the declared fields of all six types against
+ *  their column lists: exact match, both membership and count (task 28, raid
+ *  23, milestone 9, change 21, stakeholder 13, resource 19). The check below is
+ *  what keeps it that way; the counts are a snapshot and will move, the
+ *  property will not.
+ *
+ *  ★ A NEW FIELD MUST BE ADDED TO THE COLUMN LIST, NOT SILENCED HERE. That is
+ *  the same edit AGENTS.md's "new COLUMN on existing entity" rule already
+ *  requires (CSV + Turso single/tenant derive from these arrays), so this guard
+ *  costs a correctly-written change nothing. If a field genuinely must not
+ *  persist, it does not belong on the entity type.
+ *
+ *  ★★★ IT DEPENDS ON THE COLUMN ARRAYS BEING `as const`, AND RESTORING THEIR
+ *  OLD `: Array<keyof T>` ANNOTATION SILENTLY MAKES THIS VACUOUS — which is how
+ *  it was first written. Under that annotation `typeof CSV_COLUMNS[number]`
+ *  collapses from the literal member union to `keyof Task` itself, so the
+ *  `Exclude` below is `Exclude<keyof Task, keyof Task>` = `never`
+ *  UNCONDITIONALLY and every row passes no matter what the array contains. Five
+ *  of the six were annotated that way (only `RESOURCES_CSV_COLUMNS` was already
+ *  `as const`), so five of these six rows proved nothing until
+ *  `csv-codecs-core.ts` was changed to `as const satisfies readonly (keyof
+ *  T)[]` — which keeps the members visible AND keeps the every-member-is-a-key
+ *  constraint the annotation was there for. Do not "tidy" it back.
+ *
+ *  ★★ MUTATION-PROVED, because a guard whose failure mode nobody has SEEN is
+ *  indistinguishable from a comment: deleting `"labels"` from `CSV_COLUMNS`
+ *  yields exactly one error, `TS2322` at the `task` row, whose expected type
+ *  spells out `["field(s) missing from the CSV column list:", "labels"]` — the
+ *  tuple exists so the diagnostic NAMES the unprojected field instead of just
+ *  rejecting `true`. `tsc` exits 2; the unit suite is unaffected either way. */
+type Unprojected<T, C extends readonly string[]> = Exclude<keyof T & string, C[number]>;
+type Projected<T, C extends readonly string[]> = Unprojected<T, C> extends never
+  ? true
+  : ["field(s) missing from the CSV column list:", Unprojected<T, C>];
+
+const _PROJECTION_COVERS_EVERY_FIELD: {
+  readonly task: Projected<Task, typeof CSV_COLUMNS>;
+  readonly raid: Projected<RaidItem, typeof RAID_CSV_COLUMNS>;
+  readonly milestone: Projected<Milestone, typeof MILESTONES_CSV_COLUMNS>;
+  readonly change: Projected<ChangeItem, typeof CHANGES_CSV_COLUMNS>;
+  readonly stakeholder: Projected<Stakeholder, typeof STAKEHOLDERS_CSV_COLUMNS>;
+  readonly resource: Projected<Resource, typeof RESOURCES_CSV_COLUMNS>;
+} = {
+  task: true, raid: true, milestone: true,
+  change: true, stakeholder: true, resource: true,
+};
+void _PROJECTION_COVERS_EVERY_FIELD;
+
 /** The `lowbias32` finalizer. Avalanches the accumulator so that every output
  *  bit depends non-linearly on the whole input.
  *

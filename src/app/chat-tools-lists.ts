@@ -165,6 +165,20 @@ export function slimTaskForList(task: Task): TaskListItem {
  * positive finite number is treated as "no limit", which is also what an absent
  * one means.
  *
+ * ★★ A NUMERIC STRING IS COMPREHENSIBLE INTENT, NOT MALFORMED INPUT, AND THE
+ * TWO GET OPPOSITE TREATMENT ON PURPOSE. Models emit `"10"` for a numeric
+ * field routinely, and the rule below used to test `typeof rawLimit ===
+ * "number"` alone, so `"10"` fell through to "no limit" and returned the WHOLE
+ * register — the exact response-cost blowup this envelope exists to bound,
+ * silently, on a request whose meaning was never in doubt. Coercing it honours
+ * the ask; `"abc"` still cannot be read as a page size and still means "no
+ * limit". ★ This does NOT reopen the (0,1) hole below: `"0.5"` coerces to 0.5
+ * and floors to 0 exactly as the bare number does.
+ *
+ * ★ `limit` in the result is the BOUND that was applied to the slice, not a row
+ * count — `items.length` is the page size, and a bound larger than `total` is
+ * reported as asked (`{limit: 1000, total: 14, items: 14}` is coherent).
+ *
  * ★★★ FLOOR FIRST, THEN TEST POSITIVITY — THE OTHER ORDER HAS A HOLE ON THE
  * OPEN INTERVAL (0,1). This used to test `> 0` against the RAW value and floor
  * afterwards, so `0.5` passed the positivity test, floored to `0`,
@@ -181,8 +195,13 @@ export function listTasksEnvelope(
   tasks: readonly Task[],
   rawLimit: unknown,
 ): ListEnvelope<Tokened<TaskListItem>> {
-  const floored =
-    typeof rawLimit === "number" && Number.isFinite(rawLimit) ? Math.floor(rawLimit) : 0;
+  const asNumber =
+    typeof rawLimit === "number"
+      ? rawLimit
+      : typeof rawLimit === "string" && rawLimit.trim() !== ""
+        ? Number(rawLimit)
+        : NaN;
+  const floored = Number.isFinite(asNumber) ? Math.floor(asNumber) : 0;
   const limit = floored > 0 ? floored : undefined;
   const page = limit === undefined ? tasks : tasks.slice(0, limit);
   return {

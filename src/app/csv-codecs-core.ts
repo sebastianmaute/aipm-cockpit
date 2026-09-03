@@ -61,7 +61,7 @@ import {
   type Task,
 } from "./types";
 
-export const CSV_COLUMNS: Array<keyof Task> = [
+export const CSV_COLUMNS = [
   "id",
   "taskName",
   "assignee",
@@ -90,7 +90,7 @@ export const CSV_COLUMNS: Array<keyof Task> = [
   "knowledgeLinks",
   "outlookEventId",
   "noteLog",
-];
+] as const satisfies readonly (keyof Task)[];
 
 // Whitelist parser shared by CSV and Markdown deserialization. Anything that
 // isn't "R" | "A" | "G" — including empty strings on legacy files — becomes
@@ -104,7 +104,7 @@ export function parseHealthOverride(s: string | undefined): "R" | "A" | "G" | un
 // Columns persisted for RAID items in CSV and Markdown. Order matches the
 // header row emitted by the encoder; the decoder reads by column name so
 // reordering files by hand still works.
-export const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
+export const RAID_CSV_COLUMNS = [
   "id",
   "category",
   "title",
@@ -128,7 +128,7 @@ export const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
   "outlookEventId",
   "inquiriesSent",
   "noteLog",
-];
+] as const satisfies readonly (keyof RaidItem)[];
 
 // Columns persisted for Absence items in CSV and Markdown. Order matches
 // the header row emitted by the encoder; the decoder reads by column name
@@ -202,9 +202,9 @@ export const RESOURCES_CSV_COLUMNS = [
 export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "internalRateDay", "externalRateDay", "rateBasis", "localModifiedAt", "order"] as const;
 export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
-export const MILESTONES_CSV_COLUMNS: Array<keyof Milestone> = [
+export const MILESTONES_CSV_COLUMNS = [
   "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt", "knowledgeLinks", "outlookEventId",
-];
+] as const satisfies readonly (keyof Milestone)[];
 
 export const BUDGETS_CSV_COLUMNS = [
   "id", "name", "poNumber", "type", "currency", "fixedPriceAmount",
@@ -407,12 +407,12 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
   return m;
 }
 
-export const CHANGES_CSV_COLUMNS: Array<keyof ChangeItem> = [
+export const CHANGES_CSV_COLUMNS = [
   "id", "title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays",
   "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes",
   "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt", "knowledgeLinks", "outlookEventId",
   "noteLog",
-];
+] as const satisfies readonly (keyof ChangeItem)[];
 
 export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): string {
   if (col === "linkedTaskIds") return Array.isArray(c.linkedTaskIds) ? c.linkedTaskIds.join("|") : "";
@@ -441,10 +441,10 @@ export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | nu
   return item === null ? null : withStoredNoteLog(item, decodeNoteLog(obj.noteLog));
 }
 
-export const STAKEHOLDERS_CSV_COLUMNS: Array<keyof Stakeholder> = [
+export const STAKEHOLDERS_CSV_COLUMNS = [
   "id", "name", "organization", "title", "email", "category",
   "influence", "interest", "notes", "resourceId", "raci", "localModifiedAt", "knowledgeLinks",
-];
+] as const satisfies readonly (keyof Stakeholder)[];
 
 export function stakeholderFieldToString(s: Stakeholder, col: keyof Stakeholder): string {
   if (col === "raci") return encodeRaciMap(s.raci);

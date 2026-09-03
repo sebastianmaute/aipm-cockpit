@@ -403,11 +403,25 @@ describe("runTool — list_tasks / get_task", () => {
   //   means "no limit"; the code disagreed with it on the open interval (0,1).
   //   `1.7` is the neighbour that must still floor to a real page of 1, so the
   //   fix cannot be "ignore every fractional limit".
+  // ★★★ A NUMERIC STRING IS THE OPPOSITE CASE AND MUST NOT SHARE THAT FATE.
+  //   `"2"` is unambiguous intent expressed in the wrong type — models emit it
+  //   routinely — and the old `typeof rawLimit === "number"` test dropped it
+  //   through to "no limit", returning the WHOLE register: the response-cost
+  //   blowup this envelope exists to bound, silently, on a request whose meaning
+  //   was never in doubt. `"abc"` is the neighbour that must STILL mean "no
+  //   limit", so the fix cannot be "coerce anything". `"0.5"` pins that coercion
+  //   does not reopen the (0,1) hole above, and `""` that an empty string is not
+  //   read as `Number("") === 0`.
   it.each([
     { label: "a fraction under 1 is no limit, not an empty page", limit: 0.5, ids: [1, 2, 3], out: undefined },
     { label: "a fraction above 1 still floors to a real page", limit: 1.7, ids: [1], out: 1 },
     { label: "zero is no limit", limit: 0, ids: [1, 2, 3], out: undefined },
     { label: "a negative is no limit", limit: -2, ids: [1, 2, 3], out: undefined },
+    { label: "a numeric string is honoured, not ignored", limit: "2", ids: [1, 2], out: 2 },
+    { label: "a fractional numeric string floors like the number", limit: "0.5", ids: [1, 2, 3], out: undefined },
+    { label: "a non-numeric string is no limit", limit: "abc", ids: [1, 2, 3], out: undefined },
+    { label: "an empty string is no limit, not zero", limit: "", ids: [1, 2, 3], out: undefined },
+    { label: "a boolean is no limit", limit: true, ids: [1, 2, 3], out: undefined },
   ])("list_tasks: $label", async ({ limit, ids, out }) => {
     const rows = [makeTask({ id: 1 }), makeTask({ id: 2 }), makeTask({ id: 3 })];
     const d = makeDispatcher({ listTasks: vi.fn(() => rows) });

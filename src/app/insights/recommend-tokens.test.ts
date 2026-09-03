@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { stampRecommendationTokens } from "./recommend-tokens";
+import { stampRecommendationTokens, UPDATE_TARGET } from "./recommend-tokens";
 import { entityToken } from "../ai-entity-token";
-import type { InsightRecommendation } from "./insight";
+import { ALLOWED_REC_TOOLS, type InsightRecommendation } from "./insight";
+import { TOOL_DEFS } from "../chat-tool-defs";
 import { describeRecommendationPlan, type RecommendPlanWorkspace } from "./recommend-plan";
 
 const task = { id: 42, taskName: "Fix login", status: "To Do", dueDate: "2026-08-12" };
@@ -100,4 +101,48 @@ it("does not surface the token as a proposed field change in the review preview"
   // Anti-vacuity: the token really was stamped onto the call being previewed,
   // so the assertion above is about filtering, not about an absent token.
   expect(stamped.proposedCalls[0].input.expectedToken).toBe(entityToken("task", task));
+});
+
+// ★★★ THE DRIFT THIS PINS IS UNRETRYABLE IN PRODUCTION, WHICH IS WHY IT IS
+//   WORTH A TEST RATHER THAN A COMMENT. A tool that is both recommendable and
+//   token-guarded, but missing from `UPDATE_TARGET`, is replayed with NO token
+//   and refused every time — on the insight-recommendation path, which has no
+//   human in the loop to re-read the row and retry. `recommend-tokens.ts` states
+//   the invariant ("adding it to that allow-set means adding a row here in the
+//   same commit") and, before this case, nothing enforced it.
+// ★★ ENUMERATE THE GUARDED SET BY WHAT A SCHEMA ADVERTISES, NEVER BY THE
+//   `update_*` NAME — `set_task_dependencies` is guarded and does not carry the
+//   prefix, so a name-based enumeration would call this green while missing
+//   exactly the tool whose addition to the allow-set is most plausible.
+describe("every recommendable guarded tool can be stamped", () => {
+  const guarded = new Set(
+    TOOL_DEFS.filter(
+      (d) =>
+        "expectedToken" in
+        ((d.input_schema as { properties?: Record<string, unknown> }).properties ?? {}),
+    ).map((d) => d.name),
+  );
+  const recommendableGuarded = [...ALLOWED_REC_TOOLS].filter((t) => guarded.has(t)).sort();
+
+  it("has a stamp target for each one", () => {
+    // Anti-vacuity: an empty intersection would satisfy the subset assertion
+    // below for the wrong reason. Five tools are recommendable AND guarded
+    // today; the floor is deliberately loose so legitimately adding a sixth
+    // does not turn this red, while a broken `guarded` enumeration (which would
+    // collapse it to 0) does.
+    expect(recommendableGuarded.length).toBeGreaterThanOrEqual(5);
+    const unstampable = recommendableGuarded.filter((t) => !(t in UPDATE_TARGET));
+    expect(unstampable).toEqual([]);
+  });
+
+  it("stamps a token onto every one of them, so no row is present but inert", () => {
+    for (const name of recommendableGuarded) {
+      const { kind, key } = UPDATE_TARGET[name];
+      const row = (ws[key] as unknown as readonly { id: number }[])[0];
+      const out = stampRecommendationTokens(rec([{ name, input: { id: row.id } }]), ws);
+      expect(out.proposedCalls[0].input.expectedToken, `${name} must be stamped`).toBe(
+        entityToken(kind, row),
+      );
+    }
+  });
 });
