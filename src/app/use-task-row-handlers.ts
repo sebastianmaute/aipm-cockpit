@@ -4,8 +4,7 @@ import type React from "react";
 import { t, type Lang } from "./i18n";
 import { isValidEmail } from "./sanitize";
 import { buildMailtoUrl } from "./mailto";
-import { htmlToPlainText } from "./html-to-text";
-import { renderTemplate, buildStatusInquiryVars } from "./comm-templates";
+import { renderTemplateForSend, buildStatusInquiryVars } from "./comm-templates";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { plainTextToHtml, type CommSendRequest } from "./comm-send";
 import { greetingName } from "./contacts";
@@ -125,13 +124,21 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       }
       const greeting = greetingName(task.assignee) || task.assignee;
       const subject = t(lang, "emailSubject", task.id, task.taskName);
-      const tplBody = resolveTemplateBody?.("status-inquiry") ?? null;
-      const body = tplBody != null
-        ? htmlToPlainText(renderTemplate(tplBody, "status-inquiry", buildStatusInquiryVars(task)))
+      // ★★★ NULL HERE MEANS "NO TEMPLATE **OR** AN EMPTY ONE", and the second
+      // half is the whole point: a default template that renders to no text
+      // must fall back to the i18n body, not send an empty email. The former
+      // `tplBody != null` guard admitted the `""` body every newly created
+      // template starts with. `renderTemplateForSend`'s docstring carries the
+      // reachability chain.
+      const tpl = renderTemplateForSend(
+        resolveTemplateBody?.("status-inquiry") ?? null,
+        "status-inquiry",
+        buildStatusInquiryVars(task),
+      );
+      const body = tpl !== null
+        ? tpl.plain
         : t(lang, "emailBodyTemplate", greeting, task.id, task.taskName, task.dueDate, task.lastUpdateDate);
-      const html = tplBody != null
-        ? sanitizeRichHtml(renderTemplate(tplBody, "status-inquiry", buildStatusInquiryVars(task)))
-        : plainTextToHtml(body);
+      const html = tpl !== null ? sanitizeRichHtml(tpl.rendered) : plainTextToHtml(body);
       if (sendCommTemplate) {
         sendCommTemplate({ to: email, subject, html, plain: body });
       } else {

@@ -132,3 +132,72 @@ describe("useActionCenterHandlers — mark-done reaches the activity log", () =>
     expect(logActivity).not.toHaveBeenCalled();
   });
 });
+
+/** A stakeholder-comms "Draft" CTA — the only branch of
+ *  `handleDraftMessageFromAction` that renders a comm template itself (the
+ *  `task-due` branch delegates to `onSendInquiry`). */
+function draftAction(id: number): SuggestedAction {
+  return {
+    id: `stakeholder-comms:${id}`,
+    source: "stakeholder-comms",
+    title: { key: "actionRaidTitle", params: [id, "Dana"] },
+    why: { key: "actionRaidWhySeverity", params: ["Critical"] },
+    score: 30,
+    tier: "soon",
+    cta: { kind: "open", view: "stakeholders", id },
+  } as SuggestedAction;
+}
+
+const DANA = { id: 1, name: "Dana", email: "dana@example.com" } as ActionCenterHandlerDeps["stakeholders"][number];
+
+describe("useActionCenterHandlers — an empty default template never drafts an empty body", () => {
+  // ★★★ THE SECOND SITE OF THE SAME DEFECT. The task status-inquiry carries
+  //   the same guard (pinned in `use-task-row-handlers.test.ts`); this file
+  //   covers the stakeholder-update half, because a shared helper's own unit
+  //   test proves the HELPER and not that this call site reaches it.
+  //   `createTemplate` starts every template at `""` and the first in a
+  //   category becomes its default, so this is the first-use path, not a
+  //   corner case.
+  it.each([
+    ["an empty string", ""],
+    ["an empty rich-text paragraph", "<p></p>"],
+    ["an empty rich-text paragraph with a break", "<p><br></p>"],
+  ])("falls back to the i18n body when the default template renders to nothing (%s)", (_label, tplBody) => {
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useActionCenterHandlers(
+        makeDeps({
+          stakeholders: [DANA],
+          commSend: { send },
+          resolveCommBody: vi.fn(() => tplBody),
+        }),
+      ),
+    );
+    act(() => result.current.handleDraftMessageFromAction(draftAction(1)));
+    expect(send).toHaveBeenCalledTimes(1);
+    const req = send.mock.calls[0][0] as { plain: string; html: string };
+    expect(req.plain).not.toBe("");
+    // The i18n fallback greets the stakeholder by name; an empty template that
+    // slipped through would carry neither this nor anything else.
+    expect(req.plain).toContain("Dana");
+    expect(req.html).not.toBe("");
+  });
+
+  it("still uses a template that has real content", () => {
+    // Control: without it, a fix that ignored templates outright would satisfy
+    // every assertion above.
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useActionCenterHandlers(
+        makeDeps({
+          stakeholders: [DANA],
+          commSend: { send },
+          resolveCommBody: vi.fn(() => "<p>Update for {{stakeholderName}}</p>"),
+        }),
+      ),
+    );
+    act(() => result.current.handleDraftMessageFromAction(draftAction(1)));
+    const req = send.mock.calls[0][0] as { plain: string };
+    expect(req.plain).toBe("Update for Dana");
+  });
+});
