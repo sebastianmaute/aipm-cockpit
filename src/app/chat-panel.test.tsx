@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { asTimeZoneForTests } from "./timezone";
 import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { useState } from "react";
 import { readFileSync } from "node:fs";
@@ -863,6 +864,26 @@ describe("document attachments", () => {
     expect(doc?.source?.data).toContain("budget overrun");
     // Chip is cleared once the message is sent.
     await waitFor(() => expect(screen.queryByText("notes.txt")).toBeNull());
+  });
+
+  it("summarises a mail attachment's children so the user can see the tree", async () => {
+    const { container } = renderWithKey();
+    const eml = new File(
+      [[
+        'Content-Type: multipart/mixed; boundary="B"', "Subject: S", "",
+        "--B", "Content-Type: text/plain", "", "body",
+        "--B", 'Content-Type: text/plain; name="a.txt"',
+        'Content-Disposition: attachment; filename="a.txt"', "", "alpha",
+        "--B--", "",
+      ].join("\r\n")],
+      "m.eml",
+      { type: "message/rfc822" },
+    );
+    await userEvent.upload(fileInputOf(container), eml);
+    // Exact match: the chip's own name span, not the summary span below it
+    // (which also contains "m.eml" as part of its "{name} — N attachments" text).
+    expect(await screen.findByText("m.eml")).toBeInTheDocument();
+    expect(await screen.findByText(/1 attachment/i)).toBeInTheDocument();
   });
 });
 

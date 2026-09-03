@@ -29,6 +29,7 @@ import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { type AttachmentBlock, ATTACHMENT_ACCEPT } from "./chat-attachments";
 import { ingestFile } from "./attachment-ingest";
+import { buildAttachmentSummary } from "./chat-attachment-summary";
 import {
   buildSystemPrompt,
   callClaude,
@@ -48,8 +49,10 @@ import type { TursoConfig } from "./turso-config";
 import { useChatThreads } from "./use-chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
 
-/** A staged upload: the Anthropic content block plus display metadata. */
-type StagedAttachment = { id: string; name: string; block: AttachmentBlock };
+// A staged upload: the Anthropic content block plus display metadata.
+// summary is the non-error disclosure of what the tree under this file
+// contained (null for a flat file with no children).
+type StagedAttachment = { id: string; name: string; block: AttachmentBlock; summary: string | null };
 
 // Full-width, drag-to-resize pane (same chrome as the primary views).
 const CHAT_PANE_CLASS = VIEW_PANE_RESIZABLE_CLASS;
@@ -625,10 +628,12 @@ function ChatPanelInner({
         errors.push(attachmentErrorText(result.error, file.name));
         continue;
       }
+      const summary = buildAttachmentSummary(lang, file.name, result.node);
       staged.push({
         id: `att-${(attachSeqRef.current += 1)}`,
         name: file.name,
         block: result.node.block,
+        summary,
       });
     }
     if (staged.length > 0) setAttachments((prev) => [...prev, ...staged]);
@@ -824,9 +829,12 @@ function ChatPanelInner({
               key={a.id}
               className="flex items-center justify-between gap-2 rounded-md border border-ui-dark-blue/40 bg-surface px-2 py-1 text-xs text-foreground"
             >
-              <span className="flex min-w-0 items-center gap-1">
-                <span aria-hidden>📎</span>
-                <span className="truncate">{a.name}</span>
+              <span className="flex min-w-0 flex-col">
+                <span className="flex min-w-0 items-center gap-1">
+                  <span aria-hidden>📎</span>
+                  <span className="truncate">{a.name}</span>
+                </span>
+                {a.summary && <span className="block text-xs text-muted-foreground">{a.summary}</span>}
               </span>
               <IconButton
                 variant="danger"
