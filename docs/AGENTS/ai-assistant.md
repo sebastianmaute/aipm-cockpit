@@ -134,9 +134,17 @@
   (`chat-tools.ts` throws, mirroring `requireId`), not in the pure resolver — a non-array must never be treated
   as "clear all". ★ TEST TRAP: `expect(getX(id)?.field ?? []).toEqual([])` against a fixture that never had the
   field passes whether the code preserves or erases. Seed a real prior value and watch the test FAIL first.
-- **Optimistic concurrency on the six entity `update_*` tools:** `update_task` · `update_raid_item` ·
-  `update_change` · `update_milestone` · `update_stakeholder` · `update_resource` each REQUIRE an
-  `expectedToken` input beside `id`. `runTool` resolves the row, re-derives the token from it with
+- **Optimistic concurrency on SEVEN write tools:** the six entity updates — `update_task` ·
+  `update_raid_item` · `update_change` · `update_milestone` · `update_stakeholder` · `update_resource` —
+  plus `set_task_dependencies`, each REQUIRING an `expectedToken` input beside `id`.
+  ★★★ **ENUMERATE THE GUARDED SET BY WHAT A SCHEMA ADVERTISES, NEVER BY THE `update_*` NAME.** The seventh
+  is why: `set_task_dependencies` is a WHOLE-LIST REPLACE of `dependencies` — a field that IS in
+  `CSV_COLUMNS`, is NOT in `TOKEN_EXCLUDED.task`, and comes straight from model input — whose own schema
+  tells the model to `list_tasks` first, i.e. to perform exactly the read-reason-write sequence the token
+  exists to make safe. It shipped unguarded through the slice that introduced the token, because every
+  enumeration (this bullet, the carve-out comment in `ai-entity-token.ts`, and the anti-vacuity case in
+  `ai-entity-token.test.ts`) keyed on the NAME. The companion case in that test file now enumerates every
+  tool carrying `expectedTokenField`, which is a property of the tool rather than of its name. `runTool` resolves the row, re-derives the token from it with
   `entityToken(kind, row)` (`ai-entity-token.ts`) and throws a `ConcurrencyTokenError` on mismatch — and on
   ABSENCE. Before this, an `update_*` call was an id plus a patch with NO staleness check of any kind: the
   model's write silently overwrote whatever a human, a background sync or a second tab had done in the
@@ -158,8 +166,12 @@
   tool lets the MODEL choose its value; excluding one the model can set reintroduces a false permit for
   exactly that field. "Lets the model CHOOSE" is load-bearing and every shorter wording of it has been
   false — the handlers themselves stamp `localModifiedAt` over the patch, and `send_inquiry` and
-  `set_task_dependencies` write excluded fields too. In every such case the value is computed by the app, so
-  the token is deliberately blind to it: what is lost is a counter or a timestamp, never a field of content.
+  `set_task_dependencies` write excluded fields too. In every such case the EXCLUDED FIELD's value is
+  computed by the app, so the token is deliberately blind to THAT FIELD: what is lost is a counter or a
+  timestamp, never a field of content.
+  ★★★ THAT IS A STATEMENT ABOUT THE FIELD, NOT ABOUT THE TOOL, and reading it as a clearance for
+  `set_task_dependencies` is precisely what left that tool unguarded for a release — it also writes
+  `dependencies`, which is token-COVERED and model-supplied. See the seven-tool note above.
   `ai-entity-token.test.ts` asserts the exclusion set is disjoint from what the tools ACCEPT, driving the
   real dispatch path rather than the advertised schema.
   ★★ NOT-FOUND IS RESOLVED BEFORE THE TOKEN, structurally rather than as a preference: the token can only be
@@ -267,20 +279,25 @@
   `use-chat-dispatcher.ts`.
   ★★ **The "both files were split for the 800-line ratchet" reason is only HALF true**, and
   `chat-tools-documents.ts`'s own header states it for both. Re-measured 2026-08-16 with the gate's own
-  counter (`split("\n").length`, i.e. `wc -l` + 1): `chat-tools.ts` is **791** — **9** lines of headroom
-  against ~139 lines of routing, so that split is genuinely forced and the file is now nearly full.
-  `chat-tool-defs.ts` is **787** — **13** lines of headroom (re-measured 2026-09-03, after the concurrency
-  token widened all six update schemas; this line said **766**/**34** and, before that, **631**/**169**,
-  going quietly stale through every feature that touches either file). ★ Measure, do not trust these two —
-  `node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`, which is the
-  gate's own counter and is `wc -l` + 1.
+  counter (`split("\n").length`, i.e. `wc -l` + 1): both `chat-tools.ts` and `chat-tool-defs.ts` now sit
+  within a handful of lines of the 800 cap, `chat-tools.ts` against ~139 lines of routing — so that split
+  is genuinely forced and both files are nearly full. Anything added to either belongs in
+  `chat-tools-updates.ts` or `chat-tools-lists.ts`, which have room.
+  ★★★ **NO NUMBER IS QUOTED FOR EITHER, DELIBERATELY, AND RESTORING ONE IS A REGRESSION.** This line
+  carried **791**/**9** for `chat-tools.ts` while the file measured **794**/**6** — and it went stale
+  inside the very docs commit that RE-MEASURED the `chat-tool-defs.ts` figure sitting on the next line,
+  which is the whole argument: a per-file tally rots one edit at a time and the reader cannot tell a
+  fresh number from a fossil. Earlier fossils here read **766**/**34** and **631**/**169**, and two more
+  are dated below. Read today's with the gate's own counter, which is `wc -l` + 1:
+  `node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`
   ★★★ **AND "WOULD HAVE FIT COMFORTABLY INLINE" IS NOW HISTORY, NOT ADVICE — the split was not
   ratchet-forced when it was made and IS load-bearing today.** The `DOCUMENT_TOOL_DEFS` block measures
   **73** lines, over the 800 cap: the defs file can no longer absorb the schemas it
   gave away. A reader acting on the old sentence would fold them back and break the gate.
   ★★ Those two numbers were **763** and
   **596** when measured on 2026-08-07 and both had drifted by the next feature — B2a's `search_history`
-  work spent **28** of `chat-tools.ts`'s remaining 37 lines between them, leaving 9. Do not cite the
+  work spent **28** of `chat-tools.ts`'s remaining 37 lines between them, leaving 9 **as of that date** —
+  a dated record, not today's headroom, which is smaller still. Do not cite the
   ratchet as the reason the defs file was CREATED, and do not trust ANY number here; re-derive all three
   (the counter is `split("\n").length`, i.e. `wc -l` + 1) with
   `node -e "for (const f of ['src/app/chat-tools.ts','src/app/chat-tool-defs.ts','src/app/chat-tool-defs-documents.ts']) console.log(f, require('fs').readFileSync(f,'utf8').split('\n').length)"`
