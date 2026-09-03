@@ -895,6 +895,15 @@ export function WorkspaceSection({
               lang={lang}
               versions={versionHistory.versions}
               busy={versionHistory.busy}
+              // ★★★ `!active`, NEVER `versions.length === 0`. An inactive hook
+              // (no Turso config, or no project id to key versions by) and a
+              // brand-new project BOTH hand this panel `[]`, so deriving this
+              // from the list makes a switched-off feature render "no versions
+              // yet" — which reads as history having been deleted. The full
+              // rationale is on `HistoryPanelProps.unavailable` in
+              // `history-panel.tsx`; this pointer exists because the prop name
+              // alone does not warn you, and the rationale was previously
+              // deleted from here to buy size-ratchet headroom.
               unavailable={!versionHistory.active}
               onCaptureNow={(label) => void versionHistory.captureNow(label)}
               loadDiff={versionHistory.loadDiff}
