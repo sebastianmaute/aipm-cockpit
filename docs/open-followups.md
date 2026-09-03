@@ -15061,6 +15061,22 @@ this is, it is not the size cap.
 2026-08-19. **Deferred the same day**, to be done as its own slice rather than
 riding on an unrelated branch. Never machine-verified by a committed probe.
 
+★★★ **THE SIZE-CAP HALF IS SUPERSEDED — 2026-09-03. DO NOT IMPLEMENT IT AS
+WRITTEN: it would move the cap BACKWARDS.** `LIMIT` in
+`scripts/check-file-sizes.mjs` was raised 800 → **1600** (and every
+`docs/baselines/file-sizes.json` entry doubled) on an explicit decision that the
+ratchet was biting routine work. Everything below that says "the cap is 800" and
+proposes raising it to **900** now describes a lower ceiling than the one in
+force, so an implementer following this entry literally would halve the budget.
+★★ The COUPLING ARGUMENT below is what actually dissolves: it says the two
+halves must move together because reformatting at `printWidth: 120` grows files
+and the cap must absorb that growth. At 1600 there is ~800 lines of slack on the
+largest affected file, so Prettier can now be adopted on its own merits with no
+cap change at all. ★ The Prettier half is otherwise untouched and still open —
+formatting consistency was always the point, and none of the reasoning about
+churn, review noise or the migration commit is affected. The original text is
+left below as the record of what was decided on 2026-08-19.
+
 The repo has no formatter. `scripts/check-file-sizes.mjs` caps a `src` file at
 `LIMIT = 800` lines. The decision is to adopt Prettier at `printWidth: 120` and
 raise that cap to **900** in the same change.
@@ -27174,8 +27190,10 @@ regenerate. The defect is the MIXED plan — some `create_*`, some `update_*`, w
 4. the insight advances to `acted` and the recommendation to `applied`;
 5. the update half is now unreachable — an `applied` recommendation is not re-offered.
 
-The user is told: `insightRecommendationStalePartial` ("some of this was refused because the data
-moved — generate a new one"), so the outcome IS disclosed at the moment it happens. What is missing
+The user is told: `insightRecommendationStalePartial` — "Some changes weren't applied — the project
+data changed since this recommendation was generated. Generate a new one for the rest."
+(`src/app/i18n.ts`, EN; read it there rather than trusting this copy) — so the outcome IS disclosed
+at the moment it happens. What is missing
 is any durable record: the insight reads `applied` afterwards, with nothing distinguishing it from
 one that fully landed, and the created entities are left behind with the updates that were meant to
 accompany them never made.

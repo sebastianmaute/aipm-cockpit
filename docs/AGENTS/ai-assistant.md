@@ -294,6 +294,11 @@
   ratchet-forced when it was made and IS load-bearing today.** The `DOCUMENT_TOOL_DEFS` block measures
   **73** lines, over the 800 cap: the defs file can no longer absorb the schemas it
   gave away. A reader acting on the old sentence would fold them back and break the gate.
+  ★★ **THE GATE HALF IS SUPERSEDED 2026-09-03 — the cap is now 1600, doubled from 800.**
+  `chat-tool-defs.ts` measures 790, so folding the 73-line block back lands at ~863: over the OLD
+  cap, comfortably under the current one. It would no longer break the gate. ★ The split is still
+  worth keeping on cohesion grounds — that is the "load-bearing today" claim above, and it does not
+  depend on the ratchet — but do not cite the gate as the reason any more.
   ★★ Those two numbers were **763** and
   **596** when measured on 2026-08-07 and both had drifted by the next feature — B2a's `search_history`
   work spent **28** of `chat-tools.ts`'s remaining 37 lines between them, leaving 9 **as of that date** —
@@ -616,6 +621,12 @@
   `task-manager.tsx` one line under, and `use-chat-dispatcher.ts` was at **799** with
   NO baseline row, so the bare 800 cap applies and it has ONE line of headroom. That last number is why the
   bindings and the pointer sentence live OUTSIDE that file — but it is not why they exist.
+  ★★ **SUPERSEDED 2026-09-03 ON BOTH NUMBERS.** The cap is now 1600 (doubled from 800), and
+  `use-chat-dispatcher.ts` measures **645**, not 799 — so "the bare 800 cap applies" and "ONE line of
+  headroom" are each false, and the size pressure that placed those bindings outside the file is gone.
+  The ★★★ below is the reason they must STAY outside, and it is untouched by any of this: it is about
+  LIVENESS, not lines. Run the command above for today's figures rather than trusting either number
+  in this paragraph.
   ★★★ **`use-chat-search-bindings.ts` EXISTS FOR LIVENESS, NOT LINES.** `useChatDispatcher` builds its
   dispatcher inside a `useMemo`, so anything read straight off `args` in that closure is FROZEN at the
   render which last rebuilt it — and the chat project id is exactly such a value: a project switch changes

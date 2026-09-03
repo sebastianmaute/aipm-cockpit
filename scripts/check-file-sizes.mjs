@@ -12,6 +12,11 @@ const BASELINE = "docs/baselines/file-sizes.json";
 // sizes, which silently reverts that decision to a no-headroom ratchet; the
 // violation message below still recommends it, so read this first. Re-double by
 // hand instead, or the next legitimate growth fails the gate again.
+// ★★★ AND IT DELETES, NOT HALVES: `--update` writes only files ABOVE the LIMIT
+// (the filter below), so at 1600 it emits `{task-manager: 2975}` alone and the
+// other three entries VANISH. "Re-double by hand" is then impossible for the
+// dropped rows without git archaeology — recover them from history, not from
+// the file.
 // ★ Three of the four entries are now INERT: only a file over LIMIT is checked
 // against its entry at all, so chat-panel/tasks-section/workspace-section are
 // governed by LIMIT alone until they pass 1600. They are kept as recorded

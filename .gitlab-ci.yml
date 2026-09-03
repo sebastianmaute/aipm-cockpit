@@ -217,10 +217,14 @@ unit-tests-shuffled-random:
     - npm run test:run -- --sequence.shuffle --sequence.seed=$CI_PIPELINE_ID --reporter=dot
 
 # File-size ratchet — BLOCKING as of Phase 4 (was warn-only allow_failure).
-# Freezes the oversized files at their current size and blocks new oversized
-# files (>800 lines, i18n dictionaries exempt). Regenerate the baseline with
-# `node scripts/check-file-sizes.mjs --update` when a decomposition legitimately
-# lowers a file below the limit.
+# Freezes the oversized files at their baselined size and blocks new oversized
+# files (over the LIMIT in scripts/check-file-sizes.mjs — 1600 since 2026-09-03,
+# doubled from 800 along with every baseline entry; i18n dictionaries exempt).
+# ★★★ DO NOT regenerate the baseline with `node scripts/check-file-sizes.mjs
+# --update` to make this job pass. It rewrites the baseline to CURRENT sizes and
+# DROPS every entry now under the LIMIT, discarding the deliberate doubling —
+# three of the four entries would vanish outright. The gate's own failure
+# message still recommends it; that advice predates the doubling.
 # Emergency bypass: MR label "quality-gate-bypass" + mandatory follow-up ticket.
 #   rules:
 #     - if: $CI_MERGE_REQUEST_LABELS =~ /quality-gate-bypass/

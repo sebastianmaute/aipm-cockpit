@@ -240,17 +240,22 @@ npm run size:check          # file-size ratchet — fails on a NEW file over the
                             # ★★★ THE LIMIT IS 1600, DOUBLED FROM 800 ON 2026-09-03, and every entry in
                             # `docs/baselines/file-sizes.json` was doubled in the same change — the ratchet was
                             # biting on routine work. Read the number from `scripts/check-file-sizes.mjs` (`LIMIT`)
-                            # rather than any prose, this line included. ★★★ `--update` DISCARDS THE DOUBLING: it
-                            # rewrites the baseline to CURRENT sizes, so running it (which the gate's own failure
-                            # message recommends) silently restores a no-headroom ratchet. Re-double by hand.
-                            # ★ CONSEQUENCE: three of the four baseline entries are now INERT, because a file is
+                            # rather than any prose, this line included. ★★★ `--update` DISCARDS THE DOUBLING, AND
+                            # IT DELETES RATHER THAN HALVES: it writes only files ABOVE the LIMIT, so at 1600 it
+                            # emits `task-manager.tsx` ALONE and the other three entries VANISH. Running it (which
+                            # the gate's own failure message still recommends) restores a no-headroom ratchet and
+                            # makes "re-double by hand" impossible for the dropped rows without git archaeology.
+                            # ★ CONSEQUENCE: three of the four baseline entries are ALREADY INERT, because a file is
                             # only compared against its entry when it is over the LIMIT — chat-panel,
                             # tasks-section and workspace-section are governed by the LIMIT alone until they pass
-                            # 1600. Only `task-manager.tsx` is still held by its entry.
+                            # 1600. Only `task-manager.tsx` is still consulted, and at a 6040 entry against 2975
+                            # actual lines it constrains nothing in practice either — read the four as recorded
+                            # intent, not as live limits.
                             # ★★ IT COUNTS `wc -l` + 1. The script measures `readFileSync().split("\n").length`,
                             # which for a newline-terminated file is one MORE than `wc -l`. So a file at `wc -l`
-                            # 1599 is already AT the limit with ZERO headroom, and a 2971-line file is at a
-                            # 2972 baseline. Budgeting a change from `wc -l` overstates your room by exactly one
+                            # 1599 is already AT the limit with ZERO headroom. The same +1 applies to a baselined
+                            # file, which is how an `--update`-derived baseline lands one above `wc -l`.
+                            # Budgeting a change from `wc -l` overstates your room by exactly one
                             # line and the gate fails on the commit — it cost a build on `use-storage-backend.ts`.
                             # Read the real number with:
                             #   node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"
