@@ -9,14 +9,23 @@
 // tree walks with three separate budgets is not a thing anyone should
 // maintain.
 //
-// ★★★ THE WALK IS BREADTH-FIRST BY CONSTRUCTION, not merely by test. A mail
-// node reserves a node-count slot for EVERY direct attachment
+// ★★★ THE BUDGET ALLOCATION IS BREADTH-FIRST BY CONSTRUCTION — the
+// TRAVERSAL is not, and nothing here needs it to be. A mail node reserves a
+// node-count slot for EVERY direct attachment
 // (`admitted = attachments.slice(0, nodesRemaining)`) BEFORE recursing into
 // any of them, and divides what's left of its OWN character ceiling among
-// them in equal shares with carry-forward. A depth-first "spend as you
-// recurse" walk would let the first attached mail's whole subtree consume
-// the shared budget before a sibling attachment is even admitted into the
-// tree. `mail-extract.ts` / `eml-extract.ts` / `mime-parse.ts` stay pure,
+// them in equal shares with carry-forward; only THEN does it recurse, one
+// child fully at a time. A depth-first ALLOCATION ("spend as you recurse")
+// would let the first attached mail's whole subtree consume the shared
+// budget before a sibling attachment is even admitted into the tree.
+// ★★ What covers this is the equal-shares test in `attachment-ingest.test.ts`
+// ("divides the tree budget into comparable shares across many large
+// siblings"), which a greedy first-come-first-served walk fails. It is NOT
+// covered by the sibling-ordering test next to it: child ORDER is whatever
+// `mime-parse.ts` produced, so no traversal mutant changes it. This comment
+// claimed the walk itself was breadth-first and cited that ordering test as
+// the evidence; both halves were wrong.
+// `mail-extract.ts` / `eml-extract.ts` / `mime-parse.ts` stay pure,
 // value-to-value parsers that never recurse — recursion lives here alone.
 
 import {
@@ -211,9 +220,42 @@ function trimPrefixToFit(prefix: string, maxLen: number): string {
  *  emitted. It only truncates for real when diagnostics + body ALONE
  *  already exceed `ceiling` (prefix trimmed to nothing and still over) —
  *  and because diagnostics are concatenated BEFORE the body, that rare
- *  backstop truncation lands on the body, never on a drop notice. */
-function renderMailBlock(mail: ParsedMail, bodyBudget: number, ceiling: number, budget: Budget): string {
-  const { prefix, diagnostics, body } = renderMailParts(mail, bodyBudget);
+ *  backstop truncation lands on the body, never on a drop notice.
+ *
+ *  ★★★ `bodyFloor` IS A FLOOR, AND IT SHIPPED BEHAVING AS A HARD CEILING.
+ *  mail-extract.ts documents MAIL_BODY_FLOOR as the MINIMUM a body keeps
+ *  under budget pressure, but this function passed it straight through as
+ *  renderMailParts' `bodyBudget` — the argument that TRUNCATES. Every mail
+ *  body was therefore cut at 20,000 characters however much of the ceiling
+ *  was free: a plain .eml with no attachments has a 400,000-character
+ *  ceiling, left 380,000 of it unspent, and told the model its body
+ *  "exceeded its share of the extraction budget" when nothing had competed
+ *  for it. The body now gets whatever the prefix and diagnostics do not
+ *  need, and never less than `bodyFloor` — so the reservation a contested
+ *  mail depends on is unchanged, and an uncontested one stops lying. */
+function renderMailBlock(mail: ParsedMail, bodyFloor: number, ceiling: number, budget: Budget): string {
+  // The same room `cap()` below will charge against. Sizing the body from
+  // the raw `ceiling` instead would hand it space the per-node cap or the
+  // shared pool does not actually have, and the backstop would then cut the
+  // body anyway — with a second, wrong-cause truncation note.
+  const room = Math.max(0, Math.min(ceiling, MAX_NODE_EXTRACT_CHARS, budget.charsRemaining));
+  // One probe render at the floor measures the pieces the body's budget has
+  // to be computed AROUND. The prefix and the diagnostics do not depend on
+  // the body budget at all, so those two lengths are exact. `bodyOverhead`
+  // is the body PIECE's own framing (its "---" rule, the rtf-degraded
+  // notice, and — when the probe truncated — mail-extract's own truncation
+  // note): exact when the probe did not truncate, and an over-estimate by
+  // that note's length when it did, which errs toward reserving slightly too
+  // much rather than overshooting `room`. Deriving it by measurement rather
+  // than by restating mail-extract's layout here is deliberate: a copy of
+  // that layout would rot silently the first time the renderer changed.
+  const probe = renderMailParts(mail, bodyFloor);
+  const bodyOverhead = Math.max(0, probe.body.length - Math.min(mail.body.content.length, bodyFloor));
+  const separators = (probe.prefix.length > 0 ? 2 : 0) + (probe.diagnostics.length > 0 ? 2 : 0);
+  const fixed = probe.prefix.length + probe.diagnostics.length + bodyOverhead + separators;
+  const bodyBudget = Math.max(bodyFloor, room - fixed);
+  const { prefix, diagnostics, body } =
+    bodyBudget === bodyFloor ? probe : renderMailParts(mail, bodyBudget);
   const tail = [diagnostics, body].filter((s) => s.length > 0).join("\n\n");
   const reserved = tail.length + (tail.length > 0 ? 2 : 0);
   const trimmedPrefix = trimPrefixToFit(prefix, Math.max(0, ceiling - reserved));
@@ -271,8 +313,24 @@ async function ingestNode(
         // text — MAX_TREE_EXTRACT_CHARS deliberately excludes them (see its
         // comment), so they draw from their OWN tree-wide budget instead of
         // `cap()`'s chars pool.
-        if (raw.length > budget.base64Remaining) return { ok: false, error: "budget-exhausted" };
-        budget.base64Remaining -= raw.length;
+        //
+        // ★★★ BELOW THE ROOT ONLY. This is a TREE budget — it exists to stop
+        // ONE mail's many nested images/PDFs from ballooning the prompt
+        // payload, which is what MAX_BASE64_CHARS' own comment describes.
+        // Charged at the root as well, it silently became a second, far
+        // smaller file-size cap: bytesToBase64 emits 4*ceil(n/3) chars, so
+        // 10,485,760 chars is exactly 7,864,320 decoded bytes (7.50 MiB),
+        // while checkAttachmentSize (above) admits MAX_ATTACHMENT_BYTES
+        // (20 MB) and i18n.ts tells the user "up to 20 MB each". A 9 MB
+        // scanned PDF came back "budget-exhausted", which chat-panel.tsx
+        // renders as "could not be read" and step0-import-panel.tsx turns
+        // into a throw that abandons the whole import batch, discarding
+        // valid files already collected. The root's own size needs no tree
+        // budget: checkAttachmentSize has already bounded it.
+        if (depth > 0) {
+          if (raw.length > budget.base64Remaining) return { ok: false, error: "budget-exhausted" };
+          budget.base64Remaining -= raw.length;
+        }
         return {
           ok: true,
           node: { fileName, kind, block: buildAttachmentBlock(kind, outputMime, raw), children: [] },
@@ -288,8 +346,26 @@ async function ingestNode(
     }
   }
 
-  // --- mail: reserve the body's floor, then walk its attachments breadth-first ---
-  const mail = parseMail(bytes);
+  // --- mail: reserve the body's floor, then allocate across its attachments
+  // breadth-first (the ALLOCATION is breadth-first; the recursion below is
+  // one child at a time — see the module header) ---
+  // ★★ DEFENCE IN DEPTH, matching the flat-file branch above. Every parser
+  // this reaches (mime-parse / eml-extract / cfbf / msg-extract) is written
+  // not to throw on hostile input — but that is a claim about the code, not
+  // a guarantee of the language, and cfbf.ts threw RangeError two different
+  // ways on crafted .msg bytes before it was hardened. Unwrapped, such a
+  // throw REJECTS ingestBytes' promise instead of returning an IngestResult:
+  // neither ingestBytes nor ingestFile adds a guard of its own, so in
+  // chat-panel.tsx it surfaces as an unhandled rejection that drops the
+  // whole file selection with no error shown. "read-failed" is the existing
+  // variant for exactly this — a supported file whose contents could not be
+  // turned into a payload — and both callers already handle it.
+  let mail: ParsedMail;
+  try {
+    mail = parseMail(bytes);
+  } catch {
+    return { ok: false, error: "read-failed" };
+  }
   const notes: string[] = [...mail.diagnostics];
 
   if (depth >= MAX_INGEST_DEPTH) {

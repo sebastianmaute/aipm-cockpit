@@ -1,12 +1,31 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   ingestBytes,
   ingestFile,
   MAX_INGEST_DEPTH,
   MAX_INGEST_NODES,
+  MAX_NODE_EXTRACT_CHARS,
   MAX_TREE_EXTRACT_CHARS,
   MAX_BASE64_CHARS,
 } from "./attachment-ingest";
+import { MAX_ATTACHMENT_BYTES } from "./chat-attachments";
+import { MAIL_BODY_FLOOR } from "./mail-extract";
+
+/** Pass-through mock of `parseMail` — every test here keeps the REAL parser
+ *  unless it flips this flag, so the mock cannot quietly hollow out the rest
+ *  of the file. Only the "mail parser throws" test below sets it, and it
+ *  resets it in a `finally`. */
+const mailParser = vi.hoisted(() => ({ throwOnParse: false }));
+vi.mock("./mail-extract", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./mail-extract")>();
+  return {
+    ...actual,
+    parseMail: (bytes: Uint8Array) => {
+      if (mailParser.throwOnParse) throw new RangeError("crafted input");
+      return actual.parseMail(bytes);
+    },
+  };
+});
 
 const enc = (s: string) => new TextEncoder().encode(s);
 
@@ -47,6 +66,29 @@ describe("ingestBytes", () => {
     const r = await ingestBytes(new Uint8Array([0x25, 0x50, 0x44, 0x46]), "application/pdf", "a.pdf");
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.node.block.source).toMatchObject({ type: "base64", data: "JVBERg==" });
+  });
+
+  // ★★★ REGRESSION GUARD: THE TREE BASE64 BUDGET APPLIES BELOW THE ROOT ONLY.
+  // MAX_BASE64_CHARS exists to stop ONE mail's many nested images/PDFs from
+  // ballooning the prompt payload. Charged at the root too, it silently
+  // became a second, much smaller file-size cap: bytesToBase64 emits
+  // 4*ceil(n/3) chars, so 10,485,760 chars is exactly 7,864,320 decoded
+  // bytes (7.50 MiB) — while checkAttachmentSize admits MAX_ATTACHMENT_BYTES
+  // (20 MB) and i18n.ts tells the user "up to 20 MB each". Both callers turn
+  // the resulting "budget-exhausted" into something worse than a size error:
+  // chat-panel reports "could not be read", and the setup wizard throws and
+  // abandons the whole import batch, discarding valid files already
+  // collected. A root node's own size is already bounded by
+  // checkAttachmentSize above.
+  it("accepts a root-level pdf larger than the tree base64 budget's decoded equivalent", async () => {
+    const size = 9 * 1024 * 1024;
+    expect(size).toBeGreaterThan((MAX_BASE64_CHARS / 4) * 3); // past the old ceiling...
+    expect(size).toBeLessThan(MAX_ATTACHMENT_BYTES); // ...and inside the advertised one
+    const r = await ingestBytes(new Uint8Array(size), "application/pdf", "report.pdf");
+    expect(r.ok).toBe(true);
+    // The WHOLE payload, not a truncated one — base64 is opaque bytes, so a
+    // short read would corrupt the document rather than shorten it.
+    if (r.ok) expect((r.node.block.source as { data: string }).data.length).toBe(4 * Math.ceil(size / 3));
   });
 
   it("reports one node and no children for a flat file", async () => {
@@ -186,10 +228,15 @@ describe("mail recursion", () => {
     expect(src.data).toBe("alpha");
   });
 
-  // ★★★ BREADTH-FIRST. Depth-first lets the first attached mail's whole subtree
-  //  eat the budget before a sibling attachment is even seen. This asserts every
-  //  DIRECT attachment is reached before any nested one.
-  it("reaches every direct attachment before any nested one", async () => {
+  // ★★ WHAT THIS ACTUALLY PROVES, which is less than its name used to claim:
+  // every DIRECT attachment of a mail becomes a child — in the order
+  // mime-parse.ts produced them — even when one of those attachments is
+  // itself a mail with its own nested attachment. It does NOT witness
+  // breadth-first anything: no traversal order changes this list, so a
+  // depth-first mutant passes it unchanged. The guarantee the module header
+  // is really about is budget ALLOCATION, and the equal-shares test below
+  // ("divides the tree budget into comparable shares…") is what covers it.
+  it("admits every direct attachment as a child, in source order, even beside a nested mail", async () => {
     // Distinct boundaries at each nesting level — see mailWith's doc comment.
     const inner = mailWith([{ name: "deep.txt", body: "deep" }], "inner body", "INNER");
     const outer = mail([
@@ -429,5 +476,74 @@ describe("mail recursion", () => {
     const data = (r.node.block.source as { data: string }).data;
     expect(data).not.toContain("n".repeat(30_000));
     expect(data).toContain("…");
+  });
+
+  // ★★★ REGRESSION GUARD: MAIL_BODY_FLOOR IS A FLOOR, NOT A CEILING.
+  // mail-extract.ts documents it as the minimum a body keeps under budget
+  // pressure; attachment-ingest passed it straight through as
+  // renderMailParts' bodyBudget, which is the argument that TRUNCATES. So
+  // every mail body was cut at 20,000 characters however much of the
+  // 400,000-character ceiling was free — a plain .eml with no attachments
+  // left 380,000 unspent and told the model its body "exceeded its share of
+  // the extraction budget" when nothing had competed for it.
+  it("does not truncate an uncontested mail body at the body floor", async () => {
+    const body = "z".repeat(150_000);
+    // Comfortably past the floor, and inside the per-node cap — so the only
+    // thing that could cut this body is the defect.
+    expect(body.length).toBeGreaterThan(MAIL_BODY_FLOOR);
+    expect(body.length).toBeLessThan(MAX_NODE_EXTRACT_CHARS);
+    const r = await ingestBytes(
+      mail(["Content-Type: text/plain", "Subject: Long", "", body, ""]),
+      "message/rfc822",
+      "long.eml",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const data = (r.node.block.source as { data: string }).data;
+    expect(data).toContain(body);
+    expect(data).not.toContain("exceeded its share");
+  });
+
+  // ★★★ THE PROPERTY THE FLOOR EXISTS FOR — and the half that a "let an
+  // uncontested body use the free room" fix is most likely to destroy while
+  // the test above goes green. Four 300,000-char attachments really do
+  // compete for the tree budget here (the equal-shares test above pins that
+  // they each get ~95k of it), so the body's share is genuinely contested
+  // and only the reservation keeps it from being squeezed out.
+  it("still reserves the body floor when many large attachments compete for the budget", async () => {
+    const atts = ["a", "b", "c", "d"].map((n) => ({ name: `${n}.txt`, body: "y".repeat(300_000) }));
+    const r = await ingestBytes(mailWith(atts, "z".repeat(300_000)), "message/rfc822", "contested.eml");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.node.children).toHaveLength(4);
+    const data = (r.node.block.source as { data: string }).data;
+    const kept = Math.max(...(data.match(/z+/g) ?? [""]).map((m) => m.length));
+    // Measured 19,897 both before and after the floor fix. The shortfall
+    // from 20,000 is what the assembled block's own backstop truncation note
+    // costs; asserting the exact figure would pin that note's wording rather
+    // than the reservation, so this asserts the reservation held to within
+    // one note's length.
+    expect(kept).toBeGreaterThan(MAIL_BODY_FLOOR - 500);
+  });
+
+  // ★★★ DEFENCE IN DEPTH. The flat-file branch wraps its extractor in
+  // try/catch; the mail branch's `parseMail` call sat outside one, and
+  // neither ingestBytes nor ingestFile adds a guard. A throw from anywhere in
+  // the mail parser stack therefore REJECTED the promise instead of
+  // returning an IngestResult — in chat-panel an unhandled rejection that
+  // drops the whole file selection with no error shown. This was reachable
+  // for real until cfbf.ts's two RangeError paths on crafted .msg input were
+  // fixed; it stays guarded regardless, because this is a hostile-input
+  // parser stack whose no-throw contract is a claim about the code, not a
+  // guarantee of the language.
+  it("returns read-failed instead of rejecting when the mail parser throws", async () => {
+    mailParser.throwOnParse = true;
+    try {
+      const r = await ingestBytes(mailWith([{ name: "a.txt", body: "alpha" }]), "message/rfc822", "m.eml");
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error).toBe("read-failed");
+    } finally {
+      mailParser.throwOnParse = false;
+    }
   });
 });
