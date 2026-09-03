@@ -564,6 +564,12 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--open) | A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all — open | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; the DISCLOSURE half of that report is fixed, this is the residue | S | open |
+| [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--open) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | open |
+| [§339](#339-a-rename-can-strand-a-stale-alt-and-the-broken-image-state-then-paints-it--wcag-253--open) | A rename can strand a stale `alt`, and the broken-image state then paints it — WCAG 2.5.3 | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
+| [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--open) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
+| [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
+| [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--open) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
+| [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--open) | The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -26673,17 +26679,34 @@ not added, because `html` is unchanged when the config flips to null. The test r
 `tursoConfig={null}` from the start, so the removal loop only ever runs as a no-op over unstamped
 nodes. **Mutation:** replace that branch's loop body with a bare `return;` — all tests stay green.
 
-## 341. Neither asset-preview entry point has ever been exercised against a real Turso project — open
+## 341. Neither asset-preview entry point has ever been exercised against a real Turso project — CLOSED 2026-09-02
 
-**Status:** open — **never machine-verified** (2026-09-02), and that is the entry's point.
+**Status:** CLOSED 2026-09-02 — verified BY EYE against a live Turso project; **never
+machine-verified**, and it cannot be. The scope of that pass is recorded below, and it is
+NARROWER than the title. Read it before treating this surface as covered.
 
 Both surfaces that mount `AssetPreviewModal` are Turso-gated, and `e2e/seed.ts` seeds FILE mode, so
 the axe gate renders neither in any view at any seed size. Unit tests are the only coverage that
-will ever exist for them. Nothing has confirmed the lightbox opens, loads bytes, navigates or
+will ever exist for them. Nothing had confirmed the lightbox opens, loads bytes, navigates or
 degrades correctly against a live database.
 
 ★ This is the same blind-spot class as the other Turso-gated views. An owed eye-verify is a GATE,
 not a nicety — record the result here when it is done, including what was NOT checked.
+
+**What the 2026-09-02 pass covered**, at both mount points (`asset-library.tsx`'s row control and
+an inserted image in `document-preview.tsx`): the lightbox opens; bytes load and render; prev/next
+walk the caller's own row order; both controls disable at the ends and do NOT wrap; an asset with
+missing bytes shows the stated `assetPreviewUnavailable` text rather than a broken `<img>`, and
+navigation still works past it.
+
+★★★ **WHAT IT DID NOT COVER — do not read this closure as wider than the list above.** Unverified
+against a live database: the `assetPreviewBlocked` branch (a disallowed mime, a DIFFERENT render
+path from `unavailable`); the `reloadNonce` reload after a §212 byte repair, which is the one
+signal no other prop carries; the drag/resize/reset-layout persistence behind
+`aipm-cockpit:modal-pos:asset-preview` and `aipm-cockpit:modal-size:asset-preview` (and see §338 —
+`useResizable` is a no-op in a modal that stays mounted while closed, which this surface may be);
+Escape/Tab dismissal through the shared `Modal`; and the DE locale. Each is a separate eye-verify,
+owed but not filed — file one before relying on it.
 
 ## 342. `role="button"` on an `<img>` removes its image semantics — open
 
