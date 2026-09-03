@@ -1,4 +1,5 @@
 import { sanitizeGroup, sanitizeLabels } from "./sanitize";
+import { TOKEN_EXCLUDED, type TokenEntity } from "./ai-entity-token";
 import {
   PRIORITIES,
   type Priority,
@@ -473,10 +474,35 @@ function requireId(input: Record<string, unknown>): number {
   return id;
 }
 
-/** A shallow copy of the tool input with `id` removed — the update patch. */
-function patchWithoutId<T>(input: Record<string, unknown>): Partial<T> {
+/** A shallow copy of the tool input with `id` and every token-excluded field
+ *  removed — the update patch.
+ *
+ *  ★★★ THE EXCLUSION STRIP IS LOAD-BEARING. Unlike `buildPatch` (tasks), this
+ *  helper has no whitelist: whatever the model emits is forwarded, and
+ *  `use-register-tools` spreads it straight over the stored entity, where
+ *  `sanitizeRaidItem` / `sanitizeChangeItem` / `sanitizeMilestone` PRESERVE
+ *  `outlookEventId` and `inquiriesSent`. Those fields are excluded from
+ *  `entityToken`, so without this strip the model could change them with the
+ *  concurrency token blind to the change by construction — a false PERMIT for
+ *  exactly those fields, which is the failure the token exists to prevent.
+ *  The strip closes it by making the ACCEPTED surface match the ADVERTISED
+ *  one: `chat-tool-defs` documents none of these fields, so nothing legitimate
+ *  is lost.
+ *
+ *  ★★ THIS COMPLETES AN EXISTING PATTERN RATHER THAN INVENTING ONE. The other
+ *  two excluded fields were already protected downstream — `localModifiedAt`
+ *  is re-stamped after the spread and `noteLog` is re-applied from the stored
+ *  row (`use-register-tools`, `withStoredNoteLog`). Those two survive a
+ *  forwarded value by overwriting it; `outlookEventId` and `inquiriesSent` had
+ *  no such backstop.
+ *
+ *  ★ `ai-entity-token.test.ts` drives the real dispatch path per tool, so
+ *  reverting this strip — or adding a seventh pass-through tool that skips it
+ *  — turns that suite red. */
+function patchWithoutId<T>(input: Record<string, unknown>, kind: TokenEntity): Partial<T> {
   const patch = { ...input };
   delete patch.id;
+  for (const field of TOKEN_EXCLUDED[kind]) delete patch[field];
   return patch as Partial<T>;
 }
 
@@ -690,7 +716,7 @@ export async function runTool(
 
     case "update_raid_item": {
       const id = requireId(input);
-      const updated = d.updateRaid(id, patchWithoutId(input));
+      const updated = d.updateRaid(id, patchWithoutId(input, "raid"));
       if (!updated) throw new Error(`RAID item #${id} not found`);
       return updated;
     }
@@ -706,7 +732,7 @@ export async function runTool(
 
     case "update_change": {
       const id = requireId(input);
-      const updated = d.updateChange(id, patchWithoutId(input));
+      const updated = d.updateChange(id, patchWithoutId(input, "change"));
       if (!updated) throw new Error(`change #${id} not found`);
       return updated;
     }
@@ -722,7 +748,7 @@ export async function runTool(
 
     case "update_milestone": {
       const id = requireId(input);
-      const updated = d.updateMilestone(id, patchWithoutId(input));
+      const updated = d.updateMilestone(id, patchWithoutId(input, "milestone"));
       if (!updated) throw new Error(`milestone #${id} not found`);
       return updated;
     }
@@ -745,7 +771,7 @@ export async function runTool(
 
     case "update_resource": {
       const id = requireId(input);
-      const updated = d.updateResource(id, patchWithoutId(input) as Partial<ResourceInput>);
+      const updated = d.updateResource(id, patchWithoutId(input, "resource") as Partial<ResourceInput>);
       if (!updated) throw new Error(`resource #${id} not found`);
       return updated;
     }
@@ -761,7 +787,7 @@ export async function runTool(
 
     case "update_stakeholder": {
       const id = requireId(input);
-      const updated = d.updateStakeholder(id, patchWithoutId(input));
+      const updated = d.updateStakeholder(id, patchWithoutId(input, "stakeholder"));
       if (!updated) throw new Error(`stakeholder #${id} not found`);
       return updated;
     }
