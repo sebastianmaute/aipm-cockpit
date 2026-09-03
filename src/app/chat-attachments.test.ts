@@ -332,13 +332,13 @@ describe("ATTACHMENT_ACCEPT", () => {
     for (const ext of [".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp",
                        ".txt", ".md", ".markdown", ".csv", ".html", ".htm",
                        ".vtt", ".docx", ".xlsx", ".xlsm", ".pptx",
-                       ".eml", ".mhtml", ".mht"]) {
+                       ".eml", ".mhtml", ".mht", ".msg"]) {
       expect(tokens).toContain(ext);
       expect(classifyAttachment("application/octet-stream", `f${ext}`)).not.toBeNull();
     }
     // A seventh extension set added to ATTACHMENT_ACCEPT's spread and forgotten
     // above would be invisible to the loop — pin the count too.
-    expect(tokens.filter((t) => t.startsWith(".")).length).toBe(20);
+    expect(tokens.filter((t) => t.startsWith(".")).length).toBe(21);
   });
 
   // ★ Round-trips every DERIVED token, not just a fixed trio — 8 of the 11
@@ -356,7 +356,7 @@ describe("ATTACHMENT_ACCEPT", () => {
     // "image/*" (which the loop below skips) still fails: the loop over an
     // absent token does nothing, so this count is the only thing that would
     // catch it.
-    expect(tokens.filter((t) => !t.startsWith(".")).length).toBe(12);
+    expect(tokens.filter((t) => !t.startsWith(".")).length).toBe(13);
     for (const token of tokens) {
       if (token === "image/*") continue;
       if (token.startsWith(".")) {
@@ -402,7 +402,7 @@ describe("mail classification", () => {
 
   it("offers the mail extensions in the shared accept list", () => {
     const tokens = ATTACHMENT_ACCEPT.split(",");
-    for (const ext of [".eml", ".mhtml", ".mht"]) expect(tokens).toContain(ext);
+    for (const ext of [".eml", ".mhtml", ".mht", ".msg"]) expect(tokens).toContain(ext);
   });
 
   // ★ Pins the MIME half of the mail branch on its own, with no mail
@@ -411,5 +411,15 @@ describe("mail classification", () => {
   //  alone would keep them green even if this MIME check were deleted.
   it("classifies multipart/related as mail from the MIME type alone", () => {
     expect(classifyAttachment("multipart/related", "file")).toBe("mail");
+  });
+
+  // ★ .msg is BINARY (CFBF), unlike eml/mhtml/mht — see mail-extract.ts.
+  //  classifyAttachment itself never sees the bytes, only mime/filename, but
+  //  it must still route .msg to "mail" alongside the text formats so the
+  //  orchestrator's format-aware parseMail (not a text decode) is reached.
+  it("classifies msg as mail and offers it in the picker", () => {
+    expect(classifyAttachment("application/vnd.ms-outlook", "a.msg")).toBe("mail");
+    expect(classifyAttachment("application/octet-stream", "a.msg")).toBe("mail");
+    expect(ATTACHMENT_ACCEPT.split(",")).toContain(".msg");
   });
 });

@@ -7,8 +7,8 @@
 // way creates an import cycle and makes every mail parser impure and
 // untestable in isolation.
 //
-// Hostile-input surface: a ParsedMail can be built from an untrusted .eml (or
-// later .msg) file — see eml-extract.ts. This renderer therefore bounds
+// Hostile-input surface: a ParsedMail can be built from an untrusted .eml or
+// .msg file — see eml-extract.ts and msg-extract.ts. This renderer therefore bounds
 // every field it prints, not just the body: mime-parse.ts's MAX_HEADER_BYTES
 // allows a single raw header up to 64KB, which would otherwise render as one
 // huge unbroken Markdown line (a subject, a From address, or one To/Cc
@@ -19,6 +19,8 @@
 
 import { parseMimeMessage } from "./mime-parse";
 import { emlToParsedMail } from "./eml-extract";
+import { readCfbfTree } from "./cfbf";
+import { msgToParsedMail } from "./msg-extract";
 
 export type ParsedMail = {
   headers: {
@@ -148,10 +150,11 @@ export function renderMailMarkdown(mail: ParsedMail, bodyBudget: number): string
   return `${rendered.slice(0, MAIL_MARKDOWN_HARD_CAP)}\n\n_(output exceeded the hard size cap and was cut)_`;
 }
 
-/** Detect a `.msg` compound file by its MS-CFB signature. A later task adds
- *  the msg branch; until then such a file reports an unsupported-format
- *  diagnostic rather than being silently (and destructively) parsed as MIME
- *  text — .msg is a binary compound-document format, not RFC 5322 text. */
+/** Detect a `.msg` compound file by its MS-CFB signature, so `parseMail`
+ *  below can route it to the CFBF-aware reader instead of the MIME-text
+ *  parser — .msg is a binary compound-document format, not RFC 5322 text,
+ *  and decoding it as UTF-8 first would destroy the bytes `readCfbfTree`
+ *  needs without ever throwing. */
 const CFBF_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 
 export function looksLikeCfbf(bytes: Uint8Array): boolean {
@@ -159,18 +162,19 @@ export function looksLikeCfbf(bytes: Uint8Array): boolean {
 }
 
 /** The one router from raw bytes to a `ParsedMail`, for every mail format
- *  `classifyAttachment` maps to "mail" — .eml, .mhtml, .mht today, and (once
- *  a future task adds a CFBF-aware parser) .msg. Kept in this module rather
- *  than the orchestrator so any future caller gets the same format
- *  detection `attachment-ingest.ts` uses, instead of reimplementing it. */
+ *  `classifyAttachment` maps to "mail" — .eml, .mhtml, .mht as text, and
+ *  .msg as a binary CFBF compound file. Kept in this module rather than the
+ *  orchestrator so any future caller gets the same format detection
+ *  `attachment-ingest.ts` uses, instead of reimplementing it.
+ *
+ *  ★★★ `bytes` MUST reach this function undecoded. The CFBF branch below
+ *  reads `bytes` as raw binary (`readCfbfTree`/`msgToParsedMail`); only the
+ *  text branch's own `TextDecoder().decode(bytes)` call turns it into a
+ *  string, and only after `looksLikeCfbf` has already ruled out a compound
+ *  file. A caller that decodes `bytes` to text before calling this — e.g.
+ *  to reuse a text-reading code path — would silently corrupt every .msg
+ *  before it ever reaches `readCfbfTree`. */
 export function parseMail(bytes: Uint8Array): ParsedMail {
-  if (looksLikeCfbf(bytes)) {
-    return {
-      headers: { from: "", to: [], cc: [], subject: "", date: "" },
-      body: { kind: "text", content: "" },
-      attachments: [],
-      diagnostics: ["Outlook .msg support is not enabled in this build"],
-    };
-  }
+  if (looksLikeCfbf(bytes)) return msgToParsedMail(readCfbfTree(bytes));
   return emlToParsedMail(parseMimeMessage(new TextDecoder().decode(bytes)));
 }

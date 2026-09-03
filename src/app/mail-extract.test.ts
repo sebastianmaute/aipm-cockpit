@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   renderMailMarkdown,
+  parseMail,
+  looksLikeCfbf,
   type ParsedMail,
   MAX_HEADER_FIELD_CHARS,
   MAX_ATTACHMENTS_RENDERED,
@@ -89,5 +91,20 @@ describe("renderMailMarkdown", () => {
     const md = renderMailMarkdown({ ...base, attachments, body: { kind: "text", content: "y".repeat(400_000) } }, 400_000);
     expect(md.length).toBeLessThanOrEqual(MAIL_MARKDOWN_HARD_CAP + 200);
     expect(md).toContain("output exceeded the hard size cap");
+  });
+});
+
+// ★ .msg is a binary CFBF compound file, not RFC 5322 text — parseMail must
+//  route it to the CFBF reader rather than the UTF-8 MIME parser, and must
+//  never throw on a malformed one (a real .msg with a broken directory is a
+//  parser diagnostic, not a crash).
+describe("parseMail — CFBF routing", () => {
+  it("routes a compound file to the msg parser rather than the MIME parser", () => {
+    const header = new Uint8Array(512);
+    header.set([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+    expect(looksLikeCfbf(header)).toBe(true);
+    const mail = parseMail(header);          // malformed body, but must not throw
+    expect(mail.attachments).toEqual([]);
+    expect(mail.body.content).toBe("");
   });
 });

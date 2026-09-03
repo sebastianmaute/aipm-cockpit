@@ -51,7 +51,7 @@ export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([".png", ".jpg", ".
 export const TEXT_EXTENSIONS: ReadonlySet<string> = new Set([".txt", ".md", ".markdown", ".csv", ".vtt"]);
 export const HTML_EXTENSIONS: ReadonlySet<string> = new Set([".html", ".htm"]);
 export const OFFICE_EXTENSIONS: ReadonlySet<string> = new Set([".docx", ".xlsx", ".xlsm", ".pptx"]);
-export const MAIL_EXTENSIONS: ReadonlySet<string> = new Set([".eml", ".mhtml", ".mht"]);
+export const MAIL_EXTENSIONS: ReadonlySet<string> = new Set([".eml", ".mhtml", ".mht", ".msg"]);
 
 /** Extra MIME tokens the picker should offer. Extensions alone are not enough:
  *  a file arriving as application/octet-stream with no extension is classified
@@ -60,6 +60,7 @@ export const MAIL_EXTENSIONS: ReadonlySet<string> = new Set([".eml", ".mhtml", "
 const ACCEPT_MIMES = [
   "application/pdf",
   "message/rfc822",
+  "application/vnd.ms-outlook",
   // Deliberately OVER-offers relative to SUPPORTED_IMAGE_MIMES — this is what
   // triggers camera capture in mobile file pickers (this app ships as a PWA).
   // An image type the picker admits but the classifier does not recognise
@@ -125,8 +126,9 @@ export function classifyAttachment(
   // --- HTML (extracted to Markdown; raw markup would spend the budget on chrome) ---
   if (mime === "text/html") return "html";
 
-  // --- Mail (.eml / .mhtml / .mht — extracted to Markdown, same as html) ---
-  if (mime === "message/rfc822" || mime === "multipart/related") return "mail";
+  // --- Mail (.eml / .mhtml / .mht / .msg — extracted to Markdown, same as html) ---
+  if (mime === "message/rfc822" || mime === "multipart/related" ||
+      mime === "application/vnd.ms-outlook") return "mail";
 
   // --- Text (read natively as UTF-8; Claude parses VTT without a lib) ---
   if (
