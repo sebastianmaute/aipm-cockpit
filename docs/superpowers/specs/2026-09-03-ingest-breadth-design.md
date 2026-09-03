@@ -214,6 +214,12 @@ both parsers are ours, so the guards live inside the walkers rather than at a li
 | DIFAT loop | same visited-set treatment |
 | Absurd sector shift | only 9 (512) and 12 (4096) are legal; reject rather than shift by an attacker-supplied amount |
 
+**★ DIFAT chain walking is mandatory, not an optimisation.** The header carries only the first 109
+FAT-sector pointers, covering about 7.1 MB at a 512-byte sector size. Beyond that the DIFAT
+continues in chained sectors, each holding `SEC/4 - 1` pointers with its last word pointing to the
+next. A reader that stops at the header silently produces an empty directory rather than an error —
+measured, see below. Real business mail exceeds this routinely.
+
 ### mime-parse.ts
 
 | Threat | Guard |
@@ -242,10 +248,11 @@ Two classes, two destinations. The split is load-bearing in both directions.
 Raise a nested corruption as a UI error and the user sees "failed" on a mail that worked. Swallow
 it and the model is misled.
 
-**User-visible summary (optional; drop if the slice runs long):** one compact, non-error line per
-staged attachment, of the form `meeting.eml - 4 attachments, 1 skipped`. It signals that something
-happened without calling it a failure. Per `no-handroll-use-primitives`, this is the only new UI in
-D and it must be built from shared primitives or not ship.
+**User-visible summary — required.** One compact, non-error line per staged attachment, of the
+form `meeting.eml - 4 attachments, 1 skipped`. It signals that something happened without calling
+it a failure, and it is the user's only window onto a tree they cannot otherwise inspect. Per
+`no-handroll-use-primitives`, this is the only new UI in D and it must be built from shared
+primitives.
 
 The existing per-file error accumulation in `chat-panel.tsx` is preserved. That code carries a
 comment recording a fixed defect where a multi-file pick overwrote the error state so only the last
@@ -360,14 +367,58 @@ is decorative.
 - Every `src/app` TypeScript file is CRLF. Anchored node writes must match CRLF; the Write tool
   re-lines a CRLF file to LF while Edit preserves it.
 
+## Measured against a real `.msg` (2026-09-03, n=1)
+
+One genuine business email — a workshop follow-up with two Office attachments — was probed with a
+throwaway CFBF reader. It is a client message and its content stays out of this repository; only
+structure is recorded here.
+
+| Property | Value |
+|---|---:|
+| File size | 17 843 712 B (17.8 MB) |
+| Sector size / mini sector | 512 / 64, cutoff 4096 |
+| FAT sectors | 273 |
+| DIFAT sectors (chained, beyond the header's 109) | **2** |
+| Directory entries | 274 (251 of them `__substg1.0_*` property streams) |
+| Recipients | 8 |
+| Attachments | 2 — a `.pptx` of 16.7 MB and a `.docx` of 45 KB, both with correct MIME tags |
+| `PR_BODY` (plain, unicode) | 2 078 B — complete and readable |
+| `PR_RTF_COMPRESSED` | 3 242 B — present |
+| `PR_HTML` | **8 B** — `06 bd 68 da 15 00 24 00`, not HTML |
+
+### What this changes
+
+1. **The ladder's ordering assumption was wrong.** The design predicted a real HTML body stream
+   would usually be present, making RTF a minority path safely deferred. Measured: the HTML stream
+   is 8 bytes of non-HTML and the only formatted body is RTF.
+2. **But the conclusion is softer than "LZFu is now mandatory".** The plain-text body is complete,
+   so the model still receives the full message without RTF. What RTF buys is **structure — above
+   all tables**. A mail whose allocations sit in a table degrades to shapeless prose without it.
+   Deferring LZFu is still defensible; it is now a measured trade rather than an assumed one, and
+   the disclosure marker for the degraded case stops being a rare path.
+3. **`MAX_ATTACHMENT_BYTES` will bite.** One ordinary email with a slide deck reached 17.8 MB
+   against a 20 MB cap. The cap is applied to the envelope, so mail needs either a raised ceiling
+   or a cap applied per extracted node instead.
+4. **The recursion design is validated end to end.** This file exercises CFBF to `msg-extract` to
+   `ParsedMail` to recursion to `extractPptx` and `extractDocx`, all of which already exist. The
+   budget numbers also hold against it: a 2 KB body against a 20 KB floor, then two attachments
+   splitting the remainder under a 200 K per-node clamp.
+5. **The reader was validated by its own output** — plain body, attachment filenames and MIME tags
+   all decoded correctly — so the 8-byte `PR_HTML` is a real measurement, not a parsing error.
+
+### Fixture consequence
+
+This file **cannot** be the committed fixture: real names, a real customer, a real deck. The
+inlined real-format fixture the Testing section requires must be synthetic, or an aggressively
+sanitised message produced for the purpose. The privacy constraint does not weaken the argument for
+having one — a synthetic file written by Outlook is still Outlook-produced, which is the property
+that matters.
+
 ## Owed items — gates, not assumptions
 
-1. **`.msg` body-stream measurement.** Take 5-10 real `.msg` files from a live mailbox — plain,
-   HTML, with attachments, a forwarded thread, one from a mobile sender — and record which body
-   streams each actually contains. This decides whether LZFu/RTF decompression lands in this slice
-   or defers. The design assumes modern Outlook usually writes a real HTML body stream, making RTF
-   the minority path; **that assumption is unverified** and if false, `.msg` grows substantially.
-   Do this before estimating the `.msg` tasks.
+1. **`.msg` body-stream measurement — PARTIALLY DISCHARGED 2026-09-03, and the original assumption
+   was refuted.** See "Measured against a real `.msg`" above. Still owed: 4-9 more files, in
+   particular a mobile-sent message and a forwarded thread, before the LZFu decision is final.
 2. **Licence question, only if LZFu is ported.** `@kenjiuno/decompressrtf` is BSD-2-Clause and is
    the port candidate. This project is EUPL-1.2 and marked private, and currently contains zero
    third-party code — D would introduce the first. Permissive-inbound-to-copyleft is the normal,
