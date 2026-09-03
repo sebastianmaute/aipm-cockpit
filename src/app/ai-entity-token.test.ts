@@ -108,25 +108,47 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
   //   goes through the `buildPatch` whitelist instead.
   //   This case drives the REAL dispatch path, so it stays honest if someone
   //   reverts the strip or adds a seventh pass-through tool.
-  const DISPATCH: Array<{ tool: string; kind: TokenEntity; method: keyof ToolDispatcher }> = [
-    { tool: "update_task", kind: "task", method: "updateTask" },
-    { tool: "update_raid_item", kind: "raid", method: "updateRaid" },
-    { tool: "update_change", kind: "change", method: "updateChange" },
-    { tool: "update_milestone", kind: "milestone", method: "updateMilestone" },
-    { tool: "update_stakeholder", kind: "stakeholder", method: "updateStakeholder" },
-    { tool: "update_resource", kind: "resource", method: "updateResource" },
+  //   ★★ EACH ROW ALSO NAMES THE ENTITY'S FULL-ROW GETTER, because a
+  //   token-guarded update fetches the stored row BEFORE it will accept a
+  //   write. A dispatcher carrying only the update method makes the tool throw
+  //   on a missing getter, and the anti-vacuity assertion below then reports it
+  //   honestly rather than passing. The getter is threaded for all six even
+  //   though enforcement has so far landed on `update_task` only -- the case
+  //   keeps working, unedited, as the remaining five are guarded.
+  const DISPATCH: Array<{
+    tool: string;
+    kind: TokenEntity;
+    method: keyof ToolDispatcher;
+    getter: keyof ToolDispatcher;
+  }> = [
+    { tool: "update_task", kind: "task", method: "updateTask", getter: "getTask" },
+    { tool: "update_raid_item", kind: "raid", method: "updateRaid", getter: "getRaidRow" },
+    { tool: "update_change", kind: "change", method: "updateChange", getter: "getChangeRow" },
+    { tool: "update_milestone", kind: "milestone", method: "updateMilestone", getter: "getMilestoneRow" },
+    { tool: "update_stakeholder", kind: "stakeholder", method: "updateStakeholder", getter: "getStakeholderRow" },
+    { tool: "update_resource", kind: "resource", method: "updateResource", getter: "getResourceRow" },
   ];
 
-  it.each(DISPATCH)("$tool ACCEPTS no excluded field", async ({ tool, kind, method }) => {
+  it.each(DISPATCH)("$tool ACCEPTS no excluded field", async ({ tool, kind, method, getter }) => {
     // ★ The parameters are DECLARED so `spy.mock.calls[0][1]` is typed. A bare
     //   `vi.fn(() => ...)` gives the call tuple length 0: vitest stays green
     //   and only `npx tsc --noEmit` objects.
     const spy = vi.fn((id: number, patch: Record<string, unknown>) => ({ id, patch }));
-    const dispatcher = { [method]: spy } as unknown as ToolDispatcher;
+    // The stored row. It is the token's ONLY input, so a bare id is enough --
+    // this case is about what the patch carries, not about token sensitivity,
+    // which the projector cases below cover.
+    const current = { id: 1 };
+    const dispatcher = {
+      [method]: spy,
+      [getter]: vi.fn(() => current),
+    } as unknown as ToolDispatcher;
     // Inject every excluded field for this entity as raw tool input, which is
     // exactly what a model could emit -- the schema does not constrain what
     // arrives, only what is documented.
-    const input: Record<string, unknown> = { id: 1 };
+    const input: Record<string, unknown> = {
+      id: 1,
+      expectedToken: entityToken(kind, current),
+    };
     for (const field of TOKEN_EXCLUDED[kind]) input[field] = "INJECTED";
 
     await runTool(dispatcher, tool, input);
@@ -134,7 +156,14 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
     // Anti-vacuity: a throw before dispatch would otherwise pass silently.
     expect(spy, `${tool} must reach the dispatcher`).toHaveBeenCalledTimes(1);
     const patch = spy.mock.calls[0][1];
-    const leaked = Object.keys(patch).filter((f) => TOKEN_EXCLUDED[kind].includes(f));
+    // ★★ `expectedToken` IS CHECKED ALONGSIDE THE EXCLUDED FIELDS, and it is a
+    //   separate hazard: it is not an entity field at all but a control value
+    //   the model now sends to all six tools, and the five pass-through ones
+    //   spread their patch straight onto the stored row. Without the strip in
+    //   `patchWithoutId` it would be persisted as a junk property.
+    const leaked = Object.keys(patch).filter(
+      (f) => TOKEN_EXCLUDED[kind].includes(f) || f === "expectedToken",
+    );
     expect(leaked).toEqual([]);
   });
 });

@@ -18,6 +18,9 @@ import {
   TASK_STATUSES,
 } from "./types";
 import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
+// ★ The ADVERTISED token field is declared beside the code that ENFORCES it
+//   (`requireToken`), so the schema and the refusal cannot drift apart.
+import { expectedTokenField } from "./chat-tools-updates";
 // ★ INTERPOLATED, never a literal number in the prose: search_history's
 //   description tells the model how many events the log retains, and a
 //   hardcoded copy would go quietly false the day the cap moves.
@@ -247,9 +250,10 @@ export const TOOL_DEFS = [
       type: "object",
       properties: {
         id: { type: "number" },
+        ...expectedTokenField,
         ...taskFields,
       },
-      required: ["id"],
+      required: ["id", "expectedToken"],
     },
   },
   {
@@ -591,8 +595,8 @@ export const TOOL_DEFS = [
     description: "Update fields on an existing resource. Only the fields you pass change.",
     input_schema: {
       type: "object",
-      properties: { id: { type: "number" }, ...resourceFields },
-      required: ["id"],
+      properties: { id: { type: "number" }, ...expectedTokenField, ...resourceFields },
+      required: ["id", "expectedToken"],
     },
   },
   {
@@ -619,8 +623,8 @@ export const TOOL_DEFS = [
     description: "Update fields on an existing RAID item. Only the fields you pass change.",
     input_schema: {
       type: "object",
-      properties: { id: { type: "number" }, ...raidFields },
-      required: ["id"],
+      properties: { id: { type: "number" }, ...expectedTokenField, ...raidFields },
+      required: ["id", "expectedToken"],
     },
   },
   {
@@ -647,8 +651,8 @@ export const TOOL_DEFS = [
     description: "Update fields on an existing change item. Only the fields you pass change.",
     input_schema: {
       type: "object",
-      properties: { id: { type: "number" }, ...changeFields },
-      required: ["id"],
+      properties: { id: { type: "number" }, ...expectedTokenField, ...changeFields },
+      required: ["id", "expectedToken"],
     },
   },
   {
@@ -674,8 +678,8 @@ export const TOOL_DEFS = [
     description: "Update fields on an existing milestone. Only the fields you pass change.",
     input_schema: {
       type: "object",
-      properties: { id: { type: "number" }, ...milestoneFields },
-      required: ["id"],
+      properties: { id: { type: "number" }, ...expectedTokenField, ...milestoneFields },
+      required: ["id", "expectedToken"],
     },
   },
   {
@@ -702,8 +706,8 @@ export const TOOL_DEFS = [
     description: "Update fields on an existing stakeholder. Only the fields you pass change.",
     input_schema: {
       type: "object",
-      properties: { id: { type: "number" }, ...stakeholderFields },
-      required: ["id"],
+      properties: { id: { type: "number" }, ...expectedTokenField, ...stakeholderFields },
+      required: ["id", "expectedToken"],
     },
   },
   {

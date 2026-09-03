@@ -19,6 +19,7 @@ import {
   type Stakeholder,
   type TaskDependency,
 } from "./types";
+import { entityToken } from "./ai-entity-token";
 import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
 import type { ActivitySummary } from "./history-search";
 
@@ -424,40 +425,57 @@ describe("runTool — create_task", () => {
   });
 });
 
+// `makeDispatcher`'s `getTask(1)` hands back a pristine `makeTask()`, so this is
+// the token an honest read of task #1 yields. Every patch-shape case below has
+// to carry it now that `update_task` refuses an unauthenticated write.
+//
+// ★ It is deliberately NOT hoisted into `makeDispatcher`: the cases that assert
+//   on the patch are the ones proving the token never reaches it, and passing
+//   the field explicitly is what makes that visible at the call site.
+const FRESH_TASK_TOKEN = entityToken("task", makeTask());
+
 describe("runTool — update_task / buildPatch", () => {
   it("builds a partial patch from only the provided fields", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, notes: "hello", blockers: "wait" });
+    await runTool(d, "update_task", {
+      id: 1, expectedToken: FRESH_TASK_TOKEN, notes: "hello", blockers: "wait",
+    });
     expect(d.updateTask).toHaveBeenCalledWith(1, { description: "hello", blockers: "wait" });
   });
 
   it("coerces a non-string field value to empty string when key is present", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, taskName: 123 });
+    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, taskName: 123 });
     expect(d.updateTask).toHaveBeenCalledWith(1, { taskName: "" });
   });
 
   it("omits an unknown priority from the patch entirely", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, priority: "Nope" });
+    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, priority: "Nope" });
+    // Also the anti-leak case for the token itself: `buildPatch` is a
+    // whitelist, so `expectedToken` cannot reach the stored entity.
     expect(d.updateTask).toHaveBeenCalledWith(1, {});
   });
 
   it("keeps a valid priority in the patch", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, priority: "Low" });
+    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, priority: "Low" });
     expect(d.updateTask).toHaveBeenCalledWith(1, { priority: "Low" });
   });
 
   it("carries a status value through in the patch", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, status: "In Progress" });
+    await runTool(d, "update_task", {
+      id: 1, expectedToken: FRESH_TASK_TOKEN, status: "In Progress",
+    });
     expect(d.updateTask).toHaveBeenCalledWith(1, { status: "In Progress" });
   });
 
   it("sanitizes group and labels in the patch", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, group: "  Phase 1  ", labels: ["a", "a"] });
+    await runTool(d, "update_task", {
+      id: 1, expectedToken: FRESH_TASK_TOKEN, group: "  Phase 1  ", labels: ["a", "a"],
+    });
     const [, patch] = (d.updateTask as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(patch.group).toBe("Phase 1");
     expect(patch.labels).toEqual(["a"]);
@@ -473,9 +491,77 @@ describe("runTool — update_task / buildPatch", () => {
 
   it("throws when the task to update is not found", async () => {
     const d = makeDispatcher();
+    // ★ NO `expectedToken` HERE, ON PURPOSE. It pins the ORDER of the two
+    //   guards: not-found is resolved first, so a vanished task still reports
+    //   "not found" rather than the token's "changed since you read it", which
+    //   would send the model re-reading a row that is gone. Add a token here
+    //   and the case passes whichever order the code uses.
     await expect(runTool(d, "update_task", { id: 7 })).rejects.toThrow(
       "task #7 not found",
     );
+  });
+});
+
+/** A dispatcher over a MUTABLE row, so a concurrent write actually moves the
+ *  token.
+ *
+ *  ★★★ `makeDispatcher` CANNOT SUBSTITUTE AND THE FAILURE IS SILENT. Its
+ *  `getTask` returns a pristine `makeTask()` every call and its `updateTask`
+ *  stores nothing, so no write ever changes what a later read sees. A staleness
+ *  test written against it can never produce a mismatch: the guard is never
+ *  reached, nothing throws, and the case fails for a reason unrelated to the
+ *  thing it claims to cover. */
+function statefulTaskDispatcher(seed: Task): ToolDispatcher {
+  let row: Task = { ...seed };
+  return makeDispatcher({
+    getTask: vi.fn((id: number) => (id === 1 ? { ...row } : null)),
+    updateTask: vi.fn((id: number, patch: Partial<Task>) =>
+      id === 1 ? (row = { ...row, ...patch }) : null,
+    ),
+  });
+}
+
+describe("runTool — update_task concurrency token", () => {
+  it("refuses a stale write and leaves the human's value in place", async () => {
+    const d = statefulTaskDispatcher(makeTask());
+    // The model reads the task and derives a token from what it got back.
+    const read = (await runTool(d, "get_task", { id: 1 })) as Task;
+    const stale = entityToken("task", read);
+
+    // A human edits the same task while the model is still thinking.
+    d.updateTask(1, { taskName: "Renamed by a human" });
+
+    await expect(
+      runTool(d, "update_task", { id: 1, expectedToken: stale, taskName: "Renamed by the AI" }),
+    ).rejects.toThrow(/changed since you read it/);
+
+    // ★★ THE LOAD-BEARING ASSERTION. Asserting only that it threw would pass
+    //    against a tool that refused AND wrote anyway — the overwrite this
+    //    guard exists to stop, reported as a refusal.
+    expect(d.getTask(1)?.taskName).toBe("Renamed by a human");
+  });
+
+  it("refuses an update that supplies no token at all", async () => {
+    const d = statefulTaskDispatcher(makeTask());
+    await expect(
+      runTool(d, "update_task", { id: 1, taskName: "Renamed by the AI" }),
+    ).rejects.toThrow(/expectedToken is required/);
+    expect(d.getTask(1)?.taskName).toBe("Alpha");
+  });
+
+  it("accepts a write whose token is current", async () => {
+    // ★★ THE CONTROL. Without it a guard hardcoded to refuse every write —
+    //    `if (true) throw` — passes both cases above.
+    const d = statefulTaskDispatcher(makeTask());
+    const read = (await runTool(d, "get_task", { id: 1 })) as Task;
+
+    await runTool(d, "update_task", {
+      id: 1,
+      expectedToken: entityToken("task", read),
+      taskName: "Renamed by the AI",
+    });
+
+    expect(d.getTask(1)?.taskName).toBe("Renamed by the AI");
   });
 });
 
@@ -751,21 +837,27 @@ describe("runTool — list_stakeholders", () => {
 });
 
 describe("TOOL_DEFS — write tools are registered with required fields", () => {
+  // ★ Every entity `update_*` requires `expectedToken` as well as `id`. That
+  //   is the ADVERTISED surface only — nothing rejects a call that omits it,
+  //   which is why `requireToken` refuses absence on the ACCEPTED surface. The
+  //   create/delete tools take no token: a create has no prior version to be
+  //   stale against, and a delete of a changed row is covered by the register's
+  //   own confirm step rather than by this guard.
   const expectedRequired: Record<string, string[]> = {
     create_raid_item: ["title"],
-    update_raid_item: ["id"],
+    update_raid_item: ["id", "expectedToken"],
     delete_raid_item: ["id"],
     create_change: ["title"],
-    update_change: ["id"],
+    update_change: ["id", "expectedToken"],
     delete_change: ["id"],
     create_milestone: ["name", "date"],
-    update_milestone: ["id"],
+    update_milestone: ["id", "expectedToken"],
     delete_milestone: ["id"],
     create_stakeholder: ["name"],
-    update_stakeholder: ["id"],
+    update_stakeholder: ["id", "expectedToken"],
     delete_stakeholder: ["id"],
     get_resource: ["id"],
-    update_resource: ["id"],
+    update_resource: ["id", "expectedToken"],
     delete_resource: ["id"],
   };
 

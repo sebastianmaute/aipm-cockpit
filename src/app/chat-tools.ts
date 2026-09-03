@@ -1,7 +1,14 @@
-import { sanitizeGroup, sanitizeLabels } from "./sanitize";
-import { TOKEN_EXCLUDED, type TokenEntity } from "./ai-entity-token";
+import { sanitizeLabels } from "./sanitize";
+// ★ The update path's input helpers live in ./chat-tools-updates (moved for the
+//   800-line file-size ratchet, which this file had already crossed).
 import {
-  PRIORITIES,
+  asPriority,
+  asString,
+  buildPatch,
+  patchWithoutId,
+  requireToken,
+} from "./chat-tools-updates";
+import {
   type ChangeItem,
   type Milestone,
   type Priority,
@@ -436,92 +443,11 @@ export type ToolDispatcher = {
   // ratchet.
 } & DocumentToolDispatcher;
 
-function asString(v: unknown): string | undefined {
-  return typeof v === "string" ? v : undefined;
-}
-
-function asPriority(v: unknown): Priority | undefined {
-  if (typeof v === "string" && (PRIORITIES as unknown as string[]).includes(v))
-    return v as Priority;
-  return undefined;
-}
-
-function buildPatch(input: Record<string, unknown>): Partial<Task> {
-  const patch: Partial<Task> = {};
-  if (input.taskName !== undefined) patch.taskName = asString(input.taskName) ?? "";
-  if (input.assignee !== undefined) patch.assignee = asString(input.assignee) ?? "";
-  if (input.assigneeEmail !== undefined)
-    patch.assigneeEmail = asString(input.assigneeEmail) ?? "";
-  if (input.dueDate !== undefined) patch.dueDate = asString(input.dueDate) ?? "";
-  if (input.lastUpdateDate !== undefined)
-    patch.lastUpdateDate = asString(input.lastUpdateDate) ?? "";
-  if (input.priority !== undefined) {
-    const p = asPriority(input.priority);
-    if (p) patch.priority = p;
-  }
-  if (input.status !== undefined) {
-    const s = asString(input.status);
-    // Carry the raw value through; the dispatcher validates against
-    // TASK_STATUSES and routes it through applyStatusChange, which keeps the
-    // Done/completedDate invariant. A non-string is ignored.
-    if (s !== undefined) patch.status = s as Task["status"];
-  }
-  if (input.blockers !== undefined) patch.blockers = asString(input.blockers) ?? "";
-  // Plain text from the model; wrapped to HTML at the dispatcher (single write
-  // boundary — see use-chat-dispatcher updateTask).
-  //
-  // `description` is the field, and the only one the tool SCHEMA advertises
-  // (chat-tool-defs taskFields); `notes` is its pre-0.196.0 name, kept as a
-  // WRITE ALIAS deliberately.
-  //
-  // ★★ Do NOT retire it. A persisted insight recommendation stores its
-  // proposedCalls verbatim and replays them through runTool at apply time, so a
-  // proposal generated before the rename can still carry a `notes` key. Dropping
-  // the alias would break replay of an already-stored recommendation.
-  if (input.description !== undefined || input.notes !== undefined)
-    patch.description = asString(input.description ?? input.notes) ?? "";
-  if (input.group !== undefined) patch.group = sanitizeGroup(input.group);
-  if (input.labels !== undefined) patch.labels = sanitizeLabels(input.labels);
-  return patch;
-}
-
 /** Parse the numeric `id` field, throwing if absent/non-numeric. */
 function requireId(input: Record<string, unknown>): number {
   const id = Number(input.id);
   if (!Number.isFinite(id)) throw new Error("id must be a number");
   return id;
-}
-
-/** A shallow copy of the tool input with `id` and every token-excluded field
- *  removed — the update patch.
- *
- *  ★★★ THE EXCLUSION STRIP IS LOAD-BEARING. Unlike `buildPatch` (tasks), this
- *  helper has no whitelist: whatever the model emits is forwarded, and
- *  `use-register-tools` spreads it straight over the stored entity, where
- *  `sanitizeRaidItem` / `sanitizeChangeItem` / `sanitizeMilestone` PRESERVE
- *  `outlookEventId` and `inquiriesSent`. Those fields are excluded from
- *  `entityToken`, so without this strip the model could change them with the
- *  concurrency token blind to the change by construction — a false PERMIT for
- *  exactly those fields, which is the failure the token exists to prevent.
- *  The strip closes it by making the ACCEPTED surface match the ADVERTISED
- *  one: `chat-tool-defs` documents none of these fields, so nothing legitimate
- *  is lost.
- *
- *  ★★ THIS COMPLETES AN EXISTING PATTERN RATHER THAN INVENTING ONE. The other
- *  two excluded fields were already protected downstream — `localModifiedAt`
- *  is re-stamped after the spread and `noteLog` is re-applied from the stored
- *  row (`use-register-tools`, `withStoredNoteLog`). Those two survive a
- *  forwarded value by overwriting it; `outlookEventId` and `inquiriesSent` had
- *  no such backstop.
- *
- *  ★ `ai-entity-token.test.ts` drives the real dispatch path per tool, so
- *  reverting this strip — or adding a seventh pass-through tool that skips it
- *  — turns that suite red. */
-function patchWithoutId<T>(input: Record<string, unknown>, kind: TokenEntity): Partial<T> {
-  const patch = { ...input };
-  delete patch.id;
-  for (const field of TOKEN_EXCLUDED[kind]) delete patch[field];
-  return patch as Partial<T>;
 }
 
 // ★ The eight entity → summary projections live in ./chat-tool-summaries (moved
@@ -588,6 +514,18 @@ export async function runTool(
     case "update_task": {
       const id = Number(input.id);
       if (!Number.isFinite(id)) throw new Error("id must be a number");
+      // ★★ NOT-FOUND IS RESOLVED FIRST, AND THAT ORDER IS STRUCTURAL RATHER
+      //    THAN A PREFERENCE: the token is DERIVED from the stored row, so
+      //    there is nothing to compare against until the row is in hand. It is
+      //    also the better error — a deleted task reports "not found" instead
+      //    of "changed since you read it", which would send the model
+      //    re-reading a row that no longer exists.
+      const current = d.getTask(id);
+      if (!current) throw new Error(`task #${id} not found`);
+      // Before the patch is built, so a refused write does no work and — more
+      // to the point — cannot reach `updateTask` by any later edit to this
+      // block.
+      requireToken("task", current, input, `task #${id}`);
       const patch = buildPatch(input);
       const updated = d.updateTask(id, patch);
       if (!updated) throw new Error(`task #${id} not found`);
