@@ -79,11 +79,12 @@ attachment-ingest.ts        NEW  orchestrator: read, classify, recurse, budget
   \- mail-extract.ts        NEW  router + ParsedMail to Markdown
        |- eml-extract.ts    NEW  --> mime-parse.ts  NEW  RFC 5322 / 2045
        \- msg-extract.ts    NEW  --> cfbf.ts        NEW  MS-CFB container
-                                 \-- lzfu.ts        NEW  conditional, see "Owed items"
+                                 \-- lzfu.ts        NEW  MS-OXRTFCP decompression
 ```
 
-Seven new files, plus `lzfu.ts` only if the owed `.msg` measurement says RTF is needed. One-way
-dependencies, no cycles. Each is small; the repo norm is 200-400 lines with an 800-line ratchet.
+Eight new files, one-way dependencies, no cycles. Each is small; the repo norm is 200-400 lines
+with an 800-line ratchet. `lzfu.ts` was originally conditional on the `.msg` measurement; that
+measurement has since run and put it firmly in scope — see "Measured against real `.msg` files".
 
 ### Three decisions
 
@@ -219,6 +220,21 @@ FAT-sector pointers, covering about 7.1 MB at a 512-byte sector size. Beyond tha
 continues in chained sectors, each holding `SEC/4 - 1` pointers with its last word pointing to the
 next. A reader that stops at the header silently produces an empty directory rather than an error —
 measured, see below. Real business mail exceeds this routinely.
+
+### lzfu.ts
+
+| Threat | Guard |
+|---|---|
+| Declared uncompressed size is attacker-controlled | clamp against the budget **before allocating** the output buffer. Measured real values: 12 204 and 102 139 bytes |
+| Dictionary reference pointing outside the window | bounds-check every back-reference against the 4096-byte ring buffer |
+| Compressed size disagreeing with the stream length | trust the smaller of the two; never read past the stream |
+| Neither `LZFu` nor `MELA` magic | reject as corrupt rather than guessing |
+
+### msg-extract.ts
+
+| Threat | Guard |
+|---|---|
+| A sub-storage property mistaken for the message's own | **resolve properties by storage path, never by stream name alone.** Duplicate names across storages are normal — a probe that flattened the tree misattributed a `__nameid_version1.0` stream to the message body, which is the defect recorded under "Measured against real `.msg` files" |
 
 ### mime-parse.ts
 
@@ -367,44 +383,68 @@ is decorative.
 - Every `src/app` TypeScript file is CRLF. Anchored node writes must match CRLF; the Write tool
   re-lines a CRLF file to LF while Edit preserves it.
 
-## Measured against a real `.msg` (2026-09-03, n=1)
+## Measured against real `.msg` files (2026-09-03, n=2)
 
-One genuine business email — a workshop follow-up with two Office attachments — was probed with a
-throwaway CFBF reader. It is a client message and its content stays out of this repository; only
-structure is recorded here.
+Two genuine business emails were probed with a throwaway CFBF reader — a workshop follow-up
+carrying two Office attachments, and a reply on an existing thread. Both are client messages and
+their content stays out of this repository; only structure is recorded here.
 
-| Property | Value |
-|---|---:|
-| File size | 17 843 712 B (17.8 MB) |
-| Sector size / mini sector | 512 / 64, cutoff 4096 |
-| FAT sectors | 273 |
-| DIFAT sectors (chained, beyond the header's 109) | **2** |
-| Directory entries | 274 (251 of them `__substg1.0_*` property streams) |
-| Recipients | 8 |
-| Attachments | 2 — a `.pptx` of 16.7 MB and a `.docx` of 45 KB, both with correct MIME tags |
-| `PR_BODY` (plain, unicode) | 2 078 B — complete and readable |
-| `PR_RTF_COMPRESSED` | 3 242 B — present |
-| `PR_HTML` | **8 B** — `06 bd 68 da 15 00 24 00`, not HTML |
+| Property | Workshop mail | Reply thread |
+|---|---:|---:|
+| File size | 17.8 MB | 145 KB |
+| Sector size / mini sector | 512 / 64, cutoff 4096 | same |
+| DIFAT sectors chained beyond the header's 109 | **2** | 0 |
+| Directory entries (reachable / total slots) | 273 / 276 | 214 / 216 |
+| Recipients | 8 | 7 |
+| Attachments | 2 — a 16.7 MB `.pptx` and a 45 KB `.docx`, both with correct MIME tags | none |
+| `PR_BODY` plain, on the root message | 2 078 B (1 039 chars) | 14 420 B (7 210 chars) |
+| `PR_RTF_COMPRESSED` on the root message | 3 242 B, magic `LZFu`, raw 12 204 | 19 937 B, magic `LZFu`, raw 102 139 |
+| `PR_HTML` on the root message | **absent** | **absent** |
+
+### A probe defect, corrected — and why it is recorded here
+
+A first pass flattened every directory entry without tracking its parent storage, and reported an
+8-byte `PR_HTML`. That was wrong: the 8-byte stream lives in `__nameid_version1.0`, the
+named-property mapping storage, not on the message. The root message has no `PR_HTML` at all.
+
+The failure is worth recording because it is the shape this repository keeps hitting: an
+observation (8 bytes exist) was reported as a conclusion (the HTML body is 8 bytes), and the step
+between them was inference. Duplicate stream names across storages are normal in `.msg` — the reply
+thread shows two `PR_RTF_COMPRESSED` entries — so **any `.msg` reader that does not walk the
+red-black directory tree and track parent storages will silently attribute sub-storage properties
+to the message.** `msg-extract.ts` must resolve properties by storage path, never by name alone.
 
 ### What this changes
 
-1. **The ladder's ordering assumption was wrong.** The design predicted a real HTML body stream
-   would usually be present, making RTF a minority path safely deferred. Measured: the HTML stream
-   is 8 bytes of non-HTML and the only formatted body is RTF.
-2. **But the conclusion is softer than "LZFu is now mandatory".** The plain-text body is complete,
-   so the model still receives the full message without RTF. What RTF buys is **structure — above
-   all tables**. A mail whose allocations sit in a table degrades to shapeless prose without it.
-   Deferring LZFu is still defensible; it is now a measured trade rather than an assumed one, and
-   the disclosure marker for the degraded case stops being a rare path.
-3. **`MAX_ATTACHMENT_BYTES` will bite.** One ordinary email with a slide deck reached 17.8 MB
+1. **The ladder's HTML rung is dead weight, and the original assumption is refuted.** The design
+   predicted a real HTML body stream would usually be present, making RTF a minority path safely
+   deferred. Measured on 2 of 2: no `PR_HTML` at all. The ladder collapses to two rungs — plain
+   text, which always works, or RTF, which needs LZFu.
+2. **LZFu therefore moves INTO this slice.** With no HTML rung, "formatted body" means RTF or
+   nothing. Deferring it would fire the `rtf-degraded` disclosure on essentially every `.msg` a
+   user drops, which makes the fidelity claim hollow and turns a rare-path marker into the normal
+   case. The plain-text body remains complete, so content is never lost — what RTF buys is
+   **structure, above all tables**, which is exactly what a resourcing or budget mail carries.
+3. **A new security guard, directly measured.** The LZFu header declares its uncompressed size
+   (12 204 and 102 139 here). That field is attacker-controlled and must be clamped against the
+   budget before allocating, exactly like the CFBF stream-size field.
+4. **DIFAT chain walking is mandatory.** The 17.8 MB mail needs two chained DIFAT sectors; the
+   145 KB one needs none. A header-only reader returns an empty directory rather than an error.
+5. **`MAX_ATTACHMENT_BYTES` will bite.** One ordinary email with a slide deck reached 17.8 MB
    against a 20 MB cap. The cap is applied to the envelope, so mail needs either a raised ceiling
    or a cap applied per extracted node instead.
-4. **The recursion design is validated end to end.** This file exercises CFBF to `msg-extract` to
-   `ParsedMail` to recursion to `extractPptx` and `extractDocx`, all of which already exist. The
-   budget numbers also hold against it: a 2 KB body against a 20 KB floor, then two attachments
-   splitting the remainder under a 200 K per-node clamp.
-5. **The reader was validated by its own output** — plain body, attachment filenames and MIME tags
-   all decoded correctly — so the 8-byte `PR_HTML` is a real measurement, not a parsing error.
+6. **The recursion design is validated end to end.** The workshop mail exercises CFBF to
+   `msg-extract` to `ParsedMail` to recursion to `extractPptx` and `extractDocx`, all of which
+   already exist. The budget numbers hold against it: a 2 KB body against a 20 KB floor, then two
+   attachments splitting the remainder under a 200 K per-node clamp.
+
+### Limits of this sample
+
+Both files come from one mailbox, so almost certainly one Exchange tenant and one Outlook build.
+"Outlook writes no `PR_HTML`" may be a property of this configuration rather than of Outlook
+generally — though this configuration is the population that matters for this app's users. A
+message from an external sender is the most valuable third data point, followed by one sent from a
+mobile client.
 
 ### Fixture consequence
 
@@ -416,11 +456,13 @@ that matters.
 
 ## Owed items — gates, not assumptions
 
-1. **`.msg` body-stream measurement — PARTIALLY DISCHARGED 2026-09-03, and the original assumption
-   was refuted.** See "Measured against a real `.msg`" above. Still owed: 4-9 more files, in
-   particular a mobile-sent message and a forwarded thread, before the LZFu decision is final.
-2. **Licence question, only if LZFu is ported.** `@kenjiuno/decompressrtf` is BSD-2-Clause and is
-   the port candidate. This project is EUPL-1.2 and marked private, and currently contains zero
+1. **`.msg` body-stream measurement — DISCHARGED 2026-09-03 at n=2, and the original assumption was
+   refuted.** See "Measured against real `.msg` files" above. The LZFu decision is settled: it is in
+   scope. Still worth collecting, but no longer gating: a message from an external sender and one
+   sent from a mobile client, to test whether the absent `PR_HTML` is tenant-specific.
+2. **Licence question — now live, because LZFu is in scope.** `@kenjiuno/decompressrtf` is
+   BSD-2-Clause and is the port candidate; deriving `lzfu.ts` from MS-OXRTFCP directly avoids the
+   question entirely and is the fallback if counsel is slow. This project is EUPL-1.2 and marked private, and currently contains zero
    third-party code — D would introduce the first. Permissive-inbound-to-copyleft is the normal,
    uncontroversial direction, but EUPL-1.2 Article 1 defines "Distribution or Communication"
    broadly enough to plausibly cover network delivery, which would mean attribution obligations
