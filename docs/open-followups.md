@@ -569,7 +569,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§340](#340-two-tests-in-the-asset-preview-slice-pass-for-the-wrong-reason--open) | Two tests in the asset-preview slice pass for the wrong reason | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
 | [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
 | [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--open) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
-| [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--open) | The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | open |
+| [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--closed-2026-09-03) | ~~The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | **CLOSED** 2026-09-03 (eye-verified via a DevTools Performance screenshot capture; the entry records that the deletion control was not captured, so read it at that strength) |
 | [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | open |
 | [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | open |
 <!-- INDEX:END -->
@@ -26883,10 +26883,20 @@ alone and putting activation on a separate adjacent control. Both cost layout wo
 document HTML we do not own the structure of. Verify with a real screen reader before choosing;
 this is exactly the class of question jsdom cannot answer.
 
-## 343. The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it — open
+## 343. The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it — CLOSED 2026-09-03
 
-**Status:** open — **never machine-verified** (2026-09-02), and this entry exists because it
-CANNOT be, in the unit layer. Reproduce the gap with: delete `if (!open) setView(null);` from the
+**Status:** CLOSED 2026-09-03 by eye-verify against a live Turso project — **never
+machine-verified**, and it cannot be, in the unit layer. Open a preview, close it, reopen the SAME
+row: no broken-image frame. Captured with Chrome DevTools Performance recording WITH SCREENSHOTS
+rather than watched live, which is the part worth copying — the defect is a single paint, at the
+edge of what an eye catches, so "I looked and saw nothing" would not have been evidence.
+★★ WHAT THIS RECORD DOES NOT CLAIM: it does not state that the same capture was repeated with
+`if (!open) setView(null);` DELETED. Without that control, a clean capture is consistent with both
+"the fix works" and "the capture never sampled that frame" — screenshot capture is throttled, not
+per-frame. Read the closure at that strength and no higher; re-running the control is what would
+raise it.
+The gap this entry was filed for is unchanged and still real: delete `if (!open) setView(null);`
+from the
 render reconcile in `src/app/asset-preview-modal.tsx` and run
 `npx vitest run src/app/asset-preview-modal.test.tsx src/app/asset-library.test.tsx src/app/document-preview.test.tsx`
 — measured 2026-09-02 at 67 passed, 0 failed, with the fix deleted.
@@ -26902,8 +26912,9 @@ passive effects before returning, so the stale frame is already replaced by the 
 assertion runs — for the broken component AND the fixed one. A first cut asserted synchronously
 after `rerender` believing it could outrun the effect; its mutant survived 19/19.
 
-★★ OWED: an eye-verify against a real Turso project — open a preview, close it, reopen the same
-row, and confirm no broken-image flash. That is the only layer that can answer this.
+★★ That eye-verify is DONE (2026-09-03, see Status) and was always the only layer that could
+answer this. The entry stays readable as the record of WHY no test covers the line, which is still
+true — do not let a later round "add the missing test". There isn't one.
 
 ★ The sibling `forId` tag is NOT this fix and does not cover this path; it covers navigate and
 list-shrink, where the id genuinely changes, and the shrink case IS pinned by a test.
