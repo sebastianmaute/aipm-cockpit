@@ -84,7 +84,14 @@
   its id; the `EditPlan` is PREVIEW-ONLY — its `updates` carry no id, so a multi-call rec can't apply from the
   plan). task-manager owns the generate/apply/reject handlers (the `insightActions` bag moved AFTER
   `useChatDispatcher` so apply can reach `dispatcher`/`runTool`) + the `recommendation-review-modal.tsx` (Confirm →
-  replay → `recommendation.status="applied"` + insight `acted`, no undo; logs `ai.insightRecommendation`). Shared
+  replay → `recommendation.status="applied"` + insight `acted`, no undo; logs `ai.insightRecommendation`).
+  ★★ THAT ADVANCE IS NO LONGER UNCONDITIONAL. Every proposed `update_*` call is stamped with an
+  optimistic-concurrency token when the recommendation is STORED, and a replay whose target row has moved
+  since is refused before the dispatcher is reached; when nothing committed and every failure was such a
+  refusal, the insight is left untouched and the recommendation stays `proposed` so it can be regenerated
+  against the moved data. Mechanism, the reason the stamp happens at storage time rather than at apply time,
+  and the `ConcurrencyTokenError` type-match rule live in
+  [`ai-assistant.md`](ai-assistant.md) — not restated here. Shared
   row controls in `insight-recommendation-controls.tsx` (both surfaces). ★ `overdueTrend` NOW FIRES:
   `buildInsightInput` reads the prior overdue count from the per-project `landing-state` `metrics.overdue`
   (key = `portfolioCurrentId ?? "default"`, the SAME key workspace-section writes; memo captured at mount, NOT

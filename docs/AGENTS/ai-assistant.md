@@ -86,9 +86,13 @@
   `chat-tools.test.ts`.
 - **AI write tools:** tool SCHEMAS (`TOOL_DEFS` + per-entity field-property helpers `taskFields`/`raidFields`/…
   + `ALL_RAID_STATUSES`) live in pure `chat-tool-defs.ts`; `chat-tools.ts` re-exports `TOOL_DEFS` (so
-  `chat-api` imports it unchanged) and holds `runTool` routing + the `ToolDispatcher` type + arg-coercion/
-  summary helpers; tools are IMPLEMENTED in `use-chat-dispatcher.ts`. Tasks/RAID/Changes/Milestones/
-  Stakeholders all have create/update/delete; Resources now have create/get/update/delete + list
+  `chat-api` imports it unchanged) and holds `runTool` routing + the `ToolDispatcher` type; tools are
+  IMPLEMENTED in `use-chat-dispatcher.ts`. ★ The helpers it used to hold have been extracted for the
+  800-line ratchet: the eight entity→summary projections to `chat-tool-summaries.ts` (RE-EXPORTED from
+  `chat-tools.ts`, so no importer changed), the update path's coercions + patch builders + concurrency guard
+  to `chat-tools-updates.ts`, and the `list_tasks` projection to `chat-tools-lists.ts` (those two are plain
+  imports — a consumer wanting `ConcurrencyTokenError` imports it from `chat-tools-updates.ts` directly).
+  Tasks/RAID/Changes/Milestones/Stakeholders all have create/update/delete; Resources now have create/get/update/delete + list
   (`create_resource`/`get_resource`/`update_resource`/`delete_resource`/`list_resources` — a task assigned to a
   name is NOT a directory entry; the AI must create the resource to populate the directory. `delete_resource`
   is filter-and-set with NO cascade — dangling `resourceId`/`ownerResourceId`/`resourceIds[]` refs are left as-is,
@@ -100,8 +104,15 @@
   per-category RAID-status defaulting), id = `mintId(kind, ref.current)` (session-scoped high-water mint, never
   reused), then update BOTH the ref AND
   call `setX` (ref keeps back-to-back tool calls consistent). `runTool` write cases use
-  `requireId`/`patchWithoutId` (strips `id` from the update patch — a destructured `_id` would trip the
-  no-unused-vars rule).
+  `requireId`/`patchWithoutId`, both of which now live in `chat-tools-updates.ts` (extracted from
+  `chat-tools.ts` for the 800-line ratchet, not for a design reason). ★★ `patchWithoutId(input, kind)` takes
+  the entity KIND as a second argument and strips THREE classes of key, not one: `id`, the control value
+  `expectedToken`, and every field in that kind's `TOKEN_EXCLUDED` list. It has no whitelist — whatever the
+  model emits is spread straight over the stored entity — so the strip is what keeps the ACCEPTED surface
+  equal to the ADVERTISED one. `update_task` is the exception and does NOT use it: it goes through
+  `buildPatch`, a whitelist, which drops any key it does not name. A NEW pass-through update tool that skips
+  the strip reintroduces a false permit for exactly the excluded fields — see the concurrency-token bullet
+  below.
   ★ R4 added THREE more: read-only `get_dashboard_snapshot` (live RAG + progress + EVM + budget rollup, via
   `ai-dashboard-snapshot.ts`) and read-only `list_allocations` (planner grid) — both zero-arg, NO `isReadOnly`
   guard (reads) — plus the write tool `set_task_dependencies`. Derived data reaches the dispatcher as
@@ -123,6 +134,111 @@
   (`chat-tools.ts` throws, mirroring `requireId`), not in the pure resolver — a non-array must never be treated
   as "clear all". ★ TEST TRAP: `expect(getX(id)?.field ?? []).toEqual([])` against a fixture that never had the
   field passes whether the code preserves or erases. Seed a real prior value and watch the test FAIL first.
+- **Optimistic concurrency on the six entity `update_*` tools:** `update_task` · `update_raid_item` ·
+  `update_change` · `update_milestone` · `update_stakeholder` · `update_resource` each REQUIRE an
+  `expectedToken` input beside `id`. `runTool` resolves the row, re-derives the token from it with
+  `entityToken(kind, row)` (`ai-entity-token.ts`) and throws a `ConcurrencyTokenError` on mismatch — and on
+  ABSENCE. Before this, an `update_*` call was an id plus a patch with NO staleness check of any kind: the
+  model's write silently overwrote whatever a human, a background sync or a second tab had done in the
+  meantime.
+  ★★★ **THE TOKEN IS DERIVED, NOT STAMPED, AND THAT IS THE DESIGN.** The obvious alternative —
+  `Task.localModifiedAt`, which already exists and is already described as sync-conflict bookkeeping — was
+  rejected: a stamp is only as good as the set of writers that remember to set it, and a write path that
+  forgets leaves the field UNCHANGED after a real edit. The guard then compares two identical values,
+  concludes nothing moved, and permits the exact overwrite it exists to prevent — a false PERMIT, which is
+  the dangerous direction. `entityToken` instead hashes the entity's own content through the byte-stable
+  CSV projection (`CSV_COLUMNS`/`fieldToString` and their five peers), so a change by ANY writer, including
+  write paths added years from now, is visible by construction.
+  ★★ CONSEQUENCE worth recognising rather than debugging: adding a column to any `*_CSV_COLUMNS` array
+  invalidates every outstanding token for that entity at once, because the projection changed. Safe
+  direction — a stale token is refused, never silently accepted — but it looks like a burst of spurious
+  conflicts right after such a change.
+  ★★ `TOKEN_EXCLUDED` (per entity) holds the bookkeeping columns left OUT of the hash — `localModifiedAt`,
+  `lastSyncedAt`, `outlookEventId`, `inquiriesSent`, `noteLog`. A field may be excluded ONLY if no `update_*`
+  tool lets the MODEL choose its value; excluding one the model can set reintroduces a false permit for
+  exactly that field. "Lets the model CHOOSE" is load-bearing and every shorter wording of it has been
+  false — the handlers themselves stamp `localModifiedAt` over the patch, and `send_inquiry` and
+  `set_task_dependencies` write excluded fields too. In every such case the value is computed by the app, so
+  the token is deliberately blind to it: what is lost is a counter or a timestamp, never a field of content.
+  `ai-entity-token.test.ts` asserts the exclusion set is disjoint from what the tools ACCEPT, driving the
+  real dispatch path rather than the advertised schema.
+  ★★ NOT-FOUND IS RESOLVED BEFORE THE TOKEN, structurally rather than as a preference: the token can only be
+  derived from the stored row, so there is nothing to compare until the row is in hand. It is also the better
+  error — a deleted entity reports "not found" instead of "changed since you read it", which would send the
+  model re-reading a row that is gone.
+  ★★ ABSENCE IS REFUSED, not read as "skip the check": otherwise a model bypasses the guard by omitting one
+  field, and the guard protects only the callers that already cooperate. `required: ["id", "expectedToken"]`
+  in the schema is ADVISORY — nothing in the API rejects a call that omits it, so `requireToken` on the
+  ACCEPTED surface is the actual enforcement. The advertised field (`expectedTokenField`) is declared beside
+  `requireToken` in `chat-tools-updates.ts`, not in the schema file, so the two cannot drift.
+  ★★ FIVE new row getters on `ToolDispatcher` exist ONLY to derive the token and are never a model-facing
+  read: `getRaidRow`/`getChangeRow`/`getMilestoneRow`/`getStakeholderRow` (`use-register-tools.ts`) plus
+  `getResourceRow` (`use-chat-dispatcher.ts`). The SUMMARY projections the model actually reads
+  (`listRaid`/`get_resource` and their peers) cannot substitute: they drop the rich fields an edit is most
+  likely to touch (`description`, `mitigation`, …), so a token hashed from a summary would be a false permit
+  for every dropped field. Tasks need no such getter — `getTask` already returns the stored row.
+  ★ MATCH ON `ConcurrencyTokenError`, NEVER ON ITS MESSAGE. Both messages are model-facing recovery
+  instructions returned as a `tool_result` and may be reworded at any time. The type exists so a caller can
+  tell "refused, nothing was written" apart from every other tool failure — see the insight-replay note below.
+  ★ TWO write tools are deliberately NOT token-guarded, and both are named in `NOT_TOKEN_GUARDED` in
+  `ai-entity-token.test.ts` (whose exhaustiveness case turns red if the field is spread onto either):
+  `update_settings` is not an entity with a projection, and `update_document` persists as a meta-blob with no
+  CSV projection, so `entityToken` structurally cannot cover it — documents carry their own per-block
+  optimistic concurrency through `DocOp`'s `expect`, which is currently NOT advertised on the tool schema.
+  ★★★ **NO READ TOOL RETURNS A TOKEN TODAY, so the chat path has no advertised way to obtain one.** The
+  schema text says "the token returned when you read this record", and no case in `runTool` emits one —
+  `get_task` returns the row and the `list_*` tools return rows or an envelope of them, none of them carrying
+  a token, and the value is a 16-hex hash of an internal projection that a model cannot compute. The two IN-APP callers derive it themselves (below) and are
+  unaffected; a model-driven `update_*` is refused for want of a token it was never given. Verify before
+  relying on this either way: `grep -rn "entityToken" src --include=*.ts | grep -v "\.test\."` returns the
+  only three non-test derivation points.
+  ★★ THE TWO IN-APP CALLERS DIFFER IN *WHEN* THEY DERIVE, and in both cases that is the whole design.
+  (1) Inline "Ask Claude" edit takes the token in `submit`, from the SAME object serialized into the prompt,
+  so the window it covers is the AI round-trip PLUS the user's read of the preview and their click on Apply
+  (`use-inline-entity-edit.ts`). (2) Insight recommendations stamp it when the proposal is STORED
+  (`stampRecommendationTokens`, `insights/recommend-tokens.ts`), covering the window from storage to confirm —
+  a background-generated recommendation can sit unreviewed for days. It does NOT cover the model round-trip
+  itself, because the entities handed in are the caller's live render-scope arrays. ★★★ Deriving in EITHER
+  case at APPLY time — the obvious-looking simplification — is VACUOUS BY CONSTRUCTION: you would compare a
+  token against the very read it came from, so `requireToken` could never refuse. That is not a weaker guard,
+  it is no guard, reported as protection.
+  ★★ A REFUSED INSIGHT REPLAY MUST NOT ADVANCE THE INSIGHT. `use-insight-recommendations.ts` counts stale
+  refusals separately from hard failures: when nothing committed and every failure was a refusal, the insight
+  is left where it was and the recommendation stays `proposed` (toast
+  `insightRecommendationStale`), so the user can regenerate against the moved data; a mixed run still advances
+  but reports `insightRecommendationStalePartial`. The unconditional advance-on-failure rule exists because a
+  failed call MAY have committed and a retry would duplicate `create_*` entities — a `ConcurrencyTokenError`
+  is thrown before the dispatcher is reached, so that reasoning does not apply to it, and folding it in makes
+  a correctly-refused recommendation silently unretryable.
+- **`list_tasks` returns an envelope, not a bare array:** `{items, total}`, plus `limit` echoed back ONLY when
+  the caller passed a usable one (`listTasksEnvelope`, `chat-tools-lists.ts`). `total` is the count BEFORE the
+  slice, so "how many tasks exist?" is answerable from ONE call even when the model asked for a page. `limit`
+  is optional and untrusted — anything that is not a positive finite number is treated as absent, and an
+  absent one returns everything, key for key as before, so no existing prompt sees a shape it was not written
+  against. It used to be `return d.listTasks()`: the whole array, no total, every rich field in full.
+  ★★ THE SLIMMING TARGET IS `Task.description` AND `Task.noteLog`, AND NOTHING ELSE — do NOT restate this as
+  "the seven rich fields were slimmed", which would be false. Every other entity list tool already projects
+  through `chat-tool-summaries.ts` to a `*Summary` type carrying no rich HTML at all (reproduce:
+  `grep -n "description\|mitigation\|noteLog" src/app/chat-tool-summaries.ts` returns nothing), so
+  `list_tasks` was the ONLY tool returning full rows. `slimTaskForList` keeps every other field of `Task`
+  untouched.
+  ★ The two are slimmed by DIFFERENT mechanisms and the second one is the subtle half. `description` is
+  projected through `htmlToPlainText`. `noteLog` is NOT re-plain-texted: `NoteLogEntry` already carries
+  `text`, a canonical plain projection of `html` that `sanitizeNoteLogWith` re-derives on every load, so the
+  list path simply DROPS `html` and keeps the `text` already there (`NoteLogListEntry` =
+  `Omit<NoteLogEntry, "html">`). Timestamp, author and id survive, so the model still knows when and by whom
+  a note was written.
+  ★★ ONLY THE LIST PATH IS SLIMMED. `get_task` keeps full fidelity ON PURPOSE — an assistant about to EDIT a
+  description needs the markup it is editing, and it is the list side that carries the volume justifying the
+  projection. `chat-tools.test.ts` holds a control asserting `get_task` keeps the markup the list projection
+  strips; without it, slimming BOTH paths would satisfy every other assertion in that block.
+  ★ SIZE EFFECT, RECORDED AS INHERITED RATHER THAN RE-MEASURED: the branch that landed this measured the
+  real response over the 14 tasks of `sample-workspace-small.json` at 12153 → 10183 bytes (−16.2%), most of
+  it `noteLog` rather than `description`. Nothing pins that number, no test asserts it, and it moves with the
+  sample — read it as a magnitude, and re-measure before quoting it anywhere that matters.
+  ★ `chat-tools-lists.ts` is pure and DOM-free: `htmlToPlainText` is regex-only and never reaches DOMPurify,
+  so the module is safe to import from the tool layer, which runs in the browser and in bare node under
+  vitest.
 - **AI document tools (five):** `list_documents` · `get_document` · `create_document` · `update_document` ·
   `delete_document`. Schemas in `chat-tool-defs-documents.ts` (`DOCUMENT_TOOL_DEFS`, spread into `TOOL_DEFS`);
   routing + boundary validation in `chat-tools-documents.ts` (`isDocumentTool` → `runDocumentTool`, dispatched
@@ -132,8 +248,11 @@
   `chat-tools-documents.ts`'s own header states it for both. Re-measured 2026-08-16 with the gate's own
   counter (`split("\n").length`, i.e. `wc -l` + 1): `chat-tools.ts` is **791** — **9** lines of headroom
   against ~139 lines of routing, so that split is genuinely forced and the file is now nearly full.
-  `chat-tool-defs.ts` is **766** — **34** lines of headroom (re-measured 2026-08-18; this line said **631**
-  and **169** through two features).
+  `chat-tool-defs.ts` is **787** — **13** lines of headroom (re-measured 2026-09-03, after the concurrency
+  token widened all six update schemas; this line said **766**/**34** and, before that, **631**/**169**,
+  going quietly stale through every feature that touches either file). ★ Measure, do not trust these two —
+  `node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`, which is the
+  gate's own counter and is `wc -l` + 1.
   ★★★ **AND "WOULD HAVE FIT COMFORTABLY INLINE" IS NOW HISTORY, NOT ADVICE — the split was not
   ratchet-forced when it was made and IS load-bearing today.** The `DOCUMENT_TOOL_DEFS` block measures
   **73** lines, over the 800 cap: the defs file can no longer absorb the schemas it

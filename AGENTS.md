@@ -27,7 +27,7 @@ before your first edit — the rest is reference, reachable from here.
 | [ui-shell](docs/AGENTS/ui-shell.md) | Help · nav · focus/keyboard · surfaces · ★ **dismissal owns the Escape/Tab protocol — read it before touching any modal, popover or panel** |
 | [theming](docs/AGENTS/theming.md) | colour schemes · `--ui-*` tokens · AA derivation · branding · print · DS primitives |
 | [insights](docs/AGENTS/insights.md) | detect · reconcile · recommend · outcome · digest |
-| [ai-assistant](docs/AGENTS/ai-assistant.md) | wire layer · tools · inline edit · dedup · scheduled jobs |
+| [ai-assistant](docs/AGENTS/ai-assistant.md) | wire layer · tools · write-concurrency tokens · inline edit · dedup · scheduled jobs |
 | [integrations](docs/AGENTS/integrations.md) | steering committee · calendar write-back + two-way pull · Timelog |
 | [platform](docs/AGENTS/platform.md) | diagnostics · guard transparency · dictation · AI master switch |
 | [features](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
@@ -1682,7 +1682,7 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 | [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
 | [theming.md](docs/AGENTS/theming.md) | colour schemes · the `--ui-*` token families · AA derivation · the dark-mode hover trap · branding · print · design-system primitives |
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |
-| [ai-assistant.md](docs/AGENTS/ai-assistant.md) | wire layer · tools · inline edit · dedup · scheduled jobs · allocation & RACI planning |
+| [ai-assistant.md](docs/AGENTS/ai-assistant.md) | wire layer · tools · write-concurrency tokens on the six `update_*` tools · inline edit · dedup · scheduled jobs · allocation & RACI planning |
 | [integrations.md](docs/AGENTS/integrations.md) | steering committee · Outlook calendar write-back and two-way pull · Timelog |
 | [platform.md](docs/AGENTS/platform.md) | diagnostics ring · guard transparency · dictation · the AI master switch |
 | [features.md](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
