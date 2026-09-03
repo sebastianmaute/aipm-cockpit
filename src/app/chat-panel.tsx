@@ -32,8 +32,7 @@ import {
   type AttachmentError,
   classifyAttachment,
   checkAttachmentSize,
-  buildAttachmentBlock,
-  ATTACHMENT_ACCEPT,
+  buildAttachmentBlock, ATTACHMENT_ACCEPT,
 } from "./chat-attachments";
 import {
   buildSystemPrompt,

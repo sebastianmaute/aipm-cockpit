@@ -71,8 +71,6 @@ describe("Step0ImportPanel multi-file", () => {
   it("offers the shared accept list, not a hand-written subset", () => {
     render(<Step0ImportPanel {...baseProps} onIngest={vi.fn()} />);
     selectFileMethod();
-    const input = document.querySelector('input[type="file"]');
-    expect(input).not.toBeNull();
-    expect(input?.getAttribute("accept")).toBe(ATTACHMENT_ACCEPT);
+    expect(fileInput().getAttribute("accept")).toBe(ATTACHMENT_ACCEPT);
   });
 });

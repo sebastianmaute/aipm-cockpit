@@ -6,6 +6,7 @@ import { useState } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
+import { ATTACHMENT_ACCEPT } from "./chat-attachments";
 import { loadThreads, saveThread } from "./chat-threads-store";
 import type { ChatThread } from "./chat-threads";
 import { t } from "./i18n";
@@ -159,6 +160,12 @@ describe("Attachment guidance", () => {
     // Previously only the LAST file's error survived; both must now appear.
     expect(alert.textContent).toContain("notes.exe");
     expect(alert.textContent).toContain("data.bin");
+  });
+
+  it("offers the shared accept list, not a hand-written literal", () => {
+    const { container } = renderComposer();
+    const input = container.querySelector('input[type="file"]');
+    expect(input?.getAttribute("accept")).toBe(ATTACHMENT_ACCEPT);
   });
 });
 
