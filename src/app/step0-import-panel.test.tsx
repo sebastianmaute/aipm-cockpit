@@ -3,7 +3,31 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Step0ImportPanel } from "./step0-import-panel";
 import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
-import { ATTACHMENT_ACCEPT } from "./chat-attachments";
+import { ATTACHMENT_ACCEPT, type DocumentBlock } from "./chat-attachments";
+
+// SharePoint path stubs — the picker itself and the Graph fetch are mocked so
+// the regression test below can drive Step0ImportPanel's onSharePointPick
+// handler without a real M365 session. Kept minimal: onSelect fires with a
+// fixed link the moment the stub picker renders.
+vi.mock("./m365-sharepoint", () => ({
+  isSharePointEnabled: () => true,
+  fetchSharePointFileContent: vi.fn(),
+}));
+vi.mock("./use-ms-auth", () => ({
+  useMsAuth: () => ({ acquireToken: vi.fn() }),
+}));
+vi.mock("./sharepoint-picker-modal", () => ({
+  SharePointPickerModal: ({ onSelect }: { onSelect: (link: unknown) => void }) => (
+    <button
+      type="button"
+      onClick={() =>
+        onSelect({ id: "1", name: "note.html", url: "https://x/note.html", kind: "file" as const })
+      }
+    >
+      stub-sp-pick
+    </button>
+  ),
+}));
 
 const baseProps = {
   lang: "en-US" as const,
@@ -72,5 +96,51 @@ describe("Step0ImportPanel multi-file", () => {
     render(<Step0ImportPanel {...baseProps} onIngest={vi.fn()} />);
     selectFileMethod();
     expect(fileInput().getAttribute("accept")).toBe(ATTACHMENT_ACCEPT);
+  });
+
+  // ★★★ REGRESSION GUARD (0b4d23e5 widened AttachmentKind with "html" and the
+  // wizard's readFileData branch stayed a strict `=== "text"` check — an HTML
+  // pick fell into the base64 else-branch). Assert on the DECODED content, not
+  // merely non-empty, so a base64 blob with no "<p>" cannot pass by accident.
+  it("reads an html file's raw text, not base64", async () => {
+    const onIngest = vi.fn().mockResolvedValue(undefined);
+    render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
+    selectFileMethod();
+    const html = new File(["<p>hello</p>"], "note.html", { type: "text/html" });
+    fireEvent.change(fileInput(), { target: { files: [html] } });
+    await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
+    const content = onIngest.mock.calls[0][0];
+    const block = content[1] as DocumentBlock;
+    expect(block.source.type).toBe("text");
+    expect((block.source as { data: string }).data).toBe("<p>hello</p>");
+  });
+});
+
+describe("Step0ImportPanel SharePoint import", () => {
+  // ★★★ REGRESSION GUARD for the SAME defect at the SharePoint site
+  // (step0-import-panel.tsx's onSharePointPick ternary), which is reached
+  // through a separate hand-rolled `kind === "text"` check, not readFileData.
+  it("reads an html SharePoint file's raw text, not base64", async () => {
+    const { fetchSharePointFileContent } = await import("./m365-sharepoint");
+    const bytes = new TextEncoder().encode("<p>hello</p>").buffer;
+    vi.mocked(fetchSharePointFileContent).mockResolvedValue({
+      name: "note.html",
+      mime: "text/html",
+      bytes,
+    });
+    const onIngest = vi.fn().mockResolvedValue(undefined);
+    render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: t("en-US", "wizardImportMethodSharePoint") }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: t("en-US", "wizardImportSharePointBrowse") }),
+    );
+    fireEvent.click(screen.getByText("stub-sp-pick"));
+    await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
+    const content = onIngest.mock.calls[0][0];
+    const block = content[1] as DocumentBlock;
+    expect(block.source.type).toBe("text");
+    expect((block.source as { data: string }).data).toBe("<p>hello</p>");
   });
 });

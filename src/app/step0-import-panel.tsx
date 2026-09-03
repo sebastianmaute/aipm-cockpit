@@ -61,7 +61,13 @@ function readFileData(file: File, kind: AttachmentKind): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("read"));
-    if (kind === "text") {
+    // "html" decodes the same way as "text" — buildAttachmentBlock wraps its raw
+    // markup as a text/plain document block (extraction to Markdown is a later
+    // step, not this one). Do NOT add "mail" here: .eml is text but .msg is a
+    // binary CFBF compound file, and TextDecoder would corrupt the bytes its
+    // parser needs — mail gets its own reader when classifyAttachment starts
+    // producing "mail".
+    if (kind === "text" || kind === "html") {
       reader.onload = () => {
         if (typeof reader.result !== "string") return reject(new Error("read"));
         resolve(reader.result);
@@ -233,8 +239,10 @@ export function Step0ImportPanel({
         setImportError(t(lang, "wizardImportErrorUnsupported"));
         return;
       }
+      // "html" decodes like "text" here too — see the readFileData comment above
+      // for why "mail" is deliberately excluded (.msg is binary CFBF, not text).
       const data =
-        kind === "text"
+        kind === "text" || kind === "html"
           ? new TextDecoder().decode(bytes)
           : officeFmt
             ? await extractOfficeMarkdown(bytes, officeFmt)

@@ -81,7 +81,13 @@ export function readAttachmentData(
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(reader.error ?? new Error("read failed"));
-    if (kind === "text") {
+    // "html" decodes the same way as "text" — buildAttachmentBlock wraps its raw
+    // markup as a text/plain document block (extraction to Markdown is a later
+    // step, not this one). Do NOT add "mail" here: .eml is text but .msg is a
+    // binary CFBF compound file, and TextDecoder would corrupt the bytes its
+    // parser needs — mail gets its own reader when classifyAttachment starts
+    // producing "mail".
+    if (kind === "text" || kind === "html") {
       reader.onload = () => resolve(String(reader.result ?? ""));
       reader.readAsText(file);
     } else {
