@@ -189,12 +189,26 @@ const PROJECTORS: Readonly<Record<TokenEntity, ErasedProjector>> = {
  *  T)[]` — which keeps the members visible AND keeps the every-member-is-a-key
  *  constraint the annotation was there for. Do not "tidy" it back.
  *
- *  ★★ MUTATION-PROVED, because a guard whose failure mode nobody has SEEN is
- *  indistinguishable from a comment: deleting `"labels"` from `CSV_COLUMNS`
- *  yields exactly one error, `TS2322` at the `task` row, whose expected type
- *  spells out `["field(s) missing from the CSV column list:", "labels"]` — the
- *  tuple exists so the diagnostic NAMES the unprojected field instead of just
- *  rejecting `true`. `tsc` exits 2; the unit suite is unaffected either way. */
+ *  ★★ MUTATION-PROVED IN THE DIRECTION THAT MATTERS, which is ADDING a field to
+ *  the entity type without a column — not deleting a column. Both trip the same
+ *  `Exclude`, but only the ADD direction is what this guard is for, and only it
+ *  is invisible to everything else: adding `zzMutantProbeField?: string` to
+ *  `Task` gives `tsc` exit 2 with exactly one error, `TS2322` at the `task` row,
+ *  expected type `["field(s) missing from the CSV column list:",
+ *  "zzMutantProbeField"]` — the tuple exists so the diagnostic NAMES the
+ *  unprojected field rather than just rejecting `true` — while
+ *  `golden-workspace`, `csv-codecs` and this module's own tests stay GREEN
+ *  (71 passed). The column list drives the serializers, so a field with no
+ *  column changes no emitted byte and no fixture can see it.
+ *  ★★★ DO NOT RESTATE THIS AS "tsc is the only detector" FOR THE DELETE
+ *  DIRECTION — an earlier version of this comment proved the guard by deleting
+ *  `"labels"` from `CSV_COLUMNS` and asserted "the unit suite is unaffected
+ *  either way", which is FALSE and was never run: `labels` is column 16 of the
+ *  byte-pinned TASKS header in `__fixtures__/golden-workspace.csv`, so that
+ *  mutant is killed by `golden-workspace.test` as well. Removing a column is
+ *  doubly covered; adding an unprojected field is covered here and nowhere
+ *  else. Reproduce the fixture half with:
+ *  `head -2 src/app/__fixtures__/golden-workspace.csv | tail -1 | tr ',' '\n' | grep -n labels` */
 type Unprojected<T, C extends readonly string[]> = Exclude<keyof T & string, C[number]>;
 type Projected<T, C extends readonly string[]> = Unprojected<T, C> extends never
   ? true
