@@ -140,9 +140,15 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
   //   token-guarded update fetches the stored row BEFORE it will accept a
   //   write. A dispatcher carrying only the update method makes the tool throw
   //   on a missing getter, and the anti-vacuity assertion below then reports it
-  //   honestly rather than passing. The getter is threaded for all six even
-  //   though enforcement has so far landed on `update_task` only -- the case
-  //   keeps working, unedited, as the remaining five are guarded.
+  //   honestly rather than passing. The getter is threaded for all six because
+  //   all six are guarded.
+  //   ★★ THIS COMMENT SAID "enforcement has so far landed on `update_task`
+  //   only -- the case keeps working, unedited, as the remaining five are
+  //   guarded". That was written mid-slice and describes PRE-FIX code as
+  //   current: the other five were guarded in the same slice, in the commit
+  //   right after the one this sentence shipped in. It read as a live TODO for
+  //   work already done, which is the direction that wastes a reader's time
+  //   rather than misleading them into a defect -- but it is the same rot.
   const DISPATCH: Array<{
     tool: string;
     kind: TokenEntity;

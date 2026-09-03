@@ -395,6 +395,31 @@ describe("runTool — list_tasks / get_task", () => {
     expect(result.limit).toBe(2);
   });
 
+  // ★★★ A FRACTIONAL LIMIT UNDER 1 MEANS "NO LIMIT", NOT "NO ROWS". `0.5` is
+  //   positive and finite, so it passed the old `rawLimit > 0` test, floored to
+  //   `0`, and returned `{items: [], limit: 0}` — every row withheld from a
+  //   model that asked for a page, as a successful empty result indistinguishable
+  //   from "there are no tasks". The docstring already said a value like this
+  //   means "no limit"; the code disagreed with it on the open interval (0,1).
+  //   `1.7` is the neighbour that must still floor to a real page of 1, so the
+  //   fix cannot be "ignore every fractional limit".
+  it.each([
+    { label: "a fraction under 1 is no limit, not an empty page", limit: 0.5, ids: [1, 2, 3], out: undefined },
+    { label: "a fraction above 1 still floors to a real page", limit: 1.7, ids: [1], out: 1 },
+    { label: "zero is no limit", limit: 0, ids: [1, 2, 3], out: undefined },
+    { label: "a negative is no limit", limit: -2, ids: [1, 2, 3], out: undefined },
+  ])("list_tasks: $label", async ({ limit, ids, out }) => {
+    const rows = [makeTask({ id: 1 }), makeTask({ id: 2 }), makeTask({ id: 3 })];
+    const d = makeDispatcher({ listTasks: vi.fn(() => rows) });
+    const result = (await runTool(d, "list_tasks", { limit })) as ListEnvelope;
+    expect(result.items.map((t) => t.id)).toEqual(ids);
+    expect(result.total).toBe(3);
+    // `undefined` here means the key must be ABSENT, not present-and-undefined:
+    // `limit: 0` in the payload is the very defect above.
+    expect(result.limit).toBe(out);
+    expect("limit" in result).toBe(out !== undefined);
+  });
+
   // ★ THE CONTROL. Slimming BOTH paths would satisfy every assertion above; only
   // this pins that an assistant about to EDIT a description still gets the markup
   // it is editing. Both tools read the SAME row here, so a shared projection fails.
@@ -1401,8 +1426,15 @@ describe("set_task_dependencies", () => {
       setTaskDependencies: () => null,
     } as unknown as ToolDispatcher;
 
+    // ★★ THE FULL MESSAGE, not the `"#9 not found"` SUBSTRING this asserted
+    //   before. The capital `T` is this tool's inherited spelling and the six
+    //   `update_*` tools use lowercase (see `requireTaskWriteToken`); a
+    //   substring match cannot see a change in either direction, so moving the
+    //   check earlier could have silently reworded a model-facing string.
+    //   ★ ANCHORED. `toThrow("...")` is itself a SUBSTRING match, so passing
+    //   the whole sentence as a string would not have pinned it either.
     await expect(runTool(d, "set_task_dependencies", { id: 9, dependencies: [] })).rejects.toThrow(
-      "#9 not found",
+      /^Task #9 not found$/,
     );
   });
 

@@ -222,9 +222,23 @@ export function requireToken(
  *
  *  ★ NOT-FOUND FIRST is structural, not stylistic — the token is derived from
  *  the stored row, so there is nothing to compare against until the row is in
- *  hand. See `requireToken` for the full reasoning. The message spelling
- *  (`Task #N not found`) is the one this tool already threw post-write; it is
- *  preserved so the existing not-found contract is unchanged. */
+ *  hand. See `requireToken` for the full reasoning.
+ *
+ *  ★★ THE CAPITAL `T` IS DELIBERATE AND IS THE ODD ONE OUT. The six `update_*`
+ *  tools throw lowercase (`task #N not found`); this tool has always thrown
+ *  `Task #N not found` from its post-write check, and moving the check EARLIER
+ *  must not also change what it says. Aligning the casing is a separate,
+ *  defensible change — but it would be an unrelated behaviour change smuggled
+ *  into a security fix, and these strings are model-facing `tool_result` text
+ *  that a stored insight recommendation could in principle be replaying
+ *  against. So: same string, earlier. ★ Nothing used to be able to SEE a
+ *  change either way — `chat-tools.test.ts` asserted only the substring
+ *  `"#9 not found"` — so the case now asserts the full message, which is what
+ *  makes this choice enforceable rather than merely stated. Note the token
+ *  LABEL below stays lowercase (`task #N`), matching the other six, so a user
+ *  who hits both branches sees `Task #7 not found` and `task #7 changed since
+ *  you read it`. That inconsistency is inherited, now visible, and worth fixing
+ *  in a commit that does nothing else. */
 export function requireTaskWriteToken(
   current: Task | null | undefined,
   id: number,
