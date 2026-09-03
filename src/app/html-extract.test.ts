@@ -114,6 +114,28 @@ describe("extractHtmlMarkdown", () => {
     expect(out).not.toMatch(/\|\s*a\s*\|\s*b\s*\|\s*c\s*\|/);
   });
 
+  it("round-trips two adjacent raw '&' characters in a table cell (a spaced sentinel would corrupt this)", () => {
+    const out = extractHtmlMarkdown(`<table><tr><td>a && b</td><td>c</td></tr></table>`);
+    expect(out).toContain("| a && b | c |");
+    expect(out).not.toContain("AMP");
+  });
+
+  it("does not let a literal sentinel byte in hostile input survive as a decoded '&'", () => {
+    const sentinelChar = String.fromCodePoint(0xe000);
+    const out = extractHtmlMarkdown(`<p>before${sentinelChar}after</p>`);
+    expect(out).not.toContain("&");
+    expect(out).toContain("before");
+    expect(out).toContain("after");
+  });
+
+  it("does not treat a run longer than the tag-scan bound as a tag", () => {
+    const longRun = "<" + "a".repeat(5000) + ">";
+    const out = extractHtmlMarkdown(`<p>before</p>${longRun}<p>after</p>`);
+    expect(out).toContain(longRun);
+    expect(out).toContain("before");
+    expect(out).toContain("after");
+  });
+
   it("converts <br> to a newline", () => {
     expect(extractHtmlMarkdown(`<p>line one<br>line two</p>`)).toMatch(/line one\nline two/);
   });

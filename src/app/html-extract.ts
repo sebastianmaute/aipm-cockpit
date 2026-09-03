@@ -53,16 +53,19 @@ const MAX_TABLE_ROWS = 1000;
  *  own escaping, forging table/heading structure. cellText replaces its own
  *  "&" with this sentinel immediately after decoding; extractHtmlMarkdown
  *  restores it to "&" once, only after its own decode pass has already run
- *  over everything else. Plain text (not a control character) so it reads
- *  sanely if ever surfaced un-restored; the accepted tradeoff is that a
- *  genuine " AMP " substring elsewhere in the input collides with it.
- *  ★ Known gap, not a security regression: TWO adjacent raw "&" characters
- *  (e.g. literal "&&") do not round-trip — cellText's own whitespace
- *  collapse merges the two sentinel tokens' shared space before the
- *  document-level restore runs, so only the first is restored and "AMP "
- *  is left as literal leftover text. No structural character can result
- *  from this, and it is not covered by the current test suite. */
-const AMP_SENTINEL = " AMP ";
+ *  over everything else.
+ *  ★ A SINGLE private-use codepoint, not a spaced word — a multi-character
+ *  sentinel with its own internal whitespace (an earlier " AMP " version)
+ *  does not round-trip for two ADJACENT raw "&" characters: cellText's own
+ *  whitespace collapse merges the two tokens' shared space before the
+ *  document-level restore runs, corrupting ordinary content like `a && b`.
+ *  A single non-whitespace character has no boundary for that collapse to
+ *  merge, so concatenation always round-trips. U+E000 is Private Use Area,
+ *  never assigned by Unicode, so it cannot collide with real decoded text —
+ *  except a literal U+E000 byte in the HOSTILE INPUT itself, which is why
+ *  extractHtmlMarkdown strips it at clamp time, before this sentinel is ever
+ *  introduced (see MAX_HTML_INPUT_CHARS clamp). */
+const AMP_SENTINEL = "\uE000";
 
 export function decodeEntities(s: string): string {
   return s.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (whole, body: string) => {
@@ -188,7 +191,12 @@ function renderTables(html: string): string {
 }
 
 export function extractHtmlMarkdown(html: string): string {
-  const clamped = html.length > MAX_HTML_INPUT_CHARS ? html.slice(0, MAX_HTML_INPUT_CHARS) : html;
+  const truncated = html.length > MAX_HTML_INPUT_CHARS ? html.slice(0, MAX_HTML_INPUT_CHARS) : html;
+  // A literal AMP_SENTINEL byte in hostile input must not survive to the
+  // restore step below, or it would be reinterpreted as a decoded "&" —
+  // smuggling a character past cellText's escaping the same way the
+  // double-decode this sentinel exists to fix once did.
+  const clamped = truncated.split(AMP_SENTINEL).join("");
   let s = stripComments(clamped);
   s = dropSubtrees(s);
   s = renderTables(s);
