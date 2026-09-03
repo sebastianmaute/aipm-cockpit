@@ -38,20 +38,31 @@
 // size are attacker-set, which is why the pre-existing `difat.slice(0, nFat)`
 // bounded nothing. Do not reintroduce a bound that trusts one.
 //
-// ★★★ ONE AMPLIFICATION IS STILL OPEN, AND THE SENTENCE AT THE TOP IS EXACT
-// ABOUT WHY THAT IS STILL COMPATIBLE WITH IT: no path here THROWS any more,
-// but the returned Map's KEYS are not bounded by anything. A path string is
-// rebuilt per emitted stream from all of its ancestors' names, so a directory
-// nested N deep with a stream at every level costs O(N²) characters while
-// costing only O(N) bytes of input. Measured 2026-09-03 on the FIXED reader:
-// depth 500 -> 1.1 MB of keys from a 380 KB file, 1,000 -> 4.6 MB from 758 KB,
-// 2,000 -> 19.7 MB from 1.5 MB (quadratic, ~4.2x per doubling). Extrapolated
-// to the 64 MB mail ceiling that is tens of GB, i.e. an OOM abort rather than
-// a catchable throw. `budget` below bounds stream BYTES and does nothing for
-// this. Fixing it needs a bound on nesting depth or on total key length, and
-// picking one is a judgement about how deep a legitimate embedded-message
-// chain goes — deliberately NOT decided here. Do not read the contract above
-// as covering it.
+// ★★★ THE RETURNED MAP'S KEYS ARE A FOURTH AMPLIFICATION, CLOSED 2026-09-03 BY
+// `MAX_CFBF_DEPTH`, AND IT OUTRANKED THE THREE ABOVE. `budget` bounds stream
+// BYTES and did nothing for the KEYS: a path is rebuilt per emitted stream from
+// every ancestor's name, so nesting cost O(N²) characters for O(N) bytes of
+// input — 20.0 M key characters from a 1.5 MB file at depth 2,000, 4.0x per
+// doubling, extrapolating to tens of GB at the 64 MB mail ceiling. Unlike the
+// three above it could not THROW: the deepest single key stays far under V8's
+// string limit, so the process OOM-ABORTS, which no try/catch at any call site
+// can contain. The per-level measurements and the reason a depth cap beats a
+// key-length budget are on `MAX_CFBF_DEPTH`.
+//
+// ★★ WHAT IS BOUNDED NOW, AND WHAT IS ONLY BOUNDED BY A LARGE CONSTANT. With
+// the depth cap the keys are LINEAR in the directory-entry count, not quadratic
+// in nesting: one key is at most MAX_CFBF_DEPTH segments of at most 31
+// characters plus separators (a directory entry's name field is 64 bytes of
+// UTF-16), i.e. under 1,024 characters, and the entry count is capped by
+// MAX_DIRECTORY_ENTRIES and by the file itself at 128 bytes per entry. That is
+// ARITHMETIC over those constants, not a measurement: it leaves a standing
+// ~16x byte amplification (128 input bytes can still buy a ~2 KB UTF-16 key)
+// under a ~200 MB ceiling. Bounded and linear, not small — do not read this
+// paragraph as saying the keys are cheap. What WAS measured is the worst shape
+// the cap still admits, a depth-31 chain with 1,000 / 2,000 / 4,000 leaf
+// streams: 0.49 key characters per input byte, flat across all three. Far under
+// the arithmetic ceiling only because a real stream also costs a sector; a
+// directory of streams that point nowhere would approach it.
 
 const SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
 const MAXREGSECT = 0xfffffffa;
@@ -85,6 +96,34 @@ export const MAX_CFBF_STREAM_BYTES = 64 * 1024 * 1024;
  *  being read twice, not the total entries a long-but-acyclic, otherwise
  *  file-length-legal chain can enumerate. */
 const MAX_DIRECTORY_ENTRIES = 200_000;
+/** Hard ceiling on directory NESTING DEPTH, which is what bounds the returned
+ *  Map's KEYS. A key is a storage PATH, rebuilt per emitted stream from every
+ *  ancestor's name, so a directory nested N deep with a stream at every level
+ *  costs O(N²) characters for O(N) bytes of input.
+ *  ★★★ MEASURED 2026-09-03 ON THE UNCAPPED READER, not reasoned — one storage
+ *  and one stream per level, 9-character names:
+ *    depth   250 ->  0.32 M key chars from a  190 KB file
+ *    depth   500 ->  1.26 M                   379 KB
+ *    depth 1,000 ->  5.01 M                   757 KB
+ *    depth 2,000 -> 20.03 M                 1,513 KB   (4.0x per doubling)
+ *  `checkAttachmentSize` admits 64 MB of mail, which extrapolates to tens of GB
+ *  of keys. ★★ THAT IS AN OOM ABORT, NOT A THROW, which is why it outranked the
+ *  two RangeErrors fixed alongside it: no `try`/`catch` at any call site can
+ *  contain it, and the deepest single key stays far under V8's string limit so
+ *  nothing throws on the way there.
+ *  ★★ WHY A DEPTH CAP AND NOT A KEY-LENGTH BUDGET. A depth cap is one
+ *  comparison against an obvious bound. A key-length budget needs a policy for
+ *  the overflow — drop the entry, or truncate the key and risk colliding with a
+ *  real path — and both answers are worse than not emitting a subtree no
+ *  legitimate message has.
+ *  ★ 32 IS AN ORDER OF MAGNITUDE BEYOND ANYTHING LEGITIMATE. MS-OXMSG nests one
+ *  attachment storage per embedded message, `attachment-ingest.ts` never
+ *  recurses past MAX_INGEST_DEPTH = 3 embedded messages anyway, and the real
+ *  inlined Outlook fixture reaches depth 2 (measured: 41 paths, 21 of them
+ *  nested, deepest "__nameid_version1.0/__substg1.0_00020102").
+ *  ★ A too-deep subtree is simply NOT EMITTED — consistent with the rest of
+ *  this reader, which drops what it cannot represent rather than throwing. */
+const MAX_CFBF_DEPTH = 32;
 
 export type CfbfEntry = {
   path: string;
@@ -301,8 +340,13 @@ function readEntryBytes(ctx: Ctx, e: RawEntry, budget: number): Uint8Array {
 }
 
 /** One unit of the directory walk. `emit` false = the old `walk(idx, path)`
- *  entry; `emit` true = the work that used to follow the two recursive calls. */
-type WalkFrame = { idx: number; path: string; emit: boolean };
+ *  entry; `emit` true = the work that used to follow the two recursive calls.
+ *  ★ `depth` counts PATH SEGMENTS, so it rises only through `child` — `left`
+ *  and `right` are SIBLINGS of this node and share both its path and its
+ *  depth. Getting that wrong in either direction is silent: incrementing on a
+ *  sibling caps a long sibling list instead of a deep tree, and never
+ *  incrementing caps nothing at all. */
+type WalkFrame = { idx: number; path: string; depth: number; emit: boolean };
 
 /** Walk the red-black directory tree, producing PATH -> bytes. */
 export function readCfbfTree(bytes: Uint8Array): Map<string, Uint8Array> {
@@ -330,18 +374,24 @@ export function readCfbfTree(bytes: Uint8Array): Map<string, Uint8Array> {
   //  because the stack is LIFO. Swapping the two `visit` pushes reverses the
   //  sibling order; hoisting the `emit` push after them turns the post-order
   //  into a pre-order.
-  const stack: WalkFrame[] = [{ idx: ctx.entries[0].child, path: "", emit: false }];
+  const stack: WalkFrame[] = [{ idx: ctx.entries[0].child, path: "", depth: 1, emit: false }];
   while (stack.length > 0) {
     const frame = stack.pop();
     if (frame === undefined) break;
     if (!frame.emit) {
+      // ★ Depth cap — see MAX_CFBF_DEPTH for the measured quadratic this bounds.
+      //  Deliberately BEFORE `visited.add`: a node rejected as too deep here
+      //  must stay reachable if some shallower parent also names it, and not
+      //  marking it cannot loop, since every frame is pushed by an
+      //  already-visited node and each of those pushes exactly three.
+      if (frame.depth > MAX_CFBF_DEPTH) continue;
       if (frame.idx > MAXREGSECT || frame.idx >= ctx.entries.length) continue;
       if (visited.has(frame.idx)) continue;       // cyclic directory tree
       visited.add(frame.idx);
       const e = ctx.entries[frame.idx];
-      stack.push({ idx: frame.idx, path: frame.path, emit: true });
-      stack.push({ idx: e.right, path: frame.path, emit: false });
-      stack.push({ idx: e.left, path: frame.path, emit: false });
+      stack.push({ idx: frame.idx, path: frame.path, depth: frame.depth, emit: true });
+      stack.push({ idx: e.right, path: frame.path, depth: frame.depth, emit: false });
+      stack.push({ idx: e.left, path: frame.path, depth: frame.depth, emit: false });
       continue;
     }
     const e = ctx.entries[frame.idx];
@@ -351,7 +401,7 @@ export function readCfbfTree(bytes: Uint8Array): Map<string, Uint8Array> {
       budget -= data.length;
       out.set(full, data);
     }
-    if (e.type === 1 || e.type === 5) stack.push({ idx: e.child, path: full, emit: false });
+    if (e.type === 1 || e.type === 5) stack.push({ idx: e.child, path: full, depth: frame.depth + 1, emit: false });
   }
   return out;
 }

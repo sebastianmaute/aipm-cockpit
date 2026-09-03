@@ -42,6 +42,26 @@ function difatAmplifier(totalBytes: number): Uint8Array {
   return buf;
 }
 
+/** One storage per level, each holding a stream plus the next level down —
+ *  the shape whose PATH keys grow quadratically: N levels each contribute a
+ *  key naming all of their ancestors.
+ *  ★ Names are 9 characters so a key at depth D is exactly 10D - 1 characters,
+ *  which is what makes the totals below arithmetic rather than approximate.
+ *  ★★ The streams are 8 bytes, BELOW the writer's 4096-byte mini-stream cutoff,
+ *  and `buildCfbf` writes no mini stream — so every VALUE here reads back empty
+ *  (measured). That is fine and deliberate: this fixture exists to exercise the
+ *  KEYS, and keeping each stream to one sector is what holds a depth-2,000
+ *  fixture to 1.5 MB. Do not add a value assertion to a test using it. */
+function deepNest(depth: number): CfbfEntryInput[] {
+  let node: CfbfEntryInput | null = null;
+  for (let d = depth; d >= 1; d--) {
+    const children: CfbfEntryInput[] = [{ name: `strm${String(d).padStart(5, "0")}`, data: tiny() }];
+    if (node) children.push(node);
+    node = { name: `stor${String(d).padStart(5, "0")}`, children };
+  }
+  return [node!];
+}
+
 /** Repoint EVERY directory entry at the FIRST entry's sector chain and make
  *  each of them claim 4 GB. `buildCfbf` gives every stream sectors of its own,
  *  so nothing it emits can exercise the CUMULATIVE bound — the per-entry
@@ -191,6 +211,38 @@ describe("cfbf resource bounds", () => {
     const tree = readCfbfTree(buildCfbf(items));
     expect(tree.size).toBe(1);
     expect(new TextDecoder().decode(tree.get(`s${SIBLINGS - 1}/Leaf`)!).trim()).toBe("deep");
+  });
+
+  // ★★★ MEASURED QUADRATIC, AND THE ONE BOUND HERE WHOSE ABSENCE CANNOT THROW.
+  //  `readCfbfTree` keys its Map by PATH, rebuilding each emitted stream's path
+  //  from every ancestor's name — O(N²) characters for O(N) bytes of input.
+  //  Measured 2026-09-03 on the uncapped reader with THIS fixture: depth 250 ->
+  //  0.32 M key chars from 190 KB, 500 -> 1.26 M from 379 KB, 1,000 -> 5.01 M
+  //  from 757 KB, 2,000 -> 20.03 M from 1,513 KB (4.0x per doubling).
+  //  `checkAttachmentSize` admits 64 MB of mail, extrapolating to tens of GB.
+  //  ★★ NO `not.toThrow()` COULD HAVE CAUGHT THIS, which is why the assertion
+  //  counts characters instead. The deepest single key stays far under V8's
+  //  string limit, so the process OOM-ABORTS rather than throwing — and an OOM
+  //  abort is not catchable at any call site.
+  //  ★ The three assertions discriminate three different failures: the char
+  //  budget catches the cap being removed (20.03 M against 20,000 here), the
+  //  segment count catches it being applied to SIBLINGS instead of children (a
+  //  long sibling list would then be truncated and deep nesting would not), and
+  //  the shallow lookup catches a cap that swallowed the whole tree — an empty
+  //  map satisfies the other two.
+  //  Verified RED against the uncapped walk: 20,028,000 key characters.
+  const DEEP = 2_000;
+  it("caps nesting depth so path keys cannot grow quadratically", () => {
+    const tree = readCfbfTree(buildCfbf(deepNest(DEEP)));
+    let chars = 0;
+    let maxSegments = 0;
+    for (const k of tree.keys()) {
+      chars += k.length;
+      maxSegments = Math.max(maxSegments, k.split("/").length);
+    }
+    expect(chars).toBeLessThan(20_000);
+    expect(maxSegments).toBe(32);              // MAX_CFBF_DEPTH, spelled out
+    expect(tree.has("stor00001/strm00001")).toBe(true);
   });
 
   // ★★★ MEASURED: 1,000 entries in a 631 KB file retained 616 MB (~1000x).
