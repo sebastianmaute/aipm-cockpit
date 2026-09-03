@@ -335,13 +335,27 @@ describe("ATTACHMENT_ACCEPT", () => {
       expect(tokens).toContain(ext);
       expect(classifyAttachment("application/octet-stream", `f${ext}`)).not.toBeNull();
     }
+    // A sixth extension set added to ATTACHMENT_ACCEPT's spread and forgotten
+    // above would be invisible to the loop — pin the count too.
+    expect(tokens.filter((t) => t.startsWith(".")).length).toBe(17);
   });
 
+  // ★ Round-trips every DERIVED token, not just a fixed trio — 8 of the 11
+  //  ACCEPT_MIMES entries carried no assertion before this, and they are the
+  //  longest, most typo-prone strings in the file (e.g. a single dropped "s"
+  //  in "spreadsheetml.sheet" leaves the whole suite green while the picker
+  //  silently stops matching extensionless .xlsx files). image/* is excluded:
+  //  it is a wildcard, not a concrete type classifyAttachment recognises.
   it("offers the MIME types too, so an extensionless file still passes the picker", () => {
     const tokens = ATTACHMENT_ACCEPT.split(",");
-    expect(tokens).toContain("application/pdf");
-    expect(tokens).toContain("text/plain");
-    expect(tokens).toContain("image/*");
+    for (const token of tokens) {
+      if (token === "image/*") continue;
+      if (token.startsWith(".")) {
+        expect(classifyAttachment("application/octet-stream", `file${token}`)).not.toBeNull();
+      } else {
+        expect(classifyAttachment(token, "file")).not.toBeNull();
+      }
+    }
   });
 
   it("lists no token twice", () => {

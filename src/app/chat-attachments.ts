@@ -39,18 +39,18 @@ export type AttachmentError = "unsupported-type" | "too-large";
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-export const SUPPORTED_IMAGE_MIMES = new Set([
+export const SUPPORTED_IMAGE_MIMES: ReadonlySet<string> = new Set([
   "image/png",
   "image/jpeg",
   "image/gif",
   "image/webp",
 ]);
 
-export const PDF_EXTENSIONS = new Set([".pdf"]);
-export const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
-export const TEXT_EXTENSIONS = new Set([".txt", ".md", ".markdown", ".csv", ".vtt"]);
-export const HTML_EXTENSIONS = new Set([".html", ".htm"]);
-export const OFFICE_EXTENSIONS = new Set([".docx", ".xlsx", ".xlsm", ".pptx"]);
+export const PDF_EXTENSIONS: ReadonlySet<string> = new Set([".pdf"]);
+export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
+export const TEXT_EXTENSIONS: ReadonlySet<string> = new Set([".txt", ".md", ".markdown", ".csv", ".vtt"]);
+export const HTML_EXTENSIONS: ReadonlySet<string> = new Set([".html", ".htm"]);
+export const OFFICE_EXTENSIONS: ReadonlySet<string> = new Set([".docx", ".xlsx", ".xlsm", ".pptx"]);
 
 /** Extra MIME tokens the picker should offer. Extensions alone are not enough:
  *  a file arriving as application/octet-stream with no extension is classified
@@ -58,6 +58,12 @@ export const OFFICE_EXTENSIONS = new Set([".docx", ".xlsx", ".xlsm", ".pptx"]);
  *  classifyAttachment ever sees it. */
 const ACCEPT_MIMES = [
   "application/pdf",
+  // Deliberately OVER-offers relative to SUPPORTED_IMAGE_MIMES — this is what
+  // triggers camera capture in mobile file pickers (this app ships as a PWA).
+  // An image type the picker admits but the classifier does not recognise
+  // still comes back null from classifyAttachment and surfaces as the normal
+  // unsupported-file error; that failure is loud, unlike the silent
+  // under-offer this whole constant exists to close.
   "image/*",
   "text/plain",
   "text/markdown",
