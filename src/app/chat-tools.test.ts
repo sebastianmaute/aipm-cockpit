@@ -18,6 +18,7 @@ import {
   type Resource,
   type Stakeholder,
   type TaskDependency,
+  type NoteLogEntry,
 } from "./types";
 import { entityToken } from "./ai-entity-token";
 import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
@@ -312,12 +313,87 @@ describe("runTool — update_settings", () => {
   });
 });
 
+const RICH_DESCRIPTION = "<p>Ship <strong>the thing</strong></p>";
+const RICH_NOTE: NoteLogEntry = {
+  id: 7,
+  timestamp: "2026-05-01T00:00:00.000Z",
+  authorName: "Alice",
+  html: "<p>Partner call moved to <em>Friday</em></p>",
+  text: "Partner call moved to Friday",
+};
+
+/** The list path's WIRE shape, spelled out here rather than imported, so these
+ *  tests describe what a caller receives instead of restating the projection's
+ *  own types back at it. `html` is optional because the projection drops it. */
+type ListNote = Omit<NoteLogEntry, "html"> & { html?: string };
+type ListEnvelope = {
+  items: (Omit<Task, "noteLog"> & { noteLog?: ListNote[] })[];
+  total: number;
+  limit?: number;
+};
+
 describe("runTool — list_tasks / get_task", () => {
-  it("list_tasks returns the dispatcher's task list", async () => {
+  it("list_tasks wraps the dispatcher's task list in an items/total envelope", async () => {
     const d = makeDispatcher();
-    const result = await runTool(d, "list_tasks", {});
-    expect(result).toEqual([makeTask()]);
+    const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    expect(result.total).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].id).toBe(1);
+    expect(result.items[0].taskName).toBe("Alpha");
+    // Omitting `limit` must return everything and say nothing about a page
+    // size — an existing prompt that never passes one sees no new key.
+    expect("limit" in result).toBe(false);
     expect(d.listTasks).toHaveBeenCalledOnce();
+  });
+
+  it("list_tasks plain-texts the rich description", async () => {
+    const d = makeDispatcher({
+      listTasks: vi.fn(() => [makeTask({ description: RICH_DESCRIPTION })]),
+    });
+    const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    expect(result.items[0].description).toContain("Ship the thing");
+    expect(result.items[0].description).not.toContain("<strong>");
+    expect(result.items[0].description).not.toContain("<p>");
+  });
+
+  it("list_tasks drops each note's html body and keeps its text projection", async () => {
+    const d = makeDispatcher({ listTasks: vi.fn(() => [makeTask({ noteLog: [RICH_NOTE] })]) });
+    const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    const note = result.items[0].noteLog?.[0];
+    expect(note?.text).toBe("Partner call moved to Friday");
+    expect(note?.html).toBeUndefined();
+    // Everything else about the entry survives — this is a projection, not a
+    // truncation, so the model still sees when and by whom a note was written.
+    expect(note?.id).toBe(7);
+    expect(note?.timestamp).toBe("2026-05-01T00:00:00.000Z");
+    expect(note?.authorName).toBe("Alice");
+  });
+
+  it("list_tasks slices items by limit while total still counts every row", async () => {
+    const rows = [makeTask({ id: 1 }), makeTask({ id: 2 }), makeTask({ id: 3 })];
+    const d = makeDispatcher({ listTasks: vi.fn(() => rows) });
+    const result = (await runTool(d, "list_tasks", { limit: 2 })) as ListEnvelope;
+    expect(result.items.map((t) => t.id)).toEqual([1, 2]);
+    // The whole point of the envelope: "how many tasks exist?" is answerable
+    // from ONE call even when the caller asked for a page.
+    expect(result.total).toBe(3);
+    expect(result.limit).toBe(2);
+  });
+
+  // ★ THE CONTROL. Slimming BOTH paths would satisfy every assertion above; only
+  // this pins that an assistant about to EDIT a description still gets the markup
+  // it is editing. Both tools read the SAME row here, so a shared projection fails.
+  it("get_task keeps the full markup that the list projection strips", async () => {
+    const task = makeTask({ description: RICH_DESCRIPTION, noteLog: [RICH_NOTE] });
+    const d = makeDispatcher({ getTask: vi.fn(() => task), listTasks: vi.fn(() => [task]) });
+
+    const full = (await runTool(d, "get_task", { id: 1 })) as Task;
+    expect(full).toEqual(task);
+    expect(full.description).toBe(RICH_DESCRIPTION);
+    expect(full.noteLog?.[0].html).toBe("<p>Partner call moved to <em>Friday</em></p>");
+
+    const list = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    expect(list.items[0].description).not.toContain("<strong>");
   });
 
   it("get_task coerces a numeric-string id and returns the task", async () => {
@@ -973,8 +1049,12 @@ describe("runTool — get_app_state and edge cases", () => {
 
   it("tolerates a null/non-object rawInput (treated as empty)", async () => {
     const d = makeDispatcher();
-    // list_tasks ignores input; a null rawInput must not throw on property access.
-    expect(await runTool(d, "list_tasks", null)).toEqual([makeTask()]);
+    // list_tasks reads only an optional `limit`; a null rawInput must not throw
+    // on property access, and an absent limit means "return everything".
+    const listed = (await runTool(d, "list_tasks", null)) as ListEnvelope;
+    expect(listed.total).toBe(1);
+    expect(listed.items).toHaveLength(1);
+    expect("limit" in listed).toBe(false);
     // get_task with no usable input → id is NaN → validation error.
     await expect(runTool(d, "get_task", null)).rejects.toThrow("id must be a number");
   });

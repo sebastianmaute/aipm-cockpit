@@ -220,8 +220,16 @@ export const TOOL_DEFS = [
   {
     name: "list_tasks",
     description:
-      "List every task in the app with all fields. Use this whenever you need to know what's in the app.",
-    input_schema: { type: "object", properties: {} },
+      "List the tasks in the app. Use this whenever you need to know what's in the app. Returns `{items, total}` — `total` is ALWAYS the number of tasks that exist, so you never need a second call to count them. Each item carries every task field, with `description` and each `noteLog` entry projected to PLAIN TEXT (the markup is stripped); call get_task when you need a description's original HTML, e.g. before editing it.",
+    input_schema: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "number",
+          description: "Optional. Return at most this many tasks. `total` always reports the full count.",
+        },
+      },
+    },
   },
   {
     name: "get_task",

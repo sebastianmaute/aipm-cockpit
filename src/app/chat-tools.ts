@@ -463,6 +463,7 @@ export {
   toCalendarEventSummary,
   toBudgetBucketSummary,
 } from "./chat-tool-summaries";
+import { listTasksEnvelope } from "./chat-tools-lists";
 
 export async function runTool(
   d: ToolDispatcher,
@@ -476,7 +477,7 @@ export async function runTool(
 
   switch (name) {
     case "list_tasks":
-      return d.listTasks();
+      return listTasksEnvelope(d.listTasks(), input.limit);
 
     case "get_task": {
       const id = Number(input.id);
