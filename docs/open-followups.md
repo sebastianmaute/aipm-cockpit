@@ -575,6 +575,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§346](#346-no-mcp-server--the-ai-can-only-act-from-inside-the-app--open) | No MCP server — the AI can only act from inside the app | found 2026-09-03 benchmarking OpenProject 17.8 | L (architecture decision first) | open |
 | [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--open) | No global guardrails on time entries | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
 | [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
+| [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--open) | `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model | found 2026-09-03 in the AI write-concurrency slice | S–M | open |
+| [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27037,3 +27039,88 @@ and the steering committee, but a task's own history says nothing about the meet
 it, so the connection exists in the data and not in the surface a user reads.
 
 ★ Read the ordering as a preference, not a dependency — nothing in §347 blocks this.
+
+## 349. `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model — open
+
+**Status:** open — reproduced 2026-09-03 as an ABSENCE witness, which is the whole of what a `grep`
+can be here: `grep -c expect src/app/chat-tool-defs-documents.ts` prints `0`, and
+`grep -n 'enum: \["append"' src/app/chat-tool-defs-documents.ts` prints an op enum of
+`append insert replace delete replaceAll` with no `move`. Filed 2026-09-03 in the AI
+write-concurrency slice. No probe drove a concurrent write through the tool path.
+
+**What the slice did, and what it deliberately did not.** The six entity `update_*` tools gained an
+`expectedToken` field (`expectedTokenField`): a read hands out `entityToken(kind, entity)`, derived
+by hashing the entity's byte-stable CSV projection, and `requireToken` refuses the write on mismatch
+**or absence**. `update_document` is not covered and **structurally cannot be by that mechanism** — a
+`ProjectDocument` persists as a meta-blob (one JSON row in `meta`) with no CSV projection, so
+`PROJECTORS` has no entry and `entityToken` has nothing to hash. That exemption is deliberate,
+documented beside `expectedTokenField`, and pinned: `NOT_TOKEN_GUARDED` in `ai-entity-token.test.ts`
+names `update_document` and `update_settings`, and the exhaustiveness case turns red if the field is
+ever spread onto either. **This entry is not asking for that field on documents.**
+
+**What IS open.** A mechanism already exists and is simply **not advertised**. `DocOp` carries an
+optional `expect: DocBlock` on its `replace`, `delete` and `move` arms — per-block optimistic
+concurrency, enforced in the engine against live state at call time via `blockChanged`
+(`grep -c 'expect?: DocBlock' src/app/document-ops.ts` → `3`, and the same file holds three
+enforcement sites). The hand block editor supplies its draft's baseline. The tool schema in
+`chat-tool-defs-documents.ts` exposes `op`/`index`/`block`/`blocks` and **no `expect` at all**, and
+its op enum **omits `move` entirely**. So the AI document write path has no concurrency protection
+available to it while the engine beneath it does: an AI `replace` at an index the user has since
+edited overwrites that edit silently, and chat tool writes have no undo capture in this app.
+
+★ **Closing it is advertising, not building.** Exposing `expect` requires that the model has READ
+the block it is replacing — which `get_document`'s own description already demands ("you MUST call
+this before update_document"). The `move` omission is a separate, cheaper item: the engine's `move`
+is deliberately ONE op rather than a composed `delete` + `insert`, because `applyOps` bails wholesale
+only when nothing applied, so the composed spelling can delete a block and then have the re-insert
+refused — losing it. The model has no way to express the safe spelling today.
+
+★★ **How it was missed, which is the transferable part.** `TOOL_DEFS` ends by spreading
+`DOCUMENT_TOOL_DEFS` from a **second file** (`grep -n "DOCUMENT_TOOL_DEFS" src/app/chat-tool-defs.ts`
+shows the import and the trailing spread), so `grep -c 'name: "update_' src/app/chat-tool-defs.ts`
+returns `7` — the six entity tools plus `update_settings` — and never sees `update_document`. That is
+exactly how it was missed when this slice was planned; the anti-vacuity case in
+`ai-entity-token.test.ts` caught it by enumerating `update_*` names off the **live `TOOL_DEFS`
+array** rather than off a file. **A claim about the tool surface derived from one defs file is
+incomplete by construction** — enumerate against `TOOL_DEFS` itself.
+
+## 350. The insight recommendation token does not cover the model round-trip — open
+
+**Status:** open — **never machine-verified** (2026-09-03). This is a **disclosed bound**, stated in
+the `recommend-tokens.ts` header rather than an observed failure, and no probe has raced a human edit
+against an in-flight call. Read the disclosure with
+`grep -n "does NOT" src/app/insights/recommend-tokens.ts`.
+
+**What is covered.** `applyInsightRecommendation` is the single choke point for storing a generated
+recommendation — both the on-demand `useInsightRecommend` and the background
+`useInsightRecommendRunner` write through it — and it calls `stampRecommendationTokens`, which stamps
+`expectedToken` onto each stored `update_*` call from the caller's entity arrays. A recommendation
+that sat unreviewed while its target entity changed is then **refused** at confirm rather than
+silently overwriting.
+
+**The bound that is not closed.** The token is derived at the moment the recommendation comes back
+from the model, from live render-scope arrays — so the window it protects is **proposal-stored →
+confirm**, not the model round-trip. A human editing the entity *while the AI call is in flight*
+(context build → response) is not detected: the stamp is taken from arrays that **already include**
+that edit, so the confirm compares equal and the stale write commits.
+
+★ **Direction of the risk, stated plainly rather than softened: this is a FALSE PERMIT for a narrow
+window, not a false refusal.** The long window — a background recommendation sitting unreviewed for
+days — is fully covered. The short one is not.
+
+**Closing it** means threading an entity snapshot, frozen when the prompt is built, through
+`runInsightRecommendation` / `parseRecommendation` and into both generate hooks, so the stamp derives
+from that instead of from live arrays. Judged larger than the slice that filed this. ★ The module
+header warns against the opposite "simplification" — re-deriving at apply time — which is **vacuous**:
+it would compare a value against the very read it came from, so `requireToken` could never refuse.
+
+★ **Scope the fix to FIVE tools, not six.** `UPDATE_TARGET` covers task / raid / milestone / change /
+stakeholder; `update_resource` is absent from `ALLOWED_REC_TOOLS`, so a recommendation cannot propose
+one. Any fix here inherits that set, not the six the general mechanism guards.
+
+★ **Refusals are matched on the ERROR TYPE (`ConcurrencyTokenError`), never on message text**, and a
+fix must keep it that way. Both refusal messages are model-facing recovery instructions that may be
+reworded at any time; a caller sniffing the string would break **silently and in the permissive
+direction**. `use-insight-recommendations` depends on that distinction — its replay `catch` advances
+an insight to `applied` for a failure that MAY have committed, and must not for one that is known to
+have written nothing.
