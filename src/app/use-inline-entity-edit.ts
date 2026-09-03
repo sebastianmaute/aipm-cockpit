@@ -84,8 +84,14 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   // token derived from that same read, so the comparison in `requireToken`
   // could never fail. That is not a weaker guard, it is no guard: it would
   // report success while restoring exactly the silent-overwrite behaviour this
-  // slice exists to remove. Pinned by the "refuses when the row moved between
-  // submit and apply" test.
+  // slice exists to remove. Pinned by "refuses, and writes nothing, when a
+  // human edited the row while the model was thinking"
+  // (`use-inline-entity-edit.test.tsx`, describe "optimistic concurrency across
+  // the submit → apply window"). ★ The name here used to be a PARAPHRASE
+  // ("refuses when the row moved between submit and apply") that resolved to
+  // nothing under grep — the case is real, so this was a broken citation rather
+  // than a false coverage claim, but a reader who greps it and finds nothing
+  // cannot tell those two apart, which is what makes it worth fixing.
   // ★ Null until a submit has been ACCEPTED. `apply` forwards it as-is: a null
   // reaches `requireToken` as an absent token and is refused, which is the safe
   // direction — never a silent unguarded write.
