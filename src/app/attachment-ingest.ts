@@ -30,7 +30,7 @@ import {
 import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { extractHtmlMarkdown } from "./html-extract";
 import { bytesToBase64 } from "./base64";
-import { parseMail, renderMailMarkdown, MAIL_BODY_FLOOR } from "./mail-extract";
+import { parseMail, renderMailParts, MAIL_BODY_FLOOR, truncateField, type ParsedMail } from "./mail-extract";
 
 export type IngestNode = {
   fileName: string;
@@ -42,7 +42,7 @@ export type IngestNode = {
 
 export type IngestResult =
   | { ok: true; node: IngestNode }
-  | { ok: false; error: AttachmentError | "read-failed" | "encrypted" };
+  | { ok: false; error: AttachmentError | "read-failed" | "encrypted" | "budget-exhausted" };
 
 /** Fallback `media_type` for an image whose `File.type` is empty — common on
  *  drag-drop. buildAttachmentBlock passes an image's mimeType straight into
@@ -96,23 +96,45 @@ async function payloadFor(
  *  own body) could still eat almost the whole tree budget by itself. */
 export const MAX_NODE_EXTRACT_CHARS = 200_000;
 
-/** Total model-facing output across the whole tree (~100k tokens), shared by
- *  every node — leaves and mail bodies alike. */
+/** Total EXTRACTED-TEXT output across the whole tree (~100k tokens), shared
+ *  by every text-bearing node — leaves and mail bodies alike. Deliberately
+ *  does NOT bound base64 document payloads: a pdf/image attachment reaches
+ *  the model as a document/image content block, not as extracted text, so
+ *  charging it against a cap sized for prose would break ordinary PDF/image
+ *  attachments outright. Those are bounded separately, by
+ *  MAX_BASE64_CHARS below. */
 export const MAX_TREE_EXTRACT_CHARS = 400_000;
+
+/** Tree-wide cap on base64 PAYLOAD characters (pdf/image attachments),
+ *  independent of MAX_TREE_EXTRACT_CHARS above — see that constant's
+ *  comment for why base64 needs its own budget rather than sharing the
+ *  extracted-text one. 10MB of base64 is ~7.5MB of decoded bytes; a mail
+ *  carrying many images/PDFs degrades attachment-by-attachment (later ones
+ *  reported "budget-exhausted") instead of ballooning the prompt payload
+ *  unbounded. MAX_DECODED_BYTES (64MB) is far too loose to serve this
+ *  purpose on its own — it bounds decode work, not model-facing payload. */
+export const MAX_BASE64_CHARS = 10 * 1024 * 1024;
 
 /** mail -> attached mail -> attached mail -> attached mail is where walking
  *  stops; the node AT this depth still renders, but its own attachments are
  *  never admitted. */
 export const MAX_INGEST_DEPTH = 3;
 
-/** Total nodes (the root plus every attachment at every depth) across the
- *  whole tree. 50 attachments is already an attack or a mistake for
- *  anything a person actually sends. */
+/** Total attachment nodes across the whole tree — the root itself consumes
+ *  no slot (ingesting one mail with 50 admitted attachments is 51 nodes
+ *  total: the root plus 50). 50 attachments is already an attack or a
+ *  mistake for anything a person actually sends. */
 export const MAX_INGEST_NODES = 50;
 
 /** Cumulative DECODED bytes across the whole tree. checkAttachmentSize's
  *  20MB cap bounds a single file; this bounds many individually-small-enough
- *  attachments from adding up to something huge. */
+ *  attachments from adding up to something huge. Deliberately conservative:
+ *  a nested mail's bytes are a SUBSET of its parent's raw bytes, already
+ *  charged once at the parent's own level, so the same underlying bytes are
+ *  charged again every time they're re-decoded one level deeper. Don't
+ *  "fix" that into a single per-byte charge — it would let a message widen
+ *  the real ceiling simply by nesting deeper, which is the opposite of what
+ *  the depth cap is for. */
 export const MAX_DECODED_BYTES = 64 * 1024 * 1024;
 
 /** Mutated in place through the whole walk — NEVER cloned per child. Cloning
@@ -123,13 +145,20 @@ export const MAX_DECODED_BYTES = 64 * 1024 * 1024;
 type Budget = {
   charsRemaining: number;
   bytesRemaining: number;
+  base64Remaining: number;
   nodesRemaining: number;
 };
 
+/** Scoped to ONE `ingestBytes` call, not shared across a multi-file drop —
+ *  ten files dropped together each get their own full budget, not a tenth
+ *  each. A whole-batch ceiling, if one is ever wanted, belongs in the
+ *  caller (chat-panel.tsx / step0-import-panel.tsx), which already loops
+ *  over the file list one `ingestFile`/`ingestBytes` call at a time. */
 function newBudget(): Budget {
   return {
     charsRemaining: MAX_TREE_EXTRACT_CHARS,
     bytesRemaining: MAX_DECODED_BYTES,
+    base64Remaining: MAX_BASE64_CHARS,
     nodesRemaining: MAX_INGEST_NODES,
   };
 }
@@ -140,15 +169,56 @@ const TRUNCATION_NOTE = "\n\n_(truncated - exceeded the extraction budget)_";
  *  `ceiling` — the caller's local ceiling on how much of that shared pool
  *  THIS text may use. `ceiling` is what makes the equal-share breadth-first
  *  split in `ingestNode` bite: a child cannot out-spend the share it was
- *  handed even while the global pool still has room left over. */
+ *  handed even while the global pool still has room left over.
+ *
+ *  The returned string's length is always exactly what gets deducted — a
+ *  truncated result is sliced SHORT of `room` by `TRUNCATION_NOTE.length`
+ *  first, so appending the note lands back on `room`, not `room +
+ *  TRUNCATION_NOTE.length`. An earlier version deducted `room` but returned
+ *  `room + TRUNCATION_NOTE.length`, silently under-charging the shared pool
+ *  by the note's length on every truncation. */
 function cap(text: string, ceiling: number, budget: Budget): string {
   const room = Math.max(0, Math.min(ceiling, MAX_NODE_EXTRACT_CHARS, budget.charsRemaining));
   if (text.length <= room) {
     budget.charsRemaining -= text.length;
     return text;
   }
-  budget.charsRemaining -= room;
-  return `${text.slice(0, room)}${TRUNCATION_NOTE}`;
+  const sliceLen = Math.max(0, room - TRUNCATION_NOTE.length);
+  const truncated = `${text.slice(0, sliceLen)}${TRUNCATION_NOTE}`;
+  budget.charsRemaining -= truncated.length;
+  return truncated;
+}
+
+/** Trims a mail's rendered PREFIX (headers + attachment-list summary) to
+ *  fit `maxLen` — never the body or its diagnostics, which are reserved
+ *  before this is ever called and passed through untouched. Does not touch
+ *  `budget`: `renderMailBlock` below makes exactly one deduction, via `cap`
+ *  on the fully-assembled string, so there is one bookkeeping site per mail
+ *  render, not two racing to charge the same characters. */
+function trimPrefixToFit(prefix: string, maxLen: number): string {
+  if (prefix.length <= maxLen) return prefix;
+  const room = Math.max(0, maxLen - TRUNCATION_NOTE.length);
+  return `${prefix.slice(0, room)}${TRUNCATION_NOTE}`;
+}
+
+/** Assembles one mail's rendered block. Reserves room for the body and its
+ *  diagnostics FIRST, then fits the prefix (headers + attachment-list
+ *  summary — the only piece safe to trim; it's a summary, not the thread's
+ *  own words) into whatever is left of `ceiling`. `cap()` on the fully
+ *  assembled string is a BACKSTOP, not the mechanism doing the cutting: in
+ *  the ordinary case the prefix has already been trimmed to make everything
+ *  fit, so `cap()` just charges the shared pool for the exact length
+ *  emitted. It only truncates for real when diagnostics + body ALONE
+ *  already exceed `ceiling` (prefix trimmed to nothing and still over) —
+ *  and because diagnostics are concatenated BEFORE the body, that rare
+ *  backstop truncation lands on the body, never on a drop notice. */
+function renderMailBlock(mail: ParsedMail, bodyBudget: number, ceiling: number, budget: Budget): string {
+  const { prefix, diagnostics, body } = renderMailParts(mail, bodyBudget);
+  const tail = [diagnostics, body].filter((s) => s.length > 0).join("\n\n");
+  const reserved = tail.length + (tail.length > 0 ? 2 : 0);
+  const trimmedPrefix = trimPrefixToFit(prefix, Math.max(0, ceiling - reserved));
+  const assembled = [trimmedPrefix, tail].filter((s) => s.length > 0).join("\n\n");
+  return cap(assembled, ceiling, budget);
 }
 
 /**
@@ -179,7 +249,12 @@ async function ingestNode(
 ): Promise<IngestResult> {
   const sizeErr = checkAttachmentSize(bytes.byteLength);
   if (sizeErr) return { ok: false, error: sizeErr };
-  if (bytes.byteLength > budget.bytesRemaining) return { ok: false, error: "too-large" };
+  // "budget-exhausted", not "too-large" — "too-large" (above) means THIS
+  // FILE alone exceeds the fixed 20MB per-attachment cap; this means the
+  // TREE has already spent its 64MB decoded-byte allowance on other nodes.
+  // A 1KB file failing this for the same reason a 21MB file fails the check
+  // above would be a confusing, wrong-cause error message.
+  if (bytes.byteLength > budget.bytesRemaining) return { ok: false, error: "budget-exhausted" };
   budget.bytesRemaining -= bytes.byteLength;
 
   const kind = classifyAttachment(mimeType, fileName);
@@ -190,10 +265,19 @@ async function ingestNode(
       const raw = await payloadFor(kind, bytes, mimeType, fileName);
       const outputMime =
         kind === "image" && mimeType.trim() === "" ? (imageMimeFallback(fileName) ?? mimeType) : mimeType;
-      // Base64 payloads (pdf/image) are opaque bytes for the model, not
-      // extracted text — they were already charged against the byte budget
-      // above, so they are never capped (or double-charged) against chars.
-      const data = kind === "pdf" || kind === "image" ? raw : cap(raw, ceiling, budget);
+      if (kind === "pdf" || kind === "image") {
+        // Base64 payloads are opaque bytes for the model, not extracted
+        // text — MAX_TREE_EXTRACT_CHARS deliberately excludes them (see its
+        // comment), so they draw from their OWN tree-wide budget instead of
+        // `cap()`'s chars pool.
+        if (raw.length > budget.base64Remaining) return { ok: false, error: "budget-exhausted" };
+        budget.base64Remaining -= raw.length;
+        return {
+          ok: true,
+          node: { fileName, kind, block: buildAttachmentBlock(kind, outputMime, raw), children: [] },
+        };
+      }
+      const data = cap(raw, ceiling, budget);
       return {
         ok: true,
         node: { fileName, kind, block: buildAttachmentBlock(kind, outputMime, data), children: [] },
@@ -208,11 +292,14 @@ async function ingestNode(
   const notes: string[] = [...mail.diagnostics];
 
   if (depth >= MAX_INGEST_DEPTH) {
-    notes.push(`attachment "${fileName}" not expanded further - nesting depth limit`);
-    const md = renderMailMarkdown({ ...mail, attachments: [], diagnostics: notes }, MAIL_BODY_FLOOR);
+    notes.push(`attachment "${truncateField(fileName)}" not expanded further - nesting depth limit`);
+    // Keeps `mail.attachments` (NOT overridden to []) — the model still
+    // learns what this mail contained even though it isn't walked further;
+    // only the recursion is skipped, not the disclosure.
+    const md = renderMailBlock({ ...mail, diagnostics: notes }, MAIL_BODY_FLOOR, ceiling, budget);
     return {
       ok: true,
-      node: { fileName, kind, block: buildAttachmentBlock(kind, mimeType, cap(md, ceiling, budget)), children: [] },
+      node: { fileName, kind, block: buildAttachmentBlock(kind, mimeType, md), children: [] },
     };
   }
 
@@ -254,25 +341,23 @@ async function ingestNode(
     if (child.ok) {
       children.push(child.node);
     } else {
-      notes.push(`attachment "${a.fileName}" skipped - ${child.error}`);
+      notes.push(`attachment "${truncateField(a.fileName)}" skipped - ${child.error}`);
     }
   }
 
   // Re-rendered AFTER children so a skipped-child diagnostic reaches the
-  // model. Capped against `bodyShare + childrenCeiling` — the reserved body
-  // share plus whatever of the children's allocation went unspent — which
-  // is always >= bodyShare (see the function doc comment), never against a
-  // second, independent draw on the shared pool.
-  const finalMd = renderMailMarkdown({ ...mail, diagnostics: notes }, bodyShare);
+  // model. `finalCeiling` is `bodyShare + childrenCeiling` — the reserved
+  // body share plus whatever of the children's allocation went unspent —
+  // which is always >= bodyShare (see the function doc comment). Building
+  // the block via renderMailBlock (not a raw cap() over the whole rendered
+  // string) is what makes that reservation real: it trims the headers/
+  // attachment-list PREFIX to fit, rather than truncating the concatenated
+  // whole from the tail and risking the body or a drop notice instead.
   const finalCeiling = bodyShare + childrenCeiling;
+  const finalMd = renderMailBlock({ ...mail, diagnostics: notes }, bodyShare, finalCeiling, budget);
   return {
     ok: true,
-    node: {
-      fileName,
-      kind,
-      block: buildAttachmentBlock(kind, mimeType, cap(finalMd, finalCeiling, budget)),
-      children,
-    },
+    node: { fileName, kind, block: buildAttachmentBlock(kind, mimeType, finalMd), children },
   };
 }
 

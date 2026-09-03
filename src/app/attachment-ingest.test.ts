@@ -5,6 +5,7 @@ import {
   MAX_INGEST_DEPTH,
   MAX_INGEST_NODES,
   MAX_TREE_EXTRACT_CHARS,
+  MAX_BASE64_CHARS,
 } from "./attachment-ingest";
 
 const enc = (s: string) => new TextEncoder().encode(s);
@@ -227,6 +228,48 @@ describe("mail recursion", () => {
     expect(all).toContain("nesting depth limit");
   });
 
+  // ★★ DISCLOSURE. Reaching the depth cap must not erase what the model is
+  // TOLD the mail contained — only the recursion into it is skipped, not
+  // the attachment-list summary. Walks the tree to find the exact node that
+  // hit the cap (children.length === 0 with the depth-limit note) and
+  // checks THAT node's own rendered block, not just the tree as a whole —
+  // every level in this chain has exactly one attachment, so a bare
+  // substring search over the full JSON couldn't tell a fixed node from a
+  // coincidence at another depth.
+  it("still discloses its own attachment list at the depth cap, only the recursion stops", async () => {
+    let cur = mailWith([{ name: "leaf.txt", body: "leaf" }], "mail body", "B_leaf");
+    for (let i = 0; i < MAX_INGEST_DEPTH + 2; i++) {
+      const boundary = `B${i}`;
+      cur = mail([
+        `Content-Type: multipart/mixed; boundary="${boundary}"`, `Subject: L${i}`, "",
+        `--${boundary}`, "Content-Type: text/plain", "", "body",
+        `--${boundary}`, 'Content-Type: message/rfc822; name="n.eml"',
+        'Content-Disposition: attachment; filename="n.eml"', "", new TextDecoder().decode(cur),
+        `--${boundary}--`, "",
+      ]);
+    }
+    const r = await ingestBytes(cur, "message/rfc822", "deep.eml");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    type Node = typeof r.node;
+    function findCappedNode(node: Node): Node | undefined {
+      const data = (node.block.source as { data: string }).data;
+      if (node.children.length === 0 && data.includes("nesting depth limit")) return node;
+      for (const c of node.children) {
+        const found = findCappedNode(c);
+        if (found) return found;
+      }
+      return undefined;
+    }
+    const capped = findCappedNode(r.node);
+    expect(capped).toBeDefined();
+    if (!capped) return;
+    const data = (capped.block.source as { data: string }).data;
+    expect(data).toContain("**Attachments (1):**");
+    expect(data).toContain("n.eml (message/rfc822)");
+  });
+
   it("stops at the node cap and discloses it", async () => {
     const atts = Array.from({ length: MAX_INGEST_NODES + 10 }, (_, i) => ({ name: `f${i}.txt`, body: "x" }));
     const r = await ingestBytes(mailWith(atts), "message/rfc822", "many.eml");
@@ -234,6 +277,35 @@ describe("mail recursion", () => {
     if (!r.ok) return;
     expect(r.node.children.length).toBeLessThanOrEqual(MAX_INGEST_NODES);
     expect(JSON.stringify(r.node)).toContain("omitted");
+  });
+
+  // ★★★ CRITICAL REGRESSION GUARD. A large attachment-list PREFIX (headers +
+  // "Attachments (N):" summary) used to be capped as part of the SAME string
+  // as the body and its diagnostics, so a mail with enough attachments could
+  // exhaust the whole ceiling before the body — the thread's own words — was
+  // ever reached, and take the node-limit disclosure down with it. The
+  // prefix must be what gets trimmed; the body and the disclosure that
+  // attachments were dropped must always survive.
+  it("keeps the body AND the node-limit diagnostic even when the attachment list is huge", async () => {
+    // 200 attachments with near-500-char filenames (close to
+    // MAX_HEADER_FIELD_CHARS): the rendered attachment-list PREFIX alone
+    // comes out to ~84,000 chars — comfortably past the ~20,000-char
+    // ceiling this mail ends up with once its 50 admitted attachments (each
+    // with a body oversized relative to its equal share, so every one
+    // spends its whole allocation) have exhausted the rest of the budget.
+    // A short-filename fixture (e.g. "s0.txt") is NOT adversarial enough to
+    // exercise this: at ~4.5k chars total, its prefix fits the ceiling on
+    // its own and the bug this test guards never triggers either way.
+    const atts = Array.from({ length: 200 }, (_, i) => ({
+      name: `${"f".repeat(400)}${i}.txt`,
+      body: "y".repeat(50_000),
+    }));
+    const r = await ingestBytes(mailWith(atts, "IMPORTANT BODY MARKER"), "message/rfc822", "root.eml");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const data = (r.node.block.source as { data: string }).data;
+    expect(data).toContain("IMPORTANT BODY MARKER");
+    expect(data).toContain("150 of 200 attachments omitted - node limit");
   });
 
   it("shares one output budget across the whole tree", async () => {
@@ -298,5 +370,64 @@ describe("mail recursion", () => {
     // ...and no child's share dwarfs another's — a >3x spread is what a
     // greedy walk (200k / 180k / ~0 / ~0) would look like.
     expect(Math.max(...lengths) / Math.min(...lengths)).toBeLessThan(3);
+  });
+
+  // ★★★ IMPORTANT REGRESSION GUARD. MAX_TREE_EXTRACT_CHARS deliberately does
+  // NOT bound base64 document payloads (pdf/image) — they reach the model
+  // as document/image blocks, not extracted text, so charging them against
+  // a cap sized for prose would break ordinary PDF/image attachments
+  // outright. But that leaves base64 payloads with NO bound at all unless
+  // something else covers them: MAX_BASE64_CHARS is that something —
+  // 30 attachments each encoding to exactly 400,000 base64 chars
+  // (300,000 decoded bytes) sum to 12,000,000, comfortably past the
+  // 10,485,760-char cap, so some must be rejected rather than all included.
+  it("degrades a mail carrying too many PDFs instead of ballooning the base64 payload unbounded", async () => {
+    const pdfBytes = new Uint8Array(300_000).fill(0x41);
+    const pdfB64 = Buffer.from(pdfBytes).toString("base64");
+    const parts = Array.from({ length: 30 }, (_, i) => [
+      "--B", `Content-Type: application/pdf; name="p${i}.pdf"`,
+      `Content-Disposition: attachment; filename="p${i}.pdf"`,
+      "Content-Transfer-Encoding: base64", "", pdfB64,
+    ]).flat();
+    const outer = mail([
+      'Content-Type: multipart/mixed; boundary="B"', "Subject: PDFs", "",
+      "--B", "Content-Type: text/plain", "", "see attached", ...parts, "--B--", "",
+    ]);
+    const r = await ingestBytes(outer, "message/rfc822", "pdfs.eml");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // Not all 30 were admitted...
+    expect(r.node.children.length).toBeLessThan(30);
+    // ...the sum of what WAS admitted never exceeds the base64 budget...
+    const base64Total = r.node.children.reduce(
+      (sum, c) => sum + (c.block.source as { data: string }).data.length,
+      0,
+    );
+    expect(base64Total).toBeLessThanOrEqual(MAX_BASE64_CHARS);
+    // ...and the drop is disclosed, not silent.
+    expect((r.node.block.source as { data: string }).data).toContain("budget-exhausted");
+  });
+
+  // ★★★ IMPORTANT REGRESSION GUARD. mail-extract.ts's header comment claims
+  // its renderer "bounds every field it prints" — but a "skipped" diagnostic
+  // built in attachment-ingest.ts interpolates an attacker-controlled
+  // filename directly. Without truncateField, a hostile 30,000-char
+  // filename reaches the model verbatim inside that diagnostic string.
+  it("truncates an attacker-controlled filename before it reaches a skipped-attachment diagnostic", async () => {
+    const longName = `${"n".repeat(30_000)}.weird`;
+    const outer = mail([
+      'Content-Type: multipart/mixed; boundary="B"', "Subject: LongName", "",
+      "--B", "Content-Type: text/plain", "", "body",
+      "--B", `Content-Type: application/octet-stream; name="${longName}"`,
+      `Content-Disposition: attachment; filename="${longName}"`,
+      "Content-Transfer-Encoding: base64", "", b64("x"),
+      "--B--", "",
+    ]);
+    const r = await ingestBytes(outer, "message/rfc822", "m.eml");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const data = (r.node.block.source as { data: string }).data;
+    expect(data).not.toContain("n".repeat(30_000));
+    expect(data).toContain("…");
   });
 });

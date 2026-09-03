@@ -63,51 +63,87 @@ export const MAX_DIAGNOSTICS_RENDERED = 20;
  *  near-MAX_HEADER_FIELD_CHARS name) could still add up past. */
 export const MAIL_MARKDOWN_HARD_CAP = 300_000;
 
-function truncateField(s: string, max: number = MAX_HEADER_FIELD_CHARS): string {
+/** Exported so any caller assembling its OWN Markdown from `ParsedMail`
+ *  fields (attachment-ingest.ts's diagnostic notes included) gets the same
+ *  per-field bound this renderer holds itself to — see the header comment's
+ *  "bounds every field it prints" claim. Truncating an attacker-controlled
+ *  filename before it reaches a diagnostic string is exactly what this
+ *  guards; a diagnostic is not exempt just because it isn't a header. */
+export function truncateField(s: string, max: number = MAX_HEADER_FIELD_CHARS): string {
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
-export function renderMailMarkdown(mail: ParsedMail, bodyBudget: number): string {
+/** The three independently-sized pieces of a rendered mail, in the order
+ *  they're meant to be concatenated: `prefix` (headers + attachment-list
+ *  summary) is the only one safe to trim under further budget pressure — it
+ *  is a SUMMARY, not the thread's own words. `diagnostics` and `body` are
+ *  each already bounded on their own terms (diagnostics by
+ *  MAX_DIAGNOSTICS_RENDERED + truncateField per entry; body by
+ *  `bodyBudget`), so a caller enforcing some larger ceiling should shrink
+ *  `prefix` to make room for them rather than truncating the concatenated
+ *  whole from the tail — cutting from the tail risks cutting the body, or
+ *  worse, a diagnostic explaining that something else was already cut.
+ *  `renderMailMarkdown` below is the simple, non-budget-aware caller: it
+ *  just concatenates all three and applies MAIL_MARKDOWN_HARD_CAP as a flat
+ *  backstop. attachment-ingest.ts's `ingestNode` is the budget-aware one. */
+export type RenderedMailParts = {
+  prefix: string;
+  diagnostics: string;
+  body: string;
+};
+
+export function renderMailParts(mail: ParsedMail, bodyBudget: number): RenderedMailParts {
   const h = mail.headers;
-  const lines: string[] = [];
-  if (h.subject) lines.push(`**Subject:** ${truncateField(h.subject)}`);
-  if (h.from) lines.push(`**From:** ${truncateField(h.from)}`);
-  if (h.to.length > 0) lines.push(`**To:** ${h.to.map((a) => truncateField(a)).join(", ")}`);
-  if (h.cc.length > 0) lines.push(`**Cc:** ${h.cc.map((a) => truncateField(a)).join(", ")}`);
-  if (h.date) lines.push(`**Date:** ${h.date}`);
+  const prefixLines: string[] = [];
+  if (h.subject) prefixLines.push(`**Subject:** ${truncateField(h.subject)}`);
+  if (h.from) prefixLines.push(`**From:** ${truncateField(h.from)}`);
+  if (h.to.length > 0) prefixLines.push(`**To:** ${h.to.map((a) => truncateField(a)).join(", ")}`);
+  if (h.cc.length > 0) prefixLines.push(`**Cc:** ${h.cc.map((a) => truncateField(a)).join(", ")}`);
+  if (h.date) prefixLines.push(`**Date:** ${h.date}`);
 
   if (mail.attachments.length > 0) {
-    lines.push("");
-    lines.push(`**Attachments (${mail.attachments.length}):**`);
+    prefixLines.push("");
+    prefixLines.push(`**Attachments (${mail.attachments.length}):**`);
     const shown = mail.attachments.slice(0, MAX_ATTACHMENTS_RENDERED);
     for (const a of shown) {
-      lines.push(`- ${truncateField(a.fileName)} (${truncateField(a.mimeType, MAX_MIME_TYPE_CHARS)})`);
+      prefixLines.push(`- ${truncateField(a.fileName)} (${truncateField(a.mimeType, MAX_MIME_TYPE_CHARS)})`);
     }
     if (mail.attachments.length > shown.length) {
-      lines.push(`- _(${mail.attachments.length - shown.length} more attachments not listed)_`);
+      prefixLines.push(`- _(${mail.attachments.length - shown.length} more attachments not listed)_`);
     }
+  }
+
+  // Diagnostics are rendered as their OWN piece — not appended after the
+  // body — specifically so a caller enforcing a downstream ceiling can put
+  // them ahead of the body in the final concatenation: a drop notice must
+  // never be the thing a backstop truncation cuts.
+  const diagShown = mail.diagnostics.slice(0, MAX_DIAGNOSTICS_RENDERED);
+  const diagnosticsLines = diagShown.map((d) => `_(${truncateField(d)})_`);
+  if (mail.diagnostics.length > diagShown.length) {
+    diagnosticsLines.push(`_(${mail.diagnostics.length - diagShown.length} more parser diagnostics not shown)_`);
   }
 
   let body = mail.body.content;
   if (body.length > bodyBudget) {
     body = `${body.slice(0, bodyBudget)}\n\n_(truncated - mail body exceeded its share of the extraction budget)_`;
   }
+  const bodyLines = ["---", ""];
   if (mail.body.kind === "rtf-degraded") {
-    lines.push("");
-    lines.push("_(formatting could not be recovered from this message; plain text follows)_");
+    bodyLines.push("_(formatting could not be recovered from this message; plain text follows)_");
+    bodyLines.push("");
   }
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push(body);
+  bodyLines.push(body);
 
-  const diagShown = mail.diagnostics.slice(0, MAX_DIAGNOSTICS_RENDERED);
-  for (const d of diagShown) lines.push(`\n_(${d})_`);
-  if (mail.diagnostics.length > diagShown.length) {
-    lines.push(`\n_(${mail.diagnostics.length - diagShown.length} more parser diagnostics not shown)_`);
-  }
+  return {
+    prefix: prefixLines.join("\n"),
+    diagnostics: diagnosticsLines.join("\n"),
+    body: bodyLines.join("\n"),
+  };
+}
 
-  const rendered = lines.join("\n");
+export function renderMailMarkdown(mail: ParsedMail, bodyBudget: number): string {
+  const { prefix, diagnostics, body } = renderMailParts(mail, bodyBudget);
+  const rendered = [prefix, diagnostics, body].filter((s) => s.length > 0).join("\n\n");
   if (rendered.length <= MAIL_MARKDOWN_HARD_CAP) return rendered;
   return `${rendered.slice(0, MAIL_MARKDOWN_HARD_CAP)}\n\n_(output exceeded the hard size cap and was cut)_`;
 }

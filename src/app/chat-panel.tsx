@@ -599,12 +599,16 @@ function ChatPanelInner({
   }
 
   function attachmentErrorText(
-    err: "too-large" | "unsupported-type" | "read-failed" | "encrypted",
+    err: "too-large" | "unsupported-type" | "read-failed" | "encrypted" | "budget-exhausted",
     name: string,
   ): string {
     if (err === "too-large") return t(lang, "chatAttachmentTooLarge", name);
     if (err === "unsupported-type") return t(lang, "chatAttachmentUnsupported", name);
     if (err === "encrypted") return t(lang, "chatAttachmentEncrypted", name);
+    // "budget-exhausted" (a mail's attachment tree ran past its shared
+    // extraction budget) reuses the generic read-failure copy rather than
+    // a dedicated i18n key — it's rare, attachment-specific, and "this
+    // attachment couldn't be read" is an honest enough description.
     return t(lang, "chatAttachmentReadFailed", name);
   }
 
