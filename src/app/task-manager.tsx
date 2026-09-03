@@ -93,10 +93,6 @@ import { navLabelKey, filterNavGroups } from "./nav-config";
 import { useSnapshots } from "./use-snapshots";
 import { useVersionHistory } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
-// The repo-wide partition key for "no project id to give". Named in the assets
-// schema because that is where the policy is written down, but the policy is
-// general — see its docstring before spelling a bare "default" anywhere.
-import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { detectInsights, type InsightInput } from "./insights/detect";
@@ -1192,31 +1188,9 @@ function TaskManagerInner() {
   );
 
   // Version history. Turso-only, main-window-only; the hook is inert otherwise.
-  // ★★★ THE NON-PORTFOLIO BRANCH MUST NOT BE `""`, AND IT WAS. `enabled` below
-  // and the sidebar entry both key off `settings.storageConfig.kind` (the
-  // single-DB Turso STORAGE backend) while this line keyed off `portfolioMode`
-  // (the multi-project PICKER, which defaults to "file"). The two disagree for
-  // exactly one configuration — Turso storage without a migrated portfolio —
-  // and `use-version-history.ts` folds `!!projectId` into its `active`
-  // predicate, so `""` switched the whole feature OFF while the view stayed
-  // visible: an empty timeline and a "save version" that silently did nothing,
-  // with no error, because the store was never called. Same class AGENTS.md
-  // records for the chat thread sidebar; `trendsActive` above is the correct
-  // pattern and ORs both signals.
-  // ★★ THE PORTFOLIO BRANCH DELIBERATELY KEEPS `""`. There the empty id means
-  // "no project selected yet", and the hook's inertness is load-bearing —
-  // folding it to the fallback would capture one project's versions under a
-  // shared key during a switch. Only the non-portfolio branch is wrong.
-  // ★ Deliberately NOT applied to the `useSnapshots` and
-  // `useMeetingReportActions` call sites, which pass the same expression:
-  // neither guards on `!!projectId`, so both already write and read under `""`
-  // self-consistently, and moving their key would orphan every existing row
-  // behind a migration those tables have no version marker to drive (the
-  // reasoning is in `document-assets-schema.ts`). Version history has written
-  // nothing for these users, so it alone is free to move.
   const versionHistory = useVersionHistory({
     config: tursoConfig,
-    projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : ASSET_PARTITION_FALLBACK,
+    projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     enabled: settings.storageConfig.kind === "turso" && !isPopout && isModuleEnabled("history", settings.features),
     idleMs: VERSION_IDLE_MS,
     retention: settings.versionHistoryRetention ?? DEFAULT_VERSION_RETENTION,
