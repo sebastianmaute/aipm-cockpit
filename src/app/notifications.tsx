@@ -276,9 +276,11 @@ function destructiveCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "dest
  *  line already names what would go, so the decision is made on a number either
  *  way. Only the wipe, where "what would go" is everything, buys the ceremony.
  *
- *  ★ `TypeToConfirmDialog` holds `TITLE_ID` as a MODULE constant, so only one
- *  may be open at a time. That is why the recourse lives on this banner and not
- *  ALSO on the toast — two triggers would need two instances. */
+ *  ★ The recourse lives on this banner and not ALSO on the toast — not
+ *  because two mounted dialogs would collide (`TypeToConfirmDialog` ids are
+ *  per-instance via `useId`, §326, so they no longer would), but because a
+ *  toast auto-dismisses and is single-slot: a bad host for an irreversible
+ *  button that needs to stay reachable until the user acts. */
 export function SavingPausedBanner({
   lang, cause, dismissed, hasFooterIndicator, onSaveAnyway, onDismiss, onReopen,
 }: {

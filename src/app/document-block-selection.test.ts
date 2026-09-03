@@ -55,16 +55,41 @@ describe("selectionAfterMove", () => {
 
 describe("selectionAfterInsert", () => {
   it("shifts a selection at or after the insert point up by one", () => {
-    expect(selectionAfterInsert(2, 0)).toBe(3);
-    expect(selectionAfterInsert(2, 2)).toBe(3);
+    expect(selectionAfterInsert(2, 0, "heading")).toBe(3);
+    expect(selectionAfterInsert(2, 2, "heading")).toBe(3);
   });
 
   it("leaves a selection before the insert point alone", () => {
-    expect(selectionAfterInsert(1, 2)).toBe(1);
+    expect(selectionAfterInsert(1, 2, "heading")).toBe(1);
   });
 
   it("leaves an unset selection unset", () => {
-    expect(selectionAfterInsert(null, 0)).toBeNull();
+    expect(selectionAfterInsert(null, 0, "heading")).toBeNull();
+  });
+
+  // ★★★ §199. A narrow pane collapses every paragraph but the selected one
+  //  behind an "Edit this block" button — so shifting the OLD selection past
+  //  an inserted paragraph handed the user a fresh seeded paragraph they
+  //  could not type into. The fix: an inserted paragraph BECOMES the
+  //  selection, regardless of where the old selection was.
+  it("selects the new block when a paragraph is inserted", () => {
+    expect(selectionAfterInsert(0, 2, "paragraph")).toBe(2);
+    expect(selectionAfterInsert(3, 1, "paragraph")).toBe(1);
+    expect(selectionAfterInsert(null, 0, "paragraph")).toBe(0);
+  });
+
+  // ★ PARAGRAPH ONLY. `document-editor.tsx`'s selection model admits nothing
+  //  else: `resolvedSelection` re-checks `type === "paragraph"` and the
+  //  collapse prop is read by the paragraph row alone, so selecting an
+  //  inserted heading/table/etc. would be resolved away on the very next
+  //  render — a no-op. Every OTHER addable kind therefore keeps the plain
+  //  shift-past-the-insert-point rule.
+  it("keeps the plain shift-past rule for every non-paragraph kind", () => {
+    for (const kind of ["heading", "bullets", "table", "dataSection", "pageBreak"] as const) {
+      expect(selectionAfterInsert(2, 0, kind)).toBe(3);
+      expect(selectionAfterInsert(0, 2, kind)).toBe(0);
+      expect(selectionAfterInsert(null, 0, kind)).toBeNull();
+    }
   });
 });
 

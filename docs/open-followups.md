@@ -425,7 +425,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§196](#196-the-two-routes-agree-property-192-exists-to-establish-has-no-fixture) | The two-routes-agree property §192 exists to establish has NO fixture | — | — | open |
 | [§197](#197-appendtexts-return-value-is-over-claimed-by-one-word--focus-can-also-return-false) | `appendText`'s return value is over-claimed by one word — `focus` can also return false | — | — | open |
 | [§198](#198-a-block-delete-reads-its-baseline-at-click-time-not-at-menu-open-time) | A block delete reads its baseline at CLICK time, not at menu-open time | — | — | open |
-| [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only) | Adding a block at a narrow pane leaves the NEW block collapsed read-only | — | — | open |
+| [§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02) | ~~Adding a block at a narrow pane leaves the NEW block collapsed read-only~~ | — | — | **CLOSED** 2026-09-02 (the fork decided (a): a paragraph insert carries the selection; every other kind unchanged) |
 | [§200](#200-internal-identifiers-ship-in-the-tracked-tree--blocks-flipping-the-github-mirror-public) | Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public | — | — | open |
 | [§201](#201-a-raw-control-byte-sits-in-jira-apits--the-nul-guard-cannot-see-it-but-the-binary-to-grep-headline-does-not-reproduce) | A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce | — | — | open |
 | [§202](#202-ooxml-media-machinery-for-document-images--s3c-2--closed-2026-08-22) | OOXML media machinery for document images — S3c-2 | — | — | **CLOSED** 2026-08-22 |
@@ -552,15 +552,15 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | open |
 | [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01) | ~~`actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name~~ | 0.272.0 (Zoline) | S | **CLOSED** 2026-09-01 (closed WIDER than its title; popover internals carved out to §328) |
 | [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix round | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
-| [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide) | `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide | found 2026-08-31, adding the §300 mismatch region | S | open |
-| [§327](#327-use-storage-backendts-sits-exactly-on-the-800-line-size-ratchet-with-zero-headroom) | `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom | found 2026-08-31, closing §303 | S | open |
+| [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide--closed-2026-09-02) | ~~`TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide~~ | found 2026-08-31, adding the §300 mismatch region | S | **CLOSED** 2026-09-02 (`useId()` for both; the probe REFUTED the entry's click path and found the voice-nonce one) |
+| [§327](#327-use-storage-backendts-sits-one-line-under-the-800-line-size-ratchet-with-no-usable-headroom) | `use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom | found 2026-08-31, closing §303 | S | open |
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | open |
 | [§329](#329-real-xlsx-cell-hyperlinks-were-deliberately-not-built--a-hyperlinks-unit-is-the-cell-and-a-description-can-carry-several) | Real XLSX cell hyperlinks were deliberately NOT built — a hyperlink's unit is the CELL, and a description can carry several | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open |
 | [§330](#330-the-flat-pptx-table-cell-keeps-the-inline-text-url-form-while-the-same-decks-text-boxes-carry-real-links) | The flat PPTX table cell keeps the inline `text (url)` form while the same deck's text boxes carry real links | decided 2026-09-01, closing §30 · §119 | — a recorded decision, not a defect | open (SCOPED 2026-09-01 to `doc-render-pptx.ts`'s table path — `export-pptx.ts`'s row slides now carry real links) |
 | [§331](#331-aria-pressed-carries-a-mutually-exclusive-choice-at-six-sites-which-is-radio-group-semantics-in-toggle-button-clothes) | `aria-pressed` carries a MUTUALLY-EXCLUSIVE choice at six sites, which is radio-group semantics in toggle-button clothes | found 2026-09-01, closing §55 | M | open |
 | [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | open |
-| [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard) | The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | open |
-| [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp) | `RaciChipPicker`'s popover is positioned with no right-edge clamp | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | open |
+| [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard--closed-2026-09-02) | ~~The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard~~ | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | **CLOSED** 2026-09-02 (**DISPROVED**, not fixed — the clear renders inside the `rootRef` containment check that governs the close; no code written) |
+| [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp--closed-2026-09-02) | ~~`RaciChipPicker`'s popover is positioned with no right-edge clamp~~ | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | **CLOSED** 2026-09-02 (adopted `PopoverPanel`; closed WIDER than its title — the chips were unreachable by Tab, and the panel's `ariaLabel` was inert without a `role`. One stated constraint, chip-anchored positioning, was DECLINED) |
 | [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | open |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--open) | A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all — open | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; the DISCLOSURE half of that report is fixed, this is the residue | S | open |
@@ -570,6 +570,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§341](#341-neither-asset-preview-entry-point-has-ever-been-exercised-against-a-real-turso-project--closed-2026-09-02) | ~~Neither asset-preview entry point has ever been exercised against a real Turso project~~ | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | **CLOSED** 2026-09-02 (eye-verified against a live Turso project; the entry records what that pass did NOT cover, which is narrower than the title) |
 | [§342](#342-rolebutton-on-an-img-removes-its-image-semantics--open) | `role="button"` on an `<img>` removes its image semantics | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | S | open |
 | [§343](#343-the-asset-lightboxs-reopen-frame-is-fixed-but-unpinned--no-test-can-see-it--open) | The asset lightbox's reopen frame is fixed but UNPINNED — no test can see it | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") deletion-only review round | S | open |
+| [§344](#344-hardcoded-literal-dom-ids-rest-on-an-unstated-single-mount-assumption--and-the-popout-is-not-the-reason-it-holds) | Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds | found 2026-09-02 closing §326 | S | open |
+| [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -8274,7 +8276,8 @@ Found 2026-08-07 while converting the close-button family in slice 2 (§102's pr
 decided it is its own slice rather than something to force inside a conversion task.
 
 `raci-chip-picker.tsx` holds the case. That ✕ is the **fifth of five sibling chips** — R / A / C / I
-plus clear — all sharing `CHIP_BASE` (`raci-chip-picker.tsx:32`, used at `:87` and `:112`), which is
+plus clear — all sharing `CHIP_BASE` (enumerate its declaration and its uses with
+`grep -n "CHIP_BASE" src/app/raci-chip-picker.tsx`), which is
 `flex h-5 w-5 … rounded-full border text-[11px]`: a 20px circle. `IconButton` hard-codes `rounded-md`
 in `BASE_CLASS` and `p-1`/`p-1.5` in `SIZE_CLASS`.
 
@@ -15730,40 +15733,92 @@ opened against, not just an index. That is a design change and wants its own
 slice. The comment above the call has been narrowed to stop claiming the baseline
 is "the row the user pointed at", so the code no longer overstates the guarantee.
 
-## 199. Adding a block at a narrow pane leaves the NEW block collapsed read-only
+## 199. Adding a block at a narrow pane leaves the NEW block collapsed read-only — CLOSED 2026-09-02
 
-**Status:** open. **Severity:** low (a UX fork, not a defect — the block is
-reachable in one extra click). **Found by:** cold review of the S3c
-structural-blocks round, on the commit that fixed the default-state
-carry-through. **Deliberately not changed — it is a feature decision, outside
-that round's scope.** Reproduced 2026-08-28 by `grep -n "selectionAfterInsert" src/app/document-block-selection.ts`.
+**Status:** CLOSED 2026-09-02 by `c5e79982` (the fix) and `c72a9957` (the call-site pin). **Severity
+was low** (a UX fork, not a defect — the block was reachable in one extra click). **Found by:** cold
+review of the S3c structural-blocks round, on the commit that fixed the default-state carry-through,
+and **deliberately deferred there as a feature decision.** Verified 2026-09-02 in Chromium at a real
+narrow pane, and by mutation in both directions at the call site. Re-check with
+`npx vitest run document-editor.test.tsx document-block-selection.test.ts` — the pin is the test
+`"selects an inserted paragraph instead of shifting past it"`.
 
-At a narrow pane `document-editor.tsx` collapses every paragraph but the
-selected one, and since the selection carry-through takes the RESOLVED selection
-the three structural ops all keep the block the user was already in. For move
-and delete that is the whole point. For INSERT it means the newly-added block is
-never the selected one: a user who picks "Add below → Paragraph" gets a fresh
-seeded paragraph rendered read-only with an "Edit this block" button, and has to
-click that button before they can type in the block they just asked for.
+★★★ **THE 2026-08-28 REPRODUCE COMMAND WAS REPLACED, NOT RENUMBERED, BECAUSE IT WAS VACUOUS.** It read
+`grep -n "selectionAfterInsert" src/app/document-block-selection.ts` — which returns a hit before AND
+after the fix, so it never distinguished the defect from its absence. A presence witness for a symbol
+that exists in both worlds answers nothing about the behaviour the entry is asserting. The command above
+runs the tests that go red if the behaviour reverts.
 
-★ It is now CONSISTENT, which it was not before. With a selection already made,
-`selectionAfterInsert` always shifted it so the old block stayed live. With no
-selection made, the old code fell through to `firstParagraph` recomputed on the
-new list — so inserting at index 0 of a paragraph document happened to select
-the new block while inserting anywhere else did not. The fix removed that split
-by making every case keep the old block.
+**What happened** (past tense — this is the defect statement). At a narrow pane
+`document-editor.tsx` collapses every paragraph but the selected one, and since
+the selection carry-through took the RESOLVED selection, all three structural ops
+kept the block the user was already in. For move and delete that is the whole
+point. For INSERT it meant the newly-added block was never the selected one: a
+user who picked "Add below → Paragraph" got a fresh seeded paragraph rendered
+read-only with an "Edit this block" button, and had to click that button before
+typing in the block they had just asked for.
 
-★ **The fork to decide.** Either (a) carry the selection to the newly-inserted
-block when the inserted kind is a paragraph, on the argument that "add a
-paragraph" is a request to write one; or (b) keep today's behaviour, on the
-argument that an insert should never move the cursor out from under an edit in
-progress — the user may be adding a block to fill in later. (a) needs a rule for
-the non-paragraph kinds, which have no selection concept at all: inserting a
-table or a page break must leave the selection alone either way, so the op
-cannot simply select `at`.
+★ **History of this entry, kept VERBATIM under this banner — it is the only record of why the pre-fix
+index-0 coincidence existed, and deleting it would make the closing fix look like it removed a special
+case that never existed.** The sentences below describe the state of the code between the S3c round and
+2026-09-02, not today:
 
-★ Whichever way it goes, it is narrow-pane-only — at a wide pane every paragraph
-is live and the selection is invisible.
+> ★ It is now CONSISTENT, which it was not before. With a selection already made,
+> `selectionAfterInsert` always shifted it so the old block stayed live. With no
+> selection made, the old code fell through to `firstParagraph` recomputed on the
+> new list — so inserting at index 0 of a paragraph document happened to select
+> the new block while inserting anywhere else did not. The fix removed that split
+> by making every case keep the old block.
+
+★★ **The fork was decided (a), and the rule the fork demanded is implemented verbatim.** The options
+were (a) carry the selection to the newly-inserted block when the inserted kind is a paragraph, on the
+argument that "add a paragraph" is a request to write one; or (b) keep the old behaviour, on the
+argument that an insert should never move the cursor out from under an edit in progress. (a) was taken.
+**The rule for the other kinds:** `selectionAfterInsert(chosen, at, kind)` returns `at` when — and only
+when — `kind === "paragraph"`; every other kind falls into the unchanged shift branch, which is correct
+for all of them by construction, since a table or a page break has no selection concept to carry. The
+branch is on the **KIND, never the position** — a paragraph inserted at ANY index, including 0, becomes
+the selection.
+
+★★★ **THE "INDEX-0-ONLY SPECIAL CASE" THAT THE FIX WAS SAID TO REMOVE NEVER EXISTED IN THE CODE.** The
+implementation plan for this closure asserted one; checked against history, the module arrived whole in
+`af704299` and `insertSeeded` before it was
+`(at, type) => structural.insert(at, blockSeed(lang, type))` — it never touched the selection at all.
+The index-0 coincidence was in `resolvedSelection`'s `firstParagraph` fallback (quoted above), never a
+case in this function. Do not reintroduce the claim.
+
+★★ **The call site is pinned, and it needed pinning in a direction nothing covered.** Mutating
+`selectionAfterInsert(..., at, type)` to a `"heading"` literal reverts the whole fix to a no-op;
+measured, that mutant left both test files green (0 failed / 59 passed) before the pin was added. The
+mirror mutant — hardcoding `"paragraph"` — was already caught. Both directions now fail.
+
+★ It was always narrow-pane-only — at a wide pane every paragraph is live and the selection is
+invisible.
+
+★★ **"Selected" does not imply "typable", and this closure does not make it so.**
+`ParagraphBlockEditor` returns a read-only notice for ANY image-bearing paragraph at ANY pane width, so
+the selected block can still be uneditable for a reason that has nothing to do with the pane. This fix
+is unaffected — a newly inserted paragraph never carries an image — but do not restate the invariant as
+"the selected block is the editable one".
+
+★★ **The seeded documents CAN exercise this surface, and an earlier revision of this paragraph said
+they could not.** The sample master has a single paragraph, so nothing collapses there — but
+`e2e/seed.ts`'s Kickoff document has THREE paragraphs and only TWO carry `data-asset-id`; block
+index 1 (`"<p>Agenda and owners for the kickoff session.</p>"`) is plain. And the collapse has no
+content term at all: `collapseParagraph={narrow && index !== selected}` turns on width and selection
+only. So at a narrow pane that document DOES collapse, and its plain paragraph is fully editable
+once selected. Reproduce both halves:
+
+```bash
+grep -n 'type: "paragraph"' e2e/seed.ts
+grep -n "collapseParagraph={" src/app/document-editor.tsx
+```
+
+★ The browser verification still seeded its own document, and that remains the better choice — but
+for a plain reason (a fixture with one plain paragraph and nothing else is unambiguous about which
+block the assertion is about), **not** because the seeded ones are incapable. The blind spot that IS
+real is narrower than the old sentence claimed: no e2e spec drives the narrow-pane block editor, so
+the surface is unexercised by the seed even though it is reachable from it.
 
 ## 200. Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public
 
@@ -25891,38 +25946,55 @@ so a future reader seeing "1" should read the line before concluding anything.
 stops the next raw `text-ui-pink` from landing — the palette sweep will accept it and axe will not
 look at it — so this class can recur, and the inventory grep remains the only detector.
 
-## 326. `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide
+## 326. `TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide — CLOSED 2026-09-02
 
-**Status:** OPEN. Filed 2026-08-31 while adding the §300 mismatch region. **Never machine-verified**
-— the two-instance path is read off the code, not observed; no test mounts two dialogs and no probe
-was run. Reproduce with `grep -n "TITLE_ID\|MISMATCH_ID" src/app/type-to-confirm-dialog.tsx` and
-`grep -n "TypeToConfirmDialog\|ConfirmOpen" src/app/tasks-section.tsx`.
+**Status:** CLOSED 2026-09-02 by `dced5a68` (both ids now `useId()`) and `48cbef17` (the prose sweep).
+The entry was filed **never machine-verified**; it was **REPRODUCED IN CHROMIUM FIRST** — a temporary
+probe mounted both dialogs and printed
+`{"dialogCount":2,"titleIdCount":2,"perDialog":[…"labelledbyId":"type-to-confirm-title"…]}`, i.e. both
+dialogs' `aria-labelledby` resolving to the SAME element, the second announcing the first's title
+"Clear all tasks?" as its own name. Re-check the fix with
+`grep -n "useId\|titleId\|mismatchId" src/app/type-to-confirm-dialog.tsx`.
 
-**What happens.** Both ids are module-level constants — `TITLE_ID` (pre-existing) and `MISMATCH_ID`
+**What happened.** Both ids were module-level constants — `TITLE_ID` (pre-existing) and `MISMATCH_ID`
 (added by the §300 fix). Two mounted dialogs therefore put duplicate ids in the document, and
-`aria-labelledby` / `aria-describedby` resolve to whichever element comes FIRST in document order.
-The wrong dialog's title or mismatch text is announced, with no visible symptom and nothing thrown.
+`aria-labelledby` / `aria-describedby` resolved to whichever element came FIRST in document order.
+The wrong dialog's title or mismatch text was announced, with no visible symptom and nothing thrown.
 
-★★ **A concrete two-instance path exists**, which is what raises this above theoretical.
-`tasks-section.tsx` holds two independent booleans — `clearConfirmOpen` and
-`deleteSelectedConfirmOpen` — each rendering its own `TypeToConfirmDialog`, and the voice `clearAll`
-nonce reconcile sets the first one WITHOUT checking the second is closed. So the collision is
-reachable by a user action sequence, not only by a hypothetical future call site.
+★★★ **THE ENTRY NAMED THE RIGHT DEFECT AND THE WRONG PATH TO IT, and the probe is what separated
+them.** This paragraph used to claim a click sequence reached it — "click Delete selected, then click
+the toolbar Clear all". **That is NOT reachable**: `Modal`'s backdrop is `fixed inset-0` on the same
+element as the `role="dialog"`, so it intercepts the pointer and the second click times out. What IS
+reachable is the **voice `clearAll` nonce path**, which needs no click at all — `requestClearAllConfirm`
+bumps `clearAllRequestNonce`, and `tasks-section.tsx`'s render-reconcile opens the second dialog while
+the first stands. The two-instance premise survived; the gesture did not. Had the fix been written from
+the entry alone, the test would have pinned a sequence a user cannot perform.
 
-★ **Filed, not fixed.** It is a PRE-EXISTING hazard that the §300 fix WIDENED by exactly one id — it
-did not create it — and switching both to `useId()` is out of scope for the commit that found it.
+★ **It was a PRE-EXISTING hazard that the §300 fix WIDENED by exactly one id** — it did not create it.
 
-★★ **The fix is worth more than the bug.** `useId()` for both would also retire the unwritten "only
-one may be open at a time" constraint that `notifications.tsx` and `use-storage-backend.ts` both
-shaped their designs around. That is the reason to do it properly rather than to paper over the
-tasks-section case with a mutual-exclusion guard.
+★★ **The fix was worth more than the bug, and this is what it bought.** `useId()` on both ids
+**retired the unwritten "only one may be open at a time" constraint** that `notifications.tsx` and
+`use-storage-backend.ts` had each shaped a design decision around. Both comments were rewritten in
+`48cbef17`: the reasons those two surfaces make their choices are now the reasons that actually
+survive (a toast auto-dismisses and is single-slot — a bad host for an irreversible button), not a
+duplicate-id constraint that no longer exists. ★★ Two dated design records — the 2026-08-30
+recoverable-destructive-refusal **spec** and **plan** — still state the old constraint; they are
+bannered as superseded rather than rewritten, because a dated record is only worth what it recorded.
 
-## 327. `use-storage-backend.ts` sits exactly on the 800-line size ratchet, with zero headroom
+## 327. `use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom
 
 **Status:** OPEN. Filed 2026-08-31 while closing
 [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31).
+**Re-measured 2026-09-02: the count is now 799, not the 800 this entry was filed at.** Commit
+`48cbef17` removed two comment lines and added one (`git diff --numstat 48509bf1..ebeb30d3 --
+src/app/use-storage-backend.ts` → `1 2`), so the file gained exactly one line of room. ★ **That
+does not resolve this entry** — one line is the state the ★ paragraph below says gives no visible
+signal, and the file is still unbaselined against a hard 800 ceiling
+(`docs/baselines/file-sizes.json` holds four files and this is not one of them). The heading and
+this measurement were carried at "exactly 800 / zero headroom" for one release after the change
+falsified them.
 **Partially machine-verified, partially not.** Measured: the file's line count by the gate's own
-method (`readFileSync(...).split("\n").length`, per `check-file-sizes.mjs`) is **800**, and
+method (`readFileSync(...).split("\n").length`, per `check-file-sizes.mjs`) is **799**, and
 `npm run size:check` exits **0** printing "file-size ratchet ok" against that count. Reproduce:
 
 ```
@@ -25942,6 +26014,12 @@ the guard's call site into one line and moving the reasoning onto the `isNewMagn
 `DestructiveEvaluation` (`src/app/use-destructive-save-guard.ts`) — a better home for it, since the
 property it documents belongs to the evaluator, not the call site. That trick is now **spent**:
 there is no second comment block in this file left to harvest the same way.
+
+★ **The one line recovered since was not harvested — it was a correction.** `48cbef17` deleted two
+comment lines here and added one, a §326 prose sweep striking a claim that `TypeToConfirmDialog`
+holds `TITLE_ID` as a MODULE constant, which the per-instance-id fix had made false. Deleting a
+false claim is not a headroom strategy; nothing here should be read as suggesting the next line be
+found the same way.
 
 ★ **Nobody checked the file was one line under the ceiling before adding to it.** That is the
 process gap this entry exists to flag — a file sitting at 799 gives no visible signal that it has
@@ -26306,46 +26384,73 @@ without an eye-verify will look exactly as green as this one does.
 
 ---
 
-## 333. The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard
+## 333. The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard — CLOSED 2026-09-02
 
-**Status:** OPEN, **never machine-verified** — the failure is REASONED from the pattern
-`ResourcePicker` documents, not observed. No probe was run, and nothing in the suite reproduces it.
-Filed 2026-09-01 while migrating the two glyphs to `IconButton`. Reproduce the shape with
-`grep -n "IconButton\|onMouseDown" src/app/labels-input.tsx src/app/stakeholder-recipient-input.tsx`.
+**Status:** CLOSED 2026-09-02 — **DISPROVED BY MEASUREMENT. NOT FIXED: no code was written, and none
+should be.** The entry asked for a probe before acting and the probe cleared the code. Measured
+2026-09-02 by a temporary Playwright spec against a real Chromium (`PORT=3100`, `--workers=1`,
+1 passed, EXIT=0, since deleted): a label typed into `LabelsInput`, committed with Enter, then removed
+by clicking the chip's own `Remove <label>` `IconButton` — the label went. Re-check the
+structural half, which is what makes the outcome general rather than one lucky click, with
+`grep -n "rootRef" src/app/labels-input.tsx src/app/combobox-shared.tsx`.
 
 **PRE-EXISTING — NOT introduced by the `IconButton` adoption.** Both were hand-rolled `<button>`
 elements with the same handler set before `fb18d2e4`; that commit changed their styling and gave them a
 focus ring, and carried the missing guard across unchanged. This is recorded here because the migration
 is what put a reader in front of the code, not because it caused anything.
 
-**What is reasoned to happen.** AGENTS.md's `ResourcePicker` bullet states the rule: a commit-on-blur
-editor closes on blur, so a clear button without `onMouseDown` + `preventDefault` can have its click
-land on an already-closed editor and be swallowed. `stakeholder-recipient-input.tsx` holds the pattern's
-other half already — its suggestion list DOES call `preventDefault` in `onMouseDown`, with the comment
-"Prevent input blur before the click fires" — so two controls in one file disagree about whether blur
-matters.
+**What was reasoned to happen** (the filed claim, kept in past tense because the probe answered it).
+AGENTS.md's `ResourcePicker` bullet states the rule: a commit-on-blur editor closes on blur, so a clear
+button without `onMouseDown` + `preventDefault` can have its click land on an already-closed editor and
+be swallowed. `stakeholder-recipient-input.tsx` holds the pattern's other half already — its suggestion
+list DOES call `preventDefault` in `onMouseDown`, with the comment "Prevent input blur before the click
+fires" — so two controls in one file disagree about whether blur matters. That disagreement is what
+made the entry look like a defect.
 
-★★ **The reasoning may not hold, which is the point of the status line above.** Whether a clear is
-actually swallowed depends on whether the surrounding editor commits or closes on blur AT ALL, and
-nobody checked: neither file puts an `onBlur` on its own input today. So this may be a latent hazard
-that becomes real the moment either input gains commit-on-blur behaviour, rather than a live defect.
-**Probe before acting on it** — a test that clicks the clear glyph while the input holds focus and
-asserts the chip is removed would settle it in either direction, and would be worth keeping either way.
+★★★ **WHY IT CANNOT BE SWALLOWED — and this is the deliverable, not the passing probe.** The rule is
+correct; it simply does not reach this shape. `labels-input.tsx` gets its open/close state from
+`useCombobox` (`combobox-shared.tsx`), whose only close path — **the HOOK's**, not the consumer's, which
+also closes from its own Escape handler (`grep -n "setOpen(" src/app/labels-input.tsx` returns four call
+sites, one of them a `setOpen(false)` under `e.key === "Escape"`) — is a document-level `mousedown`
+listener
+gated on **`rootRef.current.contains(e.target)`** — it closes only for a target OUTSIDE the root. The
+clear `IconButton` renders INSIDE that same root (`labels-input.tsx` puts `ref={rootRef}` on the
+wrapping `<div>` and the chip row within it), so the very listener that could close the editor is the
+one that exempts this button. `stakeholder-recipient-input.tsx` hand-rolls the identical
+`rootRef`-containment listener with its clear likewise inside. And neither file puts an `onBlur` on its
+own input at all, so there is no commit-on-blur to lose a click to in the first place — two independent
+reasons, either sufficient.
 
-★ **The fix, if the probe confirms it, is one prop.** `IconButton` spreads `...props` onto its
-`<button>`, so an `onMouseDown` handler threads through with no change to the primitive. That was
-deliberately NOT done in this slice: adding a guard against a failure nobody has reproduced leaves an
-unexplained handler the next contributor cannot evaluate, and one of those is how a cargo-culted
-pattern spreads.
+★★ **The `ResourcePicker` rule is NOT weakened by this closure — it is scoped.** It applies to a
+control whose click can land after the surrounding editor has closed. A control rendered INSIDE the
+containment check that governs that close is outside the rule by construction. Do not read this entry
+as licence to drop `onMouseDown` from `ResourcePicker`'s ✕, which sits in a commit-on-blur consumer (the
+inline task-row assignee) and genuinely needs it.
+
+★ **Reachable surface is narrower still.** Per
+[§265](#265-stakeholderrecipientinput-has-no-production-caller), `StakeholderRecipientInput` has no
+production caller — `grep -rn "StakeholderRecipientInput" src/app` returns only its own file — so
+`LabelsInput` (`bulk-edit-modal.tsx`, `task-form-fields.tsx`) was the only half a user could reach, and
+it is the half the probe drove.
+
+★★★ **NO GUARD WAS ADDED, DELIBERATELY.** The original entry already said why and the outcome makes it
+sharper: `IconButton` spreads `...props`, so the guard would have been one prop and cost nothing to
+type — which is exactly the temptation. Adding a defensive handler against a failure that has now been
+measured NOT to occur leaves an unexplained handler the next contributor cannot evaluate, and one of
+those is how a cargo-culted pattern spreads. A clean probe is an honest outcome; the disproof is the
+deliverable.
 
 ---
 
-## 334. `RaciChipPicker`'s popover is positioned with no right-edge clamp
+## 334. `RaciChipPicker`'s popover is positioned with no right-edge clamp — CLOSED 2026-09-02
 
-**Status:** OPEN, **never machine-verified** — the missing clamp is read off the code; no browser probe
-has put a trigger near the viewport's right edge and watched the popover overflow. Filed 2026-09-01
-while fixing §55's RACI half. Reproduce with
-`grep -n "getBoundingClientRect\|setPos\|fixed z-" src/app/raci-chip-picker.tsx`.
+**Status:** CLOSED 2026-09-02 by `3fe6b4f6` (adopt `PopoverPanel`), `61788413` and `85f3143f`
+(`role="dialog"`). Filed **never machine-verified**; **MEASURED IN CHROMIUM BEFORE AND AFTER**, and the
+before-probe refuted the entry's own framing of the severity (below). Overflow onset went
+`{"overflowWidth":1280}` → `null`, i.e. at 1280px the panel ran `left=1143.5 right=1289.5` against an
+`innerWidth` of 1280 (over by ~9px) and afterwards sits `left=1017.45 right=1163.45`, clear at all
+eleven widths sampled down to 520px. Re-check the adoption with
+`grep -n "PopoverPanel\|createPortal" src/app/raci-chip-picker.tsx`.
 
 **PRE-EXISTING, WIDENED BY ~20px.** The popover is `fixed z-[100] flex w-max`, positioned inline at the
 trigger's own `left` (`setPos` stores `r.bottom + 4` and `r.left` from one
@@ -26372,18 +26477,73 @@ widening is ~16% of the pre-fix width, not the ~13% the old number implied. It i
 "narrow band" conclusion rests on, not the absolute delta — so re-derive it, rather than the delta
 alone, if either the chip size or the gap ever changes.
 
-★★ **`PopoverPanel` — the shared popover primitive — ALREADY SOLVES THIS, and that is the real finding.**
-It runs a post-paint clamp effect that pulls the panel into the viewport on both axes, and closes on a
-width change. `RaciChipPicker` predates it and hand-rolls its own `createPortal` + `useDismissable`
-pair instead, so it inherits none of that. The remedy is therefore adoption, not a bespoke clamp — a
-bigger change than it looks, and one that also has to preserve the two things this component does
-deliberately (positioning at the chip rather than at a menu anchor, and the ring's clearance geometry).
+★★ **`PopoverPanel` — the shared popover primitive — ALREADY SOLVED THIS, and that was the real
+finding.** It runs a post-paint clamp effect that pulls the panel into the viewport on both axes, and
+closes on a width change. `RaciChipPicker` predated it and hand-rolled its own `createPortal` +
+`useDismissable` pair instead, so it inherited none of that. **That is what changed:** the picker is
+now a `PopoverPanel` CONSUMER, registers no `useDismissable` of its own, and calls no `createPortal` —
+`grep -n "PopoverPanel\|createPortal\|useDismissable" src/app/raci-chip-picker.tsx` is the witness in
+both directions.
 
-★★ **The RACI surface is NOT in `A11Y_VIEWS`.** The a11y spec scans "Stakeholders"; `raci` is a CHILD
-view of it, and `HASH_VIEW` deep-links only Next actions and Insights, so nothing navigates there. That
-surface has therefore never been scanned — and axe would not flag an off-screen popover in any case.
-jsdom has no layout, so its unit tests cannot see this either. Eye-verify is the only detector, in
-either layer, permanently.
+★★★ **ONE CONSTRAINT THIS ENTRY STATED WAS DELIBERATELY DECLINED, and deleting the sentence would
+have hidden a decision.** The paragraph above used to require the remedy to "preserve the two things
+this component does deliberately (positioning at the chip rather than at a menu anchor, and the ring's
+clearance geometry)". The ring geometry was preserved. **The chip-anchored positioning was NOT.**
+`PopoverPanel`'s default placement is `bottom-end`, which RIGHT-aligns the panel to the anchor where
+the hand-rolled code LEFT-aligned it (it wrote an inline `left` from `getBoundingClientRect`; the
+primitive drives `right` and never writes `left` — that asymmetry is the actual pin in
+`raci-chip-picker.test.tsx`, because the four obvious class assertions passed against the UNFIXED code).
+**Accepted, not overlooked:** the panel is ~144px wide against a 20px trigger, so which edge it hangs
+from is a visual preference, while the clamp, the dismissal protocol and the Tab contract are
+correctness. Taking the primitive's default rather than adding an alignment prop keeps this call site
+on the shared path, which is the whole point of adopting it.
+
+★★★ **THE KEYBOARD HALF WAS THE LARGER FIX, AND THIS ENTRY NEVER CLAIMED IT.** The before-probe
+traced 40 Tab presses from a trigger: the first press landing INSIDE the popover was the **16th**
+(`firstInsideIdx` 15) — `createPortal` appends the panel as the last child of `<body>`, so tab order is
+divorced from visual position and Tab walked all 21 matrix triggers, reaching the sidebar by the 40th.
+The R/A/C/I/clear chips were **effectively unreachable by the forward Tab path**. After: `firstInsideIdx`
+0, the first press lands on "R", and all 40 cycle R–A–C–I–Clear without escaping. ★ Read the
+consequence for the rejected fallback: a bare bespoke clamp would have left the chips exactly as
+unreachable, so "is the Tab trap a regression to weigh?" was the wrong question in the direction the
+spec asked it.
+
+★★ **The flip is MEASURED, not assumed fine.** `MIN_SPACE_BELOW` is 220px, sized for the date/escalate
+panels, while a 34px chip row needs ~38px — so the panel flips above **more eagerly than necessary**.
+Forced at 1280×500 (`spaceBelow` 170.5): it flipped, and the result was well-formed — panel bottom
+305.5 against trigger top 309.5, exactly the 4px `ANCHOR_GAP`, no overflow at either edge. The default
+was ACCEPTED on that evidence. A `minSpaceBelow` prop would change WHEN it flips, never whether the
+result looks right.
+
+★★ **A separate a11y defect was found and fixed on the way (`85f3143f`), and no gate could have caught
+it.** The panel is a bare `<span>` — `role=generic` — and ARIA 1.2 PROHIBITS naming a generic, so the
+`ariaLabel` was being DROPPED by AT and the popover announced nothing. It now carries `role="dialog"`,
+which is truthful rather than a shim: the panel registers `kind:"modal"` and really does trap Tab.
+axe 4.12.1's `aria-prohibited-attr` does carry `wcag2a` and is not experimental, but on a role-less
+span it lands in `incomplete`, which `e2e/a11y.spec.ts` filters away — and RACI is not scanned at all
+(next paragraph). **The picker's AT presentation therefore CHANGED with this closure**: it announces
+as a named dialog where it previously announced nothing.
+
+★★★ **THE RACI SURFACE IS NOT IN `A11Y_VIEWS`, AND CLOSING THIS ENTRY DID NOT CHANGE THAT.** The a11y
+spec scans "Stakeholders"; `raci` is a CHILD view of it, and `HASH_VIEW` deep-links only Next actions
+and Insights, so nothing navigates there. A **green Stakeholders axe run says NOTHING about RACI** —
+this branch's Stakeholders scan passed 7/7 while the largest change on the branch lives one view
+deeper. No doc may imply otherwise. Coverage for this surface is `raci-chip-picker.test.tsx` and
+nothing else.
+★★ Split what each layer can and cannot see, because they are not the same for the two halves of the
+fix. The **naming and keyboard** contract IS unit-pinned (the `role`, both Tab wraps, the pull-in from
+the anchor, Escape restoring focus to the trigger). The **geometry** — clamp, flip, overflow — is
+permanently invisible to jsdom, which has no layout, and equally invisible to axe, which would not
+flag an off-screen popover in any case. For geometry, eye-verify remains the only detector in either
+layer; the before/after figures at the head of this entry are that verification, and a future change
+to the placement needs a new one.
+★ Two further limits of the unit layer, recorded so nobody mistakes a green run for more than it is.
+jsdom implements no sequential focus navigation, so "Tab cycles the five chips" is only pinned at the
+trap's edge branches — asserting the interior would assert on the test's own `.focus()` calls, and the
+browser probe carries it instead. And the primitive restores focus **twice** (`closeRestoringFocus`
+plus the §297 unmount guard), each sufficient alone: dropping either one leaves the Escape test green,
+and only dropping BOTH turns it red. That redundancy is in the primitive, not a sleeping test, and the
+measurement is repeated in the test's own comment so the next mutator does not misread the survivor.
 
 ---
 
@@ -26747,3 +26907,71 @@ row, and confirm no broken-image flash. That is the only layer that can answer t
 
 ★ The sibling `forId` tag is NOT this fix and does not cover this path; it covers navigate and
 list-shrink, where the id genuinely changes, and the shrink case IS pinned by a test.
+
+---
+
+## 344. Hardcoded literal DOM ids rest on an unstated single-mount assumption — and the popout is NOT the reason it holds
+
+**Status:** OPEN, filed 2026-09-02 while closing
+[§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide--closed-2026-09-02).
+**Partially machine-verified.** MEASURED: a popout is a separate top-level document, so it can never
+be the cause of a duplicate-id collision — `openPopoutWindow` calls `window.open` on
+`?popout=<tab>`, which the code shows outright. **NEVER machine-verified:** whether any of the
+remaining literal-id sites can be mounted twice in ONE document; nobody has traced those paths.
+Enumerate the mechanism with `grep -n "openPopoutWindow" src/app/broadcast-sync.ts` and the
+surviving literal ids with
+`grep -rn "id=\"[a-z-]*\"" src/app --include=*.tsx | grep -v test`.
+
+**What this entry is for.** §326 fixed the two ids that had a REACHABLE collision. The class it
+belongs to is larger and is entirely undocumented: `project-form-fields.tsx` (`name-error`,
+`code-error`), `bulk-edit-modal.tsx` (~10) and `documents-toolbar.tsx`
+(`EDIT_DISABLED_HINT_ID` / `NEW_DISABLED_HINT_ID`) all hold literal or module-constant ids that are
+correct only while exactly one instance is mounted per document. None of them says so, and nothing
+checks it — a duplicate `aria-describedby` target has no visible symptom and throws nothing, which
+is what made §326 survive for as long as it did.
+
+★★★ **THE POPOUT IS THE WRONG REASON, IN BOTH DIRECTIONS, AND TWO CONTRIBUTORS REACHED FOR IT.**
+`documents-toolbar.tsx` justifies its module constants as "rendered once per pane";
+`document-editor.tsx` justified its `useId` by "a popout beside the main window" mounting two. Those
+two cannot both be evidence, and the second is the false one: `openPopoutWindow`
+(`broadcast-sync.ts`) does `window.open(url, …)` against `?popout=<tab>`, so a popout is a SEPARATE
+browsing context with its OWN `document`. Ids in it cannot collide with the main window's, in either
+direction. The `useId` there is still the right call — it is free and correct by construction — but
+its stated reason was rewritten on 2026-09-02 to say so rather than to keep inventing a path.
+★★ Read the general rule off that: **"could two of these mount at once?" is a question about ONE
+document, and a second browser window is not an answer to it.** The reachable §326 path was a
+render-reconcile in a single pane, which is the shape to look for.
+
+★ **Not fixed here, deliberately.** Converting every literal id to `useId()` is mechanical and
+cheap, but it is a sweep across unrelated surfaces with no measured collision behind any of them,
+and this register's own §333 records what filing a guard against an unmeasured failure costs. Trace
+one path first; convert the site that has one.
+
+---
+
+## 345. `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it
+
+**Status:** OPEN, **never machine-verified** — no probe was run and no guard exists; this records a
+structural hazard, not an observed failure. Filed 2026-09-02 in the
+[§199](#199-adding-a-block-at-a-narrow-pane-leaves-the-new-block-collapsed-read-only--closed-2026-09-02)
+closure round, from the cold review of that fix. Reproduce the surface with
+`grep -n "^import" src/app/document-block-selection.ts`.
+
+**What happens.** The module header states "NO React, NO DOM, NO i18n — index arithmetic and nothing
+else, so it is unit-testable without a jsdom environment". §199 gave the module its **first-ever
+import** — a `import type` of the block-kind union, which is erased at compile time and so keeps the
+promise. Nothing enforces that it stays type-only. Changing that one line to a value import silently
+pulls `i18n` and DOMPurify into the module graph of a file whose header advertises neither, and no
+gate would report it: `vitest.config.ts` sets `environment: "jsdom"` globally, so the tests keep
+passing and the DOM-free property is lost without a symptom.
+
+★★ **A concrete path to that mistake already exists in the review record.** The obvious way to make
+`document-block-selection.test.ts`'s kind loop derive from `ADDABLE_BLOCK_TYPES` instead of
+restating it is a VALUE import of exactly this module — which is a good idea for the loop and the
+thing that would break the header's promise. Both changes look local; only one of them is.
+
+★ **The remedy, if taken, is the one `document-model.ts` already uses:** a source-scanning assertion
+in the module's own test — there, a comment-stripped scan for DOM references; here, a check that
+every `import` line begins `import type`. Three lines, and it is the only thing that could see this.
+★★ Deliberately NOT written in the §199 slice: it is a new guard rather than a defect, the plan did
+not carry it, and adding untasked guards to a fix commit is how a slice stops being reviewable.

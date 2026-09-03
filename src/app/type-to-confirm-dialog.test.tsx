@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 
 const base = {
@@ -113,5 +113,50 @@ describe("TypeToConfirmDialog", () => {
     expect(btn).toBeDisabled();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "   " } });
     expect(btn).toBeDisabled();
+  });
+
+  // ★★ §326. Both ids were module CONSTANTS, so two mounted dialogs put
+  // duplicate ids in the document and `aria-labelledby` / `aria-describedby`
+  // resolved to whichever element came FIRST in document order — the wrong
+  // dialog's title announced, with no visible symptom and nothing thrown.
+  // `tasks-section.tsx` holds two independent open booleans, so this is a
+  // reachable user sequence, not a hypothetical future call site.
+  it("gives two mounted dialogs ids that resolve inside their own dialog", () => {
+    render(
+      <>
+        <TypeToConfirmDialog {...base} title="First" />
+        <TypeToConfirmDialog {...base} title="Second" />
+      </>,
+    );
+    const dialogs = screen.getAllByRole("dialog");
+    expect(dialogs).toHaveLength(2);
+    const titles = dialogs.map((d) => {
+      const id = d.getAttribute("aria-labelledby");
+      expect(id).toBeTruthy();
+      const el = document.getElementById(id as string)!;
+      // The whole assertion: each name resolves INSIDE the dialog that claims it.
+      expect(d.contains(el)).toBe(true);
+      return el.textContent;
+    });
+    expect(titles).toEqual(["First", "Second"]);
+  });
+
+  it("gives two mounted dialogs mismatch ids that resolve inside their own dialog", () => {
+    render(
+      <>
+        <TypeToConfirmDialog {...base} title="First" />
+        <TypeToConfirmDialog {...base} title="Second" />
+      </>,
+    );
+    const dialogs = screen.getAllByRole("dialog");
+    for (const d of dialogs) {
+      const input = within(d).getByRole("textbox");
+      fireEvent.change(input, { target: { value: "wrong" } });
+      fireEvent.blur(input);
+      const id = input.getAttribute("aria-describedby");
+      expect(id).toBeTruthy();
+      const described = document.getElementById(id as string)!;
+      expect(d.contains(described)).toBe(true);
+    }
   });
 });
