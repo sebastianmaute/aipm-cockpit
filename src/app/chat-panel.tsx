@@ -604,6 +604,7 @@ function ChatPanelInner({
   ): string {
     if (err === "too-large") return t(lang, "chatAttachmentTooLarge", name);
     if (err === "unsupported-type") return t(lang, "chatAttachmentUnsupported", name);
+    if (err === "encrypted") return t(lang, "chatAttachmentEncrypted", name);
     return t(lang, "chatAttachmentReadFailed", name);
   }
 
