@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { ingestBytes, ingestFile } from "./attachment-ingest";
+import {
+  ingestBytes,
+  ingestFile,
+  MAX_INGEST_DEPTH,
+  MAX_INGEST_NODES,
+  MAX_TREE_EXTRACT_CHARS,
+} from "./attachment-ingest";
 
 const enc = (s: string) => new TextEncoder().encode(s);
 
@@ -137,5 +143,160 @@ describe("ingestFile", () => {
     const r = await ingestFile(file);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.node.block.source).toMatchObject({ type: "text", data: "hello" });
+  });
+});
+
+const CRLF = "\r\n";
+const mail = (lines: string[]) => new TextEncoder().encode(lines.join(CRLF));
+const b64 = (s: string) => btoa(s);
+
+/** An .eml carrying N text attachments of the given size.
+ *
+ *  ★★★ `boundary` MUST be unique whenever a mail built here is embedded
+ *  RAW inside another one (a message/rfc822 attachment) — the outer
+ *  parser's boundary scan has no concept of "nested message", it just
+ *  looks for literal `CRLF--<boundary>` text, so an inner message reusing
+ *  the SAME boundary as its outer envelope corrupts the outer split the
+ *  moment the inner message's own `--B` lines appear in the outer body.
+ *  This is not a parser bug — RFC 2046 requires a boundary to not occur in
+ *  any part's content, and a fixture nesting `mailWith(...)` inside
+ *  `mailWith(...)` at the default boundary violates exactly that. */
+function mailWith(atts: { name: string; body: string }[], bodyText = "mail body", boundary = "B"): Uint8Array {
+  const parts = atts.flatMap((a) => [
+    `--${boundary}`, `Content-Type: text/plain; name="${a.name}"`,
+    `Content-Disposition: attachment; filename="${a.name}"`,
+    "Content-Transfer-Encoding: base64", "", b64(a.body),
+  ]);
+  return mail([
+    `Content-Type: multipart/mixed; boundary="${boundary}"`, "Subject: Test", "",
+    `--${boundary}`, "Content-Type: text/plain", "", bodyText, ...parts, `--${boundary}--`, "",
+  ]);
+}
+
+describe("mail recursion", () => {
+  it("ingests a mail and its attachments as a tree", async () => {
+    const r = await ingestBytes(mailWith([{ name: "a.txt", body: "alpha" }]), "message/rfc822", "m.eml");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.node.kind).toBe("mail");
+    expect(r.node.children).toHaveLength(1);
+    expect(r.node.children[0].fileName).toBe("a.txt");
+    const src = r.node.children[0].block.source as { data: string };
+    expect(src.data).toBe("alpha");
+  });
+
+  // ★★★ BREADTH-FIRST. Depth-first lets the first attached mail's whole subtree
+  //  eat the budget before a sibling attachment is even seen. This asserts every
+  //  DIRECT attachment is reached before any nested one.
+  it("reaches every direct attachment before any nested one", async () => {
+    // Distinct boundaries at each nesting level — see mailWith's doc comment.
+    const inner = mailWith([{ name: "deep.txt", body: "deep" }], "inner body", "INNER");
+    const outer = mail([
+      'Content-Type: multipart/mixed; boundary="B"', "Subject: Outer", "",
+      "--B", "Content-Type: text/plain", "", "outer body",
+      "--B", 'Content-Type: message/rfc822; name="inner.eml"',
+      'Content-Disposition: attachment; filename="inner.eml"', "", new TextDecoder().decode(inner),
+      "--B", 'Content-Type: text/plain; name="sibling.txt"',
+      'Content-Disposition: attachment; filename="sibling.txt"', "", "sibling",
+      "--B--", "",
+    ]);
+    const r = await ingestBytes(outer, "message/rfc822", "outer.eml");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.node.children.map((c) => c.fileName)).toEqual(["inner.eml", "sibling.txt"]);
+  });
+
+  // ★★ SECURITY + DISCLOSURE.
+  it("stops at the depth cap and discloses it", async () => {
+    // Distinct boundaries at each nesting level — see mailWith's doc comment.
+    let cur = mailWith([{ name: "leaf.txt", body: "leaf" }], "mail body", "B_leaf");
+    for (let i = 0; i < MAX_INGEST_DEPTH + 2; i++) {
+      const boundary = `B${i}`;
+      cur = mail([
+        `Content-Type: multipart/mixed; boundary="${boundary}"`, `Subject: L${i}`, "",
+        `--${boundary}`, "Content-Type: text/plain", "", "body",
+        `--${boundary}`, 'Content-Type: message/rfc822; name="n.eml"',
+        'Content-Disposition: attachment; filename="n.eml"', "", new TextDecoder().decode(cur),
+        `--${boundary}--`, "",
+      ]);
+    }
+    const r = await ingestBytes(cur, "message/rfc822", "deep.eml");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const all = JSON.stringify(r.node);
+    expect(all).toContain("nesting depth limit");
+  });
+
+  it("stops at the node cap and discloses it", async () => {
+    const atts = Array.from({ length: MAX_INGEST_NODES + 10 }, (_, i) => ({ name: `f${i}.txt`, body: "x" }));
+    const r = await ingestBytes(mailWith(atts), "message/rfc822", "many.eml");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.node.children.length).toBeLessThanOrEqual(MAX_INGEST_NODES);
+    expect(JSON.stringify(r.node)).toContain("omitted");
+  });
+
+  it("shares one output budget across the whole tree", async () => {
+    const big = "y".repeat(300_000);
+    const r = await ingestBytes(
+      mailWith([{ name: "a.txt", body: big }, { name: "b.txt", body: big }, { name: "c.txt", body: big }]),
+      "message/rfc822", "big.eml",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const total = JSON.stringify(r.node).length;
+    expect(total).toBeLessThan(MAX_TREE_EXTRACT_CHARS * 1.2);
+  });
+
+  it("keeps the body floor even when attachments are large", async () => {
+    const big = "y".repeat(300_000);
+    const r = await ingestBytes(
+      mailWith([{ name: "a.txt", body: big }], "IMPORTANT BODY MARKER"),
+      "message/rfc822", "b.eml",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const src = r.node.block.source as { data: string };
+    expect(src.data).toContain("IMPORTANT BODY MARKER");
+  });
+
+  it("keeps the mail when one attachment is corrupt", async () => {
+    const r = await ingestBytes(
+      mailWith([{ name: "ok.txt", body: "fine" }, { name: "bad.thing", body: "??" }]),
+      "message/rfc822", "m.eml",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.node.children.some((c) => c.fileName === "ok.txt")).toBe(true);
+    expect(JSON.stringify(r.node)).toContain("bad.thing");
+  });
+
+  // ★★★ EVIDENCE THE SPLIT IS GENUINELY BREADTH-FIRST (equal shares), NOT
+  // JUST "bounded total" or "order-preserving". A single large attachment
+  // can't demonstrate this — MAX_NODE_EXTRACT_CHARS (200k) already stops any
+  // ONE node from eating the whole 400k tree budget, fair division or not.
+  // Four large siblings does: a GREEDY first-come-first-served walk (each
+  // child spends up to MAX_NODE_EXTRACT_CHARS from whatever is left, in
+  // order) would give child 1 the full 200k cap, child 2 the ~180k
+  // remainder, and leave children 3 and 4 with ~0. Equal-share division with
+  // carry-forward instead gives all four a comparable slice of the ~380k
+  // pool left after the body's floor is reserved (~95k each) — none capped
+  // by MAX_NODE_EXTRACT_CHARS, none starved.
+  it("divides the tree budget into comparable shares across many large siblings, not first-come-first-served", async () => {
+    const big = "y".repeat(300_000);
+    const atts = ["a", "b", "c", "d"].map((n) => ({ name: `${n}.txt`, body: big }));
+    const r = await ingestBytes(mailWith(atts), "message/rfc822", "fair.eml");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const lengths = r.node.children.map((c) => (c.block.source as { data: string }).data.length);
+    // What the shares actually came out as (recorded for the report, not
+    // just asserted): every share is well clear of empty...
+    for (const len of lengths) expect(len).toBeGreaterThan(50_000);
+    // ...none hit the per-node cap (which would signal one child was left
+    // free to spend far more than an equal share)...
+    for (const len of lengths) expect(len).toBeLessThan(150_000);
+    // ...and no child's share dwarfs another's — a >3x spread is what a
+    // greedy walk (200k / 180k / ~0 / ~0) would look like.
+    expect(Math.max(...lengths) / Math.min(...lengths)).toBeLessThan(3);
   });
 });

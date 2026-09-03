@@ -17,6 +17,9 @@
 // future mail parser can feed, so it re-bounds attachments and diagnostics
 // independently rather than trusting the caller.
 
+import { parseMimeMessage } from "./mime-parse";
+import { emlToParsedMail } from "./eml-extract";
+
 export type ParsedMail = {
   headers: {
     from: string;
@@ -107,4 +110,31 @@ export function renderMailMarkdown(mail: ParsedMail, bodyBudget: number): string
   const rendered = lines.join("\n");
   if (rendered.length <= MAIL_MARKDOWN_HARD_CAP) return rendered;
   return `${rendered.slice(0, MAIL_MARKDOWN_HARD_CAP)}\n\n_(output exceeded the hard size cap and was cut)_`;
+}
+
+/** Detect a `.msg` compound file by its MS-CFB signature. A later task adds
+ *  the msg branch; until then such a file reports an unsupported-format
+ *  diagnostic rather than being silently (and destructively) parsed as MIME
+ *  text — .msg is a binary compound-document format, not RFC 5322 text. */
+const CFBF_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+
+export function looksLikeCfbf(bytes: Uint8Array): boolean {
+  return bytes.length >= 8 && CFBF_SIGNATURE.every((v, i) => bytes[i] === v);
+}
+
+/** The one router from raw bytes to a `ParsedMail`, for every mail format
+ *  `classifyAttachment` maps to "mail" — .eml, .mhtml, .mht today, and (once
+ *  a future task adds a CFBF-aware parser) .msg. Kept in this module rather
+ *  than the orchestrator so any future caller gets the same format
+ *  detection `attachment-ingest.ts` uses, instead of reimplementing it. */
+export function parseMail(bytes: Uint8Array): ParsedMail {
+  if (looksLikeCfbf(bytes)) {
+    return {
+      headers: { from: "", to: [], cc: [], subject: "", date: "" },
+      body: { kind: "text", content: "" },
+      attachments: [],
+      diagnostics: ["Outlook .msg support is not enabled in this build"],
+    };
+  }
+  return emlToParsedMail(parseMimeMessage(new TextDecoder().decode(bytes)));
 }
