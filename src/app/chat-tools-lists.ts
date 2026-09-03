@@ -28,12 +28,26 @@ import type { NoteLogEntry, Task } from "./types";
  *  beside `items` — asks the model to pair a token with a row by looking the id
  *  up in a second structure, and every mispairing it makes is a token that is
  *  *valid* (it is some real row's token) but belongs to the WRONG row. A
- *  mispaired-but-valid token is refused only by luck: `requireToken` compares
- *  it against the row being edited, so it refuses here — but the shape makes
- *  the model's job harder for no gain, and the failure it invites is the same
- *  false-permit family this whole guard exists for. Adjacency makes the
- *  pairing structural: the token the model copies is the one sitting inside the
- *  object it is editing.
+ *  mispaired-but-valid token is refused STRUCTURALLY, not by luck — but the
+ *  shape still makes the model's job harder for no gain. Adjacency makes the
+ *  pairing structural too: the token the model copies is the one sitting inside
+ *  the object it is editing.
+ *
+ *  ★★★ WHAT MAKES THE REFUSAL STRUCTURAL IS THAT `id` IS A COVERED COLUMN, AND
+ *  THIS COMMENT USED TO CALL IT LUCK. `id` is the FIRST entry of all six
+ *  `*_CSV_COLUMNS` and appears in no `TOKEN_EXCLUDED` list, so two distinct
+ *  rows of the same kind always differ in at least that column and their tokens
+ *  can only agree through a hash collision across the token's full width. That
+ *  is a property to PRESERVE, not an accident to note: understating it invites
+ *  a future editor to excise `id` from the projection — plausible on the face
+ *  of it, since an id is bookkeeping the model does not edit — believing
+ *  nothing rests on it. It does: without `id`, two rows identical in every
+ *  other covered field share a token, and a mispairing between them becomes a
+ *  genuine false PERMIT.
+ *  ★ Do not upgrade "full width" to a bit count here. `ai-entity-token.ts`
+ *  records that its own header once asserted 64 bits when the measured figure
+ *  was 63; the claim that matters is that a collision is the ONLY way, not how
+ *  improbable it is.
  *
  *  ★★ OPTIONAL, AND THE ABSENT CASE IS THE SAFE ONE. A token is emitted only
  *  when the FULL stored row is in hand; when the lookup misses (a row that
@@ -147,17 +161,29 @@ export function slimTaskForList(task: Task): TaskListItem {
 /**
  * Wrap `tasks` in the paginated envelope `list_tasks` returns.
  *
- * `rawLimit` is untrusted model output: anything that is not a positive finite
- * number is treated as "no limit", which is also what an absent one means.
+ * `rawLimit` is untrusted model output: anything that does not FLOOR to a
+ * positive finite number is treated as "no limit", which is also what an absent
+ * one means.
+ *
+ * ★★★ FLOOR FIRST, THEN TEST POSITIVITY — THE OTHER ORDER HAS A HOLE ON THE
+ * OPEN INTERVAL (0,1). This read `rawLimit > 0 ? Math.floor(rawLimit) :
+ * undefined`, so `0.5` passed the positivity test as written, floored to `0`,
+ * and produced `{items: [], limit: 0, total: N}` — every row withheld from a
+ * model that asked for a page, reported as a successful empty result it cannot
+ * distinguish from "there are no tasks". `total` would contradict it, but
+ * nothing makes the model read that. The docstring above already said such a
+ * value means "no limit"; the code and the doc simply disagreed on (0,1), and
+ * the doc had the better rule. A fractional limit is malformed model output,
+ * and the safe reading of malformed output here is "no limit" — showing
+ * everything — not "no rows".
  */
 export function listTasksEnvelope(
   tasks: readonly Task[],
   rawLimit: unknown,
 ): ListEnvelope<Tokened<TaskListItem>> {
-  const limit =
-    typeof rawLimit === "number" && Number.isFinite(rawLimit) && rawLimit > 0
-      ? Math.floor(rawLimit)
-      : undefined;
+  const floored =
+    typeof rawLimit === "number" && Number.isFinite(rawLimit) ? Math.floor(rawLimit) : 0;
+  const limit = floored > 0 ? floored : undefined;
   const page = limit === undefined ? tasks : tasks.slice(0, limit);
   return {
     // ★ The token comes from the FULL `task`, never from the slimmed item the
