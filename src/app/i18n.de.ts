@@ -705,7 +705,7 @@ export const de: Record<TranslationKey, string> = {
   chatTruncatedNote: "Die Antwort wurde an der Längengrenze abgeschnitten. Bitten Sie mich, fortzufahren.",
   chatAttach: "Dokument anhängen",
   chatAttachmentRemove: "{0} entfernen",
-  chatAttachmentTooLarge: "{0} ist zu groß (max. 20 MB)",
+  chatAttachmentTooLarge: "{0} ist zu groß",
   chatAttachmentUnsupported: "{0} ist kein unterstützter Dateityp",
   chatAttachmentReadFailed: "{0} konnte nicht gelesen werden",
   chatAttachmentEncrypted: "{0} ist kennwortgeschützt — speichere die Datei ohne Schutz und versuche es erneut",

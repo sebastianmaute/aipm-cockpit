@@ -184,6 +184,15 @@ describe("checkAttachmentSize", () => {
   it("MAX_ATTACHMENT_BYTES equals 20 MB", () => {
     expect(MAX_ATTACHMENT_BYTES).toBe(20 * 1024 * 1024);
   });
+
+  // ★★ MEASURED. A real workshop mail with one .pptx attached was 17.8 MB —
+  //  89% of the old 20 MB cap. Mail envelopes carry their attachments inline,
+  //  so the envelope must be allowed to be larger than any one attachment.
+  it("allows a mail envelope larger than the flat-file cap", () => {
+    expect(checkAttachmentSize(30 * 1024 * 1024, "mail")).toBeNull();
+    expect(checkAttachmentSize(30 * 1024 * 1024, "text")).toBe("too-large");
+    expect(checkAttachmentSize(70 * 1024 * 1024, "mail")).toBe("too-large");
+  });
 });
 
 // ---------------------------------------------------------------------------

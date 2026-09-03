@@ -729,7 +729,7 @@ const enUS = {
   chatTruncatedNote: "The response was cut short at the length limit. Ask me to continue.",
   chatAttach: "Attach a document",
   chatAttachmentRemove: "Remove {0}",
-  chatAttachmentTooLarge: "{0} is too large (max 20 MB)",
+  chatAttachmentTooLarge: "{0} is too large",
   chatAttachmentUnsupported: "{0} is not a supported file type",
   chatAttachmentReadFailed: "Could not read {0}",
   chatAttachmentEncrypted: "{0} is password-protected — save it without protection and try again",

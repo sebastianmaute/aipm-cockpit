@@ -247,18 +247,19 @@ async function ingestNode(
   budget: Budget,
   ceiling: number,
 ): Promise<IngestResult> {
-  const sizeErr = checkAttachmentSize(bytes.byteLength);
-  if (sizeErr) return { ok: false, error: sizeErr };
-  // "budget-exhausted", not "too-large" — "too-large" (above) means THIS
-  // FILE alone exceeds the fixed 20MB per-attachment cap; this means the
-  // TREE has already spent its 64MB decoded-byte allowance on other nodes.
-  // A 1KB file failing this for the same reason a 21MB file fails the check
-  // above would be a confusing, wrong-cause error message.
-  if (bytes.byteLength > budget.bytesRemaining) return { ok: false, error: "budget-exhausted" };
-  budget.bytesRemaining -= bytes.byteLength;
-
   const kind = classifyAttachment(mimeType, fileName);
   if (!kind) return { ok: false, error: "unsupported-type" };
+
+  const sizeErr = checkAttachmentSize(bytes.byteLength, kind);
+  if (sizeErr) return { ok: false, error: sizeErr };
+  // "budget-exhausted", not "too-large" — "too-large" (above) means THIS
+  // FILE alone exceeds its per-kind attachment cap (flat file or mail
+  // envelope); this means the TREE has already spent its 64MB decoded-byte
+  // allowance on other nodes. A 1KB file failing this for the same reason a
+  // 21MB file fails the check above would be a confusing, wrong-cause error
+  // message.
+  if (bytes.byteLength > budget.bytesRemaining) return { ok: false, error: "budget-exhausted" };
+  budget.bytesRemaining -= bytes.byteLength;
 
   if (kind !== "mail") {
     try {
@@ -380,10 +381,10 @@ export async function ingestBytes(
  *  assistant a File-oriented one, and they had diverged. ingestBytes
  *  re-classifies, which costs nothing. */
 export async function ingestFile(file: File): Promise<IngestResult> {
-  const sizeErr = checkAttachmentSize(file.size);
-  if (sizeErr) return { ok: false, error: sizeErr };
   const kind = classifyAttachment(file.type, file.name);
   if (!kind) return { ok: false, error: "unsupported-type" };
+  const sizeErr = checkAttachmentSize(file.size, kind);
+  if (sizeErr) return { ok: false, error: sizeErr };
   let bytes: Uint8Array;
   try {
     bytes = new Uint8Array(await file.arrayBuffer());

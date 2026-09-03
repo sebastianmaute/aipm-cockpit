@@ -27,6 +27,10 @@ export type AttachmentBlock = ImageBlock | DocumentBlock;
 // ---------------------------------------------------------------------------
 
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024; // 20 MB
+/** ★★ Mail envelopes carry their attachments inline. Measured: an ordinary
+ *  workshop mail with one slide deck was 17.8 MB, 89% of the flat-file cap.
+ *  The tree's own MAX_DECODED_BYTES still bounds what gets extracted. */
+export const MAX_MAIL_BYTES = 64 * 1024 * 1024; // 64 MB
 
 // ---------------------------------------------------------------------------
 // Exported narrower types
@@ -161,10 +165,17 @@ export function classifyAttachment(
 /**
  * Validate file size before reading.
  * Returns an error code when the file is too large, or null when OK.
+ * A `kind` of "mail" gets the wider MAX_MAIL_BYTES envelope cap — a mail
+ * carries its attachments inline, so it must be allowed to be larger than
+ * any single flat file. Every other kind (and an omitted kind) gets the
+ * flat-file MAX_ATTACHMENT_BYTES cap.
  */
-export function checkAttachmentSize(byteLength: number): AttachmentError | null {
-  if (byteLength > MAX_ATTACHMENT_BYTES) return "too-large";
-  return null;
+export function checkAttachmentSize(
+  byteLength: number,
+  kind?: AttachmentKind,
+): AttachmentError | null {
+  const limit = kind === "mail" ? MAX_MAIL_BYTES : MAX_ATTACHMENT_BYTES;
+  return byteLength > limit ? "too-large" : null;
 }
 
 // ---------------------------------------------------------------------------
