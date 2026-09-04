@@ -242,6 +242,14 @@ export function rtfToPlainText(rtf: string): string {
     const signed = Number.parseInt(n, 10);
     if (signed < -0x8000 || signed > 0xffff) return "";
     const code = signed < 0 ? signed + 0x10000 : signed;
+    // ★ The range test below is now DOMINATED by the guard above — a corrected
+    //  negative lands in 0x8000..0xffff and a positive is already ≤ 0xffff, so
+    //  `code` cannot leave 0..0xffff and this can no longer be false. Kept as a
+    //  backstop for `String.fromCodePoint`, which THROWS above 0x10FFFF while
+    //  this module is contracted never to throw. Its mutant therefore survives
+    //  the suite by equivalence, not for want of a test — measured, and said
+    //  here so the next mutation round does not read the survival as licence to
+    //  delete it.
     return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "";
   });
   s = s.replace(/\\[a-zA-Z]+-?\d*\s?/g, ""); // remaining control words

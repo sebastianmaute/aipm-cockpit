@@ -300,6 +300,26 @@ describe("rtfToPlainText", () => {
     expect(rtfToPlainText(`{\\rtf1 A\\u${value} B}`)).toBe("AB");
   });
 
+  // ★★ WHAT THIS PINS IS THE SIGNED-RANGE GUARD, NOT THE CODEPOINT ONE, and
+  //  the difference is a domination proof rather than a test gap. A reviewer
+  //  predicted that mutating `0x10ffff` to `0x1fffff` would survive the file,
+  //  and it does — but MEASURED after the signed-range fix it survives because
+  //  it cannot change behaviour: `signed > 0xffff` is rejected first, and a
+  //  corrected negative lands in 0x8000..0xffff, so `code` can never exceed
+  //  0xffff and the codepoint test is tautological. It is kept as a backstop
+  //  in case the signed guard is ever loosened; do not read its surviving
+  //  mutant as licence to delete it, and do not read this test as covering it.
+  //  What IS covered: `String.fromCodePoint` throws a RangeError above
+  //  0x10FFFF and rtfToPlainText is contracted never to throw, so an oversized
+  //  escape must be dropped rather than take the whole mail down.
+  it.each(["1200000", "999999999", "-999999999999"])(
+    "drops an escape outside the unicode range rather than throwing: \\u%s",
+    (value) => {
+      expect(() => rtfToPlainText(`{\\rtf1 A\\u${value} B}`)).not.toThrow();
+      expect(rtfToPlainText(`{\\rtf1 A\\u${value} B}`)).toBe("AB");
+    },
+  );
+
   // Non-vacuity: the legal negatives on the other side of the boundary must
   // still decode. Without this, dropping every negative would pass above.
   it("still decodes legal negative escapes just inside the signed-16 range", () => {

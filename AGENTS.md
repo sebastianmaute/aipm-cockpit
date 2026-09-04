@@ -1664,19 +1664,26 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **Attachment ingest — ONE entry point, and a mail is a TREE.** `attachment-ingest.ts`
   (`ingestFile` / `ingestBytes`) is the only read/classify/extract path. `chat-panel.tsx`,
   `step0-import-panel.tsx` and anything added later CALL it and must never reimplement it — three
-  private copies existed before it and drifted, so the wizard silently rejected six token classes the
-  assistant accepted. ★★★ A mail expands into an `IngestNode` TREE, so a consumer sends
+  private copies existed before it. ★★★ A mail expands into an `IngestNode` TREE, so a consumer sends
   `flattenIngestBlocks(node)` and NEVER `node.block` alone: the walk is otherwise computed and thrown
   away while the rendered mail still NAMES the attachments whose content was dropped, which misleads
-  the model rather than merely under-informing it. That shipped once. ★ File pickers take
+  the model rather than merely under-informing it. ★ File pickers take
   `ATTACHMENT_ACCEPT`, derived from `chat-attachments.ts`'s own classifier tables — never a
   hand-written `accept` string. ★ TWO size caps, so `checkAttachmentSize` needs the KIND:
-  `MAX_ATTACHMENT_BYTES` (20 MB) for a flat file, `MAX_MAIL_BYTES` (64 MB) for mail. ★★ Every parser
-  beneath it (`cfbf` · `lzfu` · `mime-parse` · `msg-extract` · `eml-extract` · `html-extract`) eats
-  untrusted bytes off the network and returns PARTIAL results rather than throwing; recursion lives in
-  the orchestrator ALONE, never in a parser (the reverse creates an import cycle). Their bounds, and
-  which of those bounds no test can pin, are in
-  [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md).
+  `MAX_ATTACHMENT_BYTES` (20 MB) for a flat file, `MAX_MAIL_BYTES` (64 MB) for mail. ★★ The six MAIL
+  parsers (`cfbf` · `lzfu` · `mime-parse` · `msg-extract` · `eml-extract` · `html-extract`) eat
+  untrusted bytes off the network and return PARTIAL results rather than throwing. ★★★ THAT IS THE
+  SIX NAMED, NOT "every parser beneath ingest" — `unzip.ts`, on the office path, throws five
+  different ways on hostile input and `attachment-ingest.ts` catches it into `read-failed`. Reading
+  the rule as universal is how a real throw gets written off as impossible.
+  ★★★ **"Recursion lives in the orchestrator alone, never in a parser" is FALSE as stated and was
+  in this file for a release.** `mime-parse.ts` recurses internally — `walkNode` re-enters itself at
+  three sites for nested multiparts, bounded by `MAX_MIME_DEPTH` — and that is correct. The real
+  invariant is narrower: a parser must never re-enter `ingestBytes`, i.e. ATTACHMENT-TREE recursion
+  belongs to the orchestrator, because the reverse creates an import cycle. A reviewer applying the
+  old wording literally files a Critical against `walkNode`, which is bounded and fine. Each
+  parser's own bounds are in its source docstring (`cfbf.ts`'s header is ~65 lines of them); none of
+  the six is documented under `docs/AGENTS/`, so do not go looking there.
 
 ## Subsystem reference — deeper detail, loaded on demand
 

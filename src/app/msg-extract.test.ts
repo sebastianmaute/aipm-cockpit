@@ -433,6 +433,25 @@ describe("msgToParsedMail", () => {
     expect(p.headers.subject).toBe(subject);
   });
 
+  // ★★ THE OTHER HALF OF `mayBeCut`, AND IT WAS UNPINNED. Everything above
+  //  covers the UNCLAMPED case; nothing exercised a value long enough to be
+  //  cut, so `stream: mayBeCut` could have been hard-wired to `false` and the
+  //  suite stayed green. That direction is the expensive one: a body clamped
+  //  mid-sequence throws on the strict rung and drags the ENTIRE value onto
+  //  windows-1252 — one truncated character becoming whole-body mojibake. The
+  //  body is built so the cap lands inside a two-byte sequence.
+  it("keeps a clamped UTF-8 body on the strict rung instead of rotting all of it", () => {
+    const filler = "ä".repeat(MAX_BODY_PROPERTY_BYTES); // 2 bytes each in UTF-8
+    const bytes = new TextEncoder().encode(filler);
+    expect(bytes.length).toBeGreaterThan(MAX_BODY_PROPERTY_BYTES);
+    const p = msgToParsedMail(streams({ "__substg1.0_1000001E": bytes }));
+    // Decoded as UTF-8: every character is the one that was written. Under a
+    // non-streaming decode the cut tail throws and windows-1252 renders every
+    // byte pair as "Ã¤" instead.
+    expect(p.body.content.startsWith("ääää")).toBe(true);
+    expect(p.body.content).not.toContain("Ã");
+  });
+
   // Non-vacuity for the above: dropping `stream` must NOT send every valid
   // UTF-8 value down the windows-1252 rung, which would turn one lost
   // character into whole-value mojibake.

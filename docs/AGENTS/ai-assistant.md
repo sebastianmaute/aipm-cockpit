@@ -830,7 +830,7 @@
   block — PDF/image as base64 `source`, text as `{type:"text"}` document source; NO parsing lib, Claude reads
   natively). ★★ READING the bytes is NOT here and no longer uses `FileReader` at all — that claim stood in
   this file after the pipeline moved: `attachment-ingest.ts` (`ingestFile` / `ingestBytes`) owns it and reads
-  via `file.arrayBuffer()`. It is the single entry point for all three consumers; see the attachment-ingest
+  via `file.arrayBuffer()`. It is the single entry point for the consumers; see the attachment-ingest
   bullet in `AGENTS.md` for the rules that gate it. ★ There are TWO size caps, not one —
   `MAX_ATTACHMENT_BYTES` (20 MB) for a flat file and `MAX_MAIL_BYTES` (64 MB) for mail — and six kinds, not
   two: `pdf` · `image` · `text` · `office` · `html` · `mail`. A user turn with attachments sends `content` as
@@ -857,10 +857,14 @@
   and push `flattenIngestBlocks(node)`. The panel's own `readFileData` and `arrayBufferToBase64` are GONE
   (REMOVED with the pipeline move — do NOT reintroduce either), as is `mimeForKind`, whose per-kind
   `image/png` guess is replaced by a per-EXTENSION fallback inside the orchestrator. ★★ `mimeForKind` still
-  greps as present because two comments in `attachment-ingest.test.ts` name it; `docs:symbols:check` counts a
-  comment as existence, so a grep-says-it-exists is not evidence the code does. ★ Its error narrowing is exhaustive on purpose (a `never` check): a new
+  greps as present because a comment in `attachment-ingest.test.ts` names it; `docs:symbols:check` counts a
+  comment as existence, so a grep-says-it-exists is not evidence the code does. ★ Its error narrowing is
+  exhaustive on purpose — an annotation spelling the variants out as literals, NOT a `never` check, and not
+  `Exclude<>`, either of which would widen to admit a new member instead of rejecting it: a new
   `IngestResult` error member must be handled here rather than silently joining the throw that abandons the
-  WHOLE import batch. SharePoint:
+  WHOLE import batch. ★★ It guards which variants may reach that branch and says NOTHING about how any of
+  them is RENDERED — "encrypted" was in the annotation while both call sites still rendered it as the
+  generic source failure (`docs/open-followups.md` §352). SharePoint:
   `SharePointPickerModal` → `fetchSharePointFileContent` via Graph `/shares/{u!base64(url)}/driveItem/content`
   (reuses `PICKER_SCOPES`, no extra consent). ★★ Confluence: `src/app/api/confluence/page/route.ts` MUST REUSE
   `api/jira/_helpers` (`parseJiraRequest`/`callJira`/`forwardJsonResponse`) — NEVER a raw `fetch` (that
