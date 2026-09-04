@@ -587,7 +587,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
 | [§370](#370-redo-of-an-ai-captured-delete-is-unproved--open) | Redo of an AI-captured delete is unproved | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
-| [§371](#371-a-stakeholder-deletion-offers-to-delete-their-job-title-not-the-person--open) | A stakeholder deletion offers to delete their job title, not the person | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§371](#371-a-stakeholder-deletion-offers-to-delete-their-job-title-not-the-person--closed-2026-09-04) | ~~A stakeholder deletion offers to delete their job title, not the person~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-04 (one shared `PERSON_ENTITIES` set now names both person entities by `personName`, at the create label AND the delete label; mutation-proved by reverting the set to `["resource"]` alone) |
 | [§372](#372-an-updateresource-rename-sent-as-the-name-alias-previews-an-empty-plan--open) | An update_resource rename sent as the name alias previews an empty plan | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
 | [§373](#373-an-invalid-email-previews-a-diff-that-apply-silently-drops--open) | An invalid email previews a diff that Apply silently drops | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
 | [§374](#374-help-contentts-still-says-five-inline-entities-and-there-are-now-six--open) | help-content.ts still says five inline entities and there are now six | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
@@ -27830,10 +27830,12 @@ undo direction is proved at all 14 capture sites and the redo direction at none 
 exercised. This entry records that the AI path inherits that coverage by construction rather than
 by test, which is a weaker guarantee than the round trips give the undo direction.
 
-## 371. A stakeholder deletion offers to delete their job title, not the person — OPEN
+## 371. A stakeholder deletion offers to delete their job title, not the person — CLOSED 2026-09-04
 
-**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
-**Never machine-verified:** no probe has been run against this entry.
+**Status:** CLOSED 2026-09-04. Verified by mutation, not by assertion: reverting `PERSON_ENTITIES` to
+`new Set(["resource"])` turns exactly the two stakeholder tests red (2 failed / 37 passed — the
+file's 39 runtime tests) while the milestone anti-over-reach pin stays green. Reproduce:
+`npx vitest run src/app/inline-ai-edit/plan.test.ts`.
 
 `Stakeholder.title` is a JOB title. The generic label chains in `inline-ai-edit/plan.ts` read
 `input.title ?? input.taskName ?? input.name ?? …` for creates and `found.title ?? found.taskName
@@ -27844,11 +27846,24 @@ deletion under that job title rather than their name.
 model and the system's disagree at exactly the moment the user is asked to authorise. A
 confirmation reading "Engineer" when the row is a person is worse than an unlabelled one.
 
-The identical bug existed for `resource` and was fixed there in the same slice by a scoped
-`personName` branch (handling both `firstName`/`lastName` and the single `name` write alias).
-Extending it to stakeholder is small and local. It was deliberately NOT done in that commit,
-because changing an entity the task was not asked to touch belongs in its own commit — the scoping
-was right; leaving it at the same priority as a stale prose claim was not.
+The identical bug existed for `resource` and was fixed there first by a scoped `personName`
+branch. It was deliberately NOT extended to stakeholder in that commit, because changing an
+entity the task was not asked to touch belongs in its own commit — which is this one.
+
+★★ The two entities arrive at the same place from DIFFERENT shapes — `resource` carries
+`firstName`/`lastName` (or the single `name` write alias the dispatcher splits), `stakeholder`
+carries `name` alone — and `personName` already falls through to `o.name`, which is why one
+shared set covers both rather than two branches.
+
+★ TEST TRAP recorded because it makes the obvious fixture vacuous: a stakeholder with NO job
+title, or one whose `title` equals their `name`, passes against the unfixed code. The fixture
+must populate both fields with DIFFERENT values or the assertion proves nothing.
+
+★ A THIRD mechanism knows the right answer and is still not consulted:
+`INLINE_DESCRIPTORS.stakeholder.titleOf` is `(i) => String(i.name ?? "")`. `titleOf` in
+`plan.ts` is deliberately descriptor-free because it also names CROSS-ENTITY creates, where no
+descriptor for that entity is in scope. Routing both through the descriptor is the deeper fix
+and is not this one.
 
 ## 372. An update_resource rename sent as the name alias previews an empty plan — OPEN
 
