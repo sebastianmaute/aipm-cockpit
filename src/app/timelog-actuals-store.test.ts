@@ -169,7 +169,8 @@ describe("ActualsCacheEntry.daily", () => {
     expect(loadActualsCache("p8")?.daily).toEqual(roll);
   });
 
-  // ★★ NO TEST PINS THE CLEAN-PATH IDENTITY, deliberately. `readMap` re-parses
+  // ★★ NO TEST PINS THE CLEAN-PATH IDENTITY, deliberately. (Kept here at the
+  // end of the `daily` block; the `dailyWindow` block follows.) `readMap` re-parses
   // localStorage on EVERY call, so both the return-`e` path and a rebuild hand
   // back a fresh object per call and are indistinguishable from outside. An
   // `expect(...).toBe(...)` here would be red against correct code, and an
@@ -218,5 +219,144 @@ describe("isDailyCell", () => {
   // read this cell as valid — the mutant this assertion exists to kill.
   it("does not coerce a numeric string", () => {
     expect(isDailyCell({ hours: "8", maxEntryHours: "8", entryCount: "1" })).toBe(false);
+  });
+});
+
+describe("ActualsCacheEntry.dailyWindow", () => {
+  const ROLL = { "7|2026-02-03": { hours: 12, maxEntryHours: 12, entryCount: 1 } };
+
+  it("round-trips a valid window", () => {
+    saveActualsCache("w1", {
+      fetchedAt: "2026-09-04T00:00:00.000Z",
+      daily: ROLL,
+      dailyWindow: { from: "2026-01-01", to: "2026-03-31" },
+    });
+    expect(loadActualsCache("w1")?.dailyWindow).toEqual({ from: "2026-01-01", to: "2026-03-31" });
+  });
+
+  // A one-day fetch is a real window: `from === to` must NOT be rejected by the
+  // `from <= to` guard. Pinned separately because the obvious `<` spelling of
+  // that guard passes every other case in this block.
+  it("accepts a single-day window", () => {
+    saveActualsCache("w2", {
+      fetchedAt: "2026-09-04T00:00:00.000Z",
+      dailyWindow: { from: "2026-02-03", to: "2026-02-03" },
+    });
+    expect(loadActualsCache("w2")?.dailyWindow).toEqual({ from: "2026-02-03", to: "2026-02-03" });
+  });
+
+  // Back-compat, and a state the next reader must be able to NAME: an entry
+  // written before this field existed carries a roll whose coverage is unknown.
+  // That is different from a window that demonstrably covers the days asked
+  // about, and the difference is the whole point of the field.
+  it("loads a roll that has no window, leaving the window undefined", () => {
+    saveActualsCache("w3", { fetchedAt: "2026-09-04T00:00:00.000Z", daily: ROLL });
+    const e = loadActualsCache("w3");
+    expect(e?.daily).toEqual(ROLL);
+    expect(e?.dailyWindow).toBeUndefined();
+  });
+
+  // ★★★ FAILS OPEN, matching `daily` and `partial` (register §172): a malformed
+  // optional field must not cost the entry. The `daily` assertion is the
+  // anti-vacuity control — "the window is gone" is equally true of an entry
+  // dropped wholesale, which is the failure this rule exists to prevent.
+  it("strips a malformed window while the rest of the entry, roll included, survives", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, {
+      w4: {
+        fetchedAt: "2026-09-04T00:00:00.000Z",
+        aggregates: agg(6),
+        daily: ROLL,
+        dailyWindow: "nonsense",
+      },
+    });
+    const e = loadActualsCache("w4");
+    expect(e?.dailyWindow).toBeUndefined();
+    expect(e?.daily).toEqual(ROLL);
+    expect(e?.aggregates?.unattributed.hours).toBe(6);
+    expect(e?.fetchedAt).toBe("2026-09-04T00:00:00.000Z");
+  });
+
+  // ★★★ AN INVERTED WINDOW IS REJECTED, NOT REPAIRED. Swapping the ends would
+  // invent a range no fetch ever requested, and a reader asking "did the roll
+  // cover February?" would get a confident yes from a bound that was never
+  // real. Fabricating coverage is the one direction that cannot be walked back.
+  it("rejects a window whose from is after its to", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, {
+      w5: {
+        fetchedAt: "2026-09-04T00:00:00.000Z",
+        daily: ROLL,
+        dailyWindow: { from: "2026-03-31", to: "2026-01-01" },
+      },
+    });
+    const e = loadActualsCache("w5");
+    expect(e?.dailyWindow).toBeUndefined();
+    // Not repaired into the swapped range either — absent, not corrected.
+    expect(e?.daily).toEqual(ROLL);
+  });
+
+  // ★★ ALL-OR-NOTHING, unlike the roll, whose cells are stripped individually.
+  // One real end plus one garbage end is worse than no window: it answers a
+  // coverage question from a bound that does not exist. Both `it` bodies below
+  // were GREEN against a guard that checked only the OTHER end.
+  it("strips a window whose from is not a string", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, {
+      w6: { fetchedAt: "t", dailyWindow: { from: 20260101, to: "2026-03-31" } },
+    });
+    expect(loadActualsCache("w6")?.dailyWindow).toBeUndefined();
+  });
+
+  it("strips a window whose to is not a string", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, {
+      w7: { fetchedAt: "t", dailyWindow: { from: "2026-01-01", to: null } },
+    });
+    expect(loadActualsCache("w7")?.dailyWindow).toBeUndefined();
+  });
+
+  // ★★ SHAPE, not sense. The ISO check exists so the `<`/`>` comparisons a
+  // reader runs against these bounds are lexicographically meaningful — a
+  // `"Jan 2026"` would compare as a string and silently answer wrongly. It does
+  // NOT certify the date exists, which is why `9999-99-99` is deliberately not
+  // a case here.
+  it("strips a window whose ends are strings but not ISO dates", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, {
+      w8: { fetchedAt: "t", dailyWindow: { from: "Jan 2026", to: "Mar 2026" } },
+    });
+    expect(loadActualsCache("w8")?.dailyWindow).toBeUndefined();
+  });
+
+  // `typeof null === "object"` and an array is a non-null object, so each of
+  // these reaches a different arm of the container guard.
+  it("strips a null window", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, {
+      w9: { fetchedAt: "t", aggregates: agg(7), dailyWindow: null },
+    });
+    expect(loadActualsCache("w9")?.dailyWindow).toBeUndefined();
+    expect(loadActualsCache("w9")?.aggregates?.unattributed.hours).toBe(7);
+  });
+
+  it("strips an array window", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, {
+      w10: { fetchedAt: "t", aggregates: agg(8), dailyWindow: ["2026-01-01", "2026-03-31"] },
+    });
+    expect(loadActualsCache("w10")?.dailyWindow).toBeUndefined();
+    expect(loadActualsCache("w10")?.aggregates?.unattributed.hours).toBe(8);
+  });
+
+  // ★★ The two strippers are composed, not alternatives: a single entry can be
+  // malformed in BOTH fields, and neither pass may swallow the other's repair
+  // or the entry itself.
+  it("strips a malformed roll and a malformed window from the same entry", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, {
+      w11: {
+        fetchedAt: "2026-09-04T00:00:00.000Z",
+        aggregates: agg(9),
+        daily: "nonsense",
+        dailyWindow: { from: "2026-03-31", to: "2026-01-01" },
+      },
+    });
+    const e = loadActualsCache("w11");
+    expect(e?.daily).toBeUndefined();
+    expect(e?.dailyWindow).toBeUndefined();
+    expect(e?.aggregates?.unattributed.hours).toBe(9);
   });
 });

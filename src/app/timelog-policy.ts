@@ -34,6 +34,20 @@ export interface TimelogViolation {
   readonly worstHours: number;
   /** The number compared against. 0 for the two rules that have no cap. */
   readonly threshold: number;
+  /** ★★★ The earliest and latest day that actually VIOLATED — never the earliest
+   *  and latest day SCANNED. `reconcileInsights` needs to ask "does the current
+   *  roll still cover the days this insight was about", and the insight is about
+   *  the breaches, not the fetch. A range widened to the scanned window would
+   *  answer that question `true` for a roll holding none of the breaching days.
+   *  ★ ISO `YYYY-MM-DD`, so `<`/`>` are true date comparisons — no Date objects,
+   *  which is what keeps this module clock-free and timezone-independent.
+   *  ★★ REQUIRED, not optional, and both are always present: a violation exists
+   *  only because at least one day violated, so there is always a min and a max
+   *  (equal when it is the same single day). An optional field would invite an
+   *  `?? ""` at the consumer, and `"" <= anything` silently defeats the very
+   *  window check these exist for. */
+  readonly firstViolationDate: string;
+  readonly lastViolationDate: string;
 }
 
 export interface TimelogPolicyInput {
@@ -73,12 +87,39 @@ function weekdayIndex(date: string): number | null {
   return Number.isNaN(d.getTime()) ? null : d.getUTCDay();
 }
 
-type Accum = { count: number; worstHours: number; threshold: number; resourceId: number | null };
+type Accum = {
+  count: number;
+  worstHours: number;
+  threshold: number;
+  resourceId: number | null;
+  firstViolationDate: string;
+  lastViolationDate: string;
+};
 
-function bump(m: Map<number, Accum>, userId: number, resourceId: number | null, hours: number, threshold: number): void {
+/** ★★ `date` is the day that JUST violated, and the two bounds are tracked as a
+ *  running MIN/MAX rather than first-seen/last-seen. `Object.entries(daily)`
+ *  yields the roll's keys in insertion order, which is neither sorted by date
+ *  nor grouped by user, so "the first date this user bumped" is not the earliest
+ *  one — and a non-adjacent second breach would otherwise never widen the
+ *  range. */
+function bump(
+  m: Map<number, Accum>,
+  userId: number,
+  resourceId: number | null,
+  hours: number,
+  threshold: number,
+  date: string,
+): void {
   const cur = m.get(userId);
   if (cur === undefined) {
-    m.set(userId, { count: 1, worstHours: hours, threshold, resourceId });
+    m.set(userId, {
+      count: 1,
+      worstHours: hours,
+      threshold,
+      resourceId,
+      firstViolationDate: date,
+      lastViolationDate: date,
+    });
     return;
   }
   cur.count += 1;
@@ -86,6 +127,8 @@ function bump(m: Map<number, Accum>, userId: number, resourceId: number | null, 
     cur.worstHours = hours;
     cur.threshold = threshold;
   }
+  if (date < cur.firstViolationDate) cur.firstViolationDate = date;
+  if (date > cur.lastViolationDate) cur.lastViolationDate = date;
 }
 
 function drain(rule: TimelogRuleId, m: Map<number, Accum>): TimelogViolation[] {
@@ -98,6 +141,8 @@ function drain(rule: TimelogRuleId, m: Map<number, Accum>): TimelogViolation[] {
       count: a.count,
       worstHours: a.worstHours,
       threshold: a.threshold,
+      firstViolationDate: a.firstViolationDate,
+      lastViolationDate: a.lastViolationDate,
     }));
 }
 
@@ -164,18 +209,18 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
         : (shift?.hoursPerWeekday ?? DEFAULT_WEEK_HOURS)[weekday];
 
     if (doEntry && cell.maxEntryHours > (entryCap.threshold as number)) {
-      bump(perEntry, userId, resourceId, cell.maxEntryHours, entryCap.threshold as number);
+      bump(perEntry, userId, resourceId, cell.maxEntryHours, entryCap.threshold as number, date);
     }
     if (doDay && cell.hours > (dayCap.threshold as number)) {
-      bump(perDay, userId, resourceId, cell.hours, dayCap.threshold as number);
+      bump(perDay, userId, resourceId, cell.hours, dayCap.threshold as number, date);
     }
     if (doNonWorking && (holidaySet.has(date) || definedHours === 0)) {
-      bump(perNonWorking, userId, resourceId, cell.hours, 0);
+      bump(perNonWorking, userId, resourceId, cell.hours, 0, date);
     }
     // A user with no link contributes nothing here, which is correct: the rule
     // is evaluated (some link exists) but this person is simply unchecked.
     if (doWorking && definedHours !== null && definedHours > 0 && cell.hours > definedHours) {
-      bump(perWorking, userId, resourceId, cell.hours, definedHours);
+      bump(perWorking, userId, resourceId, cell.hours, definedHours, date);
     }
   }
 

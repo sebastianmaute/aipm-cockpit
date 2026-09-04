@@ -9,6 +9,7 @@ import {
   RAID_AGING_DAYS,
   STALE_DAYS,
 } from "./detect";
+import { sanitizeInsights } from "./sanitize-insights";
 
 const TODAY = "2026-06-15";
 
@@ -261,6 +262,10 @@ describe("timelog guardrail insights", () => {
     count: 2,
     worstHours: 12,
     threshold: 8,
+    // Two NON-ADJACENT breaching days, so a `data` assertion below cannot pass
+    // by accident against a single-day range or a swapped pair.
+    firstViolationDate: "2026-02-03",
+    lastViolationDate: "2026-02-19",
   };
   const ada: Resource = {
     id: 40, firstName: "Ada", lastName: "Lovelace",
@@ -279,7 +284,37 @@ describe("timelog guardrail insights", () => {
     expect(g?.key).toBe("timelog:timelogCapPerDay:7");
     expect(g?.severity).toBe("medium");
     expect(g?.entityRef).toEqual({ view: "resources", id: 40 });
-    expect(g?.data).toEqual({ person: "Ada Lovelace", count: 2, worstHours: 12, threshold: 8 });
+    expect(g?.data).toEqual({
+      person: "Ada Lovelace", count: 2, worstHours: 12, threshold: 8,
+      firstViolationDate: "2026-02-03", lastViolationDate: "2026-02-19",
+    });
+  });
+
+  // ★★ The two dates are the whole reason a later reconcile can tell "this rule
+  // ran and found nothing" apart from "the roll no longer covers the days this
+  // insight was about". They must reach `data` UNSWAPPED and unrounded — an
+  // exact-object assertion above already pins the set of keys; this pins each
+  // date to its own end against a range whose two days differ.
+  it("carries the violation's first and last violating day into data", () => {
+    const out = detect({ timelogViolations: [violation], resources: [ada] });
+    const g = out.find((i) => i.type === "timelogCapPerDay");
+    expect(g?.data.firstViolationDate).toBe("2026-02-03");
+    expect(g?.data.lastViolationDate).toBe("2026-02-19");
+  });
+
+  // ★★★ Not decoration: `sanitizeData` is what every LOAD path runs, and it
+  // keeps only finite numbers and strings. If it ever narrowed to numbers, the
+  // dates would vanish on reload while every in-memory test above stayed green
+  // — the insight would silently go back to being unwindowed.
+  it("keeps both dates through the persisted-insight sanitiser", () => {
+    const out = detect({ timelogViolations: [violation], resources: [ada] });
+    const g = out.find((i) => i.type === "timelogCapPerDay");
+    const [restored] = sanitizeInsights([{
+      id: 1, key: g!.key, type: g!.type, severity: g!.severity, data: g!.data,
+      status: "active", firstSeenAt: "2026-02-20", lastSeenAt: "2026-02-20", occurrences: 1,
+    }]);
+    expect(restored.data.firstViolationDate).toBe("2026-02-03");
+    expect(restored.data.lastViolationDate).toBe("2026-02-19");
   });
 
   // No entityRef without a link: InsightEntityRef requires a real workspace id,

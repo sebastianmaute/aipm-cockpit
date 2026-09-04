@@ -205,6 +205,16 @@ function timelogGuardrailInsights(
         count: v.count,
         worstHours: v.worstHours,
         threshold: v.threshold,
+        // ★★ Carried so a later reconcile can ask which DAYS this insight was
+        // about. The roll behind it is a per-device window-and-scope snapshot,
+        // so "the rule ran and found nothing" is only a real clean when the
+        // roll still covered these days. `sanitizeData` keeps any string value
+        // (sliced to INSIGHT_DATA_VALUE_MAX), so ISO dates survive every load
+        // path with no sanitiser change. ★ Not read by `insightMetricValue`,
+        // which takes only METRIC_FIELD (`count`) — these widen the record, not
+        // the measurement.
+        firstViolationDate: v.firstViolationDate,
+        lastViolationDate: v.lastViolationDate,
       },
     };
   });

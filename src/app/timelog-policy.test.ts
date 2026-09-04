@@ -73,7 +73,7 @@ describe("evaluateTimelogPolicy", () => {
     });
     expect(res.evaluated).toEqual(["timelogCapPerEntry", "timelogCapPerDay"]);
     expect(res.violations).toEqual([
-      { rule: "timelogCapPerEntry", timelogUserId: 7, resourceId: null, count: 1, worstHours: 6.5, threshold: 6 },
+      { rule: "timelogCapPerEntry", timelogUserId: 7, resourceId: null, count: 1, worstHours: 6.5, threshold: 6, firstViolationDate: TUE, lastViolationDate: TUE },
     ]);
   });
 
@@ -97,8 +97,93 @@ describe("evaluateTimelogPolicy", () => {
       holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
     });
     expect(res.violations).toEqual([
-      { rule: "timelogCapPerDay", timelogUserId: 7, resourceId: null, count: 2, worstHours: 12, threshold: 8 },
-      { rule: "timelogCapPerDay", timelogUserId: 9, resourceId: null, count: 1, worstHours: 9, threshold: 8 },
+      { rule: "timelogCapPerDay", timelogUserId: 7, resourceId: null, count: 2, worstHours: 12, threshold: 8, firstViolationDate: TUE, lastViolationDate: WED },
+      { rule: "timelogCapPerDay", timelogUserId: 9, resourceId: null, count: 1, worstHours: 9, threshold: 8, firstViolationDate: TUE, lastViolationDate: TUE },
+    ]);
+  });
+
+  // ★★★ THE DAYS RECORDED ARE THE DAYS THAT VIOLATED, NOT THE DAYS SCANNED.
+  // The fixture is built so those two answers DIFFER at both ends: user 7's
+  // clean days (MON at 4h, FRI at 5h) sit OUTSIDE the breaching pair, so a
+  // range taken from the scanned cells would read 2026-08-31..2026-09-04 while
+  // the true violating range is 2026-09-01..2026-09-03. A fixture whose clean
+  // days sat between the breaches would pass either way.
+  // ★★ The two breaching days are NON-ADJACENT and are deliberately inserted
+  // LAST-first (WED before TUE): `Object.entries` yields insertion order, so a
+  // min/max that degenerated to first-seen/last-seen would report the range
+  // BACKWARDS rather than merely narrow.
+  it("records the first and last VIOLATING day, not the first and last scanned", () => {
+    const MON = "2026-08-31";
+    const THU = "2026-09-03";
+    const FRI = "2026-09-04";
+    const res = evaluateTimelogPolicy({
+      daily: roll({
+        [dailyKey(7, FRI)]: [5, 5, 1],   // scanned, clean, AFTER the last breach
+        [dailyKey(7, THU)]: [11, 11, 1], // breach — the LATE end
+        [dailyKey(7, TUE)]: [10, 10, 1], // breach — the EARLY end, inserted second
+        [dailyKey(7, MON)]: [4, 4, 1],   // scanned, clean, BEFORE the first breach
+      }),
+      policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+    });
+    expect(res.violations).toEqual([
+      {
+        rule: "timelogCapPerDay", timelogUserId: 7, resourceId: null,
+        count: 2, worstHours: 11, threshold: 8,
+        firstViolationDate: TUE, lastViolationDate: THU,
+      },
+    ]);
+  });
+
+  // A single breaching day is a real violation, and both ends are that day —
+  // the pair is never absent, which is why the fields are REQUIRED.
+  it("reports the same day at both ends when only one day violated", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, WED)]: [12, 12, 1] }),
+      policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+    });
+    expect(res.violations[0].firstViolationDate).toBe(WED);
+    expect(res.violations[0].lastViolationDate).toBe(WED);
+  });
+
+  // Each user accumulates its OWN range: user 9 breaches only on the day user 7
+  // is clean, so a range shared across users would give both the same answer.
+  it("tracks a separate violating range per user", () => {
+    const THU = "2026-09-03";
+    const res = evaluateTimelogPolicy({
+      daily: roll({
+        [dailyKey(7, TUE)]: [10, 10, 1],
+        [dailyKey(7, WED)]: [11, 11, 1],
+        [dailyKey(9, THU)]: [9, 9, 1],
+      }),
+      policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+    });
+    expect(res.violations.map((v) => [v.timelogUserId, v.firstViolationDate, v.lastViolationDate])).toEqual([
+      [7, TUE, WED],
+      [9, THU, THU],
+    ]);
+  });
+
+  // Each RULE accumulates its own range too — the per-entry breach and the
+  // per-day breach fall on different days for the same person, so a range
+  // shared across rules would report one of them wrongly.
+  it("tracks a separate violating range per rule for the same user", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({
+        [dailyKey(7, TUE)]: [7, 6.5, 2],  // per-ENTRY breach only (sum under the daily cap)
+        [dailyKey(7, WED)]: [12, 4, 3],   // per-DAY breach only (no entry over 6)
+      }),
+      policy: {
+        timelogCapPerEntry: { enabled: true, threshold: 6 },
+        timelogCapPerDay: { enabled: true, threshold: 8 },
+      },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+    });
+    expect(res.violations.map((v) => [v.rule, v.firstViolationDate, v.lastViolationDate])).toEqual([
+      ["timelogCapPerEntry", TUE, TUE],
+      ["timelogCapPerDay", WED, WED],
     ]);
   });
 
@@ -111,7 +196,7 @@ describe("evaluateTimelogPolicy", () => {
     });
     expect(res.evaluated).toEqual(["timelogNonWorkingDay"]);
     expect(res.violations).toEqual([
-      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: null, count: 1, worstHours: 4, threshold: 0 },
+      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: null, count: 1, worstHours: 4, threshold: 0, firstViolationDate: TUE, lastViolationDate: TUE },
     ]);
   });
 
@@ -132,7 +217,7 @@ describe("evaluateTimelogPolicy", () => {
       shifts: [shift(40, [0, 8, 8, 0, 8, 8, 0])],
     });
     expect(res.violations).toEqual([
-      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 3, threshold: 0 },
+      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 3, threshold: 0, firstViolationDate: WED, lastViolationDate: WED },
     ]);
   });
 
@@ -145,7 +230,7 @@ describe("evaluateTimelogPolicy", () => {
       shifts: [],
     });
     expect(res.violations).toEqual([
-      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 3, threshold: 0 },
+      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 3, threshold: 0, firstViolationDate: SAT, lastViolationDate: SAT },
     ]);
   });
 
@@ -174,7 +259,7 @@ describe("evaluateTimelogPolicy", () => {
     });
     expect(res.evaluated).toEqual(["timelogWorkingHours"]);
     expect(res.violations).toEqual([
-      { rule: "timelogWorkingHours", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 12, threshold: 8 },
+      { rule: "timelogWorkingHours", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 12, threshold: 8, firstViolationDate: TUE, lastViolationDate: TUE },
     ]);
   });
 
@@ -195,7 +280,7 @@ describe("evaluateTimelogPolicy", () => {
     });
     expect(res.evaluated).toEqual(["timelogWorkingHours"]);
     expect(res.violations).toEqual([
-      { rule: "timelogWorkingHours", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 12, threshold: 6 },
+      { rule: "timelogWorkingHours", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 12, threshold: 6, firstViolationDate: TUE, lastViolationDate: TUE },
     ]);
   });
 
@@ -237,7 +322,7 @@ describe("evaluateTimelogPolicy", () => {
     });
     expect(res.evaluated).toEqual(["timelogNonWorkingDay"]);
     expect(res.violations).toEqual([
-      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 3, threshold: 0 },
+      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 3, threshold: 0, firstViolationDate: SAT, lastViolationDate: SAT },
     ]);
   });
 
@@ -296,7 +381,7 @@ describe("evaluateTimelogPolicy", () => {
     // latter even though its indices would not have thrown, which is the
     // difference between a shape check and a null check.
     expect(res.violations).toEqual([
-      { rule: "timelogCapPerDay", timelogUserId: 8, resourceId: null, count: 1, worstHours: 12, threshold: 8 },
+      { rule: "timelogCapPerDay", timelogUserId: 8, resourceId: null, count: 1, worstHours: 12, threshold: 8, firstViolationDate: TUE, lastViolationDate: TUE },
     ]);
   });
 

@@ -133,10 +133,10 @@ describe("METRIC_FIELD guard", () => {
     // five core detections only and says nothing about the four guardrail types,
     // whose METRIC_FIELD is `count` — a key the detector must put in `data`.
     timelogViolations: [
-      { rule: "timelogCapPerEntry", timelogUserId: 7, resourceId: null, count: 1, worstHours: 9, threshold: 8 },
-      { rule: "timelogCapPerDay", timelogUserId: 7, resourceId: null, count: 2, worstHours: 12, threshold: 8 },
-      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: null, count: 1, worstHours: 4, threshold: 0 },
-      { rule: "timelogWorkingHours", timelogUserId: 7, resourceId: null, count: 3, worstHours: 10, threshold: 8 },
+      { rule: "timelogCapPerEntry", timelogUserId: 7, resourceId: null, count: 1, worstHours: 9, threshold: 8, firstViolationDate: "2026-02-03", lastViolationDate: "2026-02-03" },
+      { rule: "timelogCapPerDay", timelogUserId: 7, resourceId: null, count: 2, worstHours: 12, threshold: 8, firstViolationDate: "2026-02-03", lastViolationDate: "2026-02-11" },
+      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: null, count: 1, worstHours: 4, threshold: 0, firstViolationDate: "2026-02-07", lastViolationDate: "2026-02-07" },
+      { rule: "timelogWorkingHours", timelogUserId: 7, resourceId: null, count: 3, worstHours: 10, threshold: 8, firstViolationDate: "2026-02-02", lastViolationDate: "2026-02-11" },
     ],
   };
 

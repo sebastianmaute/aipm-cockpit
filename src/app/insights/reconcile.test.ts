@@ -507,6 +507,75 @@ describe("evaluated scope", () => {
   });
 });
 
+// ★★★ WHAT WIDENING A GUARDRAIL `data` RECORD DOES, AND WHERE. Adding the two
+// violating-day keys to a timelog insight's `data` was expected to change when
+// an insight counts as CHANGED between passes. It does — but NOT in `upsert`,
+// which contains no comparison at all: it assigns `data: det.data` outright and
+// advances `lastSeenAt`/`occurrences` on EVERY detection, identical data or
+// not. The only `data` comparison in this module is `shallowRecordEqual`, and
+// its sole consumer is `insightsMateriallyEqual` — the write-back skip. So the
+// whole behaviour delta lives there, and it is narrow: it needs the violating
+// DAYS to move while `count`, `worstHours` and `threshold` all stay equal (a
+// sliding window that drops one breaching day and gains another at the same
+// peak). In that case the workspace is now written where it previously was not.
+//
+// ★★★ THAT EXTRA WRITE IS REQUIRED, NOT TOLERATED. Skipping it would leave the
+// STORED dates describing a roll that has moved on, and the stored dates are
+// exactly what a later reconcile reads to ask "does the current roll still
+// cover the days this insight was about". A stale bound answers that question
+// confidently and wrongly — the fabricated-win shape this field exists to make
+// detectable. The two tests below pin both halves.
+describe("widening a guardrail data record", () => {
+  const withDays = (first: string, last: string) => ({
+    count: 2, worstHours: 12, threshold: 8,
+    firstViolationDate: first, lastViolationDate: last,
+  });
+
+  // The write-back skip MUST see a date-only shift as material. Everything the
+  // old record compared on (count/worstHours/threshold) is held equal here, so
+  // this is red against a `data` comparison that ignores unknown keys.
+  it("treats a violating-day shift as a material change even when the counts match", () => {
+    const a = [stored("g", { type: "timelogCapPerDay", data: withDays("2026-02-03", "2026-02-11") })];
+    const b = [stored("g", { type: "timelogCapPerDay", data: withDays("2026-02-05", "2026-02-19") })];
+    expect(insightsMateriallyEqual(a, b)).toBe(false);
+  });
+
+  // `upsert` has no equality gate: identical data still advances the counters,
+  // which is why adding keys cannot have changed anything there. Asserting the
+  // IDENTICAL-data case is the half that proves the absence of a comparison —
+  // a differing-data case would pass either way.
+  it("upserts on identical data, so the new keys change nothing in the lifecycle", () => {
+    const data = withDays("2026-02-03", "2026-02-11");
+    const prev = stored("g", {
+      type: "timelogCapPerDay", data, occurrences: 4, lastSeenAt: "2026-06-01",
+    });
+    const out = reconcileInsights(
+      [prev],
+      [detected("g", { type: "timelogCapPerDay", data })],
+      "2026-06-10",
+      ALL_TYPES,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].status).toBe("active");
+    expect(out[0].occurrences).toBe(5);
+    expect(out[0].lastSeenAt).toBe("2026-06-10");
+    expect(out[0].data).toEqual(data);
+  });
+
+  // The fresh dates must actually REPLACE the stored ones — a merge that kept
+  // the older bound would widen coverage the roll no longer has.
+  it("adopts the freshly detected dates rather than merging them", () => {
+    const out = reconcileInsights(
+      [stored("g", { type: "timelogCapPerDay", data: withDays("2026-02-03", "2026-02-11") })],
+      [detected("g", { type: "timelogCapPerDay", data: withDays("2026-05-04", "2026-05-06") })],
+      "2026-06-10",
+      ALL_TYPES,
+    );
+    expect(out[0].data.firstViolationDate).toBe("2026-05-04");
+    expect(out[0].data.lastViolationDate).toBe("2026-05-06");
+  });
+});
+
 // The compile-error property is the ENTIRE justification for making the argument
 // REQUIRED rather than defaulting it to "all types". Prose cannot pin that;
 // the directive below can, and `npx tsc --noEmit` is where it is checked —

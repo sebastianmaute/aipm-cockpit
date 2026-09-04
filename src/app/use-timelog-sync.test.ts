@@ -311,6 +311,13 @@ it("keeps the partial flag when a non-fetch save rewrites the cache entry", asyn
 // a drop in any of the other three. `finish` is the only one holding `items`;
 // the other three carry the roll through from state.
 const ROLL = { "5|2026-06-10": { hours: 7, maxEntryHours: 4, entryCount: 2 } };
+// ★★ The REQUESTED fetch range, which is deliberately WIDER than any date the
+// items carry (both `item()`s are 2026-06-10). That gap is what makes these
+// assertions non-vacuous: a window derived from the returned items would be
+// 2026-06-10..2026-06-10 and would fail every one of them. The distinction is
+// the point of the field — a day inside the window with no cell was fetched
+// and genuinely clean, not un-fetched.
+const WINDOW = { from: "2026-06-01", to: "2026-06-30" };
 
 // Seeds a real roll through the fetch path and asserts it landed, so every case
 // below starts from a cache entry that demonstrably HAS a roll to lose.
@@ -320,12 +327,82 @@ async function mountWithRoll() {
   const h = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
   await act(async () => { await h.result.current.fetchBookings("2026-06-01", "2026-06-30"); });
   expect(loadActualsCache("p1")?.daily).toEqual(ROLL);
+  // The window is asserted here too, so every "survives" case below starts from
+  // a cache entry that demonstrably has BOTH halves of the pair to lose. A case
+  // that only checked the roll would stay green against a saver that dropped
+  // the window — the exact half-write `rollPair` exists to prevent.
+  expect(loadActualsCache("p1")?.dailyWindow).toEqual(WINDOW);
   return h;
 }
 
 it("builds the daily roll on fetch and exposes it", async () => {
   const h = await mountWithRoll();
   expect(h.result.current.daily).toEqual(ROLL);
+});
+
+it("records the fetched window on fetch and exposes it", async () => {
+  const h = await mountWithRoll();
+  expect(h.result.current.dailyWindow).toEqual(WINDOW);
+});
+
+it("keeps the roll window when a directory reload rewrites the cache entry", async () => {
+  const h = await mountWithRoll();
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { userId: 5, firstName: "Ada", lastName: "L", initials: "AL", email: "a@x.com", isActive: true },
+  ]);
+  await act(async () => { await h.result.current.loadDirectory(); });
+  expect(loadActualsCache("p1")?.dailyWindow).toEqual(WINDOW);
+});
+
+it("keeps the roll window when a managed-projects reload rewrites the cache entry", async () => {
+  const h = await mountWithRoll();
+  (api.getMe as ReturnType<typeof vi.fn>).mockResolvedValue({ userId: 5 });
+  (api.listManagedProjects as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 9, name: "Acme", no: "P9" }]);
+  await act(async () => { await h.result.current.loadManagedProjects(); });
+  expect(loadActualsCache("p1")?.dailyWindow).toEqual(WINDOW);
+});
+
+// ★★ This is the saver a "remove person" action already cost this slice once,
+// with `daily`. A display-only people cleanup must take neither half of the pair.
+it("keeps the roll window when removeUsers rewrites the cache entry", async () => {
+  const h = await mountWithRoll();
+  act(() => { h.result.current.removeUsers([5]); });
+  expect(loadActualsCache("p1")?.dailyWindow).toEqual(WINDOW);
+});
+
+// ★ The window must never outlive the roll it describes: a window with no roll
+// claims coverage for days nothing can be read from, which is worse than none.
+it("clearAll drops the roll window along with the roll", async () => {
+  const h = await mountWithRoll();
+  act(() => { h.result.current.clearAll(); });
+  expect(h.result.current.daily).toBeUndefined();
+  expect(h.result.current.dailyWindow).toBeUndefined();
+  expect(loadActualsCache("p1")).toBeUndefined();
+});
+
+// The customer→project path clamps its rows to the requested range itself, so
+// the roll and the window it declares must come from that same pair of dates.
+it("records the requested window on the customer-project fetch path", async () => {
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { userId: 5, firstName: "Ada", lastName: "L", initials: "AL", email: "a@x.com", isActive: true },
+  ]);
+  (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await result.current.fetchBookingsForProjects([9], "2026-06-01", "2026-06-30"); });
+  expect(result.current.dailyWindow).toEqual(WINDOW);
+  expect(loadActualsCache("p1")?.dailyWindow).toEqual(WINDOW);
+});
+
+// A second fetch REPLACES the window wholesale, exactly as it replaces the
+// roll — the two are one snapshot. A window that merely widened would claim
+// coverage of months the current roll no longer holds, which is the fabricated
+// clean this whole field exists to make detectable.
+it("replaces the window on a re-fetch rather than widening it", async () => {
+  const h = await mountWithRoll();
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  await act(async () => { await h.result.current.fetchBookings("2026-09-01", "2026-09-30"); });
+  expect(h.result.current.dailyWindow).toEqual({ from: "2026-09-01", to: "2026-09-30" });
+  expect(loadActualsCache("p1")?.dailyWindow).toEqual({ from: "2026-09-01", to: "2026-09-30" });
 });
 
 it("keeps the daily roll when a directory reload rewrites the cache entry", async () => {

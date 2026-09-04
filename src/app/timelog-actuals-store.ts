@@ -41,7 +41,27 @@ export type ActualsCacheEntry = {
   // ★★ Like `partial`, this rides along on EVERY save. An entry is rewritten
   // whole, so a save that omits it CLEARS it (register §172, one field over).
   daily?: TimelogDailyRoll;
+  // ★★★ The date window the roll above was FETCHED over, inclusive. The roll is
+  // a window-and-scope SNAPSHOT — `finish` replaces it wholesale from the
+  // current fetch's items — so a day absent from it is ambiguous on its own:
+  // either nobody booked that day, or that day was never fetched. This field is
+  // what separates the two, and without it a stored insight about February
+  // resolves as a clean win the moment somebody fetches April.
+  // ★★ ONE field holding BOTH ends rather than two loose ones: it cannot
+  // half-arrive, it is one thing to carry through a saver and one thing to
+  // validate. `from` and `to` are ISO `YYYY-MM-DD` with `from <= to`.
+  // ★★ Optional, exactly like `daily` and `partial`, for entries written before
+  // it existed. A roll WITHOUT a window is a real, readable state — "covered
+  // days unknown" — and a reader must be able to tell it apart from a window
+  // that demonstrably covers the days it is asking about. It rides along on
+  // EVERY save for the same reason `daily` does: an entry is rewritten whole,
+  // so a saver that omits it CLEARS it (register §172).
+  dailyWindow?: TimelogRollWindow;
 };
+
+/** The inclusive ISO `YYYY-MM-DD` date range a `daily` roll was fetched over. */
+export type TimelogRollWindow = { from: string; to: string };
+
 type CacheMap = Record<string, ActualsCacheEntry>;
 
 function isEntry(v: unknown): v is ActualsCacheEntry {
@@ -64,6 +84,10 @@ function isEntry(v: unknown): v is ActualsCacheEntry {
   // being plausible ones, so a negative or absurd `hours` still reaches the
   // rules. Measured, not reasoned: with the rejecting branch in
   // place, "keeps the rest of an entry whose daily field is malformed" is RED.
+  // ★★ `dailyWindow` is unchecked here for the SAME reason and by the same
+  // rule — `withCheckedDailyWindow` below strips it instead. Rejecting the
+  // entry would fail CLOSED, dropping a network-round-trip's worth of
+  // aggregates AND the roll itself over an optional field.
   return true;
 }
 
@@ -103,12 +127,49 @@ function withCheckedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
   return { ...e, daily: kept };
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Strip a malformed roll window, keeping the rest of the entry — the fail-open
+ *  rule `withCheckedDaily` applies to the roll, one field over.
+ *  ★★★ ALL-OR-NOTHING, and that is the point: unlike the roll, whose cells are
+ *  stripped INDIVIDUALLY, a half-valid window is worse than no window at all. A
+ *  reader asking "did the roll cover these days?" gets `false`/unknown from an
+ *  absent window and goes on being careful; from a window with one real end and
+ *  one garbage end it gets a confident answer computed from a bound that was
+ *  never real. So a window survives only if BOTH ends are ISO-shaped strings.
+ *  ★★ `from > to` is rejected rather than swapped. An inverted window covers
+ *  nothing, and quietly reordering the ends would invent a range no fetch ever
+ *  requested — fabricating coverage is the one direction that cannot be walked
+ *  back. `from === to` is legal: a single-day fetch is a real window.
+ *  ★ SHAPE, not sense — the regex admits `9999-99-99`. It exists to keep the
+ *  `<`/`>` comparisons downstream lexicographically meaningful, not to certify
+ *  that a date exists. */
+function withCheckedDailyWindow(e: ActualsCacheEntry): ActualsCacheEntry {
+  const w: unknown = e.dailyWindow;
+  if (w === undefined) return e;
+  if (typeof w === "object" && w !== null && !Array.isArray(w)) {
+    const { from, to } = w as Record<string, unknown>;
+    if (
+      typeof from === "string" &&
+      typeof to === "string" &&
+      ISO_DATE_RE.test(from) &&
+      ISO_DATE_RE.test(to) &&
+      from <= to
+    ) {
+      return e;
+    }
+  }
+  const copy = { ...e };
+  delete copy.dailyWindow;
+  return copy;
+}
+
 function readMap(): CacheMap {
   const parsed = readDeviceJson<unknown>(TIMELOG_ACTUALS_KEY, null);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
   const out: CacheMap = {};
   for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-    if (isEntry(v)) out[k] = withCheckedDaily(v);
+    if (isEntry(v)) out[k] = withCheckedDailyWindow(withCheckedDaily(v));
   }
   return out;
 }

@@ -18,7 +18,7 @@ import {
   type TimelogCreds,
 } from "./timelog-api";
 import { aggregateActuals, buildDailyRoll, type ActualsAggregate } from "./timelog-actuals";
-import { saveActualsCache, loadActualsCache, clearActualsCache } from "./timelog-actuals-store";
+import { saveActualsCache, loadActualsCache, clearActualsCache, type TimelogRollWindow } from "./timelog-actuals-store";
 import { autoMatchUsers, autoMatchProjects, displayableUsers, type TimelogProjectRef } from "./timelog-match";
 import { isAbortError } from "./abort-error";
 import type { TimelogDailyRoll, TimelogLinks, TimelogScopeMode, TimelogTimeItem, TimelogUser } from "./timelog-types";
@@ -41,6 +41,28 @@ type Args = {
   onTokenInvalid: () => void;
   onTokenValid: () => void;
 };
+
+/** The guardrail roll and the window it was fetched over, as ONE spreadable
+ *  pair — the shape every `saveActualsCache` call spreads.
+ *  ★★★ THIS EXISTS SO THE TWO CANNOT BE HALF-WRITTEN. An entry is rewritten
+ *  whole, so a saver that carries `daily` but omits `dailyWindow` persists a
+ *  roll whose coverage reads as UNKNOWN — the exact state the window was added
+ *  to rule out, and a silent one: no error anywhere, just a guardrail insight
+ *  that can no longer be told apart from a stale one. `daily` alone already
+ *  cost this slice a save site (a "remove person" action wiping the roll), and
+ *  a second independently-droppable field doubles that surface. With one
+ *  spread there is no per-saver spelling left to get wrong: dropping a member
+ *  means editing this function, which is a deliberate act rather than an
+ *  omission. Do NOT inline it back into the four call sites.
+ *  ★ Named `fetchWindow`, never `window` — this is browser code, and shadowing
+ *  the DOM global inside a hook file is how a later edit reaching for
+ *  `window.localStorage` here silently resolves to a date range instead. */
+function rollPair(
+  roll: TimelogDailyRoll | undefined,
+  fetchWindow: TimelogRollWindow | undefined,
+): { daily: TimelogDailyRoll | undefined; dailyWindow: TimelogRollWindow | undefined } {
+  return { daily: roll, dailyWindow: fetchWindow };
+}
 
 export function useTimelogSync(args: Args) {
   const projectId = args.projectId;
@@ -73,6 +95,11 @@ export function useTimelogSync(args: Args) {
   // BUILD it (it alone holds `items`); the other three savers carry this state
   // through — see the ★★ note beside each of them.
   const [daily, setDaily] = useState<TimelogDailyRoll | undefined>(() => loadActualsCache(projectId)?.daily);
+  // The window `daily` was fetched over. Held as state beside the roll — never
+  // derived from it — because the roll cannot answer this: a day nobody booked
+  // leaves no cell, so the roll's own min/max key understates its coverage and
+  // a clean stretch would read as never fetched.
+  const [dailyWindow, setDailyWindow] = useState<TimelogRollWindow | undefined>(() => loadActualsCache(projectId)?.dailyWindow);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<number | null>(null);
   // Customer directory for the project-scope picker. Lazy + lightweight (no busy
@@ -160,9 +187,10 @@ export function useTimelogSync(args: Args) {
       // reload — an entry is rewritten whole, so a dropped field is a cleared one.
       // ★★ `daily` is that same hazard one field over, and worse to lose: a
       // cleared roll takes every guardrail rule out of evaluation with no error
-      // anywhere. This path has no `items`, so it carries the state through.
+      // anywhere. This path has no `items`, so it carries the state through —
+      // via `rollPair`, which carries the roll's WINDOW with it (see its note).
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users: shown, projectRefs, partial, daily });
+        saveActualsCache(projectId, { fetchedAt, aggregates, users: shown, projectRefs, partial, ...rollPair(daily, dailyWindow) });
       }
     });
   }
@@ -203,10 +231,10 @@ export function useTimelogSync(args: Args) {
           ? await listProjectsForCustomer(creds, customerId, signal, includeClosed)
           : await listManagedProjects(creds, (await getMe(creds, signal)).userId, signal, includeClosed);
       setProjectRefs(refs);
-      // ★★ `partial` and `daily` carried through for the same reason as the
-      // directory reload above — this save has no `items` either.
+      // ★★ `partial` and the roll pair carried through for the same reason as
+      // the directory reload above — this save has no `items` either.
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users, projectRefs: refs, partial, daily });
+        saveActualsCache(projectId, { fetchedAt, aggregates, users, projectRefs: refs, partial, ...rollPair(daily, dailyWindow) });
       }
     });
   }
@@ -232,10 +260,19 @@ export function useTimelogSync(args: Args) {
   //    a future third caller silently persist `partial: false` and CLEAR the
   //    flag — the same wholesale-rewrite hazard the savers carry a note about,
   //    one layer up. Required makes that a typecheck error instead.
+  // ★★★ `fetchWindow` is REQUIRED and has no default, for the same reason
+  //    `isPartial` is. `finish` cannot derive it: it holds `items`, and items
+  //    only reveal the days somebody BOOKED, not the days that were FETCHED — a
+  //    window inferred from them would silently shrink to the first and last
+  //    booking and report every clean day at the edges as never covered. Only
+  //    the caller that issued the request knows what it asked for.
+  //    ★ Not spelled `window`: shadowing the DOM global in browser code is how
+  //    a later `window.*` read here silently resolves to a date range.
   function finish(
     items: readonly TimelogTimeItem[],
     usersOverride: readonly TimelogUser[] | undefined,
     isPartial: boolean,
+    fetchWindow: TimelogRollWindow,
   ): ActualsAggregate {
     const u = usersOverride ?? users;
     // Distinct projects seen — lets the matching UI bootstrap never-linked ones.
@@ -272,7 +309,8 @@ export function useTimelogSync(args: Args) {
     setFetchedAt(at);
     setPartial(isPartial);
     setDaily(roll);
-    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial, daily: roll });
+    setDailyWindow(fetchWindow);
+    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial, ...rollPair(roll, fetchWindow) });
     return agg;
   }
 
@@ -320,7 +358,10 @@ export function useTimelogSync(args: Args) {
       //    above `break`s on a cancel and falls through to here, so a run
       //    cancelled BETWEEN employees reaches `finish` with `failedEmployees`
       //    still 0 — a truncated aggregate that would persist as complete.
-      finish(items, undefined, failedEmployees > 0 || signal.aborted);
+      // The REQUESTED range is the roll's coverage, not the range the returned
+      // items span: both endpoints are queried with exactly these dates, so a
+      // day inside it with no cell was fetched and genuinely had no bookings.
+      finish(items, undefined, failedEmployees > 0 || signal.aborted, { from: startDate, to: endDate });
       return { failedEmployees };
     });
   }
@@ -379,7 +420,11 @@ export function useTimelogSync(args: Args) {
       setUsers(bookers);
       // `signal.aborted` for the same reason as the per-user path above: the
       // loop `break`s on a cancel and still reaches this line.
-      const agg = finish(inWindow, bookers, failedProjects > 0 || signal.aborted);
+      // Same window the rows were just clamped to (`inWindow`), so the roll and
+      // its declared coverage are derived from one pair of dates and cannot
+      // disagree — the v2 endpoint ignores the date params, and claiming
+      // coverage of the project's whole history would be a fabricated clean.
+      const agg = finish(inWindow, bookers, failedProjects > 0 || signal.aborted, { from: startDate, to: endDate });
       return { failedProjects, projectCount: ids.length, aggregates: agg };
     });
   }
@@ -399,9 +444,10 @@ export function useTimelogSync(args: Args) {
     const next = users.filter((u) => !drop.has(u.userId));
     setUsers(next);
     if (fetchedAt && aggregates) {
-      // ★★ Fourth saver. `daily` carried through here too — a display-only
-      // people cleanup must not take the guardrail roll with it.
-      saveActualsCache(projectId, { fetchedAt, aggregates, users: next, projectRefs, partial, daily });
+      // ★★ Fourth saver. The roll pair is carried through here too — a
+      // display-only people cleanup must not take the guardrail roll, or its
+      // declared coverage, with it.
+      saveActualsCache(projectId, { fetchedAt, aggregates, users: next, projectRefs, partial, ...rollPair(daily, dailyWindow) });
     }
   }
 
@@ -414,11 +460,14 @@ export function useTimelogSync(args: Args) {
     // set would keep the guardrail rules evaluating a roll whose cache entry
     // was just cleared — the same staleness the other resets exist to avoid.
     setDaily(undefined);
+    // ★ Reset WITH the roll, never after it: a window outliving its roll would
+    // claim coverage for days nothing can be read from — worse than no window.
+    setDailyWindow(undefined);
     setUsers([]);
     setProjectRefs([]);
     fullDirectoryRef.current = null; // force a fresh directory on the next fetch
     clearActualsCache(projectId);
   }
 
-  return { aggregates, fetchedAt, partial, daily, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
+  return { aggregates, fetchedAt, partial, daily, dailyWindow, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
 }
