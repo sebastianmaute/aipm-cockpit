@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { TOOL_DEFS } from "./chat-tool-defs";
-import { isDestructiveTool, isEntityWriteTool, shouldStage, type ProposedCall } from "./chat-proposal";
+import {
+  buildPlanRows,
+  cascadeDeselect,
+  isCreateTool,
+  isDestructiveTool,
+  isEntityWriteTool,
+  shouldStage,
+  type ProposedCall,
+} from "./chat-proposal";
 
 const call = (name: string, input: Record<string, unknown> = {}): ProposedCall => ({ name, input });
 
@@ -84,5 +92,148 @@ describe("the classification covers the live tool surface", () => {
     const live = (TOOL_DEFS as ReadonlyArray<{ name: string }>).map((d) => d.name);
     const classified = [...DESTRUCTIVE_NAMES, ...NON_DESTRUCTIVE_WRITE_NAMES, ...NON_WRITE_NAMES];
     expect([...classified].sort()).toEqual([...live].sort());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 8 — the provisional-id dependency graph the review card cascades over.
+
+describe("isCreateTool", () => {
+  // ★★ A LITERAL, deliberately not derived from the module — same rule as the
+  //    three lists above. `buildPlanRows` consumes one minted id per create, so
+  //    a new `create_*` tool landing in TOOL_DEFS with nobody minting for it is
+  //    a cascade that silently never links. This row goes red until somebody
+  //    looks at it.
+  const CREATE_NAMES = [
+    "create_task", "create_raid_item", "create_change", "create_milestone",
+    "create_stakeholder", "create_resource", "create_document",
+  ];
+
+  test("matches exactly the live create tools", () => {
+    const live = (TOOL_DEFS as ReadonlyArray<{ name: string }>).map((d) => d.name);
+    expect(live.filter((n) => isCreateTool(n)).sort()).toEqual([...CREATE_NAMES].sort());
+  });
+});
+
+describe("provisional-id dependencies", () => {
+  test("a call referencing an earlier create's minted id depends on it", () => {
+    const rows = buildPlanRows(
+      [
+        call("create_task"),
+        call("set_task_dependencies", { id: 101, dependencies: [] }),
+        call("update_task", { id: 55 }),
+      ],
+      [101], // ids minted for the creates, in order
+    );
+
+    expect(rows[0].mintedId).toBe(101);
+    expect(rows[1].dependsOn).toBe(0);          // references the create at index 0
+    expect(rows[2].dependsOn).toBeUndefined();  // #55 is a pre-existing row
+  });
+
+  test("deselecting a create deselects everything that depends on it", () => {
+    const rows = buildPlanRows(
+      [
+        call("create_task"),
+        call("set_task_dependencies", { id: 101, dependencies: [] }),
+        call("update_task", { id: 55 }),
+      ],
+      [101],
+    );
+
+    const next = cascadeDeselect(rows, new Set([0, 1, 2]), 0);
+    expect(next.has(0)).toBe(false);
+    expect(next.has(1)).toBe(false); // cascaded
+    expect(next.has(2)).toBe(true);  // independent, untouched
+  });
+
+  test("cascade is transitive", () => {
+    const rows = buildPlanRows(
+      [
+        call("create_task"),
+        call("update_task", { id: 101 }),
+        call("set_task_dependencies", { id: 101 }),
+      ],
+      [101],
+    );
+    const next = cascadeDeselect(rows, new Set([0, 1, 2]), 0);
+    expect(next.size).toBe(0);
+  });
+
+  // `Number(undefined)` is NaN, and a NaN Map lookup would find nothing anyway —
+  // but only because nothing can mint NaN. Pinned so a future "default the id to
+  // 0" cannot quietly hang every id-less call off row 0.
+  test("a call carrying no id at all depends on nothing", () => {
+    const rows = buildPlanRows([call("create_task"), call("delete_all_tasks")], [101]);
+    expect(rows[1].dependsOn).toBeUndefined();
+  });
+
+  // ★★★ The row that fails a two-pass implementation. Resolving against a fully
+  //     built id map would hang this update off the create BELOW it — a rejected
+  //     create that cascades backwards into a call the user never linked to it.
+  test("a forward reference resolves to nothing, not to the wrong row", () => {
+    const rows = buildPlanRows(
+      [call("update_task", { id: 101 }), call("create_task")],
+      [101],
+    );
+    expect(rows[0].dependsOn).toBeUndefined();
+    expect(rows[1].mintedId).toBe(101);
+  });
+
+  test("a create never depends on an earlier create, even when it carries an id", () => {
+    const rows = buildPlanRows(
+      [call("create_task"), call("create_task", { id: 101 })],
+      [101, 102],
+    );
+    expect(rows[1].mintedId).toBe(102);
+    expect(rows[1].dependsOn).toBeUndefined();
+  });
+
+  test("two creates each cascade to their own dependent only", () => {
+    const rows = buildPlanRows(
+      [
+        call("create_task"),                // 0 -> mints 101
+        call("create_task"),                // 1 -> mints 102
+        call("update_task", { id: 101 }),   // 2 -> depends on 0
+        call("update_task", { id: 102 }),   // 3 -> depends on 1
+      ],
+      [101, 102],
+    );
+    expect(rows.map((r) => r.mintedId)).toEqual([101, 102, undefined, undefined]);
+    expect(rows.map((r) => r.dependsOn)).toEqual([undefined, undefined, 0, 1]);
+
+    const next = cascadeDeselect(rows, new Set([0, 1, 2, 3]), 0);
+    expect([...next].sort()).toEqual([1, 3]);
+  });
+
+  // ★ Deliberate: `chat-tools.ts` addresses every row with `Number(input.id)`,
+  //   so a string id WOULD reach the created row at apply time. The graph links
+  //   exactly where the dispatcher would write.
+  test("a string id links, because the dispatcher coerces the same way", () => {
+    const rows = buildPlanRows([call("create_task"), call("update_task", { id: "101" })], [101]);
+    expect(rows[1].dependsOn).toBe(0);
+  });
+
+  test("cascadeDeselect does not mutate the set it is given", () => {
+    const rows = buildPlanRows([call("create_task"), call("update_task", { id: 101 })], [101]);
+    const selected = new Set([0, 1]);
+    const next = cascadeDeselect(rows, selected, 0);
+
+    expect([...selected].sort()).toEqual([0, 1]);
+    expect(next.size).toBe(0);
+  });
+
+  test("deselecting a row already deselected leaves the rest alone", () => {
+    const rows = buildPlanRows([call("create_task"), call("update_task", { id: 101 })], [101]);
+    const next = cascadeDeselect(rows, new Set([1]), 0);
+    expect([...next]).toEqual([1]);
+  });
+
+  // ★★ The alternative is a row with no `mintedId`, whose dependents then link to
+  //    nothing — the exact silent failure the cascade exists to prevent.
+  test("fewer minted ids than creates throws rather than silently unlinking", () => {
+    expect(() => buildPlanRows([call("create_task"), call("create_task")], [101])).toThrow(
+      /minted id/i,
+    );
   });
 });

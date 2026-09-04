@@ -89,3 +89,112 @@ export function shouldStage(calls: readonly ProposedCall[]): boolean {
   }
   return writes > 1;
 }
+
+/** True for a tool that MINTS a row rather than addressing an existing one.
+ *
+ *  ★ The prefix IS the whole rule — verified against the live `TOOL_DEFS`: all
+ *   seven `create_*` tools are entity writes, and nothing else in the 45 is
+ *   named `create_*`. `chat-proposal.test.ts` partitions the live array against
+ *   a literal list of the seven, so a new `create_*` tool goes red there.
+ *
+ *  ★★ Exported because `buildPlanRows` consumes exactly one minted id per create
+ *   and the CALLER has to mint that many. A caller re-deriving "is this a
+ *   create?" independently is how the two sides drift; when they do drift, the
+ *   symptom is a dependent silently linked to nothing — the very failure the
+ *   cascade exists to prevent. Same predicate, one definition. */
+export function isCreateTool(name: string): boolean {
+  return name.startsWith("create_");
+}
+
+/** One row of a staged plan. `index` is its position in the emitted call list and
+ *  is the row's stable identity — nothing here is keyed by array position after
+ *  a filter, because a filtered index would shift under a deselect. */
+export interface PlanRow {
+  readonly index: number;
+  readonly call: ProposedCall;
+  /** Set on a staged create: the id minted for the row it will create. */
+  readonly mintedId?: number;
+  /** Index of the row whose `mintedId` this call's `id` refers to. */
+  readonly dependsOn?: number;
+}
+
+/** Pair each call with its provisional id and its dependency.
+ *  `mintedIds` supplies one id per CREATE call, in emission order.
+ *
+ *  ★★ THROWS when `mintedIds` is shorter than the plan's create count, rather
+ *   than leaving a row without a `mintedId`. A create with no id resolves no
+ *   dependents, so rejecting it would silently NOT cascade — a review card that
+ *   looks correct and applies a call pointing at a row that will never exist.
+ *   The caller mints from the same `isCreateTool` predicate, so the throw is an
+ *   assertion on our own wiring, not a response to model output: it is
+ *   unreachable while the two sides agree, and loud the moment they do not.
+ *   A LONGER array is deliberately accepted — the surplus is unused and the
+ *   pairing of the first N is unaffected.
+ *
+ *  ★ `Number(input.id)` mirrors `chat-tools.ts`, which addresses every row that
+ *   way at apply time (`const id = Number(input.id)`, seven sites). The graph
+ *   therefore links exactly where the dispatcher would write — including a
+ *   string id, which would reach the created row. */
+export function buildPlanRows(
+  calls: readonly ProposedCall[],
+  mintedIds: readonly number[],
+): readonly PlanRow[] {
+  const idToRow = new Map<number, number>();
+  const rows: PlanRow[] = [];
+  let mintCursor = 0;
+
+  for (let index = 0; index < calls.length; index += 1) {
+    const call = calls[index];
+    const isCreate = isCreateTool(call.name);
+
+    let mintedId: number | undefined;
+    if (isCreate) {
+      if (mintCursor >= mintedIds.length) {
+        throw new RangeError(
+          `buildPlanRows: ran out of minted ids at call ${index} ("${call.name}") — ` +
+            `${mintedIds.length} supplied, one is needed per create`,
+        );
+      }
+      mintedId = mintedIds[mintCursor];
+      mintCursor += 1;
+      idToRow.set(mintedId, index);
+    }
+
+    // A create cannot depend on its own id, so the lookup happens only for
+    // non-creates. Ordering matters: `idToRow` is populated as we walk, so a
+    // forward reference (a call naming an id minted LATER) resolves to
+    // undefined rather than to the wrong row. That also makes every `dependsOn`
+    // point STRICTLY BACKWARD, which is what keeps the cascade below acyclic.
+    const referenced = isCreate ? Number.NaN : Number((call.input as { id?: unknown }).id);
+    const dependsOn = Number.isFinite(referenced) ? idToRow.get(referenced) : undefined;
+
+    rows.push({ index, call, mintedId, dependsOn });
+  }
+  return rows;
+}
+
+/** Deselect `index` and, transitively, every row that depends on it. Pure —
+ *  returns a new set and never mutates the one passed in.
+ *
+ *  ★ The `next.delete(cur)` result gates the walk. For any graph `buildPlanRows`
+ *   produces that is an optimisation only (every `dependsOn` points strictly
+ *   backward, so no cycle is constructible and each row is enqueued at most
+ *   twice). It is load-bearing for a HAND-BUILT `rows` array: a two-row cycle
+ *   would otherwise re-enqueue forever. Keep it. */
+export function cascadeDeselect(
+  rows: readonly PlanRow[],
+  selected: ReadonlySet<number>,
+  index: number,
+): ReadonlySet<number> {
+  const next = new Set(selected);
+  const drop: number[] = [index];
+
+  let cur = drop.pop();
+  while (cur !== undefined) {
+    if (next.delete(cur)) {
+      for (const row of rows) if (row.dependsOn === cur) drop.push(row.index);
+    }
+    cur = drop.pop();
+  }
+  return next;
+}
