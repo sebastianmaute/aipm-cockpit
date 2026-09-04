@@ -27273,6 +27273,21 @@ real wrapper whose producer wrote a boilerplate "this message is rights-protecte
 deliberately NOT matched and keeps rendering — the boilerplate itself tells the reader what
 happened.
 
+★★★ **VERIFIED 2026-09-04 AGAINST TWO REAL WORD FILES — the thing no synthetic fixture could do**,
+and the pair is what makes it worth reading. POSITIVE: a genuine *Encrypt with Password* `.docx`
+opens `d0 cf 11 e0 a1 b1 1a e1` with root streams `["EncryptedPackage","EncryptionInfo"]`,
+`looksLikeEncryptedOfficeFile` returns true, and `ingestBytes` returns `"encrypted"` under BOTH a
+real `File.type` and an empty one (the drag-drop path). NEGATIVE: a real *Restrict Editing* `.docx`
+— `<w:documentProtection w:edit="readOnly" w:enforcement="1" …>` with a password hash — is an
+ORDINARY ZIP, extracts its body text normally, and correctly does NOT match.
+★★ **Word's two "protect" features are different mechanisms and only one of them withholds
+anything.** Encrypt-with-Password replaces the whole archive with a compound file; Restrict-Editing
+leaves every part in plain sight and only stops Word from editing them. So refusing a
+restrict-editing file would tell its owner to remove a password that is hiding nothing, and reading
+one is correct behaviour rather than a miss. The byte tell is the first four: `50 4B` is a zip and
+readable, `D0 CF` is the encrypted container. ★ The `.msg` half is still spec-fixture only — no real
+RMS message has been run through it.
+
 ★★ **TWO THINGS THE BRIEF FOR THIS WORK GOT WRONG, both caught by measurement.** The MIME type is
 `application/x-microsoft-rpmsg-message`, not `application/x-microsoft-rpmsg` — verified against
 [MS-OXORMMS] "Creating the Wrapper Email Message", which the shortened spelling matches nowhere. And
