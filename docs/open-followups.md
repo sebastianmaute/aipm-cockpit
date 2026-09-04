@@ -27235,8 +27235,8 @@ rediscover.
 ## 352. The `"encrypted"` attachment error variant has no producer — CLOSED 2026-09-04
 
 **Status:** CLOSED 2026-09-04, after being REOPENED the same day it was first marked done. A cold review of the closing
-commit found three defects in it (listed at the end of this entry); all are fixed on the branch, but
-the `.msg` half still has no real file behind it, so this stays open. Both detectors and the wizard
+commit found three defects in it (listed at the end of this entry); all are fixed on the branch.
+Both detectors and the wizard
 wiring are verified by
 `npx vitest run src/app/attachment-ingest.test.ts src/app/office-extract.test.ts src/app/chat-panel.test.tsx src/app/step0-import-panel.test.tsx`
 (exit 0). Read them with
@@ -27341,8 +27341,7 @@ would have caught the first one survived all fifteen of the cases this entry cit
    content discarded — forwarding a protected message together with an agenda, writing no cover text,
    lost the agenda. That is the outcome the docstring said the predicate existed to avoid; the
    empty-body conjunct does not prevent it, because it protects body text and nothing else. The
-   `some` → `every` mutant is indistinguishable across every fixture here, since all fifteen carry
-   exactly one attachment.
+   `some` → `every` mutant is indistinguishable across every fixture here.
 2. **False negative covering the real-world shape.** "No readable body" was `content.trim() === ""`,
    but `extractHtmlMarkdown` never returns an empty string — it substitutes a placeholder — and both
    mail paths route through it. A wrapper whose body is `<html><body></body></html>`, which is what a

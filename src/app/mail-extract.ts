@@ -256,8 +256,7 @@ function isRpmsgAttachment(a: ParsedMail["attachments"][number]): boolean {
  *  ★★ Measured: of three wrapper shapes each carrying one message.rpmsg, only
  *  the no-body-part and blank-text-part cases were detected; the empty-html
  *  case ingested `ok` and rendered exactly the pre-fix output, never telling
- *  the reader the message was protected. Every rpmsg fixture in the suite
- *  omitted the body part entirely, so nothing had `body.kind === "html"`. */
+ *  the reader the message was protected. */
 function hasNoReadableBody(mail: ParsedMail): boolean {
   const content = mail.body.content.trim();
   return content === "" || content === NO_EXTRACTABLE_TEXT;

@@ -279,13 +279,9 @@ describe("rtfToPlainText", () => {
     expect(() => new TextEncoder().encode(out)).not.toThrow();
   });
 
-  // ★ A PIN, NOT A REGRESSION TEST — it passed before the fix too, and is here
-  //  because the correction happens BEFORE the range test on purpose: an
-  //  out-of-signed-16 value must still be dropped rather than wrapping onto
-  //  some unrelated real character.
   // ★★★ SAMPLE THE WHOLE OUT-OF-RANGE BAND, NOT ONE POINT OF IT. `\u-70000`
   //  alone cannot discriminate the stated bound (signed 16 bits) from the one
-  //  the code enforced (`> -65536`): the two agree at exactly that value,
+  //  the code enforced: the two agree at exactly that value,
   //  because -70000 + 0x10000 is still negative and fell out of the codepoint
   //  test anyway. Every value in -65535..-32769 is equally illegal RTF and was
   //  silently minted into a real character — -40000 into U+63C0, a CJK glyph

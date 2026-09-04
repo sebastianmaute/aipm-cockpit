@@ -58,13 +58,10 @@ const ENCRYPTED_PACKAGE_STREAM = "EncryptedPackage";
  *  ★ `readCfbfTree` self-guards on the 8-byte MS-CFB signature and returns an
  *  empty map for anything else, so a non-compound file is rejected on the
  *  FIRST differing byte — a zip's 0x50 against 0xD0, so one comparison, not
- *  eight — and this needs no separate `looksLikeCfbf` call. Measured at
- *  0.023 ms for a 20 MB zip and 0.0025 ms for 20 MB of random bytes.
+ *  eight — and this needs no separate `looksLikeCfbf` call.
  *
- *  ★★ IT IS NOT FREE FOR A FILE THAT IS ACTUALLY COMPOUND, and an earlier
- *  revision here said it "allocates nothing" — which is false even on the
- *  reject path, since the map is constructed before the signature is
- *  consulted. Answering this boolean for a real compound file walks the whole
+ *  ★★ IT IS NOT FREE FOR A FILE THAT IS ACTUALLY COMPOUND. Answering this
+ *  boolean for a real compound file walks the whole
  *  directory and materialises every stream's bytes into that map, all of it
  *  discarded: measured, 7.05 MB materialised and ~13 ms for a 10.5 MB input.
  *  Bounded by checkAttachmentSize (20 MB) so it is not a denial-of-service

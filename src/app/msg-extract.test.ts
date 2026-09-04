@@ -463,7 +463,7 @@ describe("msgToParsedMail", () => {
   });
 
   // ★★★ THE TEXT-TYPED HTML BODY CARRIES ITS OWN DECLARATION and must be
-  //  sniffed like the PT_BINARY one. A comment here used to say the opposite —
+  //  sniffed like the PT_BINARY one. A comment used to say the opposite —
   //  "a bare property string carries no declaration to sniff" — which is true
   //  of a subject and false of this property, whose value IS a document. The
   //  two spellings of the same bytes must agree.

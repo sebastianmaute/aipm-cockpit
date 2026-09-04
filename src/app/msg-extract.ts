@@ -162,8 +162,7 @@ function sniffCharset(bytes: Uint8Array): string {
  *       a Western-European tenant actually is.
  *
  *  Steps 2 and 3 are decodeCodePageBytes, shared with every PT_STRING8
- *  property — those have the same code-page question and no step 1, since a
- *  bare property string carries no declaration to sniff. */
+ *  property. */
 function decodeHtmlBytes(bytes: Uint8Array, mayBeCut: boolean): string {
   const label = sniffCharset(bytes);
   if (label !== "") {

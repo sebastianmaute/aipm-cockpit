@@ -231,7 +231,7 @@ export function rtfToPlainText(rtf: string): string {
   //  direction. The comment claimed an out-of-range negative was "still
   //  dropped rather than wrapping onto some real character", and the test
   //  sampled `\u-70000` — but `signed + 0x10000` corrects ANY negative, so
-  //  only values at or below -65536 land back under zero and get dropped.
+  //  only values below -65536 land back under zero and get dropped.
   //  Everything in -65535..-32769 is equally out of range and was corrected
   //  anyway: measured, `\u-40000` minted U+63C0, a real CJK character, into
   //  text handed to the model. The claimed bound and the actual bound agreed

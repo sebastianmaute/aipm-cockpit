@@ -859,8 +859,7 @@
   `image/png` guess is replaced by a per-EXTENSION fallback inside the orchestrator. ★★ `mimeForKind` still
   greps as present because a comment in `attachment-ingest.test.ts` names it; `docs:symbols:check` counts a
   comment as existence, so a grep-says-it-exists is not evidence the code does. ★ Its error narrowing is
-  exhaustive on purpose — an annotation spelling the variants out as literals, NOT a `never` check, and not
-  `Exclude<>`, either of which would widen to admit a new member instead of rejecting it: a new
+  exhaustive on purpose — an annotation spelling the variants out as literals: a new
   `IngestResult` error member must be handled here rather than silently joining the throw that abandons the
   WHOLE import batch. ★★ It guards which variants may reach that branch and says NOTHING about how any of
   them is RENDERED — "encrypted" was in the annotation while both call sites still rendered it as the
