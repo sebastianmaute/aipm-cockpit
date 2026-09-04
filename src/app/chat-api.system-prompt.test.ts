@@ -39,6 +39,57 @@ describe("tools cache breakpoint", () => {
   });
 });
 
+// ★★★ THE STAGED-WRITE PARAGRAPHS REPLACED A "confirm with the user in chat"
+// INSTRUCTION, and the replacement is a MECHANISM change, not a rewording.
+// Destructive turns are staged by `shouldStage` and reviewed on a card, so
+// asking the model to seek confirmation in chat described a protocol the app no
+// longer runs — and one nothing enforced when it did. Seven identical clauses in
+// `chat-tool-defs.ts` went at the same time.
+//
+// ★★ ASSERTED IN BOTH DIRECTIONS ON PURPOSE. The presence checks alone would
+// stay green if somebody re-added the old sentence alongside the new ones, which
+// is the likely "fix" for a model that starts narrating an approval step the
+// user never sees. The absence check is what makes that loud.
+describe("buildSystemPrompt staged-write instructions", () => {
+  function stableText() {
+    return buildSystemPrompt("en-US", snapshot(), [], false, {})[0].text;
+  }
+
+  it("tells the model a staged result means nothing was written", () => {
+    const text = stableText();
+    expect(text).toContain("STAGED");
+    expect(text).toContain("NOTHING was written");
+    expect(text).toContain("Do not call that tool again for the same change");
+  });
+
+  it("tells the model reads still return committed state", () => {
+    // Without this the model re-reads after a staged write, sees its change
+    // missing, and either re-issues the call or reports failure to the user.
+    expect(stableText()).toContain("read tools still return COMMITTED state");
+  });
+
+  it("discloses the provisional id as provisional, and forbids showing it", () => {
+    const text = stableText();
+    expect(text).toContain("PROVISIONAL id");
+    expect(text).toContain("never show it to the user");
+  });
+
+  it("no longer asks the model to confirm deletions in chat", () => {
+    // The gate stages the write whatever the model was told. A second, weaker
+    // confirmation instruction trains it to narrate a step that does not exist.
+    expect(stableText()).not.toContain("confirm with the user in chat");
+  });
+
+  it("keeps them in the CACHED prefix — they never interpolate per-call state", () => {
+    // Anti-vacuity for the three presence checks above: they read `stable`, so a
+    // regression that moved this text into the volatile suffix would leave them
+    // red for the right reason, and this pins the placement decision itself.
+    const [stable, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
+    expect(stable.text).toContain("STAGED");
+    expect(volatile.text).not.toContain("STAGED");
+  });
+});
+
 describe("buildSystemPrompt view scoping", () => {
   // ★★ THE SCOPE BLOCK SITS IN THE UNCACHED SUFFIX, and this test is the only
   // thing holding it there. It reads as though it were cacheable — it is

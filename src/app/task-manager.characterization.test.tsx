@@ -112,6 +112,33 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
       expect(p, `missing threaded prop: ${key}`).toHaveProperty(key);
     }
   });
+  // ★★★ THE TOP OF THE runBatched CHAIN, AND IT IS THE ONLY ASSERTION THAT CAN
+  //   SEE THIS BREAK. `runProposalBatch` rides `workspaceProps` down to
+  //   `WorkspaceSection` and on to `ChatPanel`, which applies a staged plan
+  //   inside it so the whole plan lands as ONE undo entry instead of one per
+  //   write. The prop is OPTIONAL with a pass-through default, so losing it is
+  //   silent at runtime — the plan still applies, it just shreds the user's undo
+  //   history — and `workspace-section.test.tsx` cannot see it either, because
+  //   that test asserts the panel receives what the SECTION was handed, one hop
+  //   BELOW where the prop goes missing. A first cut put it on the neighbouring
+  //   `<TasksSection>` mount (found by grepping a sibling attribute name, which
+  //   identified a LINE, not a MOUNT — `WorkspaceSection` is spread) and only
+  //   `tsc` objected.
+  //
+  //   ★★ ASSERTED AS A FUNCTION, NOT WITH `toHaveProperty`. This file's own note
+  //   a few lines below says a key-existence check passes for an undefined
+  //   value, which is exactly the shape an optional prop with a default fails
+  //   in. Choosing optionality to avoid editing 39 call sites BUYS the untouched
+  //   sites and SPENDS the loud failure, so it obliges this assertion rather
+  //   than merely suggesting it.
+  it("threads runProposalBatch to WorkspaceSection as a real function", () => {
+    const p = captured.props!;
+    expect(
+      typeof p.runProposalBatch,
+      "runProposalBatch must reach WorkspaceSection — see the note above",
+    ).toBe("function");
+  });
+
   it("threads budgetLink into AppModals (the task-editor budget-bucket field)", () => {
     const link = capturedModals.props!.budgetLink as
       | { buckets: unknown[]; bucketId: number | null; onChange: unknown }
