@@ -96,7 +96,7 @@ Writing "golden-workspace pins those bytes" into a source comment would have bee
 claim, which reads as protection and stops the next audit; the shipped comment names the real
 detectors and carries the measurement instead.
 
-### 3.4 `holidaysForCountries` does not exist
+### 3.5 `holidaysForCountries` does not exist
 
 §347 names it as the non-working-day input. There is no such export. The pervasive shape is
 `holidaySet: ReadonlySet<string>` (ISO dates), and **`InsightInput` already carries it** —
@@ -312,6 +312,18 @@ code alone, then revert by inverse anchored write with a uniqueness assertion in
   (§3.4), so an absence case that is merely assumed is an unguarded one.
 - **Cache back-compat:** an `ActualsCacheEntry` written before `daily` existed must still load, and
   a malformed `daily` must fail open rather than dropping the entry.
+- ★★★ **Pin every CALL SITE, not only the function.** Added after execution, because the spec's
+  testing section listed only functions and both gaps it left were invisible to every gate. Measured:
+  substituting a hardcoded four-type evaluated set at `reconcileInsights`'s one caller left **31 test
+  files / 321 tests green** — the precise defect §6 exists to prevent, reintroducible with a clean
+  suite. The same shape recurred at the `isBlankTimelogLinks` caller. A pure function is the easy half
+  to pin and the half that was never in danger; the defect lives at the seam where a caller supplies
+  the argument. Both are now pinned by component tests whose mutants die
+  (`task-manager.guardrail-reconcile.test.tsx`, `task-manager.timelog-links-blank.test.tsx`), each
+  carrying an opposite-direction control so the first assertion cannot pass vacuously.
+- ★★ **A second, outer byte-stability hole this spec missed.** `workspace.ts` emits a `timelogLinks`
+  key for any truthy blob, so handing back an empty blob where the workspace held `undefined` adds a
+  key to every exported artifact — §3.4's property, one level up. Closed by `isBlankTimelogLinks`.
 - **Settings a11y:** a unit test rendering the four rows and asserting row-unique accessible names
   via the shared `src/test/row-unique-names.ts` — the axe gate is silent on duplicate accessible
   names in every view at every seed size, so a unit test is the only possible detector.

@@ -2163,3 +2163,53 @@ EOF
 **Not closed by this plan, deliberately.** §347's register entry is not marked closed — that happens when the slice ships, which is a separate step on explicit say. The two non-goals (closed-month, absence-day bookings) need their own register entries; file them when §347 is closed, not before, since a follow-up number is only reserved once it is on `origin/main`.
 
 **Placeholder scan.** No "TBD", no "handle edge cases", no "similar to Task N". Three steps deliberately say *read the existing file and reuse its fixture builder* rather than inventing one — Task 5 Step 1, Task 8 Step 1, Task 9 Step 6's floor measurement. Those are instructions to measure, not placeholders: inventing a second harness beside an existing one is the failure being avoided.
+
+---
+
+## Corrections after execution (2026-09-04)
+
+The branch is the record; this plan was wrong in eleven places and every one was caught by an
+implementer who ran a command instead of reading the text. Recorded here so a re-run does not
+reintroduce them. The four most misleading are also corrected inline at their step, because a reader
+working forward through the plan would otherwise act on them before reaching this section: Task 3
+Step 6, Task 4 Steps 6 and 7, Task 5 Step 0.
+
+★★ Two claims in the paragraph above this section are themselves wrong and are left standing as
+written, since correcting prose in place hides that it drifted: `saveActualsCache` has **four** call
+sites, not three, and the identity pin landed in `timelog-policy.test.ts`, not "Task 6 Step 7".
+
+| # | Where | The plan said | Measured |
+|---|---|---|---|
+| 1 | Task 2 fixture | shift `[0,6,8,8,8,8,0]` with `threshold: 6` on `TUE` | index 1 is MONDAY; Tuesday is index 2. As written the test fails against a correct implementation. Moving the 6 to index 2 is the fix that preserves the case — relaxing the assertion to 8 makes it `DEFAULT_WEEK_HOURS`' own Tuesday and indistinguishable from the defaulted path. |
+| 2 | Task 2 fixture | zero-hour-weekday test "when a shift resolves" | its shift array IS `DEFAULT_WEEK_HOURS`, so it passed with `shifts: []` and pinned only the LINK. Split into a shift-zeroed weekday and a default-week weekend. |
+| 3 | Task 3 Step 6 | `golden-workspace.test` is a second detector | that suite cannot reach `sanitizeTimelogLinks` — the sample master has no `timelogLinks`. Mutant left all 5 golden cases green. |
+| 4 | Task 4 Step 6 | expected red on the round-trip case | all three tests pass with no code change; vitest never typechecks. The real red is tsc exit 2. |
+| 5 | Task 4 Step 7 | an `isEntry` branch commented "fails OPEN" | its body `return false`s, i.e. fails CLOSED, and turns its own third test red. Replaced by the reader-side `withCheckedDaily` strip. |
+| 6 | Task 5 Step 0 | three `saveActualsCache` savers | **four**. `removeUsers` is the fourth, and `use-timelog-sync.test.ts:285` already said "four different savers" in the file the task edits. Followed literally, one click of "remove person" would have wiped every guardrail evaluation. |
+| 7 | Task 6 Step 2 | growing `INSIGHT_TYPES` breaks two exhaustive maps | **five** go tsc-red (`insights-panel.tsx`, `insight-prompt.ts`, `outcome.ts` were unlisted), plus a sixth hardcoded list in `outcome.test.ts` that tsc cannot see. `outcome.ts`'s `METRIC_FIELD` also carried a semantic decision the plan never made — resolved to `count`, since `worstHours` is a peak that can rise while breaching days fall. |
+| 8 | Task 7 Step 1 | an explanatory comment block | one of its prose lines begins `// @ts-expect-error`, which TypeScript parses as a real directive: `TS2578: Unused '@ts-expect-error' directive` lands on the EXPLANATION, reading as "the argument isn't required" and inviting the exact wrong fix the step warns against. |
+| 9 | Task 8 Step 3 | `resource?.name` | `Resource` has `firstName`/`lastName` and no `name`. Use `resourceDisplayName`. The step's `as Resource` fixture and its `baseInput(...)` helper do not exist either, and Step 5's spread cannot typecheck while the builder returns a complete `InsightInput` (needs `Omit<InsightInput, "timelogViolations">`). |
+| 10 | Task 9 Step 4 | the `setRule` snippet | writes byte-unstable scaffolding: `sanitizeTimelogPolicy` drops the `policy` key only when NO rule key remains, so `{rule:{enabled:false}}` survives sanitising. `setRule` must DELETE a rule that is back at its default. |
+| 11 | Task 9 file list | omits `task-manager.tsx`; makes the new props required | without task-manager the feature never renders (one `<SettingsView>` call site). Required props break 3 non-test call sites — `backend-config-modal`, `backend-setup-wizard`, `settings-menu`, all pre-project surfaces with no workspace blob — plus ~28 test call sites. Optional, mirroring `onMigrateToTurso?`. |
+
+### Two holes the plan did not know about at all
+
+**A second, outer byte-stability hole.** `workspace.ts` emits a `timelogLinks` key for ANY truthy
+blob, so handing back `{userLinks:[],projectLinks:[]}` where the workspace had `undefined` adds a key
+to every exported artifact — the same property §3.4 of the spec is about, one level up. Closed by
+pure `isBlankTimelogLinks` + `EMPTY_TIMELOG_LINKS`, with task-manager routing a blank blob back to
+`undefined`.
+
+**Two unguarded call sites, both since closed.** The plan pinned `reconcileInsights` and
+`isBlankTimelogLinks` as functions and neither at its caller. Measured: substituting a hardcoded
+four-type evaluated set at the task-manager call site left **31 files / 321 tests green** — the exact
+defect Task 7 exists to prevent, reintroducible with a clean suite. `task-manager.guardrail-reconcile
+.test.tsx` and `task-manager.timelog-links-blank.test.tsx` now pin both, each with a mutant that
+dies and an opposite-direction control that keeps the first from passing vacuously.
+
+★★★ **The generalisation worth keeping.** A pure function is the easy half to pin and the half that
+was never in danger; the defect lives at the seam where a caller supplies its argument. Both gaps
+here were invisible to every gate and to the whole unit suite, and both were found only by mutating
+the CALL SITE rather than the function. Task 8's and Task 9's own reports each said "the helper is
+tested, the wiring is not" — that sentence is the finding, and it should be asked for by name at
+every future extraction.
