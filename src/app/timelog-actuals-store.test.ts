@@ -116,10 +116,7 @@ describe("ActualsCacheEntry.daily", () => {
     expect(loadActualsCache("p5")?.aggregates?.unattributed.hours).toBe(4);
   });
 
-  // ★★★ The container passing says NOTHING about what is inside it. The policy
-  // engine reads `cell.maxEntryHours` off every entry with no shape guard, in a
-  // debounced effect with no try/catch — so a `null` cell here is an uncaught
-  // throw that kills the insights reconcile on every tick, not a bad number.
+  // ★★★ The container passing says NOTHING about what is inside it.
   it("drops a malformed cell ALONE, keeping the valid cells beside it", () => {
     writeDeviceJson(TIMELOG_ACTUALS_KEY, {
       p6: {
@@ -510,9 +507,12 @@ describe("ActualsCacheEntry.daily size bound", () => {
     expect(loadActualsCache("b4")?.dailyWindow?.to).toBe("2099-12-31");
   });
 
-  // ★★ Reachable shape for "nothing survives": every key unusable. A cell is a
-  // fixed ~60 chars and `parseDailyKey` rejects a userId large enough to pad
-  // one past the budget, so a single oversized cell cannot be constructed.
+  // ★★ Reachable shape for "nothing survives": every key unusable — every key
+  // here lacks the `|` separator, so `parseDailyKey` rejects all of them.
+  // ★ It is NOT true that a single oversized cell cannot be constructed, which
+  // is what this comment used to claim: `parseDailyKey` never checks the DATE
+  // beyond non-emptiness, so `"7|" + "x".repeat(600000)` parses and is exactly
+  // that. Many-unusable-keys is simply the shape this test chose.
   // ★★ Losing the roll must never cost the rest of the entry — the aggregates
   // are what the network round trip bought.
   it("drops daily AND dailyWindow together when nothing survives, keeping the rest", () => {

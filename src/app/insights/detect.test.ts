@@ -357,10 +357,10 @@ describe("timelog guardrail insights", () => {
   });
 });
 
-// ★★★ The list was entirely unpinned: `grep -rn CORE_INSIGHT_TYPES src e2e
-// scripts` returned only its declaration, one import and one use, and gutting it
-// at the call site left every test green while making every core insight
-// IMMORTAL — never resolved, never pruned. `task-manager.guardrail-reconcile
+// ★★★ The list was entirely unpinned: gutting it at the call site left every
+// test green while making every core insight IMMORTAL — never resolved, never
+// pruned. (A grep count once quoted here refuted itself — the comment became
+// one of the matches, so nobody could reproduce the number.) `task-manager.guardrail-reconcile
 // .test.tsx` now kills that mutant behaviourally; this pins the membership.
 describe("CORE_INSIGHT_TYPES", () => {
   it("is exactly the five non-guardrail types", () => {

@@ -36,8 +36,8 @@ export function useHolidaySet({ holidayCountries }: UseHolidaySetArgs): {
   // because the app's one hot call site threads a stable `settings` field and
   // the old test resolved before anyone waited for quiescence. Measured: a test
   // whose fetch REJECTS (nothing to settle on) spins until the 20s timeout.
-  // ★ Ordering is significant only in that a reorder re-fetches, which is
-  // harmless — the resolved set is identical either way.
+  // ★ Ordering is significant only in that a reorder changes `key` and so
+  // re-fetches; the resolved set is identical either way.
   const key = holidayCountries.join(",");
   const [state, setState] = useState<HolidayState>(() => ({
     set: new Set<string>(),

@@ -183,9 +183,10 @@ const CAP_RULES: readonly TimelogRuleId[] = ["timelogCapPerEntry", "timelogCapPe
 
 /** The threshold window this component will PERSIST, deliberately the same
  *  expression `sanitizeTimelogPolicy` applies on load and `isCap`
- *  (`timelog-policy.ts`) applies when evaluating — all three derived from
- *  `MAX_HOURS_PER_DAY` so a second, differently-worded bound cannot drift away
- *  from the other two. Returns `undefined` for anything the policy must not
+ *  (`timelog-policy.ts`) applies when evaluating, all three bounded by
+ *  `MAX_HOURS_PER_DAY`. Sharing the constant keeps the NUMBER from drifting; the
+ *  three EXPRESSIONS are written out separately and nothing gates their
+ *  agreement. Returns `undefined` for anything the policy must not
  *  hold, which is also exactly the value the writer stores for it.
  *  ★ `Number("")` is `0` and `Number("x")` is `NaN`, so a blank or unparsable
  *  field falls out of `> 0` / `Number.isFinite` without a separate emptiness

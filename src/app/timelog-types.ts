@@ -98,9 +98,6 @@ export type TimelogDailyRoll = Record<string, TimelogDailyCell>;
  *  because its `daily` parameter is typed `TimelogDailyRoll | null` and a TYPE
  *  is a promise the caller makes, not one the engine can verify. A duplicate
  *  predicate in the engine would be a second rule free to drift from this one.
- *  ★★ The policy engine reads `cell.hours` / `cell.maxEntryHours` inside a
- *  debounced effect with no try/catch, so a `null` cell reaching it is an
- *  UNCAUGHT throw that kills the whole insights reconcile — not a bad number.
  *  ★★ SHAPE, not sense: the three fields are checked for being finite numbers,
  *  never for being plausible ones, so a negative or absurd `hours` still
  *  reaches the rules.

@@ -926,14 +926,22 @@ function TaskManagerInner() {
       const evaluatedRules = new Set<InsightType>(policyResult.evaluated);
       const rollWindow = actuals?.dailyWindow;
       const rollUsers = actuals?.dailyUsers;
-      // ★★★ ANY NON-FALSE `partial` FREEZES, and the `=== true` this replaces
-      // was backwards. `partial` is validated NOWHERE — not by `isEntry`, not by
-      // the daily checkers — so a non-boolean survives into the entry, and
-      // `=== true` read `partial: "yes"` as NOT partial and went on to certify a
-      // clean. §172's fail-open rule is about not DISCARDING an entry over an
-      // optional field; it was never a licence to resolve an unproven value in
-      // the certifying direction, which is what this predicate exists to
-      // prevent. Absent stays not-partial — that is the real back-compat case.
+      // ★★★ ANY NON-FALSE `partial` FREEZES HERE — and this deliberately does
+      // NOT match how the Apply path reads the same flag. `partial` is validated
+      // NOWHERE (not `isEntry`, not either daily checker), so a non-boolean
+      // survives into the entry and `=== true` read `partial: "yes"` as NOT
+      // partial, then went on to certify a clean.
+      // ★★★ §172 IS RIGHT FOR ITS OWN CONSUMER AND WRONG FOR THIS ONE, which is
+      // why the two now differ on purpose. Its rule is `=== true` because
+      // treating a hand-edited value as partial would DISABLE APPLY with no way
+      // back but Clear all — there, the unsafe direction is refusing to act.
+      // Here the unsafe direction is the opposite: acting on an unproven flag
+      // writes a fabricated "improved" into shared, exported data, which no user
+      // can undo because nothing tells them it happened. `budget-unapplied-
+      // notice.tsx` keeps `=== true` and should. One flag, two consumers,
+      // opposite safe directions — do not "harmonise" them.
+      // ★★ Absent stays not-partial: that is the real back-compat case (§172),
+      // and it is untouched here.
       const partialFlag = actuals?.partial;
       const rollPartial = partialFlag !== undefined && partialFlag !== false;
       const isEvaluated = (insight: Insight): boolean => {

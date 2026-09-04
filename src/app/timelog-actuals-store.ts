@@ -241,8 +241,9 @@ export function clearActualsCache(projectId: string): void {
  *  ★★★ WHAT IT DOES NOT PROTECT AGAINST, stated plainly: this is a PER-ENTRY
  *  bound, so 50 entries (`MAX_PROJECTS`) each sitting just under it is ~25 MB
  *  and blows the origin quota exactly as before. Only projects actually
- *  fetched carry a roll at all, so that is a theoretical rather than an
- *  observed shape — but it is a real hole, and the map-level bound remains
+ *  fetched carry a roll at all, so reaching it needs 50 fetched projects; how
+ *  often that happens has not been measured. It is a real hole, and the
+ *  map-level bound remains
  *  `MAX_PROJECTS` eviction ALONE, which counts entries and never measures them.
  *  ★ Per-entry was chosen over a whole-map budget because a whole-map trim
  *  would have to shrink some OTHER project's roll during a save for THIS one,
