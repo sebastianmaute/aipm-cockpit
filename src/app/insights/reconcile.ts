@@ -180,6 +180,7 @@ export function reconcileInsights(
     result.push(prev ? upsert(prev, det, today) : create(det, nextId++, today));
   }
 
+  const frozenKeys = new Set<string>();
   for (const prev of stored) {
     if (detectedKeys.has(prev.key)) continue;
     // Not evaluated ⇒ FROZEN, carried through byte-for-byte. Reconcile cannot
@@ -190,18 +191,47 @@ export function reconcileInsights(
     // it — writes the fabricated win.
     if (!isEvaluated(prev)) {
       result.push(prev);
+      frozenKeys.add(prev.key);
       continue;
     }
     const cleared = clear(prev, today);
     if (cleared !== null) result.push(cleared);
   }
 
+  // ★★★ A FROZEN ROW MUST NOT SINK, or "freezing is recoverable" stops being
+  // true and the whole design rests on that claim. A frozen row is carried
+  // through untouched, so its `lastSeenAt` never advances while every detected
+  // row's does — under a `lastSeenAt` sort it therefore loses ground on EVERY
+  // pass, monotonically, and is guaranteed to be the first row of its severity
+  // evicted by the cap below. Once sliced away it is gone from `stored` and
+  // never returns, so the freeze that was supposed to protect an acted insight
+  // from a fabricated win instead deletes it by attrition. Guardrail
+  // cardinality is 4 × (people in a fetch), which reaches the cap in exactly
+  // the org-scope case this matters most in.
+  // ★★ ORDERING ONLY — `lastSeenAt` is NOT rewritten. The row still records
+  // when it was genuinely last observed; it simply is not punished in the
+  // ranking for a staleness the freeze itself imposed. Writing `today` into the
+  // record would be a lie about observation, which is the class of defect this
+  // module exists to prevent.
+  const orderKey = (i: Insight): string => (frozenKeys.has(i.key) ? today : i.lastSeenAt);
   result.sort((a, b) => {
     const bySeverity = INSIGHT_SEVERITY_RANK[a.severity] - INSIGHT_SEVERITY_RANK[b.severity];
     if (bySeverity !== 0) return bySeverity;
-    if (a.lastSeenAt < b.lastSeenAt) return 1;
-    if (a.lastSeenAt > b.lastSeenAt) return -1;
-    return 0;
+    const ka = orderKey(a);
+    const kb = orderKey(b);
+    if (ka < kb) return 1;
+    if (ka > kb) return -1;
+    // ★★★ THE TIE-BREAK IS LOAD-BEARING, and the order key alone did NOT fix
+    // this — measured, not reasoned. Ranking a frozen row as `today` makes it
+    // TIE with every row detected on this pass, and ties fall back to insertion
+    // order, where the frozen rows are appended AFTER every detected one. So it
+    // still sorted last within its severity and the cap still evicted it first.
+    // Frozen wins the tie: it is a row somebody ACTED on whose state cannot
+    // currently be confirmed, which is precisely the thing that must not be
+    // silently dropped.
+    const fa = frozenKeys.has(a.key) ? 0 : 1;
+    const fb = frozenKeys.has(b.key) ? 0 : 1;
+    return fa - fb;
   });
 
   return result.slice(0, MAX_INSIGHTS);

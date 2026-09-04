@@ -197,6 +197,35 @@ describe("reconcileInsights", () => {
     expect(out).toHaveLength(MAX_INSIGHTS);
   });
 
+  // ★★★ THE CAP MUST NOT EVICT THE FROZEN ROW, or "freezing is recoverable" —
+  // the justification the whole per-insight predicate rests on — is false. A
+  // frozen row is carried through untouched, so its `lastSeenAt` never advances
+  // while every detected row's does; under a naive `lastSeenAt` sort it loses
+  // ground on every pass and is the FIRST of its severity to be sliced away.
+  // Once gone from `stored` it never comes back, so the freeze that protected
+  // an acted insight from a fabricated win deletes it by attrition instead.
+  it("keeps a frozen insight when the cap evicts, despite its stale lastSeenAt", () => {
+    const FROZEN = "frozen-and-stale";
+    // Deliberately the OLDEST row in the set: it is what a row frozen across
+    // several passes looks like, and it is the one a lastSeenAt sort drops.
+    const frozen = stored(FROZEN, { status: "acted", lastSeenAt: "2020-01-01" });
+    const many: DetectedInsight[] = Array.from(
+      { length: MAX_INSIGHTS + 25 },
+      (_, i) => detected(`k${i}`),
+    );
+    // Same severity throughout, so severity cannot be what saves or sinks it —
+    // the tie-break is the entire subject of this test.
+    const out = reconcileInsights([frozen], many, "2026-02-01", (i) => i.key !== FROZEN);
+    expect(out).toHaveLength(MAX_INSIGHTS);
+    expect(out.map((i) => i.key)).toContain(FROZEN);
+    // ★★ ORDERING ONLY: the row survives, and its record still says when it was
+    // genuinely last seen. Advancing `lastSeenAt` would also make it survive —
+    // by writing a lie about observation into exported data, which is the exact
+    // class of defect this module exists to prevent. Without this assertion the
+    // test passes against that fix too.
+    expect(out.find((i) => i.key === FROZEN)?.lastSeenAt).toBe("2020-01-01");
+  });
+
   it("upsert preserves a pending recommendation", () => {
     const existing = stored("a", { recommendation: REC });
     const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_EVALUATED);
