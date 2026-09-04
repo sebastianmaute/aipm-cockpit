@@ -3,15 +3,25 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.280.0";
-export const APP_BUILD_DATE = "2026-09-04"; // 0.280.0: the assistant's document edits must now prove they are editing the block they read, so a hand edit made in between is refused instead of silently overwritten, and reordering a block is one safe operation rather than a delete plus an insert (Banks)
+export const APP_BUILD_DATE = "2026-09-04"; // 0.280.0: the assistant's document edits must now prove they are editing the block they read, so a hand edit made in between is refused instead of silently overwritten, and reordering a block is one safe operation rather than a delete plus an insert (Sinisalo)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.280.x line is "Banks" (Iain M. Banks, Scottish SF author, the Culture
- *  series). Checked dash-agnostically
- *  BEFORE the bump — the stronger order, and the one the note below argues
- *  for — with the command quoted further down: zero hits, against a pattern
- *  proved in the same run to see all 372 named headers and returning 2 for
- *  "Cadigan" as a positive control. So this one is genuinely fresh rather
- *  than a permitted reuse.
+ *  0.280.x line is "Sinisalo" (Johanna Sinisalo, Finnish SF author, "Troll: A
+ *  Love Story"). Checked dash-agnostically with the command quoted further
+ *  down: zero hits, against a pattern proved in the same run to see all 374
+ *  named headers and returning 2 for "Cadigan" as a positive control. So this
+ *  one is genuinely fresh rather than a permitted reuse.
+ *  ★★★ IT WAS THE SECOND CANDIDATE. "Banks" was written into this constant,
+ *  the CHANGELOG heading and all six satellites first, and it is TAKEN — 0.7.2
+ *  ran under it. The check that cleared it was `grep -oE '"[A-Za-z]+"$'`,
+ *  anchored to END OF LINE, and 0.7.2's header puts the codename BEFORE the
+ *  date (`## [0.7.2] "Banks" — 2026-05-19`), so the anchor could not see it.
+ *  That is the SECOND axis the dash note below already warned about, and the
+ *  warning was sitting in this docstring the whole time. Use the command this
+ *  file gives you; do not invent an anchor.
+ *  ★★ Strictly, 0.7.2 is a different MINOR LINE, so "Banks" would have been a
+ *  PERMITTED reuse under the rule at the end of this comment. It was rejected
+ *  anyway because this repo keeps codenames unique across the whole history —
+ *  legality and desirability are different questions, as the 0.270.x note says.
  *  0.278.x was "Gilman" (Charlotte Perkins Gilman, American author,
  *  "The Yellow Wall-Paper" and the utopian "Herland"). ★★ Checked
  *  dash-agnostically but AFTER the bump, which is the weaker order this
@@ -163,7 +173,7 @@ export const APP_BUILD_DATE = "2026-09-04"; // 0.280.0: the assistant's document
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Banks";
+export const APP_MILESTONE = "Sinisalo";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
