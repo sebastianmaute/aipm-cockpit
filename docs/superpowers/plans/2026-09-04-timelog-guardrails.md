@@ -51,7 +51,7 @@ These apply to every task below. They are repeated here rather than in each task
 | `src/app/timelog-sanitize.ts` | `sanitizeTimelogLinks` admits `policy`, dropping the key when nothing is configured |
 | `src/app/timelog-actuals.ts` | `buildDailyRoll(items)` |
 | `src/app/timelog-actuals-store.ts` | optional `daily` on `ActualsCacheEntry` + an `isEntry` branch that fails open |
-| `src/app/use-timelog-sync.ts` | compute the roll in `finish()`; carry `daily` through **all three** `saveActualsCache` calls |
+| `src/app/use-timelog-sync.ts` | compute the roll in `finish()`; carry `daily` through **all FOUR** `saveActualsCache` calls (the plan said three — corrected after execution, see Task 5 Step 0) |
 | `src/app/insights/insight.ts` | four new `INSIGHT_TYPES` members |
 | `src/app/insights/insight-text.ts` | four `TITLE_KEY` entries + four `insightDetail` cases |
 | `src/app/insights/reconcile.ts` | required `evaluated` argument; freeze instead of clear |
@@ -1072,7 +1072,11 @@ Find the three sites before editing:
 ```bash
 grep -n "saveActualsCache" src/app/use-timelog-sync.ts
 ```
-Expected: three hits (plus the import line).
+★★★ **CORRECTED 2026-09-04 AFTER EXECUTION — there are FOUR, not three.** Measured: `165 loadDirectory` / `209 loadManagedProjects` / `275 finish` / `404 removeUsers`, plus the import line. Only `finish` holds `items`; the other THREE are reloads that must carry `daily` from state.
+
+★★★ The repo already knew, and the plan contradicted it: `use-timelog-sync.test.ts:285` reads "The cache entry is rewritten WHOLE by **four** different savers" — a comment in the very file this task appends to. Following the plan's count literally would have shipped `removeUsers` clearing the roll, so one click of "remove person" in the People matching table wipes every guardrail evaluation with no error anywhere.
+
+Expected: four hits (plus the import line). If you measure a fifth, stop and report it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1101,7 +1105,9 @@ it("does not clear the daily roll when a directory reload rewrites the entry", a
 Run: `npx vitest run src/app/use-timelog-sync.test.ts > "$SCRATCH/sync-red.log" 2>&1; echo "EXIT=$?"; grep -E "Tests |×" "$SCRATCH/sync-red.log"`
 Expected: red — the reload rewrites the entry without `daily`, so the assertion sees `undefined`.
 
-- [ ] **Step 3: Add the state and thread it through all three saves**
+- [ ] **Step 3: Add the state and thread it through all FOUR saves**
+
+★★ `clearAll()` also needs `setDaily(undefined)`, which this plan originally omitted: `daily` is RETURNED from the hook, so leaving it set means a consumer reads a stale roll over a cache entry that was just cleared.
 
 Add the state seed beside the existing ones (`aggregates`, `fetchedAt`, `partial`, `users`, `projectRefs`):
 
@@ -1156,7 +1162,7 @@ git add src/app/use-timelog-sync.ts src/app/use-timelog-sync.test.ts
 git commit --only src/app/use-timelog-sync.ts src/app/use-timelog-sync.test.ts -m "$(cat <<'EOF'
 feat(timelog): compute the daily roll on fetch and carry it through every save
 
-saveActualsCache has three call sites and an entry is rewritten whole, so a save
+saveActualsCache has four call sites and an entry is rewritten whole, so a save
 that omits a field clears it — the hazard the file already documents for
 `partial`. Two of the three are directory reloads with no items in hand, so they
 carry the roll through from state.
