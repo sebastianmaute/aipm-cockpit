@@ -8,6 +8,38 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.281.0] - 2026-09-04 "Womack"
+
+### Added
+
+- **The assistant can read the Outlook mail you attach.** Drop a `.msg`, an
+  `.eml` or a saved `.mhtml` into the chat or the import wizard and it now
+  reads the actual message — sender, subject, date and the body text — instead
+  of listing a filename and stopping. Mail saved as HTML keeps its readable
+  text rather than arriving as markup.
+- **It reads what was attached to that mail, too.** A spreadsheet or document
+  attached to a forwarded message is opened and read in place, so forwarding a
+  mail with its attachments now carries the whole thread's content across in
+  one step.
+
+### Fixed
+
+- **An attachment with an awkward filename no longer replaces the message.**
+  A file whose name used a non-Latin alphabet, or was split across several
+  header lines, could take the place of the mail body — so the assistant was
+  handed the attachment's contents where the message should have been. Those
+  filenames are now decoded properly and the body stays the body.
+- **A password-protected file now says so.** Attaching one reported a generic
+  "could not be read"; it now tells you the file is protected and asks for a
+  copy saved without protection. The same message appears in the import wizard,
+  which previously showed only the generic failure.
+- **A rights-protected mail is recognised instead of arriving blank.** These
+  messages carry no readable text of their own, and were passed on as if they
+  were empty. They are now identified as protected and reported as such.
+- **Mail written on non-Western systems keeps its characters.** Messages in
+  older regional encodings, and text outside the basic alphabet, were being
+  mangled or silently dropped; both now come through intact.
+
 ## [0.280.0] - 2026-09-04 "Sinisalo"
 
 ### Added
