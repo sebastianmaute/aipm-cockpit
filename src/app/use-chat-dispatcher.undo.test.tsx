@@ -198,9 +198,31 @@ interface SiteRow {
    *  `setTaskDependencies` returns a fully-formed object from BOTH of its
    *  refuse-to-write early returns. */
   verify: (d: ToolDispatcher) => void;
+  /** Runs after the REAL `undo()` in the round-trip suite below. This is the
+   *  ONLY assertion in the file that can see a wrong before-image at this site.
+   *
+   *  ★★★ IT MUST ASSERT ORDER AS WELL AS VALUES, and order is the half that is
+   *  easy to leave out. `capturePart` resolves an image's index with
+   *  `Math.max(0, fromArray.findIndex(...))`, so a POST-op `fromArray` yields
+   *  -1 → 0 and the row returns at the HEAD: [2, 1, 3] instead of [1, 2, 3]. A
+   *  presence-only check (`toContain`, `toHaveLength`) is byte-identical
+   *  against both, which is exactly how the wrong-`fromArray` mutant survives.
+   *  Compare the WHOLE id sequence.
+   *
+   *  ★★ And it must assert a FIELD, not just the sequence — an UPDATE site
+   *  never changes the order at all, so an order-only check there is vacuous
+   *  and would pass against a merged-row capture reverting nothing. */
+  restored: (d: ToolDispatcher) => void;
   kind: string;
   entityKey: string;
   primaryCount: number;
+}
+
+/** Whole-id-sequence helper. Every `list*` returns rows carrying `id`, so one
+ *  shape covers all six slices — and comparing the SEQUENCE (never membership)
+ *  is what makes a head-insertion visible. */
+function ids(rows: readonly { id: number }[]): number[] {
+  return rows.map((row) => row.id);
 }
 
 const SITES: SiteRow[] = [
@@ -208,24 +230,48 @@ const SITES: SiteRow[] = [
     site: "updateTask",
     act: (d) => { d.updateTask(2, { taskName: "After" }); },
     verify: (d) => { expect(d.getTask(2)?.taskName).toBe("After"); },
+    restored: (d) => {
+      expect(d.getTask(2)?.taskName).toBe("Before");
+      expect(ids(d.listTasks())).toEqual([1, 2, 3]);
+    },
     kind: "task.updated", entityKey: "task", primaryCount: 1,
   },
   {
     site: "setTaskDependencies",
     act: (d) => { d.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]); },
     verify: (d) => { expect(d.getTask(2)?.dependencies?.length).toBe(1); },
+    // ★ `seedTask` sets no `dependencies` key at all, so the pre-op image has
+    //   none and a correct revert leaves the field undefined. A merged-row
+    //   capture would put the one-element array back and this goes red.
+    restored: (d) => {
+      expect(d.getTask(2)?.dependencies).toBeUndefined();
+      expect(ids(d.listTasks())).toEqual([1, 2, 3]);
+    },
     kind: "task.updated", entityKey: "task", primaryCount: 1,
   },
   {
     site: "deleteTask",
     act: (d) => { d.deleteTask(2); },
     verify: (d) => { expect(d.getTask(2)).toBeNull(); },
+    restored: (d) => {
+      expect(ids(d.listTasks())).toEqual([1, 2, 3]);
+      // …and the row that came back carries its own data, not a husk.
+      expect(d.getTask(2)?.taskName).toBe("Before");
+      expect(d.getTask(2)?.assignee).toBe("M. Jordan");
+    },
     kind: "task.deleted", entityKey: "task", primaryCount: 1,
   },
   {
     site: "deleteAllTasks",
     act: (d) => { d.deleteAllTasks(); },
     verify: (d) => { expect(d.listTasks()).toHaveLength(0); },
+    // ★★ The one site where the ORDER assertion cannot be satisfied by a
+    //   `Math.max(0, -1)` accident: three rows come back, so a head-collapsing
+    //   restore yields a permutation, not [1, 2, 3].
+    restored: (d) => {
+      expect(ids(d.listTasks())).toEqual([1, 2, 3]);
+      expect(d.listTasks().map((row) => row.taskName)).toEqual(["First", "Before", "Third"]);
+    },
     // ★ `bulk.delete`, and `primaryCount` is the SEEDED count, not 1 — the
     //   badge counts the rows the user loses, not the calls made.
     kind: "bulk.delete", entityKey: "task", primaryCount: 3,
@@ -234,60 +280,101 @@ const SITES: SiteRow[] = [
     site: "updateResource",
     act: (d) => { d.updateResource(2, { department: "PMO" }); },
     verify: (d) => { expect(d.getResourceRow(2)?.department).toBe("PMO"); },
+    // ★ `seedResource` sets no `department`, so a correct revert clears it.
+    restored: (d) => {
+      expect(d.getResourceRow(2)?.department).toBeUndefined();
+      expect(ids(d.listResources())).toEqual([1, 2, 3]);
+    },
     kind: "resource.updated", entityKey: "resource", primaryCount: 1,
   },
   {
     site: "deleteResource",
     act: (d) => { d.deleteResource(2); },
     verify: (d) => { expect(d.getResourceRow(2)).toBeNull(); },
+    restored: (d) => {
+      expect(ids(d.listResources())).toEqual([1, 2, 3]);
+      expect(d.getResourceRow(2)?.firstName).toBe("Grace");
+    },
     kind: "resource.deleted", entityKey: "resource", primaryCount: 1,
   },
   {
     site: "updateRaid",
     act: (d) => { d.updateRaid(2, { title: "After" }); },
     verify: (d) => { expect(d.getRaidRow(2)?.title).toBe("After"); },
+    restored: (d) => {
+      expect(d.getRaidRow(2)?.title).toBe("R2");
+      expect(ids(d.listRaid())).toEqual([1, 2, 3]);
+    },
     kind: "raid.updated", entityKey: "raid", primaryCount: 1,
   },
   {
     site: "deleteRaid",
     act: (d) => { d.deleteRaid(2); },
     verify: (d) => { expect(d.getRaidRow(2)).toBeNull(); },
+    restored: (d) => {
+      expect(ids(d.listRaid())).toEqual([1, 2, 3]);
+      expect(d.getRaidRow(2)?.title).toBe("R2");
+    },
     kind: "raid.deleted", entityKey: "raid", primaryCount: 1,
   },
   {
     site: "updateChange",
     act: (d) => { d.updateChange(2, { title: "After" }); },
     verify: (d) => { expect(d.getChangeRow(2)?.title).toBe("After"); },
+    restored: (d) => {
+      expect(d.getChangeRow(2)?.title).toBe("C2");
+      expect(ids(d.listChanges())).toEqual([1, 2, 3]);
+    },
     kind: "change.updated", entityKey: "change", primaryCount: 1,
   },
   {
     site: "deleteChange",
     act: (d) => { d.deleteChange(2); },
     verify: (d) => { expect(d.getChangeRow(2)).toBeNull(); },
+    restored: (d) => {
+      expect(ids(d.listChanges())).toEqual([1, 2, 3]);
+      expect(d.getChangeRow(2)?.title).toBe("C2");
+    },
     kind: "change.deleted", entityKey: "change", primaryCount: 1,
   },
   {
     site: "updateMilestone",
     act: (d) => { d.updateMilestone(2, { name: "After" }); },
     verify: (d) => { expect(d.getMilestoneRow(2)?.name).toBe("After"); },
+    restored: (d) => {
+      expect(d.getMilestoneRow(2)?.name).toBe("M2");
+      expect(ids(d.listMilestones())).toEqual([1, 2, 3]);
+    },
     kind: "milestone.updated", entityKey: "milestone", primaryCount: 1,
   },
   {
     site: "deleteMilestone",
     act: (d) => { d.deleteMilestone(2); },
     verify: (d) => { expect(d.getMilestoneRow(2)).toBeNull(); },
+    restored: (d) => {
+      expect(ids(d.listMilestones())).toEqual([1, 2, 3]);
+      expect(d.getMilestoneRow(2)?.name).toBe("M2");
+    },
     kind: "milestone.deleted", entityKey: "milestone", primaryCount: 1,
   },
   {
     site: "updateStakeholder",
     act: (d) => { d.updateStakeholder(2, { name: "After" }); },
     verify: (d) => { expect(d.getStakeholderRow(2)?.name).toBe("After"); },
+    restored: (d) => {
+      expect(d.getStakeholderRow(2)?.name).toBe("S2");
+      expect(ids(d.listStakeholders())).toEqual([1, 2, 3]);
+    },
     kind: "stakeholder.updated", entityKey: "stakeholder", primaryCount: 1,
   },
   {
     site: "deleteStakeholder",
     act: (d) => { d.deleteStakeholder(2); },
     verify: (d) => { expect(d.getStakeholderRow(2)).toBeNull(); },
+    restored: (d) => {
+      expect(ids(d.listStakeholders())).toEqual([1, 2, 3]);
+      expect(d.getStakeholderRow(2)?.name).toBe("S2");
+    },
     kind: "stakeholder.deleted", entityKey: "stakeholder", primaryCount: 1,
   },
 ];
@@ -314,14 +401,25 @@ describe("every AI update and delete captures undo", () => {
     },
   );
 
-  // ★★★ THE TABLE ABOVE CANNOT SEE A WRONG BEFORE-IMAGE. `capturePart` returns
+  // ★★★ THIS DESCRIBE CANNOT SEE A WRONG BEFORE-IMAGE — nothing in it can, and
+  // that is why it is not the only suite over `SITES`. `capturePart` returns
   // `{ isPrimary, restore }` and closes over its images, so `kind`,
   // `entityKey`, `primaryCount` and `parts[0] !== null` are BYTE-IDENTICAL
   // whether the site captured the correct pre-op row or the wrong post-op one.
-  // Fourteen green rows prove only that *a* capture happened. The two tests
-  // below run a fragment's own restore thunk, which is the only way to observe
-  // WHICH image went in — one per op, on an entity the `updateTask` test above
-  // does not already cover.
+  // Fourteen green rows here prove only that *a* capture happened, at the right
+  // label, on a path that really wrote. WHICH image went in is proved by the
+  // round-trip suite at the bottom of this file, which drives the SAME fourteen
+  // rows through the real stack and asserts each row's `restored`.
+  //
+  // ★★ MEASURED, not assumed: an early `fromArray` mutant on `deleteChange`
+  // turned that round trip red while this describe's own `deleteChange` row
+  // stayed GREEN. Do not "consolidate" the two suites — they answer different
+  // questions and only one of them can fail on a wrong image.
+  //
+  // The two tests below run a fragment's own `restore` thunk by hand. They
+  // predate the round-trip table and are kept as the narrow witness that the
+  // FRAGMENT itself holds the right image, independent of `pushEntry`, the
+  // stack and the composite runner — one per op.
 
   test("updateRaid captures the PRE-edit row, not the merged one", () => {
     const captureComposite = vi.fn();
@@ -378,11 +476,13 @@ describe("every AI update and delete captures undo", () => {
  * is the whole defect class Phase 1 exists to prevent, and the only witness that
  * cannot be faked is the real engine putting the real row back.
  *
- * ★★ These two also cover something no mock-based test can: that the DEPENDENCY
- * IS OPTIONAL. `ChatDispatcherArgs.undo` is `undo?:`, so every capture site is a
- * no-op against `undefined` — which is exactly what shipped until the wiring in
- * `task-manager.tsx` landed. A round trip against a live stack goes red the
- * moment a capture stops feeding it.
+ * ★★ THE DEPENDENCY IS NO LONGER OPTIONAL, and this note used to say it was.
+ * `ChatDispatcherArgs.undo` is now REQUIRED, so tsc — not a test — is what
+ * catches `task-manager.tsx` dropping the prop, which is the failure that had
+ * no witness at all while the field was `undo?:`. What these round trips still
+ * carry, and nothing else does, is the other half: a capture site that stops
+ * FEEDING the stack, or feeds it the wrong image, goes red here even though the
+ * prop is present and every mock-based assertion above is satisfied.
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /** Mounts the REAL undo stack and the REAL dispatcher in ONE hook body and wires
@@ -414,6 +514,37 @@ function renderRealUndo(seed: TestSeed) {
 }
 
 describe("AI writes round-trip through the real undo stack", () => {
+  // ★★★ THE SAME FOURTEEN ROWS AS THE MOCK TABLE, AND THIS IS THE SUITE THAT
+  //   PROVES CORRECTNESS. Each row writes through the dispatcher, calls the
+  //   REAL `undo()`, and then asserts its `restored` — original field values
+  //   AND original id sequence. Before this existed, only four of the fourteen
+  //   sites had any before-image coverage at all (`updateTask` / `deleteTask`
+  //   below, plus the two hand-run restore thunks above); the other ten could
+  //   each carry the wrong-`fromArray` or capture-after-merge defect with the
+  //   whole file green.
+  //
+  //   ★★ The stack-depth assertions are not decoration. "grew by exactly one"
+  //   catches a site that captures TWICE (a double entry means the user has to
+  //   undo twice for one AI write), and the trailing "back to zero" catches an
+  //   entry that was applied without being consumed. Neither is visible in the
+  //   entity arrays.
+  test.each(SITES)(
+    "$site is fully reversed by the real undo()",
+    ({ act: write, verify, restored }) => {
+      const { result } = renderRealUndo(SEED);
+      expect(result.current.undo.stack).toHaveLength(0);
+
+      act(() => { write(result.current.dispatcher); });
+      verify(result.current.dispatcher); // the write landed — see `verify`'s doc
+      expect(result.current.undo.stack).toHaveLength(1);
+
+      act(() => { result.current.undo.undo(); });
+
+      restored(result.current.dispatcher);
+      expect(result.current.undo.stack).toHaveLength(0);
+    },
+  );
+
   test("undoing an AI updateTask restores the ORIGINAL field values in place", () => {
     const { result } = renderRealUndo(SEED);
     // Depth BEFORE, so the assertion below is "grew by exactly 1" rather than
