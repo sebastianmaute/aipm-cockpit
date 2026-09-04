@@ -395,7 +395,19 @@ export function readCfbfTree(bytes: Uint8Array): Map<string, Uint8Array> {
       continue;
     }
     const e = ctx.entries[frame.idx];
-    const full = frame.path ? `${frame.path}/${e.name}` : e.name;
+    // ★★★ DEPTH, NOT `frame.path` TRUTHINESS. Both consumers of this map
+    //  identify a ROOT property as "a key with no '/' in it" — office-extract
+    //  tests for a bare `EncryptedPackage`, msg-extract resolves root
+    //  properties the same way — so a nested entry that produces a bare key
+    //  is a smuggling route into both. Testing the accumulated path for
+    //  truthiness gave exactly that: a root STORAGE WHOSE OWN NAME IS EMPTY
+    //  leaves `frame.path` empty for its children too, so they were emitted
+    //  under bare names indistinguishable from real root streams. Measured: a
+    //  file whose root storage is unnamed and holds an `EncryptedPackage`
+    //  child was reported as an encrypted Office document. Depth 1 is the
+    //  root level by construction (the seed frame), and it cannot be forged
+    //  by anything a crafted directory tree can name.
+    const full = frame.depth === 1 ? e.name : `${frame.path}/${e.name}`;
     if (e.type === 2) {
       const data = readEntryBytes(ctx, e, budget);
       budget -= data.length;

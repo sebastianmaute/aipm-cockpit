@@ -122,6 +122,20 @@ describe("looksLikeEncryptedOfficeFile", () => {
     expect(looksLikeEncryptedOfficeFile(nested)).toBe(false);
   });
 
+  // ★★★ THE NAMED DECOY ABOVE IS THE ONE SHAPE THE OLD WALK GOT RIGHT. Root-
+  //  ness was derived from whether the accumulated path was non-empty, so a
+  //  storage whose own name is EMPTY left the path empty for its children and
+  //  they came out under bare keys — indistinguishable from real root
+  //  streams, which is the exact property this detector and msg-extract's
+  //  root-property lookup both rely on. An unnamed storage is not something a
+  //  real producer writes; it is trivial for a crafted file.
+  it("is false for an EncryptedPackage nested under an UNNAMED root storage", () => {
+    const smuggled = buildCfbf([
+      { name: "", children: [{ name: "EncryptedPackage", data: stream(5) }] },
+    ]);
+    expect(looksLikeEncryptedOfficeFile(smuggled)).toBe(false);
+  });
+
   it("is false for short and non-compound bytes without throwing", () => {
     expect(looksLikeEncryptedOfficeFile(new TextEncoder().encode("nope"))).toBe(false);
     expect(looksLikeEncryptedOfficeFile(new Uint8Array(0))).toBe(false);

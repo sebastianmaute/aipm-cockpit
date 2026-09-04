@@ -56,9 +56,21 @@ const ENCRYPTED_PACKAGE_STREAM = "EncryptedPackage";
  *  different instructions.
  *
  *  ★ `readCfbfTree` self-guards on the 8-byte MS-CFB signature and returns an
- *  EMPTY map for anything else, so an ordinary .docx pays eight byte
- *  comparisons here and allocates nothing. That is also why this needs no
- *  separate `looksLikeCfbf` call — a non-compound file cannot reach the walk.
+ *  empty map for anything else, so a non-compound file is rejected on the
+ *  FIRST differing byte — a zip's 0x50 against 0xD0, so one comparison, not
+ *  eight — and this needs no separate `looksLikeCfbf` call. Measured at
+ *  0.023 ms for a 20 MB zip and 0.0025 ms for 20 MB of random bytes.
+ *
+ *  ★★ IT IS NOT FREE FOR A FILE THAT IS ACTUALLY COMPOUND, and an earlier
+ *  revision here said it "allocates nothing" — which is false even on the
+ *  reject path, since the map is constructed before the signature is
+ *  consulted. Answering this boolean for a real compound file walks the whole
+ *  directory and materialises every stream's bytes into that map, all of it
+ *  discarded: measured, 7.05 MB materialised and ~13 ms for a 10.5 MB input.
+ *  Bounded by checkAttachmentSize (20 MB) so it is not a denial-of-service
+ *  route, and only reachable for a legacy binary Office file renamed to an
+ *  OOXML extension — but do not cite this as a cheap check for a compound
+ *  input. A keys-only walk would fix it if that path ever gets hot.
  *
  *  ★★ Deliberately FALSE for a compound file WITHOUT that stream. A legacy
  *  binary .doc/.xls renamed to .docx is a compound file too, and it is
@@ -66,9 +78,15 @@ const ENCRYPTED_PACKAGE_STREAM = "EncryptedPackage";
  *  keep falling through to the read failure. Widening this to "is a compound
  *  file" would tell those users to remove a password that was never set.
  *
- *  ★ Root-storage streams are exactly the paths with no "/" in them
+ *  ★★ Root-storage streams are exactly the paths with no "/" in them
  *  (`readCfbfTree`'s path convention), so the bare name is a root-only match
- *  and a crafted file cannot smuggle one in from a nested storage. */
+ *  and a crafted file cannot smuggle one in from a nested storage. That last
+ *  clause was FALSE until the walk started deriving root-ness from DEPTH: it
+ *  keyed on whether the accumulated path was non-empty, so a root storage
+ *  with an EMPTY NAME passed bare keys to its children and a nested
+ *  `EncryptedPackage` was reported as a root one. The suite's own
+ *  counter-test named its decoy storage, which is the one shape where the
+ *  old test behaved as this sentence claimed. */
 export function looksLikeEncryptedOfficeFile(bytes: Uint8Array): boolean {
   return readCfbfTree(bytes).has(ENCRYPTED_PACKAGE_STREAM);
 }
