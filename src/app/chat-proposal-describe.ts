@@ -113,7 +113,26 @@ export function describeProposal(
   const rows: DescribedRow[] = [];
 
   for (const call of calls) {
-    const stamped: ProposedCall = stampCall(call, ws);
+    // ★★★ ABSENCE IS THE ONLY TRIGGER, AND OVERWRITING A PRESENT TOKEN BREAKS
+    //  THE GUARD RATHER THAN MERELY DUPLICATING IT. The model derives its token
+    //  from its OWN `get_*` read, at T0. Staging happens at T1 and the user
+    //  confirms at T2, so the model's token covers T0→T2 while one minted here
+    //  covers only T1→T2. Restamping therefore DROPS T0→T1: a concurrent writer
+    //  who moves the row between the model's read and the staging stops being
+    //  caught, and the write commits over their edit while `requireToken` reads
+    //  as protecting it. `insights/recommend-tokens.ts`'s header names this
+    //  exact failure — comparing a value against the very read it came from.
+    //  That path stamps unconditionally only because a STORED recommendation
+    //  carries no model token to lose; this one does, so the paths differ in
+    //  precisely the way that makes copying it weaker.
+    //  ★★ ANY non-nullish value counts as present, INCLUDING a malformed one.
+    //  `requireToken` refuses a non-string or empty string, so preserving a
+    //  garbage token costs a loud refusal the user can retry; overwriting it
+    //  would turn that refusal into a PERMIT, which is the direction with no
+    //  recovery. `undefined`/`null` mean the model supplied nothing and are the
+    //  case this stamp exists for.
+    const supplied = (call.input as { expectedToken?: unknown }).expectedToken;
+    const stamped: ProposedCall = supplied != null ? call : stampCall(call, ws);
     const entity = TOOL_ENTITY[call.name];
     const op = toolOp[call.name];
 

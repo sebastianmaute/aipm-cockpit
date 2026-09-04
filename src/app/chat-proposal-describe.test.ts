@@ -77,6 +77,52 @@ describe("describeProposal", () => {
     expect(rows[0].call.input).not.toHaveProperty("expectedToken");
   });
 
+  // ★★★ THE DIRECTION IS THE POINT, NOT THE PRESENCE. The model's token comes
+  // from its OWN `get_*` read (T0) and so covers T0→confirm; one minted at stage
+  // time (T1) covers only T1→confirm. Restamping therefore drops T0→T1 and stops
+  // catching a concurrent writer who moved the row between the model's read and
+  // the staging. `expectedToken` is present either way, so a presence assertion
+  // cannot see the regression — this compares the VALUE, and the second
+  // assertion is the anti-vacuity guard: it proves the fixture's token differs
+  // from what a restamp would produce, so a restamp cannot pass by coincidence.
+  test("preserves a model-supplied token instead of restamping it", () => {
+    const supplied = "token-from-the-models-own-read";
+    expect(supplied).not.toBe(entityToken("task", task1));
+    const rows = describeProposal(
+      [call("update_task", { id: 1, taskName: "A2", expectedToken: supplied })],
+      ws,
+    );
+    expect(rows[0].stamped.input.expectedToken).toBe(supplied);
+    expect(rows[0].stamped).toEqual(rows[0].call);
+  });
+
+  // A malformed token is preserved too. `requireToken` refuses a non-string, so
+  // keeping it costs a loud refusal the user can retry; overwriting it would
+  // turn that refusal into a PERMIT — the direction with no recovery.
+  test("preserves even a malformed token rather than overwriting the refusal", () => {
+    const rows = describeProposal(
+      [call("update_task", { id: 1, taskName: "A2", expectedToken: 17 })],
+      ws,
+    );
+    expect(rows[0].stamped.input.expectedToken).toBe(17);
+  });
+
+  // ★★ The resolution of the `update_resource` gap: `UPDATE_TARGET`
+  // (`insights/recommend-tokens.ts`) has no `update_resource` row and
+  // structurally cannot — its value type is `key: keyof RecommendPlanWorkspace`,
+  // and that Pick has no `"resources"` — while `requireToken("resource", …)` is
+  // live in `chat-tools.ts`. Stamping could never have supplied that token;
+  // preserving the model's own one is what makes the row replayable.
+  test("carries a resource call's own token through, which stamping could not supply", () => {
+    const supplied = "resource-token-from-the-models-own-read";
+    const rows = describeProposal(
+      [call("update_resource", { id: 4, title: "Architect", expectedToken: supplied })],
+      ws,
+    );
+    expect(rows[0].stamped.input.expectedToken).toBe(supplied);
+    expect(rows[0].plan.updates).toHaveLength(1);
+  });
+
   // ★★★ THE CASE A `{ id: NaN }` DELETE SEED WOULD HAVE BROKEN SILENTLY.
   // `describeEntityCalls`' own-entity delete guard compares `id !== item.id`,
   // and NaN compares unequal to everything — so a NaN sentinel rejects EVERY
