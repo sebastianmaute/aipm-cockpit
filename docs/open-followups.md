@@ -592,6 +592,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--open) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--open) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27815,9 +27817,14 @@ here because a reader closing this entry should not conclude the batch question 
 
 ## 360. A guardrail insight names a resource but its AI recommendation gets no entity digest — OPEN
 
-**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by reading, 2026-09-04:
-`grep -n "resolveInsightEntity" src/app/use-insight-recommendations.ts` — its view arms are
-`milestones` and `raid` only, so `resources` falls through to undefined.
+**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified 2026-09-04:
+`grep -n 'ref.view ===' src/app/use-insight-recommendations.ts` returns exactly two lines,
+`"milestones"` and `"raid"`, so `resources` falls through to undefined.
+★ The command originally cited here was `grep -n "resolveInsightEntity" ...`, which RUNS and
+returns three lines — the declaration, the call and a dep-array entry — none of which exhibit a view
+arm. It answered a different question than the claim it was attached to, which is the failure shape
+this register's own Status rule exists to prevent: a command that runs and returns something
+plausible reads as verification.
 
 `detect.ts` attaches `entityRef: {view: "resources", id}` when a violation's `resourceId` resolves to
 a live `Resource` (a dangling id deliberately yields no ref). The digest card already honours that —
@@ -27869,7 +27876,20 @@ An insight the caller declined to certify is carried through byte-for-byte, but 
 the 200-row cap and can be dropped by that slice — after which it is absent from `stored` on the next
 pass and never returns, even once the data covering it comes back.
 
-★ Losing a row is strictly better than fabricating an `"improved"` outcome for it, so this is a
+★★★ NARROWED 2026-09-04, and the half that made this urgent is FIXED. As filed, this entry called
+the competition neutral. It was not: a frozen row is carried through untouched, so its `lastSeenAt`
+never advanced while every detected row's did, and under a `lastSeenAt` sort it lost ground on EVERY
+pass — guaranteeing it was the FIRST row of its severity evicted, not merely one of the candidates.
+That made "freezing is recoverable" — the justification the whole per-insight predicate rests on —
+false by attrition. `reconcile.ts` now ranks a frozen row as `today` for ORDERING ONLY and breaks the
+resulting tie in its favour; `lastSeenAt` itself is untouched, since rewriting it would put a lie
+about observation into exported data. Both halves are mutation-proved separately: ranking without the
+tie-break still evicted the row, because it then tied with every row detected on that pass and ties
+fall back to insertion order, where frozen rows are appended last.
+
+★ WHAT REMAINS OPEN is the plain cap: with more than `MAX_INSIGHTS` rows of one severity, frozen
+rows can still be dropped — they are simply no longer SELECTED for it. Losing a row is strictly
+better than fabricating an `"improved"` outcome for it, so the residue is a
 NOTE, not a defect. It matters because guardrail cardinality is 4 x (TimeLog users seen in a fetch)
 at `"medium"` severity with no cap in `detect.ts`, so an org-scope fetch can push `"low"`-severity
 core insights — `overdueTrend` among them — out of the cap entirely.
@@ -27903,3 +27923,50 @@ reintroduce exactly the writer/loader divergence that fix removed. Moving all th
 together is a coherent three-site change if a sub-hour cap is judged meaningless; leaving the
 attribute alone is the other coherent answer. What is not coherent is the current split, where the
 attribute says one thing and every enforcement point says another.
+
+## 366. Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 while fixing the scope half of the coverage claim. Verified
+2026-09-04: `grep -n "from: startDate, to: endDate }, \[\])" src/app/use-timelog-sync.ts` returns the
+single `finish(...)` call in `fetchBookingsForProjects`, whose covered-people argument is the empty
+array; and `grep -n "rollUsers.includes(who)" src/app/task-manager.tsx` returns the membership check
+that therefore fails for every person under that scope.
+
+`fetchBookingsForProjects` fetches the selected PROJECTS, not whole days. A person's remaining hours
+can sit on a project nobody ticked, so their day total, their worst single entry and their holiday
+bookings are all knowable only in part. "No violation found" there is evidence about a subset, never
+about the person — so the roll it writes reports covering nobody and every guardrail insight freezes
+under that scope.
+
+The alternative considered and rejected was handing over the bookers actually seen (`bookerIds`).
+That is worse than useless: a booker on one selected project is precisely somebody whose OTHER
+projects are missing, so it would certify the people this fetch measured least completely.
+
+★ The cost is real and is not a free win. A user who works only in project scope never sees a
+guardrail insight auto-resolve; the rows sit frozen until an org- or self-scope fetch covers the
+person. Closure options, none taken: surface "coverage unknown" in the panel so the freeze is
+legible; or fetch a person's whole day when the roll is being built even under project scope, which
+changes the request count and the rate-limit budget.
+
+## 367. `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 from a false claim a deletion-only review found. Verified by
+reading, 2026-09-04: `grep -n "!Number.isInteger(userId) || !date" src/app/timelog-types.ts` returns
+the only validation in the function — the date is checked for being non-EMPTY and for nothing else.
+
+Two consequences, one of which was previously documented as impossible.
+
+A cell key of `"7|" + "x".repeat(600000)` parses successfully and is a single cell larger than
+`MAX_DAILY_ROLL_CHARS` on its own. A comment in `timelog-actuals-store.test.ts` asserted the opposite
+("a single oversized cell cannot be constructed") on the strength of the userId half of the check,
+which is true only via `Number(...)` overflowing to `Infinity` at roughly 309 digits — a mechanism it
+never stated. That comment has been corrected.
+
+A malformed date also reaches the policy engine, where `weekdayIndex` returns null for a non-ISO
+string, so the working-hours and weekend halves skip it while the value still flows into
+`firstViolationDate` / `lastViolationDate`. The downstream window comparison then fails and the
+insight FREEZES, which is the safe direction — this is recorded as a latent shape, not a live defect.
+
+★ Reachability is the open question and is deliberately not asserted here. Every key the app itself
+writes comes from `dailyKey(userId, it.date)` over API-supplied dates. The paths that could carry a
+hostile key are a hand-edited `localStorage` blob and a future writer; neither has been probed.
