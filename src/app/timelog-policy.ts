@@ -14,6 +14,7 @@
 // (per-action handler/button guard parity, open-followups §74).
 import {
   TIMELOG_RULE_IDS,
+  isDailyCell,
   parseDailyKey,
   type TimelogDailyRoll,
   type TimelogPolicy,
@@ -40,6 +41,13 @@ export interface TimelogPolicyInput {
   readonly daily: TimelogDailyRoll | null;
   readonly policy: TimelogPolicy | undefined;
   readonly holidaySet: ReadonlySet<string>;
+  /** ★★★ Whether `holidaySet` is an ANSWER or merely a value. It is empty on
+   *  every mount until the async holiday load resolves, and stays empty
+   *  forever if that load REJECTED — and an empty set is indistinguishable
+   *  from "this user's countries have no holidays". REQUIRED, not optional:
+   *  an `?? true` default would silently restore the defect for the next
+   *  caller, which is exactly how it arrived. `useHolidaySet` returns it. */
+  readonly holidaysReady: boolean;
   readonly userLinks: readonly TimelogUserLink[];
   readonly shifts: readonly Shift[];
 }
@@ -94,7 +102,7 @@ function drain(rule: TimelogRuleId, m: Map<number, Accum>): TimelogViolation[] {
 }
 
 export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyResult {
-  const { daily, policy, holidaySet, userLinks, shifts } = input;
+  const { daily, policy, holidaySet, holidaysReady, userLinks, shifts } = input;
   if (daily === null || policy === undefined) return EMPTY;
 
   const userToResource = new Map(userLinks.map((l) => [l.timelogUserId, l.resourceId]));
@@ -110,7 +118,21 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
 
   const doEntry = entryCap?.enabled === true && isCap(entryCap.threshold);
   const doDay = dayCap?.enabled === true && isCap(dayCap.threshold);
-  const doNonWorking = nonWorking?.enabled === true;
+  // ★★★ THE READINESS FLOOR IS THE SAME RULE AS THE LINK FLOOR BELOW, not a
+  // second accident: a rule reports itself evaluated only when it COULD have
+  // produced a true answer. Without holidays this rule sees only the
+  // `definedHours === 0` weekend half, finds a plausible-looking nothing on
+  // the holiday half, and `reconcileInsights` clears ANOTHER device's holiday
+  // -booking insight as an "improvement" — into an exported artifact.
+  // ★★ NOT `holidaySet.size > 0`: a user who configured no holiday countries
+  // has a legitimately empty set, and gating on size would make the rule
+  // permanently dark for them. Readiness, never emptiness.
+  // ★ CONSEQUENCE, and it is the safe direction: while holidays load the rule
+  // is not evaluated and its stored insights FREEZE rather than resolve. That
+  // is temporary — the insights effect is debounced and re-runs once the set
+  // arrives. Certifying a clean from data that had not loaded is the
+  // unrecoverable direction; a brief freeze is not.
+  const doNonWorking = nonWorking?.enabled === true && holidaysReady;
   // ★★ The link floor is what stops a false clean: with no links this rule can
   // produce nothing, and producing nothing is what clear() reads as "resolved".
   const doWorking = working?.enabled === true && userLinks.length > 0;
@@ -123,6 +145,15 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   for (const [key, cell] of Object.entries(daily)) {
     const parsed = parseDailyKey(key);
     if (parsed === null) continue;
+    // ★★ Defense in depth, and the reason it is not redundant with the cache's
+    // own per-cell strip: `daily` is typed `TimelogDailyRoll | null`, and a TYPE
+    // is a promise the CALLER makes. `loadActualsCache` keeps that promise; any
+    // future caller handing over an unvalidated roll — a structured clone, an
+    // in-memory hand-off, a freshly computed roll — does not, and this loop runs
+    // inside a debounced effect with no try/catch, so a `null` cell here is an
+    // uncaught throw that kills the whole insights reconcile. Skip the cell, not
+    // the roll: one bad day must not cost the other days their evaluation.
+    if (!isDailyCell(cell)) continue;
     const { userId, date } = parsed;
     const resourceId = userToResource.get(userId) ?? null;
     const shift = resourceId === null ? undefined : resourceToShift.get(resourceId);

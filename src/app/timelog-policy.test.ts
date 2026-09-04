@@ -32,7 +32,7 @@ describe("evaluateTimelogPolicy", () => {
   it("reports no violations and an empty evaluated set when the roll is null", () => {
     const policy: TimelogPolicy = { timelogCapPerDay: { enabled: true, threshold: 8 } };
     const res = evaluateTimelogPolicy({
-      daily: null, policy, holidaySet: NO_HOLIDAYS, userLinks: [], shifts: [],
+      daily: null, policy, holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
     });
     expect(res.violations).toEqual([]);
     expect(res.evaluated).toEqual([]);
@@ -42,7 +42,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogCapPerDay: { enabled: true } },
-      holidaySet: NO_HOLIDAYS, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
     expect(res.violations).toEqual([]);
@@ -52,7 +52,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogCapPerDay: { enabled: false, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
     expect(res.violations).toEqual([]);
@@ -69,7 +69,7 @@ describe("evaluateTimelogPolicy", () => {
         timelogCapPerEntry: { enabled: true, threshold: 6 },
         timelogCapPerDay: { enabled: true, threshold: 8 },
       },
-      holidaySet: NO_HOLIDAYS, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogCapPerEntry", "timelogCapPerDay"]);
     expect(res.violations).toEqual([
@@ -81,7 +81,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [8, 8, 1] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
     });
     expect(res.violations).toEqual([]);
   });
@@ -94,7 +94,7 @@ describe("evaluateTimelogPolicy", () => {
         [dailyKey(9, TUE)]: [9, 9, 1],
       }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
-      holidaySet: NO_HOLIDAYS, userLinks: [], shifts: [],
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
     });
     expect(res.violations).toEqual([
       { rule: "timelogCapPerDay", timelogUserId: 7, resourceId: null, count: 2, worstHours: 12, threshold: 8 },
@@ -106,7 +106,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [4, 4, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
-      holidaySet: new Set([TUE]),
+      holidaySet: new Set([TUE]), holidaysReady: true,
       userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual(["timelogNonWorkingDay"]);
@@ -127,7 +127,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, WED)]: [3, 3, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
-      holidaySet: NO_HOLIDAYS,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
       userLinks: [link(7, 40)],
       shifts: [shift(40, [0, 8, 8, 0, 8, 8, 0])],
     });
@@ -140,7 +140,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, SAT)]: [3, 3, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
-      holidaySet: NO_HOLIDAYS,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
       userLinks: [link(7, 40)],
       shifts: [],
     });
@@ -155,7 +155,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
-      holidaySet: NO_HOLIDAYS,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
       userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
@@ -168,7 +168,7 @@ describe("evaluateTimelogPolicy", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
-      holidaySet: NO_HOLIDAYS,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
       userLinks: [link(7, 40)],
       shifts: [],
     });
@@ -189,7 +189,7 @@ describe("evaluateTimelogPolicy", () => {
         [dailyKey(8, TUE)]: [12, 12, 1],
       }),
       policy: { timelogWorkingHours: { enabled: true } },
-      holidaySet: NO_HOLIDAYS,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
       userLinks: [link(7, 40)],
       shifts: [shift(40, [0, 8, 6, 8, 8, 8, 0])],
     });
@@ -197,6 +197,122 @@ describe("evaluateTimelogPolicy", () => {
     expect(res.violations).toEqual([
       { rule: "timelogWorkingHours", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 12, threshold: 6 },
     ]);
+  });
+
+  // ★★★ THE HOLIDAY-READINESS FLOOR. `useHolidaySet` starts EMPTY and fills
+  // asynchronously, and a rejected fetch leaves it empty forever — so an empty
+  // set is not evidence of anything. These three are the (dark / ready-empty /
+  // ready-populated) triple; the middle one is the anti-vacuity control and
+  // none of the three implies another.
+  //
+  // (r-i) DARK. Not ready: the rule must not report itself evaluated, and it
+  // must not flag the weekend half either — a partial answer published as a
+  // whole one is the same defect one degree quieter.
+  it("does not evaluate the non-working-day rule while holidays are not ready", () => {
+    const res = evaluateTimelogPolicy({
+      // A Saturday, i.e. reachable through `definedHours === 0` with NO holiday
+      // set at all. If the floor gated the holiday LOOKUP instead of the whole
+      // rule, this booking would still be flagged and `evaluated` would still
+      // carry the id — which is what makes this fixture the discriminating one.
+      daily: roll({ [dailyKey(7, SAT)]: [3, 3, 1] }),
+      policy: { timelogNonWorkingDay: { enabled: true } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: false,
+      userLinks: [link(7, 40)], shifts: [],
+    });
+    expect(res.evaluated).toEqual([]);
+    expect(res.violations).toEqual([]);
+  });
+
+  // (r-ii) READY, EMPTY — THE ANTI-VACUITY CONTROL. A user who configured no
+  // holiday countries has a legitimately empty set, and that is a real answer.
+  // ★★★ This is what kills the `holidaySet.size > 0` mutant, which (r-i) and
+  // (r-iii) both survive: gating on emptiness would make the rule permanently
+  // dark for such a user, silently resolving their insights forever.
+  it("evaluates the non-working-day rule when ready with an empty holiday set", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, SAT)]: [3, 3, 1] }),
+      policy: { timelogNonWorkingDay: { enabled: true } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      userLinks: [link(7, 40)], shifts: [],
+    });
+    expect(res.evaluated).toEqual(["timelogNonWorkingDay"]);
+    expect(res.violations).toEqual([
+      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 3, threshold: 0 },
+    ]);
+  });
+
+  // (r-iii) READY, POPULATED — the holiday half specifically, on a WEEKDAY, so
+  // it cannot be reached through `definedHours === 0`.
+  it("evaluates the holiday half only once holidays are ready", () => {
+    const args = {
+      daily: roll({ [dailyKey(7, TUE)]: [4, 4, 1] }),
+      policy: { timelogNonWorkingDay: { enabled: true } },
+      holidaySet: new Set([TUE]),
+      userLinks: [], shifts: [],
+    };
+    expect(evaluateTimelogPolicy({ ...args, holidaysReady: false }).evaluated).toEqual([]);
+    const ready = evaluateTimelogPolicy({ ...args, holidaysReady: true });
+    expect(ready.evaluated).toEqual(["timelogNonWorkingDay"]);
+    expect(ready.violations).toHaveLength(1);
+  });
+
+  // ★★ Readiness floors THIS rule and nothing else. Without this, moving the
+  // term into the shared `if (daily === null …)` early return would pass every
+  // assertion above while darkening all four rules.
+  it("leaves the other three rules evaluated while holidays are not ready", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, SAT)]: [12, 12, 1] }),
+      policy: {
+        timelogCapPerDay: { enabled: true, threshold: 8 },
+        timelogCapPerEntry: { enabled: true, threshold: 8 },
+        timelogNonWorkingDay: { enabled: true },
+        timelogWorkingHours: { enabled: true },
+      },
+      holidaySet: NO_HOLIDAYS, holidaysReady: false,
+      userLinks: [link(7, 40)], shifts: [],
+    });
+    expect(res.evaluated).toEqual(["timelogCapPerEntry", "timelogCapPerDay", "timelogWorkingHours"]);
+  });
+
+  // ★★★ THE ENGINE'S OWN SHAPE GUARD. `daily` is typed, but a type is a promise
+  // the CALLER makes; the cache keeps it and a future caller need not. The cast
+  // is how a test can express what the type forbids — that is the whole point.
+  // ★★ The VALID cell beside the malformed one is load-bearing: without it a
+  // guard that skipped the whole ROLL (or returned EMPTY) would pass too.
+  it("skips a malformed cell and still evaluates the valid one beside it", () => {
+    const daily = {
+      [dailyKey(7, TUE)]: null,
+      [dailyKey(9, TUE)]: [12, 12, 1],
+      [dailyKey(8, TUE)]: { hours: 12, maxEntryHours: 12, entryCount: 1 },
+    } as unknown as TimelogDailyRoll;
+    const res = evaluateTimelogPolicy({
+      daily,
+      policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      userLinks: [], shifts: [],
+    });
+    expect(res.evaluated).toEqual(["timelogCapPerDay"]);
+    // User 8 only: 7 is `null` and 9 is an ARRAY — `Array.isArray` rejects the
+    // latter even though its indices would not have thrown, which is the
+    // difference between a shape check and a null check.
+    expect(res.violations).toEqual([
+      { rule: "timelogCapPerDay", timelogUserId: 8, resourceId: null, count: 1, worstHours: 12, threshold: 8 },
+    ]);
+  });
+
+  it("does not throw when every cell in the roll is malformed", () => {
+    const daily = { [dailyKey(7, TUE)]: undefined } as unknown as TimelogDailyRoll;
+    const res = evaluateTimelogPolicy({
+      daily,
+      policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      userLinks: [], shifts: [],
+    });
+    // Still EVALUATED: the rule could have produced a true answer, and did —
+    // "no violations". Only an unreadable INPUT darkens a rule, not unreadable
+    // data within one.
+    expect(res.evaluated).toEqual(["timelogCapPerDay"]);
+    expect(res.violations).toEqual([]);
   });
 });
 

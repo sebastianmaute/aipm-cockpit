@@ -371,7 +371,7 @@ function TaskManagerInner() {
     document.title = `${t(lang, navLabelKey(activeTab))} — ${t(lang, "appTitle")}`;
   }, [isPopout, activeTab, lang]);
 
-  const { holidaySet } = useHolidaySet({
+  const { holidaySet, holidaysReady } = useHolidaySet({
     holidayCountries: settings.holidayCountries,
   });
 
@@ -903,6 +903,7 @@ function TaskManagerInner() {
         daily: loadActualsCache(currentProjectId ?? "default")?.daily ?? null,
         policy: timelogLinks?.policy,
         holidaySet,
+        holidaysReady,
         userLinks: timelogLinks?.userLinks ?? [],
         shifts,
       });
@@ -924,7 +925,10 @@ function TaskManagerInner() {
       });
     }, INSIGHTS_RECONCILE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, shifts]);
+    // ★ `holidaysReady` is a real dep, not noise: the pass taken while it is
+    // false leaves `timelogNonWorkingDay` unevaluated, so the reconcile MUST
+    // re-run when it flips true or those insights stay frozen for the session.
+  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, holidaysReady, shifts]);
 
   // Lifecycle handlers (threaded to the dashboard as an insightActions bag; the
   // review UI that invokes them is built in Task 6/7). Each is a functional

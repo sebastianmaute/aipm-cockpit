@@ -5,7 +5,7 @@
 import { readDeviceJson, writeDeviceJson } from "./device-store";
 import type { ActualsAggregate } from "./timelog-actuals";
 import type { TimelogProjectRef } from "./timelog-match";
-import type { TimelogDailyCell, TimelogDailyRoll, TimelogUser } from "./timelog-types";
+import { isDailyCell, type TimelogDailyRoll, type TimelogUser } from "./timelog-types";
 
 export const TIMELOG_ACTUALS_KEY = "aipm-cockpit:timelog-actuals";
 const MAX_PROJECTS = 50;
@@ -67,31 +67,15 @@ function isEntry(v: unknown): v is ActualsCacheEntry {
   return true;
 }
 
-/** ★★ The shape the policy engine reads unguarded (`timelog-policy.ts` takes
- *  `cell.maxEntryHours` / `cell.hours` straight off each `Object.entries`
- *  value), which is why a cell that fails this must never reach it: that call
- *  runs in a debounced effect with no try/catch, so a `null` cell is an
- *  UNCAUGHT throw that kills the whole insights reconcile, not a bad number.
- *  ★★★ EXPORTED ONLY SO THE `Number.isFinite` GUARD CAN BE PINNED AT ALL, and
- *  that is a statement about REACHABILITY, not a preference. `JSON.parse` is
- *  this store's sole ingress (`readDeviceJson`) and JSON has no `NaN` or
- *  `Infinity` literal, so no non-finite field can ever arrive through
- *  `loadActualsCache` — `JSON.stringify` writes both as `null` on the way out
- *  too. A test driving the store therefore CANNOT tell `Number.isFinite(x)`
- *  from `typeof x === "number"`: the string case does not separate them either
- *  (`typeof "8" === "number"` is false, so the weaker check drops it too), and
- *  a mutation proof run through the store reports that guard as vacuous. The
- *  strictness is kept for the ingress this store does not have yet — a
- *  structured-clone cache, an in-memory hand-off, a caller passing a computed
- *  roll straight to `saveActualsCache` — where non-finite IS expressible. */
-export function isDailyCell(v: unknown): v is TimelogDailyCell {
-  if (!v || typeof v !== "object" || Array.isArray(v)) return false;
-  const c = v as TimelogDailyCell;
-  // ★ `Number.isFinite`, never the global `isFinite`: the global COERCES, so
-  // it reads a stored `"8"` as a number and lets a string reach the rules,
-  // where it propagates into the rendered violation text instead of throwing.
-  return Number.isFinite(c.hours) && Number.isFinite(c.maxEntryHours) && Number.isFinite(c.entryCount);
-}
+/** ★★ The cell-shape rule MOVED to `timelog-types.ts` — a leaf both this store
+ *  and the pure `timelog-policy.ts` engine already import — so that the cache
+ *  ingress and the engine's own defensive loop apply ONE predicate rather than
+ *  two that can drift. Its full docstring lives there. Re-exported here so this
+ *  store's public surface is unchanged. ★ It is no longer true that the engine
+ *  reads a cell UNGUARDED: it now skips a non-cell value itself. This store
+ *  still strips one on load, because fixing bad data at the ingress beats every
+ *  reader remembering to. */
+export { isDailyCell };
 
 /** Strip what is not a roll, keeping the rest of the entry. The fail-open half
  *  of the rule stated in `isEntry`, applied at CELL granularity: one corrupt
