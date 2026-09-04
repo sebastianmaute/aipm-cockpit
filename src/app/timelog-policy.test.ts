@@ -114,13 +114,34 @@ describe("evaluateTimelogPolicy", () => {
     ]);
   });
 
-  it("flags a booking on a zero-hour weekday when a shift resolves", () => {
+  // ★★ THE NEXT TWO MUST DIFFER, and the difference is the whole point. A shift
+  // array byte-identical to DEFAULT_WEEK_HOURS cannot tell a RESOLVED shift from
+  // the `?? DEFAULT_WEEK_HOURS` FALLBACK — the first of these once carried
+  // [0,8,8,8,8,8,0] on a Saturday and passed unchanged with `shifts: []`, so it
+  // pinned only the LINK. Same vacuity class as the dark/defaulted split below.
+  // (1) zeroes a weekday the default week says is 8 → reachable ONLY via the
+  // shift. (2) keeps the weekend but drops the shift → reachable ONLY via the
+  // default. Neither can stand in for the other.
+  it("flags a booking on a weekday the shift zeroes, which the default week would allow", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, WED)]: [3, 3, 1] }),
+      policy: { timelogNonWorkingDay: { enabled: true } },
+      holidaySet: NO_HOLIDAYS,
+      userLinks: [link(7, 40)],
+      shifts: [shift(40, [0, 8, 8, 0, 8, 8, 0])],
+    });
+    expect(res.violations).toEqual([
+      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 3, threshold: 0 },
+    ]);
+  });
+
+  it("flags a weekend booking against the default week when the link has no shift", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, SAT)]: [3, 3, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
       holidaySet: NO_HOLIDAYS,
       userLinks: [link(7, 40)],
-      shifts: [shift(40, [0, 8, 8, 8, 8, 8, 0])],
+      shifts: [],
     });
     expect(res.violations).toEqual([
       { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 3, threshold: 0 },
