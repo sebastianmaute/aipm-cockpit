@@ -1,7 +1,12 @@
 # Track B — AI bulk-write safety: Design
 
 **Date:** 2026-09-04
-**Status:** approved design, not yet planned
+**Status:** approved design; planned and partly implemented. The plan is
+`docs/superpowers/plans/2026-09-04-ai-bulk-write-safety.md`, and this spec names it below. Read
+that plan's `★★★ CORRECTIONS` section before this document — where the two disagree, the
+corrections win, because they were measured during execution and this was written before it.
+★ Phase 1 (dispatcher undo capture) is wired in production; the Phase 2 staging gate, review card
+and apply path exist but have NO production caller — see `docs/open-followups.md` §377.
 **Track:** B of a four-track decomposition (A authoring completeness · **B bulk-write safety** ·
 C planning/calendar writers · D ingest breadth). D shipped as 0.281.0 "Womack" (`7f90fd81`).
 **Base:** `origin/main` at `7f90fd81`, `APP_VERSION = "0.281.0"`.
@@ -14,9 +19,14 @@ reversing must be undoable by the same mechanism every human write already uses.
 
 ★★★ **CORRECTED 2026-09-04, during implementation. This sentence originally read "every AI write,
 staged or instant, must be undoable" and that is not achievable.** The undo engine has no create op:
-`undo-stack.ts:12` is `export type UndoOp = "delete" | "edit";`, and `use-undo-stack.ts:203-205`
-states the consequence outright — "The UNDO direction never removes … no entity in the app captures
-a create." Capturing a create as a `removed` image does not merely fail to work; it is ACTIVELY
+`undo-stack.ts:12` is `export type UndoOp = "delete" | "edit";`, and a comment in
+`src/app/undo/use-undo-stack.ts` states the consequence outright — "The UNDO direction never
+removes … no entity in the app captures a create"
+(`grep -n "direction never removes" src/app/undo/use-undo-stack.ts`).
+★ This citation used to read `use-undo-stack.ts:203-205`: WRONG PATH (the file is under
+`src/app/undo/`) and, measured 2026-09-04, wrong LINES too — the quoted comment sits three lines
+lower. Every `use-undo-stack.ts` line citation in this document was off by the same 3, i.e. one
+insertion above them drifted all of them at once, which is why they are now symbols plus greps. Capturing a create as a `removed` image does not merely fail to work; it is ACTIVELY
 HARMFUL. At undo time the created row is still live, so `present.has(item.id)` is true and
 `applyUndoRestoreWithRemap` takes its id-reuse branch (`undo-stack.ts:137-146`), minting `max+1` and
 splicing in a SECOND copy. Measured against the real engine: undoing an AI create of a third row
@@ -44,8 +54,9 @@ Three shipped mechanisms already exist. This slice joins them; it invents no new
 
 Four measured gaps this spec closes:
 
-1. **AI writes bypass the undo stack.** `use-chat-dispatcher.ts:248` (`createTask`) and `:290`
-   (`updateTask`) build the row, call `setTasks(next)` and call `args.logActivityAs?.("ai", …)`.
+1. **AI writes bypass the undo stack.** The `createTask` and `updateTask` handlers in
+   `use-chat-dispatcher.ts` (`grep -n "      createTask:\|      updateTask:" src/app/use-chat-dispatcher.ts`)
+   build the row, call `setTasks(next)` and call `args.logActivityAs?.("ai", …)`.
    They log; they capture no before-image. `grep -c pushUndo` over `chat-tools.ts`,
    `chat-tools-updates.ts`, `chat-tools-lists.ts`, `chat-tools-documents.ts` and `chat-api.ts`
    returns 0 in every file. The chat path is the one writer in the app outside the undo stack.
@@ -249,7 +260,9 @@ ids already allocated. On Discard, nothing is written.
    kind and an explicit `entityKey` (without which `buildUndoLabel` degrades to "Edited N items").
 
    ★ **NOT `pushUndoMany`, which an earlier revision of this spec named.** That helper appends N
-   entries and is used only for redo-stack inverses (`use-undo-stack.ts:663`, `:681`), never for
+   entries and is used only for redo-stack inverses — its two call sites are the `setRedoStack` and
+   `setStack` updaters in `src/app/undo/use-undo-stack.ts`
+   (`grep -n "pushUndoMany" src/app/undo/use-undo-stack.ts`) — never for
    capture. `captureComposite` is the right call for a second reason too: `capture` binds to ONE
    setter and array, while a plan spans several entities. A composite takes one fragment per
    affected array (`capturePart` for whole-row removals, `captureFieldPart` for field patches) and
@@ -276,7 +289,7 @@ so a popout can neither write nor stage.
 | Reload or thread switch with a pending plan | The plan survives exactly as the transcript does; stale tokens are refused per row at apply. |
 | Partially applied plan, then Undo | Before-images are captured for **applied** rows only, so undo restores exactly what landed — **for the update and delete rows.** A plan's CREATE rows contribute no before-image at all (see Goal), so undoing an applied mixed plan reverts its edits and restores its deletions while leaving its created rows in place. The undo label must not promise otherwise. |
 | Read-only popout | `popoutReadOnly` throws before the gate — neither write nor stage. |
-| **A staged create's id, referenced by a later call in the same turn** | ★★★ **THE DESIGN DOES NOT CLOSE THIS AND THE WIRING TASK MUST.** The staged tool result hands the model a provisional id (`{staged: true, id, …}`), so the model can and will reference it in a later call — that is the whole point of minting ahead. But at APPLY time the create is replayed through `runTool`, and `createTask` mints its OWN id from the session high-water map. The dependent row is replayed carrying the PROVISIONAL id. **Those two agree only by luck.** `PlanRow` carries `mintedId`/`dependsOn`, but `DescribedRow` carries neither, and `applyProposal` currently discards `runTool`'s return value — so nothing in the apply path can currently reconcile them. The fix is to capture each create's REAL returned id and remap dependents' `id` fields before replaying them, using the `provisional → real` mapping the `PlanRow` graph already describes. Note this is NOT the `mintId` collision hazard (that one is handled — the high-water mark guarantees a discarded provisional id is never re-minted); it is the reverse problem, that the id which IS minted at apply differs from the one already handed out. |
+| **A staged create's id, referenced by a later call in the same turn** | ★★★ **THE DESIGN DOES NOT CLOSE THIS AND THE WIRING TASK MUST.** The staged tool result hands the model a provisional id (`{staged: true, id, …}`), so the model can and will reference it in a later call — that is the whole point of minting ahead. But at APPLY time the create is replayed through `runTool`, and `createTask` mints its OWN id from the session high-water map. The dependent row is replayed carrying the PROVISIONAL id. **Those two agree only by luck.** `PlanRow` carries `mintedId`/`dependsOn`, but `DescribedRow` carries neither, and `applyProposal` currently discards `runTool`'s return value — so nothing in the apply path can currently reconcile them. The fix is to capture each create's REAL returned id and remap dependents' `id` fields before replaying them, using the `provisional → real` mapping the `PlanRow` graph already describes. Note this is NOT the `mintId` collision hazard (that one is handled — the high-water mark guarantees a discarded provisional id is never re-minted); it is the reverse problem, that the id which IS minted at apply differs from the one already handed out. ★★ **NOW FILED AS `docs/open-followups.md` §378, and that is where it must be tracked.** This cell was its only record until 2026-09-04; `followups-status-check` gates the register in CI and nothing reads `docs/superpowers/`, so a hazard living only here is invisible to every gate and to every reader who did not open this file. §378 also carries the ordering constraint: it must be closed in the SAME change that gives the staging gate a production caller (§377), because that change is what makes it reachable. |
 | Applied plan mixing a create with a delete | ★★★ **The create must be excluded from the image list, not merely tolerated.** `buildBeforeImages(removed, edited, fromArray)` takes ONE `fromArray` for every image in a fragment, so a fragment holding both a create-as-`removed` and a real delete has no correct value for it: post-op gives the create a truthful index and collapses the delete's to 0 via `Math.max(0, -1)`; pre-op inverts the damage. Measured — a `{delete B, create NEW}` plan went in at 2 rows and came out of undo at 4, with B restored at index 0 instead of 1. A create image does not merely fail to undo itself, it **misplaces every sibling delete in the same fragment.** Worse, the phantom re-mint publishes an id-remap (`capturePart` does `if (isPrimary) primaryRemap.current = remap`), so every cascade declaring `fkRemapField` rewrites foreign keys onto the duplicate — a data-integrity failure with no row-level symptom. |
 
 ## Testing
@@ -321,8 +334,12 @@ against a wrong implementation that called `capture` per array.
 ## Size and sequencing
 
 Larger than any slice this branch has shipped: one new pure module, one new component, descriptor
-extension for one entity (`resource`), dispatcher capture at about ten write sites, a system-prompt
+extension for one entity (`resource`), dispatcher capture at 14 write sites, a system-prompt
 change, and new EN + DE i18n keys.
+
+★ **14, not "about ten"** — this line estimated and every other artifact counts. Measure, do not
+re-estimate: `grep -cE "undoRef\.current\?\.capture" src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts`
+returns 6 and 8.
 
 **B1 (dispatcher capture) is independently shippable** if the whole proves too large in one go. It
 closes the unrecoverable-write hole on its own and is what track C actually depends on.
@@ -332,8 +349,14 @@ closes the unrecoverable-write hole on its own and is what track C actually depe
 Session `aipm-cockpit-01` holds `feat/timelog-guardrails` (§347) in the main checkout. Its 33 files
 do not intersect this slice's set, with two exceptions to watch:
 
-- `task-manager.tsx` — held heavily modified there. This slice is **not expected to touch it**;
+- `task-manager.tsx` — held heavily modified there. This slice was **not expected to touch it**;
   proposal state belongs on the chat message, not the orchestrator.
+  ★★ **IT DID TOUCH IT, in exactly one property, and the expectation above was written before
+  execution.** Phase 1 threads the undo API into the dispatcher args object as `undo: undoApi`
+  (`grep -n "undo: undoApi" src/app/task-manager.tsx`), with a comment beside it forbidding a
+  `useMemo` on the enclosing object. The prediction holds for PROPOSAL state — none of that lives
+  here — but a reader planning a merge on the strength of "not expected to touch it" would miss a
+  real one-line conflict surface.
 - `i18n.ts` / `i18n.de.ts` — that branch adds 12 EN and 12 DE keys. These two files conflict on
   almost any concurrent edit. Whoever merges second re-applies their keys by hand rather than
   resolving the hunk, and `i18n.de.ts` is patched by node utf8 write with `\r\n` anchors, never the

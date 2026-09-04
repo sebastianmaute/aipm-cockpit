@@ -588,11 +588,13 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
 | [§370](#370-redo-of-an-ai-captured-delete-is-unproved--open) | Redo of an AI-captured delete is unproved | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
 | [§371](#371-a-stakeholder-deletion-offers-to-delete-their-job-title-not-the-person--closed-2026-09-04) | ~~A stakeholder deletion offers to delete their job title, not the person~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-04 (one shared `PERSON_ENTITIES` set now names both person entities by `personName`, at the create label AND the delete label; mutation-proved by reverting the set to `["resource"]` alone) |
-| [§372](#372-an-updateresource-rename-sent-as-the-name-alias-previews-an-empty-plan--open) | An update_resource rename sent as the name alias previews an empty plan | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
-| [§373](#373-an-invalid-email-previews-a-diff-that-apply-silently-drops--open) | An invalid email previews a diff that Apply silently drops | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§372](#372-an-update_resource-rename-sent-as-the-name-alias-previews-an-empty-plan--open) | An update_resource rename sent as the name alias previews an empty plan | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§373](#373-an-email-shaped-field-previews-a-value-apply-clips-or-discards--open) | An email-shaped field previews a value Apply clips or discards | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
 | [§374](#374-help-contentts-still-says-five-inline-entities-and-there-are-now-six--open) | help-content.ts still says five inline entities and there are now six | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
 | [§375](#375-eye-verify-owed-a-real-model-turn-through-the-staged-review-card--open) | Eye-verify owed: a real model turn through the staged review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
 | [§376](#376-a-staged-document-row-cannot-be-named-in-the-review-card--open) | A staged document row cannot be named in the review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
+| [§377](#377-the-staging-gate-the-review-card-and-the-apply-path-have-no-production-caller--open) | The staging gate, the review card and the apply path have no production caller | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
+| [§378](#378-a-staged-creates-provisional-id-is-not-reconciled-with-the-id-apply-mints--open) | A staged create's provisional id is not reconciled with the id Apply mints | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27839,8 +27841,18 @@ file's 39 runtime tests) while the milestone anti-over-reach pin stays green. Re
 
 `Stakeholder.title` is a JOB title. The generic label chains in `inline-ai-edit/plan.ts` read
 `input.title ?? input.taskName ?? input.name ?? …` for creates and `found.title ?? found.taskName
-?? found.name ?? id` for deletes, so a stakeholder with a job title creates AND is offered for
-deletion under that job title rather than their name.
+?? found.name ?? id` for deletes, so a stakeholder with a job title USED TO create AND be offered
+for deletion under that job title rather than their name.
+
+★★ **Past tense is load-bearing — those two chains are still in the file, and a reader who greps
+for them will find them intact.** They are no longer reached for a person: `PERSON_ENTITIES` (a
+`ReadonlySet` of `"resource"` and `"stakeholder"`) short-circuits AHEAD of both, at `titleOf`
+(`if (PERSON_ENTITIES.has(entity)) return personName(input) || entity;`) and again at the delete
+label (`PERSON_ENTITIES.has(entity) ? personName(found) || str(id) : str(found.title ?? …)`). The
+chains remain the FALLBACK for every non-person entity — task, RAID, change, milestone — which is
+why they were left in place rather than replaced. Reproduce:
+`grep -n "PERSON_ENTITIES" src/app/inline-ai-edit/plan.ts` returns the declaration plus exactly
+the two guarded sites.
 
 ★★ **This is a wrong-target prompt on an irreversible action** — the class where the user's mental
 model and the system's disagree at exactly the moment the user is asked to authorise. A
@@ -27881,21 +27893,76 @@ a row with nothing in it and then change the person's name.
 ★ Diffing the parts is the honest form and is what ships. The blind spot is real and is a property
 of the alias, not of the descriptor: any write alias that fans out to several stored fields has it.
 
-## 373. An invalid email previews a diff that Apply silently drops — OPEN
+## 373. An email-shaped field previews a value Apply clips or discards — OPEN
 
-**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
-**Never machine-verified:** no probe has been run against this entry.
+**Status:** OPEN. Rewritten 2026-09-04: the divergence is real, the mechanism the entry was filed
+with is not. Last executed verification 2026-09-04 —
+`grep -n "export function sanitizeEmail" -A 2 src/app/sanitize-core.ts` (one line, no validity
+branch) and `grep -nE "= sanitizeEmail\(" -A 1 src/app/sanitize-entities.ts src/app/sanitize-records.ts`
+(the caller-side emptiness drop), plus the other commands quoted below. No RUNTIME probe has been
+executed: every claim rests on the functions cited, not on an observed write.
 
-`sanitizeEmail` DROPS a value it cannot parse rather than rejecting the write, so an
-email-shaped field carrying an invalid value previews a diff that Apply will not make. The engine's
-contract is "never preview a diff Apply won't make", and this violates it.
+★★★ **THE ORIGINAL FILING NAMED A MECHANISM THAT DOES NOT EXIST, and it is recorded here rather
+than silently replaced — the correction is the more useful half.** It read: "`sanitizeEmail`
+DROPS a value it cannot parse rather than rejecting the write." `sanitizeEmail` parses nothing.
+It is one line, `return sanitizeText(s, EMAIL_MAX)`, and `sanitizeText` returns `""` for a
+non-string and otherwise trims and length-clips. No branch anywhere in it turns on validity.
 
-Pre-existing across every entity with an email-shaped field — `assigneeEmail`, `ownerEmail`, and
-now `email` on `resource`, which merely joined the existing three rather than introducing the
-problem.
+```bash
+grep -n "export function sanitizeEmail" -A 2 src/app/sanitize-core.ts
+grep -n "export function sanitizeText" -A 3 src/app/sanitize-core.ts
+```
 
-★ `requiredNonEmpty` cannot express this: the field is not required, it is silently normalised.
-The descriptor would need a per-field "sanitiser may drop this" signal, which does not exist.
+★★ Its negative half is false in the opposite direction too — a REJECTION exists, on the path the
+entry said had none. `buildTaskCleanPatch` (`chat-task-patch.ts`) runs
+`if (e && !isValidEmail(e)) throw new Error("assigneeEmail is invalid")`, and the dispatcher's
+`createTask` carries the same guard, so an invalid `assigneeEmail` fails the write LOUDLY rather
+than dropping. `grep -rn "isValidEmail" src/app --include=*.ts --include=*.tsx` enumerates every
+site; none of them is in `sanitize-entities.ts` or `sanitize-records.ts`.
+
+**What is actually true.** The preview's `after` is the RAW input coerced to a string —
+`const after = str(input[f])` in `describeEntityCalls` (`inline-ai-edit/plan.ts`), where `str` is
+`String(v)` with a null/array shim and NO trim, NO cap and NO format check. Apply runs the value
+through a sanitizer instead. The two diverge in three ways, and none of them is about validity:
+
+1. **Length.** An email past its field's cap previews in full and stores clipped. The caps are not
+   shared: `assigneeEmail`, RAID `ownerEmail` and resource `email` route through `sanitizeEmail`
+   (`EMAIL_MAX` = 320), while `sanitizeStakeholder` uses `sanitizeText(o.email, BUDGET_NAME_MAX)`
+   — a DIFFERENT sanitizer at a DIFFERENT cap (200). Four email-shaped `diffFields`, three
+   sanitizer call shapes, two caps.
+2. **Non-string.** `str(42)` previews `"42"` and `str({})` previews `"[object Object]"`;
+   `sanitizeText` returns `""` for both. So the card shows a value the write never stores.
+3. **Whitespace.** `str` does not trim and the sanitizers do, so `"  a@b.com  "` differs from the
+   stored `before` string, previews as a change, and stores the trimmed form.
+
+★★ **The DROP the original entry reached for is real but sits at the CALLER, and it keys on
+EMPTINESS, not on parseability.** `sanitize-entities.ts` writes `if (email) resource.email =
+email;` and `sanitize-records.ts` writes `if (ownerEmail) item.ownerEmail = ownerEmail;` /
+`if (email) item.email = email;` — so case 2 above does not merely fail to write the new value,
+it OMITS THE KEY, and on an update built by spreading the stored row that CLEARS an email the row
+already had. Preview: `old@x.com → 42`. Result: no email at all.
+
+```bash
+grep -nE "= sanitizeEmail\(" -A 1 src/app/sanitize-entities.ts src/app/sanitize-records.ts
+grep -n "sanitizeText(o.email" src/app/sanitize-records.ts
+grep -n "const after = str(input\[f\])" src/app/inline-ai-edit/plan.ts
+grep -n "^function str(v: unknown)" -A 5 src/app/inline-ai-edit/plan.ts
+```
+
+★★ **The two email-shaped paths therefore behave OPPOSITELY on an invalid value, and the heading
+of this entry used to assert only one of them.** A syntactically invalid but non-empty string —
+`"42"`, `"not an email"` — is stored VERBATIM by the resource, RAID and stakeholder sanitizers
+(no format check exists there), so its preview is correct and there is no divergence at all; the
+same value on `assigneeEmail` throws. "An invalid email previews a diff Apply drops" was wrong
+about both.
+
+★ `requiredNonEmpty` still cannot express any of this, and that observation survives the rewrite:
+the field is not required, it is silently normalised. Closing it needs the preview to run the
+field's OWN sanitizer before diffing — which is what `dateFields` already does for dates
+(`sanitizeIsoDate(after) !== after` → reject) — rather than a new per-field "may drop" flag.
+
+★ Pre-existing across every entity with an email-shaped field. `email` on `resource` joined the
+existing three in the AI bulk-write-safety slice rather than introducing the problem.
 
 ## 374. help-content.ts still says five inline entities and there are now six — OPEN
 
@@ -27916,39 +27983,157 @@ check and the easiest to leave rotting" shape.
 
 ## 375. Eye-verify owed: a real model turn through the staged review card — OPEN
 
-**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
-**Never machine-verified:** no probe has been run against this entry.
+**Status:** OPEN. Re-scoped 2026-09-04: the eye-verify is BLOCKED, not merely owed. Last executed
+verification 2026-09-04 — `grep -rn "ChatProposalBlock" src/app --include=*.tsx | grep -v "\.test\."`
+returns only the component's own definition and props interface, i.e. no production caller (§377).
 
-Nothing in any suite drives a REAL model turn through the real UI into the staged review card.
+★★★ **BLOCKED ON §377 — THE CARD IS NOT REACHABLE FROM THE APPLICATION, so this is not an
+eye-verify anyone can perform today at any configuration.** `chat-panel.tsx` does not render
+`ChatProposalBlock` (plan Task 12 Step 3 is unstarted), so no model turn — destructive,
+multi-write or otherwise — puts the card on screen. Run the eye-verify AFTER the wiring lands, not
+before.
 
-Owed before release: against `PORT=3100 npm run dev`, provoke a destructive or multi-write turn,
-confirm the card renders, reject one row, confirm the cascade deselects its dependents, apply, and
-confirm ONE undo entry restores the applied updates and deletes.
+★★ The earlier wording of this entry named the SUITES as the gap. That was the wrong diagnosis:
+the suites' inability to drive a real turn is true but secondary, and stating it alone invites a
+reader to close this by writing another test. **The gap is the wiring.**
 
-★★ The unit tests cannot substitute, and the reason is structural rather than a coverage gap:
-`chat-proposal-block.test.tsx` renders the card from fixture props, so it proves the card's own
-behaviour and nothing about whether a real turn produces those props. The gate suites cannot reach
-it either — the axe run seeds file mode and the card only exists after a model turn, so no e2e seed
-will ever render it at any configuration.
+Owed once §377 is closed: against `PORT=3100 npm run dev`, provoke a destructive or multi-write
+turn, confirm the card renders, reject one row, confirm the cascade deselects its dependents,
+apply, and confirm ONE undo entry restores the applied updates and deletes.
+
+★★ The unit tests would still not substitute even then, and the reason is structural rather than a
+coverage gap: `chat-proposal-block.test.tsx` renders the card from fixture props, so it proves the
+card's own behaviour and nothing about whether a real turn produces those props. The gate suites
+could not reach it either — the axe run seeds file mode and the card would only exist after a
+model turn, so no e2e seed will render it at any configuration.
 
 ## 376. A staged document row cannot be named in the review card — OPEN
 
-**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
-**Never machine-verified:** no probe has been run against this entry.
+**Status:** OPEN. Re-scoped 2026-09-04 to the conditional mood §372 already uses. Last executed
+verification 2026-09-04 — `grep -n "document" src/app/chat-proposal.ts src/app/chat-proposal-describe.ts`
+shows the three `*_document` tools in the gate's write set and NO `document` entry in the
+entity map. The runtime consequence stays unobservable for the reason in the first ★★ below.
 
-The three `*_document` tools are in the staging gate's write set, so they can be staged — but the
-descriptor engine has no `document` entity, so `describeProposal` returns them with an EMPTY plan.
-The card therefore has only `call.name` and `call.input` to render: it cannot say WHICH document
-an `update_document` touches, WHAT it changes, or WHICH document a `delete_document` removes.
-Contrast `delete_task`, whose plan carries a label.
+★★ **CONDITIONAL ON §377 — nothing in the application stages anything yet, so no user has ever
+seen this row.** The defect is in the engine and is real at HEAD; the sentence "the card DOES
+render such a row" was true of the component under test and false of the application. Read every
+"would" below literally, the way §372 does.
 
-★★★ **This is the row that most needs to be legible.** Document chat writes take NO undo capture at
-all (`use-document-tools.ts` says so at three sites; they recover via `documentVersions` instead),
-so the gate is the only thing between the model and an unreviewed multi-document rewrite — and it is
-the row the card can say least about. The reviewer is asked to approve a write they cannot see.
+The three `*_document` tools are in the staging gate's write set, so they WOULD be staged once the
+gate is wired — but the descriptor engine has no `document` entity, so `describeProposal` returns
+them with an EMPTY plan. The card would therefore have only `call.name` and `call.input` to
+render: it could not say WHICH document an `update_document` touches, WHAT it changes, or WHICH
+document a `delete_document` removes. Contrast `delete_task`, whose plan carries a label.
+
+★★★ **This is the row that will most need to be legible.** Document chat writes take NO undo
+capture at all (`use-document-tools.ts` says so at three sites; they recover via
+`documentVersions` instead), so once §377 is closed the gate will be the only thing between the
+model and an unreviewed multi-document rewrite — and it is the row the card can say least about.
+The reviewer would be asked to approve a write they cannot see. ★★ Until §377 lands there is no
+gate in the product at all, so today the model's document writes are unreviewed outright; that is
+§377's problem, not this one, and closing this entry does not touch it.
 
 Closing it needs either a `document` descriptor, or a small name-resolution step reading
 `ws.documents` by `input.id` for the title alone. Neither exists today.
 
-★ The card does render such a row with its tool name rather than blank, and the row is selectable
-and rejectable — so the failure is legibility, not invisibility.
+★ Under test the card renders such a row with its tool name rather than blank, and the row is
+selectable and rejectable — so the failure is legibility, not invisibility. That is a property of
+`ChatProposalBlock` measured by `chat-proposal-block.test.tsx`, NOT an observation of the running
+app, which never mounts it.
+
+## 377. The staging gate, the review card and the apply path have no production caller — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice. Last executed verification
+2026-09-04 — the fenced command below (`grep -rn` over the six symbols, `\|`-escaped for BRE, then
+filtered for non-test files) returns only comments, the six declarations themselves, and
+intra-cluster `import type` lines. A narrower cross-check,
+`grep -rn "ChatProposalBlock" src/app --include=*.tsx | grep -v "\.test\."`, returns three lines,
+all in `chat-proposal-block.tsx` itself — its props interface and its own declaration — and no
+third file. (Reading OUTPUT through a pipe is safe; only an EXIT CODE must never be piped.)
+
+★★★ **THE PHASE 2 STAGING FEATURE IS NOT WIRED INTO THE APPLICATION.** The gate (`shouldStage`),
+the plan builder (`buildPlanRows`), the describe pass (`describeProposal`), the review card
+(`ChatProposalBlock`), the apply path (`applyProposal`) and the capture collapser (`useUndoBatch`)
+all exist and are tested — and are imported by NOTHING outside their own test files and each
+other. `chat-panel.tsx` renders no card; `use-chat-dispatcher.ts` consults no gate. At HEAD a
+model turn therefore writes exactly as it did before the slice: unstaged, unreviewed, one tool
+call at a time. Reproduce:
+
+```bash
+grep -rn "ChatProposalBlock\|applyProposal\|describeProposal\|shouldStage\|buildPlanRows\|useUndoBatch" \
+  src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+★ The one hit that reads like an outside consumer is not one: `activity-log.ts` names
+`use-undo-batch.ts` in a PROSE COMMENT, not in an import. Confirm with
+`grep -n "use-undo-batch" src/app/activity-log.ts`, which returns a line beginning with ` *`.
+
+★★★ **DO NOT READ THIS ENTRY AS COVERING PHASE 1. PHASE 1 (undo capture) IS WIRED AND LIVE.**
+`task-manager.tsx` threads `undo: undoApi` into the dispatcher args and the field is REQUIRED on
+`ChatDispatcherArgs`, so all fourteen capture sites run in production —
+`grep -cE "undoRef\.current\?\.capture" src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts`
+returns 6 and 8. An AI write today IS undoable. What is missing is the review step in front of it,
+not the recovery behind it. Scoping this entry to B1 would be wrong in the expensive direction: it
+would read as "AI writes are unprotected", and they are not.
+
+**Plan status.** The apply path and its round trip landed, in a module of their own
+(`chat-proposal-apply.ts`, `chat-proposal-apply.test.tsx`) rather than in the two files Task 12
+named. **Task 12 Step 3 — "render the card in the transcript" — is unstarted, and so is all of
+Task 13.** Both are checkable without reading the plan:
+`grep -ci "confirm with the user" src/app/chat-tool-defs.ts` still returns 7 (Task 13 Step 2
+removes those clauses) and `grep -c "staged" src/app/chat-api.ts` returns 0 (Task 13 Step 3 adds
+the staged-result paragraph to the system prompt).
+
+★★★ **TASK 13 MUST NOT LAND BEFORE TASK 12 STEP 3, and the ordering is the whole risk.** Task 13
+DELETES the "Confirm with the user before calling this" prose from seven tool descriptions, on the
+stated grounds that "the instruction is now enforced by the gate". While this entry is open there
+is no gate in the product. Removing the prose first would leave destructive AI writes with neither
+a prompt asking the model to confirm nor a card asking the user to review — strictly worse than
+either end state.
+
+★★ Consequences for the entries filed beside this one, all re-scoped 2026-09-04: §375's eye-verify
+is not performable at any configuration, because the card it asks you to look at never mounts;
+§376 describes a row no user has seen. §378 must be closed in the SAME change that closes this
+one — wiring the gate without it is what makes that defect reachable.
+
+## 378. A staged create's provisional id is not reconciled with the id Apply mints — OPEN
+
+**Status:** OPEN. Filed 2026-09-04, promoted out of the design spec — which was its only record,
+and which no gate reads. Last executed verification 2026-09-04 —
+`grep -n "runTool" src/app/chat-proposal-apply.ts` shows the replay discarding the call's return
+value, and `grep -n "mintedId" src/app/chat-proposal.ts src/app/chat-proposal-describe.ts` shows
+the field on `PlanRow` and nowhere on `DescribedRow`.
+
+★★★ **OF EVERYTHING FILED FOR THIS FEATURE THIS IS THE ONLY DEFECT THAT CAN SILENTLY WRITE TO THE
+WRONG ROW.** §370-§376 are a missing proof, an alias blind spot, a preview/apply string mismatch, a
+stale count, a blocked eye-verify and an illegible label. This one mis-targets a write, with no
+error, no rejected row and nothing on the card to show it happened.
+
+**The mechanism.** Staging mints a PROVISIONAL id ahead of time and hands it to the model in the
+staged tool result, so the model can reference the not-yet-created row in a later call in the same
+turn — that is the point of minting ahead. At apply time the create is replayed through `runTool`,
+and `createTask` (and its per-entity peers) mint their OWN id from the session high-water map. The
+dependent row is replayed still carrying the PROVISIONAL id. **The two agree only by luck.**
+
+`PlanRow` already carries the graph that would fix this — `mintedId` per create, `dependsOn`
+pointing at the row whose minted id this call's `id` refers to — but `DescribedRow`, which is what
+`applyProposal` actually iterates, carries NEITHER, and `applyProposal` discards `runTool`'s
+return value. So nothing in the apply path can currently reconcile provisional against real. The
+fix is to capture each create's REAL returned id and remap dependents' `id` fields before
+replaying them, using the mapping the `PlanRow` graph already describes.
+
+★★★ **THIS IS NOT THE `mintId` COLLISION HAZARD, and conflating the two is how it gets closed
+without being fixed.** That hazard — a provisional id being handed out and then re-minted for a
+different row — IS handled: the high-water mark guarantees a discarded provisional id is never
+re-minted. This is the REVERSE problem. The id minted at apply DIFFERS from the one already handed
+to the model, and the dependent call still points at the old one. A green test for the collision
+hazard says nothing about this.
+
+★★ **LATENT, NOT LIVE — and it must be closed in the SAME change that closes §377.** Nothing
+stages today (§377), so no provisional id has ever been handed to a model in production and this
+cannot currently mis-target anything. That is exactly why it is easy to defer: wiring the gate is
+the change that makes it reachable, and a wiring commit that leaves this open ships the wrong-row
+write on its first destructive multi-call turn.
+
+★ Scope note: this is a property of ANY staged create whose id a later call references, not of
+tasks specifically — every entity with a `create_*` tool in the gate's write set has it.

@@ -14,12 +14,23 @@
 
 ## ★★★ CORRECTIONS — measured during execution, 2026-09-04
 
-Five things in this plan were wrong. Every one was found by an implementer running a command, none
-by re-reading. Read these before any remaining task; where a task body below contradicts this
-section, **this section wins.**
+The numbered items below are things in this plan that were wrong. Every one was found by an
+implementer running a command, none by re-reading. Read these before any remaining task; where a
+task body below contradicts this section, **this section wins.**
 
-1. **`ChatDispatcherArgs` is in `src/app/chat-dispatcher-types.ts:13`**, not in
+★★ **NO COUNT IS QUOTED HERE ON PURPOSE, and restoring one is a regression.** This header said
+"Five things" and the list had grown to seven — items 6 and 7 were appended without touching the
+header, and they are among the most load-bearing in it. A list that is appended to re-stales its
+own count on the next append, and a stale count above a correct list tells a reader to stop at
+five. Count the `1.`…`N.` items if you need the number.
+
+1. **`ChatDispatcherArgs` is declared in `src/app/chat-dispatcher-types.ts`**, not in
    `use-chat-dispatcher.ts` — that file only re-exports the type. Tasks below name the wrong file.
+   Locate it with `grep -n "export interface ChatDispatcherArgs" src/app/chat-dispatcher-types.ts`.
+   ★ This item originally cited a LINE, and that line was already wrong when written; every line
+   citation in this section has been replaced by a symbol plus a grep for the same reason —
+   an insertion anywhere above a cited line invalidates it silently, and `docs/superpowers/` is
+   excluded from `npm run docs:claims:check`, so no gate will ever tell you.
 
 2. **`makeDispatcherArgs({ initialTasks })` does not and cannot exist.** `useChatDispatcher` takes
    no task list; it reads `tasks`/`setTasks` from `useWorkspace()`. Tests seed through the render
@@ -75,10 +86,14 @@ section, **this section wins.**
 7. **★★★ Task 10's `{id: NaN}` sentinel is WRONG for deletes, and fails silently.** The plan says
    "`describeEntityCalls` only consults `item` on the update path, so a sentinel is safe and keeps
    one code path". Half right. Creates never read `ctx.item` — true. But the DELETE branch does:
-   `plan.ts:183` is `if (name === d.deleteTool && id !== item.id)`, and `NaN` compares unequal to
+   `describeEntityCalls`'s delete guard in `inline-ai-edit/plan.ts` is
+   `if (name === d.deleteTool && id !== item.id)`, and `NaN` compares unequal to
    everything, so **every own-entity delete would be rejected as `"unsupported"` and never appear in
-   the card.** Two more facts from the same reading:
-   - `ownIds` (`plan.ts:116`) is built from `ws[d.wsKey]` **unguarded** — a workspace missing that
+   the card.** Find it with
+   `grep -n "d.deleteTool && id !== item.id" src/app/inline-ai-edit/plan.ts`. Two more facts from
+   the same reading:
+   - `ownIds` — `grep -n "const ownIds" src/app/inline-ai-edit/plan.ts` — is built from
+     `ws[d.wsKey]` **unguarded**: a workspace missing that
      slice THROWS rather than yielding an empty plan. It is read before any branch.
    - `RecommendPlanWorkspace` is `Pick<Workspace, "tasks"|"raid"|"changes"|"milestones"|"stakeholders">`
      — **no `resources`**. Reusing that type for chat grounding makes every resource call throw at
