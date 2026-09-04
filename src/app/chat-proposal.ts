@@ -70,6 +70,124 @@ const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   ...DESTRUCTIVE_TOOLS,
 ]);
 
+/** Input fields OTHER than `id` through which a call can name a row that a
+ *  create EARLIER IN THE SAME TURN will mint, per tool.
+ *
+ *  ★★★ WITHOUT THIS, A PROVISIONAL LINK IS STORED DANGLING AND NOTHING SAYS SO.
+ *   Take `[create_task, create_raid_item({ linkedTaskIds: [<the minted id>] })]`.
+ *   Row 1 is itself a create, so the `id`-based lookup below is skipped for it
+ *   and it gets no dependency at all — refusing row 0 therefore leaves row 1
+ *   selected, and it applies carrying a link to a task that will never exist.
+ *   `sanitizeIdList` does no referential check, so the link is simply written.
+ *   ★★ `set_task_dependencies`' `dependencies[].taskId` is the same shape and is
+ *   BELIEVED to be the milder half — that tool is documented to refuse a link to
+ *   a task that does not exist and report it in `rejected`, which would make it
+ *   loud rather than silent. READ THAT AS UNPROVED AT THE IMPLEMENTATION: the
+ *   evidence is the tool's own schema prose plus the `rejected: DepRejection[]`
+ *   contract in `chat-tools.ts`, and the existence check itself lives behind the
+ *   host-supplied `setTaskDependencies`, which nobody has traced. Both fields
+ *   are covered here either way; do not let the word "milder" become a reason to
+ *   drop one.
+ *
+ *  ★★ `mintedBy` NAMES A CREATE TOOL, NOT AN ENTITY, and it is load-bearing.
+ *   Ids are PER-ENTITY sequences, so two creates in one turn very often mint the
+ *   SAME NUMBER — resolving `linkedTaskIds` against every mint would hang the
+ *   link off whichever create minted that number LAST.
+ *
+ *  ★★ THE FIELD SET WAS ENUMERATED FROM `idList(`, NOT TYPED FROM A LIST, and
+ *   that distinction cost a defect: a review named `linkedTaskIds` and the
+ *   dependency `taskId` from a narrower grep, which finds five rows and TWO
+ *   fields and misses `causedByRaidIds`, `linkedRaidIds` and `stakeholderIds` —
+ *   the same silent-dangling-link class, one entity over. Re-derive with the
+ *   command below before adding or removing a member; never edit this table
+ *   against a list somebody wrote out.
+ *  ★ The first FOUR constants below are the whole id-list surface of the tool
+ *   schemas — `grep -n "idList(" src/app/chat-tool-defs.ts` returns seven rows
+ *   naming four distinct fields, all inside `raidFields`, `changeFields` and
+ *   `milestoneFields` (`taskFields`, `stakeholderFields` and `resourceFields`
+ *   carry none). Each of those three groups is spread into BOTH its entity's
+ *   create and update tool, which is why every one of them appears twice in the
+ *   table. `DEPENDENCY_TASKS` is the fifth and a different SHAPE — an array of
+ *   objects, declared inline in `set_task_dependencies`' own schema rather than
+ *   through `idList` — which is what `LinkField.key` exists for. */
+interface LinkField {
+  readonly field: string;
+  /** For an array of OBJECTS, the property holding the id. Absent when the field
+   *  is a flat array of ids. */
+  readonly key?: string;
+  /** The create tool whose minted ids this field can name. */
+  readonly mintedBy: string;
+}
+const LINKED_TASKS: LinkField = { field: "linkedTaskIds", mintedBy: "create_task" };
+const LINKED_RAIDS: LinkField = { field: "linkedRaidIds", mintedBy: "create_raid_item" };
+const CAUSING_RAIDS: LinkField = { field: "causedByRaidIds", mintedBy: "create_raid_item" };
+const LINKED_STAKEHOLDERS: LinkField = { field: "stakeholderIds", mintedBy: "create_stakeholder" };
+const DEPENDENCY_TASKS: LinkField = { field: "dependencies", key: "taskId", mintedBy: "create_task" };
+
+const LINK_FIELDS: Readonly<Record<string, readonly LinkField[]>> = {
+  create_raid_item: [LINKED_TASKS, CAUSING_RAIDS, LINKED_STAKEHOLDERS],
+  update_raid_item: [LINKED_TASKS, CAUSING_RAIDS, LINKED_STAKEHOLDERS],
+  create_change: [LINKED_TASKS, LINKED_RAIDS, LINKED_STAKEHOLDERS],
+  update_change: [LINKED_TASKS, LINKED_RAIDS, LINKED_STAKEHOLDERS],
+  create_milestone: [LINKED_TASKS],
+  update_milestone: [LINKED_TASKS],
+  set_task_dependencies: [DEPENDENCY_TASKS],
+};
+
+/** The other half of the same mechanism: a tool whose OWN `input.id` addresses a
+ *  row → the create tool that mints that id space. Read this table together with
+ *  `LINK_FIELDS`; a new tool is one line in whichever of the two applies.
+ *
+ *  ★★★ WITHOUT THE SCOPING THIS PRODUCES A WRONG EDGE, WHICH IS WORSE THAN THE
+ *   MISSING ONE `LINK_FIELDS` FIXES. The lookup used to be a single
+ *   `Map<number, number>` keyed by the minted NUMBER alone. Ids are per-entity
+ *   sequences, so two creates in one turn minting the same number is the COMMON
+ *   case, not the exotic one — and the later create simply overwrote the key.
+ *   `[create_task, create_raid_item, update_task({ id: N })]` with both minting
+ *   N therefore pointed the update at the RAID create. A MISSING edge fails safe
+ *   (a row does not cascade and the user sees it unchanged); a WRONG edge
+ *   cascades the user's rejection onto an unrelated row, or marks the wrong row
+ *   pending on the review card. Both fixture orders matter when testing this:
+ *   with the creates the other way round the number-blind lookup is
+ *   ACCIDENTALLY RIGHT, so such a fixture cannot express the defect at all.
+ *
+ *  ★★ THE THREE READS ARE DELIBERATE MEMBERS. `get_task`/`get_resource`/
+ *   `get_document` address a row by id just as an update does, and a read of a
+ *   row that will never be created is exactly as dead as a write to it. They are
+ *   not entity writes, so they never affect `shouldStage`; they only cascade.
+ *
+ *  ★ EXPORTED FOR ITS DRIFT TEST, not as a tool allow-list — the same reason
+ *   `insights/recommend-tokens.ts` exports `UPDATE_TARGET`. Omitting a tool here
+ *   is SILENT: it simply never links, which is the "dependent linked to nothing"
+ *   failure the cascade exists to prevent. `chat-proposal.test.ts` derives every
+ *   tool declaring an `id` property from the live `TOOL_DEFS` and compares the
+ *   set, so a new id-taking tool goes red until somebody classifies it. */
+export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
+  update_task: "create_task",
+  delete_task: "create_task",
+  set_task_dependencies: "create_task",
+  send_inquiry: "create_task",
+  get_task: "create_task",
+  update_raid_item: "create_raid_item",
+  delete_raid_item: "create_raid_item",
+  update_change: "create_change",
+  delete_change: "create_change",
+  update_milestone: "create_milestone",
+  delete_milestone: "create_milestone",
+  update_stakeholder: "create_stakeholder",
+  delete_stakeholder: "create_stakeholder",
+  update_resource: "create_resource",
+  delete_resource: "create_resource",
+  get_resource: "create_resource",
+  update_document: "create_document",
+  delete_document: "create_document",
+  get_document: "create_document",
+};
+
+/** ★★ NAME-ONLY, AND THEREFORE NOT THE GATE'S OWN PREDICATE — `shouldStage`
+ *   calls `isDestructiveCall`, which adds the one case a name cannot answer.
+ *   Kept exported because the classification tests partition the LIVE tool
+ *   surface by name, and because a name is all a card has to label a row with. */
 export function isDestructiveTool(name: string): boolean {
   return DESTRUCTIVE_TOOLS.has(name);
 }
@@ -78,13 +196,68 @@ export function isEntityWriteTool(name: string): boolean {
   return ENTITY_WRITE_TOOLS.has(name);
 }
 
-/** True when this turn must be reviewed before anything is written: it deletes
- *  something, or it writes more than one row. A single non-destructive write
- *  applies immediately and relies on undo. */
+/** `update_document` ops that discard blocks the model never had to read.
+ *
+ *  ★★★ `replaceAll` IS THE ONLY OP REQUIRING NO `expectHash`, which is the whole
+ *   reason it is singled out. `chat-tool-defs-documents.ts` names replace,
+ *   delete and move as the ops whose `expectHash` is REQUIRED, and its own prose
+ *   tells the model that replaceAll "discards every block you do not resend". So
+ *   `update_document({ ops: [{ op: "replaceAll", blocks: [] }] })` empties a
+ *   document while its NAME scores as one ordinary entity write.
+ *
+ *  ★★ KNOWN REMAINING GAP, DELIBERATELY NOT CLOSED HERE: a sweep of
+ *   `{ op: "delete", index, expectHash }` ops in ONE call can empty a document
+ *   too, and stays unstaged. The line drawn is EVIDENCE, not effect — a `delete`
+ *   op's `expectHash` can only have come from a `get_document` read of that
+ *   exact block, so the model demonstrably saw what it is removing, while
+ *   `replaceAll` requires nothing and discards blocks it may never have read.
+ *   Widening this to an op COUNT would stage a routine multi-block cleanup, at
+ *   the cost described on `isDestructiveCall`. */
+const DESTRUCTIVE_DOC_OPS: ReadonlySet<string> = new Set(["replaceAll"]);
+
+/** True when this CALL removes data: the name-based set, plus the one case a
+ *  name cannot answer.
+ *
+ *  ★★ `update_document` IS NOT IN `DESTRUCTIVE_TOOLS` ON PURPOSE. Putting it
+ *   there would stage every benign single-block edit on the surface the
+ *   assistant is expected to write to repeatedly, and a card the user clears
+ *   reflexively is a card that stops being read — which degrades the gate for
+ *   the deletes it exists for. The PAYLOAD is what separates the two.
+ *
+ *  ★ Malformed input must never throw: `ops` may be absent, a non-array, or hold
+ *   non-objects, and all of it is model output. Anything unrecognised reads as
+ *   NOT destructive — such a call still counts as an entity write, so it is not
+ *   waved through, merely not escalated on its own. */
+export function isDestructiveCall(call: ProposedCall): boolean {
+  if (DESTRUCTIVE_TOOLS.has(call.name)) return true;
+  if (call.name !== "update_document") return false;
+  const ops = (call.input as { ops?: unknown }).ops;
+  if (!Array.isArray(ops)) return false;
+  return ops.some((entry) => {
+    if (entry === null || typeof entry !== "object") return false;
+    const op = (entry as { op?: unknown }).op;
+    return typeof op === "string" && DESTRUCTIVE_DOC_OPS.has(op);
+  });
+}
+
+/** True when this turn must be reviewed before anything is written: it removes
+ *  something, or it writes more than one row.
+ *
+ *  ★★ THE SINGLE-WRITE EXEMPTION IS NOT UNIVERSALLY BACKED BY UNDO, and the
+ *   wording here used to say it was ("relies on undo"). TWO live exceptions: the
+ *   three document writes take no undo capture at all and rely on
+ *   `documentVersions` instead (recorded on `ENTITY_WRITE_TOOLS` above); and
+ *   `send_inquiry` has NEITHER — its handler in `use-chat-dispatcher.ts` calls
+ *   `setTasks` and then `logActivityAs` with no `captureComposite` and no
+ *   version history, so its `Task.inquiriesSent` increment is reversible by
+ *   nothing in the app. It stays exempt as a SINGLE call deliberately: one
+ *   inquiry is the user's own routine action, and two already stage as a bulk
+ *   outbound. Reclassifying it is a product decision, not a correction to make
+ *   while fixing a comment. */
 export function shouldStage(calls: readonly ProposedCall[]): boolean {
   let writes = 0;
   for (const c of calls) {
-    if (isDestructiveTool(c.name)) return true;
+    if (isDestructiveCall(c)) return true;
     if (isEntityWriteTool(c.name)) writes += 1;
   }
   return writes > 1;
@@ -114,8 +287,68 @@ export interface PlanRow {
   readonly call: ProposedCall;
   /** Set on a staged create: the id minted for the row it will create. */
   readonly mintedId?: number;
-  /** Index of the row whose `mintedId` this call's `id` refers to. */
+  /** Index of the row whose `mintedId` this call's own `id` refers to — i.e. the
+   *  row that will mint this call's TARGET. */
   readonly dependsOn?: number;
+  /** EVERY staged row this call names: `dependsOn`, plus any row named through a
+   *  LINK field. Ascending, deduplicated, and present only when non-empty.
+   *
+   *  ★ ASCENDING AND DEDUPLICATED ARE GUARANTEED, not incidental — a caller may
+   *   rely on both. They are PINNED by a test whose fixture names one create
+   *   twice and out of order, so dropping either the sort or the `Set` goes red;
+   *   an unstated ordering property is one somebody depends on anyway.
+   *
+   *  ★★ SEPARATE FROM `dependsOn` BECAUSE THE TWO ANSWER DIFFERENT QUESTIONS,
+   *   and collapsing them would break a perfectly describable row. `dependsOn`
+   *   means "my target does not exist yet", which is what `describeProposal`
+   *   reads to tell a PENDING row from a genuine unknown id. A create that
+   *   merely LINKS to another create has a real target of its own and grounds
+   *   normally — folding its link into `dependsOn` would make the review card
+   *   report that create as ungroundable.
+   *  ★ `cascadeDeselect` walks THIS one: a link is just as dangling as a missing
+   *   target once the row that would mint it is refused. */
+  readonly dependsOnAll?: readonly number[];
+}
+
+/** Every staged row `call` names through a LINK field, resolved against the
+ *  creates seen SO FAR (`mints`, keyed create-tool → minted id → row index).
+ *
+ *  ★ The finite-and-positive filter mirrors `sanitizeIdList`, the function that
+ *   actually stores these lists, so the graph links exactly where the write
+ *   would land — and a `null`/`""`/`[]` entry, which bare `Number()` turns into
+ *   0, does not become a lookup for id 0.
+ *  ★★ It does NOT mirror that function's delimited-STRING form (`"1;2"`), which
+ *   `sanitizeIdList` also accepts. The tool schema advertises an array of
+ *   numbers, so a string list is off-schema model output; reading it here would
+ *   make this the one place in the module that guesses at a shape the model was
+ *   never told to emit. A model sending one anyway would have its link stored
+ *   and NOT cascaded — a recorded gap, not a covered case. */
+function linkedRows(
+  call: ProposedCall,
+  mints: ReadonlyMap<string, ReadonlyMap<number, number>>,
+): readonly number[] {
+  const specs = LINK_FIELDS[call.name];
+  if (specs === undefined) return [];
+  const out: number[] = [];
+  for (const spec of specs) {
+    const raw = (call.input as Record<string, unknown>)[spec.field];
+    if (!Array.isArray(raw)) continue;
+    const minted = mints.get(spec.mintedBy);
+    if (minted === undefined) continue;
+    for (const entry of raw) {
+      const value =
+        spec.key === undefined
+          ? entry
+          : entry !== null && typeof entry === "object"
+            ? (entry as Record<string, unknown>)[spec.key]
+            : undefined;
+      const id = Number(value);
+      if (!Number.isFinite(id) || id <= 0) continue;
+      const row = minted.get(id);
+      if (row !== undefined) out.push(row);
+    }
+  }
+  return out;
 }
 
 /** Pair each call with its provisional id and its dependency.
@@ -134,12 +367,21 @@ export interface PlanRow {
  *  ★ `Number(input.id)` mirrors `chat-tools.ts`, which addresses every row that
  *   way at apply time (`const id = Number(input.id)`, seven sites). The graph
  *   therefore links exactly where the dispatcher would write — including a
- *   string id, which would reach the created row. */
+ *   string id, which would reach the created row.
+ *
+ *  ★★★ BOTH HALVES ARE ENTITY-SCOPED, and a tool in NEITHER table gets no edge
+ *   at all. `TARGET_MINTED_BY` covers the `input.id` half, `LINK_FIELDS` the
+ *   link half, and neither resolves a bare number against every mint — the
+ *   wrong-edge failure recorded on `TARGET_MINTED_BY`. Because an omission from
+ *   either table is SILENT, adding an id-taking tool means reading that table's
+ *   drift-test note first. */
 export function buildPlanRows(
   calls: readonly ProposedCall[],
   mintedIds: readonly number[],
 ): readonly PlanRow[] {
-  const idToRow = new Map<number, number>();
+  // create tool → (minted id → row index). The ONE id map, and it is
+  // entity-scoped: see TARGET_MINTED_BY for what a number-keyed one cost.
+  const mints = new Map<string, Map<number, number>>();
   const rows: PlanRow[] = [];
   let mintCursor = 0;
 
@@ -157,18 +399,42 @@ export function buildPlanRows(
       }
       mintedId = mintedIds[mintCursor];
       mintCursor += 1;
-      idToRow.set(mintedId, index);
+      let byTool = mints.get(call.name);
+      if (byTool === undefined) {
+        byTool = new Map<number, number>();
+        mints.set(call.name, byTool);
+      }
+      byTool.set(mintedId, index);
     }
 
     // A create cannot depend on its own id, so the lookup happens only for
-    // non-creates. Ordering matters: `idToRow` is populated as we walk, so a
+    // non-creates. Ordering matters: `mints` is populated as we walk, so a
     // forward reference (a call naming an id minted LATER) resolves to
     // undefined rather than to the wrong row. That also makes every `dependsOn`
     // point STRICTLY BACKWARD, which is what keeps the cascade below acyclic.
-    const referenced = isCreate ? Number.NaN : Number((call.input as { id?: unknown }).id);
-    const dependsOn = Number.isFinite(referenced) ? idToRow.get(referenced) : undefined;
+    // ★ The id is resolved ONLY against the create tool that mints this tool's
+    //   own id space — a bare number is ambiguous across entities.
+    const targetSpace = isCreate ? undefined : TARGET_MINTED_BY[call.name];
+    let dependsOn: number | undefined;
+    if (targetSpace !== undefined) {
+      const referenced = Number((call.input as { id?: unknown }).id);
+      if (Number.isFinite(referenced)) dependsOn = mints.get(targetSpace)?.get(referenced);
+    }
 
-    rows.push({ index, call, mintedId, dependsOn });
+    // Link edges are read from the SAME partially-built maps, so they point
+    // strictly backward too and the graph stays acyclic. A create IS included
+    // here — its own id cannot depend on anything, but the rows it LINKS to can
+    // already have been minted.
+    const all = new Set<number>();
+    if (dependsOn !== undefined) all.add(dependsOn);
+    // This row's own mint is already in `mints`, so a call naming the very
+    // number it just minted (a `create_raid_item` listing its own id under
+    // `causedByRaidIds`) would otherwise depend on ITSELF — a self-edge the
+    // cascade cannot express. Dropped rather than reasoned away as impossible.
+    for (const row of linkedRows(call, mints)) if (row !== index) all.add(row);
+    const dependsOnAll = all.size > 0 ? [...all].sort((a, b) => a - b) : undefined;
+
+    rows.push({ index, call, mintedId, dependsOn, dependsOnAll });
   }
   return rows;
 }
@@ -184,10 +450,11 @@ export function buildPlanRows(
  *   not selected. Both readings are defensible once the input state is already
  *   inconsistent (a selected row whose dependency is not selected) — which this
  *   function alone cannot produce — so a test pins the one we chose.
- *  ★ The guard also BOUNDS the walk on a HAND-BUILT `rows` array. Every
- *   `dependsOn` in a `buildPlanRows` graph points strictly backward, so no cycle
- *   is constructible there; a caller assembling rows by hand could write a
- *   two-row cycle that would otherwise re-enqueue forever. */
+ *  ★ The guard also BOUNDS the walk on a HAND-BUILT `rows` array. Every edge in
+ *   a `buildPlanRows` graph — `dependsOn` and `dependsOnAll` alike — points
+ *   strictly backward, so no cycle is constructible there; a caller assembling
+ *   rows by hand could write a two-row cycle that would otherwise re-enqueue
+ *   forever. */
 export function cascadeDeselect(
   rows: readonly PlanRow[],
   selected: ReadonlySet<number>,
@@ -199,7 +466,14 @@ export function cascadeDeselect(
   let cur = drop.pop();
   while (cur !== undefined) {
     if (next.delete(cur)) {
-      for (const row of rows) if (row.dependsOn === cur) drop.push(row.index);
+      // ★ BOTH are checked, and neither is redundant. A `buildPlanRows` row's
+      //   `dependsOn` is always inside its `dependsOnAll`, so the first test is
+      //   dead weight there — but a HAND-BUILT row (the case the guard note
+      //   below is about) may set `dependsOn` alone, and dropping the first test
+      //   would silently stop cascading for it.
+      for (const row of rows) {
+        if (row.dependsOn === cur || row.dependsOnAll?.includes(cur)) drop.push(row.index);
+      }
     }
     cur = drop.pop();
   }

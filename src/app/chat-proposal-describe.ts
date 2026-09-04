@@ -27,7 +27,7 @@ import {
   type InlineEntity,
 } from "./inline-ai-edit/entity-descriptor";
 import { stampCall } from "./insights/recommend-tokens";
-import type { ProposedCall } from "./chat-proposal";
+import type { PlanRow, ProposedCall } from "./chat-proposal";
 
 // The `item` shape describeEntityCalls expects, without exporting a new type
 // from plan.ts (which stays untouched — only read here).
@@ -60,10 +60,32 @@ export interface DescribedRow {
    *  replay. Identical to `call` for anything `stampCall` has no target for. */
   readonly stamped: ProposedCall;
   readonly plan: EditPlan;
+  /** Index of the staged row that will MINT this call's target, when the target
+   *  does not exist yet. Set only when the caller supplied plan rows.
+   *
+   *  ★★★ IT IS THE ALTERNATIVE TO A FALSE `rejected`, WHICH IS WHAT THIS PATH
+   *   USED TO PRODUCE. `buildPlanRows` treats `[create_task, update_task({ id:
+   *   <the minted id> })]` as a first-class applyable dependency (`dependsOn:
+   *   0`), while grounding the update against the LIVE workspace misses that id
+   *   and reports `{ reason: "unknown-id" }` — so the two halves described one
+   *   call incompatibly, and the card would have rendered "will not be applied"
+   *   over a row the design intends to apply after the remap. `plan` is EMPTY
+   *   for such a row: there is no before-image to diff against, and inventing
+   *   one would show a diff from fields the create has not written yet. */
+  readonly pendingOn?: number;
 }
 
 function emptyPlan(): EditPlan {
   return { updates: [], creates: [], deletes: [], rejected: [] };
+}
+
+/** `plan.ts`'s own `str`, for the one rejection this file has to raise itself.
+ *  Kept byte-compatible with it so a `detail` cannot depend on WHICH layer
+ *  produced the rejection. */
+function detailOf(value: unknown): string {
+  if (value == null) return "";
+  if (Array.isArray(value)) return value.join(", ");
+  return String(value);
 }
 
 /** The probe row `describeEntityCalls` is bound to, per operation.
@@ -78,7 +100,13 @@ function emptyPlan(): EditPlan {
  *
  *  ★ An UPDATE falls back to the NaN sentinel deliberately: a miss must reject
  *   as "unknown-id", which is what an id matching no row produces. A CREATE's
- *   item is never read on that branch. */
+ *   item is never read on that branch.
+ *
+ *  ★★ THE DELETE SEED IS THEREFORE ONLY EVER A FINITE NUMBER NOW: `describeProposal`
+ *   intercepts a delete whose id is not finite before calling this, because that
+ *   is the one case the seed cannot rescue (no value is `!== NaN`-false). Read
+ *   the comment at that branch before "simplifying" either side — the two are
+ *   one mechanism split across a function boundary. */
 function seedItem(
   op: ProposalOp,
   d: EntityDescriptor,
@@ -105,14 +133,41 @@ function seedItem(
  *   row the user cannot see is a row they cannot reject — so the row is emitted
  *   and the CARD is responsible for labelling it from `call.name`.
  *   ★ They are NOT reported as `rejected`: that word means "this call will not
- *   be applied", and these apply normally. */
+ *   be applied", and these apply normally.
+ *
+ *  ★★★ `planRows` IS OPTIONAL AND POSITIONALLY ALIGNED WITH `calls`. Pass the
+ *   output of `buildPlanRows` for the SAME array and a row whose target will be
+ *   minted earlier in this turn is reported as `pendingOn` instead of a false
+ *   `{ reason: "unknown-id" }` — see `DescribedRow.pendingOn`. Agreement between
+ *   the two halves is BY CONSTRUCTION rather than by a second rule: the pending
+ *   test is `PlanRow.dependsOn`, the very field the cascade keys on, so neither
+ *   half can drift into calling a row applyable while the other calls it dead.
+ *   Deriving a flat set of provisional ids instead would NOT be equivalent —
+ *   `buildPlanRows` links only BACKWARD, so a forward reference (an update
+ *   emitted before the create that mints its id) is correctly a genuine unknown
+ *   id, and a flat set would wrongly call it pending.
+ *   ★ Omitting it keeps the previous behaviour exactly, which is what the
+ *   callers that do not stage a multi-row plan want.
+ *
+ *  ★★ A LENGTH MISMATCH THROWS rather than describing some rows against the
+ *   wrong plan row. Like `buildPlanRows`' own `RangeError` this is an assertion
+ *   on our wiring, not a response to model output: both arrays come from one
+ *   call list, so it is unreachable while the two sides agree. */
 export function describeProposal(
   calls: readonly ProposedCall[],
   ws: Workspace,
+  planRows?: readonly PlanRow[],
 ): readonly DescribedRow[] {
+  if (planRows !== undefined && planRows.length !== calls.length) {
+    throw new RangeError(
+      `describeProposal: ${planRows.length} plan rows for ${calls.length} calls — ` +
+        "the two must be positionally aligned",
+    );
+  }
   const rows: DescribedRow[] = [];
 
-  for (const call of calls) {
+  for (let index = 0; index < calls.length; index += 1) {
+    const call = calls[index];
     // ★★★ ABSENCE IS THE ONLY TRIGGER, AND OVERWRITING A PRESENT TOKEN BREAKS
     //  THE GUARD RATHER THAN MERELY DUPLICATING IT. The model derives its token
     //  from its OWN `get_*` read, at T0. Staging happens at T1 and the user
@@ -132,12 +187,52 @@ export function describeProposal(
     //  recovery. `undefined`/`null` mean the model supplied nothing and are the
     //  case this stamp exists for.
     const supplied = (call.input as { expectedToken?: unknown }).expectedToken;
-    const stamped: ProposedCall = supplied != null ? call : stampCall(call, ws);
+    // ★★ A PENDING ROW IS NEVER STAMPED, AND NOT MERELY BECAUSE THE LOOKUP WOULD
+    //  MISS. `stampCall` returns the call unchanged when it cannot find the row,
+    //  so the common case is already right — but a provisional id that happens
+    //  to collide with a LIVE row's id would otherwise be stamped with THAT
+    //  row's token, arming the concurrency guard against an unrelated entity.
+    //  The only token a pending row can legitimately carry is one the model
+    //  supplied, and that is preserved by the same branch.
+    const pendingOn = planRows?.[index]?.dependsOn;
+    const stamped: ProposedCall =
+      pendingOn !== undefined || supplied != null ? call : stampCall(call, ws);
+
+    if (pendingOn !== undefined) {
+      rows.push({ call, stamped, plan: emptyPlan(), pendingOn });
+      continue;
+    }
+
     const entity = TOOL_ENTITY[call.name];
     const op = toolOp[call.name];
 
     if (entity === undefined || op === undefined) {
       rows.push({ call, stamped, plan: emptyPlan() });
+      continue;
+    }
+
+    // ★★★ THE ONE REJECTION THIS FILE RAISES ITSELF, and it is here because the
+    //  seed cannot express "no id". `describeEntityCalls`' own-entity delete
+    //  guard is `id !== item.id`; NaN compares unequal to everything, so an
+    //  id-less `delete_task({})` trips that guard and is reported "unsupported"
+    //  — a reason meaning "this tool cannot address that row from here", when
+    //  the truth is that it addresses no row at all. No number seeds around it,
+    //  since no value is `!== NaN`-false. What is emitted below is exactly what
+    //  the engine's OWN grounding produces once the guard is passed (its row
+    //  lookup misses and reports "unknown-id" with the same `detail`), so this
+    //  is the missing branch of that function reproduced, not a second opinion.
+    //  ★ Descriptor-less deletes (`delete_document`) never reach here — they
+    //  took the empty-plan branch above, which is correct: there is nothing to
+    //  ground them against either way.
+    if (op === "delete" && !Number.isFinite(Number((call.input as { id?: unknown }).id))) {
+      const rejected = [
+        {
+          toolName: call.name,
+          reason: "unknown-id" as const,
+          detail: detailOf((call.input as { id?: unknown }).id),
+        },
+      ];
+      rows.push({ call, stamped, plan: { ...emptyPlan(), rejected } });
       continue;
     }
 

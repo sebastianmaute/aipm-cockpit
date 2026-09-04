@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { describeProposal, TOOL_ENTITY } from "./chat-proposal-describe";
-import { isEntityWriteTool, type ProposedCall } from "./chat-proposal";
+import { buildPlanRows, isEntityWriteTool, type ProposedCall } from "./chat-proposal";
+import { TOOL_DEFS } from "./chat-tool-defs";
 import { entityToken } from "./ai-entity-token";
 import type { Workspace } from "./workspace";
 
@@ -107,19 +108,36 @@ describe("describeProposal", () => {
     expect(rows[0].stamped.input.expectedToken).toBe(17);
   });
 
-  // ★★ The resolution of the `update_resource` gap: `UPDATE_TARGET`
-  // (`insights/recommend-tokens.ts`) has no `update_resource` row and
-  // structurally cannot — its value type is `key: keyof RecommendPlanWorkspace`,
-  // and that Pick has no `"resources"` — while `requireToken("resource", …)` is
-  // live in `chat-tools.ts`. Stamping could never have supplied that token;
-  // preserving the model's own one is what makes the row replayable.
-  test("carries a resource call's own token through, which stamping could not supply", () => {
+  // ★★★ THIS ROW CANNOT WITNESS TOKEN PRESERVATION, AND ITS TITLE USED TO CLAIM
+  // IT DID. `UPDATE_TARGET` (`insights/recommend-tokens.ts`) has no
+  // `update_resource` row and structurally cannot — its value type is
+  // `key: keyof RecommendPlanWorkspace`, and that Pick has no `"resources"` —
+  // so `stampCall` returns this call UNCHANGED. Replacing the `supplied != null`
+  // conditional in `chat-proposal-describe.ts` with an unconditional
+  // `stampCall(call, ws)` therefore leaves this row byte-identical and every
+  // assertion below green; a title promising preservation over a body that
+  // cannot fail on it is what stops the next audit. That mutant is killed by
+  // the `update_task` test above, which compares the VALUE against the token a
+  // restamp would produce.
+  //
+  // ★★ What this row uniquely pins is the OTHER half, and it is the half that
+  // makes preservation matter here: nothing is minted for this entity at all,
+  // while `requireToken("resource", …)` is live in `chat-tools.ts` — so a
+  // resource row carrying no model token is a row that can never be applied.
+  test("leaves a resource call unstamped, so only the model's own token can carry it", () => {
+    // The discriminating assertion. A stamper that invented a placeholder for
+    // an entity it has no target for — the constant/`""` hazard the token test
+    // above names — goes red HERE, instead of surfacing as an unretryable
+    // `requireToken` refusal at apply time.
+    const bare = describeProposal([call("update_resource", { id: 4, title: "Architect" })], ws);
+    expect(bare[0].stamped.input).not.toHaveProperty("expectedToken");
     const supplied = "resource-token-from-the-models-own-read";
     const rows = describeProposal(
       [call("update_resource", { id: 4, title: "Architect", expectedToken: supplied })],
       ws,
     );
     expect(rows[0].stamped.input.expectedToken).toBe(supplied);
+    // The extra input key does not abort grounding — the row is still described.
     expect(rows[0].plan.updates).toHaveLength(1);
   });
 
@@ -145,6 +163,43 @@ describe("describeProposal", () => {
     expect(rows[0].plan.deletes).toEqual([]);
     expect(rows[0].plan.rejected).toEqual([
       { toolName: "delete_task", reason: "unknown-id", detail: "999" },
+    ]);
+  });
+
+  // ★★★ THE REASON, NOT THE REJECTION, IS WHAT THIS PINS — the row was rejected
+  // either way. `seedItem` hands the delete branch the call's own id, and an
+  // absent id makes that NaN; `describeEntityCalls`' own-entity guard is
+  // `id !== item.id`, and NaN compares unequal to everything, so the guard
+  // fired and reported "unsupported" — a reason meaning "this tool cannot
+  // address that row from here". No seed value can rescue it (nothing is
+  // `!== NaN`-false), so `describeProposal` intercepts the case and emits what
+  // the engine's OWN row lookup would have produced. Swap the expectation below
+  // to "unsupported" and the pre-fix code passes; that is the mutant.
+  test("an id-less delete rejects as an unknown id, not as unsupported", () => {
+    const rows = describeProposal([call("delete_task", {})], ws);
+    expect(rows[0].plan.deletes).toEqual([]);
+    expect(rows[0].plan.rejected).toEqual([
+      { toolName: "delete_task", reason: "unknown-id", detail: "" },
+    ]);
+  });
+
+  // The `detail` echoes what the model actually sent, exactly as `plan.ts`'s own
+  // `str` would — so the reason a row was refused is readable from the card.
+  test("a non-numeric delete id rejects as an unknown id and echoes what was sent", () => {
+    const rows = describeProposal([call("delete_task", { id: "not-a-number" })], ws);
+    expect(rows[0].plan.rejected).toEqual([
+      { toolName: "delete_task", reason: "unknown-id", detail: "not-a-number" },
+    ]);
+  });
+
+  // ★ Anti-vacuity for the pair above: a NUMERIC id that simply misses still
+  //   travels the engine's own path, so the interception cannot have swallowed
+  //   the normal case. (`{ id: "2" }` coerces to a live row and is described.)
+  test("a numeric-string delete id still grounds against the live row", () => {
+    const rows = describeProposal([call("delete_task", { id: "2" })], ws);
+    expect(rows[0].plan.rejected).toEqual([]);
+    expect(rows[0].plan.deletes).toEqual([
+      { entity: "task", label: "B", toolName: "delete_task", id: 2 },
     ]);
   });
 
@@ -213,11 +268,109 @@ describe("describeProposal", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Rows whose target will be minted by a create staged EARLIER in the same turn.
+
+describe("rows pending on a staged create", () => {
+  const newTask = () => call("create_task", { taskName: "New thing", dueDate: "2026-10-01" });
+
+  // ★★★ THE TWO HALVES USED TO DESCRIBE ONE CALL INCOMPATIBLY. `buildPlanRows`
+  // makes this update a first-class applyable dependency (`dependsOn: 0`), while
+  // grounding it against the LIVE workspace misses the provisional id and
+  // reports `{ reason: "unknown-id" }` — so the card would have rendered "will
+  // not be applied" over a row the design intends to apply after the remap.
+  test("an update addressing a provisional id is pending, not rejected", () => {
+    const calls = [newTask(), call("update_task", { id: 101, taskName: "Renamed" })];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
+
+    expect(rows[1].pendingOn).toBe(0);
+    expect(rows[1].plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [] });
+    // The create itself is still described normally.
+    expect(rows[0].pendingOn).toBeUndefined();
+    expect(rows[0].plan.creates).toHaveLength(1);
+  });
+
+  // ★★★ THE ANTI-VACUITY HALF, and without it the row above proves nothing: it
+  // would pass equally against an implementation that simply stopped rejecting
+  // unknown ids. The SAME call, described with no plan rows, must still produce
+  // the genuine rejection — so `pendingOn` can only come from the plan rows.
+  test("the same call without plan rows still reports the genuine unknown id", () => {
+    const rows = describeProposal([call("update_task", { id: 101, taskName: "Renamed" })], ws);
+    expect(rows[0].pendingOn).toBeUndefined();
+    expect(rows[0].plan.rejected).toEqual([
+      { toolName: "update_task", reason: "unknown-id", detail: "101" },
+    ]);
+  });
+
+  // The rejection this fix must NOT weaken: 999 is minted by nobody.
+  test("a genuine unknown id stays rejected even when plan rows are supplied", () => {
+    const calls = [newTask(), call("update_task", { id: 999, taskName: "Renamed" })];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
+    expect(rows[1].pendingOn).toBeUndefined();
+    expect(rows[1].plan.rejected).toEqual([
+      { toolName: "update_task", reason: "unknown-id", detail: "999" },
+    ]);
+  });
+
+  // ★★ A FORWARD reference is a genuine unknown id, and this is why the pending
+  // test reads `PlanRow.dependsOn` rather than a flat set of provisional ids.
+  // `buildPlanRows` links only BACKWARD, so an update emitted BEFORE the create
+  // that mints its id really will not be applyable — a flat-set implementation
+  // would call it pending and hide that.
+  test("an update emitted before its create is a genuine unknown id, not pending", () => {
+    const calls = [call("update_task", { id: 101, taskName: "Renamed" }), newTask()];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
+    expect(rows[0].pendingOn).toBeUndefined();
+    expect(rows[0].plan.rejected).toEqual([
+      { toolName: "update_task", reason: "unknown-id", detail: "101" },
+    ]);
+  });
+
+  test("a delete addressing a provisional id is pending, not an unknown id", () => {
+    const calls = [newTask(), call("delete_task", { id: 101 })];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
+    expect(rows[1].pendingOn).toBe(0);
+    expect(rows[1].plan.rejected).toEqual([]);
+    expect(rows[1].plan.deletes).toEqual([]);
+  });
+
+  // ★★★ A CREATE THAT MERELY LINKS TO ANOTHER CREATE IS NOT PENDING. Its own
+  // target is real and describable; only `PlanRow.dependsOn` (the TARGET edge)
+  // marks a row pending, never `dependsOnAll` (which also carries link edges).
+  // Collapsing the two would blank this row on the card.
+  test("a create that only LINKS a provisional id is still described", () => {
+    const calls = [newTask(), call("create_raid_item", { title: "R", linkedTaskIds: [101] })];
+    const planRows = buildPlanRows(calls, [101, 7]);
+    expect(planRows[1].dependsOnAll).toEqual([0]); // it IS linked...
+    const rows = describeProposal(calls, ws, planRows);
+    expect(rows[1].pendingOn).toBeUndefined();     // ...but not pending
+    expect(rows[1].plan.creates).toHaveLength(1);
+  });
+
+  // A pending row cannot be tokenised against a row that does not exist yet, and
+  // a token the model supplied is preserved through the pending branch too.
+  test("a pending row is forwarded verbatim, model token and all", () => {
+    const calls = [newTask(), call("update_task", { id: 101, expectedToken: "t" })];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
+    expect(rows[1].stamped).toEqual(rows[1].call);
+    expect(rows[1].stamped.input.expectedToken).toBe("t");
+  });
+
+  test("misaligned plan rows throw rather than describing against the wrong row", () => {
+    expect(() => describeProposal([call("update_task", { id: 1 })], ws, [])).toThrow(/plan rows/i);
+  });
+});
+
 describe("TOOL_ENTITY", () => {
   // Derived from INLINE_DESCRIPTORS rather than hand-typed, so it cannot drift
-  // from the descriptor set. These two assertions pin the DERIVATION against the
-  // gate's own reconciled write set, in both directions.
+  // from the descriptor set. The two TESTS below pin that derivation against the
+  // gate's own reconciled write set in both directions over the live tool
+  // surface: this one checks every derived key IS a write, the next that every
+  // write is either derived or knowingly undescribable. (The claim used to sit
+  // on the two ASSERTIONS in this test alone, neither of which checks the second
+  // direction — a tool the gate stages with no descriptor passed both.)
   test("names only tools the staging gate treats as entity writes", () => {
+    // Anti-vacuity: with no count, an empty TOOL_ENTITY passes the filter below.
     expect(Object.keys(TOOL_ENTITY).length).toBe(18);
     const notWrites = Object.keys(TOOL_ENTITY).filter((n) => !isEntityWriteTool(n));
     expect(notWrites).toEqual([]);
@@ -231,9 +384,23 @@ describe("TOOL_ENTITY", () => {
       "create_document", "update_document", "delete_document",
       "delete_all_tasks", "send_inquiry", "set_task_dependencies",
     ];
-    for (const name of undescribable) {
-      expect(isEntityWriteTool(name)).toBe(true);
-      expect(name in TOOL_ENTITY).toBe(false);
-    }
+    // ★★★ THE DIRECTION IS THE WHOLE POINT. Iterating that literal and asserting
+    // each member is a write absent from TOOL_ENTITY checks the LITERAL against
+    // the code and NEVER the code against the literal — so a tool added to
+    // `TOOL_DEFS` and to `ENTITY_WRITE_TOOLS` with no descriptor satisfies every
+    // such assertion and still reaches the card as the silently blank row this
+    // test claims to make visible. The COMPLEMENT is therefore derived from the
+    // live tool surface and compared as a set: a new undescribable tool makes it
+    // longer than the literal and names itself in the diff. The literal stays as
+    // the human-readable record of what is knowingly undescribable.
+    // ★ `TOOL_DEFS` is the right universe because `chat-proposal.test.ts`'s
+    // "every live tool is classified exactly once" pins that array as the whole
+    // live surface. RESIDUAL GAP: `ENTITY_WRITE_TOOLS` is not exported, so a
+    // name added to that set and to NO tool schema stays invisible here — it is
+    // equally unreachable by the model, so it cannot reach the card either.
+    const derived = (TOOL_DEFS as ReadonlyArray<{ name: string }>)
+      .map((d) => d.name)
+      .filter((n) => isEntityWriteTool(n) && !(n in TOOL_ENTITY));
+    expect(derived.sort()).toEqual([...undescribable].sort());
   });
 });

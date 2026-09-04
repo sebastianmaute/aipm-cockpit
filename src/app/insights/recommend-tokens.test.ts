@@ -69,6 +69,43 @@ it("leaves an update with a non-numeric id unstamped", () => {
   expect(out.proposedCalls[0].input).not.toHaveProperty("expectedToken");
 });
 
+// ★★★ NOT AN `update_*` TOOL, WHICH IS EXACTLY WHY IT HAD NO ROW. Enumerating
+// the guarded set by the `update_*` prefix skips `set_task_dependencies`, which
+// is token-guarded (`requireTaskWriteToken`) and CAN reach `stampCall` — via
+// `chat-proposal-describe.ts`, which filters by no allow-set and whose own
+// comment names this tool as one it emits a review row for.
+// ★★ NOT REACHABLE AT PRESENT, and pinned here anyway: `describeProposal` has
+// no production caller (the staging feature is unwired), so this is live ON
+// WIRING rather than live now. It has to be right BEFORE that lands — at that
+// moment an untokened call goes out unstamped and is refused at apply, visibly
+// to the user, with no gate having said anything, because nothing covers an
+// unwired path.
+// EQUALITY, NEVER PRESENCE, per the note at the top of this file.
+it("stamps set_task_dependencies with the target task's real token", () => {
+  const call = { name: "set_task_dependencies", input: { id: 42, dependencies: [{ taskId: 7, type: "FS" }] } };
+  const out = stampRecommendationTokens(rec([call]), ws);
+  expect(out.proposedCalls[0].input.expectedToken).toBe(entityToken("task", task));
+  // The whole-list replace the token exists to cover survives the stamp.
+  expect(out.proposedCalls[0].input.dependencies).toEqual([{ taskId: 7, type: "FS" }]);
+});
+
+// ★★ `stampCall` OVERWRITES A TOKEN THAT IS ALREADY THERE — it does not
+// preserve one, so a test asserting preservation would be red against this
+// module rather than against a defect. Preservation is the OTHER caller's job:
+// `chat-proposal-describe.ts` guards with `supplied != null ? call :
+// stampCall(call, ws)` because a model-supplied token covers the earlier and
+// wider window. A STORED recommendation carries no model token to lose, so
+// stamping unconditionally is right here — and copying either behaviour into
+// the other path narrows a guard. Pinned by VALUE: a mutant that starts
+// preserving, or that mints a placeholder, goes red.
+it("restamps a set_task_dependencies call that already carries a token", () => {
+  const stale = "token-from-an-older-read";
+  const call = { name: "set_task_dependencies", input: { id: 42, dependencies: [], expectedToken: stale } };
+  const out = stampRecommendationTokens(rec([call]), ws);
+  expect(out.proposedCalls[0].input.expectedToken).toBe(entityToken("task", task));
+  expect(out.proposedCalls[0].input.expectedToken).not.toBe(stale);
+});
+
 // The token must track the row, not merely exist: an edited row yields a
 // DIFFERENT token, which is the only reason the guard can ever refuse.
 it("yields a different token once the target row changes", () => {
@@ -114,7 +151,7 @@ it("does not surface the token as a proposed field change in the review preview"
 //   `update_*` NAME — `set_task_dependencies` is guarded and does not carry the
 //   prefix, so a name-based enumeration would call this green while missing
 //   exactly the tool whose addition to the allow-set is most plausible.
-describe("every recommendable guarded tool can be stamped", () => {
+describe("UPDATE_TARGET is derived from the guarded set, never hand-listed", () => {
   const guarded = new Set(
     TOOL_DEFS.filter(
       (d) =>
@@ -144,5 +181,28 @@ describe("every recommendable guarded tool can be stamped", () => {
         entityToken(kind, row),
       );
     }
+  });
+
+  // ★★★ THE WIDER DIRECTION, AND THE ONE THAT WAS MISSING. Both cases above
+  //   intersect the guarded set with `ALLOWED_REC_TOOLS`, so they can only ever
+  //   see the recommendation path — while `stampCall`'s other consumer,
+  //   `chat-proposal-describe.ts`, filters by no allow-set at all. That is how
+  //   a guarded, non-recommendable tool (`set_task_dependencies`) could sit
+  //   with no row while this file stayed green — and it did, until the row
+  //   below it. Assert against the FULL guarded set instead, and name the one
+  //   structural exception rather than skipping it. The intersecting cases
+  //   above cannot be widened in place: they are the recommendation path's own
+  //   coverage and stay scoped to it.
+  it("has a row for every guarded tool but the one that cannot be expressed", () => {
+    // Anti-vacuity for a PARTIAL collapse of the `guarded` enumeration: a TOTAL
+    // collapse is already red below (`[]` does not equal a one-element list),
+    // but a shape change that found only some schemas would not be.
+    expect(guarded.size).toBeGreaterThanOrEqual(7);
+    const unstampable = [...guarded].filter((t) => !(t in UPDATE_TARGET)).sort();
+    // EXACT, not a subset, so it bites in both directions: a new guarded tool
+    // added without a row is red, and so is closing the `update_resource` gap
+    // (by widening `RecommendPlanWorkspace`) while leaving the comment in
+    // `recommend-tokens.ts` claiming it is still open.
+    expect(unstampable).toEqual(["update_resource"]);
   });
 });
