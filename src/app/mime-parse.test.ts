@@ -696,4 +696,48 @@ describe("parseMimeMessage line endings", () => {
     expect(m.parts[0].text).toBe("inner part");
     expect(m.diagnostics.join(" ")).not.toContain("no closing boundary");
   });
+
+  // ★★★ THE ACCEPTED COST OF THE WIDENING — this test pins behaviour that was
+  // CHOSEN, not behaviour that is wanted, and it is the only thing standing
+  // between that choice and a silent reversal. A lone LF immediately before
+  // the marker anchors it even in a message that is CRLF everywhere else, so
+  // a sender able to place one bare LF into part text can forge a sibling
+  // part with headers of their choosing. The CRLF-only anchor rejected
+  // exactly this — and lost every attachment of every LF-only message to buy
+  // it (the five splitting tests above, each of which the pre-widening code
+  // failed). Reading real mail was judged worth the narrower guard.
+  //
+  // ★★ MEASURED against the true pre-widening anchor, not reasoned: 7 failed
+  // / 49 passed of this file's 56. Six of the seven are the LF-only family
+  // (the five splitting tests, plus the LF-only forgery test — which goes red
+  // on its own non-vacuity assertion, NOT on forgery); the seventh is this
+  // test. The CRLF and the mixed-ending forgery tests both place their marker
+  // MID-LINE, so they stay GREEN under either anchor and neither covers this
+  // shape. If you are here because you are tightening the anchor back to
+  // CRLF-only, this test going red is the trade being reversed, not a
+  // regression you introduced — read the header comment in mime-parse.ts,
+  // then decide deliberately.
+  //
+  // ★★ THAT MUTANT IS TWO COUPLED EDITS, and a one-line one misleads badly.
+  // `walkMultipartChildren` prepends a synthetic break so the first delimiter
+  // matches like every later one, so requiring `scan[idx - 2] === "\r"`
+  // WITHOUT also widening that prepend rejects the FIRST delimiter of every
+  // message and turns 32 tests red — a result that says nothing whatever
+  // about line endings, and reads as though this area were far better covered
+  // than it is.
+  it("lets a lone LF before the marker delimit inside a CRLF message (accepted cost)", () => {
+    const raw = forged.join("\r\n").replace("benign text --B\r\n", "benign text\n--B\r\n");
+    // The ONLY bare LF in the message, and it sits directly in front of the
+    // marker — every other break, including the one after it, is CRLF.
+    expect(raw).toContain("benign text\n--B\r\nContent-Type: application/x-forged");
+    expect(raw.split("\n").filter((l) => !l.endsWith("\r"))).toHaveLength(2); // the LF line + the tail
+
+    const m = parseMimeMessage(raw);
+    expect(m.parts).toHaveLength(2);
+    expect(m.parts.map((p) => p.mimeType)).toContain("application/x-forged");
+    expect(m.parts.map((p) => p.fileName)).toContain("evil.exe");
+    // The break in front of the delimiter belongs to the delimiter, so the
+    // benign part keeps none of it.
+    expect(m.parts[0].text).toBe("benign text");
+  });
 });
