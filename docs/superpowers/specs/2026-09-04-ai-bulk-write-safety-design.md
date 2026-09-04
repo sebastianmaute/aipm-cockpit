@@ -9,8 +9,21 @@ C planning/calendar writers · D ingest breadth). D shipped as 0.281.0 "Womack" 
 ## Goal
 
 An assistant must not write many rows, or delete anything, without the user seeing what it is about
-to do and being able to reject part of it — and every AI write, staged or instant, must be undoable
-by the same mechanism every human write already uses.
+to do and being able to reject part of it — and every AI write that the undo engine is *capable* of
+reversing must be undoable by the same mechanism every human write already uses.
+
+★★★ **CORRECTED 2026-09-04, during implementation. This sentence originally read "every AI write,
+staged or instant, must be undoable" and that is not achievable.** The undo engine has no create op:
+`undo-stack.ts:12` is `export type UndoOp = "delete" | "edit";`, and `use-undo-stack.ts:203-205`
+states the consequence outright — "The UNDO direction never removes … no entity in the app captures
+a create." Capturing a create as a `removed` image does not merely fail to work; it is ACTIVELY
+HARMFUL. At undo time the created row is still live, so `present.has(item.id)` is true and
+`applyUndoRestoreWithRemap` takes its id-reuse branch (`undo-stack.ts:137-146`), minting `max+1` and
+splicing in a SECOND copy. Measured against the real engine: undoing an AI create of a third row
+yields four rows with the new row present twice. **So capture is for updates and deletes only.**
+Creates are protected by the Phase 2 gate instead — a turn writing more than one row stages, so a
+bulk create is reviewed before it lands. A SINGLE create stays un-undoable, which is exactly how
+every human create in this app already behaves; it is uniform, not an AI-specific hole.
 
 ## Why this track exists
 
@@ -36,6 +49,11 @@ Four measured gaps this spec closes:
    They log; they capture no before-image. `grep -c pushUndo` over `chat-tools.ts`,
    `chat-tools-updates.ts`, `chat-tools-lists.ts`, `chat-tools-documents.ts` and `chat-api.ts`
    returns 0 in every file. The chat path is the one writer in the app outside the undo stack.
+   ★ **This gap is closed for `update_*` and `delete_*` only.** `createTask` is named above as
+   evidence that the chat path captures nothing — which is true — but it is NOT a site this spec
+   fixes: no entity in the app captures a create, because the engine cannot reverse one. Read the
+   ★★★ note under Goal before treating a create site as an outstanding gap; adding a capture there
+   is a regression, not a completion, and it duplicates the row on undo.
 2. **"Confirm with the user first" is unenforced prose.** It appears in the tool *descriptions* in
    `chat-tool-defs.ts` on `delete_task` (:297), `delete_all_tasks` (:307), `delete_resource` (:615),
    `delete_raid_item` (:643), `delete_change` (:671), `delete_milestone` (:698) and
@@ -135,7 +153,9 @@ ids already allocated. On Discard, nothing is written.
 
 1. **Gate.** A turn stages if any call is destructive (`delete_*`, `delete_all_tasks`) **or** the
    turn's write count exceeds one. Reads never stage. A single non-destructive write applies
-   instantly, with undo capture (B1).
+   instantly, with undo capture (B1) **if it is an update; a single create applies instantly and
+   cannot be undone**, per the engine constraint recorded under Goal. The gate is what covers
+   creates: two or more writes stage, so the only un-undoable create is a lone one.
 2. **Tool result.** A staged call returns `{ staged: true, id, ... }`. The system prompt states that
    staged writes are not yet applied and must not be re-issued. This replaces the unenforced
    "Confirm with the user first" prose, which is removed from the seven tool descriptions.
@@ -177,7 +197,7 @@ so a popout can neither write nor stage.
 | Model re-issues a staged call despite the prompt | It stages too; identical `(name, input)` pairs collapse in the plan. |
 | User discards | Nothing written. Provisional ids are burned; `mintId`'s high-water mark never re-mints them. |
 | Reload or thread switch with a pending plan | The plan survives exactly as the transcript does; stale tokens are refused per row at apply. |
-| Partially applied plan, then Undo | Before-images are captured for **applied** rows only, so undo restores exactly what landed. |
+| Partially applied plan, then Undo | Before-images are captured for **applied** rows only, so undo restores exactly what landed — **for the update and delete rows.** A plan's CREATE rows contribute no before-image at all (see Goal), so undoing an applied mixed plan reverts its edits and restores its deletions while leaving its created rows in place. The undo label must not promise otherwise. |
 | Read-only popout | `popoutReadOnly` throws before the gate — neither write nor stage. |
 
 ## Testing
