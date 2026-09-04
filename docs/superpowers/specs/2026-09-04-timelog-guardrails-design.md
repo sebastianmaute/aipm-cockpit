@@ -74,10 +74,27 @@ Reproduce: `grep -rn "timelogLinksToCsv\|timelogLinksToMarkdown\|sanitizeTimelog
 ### 3.3 The byte-stability rule is the file's own existing convention
 
 §347 warns that `sanitizeTimelogLinks` "must return `undefined`, never `{}`, for absent policy" or
-`golden-workspace.test`'s pinned bytes move. Correct, and it is not a new rule: the function already
+`golden-workspace.test`'s pinned bytes move. The RULE is right and it is not a new one; the stated
+DETECTOR is wrong, and §3.4 below carries the measurement. The function already
 does exactly this twice, for `customerId` and for `projectIds`, and says so in both comments — "drop
 the key otherwise so an unscoped blob stays byte-stable". The new field follows the established
 local pattern rather than introducing a constraint.
+
+### 3.4 ★★★ `golden-workspace.test` CANNOT see this field — the fourth correction
+
+Measured 2026-09-04 during Task 3, not reasoned: `grep -c timelogLinks sample-workspace-small.json`
+returns **0**, and neither `__fixtures__/golden-workspace.csv` nor `.md` contains the string. The
+golden suite serialises the sample master, which carries no `timelogLinks` blob, so it never reaches
+`sanitizeTimelogLinks` and stays green whichever way this field serialises. Proved by mutation: the
+`policy: policy ?? {}` mutant left **all 5** golden cases passing while killing 5 cases in
+`timelog-sanitize.test.ts`.
+
+So the byte-stability RULE stands and the reason for it stands — a blob predating the feature must
+serialise unchanged on all six write paths — but the only detectors are the two "omits the policy
+key" cases in `timelog-sanitize.test.ts` plus the two pre-existing whole-object `toEqual` link cases.
+Writing "golden-workspace pins those bytes" into a source comment would have been a false-coverage
+claim, which reads as protection and stops the next audit; the shipped comment names the real
+detectors and carries the measurement instead.
 
 ### 3.4 `holidaysForCountries` does not exist
 
@@ -248,8 +265,9 @@ then ride every AI turn. It also avoids handing anyone an under-reporting daily 
 working-hours rule they never asked for.
 
 `sanitizeTimelogLinks` returns `policy` **only when at least one rule is configured**, and drops the
-key otherwise — the existing `customerId`/`projectIds` pattern, for the reason those two record:
-`golden-workspace.test` pins these bytes and an added key reads as a real format change.
+key otherwise — the existing `customerId`/`projectIds` pattern, for the reason those two record: a
+blob predating the feature must serialise unchanged. ★ The detector is `timelog-sanitize.test.ts`,
+NOT `golden-workspace.test`, which cannot reach this function at all — see §3.4.
 
 Per §3.2, no codec code is needed on any of the six write paths.
 
@@ -289,8 +307,9 @@ code alone, then revert by inverse anchored write with a uniqueness assertion in
 - **Required-argument proof:** the compile-error property is the whole justification for making the
   argument required rather than defaulted. Pin it with a type-level test, not prose.
 - **Persistence** (`timelog-links-persistence.test.ts`): round-trip a policy through all six paths,
-  and pin that a workspace with **no** policy serialises byte-identically to today. The second half
-  is what protects `golden-workspace.test`.
+  and pin that a workspace with **no** policy serialises byte-identically to today. ★★ The second
+  half is the ONLY thing protecting that property — `golden-workspace.test` cannot see this field
+  (§3.4), so an absence case that is merely assumed is an unguarded one.
 - **Cache back-compat:** an `ActualsCacheEntry` written before `daily` existed must still load, and
   a malformed `daily` must fail open rather than dropping the entry.
 - **Settings a11y:** a unit test rendering the four rows and asserting row-unique accessible names

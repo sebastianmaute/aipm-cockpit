@@ -661,9 +661,10 @@ Append to `src/app/timelog-sanitize.test.ts`:
 describe("sanitizeTimelogLinks policy", () => {
   const base = { userLinks: [], projectLinks: [] };
 
-  // ★★ TRAP (d): the round-trip alone does not protect golden-workspace.test.
-  // This is the half that does — an unconfigured blob must be byte-identical
-  // to what it was before `policy` existed.
+  // ★★ TRAP (d): the round-trip alone does not pin the absence case. This is
+  // the half that does — an unconfigured blob must be byte-identical to what it
+  // was before `policy` existed — and it is the ONLY thing that does, since
+  // golden-workspace.test cannot reach this function (see Step 6's correction).
   it("omits the policy key entirely when no rule is configured", () => {
     const out = sanitizeTimelogLinks({ ...base });
     expect(out).toBeDefined();
@@ -750,7 +751,8 @@ Helper, placed above `sanitizeTimelogLinks`:
 // Guardrail policy. Mirrors the customerId/projectIds treatment directly above:
 // an unconfigured rule contributes NO key, and an entirely unconfigured policy
 // contributes no `policy` key at all, so a blob that predates this feature
-// serialises byte-identically. golden-workspace.test pins those bytes.
+// serialises byte-identically. ★★ NOT pinned by golden-workspace.test — see the
+// correction at Step 6; the shipped comment names the real detectors instead.
 function sanitizeTimelogPolicy(raw: unknown): TimelogPolicy | undefined {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const r = raw as Record<string, unknown>;
@@ -809,7 +811,9 @@ becomes
 
 Run: `npx vitest run src/app/timelog-sanitize.test.ts src/app/golden-workspace.test.ts > "$SCRATCH/sanitize-mutant.log" 2>&1; echo "EXIT=$?"; grep -E "Tests |×" "$SCRATCH/sanitize-mutant.log"`
 
-Expected: red, and the named failures must include **"omits the policy key entirely when no rule is configured"** *and* at least one `golden-workspace` case. Two independent detectors is the point — if only one fires, say which in the commit message.
+★★★ **CORRECTED 2026-09-04 AFTER EXECUTION — this step's expectation was WRONG.** It read: the named failures must include "omits the policy key entirely when no rule is configured" *and* at least one `golden-workspace` case, "two independent detectors is the point". There is only ONE detector and there can never be two: `grep -c timelogLinks sample-workspace-small.json` returns **0** and neither golden fixture contains the string, so that suite never reaches `sanitizeTimelogLinks`. Measured — the mutant killed 5 cases in `timelog-sanitize.test.ts` and left **all 5** golden cases passing.
+
+Expected: red, `Test Files 1 failed | 1 passed (2)` with the failing file being `timelog-sanitize.test.ts`, and the named failures including **"omits the policy key entirely when no rule is configured"**. Zero `golden-workspace` cases fire, and that is the correct result, not a missing detector.
 
 Revert with the inverse Edit, `grep -c` both spellings (expect `1` for the guarded form, `0` for the mutant), and finish on an empty `git diff --stat`.
 
@@ -825,8 +829,8 @@ feat(timelog): persist guardrail policy on the TimelogLinks blob
 Both codecs are whole-blob JSON.stringify, so no codec code is needed on any of
 the six write paths — only the sanitizer. It drops the policy key when nothing
 is configured, the same treatment customerId and projectIds already get, so an
-unconfigured workspace serialises byte-identically and golden-workspace.test's
-pinned bytes do not move.
+unconfigured workspace serialises byte-identically. The only detectors are in
+timelog-sanitize.test.ts; golden-workspace.test never reaches this function.
 
 Claude-Session: https://[session link removed]
 EOF
