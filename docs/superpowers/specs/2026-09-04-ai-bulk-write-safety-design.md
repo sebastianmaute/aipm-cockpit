@@ -148,8 +148,16 @@ ids already allocated. On Discard, nothing is written.
 5. **Tokens stamped at propose, verified at apply.** A row whose entity a human edited in the
    interval fails **that row only**; the rest apply, and failures are reported in the card. This is
    the guarantee §349 gave document blocks, extended to a plan.
-6. **One undo entry per applied plan.** `pushUndoMany` with the entity-ambiguous `bulk.edit` kind
-   and an explicit `entityKey`.
+6. **One undo entry per applied plan** — `captureComposite`, with the entity-ambiguous `bulk.edit`
+   kind and an explicit `entityKey` (without which `buildUndoLabel` degrades to "Edited N items").
+
+   ★ **NOT `pushUndoMany`, which an earlier revision of this spec named.** That helper appends N
+   entries and is used only for redo-stack inverses (`use-undo-stack.ts:663`, `:681`), never for
+   capture. `captureComposite` is the right call for a second reason too: `capture` binds to ONE
+   setter and array, while a plan spans several entities. A composite takes one fragment per
+   affected array (`capturePart` for whole-row removals, `captureFieldPart` for field patches) and
+   pushes exactly one entry. Its own doc states the single-array case is legitimate and is "how a
+   fan-out of field edits becomes ONE undo entry instead of N".
 
 ### Lifetime
 
@@ -194,8 +202,10 @@ Beyond those: descriptor tests for the newly-described `resource` calls (`create
 `update_resource`, `delete_resource`); a multi-row grounding test proving a plan spanning several
 ids describes every row rather than rejecting all but one as `"unsupported"` — the one-item binding
 is the trap here, and a single-row fixture cannot see it; a cascade test (reject a create, its
-dependent rows deselect); a `pushUndoMany` test
-proving **one** undo entry rather than N, and that undo restores every applied row and only those.
+dependent rows deselect); and a `captureComposite` test proving a plan spanning **two different
+entities** pushes exactly **one** undo entry rather than N, and that undoing it restores every
+applied row and only those. The two-entity fixture is load-bearing: a single-entity plan would pass
+against a wrong implementation that called `capture` per array.
 
 ## Non-goals
 
