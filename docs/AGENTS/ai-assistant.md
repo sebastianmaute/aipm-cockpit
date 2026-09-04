@@ -15,8 +15,11 @@
 
 - **Wire layer:** `chat-panel.tsx` is the React surface; the non-React WIRE LAYER (Anthropic protocol types
   `TextBlock`/`ContentBlock`/`SystemBlock`/`ApiMessage`/`DisplayItem`, `callClaude`, `buildSystemPrompt`,
-  `systemBlocksText`, `readAttachmentData`, `stringifyResult`) lives in pure i18n-free `chat-api.ts` — import
-  from there, NOT chat-panel. Calls Anthropic directly (browser,
+  `systemBlocksText`, `stringifyResult`) lives in pure i18n-free `chat-api.ts` — import
+  from there, NOT chat-panel. File-attachment reading/classifying/extracting is a separate pipeline,
+  `ingestFile`/`ingestBytes` in `attachment-ingest.ts`, shared by chat-panel and the wizard's
+  Step0ImportPanel (`readAttachmentData` used to live in `chat-api.ts`; it was retired when that
+  pipeline was unified). Calls Anthropic directly (browser,
   `anthropic-dangerous-direct-browser-access`). `buildSystemPrompt` returns `SystemBlock[]`, NOT a string.
   ★★ Anthropic prompt caching is PREFIX-based: stable/cacheable content (instructions + operating-guide text)
   MUST come FIRST with `cache_control:{type:"ephemeral"}` breakpoint after it, and volatile data (today, task
@@ -845,12 +848,17 @@
   no duplicates → toast; usage-limit / API errors surface via the shared `classifyAiError`. New `ai.taskDedup`
   activity kind + EN/DE strings. Wired into the Open Points toolbar (`tasks-section.tsx` → `task-manager`).
 - **AI doc ingestion / multimodal:** `chat-panel.tsx`'s `ContentBlock` union includes `AttachmentBlock`
-  (image/document) from pure `chat-attachments.ts` (classify by mime+extension, 20 MB cap, build the Anthropic
+  (image/document) from pure `chat-attachments.ts` (classify by mime+extension, build the Anthropic
   block — PDF/image as base64 `source`, text as `{type:"text"}` document source; NO parsing lib, Claude reads
-  natively). The `FileReader` (readAsDataURL for binary, readAsText for text) lives in chat-panel (module
-  stays pure). A user turn with attachments sends `content` as `ContentBlock[]` (text block first, then
-  attachments) not a string. CSP already allows `api.anthropic.com`. Chat view is NOT in axe `A11Y_VIEWS` —
-  verify chat controls by eye.
+  natively). ★★ READING the bytes is NOT here and no longer uses `FileReader` at all — that claim stood in
+  this file after the pipeline moved: `attachment-ingest.ts` (`ingestFile` / `ingestBytes`) owns it and reads
+  via `file.arrayBuffer()`. It is the single entry point for the consumers; see the attachment-ingest
+  bullet in `AGENTS.md` for the rules that gate it. ★ There are TWO size caps, not one —
+  `MAX_ATTACHMENT_BYTES` (20 MB) for a flat file and `MAX_MAIL_BYTES` (64 MB) for mail — and six kinds, not
+  two: `pdf` · `image` · `text` · `office` · `html` · `mail`. A user turn with attachments sends `content` as
+  `ContentBlock[]` (text block first, then attachments) not a string, and for a mail that is
+  `flattenIngestBlocks(node)` — the whole tree, not the envelope. CSP already allows `api.anthropic.com`.
+  Chat view is NOT in axe `A11Y_VIEWS` — verify chat controls by eye.
 - **AI project creation:** Step 0 "Describe" in `CreateProjectWizard` (gated on a configured key) → ONE
   forced-tool Anthropic call (`tool_choice:{type:"tool",name:"propose_project"}`, no agentic loop) in
   `use-project-proposal.ts`; pure contract/transforms in `ai-project-proposal.ts`. The proposal pre-fills the
@@ -867,7 +875,17 @@
 - **Create project from source:** the create wizard's Step 0 (extracted to `step0-import-panel.tsx`) adds
   Upload-file / SharePoint / Confluence-URL import alongside Describe; all funnel into
   `useProjectProposal().generate(...)` — widened to `string | ContentBlock[]` (multimodal: PDF/image read
-  natively via `chat-attachments`, NO parsing lib). File: 20 MB cap + `classifyAttachment` reused. SharePoint:
+  natively via `chat-attachments`, NO parsing lib). File AND SharePoint both call `ingestFile` / `ingestBytes`
+  and push `flattenIngestBlocks(node)`. The panel's own `readFileData` and `arrayBufferToBase64` are GONE
+  (REMOVED with the pipeline move — do NOT reintroduce either), as is `mimeForKind`, whose per-kind
+  `image/png` guess is replaced by a per-EXTENSION fallback inside the orchestrator. ★★ `mimeForKind` still
+  greps as present because a comment in `attachment-ingest.test.ts` names it; `docs:symbols:check` counts a
+  comment as existence, so a grep-says-it-exists is not evidence the code does. ★ Its error narrowing is
+  exhaustive on purpose — an annotation spelling the variants out as literals: a new
+  `IngestResult` error member must be handled here rather than silently joining the throw that abandons the
+  WHOLE import batch. ★★ It guards which variants may reach that branch and says NOTHING about how any of
+  them is RENDERED — "encrypted" was in the annotation while both call sites still rendered it as the
+  generic source failure (`docs/open-followups.md` §352). SharePoint:
   `SharePointPickerModal` → `fetchSharePointFileContent` via Graph `/shares/{u!base64(url)}/driveItem/content`
   (reuses `PICKER_SCOPES`, no extra consent). ★★ Confluence: `src/app/api/confluence/page/route.ts` MUST REUSE
   `api/jira/_helpers` (`parseJiraRequest`/`callJira`/`forwardJsonResponse`) — NEVER a raw `fetch` (that

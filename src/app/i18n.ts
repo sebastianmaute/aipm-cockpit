@@ -729,9 +729,13 @@ const enUS = {
   chatTruncatedNote: "The response was cut short at the length limit. Ask me to continue.",
   chatAttach: "Attach a document",
   chatAttachmentRemove: "Remove {0}",
-  chatAttachmentTooLarge: "{0} is too large (max 20 MB)",
+  chatAttachmentTooLarge: "{0} is too large",
   chatAttachmentUnsupported: "{0} is not a supported file type",
   chatAttachmentReadFailed: "Could not read {0}",
+  chatAttachmentEncrypted: "{0} is password-protected — save it without protection and try again",
+  chatAttachmentSummaryOne: "{0} — 1 attachment",
+  chatAttachmentSummaryMany: "{0} — {1} attachments",
+  chatAttachmentSummarySkipped: "{0} — {1} attachments, {2} skipped",
   chatAttachmentHint: "Attach PDF, image (PNG/JPG/GIF/WebP), or text (TXT/MD/CSV) files — up to 20 MB each.",
   chatToolCall: "Used {0}",
   chatToolError: "Tool error",
@@ -920,6 +924,7 @@ const enUS = {
   wizardImportErrorTooLarge: "That file is too large (max 20 MB).",
   wizardImportErrorConfluenceUrl: "Could not read that Confluence URL.",
   wizardImportErrorSource: "Could not import from that source.",
+  wizardImportErrorEncrypted: "That file is password-protected. Save it without protection and try again.",
   versionHighlightAiCreateWizard:
     "Create a project from a plain-language description — Claude proposes the setup and starter content.",
   versionHighlightAiActionSuggestions:

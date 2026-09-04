@@ -338,6 +338,11 @@ describe("tool list gating", () => {
   });
 });
 
+// The html-decodes-as-text-not-base64 regression this described (0b4d23e5) is
+// now covered at the source: readAttachmentData was retired in favour of the
+// single attachment-ingest.ts pipeline (attachment-ingest.test.ts's "routes
+// html through the html extractor" / "base64-encodes a pdf" pair).
+
 describe("tool variants", () => {
   const ALL = {};
   const NO_HISTORY = { historySearch: false };

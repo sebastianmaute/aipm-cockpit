@@ -291,19 +291,10 @@ export async function processUpload(
   return { ok: true, image: chosen, size };
 }
 
-const B64_CHUNK = 0x8000;
-
-/** ★ Chunked: String.fromCharCode.apply overflows its argument limit on a
- *  multi-megabyte payload, which is the size this ships for. Emits RAW base64 —
- *  no `data:` prefix, because the store holds bytes and the preview builds its
- *  own blob URL. */
-export function bytesToBase64(bytes: Uint8Array): string {
-  let out = "";
-  for (let i = 0; i < bytes.length; i += B64_CHUNK) {
-    out += String.fromCharCode(...bytes.subarray(i, i + B64_CHUNK));
-  }
-  return btoa(out);
-}
+// bytesToBase64 moved to base64.ts (attachment-ingest.ts needed the identical
+// chunked encoder for AI attachments); re-exported here so existing importers
+// of this module are unaffected.
+export { bytesToBase64 } from "./base64";
 
 export function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);

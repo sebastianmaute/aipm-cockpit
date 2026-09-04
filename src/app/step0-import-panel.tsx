@@ -17,14 +17,10 @@ import { t, type Lang } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
 import { type ProposalContent } from "./use-project-proposal";
-import {
-  classifyAttachment,
-  checkAttachmentSize,
-  buildAttachmentBlock,
-  type AttachmentKind,
-} from "./chat-attachments";
+import { classifyAttachment, ATTACHMENT_ACCEPT, type AttachmentBlock } from "./chat-attachments";
+import { flattenIngestBlocks, ingestBytes, ingestFile } from "./attachment-ingest";
+import { officeKindOf } from "./office-extract";
 import { isSharePointEnabled, fetchSharePointFileContent } from "./m365-sharepoint";
-import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { fetchConfluencePage } from "./confluence-api";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useMsAuth } from "./use-ms-auth";
@@ -41,52 +37,6 @@ const MAX_IMPORT_FILES = 10;
 
 /** Step-0 source picker: describe (default), file upload, SharePoint, Confluence. */
 type ImportMethod = "describe" | "file" | "sharepoint" | "confluence";
-
-/** Fallback MIME when a picked file/blob reports an empty content type. */
-function mimeForKind(kind: AttachmentKind): string {
-  if (kind === "pdf") return "application/pdf";
-  if (kind === "image") return "image/png";
-  return "text/plain";
-}
-
-/** Read a File into the shape buildAttachmentBlock expects: base64 (no data:
- *  prefix) for pdf/image, decoded UTF-8 string for text. */
-function readFileData(file: File, kind: AttachmentKind): Promise<string> {
-  if (kind === "office") {
-    const fmt = officeKindOf(file.type, file.name);
-    if (!fmt) return Promise.reject(new Error("read"));
-    return file.arrayBuffer().then((buf) => extractOfficeMarkdown(buf, fmt));
-  }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("read"));
-    if (kind === "text") {
-      reader.onload = () => {
-        if (typeof reader.result !== "string") return reject(new Error("read"));
-        resolve(reader.result);
-      };
-      reader.readAsText(file);
-    } else {
-      reader.onload = () => {
-        if (typeof reader.result !== "string") return reject(new Error("read"));
-        resolve(reader.result.split(",")[1] ?? "");
-      };
-      reader.readAsDataURL(file);
-    }
-  });
-}
-
-/** Base64-encode an ArrayBuffer in chunks (avoids String.fromCharCode call-stack
- *  limits on large buffers). */
-function arrayBufferToBase64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  const CHUNK = 0x8000;
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  }
-  return btoa(binary);
-}
 
 export interface Step0ImportPanelProps {
   lang: Lang;
@@ -154,7 +104,7 @@ export function Step0ImportPanel({
     setSkipped([]);
     onResetAi();
     const dropped: { name: string; reason: "too-large" | "unsupported" | "too-many" }[] = [];
-    const blocks: ReturnType<typeof buildAttachmentBlock>[] = [];
+    const blocks: AttachmentBlock[] = [];
     setReading(true);
     try {
       for (let i = 0; i < files.length; i++) {
@@ -163,22 +113,50 @@ export function Step0ImportPanel({
           dropped.push({ name: file.name, reason: "too-many" });
           continue;
         }
-        if (checkAttachmentSize(file.size)) {
-          dropped.push({ name: file.name, reason: "too-large" });
-          continue;
+        const result = await ingestFile(file);
+        if (!result.ok) {
+          if (result.error === "too-large") {
+            dropped.push({ name: file.name, reason: "too-large" });
+            continue;
+          }
+          if (result.error === "unsupported-type") {
+            dropped.push({ name: file.name, reason: "unsupported" });
+            continue;
+          }
+          // A genuine read error abandons the batch: any `dropped` entries
+          // collected before this throw are not surfaced (the source error is
+          // shown instead).
+          //
+          // ★★ THE ANNOTATION IS THE EXHAUSTIVENESS CHECK, and it is here
+          // because abandoning the batch is the SEVERE branch — a sixth
+          // IngestResult error variant would otherwise join it silently and
+          // discard valid files already collected, with nothing to review.
+          // Spelling the three literals out (rather than deriving them with
+          // Exclude<>) is what makes a new variant a compile error: a derived
+          // type would simply widen to admit it. chat-panel.tsx gets the same
+          // property for free, since attachmentErrorText names the full union.
+          // ★★ THE ANNOTATION IS AN EXHAUSTIVENESS CHECK, NOT A SURFACING ONE,
+          // and reading it as both is how "encrypted" stayed invisible here.
+          // It names the variant, so it compiled unchanged when the protected
+          // -attachment work landed and nothing forced anyone to look at the
+          // catch below — which rendered the generic source-failure string for
+          // every variant alike. The chat panel told the user to remove the
+          // password while the wizard said "Could not import from that
+          // source." The message code travels in the Error so the catch can
+          // tell them apart; a new variant still fails to compile HERE.
+          const fatal: "read-failed" | "encrypted" | "budget-exhausted" = result.error;
+          throw new Error(fatal);
         }
-        const kind = classifyAttachment(file.type, file.name);
-        if (!kind) {
-          dropped.push({ name: file.name, reason: "unsupported" });
-          continue;
-        }
-        const data = await readFileData(file, kind);
-        blocks.push(buildAttachmentBlock(kind, file.type || mimeForKind(kind), data));
+        // The whole walked tree, not just the mail envelope — see
+        // flattenIngestBlocks. One dropped .eml can contribute several blocks.
+        blocks.push(...flattenIngestBlocks(result.node));
       }
-      // A genuine read error abandons the batch: any `dropped` entries collected
-      // before the throw are not surfaced (the source error is shown instead).
-    } catch {
-      setImportError(t(lang, "wizardImportErrorSource"));
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "";
+      setImportError(t(
+        lang,
+        code === "encrypted" ? "wizardImportErrorEncrypted" : "wizardImportErrorSource",
+      ));
       setReading(false);
       return;
     }
@@ -215,32 +193,35 @@ export function Step0ImportPanel({
         link.name,
         acquireToken,
       );
-      if (checkAttachmentSize(bytes.byteLength)) {
-        setImportError(t(lang, "wizardImportErrorTooLarge"));
+      const result = await ingestBytes(new Uint8Array(bytes), mime, name);
+      if (!result.ok) {
+        // classifyAttachment returning "office" implies officeKindOf is
+        // non-null, so this is provably unreachable — kept as a defensive
+        // restatement of the pre-orchestrator check so a genuinely
+        // unresolvable office format still reports "unsupported", not the
+        // generic source-failure message a corrupt/unreadable file gets.
+        const unresolvableOffice =
+          result.error === "read-failed" &&
+          classifyAttachment(mime, name) === "office" &&
+          !officeKindOf(mime, name);
+        setImportError(
+          t(
+            lang,
+            result.error === "too-large"
+              ? "wizardImportErrorTooLarge"
+              : result.error === "encrypted"
+                ? "wizardImportErrorEncrypted"
+                : result.error === "unsupported-type" || unresolvableOffice
+                  ? "wizardImportErrorUnsupported"
+                  : "wizardImportErrorSource",
+          ),
+        );
         return;
       }
-      const kind = classifyAttachment(mime, name);
-      if (!kind) {
-        setImportError(t(lang, "wizardImportErrorUnsupported"));
-        return;
-      }
-      // Derive the office format once (null for non-office kinds). classifyAttachment
-      // returning "office" implies officeKindOf is non-null, but branch on the captured
-      // value rather than a bare `!` assertion; an unexpected null reads as unsupported.
-      const officeFmt = kind === "office" ? officeKindOf(mime, name) : null;
-      if (kind === "office" && !officeFmt) {
-        setImportError(t(lang, "wizardImportErrorUnsupported"));
-        return;
-      }
-      const data =
-        kind === "text"
-          ? new TextDecoder().decode(bytes)
-          : officeFmt
-            ? await extractOfficeMarkdown(bytes, officeFmt)
-            : arrayBufferToBase64(bytes);
       content = [
         { type: "text", text: t(lang, "wizardImportFilePrompt") },
-        buildAttachmentBlock(kind, mime, data),
+        // A SharePoint-picked .eml is a tree exactly like a dropped one.
+        ...flattenIngestBlocks(result.node),
       ];
     } catch {
       setImportError(t(lang, "wizardImportErrorSource"));
@@ -339,7 +320,7 @@ export function Step0ImportPanel({
               type="file"
               multiple
               aria-label={t(lang, "wizardImportFileLabel")}
-              accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv,.html,.htm,.vtt,.docx,.xlsx,.xlsm,.pptx,text/html,text/vtt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              accept={ATTACHMENT_ACCEPT}
               disabled={reading || aiBusy}
               onChange={onFile}
               className="text-sm text-foreground file:mr-3 file:rounded-md file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:text-foreground hover:file:bg-surface-muted disabled:opacity-50"
