@@ -17,6 +17,7 @@
 // wrong write through cannot be recovered from within the session that made it.
 import type { DocOp } from "./document-mutations";
 import type { ProjectDocument } from "./document-model";
+import { blockToken } from "./document-block-token";
 
 export type DocumentSummary = {
   id: number;
@@ -169,6 +170,44 @@ function requirePayload(op: unknown, i: number): void {
       throw new Error(`op ${i}: ${kind} requires a block`);
     }
   }
+  // ★★★ REFUSE ON ABSENCE, in the same spirit as `requireToken` — but NOT as a
+  // mirror of it, and this comment claimed to be one. Two corrections:
+  // ★★ `requireToken` guards SEVEN tools, not six: the six `update_*` plus
+  // `set_task_dependencies`, which reaches it through `requireTaskWriteToken`.
+  // Enumerate rather than trusting the number, which rots on the next tool:
+  //   awk '/case "/{c=$0} /requireToken\("|requireTaskWriteToken\(/{print c}' src/app/chat-tools.ts
+  // ★★ AND THIS GUARD IS STRICTLY STRONGER. `requireToken` tests `typeof sent
+  // !== "string" || sent.length === 0`, so it ACCEPTS `"   "` and lets it fail
+  // one layer down as "changed since you read it" — precisely the misleading
+  // reason the blank-string check below exists to avoid. `requirePayload`
+  // trims, so the same input is refused here as the malformed call it is.
+  // The ENGINE (document-ops.ts) is deliberately permissive about a missing
+  // `expectHash` — the hand block editor shares those arms and omits the field
+  // — so the strictness has to live HERE, at the boundary where the caller is
+  // known to be a model. Without it a model can overwrite a block the user
+  // edited after it read the document, and chat tool writes have NO undo
+  // capture, so that loss cannot be recovered from within the session.
+  //
+  // ★★ ORDER IS LOAD-BEARING: this sits AFTER the block-shape check above, so
+  // a `replace` carrying neither a block nor a token still reports the missing
+  // BLOCK. Hoisting it would silently re-point the "refuses a %s with no
+  // block" cases at this message and stop them pinning the shape guard.
+  //
+  // ★★ Only these three ops. append/insert/replaceAll have no target block
+  // that could have been concurrently changed, and no token can name a block
+  // that does not exist yet — requiring one there would be unsatisfiable.
+  if (kind === "replace" || kind === "delete" || kind === "move") {
+    // ★ A BLANK STRING IS NOT A TOKEN. `typeof x === "string"` alone admits
+    // `""`, which the engine would compare against a real token and reject one
+    // layer down as "changed by another writer" — a misleading reason for what
+    // is really a malformed call.
+    const expectHash = (op as { expectHash?: unknown }).expectHash;
+    if (typeof expectHash !== "string" || expectHash.trim() === "") {
+      throw new Error(
+        `op ${i}: ${kind} requires expectHash — call get_document, then send the blockTokens entry for the block you are targeting`,
+      );
+    }
+  }
 }
 
 export async function runDocumentTool(
@@ -186,7 +225,15 @@ export async function runDocumentTool(
       const id = requireDocId(input);
       const doc = d.getDocument(id);
       if (!doc) throw new Error(`document #${id} not found`);
-      return doc;
+      // ★★★ THE ONLY PLACE A CONCURRENCY TOKEN IS HANDED OUT, which is what
+      // makes this read a precondition of every targeted write:
+      // `update_document` REFUSES replace/delete/move without one, so a model
+      // that skipped this call cannot edit a block at all.
+      // ★★ A PARALLEL ARRAY, never a field on DocBlock: the token is
+      // model-facing plumbing and must not leak into the persisted block type,
+      // which is sanitized and written across the six storage paths. Indices
+      // line up with `blocks`, which is also how the op `index` is addressed.
+      return { ...doc, blockTokens: doc.blocks.map(blockToken) };
     }
 
     case "create_document": {
