@@ -17,11 +17,11 @@ import {
   TimelogError,
   type TimelogCreds,
 } from "./timelog-api";
-import { aggregateActuals, type ActualsAggregate } from "./timelog-actuals";
+import { aggregateActuals, buildDailyRoll, type ActualsAggregate } from "./timelog-actuals";
 import { saveActualsCache, loadActualsCache, clearActualsCache } from "./timelog-actuals-store";
 import { autoMatchUsers, autoMatchProjects, displayableUsers, type TimelogProjectRef } from "./timelog-match";
 import { isAbortError } from "./abort-error";
-import type { TimelogLinks, TimelogScopeMode, TimelogTimeItem, TimelogUser } from "./timelog-types";
+import type { TimelogDailyRoll, TimelogLinks, TimelogScopeMode, TimelogTimeItem, TimelogUser } from "./timelog-types";
 import type { PlanGranularity, Resource, BudgetBucket } from "./types";
 
 type Args = {
@@ -67,6 +67,12 @@ export function useTimelogSync(args: Args) {
   // remount (the KPIs already restore from `aggregates` — keep them in sync).
   const [users, setUsers] = useState<TimelogUser[]>(() => loadActualsCache(projectId)?.users ?? []);
   const [projectRefs, setProjectRefs] = useState<TimelogProjectRef[]>(() => loadActualsCache(projectId)?.projectRefs ?? []);
+  // Per-(user, date) roll for the guardrail rules. `aggregateActuals` collapses
+  // the date to a period key and sums per-entry hours away, so nothing else
+  // persisted can answer a per-day or per-entry question. Only `finish` can
+  // BUILD it (it alone holds `items`); the other three savers carry this state
+  // through — see the ★★ note beside each of them.
+  const [daily, setDaily] = useState<TimelogDailyRoll | undefined>(() => loadActualsCache(projectId)?.daily);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<number | null>(null);
   // Customer directory for the project-scope picker. Lazy + lightweight (no busy
@@ -152,8 +158,11 @@ export function useTimelogSync(args: Args) {
       // ★★ `partial` rides along on EVERY save, not just `finish`'s. Omitting it
       // here would silently CLEAR the flag and re-open §172 through a directory
       // reload — an entry is rewritten whole, so a dropped field is a cleared one.
+      // ★★ `daily` is that same hazard one field over, and worse to lose: a
+      // cleared roll takes every guardrail rule out of evaluation with no error
+      // anywhere. This path has no `items`, so it carries the state through.
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users: shown, projectRefs, partial });
+        saveActualsCache(projectId, { fetchedAt, aggregates, users: shown, projectRefs, partial, daily });
       }
     });
   }
@@ -194,8 +203,10 @@ export function useTimelogSync(args: Args) {
           ? await listProjectsForCustomer(creds, customerId, signal, includeClosed)
           : await listManagedProjects(creds, (await getMe(creds, signal)).userId, signal, includeClosed);
       setProjectRefs(refs);
+      // ★★ `partial` and `daily` carried through for the same reason as the
+      // directory reload above — this save has no `items` either.
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users, projectRefs: refs, partial });
+        saveActualsCache(projectId, { fetchedAt, aggregates, users, projectRefs: refs, partial, daily });
       }
     });
   }
@@ -251,12 +262,17 @@ export function useTimelogSync(args: Args) {
       projectLinks: autoMatchProjects(refs, budgets, links),
     };
     const agg = aggregateActuals(items, effectiveLinks, granularity);
+    // The ONLY place the roll can be built — the other three savers never see
+    // `items`. Deliberately links-independent: the guardrail rules ask about a
+    // PERSON's day, so an unlinked booker must still be measurable.
+    const roll = buildDailyRoll(items);
     const at = new Date().toISOString();
     setAggregates(agg);
     setProjectRefs(refs);
     setFetchedAt(at);
     setPartial(isPartial);
-    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial });
+    setDaily(roll);
+    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial, daily: roll });
     return agg;
   }
 
@@ -383,7 +399,9 @@ export function useTimelogSync(args: Args) {
     const next = users.filter((u) => !drop.has(u.userId));
     setUsers(next);
     if (fetchedAt && aggregates) {
-      saveActualsCache(projectId, { fetchedAt, aggregates, users: next, projectRefs, partial });
+      // ★★ Fourth saver. `daily` carried through here too — a display-only
+      // people cleanup must not take the guardrail roll with it.
+      saveActualsCache(projectId, { fetchedAt, aggregates, users: next, projectRefs, partial, daily });
     }
   }
 
@@ -392,11 +410,15 @@ export function useTimelogSync(args: Args) {
     setAggregates(undefined);
     setFetchedAt(undefined);
     setPartial(false);
+    // ★ Reset with the rest: `daily` is RETURNED from the hook, so leaving it
+    // set would keep the guardrail rules evaluating a roll whose cache entry
+    // was just cleared — the same staleness the other resets exist to avoid.
+    setDaily(undefined);
     setUsers([]);
     setProjectRefs([]);
     fullDirectoryRef.current = null; // force a fresh directory on the next fetch
     clearActualsCache(projectId);
   }
 
-  return { aggregates, fetchedAt, partial, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
+  return { aggregates, fetchedAt, partial, daily, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
 }

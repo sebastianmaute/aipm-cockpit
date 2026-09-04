@@ -20,6 +20,7 @@ vi.mock("./timelog-api", () => ({
 }));
 import * as api from "./timelog-api";
 import { useTimelogSync } from "./use-timelog-sync";
+import { loadActualsCache } from "./timelog-actuals-store";
 import type { TimelogLinks } from "./timelog-types";
 import type { ActualsAggregate } from "./timelog-actuals";
 
@@ -298,6 +299,56 @@ it("keeps the partial flag when a non-fetch save rewrites the cache entry", asyn
   first.unmount();
   const second = renderHook(() => useTimelogSync(args()));
   expect(second.result.current.partial).toBe(true);
+});
+
+// The daily roll is the SAME wholesale-rewrite hazard as `partial` above, one
+// field over: `ActualsCacheEntry` is rewritten whole, so a saver that omits
+// `daily` does not leave it alone — it CLEARS it, and every guardrail rule then
+// goes unevaluated with no error anywhere and nothing in the store's own tests
+// able to see it (they cannot observe a CALLER that drops a field).
+// ★★ There are FOUR savers, not three, so each non-fetch saver gets its own
+// case: they are separate call sites and a test covering one is VACUOUS against
+// a drop in any of the other three. `finish` is the only one holding `items`;
+// the other three carry the roll through from state.
+const ROLL = { "5|2026-06-10": { hours: 7, maxEntryHours: 4, entryCount: 2 } };
+
+// Seeds a real roll through the fetch path and asserts it landed, so every case
+// below starts from a cache entry that demonstrably HAS a roll to lose.
+async function mountWithRoll() {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4), item(5, 3)]);
+  const h = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await h.result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  expect(loadActualsCache("p1")?.daily).toEqual(ROLL);
+  return h;
+}
+
+it("builds the daily roll on fetch and exposes it", async () => {
+  const h = await mountWithRoll();
+  expect(h.result.current.daily).toEqual(ROLL);
+});
+
+it("keeps the daily roll when a directory reload rewrites the cache entry", async () => {
+  const h = await mountWithRoll();
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { userId: 5, firstName: "Ada", lastName: "L", initials: "AL", email: "a@x.com", isActive: true },
+  ]);
+  await act(async () => { await h.result.current.loadDirectory(); });
+  expect(loadActualsCache("p1")?.daily).toEqual(ROLL);
+});
+
+it("keeps the daily roll when a managed-projects reload rewrites the cache entry", async () => {
+  const h = await mountWithRoll();
+  (api.getMe as ReturnType<typeof vi.fn>).mockResolvedValue({ userId: 5 });
+  (api.listManagedProjects as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 9, name: "Acme", no: "P9" }]);
+  await act(async () => { await h.result.current.loadManagedProjects(); });
+  expect(loadActualsCache("p1")?.daily).toEqual(ROLL);
+});
+
+it("keeps the daily roll when removeUsers rewrites the cache entry", async () => {
+  const h = await mountWithRoll();
+  act(() => { h.result.current.removeUsers([5]); });
+  expect(loadActualsCache("p1")?.daily).toEqual(ROLL);
 });
 
 it("loadCustomerProjects discards an out-of-order (superseded) response", async () => {
