@@ -57,13 +57,8 @@ type Args = {
  *  ★ Named `fetchWindow`, never `window` — this is browser code, and shadowing
  *  the DOM global inside a hook file is how a later edit reaching for
  *  `window.localStorage` here silently resolves to a date range instead.
- *  ★★★ IT CARRIES THREE MEMBERS, NOT TWO, AND THE THIRD IS WHY THE NAME LIES
- *  SLIGHTLY. `dailyUsers` is the SCOPE half of the coverage claim, and shipping
- *  the window without it was a Critical: a narrowed re-fetch wrote an intact
- *  window over a roll covering only the ticked people, and every unfetched
- *  person's insight resolved as a fabricated "improved". Kept as one spread for
- *  exactly the reason above — three independently-droppable fields is three
- *  times the surface, and the whole point is that omission is not expressible. */
+ *  ★★ The third member, `dailyUsers`, rides here for the same reason and its
+ *  rationale lives on the field declaration in `timelog-actuals-store.ts`. */
 function rollPair(
   roll: TimelogDailyRoll | undefined,
   fetchWindow: TimelogRollWindow | undefined,
@@ -475,10 +470,8 @@ export function useTimelogSync(args: Args) {
       // about a subset. Handing `bookerIds` over instead would certify exactly
       // the people this fetch measured LEAST completely, since a booker on one
       // project is precisely somebody whose other projects are missing.
-      // ★★ CONSEQUENCE, and it is a real cost, not a free win: a user working
-      // only in project scope never auto-resolves a guardrail insight — they
-      // freeze until an org- or self-scope fetch covers the person. That is the
-      // recoverable direction; a fabricated "improved" in exported data is not.
+      // ★★ The cost, and the two closure options, are recorded in open-followups
+      // §366 rather than restated here.
       const agg = finish(inWindow, bookers, failedProjects > 0 || signal.aborted, { from: startDate, to: endDate }, []);
       return { failedProjects, projectCount: ids.length, aggregates: agg };
     });

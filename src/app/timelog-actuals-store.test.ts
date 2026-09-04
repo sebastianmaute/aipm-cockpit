@@ -377,10 +377,8 @@ describe("ActualsCacheEntry.daily size bound", () => {
    * a contiguous tail of (user, date) entries, so the boundary can only land
    * INSIDE a date group when a date carries more than one booker — with one
    * booker per date every retained date is retained whole and a window narrowed
-   * to the boundary date is indistinguishable from a correct one. The test
-   * below commented as stopping the fabricated-clean regression passed against
-   * fully defective code for exactly that reason. Use `multiRollOf` for
-   * anything asserting WHICH date `from` may name.
+   * to the boundary date is indistinguishable from a correct one. Use
+   * `multiRollOf` for anything asserting WHICH date `from` may name.
    */
   const rollOf = (days: number): Record<string, typeof CELL> => {
     const out: Record<string, typeof CELL> = {};

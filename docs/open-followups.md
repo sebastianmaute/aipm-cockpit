@@ -27879,7 +27879,7 @@ pass and never returns, even once the data covering it comes back.
 ★★★ NARROWED 2026-09-04, and the half that made this urgent is FIXED. As filed, this entry called
 the competition neutral. It was not: a frozen row is carried through untouched, so its `lastSeenAt`
 never advanced while every detected row's did, and under a `lastSeenAt` sort it lost ground on EVERY
-pass — guaranteeing it was the FIRST row of its severity evicted, not merely one of the candidates.
+pass, sinking toward the cap on every pass rather than merely competing for it.
 That made "freezing is recoverable" — the justification the whole per-insight predicate rests on —
 false by attrition. `reconcile.ts` now ranks a frozen row as `today` for ORDERING ONLY and breaks the
 resulting tie in its favour; `lastSeenAt` itself is untouched, since rewriting it would put a lie

@@ -255,7 +255,9 @@ export function clearActualsCache(projectId: string): void {
 export const MAX_DAILY_ROLL_CHARS = 512 * 1024;
 
 /** Bound one entry's `daily` roll to `MAX_DAILY_ROLL_CHARS` by dropping the
- *  OLDEST dates first, and narrow `dailyWindow.from` to whatever survived.
+ *  OLDEST dates first, and narrow `dailyWindow.from` to the earliest FULLY
+ *  retained date — not to whatever survived, which would name a date the trim
+ *  kept for some bookers and dropped for others.
  *  ★★★ THE NARROWING IS THE POINT, NOT A TIDY-UP. `dailyWindow` is a CLAIM —
  *  "the roll holds data for these dates" — and `task-manager.tsx`'s insights
  *  reconcile clears a guardrail insight only when that window COVERS the
@@ -267,7 +269,8 @@ export const MAX_DAILY_ROLL_CHARS = 512 * 1024;
  *  on every AI turn. So the trim and the narrowing live in ONE function on the
  *  write path all four savers funnel through, and cannot be written out of
  *  step.
- *  ★★ Nothing surviving drops `daily` AND `dailyWindow` TOGETHER. A missing
+ *  ★★ Nothing surviving drops `daily`, `dailyWindow` AND `dailyUsers` TOGETHER,
+ *  since the two claims describe a roll that no longer exists. A missing
  *  window makes the reconcile FREEZE (`rollWindow === undefined` returns
  *  false), which is the recoverable direction and already the back-compat rule.
  *  Everything else in the entry is written regardless: losing the roll must
@@ -336,8 +339,8 @@ function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
     // The roll is keyed `userId|date`, so `dated` carries one entry per (user,
     // date) and the sort groups a date's bookers together. The survivor run
     // starts at `firstKept`, which lands INSIDE a date group whenever that date
-    // has more bookers than the remaining budget — the normal case for any
-    // multi-booker roll, not an edge. Naming that date as `from` claims coverage
+    // has more bookers than the remaining budget. Naming that date as `from`
+    // claims coverage
     // for the bookers whose cells were just dropped: their stored insights pass
     // `isEvaluated`'s window check, find no violation because the cell is gone,
     // and clear as "improved" into the shared, exported workspace. Advance to
