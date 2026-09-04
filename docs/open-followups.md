@@ -578,7 +578,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--open) | `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model | found 2026-09-03 in the AI write-concurrency slice | S–M | open |
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
 | [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--open) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | open |
-| [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--reopened-2026-09-04) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | reopened 2026-09-04 |
+| [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--closed-2026-09-04) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | closed 2026-09-04 |
 | [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--closed-2026-09-04) | ~~RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish from the tree~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (both forms decoded, capped and routed through the existing filename sanitizer) |
 | [§354](#354-negative-rtf-un-values-are-dropped-losing-every-code-point-above-u7fff--closed-2026-09-04) | ~~Negative RTF `\uN` values are dropped, losing every code point above U+7FFF~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (a lone unpaired surrogate is CARRIED, not repaired — the entry records what that costs downstream) |
 | [§355](#355-a-pt_string8-msg-yields-an-entirely-empty-mail-with-no-diagnostic--closed-2026-09-04) | ~~A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (`…001E` siblings decoded through the shared charset ladder, PT_UNICODE still winning; the diagnostic fires whenever no known tag matched at all) |
@@ -27232,9 +27232,9 @@ rediscover.
 - Split the replay into create-then-update phases with the updates' refusal rolling back the
   creates, which is the only option that actually preserves retryability and is much the largest.
 
-## 352. The `"encrypted"` attachment error variant has no producer — REOPENED 2026-09-04
+## 352. The `"encrypted"` attachment error variant has no producer — CLOSED 2026-09-04
 
-**Status:** REOPENED 2026-09-04, the same day it was first marked done. A cold review of the closing
+**Status:** CLOSED 2026-09-04, after being REOPENED the same day it was first marked done. A cold review of the closing
 commit found three defects in it (listed at the end of this entry); all are fixed on the branch, but
 the `.msg` half still has no real file behind it, so this stays open. Both detectors and the wizard
 wiring are verified by
@@ -27293,8 +27293,9 @@ anything.** Encrypt-with-Password replaces the whole archive with a compound fil
 leaves every part in plain sight and only stops Word from editing them. So refusing a
 restrict-editing file would tell its owner to remove a password that is hiding nothing, and reading
 one is correct behaviour rather than a miss. The byte tell is the first four: `50 4B` is a zip and
-readable, `D0 CF` is the encrypted container. ★ The `.msg` half is still spec-fixture only — no real
-RMS message has been run through it.
+readable, `D0 CF` is the encrypted container. ★ The `.msg` half was spec-fixture only when this was
+written; a real RMS wrapper has since been run through it — see "The `.msg` half, measured against a
+real RMS wrapper" at the end of this entry.
 
 ★★★ **A REAL MESSAGE REFUTED THE OBVIOUS ALTERNATIVE DETECTOR, 2026-09-04.** A real Outlook `.msg`
 saved from a tenant that applies rights protection carries `PidNameContentClass` = `"rpmsg.message"`
@@ -27354,9 +27355,45 @@ would have caught the first one survived all fifteen of the cases this entry cit
    at the throw site NAMES `"encrypted"`, which is why nothing flagged it: it guards against a new
    variant joining that branch, and says nothing about how an existing one is rendered.
 
-★★ **TO CLOSE THIS, THE `.msg` HALF STILL NEEDS A REAL FILE**, and the paragraph above explains why a
-locally-saved one may be incapable of providing it. The `.eml` half and both office halves are
-measured against real files and against the shapes in 1-3.
+### The `.msg` half, measured against a real RMS wrapper — 2026-09-04
+
+A genuine rights-protected `.msg` was finally run through the pipeline, and it is a DIFFERENT file
+from the S/MIME one above (`PR_MESSAGE_CLASS` = `IPM.Note`, 143,872 bytes, 151 streams). Structure
+only — no subject, sender or body text was read out of it:
+
+- Exactly one attachment, `message.rpmsg`, typed `application/x-microsoft-rpmsg-message`, 23,717
+  bytes, carrying BOTH the long name (`3707001F`) and the 8.3 short name (`3704001F`).
+- **No HTML body property of any kind.** The body arrives through `PR_RTF_COMPRESSED` (`10090102`,
+  1,830 bytes) and renders `rtf-degraded`, 689 characters.
+- `PidNameContentClass` = `"rpmsg.message"` is present **here too**. ★★★ That is the decisive
+  confirmation for the paragraph above: the same property carries the same value on a genuinely
+  protected wrapper AND on a perfectly readable S/MIME message, so it cannot discriminate between
+  them at all. Keying on it would refuse the readable one and gain nothing on this one.
+
+★★★ **THE DETECTOR RETURNS FALSE ON IT, AND THAT IS THE DOCUMENTED DELIBERATE OUTCOME — now
+measured rather than asserted.** The wrapper carries a boilerplate body, so the empty-body conjunct
+correctly declines. `isRightsProtectedMail`'s docstring justifies that by saying the boilerplate
+itself tells the reader what happened; that was a hypothesis about a file nobody had. It holds: the
+rendered block the model receives matches `/protect|geschützt/i` and `/encrypt|verschlüsselt/i`,
+names `message.rpmsg`, and reports it as `unsupported-type`. The reader is informed either way,
+which is what the conjunct trades for.
+
+Varying ONLY the body on that same real message, so the attachment half is exercised against a real
+`.rpmsg` rather than a fixture:
+
+| body | detected | why it matters |
+|---|---|---|
+| boilerplate, as delivered | false | the deliberate outcome above |
+| blanked | **true** | the attachment half recognises a real wrapper |
+| whitespace only | **true** | `trim()` is doing its job |
+| the html placeholder | **true** | defect 2's fix works on real data, not just fixtures |
+| blanked, plus a readable sibling attachment | false | defect 1's fix holds on a real attachment list |
+
+★★ **KNOWN LIMITATION, recorded rather than hidden:** if Outlook always writes that boilerplate, the
+MAIL branch of this detector may never fire in the field, and the office branch is the one doing the
+work. That is acceptable — the boilerplate is a better disclosure than a refusal — but do not read
+"the `.msg` half is verified" as "the `.msg` half fires in production". What is verified is that
+every branch behaves correctly on a real wrapper.
 
 ## 353. RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish — CLOSED 2026-09-04
 
