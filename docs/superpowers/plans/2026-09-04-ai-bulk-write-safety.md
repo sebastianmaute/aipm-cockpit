@@ -61,6 +61,17 @@ section, **this section wins.**
    declaring `fkRemapField` would follow onto the duplicate.) Deletes captured alone against the
    pre-op array were measured correct — row returns at its own index, empty remap.
 
+6. **★★★ Task 8's "expected to survive" mutant is NOT equivalent, and pre-classifying it was the
+   error.** The plan says of `cascadeDeselect`'s `if (!next.delete(cur)) continue;` that removing it
+   "is an optimisation, not a guard" and should be "recorded as an equivalent mutant rather than as
+   a test gap". False. The guard stops the walk at a row that was NOT selected; without it,
+   deselecting an already-deselected row walks on through its dependents. Probed both spellings —
+   rows `[0, 1←0]`, `selected={1}`, deselect `0`: guarded yields `[1]`, unguarded yields `[]`. It
+   survived the plan's three tests and was killed by an idempotence test the plan never asked for.
+   **The general rule: never pre-classify a mutant as equivalent in a plan.** The classification
+   arrives before the measurement and tells the reader to stop looking, which is licence to delete a
+   live guard. State the mutant, demand the verdict, supply none.
+
 ★ Two process notes carried forward: `git commit --only` on a path matching no change **silently
 commits nothing for that path and does not error** — check `git show --stat` against intent. And the
 shared test fixture is `src/test/chat-dispatcher-fixture.tsx` (`.tsx`, not `.ts`, and `src/test/`
