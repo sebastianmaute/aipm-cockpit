@@ -190,6 +190,28 @@ ids already allocated. On Discard, nothing is written.
    deliberately NOT derived from `chat-proposal.ts` — deriving them would make every row
    tautological. A tool added later and left unclassified fails there BY NAME, instead of silently
    never counting toward the gate.
+
+   ★★★ **THREE CONSEQUENCES OF THE WIDENING, all binding on the apply path.**
+
+   1. **Apply must RE-INVOKE each call. It must never replay a computed data diff.**
+      `send_inquiry`'s handler calls `window.open` on a `mailto:` URL *during* the write and only
+      then increments the counter. A diff-replay apply would bump `inquiriesSent` and **open no
+      mail client** — a silent send-nothing, with no error at any layer and a counter that says it
+      worked. `ProposedCall` is `{name, input}`, so re-invocation through `runTool` is the natural
+      design; this records it as an INVARIANT rather than leaving it an accident of how the apply
+      path happens to get written. Any future tool with an in-handler side effect inherits the
+      same protection for free, and only from this rule.
+   2. **A staged call is not necessarily an entity ROW.** `update_document` carries an ops array of
+      block mutations, not a row, so the card shows one opaque "update document #N" line that can
+      be rejected whole but not partially. That is acceptable — reject-the-whole-call beats no
+      review — but the row model must not ASSUME an entity-row shape, or document calls render
+      blank or crash it.
+   3. **"One undoable commit" is not achievable for a mixed plan, and the card must not say it
+      is.** Document writes take no undo capture at all and recover through `documentVersions`
+      instead, so a plan mixing document and entity writes is only PARTIALLY undoable. Combined
+      with the create rule under Goal, the honest statement is: **an applied plan's updates and
+      deletes to the six inline entities are reversible by one undo entry; its creates and its
+      document writes are not.** Whatever Task 12/13 tells the user must say no more than that.
 2. **Tool result.** A staged call returns `{ staged: true, id, ... }`. The system prompt states that
    staged writes are not yet applied and must not be re-issued. This replaces the unenforced
    "Confirm with the user first" prose, which is removed from the seven tool descriptions.
