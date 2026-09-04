@@ -15,8 +15,8 @@
 // the cap even on its own). All boundary/part splitting uses
 // String.prototype.indexOf on a literal marker, never a backtracking regex,
 // so it stays linear in input size — and RFC 2046 §5.1.1 anchored: a
-// delimiter must be a whole line (preceded by a line break, followed by a
-// line break or "--"), so boundary text appearing mid-line — accidentally
+// delimiter must be a whole line (preceded by a line break), so boundary
+// text appearing mid-line — accidentally
 // in quoted text, or deliberately to forge a part with attacker-chosen
 // headers — is not treated as a split point.
 //
@@ -25,10 +25,12 @@
 // accepts. RFC 5322 mandates CRLF on the wire, but LF-only .eml is what
 // Unix mail stores, mbox exports, git send-email and any text-mode tool
 // produce, and a message whose headers and body carry DIFFERENT endings is
-// a real hazard rather than a contrived one. Accepting both widens the
-// ANCHOR, never weakens it: a "--boundary" that does not begin a line is
-// still rejected under either ending, so the forgery this guard exists to
-// stop remains impossible.
+// a real hazard rather than a contrived one. Accepting both WIDENS the set
+// of accepted delimiters. A "--boundary" that does not begin a line is
+// still rejected under either ending — but a bare LF inside an otherwise
+// CRLF message now delimits where it previously did not, which is the
+// accepted cost of reading LF-only mail. The two forgery tests in
+// mime-parse.test.ts place their marker mid-line, so neither covers it.
 
 const LF = "\n";
 const textEncoder = new TextEncoder();
@@ -296,9 +298,8 @@ function walkNode(headers: Map<string, string>, body: string, depth: number, out
 }
 
 /**
- * RFC 2046 §5.1.1: a delimiter is a line break, then "--boundary", then
- * either another line break (a part follows) or "--" (terminator) —
- * optionally with linear whitespace before it. A line break is CRLF or a
+ * RFC 2046 §5.1.1: a delimiter is a line break, then "--boundary",
+ * optionally followed by linear whitespace. A line break is CRLF or a
  * bare LF, matched independently on each side, so an LF-only message — and
  * one that mixes the two — splits exactly like a CRLF one, while a match
  * that does not begin a line is still rejected. The line break preceding a

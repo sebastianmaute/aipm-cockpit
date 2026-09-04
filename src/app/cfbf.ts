@@ -57,7 +57,7 @@
 // MAX_DIRECTORY_ENTRIES and by the file itself at 128 bytes per entry. That is
 // ARITHMETIC over those constants, not a measurement: it leaves a standing
 // ~16x byte amplification (128 input bytes can still buy a ~2 KB UTF-16 key)
-// under a ~200 MB ceiling. Bounded and linear, not small — do not read this
+// Bounded and linear, not small — do not read this
 // paragraph as saying the keys are cheap. What WAS measured is the worst shape
 // the cap still admits, a depth-31 chain with 1,000 / 2,000 / 4,000 leaf
 // streams: 0.49 key characters per input byte, flat across all three. Far under

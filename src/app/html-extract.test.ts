@@ -239,8 +239,7 @@ describe("extractHtmlMarkdown", () => {
       // the ~166,000 start positions.
       ["heading, no '>' at all", repeatTo("<h1", CLAMP_CHARS)],
       ["list item, no '>' at all", repeatTo("<li", CLAMP_CHARS)],
-      // Terminated open tags but unterminated PAIRS, so the lazy `[\s\S]*?`
-      // rescans to end of input from every open instead. These two are the
+      // These two are the
       // adversarial case for the walks NESTED inside one rendered table.
       ["table rows, never closed", `<table>${repeatTo("<tr", CLAMP_CHARS - 15)}</table>`],
       ["table cells, never closed", `<table><tr>${repeatTo("<td", CLAMP_CHARS - 24)}</tr></table>`],

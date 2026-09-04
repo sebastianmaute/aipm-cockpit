@@ -121,7 +121,7 @@ describe("cfbf guards", () => {
 
   // ★★★ MEASURED VACUOUS AGAINST THE CONSTANT IT NAMES, re-verified 2026-09-03
   //  on the CURRENT reader: dropping `MAX_CFBF_STREAM_BYTES` from
-  //  readEntryBytes' `Math.min` leaves all 12 tests in this file green. It is
+  //  readEntryBytes' `Math.min` leaves all tests in this file green. It is
   //  now doubly redundant here — `sectors.length * ctx.sec` clamps this
   //  fixture's entry to 5,120 bytes long before either the 64 MB ceiling or
   //  `ctx.b.length` is consulted, so the assertion cannot see the constant at
@@ -137,7 +137,7 @@ describe("cfbf guards", () => {
 
   // ★★★ MEASURED VACUOUS, re-verified 2026-09-03: deleting
   //  `if (shift !== 9 && shift !== 12) return null;` from buildContext leaves
-  //  all 12 tests in this file green. The fixture's illegal shift is 7, and at
+  //  all tests in this file green. The fixture's illegal shift is 7, and at
   //  that size the downstream bounds checks reject the resulting garbage
   //  offsets on their own, so `.size` is 0 either way. The guard is kept
   //  because a differently-SHAPED corrupt file could reach an offset those
@@ -149,7 +149,7 @@ describe("cfbf guards", () => {
   });
 
   // ★★★ MEASURED VACUOUS AND DOCUMENTED NOWHERE ELSE, verified 2026-09-03.
-  //  Deleting `if (s >= ctx.fat.length) break;` from `chain()` leaves all 12
+  //  Deleting `if (s >= ctx.fat.length) break;` from `chain()` leaves all
   //  tests green — and so does deleting BOTH that line and the
   //  `offsetOf(...) > ctx.b.length` line beside it, which is the measurement
   //  that shows how little this assertion is worth. `not.toThrow()` cannot
@@ -269,7 +269,7 @@ describe("cfbf resource bounds", () => {
   // ★★★ THE SAME INVARIANT, AGAINST THE SHAPE THE TEST ABOVE CANNOT REACH, and
   //  it exists because the obvious single test was measured NOT to pin the
   //  cumulative budget: deleting `budget` from readEntryBytes' `Math.min` left
-  //  all eleven other tests in this file green. Every stream `buildCfbf` emits
+  //  every other test in this file green. Every stream `buildCfbf` emits
   //  owns its sectors, so the per-entry "what can this chain deliver" clamp
   //  bounds the total there for free. Point 200 entries at ONE 100 KB chain and
   //  each of them delivers 100 KB LEGITIMATELY — 20 MB out of a 228 KB file,

@@ -126,7 +126,7 @@ describe("ingestBytes", () => {
     expect(src.data).not.toMatch(/^[A-Za-z0-9+/=\s]+$/);
   });
 
-  it("reports no children for a flat mail message (recursion is Task 10's job)", async () => {
+  it("reports no children for a flat mail message", async () => {
     const eml = ["Subject: x", "", "body"].join("\r\n");
     const r = await ingestBytes(enc(eml), "message/rfc822", "x.eml");
     expect(r.ok).toBe(true);
@@ -510,6 +510,9 @@ describe("mail recursion", () => {
   // compete for the tree budget here (the equal-shares test above pins that
   // they each get ~95k of it), so the body's share is genuinely contested
   // and only the reservation keeps it from being squeezed out.
+  // ★★ WHICH reservation, and the narrower reading: this pins `ingestNode`'s
+  // `bodyShare`. It does NOT discriminate `renderMailBlock`'s
+  // `Math.max(bodyFloor, …)` clamp, which the assertion below survives.
   it("still reserves the body floor when many large attachments compete for the budget", async () => {
     const atts = ["a", "b", "c", "d"].map((n) => ({ name: `${n}.txt`, body: "y".repeat(300_000) }));
     const r = await ingestBytes(mailWith(atts, "z".repeat(300_000)), "message/rfc822", "contested.eml");

@@ -9,7 +9,8 @@
 //
 // Hostile-input surface: a ParsedMail can be built from an untrusted .eml or
 // .msg file — see eml-extract.ts and msg-extract.ts. This renderer therefore bounds
-// every field it prints, not just the body: mime-parse.ts's MAX_HEADER_BYTES
+// every field it prints, not just the body — `date` excepted, taken on the
+// parser's ISO-or-empty contract. mime-parse.ts's MAX_HEADER_BYTES
 // allows a single raw header up to 64KB, which would otherwise render as one
 // huge unbroken Markdown line (a subject, a From address, or one To/Cc
 // entry). eml-extract.ts already caps how many addresses and attachments

@@ -147,9 +147,7 @@ function decodeHtmlBytes(bytes: Uint8Array): string {
       const declared = new TextDecoder(label);
       // "replacement" is the Encoding Standard's deliberate dead end for
       // labels like iso-2022-kr: its decoder emits one U+FFFD for the whole
-      // input. Node throws on constructing those (measured), a browser does
-      // not, so this keeps both environments on the ladder below instead of
-      // blanking the body on one of them.
+      // input.
       if (declared.encoding !== "utf-8" && declared.encoding !== "replacement") {
         return declared.decode(bytes);
       }

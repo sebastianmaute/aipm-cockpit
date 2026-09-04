@@ -177,7 +177,7 @@ describe("rtfToPlainText", () => {
   //  catch-all control-word strip further down `rtfToPlainText`, whatever the
   //  destination matcher does. Keep it as a delimiter case; do not read it as
   //  cover for the numeric-parameter form.
-  it("de-encapsulates HTML rather than emitting rtf markup", () => {
+  it("strips a space-delimited destination group", () => {
     const out = rtfToPlainText("{\\rtf1\\fromhtml1 {\\*\\htmltag <p>}Hi{\\*\\htmltag </p>}}");
     expect(out).toContain("Hi");
     expect(out).not.toContain("htmltag");

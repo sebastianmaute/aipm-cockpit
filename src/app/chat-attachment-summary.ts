@@ -16,7 +16,8 @@ import { type Lang, t } from "./i18n";
 //
 // ★ Only a MAIL block carries the walk's diagnostics — a leaf's `data` is the
 // extracted document itself, so a .txt reading "skipped - lunch" would
-// otherwise be counted as a dropped attachment. A mail BODY that happens to
+// otherwise be counted as a dropped attachment. A mail's own rendered text —
+// body, subject or an attachment filename — that happens to
 // say it remains a residual false positive — the walk writes prose, not a
 // machine-readable marker.
 function countSkipped(node: IngestNode): number {

@@ -69,7 +69,7 @@ if (LZFU_INIT_DICT.length !== 207) {
 const DICT_SIZE = 4096;
 const MAX_RAW_BYTES = 64 * 1024 * 1024;
 
-/** Decompress a PR_RTF_COMPRESSED stream. Returns empty on anything malformed —
+/** Decompress a PR_RTF_COMPRESSED stream. Never throws —
  *  a corrupt body must never lose the message. */
 export function decompressRtf(input: Uint8Array): Uint8Array {
   if (input.length < 16) return new Uint8Array(0);

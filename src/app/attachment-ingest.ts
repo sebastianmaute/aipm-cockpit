@@ -18,9 +18,13 @@
 // child fully at a time. A depth-first ALLOCATION ("spend as you recurse")
 // would let the first attached mail's whole subtree consume the shared
 // budget before a sibling attachment is even admitted into the tree.
-// ★★ What covers this is the equal-shares test in `attachment-ingest.test.ts`
-// ("divides the tree budget into comparable shares across many large
-// siblings"), which a greedy first-come-first-served walk fails. It is NOT
+// ★★ ONLY THE DIVISION IS COVERED. The equal-shares test in
+// `attachment-ingest.test.ts` ("divides the tree budget into comparable
+// shares across many large siblings") fails a greedy first-come-first-served
+// walk, so it pins the equal-share division of the character ceiling. The
+// node-slot RESERVATION is UNPINNED: every node-cap fixture is flat, so
+// reserving slots before recursing and decrementing them during it are
+// indistinguishable. Neither is
 // covered by the sibling-ordering test next to it: child ORDER is whatever
 // `mime-parse.ts` produced, so no traversal mutant changes it. This comment
 // claimed the walk itself was breadth-first and cited that ordering test as
@@ -111,10 +115,10 @@ export const MAX_NODE_EXTRACT_CHARS = 200_000;
  *  the model as a document/image content block, not as extracted text, so
  *  charging it against a cap sized for prose would break ordinary PDF/image
  *  attachments outright. Those are bounded separately, by
- *  MAX_BASE64_CHARS below. */
+ *  MAX_BASE64_CHARS below the root. */
 export const MAX_TREE_EXTRACT_CHARS = 400_000;
 
-/** Tree-wide cap on base64 PAYLOAD characters (pdf/image attachments),
+/** Cap on base64 PAYLOAD characters (pdf/image attachments) BELOW THE ROOT,
  *  independent of MAX_TREE_EXTRACT_CHARS above — see that constant's
  *  comment for why base64 needs its own budget rather than sharing the
  *  extracted-text one. 10MB of base64 is ~7.5MB of decoded bytes; a mail
@@ -182,8 +186,9 @@ const TRUNCATION_NOTE = "\n\n_(truncated - exceeded the extraction budget)_";
  *
  *  The returned string's length is always exactly what gets deducted — a
  *  truncated result is sliced SHORT of `room` by `TRUNCATION_NOTE.length`
- *  first, so appending the note lands back on `room`, not `room +
- *  TRUNCATION_NOTE.length`. An earlier version deducted `room` but returned
+ *  first. The exception is a `room` smaller than the note itself, where the
+ *  return is the note alone — longer than `room`, so the pool goes negative.
+ *  An earlier version deducted `room` but returned
  *  `room + TRUNCATION_NOTE.length`, silently under-charging the shared pool
  *  by the note's length on every truncation. */
 function cap(text: string, ceiling: number, budget: Budget): string {
@@ -198,8 +203,8 @@ function cap(text: string, ceiling: number, budget: Budget): string {
   return truncated;
 }
 
-/** Trims a mail's rendered PREFIX (headers + attachment-list summary) to
- *  fit `maxLen` — never the body or its diagnostics, which are reserved
+/** Trims a mail's rendered PREFIX (headers + attachment-list summary)
+ *  toward `maxLen` — never the body or its diagnostics, which are reserved
  *  before this is ever called and passed through untouched. Does not touch
  *  `budget`: `renderMailBlock` below makes exactly one deduction, via `cap`
  *  on the fully-assembled string, so there is one bookkeeping site per mail
@@ -231,7 +236,7 @@ function trimPrefixToFit(prefix: string, maxLen: number): string {
  *  ceiling, left 380,000 of it unspent, and told the model its body
  *  "exceeded its share of the extraction budget" when nothing had competed
  *  for it. The body now gets whatever the prefix and diagnostics do not
- *  need, and never less than `bodyFloor` — so the reservation a contested
+ *  need, and its BUDGET is never less than `bodyFloor` — so the reservation a contested
  *  mail depends on is unchanged, and an uncontested one stops lying. */
 function renderMailBlock(mail: ParsedMail, bodyFloor: number, ceiling: number, budget: Budget): string {
   // The same room `cap()` below will charge against. Sizing the body from
@@ -447,15 +452,6 @@ export async function ingestBytes(
   return ingestNode(bytes, mimeType, fileName, 0, budget, budget.charsRemaining);
 }
 
-/** Browser entry point. Classifies (cheap) before reading the File's bytes
- *  so a large unsupported file is rejected without being loaded into memory,
- *  and so a read failure on a file that would have classified as unsupported
- *  still surfaces as "unsupported-type" rather than "read-failed" — the
- *  wizard treats those two very differently (drop-and-continue vs.
- *  abandon-the-batch). Then defers to ingestBytes so both paths share one
- *  implementation — the wizard already had a bytes-oriented path and the
- *  assistant a File-oriented one, and they had diverged. ingestBytes
- *  re-classifies, which costs nothing. */
 /** Every block in the walked tree, a node's own block before the blocks of
  *  everything under it, depth-first — the order a reader meets them in the
  *  mail.
@@ -465,14 +461,23 @@ export async function ingestBytes(
  *  sending only the root tells the model a spreadsheet is attached and
  *  withholds every word of it — worse than under-informing it, because the
  *  model then answers about a document it was told exists and never saw. The
- *  whole recursive walk above was computed and discarded for exactly one
- *  release because chat-panel.tsx and step0-import-panel.tsx each pushed
+ *  whole recursive walk above was computed and discarded on this branch
+ *  because chat-panel.tsx and step0-import-panel.tsx each pushed
  *  `result.node.block` on its own; the chip still said "1 attachment", so
  *  nothing looked wrong from the outside. */
 export function flattenIngestBlocks(node: IngestNode): AttachmentBlock[] {
   return [node.block, ...node.children.flatMap(flattenIngestBlocks)];
 }
 
+/** Browser entry point. Classifies (cheap) before reading the File's bytes
+ *  so a large unsupported file is rejected without being loaded into memory,
+ *  and so a read failure on a file that would have classified as unsupported
+ *  still surfaces as "unsupported-type" rather than "read-failed" — the
+ *  wizard treats those two very differently (drop-and-continue vs.
+ *  abandon-the-batch). Then defers to ingestBytes so both paths share one
+ *  implementation — the wizard already had a bytes-oriented path and the
+ *  assistant a File-oriented one, and they had diverged. ingestBytes
+ *  re-classifies, which costs nothing. */
 export async function ingestFile(file: File): Promise<IngestResult> {
   const kind = classifyAttachment(file.type, file.name);
   if (!kind) return { ok: false, error: "unsupported-type" };

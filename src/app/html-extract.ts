@@ -368,8 +368,8 @@ function renderOneTable(table: string): string {
  *  hostile by assumption and is processed on the browser MAIN THREAD, so one
  *  quadratic step is enough to freeze the tab. The `<tag>...</tag>` pair regex
  *  is the recurring way to reintroduce one — stripComments, dropTagSubtree and
- *  forEachTagPair above each replace one instance of it, and there is no
- *  remaining `[\s\S]*?` in this file. stripTrailingOpenTag replaces the fourth
+ *  forEachTagPair above each replace one instance of it, and no
+ *  `[\s\S]*?` regex is left here. stripTrailingOpenTag replaces the fourth
  *  and worst one, which wore no `[\s\S]*?` at all. TAG_STRIP_RE is the one
  *  unbounded-looking scan left and is the exception: it is bounded by
  *  MAX_TAG_SCAN_CHARS to a linear pass with a 4096 constant, which is the
