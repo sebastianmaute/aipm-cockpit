@@ -54,6 +54,15 @@ Four measured gaps this spec closes:
    fixes: no entity in the app captures a create, because the engine cannot reverse one. Read the
    ★★★ note under Goal before treating a create site as an outstanding gap; adding a capture there
    is a regression, not a completion, and it duplicates the row on undo.
+   ★★ **Nor are the two AI DOCUMENT write paths a gap, and they cannot be closed here anyway.**
+   `CaptureCompositeOpts.kind` is typed `ActivityKind`; documents log `ai.documentWrite`, and
+   `UndoEntityKey` has no `document` member — so no valid capture can be constructed without
+   widening both, which needs a new `undoEntityDocument` string in BOTH i18n files. It is moot:
+   `use-document-tools.ts` writes through `mutateDocuments`, which takes a `DocVersionSource`, runs
+   `applyDocMutation` and stores `result.versions` — so an AI document write **already records a
+   version before-image** and is recoverable by version restore. Documents have their own history
+   mechanism and are deliberately outside the undo stack. Passing `entityKey: undefined` to force a
+   capture would compile and silently degrade every document undo label to "Edited 1 item(s)".
 2. **"Confirm with the user first" is unenforced prose.** It appears in the tool *descriptions* in
    `chat-tool-defs.ts` on `delete_task` (:297), `delete_all_tasks` (:307), `delete_resource` (:615),
    `delete_raid_item` (:643), `delete_change` (:671), `delete_milestone` (:698) and
