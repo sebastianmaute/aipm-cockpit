@@ -288,6 +288,11 @@ describe("timelog guardrail insights", () => {
     expect(g?.data).toEqual({
       person: "Ada Lovelace", count: 2, worstHours: 12, threshold: 8,
       firstViolationDate: "2026-02-03", lastViolationDate: "2026-02-19",
+      // The identity the reconcile's SCOPE check reads. Deliberately the raw
+      // timelog userId and not the resource id: `dailyUsers` records who the
+      // FETCH covered, and a fetch knows people by their timelog id — a person
+      // with no link has one of these and no resource id at all.
+      timelogUserId: 7,
     });
   });
 

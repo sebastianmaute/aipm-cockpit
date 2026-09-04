@@ -55,6 +55,17 @@ function baselineCell(i: Insight): string {
   return `${i.metricAtAction?.count ?? i.metricAtAction?.current ?? "-"}`;
 }
 
+/** ★★ Holiday readiness, made controllable. The real `useHolidaySet` resolves
+ *  to `ready: true` with an EMPTY set the moment no countries are configured,
+ *  which is the state every test here would otherwise run in — so the
+ *  not-ready branch is unreachable without this. Default `true` so every
+ *  existing case behaves exactly as it did against the real hook; only the one
+ *  test that is about readiness flips it. */
+let holidaysReadyRef = true;
+vi.mock("./use-holiday-set", () => ({
+  useHolidaySet: () => ({ holidaySet: new Set<string>(), holidaysReady: holidaysReadyRef }),
+}));
+
 // Probe standing in for the heavy pane: one cell per insight, carrying exactly
 // the four fields this file is about — the key, the status, the outcome
 // direction and the resolution stamp — plus the baseline, so a "frozen" row is
@@ -114,6 +125,8 @@ const NO_DATES_KEY = "timelog:timelogCapPerDay:9";
  *  because the fixture that omitted them let the drop-core mutant ship green. */
 const CORE_KEY = "stalledWork:core";
 const TREND_KEY = "overdueTrend";
+/** A core type whose detector CONSUMES the holiday set, unlike the two above. */
+const BUDGET_KEY = "budgetVariance:core";
 
 /** The days the stored guardrail insights are about — deliberately FAR from the
  *  seeded roll's single August day, so a window covering one need not cover the
@@ -167,6 +180,13 @@ function acted(
       worstHours: 14,
       threshold: 8,
       ...VIOLATED,
+      // ★★★ DERIVED FROM THE KEY, never a shared constant. Every guardrail key
+      // here ends in the timelog userId, and the fixtures deliberately use
+      // DIFFERENT people (7 fresh, 8 gone, 9 no-dates). A fixed id in `VIOLATED`
+      // would put user 7 in every row's data while the keys said otherwise, so a
+      // scope assertion about `goneInsight` would silently be reading user 7's
+      // coverage and would pass whichever person the predicate actually checked.
+      timelogUserId: Number(over.key.slice(over.key.lastIndexOf(":") + 1)),
     },
     status: "acted",
     actedAt: "2026-08-01",
@@ -204,6 +224,22 @@ const trendInsight = acted({
   metricAtAction: { current: 9 },
 });
 const offInsight = acted({ id: 1, key: OFF_KEY, type: "timelogCapPerEntry", count: 3 });
+/** A CORE type that consumes `holidaySet` — `budgetVarianceInsight` threads it
+ *  into `computeBudgetReport`, so an empty-because-unloaded set moves the very
+ *  number its threshold compares against. */
+const budgetInsight = acted({
+  id: 6,
+  key: BUDGET_KEY,
+  type: "budgetVariance",
+  count: 12,
+  // ★★★ `variancePct`, NOT `count` — `METRIC_FIELD.budgetVariance` is
+  // `variancePct`, and a wrong key here makes `clear()` resolve with NO outcome
+  // at all. The status assertion would still pass, so the half of the test that
+  // is actually about a FABRICATED WIN would go unobserved while the test
+  // reported green. `baselineCell` reads the snapshot, so both must agree.
+  data: { variancePct: 12 },
+  metricAtAction: { variancePct: 12 },
+});
 
 /** The probe cell for one key, split on `|`. Throws (rather than returning
  *  undefined) so a missing row names itself and prints the whole cell text. */
@@ -214,11 +250,19 @@ function cellFor(key: string): string[] {
   return cell.split("|");
 }
 
-/** ★★★ FROZEN means the SAME RECORD, asserted field for field. The defect keeps
- *  the row and stamps it `resolved` + `resolvedAt` + an outcome
- *  `computeClearedOutcome` always writes as "improved", so any assertion weaker
- *  than this — "the row is still there", "it has the same key" — is green
- *  against exactly the bug it claims to catch. */
+/** ★★★ Asserts the FIVE fields the fabricated win would move: key, status,
+ *  outcome direction, resolution stamp and baseline. The defect keeps the row
+ *  and stamps it `resolved` + `resolvedAt` + an outcome `computeClearedOutcome`
+ *  always writes as "improved", so any assertion weaker than this — "the row is
+ *  still there", "it has the same key" — is green against exactly the bug it
+ *  claims to catch.
+ *  ★★ IT IS NOT A WHOLE-RECORD COMPARISON, and this docstring used to say it
+ *  was ("the SAME RECORD, asserted field for field"). `occurrences`,
+ *  `lastSeenAt`, `data` and `entityRef` are NOT checked here — they are not in
+ *  the probe's projection at all. That is sufficient for the defect named
+ *  above, but a reader trusting the old wording would think a field-level
+ *  regression anywhere in the record was covered, and would weaken this helper
+ *  believing there was a backstop. */
 function expectFrozen(insight: Insight): void {
   expect(cellFor(insight.key)).toEqual([
     insight.key,
@@ -245,6 +289,14 @@ function seedCache(over: Partial<Parameters<typeof saveActualsCache>[1]> = {}): 
     fetchedAt: "2026-08-25T08:00:00.000Z",
     daily: roll,
     dailyWindow: COVERING,
+    // ★★ The SCOPE half of the coverage claim, and it has to be seeded for the
+    // resolving cases to reach the resolve at all: a roll that does not say who
+    // it covered freezes, which is the back-compat default.
+    // ★ ALL THREE fixture people, including the two the roll carries no cell
+    // for. That is the point of the field — 8 and 9 were FETCHED and found
+    // clean, which is exactly the case that must stay clearable, and a roll
+    // listing only the people who appear in it could never express it.
+    dailyUsers: [7, 8, 9],
     ...over,
   });
 }
@@ -271,6 +323,9 @@ async function mountAndReconcile(insights: readonly Insight[]): Promise<void> {
 beforeEach(() => {
   setInsightsRef = null;
   setTimelogLinksRef = null;
+  // Back to the real hook's no-countries behaviour, so one readiness test
+  // cannot leak a frozen pipeline into whatever runs next under a shuffle.
+  holidaysReadyRef = true;
   window.localStorage.clear();
   window.localStorage.setItem(
     "aipm-cockpit:projects",
@@ -310,6 +365,40 @@ describe("task-manager → core insight types", () => {
 
   // The anti-vacuity control for the test above, and it is not optional: a
   // predicate returning false for everything passes that one on its own.
+  // ★★★ THE READINESS FLOOR IS NOT A GUARDRAIL-ONLY RULE. `budgetVarianceInsight`
+  // threads `holidaySet` into `computeBudgetReport`, so an empty-because-unloaded
+  // set moves capacity, moves `budgetHours`, and can push the variance under its
+  // threshold — the detector goes dark and a CORE type resolves as a fabricated
+  // win. The floor was applied to `timelogNonWorkingDay` alone while this
+  // consumer of the same value was certified unconditionally.
+  // ★★ Not merely a transient: if `loadHolidaysCtor()` rejects, `useHolidaySet`
+  // holds `ready:false` with an empty set permanently.
+  it("freezes budgetVariance while the holiday set has not loaded", async () => {
+    holidaysReadyRef = false;
+    await mountAndReconcile([budgetInsight]);
+    expectFrozen(budgetInsight);
+  }, TEST_MS);
+
+  // ★ Anti-vacuity for the pair: the SAME insight, the same absence of any
+  // budget data to detect against, and the only difference is readiness. Without
+  // this, a predicate returning false for every core type would pass the freeze
+  // test and look correct.
+  it("resolves the same budgetVariance once the holiday set is ready", async () => {
+    await mountAndReconcile([budgetInsight]);
+    expectResolved(BUDGET_KEY);
+  }, TEST_MS);
+
+  // ★★ The two OTHER core detectors that receive `holidaySet` must NOT be
+  // caught by this floor — they were checked rather than assumed: both
+  // `overdueTrend` and `milestoneSlip` decide on a bare `date < today` that
+  // returns BEFORE any holiday-aware workday maths, so they are
+  // holiday-INDEPENDENT and freezing them would be a false freeze.
+  it("does not freeze a holiday-independent core type while holidays load", async () => {
+    holidaysReadyRef = false;
+    await mountAndReconcile([coreInsight]);
+    expectResolved(CORE_KEY);
+  }, TEST_MS);
+
   it("resolves the same overdueTrend once a landing snapshot exists", async () => {
     // Prior overdue 0 vs a workspace with no overdue tasks ⇒ the detector runs
     // and legitimately emits nothing, which is a real clear.
@@ -368,6 +457,49 @@ describe("task-manager → the evaluated scope handed to reconcileInsights", () 
 
   it("freezes a guardrail insight when the cache entry carries no window", async () => {
     seedCache({ dailyWindow: undefined });
+    await mountAndReconcile([goneInsight]);
+    expectFrozen(goneInsight);
+  }, TEST_MS);
+
+  // ★★★ THE SCOPE HALF, and the window check alone could not catch it. The roll
+  // is a window-AND-scope snapshot: `fetchBookings(start, end, userIds)` iterates
+  // only the ticked people and a successful narrow fetch is NOT partial. So the
+  // days line up, the rule reports itself evaluated, and every person the fetch
+  // skipped resolves as a fabricated "improved" — from one "re-check just Bob".
+  // ★★ The window here is the COVERING one, identical to the resolving case
+  // above; scope is the only difference, so this cannot pass for the window's
+  // reasons.
+  it("freezes a guardrail insight about a person the roll did not cover", async () => {
+    seedCache({ dailyUsers: [7] });
+    await mountAndReconcile([goneInsight]);
+    expectFrozen(goneInsight);
+  }, TEST_MS);
+
+  // ★ Anti-vacuity for the pair above: same seed, the one person who IS covered,
+  // and it must still clear. Without this a predicate that froze EVERY guardrail
+  // insight would pass the freeze test and look correct.
+  it("still resolves a covered person while another is frozen for scope", async () => {
+    seedCache({ dailyUsers: [9] });
+    await mountAndReconcile([goneInsight, noDatesInsight]);
+    expectFrozen(goneInsight);
+    // user 9 is covered — it freezes for the OTHER reason (no dates), so assert
+    // the covered path against a row that can actually reach the window check.
+    expect(cellFor(NO_DATES_KEY)[1]).toBe("acted");
+  }, TEST_MS);
+
+  it("freezes a guardrail insight when the cache entry carries no covered-people list", async () => {
+    seedCache({ dailyUsers: undefined });
+    await mountAndReconcile([goneInsight]);
+    expectFrozen(goneInsight);
+  }, TEST_MS);
+
+  // ★★★ `partial` IS VALIDATED NOWHERE — not by `isEntry`, not by either daily
+  // checker — so a non-boolean reaches this predicate intact. The `=== true`
+  // this pins the replacement of read `"yes"` as NOT partial and went on to
+  // certify a clean; §172's fail-open rule is about not discarding an ENTRY, not
+  // about resolving an unproven flag in the certifying direction.
+  it("freezes a guardrail insight when partial holds a non-boolean", async () => {
+    seedCache({ partial: "yes" as unknown as boolean });
     await mountAndReconcile([goneInsight]);
     expectFrozen(goneInsight);
   }, TEST_MS);

@@ -372,7 +372,19 @@ describe("ActualsCacheEntry.daily size bound", () => {
   const DAY_MS = 86_400_000;
   const isoDay = (i: number) => new Date(Date.UTC(2020, 0, 1) + i * DAY_MS).toISOString().slice(0, 10);
   const CELL = { hours: 8, maxEntryHours: 8, entryCount: 1 };
-  /** `days` consecutive dated cells for one booker, oldest at index 0. */
+  /**
+   * `days` consecutive dated cells for ONE booker, oldest at index 0.
+   *
+   * ★★★ A ONE-BOOKER-PER-DATE FIXTURE CANNOT EXPRESS THE BOUNDARY DEFECT, and
+   * for a release every test in this block used one. The trim's survivor run is
+   * a contiguous tail of (user, date) entries, so the boundary can only land
+   * INSIDE a date group when a date carries more than one booker — with one
+   * booker per date every retained date is retained whole and a window narrowed
+   * to the boundary date is indistinguishable from a correct one. The test
+   * below commented as stopping the fabricated-clean regression passed against
+   * fully defective code for exactly that reason. Use `multiRollOf` for
+   * anything asserting WHICH date `from` may name.
+   */
   const rollOf = (days: number): Record<string, typeof CELL> => {
     const out: Record<string, typeof CELL> = {};
     for (let i = 0; i < days; i += 1) out[`7|${isoDay(i)}`] = { ...CELL };
@@ -441,6 +453,50 @@ describe("ActualsCacheEntry.daily size bound", () => {
     // Anti-vacuity: the assertion above is equally true of a window nobody
     // narrowed if the trim happened to retain the oldest day.
     expect(e?.dailyWindow?.from).not.toBe(ORIGINAL_FROM);
+  });
+
+  /** `days` × `bookers` cells, every booker present on every date. */
+  const multiRollOf = (days: number, bookers: number): Record<string, typeof CELL> => {
+    const out: Record<string, typeof CELL> = {};
+    for (let i = 0; i < days; i += 1) {
+      // Fixed-width ids so every cell costs the same and the boundary position
+      // is a function of the budget alone, not of how a number happens to print.
+      for (let b = 0; b < bookers; b += 1) out[`${100 + b}|${isoDay(i)}`] = { ...CELL };
+    }
+    return out;
+  };
+  const bookersOn = (roll: Record<string, unknown> | undefined, date: string) =>
+    Object.keys(roll ?? {}).filter((k) => k.slice(k.indexOf("|") + 1) === date).length;
+
+  // ★★★ THE MULTI-BOOKER HALF OF THE SAME REGRESSION, and the one the
+  // single-booker fixtures above are structurally blind to. When the budget
+  // boundary falls inside a date's group of bookers, that date is retained for
+  // SOME people and dropped for others. Naming it as `from` claims coverage for
+  // the dropped ones, whose insights then pass the window check, find no
+  // violation because their cell is gone, and resolve as "improved".
+  it("never names a half-retained date as dailyWindow.from", () => {
+    const BOOKERS = 200;
+    saveActualsCache("b3m", {
+      fetchedAt: "2026-09-04T00:00:00.000Z",
+      daily: multiRollOf(200, BOOKERS),
+      dailyWindow: { from: isoDay(0), to: isoDay(199) },
+    });
+    const e = loadActualsCache("b3m");
+    const kept = e?.daily as Record<string, unknown> | undefined;
+    expect(JSON.stringify(kept).length).toBeLessThanOrEqual(MAX_DAILY_ROLL_CHARS);
+
+    const earliestPresent = [...new Set(datesOf(kept))].sort()[0];
+    // ★★ ANTI-VACUITY, and without it this test proves nothing: it asserts the
+    // trim actually landed mid-group. If the budget happened to divide evenly
+    // by the booker count the boundary would be clean, every retained date
+    // whole, and the assertion below would hold against the defect too.
+    expect(bookersOn(kept, earliestPresent)).toBeGreaterThan(0);
+    expect(bookersOn(kept, earliestPresent)).toBeLessThan(BOOKERS);
+
+    // The claim must skip the half-retained date entirely...
+    expect(e?.dailyWindow?.from).not.toBe(earliestPresent);
+    // ...and the date it DOES name must be retained for every booker.
+    expect(bookersOn(kept, e?.dailyWindow?.from as string)).toBe(BOOKERS);
   });
 
   // The trim drops the OLD end, so the far end of the claim is still true and

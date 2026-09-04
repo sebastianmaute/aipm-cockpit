@@ -175,6 +175,47 @@ describe("evaluateTimelogPolicy", () => {
     ]);
   });
 
+  // ★★★ THE WHOLE-RULE LINK FLOOR IS NOT ENOUGH, and this pins the per-PERSON
+  // report that replaces it. `doWorking` asks only whether SOME link exists, so
+  // with user 7 linked the rule reports itself evaluated for EVERYBODY — while
+  // user 8, whose link was removed, can no longer produce a violation at all.
+  // The insight key is per person, so user 8's stored row then found nothing and
+  // resolved as a fabricated "improved". `linkedUsers` is what lets the reader
+  // freeze that row instead.
+  // ★★ ANTI-VACUITY: both users book in the SAME roll and the rule IS evaluated,
+  // so a `linkedUsers` that simply echoed everyone in the roll, or echoed the
+  // violators, would differ from this expectation. 8 books over any plausible
+  // day and is still absent, because absence here is about the LINK.
+  it("reports only the people whose link resolves, not everyone in the roll", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1], [dailyKey(8, TUE)]: [14, 14, 1] }),
+      policy: { timelogWorkingHours: { enabled: true } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      userLinks: [link(7, 40)],
+      shifts: [shift(40, [0, 8, 6, 8, 8, 8, 0])],
+    });
+    expect(res.evaluated).toEqual(["timelogWorkingHours"]);
+    expect(res.linkedUsers).toEqual([7]);
+    // ...and the unlinked booker really did go dark: the rule ran, 8 booked 14h,
+    // and produced nothing. That is the state that must never read as a clean.
+    expect(res.violations.map((v) => v.timelogUserId)).toEqual([7]);
+  });
+
+  // ★ The other direction, so the pair cannot both pass on a constant: a linked
+  // person who breaches NOTHING is still reported as covered, because the
+  // question is "could the rule see them", not "did they breach".
+  it("reports a linked person who violated nothing", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, TUE)]: [4, 4, 1] }),
+      policy: { timelogWorkingHours: { enabled: true } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      userLinks: [link(7, 40)],
+      shifts: [shift(40, [0, 8, 6, 8, 8, 8, 0])],
+    });
+    expect(res.violations).toEqual([]);
+    expect(res.linkedUsers).toEqual([7]);
+  });
+
   // ★★★ AT THE THRESHOLD, NOT OVER IT. `>` → `>=` is invisible unless a cell
   // sits exactly ON the number, and that mutant's blast radius is the commonest
   // real booking in the product: everyone who logs exactly their contracted

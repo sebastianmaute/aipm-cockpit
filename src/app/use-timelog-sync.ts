@@ -56,12 +56,24 @@ type Args = {
  *  omission. Do NOT inline it back into the four call sites.
  *  ★ Named `fetchWindow`, never `window` — this is browser code, and shadowing
  *  the DOM global inside a hook file is how a later edit reaching for
- *  `window.localStorage` here silently resolves to a date range instead. */
+ *  `window.localStorage` here silently resolves to a date range instead.
+ *  ★★★ IT CARRIES THREE MEMBERS, NOT TWO, AND THE THIRD IS WHY THE NAME LIES
+ *  SLIGHTLY. `dailyUsers` is the SCOPE half of the coverage claim, and shipping
+ *  the window without it was a Critical: a narrowed re-fetch wrote an intact
+ *  window over a roll covering only the ticked people, and every unfetched
+ *  person's insight resolved as a fabricated "improved". Kept as one spread for
+ *  exactly the reason above — three independently-droppable fields is three
+ *  times the surface, and the whole point is that omission is not expressible. */
 function rollPair(
   roll: TimelogDailyRoll | undefined,
   fetchWindow: TimelogRollWindow | undefined,
-): { daily: TimelogDailyRoll | undefined; dailyWindow: TimelogRollWindow | undefined } {
-  return { daily: roll, dailyWindow: fetchWindow };
+  coveredUsers: readonly number[] | undefined,
+): {
+  daily: TimelogDailyRoll | undefined;
+  dailyWindow: TimelogRollWindow | undefined;
+  dailyUsers: readonly number[] | undefined;
+} {
+  return { daily: roll, dailyWindow: fetchWindow, dailyUsers: coveredUsers };
 }
 
 export function useTimelogSync(args: Args) {
@@ -100,6 +112,13 @@ export function useTimelogSync(args: Args) {
   // leaves no cell, so the roll's own min/max key understates its coverage and
   // a clean stretch would read as never fetched.
   const [dailyWindow, setDailyWindow] = useState<TimelogRollWindow | undefined>(() => loadActualsCache(projectId)?.dailyWindow);
+  // The PEOPLE `daily` was fetched for, held as state for the same reason the
+  // window is and never derived from the roll: a person fetched who booked
+  // nothing leaves no cell, so the roll's own key set understates its scope and
+  // a genuinely clean person would read as never fetched — which is the half
+  // that must stay distinguishable, because "fetched and clean" is clearable
+  // and "not fetched" must freeze.
+  const [dailyUsers, setDailyUsers] = useState<readonly number[] | undefined>(() => loadActualsCache(projectId)?.dailyUsers);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<number | null>(null);
   // Customer directory for the project-scope picker. Lazy + lightweight (no busy
@@ -190,7 +209,7 @@ export function useTimelogSync(args: Args) {
       // anywhere. This path has no `items`, so it carries the state through —
       // via `rollPair`, which carries the roll's WINDOW with it (see its note).
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users: shown, projectRefs, partial, ...rollPair(daily, dailyWindow) });
+        saveActualsCache(projectId, { fetchedAt, aggregates, users: shown, projectRefs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
       }
     });
   }
@@ -234,7 +253,7 @@ export function useTimelogSync(args: Args) {
       // ★★ `partial` and the roll pair carried through for the same reason as
       // the directory reload above — this save has no `items` either.
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users, projectRefs: refs, partial, ...rollPair(daily, dailyWindow) });
+        saveActualsCache(projectId, { fetchedAt, aggregates, users, projectRefs: refs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
       }
     });
   }
@@ -273,6 +292,7 @@ export function useTimelogSync(args: Args) {
     usersOverride: readonly TimelogUser[] | undefined,
     isPartial: boolean,
     fetchWindow: TimelogRollWindow,
+    coveredUsers: readonly number[],
   ): ActualsAggregate {
     const u = usersOverride ?? users;
     // Distinct projects seen — lets the matching UI bootstrap never-linked ones.
@@ -310,7 +330,8 @@ export function useTimelogSync(args: Args) {
     setPartial(isPartial);
     setDaily(roll);
     setDailyWindow(fetchWindow);
-    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial, ...rollPair(roll, fetchWindow) });
+    setDailyUsers(coveredUsers);
+    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial, ...rollPair(roll, fetchWindow, coveredUsers) });
     return agg;
   }
 
@@ -334,13 +355,29 @@ export function useTimelogSync(args: Args) {
       // surfaced to the caller so a partial fetch isn't silently short; the
       // per-employee loop below still swallows-and-continues (fail-soft).
       let failedEmployees = 0;
+      // ★★★ THE PEOPLE THIS FETCH COVERS — the scope half of the roll's coverage
+      // claim, and the two branches below can answer it with different levels of
+      // honesty. Org scope KNOWS its scope (`ids`, the very list it iterates).
+      // Self scope does not: `listTimeItemsSelf` names nobody, and asking the
+      // API who the token belongs to would be an extra request on every fetch.
+      // ★★ So self scope derives it from the items, which UNDERSTATES: a token
+      // owner who booked nothing in the range yields an empty list. That is the
+      // safe direction and the one this whole slice is built on — an
+      // understated scope freezes insights it could have cleared, while an
+      // overstated one certifies a clean for somebody who was never fetched.
+      // Never "fix" this by defaulting to all loaded directory users.
+      let covered: readonly number[] = [];
       if (resolvedScope === "self") {
         items = await listTimeItemsSelf(creds, startDate, endDate, signal);
+        covered = [...new Set(items.map((it) => it.userId).filter((id) => Number.isInteger(id) && id > 0))];
       } else {
         // Org mode: iterate the ticked users (or all loaded, if none ticked)
         // serially, fail-soft per employee. Serial (not Promise.all) to avoid
         // hammering the API and tripping the rate limit.
         const ids = userIds && userIds.length > 0 ? userIds : users.map((u) => u.userId);
+        // Exactly the people iterated below — a narrowed fetch covers only these,
+        // and everyone else's stored insight must FREEZE rather than resolve.
+        covered = ids;
         for (const id of ids) {
           if (signal.aborted) break; // stop the loop promptly on cancel
           try {
@@ -361,7 +398,11 @@ export function useTimelogSync(args: Args) {
       // The REQUESTED range is the roll's coverage, not the range the returned
       // items span: both endpoints are queried with exactly these dates, so a
       // day inside it with no cell was fetched and genuinely had no bookings.
-      finish(items, undefined, failedEmployees > 0 || signal.aborted, { from: startDate, to: endDate });
+      // ★ An employee whose own fetch FAILED is still in `covered`, and that is
+      // safe only because `failedEmployees > 0` sets `isPartial`, which freezes
+      // every guardrail insight regardless of scope. Drop that term and this
+      // list starts overstating coverage.
+      finish(items, undefined, failedEmployees > 0 || signal.aborted, { from: startDate, to: endDate }, covered);
       return { failedEmployees };
     });
   }
@@ -424,7 +465,21 @@ export function useTimelogSync(args: Args) {
       // its declared coverage are derived from one pair of dates and cannot
       // disagree — the v2 endpoint ignores the date params, and claiming
       // coverage of the project's whole history would be a fabricated clean.
-      const agg = finish(inWindow, bookers, failedProjects > 0 || signal.aborted, { from: startDate, to: endDate });
+      // ★★★ PROJECT SCOPE COVERS NOBODY FULLY, so it certifies nothing — the
+      // empty list is deliberate and is NOT the same bug as omitting the field.
+      // Every other scope fetches a PERSON's whole day; this one fetches only
+      // the selected PROJECTS, so a person's remaining hours can sit on a
+      // project nobody ticked. Their day total, their worst entry and their
+      // holiday bookings are all knowable only in part, which means "no
+      // violation found" here is never evidence of a clean — it is evidence
+      // about a subset. Handing `bookerIds` over instead would certify exactly
+      // the people this fetch measured LEAST completely, since a booker on one
+      // project is precisely somebody whose other projects are missing.
+      // ★★ CONSEQUENCE, and it is a real cost, not a free win: a user working
+      // only in project scope never auto-resolves a guardrail insight — they
+      // freeze until an org- or self-scope fetch covers the person. That is the
+      // recoverable direction; a fabricated "improved" in exported data is not.
+      const agg = finish(inWindow, bookers, failedProjects > 0 || signal.aborted, { from: startDate, to: endDate }, []);
       return { failedProjects, projectCount: ids.length, aggregates: agg };
     });
   }
@@ -447,7 +502,7 @@ export function useTimelogSync(args: Args) {
       // ★★ Fourth saver. The roll pair is carried through here too — a
       // display-only people cleanup must not take the guardrail roll, or its
       // declared coverage, with it.
-      saveActualsCache(projectId, { fetchedAt, aggregates, users: next, projectRefs, partial, ...rollPair(daily, dailyWindow) });
+      saveActualsCache(projectId, { fetchedAt, aggregates, users: next, projectRefs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
     }
   }
 
@@ -463,11 +518,14 @@ export function useTimelogSync(args: Args) {
     // ★ Reset WITH the roll, never after it: a window outliving its roll would
     // claim coverage for days nothing can be read from — worse than no window.
     setDailyWindow(undefined);
+    // Same rule for the scope half: a covered-people list outliving its roll
+    // certifies people whose cells are gone.
+    setDailyUsers(undefined);
     setUsers([]);
     setProjectRefs([]);
     fullDirectoryRef.current = null; // force a fresh directory on the next fetch
     clearActualsCache(projectId);
   }
 
-  return { aggregates, fetchedAt, partial, daily, dailyWindow, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
+  return { aggregates, fetchedAt, partial, daily, dailyWindow, dailyUsers, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
 }

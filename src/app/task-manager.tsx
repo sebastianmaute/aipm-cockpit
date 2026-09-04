@@ -925,14 +925,35 @@ function TaskManagerInner() {
       // exported artifact is not.
       const evaluatedRules = new Set<InsightType>(policyResult.evaluated);
       const rollWindow = actuals?.dailyWindow;
-      // ★★ `=== true`, never truthiness — `partial` fails OPEN on garbage by
-      // design (register §172), and this reader must not tighten that.
-      const rollPartial = actuals?.partial === true;
+      const rollUsers = actuals?.dailyUsers;
+      // ★★★ ANY NON-FALSE `partial` FREEZES, and the `=== true` this replaces
+      // was backwards. `partial` is validated NOWHERE — not by `isEntry`, not by
+      // the daily checkers — so a non-boolean survives into the entry, and
+      // `=== true` read `partial: "yes"` as NOT partial and went on to certify a
+      // clean. §172's fail-open rule is about not DISCARDING an entry over an
+      // optional field; it was never a licence to resolve an unproven value in
+      // the certifying direction, which is what this predicate exists to
+      // prevent. Absent stays not-partial — that is the real back-compat case.
+      const partialFlag = actuals?.partial;
+      const rollPartial = partialFlag !== undefined && partialFlag !== false;
       const isEvaluated = (insight: Insight): boolean => {
         // ★★ NOT a core type merely because it is in the list: `overdueTrend`
         // goes dark whenever this device has no landing snapshot for the
         // project, so it is certified by the same value the detector gates on.
         if (insight.type === "overdueTrend") return priorOverdueCount !== null;
+        // ★★★ THE READINESS FLOOR IS NOT A GUARDRAIL-ONLY RULE, and applying it
+        // to one rule while a CORE detector consumed the same value was the gap.
+        // `budgetVarianceInsight` threads `holidaySet` into `computeBudgetReport`
+        // (capacity → `budgetHours` → the variance pct), so an
+        // empty-because-unloaded set moves the number the threshold is compared
+        // against and the insight can go dark. The other two core detectors
+        // receiving `holidaySet` are unaffected and were checked rather than
+        // assumed: `overdueTrend` and `milestoneSlip` both decide on a bare
+        // `date < today` that returns BEFORE any holiday-aware workday maths.
+        // ★★ Not just the transient load: if `loadHolidaysCtor()` rejects,
+        // `useHolidaySet` keeps `ready:false` and an empty set permanently, so
+        // this is the difference between freezing and fabricating forever.
+        if (insight.type === "budgetVariance") return holidaysReady;
         if (CORE_INSIGHT_TYPES.includes(insight.type)) return true;
         // Everything left is a guardrail rule (or, defensively, a type nothing
         // here evaluates — which falls through to false, the safe direction).
@@ -958,7 +979,40 @@ function TaskManagerInner() {
         if (typeof first !== "string" || typeof last !== "string") return false;
         // ISO `YYYY-MM-DD` compares correctly with `<=`/`>=`; the store already
         // rejects a window that is not two ISO dates with `from <= to`.
-        return rollWindow.from <= first && rollWindow.to >= last;
+        if (!(rollWindow.from <= first && rollWindow.to >= last)) return false;
+        // ★★★ THE SCOPE HALF, AND THE WINDOW ALONE WAS NOT ENOUGH. The roll is a
+        // window-AND-scope snapshot: `fetchBookings` iterates only the ticked
+        // people and a successful narrow fetch is NOT `partial`, so without this
+        // check one "re-check just Bob" resolves every other person's insight as
+        // "improved". Project scope reports covering nobody, because it fetches
+        // selected PROJECTS rather than whole days and can never certify a
+        // person's total.
+        // ★★ Absent freezes, exactly like an absent window: an entry written
+        // before this field existed cannot ESTABLISH who it covered, and absent
+        // evidence is not evidence of coverage.
+        if (rollUsers === undefined) return false;
+        const who = insight.data.timelogUserId;
+        if (typeof who !== "number") return false;
+        if (!rollUsers.includes(who)) return false;
+        // ★★★ THE PER-PERSON LINK FLOOR. The two shift-dependent rules need this
+        // person to resolve to a resource before "no violation" means anything:
+        // `workingHours` reads their expected hours from the shift, and
+        // `nonWorkingDay`'s weekday half reads their weekend from it. The
+        // whole-rule floor in the engine only asks whether SOME link exists, so
+        // removing one person's link leaves the rule evaluated while that person
+        // goes dark — and the key is per person.
+        // ★★ `nonWorkingDay` is included even though its HOLIDAY half needs no
+        // link, and that is deliberately conservative: the two halves share one
+        // insight key, so a currently-unlinked person's "no violation" is an
+        // answer about the holiday half ALONE and cannot certify the other.
+        // ★ Cost: a never-linked booker's guardrail rows stop auto-resolving.
+        // They still get RAISED — detection is deliberately link-independent
+        // (`buildDailyRoll` measures unlinked bookers on purpose). Measuring and
+        // certifying-a-clean are different acts, and only the second needs this.
+        if (insight.type === "timelogWorkingHours" || insight.type === "timelogNonWorkingDay") {
+          return policyResult.linkedUsers.includes(who);
+        }
+        return true;
       };
       setInsights((prev) => {
         const base = prev ?? [];

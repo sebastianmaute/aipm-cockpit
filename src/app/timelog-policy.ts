@@ -70,9 +70,20 @@ export interface TimelogPolicyResult {
   readonly violations: readonly TimelogViolation[];
   /** In TIMELOG_RULE_IDS order. Empty when nothing could be evaluated. */
   readonly evaluated: readonly TimelogRuleId[];
+  /** ★★★ THE PEOPLE THE SHIFT-DEPENDENT RULES COULD ACTUALLY ANSWER FOR — the
+   *  per-PERSON companion to `evaluated`, which is per-RULE and was not enough.
+   *  `workingHours` needs a resolvable link to know a person's expected hours,
+   *  and `nonWorkingDay`'s weekday half needs it to know their weekend. The old
+   *  floor asked only whether ANY link existed, so removing ONE person's link
+   *  left the rule reporting itself evaluated while that person could no longer
+   *  produce a violation — and the insight key is per person, so their row
+   *  cleared as a fabricated "improved".
+   *  ★★ Membership means "this userId resolved to a resource", NOT "this person
+   *  violated something": somebody linked and clean must stay clearable. */
+  readonly linkedUsers: readonly number[];
 }
 
-const EMPTY: TimelogPolicyResult = { violations: [], evaluated: [] };
+const EMPTY: TimelogPolicyResult = { violations: [], evaluated: [], linkedUsers: [] };
 
 /** The threshold window this engine accepts, deliberately IDENTICAL to the one
  *  `sanitizeTimelogPolicy` enforces on LOAD (`> 0 && <= MAX_HOURS_PER_DAY`).
@@ -199,6 +210,7 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   const perDay = new Map<number, Accum>();
   const perNonWorking = new Map<number, Accum>();
   const perWorking = new Map<number, Accum>();
+  const linked = new Set<number>();
 
   for (const [key, cell] of Object.entries(daily)) {
     const parsed = parseDailyKey(key);
@@ -214,6 +226,11 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
     if (!isDailyCell(cell)) continue;
     const { userId, date } = parsed;
     const resourceId = userToResource.get(userId) ?? null;
+    // Every person the roll mentions who resolves to a resource — recorded
+    // whether or not they go on to violate anything, because the question this
+    // answers downstream is "could the shift-dependent rules SEE this person",
+    // not "did they breach".
+    if (resourceId !== null) linked.add(userId);
     const shift = resourceId === null ? undefined : resourceToShift.get(resourceId);
     const weekday = weekdayIndex(date);
     const definedHours =
@@ -230,8 +247,13 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
     if (doNonWorking && (holidaySet.has(date) || definedHours === 0)) {
       bump(perNonWorking, userId, resourceId, cell.hours, 0, date);
     }
-    // A user with no link contributes nothing here, which is correct: the rule
-    // is evaluated (some link exists) but this person is simply unchecked.
+    // ★★★ A user with no link contributes nothing here, and "the rule is
+    // evaluated, this person is simply unchecked" — which is what this comment
+    // used to say — is precisely the fabricated-win shape, not a justification
+    // for it. The insight key is per PERSON, so an unchecked person's stored row
+    // finds no violation and resolves as "improved". `linkedUsers` above is what
+    // makes that person's row FREEZE instead; the whole-rule `doWorking` floor
+    // cannot, because it asks whether ANY link exists.
     if (doWorking && definedHours !== null && definedHours > 0 && cell.hours > definedHours) {
       bump(perWorking, userId, resourceId, cell.hours, definedHours, date);
     }
@@ -251,5 +273,5 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
     evaluated.push(rule);
     violations.push(...drain(rule, acc));
   }
-  return { violations, evaluated };
+  return { violations, evaluated, linkedUsers: [...linked] };
 }

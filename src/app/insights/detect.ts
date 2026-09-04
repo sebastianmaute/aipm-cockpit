@@ -229,6 +229,16 @@ function timelogGuardrailInsights(
         // the measurement.
         firstViolationDate: v.firstViolationDate,
         lastViolationDate: v.lastViolationDate,
+        // ★★ Carried for the SCOPE half of the same question the dates answer
+        // for the window half: "did the roll behind this pass actually cover
+        // this PERSON?" The roll is a window-AND-scope snapshot, and a narrowed
+        // re-fetch covers only the people it asked for, so days alone cannot
+        // certify a clean. ★ Read from `data`, never re-parsed out of the
+        // `key` above: the key is a display-and-identity string whose format is
+        // free to change, and a reconcile silently mis-parsing it would fail in
+        // the certifying direction. `sanitizeData` keeps numeric values, so it
+        // survives every load path with no sanitiser change.
+        timelogUserId: v.timelogUserId,
       },
     };
   });

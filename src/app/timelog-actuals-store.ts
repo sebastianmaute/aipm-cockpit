@@ -57,6 +57,22 @@ export type ActualsCacheEntry = {
   // EVERY save for the same reason `daily` does: an entry is rewritten whole,
   // so a saver that omits it CLEARS it (register §172).
   dailyWindow?: TimelogRollWindow;
+  // ★★★ THE SCOPE HALF OF THE SAME CLAIM, and `dailyWindow` alone was NOT
+  // enough — shipping the window without this was a Critical. The roll is a
+  // window-AND-SCOPE snapshot: `fetchBookings(start, end, userIds)` iterates
+  // only the ticked people, and a successful narrow fetch sets `partial: false`
+  // because nothing failed. So the days check passes, the rule reports itself
+  // evaluated, and every UNFETCHED person's stored insight finds no violation
+  // and resolves as "improved" — from one ordinary "re-check just Bob" action,
+  // with no size threshold, no corruption and no second device involved.
+  // ★★ The userIds the roll COVERS, not the ones that violated anything: a
+  // person fetched and found clean must be clearable, which is the whole point
+  // of the feature. Absent means "scope unknown" and FREEZES, exactly like an
+  // absent window — the recoverable direction, and the back-compat rule for
+  // entries written before this field existed.
+  // ★★ Rides on EVERY save via `rollPair`, for the §172 reason: an entry is
+  // rewritten whole, so a saver that omits it CLEARS it.
+  dailyUsers?: readonly number[];
 };
 
 /** The inclusive ISO `YYYY-MM-DD` date range a `daily` roll was fetched over. */
@@ -164,12 +180,31 @@ function withCheckedDailyWindow(e: ActualsCacheEntry): ActualsCacheEntry {
   return copy;
 }
 
+/** ALL-OR-NOTHING, like the window and for the same reason: a scope claim that
+ *  is partly garbage is not a narrower claim, it is an unknown one, and keeping
+ *  the readable half would certify coverage for whoever happened to parse. A
+ *  non-array, or any member that is not a positive integer, drops the field —
+ *  which reads as "scope unknown" and FREEZES.
+ *  ★ Positive, mirroring `buildDailyRoll`'s `userId <= 0` skip: `mapV2TimeItem`
+ *  falls back to `0` for an unidentified booker, so 0 is a sentinel here too and
+ *  must never be admitted as a covered person. */
+function withCheckedDailyUsers(e: ActualsCacheEntry): ActualsCacheEntry {
+  const u: unknown = e.dailyUsers;
+  if (u === undefined) return e;
+  if (Array.isArray(u) && u.every((n) => typeof n === "number" && Number.isInteger(n) && n > 0)) {
+    return e;
+  }
+  const copy = { ...e };
+  delete copy.dailyUsers;
+  return copy;
+}
+
 function readMap(): CacheMap {
   const parsed = readDeviceJson<unknown>(TIMELOG_ACTUALS_KEY, null);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
   const out: CacheMap = {};
   for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-    if (isEntry(v)) out[k] = withCheckedDailyWindow(withCheckedDaily(v));
+    if (isEntry(v)) out[k] = withCheckedDailyUsers(withCheckedDailyWindow(withCheckedDaily(v)));
   }
   return out;
 }
@@ -287,6 +322,8 @@ function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
   if (firstKept >= dated.length) {
     delete copy.daily;
     delete copy.dailyWindow;
+    // The scope claim describes the roll; with no roll left it claims nothing.
+    delete copy.dailyUsers;
     return copy;
   }
   const kept: TimelogDailyRoll = {};
@@ -294,10 +331,32 @@ function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
   copy.daily = kept;
   const window = copy.dailyWindow;
   if (window !== undefined) {
-    const earliest = dated[firstKept].date;
-    // Past the far end there is no honest window left to state — freeze.
-    if (earliest > window.to) delete copy.dailyWindow;
-    else if (earliest > window.from) copy.dailyWindow = { from: earliest, to: window.to };
+    // ★★★ THE BOUNDARY DATE IS ONLY HALF-RETAINED, AND `from` MUST NEVER NAME IT.
+    // The roll is keyed `userId|date`, so `dated` carries one entry per (user,
+    // date) and the sort groups a date's bookers together. The survivor run
+    // starts at `firstKept`, which lands INSIDE a date group whenever that date
+    // has more bookers than the remaining budget — the normal case for any
+    // multi-booker roll, not an edge. Naming that date as `from` claims coverage
+    // for the bookers whose cells were just dropped: their stored insights pass
+    // `isEvaluated`'s window check, find no violation because the cell is gone,
+    // and clear as "improved" into the shared, exported workspace. Advance to
+    // the first FULLY retained date instead.
+    // ★ The half-retained cells STAY in `daily` — they are real measurements and
+    // the rules should still read them. Only the coverage CLAIM narrows.
+    let firstFull = firstKept;
+    if (firstKept > 0 && dated[firstKept - 1].date === dated[firstKept].date) {
+      const partialDate = dated[firstKept].date;
+      while (firstFull < dated.length && dated[firstFull].date === partialDate) firstFull += 1;
+    }
+    if (firstFull >= dated.length) {
+      // The only retained date is a partial one — no honest window survives.
+      delete copy.dailyWindow;
+    } else {
+      const earliest = dated[firstFull].date;
+      // Past the far end there is no honest window left to state — freeze.
+      if (earliest > window.to) delete copy.dailyWindow;
+      else if (earliest > window.from) copy.dailyWindow = { from: earliest, to: window.to };
+    }
   }
   return copy;
 }
