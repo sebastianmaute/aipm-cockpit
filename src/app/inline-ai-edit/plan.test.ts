@@ -456,3 +456,78 @@ describe("task descriptor field name", () => {
     expect(INLINE_DESCRIPTORS.task.diffFields).not.toContain("notes");
   });
 });
+
+describe("a person is named by their name, never by their job title", () => {
+  // ★★★ `Stakeholder.title` and `Resource.title` are both JOB titles. The
+  // generic label chain reads `title` first, so before this was fixed a delete
+  // confirmation offered to delete "Programme Director" when the row was a
+  // person — a wrong-target prompt on an irreversible action.
+  //
+  // ★★ The fixture is the whole test. Both fields must be populated AND
+  // DIFFERENT, or the assertion cannot tell a name-first chain from a
+  // title-first one. A stakeholder with no `title`, or whose title equals their
+  // name, passes against the unfixed code.
+  const stk = {
+    id: 11,
+    name: "R. Achebe",
+    title: "Programme Director",
+    organization: "Acme",
+    category: "Sponsor",
+  } as unknown as { id: number };
+  const stkWs = wsWith({ stakeholders: [stk] as never });
+  const d = INLINE_DESCRIPTORS.stakeholder;
+
+  it("offers to delete the PERSON, not their job title", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "delete_stakeholder", input: { id: 11 } }],
+      { descriptor: d, item: stk, ws: stkWs },
+    );
+    expect(plan.deletes).toHaveLength(1);
+    expect(plan.deletes[0]).toEqual({
+      entity: "stakeholder",
+      label: "R. Achebe",
+      toolName: "delete_stakeholder",
+      id: 11,
+    });
+    // Stated as its own assertion because it is the defect, not a detail: the
+    // job title must not appear as the deletion's target under any spelling.
+    expect(plan.deletes[0].label).not.toBe("Programme Director");
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("titles a stakeholder create by name, not by job title", () => {
+    const plan = describeEntityCalls(
+      [
+        {
+          type: "tool_use",
+          name: "create_stakeholder",
+          input: { name: "R. Achebe", title: "Programme Director" },
+        },
+      ],
+      { descriptor: d, item: stk, ws: stkWs },
+    );
+    expect(plan.creates).toHaveLength(1);
+    expect(plan.creates[0]).toMatchObject({
+      entity: "stakeholder",
+      title: "R. Achebe",
+      toolName: "create_stakeholder",
+    });
+  });
+
+  it("still titles a non-person entity by its title field", () => {
+    // The anti-over-reach pin. `PERSON_ENTITIES` must not swallow entities whose
+    // `title` really IS their name — a milestone titled "Go live" must keep it,
+    // and a set widened by one careless member would silently rename every
+    // milestone card to its id.
+    const ms = { id: 21, title: "Go live" } as unknown as { id: number };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "delete_milestone", input: { id: 21 } }],
+      {
+        descriptor: INLINE_DESCRIPTORS.milestone,
+        item: ms,
+        ws: wsWith({ milestones: [ms] as never }),
+      },
+    );
+    expect(plan.deletes[0].label).toBe("Go live");
+  });
+});
