@@ -11,6 +11,7 @@
 // document-mutations.ts so its consumers did not have to move.
 
 import { blockChanged, type DocBlock } from "./document-model";
+import { blockToken } from "./document-block-token";
 
 export type DocOp =
   | { op: "append"; block: DocBlock }
@@ -24,13 +25,28 @@ export type DocOp =
   //  live state at call time, so it is the one place the check cannot be fooled.
   //  ★ OPTIONAL, and an absent one must never be read as "expected nothing":
   //   every AI/tool caller omits it and must keep applying.
-  | { op: "replace"; index: number; block: DocBlock; expect?: DocBlock }
+  //  ★★ `expectHash` is the SAME precondition for a caller that holds a TOKEN
+  //   rather than the block: `get_document` hands one out per block, and that
+  //   read is the ONLY source — `update_document` returns NONE
+  //   (`DocumentUpdateResult` is `{id,title,blockCount,applied,rejected,removed}`).
+  //   ★★★ SO THE TOKENS DO NOT SURVIVE THE WRITE THEY GUARD: after any applied
+  //   op, every token the caller still holds for a changed block is stale, and
+  //   every index at or after an insert/delete/move has shifted. The protocol
+  //   is re-read — call `get_document` again before the next guarded op — and
+  //   the `update_document` tool description is where a model is told so.
+  //   It exists because `blockChanged` is
+  //   structural deepEqual, so `expect` would require a model to reproduce
+  //   rich HTML byte-for-byte — which misfires on whitespace and entity
+  //   encoding, and an optional precondition that misfires is one the caller
+  //   learns to omit. Both are OPTIONAL here and BOTH are checked when both
+  //   are present; the tool layer, not this module, refuses on ABSENCE.
+  | { op: "replace"; index: number; block: DocBlock; expect?: DocBlock; expectHash?: string }
   // ★ `expect` here for the same reason as on `replace`, and NOT on `insert`:
   //  a shifted index makes a delete remove a block the user never pointed at,
   //  which is unrecoverable except by a whole-document version restore, while
   //  the same shift merely puts a NEW empty block one position from where it
   //  was asked for. `insert` also has no target block to name.
-  | { op: "delete"; index: number; expect?: DocBlock }
+  | { op: "delete"; index: number; expect?: DocBlock; expectHash?: string }
   // ★★★ ONE OP, NEVER A COMPOSED `delete` + `insert`. applyOps applies per-op
   //  and bails wholesale only when `applied === 0`, so the composed spelling
   //  can delete a block and then have the re-insert refused — losing it. A
@@ -38,7 +54,7 @@ export type DocOp =
   //  contrast.
   //  ★ Semantics: remove at `from`, then insert at `to` IN THE RESULTING
   //   array, so `to` addresses 0..len-1 and `to === len-1` appends.
-  | { op: "move"; from: number; to: number; expect?: DocBlock }
+  | { op: "move"; from: number; to: number; expect?: DocBlock; expectHash?: string }
   | { op: "replaceAll"; blocks: readonly DocBlock[] };
 
 /** ★★★ AN OMITTED FIELD IS NOT AN EMPTY ONE — the same rule chat-tools-documents.ts
@@ -156,6 +172,12 @@ export function applyOps(
           rejected.push(`op ${i}: replace index ${op.index} was changed by another writer`);
           break;
         }
+        // ★ The message deliberately MATCHES the `expect` one above: same
+        //  cause, and the model should not have to learn two.
+        if (op.expectHash !== undefined && blockToken(next[op.index]) !== op.expectHash) {
+          rejected.push(`op ${i}: replace index ${op.index} was changed by another writer`);
+          break;
+        }
         next[op.index] = op.block;
         applied++;
         break;
@@ -165,6 +187,10 @@ export function applyOps(
           break;
         }
         if (op.expect !== undefined && blockChanged(op.expect, next[op.index])) {
+          rejected.push(`op ${i}: delete index ${op.index} was changed by another writer`);
+          break;
+        }
+        if (op.expectHash !== undefined && blockToken(next[op.index]) !== op.expectHash) {
           rejected.push(`op ${i}: delete index ${op.index} was changed by another writer`);
           break;
         }
@@ -192,6 +218,10 @@ export function applyOps(
           break;
         }
         if (op.expect !== undefined && blockChanged(op.expect, next[op.from])) {
+          rejected.push(`op ${i}: move index ${op.from} was changed by another writer`);
+          break;
+        }
+        if (op.expectHash !== undefined && blockToken(next[op.from]) !== op.expectHash) {
           rejected.push(`op ${i}: move index ${op.from} was changed by another writer`);
           break;
         }

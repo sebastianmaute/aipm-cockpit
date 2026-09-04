@@ -112,7 +112,7 @@ export const DOCUMENT_TOOL_DEFS = [
   {
     name: "update_document",
     description:
-      "Edit a document with a list of block operations. Ops apply LEFT TO RIGHT against the evolving block list, so [{op:'delete',index:0},{op:'delete',index:0}] removes the first TWO blocks. Prefer targeted ops (append/insert/replace/delete) over replaceAll — replaceAll discards every block you do not resend, and chat tool writes have no undo capture in this app, so an accidental replaceAll cannot be recovered from this session. Call get_document first so your indices refer to the blocks that actually exist.",
+      "Edit a document with a list of block operations. Ops apply LEFT TO RIGHT against the evolving block list, so [{op:'delete',index:0},{op:'delete',index:0}] removes the first TWO blocks. Prefer targeted ops (append/insert/replace/delete) over replaceAll — replaceAll discards every block you do not resend, and chat tool writes have no undo capture in this app, so an accidental replaceAll cannot be recovered from this session. Call get_document first so your indices refer to the blocks that actually exist, and send the blockTokens entry it returned as expectHash on every replace, delete and move — those are refused without it. Use move to reorder a block — never a delete followed by an insert, which can lose the block if the insert is refused. This call returns no tokens, so call get_document again before the next replace, delete or move.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -125,8 +125,28 @@ export const DOCUMENT_TOOL_DEFS = [
           items: {
             type: "object" as const,
             properties: {
-              op: { type: "string" as const, enum: ["append", "insert", "replace", "delete", "replaceAll"] },
+              op: { type: "string" as const, enum: ["append", "insert", "replace", "delete", "move", "replaceAll"] },
               index: { type: "number" as const, description: "0-based; required for insert, replace and delete" },
+              // ★★★ ANCHORED TO THE BLOCK COUNT, NOT TO "the list after the
+              // removal". Both describe the same arithmetic, but the latter
+              // invites the reader to subtract one from the POST-removal
+              // length, which is off by one on exactly the append case: for a
+              // 3-block document `{from:0,to:2}` yields [B,C,A] and the
+              // engine's own range message reads "0..2" (document-ops.ts
+              // rejects `to >= next.length`, measured BEFORE the removal).
+              // Pinned by document-ops.test.ts's "accepts the last index as a
+              // destination".
+              from: { type: "number" as const, description: "move only: the 0-based index to take the block from" },
+              to: {
+                type: "number" as const,
+                description:
+                  "move only: the 0-based destination, resolved against the list AFTER the block is taken out of `from`. Valid range is 0 to blockCount-1, and to = blockCount-1 puts the block last.",
+              },
+              expectHash: {
+                type: "string" as const,
+                description:
+                  "REQUIRED for replace, delete and move: the blockTokens entry get_document returned for the block you are targeting. The edit is refused if that block changed since you read it.",
+              },
               block: docBlockSchema,
               blocks: {
                 type: "array" as const,
