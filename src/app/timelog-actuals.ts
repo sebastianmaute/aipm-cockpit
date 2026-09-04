@@ -82,6 +82,19 @@ export function aggregateActuals(
 export function buildDailyRoll(items: readonly TimelogTimeItem[]): TimelogDailyRoll {
   const out: TimelogDailyRoll = {};
   for (const it of items) {
+    // Drop the unidentified-booker SENTINEL. `mapV2TimeItem` (timelog-api.ts)
+    // resolves `EmployeeInitials` against the directory and falls back to
+    // `userId: 0` via its `|| 0`, so without this every employee the directory
+    // could not identify sums into ONE `0|<date>` cell — three unresolved
+    // people booking 8h each become a 24h day, and the guardrail rules report
+    // a cap violation for a person who does not exist. `use-timelog-sync.ts`
+    // already filters `id > 0` when it builds the People table; the roll
+    // honours the same convention.
+    // ★ NARROW ON PURPOSE: an UNLINKED booker (a real positive userId with no
+    // TimelogUserLink) must still be measured — see the "deliberately
+    // links-independent" comment at the buildDailyRoll call site. Only the
+    // non-positive sentinel is excluded.
+    if (it.userId <= 0) continue;
     const k = dailyKey(it.userId, it.date);
     const cur = out[k];
     if (cur === undefined) {

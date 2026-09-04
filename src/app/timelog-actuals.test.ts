@@ -156,6 +156,26 @@ describe("buildDailyRoll", () => {
     });
   });
 
+  // ★★ `mapV2TimeItem` (timelog-api.ts) maps an employee whose EmployeeInitials
+  // do not resolve against the directory to `userId: 0`. Unfiltered, every one
+  // of them merges into a single `0|<date>` cell holding summed hours no
+  // individual booked, and the guardrail rules then report a cap violation for
+  // a person who does not exist — persisted into the shared insights slice.
+  // TWO sentinel items share a date ON PURPOSE: with only one, "dropped" and
+  // "kept but not summed" are indistinguishable. The real booker alongside them
+  // is the anti-vacuity control — "no 0 key" is also true of an empty roll.
+  it("drops the unidentified-booker sentinel instead of summing it into a phantom day", () => {
+    const roll = buildDailyRoll([
+      item(0, "2026-09-01", 8),
+      item(0, "2026-09-01", 8),
+      item(7, "2026-09-01", 6),
+    ]);
+    expect(roll["0|2026-09-01"]).toBeUndefined();
+    // The identified booker is untouched — the filter must not widen past the sentinel.
+    expect(roll["7|2026-09-01"]).toEqual({ hours: 6, maxEntryHours: 6, entryCount: 1 });
+    expect(Object.keys(roll)).toEqual(["7|2026-09-01"]);
+  });
+
   it("returns an empty roll for no items", () => {
     expect(buildDailyRoll([])).toEqual({});
   });
