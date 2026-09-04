@@ -58,6 +58,15 @@ export function makeDispatcherArgs(
     getBudgetRollup: () => null,
     getAllocationsSnapshot: stubGetAllocationsSnapshot,
     logActivityAs: vi.fn(),
+    /** ★★ REQUIRED on `ChatDispatcherArgs` (deliberately — see the field's own
+     *  note there), so the default lives here rather than in every caller: a
+     *  test that does not assert on undo capture stays untouched, and the type
+     *  still catches the one production call site dropping the prop.
+     *  ★ A FRESH `vi.fn()` per call, never a module-level one — a shared mock
+     *  would accumulate calls across tests and turn a
+     *  `toHaveBeenCalledTimes(1)` into an order-dependent assertion. It is
+     *  inert either way: nothing here pushes onto a real stack. */
+    undo: { captureComposite: vi.fn() },
     ...over,
   };
 }
