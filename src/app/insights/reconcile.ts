@@ -6,7 +6,6 @@ import {
   MAX_INSIGHTS,
   type DetectedInsight,
   type Insight,
-  type InsightType,
 } from "./insight";
 import { baselineOf, computeClearedOutcome, computeOutcome, insightMetricValue } from "./outcome";
 
@@ -121,7 +120,8 @@ function clear(prev: Insight, today: string): Insight | null {
 }
 
 /**
- * @param evaluated - The insight types whose detectors ACTUALLY RAN this pass.
+ * @param isEvaluated - Answers, for ONE stored insight, whether this pass could
+ * actually have re-detected it. `false` ⇒ freeze it untouched.
  *
  * ★★★ REQUIRED, WITH NO DEFAULT, AND THAT IS THE POINT. `clear()` above reads
  * "absent from the detection set" as "the condition cleared". That inference is
@@ -130,10 +130,25 @@ function clear(prev: Insight, today: string): Insight | null {
  * produces nothing, and producing nothing is exactly what triggers clear().
  *
  * Because bookings are a PER-DEVICE cache while `Workspace.insights` is SHARED
- * AND EXPORTED, defaulting this to "all types" would let a second device prune
- * another device's guardrail insights and resolve any `acted` one through
- * `computeClearedOutcome`, which always writes "improved" — a fabricated win in
- * an exported artifact, which then rides every AI turn via the outcomes section.
+ * AND EXPORTED, defaulting this to "everything was evaluated" would let a second
+ * device prune another device's guardrail insights and resolve any `acted` one
+ * through `computeClearedOutcome`, which always writes "improved" — a fabricated
+ * win in an exported artifact, which then rides every AI turn via the outcomes
+ * section.
+ *
+ * ★★★ A PER-INSIGHT PREDICATE, NOT A SET OF TYPES, AND THE DIFFERENCE IS THE
+ * WHOLE DEFECT CLASS. A `ReadonlySet<InsightType>` can only say "this TYPE ran";
+ * every real go-dark case here is "this SPECIFIC stored insight cannot be
+ * certified", which no set can express. Three that shipped inside one:
+ *   - `overdueTrend` is a core detector that returns null when the per-device
+ *     landing snapshot is absent, so the TYPE is never uniformly evaluated.
+ *   - the guardrail daily roll is a WINDOW-and-scope snapshot: a rule can run,
+ *     find nothing, and still not have looked at the days a stored insight is
+ *     about.
+ *   - a `partial` roll is missing whole people while every rule still reports
+ *     itself evaluated.
+ * The caller therefore compares each insight's own `data` against the roll it
+ * actually holds. See the predicate built at the `task-manager.tsx` call site.
  *
  * A default would reintroduce exactly that for the NEXT go-dark detector while
  * leaving this guard looking present. Required makes a forgetful detector a
@@ -143,7 +158,7 @@ export function reconcileInsights(
   stored: readonly Insight[],
   detected: readonly DetectedInsight[],
   today: string,
-  evaluated: ReadonlySet<InsightType>,
+  isEvaluated: (insight: Insight) => boolean,
 ): Insight[] {
   const byKey = new Map<string, Insight>();
   let maxId = 0;
@@ -167,9 +182,11 @@ export function reconcileInsights(
     if (detectedKeys.has(prev.key)) continue;
     // Not evaluated ⇒ FROZEN, carried through byte-for-byte. Reconcile cannot
     // distinguish "not violated" from "not evaluated" on its own, so the caller
-    // says which it was. Anything less than an untouched carry-through — even
-    // keeping the row while resolving it — writes the fabricated win.
-    if (!evaluated.has(prev.type)) {
+    // says which it was — per INSIGHT, because for the guardrails the answer
+    // depends on this row's own violating days, not on its type. Anything less
+    // than an untouched carry-through — even keeping the row while resolving
+    // it — writes the fabricated win.
+    if (!isEvaluated(prev)) {
       result.push(prev);
       continue;
     }

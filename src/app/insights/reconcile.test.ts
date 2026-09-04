@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { insightsMateriallyEqual, reconcileInsights } from "./reconcile";
 import type { DetectedInsight, Insight, InsightType } from "./insight";
-import { INSIGHT_TYPES, MAX_INSIGHTS } from "./insight";
+import { MAX_INSIGHTS } from "./insight";
 
 // Every pre-existing test in this file is about the ALWAYS-EVALUATED behaviour,
-// so each of its calls passes the full type set. A narrower set belongs only in
-// the "evaluated scope" describe at the bottom of this file.
-const ALL_TYPES: ReadonlySet<InsightType> = new Set(INSIGHT_TYPES);
+// so each of its calls certifies every insight. A DISCRIMINATING predicate
+// belongs only in the "evaluated scope" describe at the bottom of this file —
+// converting those to this constant too would delete the only coverage the
+// freeze path has at this level.
+const ALL_EVALUATED = (): boolean => true;
+
+/** Certifies exactly one type — the narrow shape the freeze path is about. */
+const onlyType =
+  (type: InsightType) =>
+  (i: Insight): boolean =>
+    i.type === type;
 
 function detected(
   key: string,
@@ -46,7 +54,7 @@ const REC: NonNullable<Insight["recommendation"]> = {
 describe("reconcileInsights", () => {
   it("creates a new active record for an unseen detection (id=max+1, timestamps=today, occurrences=1)", () => {
     const existing = stored("a", { id: 7 });
-    const out = reconcileInsights([existing], [detected("a"), detected("b")], "2026-02-01", ALL_TYPES);
+    const out = reconcileInsights([existing], [detected("a"), detected("b")], "2026-02-01", ALL_EVALUATED);
     const created = out.find((i) => i.key === "b")!;
     expect(created).toBeDefined();
     expect(created.id).toBe(8); // max(7)+1
@@ -57,7 +65,7 @@ describe("reconcileInsights", () => {
   });
 
   it("mints id=1 when the store is empty", () => {
-    const out = reconcileInsights([], [detected("x")], "2026-02-01", ALL_TYPES);
+    const out = reconcileInsights([], [detected("x")], "2026-02-01", ALL_EVALUATED);
     expect(out).toHaveLength(1);
     expect(out[0].id).toBe(1);
   });
@@ -75,7 +83,7 @@ describe("reconcileInsights", () => {
       [existing],
       [detected("a", { severity: "high", data: { count: 9 } })],
       "2026-02-01",
-      ALL_TYPES,
+      ALL_EVALUATED,
     );
     const upserted = out.find((i) => i.key === "a")!;
     expect(upserted.id).toBe(5);
@@ -92,7 +100,7 @@ describe("reconcileInsights", () => {
       status: "acted",
       actedAt: "2026-01-15",
     });
-    const out = reconcileInsights([existing], [], "2026-02-01", ALL_TYPES);
+    const out = reconcileInsights([existing], [], "2026-02-01", ALL_EVALUATED);
     const rec = out.find((i) => i.key === "a")!;
     expect(rec).toBeDefined();
     expect(rec.status).toBe("resolved");
@@ -101,7 +109,7 @@ describe("reconcileInsights", () => {
 
   it("PRUNES a cleared auto-surfaced record with no user event", () => {
     const existing = stored("a", { status: "active" });
-    const out = reconcileInsights([existing], [], "2026-02-01", ALL_TYPES);
+    const out = reconcileInsights([existing], [], "2026-02-01", ALL_EVALUATED);
     expect(out.find((i) => i.key === "a")).toBeUndefined();
     expect(out).toHaveLength(0);
   });
@@ -112,7 +120,7 @@ describe("reconcileInsights", () => {
       dismissedAt: "2026-01-20",
       dismissReason: "noise",
     });
-    const out = reconcileInsights([existing], [], "2026-02-01", ALL_TYPES);
+    const out = reconcileInsights([existing], [], "2026-02-01", ALL_EVALUATED);
     const rec = out.find((i) => i.key === "a")!;
     expect(rec).toBeDefined();
     expect(rec.status).toBe("dismissed");
@@ -128,7 +136,7 @@ describe("reconcileInsights", () => {
       dismissReason: "noise",
       occurrences: 2,
     });
-    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_TYPES);
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_EVALUATED);
     const rec = out.find((i) => i.key === "a")!;
     expect(rec.status).toBe("active");
     expect(rec.dismissedAt).toBeUndefined();
@@ -143,7 +151,7 @@ describe("reconcileInsights", () => {
       resolvedAt: "2026-01-25",
       occurrences: 4,
     });
-    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_TYPES);
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_EVALUATED);
     const rec = out.find((i) => i.key === "a")!;
     expect(rec.status).toBe("active");
     expect(rec.resolvedAt).toBeUndefined();
@@ -161,7 +169,7 @@ describe("reconcileInsights", () => {
     const d = s.map((i) =>
       detected(i.key, { severity: i.severity, data: i.data }),
     );
-    const out = reconcileInsights(s, d, "2026-01-09", ALL_TYPES);
+    const out = reconcileInsights(s, d, "2026-01-09", ALL_EVALUATED);
     // Upsert bumps lastSeenAt to today for all — so within a severity tier the
     // order falls back to stable insertion order. Use distinct stored dates by
     // detecting only a subset instead.
@@ -176,7 +184,7 @@ describe("reconcileInsights", () => {
     // No detections → both cleared, but they had no user event → pruned.
     // Instead make them dismissed so they persist with their stored dates.
     const dismissed = s.map((i) => stored(i.key, { ...i, status: "dismissed", dismissedAt: "2025-12-01" }));
-    const out = reconcileInsights(dismissed, [], "2026-02-01", ALL_TYPES);
+    const out = reconcileInsights(dismissed, [], "2026-02-01", ALL_EVALUATED);
     expect(out.map((i) => i.key)).toEqual(["high-new", "high-old"]);
   });
 
@@ -185,13 +193,13 @@ describe("reconcileInsights", () => {
       { length: MAX_INSIGHTS + 25 },
       (_, i) => detected(`k${i}`),
     );
-    const out = reconcileInsights([], many, "2026-02-01", ALL_TYPES);
+    const out = reconcileInsights([], many, "2026-02-01", ALL_EVALUATED);
     expect(out).toHaveLength(MAX_INSIGHTS);
   });
 
   it("upsert preserves a pending recommendation", () => {
     const existing = stored("a", { recommendation: REC });
-    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_TYPES);
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_EVALUATED);
     const upserted = out.find((i) => i.key === "a")!;
     expect(upserted.recommendation?.summary).toBe("do X");
     expect(upserted.occurrences).toBe(2);
@@ -204,7 +212,7 @@ describe("reconcileInsights", () => {
       dismissedAt: "2026-01-19",
       recommendation: applied,
     });
-    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_TYPES);
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_EVALUATED);
     const rec = out.find((i) => i.key === "a")!;
     expect(rec.status).toBe("active");
     expect(rec.recommendation).toBeUndefined();
@@ -220,7 +228,7 @@ describe("reconcileInsights", () => {
     });
     const snapshot = structuredClone(existing);
     const arr = [existing];
-    reconcileInsights(arr, [detected("a", { severity: "high" })], "2026-02-01", ALL_TYPES);
+    reconcileInsights(arr, [detected("a", { severity: "high" })], "2026-02-01", ALL_EVALUATED);
     expect(existing).toEqual(snapshot);
     expect(arr).toHaveLength(1);
   });
@@ -315,7 +323,7 @@ function stalledDet(count: number): DetectedInsight {
 
 describe("outcome measurement (SP3)", () => {
   it("measures an improvement while the insight is STILL detected", () => {
-    const out = reconcileInsights([actedStalled()], [stalledDet(4)], TODAY, ALL_TYPES);
+    const out = reconcileInsights([actedStalled()], [stalledDet(4)], TODAY, ALL_EVALUATED);
     const rec = out.find((i) => i.key === "stalledWork")!;
     expect(rec.status).toBe("acted");
     expect(rec.outcome).toEqual({
@@ -328,7 +336,7 @@ describe("outcome measurement (SP3)", () => {
   });
 
   it("measures a worsening when the metric grew", () => {
-    const out = reconcileInsights([actedStalled()], [stalledDet(14)], TODAY, ALL_TYPES);
+    const out = reconcileInsights([actedStalled()], [stalledDet(14)], TODAY, ALL_EVALUATED);
     const rec = out.find((i) => i.key === "stalledWork")!;
     expect(rec.outcome).toMatchObject({ direction: "worsened", delta: -4 });
   });
@@ -338,7 +346,7 @@ describe("outcome measurement (SP3)", () => {
   // count < 3, so a baseline of 10 could really be a move to 2, not to 0).
   // Reporting a magnitude here would overstate the win.
   it("records a direction-only win when the condition CLEARS and the record resolves", () => {
-    const out = reconcileInsights([actedStalled()], [], TODAY, ALL_TYPES);
+    const out = reconcileInsights([actedStalled()], [], TODAY, ALL_EVALUATED);
     const rec = out.find((i) => i.key === "stalledWork")!;
     expect(rec.status).toBe("resolved");
     expect(rec.outcome).toEqual({
@@ -350,19 +358,19 @@ describe("outcome measurement (SP3)", () => {
 
   it("writes NO outcome without a captured metricAtAction", () => {
     const noBaseline = actedStalled({ metricAtAction: undefined });
-    expect(reconcileInsights([noBaseline], [stalledDet(4)], TODAY, ALL_TYPES)[0].outcome).toBeUndefined();
-    expect(reconcileInsights([noBaseline], [], TODAY, ALL_TYPES)[0]?.outcome).toBeUndefined();
+    expect(reconcileInsights([noBaseline], [stalledDet(4)], TODAY, ALL_EVALUATED)[0].outcome).toBeUndefined();
+    expect(reconcileInsights([noBaseline], [], TODAY, ALL_EVALUATED)[0]?.outcome).toBeUndefined();
   });
 
   it("writes NO outcome for a record that was never acted on", () => {
     const active = actedStalled({ status: "active", actedAt: undefined });
-    const out = reconcileInsights([active], [stalledDet(4)], TODAY, ALL_TYPES);
+    const out = reconcileInsights([active], [stalledDet(4)], TODAY, ALL_EVALUATED);
     expect(out[0].outcome).toBeUndefined();
   });
 
   it("is idempotent: re-reconciling the measured record converges (no measure→persist loop)", () => {
-    const once = reconcileInsights([actedStalled()], [stalledDet(4)], TODAY, ALL_TYPES);
-    const twice = reconcileInsights(once, [stalledDet(4)], TODAY, ALL_TYPES);
+    const once = reconcileInsights([actedStalled()], [stalledDet(4)], TODAY, ALL_EVALUATED);
+    const twice = reconcileInsights(once, [stalledDet(4)], TODAY, ALL_EVALUATED);
     // `occurrences` counts detections and legitimately bumps on every pass, so it
     // is normalized out; EVERYTHING else — the outcome above all — must converge.
     const norm = (l: readonly Insight[]) => l.map((i) => ({ ...i, occurrences: 0 }));
@@ -380,7 +388,7 @@ describe("outcome measurement (SP3)", () => {
         direction: "improved", baseline: 10, current: 6, delta: 4, measuredAt: "2026-06-03",
       },
     });
-    const out = reconcileInsights([dismissed], [stalledDet(6)], TODAY, ALL_TYPES);
+    const out = reconcileInsights([dismissed], [stalledDet(6)], TODAY, ALL_EVALUATED);
     const rec = out.find((i) => i.key === "stalledWork")!;
     expect(rec.status).toBe("active");
     // The stale measurement still goes — it describes the previous state.
@@ -401,7 +409,7 @@ describe("outcome measurement (SP3)", () => {
         measuredAt: "2026-06-05",
       },
     });
-    const out = reconcileInsights([stale], [stalledDet(7)], TODAY, ALL_TYPES);
+    const out = reconcileInsights([stale], [stalledDet(7)], TODAY, ALL_EVALUATED);
     const rec = out.find((i) => i.key === "stalledWork")!;
     expect(rec.status).toBe("active");
     expect(rec.outcome).toBeUndefined();
@@ -469,7 +477,7 @@ describe("evaluated scope", () => {
   // no outcome, no resolvedAt.
   it("leaves an acted insight completely unchanged when its type was not evaluated", () => {
     const prev = guardrail({ status: "acted", actedAt: "2026-09-02", metricAtAction: { count: 4 } });
-    const out = reconcileInsights([prev], [], "2026-09-04", new Set(["milestoneSlip"]));
+    const out = reconcileInsights([prev], [], "2026-09-04", onlyType("milestoneSlip"));
     expect(out).toHaveLength(1);
     expect(out[0]).toEqual(prev);
     expect(out[0].status).toBe("acted");
@@ -479,19 +487,19 @@ describe("evaluated scope", () => {
 
   it("does not prune an untouched insight whose type was not evaluated", () => {
     const prev = guardrail();
-    const out = reconcileInsights([prev], [], "2026-09-04", new Set(["milestoneSlip"]));
+    const out = reconcileInsights([prev], [], "2026-09-04", onlyType("milestoneSlip"));
     expect(out).toEqual([prev]);
   });
 
   it("still resolves an acted insight whose type WAS evaluated", () => {
     const prev = guardrail({ status: "acted", actedAt: "2026-09-02", metricAtAction: { count: 4 } });
-    const out = reconcileInsights([prev], [], "2026-09-04", ALL_TYPES);
+    const out = reconcileInsights([prev], [], "2026-09-04", ALL_EVALUATED);
     expect(out[0].status).toBe("resolved");
     expect(out[0].outcome?.direction).toBe("improved");
   });
 
   it("still prunes an untouched insight whose type WAS evaluated", () => {
-    const out = reconcileInsights([guardrail()], [], "2026-09-04", ALL_TYPES);
+    const out = reconcileInsights([guardrail()], [], "2026-09-04", ALL_EVALUATED);
     expect(out).toEqual([]);
   });
 
@@ -499,10 +507,12 @@ describe("evaluated scope", () => {
   // bookings-unavailable case above: neither implies the other.
   it("freezes a guardrail insight when its rule has been switched off", () => {
     const prev = guardrail({ status: "acknowledged", acknowledgedAt: "2026-09-02" });
-    const evaluated = new Set<InsightType>(
-      [...INSIGHT_TYPES].filter((tp) => tp !== "timelogCapPerDay"),
+    const out = reconcileInsights(
+      [prev],
+      [],
+      "2026-09-04",
+      (i) => i.type !== "timelogCapPerDay",
     );
-    const out = reconcileInsights([prev], [], "2026-09-04", evaluated);
     expect(out).toEqual([prev]);
   });
 });
@@ -553,7 +563,7 @@ describe("widening a guardrail data record", () => {
       [prev],
       [detected("g", { type: "timelogCapPerDay", data })],
       "2026-06-10",
-      ALL_TYPES,
+      ALL_EVALUATED,
     );
     expect(out).toHaveLength(1);
     expect(out[0].status).toBe("active");
@@ -569,7 +579,7 @@ describe("widening a guardrail data record", () => {
       [stored("g", { type: "timelogCapPerDay", data: withDays("2026-02-03", "2026-02-11") })],
       [detected("g", { type: "timelogCapPerDay", data: withDays("2026-05-04", "2026-05-06") })],
       "2026-06-10",
-      ALL_TYPES,
+      ALL_EVALUATED,
     );
     expect(out[0].data.firstViolationDate).toBe("2026-05-04");
     expect(out[0].data.lastViolationDate).toBe("2026-05-06");

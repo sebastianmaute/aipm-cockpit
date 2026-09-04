@@ -97,6 +97,7 @@ import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insights/detect";
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
+import type { Insight, InsightType } from "./insights/insight";
 import { loadLandingState } from "./landing-state";
 import { loadActualsCache } from "./timelog-actuals-store";
 import { evaluateTimelogPolicy } from "./timelog-policy";
@@ -899,8 +900,13 @@ function TaskManagerInner() {
     const timer = setTimeout(() => {
       // The guardrail rules read the per-device daily roll from the actuals
       // cache — keyed the same way TimelogPanel WRITES it (open-followups §14).
+      // ★★ Read the entry ONCE. `daily`, `partial` and `dailyWindow` describe
+      // ONE fetch, and the predicate below compares them against each other;
+      // three separate `loadActualsCache` calls could straddle a write and pair
+      // a window with a roll it never covered.
+      const actuals = loadActualsCache(currentProjectId ?? "default");
       const policyResult = evaluateTimelogPolicy({
-        daily: loadActualsCache(currentProjectId ?? "default")?.daily ?? null,
+        daily: actuals?.daily ?? null,
         policy: timelogLinks?.policy,
         holidaySet,
         holidaysReady,
@@ -911,16 +917,52 @@ function TaskManagerInner() {
         { ...buildInsightInput(), timelogViolations: policyResult.violations },
         today,
       );
+      // ★★★ THE PREDICATE THAT KEEPS "this produced no violation" DISTINCT FROM
+      // "this was never looked at". Answered PER INSIGHT, never per type: for
+      // the guardrails the answer depends on the row's own violating days.
+      // Every unproven case returns FALSE, because freezing is recoverable (the
+      // next covering fetch clears it) and a fabricated "improved" in an
+      // exported artifact is not.
+      const evaluatedRules = new Set<InsightType>(policyResult.evaluated);
+      const rollWindow = actuals?.dailyWindow;
+      // ★★ `=== true`, never truthiness — `partial` fails OPEN on garbage by
+      // design (register §172), and this reader must not tighten that.
+      const rollPartial = actuals?.partial === true;
+      const isEvaluated = (insight: Insight): boolean => {
+        // ★★ NOT a core type merely because it is in the list: `overdueTrend`
+        // goes dark whenever this device has no landing snapshot for the
+        // project, so it is certified by the same value the detector gates on.
+        if (insight.type === "overdueTrend") return priorOverdueCount !== null;
+        if (CORE_INSIGHT_TYPES.includes(insight.type)) return true;
+        // Everything left is a guardrail rule (or, defensively, a type nothing
+        // here evaluates — which falls through to false, the safe direction).
+        // The policy module's OWN report, never the rules that happened to
+        // yield violations and never all four unconditionally.
+        if (!evaluatedRules.has(insight.type)) return false;
+        // A `partial` fetch is missing whole people while every rule still
+        // reports itself evaluated — a lost zero, not a real one.
+        if (rollPartial) return false;
+        // ★★★ The roll is a WINDOW-and-scope snapshot that `finish()` replaces
+        // wholesale, so a rule can run, find nothing, and simply never have
+        // looked at the days this insight is about (fetch Feb, act, re-fetch
+        // Apr). Only a window demonstrably covering them certifies a clean.
+        // ★★ An EMPTY roll over a covering, non-partial window is a REAL clean
+        // — a fetch that legitimately returned no rows — and clears here. "No
+        // data" and "no bookings" are what `partial` and this window separate.
+        if (rollWindow === undefined) return false;
+        // ★★ BACK-COMPAT FREEZES. An insight stored before the dates existed,
+        // or a cache entry written before `dailyWindow` did, cannot ESTABLISH
+        // coverage — absent evidence is not evidence of coverage.
+        const first = insight.data.firstViolationDate;
+        const last = insight.data.lastViolationDate;
+        if (typeof first !== "string" || typeof last !== "string") return false;
+        // ISO `YYYY-MM-DD` compares correctly with `<=`/`>=`; the store already
+        // rejects a window that is not two ISO dates with `from <= to`.
+        return rollWindow.from <= first && rollWindow.to >= last;
+      };
       setInsights((prev) => {
         const base = prev ?? [];
-        // ★★★ The evaluated set is what keeps "this rule produced no violations"
-        // distinguishable from "this rule never ran". It is the policy module's
-        // OWN report — never the set of rules that happened to yield violations,
-        // and never all four unconditionally: either would let a device with no
-        // TimeLog roll resolve another device's guardrail insights as an
-        // improvement (the defect `reconcileInsights` was made strict against).
-        const evaluated = new Set([...CORE_INSIGHT_TYPES, ...policyResult.evaluated]);
-        const next = reconcileInsights(base, detected, today, evaluated);
+        const next = reconcileInsights(base, detected, today, isEvaluated);
         return insightsMateriallyEqual(base, next) ? base : next;
       });
     }, INSIGHTS_RECONCILE_DEBOUNCE_MS);
@@ -928,7 +970,10 @@ function TaskManagerInner() {
     // ★ `holidaysReady` is a real dep, not noise: the pass taken while it is
     // false leaves `timelogNonWorkingDay` unevaluated, so the reconcile MUST
     // re-run when it flips true or those insights stay frozen for the session.
-  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, holidaysReady, shifts]);
+    // ★ `priorOverdueCount` is a dep in its OWN right, not merely via
+    // `buildInsightInput`: the predicate above reads it directly to decide
+    // whether `overdueTrend` was evaluated at all.
+  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, holidaysReady, shifts, priorOverdueCount]);
 
   // Lifecycle handlers (threaded to the dashboard as an insightActions bag; the
   // review UI that invokes them is built in Task 6/7). Each is a functional

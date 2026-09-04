@@ -12,11 +12,25 @@ import type { TimelogViolation } from "../timelog-policy";
 import type { Task, Milestone, RaidItem, BudgetBucket, ResourcePlan, Role, Resource } from "../types";
 import { INSIGHT_SEVERITY_RANK, type DetectedInsight, type InsightType } from "./insight";
 
-/** The five detectors below that ALWAYS run — this module needs no
- *  configuration and no per-device cache to produce them, so their absence from
- *  a detection pass really does mean the condition cleared. Guardrail types are
- *  added to `reconcileInsights`'s evaluated set BY THE CALLER, and only when the
- *  rules were actually evaluated; see the doc comment on that function. */
+/** The five detectors that run without TimeLog configuration — i.e. everything
+ *  in `INSIGHT_TYPES` that is not one of the four guardrail rules.
+ *
+ *  ★★★ MEMBERSHIP HERE IS NOT A LICENCE TO CLEAR, and reading it as one is a
+ *  shipped defect. This docstring used to claim all five need "no per-device
+ *  cache", so their absence from a pass really meant the condition cleared.
+ *  That is FALSE for `overdueTrend`: `overdueTrendInsight` returns null outright
+ *  when `priorOverdueCount === null`, and the caller reads that count from
+ *  `loadLandingState`, a per-browser, per-project store that is never exported
+ *  and never in Turso. A device that has not yet landed on that project's
+ *  Dashboard detects no `overdueTrend` at all — so treating the type as always
+ *  evaluated resolves ANOTHER device's `acted` insight as a fabricated
+ *  "improved", which is the exact per-device/shared asymmetry the evaluated
+ *  argument exists to prevent, sitting inside the list that argument trusted.
+ *
+ *  The caller therefore does NOT hand this list to `reconcileInsights`. It
+ *  builds a per-insight predicate that consults this list AND `priorOverdueCount`
+ *  AND the guardrail roll's own window; see the doc comment on that function.
+ *  `detect.test.ts` pins these five against a hand-written list. */
 export const CORE_INSIGHT_TYPES: readonly InsightType[] = [
   "milestoneSlip",
   "overdueTrend",

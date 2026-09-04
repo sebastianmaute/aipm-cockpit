@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Task, Milestone, RaidItem, BudgetBucket, ResourcePlan, Role, Resource } from "../types";
 import {
+  CORE_INSIGHT_TYPES,
   detectInsights,
   type InsightInput,
   MILESTONE_SLIP_MIN_REBASELINES,
@@ -348,5 +349,44 @@ describe("timelog guardrail insights", () => {
       "timelog:timelogNonWorkingDay:8",
     ]);
     expect(guardrails.every((i) => i.severity === "medium")).toBe(true);
+  });
+});
+
+// ★★★ The list was entirely unpinned: `grep -rn CORE_INSIGHT_TYPES src e2e
+// scripts` returned only its declaration, one import and one use, and gutting it
+// at the call site left every test green while making every core insight
+// IMMORTAL — never resolved, never pruned. `task-manager.guardrail-reconcile
+// .test.tsx` now kills that mutant behaviourally; this pins the membership.
+describe("CORE_INSIGHT_TYPES", () => {
+  it("is exactly the five non-guardrail types", () => {
+    // Deliberately a hand-written list, not derived from `INSIGHT_TYPES` minus
+    // the rule ids — a derived expectation restates the code and pins nothing.
+    // Same precedent, and the same reason, as `METRIC_FIELD` in outcome.test.ts.
+    // Adding an insight type is meant to land here and force the decision of
+    // whether it can go dark on a device.
+    expect([...CORE_INSIGHT_TYPES].sort()).toEqual([
+      "budgetVariance",
+      "milestoneSlip",
+      "overdueTrend",
+      "raidAging",
+      "stalledWork",
+    ]);
+  });
+
+  // ★★ Membership is NOT a licence to clear, which is the correction this slice
+  // made to the list's own docstring. `overdueTrend` is in the list AND goes
+  // dark without a per-device landing snapshot, so a reader who takes the list
+  // as "always evaluated" reintroduces the defect. Pinned so a future edit that
+  // re-asserts the old invariant has to confront this line.
+  it("includes overdueTrend, which is nonetheless not always evaluated", () => {
+    expect(CORE_INSIGHT_TYPES).toContain("overdueTrend");
+    const overdue = [task({ id: 1, dueDate: "2026-06-01" }), task({ id: 2, dueDate: "2026-06-02" })];
+    // The positive control is what stops this being vacuous: the SAME tasks
+    // that produce a detection with a snapshot produce NONE without one, so the
+    // absence is attributable to `priorOverdueCount`, not to the fixture.
+    const withSnapshot = detect({ tasks: overdue, priorOverdueCount: 1 });
+    expect(withSnapshot.filter((i) => i.type === "overdueTrend")).toHaveLength(1);
+    const noSnapshot = detect({ tasks: overdue, priorOverdueCount: null });
+    expect(noSnapshot.filter((i) => i.type === "overdueTrend")).toHaveLength(0);
   });
 });
