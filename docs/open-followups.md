@@ -586,6 +586,13 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--closed-2026-09-04) | ~~`rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (the removed group leaves `{}` behind, never a space; the real `.msg` fixture cannot discriminate any of the three states) |
 | [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§370](#370-redo-of-an-ai-captured-delete-is-unproved--open) | Redo of an AI-captured delete is unproved | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§371](#371-a-stakeholder-deletion-offers-to-delete-their-job-title-not-the-person--open) | A stakeholder deletion offers to delete their job title, not the person | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§372](#372-an-updateresource-rename-sent-as-the-name-alias-previews-an-empty-plan--open) | An update_resource rename sent as the name alias previews an empty plan | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§373](#373-an-invalid-email-previews-a-diff-that-apply-silently-drops--open) | An invalid email previews a diff that Apply silently drops | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§374](#374-help-contentts-still-says-five-inline-entities-and-there-are-now-six--open) | help-content.ts still says five inline entities and there are now six | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§375](#375-eye-verify-owed-a-real-model-turn-through-the-staged-review-card--open) | Eye-verify owed: a real model turn through the staged review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
+| [§376](#376-a-staged-document-row-cannot-be-named-in-the-review-card--open) | A staged document row cannot be named in the review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27806,3 +27813,127 @@ the unimplemented batch ceiling is more reachable than it was the day before.
 `MAX_BASE64_CHARS` binds only below the root (§ the ingest-breadth fix round), so a multi-file
 import of N large PDFs carries N x up to 20 MB of base64 with no ceiling at any level. Recorded
 here because a reader closing this entry should not conclude the batch question is settled.
+
+## 370. Redo of an AI-captured delete is unproved — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
+**Never machine-verified:** no probe has been run against this entry.
+
+`task-manager.tsx` passes `allowDestructiveSave: armDestructiveForUndo` to `useUndoStack`, so
+production is wired — but nothing exercises the REDO direction on an entry captured by an AI write.
+A redo of an AI `deleteAllTasks` re-removes rows, which is the §295 arming shape.
+
+The Phase 1 round trips (`use-chat-dispatcher.undo.test.tsx`) all stop after `undo()`. So the
+undo direction is proved at all 14 capture sites and the redo direction at none of them.
+
+★ Not evidence of a defect — the capture path is shared with the human writers, whose redo IS
+exercised. This entry records that the AI path inherits that coverage by construction rather than
+by test, which is a weaker guarantee than the round trips give the undo direction.
+
+## 371. A stakeholder deletion offers to delete their job title, not the person — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
+**Never machine-verified:** no probe has been run against this entry.
+
+`Stakeholder.title` is a JOB title. The generic label chains in `inline-ai-edit/plan.ts` read
+`input.title ?? input.taskName ?? input.name ?? …` for creates and `found.title ?? found.taskName
+?? found.name ?? id` for deletes, so a stakeholder with a job title creates AND is offered for
+deletion under that job title rather than their name.
+
+★★ **This is a wrong-target prompt on an irreversible action** — the class where the user's mental
+model and the system's disagree at exactly the moment the user is asked to authorise. A
+confirmation reading "Engineer" when the row is a person is worse than an unlabelled one.
+
+The identical bug existed for `resource` and was fixed there in the same slice by a scoped
+`personName` branch (handling both `firstName`/`lastName` and the single `name` write alias).
+Extending it to stakeholder is small and local. It was deliberately NOT done in that commit,
+because changing an entity the task was not asked to touch belongs in its own commit — the scoping
+was right; leaving it at the same priority as a stale prose claim was not.
+
+## 372. An update_resource rename sent as the name alias previews an empty plan — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
+**Never machine-verified:** no probe has been run against this entry.
+
+`name` is a WRITE ALIAS that the dispatcher splits into `firstName`/`lastName`; it is not a
+stored field. It is therefore deliberately absent from the `resource` descriptor's `diffFields`
+(`inline-ai-edit/entity-descriptor.ts`), because `before` would read empty for every resource.
+
+Consequence: `update_resource({id, name})` — a rename sent as the alias alone — produces NO diff
+and previews as an empty plan, while applying normally. The staged review card would show the user
+a row with nothing in it and then change the person's name.
+
+★ Diffing the parts is the honest form and is what ships. The blind spot is real and is a property
+of the alias, not of the descriptor: any write alias that fans out to several stored fields has it.
+
+## 373. An invalid email previews a diff that Apply silently drops — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
+**Never machine-verified:** no probe has been run against this entry.
+
+`sanitizeEmail` DROPS a value it cannot parse rather than rejecting the write, so an
+email-shaped field carrying an invalid value previews a diff that Apply will not make. The engine's
+contract is "never preview a diff Apply won't make", and this violates it.
+
+Pre-existing across every entity with an email-shaped field — `assigneeEmail`, `ownerEmail`, and
+now `email` on `resource`, which merely joined the existing three rather than introducing the
+problem.
+
+★ `requiredNonEmpty` cannot express this: the field is not required, it is silently normalised.
+The descriptor would need a per-field "sanitiser may drop this" signal, which does not exist.
+
+## 374. help-content.ts still says five inline entities and there are now six — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
+**Never machine-verified:** no probe has been run against this entry.
+
+`help-content.ts` carries a prose comment reading "★ Five entities, from `InlineEntity`".
+`InlineEntity` gained `resource` in the AI bulk-write-safety slice, so there are six.
+
+★ The comment's CLAIM (which views the help entry relates to) is still true; only its
+justification is stale, and `resource` is not inline-editable, so the count is wrong in a way that
+does not change the behaviour it describes. Left for that file's owner rather than fixed in a slice
+that had no other reason to touch it.
+
+★★ No gate can see this. `docs:symbols:check` proves a backticked NAME exists — `InlineEntity`
+exists either way — and it cannot see a COUNT at all. This is the "a count is the easiest claim to
+check and the easiest to leave rotting" shape.
+
+## 375. Eye-verify owed: a real model turn through the staged review card — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
+**Never machine-verified:** no probe has been run against this entry.
+
+Nothing in any suite drives a REAL model turn through the real UI into the staged review card.
+
+Owed before release: against `PORT=3100 npm run dev`, provoke a destructive or multi-write turn,
+confirm the card renders, reject one row, confirm the cascade deselects its dependents, apply, and
+confirm ONE undo entry restores the applied updates and deletes.
+
+★★ The unit tests cannot substitute, and the reason is structural rather than a coverage gap:
+`chat-proposal-block.test.tsx` renders the card from fixture props, so it proves the card's own
+behaviour and nothing about whether a real turn produces those props. The gate suites cannot reach
+it either — the axe run seeds file mode and the card only exists after a model turn, so no e2e seed
+will ever render it at any configuration.
+
+## 376. A staged document row cannot be named in the review card — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
+**Never machine-verified:** no probe has been run against this entry.
+
+The three `*_document` tools are in the staging gate's write set, so they can be staged — but the
+descriptor engine has no `document` entity, so `describeProposal` returns them with an EMPTY plan.
+The card therefore has only `call.name` and `call.input` to render: it cannot say WHICH document
+an `update_document` touches, WHAT it changes, or WHICH document a `delete_document` removes.
+Contrast `delete_task`, whose plan carries a label.
+
+★★★ **This is the row that most needs to be legible.** Document chat writes take NO undo capture at
+all (`use-document-tools.ts` says so at three sites; they recover via `documentVersions` instead),
+so the gate is the only thing between the model and an unreviewed multi-document rewrite — and it is
+the row the card can say least about. The reviewer is asked to approve a write they cannot see.
+
+Closing it needs either a `document` descriptor, or a small name-resolution step reading
+`ws.documents` by `input.id` for the title alone. Neither exists today.
+
+★ The card does render such a row with its tool name rather than blank, and the row is selectable
+and rejectable — so the failure is legibility, not invisibility.
