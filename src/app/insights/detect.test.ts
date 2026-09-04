@@ -44,7 +44,7 @@ const PLAN: ResourcePlan = {
 function input(over: Partial<InsightInput>): InsightInput {
   return {
     tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan: null,
-    priorOverdueCount: null, holidaySet: new Set<string>(), ...over,
+    priorOverdueCount: null, timelogViolations: null, holidaySet: new Set<string>(), ...over,
   };
 }
 function detect(over: Partial<InsightInput>) {
@@ -250,5 +250,68 @@ describe("composition", () => {
       "raidAging:1",     // medium
       "overdueTrend",    // low
     ]);
+  });
+});
+
+describe("timelog guardrail insights", () => {
+  const violation = {
+    rule: "timelogCapPerDay" as const,
+    timelogUserId: 7,
+    resourceId: 40,
+    count: 2,
+    worstHours: 12,
+    threshold: 8,
+  };
+  const ada: Resource = {
+    id: 40, firstName: "Ada", lastName: "Lovelace",
+    roleId: null, utilizationMode: "percent", utilization: {},
+  };
+
+  it("emits nothing when violations are null", () => {
+    const out = detect({ timelogViolations: null });
+    expect(out.filter((i) => i.type.startsWith("timelog"))).toEqual([]);
+  });
+
+  it("names the person from the linked resource", () => {
+    const out = detect({ timelogViolations: [violation], resources: [ada] });
+    const g = out.find((i) => i.type === "timelogCapPerDay");
+    expect(g).toBeDefined();
+    expect(g?.key).toBe("timelog:timelogCapPerDay:7");
+    expect(g?.severity).toBe("medium");
+    expect(g?.entityRef).toEqual({ view: "resources", id: 40 });
+    expect(g?.data).toEqual({ person: "Ada Lovelace", count: 2, worstHours: 12, threshold: 8 });
+  });
+
+  // No entityRef without a link: InsightEntityRef requires a real workspace id,
+  // and the recommendation-replay path resolves it as a real row.
+  it("omits entityRef and identifies the person by TimeLog id when unlinked", () => {
+    const out = detect({ timelogViolations: [{ ...violation, resourceId: null }] });
+    const g = out.find((i) => i.type === "timelogCapPerDay");
+    expect(g?.entityRef).toBeUndefined();
+    expect(g?.data.person).toBe("#7");
+  });
+
+  // A DANGLING link (the resource was deleted) must behave like no link at all —
+  // it is the id-resolution, not the link's presence, that decides.
+  it("omits entityRef when the linked resource no longer exists", () => {
+    const out = detect({ timelogViolations: [violation], resources: [{ ...ada, id: 41 }] });
+    const g = out.find((i) => i.type === "timelogCapPerDay");
+    expect(g?.entityRef).toBeUndefined();
+    expect(g?.data.person).toBe("#7");
+  });
+
+  it("emits one insight per violation, all at medium severity", () => {
+    const out = detect({
+      timelogViolations: [
+        violation,
+        { ...violation, rule: "timelogNonWorkingDay" as const, timelogUserId: 8, resourceId: null, threshold: 0 },
+      ],
+    });
+    const guardrails = out.filter((i) => i.type.startsWith("timelog"));
+    expect(guardrails.map((i) => i.key)).toEqual([
+      "timelog:timelogCapPerDay:7",
+      "timelog:timelogNonWorkingDay:8",
+    ]);
+    expect(guardrails.every((i) => i.severity === "medium")).toBe(true);
   });
 });

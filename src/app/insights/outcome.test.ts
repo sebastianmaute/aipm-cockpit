@@ -129,6 +129,15 @@ describe("METRIC_FIELD guard", () => {
     milestones: [milestone({ id: 9, name: "Go-live" })],
     raid: [], budgets: [], roles: [], resources: [], plan: null,
     priorOverdueCount: 0, holidaySet: new Set<string>(),
+    // One violation per guardrail rule: without them the loop below iterates the
+    // five core detections only and says nothing about the four guardrail types,
+    // whose METRIC_FIELD is `count` — a key the detector must put in `data`.
+    timelogViolations: [
+      { rule: "timelogCapPerEntry", timelogUserId: 7, resourceId: null, count: 1, worstHours: 9, threshold: 8 },
+      { rule: "timelogCapPerDay", timelogUserId: 7, resourceId: null, count: 2, worstHours: 12, threshold: 8 },
+      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: null, count: 1, worstHours: 4, threshold: 0 },
+      { rule: "timelogWorkingHours", timelogUserId: 7, resourceId: null, count: 3, worstHours: 10, threshold: 8 },
+    ],
   };
 
   it("names a data key every fired detector actually emits", () => {

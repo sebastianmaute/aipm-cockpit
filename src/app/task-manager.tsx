@@ -98,6 +98,8 @@ import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insights/detect";
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
 import { loadLandingState } from "./landing-state";
+import { loadActualsCache } from "./timelog-actuals-store";
+import { evaluateTimelogPolicy } from "./timelog-policy";
 import { metricAtActionPatch } from "./insights/outcome";
 import { useInsightRecommendations } from "./use-insight-recommendations";
 import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
@@ -866,8 +868,12 @@ function TaskManagerInner() {
     () => loadLandingState(landingProjectId).metrics?.overdue ?? null,
     [landingProjectId],
   );
+  // ★ Returns everything EXCEPT `timelogViolations`: those come from the
+  // per-device actuals cache, which is read inside the debounced body below so
+  // a fetch landing between recomputes is picked up on the next pass. Building
+  // them here would key the effect on a value this builder cannot observe.
   const buildInsightInput = useCallback(
-    (): InsightInput => ({
+    (): Omit<InsightInput, "timelogViolations"> => ({
       tasks,
       milestones,
       raid,
@@ -890,15 +896,34 @@ function TaskManagerInner() {
   useEffect(() => {
     if (!hydrated || isPopout) return;
     const timer = setTimeout(() => {
-      const detected = detectInsights(buildInsightInput(), today);
+      // The guardrail rules read the per-device daily roll from the actuals
+      // cache — keyed the same way TimelogPanel WRITES it (open-followups §14).
+      const policyResult = evaluateTimelogPolicy({
+        daily: loadActualsCache(currentProjectId ?? "default")?.daily ?? null,
+        policy: timelogLinks?.policy,
+        holidaySet,
+        userLinks: timelogLinks?.userLinks ?? [],
+        shifts,
+      });
+      const detected = detectInsights(
+        { ...buildInsightInput(), timelogViolations: policyResult.violations },
+        today,
+      );
       setInsights((prev) => {
         const base = prev ?? [];
-        const next = reconcileInsights(base, detected, today, new Set(CORE_INSIGHT_TYPES));
+        // ★★★ The evaluated set is what keeps "this rule produced no violations"
+        // distinguishable from "this rule never ran". It is the policy module's
+        // OWN report — never the set of rules that happened to yield violations,
+        // and never all four unconditionally: either would let a device with no
+        // TimeLog roll resolve another device's guardrail insights as an
+        // improvement (the defect `reconcileInsights` was made strict against).
+        const evaluated = new Set([...CORE_INSIGHT_TYPES, ...policyResult.evaluated]);
+        const next = reconcileInsights(base, detected, today, evaluated);
         return insightsMateriallyEqual(base, next) ? base : next;
       });
     }, INSIGHTS_RECONCILE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [buildInsightInput, today, hydrated, isPopout, setInsights]);
+  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, shifts]);
 
   // Lifecycle handlers (threaded to the dashboard as an insightActions bag; the
   // review UI that invokes them is built in Task 6/7). Each is a functional

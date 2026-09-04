@@ -7,6 +7,8 @@ import { isRaidActiveForReview } from "../raid-review";
 import { isTaskFinished } from "../task-status";
 import { partitionUpcoming } from "../dashboard";
 import { computeBudgetReport } from "../budget-report";
+import { resourceDisplayName } from "../resource-foundation";
+import type { TimelogViolation } from "../timelog-policy";
 import type { Task, Milestone, RaidItem, BudgetBucket, ResourcePlan, Role, Resource } from "../types";
 import { INSIGHT_SEVERITY_RANK, type DetectedInsight, type InsightType } from "./insight";
 
@@ -176,6 +178,38 @@ function raidAgingInsights(raid: readonly RaidItem[], today: string): DetectedIn
   return out;
 }
 
+// --- timelog guardrails ----------------------------------------------------
+/** Guardrail violations → insights. Aggregation already happened in
+ *  `timelog-policy.ts`; this only names the person and attaches the ref.
+ *  Severity is uniform: a cap breach is a review prompt, not a ranking.
+ *  ★ `count` is load-bearing beyond the sentence — it is the `METRIC_FIELD`
+ *  for all four types, so an outcome delta reads null without it. */
+function timelogGuardrailInsights(
+  violations: readonly TimelogViolation[] | null,
+  resources: readonly Resource[],
+): DetectedInsight[] {
+  if (violations === null) return [];
+  const byId = new Map<number, Resource>(resources.map((r) => [r.id, r]));
+  return violations.map((v) => {
+    // A DANGLING resourceId resolves to nothing and is treated exactly like an
+    // absent link: InsightEntityRef promises a real workspace row, and the
+    // recommendation-replay path resolves it as one.
+    const resource = v.resourceId === null ? undefined : byId.get(v.resourceId);
+    return {
+      key: `timelog:${v.rule}:${v.timelogUserId}`,
+      type: v.rule,
+      severity: "medium" as const,
+      ...(resource !== undefined ? { entityRef: { view: "resources" as const, id: resource.id } } : {}),
+      data: {
+        person: resource === undefined ? `#${v.timelogUserId}` : resourceDisplayName(resource),
+        count: v.count,
+        worstHours: v.worstHours,
+        threshold: v.threshold,
+      },
+    };
+  });
+}
+
 export interface InsightInput {
   readonly tasks: readonly Task[];
   readonly milestones: readonly Milestone[];
@@ -189,6 +223,10 @@ export interface InsightInput {
   readonly plan: ResourcePlan | null;
   /** Overdue-task count from the last visit/snapshot; null when unknown. */
   readonly priorOverdueCount: number | null;
+  /** Pre-computed guardrail violations, or null when the rules could not run
+   *  (no daily roll on this device). This module never learns what a booking
+   *  is — same null-when-unknown shape as `priorOverdueCount`. */
+  readonly timelogViolations: readonly TimelogViolation[] | null;
   readonly holidaySet: ReadonlySet<string>;
 }
 
@@ -205,6 +243,7 @@ export function detectInsights(input: InsightInput, today: string): DetectedInsi
   if (stalled) out.push(stalled);
   const budget = budgetVarianceInsight(input.budgets, input.plan, input.roles, input.resources, input.holidaySet);
   if (budget) out.push(budget);
+  out.push(...timelogGuardrailInsights(input.timelogViolations, input.resources));
 
   out.sort(
     (a, b) =>
