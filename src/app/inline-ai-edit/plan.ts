@@ -33,6 +33,7 @@ export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: D
 const CREATE_TOOLS: Record<string, string> = {
   create_raid_item: "raid", create_change: "change",
   create_milestone: "milestone", create_stakeholder: "stakeholder", create_task: "task",
+  create_resource: "resource",
 };
 const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> = {
   delete_task: { entity: "task", wsKey: "tasks" },
@@ -40,6 +41,7 @@ const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> =
   delete_change: { entity: "change", wsKey: "changes" },
   delete_milestone: { entity: "milestone", wsKey: "milestones" },
   delete_stakeholder: { entity: "stakeholder", wsKey: "stakeholders" },
+  delete_resource: { entity: "resource", wsKey: "resources" },
 };
 
 // Fields stored as rich HTML, keyed `${entity}.${field}`. Only the PREVIEW
@@ -81,7 +83,21 @@ function str(v: unknown): string {
   if (Array.isArray(v)) return v.join(", ");
   return String(v);
 }
+/** A person's display name from either shape `create_resource` accepts:
+ *  firstName/lastName, or the single `name` the dispatcher splits. Empty when
+ *  the object carries neither. */
+function personName(o: Record<string, unknown>): string {
+  const parts = `${str(o.firstName)} ${str(o.lastName)}`.trim();
+  return parts || str(o.name);
+}
+
 function titleOf(entity: string, input: Record<string, unknown>): string {
+  // ★★ `Resource.title` is a JOB TITLE, so the generic chain below would label
+  // a create card "Engineer" instead of naming the person being added. Kept
+  // scoped to `resource`: `Stakeholder.title` is a job title too and its create
+  // card has the same defect, but fixing that here would change an entity this
+  // change was not asked to touch. Reported rather than silently altered.
+  if (entity === "resource") return personName(input) || entity;
   return str(input.title ?? input.taskName ?? input.name ?? input.description ?? entity);
 }
 
@@ -171,7 +187,13 @@ export function describeEntityCalls(
       const rows = ws[wsKey] as ReadonlyArray<{ id: number; title?: string; taskName?: string; name?: string }>;
       const found = Array.isArray(rows) ? rows.find((r) => r.id === id) : undefined;
       if (!found) { plan.rejected.push({ toolName: name, reason: "unknown-id", detail: str(input.id) }); continue; }
-      plan.deletes.push({ entity, label: str(found.title ?? found.taskName ?? found.name ?? id), toolName: name, id });
+      // ★ Same job-title collision as `titleOf` above, on the row instead of the
+      // input: a resource carries `title` ("Engineer") and no `name`, so the
+      // generic chain would offer to delete "Engineer".
+      const label = entity === "resource"
+        ? personName(found as Record<string, unknown>) || str(id)
+        : str(found.title ?? found.taskName ?? found.name ?? id);
+      plan.deletes.push({ entity, label, toolName: name, id });
       continue;
     }
   }

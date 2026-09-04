@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { RICH_FIELDS } from "./plan";
-import { sanitizeRaidItem, sanitizeChangeItem, sanitizeMilestone, sanitizeStakeholder } from "../sanitize";
+import { sanitizeRaidItem, sanitizeChangeItem, sanitizeMilestone, sanitizeStakeholder, sanitizeResource } from "../sanitize";
 import { descriptionHtml } from "../rich-text-plain";
 
 // The RICH-TEXT diff fields (slice B). Their sanitizers UPGRADE a legacy plain
@@ -43,11 +43,25 @@ const STK_VALUES: Record<string, unknown> = {
   category: "Sponsor", influence: "High", interest: "Low", notes: "n",
 };
 
+// ★★ The base needs BOTH name parts: `sanitizeResource` returns null when both
+// are empty, so a base carrying only one would make the per-field case for the
+// OTHER part ("blank it") return null and fail for the right reason but the
+// wrong reason to a reader. `isExternal` is stored present-or-absent (the
+// sanitizer accepts only `true` / "true"), which is why the case value is
+// `true` — a `false` here would assert the sanitizer keeps a key it drops.
+const RES_BASE = { id: 1, firstName: "A", lastName: "B" };
+const RES_VALUES: Record<string, unknown> = {
+  firstName: "New", lastName: "Fam", title: "CTO", email: "a@b.co",
+  department: "Delivery", company: "AIPM", location: "Berlin",
+  businessPhone: "+49 30 1234", isExternal: true, notes: "n",
+};
+
 const CASES = [
   { entity: "raid" as const, base: RAID_BASE, values: RAID_VALUES, sanitize: sanitizeRaidItem },
   { entity: "change" as const, base: CHANGE_BASE, values: CHANGE_VALUES, sanitize: sanitizeChangeItem },
   { entity: "milestone" as const, base: MILE_BASE, values: MILE_VALUES, sanitize: sanitizeMilestone },
   { entity: "stakeholder" as const, base: STK_BASE, values: STK_VALUES, sanitize: sanitizeStakeholder },
+  { entity: "resource" as const, base: RES_BASE, values: RES_VALUES, sanitize: sanitizeResource },
 ];
 
 describe("descriptor diffFields are dispatcher-writable", () => {

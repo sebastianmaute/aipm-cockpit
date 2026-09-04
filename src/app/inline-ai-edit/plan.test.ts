@@ -78,7 +78,10 @@ describe("describeToolCalls", () => {
 });
 
 function wsWith(part: Partial<Workspace>): Workspace {
-  return { tasks: [], raid: [], changes: [], milestones: [], stakeholders: [], ...part } as unknown as Workspace;
+  // ★ `resources` belongs in the base: describeEntityCalls reads `ws[d.wsKey]`
+  // UNGUARDED when it builds `ownIds`, so a workspace missing the descriptor's
+  // own slice throws rather than producing an empty plan.
+  return { tasks: [], raid: [], changes: [], milestones: [], stakeholders: [], resources: [], ...part } as unknown as Workspace;
 }
 
 describe("describeEntityCalls — raid", () => {
@@ -314,6 +317,132 @@ describe("the applied value stays raw while the preview is projected", () => {
     expect(diff).toBeDefined();
     expect(diff!.after).toBe("new");
     expect(diff!.raw).toBe("<p>new</p>");
+  });
+});
+
+describe("describeEntityCalls — resource", () => {
+  // ★★ `Resource.title` is a JOB TITLE, not a display label. Every fixture here
+  // carries one so a create card or a delete label that reaches for `title`
+  // (as the generic `str(input.title ?? …)` chain does for every other entity)
+  // renders "Engineer" where the person's name belongs.
+  const resource = { id: 5, firstName: "M.", lastName: "Jordan", title: "Engineer", department: "Delivery" };
+  const other = { id: 6, firstName: "R.", lastName: "Frank", title: "Analyst" };
+  const resWs = wsWith({ resources: [resource, other] as never });
+  const d = INLINE_DESCRIPTORS.resource;
+
+  it("describes a resource create under the person's name, not their job title", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "create_resource", input: { firstName: "M.", lastName: "Jordan", title: "Engineer" } }],
+      { descriptor: d, item: resource, ws: resWs },
+    );
+    expect(plan.creates).toHaveLength(1);
+    expect(plan.creates[0].entity).toBe("resource");
+    expect(plan.creates[0].title).toBe("M. Jordan");
+  });
+
+  it("falls back to the full-name alias when the parts are not given", () => {
+    // `create_resource` accepts EITHER firstName/lastName OR a single `name`
+    // (chat-tool-defs.ts `resourceFields`), so the card must name both shapes.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "create_resource", input: { name: "M. Jordan" } }],
+      { descriptor: d, item: resource, ws: resWs },
+    );
+    expect(plan.creates[0]).toMatchObject({ entity: "resource", title: "M. Jordan", toolName: "create_resource" });
+  });
+
+  it("describes a resource delete against a live row", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "delete_resource", input: { id: resource.id } }],
+      { descriptor: d, item: resource, ws: resWs },
+    );
+    expect(plan.deletes).toHaveLength(1);
+    // The person, not "Engineer".
+    expect(plan.deletes[0]).toEqual({ entity: "resource", label: "M. Jordan", toolName: "delete_resource", id: 5 });
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("rejects the OWN delete tool aimed at another row as unsupported, not unknown-id", () => {
+    // ★★ The own-entity same-row guard runs BEFORE any existence lookup, so for
+    // the descriptor's own deleteTool ANY id but the opened row's is
+    // "unsupported" — whether or not that id exists. "unknown-id" is
+    // unreachable on this path.
+    const live = describeEntityCalls(
+      [{ type: "tool_use", name: "delete_resource", input: { id: other.id } }],
+      { descriptor: d, item: resource, ws: resWs },
+    );
+    expect(live.deletes).toEqual([]);
+    expect(live.rejected).toEqual([{ toolName: "delete_resource", reason: "unsupported", detail: "6" }]);
+
+    const absent = describeEntityCalls(
+      [{ type: "tool_use", name: "delete_resource", input: { id: 999999 } }],
+      { descriptor: d, item: resource, ws: resWs },
+    );
+    expect(absent.rejected).toEqual([{ toolName: "delete_resource", reason: "unsupported", detail: "999999" }]);
+  });
+
+  it("rejects a CROSS-entity delete_resource for an id that does not exist", () => {
+    // The other half of the new DELETE_TOOLS entry: reached from a different
+    // descriptor, the row is grounded against the live list and a miss is
+    // "unknown-id". This is the shape a whole-plan grounding pass uses.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "delete_resource", input: { id: 999999 } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item: { id: 42 }, ws: resWs },
+    );
+    expect(plan.deletes).toEqual([]);
+    expect(plan.rejected).toEqual([{ toolName: "delete_resource", reason: "unknown-id", detail: "999999" }]);
+  });
+
+  it("diffs a department change on the opened row", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, department: "Advisory" } }],
+      { descriptor: d, item: resource, ws: resWs },
+    );
+    expect(plan.updates).toEqual([{ field: "department", before: "Delivery", after: "Advisory", raw: "Advisory" }]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("ignores roleId and emails — neither round-trips verbatim through sanitizeResource", () => {
+    // roleId is an FK (excluded like Task.resourceId); `emails` is deduped
+    // against the primary and capped by sanitizeEmailList, so a previewed value
+    // would diverge from the stored one.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, roleId: 3, emails: ["a@b.co"] } }],
+      { descriptor: d, item: resource, ws: resWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("rejects blanking a name part (sanitizeResource returns null for a nameless row)", () => {
+    // ★ The sanitizer's real rule is "at least ONE part non-empty"; the
+    // descriptor can only express a per-field requirement, so BOTH parts are
+    // marked required. Over-rejecting is the safe direction — the alternative
+    // previews a diff whose Apply throws "invalid resource update".
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, firstName: "" } }],
+      { descriptor: d, item: resource, ws: resWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([{ toolName: "update_resource", reason: "bad-input", detail: "firstName=empty" }]);
+  });
+
+  it("rejects an update aimed at another row, by whether that row exists", () => {
+    // ★★ The one-item binding a whole-plan grounding pass depends on: an update
+    // is only ever described for `ctx.item`. The REASON splits on existence —
+    // a live row is "unsupported" (real, just not this one), a missing one is
+    // "unknown-id".
+    const live = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 6, department: "X" } }],
+      { descriptor: d, item: resource, ws: resWs },
+    );
+    expect(live.updates).toEqual([]);
+    expect(live.rejected).toEqual([{ toolName: "update_resource", reason: "unsupported", detail: "6" }]);
+
+    const absent = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 999999, department: "X" } }],
+      { descriptor: d, item: resource, ws: resWs },
+    );
+    expect(absent.rejected).toEqual([{ toolName: "update_resource", reason: "unknown-id", detail: "999999" }]);
   });
 });
 

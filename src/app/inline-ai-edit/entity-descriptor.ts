@@ -16,7 +16,7 @@ import {
 } from "../types";
 import { type Workspace } from "../workspace";
 
-export type InlineEntity = "task" | "raid" | "change" | "milestone" | "stakeholder";
+export type InlineEntity = "task" | "raid" | "change" | "milestone" | "stakeholder" | "resource";
 
 // Change impact reuses RAID severities plus "Critical" (matches CHANGE_IMPACT_SET
 // in sanitize-records.ts). No named const exists, so define it here.
@@ -148,6 +148,41 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     arrayFields: new Set(),
     numberFields: new Set(),
     titleOf: (i) => String(i.name ?? ""),
+  },
+  resource: {
+    entity: "resource", updateTool: "update_resource", deleteTool: "delete_resource", createTool: "create_resource", wsKey: "resources",
+    // Derived from `ResourceInput` (chat-tools.ts) ∩ what `sanitizeResource`
+    // stores VERBATIM. Four writable inputs are deliberately absent:
+    //   • `roleId` — an FK, excluded by the same rule as Task.resourceId.
+    //   • `emails` — sanitizeEmailList DEDUPES it against the primary `email`
+    //     and caps it, so a previewed list routinely diverges from the stored
+    //     one. `arrayFields` cannot express that (it means "comma-split on
+    //     Apply", which is the task-labels shape, not this one).
+    //   • `name` — a WRITE ALIAS the dispatcher splits into first/last; it is
+    //     not a stored field, so `before` would read empty for every resource.
+    //     Diffing the parts is the honest form. ★ CONSEQUENCE: a rename sent as
+    //     `update_resource({name})` alone produces NO diff and previews as an
+    //     empty plan.
+    //   • `birthday` — stored, but absent from `ResourceInput`: the tool cannot
+    //     write it, so a diff here could never be applied.
+    diffFields: ["firstName", "lastName", "title", "email", "department", "company", "location", "businessPhone", "isExternal", "notes"],
+    // ★★ The sanitizer's REAL rule is "at least ONE of firstName/lastName
+    // non-empty" — blanking both returns null and the dispatcher throws
+    // "invalid resource update". `requiredNonEmpty` is per-field and cannot
+    // express a disjunction, so BOTH are marked. That over-rejects blanking one
+    // part while the other stands; over-rejecting is the safe direction here,
+    // since the alternative previews a diff whose Apply throws.
+    requiredNonEmpty: new Set(["firstName", "lastName"]),
+    // `birthday` is the only date-shaped Resource field and it is NOT writable
+    // (see above) — and it is "MM-DD", which sanitizeIsoDate would reject anyway.
+    dateFields: new Set(),
+    intRangeFields: {},
+    enumFields: {},
+    arrayFields: new Set(),
+    numberFields: new Set(),
+    // ★ NOT `i.title` — that is the JOB title. The two name parts are the row's
+    // identity (`sanitizeResource` rejects a row with neither).
+    titleOf: (i) => `${String(i.firstName ?? "")} ${String(i.lastName ?? "")}`.trim(),
   },
 };
 

@@ -3,7 +3,11 @@ import { INLINE_DESCRIPTORS, validSetFor, type InlineEntity } from "./entity-des
 import type { RaidItem } from "../types";
 
 describe("INLINE_DESCRIPTORS", () => {
-  const entities: InlineEntity[] = ["task", "raid", "change", "milestone", "stakeholder"];
+  // ★★ A HAND-COPY of the `InlineEntity` union, not a derivation — nothing in
+  // TypeScript can enumerate a union at runtime, so widening the union does NOT
+  // fail this file. A new member has to be added here by hand or every
+  // per-entity check below silently skips it.
+  const entities: InlineEntity[] = ["task", "raid", "change", "milestone", "stakeholder", "resource"];
 
   it("has a descriptor per entity with matching update/delete tools", () => {
     expect(INLINE_DESCRIPTORS.task.updateTool).toBe("update_task");
@@ -17,7 +21,8 @@ describe("INLINE_DESCRIPTORS", () => {
   it("excludes relational id-list + FK fields from diffFields", () => {
     for (const e of entities) {
       const f = INLINE_DESCRIPTORS[e].diffFields;
-      for (const banned of ["linkedTaskIds", "causedByRaidIds", "stakeholderIds", "linkedRaidIds", "ownerResourceId", "resourceId", "raci"]) {
+      // `roleId` is Resource's FK to Role — the same exclusion as Task.resourceId.
+      for (const banned of ["linkedTaskIds", "causedByRaidIds", "stakeholderIds", "linkedRaidIds", "ownerResourceId", "resourceId", "roleId", "raci"]) {
         expect(f).not.toContain(banned);
       }
     }
