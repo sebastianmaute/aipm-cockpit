@@ -176,11 +176,18 @@ export function buildPlanRows(
 /** Deselect `index` and, transitively, every row that depends on it. Pure —
  *  returns a new set and never mutates the one passed in.
  *
- *  ★ The `next.delete(cur)` result gates the walk. For any graph `buildPlanRows`
- *   produces that is an optimisation only (every `dependsOn` points strictly
- *   backward, so no cycle is constructible and each row is enqueued at most
- *   twice). It is load-bearing for a HAND-BUILT `rows` array: a two-row cycle
- *   would otherwise re-enqueue forever. Keep it. */
+ *  ★★ The `next.delete(cur)` result GATES THE WALK, and that is BEHAVIOUR, not
+ *   an optimisation — measured by mutation, not reasoned. Dropping the guard
+ *   (`next.delete(cur) || true`) turns "deselecting a row already deselected
+ *   leaves the rest alone" red: the walk runs on through that row's dependents
+ *   and deselects them too. The walk therefore STOPS at the first row that was
+ *   not selected. Both readings are defensible once the input state is already
+ *   inconsistent (a selected row whose dependency is not selected) — which this
+ *   function alone cannot produce — so a test pins the one we chose.
+ *  ★ The guard also BOUNDS the walk on a HAND-BUILT `rows` array. Every
+ *   `dependsOn` in a `buildPlanRows` graph points strictly backward, so no cycle
+ *   is constructible there; a caller assembling rows by hand could write a
+ *   two-row cycle that would otherwise re-enqueue forever. */
 export function cascadeDeselect(
   rows: readonly PlanRow[],
   selected: ReadonlySet<number>,

@@ -223,6 +223,11 @@ describe("provisional-id dependencies", () => {
     expect(next.size).toBe(0);
   });
 
+  // ★★ THIS ROW IS THE ONE THAT DISCRIMINATES `cascadeDeselect`'s delete-guard,
+  //    and the plan predicted the guard was an equivalent mutant. It is not:
+  //    without it the walk runs past an already-deselected row into that row's
+  //    dependents. Do not delete this test as redundant — it is the whole
+  //    statement that the cascade stops where the deselection stops.
   test("deselecting a row already deselected leaves the rest alone", () => {
     const rows = buildPlanRows([call("create_task"), call("update_task", { id: 101 })], [101]);
     const next = cascadeDeselect(rows, new Set([1]), 0);
