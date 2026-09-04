@@ -283,8 +283,30 @@ describe("rtfToPlainText", () => {
   //  because the correction happens BEFORE the range test on purpose: an
   //  out-of-signed-16 value must still be dropped rather than wrapping onto
   //  some unrelated real character.
-  it("drops an out-of-signed-16-range negative escape rather than wrapping it", () => {
-    expect(rtfToPlainText("{\\rtf1 A\\u-70000 B}")).toBe("AB");
+  // ★★★ SAMPLE THE WHOLE OUT-OF-RANGE BAND, NOT ONE POINT OF IT. `\u-70000`
+  //  alone cannot discriminate the stated bound (signed 16 bits) from the one
+  //  the code enforced (`> -65536`): the two agree at exactly that value,
+  //  because -70000 + 0x10000 is still negative and fell out of the codepoint
+  //  test anyway. Every value in -65535..-32769 is equally illegal RTF and was
+  //  silently minted into a real character — -40000 into U+63C0, a CJK glyph
+  //  the sender never wrote, in text handed to the model.
+  it.each([
+    ["-70000", "below -65536, so even the old code dropped it"],
+    ["-65536", "the boundary the old code actually enforced"],
+    ["-65535", "one inside it — the old code emitted U+0001"],
+    ["-40000", "mid-band — the old code emitted U+63C0"],
+    ["-32769", "one past the real signed-16 minimum"],
+  ])("drops the out-of-signed-16-range negative escape \\u%s (%s)", (value) => {
+    expect(rtfToPlainText(`{\\rtf1 A\\u${value} B}`)).toBe("AB");
+  });
+
+  // Non-vacuity: the legal negatives on the other side of the boundary must
+  // still decode. Without this, dropping every negative would pass above.
+  it("still decodes legal negative escapes just inside the signed-16 range", () => {
+    // -32768 is the minimum legal value; -223 is the shape Word emits for a
+    // fullwidth character.
+    expect(rtfToPlainText("{\\rtf1 A\\u-32768 B}")).toBe(`A${String.fromCodePoint(0x8000)}B`);
+    expect(rtfToPlainText("{\\rtf1 A\\u-223 B}")).toBe("AＡB");
   });
 
   // ★★★ REGRESSION. A removed destination group used to leave NOTHING behind,

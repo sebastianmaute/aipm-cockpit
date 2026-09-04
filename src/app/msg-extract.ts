@@ -41,7 +41,7 @@
 // Property tags come from MS-OXPROPS. Tags are facts from a specification,
 // not creative expression.
 
-import { extractHtmlMarkdown } from "./html-extract";
+import { extractHtmlMarkdown, NO_EXTRACTABLE_TEXT } from "./html-extract";
 import { decompressRtf, rtfToPlainText } from "./lzfu";
 import type { ParsedMail } from "./mail-extract";
 
@@ -105,8 +105,16 @@ export const MAX_BODY_PROPERTY_BYTES = 4 * 1024 * 1024;
  *  eml-extract.ts's MAX_ADDRESSES_PER_LIST. */
 export const MAX_ADDRESSES_PER_LIST = 100;
 
-/** Minimum HTML byte length worth treating as a real body rather than a
- *  degenerate placeholder stream. */
+/** Minimum HTML length worth treating as a real body rather than a degenerate
+ *  placeholder stream.
+ *
+ *  ★★ IT IS A LENGTH IN CHARACTERS DESPITE THE NAME, and comparing raw
+ *  `bytes.length` against it is a real defect rather than a rounding issue:
+ *  PT_UNICODE spends two bytes per code unit, so a byte comparison makes the
+ *  floor twice as strict for the PT_STRING8 spelling of the same body. The
+ *  binary PR_HTML path compares bytes because its value has no code-unit
+ *  width to divide by; the text-typed path goes through
+ *  `htmlBodyIsBigEnough`, which normalises first. */
 const MIN_HTML_BODY_BYTES = 32;
 
 /** Bytes at the head of an HTML body scanned for a charset declaration. The
@@ -156,7 +164,7 @@ function sniffCharset(bytes: Uint8Array): string {
  *  Steps 2 and 3 are decodeCodePageBytes, shared with every PT_STRING8
  *  property — those have the same code-page question and no step 1, since a
  *  bare property string carries no declaration to sniff. */
-function decodeHtmlBytes(bytes: Uint8Array): string {
+function decodeHtmlBytes(bytes: Uint8Array, mayBeCut: boolean): string {
   const label = sniffCharset(bytes);
   if (label !== "") {
     try {
@@ -172,7 +180,7 @@ function decodeHtmlBytes(bytes: Uint8Array): string {
       // to the ladder, which always produces something.
     }
   }
-  return decodeCodePageBytes(bytes);
+  return decodeCodePageBytes(bytes, mayBeCut);
 }
 
 /** Strict UTF-8, then windows-1252 — the lower two rungs of the charset
@@ -182,16 +190,32 @@ function decodeHtmlBytes(bytes: Uint8Array): string {
  *  substituting U+FFFD, so a modern value decodes exactly and a legacy one is
  *  DETECTED rather than silently rotted.
  *
- *  ★★ `stream: true` on the strict attempt is load-bearing, not incidental.
- *  Callers clamp at a byte cap, which can cut a multi-byte sequence in half;
- *  a non-streaming fatal decode THROWS on that truncated tail (measured) and
+ *  ★★ `stream: true` on the strict attempt is load-bearing WHEN THE BYTES
+ *  WERE ACTUALLY CLAMPED. A cap can cut a multi-byte sequence in half; a
+ *  non-streaming fatal decode THROWS on that truncated tail (measured) and
  *  would send an entire valid 4MB UTF-8 body down the windows-1252 branch —
  *  turning one lost character into whole-body mojibake. Streaming buffers an
  *  INCOMPLETE trailing sequence and drops it, while an invalid INTERIOR
- *  sequence still throws, so the fallback stays reachable (both measured). */
-function decodeCodePageBytes(bytes: Uint8Array): string {
+ *  sequence still throws, so the fallback stays reachable (both measured).
+ *
+ *  ★★★ APPLIED UNCONDITIONALLY IT IS A DATA-LOSS BUG, which is what it was.
+ *  Most PT_STRING8 properties — a subject, a sender's display name, a To
+ *  entry, an attachment filename — are a few dozen bytes against a 64 KB cap
+ *  and are never clamped, so a trailing byte is REAL DATA. Streaming buffers
+ *  it and discards it without throwing, so the windows-1252 rung is never
+ *  reached and the character vanishes with no diagnostic. Measured: a subject
+ *  "Resumé" came back "Resum", and 51 of the 96 high windows-1252 bytes are
+ *  lost this way (0xC2..0xF4 — every byte that opens a UTF-8 sequence). The
+ *  trigger is narrow and that is what made it invisible: the value must be
+ *  valid UTF-8 up to a FINAL byte in that range, so an accent anywhere but
+ *  the end throws and correctly falls back. The suite's own windows-1252 case
+ *  was ASCII-final, one character from catching it.
+ *
+ *  So `mayBeCut` must be the caller's real answer to "did I clamp these
+ *  bytes?", never a constant. */
+function decodeCodePageBytes(bytes: Uint8Array, mayBeCut: boolean): string {
   try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes, { stream: true });
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes, { stream: mayBeCut });
   } catch {
     return new TextDecoder("windows-1252").decode(bytes);
   }
@@ -213,16 +237,46 @@ function decodeUnicode(b: Uint8Array, cap: number, budget: DecodeBudget): string
 }
 
 /** PT_STRING8: one byte per code unit, so unlike decodeUnicode there is no
- *  code-unit alignment for the clamp to respect and it may land on any byte —
- *  decodeCodePageBytes's streaming strict decode is what keeps a cut UTF-8
- *  sequence from dragging the whole value onto the windows-1252 branch. */
+ *  code-unit alignment for the clamp to respect and it may land on any byte.
+ *  When it DOES land mid-sequence, decodeCodePageBytes's streaming strict
+ *  decode is what keeps that cut tail from dragging the whole value onto the
+ *  windows-1252 branch — but only then. `mayBeCut` is the clamp's own answer,
+ *  so an unclamped value (which is nearly all of them) gets a strict decode
+ *  that can actually fail and reach the fallback. See decodeCodePageBytes. */
 function decodeString8(b: Uint8Array, cap: number, budget: DecodeBudget): string {
   let slice = b;
-  if (b.length > cap) {
+  const clamped = b.length > cap;
+  if (clamped) {
     slice = b.subarray(0, cap);
     budget.truncatedProperties++;
   }
-  return decodeCodePageBytes(slice).replace(/\0+$/, "");
+  return decodeCodePageBytes(slice, clamped).replace(/\0+$/, "");
+}
+
+/** The text-typed HTML body (1013001F / 1013001E), decoded the way the
+ *  PT_BINARY one is: the declaration in its own head first, then the
+ *  code-page ladder. Only PT_STRING8 reaches here — see the call site. */
+function decodeHtmlText(b: Uint8Array, cap: number, budget: DecodeBudget): string {
+  let slice = b;
+  const clamped = b.length > cap;
+  if (clamped) {
+    slice = b.subarray(0, cap);
+    budget.truncatedProperties++;
+  }
+  return decodeHtmlBytes(slice, clamped).replace(/\0+$/, "");
+}
+
+/** ★★ MIN_HTML_BODY_BYTES IS A LENGTH IN CHARACTERS, so it must be compared
+ *  against characters — PT_UNICODE spends two bytes per code unit and
+ *  PT_STRING8 one, so testing raw byte length made the floor twice as strict
+ *  for PT_STRING8. Measured: the same 22-character HTML body was read as a
+ *  body under PT_UNICODE (44 bytes) and produced an ENTIRELY EMPTY text body
+ *  under PT_STRING8 (22 bytes), with no diagnostic — and `matchedAnyTag` is
+ *  true either way, so the silent-empty guard this module exists to provide
+ *  does not fire. That is the same defect class one property down. */
+function htmlBodyIsBigEnough(v: TextValue): boolean {
+  const characters = v.wide ? v.bytes.length / 2 : v.bytes.length;
+  return characters > MIN_HTML_BODY_BYTES;
 }
 
 /** A resolved text property plus how to read its bytes: `wide` is PT_UNICODE
@@ -341,14 +395,49 @@ export function msgToParsedMail(streams: Map<string, Uint8Array>): ParsedMail {
   //  renderMailParts prints body.content verbatim and nothing downstream
   //  post-processes it. Handing the model up to 4MB of raw `<div style=…>`
   //  is what this path did before.
+  // The two spellings in preference order, each paired with whether it clears
+  // the degenerate-stream floor. `decode` is called AT MOST ONCE per parse —
+  // it charges budget.truncatedProperties — which is why the rescue below is
+  // gated on no preferred candidate having been decoded already.
+  //
+  // ★★★ THE TEXT-TYPED HTML BODY NEEDS THE SNIFF TOO, and the comment that
+  //  used to sit on it said it could not have one: "a bare property string
+  //  carries no declaration to sniff". True of a subject or a sender name —
+  //  and false of exactly this property, whose value IS an HTML document and
+  //  carries its own `<meta charset>` like any other. Routing it through the
+  //  shared code-page ladder decoded a windows-1251 body behind a correct
+  //  declaration as mojibake, while the byte-identical value under the
+  //  PT_BINARY tag decoded correctly. Only the PT_STRING8 half needs it: a
+  //  PT_UNICODE value is UTF-16LE by its own suffix and has no code-page
+  //  question, so sniffing it would read a declaration that cannot disagree
+  //  with the encoding it is written in.
+  const htmlCandidates: { decode: () => string; overFloor: boolean }[] = [];
+  if (htmlBytes && htmlBytes.length > 0) {
+    htmlCandidates.push({
+      overFloor: htmlBytes.length > MIN_HTML_BODY_BYTES,
+      decode: () => {
+        const clamped = htmlBytes.length > MAX_BODY_PROPERTY_BYTES;
+        const slice = clamped ? htmlBytes.subarray(0, MAX_BODY_PROPERTY_BYTES) : htmlBytes;
+        if (clamped) budget.truncatedProperties++;
+        return extractHtmlMarkdown(decodeHtmlBytes(slice, clamped));
+      },
+    });
+  }
+  if (htmlTextValue && htmlTextValue.bytes.length > 0) {
+    htmlCandidates.push({
+      overFloor: htmlBodyIsBigEnough(htmlTextValue),
+      decode: () => extractHtmlMarkdown(
+        htmlTextValue.wide
+          ? decBody(htmlTextValue)
+          : decodeHtmlText(htmlTextValue.bytes, MAX_BODY_PROPERTY_BYTES, budget),
+      ),
+    });
+  }
+  const preferredHtml = htmlCandidates.find((c) => c.overFloor);
+
   let body: ParsedMail["body"];
-  if (htmlBytes && htmlBytes.length > MIN_HTML_BODY_BYTES) {
-    const clamped = htmlBytes.length > MAX_BODY_PROPERTY_BYTES;
-    const htmlSlice = clamped ? htmlBytes.subarray(0, MAX_BODY_PROPERTY_BYTES) : htmlBytes;
-    if (clamped) budget.truncatedProperties++;
-    body = { kind: "html", content: extractHtmlMarkdown(decodeHtmlBytes(htmlSlice)) };
-  } else if (htmlTextValue && htmlTextValue.bytes.length > MIN_HTML_BODY_BYTES) {
-    body = { kind: "html", content: extractHtmlMarkdown(decBody(htmlTextValue)) };
+  if (preferredHtml) {
+    body = { kind: "html", content: preferredHtml.decode() };
   } else if (rtfBytes && rtfBytes.length > 0) {
     const raw = decompressRtf(rtfBytes);
     const text = rtfToPlainText(new TextDecoder("latin1").decode(raw));
@@ -360,6 +449,22 @@ export function msgToParsedMail(streams: Map<string, Uint8Array>): ParsedMail {
     }
   } else {
     body = { kind: "text", content: plain };
+  }
+
+  // ★★★ THE FLOOR MAY DEMOTE A BODY, IT MAY NOT DELETE ONE. It exists to
+  //  prefer a real alternative over a degenerate placeholder stream — but
+  //  when there IS no alternative, falling past a short HTML body leaves the
+  //  message with an empty body and no diagnostic, which is the same
+  //  silent-empty outcome this module exists to prevent. Reachable in
+  //  practice: a 22-character HTML-only message is under the floor on both
+  //  spellings once the floor is measured in characters rather than bytes.
+  //  Guarded on `!preferredHtml` so no candidate is decoded twice — `decode`
+  //  charges the truncation budget.
+  if (!preferredHtml && body.content.trim() === "" && htmlCandidates.length > 0) {
+    const rescued = htmlCandidates[0].decode();
+    if (rescued !== "" && rescued !== NO_EXTRACTABLE_TEXT) {
+      body = { kind: "html", content: rescued };
+    }
   }
 
   const allAttachmentStorages = attachmentStorages(streams);

@@ -269,6 +269,15 @@ describe("msgToParsedMail", () => {
    *  where windows-1252 and the code point agree, so this is exact. */
   const cp1252 = (s: string) => Uint8Array.from(s, (ch) => ch.codePointAt(0) ?? 0);
 
+  /** windows-1251 bytes. The Cyrillic block U+0410-U+044F maps contiguously
+   *  onto 0xC0-0xFF there; ASCII is unchanged. Deliberately a DIFFERENT code
+   *  page from the fallback rung, so a test using it cannot pass by accident
+   *  when the declaration is ignored and windows-1252 is applied instead. */
+  const cp1251 = (s: string) => Uint8Array.from(s, (ch) => {
+    const cp = ch.codePointAt(0) ?? 0;
+    return cp >= 0x0410 && cp <= 0x044f ? cp - 0x0410 + 0xc0 : cp;
+  });
+
   it("routes the HTML body through the Markdown extractor instead of emitting raw markup", () => {
     const rich =
       "<html><head><style>p{color:red}</style></head><body>"
@@ -404,6 +413,107 @@ describe("msgToParsedMail", () => {
     }));
     expect(p.body.content).toBe("Preisverhältnis und Maßnahmen für München");
     expect(p.body.content).not.toContain("�");
+  });
+
+  // ★★★ THE ACCENT MUST BE AT THE END — that is the entire trigger, and the
+  //  fixture above is one character from catching it. `stream: true` on the
+  //  strict rung buffers an INCOMPLETE trailing sequence and discards it
+  //  instead of throwing, so a value ending in a byte that OPENS a UTF-8
+  //  sequence (0xC2..0xF4, 51 of the 96 high windows-1252 bytes) never reached
+  //  the windows-1252 rung: the character was dropped, silently, with empty
+  //  diagnostics. An accent anywhere earlier throws and falls back correctly,
+  //  which is why every existing case passed. Streaming is right only when the
+  //  bytes were actually clamped, and these are far below the 64 KB cap.
+  it.each([
+    ["Resumé", "e-acute / 0xE9"],
+    ["Café", "the same byte at a shorter length"],
+    ["Congé", "the attachment-filename shape"],
+  ])("keeps the final character of an unclamped PT_STRING8 subject: %s (%s)", (subject) => {
+    const p = msgToParsedMail(streams({ "__substg1.0_0037001E": cp1252(subject) }));
+    expect(p.headers.subject).toBe(subject);
+  });
+
+  // Non-vacuity for the above: dropping `stream` must NOT send every valid
+  // UTF-8 value down the windows-1252 rung, which would turn one lost
+  // character into whole-value mojibake.
+  it("still decodes an unclamped UTF-8 PT_STRING8 subject that ends in an accent", () => {
+    const p = msgToParsedMail(streams({
+      "__substg1.0_0037001E": new TextEncoder().encode("Größe und Maß"),
+    }));
+    expect(p.headers.subject).toBe("Größe und Maß");
+  });
+
+  // ★★★ THE TEXT-TYPED HTML BODY CARRIES ITS OWN DECLARATION and must be
+  //  sniffed like the PT_BINARY one. A comment here used to say the opposite —
+  //  "a bare property string carries no declaration to sniff" — which is true
+  //  of a subject and false of this property, whose value IS a document. The
+  //  two spellings of the same bytes must agree.
+  it("honours a meta charset on the text-typed html body, as the binary one does", () => {
+    const html = '<html><head><meta charset="windows-1251"></head><body>'
+      + "<p>Привет мир padding padding</p></body></html>";
+    const bytes = cp1251(html);
+    const asText = msgToParsedMail(streams({ "__substg1.0_1013001E": bytes }));
+    const asBinary = msgToParsedMail(streams({ "__substg1.0_10130102": bytes }));
+    expect(asText.body.content).toContain("Привет мир");
+    // The byte-identical value under the binary tag is the control: it already
+    // decoded correctly, so this pins the two paths together rather than
+    // pinning one spelling's output on its own.
+    expect(asText.body.content).toBe(asBinary.body.content);
+  });
+
+  // ★★★ THE DEGENERATE-STREAM FLOOR MAY DEMOTE A BODY, NOT DELETE ONE. It was
+  //  compared against raw bytes, so it was twice as strict for PT_STRING8 —
+  //  the same 22-character body was read under PT_UNICODE (44 bytes) and came
+  //  back as an entirely EMPTY text body under PT_STRING8, with no diagnostic
+  //  and with matchedAnyTag true, so the silent-empty guard did not fire.
+  //  Measuring it in characters makes the two agree; both are then UNDER the
+  //  floor, so the rescue is what keeps a short html-only message readable.
+  it.each([
+    ["1013001F", "PT_UNICODE"],
+    ["1013001E", "PT_STRING8"],
+  ])("delivers a short html-only body under %s (%s)", (tag) => {
+    const html = "<p>Twenty chars ok</p>";
+    const bytes = tag.endsWith("001F") ? uni(html) : cp1252(html);
+    const p = msgToParsedMail(streams({ [`__substg1.0_${tag}`]: bytes }));
+    expect(p.body.kind).toBe("html");
+    expect(p.body.content).toContain("Twenty chars ok");
+  });
+
+  // ★★★ THE FLOOR ITSELF, ISOLATED FROM THE RESCUE. With an html-only message
+  //  the rescue delivers the body whichever unit the floor counts in, so the
+  //  byte-vs-character bug is invisible there — measured: reverting the
+  //  normalisation left every other case in this file green. It becomes
+  //  observable only when a plain body COMPETES, because then the floor
+  //  decides which one wins: at 22 characters, PT_UNICODE is 44 bytes and
+  //  clears a byte floor of 32 while PT_STRING8 is 22 and does not, so the
+  //  same message resolved to two different bodies depending purely on how
+  //  the producer spelled it. Both must reach the same verdict.
+  it("resolves the same short html body identically under both spellings", () => {
+    const html = "<p>Twenty chars ok</p>";
+    const withPlain = (tag: string, bytes: Uint8Array) => msgToParsedMail(streams({
+      [`__substg1.0_${tag}`]: bytes,
+      "__substg1.0_1000001F": uni("the real plain body"),
+    })).body;
+    const wide = withPlain("1013001F", uni(html));
+    const narrow = withPlain("1013001E", cp1252(html));
+    expect(narrow.kind).toBe(wide.kind);
+    expect(narrow.content).toBe(wide.content);
+    // And says which verdict is the right one, so this cannot be satisfied by
+    // both spellings agreeing on the wrong answer: under the floor, the real
+    // plain body wins.
+    expect(wide.kind).toBe("text");
+    expect(wide.content).toBe("the real plain body");
+  });
+
+  // Non-vacuity for the rescue: a genuinely degenerate stream must still lose
+  // to a real plain body rather than displacing it.
+  it("still prefers a real plain body over a degenerate html stream", () => {
+    const p = msgToParsedMail(streams({
+      "__substg1.0_10130102": new Uint8Array(8),
+      "__substg1.0_1000001F": uni("the real plain body"),
+    }));
+    expect(p.body.kind).toBe("text");
+    expect(p.body.content).toBe("the real plain body");
   });
 
   // ★ The other rung of the same ladder: a PT_STRING8 property whose bytes ARE

@@ -226,11 +226,21 @@ export function rtfToPlainText(rtf: string): string {
   //  recombine into one astral character purely by being adjacent. An UNPAIRED
   //  half therefore stays one unpaired code unit instead of throwing or
   //  consuming the text after it; hostile input can produce one.
-  //  ★ The range test runs AFTER the correction on purpose, so an
-  //  out-of-signed-16 value (`\u-70000`) is still dropped rather than wrapping
-  //  onto some real character.
+  //  ★★★ THE SIGNED-16 TEST MUST RUN ON `signed`, NOT ON THE CORRECTED VALUE,
+  //  and this is where an earlier revision got it wrong in the dangerous
+  //  direction. The comment claimed an out-of-range negative was "still
+  //  dropped rather than wrapping onto some real character", and the test
+  //  sampled `\u-70000` — but `signed + 0x10000` corrects ANY negative, so
+  //  only values at or below -65536 land back under zero and get dropped.
+  //  Everything in -65535..-32769 is equally out of range and was corrected
+  //  anyway: measured, `\u-40000` minted U+63C0, a real CJK character, into
+  //  text handed to the model. The claimed bound and the actual bound agreed
+  //  at exactly the one value the test used. RTF gives `\uN` no meaning
+  //  outside signed 16 bits, so fabricating a character is strictly worse
+  //  than dropping one — reject before correcting.
   s = s.replace(/\\u(-?\d+)\s?\??/g, (_m, n: string) => {
     const signed = Number.parseInt(n, 10);
+    if (signed < -0x8000 || signed > 0xffff) return "";
     const code = signed < 0 ? signed + 0x10000 : signed;
     return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "";
   });
