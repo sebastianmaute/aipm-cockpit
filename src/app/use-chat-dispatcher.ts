@@ -519,9 +519,25 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // and braces — but the `count` read below is the honest witness.)
         if (count > 0) {
           undoRef.current?.captureComposite({
-            // ★ `bulk.delete`'s prefix is not an entity, so `entityKey` is what
-            // keeps the label from degrading to "Deleted N item(s)".
-            kind: "bulk.delete",
+            // ★★★ `task.deleted`, NOT the `bulk.delete` this once carried, and
+            // the distinction is the ACTIVITY vocabulary versus the UNDO one.
+            // The human mass delete keeps them apart deliberately
+            // (`use-bulk-operations.ts`): it CAPTURES `task.deleted` with a
+            // count and LOGS `bulk.delete` separately — see the `logActivityAs`
+            // call below, which still uses the activity kind and is correct.
+            // Reusing the activity kind here made this the first thing in the
+            // codebase ever to hand `pushEntry` a `bulk.delete`, and both
+            // renderers pick their verb with a `.deleted` suffix test that
+            // `"bulk.delete"` fails — so a wipe-everything announced itself as
+            // "Edited 3 item(s)", in the label AND the toast.
+            // ★★ `entityKey` did not save it, and the way it failed is the part
+            // worth keeping: it chooses the NOUN, never the VERB. With
+            // `entityKey: "task"` the label took the ENTITY arm, resolved the
+            // noun, then fell past every verb branch to that arm's own
+            // `undoToastEdit` fallback — the SAME string the no-entityKey
+            // generic arm produces. The noun was resolved and then discarded,
+            // so supplying `entityKey` bought literally nothing.
+            kind: "task.deleted",
             primaryCount: count,
             parts: [capturePart({
               setter: setTasks,

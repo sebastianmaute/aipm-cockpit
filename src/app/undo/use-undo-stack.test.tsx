@@ -666,6 +666,75 @@ describe("buildUndoLabel — entity registration", () => {
   });
 });
 
+// ★★★ THE VERB, WHICH IS A DIFFERENT AXIS FROM THE NOUN THE SWEEP ABOVE PINS.
+// `bulk.delete` is `collapseCaptures`' synthesized kind for a plan whose deletes
+// span two entities. It ends in `.delete`, so the `kind.endsWith(".deleted")`
+// both renderers used to spell returned FALSE and a mass deletion announced
+// itself as an edit. The shared `isDeleteKind` (`../activity-log`) fixed it —
+// and shipped with NOTHING asserting either renderer for this kind.
+//
+// ★★ THE TWO RENDERERS ARE TWO SEPARATE MUTANTS AND ARE PINNED SEPARATELY ON
+// PURPOSE. `buildUndoLabel` picks the entry's LABEL; `pushEntry` picks the
+// capture TOAST from its own copy of the predicate. Re-inlining the naive test
+// at one leaves the other correct, so an assertion that read both in one test
+// could not say which had regressed. Do not merge these.
+describe("the delete verb for a synthesized bulk.delete", () => {
+  // ★★★ NO `entityKey` — the live shape. `collapseCaptures` synthesizes
+  // `bulk.delete` only when the collected kinds DIFFER, which for today's
+  // fourteen chat capture sites implies two entities, which makes `keys.size`
+  // 2 and drops `entityKey`. So this is the branch a real mixed plan takes.
+  it("labels it with the DELETE wording when no entity resolves", () => {
+    // `"bulk"` is not in ENTITY_KEY_SET, so this takes buildUndoLabel's generic
+    // `if (!key)` arm — where the ONLY thing choosing the wording is the
+    // predicate under test.
+    expect(buildUndoLabel("en-US", "bulk.delete", 3)).toBe("Deleted 3 item(s)");
+    // The pre-fix output, spelled out: the naive suffix test sent this kind
+    // down the same arm's edit side.
+    expect(buildUndoLabel("en-US", "bulk.delete", 3)).not.toBe("Edited 3 item(s)");
+  });
+
+  // ★★★ THE PART EVERY EARLIER READING GOT WRONG. `buildUndoLabel` resolves
+  // `opts?.entityKey ?? entityKeyFromKind(kind)`, so a caller that supplies an
+  // `entityKey` NEVER reaches the generic arm above — it takes the ENTITY arm
+  // and picks only its VERB from the delete test. `entityKey` chooses the NOUN,
+  // never the verb, and cannot rescue a kind the verb test rejects. Without
+  // this test a future reader re-learns the opposite from the passing sweep.
+  it("labels it with the DELETE wording AND the entity noun when an entityKey is supplied", () => {
+    expect(buildUndoLabel("en-US", "bulk.delete", 3, { entityKey: "task" })).toBe("Delete 3 tasks");
+    // What the entity arm printed before the fix: not "Edited 3 tasks" (there is
+    // no such string) but the count-only edit fallback at the end of the entity
+    // arm — the noun was resolved and then dropped on the floor.
+    expect(buildUndoLabel("en-US", "bulk.delete", 3, { entityKey: "task" })).not.toBe(
+      "Edited 3 item(s)",
+    );
+  });
+
+  // The SECOND renderer. Reached through the hook, not called directly:
+  // `pushEntry` is private, and `showToastAction` is a dep, so the mock is the
+  // observation point. Asserts the toast TEXT only — the entry's label is the
+  // other mutant and is pinned by the two tests above.
+  it("says DELETED in the capture toast, not EDITED", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    const rows: readonly Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }];
+    act(() => {
+      result.current.captureComposite({
+        kind: "bulk.delete",
+        primaryCount: 3,
+        parts: [capturePart({ setter: vi.fn(), removed: rows, fromArray: rows, isPrimary: true })],
+      });
+    });
+    expect(deps.showToastAction).toHaveBeenCalledWith(
+      "info",
+      "Deleted 3 item(s)",
+      expect.objectContaining({ labelKey: "undo" }),
+    );
+    // The control: the entry really was pushed, so a toast that never fired
+    // cannot pass this by vacuity.
+    expect(result.current.stack).toHaveLength(1);
+  });
+});
+
 // A state-backed harness: `capture` needs a real setter, and the through-undo
 // property is only observable in the RESULTING ARRAY, not in call counts.
 function useRowsHarness(initial: readonly Row[]) {

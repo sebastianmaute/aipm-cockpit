@@ -7,6 +7,7 @@ import {
   diffFields,
   dropLegacyActivityLog,
   humanizeFieldName,
+  isDeleteKind,
   sanitizeActivityEntry,
   type ActivityEntry,
   type ActivityKind,
@@ -63,6 +64,77 @@ describe("activityGroupOf", () => {
     expect(activityGroupOf("role.updated")).toBe("general");
     expect(activityGroupOf("role.deleted")).toBe("general");
     expect(activityGroupOf("settings.updated")).toBe("general");
+  });
+});
+
+// ★★★ THE ONE PROPERTY THIS PREDICATE EXISTS FOR. `bulk.delete` ends in
+// `.delete`, so the obvious `kind.endsWith(".deleted")` returns FALSE for it —
+// and both undo renderers (`buildUndoLabel` and `pushEntry`'s toast in
+// `undo/use-undo-stack.ts`) spelled exactly that, so a mass deletion announced
+// itself as an edit. Nothing anywhere asserted this until now; the fix that
+// introduced `isDeleteKind` shipped with every mutant of it alive.
+describe("isDeleteKind", () => {
+  test("treats bulk.delete as a delete despite its `.delete` suffix", () => {
+    expect(isDeleteKind("bulk.delete")).toBe(true);
+  });
+
+  test("treats the `.deleted`-suffixed kinds as deletes", () => {
+    expect(isDeleteKind("task.deleted")).toBe(true);
+    expect(isDeleteKind("resource.deleted")).toBe(true);
+    expect(isDeleteKind("grade.deleted")).toBe(true);
+  });
+
+  // The complement, so a `return true` is killed as surely as a dropped
+  // disjunct. `bulk.edit` is the delete twin's own sibling and the one an
+  // over-broad `kind.startsWith("bulk.")` would misclassify.
+  test("treats edit-shaped kinds as NOT deletes", () => {
+    expect(isDeleteKind("task.updated")).toBe(false);
+    expect(isDeleteKind("task.created")).toBe(false);
+    expect(isDeleteKind("bulk.edit")).toBe(false);
+    expect(isDeleteKind("undo")).toBe(false);
+  });
+
+  // ★★ A TABLE OVER THE REAL UNION, not two hand-picked literals — and it is
+  // built to FAIL, never silently pass, when `ActivityKind` gains a member.
+  // `ACTIVITY_KIND_TO_KEY` is a total `Record<ActivityKind, TranslationKey>`
+  // (tsc enforces totality), so a new member forces a new row here; the LENGTH
+  // assertion is what turns that into a red test even for a new NON-delete
+  // kind, which the set comparison alone could not see. A red length is not a
+  // defect — it is the prompt to classify the new kind in `DELETE_KINDS` below
+  // and move the number.
+  describe("over the whole ActivityKind union", () => {
+    const DELETE_KINDS: readonly ActivityKind[] = [
+      "task.deleted",
+      "raid.deleted",
+      "bulk.delete",
+      "absence.deleted",
+      "shift.deleted",
+      "calendarEvent.deleted",
+      "milestone.deleted",
+      "change.deleted",
+      "stakeholder.deleted",
+      "resource.deleted",
+      "role.deleted",
+      "budget.deleted",
+      "discipline.deleted",
+      "grade.deleted",
+    ];
+    const ALL_KINDS = Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[];
+
+    test("classifies every member exactly as declared", () => {
+      expect(ALL_KINDS).toHaveLength(56); // tripwire — see the note above
+      expect(ALL_KINDS.filter(isDeleteKind).sort()).toEqual([...DELETE_KINDS].sort());
+    });
+
+    test("is STRICTLY stronger than the `.endsWith('.deleted')` test it replaced", () => {
+      // Applied to the same union, the naive predicate the fix removed misses
+      // exactly one member — and that member is the mass deletion. This is the
+      // claim the source docstring makes in prose; asserting it here means a
+      // future `bulk.*` delete kind added to `DELETE_KINDS` without being added
+      // to the disjunction turns this red instead of shipping as an "edit".
+      const naive = ALL_KINDS.filter((k) => k.endsWith(".deleted"));
+      expect(DELETE_KINDS.filter((k) => !naive.includes(k))).toEqual(["bulk.delete"]);
+    });
   });
 });
 

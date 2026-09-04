@@ -94,8 +94,17 @@ export interface RegisterToolsDeps {
    *  inside the memo or force a new dep that moves every register writer's
    *  identity whenever the undo stack re-renders. A ref object is stable, and
    *  `.current` is read at CALL time, which is what the memo needs.
-   *  ★ `.current` is optional for the same reason `ChatDispatcherArgs.undo` is —
-   *  tests and popouts supply none, and a write then applies exactly as before. */
+   *  ★★ `.current` being typed `| undefined` is SLACK IN THIS TYPE, NOT a design
+   *  choice shared with `ChatDispatcherArgs.undo`. That prop is REQUIRED, and its
+   *  docblock records the measurement that made it so: while it was `undo?:`,
+   *  deleting `undo: undoApi` from `task-manager.tsx` — its ONLY production call
+   *  site — was green on eslint, on `npx tsc --noEmit` AND on the whole unit
+   *  suite while all fourteen capture sites silently stopped capturing. So do NOT
+   *  read the `?.` below as precedent for restoring that `?`.
+   *  ★ The sole producer is `useRef(args.undo)` in `use-chat-dispatcher.ts`,
+   *  seeded from that required prop, so `.current` is never actually undefined at
+   *  any site below; the `?.` is defence this widened type still makes
+   *  mandatory. */
   undoRef: RefObject<Pick<UndoStackApi, "captureComposite"> | undefined>;
 }
 

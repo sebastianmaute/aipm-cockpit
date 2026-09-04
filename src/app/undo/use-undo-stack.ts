@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { flushSync } from "react-dom";
 import { t, type Lang } from "../i18n";
-import type { ActivityKind } from "../activity-log";
+import { isDeleteKind, type ActivityKind } from "../activity-log";
 import type { ToastAction } from "../use-toast";
 import { WRITE_THROUGH_FIELDS } from "./write-through-fields";
 import { mergeFieldPatch } from "./merge-field-value";
@@ -101,7 +101,10 @@ export function buildUndoLabel(
   opts?: { name?: string; entityKey?: UndoEntityKey },
 ): string {
   const key = opts?.entityKey ?? entityKeyFromKind(kind);
-  const isDelete = kind.endsWith(".deleted");
+  // Shared, NOT `kind.endsWith(".deleted")`: `bulk.delete` fails that and would
+  // be labelled an edit. See `isDeleteKind` — the toast in `pushEntry` below
+  // must keep using the same one or the two disagree about one action.
+  const isDelete = isDeleteKind(kind);
   const isBulk = kind === "bulk.edit";
   const name = opts?.name && opts.name.trim() ? truncateName(opts.name) : "";
   if (!key) return t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", count);
@@ -709,7 +712,10 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     setStack((s) => pushUndo(s, { meta, run }, UNDO_CAP));
     setRedoStack([]);
     const { lang, showToastAction } = depsRef.current;
-    const isDelete = kind.endsWith(".deleted");
+    // Same predicate as `buildUndoLabel` above, deliberately: the toast and the
+    // entry's label describe ONE action, and fixing only the label leaves this
+    // saying "Edited" over a mass deletion.
+    const isDelete = isDeleteKind(kind);
     const text = t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", primaryCount);
     showToastAction("info", text, { labelKey: "undo", run: () => undoById(id) });
   }, [undoById]);

@@ -358,6 +358,43 @@ export function activityGroupOf(kind: ActivityKind): ActivityGroup {
   return "general";
 }
 
+/** Does this kind describe a DELETION? `.endsWith(".deleted")` is NOT enough:
+ *  `bulk.delete` is delete-shaped and ends in `.delete`
+ *  (`node -e "console.log('bulk.delete'.endsWith('.deleted'))"` prints false),
+ *  so the obvious test calls a mass deletion an edit. It is the delete twin of
+ *  `bulk.edit`, which `buildUndoLabel` already handles by an explicit arm.
+ *
+ *  ★★★ THREE CALL SITES DEPEND ON THIS STAYING ONE PREDICATE: `buildUndoLabel`
+ *  and `pushEntry`'s toast (`undo/use-undo-stack.ts`), and the mixed-plan
+ *  branch of `collapseCaptures` (`use-undo-batch.ts`) — the only producer of a
+ *  `bulk.delete` UNDO kind. Re-inlining the naive test at any of them prints
+ *  "Edited N items" over a mass deletion, with every gate green.
+ *  ★★ IT FIXES THE VERB IN BOTH BRANCHES, so do NOT summarise this as "a
+ *  `bulk.delete` falls to the generic branch". `buildUndoLabel` picks the NOUN
+ *  from `opts?.entityKey ?? entityKeyFromKind(kind)` and the VERB from this
+ *  predicate, independently. WITH an `entityKey` a `bulk.delete` takes the
+ *  ENTITY branch, and this is what makes it `undoLabelDeleteCount` ("Delete N
+ *  tasks" — labels are imperative, toasts past tense) instead of that branch's
+ *  own `undoToastEdit` fallback; WITHOUT one, `"bulk"` is not in
+ *  `ENTITY_KEY_SET`, so it takes the generic branch and this chooses
+ *  `undoToastDelete` over `undoToastEdit`. An `entityKey` can NEVER rescue a
+ *  kind the verb test rejects.
+ *  ★★★ QUOTE THE KEYS, NOT REMEMBERED STRINGS. An earlier revision of this
+ *  docblock said the pre-fix output was "Edited 3 tasks". No such string has
+ *  ever existed — `undoToastEdit` is "Edited {0} item(s)", and there is no
+ *  "Edited {0} tasks" key in either dictionary. The real pre-fix behaviour is
+ *  sharper than the invention: BOTH branches printed the SAME "Edited N
+ *  item(s)", because the entity branch resolved its noun and then fell past
+ *  every verb test to that identical fallback. Supplying `entityKey` bought
+ *  nothing at all.
+ *  ★ Enumerate, do not pattern-match: `bulk.delete` is the only member of
+ *  `ActivityKind` whose name says delete without ending in `.deleted`, and a
+ *  future one has to be added to this disjunction by hand — nothing detects it.
+ */
+export function isDeleteKind(kind: ActivityKind): boolean {
+  return kind === "bulk.delete" || kind.endsWith(".deleted");
+}
+
 /**
  * Translation key formatting a stored `kind`, or null when THIS build does not
  * know it — an entry written by a newer release, which is kept rather than

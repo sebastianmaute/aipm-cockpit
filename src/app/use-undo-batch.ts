@@ -24,7 +24,7 @@
 // needs no change to `use-chat-dispatcher.ts`.
 "use client";
 import { useEffect, useMemo, useRef } from "react";
-import type { ActivityKind } from "./activity-log";
+import { isDeleteKind, type ActivityKind } from "./activity-log";
 import type {
   CaptureCompositeOpts,
   CompositeFragment,
@@ -63,10 +63,20 @@ export interface UndoBatch {
  * still live takes the id-reuse branch and splices in a SECOND copy, so
  * capturing a create would DUPLICATE it on undo), and `use-document-tools.ts`
  * captures at none of its sites. Measured, not assumed: the fourteen sites'
- * kinds are all `*.updated` / `*.deleted` plus `bulk.delete`
- *   grep -n -A2 "captureComposite({" src/app/use-chat-dispatcher.ts \
- *     src/app/use-register-tools.ts | grep "kind:"
- * and `grep -c captureComposite src/app/use-document-tools.ts` is 0. So this
+ * kinds are all `*.updated` / `*.deleted` — no site emits a `bulk.*` kind, the
+ * `delete_all_tasks` capture included: it mirrors the human bulk delete
+ * (`use-bulk-operations.ts`) and captures `task.deleted` with a count
+ *   grep -n 'kind: "' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts
+ * — 14 lines, one per site. ★★★ DELIBERATELY NOT AN `-A<n>` WINDOW ON
+ * `captureComposite({`, and the history is the argument: a site's `kind:` sits
+ * ONE line below its call at some sites and THIRTEEN at another, so every fixed
+ * window is wrong again the next time a comment there grows. `-A2` returned 13;
+ * widening to `-A6` returned 14; rewriting that site's comment put it back to
+ * 13 — each time silently dropping the one site under discussion while still
+ * reading as verification. This form has no window.
+ * ★ It is exact only while those two files hold no OTHER `kind: "` literal —
+ * cross-check against `grep -c "captureComposite({"` on the same two files.
+ * And `grep -c captureComposite src/app/use-document-tools.ts` is 0. So this
  * function never has to decide what is reversible — the unreversible calls
  * simply hand it nothing.
  *
@@ -114,9 +124,32 @@ export function collapseCaptures(
   // confidently wrong label ("Bulk edit of 2 tasks" over a task and a
   // milestone). `"bulk"` is not in `ENTITY_KEY_SET`, so a mixed plan falls
   // through to "Edited/Deleted N items" — vaguer, and true.
+  //
+  // ★★★ THIS LINE IS THE ONLY PRODUCER OF A `bulk.delete` UNDO KIND. No capture
+  // site emits one (see the kinds grep above), so the all-delete branch
+  // SYNTHESIZES it — because no single `entityKey` describes a plan whose
+  // deletes span two entities, and emitting one entity's `*.deleted` instead
+  // would print the confidently wrong label the paragraph above rejects.
+  // `buildUndoLabel` and its toast can only label a synthesized kind through
+  // the SHARED `isDeleteKind` (`activity-log.ts`); their own
+  // `.endsWith(".deleted")` called it an edit and printed "Edited N items" over
+  // a mass deletion. So this line and those two are ONE mechanism — dropping
+  // the `"bulk.delete"` here, or re-inlining the naive test at either renderer,
+  // re-opens that defect with every gate green.
+  //   grep -rn '"bulk\.delete"' src/app --include=*.ts --include=*.tsx \
+  //     | grep -v "\.test\." | grep -v "//"
+  // → the union + its label map and this predicate (`activity-log.ts`),
+  //   activity ANALYSIS (`completion-trend.ts`), activity LOGGING
+  //   (`use-bulk-operations.ts` twice, `use-chat-dispatcher.ts` once) and the
+  //   synthesis below. Nine lines, no capture site among them.
+  // ★★ The `grep -v "//"` is load-bearing, not tidiness: without it this very
+  // comment answers the grep, and so does the one at the `delete_all_tasks`
+  // capture — a self-matching reproduce that inflates every time it is read.
+  // ★ The `isDeleteKind` on the INPUTS below is the same predicate for one
+  // spelling, not a claim that a capture site can hand us a `bulk.delete`.
   const kind: ActivityKind = kinds.size === 1
     ? contributing[0].kind
-    : [...kinds].every((k) => k.endsWith(".deleted")) ? "bulk.delete" : "bulk.edit";
+    : [...kinds].every(isDeleteKind) ? "bulk.delete" : "bulk.edit";
   const entityKey: UndoEntityKey | undefined =
     keys.size === 1 ? contributing[0].entityKey : undefined;
 

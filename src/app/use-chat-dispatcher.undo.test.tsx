@@ -1,11 +1,12 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   dispatcherWrapper,
   dispatcherWrapperWith,
   makeDispatcherArgs,
 } from "../test/chat-dispatcher-fixture";
 import { type ToolDispatcher } from "./chat-tools";
+import { __resetMintStateForTests } from "./id-mint-session";
 import { type TestSeed } from "./test-providers";
 import {
   DEFAULT_TASK_STATUS,
@@ -17,7 +18,22 @@ import {
   type Task,
 } from "./types";
 import { useChatDispatcher } from "./use-chat-dispatcher";
-import { useUndoStack } from "./undo/use-undo-stack";
+import { capturePart, useUndoStack } from "./undo/use-undo-stack";
+import { useWorkspace } from "./workspace-context";
+
+// ★★★ THE MINTER IS MODULE-SCOPED, so a create in one test raises the mark for
+// every later one and a hardcoded minted id is order-dependent. `mintId` takes
+// `Math.max(highWater, listMax) + 1` over a module-level Map
+// (`id-mint-session.ts`) — correct in production (an id is never reused within a
+// session) and exactly what makes an unreset fixture drift. This file got away
+// without a reset only while it minted each kind AT MOST ONCE; it now has two
+// `createTask` call sites (the absence test below and the counterfactual at the
+// bottom), and CI runs the suite under `--sequence.shuffle`, which reorders
+// tests WITHIN a file — so whichever ran first would silently decide the
+// other's minted id. Resetting per test is what lets every assertion name the
+// id it expects. Inert for both `SITES` tables: every row there only updates or
+// deletes, and nothing in them mints.
+beforeEach(__resetMintStateForTests);
 
 /** A minimal VALID `Task` — every non-optional field of the type, nothing more.
  *  Seeded through `dispatcherWrapper`, which is the ONLY way to give the hook a
@@ -180,7 +196,36 @@ function seedResource(id: number, firstName: string): Resource {
  *  accidentally correct, so a restore-index assertion against such a fixture
  *  passes whether or not `fromArray` is the pre-op array. */
 const SEED: TestSeed = {
-  tasks: [seedTask(1, "First"), seedTask(2, "Before"), seedTask(3, "Third")],
+  // ★★★ TASK 3 DEPENDS ON TASK 2, AND IT IS THE ONLY ACTOR `deleteTask`'s
+  //   CASCADE HAS. That writer derives every task whose `dependencies[]` names
+  //   the doomed id and captures them as `edited` ALONGSIDE `removed: [doomed]`
+  //   in ONE part, so undo puts the row back WITH its inbound links; capturing
+  //   only `removed` resurrects a task every dependent has forgotten, "which
+  //   reads as a successful undo and is not one" (its own comment). With no
+  //   dependent anywhere in the fixture, `dependents` is `[]` at every call
+  //   site and `edited: dependents` → `edited: []` survives the entire file.
+  //   ★★ SET HERE AND NOT IN `seedTask`: the two tests at the top of the file
+  //   build their own lists from that helper and must stay dependency-free, and
+  //   task 2 itself must keep NO dependencies — the `setTaskDependencies` row
+  //   below asserts the restored value is `undefined`, which is only true of a
+  //   row that never had the key.
+  //   ★★ TWO LINKS, NOT ONE, and the second is what makes the cascade
+  //   assertions discriminating. With a lone `taskId: 2` link, "strip only the
+  //   links naming the doomed id" and "strip every link on every dependent"
+  //   produce the identical `[]`, so the `d.taskId !== id` filter inside
+  //   `deleteTask` could be widened to a constant `false` with the suite green.
+  //   The surviving `taskId: 1` link is the witness that the strip was targeted.
+  tasks: [
+    seedTask(1, "First"),
+    seedTask(2, "Before"),
+    {
+      ...seedTask(3, "Third"),
+      dependencies: [
+        { taskId: 1, type: "FS" },
+        { taskId: 2, type: "FS" },
+      ],
+    },
+  ],
   resources: [seedResource(1, "Ada"), seedResource(2, "Grace"), seedResource(3, "Alan")],
   raid: [seedRaid(1, "R1"), seedRaid(2, "R2"), seedRaid(3, "R3")],
   changes: [seedChange(1, "C1"), seedChange(2, "C2"), seedChange(3, "C3")],
@@ -252,12 +297,33 @@ const SITES: SiteRow[] = [
   {
     site: "deleteTask",
     act: (d) => { d.deleteTask(2); },
-    verify: (d) => { expect(d.getTask(2)).toBeNull(); },
+    verify: (d) => {
+      expect(d.getTask(2)).toBeNull();
+      // ★★ THE CASCADE RAN, AND RAN TARGETED. Task 3's inbound link to the
+      //   doomed task 2 was stripped by the delete's own `.map`; its unrelated
+      //   link to task 1 survived. Without this the `restored` assertion below
+      //   is untethered — a `deleteTask` that stopped stripping dependencies at
+      //   all would leave both links in place and the round trip would read as
+      //   a correct restore of something that never moved.
+      expect(d.getTask(3)?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
+    },
     restored: (d) => {
       expect(ids(d.listTasks())).toEqual([1, 2, 3]);
       // …and the row that came back carries its own data, not a husk.
       expect(d.getTask(2)?.taskName).toBe("Before");
       expect(d.getTask(2)?.assignee).toBe("M. Jordan");
+      // ★★★ THE CASCADE IS REVERSED TOO, AND BY VALUE. `deleteTask` captures
+      //   the dependents as `edited` in the SAME part as the `removed` row;
+      //   `edited: dependents` → `edited: []` (or dropping the line) leaves
+      //   task 3 with `[]` here while every other assertion in this file stays
+      //   green — the resurrected task is back with its inbound link gone.
+      //   Compared by VALUE and in ORDER, not merely for non-emptiness: after
+      //   the strip task 3 still holds ONE link, so a length check is satisfied
+      //   by the un-restored state and a `toContain` by either link alone.
+      expect(d.getTask(3)?.dependencies).toEqual([
+        { taskId: 1, type: "FS" },
+        { taskId: 2, type: "FS" },
+      ]);
     },
     kind: "task.deleted", entityKey: "task", primaryCount: 1,
   },
@@ -272,9 +338,18 @@ const SITES: SiteRow[] = [
       expect(ids(d.listTasks())).toEqual([1, 2, 3]);
       expect(d.listTasks().map((row) => row.taskName)).toEqual(["First", "Before", "Third"]);
     },
-    // ★ `bulk.delete`, and `primaryCount` is the SEEDED count, not 1 — the
-    //   badge counts the rows the user loses, not the calls made.
-    kind: "bulk.delete", entityKey: "task", primaryCount: 3,
+    // ★★ `task.deleted`, mirroring the human mass delete
+    //   (`use-bulk-operations.ts` captures `task.deleted` with a count and logs
+    //   `bulk.delete` to the ACTIVITY log separately). Asserting the kind here
+    //   is what stops a future edit reaching for the activity vocabulary again:
+    //   both label renderers pick their verb with a `.deleted` suffix test, so
+    //   a `bulk.delete` undo kind printed "Edited 3 item(s)" over a wipe-
+    //   everything. `entityKey` does not rescue that — it chooses the noun, not
+    //   the verb, and the entity arm's own fallback is the same
+    //   `undoToastEdit`, so it produced a string identical to the generic arm's.
+    // ★ `primaryCount` is the SEEDED count, not 1 — the badge counts the rows
+    //   the user loses, not the calls made.
+    kind: "task.deleted", entityKey: "task", primaryCount: 3,
   },
   {
     site: "updateResource",
@@ -466,6 +541,116 @@ describe("every AI update and delete captures undo", () => {
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * THE OTHER FIVE CREATE WRITERS — absence coverage, one row each.
+ *
+ * ★★★ `createTask`'s absence is pinned at the TOP of this file and was, until
+ * now, the ONLY one of the six pinned anywhere. A contributor "completing the
+ * pattern" at `createResource`, `createRaid`, `createChange`, `createMilestone`
+ * or `createStakeholder` reintroduced the duplicate-on-undo defect with the
+ * whole suite green — nothing asserted that those five don't capture. The
+ * reasoning for the absence is `createTask`'s (`use-chat-dispatcher.ts`) and is
+ * executed at the bottom of this file, not restated here.
+ *
+ * ★★ EVERY ROW CARRIES POSITIVE OBSERVABLES, for the reason the `createTask`
+ * test spells out: `not.toHaveBeenCalled()` passes just as well when the path
+ * never ran — the writer threw on its first line, or the row's own `create`
+ * thunk was quietly emptied. Each row therefore asserts the minted id (4 =
+ * max+1 over the three seeded rows, deterministic because of the `beforeEach`
+ * mint reset at the top of this file), the name the writer echoed back, and
+ * that the slice actually GREW to four. The absence is then an absence on a
+ * LIVE path, which is the only kind worth asserting.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface CreateRow {
+  /** The dispatcher method under test — also the `test.each` title. */
+  site: string;
+  /** Runs the writer and hands back the minted id plus the name field it echoed.
+   *  ★ Each row extracts its own field rather than the table assuming a common
+   *  one: the five summaries are different shapes (`firstName` for a resource,
+   *  `title` for RAID and changes, `name` for milestones and stakeholders). */
+  create: (d: ToolDispatcher) => { id: number; name: string };
+  /** The name the row asked for, as it should come back through the sanitizer. */
+  name: string;
+  /** Row count of THIS writer's slice — 3 seeded, 4 after a create that landed. */
+  count: (d: ToolDispatcher) => number;
+}
+
+const CREATE_SITES: CreateRow[] = [
+  {
+    site: "createResource",
+    // ★ `createResource` lives in `use-chat-dispatcher.ts`; the four below are
+    //   spread in from `use-register-tools.ts` — same dispatcher object, and
+    //   the reason the site list in this file is built from the code and not
+    //   from one file's method names.
+    create: (d) => {
+      const row = d.createResource({ firstName: "Ida", lastName: "Rhodes" });
+      return { id: row.id, name: row.firstName };
+    },
+    name: "Ida",
+    count: (d) => d.listResources().length,
+  },
+  {
+    site: "createRaid",
+    create: (d) => {
+      const row = d.createRaid({ category: "R", title: "R4" });
+      return { id: row.id, name: row.title };
+    },
+    name: "R4",
+    count: (d) => d.listRaid().length,
+  },
+  {
+    site: "createChange",
+    create: (d) => {
+      const row = d.createChange({ title: "C4" });
+      return { id: row.id, name: row.title };
+    },
+    name: "C4",
+    count: (d) => d.listChanges().length,
+  },
+  {
+    site: "createMilestone",
+    // ★ `date` is non-optional on `MilestoneInput` and the sanitizer rejects a
+    //   milestone without one — a name-only input throws rather than creating,
+    //   and the absence assertion would then be the vacuity it is meant to catch.
+    create: (d) => {
+      const row = d.createMilestone({ name: "M4", date: "2026-07-31" });
+      return { id: row.id, name: row.name };
+    },
+    name: "M4",
+    count: (d) => d.listMilestones().length,
+  },
+  {
+    site: "createStakeholder",
+    create: (d) => {
+      const row = d.createStakeholder({ name: "S4" });
+      return { id: row.id, name: row.name };
+    },
+    name: "S4",
+    count: (d) => d.listStakeholders().length,
+  },
+];
+
+describe("AI creates capture NO undo entry", () => {
+  test.each(CREATE_SITES)("$site captures nothing", ({ create, name, count }) => {
+    const captureComposite = vi.fn();
+    const { result } = renderHook(
+      () => useChatDispatcher(makeDispatcherArgs({ undo: { captureComposite } })),
+      { wrapper: dispatcherWrapperWith(SEED) },
+    );
+
+    let made: { id: number; name: string } | undefined;
+    act(() => { made = create(result.current); });
+
+    // POSITIVE OBSERVABLES FIRST — see the block comment above.
+    expect(made?.id).toBe(4);
+    expect(made?.name).toBe(name);
+    expect(count(result.current)).toBe(4);
+
+    expect(captureComposite).not.toHaveBeenCalled();
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
  * ROUND TRIPS THROUGH THE **REAL** `useUndoStack`.
  *
  * ★★★ EVERY TEST ABOVE MOCKS `captureComposite`, AND A MOCK CANNOT PROVE UNDO
@@ -507,7 +692,13 @@ function renderRealUndo(seed: TestSeed) {
       //   `args.undo`. This mirrors `task-manager.tsx`, which passes `undoApi`
       //   unmemoized for the same reason.
       const dispatcher = useChatDispatcher(makeDispatcherArgs({ undo }));
-      return { undo, dispatcher };
+      // ★ The SAME workspace setter the dispatcher's own capture sites pass to
+      //   `capturePart`. Used by exactly ONE test — the counterfactual create at
+      //   the bottom, which has to build the capture production deliberately
+      //   refuses to build, and cannot do that without the real setter. Every
+      //   other test here ignores it.
+      const { setTasks } = useWorkspace();
+      return { undo, dispatcher, setTasks };
     },
     { wrapper: dispatcherWrapperWith(seed) },
   );
@@ -602,5 +793,103 @@ describe("AI writes round-trip through the real undo stack", () => {
     expect(result.current.dispatcher.getTask(2)?.taskName).toBe("Before");
     expect(result.current.dispatcher.getTask(2)?.assignee).toBe("M. Jordan");
     expect(result.current.undo.stack).toHaveLength(0);
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * WHY THE SIX CREATE WRITERS CAPTURE NOTHING — the counterfactual, EXECUTED.
+ *
+ * `use-chat-dispatcher.ts` justifies the omission in prose: "Measured against
+ * the real engine, not reasoned: seeding two rows, creating a third and undoing
+ * yields FOUR rows." Nothing executed it. The test below does, at the same seed
+ * size, against the real stack.
+ *
+ * ★★★ IT HAS TO SYNTHESISE THE CAPTURE, AND THERE IS NO WAY AROUND THAT. The
+ * claim is a COUNTERFACTUAL about code that deliberately does not exist, so the
+ * only executable witness is one that performs the refused capture itself.
+ * Everything else in the test is production: the real `createTask`, the real
+ * `useUndoStack`, the real `undo()`, the real workspace setter, and a
+ * `capturePart` call shaped exactly like every delete site's. DO NOT read the
+ * `captureComposite` block as a template — it is the regression, quarantined in
+ * a test so the reasoning stops being an unverified sentence.
+ *
+ * ★★ WHAT IT DOES AND DOES NOT PROVE. It kills mutants in the ENGINE's id-reuse
+ * branch (`applyUndoRestoreWithRemap`) as reached through the dispatcher, and —
+ * via the stack-depth assertion before the synthetic capture — it proves against
+ * the REAL stack that `createTask` pushes nothing, where the absence test at the
+ * top of this file proves it only against a mock. It does NOT go red if a
+ * capture is added to one of the OTHER five creates; that is what the
+ * `CREATE_SITES` table above is for.
+ *
+ * ★ The engine primitive itself is already covered directly and heavily —
+ * `undo/undo-stack.test.ts` exercises the re-mint branch including simultaneous
+ * re-mints. What was missing was the COMPOSED claim at this level.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+describe("capturing a create would duplicate the row", () => {
+  test("seeding two rows, creating a third and undoing yields FOUR rows", () => {
+    // TWO seeded rows, matching the measurement the prose reports verbatim.
+    const { result } = renderRealUndo({
+      tasks: [seedTask(1, "First"), seedTask(2, "Second")],
+    });
+    expect(result.current.undo.stack).toHaveLength(0);
+
+    // The PRE-op array — what a real capture site passes as `fromArray`.
+    const beforeCreate = result.current.dispatcher.listTasks();
+
+    let created: Task | undefined;
+    act(() => {
+      created = result.current.dispatcher.createTask({
+        taskName: "Third",
+        assignee: "M. Jordan",
+        dueDate: "2026-09-30",
+      });
+    });
+
+    expect(created?.id).toBe(3);
+    expect(result.current.dispatcher.listTasks().map((row) => row.id)).toEqual([1, 2, 3]);
+
+    // ★★ PRODUCTION PUSHED NOTHING, and this is the assertion against the REAL
+    //   stack rather than a mock: `createTask` ran to completion, the row is
+    //   live, and the stack is still empty.
+    expect(result.current.undo.stack).toHaveLength(0);
+
+    // ★ A `const`, not the `let` above: narrowing on a `let` assigned inside an
+    //   `act` closure does not survive into the next closure, so the capture
+    //   below would need a non-null assertion without this hop.
+    if (!created) throw new Error("createTask returned nothing — the capture below needs the row");
+    const createdRow: Task = created;
+
+    // ── THE REFUSED CAPTURE, shaped exactly as a delete site would shape it:
+    //    the created row as a `removed` image against the pre-op array.
+    act(() => {
+      result.current.undo.captureComposite({
+        kind: "task.created",
+        primaryCount: 1,
+        parts: [capturePart({
+          setter: result.current.setTasks,
+          removed: [createdRow],
+          fromArray: beforeCreate,
+          isPrimary: true,
+        })],
+        name: createdRow.taskName,
+        entityKey: "task",
+      });
+    });
+    expect(result.current.undo.stack).toHaveLength(1);
+
+    act(() => { result.current.undo.undo(); });
+
+    // ★★★ FOUR ROWS FROM THREE. The created row is STILL LIVE at undo time, so
+    //   `applyUndoRestoreWithRemap` takes its id-reuse branch: it refuses to
+    //   clobber the live id 3 and re-inserts the image under a fresh id (max+1
+    //   = 4) at the index the pre-op array resolved for it (`findIndex` → -1 →
+    //   `Math.max(0, …)` → the HEAD). The engine is behaving correctly — it is
+    //   the CAPTURE that is wrong, and "undo" has added a row instead of
+    //   removing one.
+    const after = result.current.dispatcher.listTasks();
+    expect(after.map((row) => row.id)).toEqual([4, 1, 2, 3]);
+    // …and the duplicate is a duplicate: TWO rows now carry the created name.
+    expect(after.filter((row) => row.taskName === "Third").map((row) => row.id)).toEqual([4, 3]);
   });
 });
