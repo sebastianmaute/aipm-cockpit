@@ -2094,6 +2094,14 @@ If nothing changed, skip. Otherwise commit with a message naming the gate that f
 
 **This is a gate, not a nicety.** Nothing in the unit suite can validate either caveated rule: `capPerDay`'s under-reporting depends on which projects the fetch actually scoped, and `workingHours` depends on real `TimelogUserLink` rows against real shifts. Both are properties of live data.
 
+> ✅ **DISCHARGED 2026-09-04 by the repository owner**, against a live TimeLog project. Reported: the
+> checks passed and guardrail violations surface correctly in Insights.
+>
+> ★ Recorded as what it is — a human eye-verify, not a machine result. There is no log, no exit code
+> and no artifact behind it, so it cannot be re-run by anyone reading this later; a change that
+> breaks live behaviour without breaking a unit test will not be caught by re-reading this line. The
+> honest scope of the claim is "a human looked once, on one tenant, on this date".
+
 - [ ] **Step 1: Start a fresh dev server on an isolated port**
 
 ```bash
