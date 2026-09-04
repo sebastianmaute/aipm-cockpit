@@ -68,8 +68,9 @@ vi.mock("./use-holiday-set", () => ({
 
 // Probe standing in for the heavy pane: one cell per insight, carrying exactly
 // the four fields this file is about — the key, the status, the outcome
-// direction and the resolution stamp — plus the baseline, so a "frozen" row is
-// pinned as the SAME record rather than merely a row with the same key.
+// direction and the resolution stamp — plus the baseline. That is FIVE fields,
+// not the whole record: `occurrences`, `lastSeenAt`, `data` and `entityRef` are
+// outside the projection entirely (see `expectFrozen` below).
 vi.mock("./workspace-section", async (importOriginal) => {
   const { useWorkspace } = await import("./workspace-context");
   return {
@@ -121,6 +122,13 @@ const GONE_KEY = "timelog:timelogCapPerDay:8";
 const FRESH_KEY = "timelog:timelogCapPerDay:7";
 /** An ON-rule insight stored BEFORE the violating-day fields existed. */
 const NO_DATES_KEY = "timelog:timelogCapPerDay:9";
+/** The ON rule again, for a person NO fetch in these tests ever covers. */
+const UNCOVERED_KEY = "timelog:timelogCapPerDay:11";
+/** A shift-dependent rule for a LINKED person who booked nothing — the exact
+ *  population a cell-derived `linkedUsers` stranded permanently. */
+const LINKED_CLEAN_KEY = "timelog:timelogWorkingHours:8";
+/** The same rule for a person with no link at all. */
+const UNLINKED_KEY = "timelog:timelogWorkingHours:12";
 /** Core types — in `CORE_INSIGHT_TYPES`, nothing to do with TimeLog. Present
  *  because the fixture that omitted them let the drop-core mutant ship green. */
 const CORE_KEY = "stalledWork:core";
@@ -224,6 +232,17 @@ const trendInsight = acted({
   metricAtAction: { current: 9 },
 });
 const offInsight = acted({ id: 1, key: OFF_KEY, type: "timelogCapPerEntry", count: 3 });
+/** ★★ The SCOPE twin of `goneInsight`: identical rule, identical violating
+ *  dates, a different person. It exists so a scope assertion can differ in the
+ *  person alone — `noDatesInsight` cannot serve that role, because it is
+ *  rejected two guards EARLIER (no violating dates) and so never reaches the
+ *  scope check at all. */
+const uncoveredInsight = acted({ id: 7, key: UNCOVERED_KEY, type: "timelogCapPerDay", count: 4 });
+/** ★★ The LINK pair, both `timelogWorkingHours`, both covered by `dailyUsers`,
+ *  both inside the window, NEITHER with a violating cell in the roll. User 8 is
+ *  linked and user 12 is not, so the link is the only difference between them. */
+const linkedCleanInsight = acted({ id: 8, key: LINKED_CLEAN_KEY, type: "timelogWorkingHours", count: 2 });
+const unlinkedInsight = acted({ id: 9, key: UNLINKED_KEY, type: "timelogWorkingHours", count: 3 });
 /** A CORE type that consumes `holidaySet` — `budgetVarianceInsight` threads it
  *  into `computeBudgetReport`, so an empty-because-unloaded set moves the very
  *  number its threshold compares against. */
@@ -304,14 +323,17 @@ function seedCache(over: Partial<Parameters<typeof saveActualsCache>[1]> = {}): 
 /** Mount, seed both context slices in ONE act (one re-render, one effect run),
  *  and wait for the debounced reconcile to have produced the fresh detection —
  *  which is also the proof that the roll was read under the right cache key. */
-async function mountAndReconcile(insights: readonly Insight[]): Promise<void> {
+async function mountAndReconcile(
+  insights: readonly Insight[],
+  linksOverride: TimelogLinks = links,
+): Promise<void> {
   render(<TaskManager />);
   await screen.findByTestId("ws-insights", undefined, { timeout: MOUNT_MS });
   await waitFor(() => expect(typeof setTimelogLinksRef).toBe("function"), { timeout: MOUNT_MS });
 
   act(() => {
     setInsightsRef!(insights);
-    setTimelogLinksRef!(links);
+    setTimelogLinksRef!(linksOverride);
   });
 
   await waitFor(
@@ -475,16 +497,19 @@ describe("task-manager → the evaluated scope handed to reconcileInsights", () 
     expectFrozen(goneInsight);
   }, TEST_MS);
 
-  // ★ Anti-vacuity for the pair above: same seed, the one person who IS covered,
-  // and it must still clear. Without this a predicate that froze EVERY guardrail
-  // insight would pass the freeze test and look correct.
-  it("still resolves a covered person while another is frozen for scope", async () => {
-    seedCache({ dailyUsers: [9] });
-    await mountAndReconcile([goneInsight, noDatesInsight]);
-    expectFrozen(goneInsight);
-    // user 9 is covered — it freezes for the OTHER reason (no dates), so assert
-    // the covered path against a row that can actually reach the window check.
-    expect(cellFor(NO_DATES_KEY)[1]).toBe("acted");
+  // ★★★ THE ANTI-VACUITY PAIR, and the first version of this test was itself
+  // vacuous: it asserted TWO freezes and called one of them a resolve, so a
+  // predicate that froze every guardrail insight passed it unchanged — exactly
+  // what the comment claimed it prevented. `expectFrozen` asserts status
+  // "acted"; the second assertion asserted "acted" too.
+  // ★★ Both rows here are the SAME rule over the SAME window with the SAME
+  // violating dates, so scope membership is the only difference between them
+  // and the pair cannot pass for any other reason. One clears, one freezes.
+  it("resolves a covered person and freezes an uncovered one in the same pass", async () => {
+    seedCache({ dailyUsers: [8] });
+    await mountAndReconcile([goneInsight, uncoveredInsight]);
+    expectResolved(GONE_KEY);
+    expectFrozen(uncoveredInsight);
   }, TEST_MS);
 
   it("freezes a guardrail insight when the cache entry carries no covered-people list", async () => {
@@ -493,11 +518,43 @@ describe("task-manager → the evaluated scope handed to reconcileInsights", () 
     expectFrozen(goneInsight);
   }, TEST_MS);
 
-  // ★★★ `partial` IS VALIDATED NOWHERE — not by `isEntry`, not by either daily
-  // checker — so a non-boolean reaches this predicate intact. The `=== true`
-  // this pins the replacement of read `"yes"` as NOT partial and went on to
-  // certify a clean; §172's fail-open rule is about not discarding an ENTRY, not
-  // about resolving an unproven flag in the certifying direction.
+  // ★★★ `partial` IS VALIDATED NOWHERE, so a non-boolean reaches this
+  // predicate intact. The `=== true` this replaces read `"yes"` as NOT partial
+  // and went on to certify a clean. See the note at the predicate itself for
+  // why this consumer and the Apply path deliberately read the flag
+  // differently.
+  // ★★★ THE PER-PERSON LINK FLOOR, PINNED AT ITS CALL SITE. The engine's
+  // `linkedUsers` was pinned in `timelog-policy.test.ts`, and that pins only
+  // that the engine COMPUTES the set — deleting the branch in
+  // `task-manager.tsx` that USES it left every test in the repo green. That is
+  // the extraction-pins-the-function-not-the-call-site shape, and the commit
+  // that introduced it claimed the guard was mutation-proved.
+  // ★★★ IT ALSO PINS THAT `linkedUsers` COMES FROM THE LINKS, NOT THE ROLL.
+  // User 8 is linked and has NO cell in the seeded roll. Built from cells — as
+  // the first cut was — user 8 would be absent from `linkedUsers` and would
+  // FREEZE, so this test fails against that version. A linked person who simply
+  // booked nothing in the window is the whole population that defect stranded,
+  // and it stranded them permanently.
+  // ★★ The pair differs ONLY in the link: both are `timelogWorkingHours`, both
+  // carry the same violating dates, both are inside `dailyUsers` and inside the
+  // window, and neither has a violating cell. So neither the scope check nor the
+  // window check nor a detection can account for the difference.
+  it("resolves a linked person with no bookings and freezes an unlinked one", async () => {
+    seedCache({ dailyUsers: [7, 8, 9, 12] });
+    await mountAndReconcile([linkedCleanInsight, unlinkedInsight], {
+      userLinks: [{ timelogUserId: 8, resourceId: 40, manual: true }],
+      projectLinks: [],
+      // capPerDay stays ON so the fresh-detection wait in `mountAndReconcile`
+      // still has something to observe; workingHours is the rule under test.
+      policy: {
+        timelogCapPerDay: { enabled: true, threshold: 8 },
+        timelogWorkingHours: { enabled: true },
+      },
+    });
+    expectResolved(LINKED_CLEAN_KEY);
+    expectFrozen(unlinkedInsight);
+  }, TEST_MS);
+
   it("freezes a guardrail insight when partial holds a non-boolean", async () => {
     seedCache({ partial: "yes" as unknown as boolean });
     await mountAndReconcile([goneInsight]);

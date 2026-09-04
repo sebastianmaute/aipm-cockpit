@@ -70,7 +70,7 @@ export interface TimelogPolicyResult {
   readonly violations: readonly TimelogViolation[];
   /** In TIMELOG_RULE_IDS order. Empty when nothing could be evaluated. */
   readonly evaluated: readonly TimelogRuleId[];
-  /** ★★★ THE PEOPLE THE SHIFT-DEPENDENT RULES COULD ACTUALLY ANSWER FOR — the
+  /** ★★★ THE PEOPLE WITH A RESOLVABLE LINK — the
    *  per-PERSON companion to `evaluated`, which is per-RULE and was not enough.
    *  `workingHours` needs a resolvable link to know a person's expected hours,
    *  and `nonWorkingDay`'s weekday half needs it to know their weekend. The old
@@ -78,8 +78,12 @@ export interface TimelogPolicyResult {
    *  left the rule reporting itself evaluated while that person could no longer
    *  produce a violation — and the insight key is per person, so their row
    *  cleared as a fabricated "improved".
-   *  ★★ Membership means "this userId resolved to a resource", NOT "this person
-   *  violated something": somebody linked and clean must stay clearable. */
+   *  ★★ Membership means "this userId has a link", NOT "this person violated
+   *  something" and NOT "this person appears in the roll". The first cut built
+   *  this from the roll's CELLS, which made the sentence below false for exactly
+   *  the population it names: somebody linked and clean but with no bookings in
+   *  the window had no cell, so they were reported unanswerable and froze
+   *  permanently. Somebody linked and clean must stay clearable, and now is. */
   readonly linkedUsers: readonly number[];
 }
 
@@ -210,7 +214,29 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   const perDay = new Map<number, Accum>();
   const perNonWorking = new Map<number, Accum>();
   const perWorking = new Map<number, Accum>();
-  const linked = new Set<number>();
+  // ★★★ BUILT FROM THE LINKS, NEVER FROM THE ROLL'S CELLS — and building it
+  // from cells, as the first cut did, made a linked person who booked NOTHING
+  // freeze permanently. The question this set answers is "could the
+  // shift-dependent rules produce an answer about this person", and a link is
+  // the whole of what that needs: the shift supplies expected hours and the
+  // weekend, and a person with no bookings has the answer "no violation".
+  // Requiring a CELL conflated that with "did this person appear in the roll",
+  // so somebody on long leave, or newly joined, or simply idle in the fetched
+  // window, was reported unanswerable and their stored insight never resolved
+  // again — a permanent freeze with nothing to lift it.
+  // ★★ Coverage is a SEPARATE question and is already asked separately: the
+  // reconcile predicate checks `dailyUsers` for whether the fetch covered this
+  // person at all. Scope and answerability are two independent facts and
+  // collapsing them into one set loses both.
+  // ★★ PRESENCE IN `userLinks` IS A RESOLVABLE LINK, and that rests on a
+  // guarantee made ELSEWHERE: `resourceId` is a non-optional `number` on the
+  // type, and `sanitizeTimelogLinks` drops any link failing
+  // `isNum(o.resourceId)` on every load path. If that sanitiser ever relaxes,
+  // this map silently starts certifying people whose `definedHours` is null —
+  // so the invariant lives there, not here, and this comment is the pointer. A DANGLING link (resource since deleted)
+  // still yields an answer, because `definedHours` falls back to
+  // `DEFAULT_WEEK_HOURS` when no shift resolves — so it belongs in here too.
+  const linked = new Set<number>(userLinks.map((l) => l.timelogUserId));
 
   for (const [key, cell] of Object.entries(daily)) {
     const parsed = parseDailyKey(key);
@@ -226,11 +252,6 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
     if (!isDailyCell(cell)) continue;
     const { userId, date } = parsed;
     const resourceId = userToResource.get(userId) ?? null;
-    // Every person the roll mentions who resolves to a resource — recorded
-    // whether or not they go on to violate anything, because the question this
-    // answers downstream is "could the shift-dependent rules SEE this person",
-    // not "did they breach".
-    if (resourceId !== null) linked.add(userId);
     const shift = resourceId === null ? undefined : resourceToShift.get(resourceId);
     const weekday = weekdayIndex(date);
     const definedHours =

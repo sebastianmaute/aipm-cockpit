@@ -201,21 +201,28 @@ describe("reconcileInsights", () => {
   // the justification the whole per-insight predicate rests on — is false. A
   // frozen row is carried through untouched, so its `lastSeenAt` never advances
   // while every detected row's does; under a naive `lastSeenAt` sort it loses
-  // ground on every pass and is the FIRST of its severity to be sliced away.
+  // ground on every pass and sinks toward the slice.
   // Once gone from `stored` it never comes back, so the freeze that protected
   // an acted insight from a fabricated win deletes it by attrition instead.
-  it("keeps a frozen insight when the cap evicts, despite its stale lastSeenAt", () => {
+  it("keeps a frozen insight ahead of rows carrying an older lastSeenAt", () => {
     const FROZEN = "frozen-and-stale";
     // Deliberately the OLDEST row in the set: it is what a row frozen across
     // several passes looks like, and it is the one a lastSeenAt sort drops.
     const frozen = stored(FROZEN, { status: "acted", lastSeenAt: "2020-01-01" });
-    const many: DetectedInsight[] = Array.from(
-      { length: MAX_INSIGHTS + 25 },
-      (_, i) => detected(`k${i}`),
+    // ★★★ DISMISSED rows, not detected ones, and that is the whole point of the
+    // scope this test claims. `clear()` returns a dismissed row with its
+    // ORIGINAL `lastSeenAt`, so these are exactly the rows a frozen row used to
+    // sink below as its own date aged. Against rows detected THIS pass a frozen
+    // row still loses, deliberately — see the comparator's note. An earlier
+    // version of this test used 225 DETECTED rows and therefore pinned the
+    // opposite, harmful behaviour: frozen rows outranking live ones, which
+    // evicts confirmed problems in favour of unverifiable ones.
+    const many: Insight[] = Array.from({ length: MAX_INSIGHTS + 25 }, (_, i) =>
+      stored(`k${i}`, { id: i + 2, status: "dismissed", dismissedAt: "2025-12-01", lastSeenAt: "2026-01-01" }),
     );
     // Same severity throughout, so severity cannot be what saves or sinks it —
-    // the tie-break is the entire subject of this test.
-    const out = reconcileInsights([frozen], many, "2026-02-01", (i) => i.key !== FROZEN);
+    // the ordering key is the entire subject of this test.
+    const out = reconcileInsights([frozen, ...many], [], "2026-02-01", (i) => i.key !== FROZEN);
     expect(out).toHaveLength(MAX_INSIGHTS);
     expect(out.map((i) => i.key)).toContain(FROZEN);
     // ★★ ORDERING ONLY: the row survives, and its record still says when it was
@@ -224,6 +231,24 @@ describe("reconcileInsights", () => {
     // class of defect this module exists to prevent. Without this assertion the
     // test passes against that fix too.
     expect(out.find((i) => i.key === FROZEN)?.lastSeenAt).toBe("2020-01-01");
+  });
+
+  // ★★★ THE INVERSION, and it is the test the first cut of this fix did not
+  // have. Frozen rows must never evict rows detected on this pass: a detected
+  // row is a CONFIRMED live problem, a frozen one is unverifiable, and an
+  // evicted active row is re-detected and re-evicted every pass — permanently
+  // invisible. Reachability is not exotic: an entry written before `dailyUsers`
+  // existed, or a device with TimeLog unconfigured, freezes the WHOLE stored
+  // guardrail population at once, and `isEvaluated` ignores `status`, so
+  // never-touched `active` rows freeze too rather than being pruned.
+  it("never evicts a detected row in favour of frozen ones", () => {
+    const frozen: Insight[] = Array.from({ length: MAX_INSIGHTS }, (_, i) =>
+      stored(`frozen${i}`, { id: i + 1, status: "acted", lastSeenAt: "2020-01-01" }),
+    );
+    const live = detected("live-one");
+    const out = reconcileInsights(frozen, [live], "2026-02-01", (i) => !i.key.startsWith("frozen"));
+    expect(out).toHaveLength(MAX_INSIGHTS);
+    expect(out.map((i) => i.key)).toContain("live-one");
   });
 
   it("upsert preserves a pending recommendation", () => {

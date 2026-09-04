@@ -202,12 +202,10 @@ export function reconcileInsights(
   // true and the whole design rests on that claim. A frozen row is carried
   // through untouched, so its `lastSeenAt` never advances while every detected
   // row's does — under a `lastSeenAt` sort it therefore loses ground on EVERY
-  // pass, monotonically, and is guaranteed to be the first row of its severity
-  // evicted by the cap below. Once sliced away it is gone from `stored` and
+  // pass, monotonically, and sinks toward the cap below. Once sliced away it is
+  // gone from `stored` and
   // never returns, so the freeze that was supposed to protect an acted insight
-  // from a fabricated win instead deletes it by attrition. Guardrail
-  // cardinality is 4 × (people in a fetch), which reaches the cap in exactly
-  // the org-scope case this matters most in.
+  // from a fabricated win instead deletes it by attrition.
   // ★★ ORDERING ONLY — `lastSeenAt` is NOT rewritten. The row still records
   // when it was genuinely last observed; it simply is not punished in the
   // ranking for a staleness the freeze itself imposed. Writing `today` into the
@@ -221,17 +219,21 @@ export function reconcileInsights(
     const kb = orderKey(b);
     if (ka < kb) return 1;
     if (ka > kb) return -1;
-    // ★★★ THE TIE-BREAK IS LOAD-BEARING, and the order key alone did NOT fix
-    // this — measured, not reasoned. Ranking a frozen row as `today` makes it
-    // TIE with every row detected on this pass, and ties fall back to insertion
-    // order, where the frozen rows are appended AFTER every detected one. So it
-    // still sorted last within its severity and the cap still evicted it first.
-    // Frozen wins the tie: it is a row somebody ACTED on whose state cannot
-    // currently be confirmed, which is precisely the thing that must not be
-    // silently dropped.
-    const fa = frozenKeys.has(a.key) ? 0 : 1;
-    const fb = frozenKeys.has(b.key) ? 0 : 1;
-    return fa - fb;
+    // ★★★ FROZEN DELIBERATELY LOSES THE TIE TO A DETECTED ROW, and an earlier
+    // cut of this had frozen WIN it. That was worse than the defect it fixed.
+    // A tie here is "frozen row versus a row detected on this pass", and the
+    // detected row is a CONFIRMED live problem while the frozen one is merely
+    // unverifiable. Simulated at the committed comparator: 190 frozen medium +
+    // 30 active medium under a 200 cap evicted ALL THIRTY active rows when
+    // frozen won the tie, and none when it lost. Evicted active rows are
+    // re-detected and re-evicted every pass, so they are permanently invisible.
+    // ★★ So this ordering buys exactly one thing, and it is worth being precise
+    // about because the first version of this comment claimed a pure win: a
+    // frozen row no longer sinks below rows carrying an OLD `lastSeenAt` —
+    // dismissed and resolved rows, which `clear()` returns with their original
+    // date. Against rows detected THIS pass the behaviour is unchanged from
+    // before the fix. The ratchet is gone; the cap is not.
+    return 0;
   });
 
   return result.slice(0, MAX_INSIGHTS);

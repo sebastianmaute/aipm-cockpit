@@ -928,7 +928,7 @@ function TaskManagerInner() {
       const rollUsers = actuals?.dailyUsers;
       // ★★★ ANY NON-FALSE `partial` FREEZES HERE — and this deliberately does
       // NOT match how the Apply path reads the same flag. `partial` is validated
-      // NOWHERE (not `isEntry`, not either daily checker), so a non-boolean
+      // NOWHERE, so a non-boolean
       // survives into the entry and `=== true` read `partial: "yes"` as NOT
       // partial, then went on to certify a clean.
       // ★★★ §172 IS RIGHT FOR ITS OWN CONSUMER AND WRONG FOR THIS ONE, which is
