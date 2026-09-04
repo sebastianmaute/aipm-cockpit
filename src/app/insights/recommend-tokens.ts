@@ -66,7 +66,7 @@ export const UPDATE_TARGET: Readonly<
   update_stakeholder: { kind: "stakeholder", key: "stakeholders" },
 };
 
-function stampCall(call: InsightToolCall, ws: RecommendPlanWorkspace): InsightToolCall {
+export function stampCall(call: InsightToolCall, ws: RecommendPlanWorkspace): InsightToolCall {
   const target = UPDATE_TARGET[call.name];
   if (!target) return call; // create_* — nothing to ground, nothing to token
   const id = Number((call.input as { id?: unknown }).id);
