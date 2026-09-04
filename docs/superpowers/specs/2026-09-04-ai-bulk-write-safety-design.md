@@ -221,9 +221,30 @@ ids already allocated. On Discard, nothing is written.
 4. **Partial reject cascades.** Rejecting a staged `create` also deselects every staged call
    referencing its provisional id, and the row says so. Without this, Apply replays an update
    against an id that was never created.
-5. **Tokens stamped at propose, verified at apply.** A row whose entity a human edited in the
-   interval fails **that row only**; the rest apply, and failures are reported in the card. This is
-   the guarantee §349 gave document blocks, extended to a plan.
+5. **Tokens verified at apply; stamped at propose ONLY when the model supplied none.** A row whose
+   entity a human edited in the interval fails **that row only**; the rest apply, and failures are
+   reported in the card. This is the guarantee §349 gave document blocks, extended to a plan.
+
+   ★★★ **CORRECTED during implementation. This rule originally read "Tokens stamped at propose,
+   verified at apply", copied from the insights pipeline — and on the chat path that is STRICTLY
+   WEAKER than what already ships.** The two paths differ in the one way that matters. On the
+   insights path a stored proposal carries no token, so stamping strictly ADDS a guard. On the chat
+   path the model must already supply `expectedToken` — `requireToken`
+   (`chat-tools-updates.ts:183`) throws on absence, so every chat update that works today carries
+   one, derived from the model's own `get_*` read at T0. Stamping at stage time T1 REPLACES that,
+   so the guard covers only T1→T2 (the review window) and **loses T0→T1**: a concurrent writer who
+   moves the row between the model's read and the staging is no longer caught.
+   `recommend-tokens.ts`'s own header names this exact failure mode — "compare a value against the
+   very read it came from" — which makes walking into it the more embarrassing.
+   So: **preserve the model's token when present; stamp only to fill an absence.** Strictly stronger
+   than either alternative, and two lines.
+   ★ It also resolves an inconsistency for free. `UPDATE_TARGET` has five rows and no
+   `update_resource` — it structurally cannot have one, since its `key` is
+   `keyof RecommendPlanWorkspace` and that `Pick` omits `resources` — while `update_resource` IS
+   token-guarded (`chat-tools.ts:751`). Under stamp-always, resource updates alone would have kept
+   a T0 token while every other entity got a T1 one. Under stamp-when-absent they all keep T0.
+   Widening `UPDATE_TARGET` is therefore NOT needed and is deliberately not done: it is a security
+   path, and the fix above approximates it better than the table would.
 6. **One undo entry per applied plan** — `captureComposite`, with the entity-ambiguous `bulk.edit`
    kind and an explicit `entityKey` (without which `buildUndoLabel` degrades to "Edited N items").
 
