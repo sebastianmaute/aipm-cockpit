@@ -4179,4 +4179,13 @@ export const de: Record<TranslationKey, string> = {
   assetUploadErrorDecode: "Dieses Bild konnte nicht dekodiert werden.",
   assetUploadErrorStorageWrite: "Das Bild konnte nicht gespeichert werden. Erneut hochladen, um es noch einmal zu versuchen.",
   assetExportPlaceholder: "[Bild: {0}]",
+  chatProposalTitle: "Vorgeschlagene Änderungen",
+  chatProposalCount: "{0} Schreibvorgänge",
+  chatProposalApply: "Übernehmen",
+  chatProposalDiscard: "Verwerfen",
+  chatProposalSelected: "{0} ausgewählt",
+  chatProposalShowMore: "Alle anzeigen",
+  chatProposalRowToggle: "Einbeziehen",
+  chatProposalCascaded: "Benötigt eine von Ihnen abgelehnte Änderung",
+  chatProposalFailed: "Nicht übernommen – seit Ihrer Prüfung geändert",
 };

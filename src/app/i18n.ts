@@ -4307,6 +4307,15 @@ const enUS = {
   // matches itself. Do not restore the old claim without first making some
   // caller actually pass `assets`.
   assetExportPlaceholder: "[Image: {0}]",
+  chatProposalTitle: "Proposed changes",
+  chatProposalCount: "{0} writes",
+  chatProposalApply: "Apply",
+  chatProposalDiscard: "Discard",
+  chatProposalSelected: "{0} selected",
+  chatProposalShowMore: "Show all",
+  chatProposalRowToggle: "Include",
+  chatProposalCascaded: "Needs a change you rejected",
+  chatProposalFailed: "Not applied — changed since you reviewed",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
