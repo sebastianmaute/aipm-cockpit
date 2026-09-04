@@ -160,6 +160,29 @@ function stripDestinationGroups(input: string, dest: string): string {
           }
         }
       }
+      // ★★★ LEAVE AN EMPTY GROUP BEHIND, NEVER NOTHING. Removing the group
+      //  outright can butt the control word BEFORE it against the literal text
+      //  AFTER it — `\ansi{\*\htmltag19 …}VISIBLE` collapses to `\ansiVISIBLE`
+      //  — and `rtfToPlainText`'s catch-all control-word strip is greedy on
+      //  `[a-zA-Z]+`, so it eats the visible text as part of the control word's
+      //  name. Measured before this line existed:
+      //  `{\rtf1\ansi{\*\htmltag19 <b>tag</b>}VISIBLE\par` returned "".
+      //  ★★ `{}` rather than a SPACE, and that choice is load-bearing: braces
+      //  are stripped only AFTER whitespace-sensitive processing, so a null
+      //  group both terminates a control word (a brace is non-alphabetic) and
+      //  leaves the output unchanged everywhere the defect does not bite —
+      //  measured on the real `.msg` fixture, whose 75-character body decodes
+      //  identically under `{}`, under a space AND under no replacement at all.
+      //  A space is NOT interchangeable: it would put a space INSIDE a word
+      //  that a stripped group had split, turning `Hel{\*\htmltag19 <b>}lo`
+      //  into "Hel lo", which is the ordinary shape of a de-encapsulated body.
+      //  ★★ So the fixture cannot discriminate any of the three, and the unit
+      //  test in `lzfu.test.ts` is the only thing that can — in either
+      //  direction.
+      //  ★ It is also inert on the remaining passes of the caller's
+      //  destination loop: `{}` matches no destination name, and being balanced
+      //  it cannot disturb the depth counting of an enclosing group.
+      out += "{}";
       i = j;
       continue;
     }
@@ -189,8 +212,26 @@ export function rtfToPlainText(rtf: string): string {
   s = s.replace(/\\line\b/g, "\n");
   s = s.replace(/\\'([0-9a-fA-F]{2})/g, (_m, h: string) =>
     new TextDecoder("windows-1252").decode(new Uint8Array([Number.parseInt(h, 16)])));
+  // ★★★ `\uN` CARRIES A SIGNED 16-BIT VALUE, so Word and Outlook write every
+  //  code point above U+7FFF as a NEGATIVE number and every non-BMP character
+  //  as a negative SURROGATE PAIR. Reading the sign literally and rejecting it
+  //  (the `code >= 0` this replaced) silently deleted CJK above U+8000, every
+  //  fullwidth form and every emoji from an `rtf-degraded` body: measured,
+  //  `A\u-223 B` produced "AB" where the character is U+FF21. Adding 65536
+  //  recovers the unsigned code unit the writer meant.
+  //  ★★ `String.fromCodePoint` is the RIGHT builder for a surrogate half and
+  //  needs no pairing logic here: D800..DFFF are valid code point VALUES, so it
+  //  returns that single code unit (it throws only below 0 or above 0x10FFFF),
+  //  and the two halves of a pair — emitted by two separate replacements —
+  //  recombine into one astral character purely by being adjacent. An UNPAIRED
+  //  half therefore stays one unpaired code unit instead of throwing or
+  //  consuming the text after it; hostile input can produce one.
+  //  ★ The range test runs AFTER the correction on purpose, so an
+  //  out-of-signed-16 value (`\u-70000`) is still dropped rather than wrapping
+  //  onto some real character.
   s = s.replace(/\\u(-?\d+)\s?\??/g, (_m, n: string) => {
-    const code = Number.parseInt(n, 10);
+    const signed = Number.parseInt(n, 10);
+    const code = signed < 0 ? signed + 0x10000 : signed;
     return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "";
   });
   s = s.replace(/\\[a-zA-Z]+-?\d*\s?/g, ""); // remaining control words

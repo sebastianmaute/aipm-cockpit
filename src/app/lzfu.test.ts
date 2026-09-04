@@ -230,4 +230,76 @@ describe("rtfToPlainText", () => {
     expect(stripped).not.toContain("SECRET");
     expect(stripped).toContain("AFTER");
   });
+
+  // ★★★ `\uN` IS A SIGNED 16-BIT VALUE. The substitution used to test
+  //  `code >= 0` and return "" for every negative one — which is how Word and
+  //  Outlook write EVERY code point above U+7FFF — so CJK above U+8000, every
+  //  fullwidth form and every emoji vanished from an `rtf-degraded` body with
+  //  no diagnostic at all.
+  //  ★ This positive case is the CONTROL and passed before the fix: it is here
+  //  so a correction that mangled the ordinary path shows up as a failure
+  //  instead of reading as a pure win.
+  it("decodes a positive \\uN escape", () => {
+    expect(rtfToPlainText("{\\rtf1 A\\u8364 B}")).toBe("A€B");
+  });
+
+  it("decodes a negative \\uN escape as its unsigned 16-bit code unit", () => {
+    // -223 + 65536 = 65313 = U+FF21 FULLWIDTH LATIN CAPITAL LETTER A. Built
+    // with fromCodePoint rather than pasted, so the assertion cannot be
+    // silently rewritten by an editor that mangles non-ASCII source bytes.
+    expect(rtfToPlainText("{\\rtf1 A\\u-223 B}")).toBe(`A${String.fromCodePoint(0xff21)}B`);
+  });
+
+  // A non-BMP character is written as a negative SURROGATE PAIR — two separate
+  // `\uN` escapes — and nothing pairs them explicitly: each is emitted as its
+  // own code unit and adjacency alone recombines them.
+  // ★ Asserted by CODE POINT, never by `.length`: two lone surrogates and one
+  //  astral character have the same UTF-16 length, so a length assertion here
+  //  would pass against a decoder that never recombined anything.
+  it("recombines a negative surrogate pair into one astral character", () => {
+    const out = rtfToPlainText("{\\rtf1 A\\u-10179 \\u-8704 B}"); // U+1F600
+    expect(Array.from(out)).toEqual(["A", String.fromCodePoint(0x1f600), "B"]);
+    expect(out.codePointAt(1)).toBe(0x1f600);
+  });
+
+  // Hostile input can carry an UNPAIRED half, and the half that matters is not
+  // "does it throw" but "does it eat what follows".
+  // ★ MEASURED downstream rather than assumed: the result is a NOT well-formed
+  //  UTF-16 string, which is deliberate — `TextEncoder` renders the unpaired
+  //  unit as U+FFFD and `JSON.stringify` escapes it, and neither throws. So the
+  //  unit is carried rather than guessed at; repairing it here would need the
+  //  pairing logic that the adjacency recombination above exists to avoid.
+  it("carries a lone unpaired surrogate without throwing or eating what follows", () => {
+    let out = "";
+    expect(() => {
+      out = rtfToPlainText("{\\rtf1 A\\u-10179 BCDEF}");
+    }).not.toThrow();
+    expect(out).toBe("A\ud83dBCDEF");
+    expect(out.slice(2)).toBe("BCDEF");
+    expect(() => new TextEncoder().encode(out)).not.toThrow();
+  });
+
+  // ★ A PIN, NOT A REGRESSION TEST — it passed before the fix too, and is here
+  //  because the correction happens BEFORE the range test on purpose: an
+  //  out-of-signed-16 value must still be dropped rather than wrapping onto
+  //  some unrelated real character.
+  it("drops an out-of-signed-16-range negative escape rather than wrapping it", () => {
+    expect(rtfToPlainText("{\\rtf1 A\\u-70000 B}")).toBe("AB");
+  });
+
+  // ★★★ REGRESSION. A removed destination group used to leave NOTHING behind,
+  //  butting the control word before it against the literal text after it —
+  //  `\ansi` against `VISIBLE` — and the catch-all control-word strip is greedy
+  //  on `[a-zA-Z]+`, so it swallowed `\ansiVISIBLE` whole and this input
+  //  returned "". Real Outlook delimits its control words, which is why the
+  //  committed `.msg` fixture never showed it and no test reached it.
+  //  ★★ BOTH halves are required and neither alone is enough: the first fails
+  //  against the unfixed code and passes against a SPACE replacement, the
+  //  second is the opposite. Together they pin the replacement as an empty
+  //  GROUP — a delimiter that adds no whitespace to a word a stripped group
+  //  had split.
+  it("keeps text butted directly against a stripped destination group", () => {
+    expect(rtfToPlainText("{\\rtf1\\ansi{\\*\\htmltag19 <b>tag</b>}VISIBLE\\par")).toBe("VISIBLE");
+    expect(rtfToPlainText("{\\rtf1 Hel{\\*\\htmltag19 <b>}lo}")).toBe("Hello");
+  });
 });

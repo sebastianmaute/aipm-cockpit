@@ -580,10 +580,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--open) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | open |
 | [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--open) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | open |
 | [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--open) | RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish from the tree | found 2026-09-03 in the ingest-breadth review | S | open |
-| [§354](#354-negative-rtf-un-values-are-dropped-losing-every-code-point-above-u7fff--open) | Negative RTF `\uN` values are dropped, losing every code point above U+7FFF | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§354](#354-negative-rtf-un-values-are-dropped-losing-every-code-point-above-u7fff--closed-2026-09-04) | ~~Negative RTF `\uN` values are dropped, losing every code point above U+7FFF~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (a lone unpaired surrogate is CARRIED, not repaired — the entry records what that costs downstream) |
 | [§355](#355-a-pt_string8-msg-yields-an-entirely-empty-mail-with-no-diagnostic--open) | A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic | found 2026-09-03 in the ingest-breadth review | S | open |
 | [§356](#356-three-cfbf-guard-assertions-do-not-discriminate-the-guard-they-name--open) | Three cfbf guard assertions do not discriminate the guard they name | found 2026-09-03 in the ingest-breadth review | S | open |
-| [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--open) | `rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--closed-2026-09-04) | ~~`rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (the removed group leaves `{}` behind, never a space; the real `.msg` fixture cannot discriminate any of the three states) |
 | [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
 <!-- INDEX:END -->
@@ -27268,22 +27268,64 @@ No diagnostic is emitted, so neither the user nor the model learns anything was 
 RFC 2231 — not RFC 2047 — is what modern clients use for non-ASCII filenames, so this is an
 everyday German/French case rather than a hostile one.
 
-## 354. Negative RTF `\uN` values are dropped, losing every code point above U+7FFF — OPEN
+## 354. Negative RTF `\uN` values are dropped, losing every code point above U+7FFF — CLOSED 2026-09-04
 
-**Status:** OPEN. Filed 2026-09-03 from the ingest-breadth review, **measured** by a reviewer
-against the real module. Read the substitution with
-`grep -n "0x10ffff" -B 3 -A 2 src/app/lzfu.ts`.
+**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Filed 2026-09-03 from the ingest-breadth
+review, **measured** by a reviewer against the real module, and re-reproduced against the real module
+before anything was changed. The substitution now reads the parameter as SIGNED 16-BIT and adds 65536
+before the range test — read it with `grep -n "signed < 0" -B 18 -A 3 src/app/lzfu.ts`. Five new
+`rtfToPlainText` cases pin it; run `npx vitest run src/app/lzfu.test.ts` (exit 0).
+
+★★ BEFORE AND AFTER, MEASURED WITH A NODE PROBE AGAINST THE REAL MODULE, not reasoned. An `A`, a POSITIVE
+escape for decimal 8364, then a `B` gave `"A€B"` in BOTH states — that is the positive control, and it is a test rather than a footnote
+so a correction that broke the ordinary path could not read as a pure win. `A\u-223 B` gave `"AB"`
+before and U+FF21 between the A and the B after. The negative surrogate pair `A\u-10179 \u-8704 B`
+gave `"AB"` before and one U+1F600 after.
+
+★ ONE ARITHMETIC CORRECTION TO THE FILING, which does not touch its conclusion: it named `\u-190` as
+"wanted U+FF21". -190 + 65536 is 65346 = U+FF42, the FULLWIDTH SMALL B; U+FF21 is `\u-223`. The
+defect was exactly as described — only that example's number was off — and the test uses the value
+that actually yields U+FF21.
+
+★★ THE PROBE MUST BE WRITTEN WITH A NON-SHELL TOOL. A `\uN` fixture is made of backslashes, and the
+shell strips one level even inside single-quoted heredocs, which silently turns the input into
+something else and produces plausible wrong numbers. Every measurement here comes from a file
+written directly to disk and byte-checked with `cat -A` first. The same class already bit this
+register itself, by a second route with the same shape: the filing's positive example was a
+FOUR-HEX-DIGIT escape, which is also a valid JSON string escape, so it reached the file DECODED — as
+the single CJK character U+8364 — and the paragraph below then read as a glyph where an escape was
+meant. Corrected in place 2026-09-04 by rewording rather than by re-typing it, since any four-digit
+positive example is decoded the same way on the next edit: a mangled character in a worked example is
+a broken claim, not a dated record worth preserving. Negative escapes are immune — `\u-223` is not a
+valid JSON escape, so it survives verbatim.
+
+★★★ NO PAIRING LOGIC WAS ADDED, AND NONE IS WANTED — but read what that costs. `String.fromCodePoint`
+accepts a lone surrogate VALUE (it throws only below 0 or above 0x10FFFF), so the two halves of a pair
+are emitted as adjacent code units by two independent replacements and recombine by concatenation
+alone. The consequence, measured rather than assumed: an UNPAIRED half — which hostile input can
+produce — is CARRIED as one unpaired code unit, so the result is a NOT well-formed UTF-16 string.
+`TextEncoder` renders that unit as U+FFFD and `JSON.stringify` escapes it; neither throws, and the
+text AFTER it is untouched, which is the property the lone-surrogate test pins. Repairing the half
+here would need exactly the pairing logic the adjacency recombination exists to avoid.
+★ The range test deliberately runs AFTER the sign correction, so an out-of-signed-16 value
+(`\u-70000`) is still dropped rather than wrapping onto some unrelated real character. That case is a
+PIN, not a regression test — it passed before the fix too, and it is recorded as such in the test's
+own comment so nobody reads six new cases as six caught defects.
 
 RTF's `\uN` carries a **signed 16-bit** value: Word and Outlook emit any code point above U+7FFF as
 a negative number, and a non-BMP character as a negative surrogate pair. The regex captures the
-minus sign and the `code >= 0` test then yields `""`. Measured: `荤` gives `"A€B"`, while
-`\u-190` gives `"AB"` (wanted U+FF21) and a negative surrogate pair gives `"AB"` (wanted the
+minus sign and the `code >= 0` test then yields `""`. Measured: a positive escape for decimal 8364
+gave `"A€B"`, while `\u-190` gave `"AB"` and a negative surrogate pair gave `"AB"` (wanted the
 emoji). So in an `rtf-degraded` body, CJK above U+8000, fullwidth forms and every emoji vanish
 silently.
 
-The fix is understood — add 65536 to a negative value before the range test — and is left filed
-rather than applied because it wants its own test fixtures; `lzfu.test.ts` has five
-`rtfToPlainText` cases and none uses a negative `\u`.
+The fix was understood at filing — add 65536 to a negative value before the range test — and was
+left filed rather than applied because it wanted its own test fixtures; `lzfu.test.ts` then had five
+`rtfToPlainText` cases and none used a negative `\u`. Five were added with the fix, and the suite's
+own comments say which of them is a regression test and which is only a pin. ★ No grep is offered
+for that count on purpose: the obvious one (`grep -c "u-" src/app/lzfu.test.ts`) returns 5 today by
+COINCIDENCE — it matches the phrase "LZFu-magic" and misses the positive control, two errors that
+happen to cancel.
 
 ## 355. A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic — OPEN
 
@@ -27320,20 +27362,42 @@ read all three with `grep -n "MEASURED VACUOUS" src/app/cfbf.test.ts`.
 before any other bound does, which is a different exercise from the DoS hardening they sat beside.
 The annotations exist so a later mutation run does not read the survival as "the guard is dead".
 
-## 357. `rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group — OPEN
+## 357. `rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group — CLOSED 2026-09-04
 
-**Status:** OPEN. Filed 2026-09-03, **measured** while fixing the destination-name delimiter. It is
-**pre-existing and not introduced by that fix**, but the fix makes it reachable on inputs where the
-unstripped brace previously separated the tokens. Reproduce with a probe calling `rtfToPlainText`
-directly; the catch-all is at `grep -n "a-zA-Z" src/app/lzfu.ts`.
+**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Filed 2026-09-03, **measured** while
+fixing the destination-name delimiter; **pre-existing and not introduced by that fix**, but that fix
+made it reachable on inputs where the unstripped brace previously separated the tokens. Reproduced
+again with a probe before anything changed. `stripDestinationGroups` now leaves an EMPTY GROUP where
+the stripped group was, instead of nothing, so the control word before it still terminates — a brace
+is non-alphabetic, which is exactly what the RTF control-word rule asks for. Read it with
+`grep -n "LEAVE AN EMPTY GROUP" -A 15 src/app/lzfu.ts`; pinned by the "keeps text butted directly
+against a stripped destination group" case in `src/app/lzfu.test.ts`
+(`npx vitest run src/app/lzfu.test.ts`, exit 0). Measured: the filed input returned `""` before and
+`"VISIBLE"` after.
+
+★★★ `{}` RATHER THAN A SPACE, AND THE DIFFERENCE IS OBSERVABLE — the conventional
+leave-a-delimiter fix is a space, and it ships a second, quieter defect. Braces are stripped only
+AFTER the whitespace-sensitive passes, so a null group adds no character to the output anywhere; a
+space does, and it lands INSIDE a word that a stripped group had split, which is the ordinary shape
+of a de-encapsulated HTML body. Measured: `Hel{\*\htmltag19 <b>}lo` yields `"Hello"` under the fix
+and `"Hel lo"` under a space. The one test asserts BOTH halves because neither discriminates alone —
+the first fails only against the unfixed code, the second only against a space.
+
+★★ THE REAL `.msg` FIXTURE CANNOT TELL THE THREE STATES APART, so it is not the safety net it looks
+like here. Its body decodes to the same 75 characters — `FIXTURE-BODY-MARKER` through
+`Column 2 cell 2` — under the fix, under a space replacement AND under the unfixed code; all three
+measured with a probe, and `npx vitest run src/app/msg-integration.test.ts` is green in each. Real
+Outlook delimits its control words, which is why. The unit test is the ONLY detector this defect will
+ever have, in either direction.
 
 After a destination group is removed, a preceding control word can end up butted directly against
 following literal text — `\ansi` against `VISIBLE` — and the catch-all control-word strip is greedy
-on `[a-zA-Z]+`, so it consumes `\ansiVISIBLE` whole and the visible text is lost. Measured:
-`{\rtf1\ansi{\*\htmltag19 <b>tag</b>}VISIBLE\par` yields `""`.
+on `[a-zA-Z]+`, so it consumed `\ansiVISIBLE` whole and the visible text was lost. Measured:
+`{\rtf1\ansi{\*\htmltag19 <b>tag</b>}VISIBLE\par` yielded `""`.
 
 ★ Real Outlook RTF puts a space or a brace after a control word, so the committed fixture and every
-message seen so far are unaffected — which is also why no test covers it. The de-encapsulation
+message seen so far were unaffected — which is also why no test covered it AT FILING TIME; one does
+now, and the ★★ above says why the fixture could never have. The de-encapsulation
 tests were deliberately written with a delimiter after the preceding control word so they exercise
 the matcher rather than this quirk; that choice is recorded in their comments.
 
