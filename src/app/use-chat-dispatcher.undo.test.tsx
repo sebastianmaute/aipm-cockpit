@@ -17,6 +17,7 @@ import {
   type Task,
 } from "./types";
 import { useChatDispatcher } from "./use-chat-dispatcher";
+import { useUndoStack } from "./undo/use-undo-stack";
 
 /** A minimal VALID `Task` — every non-optional field of the type, nothing more.
  *  Seeded through `dispatcherWrapper`, which is the ONLY way to give the hook a
@@ -363,5 +364,112 @@ describe("every AI update and delete captures undo", () => {
     // [2, 1, 3]. A `toContain`-style presence check passes against both, which
     // is why the middle row and the full-order comparison both matter.
     expect(result.current.listChanges().map((c) => c.id)).toEqual([1, 2, 3]);
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ROUND TRIPS THROUGH THE **REAL** `useUndoStack`.
+ *
+ * ★★★ EVERY TEST ABOVE MOCKS `captureComposite`, AND A MOCK CANNOT PROVE UNDO
+ * WORKS. It proves the capture was CALLED, and — where a test runs the
+ * fragment's own `restore` thunk by hand — that the fragment holds the right
+ * image. Neither exercises `pushEntry`, the stack, `commitUndo`, or the
+ * composite runner the production `undo()` actually drives. A wrong before-image
+ * is the whole defect class Phase 1 exists to prevent, and the only witness that
+ * cannot be faked is the real engine putting the real row back.
+ *
+ * ★★ These two also cover something no mock-based test can: that the DEPENDENCY
+ * IS OPTIONAL. `ChatDispatcherArgs.undo` is `undo?:`, so every capture site is a
+ * no-op against `undefined` — which is exactly what shipped until the wiring in
+ * `task-manager.tsx` landed. A round trip against a live stack goes red the
+ * moment a capture stops feeding it.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Mounts the REAL undo stack and the REAL dispatcher in ONE hook body and wires
+ *  the first into the second, so a write and its undo travel the whole
+ *  production path: the site's `captureComposite` → `pushEntry` → the composite
+ *  runner → the same workspace setter the dispatcher itself writes through.
+ *
+ *  ★ The three `useUndoStack` deps are minted OUTSIDE the hook body, not inside
+ *  it: `useUndoStack` keeps them in a ref refreshed every render, so a fresh
+ *  `vi.fn()` per render would work but would scatter the recorded calls across
+ *  throwaway mocks. They are unasserted here either way — the stack's toast and
+ *  activity rows are `use-undo-stack.test.ts`'s business, not this file's. */
+function renderRealUndo(seed: TestSeed) {
+  const logActivity = vi.fn();
+  const showToast = vi.fn();
+  const showToastAction = vi.fn();
+  return renderHook(
+    () => {
+      const undo = useUndoStack({ lang: "en-US", logActivity, showToast, showToastAction });
+      // ★ `undo` is a FRESH object every render and that is fine — the
+      //   dispatcher reads `undoRef.current`, refreshed by an effect keyed on
+      //   `args.undo`. This mirrors `task-manager.tsx`, which passes `undoApi`
+      //   unmemoized for the same reason.
+      const dispatcher = useChatDispatcher(makeDispatcherArgs({ undo }));
+      return { undo, dispatcher };
+    },
+    { wrapper: dispatcherWrapperWith(seed) },
+  );
+}
+
+describe("AI writes round-trip through the real undo stack", () => {
+  test("undoing an AI updateTask restores the ORIGINAL field values in place", () => {
+    const { result } = renderRealUndo(SEED);
+    // Depth BEFORE, so the assertion below is "grew by exactly 1" rather than
+    // "is 1" — the latter passes against a site that captures twice and one
+    // that captures never, if the seed had happened to leave an entry behind.
+    expect(result.current.undo.stack).toHaveLength(0);
+
+    // TWO fields, so the round trip cannot pass by reverting a single one.
+    act(() => {
+      result.current.dispatcher.updateTask(2, { taskName: "After", priority: "High" });
+    });
+
+    expect(result.current.dispatcher.getTask(2)?.taskName).toBe("After");
+    expect(result.current.dispatcher.getTask(2)?.priority).toBe("High");
+    expect(result.current.undo.stack).toHaveLength(1);
+
+    act(() => { result.current.undo.undo(); });
+
+    // ★★★ THE MUTANT THIS KILLS: capturing `merged` instead of `existing` in
+    //   `updateTask` makes the restore write "After"/"High" back over
+    //   "After"/"High" — a silent no-op. Every mock-based assertion in this file
+    //   survives that; these two do not.
+    const restored = result.current.dispatcher.getTask(2);
+    expect(restored?.taskName).toBe("Before");
+    expect(restored?.priority).toBe("Medium");
+
+    // ORIGINAL INDEX, and the neighbours untouched — an edit-image revert must
+    // be a targeted in-place swap, not a wholesale list rewrite.
+    expect(result.current.dispatcher.listTasks().map((row) => row.id)).toEqual([1, 2, 3]);
+    expect(result.current.dispatcher.getTask(1)?.taskName).toBe("First");
+    expect(result.current.dispatcher.getTask(3)?.taskName).toBe("Third");
+
+    // The entry was consumed, not merely applied.
+    expect(result.current.undo.stack).toHaveLength(0);
+  });
+
+  test("undoing an AI deleteTask puts the MIDDLE row back at its own index", () => {
+    const { result } = renderRealUndo(SEED);
+    expect(result.current.undo.stack).toHaveLength(0);
+
+    // ★ id 2 of 1-2-3. Deleting the head or the tail makes index 0 (or `length`)
+    //   accidentally correct, so such a fixture cannot tell a correct restore
+    //   index from a `Math.max(0, -1)` fallback — the middle row can.
+    act(() => { result.current.dispatcher.deleteTask(2); });
+
+    expect(result.current.dispatcher.listTasks().map((row) => row.id)).toEqual([1, 3]);
+    expect(result.current.undo.stack).toHaveLength(1);
+
+    act(() => { result.current.undo.undo(); });
+
+    // The ORDER is the assertion, not the presence: a post-op `fromArray` would
+    // resolve index -1 → 0 and hand back [2, 1, 3].
+    expect(result.current.dispatcher.listTasks().map((row) => row.id)).toEqual([1, 2, 3]);
+    // …and the row that came back carries its own data, not a husk.
+    expect(result.current.dispatcher.getTask(2)?.taskName).toBe("Before");
+    expect(result.current.dispatcher.getTask(2)?.assignee).toBe("M. Jordan");
+    expect(result.current.undo.stack).toHaveLength(0);
   });
 });

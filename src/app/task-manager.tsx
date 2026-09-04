@@ -1808,6 +1808,12 @@ function TaskManagerInner() {
     // ★ `delete_document` is a second removal route into a COUNTED slice — see
     //   the arming site in `use-document-tools.ts`.
     allowDestructiveSave,
+    // ★★ A FRESH OBJECT EVERY RENDER, AND THAT IS CORRECT — do NOT `useMemo` it.
+    //   The dispatcher reads `undoRef.current`, refreshed by an effect keyed on
+    //   `args.undo`; that effect simply re-runs each render. Stabilising this (or
+    //   adding it to the dispatcher's memo deps) would rebuild the dispatcher on
+    //   every render and defeat the ref arrangement entirely.
+    undo: undoApi,
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
     getAllocationsSnapshot,
