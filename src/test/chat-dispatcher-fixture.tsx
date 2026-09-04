@@ -1,4 +1,4 @@
-// src/app/test/chat-dispatcher-fixture.ts — a minimal `ChatDispatcherArgs`
+// src/test/chat-dispatcher-fixture.tsx — a minimal `ChatDispatcherArgs`
 // plus the provider wrapper `useChatDispatcher` cannot run without.
 //
 // ★★ THE TASK LIST IS **NOT** AN ARG. `useChatDispatcher` reads `tasks` /
@@ -8,15 +8,15 @@
 // through `makeDispatcherArgs`. There is no `initialTasks` option and there
 // cannot be one without changing the hook's contract.
 
-import { createElement, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { vi } from "vitest";
-import { type AllocationsSnapshot } from "../alloc-plan/alloc-plan";
-import { type DashboardModel } from "../dashboard";
-import { defaultSettings } from "../settings-types";
-import { TestProviders } from "../test-providers";
-import { asTimeZoneForTests, createProjectClock } from "../timezone";
-import { type Task } from "../types";
-import type { ChatDispatcherArgs } from "../use-chat-dispatcher";
+import { type AllocationsSnapshot } from "../app/alloc-plan/alloc-plan";
+import { type DashboardModel } from "../app/dashboard";
+import { defaultSettings } from "../app/settings-types";
+import { TestProviders } from "../app/test-providers";
+import { asTimeZoneForTests, createProjectClock } from "../app/timezone";
+import { type Task } from "../app/types";
+import type { ChatDispatcherArgs } from "../app/use-chat-dispatcher";
 
 /** Fixed project day for every dispatcher fixture, so a `lastUpdateDate` or a
  *  `completedDate` stamped by a write path is assertable. Midday UTC, so the
@@ -63,10 +63,16 @@ export function makeDispatcherArgs(
 }
 
 /** The `renderHook` wrapper `useChatDispatcher` requires, and the ONLY way to
- *  seed the task list (see the header note). `createElement` rather than JSX
- *  so this stays a `.ts` module beside the args factory. */
+ *  seed the task list (see the header note).
+ *
+ *  ★ JSX, hence a `.tsx` module — the two gates rule out both `createElement`
+ *  spellings. `TestProviders` declares `children` as a REQUIRED prop, and
+ *  `createElement`'s trailing-children overload type-checks the props object on
+ *  its own, so passing children variadically fails tsc; moving them into the
+ *  props bag then fails `react/no-children-prop` (fatal under
+ *  `--max-warnings=0`). JSX satisfies both. */
 export function dispatcherWrapper(tasks: Task[] = []) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return createElement(TestProviders, { tasks }, children);
+    return <TestProviders tasks={tasks}>{children}</TestProviders>;
   };
 }

@@ -9,6 +9,7 @@ import { type Settings } from "./settings-types";
 import { type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
+import { type UndoStackApi } from "./undo/use-undo-stack";
 
 export interface ChatDispatcherArgs {
   settings: Settings;
@@ -114,4 +115,10 @@ export interface ChatDispatcherArgs {
    *  Optional, like `logActivityAs`: a test harness or a popout supplies no
    *  bypass at all. */
   allowDestructiveSave?: () => void;
+  /** Undo capture for AI writes. Optional so every existing test and the popout
+   *  path keep working untouched; when absent, writes apply exactly as before.
+   *  ★ Optional is a MIGRATION affordance, not a design choice — once every
+   *  call site passes it, make it required. An always-optional dependency is
+   *  how a write path silently stops capturing. */
+  undo?: Pick<UndoStackApi, "captureComposite">;
 }

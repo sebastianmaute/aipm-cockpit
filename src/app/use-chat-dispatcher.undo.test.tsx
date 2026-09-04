@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
-import { dispatcherWrapper, makeDispatcherArgs } from "./test/chat-dispatcher-fixture";
+import { dispatcherWrapper, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 
 // CHARACTERIZATION (RED by design until the capture lands): every HUMAN write

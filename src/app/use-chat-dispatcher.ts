@@ -105,6 +105,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const getDashboardModelRef = useRef(args.getDashboardModel);
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
+  const undoRef = useRef(args.undo);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -150,6 +151,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     getAllocationsSnapshotRef.current = args.getAllocationsSnapshot;
   }, [args.getAllocationsSnapshot]);
+  useEffect(() => {
+    undoRef.current = args.undo;
+  }, [args.undo]);
 
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
