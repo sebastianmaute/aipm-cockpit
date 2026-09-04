@@ -77,6 +77,29 @@ describe("InsightsPanel", () => {
     expect(rowHasTitle("milestoneSlip")).toBe(false);
   });
 
+  // tsc enforces that TYPE_LABEL_KEY carries an entry for EVERY InsightType; it
+  // cannot enforce that the entry is the RIGHT key. Aiming one guardrail at
+  // another guardrail's title key renders a wrong <option> label with every gate
+  // green, and the four guardrail keys differ only by a rule name — the easiest
+  // copy-paste in the map. Pinned to literal English so this cannot pass by
+  // reading the same map the panel does.
+  // ★ The sibling map TITLE_KEY (insights/insight-text.ts) has the identical
+  // exposure and is ALREADY pinned, by insight-text.test.ts asserting the same
+  // four literals through `insightTitle`. METRIC_FIELD (insights/outcome.ts) is
+  // the third such map and needs no pin: all four guardrails map to "count", so
+  // a swap between them is a no-op.
+  it("labels each guardrail type-filter option with its own title", () => {
+    render(<InsightsPanel insights={FIXTURE} lang="en-US" today={TODAY} />);
+    const select = screen.getByLabelText(/filter by type/i);
+    const labelOf = (value: string): string | undefined =>
+      Array.from(select.querySelectorAll("option")).find((o) => o.value === value)?.textContent ??
+      undefined;
+    expect(labelOf("timelogCapPerEntry")).toBe("Time entry over the cap");
+    expect(labelOf("timelogCapPerDay")).toBe("Day over the booking cap");
+    expect(labelOf("timelogNonWorkingDay")).toBe("Time booked on a non-working day");
+    expect(labelOf("timelogWorkingHours")).toBe("Time over defined working hours");
+  });
+
   it("wires lifecycle controls with row-unique names and calls the handler with the id", async () => {
     const user = userEvent.setup();
     const onAcknowledge = vi.fn();

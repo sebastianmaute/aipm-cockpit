@@ -70,11 +70,17 @@ function DigestSection({ heading, rows, lang, onOpenInsight }: DigestSectionProp
           const accessibleName = colliding.has(label)
             ? `${label} – ${t(lang, "insightDigestRowRef", String(insight.entityRef?.id ?? insight.id))}`
             : undefined;
-          // A row is interactive only when there is somewhere to GO: milestoneSlip
-          // and raidAging carry an entityRef, but stalledWork/overdueTrend/
-          // budgetVariance are portfolio-level and carry NONE. Rendering a button
-          // for those would be a dead affordance — the same reason the "+N more"
-          // overflow was kept a plain span.
+          // A row is interactive only when there is somewhere to GO, and whether
+          // an insight names a workspace row is a PER-INSIGHT fact, not a
+          // per-type one — so this reads the ref rather than the type. Two
+          // reasons it must: a portfolio-level detection carries no ref at all,
+          // and a type that normally carries one still yields NONE when the row
+          // it named cannot be resolved (a guardrail whose `resourceId` is
+          // dangling — `detect.ts` withholds the ref deliberately). An
+          // enumeration of types would be wrong in both directions and would rot
+          // on the next detector. Rendering a button with nowhere to go would be
+          // a dead affordance — the same reason the "+N more" overflow was kept
+          // a plain span.
           const canOpen = onOpenInsight !== undefined && insight.entityRef !== undefined;
           return (
             <li key={insight.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">

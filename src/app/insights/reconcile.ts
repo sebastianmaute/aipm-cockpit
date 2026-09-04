@@ -105,10 +105,12 @@ function clear(prev: Insight, today: string): Insight | null {
     const resolved: Insight = { ...prev, status: "resolved", resolvedAt: today };
     if (prev.status !== "acted") return resolved;
     const baseline = baselineOf(prev);
-    // SP3 — DIRECTION-ONLY: the condition cleared, but four of the five detectors
-    // are threshold-gated, so "cleared" means BELOW THRESHOLD, not zero, and there
-    // is no detection left to read the true value from. Emitting a magnitude here
-    // would overstate the win. `baseline` is passed through UNCLAMPED: it is the
+    // SP3 — DIRECTION-ONLY: the condition cleared, and a disappearance carries no
+    // number — this branch is reached precisely because there is no detection left
+    // to read a current value from. Emitting a magnitude here would invent one,
+    // and for the threshold-gated detectors it would be wrong on its face
+    // ("cleared" means below threshold, not zero). `InsightOutcome.current` holds
+    // the per-type split. `baseline` is passed through UNCLAMPED: it is the
     // one number this feature exists to preserve faithfully, and clamping would
     // report a "before" value the user never had. (Direction cannot read as
     // "worsened" regardless — computeClearedOutcome always emits "improved".)

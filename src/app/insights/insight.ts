@@ -86,13 +86,23 @@ export type InsightOutcomeDirection = (typeof INSIGHT_OUTCOME_DIRECTIONS)[number
 export interface InsightOutcome {
   readonly direction: InsightOutcomeDirection;
   readonly baseline: number;
-  /** ★ ABSENT when the insight simply stopped firing. Four of the five detectors
-   *  are THRESHOLD-gated (stalledWork `count < 3`, budgetVariance `pct < 10`,
-   *  raidAging `days < 7`, overdueTrend `current <= prior`), so "cleared" means
-   *  BELOW THRESHOLD, not zero — and reconcile has no detection left to read the
-   *  true value from. Reporting `current: 0` there would overstate the delta
-   *  (e.g. "improved by 10" for a real move of 8). Absent ⇒ direction is known,
-   *  magnitude is not. */
+  /** ★ ABSENT when the insight simply stopped firing. The rule is that a
+   *  DISAPPEARANCE carries no number: reconcile is handed the detections that
+   *  fired, so a key that is missing from them yields nothing to read a current
+   *  value from, whatever the type.
+   *  ★★ For a THRESHOLD-gated detector, substituting 0 would not merely be
+   *  unmeasured but WRONG — "cleared" there means BELOW THRESHOLD (stalledWork
+   *  `count < 3`, budgetVariance `pct < 10`, raidAging `days < 7`, overdueTrend
+   *  `current <= prior`), so `current: 0` overstates the delta (e.g. "improved
+   *  by 10" for a real move of 8).
+   *  ★★ The TimeLog guardrails are the case that does NOT follow from that
+   *  second argument, and reading it as the whole reason is the trap: their
+   *  metric counts VIOLATING DAYS with a floor of 1, so a cleared guardrail
+   *  really is at zero. They stay direction-only because of the FIRST rule
+   *  alone — the clear path reads no value for any type — and because the clear
+   *  path never runs for them unless the caller certified the rule was
+   *  evaluated over the stored violating days (see `reconcileInsights`'
+   *  `isEvaluated`). Absent ⇒ direction is known, magnitude is not. */
   readonly current?: number;
   /** baseline − current. Positive ⇒ better (ALL insight metrics are
    *  lower-is-better). Absent whenever `current` is. */

@@ -136,6 +136,28 @@ source comment.
   degrades to **silence, never to a false clean** — which is precisely what §6's evaluated-scope
   argument exists to preserve.
 
+> **Correction, 2026-09-04 (added during the implementation review; the two bullets above are left
+> as written).** The `capPerDay` bullet is right about the data and wrong about where the mitigation
+> had to go. It says the caveat "belongs in the insight body string", and that is where it was put —
+> but the body string is read by a HUMAN, and the false negative it warns about is consumed by the
+> OUTCOME ENGINE first. A false negative is exactly the shape `reconcileInsights`' clear path reads
+> as a win: the key stops being detected, `clear()` resolves the insight, and an acted-on one takes
+> `computeClearedOutcome`, which always writes `"improved"`. So an unfetched project could retire a
+> real violation as a success, into a workspace slice that is shared, exported and fed back to the
+> model — and no amount of caveat text in the rendered sentence reaches that path. The mitigation
+> was in the wrong layer, not merely incomplete.
+>
+> **Closed** in the reconcile predicate rather than in any string. A guardrail insight is now only
+> eligible to clear when the caller can certify the detection was real: the rule was evaluated, the
+> daily roll is not `partial`, and the roll's `dailyWindow` covers the days that insight is about
+> (which is why each guardrail carries `firstViolationDate`/`lastViolationDate`). Anything short of
+> that freezes the row untouched. `reconcileInsights` takes `isEvaluated` as a REQUIRED per-insight
+> predicate with no default, so a detector that can go dark is a typecheck error rather than a
+> silent fabricated win.
+>
+> The `workingHours` bullet needs no such correction: its link floor makes the go-dark case
+> unevaluated rather than clean, so "degrades to silence, never to a false clean" holds as written.
+
 `DEFAULT_WEEK_HOURS` (`[0, 8, 8, 8, 8, 8, 0]`) is the sanctioned fallback for a linked resource with
 no shift, so sparse shifts are not a blocker. A *missing link* is a different thing from a *missing
 shift*: the first means unevaluated, the second means evaluated against the default.
