@@ -72,6 +72,28 @@ section, **this section wins.**
    arrives before the measurement and tells the reader to stop looking, which is licence to delete a
    live guard. State the mutant, demand the verdict, supply none.
 
+7. **★★★ Task 10's `{id: NaN}` sentinel is WRONG for deletes, and fails silently.** The plan says
+   "`describeEntityCalls` only consults `item` on the update path, so a sentinel is safe and keeps
+   one code path". Half right. Creates never read `ctx.item` — true. But the DELETE branch does:
+   `plan.ts:183` is `if (name === d.deleteTool && id !== item.id)`, and `NaN` compares unequal to
+   everything, so **every own-entity delete would be rejected as `"unsupported"` and never appear in
+   the card.** Two more facts from the same reading:
+   - `ownIds` (`plan.ts:116`) is built from `ws[d.wsKey]` **unguarded** — a workspace missing that
+     slice THROWS rather than yielding an empty plan. It is read before any branch.
+   - `RecommendPlanWorkspace` is `Pick<Workspace, "tasks"|"raid"|"changes"|"milestones"|"stakeholders">`
+     — **no `resources`**. Reusing that type for chat grounding makes every resource call throw at
+     `ownIds`. Pass the full `Workspace`.
+
+   **`insights/recommend-plan.ts` already solves this and is the template — copy it, do not
+   re-derive it.** It seeds per OP: a delete gets `item = {id}` (the call's OWN target), so the
+   self-guard passes trivially and the real grounding is `ownIds.has(id)`; an update looks the row
+   up and falls back to `{id: NaN}` so a miss rejects as `"unknown-id"`; a create passes `{id: NaN}`
+   and any descriptor.
+
+   ★ Related, from the same task: the rejection literal is NOT fixed. For an id that differs from
+   `ctx.item.id` the engine picks `ownIds.has(id) ? "unsupported" : "unknown-id"`. Any test asserting
+   one flatly is asserting a case, not the rule.
+
 ★ Two process notes carried forward: `git commit --only` on a path matching no change **silently
 commits nothing for that path and does not error** — check `git show --stat` against intent. And the
 shared test fixture is `src/test/chat-dispatcher-fixture.tsx` (`.tsx`, not `.ts`, and `src/test/`
