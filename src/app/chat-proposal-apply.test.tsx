@@ -1,8 +1,14 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
-import { applyProposal } from "./chat-proposal-apply";
-import type { ProposedCall } from "./chat-proposal";
+import {
+  applyProposal,
+  NEW_ROW_TOKEN_UNAVAILABLE_ERROR,
+  PENDING_MINT_ERROR,
+  TOKEN_REQUIRED_TOOLS,
+} from "./chat-proposal-apply";
+import { buildPlanRows, type ProposedCall } from "./chat-proposal";
+import { TOOL_DEFS } from "./chat-tool-defs";
 import { describeProposal } from "./chat-proposal-describe";
 import { type TestSeed } from "./test-providers";
 import { DEFAULT_TASK_STATUS, type Milestone, type Task } from "./types";
@@ -334,5 +340,340 @@ describe("applyProposal honours the selection", () => {
     expect(outcome!.rows).toEqual([{ index: 0, ok: true }]);
     expect(result.current.dispatcher.getTask(2)?.taskName).toBe("Kept");
     expect(result.current.dispatcher.getTask(3)?.taskName).toBe("Third");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §378 — a staged create lands under the id the REAL minter hands out, never the
+// provisional one `buildPlanRows` paired it with. Every row below is applied
+// through the plan-row overload, which is the only way the apply path can learn
+// which provisional id a create replaces.
+
+/** Describe `calls` WITH plan rows (so creates carry a `mintedId`), then apply
+ *  every row. `mintedIds` is one provisional id per create, in emission order —
+ *  the same contract `buildPlanRows` states. */
+async function applyPlan(
+  result: Rendered,
+  calls: readonly ProposedCall[],
+  mintedIds: readonly number[],
+  ws = seedWorkspace(),
+) {
+  const rows = describeProposal(calls, ws, buildPlanRows(calls, mintedIds));
+  const selected = new Set(rows.map((_, i) => i));
+  let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
+  await act(async () => {
+    outcome = await applyProposal({
+      dispatcher: result.current.dispatcher,
+      rows,
+      selected,
+      batch: result.current.batch,
+    });
+  });
+  return outcome!;
+}
+
+describe("applyProposal remaps provisional ids to the real ones", () => {
+  // The seeded task ids are 1-2-3 throughout (see SEED), so the first create in
+  // a plan mints 4 and the second 5. Every real id named below follows from that.
+  test("a delete on a provisional id removes the FIRST create, not the second", async () => {
+    const { result } = renderApply();
+
+    // ★★★ TWO CREATES IS LOAD-BEARING. With one, "the delete hit the created
+    //   row" is indistinguishable from "the delete hit whatever was created" —
+    //   and a remap that resolved every provisional id to the LAST create would
+    //   pass. #101 must resolve to the FIRST one specifically.
+    const outcome = await applyPlan(
+      result,
+      [
+        { name: "create_task", input: { taskName: "First minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "create_task", input: { taskName: "Second minted", assignee: "M. Jordan", dueDate: "2026-10-02" } },
+        { name: "delete_task", input: { id: 101 } },
+      ],
+      [101, 102],
+    );
+
+    expect(outcome.rows.every((r) => r.ok)).toBe(true);
+    // 4 was created then deleted; 5 survives. Without the remap the delete
+    // reports "task #101 not found" and BOTH creates survive as [1,2,3,4,5].
+    expect(taskIds(result)).toEqual([1, 2, 3, 5]);
+    expect(result.current.dispatcher.getTask(5)?.taskName).toBe("Second minted");
+  });
+
+  test("a KEY-BEARING link entry is rewritten and its other fields survive", async () => {
+    const { result } = renderApply();
+
+    // `dependencies[].taskId` is the one link shape whose id sits inside an
+    // OBJECT. TRACED, not assumed: `resolveDependencyWrite` delegates to
+    // `classifyDependencyEntries` (`task-dependency-write.ts`), which pushes
+    // `{ reason: "unknown-id" }` for any taskId outside `knownTaskIds` and never
+    // applies it — so an unremapped #101 stores NOTHING. The call still
+    // RESOLVES (a rejection is a normal result, not a throw), so `ok: true` is
+    // NOT the discriminator here; the stored list below is.
+    const outcome = await applyPlan(
+      result,
+      [
+        { name: "create_task", input: { taskName: "Minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "set_task_dependencies", input: { id: 2, dependencies: [{ taskId: 101, type: "FS" }] } },
+      ],
+      [101],
+    );
+
+    expect(outcome.rows.every((r) => r.ok)).toBe(true);
+    // The create landed — so the assertion below is about a live row.
+    expect(result.current.dispatcher.getTask(4)?.taskName).toBe("Minted");
+    expect(result.current.dispatcher.getTask(2)?.dependencies).toEqual([
+      { taskId: 4, type: "FS" },
+    ]);
+  });
+
+  test("a FLAT link array is rewritten", async () => {
+    const { result } = renderApply();
+
+    const outcome = await applyPlan(
+      result,
+      [
+        { name: "create_task", input: { taskName: "Minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "create_milestone", input: { name: "Depends on it", date: "2026-11-01", linkedTaskIds: [101] } },
+      ],
+      [101, 102],
+    );
+
+    expect(outcome.rows.every((r) => r.ok)).toBe(true);
+    // `sanitizeIdList` does NO referential check, so an unremapped plan stores
+    // [101] silently — a dangling link nothing reports.
+    expect(result.current.dispatcher.getMilestoneRow(4)?.linkedTaskIds).toEqual([4]);
+  });
+
+  // ★★★ THE FIXTURE THE ENTITY SCOPING EXISTS FOR, AND ITS ORDER IS LOAD-BEARING.
+  //   Ids are per-entity sequences, so two creates in one plan minting the SAME
+  //   number is the common case. A number-keyed lookup takes whichever create was
+  //   recorded LAST — so with the TASK create second, `delete_milestone({id:101})`
+  //   resolves to the task's real id 4 and deletes the SEEDED milestone #4. With
+  //   the creates the other way round the number-blind lookup is ACCIDENTALLY
+  //   RIGHT and this fixture cannot express the defect at all.
+  test("is ENTITY-SCOPED: two entities minting the same provisional number do not cross", async () => {
+    const seed: TestSeed = {
+      tasks: [seedTask(1, "First"), seedTask(2, "Before"), seedTask(3, "Third")],
+      milestones: [
+        seedMilestone(1, "M1"), seedMilestone(2, "M2"), seedMilestone(3, "M3"),
+        seedMilestone(4, "M4"), seedMilestone(5, "M5"),
+      ],
+    };
+    const { result } = renderApply(seed);
+
+    const outcome = await applyPlan(
+      result,
+      [
+        { name: "create_milestone", input: { name: "Minted milestone", date: "2026-11-01" } },
+        { name: "create_task", input: { taskName: "Minted task", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "delete_milestone", input: { id: 101 } },
+      ],
+      [101, 101],
+      seedWorkspace(seed),
+    );
+
+    expect(outcome.rows.every((r) => r.ok)).toBe(true);
+    // The minted milestone (#6) was created and deleted; every SEEDED milestone
+    // survives. A number-blind remap deletes #4 and leaves [1,2,3,5,6].
+    expect(milestoneIds(result)).toEqual([1, 2, 3, 4, 5]);
+    expect(result.current.dispatcher.getMilestoneRow(4)?.name).toBe("M4");
+    // The task create is untouched by any of it.
+    expect(taskIds(result)).toEqual([1, 2, 3, 4]);
+    expect(result.current.dispatcher.getTask(4)?.taskName).toBe("Minted task");
+  });
+
+  // ★★★ A CREATE THAT FAILS AT APPLY TIME IS NOT THE CASE `cascadeDeselect`
+  //   COVERS. That one handles a row the user REFUSED at review time; this one
+  //   was selected and then threw, so its provisional id is never resolved. The
+  //   provisional id here is deliberately made to COLLIDE with a live row so the
+  //   failure is observable: without the refusal the dependent replays at the raw
+  //   number and DELETES A SEEDED TASK. (A collision is not the common case — it
+  //   is the fixture that makes a silent wrong write visible.)
+  test("a create that FAILS refuses its dependents instead of replaying them", async () => {
+    const { result } = renderApply();
+
+    const outcome = await applyPlan(
+      result,
+      [
+        // Missing `assignee`/`dueDate` — `runTool` throws before the dispatcher.
+        { name: "create_task", input: { taskName: "Doomed" } },
+        { name: "delete_task", input: { id: 2 } },
+      ],
+      [2],
+    );
+
+    expect(outcome.rows[0].ok).toBe(false);
+    expect(outcome.rows[0].stale).toBe(false);
+    expect(outcome.rows[1].ok).toBe(false);
+    // The EXACT error, not merely "not ok": a replayed row would have failed
+    // too — with the dispatcher's own "task #2 not found" — and the whole point
+    // is that `runTool` was never reached.
+    expect(outcome.rows[1].error).toBe(PENDING_MINT_ERROR);
+    expect(outcome.rows[1].stale).toBeUndefined();
+
+    // Nothing was created and NOTHING WAS DELETED — the seeded #2 survives.
+    expect(taskIds(result)).toEqual([1, 2, 3]);
+    expect(result.current.dispatcher.getTask(2)?.taskName).toBe("Before");
+  });
+
+  test("a create's dependents apply normally once it succeeds", async () => {
+    // The anti-vacuity half of the refusal above: the same shape with a VALID
+    // create must NOT be refused, or the guard would be blocking every plan.
+    const { result } = renderApply();
+
+    const outcome = await applyPlan(
+      result,
+      [
+        { name: "create_task", input: { taskName: "Fine", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "delete_task", input: { id: 2 } },
+      ],
+      [2],
+    );
+
+    expect(outcome.rows.every((r) => r.ok)).toBe(true);
+    // #2 was the PROVISIONAL id, so the delete followed the create to #4 — the
+    // seeded #2 is untouched.
+    expect(taskIds(result)).toEqual([1, 2, 3]);
+    expect(result.current.dispatcher.getTask(2)?.taskName).toBe("Before");
+  });
+
+  // ★★ WITHOUT PLAN ROWS NOTHING IS REMAPPED, and that must stay true: every
+  //   existing caller of `describeProposal` passes none, so a remap that fired
+  //   on an absent `mintedId` would rewrite ids in plans that never staged one.
+  test("a plan described without plan rows is replayed verbatim", async () => {
+    const { result } = renderApply();
+
+    const outcome = await applyAll(result, [
+      { name: "create_task", input: { taskName: "Minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+      { name: "delete_task", input: { id: 2 } },
+    ]);
+
+    expect(outcome.rows.every((r) => r.ok)).toBe(true);
+    // #2 is read as the LIVE row it names, because nothing marked it provisional.
+    expect(taskIds(result)).toEqual([1, 3, 4]);
+  });
+});
+
+describe("a row targeting a row created in the same plan is labelled honestly", () => {
+  // ★★★ THE LABEL WAS A LIE, AND THAT IS THE DEFECT THIS PINS. A pending row is
+  //   never stamped, so the remapped call reaches `requireToken` carrying no
+  //   token, throws `ConcurrencyTokenError`, and was recorded `stale: true` —
+  //   defined on `AppliedRow` as "the row moved since it was staged". The row did
+  //   not EXIST when it was staged. Nothing moved, and no number of retries can
+  //   make the retry that label invites succeed.
+  test("it reports the capability gap and is NOT reported as stale", async () => {
+    const { result } = renderApply();
+
+    const outcome = await applyPlan(
+      result,
+      [
+        { name: "create_task", input: { taskName: "Minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "update_task", input: { id: 101, taskName: "Renamed" } },
+        { name: "create_milestone", input: { name: "Minted milestone", date: "2026-11-01" } },
+        { name: "update_milestone", input: { id: 202, name: "Renamed milestone" } },
+      ],
+      [101, 202],
+    );
+
+    // Both creates landed, so the two refusals below are on a LIVE path.
+    expect(outcome.rows[0].ok).toBe(true);
+    expect(outcome.rows[2].ok).toBe(true);
+    expect(result.current.dispatcher.getTask(4)?.taskName).toBe("Minted");
+    expect(result.current.dispatcher.getMilestoneRow(4)?.name).toBe("Minted milestone");
+
+    // ★★ TWO ENTITIES, because the guard reads a DERIVED set of token-requiring
+    //   tools rather than a literal — one tool cannot tell a working derivation
+    //   from a hardcoded special case.
+    for (const index of [1, 3]) {
+      expect(outcome.rows[index].ok).toBe(false);
+      expect(outcome.rows[index].error).toBe(NEW_ROW_TOKEN_UNAVAILABLE_ERROR);
+      // ★★★ THE ANTI-VACUITY ASSERTION. Without it this test passes against the
+      //   OLD behaviour as soon as the message happens to match, and `stale` is
+      //   the half that actually misinforms the user.
+      expect(outcome.rows[index].stale).toBeUndefined();
+    }
+
+    // Refused, so nothing was written — the created rows keep their create-time
+    // values and no seeded row was touched either.
+    expect(result.current.dispatcher.getTask(4)?.taskName).not.toBe("Renamed");
+    expect(taskIds(result)).toEqual([1, 2, 3, 4]);
+  });
+
+  // ★★ THE BOUNDARY: a MODEL-supplied token passes this guard on purpose.
+  //   `describeProposal` preserves one through the pending branch, and a wrong
+  //   VALUE really is a token conflict — `stale` is right about that one, and
+  //   relabelling it here would swallow the only case the flag is honest about.
+  //   This also proves the guard is not simply refusing every pending row.
+  test("a pending row carrying a model token still reaches the token check", async () => {
+    const { result } = renderApply();
+
+    const outcome = await applyPlan(
+      result,
+      [
+        { name: "create_task", input: { taskName: "Minted", assignee: "M. Jordan", dueDate: "2026-10-01" } },
+        { name: "update_task", input: { id: 101, taskName: "Renamed", expectedToken: "not-a-real-token" } },
+      ],
+      [101],
+    );
+
+    expect(outcome.rows[1].ok).toBe(false);
+    expect(outcome.rows[1].error).not.toBe(NEW_ROW_TOKEN_UNAVAILABLE_ERROR);
+    // It got as far as `requireToken`, which means the remap resolved #101 to
+    // the real #4 and the row was FOUND — a not-found would have thrown first
+    // and set no `stale`.
+    expect(outcome.rows[1].stale).toBe(true);
+  });
+});
+
+describe("TOKEN_REQUIRED_TOOLS", () => {
+  // ★★★ THREE FACTS, TWO PINNED HERE. `expectedToken` in a schema's
+  //   `properties` (what `insights/recommend-tokens.test.ts` already derives),
+  //   `expectedToken` in that schema's `required` (what the guard derives), and
+  //   `requireToken` actually being reached (what decides the throw) are three
+  //   separate things that all equal seven today BY COINCIDENCE. This pins the
+  //   first two to each other. The third is deliberately unpinned — see the
+  //   docstring on the export for the hand-run command.
+  //
+  // ★★★ WHAT THIS TEST IS FOR, precisely: a schema edit that made
+  //   `expectedToken` OPTIONAL — out of `required`, still in `properties` — is a
+  //   plausible change. It would leave the recommend-tokens test GREEN, silently
+  //   drop that tool from the guard's set, and restore the `stale` lie for
+  //   exactly that tool. Nothing else in the repo would notice.
+  //
+  // Computed the same way that existing block computes it, deliberately, so the
+  // two derivations are comparable rather than merely both plausible.
+  const advertised = (TOOL_DEFS as ReadonlyArray<{ name: string; input_schema?: unknown }>)
+    .filter(
+      (d) =>
+        "expectedToken" in
+        ((d.input_schema as { properties?: Record<string, unknown> }).properties ?? {}),
+    )
+    .map((d) => d.name);
+
+  test("the required-derived set matches the properties-derived one", () => {
+    // ★★★ ANTI-VACUITY, AND IT IS THE WHOLE TEST. Two derivations that both
+    //   collapsed to EMPTY would satisfy the comparison below perfectly — a
+    //   "0 mismatches" pass over nothing at all. The size is asserted EXACTLY:
+    //   a legitimately added token-guarded tool turns this red, which is the
+    //   point. Read a red here as "go look", not as "the guard broke".
+    expect(TOKEN_REQUIRED_TOOLS.size).toBe(7);
+    expect(advertised).toHaveLength(7);
+    expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([...advertised].sort());
+  });
+
+  test("it names the six update tools and set_task_dependencies", () => {
+    // The membership itself, so a diff that changed BOTH derivations in step
+    // still has to face a human-written list. `update_resource` is spelled out
+    // because it is the member `UPDATE_TARGET` omits — the trap this constant
+    // exists to avoid.
+    expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([
+      "set_task_dependencies",
+      "update_change",
+      "update_milestone",
+      "update_raid_item",
+      "update_resource",
+      "update_stakeholder",
+      "update_task",
+    ]);
   });
 });

@@ -404,3 +404,54 @@ describe("TOOL_ENTITY", () => {
     expect(derived.sort()).toEqual([...undescribable].sort());
   });
 });
+
+// ---------------------------------------------------------------------------
+// §378 — the provisional id a create row was paired with, carried through so the
+// apply path can learn which id the real minter replaces.
+
+describe("mintedId is carried onto the described row", () => {
+  const newTask = () => call("create_task", { taskName: "New thing", dueDate: "2026-10-01" });
+
+  test("a create row carries its provisional id and a non-create carries none", () => {
+    const calls = [newTask(), call("update_task", { id: 101, taskName: "Renamed" })];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
+
+    expect(rows[0].mintedId).toBe(101);
+    // The dependent names 101 through its `input.id`, so a `mintedId` here would
+    // make `applyProposal` record the UPDATE as the row that minted it.
+    expect(rows[1].mintedId).toBeUndefined();
+  });
+
+  // ★★★ THE ANTI-VACUITY HALF: without plan rows there is no provisional id to
+  // carry, so the field must be absent. Otherwise the assertion above would pass
+  // against an implementation that read the id from the CALL's own input.
+  test("no plan rows means no mintedId", () => {
+    const rows = describeProposal([newTask()], ws);
+    expect(rows[0].mintedId).toBeUndefined();
+  });
+
+  // ★★ EVERY BRANCH CARRIES IT, and this is the one that is easy to miss:
+  // `create_document` has no `INLINE_DESCRIPTORS` entry, so it takes the
+  // empty-plan branch rather than the descriptor branch. A create whose
+  // `mintedId` were dropped there would never be recorded at apply time, and its
+  // dependents would all refuse.
+  test("a descriptor-less create still carries it", () => {
+    const calls = [call("create_document", { title: "Doc" })];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [55]));
+    expect(rows[0].plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [] });
+    expect(rows[0].mintedId).toBe(55);
+  });
+
+  // A create and a pending row in one plan: both branches, one assertion, so a
+  // patch that added the field to only the branch it was testing goes red.
+  test("a create's id and a pending row's absence come from the same plan", () => {
+    const calls = [
+      newTask(),
+      call("create_raid_item", { title: "R" }),
+      call("update_raid_item", { id: 7, title: "Renamed" }),
+    ];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [101, 7]));
+    expect(rows.map((r) => r.mintedId)).toEqual([101, 7, undefined]);
+    expect(rows[2].pendingOn).toBe(1);
+  });
+});

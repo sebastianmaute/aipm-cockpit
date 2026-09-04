@@ -1,12 +1,16 @@
 import { describe, expect, test } from "vitest";
 import { TOOL_DEFS } from "./chat-tool-defs";
+import { INLINE_DESCRIPTORS, type EntityDescriptor } from "./inline-ai-edit/entity-descriptor";
 import {
   buildPlanRows,
   cascadeDeselect,
+  CREATE_MINT_KIND,
   isCreateTool,
   isDestructiveCall,
   isDestructiveTool,
   isEntityWriteTool,
+  namesPendingMint,
+  remapStagedCall,
   shouldStage,
   TARGET_MINTED_BY,
   type ProposedCall,
@@ -628,5 +632,222 @@ describe("target-id dependencies are scoped to the minting entity", () => {
     );
     const unknown = Object.values(TARGET_MINTED_BY).filter((n) => !liveCreates.has(n));
     expect(unknown).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §378 — rewriting a staged plan's provisional ids to the ids the real minter
+// actually handed out.
+
+describe("CREATE_MINT_KIND", () => {
+  // ★★★ THE MEMBERSHIP HALF, and it is the same shape as `TARGET_MINTED_BY`'s
+  //     own drift test: an omission here is SILENT at every layer that does not
+  //     mint. The expected set is DERIVED from the live schemas, so a new
+  //     `create_*` tool names itself in the diff rather than shipping unminted.
+  test("covers exactly the live create tools", () => {
+    const liveCreates = (TOOL_DEFS as ReadonlyArray<{ name: string }>)
+      .map((d) => d.name)
+      .filter(isCreateTool);
+    // Anti-vacuity: an empty derivation would pass a set comparison against an
+    // empty table, and both halves are code under test here.
+    expect(liveCreates.length).toBeGreaterThan(5);
+    expect([...liveCreates].sort()).toEqual(Object.keys(CREATE_MINT_KIND).sort());
+  });
+
+  // ★★★ THE VALUE HALF — the one `TARGET_MINTED_BY`'s test cannot do for its own
+  //     table. Membership alone is blind to a create mapped to the WRONG kind,
+  //     which mints from a different entity's sequence and hands the plan an id
+  //     that collides with a live row of another type. Six of the seven rows are
+  //     therefore checked against an INDEPENDENT source: `INLINE_DESCRIPTORS`
+  //     already states each entity's `createTool` beside its `entity`, and those
+  //     six `InlineEntity` spellings are exactly the six `MintKind` spellings the
+  //     live minters pass (grep for the mintId call sites under src/app).
+  test("maps each descriptor's create tool to that descriptor's OWN entity", () => {
+    const descriptors = Object.values(INLINE_DESCRIPTORS) as EntityDescriptor[];
+    // Anti-vacuity: an empty descriptor map would make the loop below assert
+    // nothing at all, and this test would still be green.
+    expect(descriptors).toHaveLength(6);
+    for (const d of descriptors) {
+      expect(CREATE_MINT_KIND[d.createTool]).toBe(d.entity);
+    }
+  });
+
+  // ★ THE UNGUARDED ROW, stated rather than hidden. `create_document` has no
+  //   `INLINE_DESCRIPTORS` entry, so nothing independent can confirm its kind —
+  //   this pins the literal, which catches a typo and not a wrong decision. The
+  //   live minter is `workspace-context.tsx`'s `mintDocId`.
+  test("create_document mints from the document sequence", () => {
+    expect(CREATE_MINT_KIND.create_document).toBe("document");
+  });
+});
+
+describe("remapStagedCall", () => {
+  /** create tool -> (provisional id -> real id). */
+  const realMap = (entries: Record<string, Record<number, number>>) =>
+    new Map(
+      Object.entries(entries).map(([tool, ids]) => [
+        tool,
+        new Map(Object.entries(ids).map(([k, v]) => [Number(k), v])),
+      ]),
+    );
+
+  test("rewrites the input.id half through TARGET_MINTED_BY", () => {
+    const out = remapStagedCall(
+      call("update_task", { id: 101, taskName: "After" }),
+      realMap({ create_task: { 101: 7 } }),
+    );
+    expect(out.input).toEqual({ id: 7, taskName: "After" });
+  });
+
+  test("reads a STRING id the way chat-tools does", () => {
+    // `chat-tools.ts` addresses every row with `Number(input.id)`, so a string
+    // id reaches the created row — the rewrite has to resolve it the same way or
+    // the graph and the write disagree about which row this call names.
+    const out = remapStagedCall(
+      call("update_task", { id: "101" }),
+      realMap({ create_task: { 101: 7 } }),
+    );
+    expect(out.input.id).toBe(7);
+  });
+
+  test("rewrites a FLAT link array", () => {
+    const out = remapStagedCall(
+      call("create_raid_item", { title: "R", linkedTaskIds: [101, 55] }),
+      realMap({ create_task: { 101: 7 } }),
+    );
+    // 55 is a pre-existing row and must survive untouched — a rewrite that
+    // rebuilt the array from the map alone would drop it.
+    expect(out.input).toEqual({ title: "R", linkedTaskIds: [7, 55] });
+  });
+
+  test("rewrites a KEY-BEARING entry and keeps the entry's other fields", () => {
+    // `dependencies[].taskId` is the one link shape whose id sits inside an
+    // OBJECT. A rewrite that replaced the whole entry would silently drop `type`.
+    const out = remapStagedCall(
+      call("set_task_dependencies", {
+        id: 55,
+        dependencies: [{ taskId: 101, type: "FS" }, { taskId: 9, type: "SS" }],
+      }),
+      realMap({ create_task: { 101: 7 } }),
+    );
+    expect(out.input.dependencies).toEqual([
+      { taskId: 7, type: "FS" },
+      { taskId: 9, type: "SS" },
+    ]);
+    // The id half of the SAME call is untouched: #55 is a live row, not a mint.
+    expect(out.input.id).toBe(55);
+  });
+
+  test("rewrites BOTH halves of one call", () => {
+    const out = remapStagedCall(
+      call("update_raid_item", { id: 101, linkedTaskIds: [202] }),
+      realMap({ create_raid_item: { 101: 7 }, create_task: { 202: 8 } }),
+    );
+    expect(out.input).toEqual({ id: 7, linkedTaskIds: [8] });
+  });
+
+  // ★★★ THE FIXTURE THAT PROVES THE SCOPING, and the reason this whole family of
+  //     tables is keyed by CREATE TOOL rather than by number. Ids are per-entity
+  //     sequences, so two creates in one plan minting the SAME number is the
+  //     common case. A number-keyed map resolves both #101s to whichever create
+  //     was recorded LAST — a WRONG write, which is worse than a missing one.
+  test("is ENTITY-SCOPED: two entities minting the same number do not cross", () => {
+    const real = realMap({ create_task: { 101: 7 }, create_raid_item: { 101: 9 } });
+    expect(remapStagedCall(call("update_task", { id: 101 }), real).input.id).toBe(7);
+    expect(remapStagedCall(call("update_raid_item", { id: 101 }), real).input.id).toBe(9);
+    // Same collision through a LINK field: `linkedTaskIds` names the TASK space
+    // even on a RAID-adjacent call, and `linkedRaidIds` the RAID one.
+    const linked = remapStagedCall(
+      call("create_change", { linkedTaskIds: [101], linkedRaidIds: [101] }),
+      real,
+    );
+    expect(linked.input).toEqual({ linkedTaskIds: [7], linkedRaidIds: [9] });
+  });
+
+  test("leaves an id no create minted alone", () => {
+    const out = remapStagedCall(
+      call("update_task", { id: 55 }),
+      realMap({ create_task: { 101: 7 } }),
+    );
+    expect(out.input.id).toBe(55);
+  });
+
+  test("returns the SAME reference when there is nothing to rewrite", () => {
+    // Documented behaviour a caller may rely on with `===` to ask "was anything
+    // remapped?" — so it is pinned rather than left to the implementation.
+    const original = call("update_task", { id: 55 });
+    expect(remapStagedCall(original, realMap({ create_task: { 101: 7 } }))).toBe(original);
+    expect(remapStagedCall(original, new Map())).toBe(original);
+  });
+
+  test("never mutates the call it is given", () => {
+    const input = { id: 101, dependencies: [{ taskId: 101, type: "FS" }] };
+    const entry = input.dependencies[0];
+    const original = call("set_task_dependencies", input);
+    const out = remapStagedCall(original, realMap({ create_task: { 101: 7 } }));
+
+    expect(out).not.toBe(original);
+    expect(input.id).toBe(101);
+    expect(input.dependencies[0]).toBe(entry);
+    expect(entry.taskId).toBe(101);
+  });
+
+  test("skips a link entry the write itself would drop", () => {
+    // Mirrors `sanitizeIdList`'s finite-and-positive filter, the function that
+    // actually stores these lists: a `null`/`""`/`[]` entry is 0 under bare
+    // `Number()`, and must not become a lookup for a minted id 0.
+    const out = remapStagedCall(
+      call("create_milestone", { linkedTaskIds: [null, "", 0, -1, 101] }),
+      realMap({ create_task: { 0: 4, 101: 7 } }),
+    );
+    expect(out.input.linkedTaskIds).toEqual([null, "", 0, -1, 7]);
+  });
+
+  test("a create's OWN id is never rewritten", () => {
+    const original = call("create_task", { id: 101, taskName: "T" });
+    // A create's own id can never name an earlier mint, so the id half is
+    // skipped for it exactly as `buildPlanRows` skips it.
+    expect(remapStagedCall(original, realMap({ create_task: { 101: 7 } }))).toBe(original);
+  });
+});
+
+describe("namesPendingMint", () => {
+  const pendingMap = (entries: Record<string, number[]>) =>
+    new Map(Object.entries(entries).map(([tool, ids]) => [tool, new Set(ids)]));
+
+  test("blocks a row whose target is still owed", () => {
+    expect(
+      namesPendingMint(call("update_task", { id: 101 }), pendingMap({ create_task: [101] })),
+    ).toBe(true);
+  });
+
+  test("blocks a row whose LINK is still owed, including a key-bearing one", () => {
+    expect(
+      namesPendingMint(
+        call("create_raid_item", { linkedTaskIds: [101] }),
+        pendingMap({ create_task: [101] }),
+      ),
+    ).toBe(true);
+    expect(
+      namesPendingMint(
+        call("set_task_dependencies", { id: 55, dependencies: [{ taskId: 101 }] }),
+        pendingMap({ create_task: [101] }),
+      ),
+    ).toBe(true);
+  });
+
+  test("is ENTITY-SCOPED", () => {
+    // An owed TASK #101 must not block a RAID call naming its own live #101 —
+    // a number-blind check refuses a write that was always safe.
+    expect(
+      namesPendingMint(call("update_raid_item", { id: 101 }), pendingMap({ create_task: [101] })),
+    ).toBe(false);
+  });
+
+  test("does not block once nothing is owed", () => {
+    expect(namesPendingMint(call("update_task", { id: 101 }), new Map())).toBe(false);
+    expect(
+      namesPendingMint(call("update_task", { id: 55 }), pendingMap({ create_task: [101] })),
+    ).toBe(false);
   });
 });

@@ -5,7 +5,9 @@
 //
 // ★ Deliberately knows nothing about React, the workspace or the dispatcher.
 //   Everything here is a function of the CALL LIST alone, which is what makes
-//   the gate testable without a fixture workspace.
+//   the gate testable without a fixture workspace. The one import is TYPE-ONLY
+//   (`MintKind`), so nothing is pulled in at runtime and that property holds.
+import type { MintKind } from "./id-mint-session";
 
 /** One tool call the model emitted. Structurally identical to the insights
  *  pipeline's `InsightToolCall` (`insights/insight.ts`); kept as its own name
@@ -184,6 +186,39 @@ export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
   get_document: "create_document",
 };
 
+/** The THIRD table of the same family: a create tool → the `id-mint-session`
+ *  kind whose sequence its row is minted from. It exists so the STAGING caller
+ *  can reserve one provisional id per create without re-deriving "which entity
+ *  is `create_raid_item`?" — the derivation that, done twice, is how the two
+ *  sides of this mechanism drift.
+ *
+ *  ★★ AN OMISSION IS SILENT IN THE SAME WAY `TARGET_MINTED_BY`'S IS, and one
+ *   step worse: a create with no kind here cannot be minted for at all, so the
+ *   caller either throws or skips the row, and a skipped mint makes
+ *   `buildPlanRows` throw its `RangeError` on a plan the user never saw. The
+ *   drift test in `chat-proposal.test.ts` derives the expected KEY SET from the
+ *   live `TOOL_DEFS` (every tool `isCreateTool` accepts), so a new `create_*`
+ *   tool goes red until somebody classifies it.
+ *
+ *  ★★★ MEMBERSHIP IS NOT ENOUGH — A WRONG KIND IS A WRONG SEQUENCE, and that is
+ *   the failure `TARGET_MINTED_BY`'s own drift test cannot see for its table.
+ *   Six of the seven VALUES here are therefore pinned per row against an
+ *   INDEPENDENT source: `INLINE_DESCRIPTORS` already states each entity's
+ *   `createTool` beside its `entity`, and the six `InlineEntity` spellings are
+ *   exactly the six `MintKind` spellings the live minters use. `create_document`
+ *   has no descriptor and is pinned against a literal alone — read that as the
+ *   one unguarded row, not as covered. Re-derive the live minters with
+ *   `grep -rn 'mintId("' src/app --include=*.ts --include=*.tsx`. */
+export const CREATE_MINT_KIND: Readonly<Record<string, MintKind>> = {
+  create_task: "task",
+  create_raid_item: "raid",
+  create_change: "change",
+  create_milestone: "milestone",
+  create_stakeholder: "stakeholder",
+  create_resource: "resource",
+  create_document: "document",
+};
+
 /** ★★ NAME-ONLY, AND THEREFORE NOT THE GATE'S OWN PREDICATE — `shouldStage`
  *   calls `isDestructiveCall`, which adds the one case a name cannot answer.
  *   Kept exported because the classification tests partition the LIVE tool
@@ -327,15 +362,60 @@ function linkedRows(
   call: ProposedCall,
   mints: ReadonlyMap<string, ReadonlyMap<number, number>>,
 ): readonly number[] {
-  const specs = LINK_FIELDS[call.name];
-  if (specs === undefined) return [];
   const out: number[] = [];
+  forEachLinkRef(call, (spec, id) => {
+    const row = mints.get(spec.mintedBy)?.get(id);
+    if (row !== undefined) out.push(row);
+    return undefined;
+  });
+  return out;
+}
+
+/** The id a call names through its OWN `input.id`, read exactly as
+ *  `chat-tools.ts` reads it at apply time (`Number(input.id)`, seven sites) —
+ *  including a STRING id, which would reach the same row. `undefined` when the
+ *  value is not a finite number.
+ *
+ *  ★ Extracted rather than inlined twice: `buildPlanRows` and
+ *   `remapStagedCall` MUST resolve the same id from the same call, and two
+ *   copies of `Number(...)` + a finiteness test is exactly the shape that drifts
+ *   into "the graph linked here, the rewrite landed there". */
+function targetIdOf(call: ProposedCall): number | undefined {
+  const id = Number((call.input as { id?: unknown }).id);
+  return Number.isFinite(id) ? id : undefined;
+}
+
+/** Walk every id `call` names through a LINK field, in field-then-entry order,
+ *  handing each to `visit`. A `visit` returning a number REPLACES that id;
+ *  returning `undefined` leaves the entry untouched. Returns the rewritten
+ *  input, or `undefined` when nothing was replaced.
+ *
+ *  ★★ ONE WALK, THREE CALLERS. `linkedRows` (the dependency graph),
+ *   `remapStagedCall` (the rewrite) and `namesPendingMint` (the refusal) must
+ *   agree on WHICH values in a call are provisional ids; a second walk written
+ *   to match this one is how a link gets graphed but not rewritten.
+ *  ★ The finite-and-positive filter mirrors `sanitizeIdList`, the function that
+ *   actually stores these lists, so the graph links — and the rewrite lands —
+ *   exactly where the write would; a `null`/`""`/`[]` entry, which bare
+ *   `Number()` turns into 0, does not become a lookup for id 0.
+ *  ★★ It does NOT mirror that function's delimited-STRING form (`"1;2"`), which
+ *   `sanitizeIdList` also accepts. The tool schema advertises an array of
+ *   numbers, so a string list is off-schema model output; reading it here would
+ *   make this the one place in the module that guesses at a shape the model was
+ *   never told to emit. A model sending one anyway would have its link stored
+ *   and NOT cascaded — a recorded gap, not a covered case. */
+function forEachLinkRef(
+  call: ProposedCall,
+  visit: (spec: LinkField, id: number) => number | undefined,
+): Record<string, unknown> | undefined {
+  const specs = LINK_FIELDS[call.name];
+  if (specs === undefined) return undefined;
+  let patch: Record<string, unknown> | undefined;
   for (const spec of specs) {
     const raw = (call.input as Record<string, unknown>)[spec.field];
     if (!Array.isArray(raw)) continue;
-    const minted = mints.get(spec.mintedBy);
-    if (minted === undefined) continue;
-    for (const entry of raw) {
+    let changed = false;
+    const next = raw.map((entry) => {
       const value =
         spec.key === undefined
           ? entry
@@ -343,12 +423,21 @@ function linkedRows(
             ? (entry as Record<string, unknown>)[spec.key]
             : undefined;
       const id = Number(value);
-      if (!Number.isFinite(id) || id <= 0) continue;
-      const row = minted.get(id);
-      if (row !== undefined) out.push(row);
-    }
+      if (!Number.isFinite(id) || id <= 0) return entry;
+      const replacement = visit(spec, id);
+      if (replacement === undefined) return entry;
+      changed = true;
+      // A NEW entry every time — the caller's `input` is never mutated, which
+      // matters because the same staged call may be described, rendered and
+      // replayed from one object.
+      return spec.key === undefined
+        ? replacement
+        : { ...(entry as Record<string, unknown>), [spec.key]: replacement };
+    });
+    if (!changed) continue;
+    patch = { ...(patch ?? {}), [spec.field]: next };
   }
-  return out;
+  return patch;
 }
 
 /** Pair each call with its provisional id and its dependency.
@@ -417,8 +506,8 @@ export function buildPlanRows(
     const targetSpace = isCreate ? undefined : TARGET_MINTED_BY[call.name];
     let dependsOn: number | undefined;
     if (targetSpace !== undefined) {
-      const referenced = Number((call.input as { id?: unknown }).id);
-      if (Number.isFinite(referenced)) dependsOn = mints.get(targetSpace)?.get(referenced);
+      const referenced = targetIdOf(call);
+      if (referenced !== undefined) dependsOn = mints.get(targetSpace)?.get(referenced);
     }
 
     // Link edges are read from the SAME partially-built maps, so they point
@@ -478,4 +567,88 @@ export function cascadeDeselect(
     cur = drop.pop();
   }
   return next;
+}
+
+/** Rewrite every PROVISIONAL id in one staged call to the REAL id its create
+ *  actually minted. `real` is create tool → (provisional id → real id).
+ *
+ *  ★★★ WITHOUT IT A STAGED PLAN'S SECOND ROW WRITES TO THE WRONG PLACE, OR TO
+ *   NOWHERE. `applyProposal` re-invokes each row through `runTool`, so a create
+ *   lands under whatever the real minter hands out — never the number
+ *   `buildPlanRows` paired it with. `[create_task (#42), update_task({id: 42})]`
+ *   therefore updated #42, which is either a stranger's row or no row at all.
+ *   The dependency graph the review card cascades over was already correct; only
+ *   the apply side was not reading it.
+ *
+ *  ★★ BOTH HALVES, ENTITY-SCOPED, EXACTLY AS `buildPlanRows` RESOLVES THEM: the
+ *   `input.id` half through `TARGET_MINTED_BY`, every LINK field through
+ *   `LINK_FIELDS` (including the `key`-bearing `dependencies[].taskId`, whose id
+ *   sits inside an OBJECT). A number-blind rewrite would be the wrong-edge
+ *   failure `TARGET_MINTED_BY` records, one layer later and now writing data:
+ *   two creates in one plan minting the same number is the COMMON case.
+ *
+ *  ★ CREATES SKIP THE `input.id` HALF, mirroring `buildPlanRows` — a create's
+ *   own id cannot refer to an earlier mint. No `create_*` tool is a key of
+ *   `TARGET_MINTED_BY` today, so the guard is currently moot; it is here so the
+ *   two sides cannot disagree if that table ever grows one.
+ *
+ *  ★★ IMMUTABLE, AND IT RETURNS THE SAME REFERENCE WHEN NOTHING CHANGED. The
+ *   passed call and its `input` are never mutated (a staged call is described,
+ *   rendered and replayed from ONE object); a call with no provisional id to
+ *   rewrite comes back BY REFERENCE, so a caller may compare with `===` to ask
+ *   "was anything remapped?". */
+export function remapStagedCall(
+  call: ProposedCall,
+  real: ReadonlyMap<string, ReadonlyMap<number, number>>,
+): ProposedCall {
+  let patch: Record<string, unknown> | undefined;
+
+  const targetSpace = isCreateTool(call.name) ? undefined : TARGET_MINTED_BY[call.name];
+  if (targetSpace !== undefined) {
+    const provisional = targetIdOf(call);
+    const mapped = provisional === undefined ? undefined : real.get(targetSpace)?.get(provisional);
+    if (mapped !== undefined) patch = { id: mapped };
+  }
+
+  const links = forEachLinkRef(call, (spec, id) => real.get(spec.mintedBy)?.get(id));
+  if (links !== undefined) patch = { ...(patch ?? {}), ...links };
+
+  if (patch === undefined) return call;
+  return { name: call.name, input: { ...call.input, ...patch } };
+}
+
+/** True when `call` still names a provisional id whose create has NOT resolved
+ *  to a real one. `pending` is create tool → the provisional ids still owed.
+ *
+ *  ★★★ IT IS THE APPLY-TIME COUNTERPART OF `cascadeDeselect`, AND A DIFFERENT
+ *   CASE. The cascade handles a row the user REFUSED at review time. This
+ *   handles a create that was selected and then did not produce a usable id —
+ *   it threw, or its result carried none. Replaying its dependents anyway means
+ *   writing to whatever row happens to hold the PROVISIONAL number: either
+ *   nothing (a loud not-found) or a live row that has nothing to do with the
+ *   plan (a silent write to a stranger). Refusing the dependent is the only
+ *   outcome that is neither.
+ *
+ *  ★ Same walk as `remapStagedCall`, so the set of values it inspects cannot
+ *   drift from the set that gets rewritten — a value the rewrite would have
+ *   touched is exactly a value that must block when unresolved. */
+export function namesPendingMint(
+  call: ProposedCall,
+  pending: ReadonlyMap<string, ReadonlySet<number>>,
+): boolean {
+  let hit = false;
+  const targetSpace = isCreateTool(call.name) ? undefined : TARGET_MINTED_BY[call.name];
+  if (targetSpace !== undefined) {
+    const provisional = targetIdOf(call);
+    if (provisional !== undefined && pending.get(targetSpace)?.has(provisional) === true) {
+      hit = true;
+    }
+  }
+  // The visitor always returns `undefined`, so this walk rewrites nothing — it
+  // is a probe over the same references the rewrite would touch.
+  forEachLinkRef(call, (spec, id) => {
+    if (pending.get(spec.mintedBy)?.has(id) === true) hit = true;
+    return undefined;
+  });
+  return hit;
 }

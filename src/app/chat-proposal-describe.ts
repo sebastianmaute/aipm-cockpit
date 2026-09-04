@@ -60,6 +60,21 @@ export interface DescribedRow {
    *  replay. Identical to `call` for anything `stampCall` has no target for. */
   readonly stamped: ProposedCall;
   readonly plan: EditPlan;
+  /** The PROVISIONAL id this row's create was paired with, carried through from
+   *  `PlanRow.mintedId`. Set only on a create row, and only when the caller
+   *  supplied plan rows.
+   *
+   *  ★★★ IT IS WHAT LETS THE APPLY PATH LEARN WHICH PROVISIONAL ID A CREATE
+   *   REPLACES, and it is here rather than in a second parallel array on purpose.
+   *   `applyProposal` takes the described rows and a selection; handing it the
+   *   plan rows as well would give it TWO positionally-aligned arrays to keep in
+   *   step, and a caller that filtered one of them would silently pair a create
+   *   with another row's provisional id — the wrong-edge failure
+   *   `TARGET_MINTED_BY` records, now writing data. One array, one identity.
+   *
+   *  ★ NOT the real id, and never will be: the real minter runs at apply time,
+   *   which is strictly after every reader of this field. */
+  readonly mintedId?: number;
   /** Index of the staged row that will MINT this call's target, when the target
    *  does not exist yet. Set only when the caller supplied plan rows.
    *
@@ -195,11 +210,16 @@ export function describeProposal(
     //  The only token a pending row can legitimately carry is one the model
     //  supplied, and that is preserved by the same branch.
     const pendingOn = planRows?.[index]?.dependsOn;
+    // Read from the SAME plan row as `pendingOn`, so a create's provisional id
+    // and its dependents' pending marks can never come from different plans.
+    // Carried onto EVERY branch below: a create with no descriptor
+    // (`create_document`) takes the empty-plan branch and still mints an id.
+    const mintedId = planRows?.[index]?.mintedId;
     const stamped: ProposedCall =
       pendingOn !== undefined || supplied != null ? call : stampCall(call, ws);
 
     if (pendingOn !== undefined) {
-      rows.push({ call, stamped, plan: emptyPlan(), pendingOn });
+      rows.push({ call, stamped, plan: emptyPlan(), mintedId, pendingOn });
       continue;
     }
 
@@ -207,7 +227,7 @@ export function describeProposal(
     const op = toolOp[call.name];
 
     if (entity === undefined || op === undefined) {
-      rows.push({ call, stamped, plan: emptyPlan() });
+      rows.push({ call, stamped, plan: emptyPlan(), mintedId });
       continue;
     }
 
@@ -232,7 +252,7 @@ export function describeProposal(
           detail: detailOf((call.input as { id?: unknown }).id),
         },
       ];
-      rows.push({ call, stamped, plan: { ...emptyPlan(), rejected } });
+      rows.push({ call, stamped, plan: { ...emptyPlan(), rejected }, mintedId });
       continue;
     }
 
@@ -243,7 +263,7 @@ export function describeProposal(
       item: seedItem(op, d, call.input, ws),
       ws,
     });
-    rows.push({ call, stamped, plan });
+    rows.push({ call, stamped, plan, mintedId });
   }
 
   return rows;
