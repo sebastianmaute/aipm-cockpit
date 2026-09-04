@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { isDailyCell, loadActualsCache, saveActualsCache, TIMELOG_ACTUALS_KEY } from "./timelog-actuals-store";
+import { isDailyCell, loadActualsCache, MAX_DAILY_ROLL_CHARS, saveActualsCache, TIMELOG_ACTUALS_KEY } from "./timelog-actuals-store";
 import { writeDeviceJson } from "./device-store";
 
 afterEach(() => window.localStorage.clear());
@@ -358,5 +358,160 @@ describe("ActualsCacheEntry.dailyWindow", () => {
     expect(e?.daily).toBeUndefined();
     expect(e?.dailyWindow).toBeUndefined();
     expect(e?.aggregates?.unattributed.hours).toBe(9);
+  });
+});
+
+// ★★★ The roll BOUND, and the window narrowing that has to ride with it.
+// `writeDeviceJson` swallows a quota error whole, so an over-budget roll used
+// to cost the ENTIRE save — `aggregates` included. Trimming fixes that, and
+// then immediately creates a worse hazard if the window is left alone:
+// `dailyWindow` is the coverage CLAIM `task-manager.tsx`'s insights reconcile
+// tests an insight's violating dates against, so a roll trimmed behind an
+// intact window resolves guardrail insights as a fabricated "improved".
+describe("ActualsCacheEntry.daily size bound", () => {
+  const DAY_MS = 86_400_000;
+  const isoDay = (i: number) => new Date(Date.UTC(2020, 0, 1) + i * DAY_MS).toISOString().slice(0, 10);
+  const CELL = { hours: 8, maxEntryHours: 8, entryCount: 1 };
+  /** `days` consecutive dated cells for one booker, oldest at index 0. */
+  const rollOf = (days: number): Record<string, typeof CELL> => {
+    const out: Record<string, typeof CELL> = {};
+    for (let i = 0; i < days; i += 1) out[`7|${isoDay(i)}`] = { ...CELL };
+    return out;
+  };
+  const datesOf = (roll: Record<string, unknown> | undefined) =>
+    Object.keys(roll ?? {}).map((k) => k.slice(k.indexOf("|") + 1)).sort();
+
+  // ★ 20k cells is ~1.2 MB against a 512 KiB budget — comfortably over on both
+  // the narrow-id and wide-id cell measurements, so the trim cannot fail to
+  // fire for a reason unrelated to what each test asserts.
+  const OVER_DAYS = 20_000;
+
+  // ★★ THE CONTROL, and it is load-bearing: without it a trim that fires
+  // unconditionally — or one that narrows a window it never needed to touch —
+  // passes every other test in this block.
+  it("leaves a roll within budget completely untouched, window included", () => {
+    const small = rollOf(100);
+    expect(JSON.stringify(small).length).toBeLessThanOrEqual(MAX_DAILY_ROLL_CHARS);
+    saveActualsCache("b1", {
+      fetchedAt: "2026-09-04T00:00:00.000Z",
+      aggregates: agg(3),
+      daily: small,
+      dailyWindow: { from: "2019-12-01", to: "2020-12-31" },
+    });
+    const e = loadActualsCache("b1");
+    expect(e?.daily).toEqual(small);
+    expect(e?.dailyWindow).toEqual({ from: "2019-12-01", to: "2020-12-31" });
+  });
+
+  it("trims an oversized roll to the budget, keeping the NEWEST cells", () => {
+    saveActualsCache("b2", {
+      fetchedAt: "2026-09-04T00:00:00.000Z",
+      daily: rollOf(OVER_DAYS),
+      dailyWindow: { from: isoDay(0), to: isoDay(OVER_DAYS - 1) },
+    });
+    const kept = loadActualsCache("b2")?.daily;
+    expect(JSON.stringify(kept).length).toBeLessThanOrEqual(MAX_DAILY_ROLL_CHARS);
+    const dates = datesOf(kept);
+    expect(dates.length).toBeGreaterThan(0);
+    expect(dates.length).toBeLessThan(OVER_DAYS);
+    // The newest day survives and the oldest does not — the direction of the
+    // trim, which is the whole difference between this and dropping recent data
+    // the guardrail rules are actually about.
+    expect(dates).toContain(isoDay(OVER_DAYS - 1));
+    expect(dates).not.toContain(isoDay(0));
+    // Survivors are a contiguous run at the NEW end, not an arbitrary subset.
+    expect(dates[dates.length - 1]).toBe(isoDay(OVER_DAYS - 1));
+    expect(dates).toEqual(datesOf(rollOf(OVER_DAYS)).slice(OVER_DAYS - dates.length));
+  });
+
+  // ★★★ THE ONE THAT STOPS THE FABRICATED-CLEAN REGRESSION. A trim that leaves
+  // `from` alone leaves the entry claiming coverage of days the roll no longer
+  // holds; the reconcile then reads "covered, no violation found" and resolves
+  // a real guardrail insight as `"improved"` into exported workspace data.
+  it("narrows dailyWindow.from to the earliest RETAINED date after a trim", () => {
+    const ORIGINAL_FROM = isoDay(0);
+    saveActualsCache("b3", {
+      fetchedAt: "2026-09-04T00:00:00.000Z",
+      daily: rollOf(OVER_DAYS),
+      dailyWindow: { from: ORIGINAL_FROM, to: isoDay(OVER_DAYS - 1) },
+    });
+    const e = loadActualsCache("b3");
+    const dates = datesOf(e?.daily);
+    expect(e?.dailyWindow?.from).toBe(dates[0]);
+    // Anti-vacuity: the assertion above is equally true of a window nobody
+    // narrowed if the trim happened to retain the oldest day.
+    expect(e?.dailyWindow?.from).not.toBe(ORIGINAL_FROM);
+  });
+
+  // The trim drops the OLD end, so the far end of the claim is still true and
+  // narrowing it would throw away coverage that was actually fetched.
+  it("leaves dailyWindow.to unchanged by a trim", () => {
+    saveActualsCache("b4", {
+      fetchedAt: "2026-09-04T00:00:00.000Z",
+      daily: rollOf(OVER_DAYS),
+      dailyWindow: { from: isoDay(0), to: "2099-12-31" },
+    });
+    expect(loadActualsCache("b4")?.dailyWindow?.to).toBe("2099-12-31");
+  });
+
+  // ★★ Reachable shape for "nothing survives": every key unusable. A cell is a
+  // fixed ~60 chars and `parseDailyKey` rejects a userId large enough to pad
+  // one past the budget, so a single oversized cell cannot be constructed.
+  // ★★ Losing the roll must never cost the rest of the entry — the aggregates
+  // are what the network round trip bought.
+  it("drops daily AND dailyWindow together when nothing survives, keeping the rest", () => {
+    const unusable: Record<string, typeof CELL> = {};
+    for (let i = 0; i < OVER_DAYS; i += 1) unusable[`no-pipe-${i}`] = { ...CELL };
+    expect(JSON.stringify(unusable).length).toBeGreaterThan(MAX_DAILY_ROLL_CHARS);
+    saveActualsCache("b5", {
+      fetchedAt: "2026-09-04T00:00:00.000Z",
+      aggregates: agg(11),
+      users: [{ userId: 7, firstName: "Ada", lastName: "Lovelace", initials: "AL", email: "ada@example.com", isActive: true }],
+      partial: true,
+      daily: unusable,
+      dailyWindow: { from: isoDay(0), to: isoDay(OVER_DAYS - 1) },
+    });
+    const e = loadActualsCache("b5");
+    expect(e?.daily).toBeUndefined();
+    expect(e?.dailyWindow).toBeUndefined();
+    expect(e?.aggregates?.unattributed.hours).toBe(11);
+    expect(e?.users?.[0].userId).toBe(7);
+    expect(e?.fetchedAt).toBe("2026-09-04T00:00:00.000Z");
+    expect(e?.partial).toBe(true);
+  });
+
+  // Back-compat: an entry written before `dailyWindow` existed still has to be
+  // bounded, and the narrowing branch must not assume a window is there.
+  it("trims an oversized roll on an entry with no dailyWindow without throwing", () => {
+    expect(() =>
+      saveActualsCache("b6", { fetchedAt: "2026-09-04T00:00:00.000Z", daily: rollOf(OVER_DAYS) }),
+    ).not.toThrow();
+    const e = loadActualsCache("b6");
+    expect(JSON.stringify(e?.daily).length).toBeLessThanOrEqual(MAX_DAILY_ROLL_CHARS);
+    expect(datesOf(e?.daily).length).toBeGreaterThan(0);
+    expect(e?.dailyWindow).toBeUndefined();
+  });
+
+  // ★★ A key with no `|` and a key whose date is not ISO-shaped are both
+  // unorderable, so neither can honestly be called old or new — and neither may
+  // become the new `from`. `"zzz"` is chosen because it sorts ABOVE every ISO
+  // date lexicographically and `"0000-00-00"` below every real one, so a trim
+  // that failed to exclude them would visibly move `from` to a non-date.
+  it("drops unparseable and non-ISO keys during a trim without letting them set from", () => {
+    const mixed: Record<string, typeof CELL> = { ...rollOf(OVER_DAYS), "no-pipe": { ...CELL }, "7|zzz": { ...CELL }, "7|0000-00-00x": { ...CELL } };
+    expect(() =>
+      saveActualsCache("b7", {
+        fetchedAt: "2026-09-04T00:00:00.000Z",
+        daily: mixed,
+        dailyWindow: { from: isoDay(0), to: isoDay(OVER_DAYS - 1) },
+      }),
+    ).not.toThrow();
+    const e = loadActualsCache("b7");
+    const keys = Object.keys(e?.daily ?? {});
+    expect(keys).not.toContain("no-pipe");
+    expect(keys).not.toContain("7|zzz");
+    expect(keys).not.toContain("7|0000-00-00x");
+    expect(e?.dailyWindow?.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(e?.dailyWindow?.from).toBe(datesOf(e?.daily)[0]);
   });
 });

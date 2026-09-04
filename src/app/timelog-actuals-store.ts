@@ -5,7 +5,7 @@
 import { readDeviceJson, writeDeviceJson } from "./device-store";
 import type { ActualsAggregate } from "./timelog-actuals";
 import type { TimelogProjectRef } from "./timelog-match";
-import { isDailyCell, type TimelogDailyRoll, type TimelogUser } from "./timelog-types";
+import { isDailyCell, parseDailyKey, type TimelogDailyRoll, type TimelogUser } from "./timelog-types";
 
 export const TIMELOG_ACTUALS_KEY = "aipm-cockpit:timelog-actuals";
 const MAX_PROJECTS = 50;
@@ -185,9 +185,126 @@ export function clearActualsCache(projectId: string): void {
   writeDeviceJson(TIMELOG_ACTUALS_KEY, map);
 }
 
+/** ★★★ The largest `daily` roll ONE cache entry may persist, measured as the
+ *  length of that roll's own `JSON.stringify`.
+ *  DERIVATION. A cell serialises as
+ *  `"7|2026-09-01":{"hours":8,"maxEntryHours":8,"entryCount":1}` — measured at
+ *  61.5 chars/cell for a narrow-id whole-hour roll and 71.0 for six-digit ids
+ *  with fractional hours, so ~70 is the conservative planning figure. 512 KiB
+ *  therefore holds roughly 7,400 cells: a 30-booker team across a full 250-day
+ *  year, or a 200-booker org-scope fetch across its most recent ~37 days.
+ *  UNBOUNDED, that same org-scope fetch across 250 days is 50,000 cells and
+ *  measured 3,073,001 chars — against a localStorage origin quota of roughly
+ *  5 MB shared with every other `aipm-cockpit:*` key. `writeDeviceJson`
+ *  swallows the resulting quota error, so the ENTIRE save is lost silently,
+ *  `aggregates` included: a network round trip discarded in order to persist a
+ *  field no aggregate reader touches. This cap keeps one roll near a tenth of
+ *  that quota.
+ *  ★★ `.length` counts UTF-16 code units, not bytes. For a real roll — ASCII
+ *  keys, numeric values — the two are equal, and browsers bill localStorage in
+ *  UTF-16 units anyway, so this is if anything the more honest measure.
+ *  ★★★ WHAT IT DOES NOT PROTECT AGAINST, stated plainly: this is a PER-ENTRY
+ *  bound, so 50 entries (`MAX_PROJECTS`) each sitting just under it is ~25 MB
+ *  and blows the origin quota exactly as before. Only projects actually
+ *  fetched carry a roll at all, so that is a theoretical rather than an
+ *  observed shape — but it is a real hole, and the map-level bound remains
+ *  `MAX_PROJECTS` eviction ALONE, which counts entries and never measures them.
+ *  ★ Per-entry was chosen over a whole-map budget because a whole-map trim
+ *  would have to shrink some OTHER project's roll during a save for THIS one,
+ *  and every trim rewrites a `dailyWindow` — a coverage CLAIM the insights
+ *  reconcile trusts. A save for project A silently narrowing project B's claim
+ *  is a worse failure than the quota headroom it would buy. `MAX_PROJECTS`
+ *  eviction is the safe map-level lever precisely because it drops entries
+ *  WHOLE: an absent entry reads as "unknown", which FREEZES insights. */
+export const MAX_DAILY_ROLL_CHARS = 512 * 1024;
+
+/** Bound one entry's `daily` roll to `MAX_DAILY_ROLL_CHARS` by dropping the
+ *  OLDEST dates first, and narrow `dailyWindow.from` to whatever survived.
+ *  ★★★ THE NARROWING IS THE POINT, NOT A TIDY-UP. `dailyWindow` is a CLAIM —
+ *  "the roll holds data for these dates" — and `task-manager.tsx`'s insights
+ *  reconcile clears a guardrail insight only when that window COVERS the
+ *  insight's `[firstViolationDate, lastViolationDate]`. Trim days out of the
+ *  roll while leaving the window intact and the claim goes false in the one
+ *  direction that cannot be walked back: the insight reads as covered, the
+ *  trimmed roll yields no violation, and it resolves as a fabricated
+ *  `"improved"` written into `Workspace.insights` — shared, exported, and read
+ *  on every AI turn. So the trim and the narrowing live in ONE function on the
+ *  write path all four savers funnel through, and cannot be written out of
+ *  step.
+ *  ★★ Nothing surviving drops `daily` AND `dailyWindow` TOGETHER. A missing
+ *  window makes the reconcile FREEZE (`rollWindow === undefined` returns
+ *  false), which is the recoverable direction and already the back-compat rule.
+ *  Everything else in the entry is written regardless: losing the roll must
+ *  never cost the `aggregates` beside it.
+ *  ★★ `from` is RAISED, never lowered. A roll carrying a day outside its own
+ *  declared window would otherwise WIDEN the claim — fabricating coverage, the
+ *  same harm one level down — so the write is gated on `earliest > from`.
+ *  ★ A roll within budget is returned BY IDENTITY: the common path allocates
+ *  nothing, and an unparseable key survives untouched because validating keys
+ *  is deliberately not this store's job (`withCheckedDaily` says why). During a
+ *  TRIM such a key is dropped instead — it cannot be ordered against the
+ *  others, so there is no honest way to call it old or new, and it must not
+ *  become the new `from`. The same goes for a key `parseDailyKey` accepts whose
+ *  date is not ISO-shaped: `ISO_DATE_RE` is this file's own WINDOW rule, not a
+ *  second key rule, and gating retention and `from` on one set keeps them from
+ *  drifting apart. */
+function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
+  const d: unknown = e.daily;
+  // Anything that is not a plain object is left for the read path to strip.
+  if (typeof d !== "object" || d === null || Array.isArray(d)) return e;
+  const roll = d as TimelogDailyRoll;
+  if (JSON.stringify(roll).length <= MAX_DAILY_ROLL_CHARS) return e;
+
+  // ★ Cost of one `"key":cell` pair PLUS the comma joining it to the next, so
+  // the running total over-counts by exactly one comma — conservative, which
+  // is the side to err on when the penalty is a silently swallowed write.
+  const dated: { key: string; date: string; cost: number }[] = [];
+  for (const [key, cell] of Object.entries(roll)) {
+    const parsed = parseDailyKey(key);
+    if (!parsed || !ISO_DATE_RE.test(parsed.date)) continue;
+    dated.push({
+      key,
+      date: parsed.date,
+      cost: JSON.stringify(key).length + 1 + JSON.stringify(cell).length + 1,
+    });
+  }
+  // Oldest first. The key breaks a tie so two users on one date order stably.
+  dated.sort((a, b) => (a.date === b.date ? a.key.localeCompare(b.key) : a.date.localeCompare(b.date)));
+
+  // Walk NEWEST-first, keeping while the total fits, and stop at the first that
+  // does not — everything before it is older still, so the survivors are a
+  // contiguous newest-end run.
+  let used = 2; // the enclosing `{}`
+  let firstKept = dated.length;
+  for (let i = dated.length - 1; i >= 0; i -= 1) {
+    const next = used + dated[i].cost;
+    if (next > MAX_DAILY_ROLL_CHARS) break;
+    used = next;
+    firstKept = i;
+  }
+
+  const copy = { ...e };
+  if (firstKept >= dated.length) {
+    delete copy.daily;
+    delete copy.dailyWindow;
+    return copy;
+  }
+  const kept: TimelogDailyRoll = {};
+  for (let i = firstKept; i < dated.length; i += 1) kept[dated[i].key] = roll[dated[i].key];
+  copy.daily = kept;
+  const window = copy.dailyWindow;
+  if (window !== undefined) {
+    const earliest = dated[firstKept].date;
+    // Past the far end there is no honest window left to state — freeze.
+    if (earliest > window.to) delete copy.dailyWindow;
+    else if (earliest > window.from) copy.dailyWindow = { from: earliest, to: window.to };
+  }
+  return copy;
+}
+
 export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): void {
   const map = readMap();
-  map[projectId] = entry;
+  map[projectId] = withBoundedDaily(entry);
   const entries = Object.entries(map);
   if (entries.length > MAX_PROJECTS) {
     entries.sort((a, b) => b[1].fetchedAt.localeCompare(a[1].fetchedAt));
