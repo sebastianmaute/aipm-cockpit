@@ -165,6 +165,31 @@ ids already allocated. On Discard, nothing is written.
    instantly, with undo capture (B1) **if it is an update; a single create applies instantly and
    cannot be undone**, per the engine constraint recorded under Goal. The gate is what covers
    creates: two or more writes stage, so the only un-undoable create is a lone one.
+   ★★ **The gate is WIDER than this design first specified, decided during implementation against
+   the live `TOOL_DEFS` (45 tools — 40 `case` labels in `chat-tools.ts` plus the 5-name
+   `DOCUMENT_TOOLS` set it routes to).** Three additions beyond the six inline entities:
+   - **`create_document` / `update_document` / `delete_document`**, with `delete_document`
+     DESTRUCTIVE. The single-write exemption's stated justification is undo, and document chat
+     writes have none — `use-document-tools.ts` says so at three sites — so the exemption is
+     unsound there. Version history does cover `update_document`, which is the honest counter,
+     but it does not cover discoverability: recovery lives on the Documents tombstone list, a
+     different surface with nothing on the chat panel pointing at it. Excluding them would also
+     make `delete_document` the only delete in the app that applies unreviewed.
+   - **`send_inquiry`**, which reads like "send an email" and is really a persisted
+     `Workspace.tasks` write — `use-chat-dispatcher.ts` builds `next = tasksRef.current.map(...)`
+     incrementing `inquiriesSent` and calls `setTasks(next)`. It is deliberately NOT an undo
+     capture site, and that is correct rather than a gap: the human path (`handleSendInquiries` in
+     `use-bulk-operations.ts`) contains zero capture calls either, so inquiries are outside the
+     stack for everybody. It stages because it persists AND fires an external side effect
+     (`window.open` on a `mailto:`) that no undo could retract.
+   ★ `set_language`, `set_filters` and `update_settings` stay excluded, verified rather than
+   assumed: they write through `args.setSettings` / `applyFilters` only, touching no workspace
+   setter and no `Workspace` slice.
+   ★★ **A partition test pins this.** `chat-proposal.test.ts` asserts the live `TOOL_DEFS` equals
+   three hand-written literals (destructive / non-destructive write / non-write, 8 + 16 + 21 = 45),
+   deliberately NOT derived from `chat-proposal.ts` — deriving them would make every row
+   tautological. A tool added later and left unclassified fails there BY NAME, instead of silently
+   never counting toward the gate.
 2. **Tool result.** A staged call returns `{ staged: true, id, ... }`. The system prompt states that
    staged writes are not yet applied and must not be re-issued. This replaces the unenforced
    "Confirm with the user first" prose, which is removed from the seven tool descriptions.
