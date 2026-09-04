@@ -578,7 +578,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--open) | `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model | found 2026-09-03 in the AI write-concurrency slice | S–M | open |
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
 | [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--open) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | open |
-| [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--closed-2026-09-04) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | closed 2026-09-04 |
+| [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--reopened-2026-09-04) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | reopened 2026-09-04 |
 | [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--closed-2026-09-04) | ~~RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish from the tree~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (both forms decoded, capped and routed through the existing filename sanitizer) |
 | [§354](#354-negative-rtf-un-values-are-dropped-losing-every-code-point-above-u7fff--closed-2026-09-04) | ~~Negative RTF `\uN` values are dropped, losing every code point above U+7FFF~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (a lone unpaired surrogate is CARRIED, not repaired — the entry records what that costs downstream) |
 | [§355](#355-a-pt_string8-msg-yields-an-entirely-empty-mail-with-no-diagnostic--closed-2026-09-04) | ~~A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (`…001E` siblings decoded through the shared charset ladder, PT_UNICODE still winning; the diagnostic fires whenever no known tag matched at all) |
@@ -27232,15 +27232,23 @@ rediscover.
 - Split the replay into create-then-update phases with the updates' refusal rolling back the
   creates, which is the only option that actually preserves retryability and is much the largest.
 
-## 352. The `"encrypted"` attachment error variant has no producer — CLOSED 2026-09-04
+## 352. The `"encrypted"` attachment error variant has no producer — REOPENED 2026-09-04
 
-**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Both producers were written and the
-before/after was **measured** against the real modules — not reasoned — first with a node probe and
-then pinned by 12 new cases. Run
-`npx vitest run src/app/attachment-ingest.test.ts src/app/office-extract.test.ts src/app/chat-panel.test.tsx`
-(exit 0). Read the two detectors with
+**Status:** REOPENED 2026-09-04, the same day it was first marked done. A cold review of the closing
+commit found three defects in it (listed at the end of this entry); all are fixed on the branch, but
+the `.msg` half still has no real file behind it, so this stays open. Both detectors and the wizard
+wiring are verified by
+`npx vitest run src/app/attachment-ingest.test.ts src/app/office-extract.test.ts src/app/chat-panel.test.tsx src/app/step0-import-panel.test.tsx`
+(exit 0). Read them with
 `grep -n "function looksLikeEncryptedOfficeFile" -B 30 src/app/office-extract.ts` and
 `grep -n "function isRightsProtectedMail" -B 35 src/app/mail-extract.ts`.
+
+★★ The first closing note is kept because its errors are the point. It said the before/after was
+**measured** against the real modules — true — and that the result was "pinned by 12 new cases". The
+count was **15**, and the number sat directly beside the command that refutes it:
+`git show 9e714eeb -- src/app/attachment-ingest.test.ts src/app/office-extract.test.ts src/app/chat-panel.test.tsx | grep -c "^+.*\bit("`.
+More importantly, three of those fifteen cases could not have failed for the defects the review then
+found, so the count was not merely wrong but was measuring the wrong thing.
 
 The original finding, kept because it is the record of what was wrong: the design spec made
 `chatAttachmentEncrypted` a named requirement — RMS-protected mail and password-protected workbooks
@@ -27296,8 +27304,14 @@ saved from a tenant that applies rights protection carries `PidNameContentClass`
 the saving user holds rights, leaving the content-class property behind as residue. ★★★ So a
 detector keyed on that content class — the first thing an implementer reaches for, because it is
 what the spec names — would have **refused a readable message and told the reader it was
-protected.** Requiring BOTH the `message.rpmsg` attachment AND an empty body is what avoids that,
-and this file is the evidence. ★★ Consequence for anyone trying to close the `.msg` half: a
+protected.** The shipped detector correctly does not key on it. ★★★ **BUT THIS FILE IS NOT EVIDENCE
+FOR THE EMPTY-BODY CONJUNCT, and an earlier revision of this paragraph said it was** — that
+"requiring BOTH the `message.rpmsg` attachment AND an empty body is what avoids that, and this file
+is the evidence." Trace it through the actual predicate: its only attachment is `smime.p7m`, so the
+attachment test is false and the message is rejected THERE, before the body is ever consulted. The
+conjunct contributes nothing on this file. What the measurement establishes is a rejected
+alternative, not the shipped design — whose own justification still rests on a case no real file has
+exercised. Do not cite it the other way. ★★ Consequence for anyone trying to close the `.msg` half: a
 locally-saved `.msg` from your own mailbox may be incapable of exercising it, because the wrapper is
 gone by the time the file exists. Reproduce the shape with
 `__substg1.0_8000001F` (named-property range, so the mapping is per-message) against
@@ -27311,7 +27325,38 @@ render, which is exactly what made the old behaviour read as a successful ingest
 
 ★ Detection is format-agnostic (it tests a `ParsedMail`, so `.eml` gets it too) but the office half
 runs ONLY on `kind === "office"`. Encrypted PDFs are deliberately out of scope: a PDF reaches the
-model as a base64 document block with no extraction step, so nothing fails.
+model as a base64 document block with no extraction step, so nothing fails **at ingest** — an
+encrypted one would surface at the Anthropic API instead, which is a different error surface rather
+than an absent one, so "nothing fails" is stronger than what was established.
+
+### What the review found, 2026-09-04 — why this reopened
+
+A cold review of the closing commit `9e714eeb` found three defects. All are fixed on the branch; they
+are recorded because each sat behind a comment asserting the opposite, and because the mutant that
+would have caught the first one survived all fifteen of the cases this entry cited as its proof.
+
+1. **False positive that destroyed readable content.** The attachment test was `some`, not `every`, so
+   a body-less mail carrying an `.rpmsg` ALONGSIDE readable attachments was refused whole and their
+   content discarded — forwarding a protected message together with an agenda, writing no cover text,
+   lost the agenda. That is the outcome the docstring said the predicate existed to avoid; the
+   empty-body conjunct does not prevent it, because it protects body text and nothing else. The
+   `some` → `every` mutant is indistinguishable across every fixture here, since all fifteen carry
+   exactly one attachment.
+2. **False negative covering the real-world shape.** "No readable body" was `content.trim() === ""`,
+   but `extractHtmlMarkdown` never returns an empty string — it substitutes a placeholder — and both
+   mail paths route through it. A wrapper whose body is `<html><body></body></html>`, which is what a
+   real Outlook-originated wrapper looks like, arrived with a non-empty body and short-circuited the
+   detector entirely. Every rpmsg fixture omitted the body part, so none had `body.kind === "html"`.
+3. **The verdict never reached the import wizard.** Both `step0-import-panel.tsx` call sites collapsed
+   every fatal variant into `wizardImportErrorSource`, so the wizard's behaviour was byte-identical to
+   before this work — and the wizard is where this entry's own complaint lives ("the user is told
+   'Could not read plan.docx' and never told to remove the password"). The exhaustiveness annotation
+   at the throw site NAMES `"encrypted"`, which is why nothing flagged it: it guards against a new
+   variant joining that branch, and says nothing about how an existing one is rendered.
+
+★★ **TO CLOSE THIS, THE `.msg` HALF STILL NEEDS A REAL FILE**, and the paragraph above explains why a
+locally-saved one may be incapable of providing it. The `.eml` half and both office halves are
+measured against real files and against the shapes in 1-3.
 
 ## 353. RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish — CLOSED 2026-09-04
 

@@ -158,9 +158,19 @@ describe("cfbf guards", () => {
   //  anything to object to and only `shift !== 9 && shift !== 12` can reject
   //  it. Verified RED 2026-09-04 by deleting that line: the file reads back one
   //  5,000-byte stream.
-  //  ★ The 512-byte control is the anti-vacuity floor: without it, a fixture
-  //  that stopped being readable for some unrelated reason would restore
-  //  exactly the vacuity this replaced, and every gate would stay green.
+  //  ★★★ THE 512-BYTE CONTROL IS NOT AN ANTI-VACUITY FLOOR, and this comment
+  //  claimed it was — that it would catch a fixture which "stopped being
+  //  readable for some unrelated reason" and so prevent §356's vacuity
+  //  returning. Measured false: the control builds the 512-byte layout, and
+  //  every drift that matters lives in the 1024-byte one it never exercises.
+  //  Two drifts were tried — pinning the writer's offset arithmetic back to a
+  //  literal 512, and zeroing the signature on the illegal branch alone —
+  //  and under each the shift-check mutant survived with BOTH assertions
+  //  green, the fixture again being rejected by a downstream bound instead of
+  //  by the check this test names. What the control actually proves is that
+  //  the writer's LEGAL path still works, which is worth keeping and is all
+  //  it is. A real floor would have to assert something about the 1024-byte
+  //  fixture itself.
   it("rejects an illegal sector shift", () => {
     const items = [{ name: "A", data: enc("x") }];
     expect(readCfbfStreams(buildCfbf(items)).size).toBe(1);

@@ -747,12 +747,19 @@ describe("parseMimeMessage line endings", () => {
   // failed). Reading real mail was judged worth the narrower guard.
   //
   // ★★ MEASURED against the true pre-widening anchor, not reasoned: 7 failed
-  // / 49 passed of this file's 56. Six of the seven are the LF-only family
-  // (the five splitting tests, plus the LF-only forgery test — which goes red
-  // on its own non-vacuity assertion, NOT on forgery); the seventh is this
-  // test. The CRLF and the mixed-ending forgery tests both place their marker
-  // MID-LINE, so they stay GREEN under either anchor and neither covers this
-  // shape. If you are here because you are tightening the anchor back to
+  // / 49 passed at the time of writing. The CRLF and the mixed-ending forgery
+  // tests both place their marker MID-LINE, so they stay GREEN under either
+  // anchor and neither covers this shape.
+  //
+  // ★★★ DO NOT TRUST A BREAKDOWN OF THAT 7 THAT IS NOT RE-MEASURED. The first
+  // version of this comment said "the five splitting tests plus the LF-only
+  // forgery test" — and only THREE of the five go red, because the pure-CRLF
+  // control and the LF-headers/CRLF-body case both keep their delimiters in
+  // the CRLF half. Two OTHER tests make up the difference (the single-dash
+  // case and the extending-inner-boundary case), which that wording never
+  // named. The errors cancelled exactly, so the total stayed right while the
+  // breakdown a reader would navigate by was wrong in both directions — the
+  // total is the one figure a wrong breakdown does not disturb. If you are here because you are tightening the anchor back to
   // CRLF-only, this test going red is the trade being reversed, not a
   // regression you introduced — read the header comment in mime-parse.ts,
   // then decide deliberately.
