@@ -119,15 +119,104 @@ describe("evaluateTimelogPolicy", () => {
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
     });
+    expect(res.evaluated).toEqual(["timelogCapPerDay"]);
     expect(res.violations).toEqual([]);
   });
 
-  it("aggregates per user and reports the worst value and the day count", () => {
+  // ★★★ THE SAME REQUIREMENT, FOR THE OTHER THREE RULES. The ★★★ above argues
+  // it for capPerEntry and it is symmetric: against a cell booking
+  // `hours === maxEntryHours` the two fields are INTERCHANGEABLE, so a
+  // one-token swap in any rule reading `cell.hours` leaves every such fixture
+  // green and capPerDay silently becomes a second per-entry rule. Each of the
+  // next three cells therefore breaches on the day's SUM while its largest
+  // single entry stays innocent — the only shape that can tell the two apart.
+  // ★★ capPerDay and workingHours read the field TWICE (the comparison, then
+  // the reported `worstHours`), so those two assert the whole violation object;
+  // asserting only that a violation exists would leave the reported half
+  // unpinned. timelogNonWorkingDay reads it once — its condition is on the
+  // DATE, not on hours — so for that rule `worstHours` is the entire claim.
+  it("flags the daily cap on the day's total, not on its largest single entry", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, TUE)]: [9, 5, 2] }),
+      policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+    });
+    expect(res.evaluated).toEqual(["timelogCapPerDay"]);
+    expect(res.violations).toEqual([
+      { rule: "timelogCapPerDay", timelogUserId: 7, resourceId: null, count: 1, worstHours: 9, threshold: 8, firstViolationDate: TUE, lastViolationDate: TUE },
+    ]);
+  });
+
+  it("reports the day's total on a non-working day, not its largest single entry", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, TUE)]: [3, 2, 2] }),
+      policy: { timelogNonWorkingDay: { enabled: true } },
+      holidaySet: new Set([TUE]), holidaysReady: true, userLinks: [], shifts: [],
+    });
+    expect(res.evaluated).toEqual(["timelogNonWorkingDay"]);
+    expect(res.violations).toEqual([
+      { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: null, count: 1, worstHours: 3, threshold: 0, firstViolationDate: TUE, lastViolationDate: TUE },
+    ]);
+  });
+
+  // The shift's TUESDAY slot carries 6 (see the note on the shift fixture
+  // below), so 12h breaches a defined day the 5h largest entry clears.
+  it("compares the day's total against the defined hours, not its largest single entry", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, TUE)]: [12, 5, 3] }),
+      policy: { timelogWorkingHours: { enabled: true } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      userLinks: [link(7, 40)],
+      shifts: [shift(40, [0, 8, 6, 8, 8, 8, 0])],
+    });
+    expect(res.evaluated).toEqual(["timelogWorkingHours"]);
+    expect(res.violations).toEqual([
+      { rule: "timelogWorkingHours", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 12, threshold: 6, firstViolationDate: TUE, lastViolationDate: TUE },
+    ]);
+  });
+
+  // ★★★ AT THE THRESHOLD, NOT OVER IT. `>` → `>=` is invisible unless a cell
+  // sits exactly ON the number, and that mutant's blast radius is the commonest
+  // real booking in the product: everyone who logs exactly their contracted
+  // day. capPerDay has such a case above; these are the other two.
+  // ★★ ANTI-VACUITY: an empty `violations` proves nothing alone — a fixture
+  // that reached no code at all produces the same result. The `evaluated`
+  // assertion is what proves the rule RAN and chose not to flag, which is why
+  // every at-threshold case here (and the capPerDay one above) carries both.
+  it("does not flag an entry exactly at the per-entry cap", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, TUE)]: [7, 6, 2] }),
+      policy: { timelogCapPerEntry: { enabled: true, threshold: 6 } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+    });
+    expect(res.evaluated).toEqual(["timelogCapPerEntry"]);
+    expect(res.violations).toEqual([]);
+  });
+
+  // No shift, so the day resolves through DEFAULT_WEEK_HOURS — a contracted 8h
+  // Tuesday booked to exactly 8h, which is what the `>=` mutant would flag.
+  it("does not flag a day booked exactly to the defined working hours", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, TUE)]: [8, 8, 1] }),
+      policy: { timelogWorkingHours: { enabled: true } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true,
+      userLinks: [link(7, 40)], shifts: [],
+    });
+    expect(res.evaluated).toEqual(["timelogWorkingHours"]);
+    expect(res.violations).toEqual([]);
+  });
+
+  // ★★ USER 9 IS INSERTED FIRST, and that ordering is what makes `drain`'s sort
+  // earn its place. `dailyKey` yields `"9|2026-09-01"` — a string key that is
+  // not integer-like — so `Object.entries` preserves INSERTION order rather
+  // than sorting numerically. Seeded 7-first, the expected order below is
+  // reached whether or not anything sorts, and deleting the sort passes.
+  it("aggregates per user, ordered by TimeLog id, reporting the worst value and the day count", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({
+        [dailyKey(9, TUE)]: [9, 9, 1],
         [dailyKey(7, TUE)]: [10, 10, 1],
         [dailyKey(7, WED)]: [12, 12, 1],
-        [dailyKey(9, TUE)]: [9, 9, 1],
       }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
