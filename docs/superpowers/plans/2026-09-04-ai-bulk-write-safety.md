@@ -12,6 +12,62 @@
 
 ---
 
+## ★★★ CORRECTIONS — measured during execution, 2026-09-04
+
+Five things in this plan were wrong. Every one was found by an implementer running a command, none
+by re-reading. Read these before any remaining task; where a task body below contradicts this
+section, **this section wins.**
+
+1. **`ChatDispatcherArgs` is in `src/app/chat-dispatcher-types.ts:13`**, not in
+   `use-chat-dispatcher.ts` — that file only re-exports the type. Tasks below name the wrong file.
+
+2. **`makeDispatcherArgs({ initialTasks })` does not and cannot exist.** `useChatDispatcher` takes
+   no task list; it reads `tasks`/`setTasks` from `useWorkspace()`. Tests seed through the render
+   wrapper: `renderHook(..., { wrapper: dispatcherWrapper(seedTasks) })`. `TestProviders` seeds ONCE
+   on mount and ignores later `tasks` prop changes, so a rerender cannot reseed. Every test body
+   below using `initialTasks` needs this shape instead.
+
+3. **Read `undoRef.current?.captureComposite(...)`, never `args.undo?.`.** The dispatcher is a
+   `useMemo` keyed on `[args.isReadOnly, documentTools, registerTools]`, so a directly-read
+   `args.undo` captures the object from whichever render last recomputed the memo and goes stale
+   invisibly — no single-render test can see it. Task 2 added the ref. Do NOT hoist `args.undo` to a
+   local const the way the file does for `logActivityAs`; that hoist exists only to satisfy
+   `exhaustive-deps`, refs are not deps, and imitating it reintroduces the staleness. Do NOT add
+   `args.undo` to the memo's dep array either — `useUndoStack` returns a fresh identity per render,
+   so that would rebuild the dispatcher every render and defeat the ref.
+
+4. **★★★ CREATES ARE NOT CAPTURED. The engine cannot reverse a create, and capturing one is worse
+   than not.** `UndoOp` is `"delete" | "edit"` (`undo-stack.ts:12`); the undo direction never
+   removes. A create captured as a `removed` image finds its row still live at undo time, so
+   `applyUndoRestoreWithRemap` takes the id-reuse branch (`:137-146`), mints `max+1` and splices in
+   a **second copy**. Measured: undoing an AI create of a third row yields four rows.
+   - **Task 3's capture was removed.** Its test now pins the ABSENCE with the reason.
+   - **Task 5's table must drop every `*.created` row** — `raid.created`, `change.created`,
+     `milestone.created`, `stakeholder.created`, `resource.created`. Only updates and deletes are
+     captured. A table row for a create is a test for a defect.
+   - **Task 12 must PARTITION the approved plan at capture time.** Build images from the delete and
+     edit rows ONLY, with `fromArray` = the pre-op array, and exclude created rows from the image
+     list entirely. Set `primaryCount` from the reversible rows alone (or label it "N of M") so the
+     entry never claims rows it cannot reverse.
+   - Creates are protected by the **gate**, not by undo: any turn writing more than one row stages,
+     so the only un-undoable create is a lone one — which matches every human create in this app.
+
+5. **`fromArray` differs by op, and a fragment gets only one.** `buildBeforeImages(removed, edited,
+   fromArray)` resolves every image against a single array via
+   `Math.max(0, fromArray.findIndex(...))`. For a **delete**, `fromArray` must be the **pre-op**
+   array — that is where the row still exists. (For a create it would have to be post-op, which is
+   half of why creates cannot share a fragment with deletes: measured, a `{delete B, create NEW}`
+   fragment restored B at index 0 instead of 1, and published a bogus id-remap that any cascade
+   declaring `fkRemapField` would follow onto the duplicate.) Deletes captured alone against the
+   pre-op array were measured correct — row returns at its own index, empty remap.
+
+★ Two process notes carried forward: `git commit --only` on a path matching no change **silently
+commits nothing for that path and does not error** — check `git show --stat` against intent. And the
+shared test fixture is `src/test/chat-dispatcher-fixture.tsx` (`.tsx`, not `.ts`, and `src/test/`
+not `src/app/test/` — the latter is not in `vitest.config.ts` `coverage.exclude`).
+
+---
+
 ## Read this before Task 1
 
 **Line endings.** Every `src/app/*.ts(x)` file is CRLF. The `Write` tool emits LF and `Edit`
