@@ -9,6 +9,13 @@ export const INSIGHT_TYPES = [
   "stalledWork",
   "budgetVariance",
   "raidAging",
+  // TimeLog guardrails. These four literals are ALSO `TimelogRuleId` — kept
+  // deliberately identical so no rule-to-type lookup table exists to drift.
+  // `timelog-policy.test.ts` pins the identity with a type-level assertion.
+  "timelogCapPerEntry",
+  "timelogCapPerDay",
+  "timelogNonWorkingDay",
+  "timelogWorkingHours",
 ] as const;
 export type InsightType = (typeof INSIGHT_TYPES)[number];
 

@@ -12,6 +12,10 @@ const TITLE_KEY: Record<InsightType, TranslationKey> = {
   stalledWork: "insightStalledWorkTitle",
   budgetVariance: "insightBudgetVarianceTitle",
   raidAging: "insightRaidAgingTitle",
+  timelogCapPerEntry: "insightTimelogCapPerEntryTitle",
+  timelogCapPerDay: "insightTimelogCapPerDayTitle",
+  timelogNonWorkingDay: "insightTimelogNonWorkingDayTitle",
+  timelogWorkingHours: "insightTimelogWorkingHoursTitle",
 };
 
 // Read a `data` field with a graceful fallback (a detector may omit a field).
@@ -58,5 +62,13 @@ export function insightDetail(insight: Insight, lang: Lang): string {
       return t(lang, "insightBudgetVarianceDetail", str(d, "name"), num(d, "variancePct"), num(d, "buckets"));
     case "raidAging":
       return t(lang, "insightRaidAgingDetail", str(d, "name"), num(d, "daysSinceUpdate"), str(d, "targetDate"));
+    case "timelogCapPerEntry":
+      return t(lang, "insightTimelogCapPerEntryDetail", str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
+    case "timelogCapPerDay":
+      return t(lang, "insightTimelogCapPerDayDetail", str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
+    case "timelogNonWorkingDay":
+      return t(lang, "insightTimelogNonWorkingDayDetail", str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
+    case "timelogWorkingHours":
+      return t(lang, "insightTimelogWorkingHoursDetail", str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
   }
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { evaluateTimelogPolicy } from "./timelog-policy";
-import { dailyKey, type TimelogDailyRoll, type TimelogPolicy } from "./timelog-types";
+import { dailyKey, TIMELOG_RULE_IDS, type TimelogDailyRoll, type TimelogPolicy, type TimelogRuleId } from "./timelog-types";
+import { INSIGHT_TYPES, type InsightType } from "./insights/insight";
 import type { Shift, WeekHours } from "./types";
 import type { TimelogUserLink } from "./timelog-types";
 
@@ -196,5 +197,22 @@ describe("evaluateTimelogPolicy", () => {
     expect(res.violations).toEqual([
       { rule: "timelogWorkingHours", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 12, threshold: 6 },
     ]);
+  });
+});
+
+describe("rule ids are insight types", () => {
+  // ★★★ THE ONLY THING STOPPING THE TWO SETS FROM DRIFTING. There is no
+  // rule-to-type lookup table by design; this assignment is the contract.
+  // Renaming either side turns tsc red.
+  it("every rule id is assignable to InsightType", () => {
+    const ids: readonly InsightType[] = TIMELOG_RULE_IDS;
+    expect(ids).toHaveLength(4);
+  });
+
+  it("every rule id survives insight sanitisation", () => {
+    for (const id of TIMELOG_RULE_IDS) {
+      const rule: TimelogRuleId = id;
+      expect(INSIGHT_TYPES).toContain(rule);
+    }
   });
 });

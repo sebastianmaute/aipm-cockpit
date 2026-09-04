@@ -97,7 +97,11 @@ describe("computeOutcome", () => {
 describe("METRIC_FIELD guard", () => {
   it("covers every insight type exactly once", () => {
     expect(Object.keys(METRIC_FIELD).sort()).toEqual(
-      ["budgetVariance", "milestoneSlip", "overdueTrend", "raidAging", "stalledWork"],
+      // Deliberately a hand-written list, not `[...INSIGHT_TYPES].sort()` — a
+      // derived expectation would pass against ANY map and pin nothing. Adding
+      // an insight type is meant to land here and force the metric decision.
+      ["budgetVariance", "milestoneSlip", "overdueTrend", "raidAging", "stalledWork",
+        "timelogCapPerDay", "timelogCapPerEntry", "timelogNonWorkingDay", "timelogWorkingHours"],
     );
   });
 

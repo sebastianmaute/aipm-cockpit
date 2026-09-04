@@ -12,6 +12,13 @@ export const METRIC_FIELD: Record<InsightType, string> = {
   stalledWork: "count",
   budgetVariance: "variancePct",
   raidAging: "daysSinceUpdate",
+  // All four guardrails count VIOLATING DAYS, so `count` is the comparable
+  // number — not `worstHours`, which is a peak and can rise while the number of
+  // breaching days falls. `threshold` is a setting, never a measurement.
+  timelogCapPerEntry: "count",
+  timelogCapPerDay: "count",
+  timelogNonWorkingDay: "count",
+  timelogWorkingHours: "count",
 };
 
 /** ★ An EMPTY or whitespace-only string must NOT coerce to 0 — `Number("")` is 0,
