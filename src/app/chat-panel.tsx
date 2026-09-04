@@ -27,20 +27,15 @@ import { useConfirm } from "./confirm-dialog";
 import { isPassphraseLocked } from "./secrets-store";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
-import {
-  type AttachmentBlock,
-  type AttachmentError,
-  classifyAttachment,
-  checkAttachmentSize,
-  buildAttachmentBlock,
-} from "./chat-attachments";
+import { type AttachmentBlock, ATTACHMENT_ACCEPT } from "./chat-attachments";
+import { flattenIngestBlocks, ingestFile } from "./attachment-ingest";
+import { buildAttachmentSummary } from "./chat-attachment-summary";
 import {
   buildSystemPrompt,
   callClaude,
   closeDanglingToolUses,
   CONTINUE_NUDGE,
   INTERRUPTED_TOOL_RESULT,
-  readAttachmentData,
   stringifyResult,
   type TextBlock,
   type ContentBlock,
@@ -54,8 +49,15 @@ import type { TursoConfig } from "./turso-config";
 import { useChatThreads } from "./use-chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
 
-/** A staged upload: the Anthropic content block plus display metadata. */
-type StagedAttachment = { id: string; name: string; block: AttachmentBlock };
+// A staged upload: the Anthropic content blocks plus display metadata.
+// summary is the non-error disclosure of what the tree under this file
+// contained (null for a flat file with nothing to disclose).
+//
+// ★★ `blocks` IS PLURAL AND ONE CHIP STAYS ONE CHIP: the chip is per dropped
+// FILE, the blocks are per walked NODE, so a mail carrying a spreadsheet is
+// one chip and two blocks. Collapsing this back to a single `block` is how
+// the walk's output went unsent — see flattenIngestBlocks.
+type StagedAttachment = { id: string; name: string; blocks: AttachmentBlock[]; summary: string | null };
 
 // Full-width, drag-to-resize pane (same chrome as the primary views).
 const CHAT_PANE_CLASS = VIEW_PANE_RESIZABLE_CLASS;
@@ -318,7 +320,7 @@ function ChatPanelInner({
       atts.length > 0
         ? [
             ...(text ? [{ type: "text", text } as TextBlock] : []),
-            ...atts.map((a) => a.block),
+            ...atts.flatMap((a) => a.blocks),
           ]
         : text;
     // Heal any dangling tool_use left by a prior truncated/stopped turn before
@@ -604,12 +606,18 @@ function ChatPanelInner({
     setAttachments([]);
   }
 
-  function attachmentErrorText(err: AttachmentError, name: string): string {
-    return t(
-      lang,
-      err === "too-large" ? "chatAttachmentTooLarge" : "chatAttachmentUnsupported",
-      name,
-    );
+  function attachmentErrorText(
+    err: "too-large" | "unsupported-type" | "read-failed" | "encrypted" | "budget-exhausted",
+    name: string,
+  ): string {
+    if (err === "too-large") return t(lang, "chatAttachmentTooLarge", name);
+    if (err === "unsupported-type") return t(lang, "chatAttachmentUnsupported", name);
+    if (err === "encrypted") return t(lang, "chatAttachmentEncrypted", name);
+    // "budget-exhausted" (a mail's attachment tree ran past its shared
+    // extraction budget) reuses the generic read-failure copy rather than
+    // a dedicated i18n key — it's rare, attachment-specific, and "this
+    // attachment couldn't be read" is an honest enough description.
+    return t(lang, "chatAttachmentReadFailed", name);
   }
 
   async function handleFiles(files: FileList | null) {
@@ -620,26 +628,18 @@ function ChatPanelInner({
     // error state per file, so only the LAST failure was ever shown.
     const errors: string[] = [];
     for (const file of Array.from(files)) {
-      const sizeErr = checkAttachmentSize(file.size);
-      if (sizeErr) {
-        errors.push(attachmentErrorText(sizeErr, file.name));
+      const result = await ingestFile(file);
+      if (!result.ok) {
+        errors.push(attachmentErrorText(result.error, file.name));
         continue;
       }
-      const kind = classifyAttachment(file.type, file.name);
-      if (!kind) {
-        errors.push(t(lang, "chatAttachmentUnsupported", file.name));
-        continue;
-      }
-      try {
-        const data = await readAttachmentData(file, kind);
-        staged.push({
-          id: `att-${(attachSeqRef.current += 1)}`,
-          name: file.name,
-          block: buildAttachmentBlock(kind, file.type, data),
-        });
-      } catch {
-        errors.push(t(lang, "chatAttachmentReadFailed", file.name));
-      }
+      const summary = buildAttachmentSummary(lang, file.name, result.node);
+      staged.push({
+        id: `att-${(attachSeqRef.current += 1)}`,
+        name: file.name,
+        blocks: flattenIngestBlocks(result.node),
+        summary,
+      });
     }
     if (staged.length > 0) setAttachments((prev) => [...prev, ...staged]);
     if (errors.length > 0) setError(errors.join("\n"));
@@ -834,9 +834,12 @@ function ChatPanelInner({
               key={a.id}
               className="flex items-center justify-between gap-2 rounded-md border border-ui-dark-blue/40 bg-surface px-2 py-1 text-xs text-foreground"
             >
-              <span className="flex min-w-0 items-center gap-1">
-                <span aria-hidden>📎</span>
-                <span className="truncate">{a.name}</span>
+              <span className="flex min-w-0 flex-col">
+                <span className="flex min-w-0 items-center gap-1">
+                  <span aria-hidden>📎</span>
+                  <span className="truncate">{a.name}</span>
+                </span>
+                {a.summary && <span className="block text-xs text-muted-foreground">{a.summary}</span>}
               </span>
               <IconButton
                 variant="danger"
@@ -859,7 +862,7 @@ function ChatPanelInner({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.md,.markdown,.csv,.html,.htm,.vtt,.docx,.xlsx,.xlsm,.pptx,application/pdf,image/*,text/plain,text/markdown,text/csv,text/html,text/vtt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          accept={ATTACHMENT_ACCEPT}
           onChange={(e) => handleFiles(e.target.files)}
           className="hidden"
           tabIndex={-1}

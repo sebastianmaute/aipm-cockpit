@@ -5,6 +5,7 @@ import {
   buildAttachmentBlock,
   checkAttachmentSize,
   MAX_ATTACHMENT_BYTES,
+  ATTACHMENT_ACCEPT,
   type AttachmentKind,
   type AttachmentBlock,
   type ImageBlock,
@@ -48,8 +49,8 @@ describe("classifyAttachment — mime type", () => {
     expect(classifyAttachment("text/csv", "data.csv")).toBe("text");
   });
 
-  it("classifies text/html as text", () => {
-    expect(classifyAttachment("text/html", "page.html")).toBe("text");
+  it("classifies text/html as html, not text", () => {
+    expect(classifyAttachment("text/html", "page.html")).toBe("html");
   });
 
   it("classifies text/vtt as text", () => {
@@ -115,12 +116,12 @@ describe("classifyAttachment — extension fallback", () => {
     expect(classifyAttachment(GENERIC, "data.csv")).toBe("text");
   });
 
-  it("falls back to .html extension → text", () => {
-    expect(classifyAttachment(GENERIC, "page.HTML")).toBe("text");
+  it("falls back to .html extension → html", () => {
+    expect(classifyAttachment(GENERIC, "page.HTML")).toBe("html");
   });
 
-  it("falls back to .htm extension → text", () => {
-    expect(classifyAttachment(GENERIC, "page.htm")).toBe("text");
+  it("falls back to .htm extension → html", () => {
+    expect(classifyAttachment(GENERIC, "page.htm")).toBe("html");
   });
 
   it("falls back to .vtt extension → text", () => {
@@ -182,6 +183,15 @@ describe("checkAttachmentSize", () => {
 
   it("MAX_ATTACHMENT_BYTES equals 20 MB", () => {
     expect(MAX_ATTACHMENT_BYTES).toBe(20 * 1024 * 1024);
+  });
+
+  // ★★ MEASURED. A real workshop mail with one .pptx attached was 17.8 MB —
+  //  89% of the old 20 MB cap. Mail envelopes carry their attachments inline,
+  //  so the envelope must be allowed to be larger than any one attachment.
+  it("allows a mail envelope larger than the flat-file cap", () => {
+    expect(checkAttachmentSize(30 * 1024 * 1024, "mail")).toBeNull();
+    expect(checkAttachmentSize(30 * 1024 * 1024, "text")).toBe("too-large");
+    expect(checkAttachmentSize(70 * 1024 * 1024, "mail")).toBe("too-large");
   });
 });
 
@@ -315,5 +325,110 @@ describe("AttachmentBlock type narrowing", () => {
       const _doc: DocumentBlock = block;
       expect(_doc.source.type).toBe("base64");
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ATTACHMENT_ACCEPT — single source for every file picker's accept= string
+// ---------------------------------------------------------------------------
+describe("ATTACHMENT_ACCEPT", () => {
+  // ★ THE DEFECT THIS EXISTS FOR. Three consumers hand-wrote this string and
+  //  drifted: the wizard's list was a strict subset missing .markdown and every
+  //  MIME type, so a correctly-typed file with no extension was filtered out of
+  //  its picker while classifyAttachment would have accepted it.
+  it("offers every extension classifyAttachment accepts", () => {
+    const tokens = ATTACHMENT_ACCEPT.split(",");
+    for (const ext of [".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp",
+                       ".txt", ".md", ".markdown", ".csv", ".html", ".htm",
+                       ".vtt", ".docx", ".xlsx", ".xlsm", ".pptx",
+                       ".eml", ".mhtml", ".mht", ".msg"]) {
+      expect(tokens).toContain(ext);
+      expect(classifyAttachment("application/octet-stream", `f${ext}`)).not.toBeNull();
+    }
+    // A seventh extension set added to ATTACHMENT_ACCEPT's spread and forgotten
+    // above would be invisible to the loop — pin the count too.
+    expect(tokens.filter((t) => t.startsWith(".")).length).toBe(21);
+  });
+
+  // ★ Round-trips every DERIVED token, not just a fixed trio — 8 of the 11
+  //  ACCEPT_MIMES entries carried no assertion before this, and they are the
+  //  longest, most typo-prone strings in the file (e.g. a single dropped "s"
+  //  in "spreadsheetml.sheet" leaves the whole suite green while the picker
+  //  silently stops matching extensionless .xlsx files). image/* is excluded:
+  //  it is a wildcard, not a concrete type classifyAttachment recognises.
+  it("offers the MIME types too, so an extensionless file still passes the picker", () => {
+    const tokens = ATTACHMENT_ACCEPT.split(",");
+    expect(tokens).toContain("application/pdf");
+    expect(tokens).toContain("text/plain");
+    expect(tokens).toContain("image/*");
+    // Pins the MIME-token count so emptying ACCEPT_MIMES down to just
+    // "image/*" (which the loop below skips) still fails: the loop over an
+    // absent token does nothing, so this count is the only thing that would
+    // catch it.
+    expect(tokens.filter((t) => !t.startsWith(".")).length).toBe(13);
+    for (const token of tokens) {
+      if (token === "image/*") continue;
+      if (token.startsWith(".")) {
+        expect(classifyAttachment("application/octet-stream", `file${token}`)).not.toBeNull();
+      } else {
+        expect(classifyAttachment(token, "file")).not.toBeNull();
+      }
+    }
+  });
+
+  it("lists no token twice", () => {
+    const tokens = ATTACHMENT_ACCEPT.split(",");
+    expect(new Set(tokens).size).toBe(tokens.length);
+  });
+});
+
+describe("html classification", () => {
+  it("classifies html as its own kind, not as text", () => {
+    expect(classifyAttachment("text/html", "page.html")).toBe("html");
+    expect(classifyAttachment("application/octet-stream", "page.htm")).toBe("html");
+  });
+
+  it("still classifies plain text as text", () => {
+    expect(classifyAttachment("text/plain", "notes.txt")).toBe("text");
+    expect(classifyAttachment("text/csv", "rows.csv")).toBe("text");
+  });
+
+  it("builds a text block for html, since the caller passes extracted Markdown", () => {
+    expect(buildAttachmentBlock("html", "text/html", "## Title")).toEqual({
+      type: "document",
+      source: { type: "text", media_type: "text/plain", data: "## Title" },
+    });
+  });
+});
+
+describe("mail classification", () => {
+  it("classifies eml, mhtml and mht as mail", () => {
+    expect(classifyAttachment("message/rfc822", "a.eml")).toBe("mail");
+    expect(classifyAttachment("application/octet-stream", "a.eml")).toBe("mail");
+    expect(classifyAttachment("application/octet-stream", "page.mhtml")).toBe("mail");
+    expect(classifyAttachment("multipart/related", "page.mht")).toBe("mail");
+  });
+
+  it("offers the mail extensions in the shared accept list", () => {
+    const tokens = ATTACHMENT_ACCEPT.split(",");
+    for (const ext of [".eml", ".mhtml", ".mht", ".msg"]) expect(tokens).toContain(ext);
+  });
+
+  // ★ Pins the MIME half of the mail branch on its own, with no mail
+  //  extension in the filename to fall back on. Every other multipart/related
+  //  assertion in this file pairs it with ".mht", so the extension fallback
+  //  alone would keep them green even if this MIME check were deleted.
+  it("classifies multipart/related as mail from the MIME type alone", () => {
+    expect(classifyAttachment("multipart/related", "file")).toBe("mail");
+  });
+
+  // ★ .msg is BINARY (CFBF), unlike eml/mhtml/mht — see mail-extract.ts.
+  //  classifyAttachment itself never sees the bytes, only mime/filename, but
+  //  it must still route .msg to "mail" alongside the text formats so the
+  //  orchestrator's format-aware parseMail (not a text decode) is reached.
+  it("classifies msg as mail and offers it in the picker", () => {
+    expect(classifyAttachment("application/vnd.ms-outlook", "a.msg")).toBe("mail");
+    expect(classifyAttachment("application/octet-stream", "a.msg")).toBe("mail");
+    expect(ATTACHMENT_ACCEPT.split(",")).toContain(".msg");
   });
 });

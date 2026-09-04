@@ -578,6 +578,14 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--closed-2026-09-03) | ~~`update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model~~ | found 2026-09-03 in the AI write-concurrency slice | S–M | **CLOSED** 2026-09-03 (per-block `expectHash` on the three guarded engine arms, required at the tool boundary, tokens handed out by `get_document`; the concurrent-edit RACE itself is still not reproduced end to end) |
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
 | [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--open) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | open |
+| [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--closed-2026-09-04) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | closed 2026-09-04 |
+| [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--closed-2026-09-04) | ~~RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish from the tree~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (both forms decoded, capped and routed through the existing filename sanitizer) |
+| [§354](#354-negative-rtf-un-values-are-dropped-losing-every-code-point-above-u7fff--closed-2026-09-04) | ~~Negative RTF `\uN` values are dropped, losing every code point above U+7FFF~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (a lone unpaired surrogate is CARRIED, not repaired — the entry records what that costs downstream) |
+| [§355](#355-a-pt_string8-msg-yields-an-entirely-empty-mail-with-no-diagnostic--closed-2026-09-04) | ~~A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (`…001E` siblings decoded through the shared charset ladder, PT_UNICODE still winning; the diagnostic fires whenever no known tag matched at all) |
+| [§356](#356-three-cfbf-guard-assertions-do-not-discriminate-the-guard-they-name--closed-2026-09-04) | ~~Three cfbf guard assertions do not discriminate the guard they name~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (two now discriminate; the 64 MB ceiling is unpinnable by arithmetic and the `chain()` offset bound is dominated by the length bound one line above it — both recorded, neither an open action) |
+| [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--closed-2026-09-04) | ~~`rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (the removed group leaves `{}` behind, never a space; the real `.msg` fixture cannot discriminate any of the three states) |
+| [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
+| [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27342,3 +27350,459 @@ rediscover.
   row, weakening what the token asserts. Related to [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open).
 - Split the replay into create-then-update phases with the updates' refusal rolling back the
   creates, which is the only option that actually preserves retryability and is much the largest.
+
+## 352. The `"encrypted"` attachment error variant has no producer — CLOSED 2026-09-04
+
+**Status:** CLOSED 2026-09-04, after being REOPENED the same day it was first marked done. A cold review of the closing
+commit found three defects in it (listed at the end of this entry); all are fixed on the branch.
+Both detectors and the wizard
+wiring are verified by
+`npx vitest run src/app/attachment-ingest.test.ts src/app/office-extract.test.ts src/app/chat-panel.test.tsx src/app/step0-import-panel.test.tsx`
+(exit 0). Read them with
+`grep -n "function looksLikeEncryptedOfficeFile" -B 30 src/app/office-extract.ts` and
+`grep -n "function isRightsProtectedMail" -B 35 src/app/mail-extract.ts`.
+
+★★ The first closing note is kept because its errors are the point. It said the before/after was
+**measured** against the real modules — true — and that the result was "pinned by 12 new cases". The
+count was **15**, and the number sat directly beside the command that refutes it:
+`git show 9e714eeb -- src/app/attachment-ingest.test.ts src/app/office-extract.test.ts src/app/chat-panel.test.tsx | grep -c "^+.*\bit("`.
+More importantly, three of those fifteen cases could not have failed for the defects the review then
+found, so the count was not merely wrong but was measuring the wrong thing.
+
+The original finding, kept because it is the record of what was wrong: the design spec made
+`chatAttachmentEncrypted` a named requirement — RMS-protected mail and password-protected workbooks
+were to stop surfacing as a generic read failure — and the union member, the chat-panel branch and
+both dictionary strings (EN and DE) shipped while the detector did not. ★★ That is the
+**false-coverage shape** this register tracks: a reader greps for the capability, finds the variant,
+the branch and two translated strings, and concludes it exists.
+
+**MEASURED BEFORE, with a node probe against the real `ingestBytes`.** A compound file carrying
+`EncryptionInfo` + `EncryptedPackage` (the MS-OFFCRYPTO shape) named `plan.docx` returned
+`{"ok":false,"error":"read-failed"}` — identical to what a file of prose named `.docx` returned, so
+the user was told "Could not read plan.docx" either way. A `.msg` built to [MS-OXORMMS] section
+2.2.3.1 (one `message.rpmsg` attachment, no body streams) returned `ok: true` and rendered a subject
+line, a one-item attachment list and `_(attachment "message.rpmsg" skipped - unsupported-type)_`,
+never saying the message was protected. **AFTER**, the same three inputs give `"encrypted"`,
+`"read-failed"` and `"encrypted"`.
+
+★★★ **THE FIX IS THE PAIR, NOT THE POSITIVE, AND THE NEGATIVE IS THE HARDER HALF.** A detector that
+turned every unreadable Office file into `"encrypted"` would be exactly as wrong in the other
+direction — it would tell the owner of a truncated download to remove a password that was never set.
+`looksLikeEncryptedOfficeFile` is therefore FALSE for a compound file without that stream, which is
+what a legacy binary `.doc` renamed `.docx` is. Both the shortcut ("is it a compound file?") and a
+nested-path match are mutation-proved dead: each turns three, resp. one, of the new cases red.
+
+★★ **The `.msg` half is gated on an EMPTY BODY as well**, and that conjunct is separately
+mutation-proved (dropping it reddens "still renders a readable mail that merely carries a protected
+attachment"). Refusing any mail that carries an `.rpmsg` attachment would destroy readable content
+in order to report an unreadability. [MS-OXORMMS] specifies nothing about the wrapper's body, so a
+real wrapper whose producer wrote a boilerplate "this message is rights-protected" body is
+deliberately NOT matched and keeps rendering — the boilerplate itself tells the reader what
+happened.
+
+★★★ **VERIFIED 2026-09-04 AGAINST TWO REAL WORD FILES — the thing no synthetic fixture could do**,
+and the pair is what makes it worth reading. POSITIVE: a genuine *Encrypt with Password* `.docx`
+opens `d0 cf 11 e0 a1 b1 1a e1` with root streams `["EncryptedPackage","EncryptionInfo"]`,
+`looksLikeEncryptedOfficeFile` returns true, and `ingestBytes` returns `"encrypted"` under BOTH a
+real `File.type` and an empty one (the drag-drop path). NEGATIVE: a real *Restrict Editing* `.docx`
+— `<w:documentProtection w:edit="readOnly" w:enforcement="1" …>` with a password hash — is an
+ORDINARY ZIP, extracts its body text normally, and correctly does NOT match.
+★★ **Word's two "protect" features are different mechanisms and only one of them withholds
+anything.** Encrypt-with-Password replaces the whole archive with a compound file; Restrict-Editing
+leaves every part in plain sight and only stops Word from editing them. So refusing a
+restrict-editing file would tell its owner to remove a password that is hiding nothing, and reading
+one is correct behaviour rather than a miss. The byte tell is the first four: `50 4B` is a zip and
+readable, `D0 CF` is the encrypted container. ★ The `.msg` half was spec-fixture only when this was
+written; a real RMS wrapper has since been run through it — see "The `.msg` half, measured against a
+real RMS wrapper" at the end of this entry.
+
+★★★ **A REAL MESSAGE REFUTED THE OBVIOUS ALTERNATIVE DETECTOR, 2026-09-04.** A real Outlook `.msg`
+saved from a tenant that applies rights protection carries `PidNameContentClass` = `"rpmsg.message"`
+— the marker [MS-OXORMMS] itself names — while its `PR_MESSAGE_CLASS` is
+`IPM.Note.SMIME.MultipartSigned`, its only attachment is `smime.p7m`, and **its body renders fine**
+(392 chars through the RTF path). The consistent reading is that Outlook UNWRAPS the protection when
+the saving user holds rights, leaving the content-class property behind as residue. ★★★ So a
+detector keyed on that content class — the first thing an implementer reaches for, because it is
+what the spec names — would have **refused a readable message and told the reader it was
+protected.** The shipped detector correctly does not key on it. ★★★ **BUT THIS FILE IS NOT EVIDENCE
+FOR THE EMPTY-BODY CONJUNCT, and an earlier revision of this paragraph said it was** — that
+"requiring BOTH the `message.rpmsg` attachment AND an empty body is what avoids that, and this file
+is the evidence." Trace it through the actual predicate: its only attachment is `smime.p7m`, so the
+attachment test is false and the message is rejected THERE, before the body is ever consulted. The
+conjunct contributes nothing on this file. What the measurement establishes is a rejected
+alternative, not the shipped design — whose own justification still rests on a case no real file has
+exercised. Do not cite it the other way. ★★ Consequence for anyone trying to close the `.msg` half: a
+locally-saved `.msg` from your own mailbox may be incapable of exercising it, because the wrapper is
+gone by the time the file exists. Reproduce the shape with
+`__substg1.0_8000001F` (named-property range, so the mapping is per-message) against
+`__substg1.0_001A001F`.
+
+★★ **TWO THINGS THE BRIEF FOR THIS WORK GOT WRONG, both caught by measurement.** The MIME type is
+`application/x-microsoft-rpmsg-message`, not `application/x-microsoft-rpmsg` — verified against
+[MS-OXORMMS] "Creating the Wrapper Email Message", which the shortened spelling matches nowhere. And
+"renders an empty mail" above was imprecise: the BODY is empty, but the subject and sender still
+render, which is exactly what made the old behaviour read as a successful ingest.
+
+★ Detection is format-agnostic (it tests a `ParsedMail`, so `.eml` gets it too) but the office half
+runs ONLY on `kind === "office"`. Encrypted PDFs are deliberately out of scope: a PDF reaches the
+model as a base64 document block with no extraction step, so nothing fails **at ingest** — an
+encrypted one would surface at the Anthropic API instead, which is a different error surface rather
+than an absent one, so "nothing fails" is stronger than what was established.
+
+### What the review found, 2026-09-04 — why this reopened
+
+A cold review of the closing commit `9e714eeb` found three defects. All are fixed on the branch; they
+are recorded because each sat behind a comment asserting the opposite, and because the mutant that
+would have caught the first one survived all fifteen of the cases this entry cited as its proof.
+
+1. **False positive that destroyed readable content.** The attachment test was `some`, not `every`, so
+   a body-less mail carrying an `.rpmsg` ALONGSIDE readable attachments was refused whole and their
+   content discarded — forwarding a protected message together with an agenda, writing no cover text,
+   lost the agenda. That is the outcome the docstring said the predicate existed to avoid; the
+   empty-body conjunct does not prevent it, because it protects body text and nothing else. The
+   `some` → `every` mutant is indistinguishable across every fixture here.
+2. **False negative covering the real-world shape.** "No readable body" was `content.trim() === ""`,
+   but `extractHtmlMarkdown` never returns an empty string — it substitutes a placeholder — and both
+   mail paths route through it. A wrapper whose body is `<html><body></body></html>`, which is what a
+   real Outlook-originated wrapper looks like, arrived with a non-empty body and short-circuited the
+   detector entirely. Every rpmsg fixture omitted the body part, so none had `body.kind === "html"`.
+3. **The verdict never reached the import wizard.** Both `step0-import-panel.tsx` call sites collapsed
+   every fatal variant into `wizardImportErrorSource`, so the wizard's behaviour was byte-identical to
+   before this work — and the wizard is where this entry's own complaint lives ("the user is told
+   'Could not read plan.docx' and never told to remove the password"). The exhaustiveness annotation
+   at the throw site NAMES `"encrypted"`, which is why nothing flagged it: it guards against a new
+   variant joining that branch, and says nothing about how an existing one is rendered.
+
+### The `.msg` half, measured against a real RMS wrapper — 2026-09-04
+
+A genuine rights-protected `.msg` was finally run through the pipeline, and it is a DIFFERENT file
+from the S/MIME one above (`PR_MESSAGE_CLASS` = `IPM.Note`, 143,872 bytes, 151 streams). Structure
+only — no subject, sender or body text was read out of it:
+
+- Exactly one attachment, `message.rpmsg`, typed `application/x-microsoft-rpmsg-message`, 23,717
+  bytes, carrying BOTH the long name (`3707001F`) and the 8.3 short name (`3704001F`).
+- **No HTML body property of any kind.** The body arrives through `PR_RTF_COMPRESSED` (`10090102`,
+  1,830 bytes) and renders `rtf-degraded`, 689 characters.
+- `PidNameContentClass` = `"rpmsg.message"` is present **here too**. ★★★ That is the decisive
+  confirmation for the paragraph above: the same property carries the same value on a genuinely
+  protected wrapper AND on a perfectly readable S/MIME message, so it cannot discriminate between
+  them at all. Keying on it would refuse the readable one and gain nothing on this one.
+
+★★★ **THE DETECTOR RETURNS FALSE ON IT, AND THAT IS THE DOCUMENTED DELIBERATE OUTCOME — now
+measured rather than asserted.** The wrapper carries a boilerplate body, so the empty-body conjunct
+correctly declines. `isRightsProtectedMail`'s docstring justifies that by saying the boilerplate
+itself tells the reader what happened; that was a hypothesis about a file nobody had. It holds: the
+rendered block the model receives matches `/protect|geschützt/i` and `/encrypt|verschlüsselt/i`,
+names `message.rpmsg`, and reports it as `unsupported-type`. The reader is informed either way,
+which is what the conjunct trades for.
+
+Varying ONLY the body on that same real message, so the attachment half is exercised against a real
+`.rpmsg` rather than a fixture:
+
+| body | detected | why it matters |
+|---|---|---|
+| boilerplate, as delivered | false | the deliberate outcome above |
+| blanked | **true** | the attachment half recognises a real wrapper |
+| whitespace only | **true** | `trim()` is doing its job |
+| the html placeholder | **true** | defect 2's fix works on real data, not just fixtures |
+| blanked, plus a readable sibling attachment | false | defect 1's fix holds on a real attachment list |
+
+★★ **KNOWN LIMITATION, recorded rather than hidden:** if Outlook always writes that boilerplate, the
+MAIL branch of this detector may never fire in the field, and the office branch is the one doing the
+work. That is acceptable — the boilerplate is a better disclosure than a refusal — but do not read
+"the `.msg` half is verified" as "the `.msg` half fires in production". What is verified is that
+every branch behaves correctly on a real wrapper.
+
+## 353. RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish — CLOSED 2026-09-04
+
+**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Filed 2026-09-03 from the ingest-breadth
+review as **never machine-verified**; the loss was then **measured** against the real modules before
+anything was changed, and 14 new cases pin the fix. Run
+`npx vitest run src/app/mime-parse.test.ts src/app/eml-extract.test.ts` (exit 0). Read the decoder
+with `grep -n "function extendedParamOf" -A 30 src/app/mime-parse.ts`.
+
+★★ BEFORE AND AFTER, MEASURED WITH A NODE PROBE AGAINST THE REAL MODULES, not reasoned. A
+`multipart/mixed` message whose PDF part carried
+`Content-Disposition: attachment; filename*=UTF-8''Bericht%20Q3%20f%C3%BCr%20M%C3%BCller.pdf` gave
+part filenames `[null, null]`, `ParsedMail.attachments` `[]` and diagnostics `[]` — the attachment
+gone, and nothing said about it. It now yields `Bericht Q3 für Müller.pdf` with the umlauts intact
+and the attachment present. The continuation form behaved, and now behaves, the same way.
+
+`paramOf` is UNCHANGED and still cannot see the form (it wants the name then `=`, and here the next
+character is `*`). A new `extendedParamOf` reads both shapes — the extended
+`filename*=charset'language'pct-encoded`, and the numbered `filename*0`/`filename*1` continuation
+whose sections may individually be percent-encoded or literal — and `fileNameParamOf` prefers it
+over the plain parameter, as RFC 2231 §4 requires, while Content-Disposition still outranks
+Content-Type wholesale. The decoded value goes through the SAME `sanitizeFileName` the RFC 2047 path
+uses, so a `../../etc/passwd` smuggled through 2231 is neutralised identically; there is no second
+sanitizer.
+
+★★ SECTIONS ARE JOINED AS BYTES, NEVER AS DECODED STRINGS. A multi-byte character may straddle a
+section boundary (`...M%C3` then `%BCller`), and decoding each half on its own turns it into two
+U+FFFD. Pinned by "joins continuation sections as bytes, so a split multi-byte character survives",
+which a per-section-decode mutant kills — and kills nothing else, so the case is not riding on
+another assertion.
+
+★ Bounded like the rest of the module: `MAX_PARAM_SEGMENTS` sections and `MAX_PARAM_VALUE_BYTES`
+assembled bytes, both attacker-controlled otherwise, each with a `noteOnce` diagnostic so the
+truncation is visible rather than silent. The cap is on BYTES rather than characters partly so a
+truncation can only ever produce a U+FFFD, never a lone surrogate. An unknown charset label — and
+the `replacement` encoding family, which `new TextDecoder` also throws a `RangeError` for — degrades
+to UTF-8 with a diagnostic; the label itself stays OUT of that text, because it is
+attacker-controlled and diagnostics are rendered for a reader and for the model.
+
+★ WHAT IS DELIBERATELY NOT COVERED: RFC 2231 permits the extended form on ANY parameter, and only
+`filename` and `name` are read this way. `boundary` and `charset` are ASCII by definition and no
+client encodes them, so widening it would add a regex pass per part for a case nobody has.
+★★ AND A KNOWN RESIDUE, stated because a closure that overclaims is worse than an open entry: RFC
+2231 §3 numbers sections from 0 and runs them contiguously, and this reader stops at the first gap
+rather than guessing across it — so a continuation with a gap keeps only the run from 0, and one
+that never HAS a section 0 yields no filename at all. In that second case, absent a plain
+`filename=` alongside it, the part is still dropped silently, exactly as it was before this fix.
+That is malformed input rather than the everyday case §353 was filed for, and it is not closed here.
+
+## 354. Negative RTF `\uN` values are dropped, losing every code point above U+7FFF — CLOSED 2026-09-04
+
+**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Filed 2026-09-03 from the ingest-breadth
+review, **measured** by a reviewer against the real module, and re-reproduced against the real module
+before anything was changed. The substitution now reads the parameter as SIGNED 16-BIT and adds 65536
+before the range test — read it with `grep -n "signed < 0" -B 18 -A 3 src/app/lzfu.ts`. Five new
+`rtfToPlainText` cases pin it; run `npx vitest run src/app/lzfu.test.ts` (exit 0).
+
+★★ BEFORE AND AFTER, MEASURED WITH A NODE PROBE AGAINST THE REAL MODULE, not reasoned. An `A`, a POSITIVE
+escape for decimal 8364, then a `B` gave `"A€B"` in BOTH states — that is the positive control, and it is a test rather than a footnote
+so a correction that broke the ordinary path could not read as a pure win. `A\u-223 B` gave `"AB"`
+before and U+FF21 between the A and the B after. The negative surrogate pair `A\u-10179 \u-8704 B`
+gave `"AB"` before and one U+1F600 after.
+
+★ ONE ARITHMETIC CORRECTION TO THE FILING, which does not touch its conclusion: it named `\u-190` as
+"wanted U+FF21". -190 + 65536 is 65346 = U+FF42, the FULLWIDTH SMALL B; U+FF21 is `\u-223`. The
+defect was exactly as described — only that example's number was off — and the test uses the value
+that actually yields U+FF21.
+
+★★ THE PROBE MUST BE WRITTEN WITH A NON-SHELL TOOL. A `\uN` fixture is made of backslashes, and the
+shell strips one level even inside single-quoted heredocs, which silently turns the input into
+something else and produces plausible wrong numbers. Every measurement here comes from a file
+written directly to disk and byte-checked with `cat -A` first. The same class already bit this
+register itself, by a second route with the same shape: the filing's positive example was a
+FOUR-HEX-DIGIT escape, which is also a valid JSON string escape, so it reached the file DECODED — as
+the single CJK character U+8364 — and the paragraph below then read as a glyph where an escape was
+meant. Corrected in place 2026-09-04 by rewording rather than by re-typing it, since any four-digit
+positive example is decoded the same way on the next edit: a mangled character in a worked example is
+a broken claim, not a dated record worth preserving. Negative escapes are immune — `\u-223` is not a
+valid JSON escape, so it survives verbatim.
+
+★★★ NO PAIRING LOGIC WAS ADDED, AND NONE IS WANTED — but read what that costs. `String.fromCodePoint`
+accepts a lone surrogate VALUE (it throws only below 0 or above 0x10FFFF), so the two halves of a pair
+are emitted as adjacent code units by two independent replacements and recombine by concatenation
+alone. The consequence, measured rather than assumed: an UNPAIRED half — which hostile input can
+produce — is CARRIED as one unpaired code unit, so the result is a NOT well-formed UTF-16 string.
+`TextEncoder` renders that unit as U+FFFD and `JSON.stringify` escapes it; neither throws, and the
+text AFTER it is untouched, which is the property the lone-surrogate test pins. Repairing the half
+here would need exactly the pairing logic the adjacency recombination exists to avoid.
+★ The range test deliberately runs AFTER the sign correction, so an out-of-signed-16 value
+(`\u-70000`) is still dropped rather than wrapping onto some unrelated real character. That case is a
+PIN, not a regression test — it passed before the fix too, and it is recorded as such in the test's
+own comment so nobody reads six new cases as six caught defects.
+
+RTF's `\uN` carries a **signed 16-bit** value: Word and Outlook emit any code point above U+7FFF as
+a negative number, and a non-BMP character as a negative surrogate pair. The regex captures the
+minus sign and the `code >= 0` test then yields `""`. Measured: a positive escape for decimal 8364
+gave `"A€B"`, while `\u-190` gave `"AB"` and a negative surrogate pair gave `"AB"` (wanted the
+emoji). So in an `rtf-degraded` body, CJK above U+8000, fullwidth forms and every emoji vanish
+silently.
+
+The fix was understood at filing — add 65536 to a negative value before the range test — and was
+left filed rather than applied because it wanted its own test fixtures; `lzfu.test.ts` then had five
+`rtfToPlainText` cases and none used a negative `\u`. Five were added with the fix, and the suite's
+own comments say which of them is a regression test and which is only a pin. ★ No grep is offered
+for that count on purpose: the obvious one (`grep -c "u-" src/app/lzfu.test.ts`) returns 5 today by
+COINCIDENCE — it matches the phrase "LZFu-magic" and misses the positive control, two errors that
+happen to cancel.
+
+## 355. A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic — CLOSED 2026-09-04
+
+**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Filed 2026-09-03 from the ingest-breadth
+review, **measured** by a reviewer with a synthetic stream map and **re-measured** with the same map
+before anything was changed. Run `npx vitest run src/app/msg-extract.test.ts` (exit 0). Read the tag
+tables with `grep -n "const TEXT_ID" -B 12 -A 12 src/app/msg-extract.ts`.
+
+Before: every entry in the old `TAG` table was a PT_UNICODE (`…001F`) or PT_BINARY (`…0102`) tag.
+There was no PT_STRING8 (`…001E`) fallback, and no diagnostic for "the stream map was non-empty but
+no recognised tag matched". Re-measured against streams `__substg1.0_0037001E`, `_0C1A001E` and
+`_1000001E`, all populated: `subject=""`, `from=""`, `body=""`, `diagnostics=[]`. After, with the
+same three streams: `subject="Q3 plan"`, `from="Alice Example"`, `body="Body text here"`,
+`diagnostics=[]`.
+
+★★ This was the silent-wrong-answer shape rather than a crash: the user got a mail block with an
+empty subject and an empty body, and nothing anywhere said the message was not understood. The
+committed fixture is Unicode and `msg-extract.test.ts` only ever built `001F`/`0102` maps, so nothing
+covered it.
+
+Both halves landed. The tag table split into `TEXT_ID` (property IDs whose value is text, resolved
+`…001F` first and `…001E` second by `pickText`) and `BIN_TAG` (the three PT_BINARY tags, which have
+no text-typed sibling). PT_STRING8 has the same code-page question `10130102` had, so it reuses the
+same ladder: `decodeCodePageBytes` was **extracted** from `decodeHtmlBytes` and is now shared —
+strict UTF-8 with `{ stream: true }`, then windows-1252. The declaration sniff was NOT reused, and
+could not be: a bare property string carries no `<meta>`.
+
+★★ TWO RULES WORTH KNOWING BEFORE TOUCHING `pickText`. A PT_UNICODE stream wins over its PT_STRING8
+sibling — it is the lossless one — but only when it CARRIES BYTES: an empty `…001F` beside a
+populated `…001E` reproduces this very defect one property at a time, and preferring the populated
+sibling there can lose nothing. Both directions are pinned, and both mutants (swapping the two
+branches; relaxing `wide && wide.length > 0` to `wide`) go red.
+
+★★ THE DIAGNOSTIC KEYS ON PRESENCE, NOT USABILITY. `matchedAnyTag` is set by the LOOKUP, before
+`pickText` discards an empty stream, so a recognised tag carrying nothing means the message WAS
+understood and said nothing — a different claim from "this parser cannot read it", and the reader
+must not be told the second. Moving that flag behind `pickText` turns the "present but empty" test
+red. The text names no stream, because diagnostics are rendered for the reader and for the model.
+The committed Unicode fixture yields `diagnostics: []`, so it gained nothing spurious.
+
+## 356. Three cfbf guard assertions do not discriminate the guard they name — CLOSED 2026-09-04
+
+**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Filed 2026-09-03 and **measured twice**
+before that — by a reviewer and independently by the agent that later hardened the module. All four
+mutants were re-measured a third time before anything changed (`npx vitest run src/app/cfbf.test.ts`,
+13 passed under each), then two of the three assertions were made to discriminate and the third was
+re-pointed at the guard that actually does the work its title claims. Every claim below is RED/GREEN
+proved. **The fixture writer and the tests changed; `cfbf.ts` did not** — this was never a defect.
+
+- *rejects an illegal sector shift* — **CLOSED, discriminates.** The old fixture declared shift 7
+  over a 512-byte LAYOUT, so whichever downstream bound met the resulting garbage offsets first
+  rejected the file and the shift check was never the reason. `buildCfbf` now lays the WHOLE file
+  out at 1024-byte sectors and declares shift 10 to match — an illegal MS-CFB sector size (only 512
+  and 4096 are legal) but internally consistent at every field, so `shift !== 9 && shift !== 12` is
+  the only thing that can reject it. 1024 rather than 128 because the reader's `(sector + 1) * sec`
+  origin must clear the 512-byte header. Deleting that line: `expected 1 to be +0`.
+- *clamps an absurd declared stream size* — **CLOSED as unprovable for the constant, with the test
+  re-pointed at the guard that does the job.** `MAX_CFBF_STREAM_BYTES` cannot be pinned at ANY
+  fixture size, and that is ARITHMETIC, not a complaint about cost: `chain()` pushes a sector only
+  while `s < ctx.fat.length`, and `buildContext` never lets `ctx.fat` grow past
+  `floor(bytes.length / sec) - 1`, so `sectors.length * ctx.sec` is always at most
+  `ctx.b.length - ctx.sec` — strictly below the file length, which the same `Math.min` also carries.
+  The 64 MB term can therefore only be the smallest of the five on a file LARGER than 64 MB. The
+  module's own comment on the constant already conceded this; what was missing was the proof, which
+  now sits beside the test. The assertion itself was `a.length < 1_000_000`, which discriminated
+  nothing whatever; it now reads `a.buffer.byteLength === 10 * 512` and discriminates the
+  chain-derived clamp — the term that actually stops a 4 GB declared size from being allocated, and
+  the one the title has always been about. `.buffer.byteLength` is load-bearing because
+  `out.subarray(0, written)` returns the same 5,120-byte view either way. Deleting
+  `sectors.length * ctx.sec`: `expected 6656 to be 5120`.
+- *stops a chain that runs past the end of the file* — **CLOSED for the length bound; the offset
+  bound beside it is DOMINATED, not merely untested.** The fixture now under-declares `nFat` as 1
+  and links the first stream to the file's LAST sector: one 512-byte FAT sector describes 128
+  sectors and the file has 133, so sector 132 is inside the file (the offset bound passes) and past
+  `ctx.fat.length` (only the length bound rejects it). Deleting `s >= ctx.fat.length`:
+  `expected 1024 to be 512`; with that assertion removed the second one fires on its own
+  (`not to contain 'Z'` — the stream absorbs a neighbouring stream's sector), so both are proved
+  rather than one shadowing the other. ★★★ NO FIXTURE CAN EVER SINGLE OUT
+  `offsetOf(ctx, s) + ctx.sec > ctx.b.length`. It fires exactly when
+  `s >= floor(b.length / sec) - 1`, which is `fileSectors`, and `ctx.fat.length <= fileSectors`
+  always — `grep -n "fat.push" src/app/cfbf.ts` finds one call site and it is guarded by
+  `ctx.fat.length < fileSectors` — so the length bound one line above has already broken. Argued
+  and also measured: deleting the offset bound ALONE leaves the file 13 passed, while deleting the
+  length bound alone is red. It stays in as a standing check on that invariant. Do not re-annotate
+  it as testable-but-untested, and do not delete it as dead code.
+
+★ The in-file annotations were rewritten in the same commit. An annotation still reading MEASURED
+VACUOUS over a test that now discriminates is worse than no annotation at all — it tells a later
+mutation run to ignore a real survival. Read today's with `grep -n "★★★" src/app/cfbf.test.ts`.
+★ The writer's own header carries the rule these two fixtures exist to illustrate: a malformed
+fixture that is ALSO garbage everywhere else is rejected by whichever bound sees the garbage first,
+so the test named after the guard passes with that guard deleted. Malform exactly one thing.
+
+## 357. `rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group — CLOSED 2026-09-04
+
+**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Filed 2026-09-03, **measured** while
+fixing the destination-name delimiter; **pre-existing and not introduced by that fix**, but that fix
+made it reachable on inputs where the unstripped brace previously separated the tokens. Reproduced
+again with a probe before anything changed. `stripDestinationGroups` now leaves an EMPTY GROUP where
+the stripped group was, instead of nothing, so the control word before it still terminates — a brace
+is non-alphabetic, which is exactly what the RTF control-word rule asks for. Read it with
+`grep -n "LEAVE AN EMPTY GROUP" -A 15 src/app/lzfu.ts`; pinned by the "keeps text butted directly
+against a stripped destination group" case in `src/app/lzfu.test.ts`
+(`npx vitest run src/app/lzfu.test.ts`, exit 0). Measured: the filed input returned `""` before and
+`"VISIBLE"` after.
+
+★★★ `{}` RATHER THAN A SPACE, AND THE DIFFERENCE IS OBSERVABLE — the conventional
+leave-a-delimiter fix is a space, and it ships a second, quieter defect. Braces are stripped only
+AFTER the whitespace-sensitive passes, so a null group adds no character to the output anywhere; a
+space does, and it lands INSIDE a word that a stripped group had split, which is the ordinary shape
+of a de-encapsulated HTML body. Measured: `Hel{\*\htmltag19 <b>}lo` yields `"Hello"` under the fix
+and `"Hel lo"` under a space. The one test asserts BOTH halves because neither discriminates alone —
+the first fails only against the unfixed code, the second only against a space.
+
+★★ THE REAL `.msg` FIXTURE CANNOT TELL THE THREE STATES APART, so it is not the safety net it looks
+like here. Its body decodes to the same 75 characters — `FIXTURE-BODY-MARKER` through
+`Column 2 cell 2` — under the fix, under a space replacement AND under the unfixed code; all three
+measured with a probe, and `npx vitest run src/app/msg-integration.test.ts` is green in each. Real
+Outlook delimits its control words, which is why. The unit test is the ONLY detector this defect will
+ever have, in either direction.
+
+After a destination group is removed, a preceding control word can end up butted directly against
+following literal text — `\ansi` against `VISIBLE` — and the catch-all control-word strip is greedy
+on `[a-zA-Z]+`, so it consumed `\ansiVISIBLE` whole and the visible text was lost. Measured:
+`{\rtf1\ansi{\*\htmltag19 <b>tag</b>}VISIBLE\par` yielded `""`.
+
+★ Real Outlook RTF puts a space or a brace after a control word, so the committed fixture and every
+message seen so far were unaffected — which is also why no test covered it AT FILING TIME; one does
+now, and the ★★ above says why the fixture could never have. The de-encapsulation
+tests were deliberately written with a delimiter after the preceding control word so they exercise
+the matcher rather than this quirk; that choice is recorded in their comments.
+
+## 358. The ingest-breadth plan document contradicts the shipped code in roughly 23 places — OPEN
+
+**Status:** OPEN. Filed 2026-09-03. A reviewer enumerated the contradictions with line references
+against `docs/superpowers/plans/2026-09-03-ingest-breadth.md`, which was written before
+implementation and never corrected as the defects in it were discovered and worked around during
+execution. The **full list is not machine-verified**; the headline contradiction is, and each side
+of it returns exactly 1:
+`grep -c "charsRemaining: Math.min" docs/superpowers/plans/2026-09-03-ingest-breadth.md` (the plan
+cloning the budget) against `grep -c "NEVER cloned per child" src/app/attachment-ingest.ts` (the
+shipped code forbidding it), plus
+`grep -c "this is the gap the real fixture in Task 16 closes" docs/superpowers/plans/2026-09-03-ingest-breadth.md`
+for the DIFAT claim.
+
+★★★ **The four that would cost a day**, because a reader copying them reintroduces a fixed bug:
+- The Task 10 reference recursion **clones the budget per child**. `attachment-ingest.ts` now
+  forbids exactly that in a `★★★` comment — cloning breaks "shared", so a tree-wide cap would bound
+  one branch at a time.
+- The same snippet **double-charges** each child, deducting a serialized block length on top of what
+  the child already spent from its clone.
+- Its `cap()` deducts `room` but returns `room + note.length`, the under-charging bug the shipped
+  code records as *found and fixed during execution*. The plan still carries the buggy version.
+- It claims the real `.msg` fixture closes the DIFAT chain-walk gap. It cannot: the fixture's
+  `FirstDIFATSectorLocation` is ENDOFCHAIN, so that loop is never entered at all. The plan
+  contradicts itself on this — its own Task 16 step anticipates the mutant surviving.
+
+The rest are stale expected test counts, names and signatures that differ from what shipped
+(`bytesToBase64` moved to its own module; a fifth error variant the plan never introduces; two
+files the plan's File Structure table never lists), fixtures that cannot exercise what they claim,
+and a stale environment fact (the file-size LIMIT doubled to 1600 on 2026-09-03, so the plan's
+worked example is half the real number).
+
+★ Filed rather than fixed because correcting a 3,148-line plan is its own slice, and because the
+shipped code plus its tests are now the better record. **Anyone resuming this track should read the
+code first and the plan only for intent.**
+
+## 359. No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model — OPEN
+
+**Status:** OPEN. Filed 2026-09-03, raised by the agent that wired the tree into the payload.
+**Never machine-verified:** no probe has driven a multi-file import to the ceiling. The disclosure
+is in the module: `grep -n "A whole-batch ceiling" src/app/attachment-ingest.ts`.
+
+`newBudget()` is per-`ingestBytes` call, so `MAX_TREE_EXTRACT_CHARS` (400,000) bounds one dropped
+file's tree and nothing bounds a batch. `attachment-ingest.ts` says so deliberately — a whole-batch
+ceiling belongs to the caller and is unimplemented.
+
+★ **What changed on 2026-09-03**: before the wiring fix only one block per file was ever sent, so a
+file contributed at most `MAX_NODE_EXTRACT_CHARS` (200,000). Now the full 400,000-character budget
+per file reaches the model, so a 10-file import carries roughly 4M characters — **double** the
+previous worst case, not a new one. Behaviour is exactly as designed and no cap was weakened, but
+the unimplemented batch ceiling is more reachable than it was the day before.
+
+★★ A larger unbounded batch quantity sits beside it and is NOT what this entry is about:
+`MAX_BASE64_CHARS` binds only below the root (§ the ingest-breadth fix round), so a multi-file
+import of N large PDFs carries N x up to 20 MB of base64 with no ceiling at any level. Recorded
+here because a reader closing this entry should not conclude the batch question is settled.

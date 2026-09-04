@@ -27,28 +27,77 @@ export type AttachmentBlock = ImageBlock | DocumentBlock;
 // ---------------------------------------------------------------------------
 
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024; // 20 MB
+/** ★★ Mail envelopes carry their attachments inline. Measured: an ordinary
+ *  workshop mail with one slide deck was 17.8 MB, 89% of the flat-file cap.
+ *  The tree's own MAX_DECODED_BYTES still bounds what gets extracted. */
+export const MAX_MAIL_BYTES = 64 * 1024 * 1024; // 64 MB
 
 // ---------------------------------------------------------------------------
 // Exported narrower types
 // ---------------------------------------------------------------------------
 
-export type AttachmentKind = "pdf" | "image" | "text" | "office";
+export type AttachmentKind = "pdf" | "image" | "text" | "office" | "html" | "mail";
 export type AttachmentError = "unsupported-type" | "too-large";
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-const SUPPORTED_IMAGE_MIMES = new Set([
+export const SUPPORTED_IMAGE_MIMES: ReadonlySet<string> = new Set([
   "image/png",
   "image/jpeg",
   "image/gif",
   "image/webp",
 ]);
 
-const PDF_EXTENSIONS = new Set([".pdf"]);
-const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
-const TEXT_EXTENSIONS = new Set([".txt", ".md", ".markdown", ".csv", ".html", ".htm", ".vtt"]);
+export const PDF_EXTENSIONS: ReadonlySet<string> = new Set([".pdf"]);
+export const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
+export const TEXT_EXTENSIONS: ReadonlySet<string> = new Set([".txt", ".md", ".markdown", ".csv", ".vtt"]);
+export const HTML_EXTENSIONS: ReadonlySet<string> = new Set([".html", ".htm"]);
+export const OFFICE_EXTENSIONS: ReadonlySet<string> = new Set([".docx", ".xlsx", ".xlsm", ".pptx"]);
+export const MAIL_EXTENSIONS: ReadonlySet<string> = new Set([".eml", ".mhtml", ".mht", ".msg"]);
+
+/** Extra MIME tokens the picker should offer. Extensions alone are not enough:
+ *  a file arriving as application/octet-stream with no extension is classified
+ *  by MIME, and a picker listing only extensions filters it out before
+ *  classifyAttachment ever sees it. */
+const ACCEPT_MIMES = [
+  "application/pdf",
+  "message/rfc822",
+  "application/vnd.ms-outlook",
+  // Deliberately OVER-offers relative to SUPPORTED_IMAGE_MIMES — this is what
+  // triggers camera capture in mobile file pickers (this app ships as a PWA).
+  // An image type the picker admits but the classifier does not recognise
+  // still comes back null from classifyAttachment and surfaces as the normal
+  // unsupported-file error; that failure is loud, unlike the silent
+  // under-offer this whole constant exists to close.
+  "image/*",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "text/html",
+  "text/vtt",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel.sheet.macroEnabled.12",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+];
+
+/** ★★★ THE SINGLE SOURCE FOR EVERY FILE PICKER IN THE APP. Three consumers
+ *  (chat-panel, step0-import-panel, and anything added later) must use this and
+ *  never hand-write an accept string. They did hand-write them once and drifted
+ *  by six tokens — .markdown plus every MIME type — so the wizard silently
+ *  rejected files the assistant accepted. Deriving it from the same sets
+ *  classifyAttachment consults makes that class of drift unrepresentable. */
+export const ATTACHMENT_ACCEPT = [
+  ...PDF_EXTENSIONS,
+  ...IMAGE_EXTENSIONS,
+  ...TEXT_EXTENSIONS,
+  ...HTML_EXTENSIONS,
+  ...OFFICE_EXTENSIONS,
+  ...MAIL_EXTENSIONS,
+  ...ACCEPT_MIMES,
+].join(",");
 
 function fileExtension(fileName: string): string {
   const dot = fileName.lastIndexOf(".");
@@ -78,12 +127,18 @@ export function classifyAttachment(
     return SUPPORTED_IMAGE_MIMES.has(mime) ? "image" : null;
   }
 
-  // --- Text (read natively as UTF-8; Claude parses HTML/VTT without a lib) ---
+  // --- HTML (extracted to Markdown; raw markup would spend the budget on chrome) ---
+  if (mime === "text/html") return "html";
+
+  // --- Mail (.eml / .mhtml / .mht / .msg — extracted to Markdown, same as html) ---
+  if (mime === "message/rfc822" || mime === "multipart/related" ||
+      mime === "application/vnd.ms-outlook") return "mail";
+
+  // --- Text (read natively as UTF-8; Claude parses VTT without a lib) ---
   if (
     mime === "text/plain" ||
     mime === "text/markdown" ||
     mime === "text/csv" ||
-    mime === "text/html" ||
     mime === "text/vtt"
   ) {
     return "text";
@@ -94,6 +149,8 @@ export function classifyAttachment(
   if (ext !== "" && PDF_EXTENSIONS.has(ext)) return "pdf";
   if (ext !== "" && IMAGE_EXTENSIONS.has(ext)) return "image";
   if (ext !== "" && TEXT_EXTENSIONS.has(ext)) return "text";
+  if (ext !== "" && HTML_EXTENSIONS.has(ext)) return "html";
+  if (ext !== "" && MAIL_EXTENSIONS.has(ext)) return "mail";
 
   // --- Office (OOXML: docx/xlsx/xlsm/pptx) — MIME or extension ---
   if (officeKindOf(mimeType, fileName)) return "office";
@@ -108,10 +165,17 @@ export function classifyAttachment(
 /**
  * Validate file size before reading.
  * Returns an error code when the file is too large, or null when OK.
+ * A `kind` of "mail" gets the wider MAX_MAIL_BYTES envelope cap — a mail
+ * carries its attachments inline, so it must be allowed to be larger than
+ * any single flat file. Every other kind (and an omitted kind) gets the
+ * flat-file MAX_ATTACHMENT_BYTES cap.
  */
-export function checkAttachmentSize(byteLength: number): AttachmentError | null {
-  if (byteLength > MAX_ATTACHMENT_BYTES) return "too-large";
-  return null;
+export function checkAttachmentSize(
+  byteLength: number,
+  kind?: AttachmentKind,
+): AttachmentError | null {
+  const limit = kind === "mail" ? MAX_MAIL_BYTES : MAX_ATTACHMENT_BYTES;
+  return byteLength > limit ? "too-large" : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,6 +211,14 @@ export function buildAttachmentBlock(
 
   if (kind === "office") {
     // `data` is already the extracted Markdown (produced by the file reader).
+    return {
+      type: "document",
+      source: { type: "text", media_type: "text/plain", data },
+    };
+  }
+
+  if (kind === "html" || kind === "mail") {
+    // `data` is already extracted Markdown, produced by the ingest orchestrator.
     return {
       type: "document",
       source: { type: "text", media_type: "text/plain", data },
