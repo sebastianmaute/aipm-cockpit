@@ -44,13 +44,20 @@ function isoDate(v: string | undefined): string {
 export function emlToParsedMail(m: MimeMessage): ParsedMail {
   const diagnostics: string[] = [...m.diagnostics];
 
-  const html = m.parts.find((p) => p.mimeType === "text/html" && !p.fileName);
-  const plain = m.parts.find((p) => p.mimeType === "text/plain" && !p.fileName);
+  // ★★★ `isAttachment`, NEVER `!p.fileName`. These two lines and the filter
+  // below used to disagree about the empty string: `!p.fileName` accepted it
+  // as "no name, so this is body content" while `p.fileName !== null` kept
+  // the same part in the attachment list. A sender who made a filename
+  // sanitise away — one control character does it — therefore got their
+  // attachment promoted to BE the mail body, discarding the real one, and
+  // listed as an attachment at the same time. See MimePart.isAttachment.
+  const html = m.parts.find((p) => p.mimeType === "text/html" && !p.isAttachment);
+  const plain = m.parts.find((p) => p.mimeType === "text/plain" && !p.isAttachment);
   const body = html
     ? { kind: "html" as const, content: extractHtmlMarkdown(html.text) }
     : { kind: "text" as const, content: plain?.text ?? "" };
 
-  const attachmentParts = m.parts.filter((p) => p.fileName !== null || p.isMessage);
+  const attachmentParts = m.parts.filter((p) => p.isAttachment || p.isMessage);
   const keptAttachments = attachmentParts.slice(0, MAX_ATTACHMENTS);
   if (attachmentParts.length > keptAttachments.length) {
     diagnostics.push(
@@ -58,7 +65,10 @@ export function emlToParsedMail(m: MimeMessage): ParsedMail {
     );
   }
   const attachments = keptAttachments.map((p) => ({
-    fileName: p.fileName ?? "attached-message.eml",
+    // A declared attachment whose name sanitised away still needs SOME label
+    // to be listed and classified under; it no longer inherits the nested
+    // message name, which would have mislabelled it as an .eml.
+    fileName: p.fileName ?? (p.isMessage ? "attached-message.eml" : "attachment"),
     mimeType: p.isMessage ? "message/rfc822" : p.mimeType,
     bytes: p.bytes,
   }));

@@ -49,7 +49,15 @@ export const MAX_PARAM_VALUE_BYTES = 1024;
 
 export type MimePart = {
   mimeType: string;
+  /** The part's DISPLAY name, or null when it declared none or declared one
+   *  that sanitised away to nothing. Never use this to decide whether the
+   *  part is an attachment — ask `isAttachment`. */
   fileName: string | null;
+  /** True when the part declared itself an attachment: an `attachment`
+   *  Content-Disposition, or a filename/name parameter on either header.
+   *  Independent of whether that parameter yielded a usable name, so a part
+   *  cannot shed its attachment status by carrying an unsanitisable one. */
+  isAttachment: boolean;
   /** Decoded text, for a textual part. */
   text: string;
   /** Decoded bytes, for any part. */
@@ -164,8 +172,26 @@ export function decodeEncodedWords(v: string): string {
  * decoded value carries the attack). */
 function sanitizeFileName(name: string): string {
   const noControl = name.replace(/[\x00-\x1F\x7F]/g, "").trim();
-  const base = noControl.split(/[\\/]+/).pop();
-  return base && base.length > 0 ? base : noControl;
+  // ★★ FALLING BACK TO `noControl` HANDED THE TRAVERSAL STRAIGHT BACK. The
+  // basename of a value that is nothing but separators ("../../") is "", and
+  // the old `base && base.length > 0 ? base : noControl` treated that empty
+  // basename as "the split found nothing useful, keep the original" — which
+  // returned the exact string the split exists to defuse. The docstring's own
+  // example ("../../etc/passwd" -> "passwd") worked, so the test passed while
+  // the separator-terminated form did not. An empty basename means the value
+  // carries no name at all; say so, and let the caller map it to null.
+  return noControl.split(/[\\/]+/).pop() ?? "";
+}
+
+/** Whether a header DECLARED this parameter at all — plain, extended, or as
+ *  a numbered continuation section — regardless of whether the value it
+ *  carried survives sanitising. This answers the STRUCTURAL question ("did
+ *  the sender mark this as a named part?") that `fileNameParamOf` cannot,
+ *  because that function returns only the usable name. Anchored exactly like
+ *  `paramOf`, so "xfilename*=" cannot hijack "filename". */
+function declaresFileName(headerValue: string, name: string): boolean {
+  if (paramOf(headerValue, name) !== null) return true;
+  return new RegExp(`(?:^|[;\\s])${name}\\*(?:\\d{1,4})?\\*?\\s*=`, "i").test(headerValue);
 }
 
 // Anchored so a parameter name cannot be hijacked by a longer name sharing
@@ -270,6 +296,19 @@ function extendedParamOf(
   // first gap rather than reordering or guessing across it.
   const ordered: ParamSection[] = [];
   for (let i = 0; sections.has(i); i++) ordered.push(sections.get(i)!);
+  // ★★ A GAP MUST REFUSE THE WHOLE EXTENDED FORM, not return the prefix. The
+  // loop above stops at the first missing index, which is right — reordering
+  // or guessing across a gap invents a name. But a truncated result is still
+  // non-null, so it outranked a perfectly good plain `filename=` and was
+  // returned with NO diagnostic: measured, `filename="quarterly-report.pdf"`
+  // beside `filename*0*=UTF-8''q; filename*2*=uarterly.pdf` yielded "q", the
+  // extension silently gone. This was the module's only silent truncation —
+  // the two real caps both note themselves. A fragment is worse than the
+  // fallback, so refuse and let `fileNameParamOf` use the plain form.
+  if (ordered.length < sections.size) {
+    noteOnce(budget, "param-gap", diagnostics, "attachment filename had a gap in its continuation sections");
+    return null;
+  }
   if (ordered.length === 0 && single !== null) ordered.push(single);
   if (ordered.length === 0) return null;
 
@@ -334,10 +373,26 @@ function fileNameParamOf(
   diagnostics: string[],
   budget: Budget,
 ): string | null {
+  // ★★ EACH FORM FALLS THROUGH WHEN IT SANITISES AWAY TO NOTHING, and that
+  // is what makes the `??` chain at the call site work. Returning "" here
+  // meant a non-null result, so an unusable extended name outranked BOTH the
+  // plain name on this header and the `name=` on Content-Type — measured, a
+  // part carrying `filename*=UTF-8''%01` beside `name="notes.html"` lost
+  // "notes.html" outright. Returning null instead restores the RFC 2231 §4
+  // precedence for names that actually exist, while an unusable one simply
+  // does not participate. Attachment STATUS does not ride on this — see
+  // `declaresFileName`.
   const extended = extendedParamOf(headerValue, name, diagnostics, budget);
-  if (extended !== null) return sanitizeFileName(extended);
+  if (extended !== null) {
+    const sanitized = sanitizeFileName(extended);
+    if (sanitized !== "") return sanitized;
+  }
   const plain = paramOf(headerValue, name);
-  return plain ? sanitizeFileName(decodeEncodedWords(plain)) : null;
+  if (plain !== null) {
+    const sanitized = sanitizeFileName(decodeEncodedWords(plain));
+    if (sanitized !== "") return sanitized;
+  }
+  return null;
 }
 
 const FIRST_WINS_HEADERS = new Set(["content-type", "content-transfer-encoding"]);
@@ -440,6 +495,20 @@ function walkNode(headers: Map<string, string>, body: string, depth: number, out
   // form only outranks the plain one WITHIN a header, never across the two.
   const fileName = fileNameParamOf(disp, "filename", diagnostics, budget)
     ?? fileNameParamOf(ctype, "name", diagnostics, budget);
+  // ★★★ A NAME THAT SANITISED AWAY IS NOT THE SAME AS NO NAME, and collapsing
+  // the two is a content-substitution hole. `sanitizeFileName` can empty a
+  // non-empty value (a lone control character, a pure-separator traversal),
+  // and "" is falsy — so a consumer asking "does this part have a filename?"
+  // to decide whether it is the BODY would promote an attacker's attachment
+  // to being the mail body, discarding the real one. Measured: a part with
+  // `filename="\x01"` (or `filename*=UTF-8''%01`) replaced the body outright.
+  // So the two questions are answered by two fields: `fileName` is the
+  // DISPLAY name and is null when unusable, `isAttachment` is the STRUCTURAL
+  // fact and never depends on whether that name survived sanitising.
+  const isAttachment =
+    disp.split(";")[0].trim().toLowerCase() === "attachment"
+    || declaresFileName(disp, "filename")
+    || declaresFileName(ctype, "name");
 
   // A part whose raw (still-encoded) body is already longer than what
   // remains of the output budget cannot possibly decode to fit inside it —
@@ -462,6 +531,7 @@ function walkNode(headers: Map<string, string>, body: string, depth: number, out
     fileName,
     text,
     bytes,
+    isAttachment,
     isMessage: mimeType === "message/rfc822",
   });
 }

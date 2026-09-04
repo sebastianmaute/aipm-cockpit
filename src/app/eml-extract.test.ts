@@ -119,3 +119,98 @@ describe("emlToParsedMail", () => {
     expect(p.diagnostics.some((d) => d.includes("attachment list truncated"))).toBe(true);
   });
 });
+
+// ★★★ CONTENT SUBSTITUTION. A declared attachment whose filename sanitises
+// away to nothing was promoted to BE the mail body, discarding the real one:
+// `!p.fileName` (the body test) accepted "" while `p.fileName !== null` (the
+// attachment filter) kept the same part, so one control character in a
+// filename replaced the text handed to the model with attacker HTML. Fixed by
+// splitting the DISPLAY name from the STRUCTURAL `isAttachment` flag.
+//
+// ★★ EVERY ROUTE NEEDS ITS OWN CASE — they do not share a fix path and they
+// did not share a history. The plain route was reachable from the beginning;
+// the 2231 route arrived later AND regressed a message that had been safe,
+// because an unusable extended name outranked the `name=` fallback that had
+// been rescuing it. A suite covering only one route clears the other.
+const CONTROL_CHAR = String.fromCharCode(1);
+
+const substitutionAttempt = (dispositionLine: string, contentTypeLine: string) =>
+  msg([
+    'Content-Type: multipart/mixed; boundary="B"', "",
+    "--B", "Content-Type: text/plain", "", "the legitimate body",
+    "--B", contentTypeLine, dispositionLine, "", "<p>ATTACKER CONTROLLED</p>",
+    "--B--", "",
+  ]);
+
+describe("emlToParsedMail attachment-vs-body classification", () => {
+  const keepsTheRealBody = (raw: string) => {
+    const p = emlToParsedMail(parseMimeMessage(raw));
+    expect(p.body.kind).toBe("text");
+    expect(p.body.content).toContain("the legitimate body");
+    expect(p.body.content).not.toContain("ATTACKER CONTROLLED");
+    // Non-vacuity: the part was not merely excluded from the body, it is
+    // still delivered as the attachment it declared itself to be. A parser
+    // that dropped it entirely would satisfy every line above.
+    expect(p.attachments).toHaveLength(1);
+    return p;
+  };
+
+  it("does not promote a part whose PLAIN filename sanitises away", () => {
+    keepsTheRealBody(substitutionAttempt(
+      `Content-Disposition: attachment; filename="${CONTROL_CHAR}"`,
+      "Content-Type: text/html",
+    ));
+  });
+
+  it("does not promote a part whose RFC 2231 filename sanitises away", () => {
+    keepsTheRealBody(substitutionAttempt(
+      "Content-Disposition: attachment; filename*=UTF-8''%01",
+      "Content-Type: text/html",
+    ));
+  });
+
+  it("does not promote a part whose filename is a pure-separator traversal", () => {
+    keepsTheRealBody(substitutionAttempt(
+      'Content-Disposition: attachment; filename="../../"',
+      "Content-Type: text/html",
+    ));
+  });
+
+  // ★★ THE REGRESSION CASE, and the one a plain-route-only suite misses: an
+  // unusable extended name must not swallow the Content-Type `name=` that
+  // would otherwise have named this attachment. Before the fix this part came
+  // back named "" and became the body; before the RFC 2231 work landed at all
+  // it was correctly named "notes.html". Both halves are asserted.
+  it("falls back to the Content-Type name when the extended form sanitises away", () => {
+    const p = keepsTheRealBody(substitutionAttempt(
+      "Content-Disposition: attachment; filename*=UTF-8''%01",
+      'Content-Type: text/html; name="notes.html"',
+    ));
+    expect(p.attachments[0].fileName).toBe("notes.html");
+  });
+
+  it("names a declared attachment that has no usable name at all", () => {
+    const p = keepsTheRealBody(substitutionAttempt(
+      `Content-Disposition: attachment; filename="${CONTROL_CHAR}"`,
+      "Content-Type: text/html",
+    ));
+    // Not "attached-message.eml" — that label belongs to message/rfc822 parts
+    // and would mislabel this one as a nested mail.
+    expect(p.attachments[0].fileName).toBe("attachment");
+  });
+
+  // A part with no filename parameter and no attachment disposition is still
+  // body content. Without this, "treat everything as an attachment" would
+  // pass every test above.
+  it("still promotes an ordinary unnamed html part to the body", () => {
+    const p = emlToParsedMail(parseMimeMessage(msg([
+      'Content-Type: multipart/alternative; boundary="B"', "",
+      "--B", "Content-Type: text/plain", "", "plain version",
+      "--B", "Content-Type: text/html", "", "<p>html version</p>",
+      "--B--", "",
+    ])));
+    expect(p.body.kind).toBe("html");
+    expect(p.body.content).toContain("html version");
+    expect(p.attachments).toHaveLength(0);
+  });
+});

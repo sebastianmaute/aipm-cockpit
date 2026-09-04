@@ -453,6 +453,45 @@ describe("parseMimeMessage", () => {
     expect(real.parts[0].fileName).toBe("good.pdf");
   });
 
+  // ★★ THE MODULE'S ONE SILENT TRUNCATION, now the only one that is not.
+  // Stopping at the first missing section index is right, but returning the
+  // PREFIX meant a fragment outranked a well-formed plain `filename=` and
+  // said nothing: a client that skips *1 — or an attacker who deletes it —
+  // reduced "quarterly-report.pdf" to "q", extension included, with empty
+  // diagnostics. Both real caps below note themselves; this one did not.
+  it("refuses a gapped RFC 2231 filename and falls back to the plain one", () => {
+    const m = withDisposition([
+      'Content-Disposition: attachment; filename="quarterly-report.pdf"; '
+      + "filename*0*=UTF-8''q; filename*2*=uarterly.pdf",
+    ]);
+    expect(m.parts[0].fileName).toBe("quarterly-report.pdf");
+    expect(m.parts[0].fileName).not.toBe("q");
+    expect(m.diagnostics.some((d) => d.includes("gap"))).toBe(true);
+  });
+
+  // Non-vacuity for the test above: the SAME sections without the gap must
+  // still assemble, and must still outrank the plain name per RFC 2231 §4.
+  // Without this, refusing every continuation would pass the gap test.
+  it("still assembles a contiguous continuation and prefers it over the plain name", () => {
+    const m = withDisposition([
+      'Content-Disposition: attachment; filename="ignored.pdf"; '
+      + "filename*0*=UTF-8''q; filename*1*=uarterly.pdf",
+    ]);
+    expect(m.parts[0].fileName).toBe("quarterly.pdf");
+    expect(m.diagnostics).toEqual([]);
+  });
+
+  // A gap at section 0 (only *1 present) has no prefix to return at all, so
+  // it exercises the `ordered.length === 0` path rather than the truncation
+  // path — a different branch reaching the same refusal.
+  it("refuses a continuation that never declares section 0", () => {
+    const m = withDisposition([
+      'Content-Disposition: attachment; filename="fallback.pdf"; '
+      + "filename*1*=uarterly.pdf",
+    ]);
+    expect(m.parts[0].fileName).toBe("fallback.pdf");
+  });
+
   it("caps the number of RFC 2231 continuation sections", () => {
     const sections = Array.from(
       { length: MAX_PARAM_SEGMENTS + 10 },
