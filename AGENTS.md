@@ -1661,6 +1661,22 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   pair, because `runTursoPipeline` only opens a transaction when the first statement is literal `BEGIN`.
   `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
   requires `projectId` (not just an id) so a delete can never reach across projects.
+- **Attachment ingest — ONE entry point, and a mail is a TREE.** `attachment-ingest.ts`
+  (`ingestFile` / `ingestBytes`) is the only read/classify/extract path. `chat-panel.tsx`,
+  `step0-import-panel.tsx` and anything added later CALL it and must never reimplement it — three
+  private copies existed before it and drifted, so the wizard silently rejected six token classes the
+  assistant accepted. ★★★ A mail expands into an `IngestNode` TREE, so a consumer sends
+  `flattenIngestBlocks(node)` and NEVER `node.block` alone: the walk is otherwise computed and thrown
+  away while the rendered mail still NAMES the attachments whose content was dropped, which misleads
+  the model rather than merely under-informing it. That shipped once. ★ File pickers take
+  `ATTACHMENT_ACCEPT`, derived from `chat-attachments.ts`'s own classifier tables — never a
+  hand-written `accept` string. ★ TWO size caps, so `checkAttachmentSize` needs the KIND:
+  `MAX_ATTACHMENT_BYTES` (20 MB) for a flat file, `MAX_MAIL_BYTES` (64 MB) for mail. ★★ Every parser
+  beneath it (`cfbf` · `lzfu` · `mime-parse` · `msg-extract` · `eml-extract` · `html-extract`) eats
+  untrusted bytes off the network and returns PARTIAL results rather than throwing; recursion lives in
+  the orchestrator ALONE, never in a parser (the reverse creates an import cycle). Their bounds, and
+  which of those bounds no test can pin, are in
+  [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md).
 
 ## Subsystem reference — deeper detail, loaded on demand
 
