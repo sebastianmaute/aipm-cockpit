@@ -238,6 +238,13 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     allowDestructiveSave: args.allowDestructiveSave,
     clockRef,
     settingsRef,
+    // ★★ The REF, never `args.undo` itself. That hook memoizes on an exhaustive
+    // dep list that deliberately carries no ref objects; handing it the live
+    // value would either go stale inside the memo or force `args.undo` into
+    // that dep array, recomputing every register writer whenever the undo API
+    // identity moves. A ref object's identity never moves, so this costs
+    // nothing and reads the current value at call time.
+    undoRef,
   });
 
   // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`
@@ -402,6 +409,25 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
             ? { ...row, dependencies: applied, localModifiedAt: new Date().toISOString() }
             : row,
         );
+        // ★★ Captured HERE, not at the top of the body: all THREE early returns
+        // above leave the task untouched, and an undo entry for a write that
+        // never landed is worse than none — the user is offered a revert that
+        // silently rewrites the row to a state it never left.
+        // `list` is the PRE-op array (`tasksRef.current` read before the
+        // reassignment below), and `target` is the STORED row, so the image
+        // holds `prior` dependencies rather than `applied`.
+        undoRef.current?.captureComposite({
+          kind: "task.updated",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setTasks,
+            edited: [target],
+            fromArray: list,
+            isPrimary: true,
+          })],
+          name: target.taskName,
+          entityKey: "task",
+        });
         tasksRef.current = next; // keep ref in sync for back-to-back tool calls
         setTasks(next);
         // ★★ THE 21st WRITER — the one a `^(create|update|delete)[A-Z]` grep
@@ -432,6 +458,31 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
                 }
               : row,
           );
+        // ★★ COMPOSITE IN ONE PART, NOT TWO: the delete removes `doomed` AND
+        // edits every dependent whose `dependencies[]` named it, both in the
+        // SAME array — so one `capturePart` carries `removed` and `edited`
+        // together. Capturing only `removed` resurrects the task with every
+        // inbound link still stripped, which reads as a successful undo and is
+        // not one. Mirrors the human path exactly (`use-task-row-handlers.ts`
+        // `onDelete`, which derives `dependents` the same way).
+        // `tasksRef.current` is still the PRE-op array here — the reassignment
+        // is below — which is what makes `doomed`'s captured index its true one.
+        const dependents = tasksRef.current.filter((row) =>
+          row.dependencies?.some((d) => d.taskId === id),
+        );
+        undoRef.current?.captureComposite({
+          kind: "task.deleted",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setTasks,
+            removed: [doomed],
+            edited: dependents,
+            fromArray: tasksRef.current,
+            isPrimary: true,
+          })],
+          name: doomed.taskName,
+          entityKey: "task",
+        });
         tasksRef.current = next;
         setTasks(next);
         args.setSelectedIds((prev) => {
@@ -459,6 +510,28 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       deleteAllTasks: () => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const count = tasksRef.current.length;
+        // Captured ABOVE the reassignment, so `fromArray` is the pre-op array
+        // and every row keeps its own index. Guarded on `count > 0` for the
+        // same reason the activity row below is: clearing nothing is not a
+        // clear, and an empty capture would push an undo entry that reverses
+        // nothing. (`capturePart` returns null for an empty image and
+        // `captureComposite` skips an all-null `parts`, so this guard is belt
+        // and braces — but the `count` read below is the honest witness.)
+        if (count > 0) {
+          undoRef.current?.captureComposite({
+            // ★ `bulk.delete`'s prefix is not an entity, so `entityKey` is what
+            // keeps the label from degrading to "Deleted N item(s)".
+            kind: "bulk.delete",
+            primaryCount: count,
+            parts: [capturePart({
+              setter: setTasks,
+              removed: tasksRef.current,
+              fromArray: tasksRef.current,
+              isPrimary: true,
+            })],
+            entityKey: "task",
+          });
+        }
         tasksRef.current = [];
         setTasks([]);
         args.setSelectedIds(new Set());
@@ -468,9 +541,13 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // ring buffer, so N rows from one chat turn age out a week of the
         // user's own history (`jira.sync` models this shape). ★ Deleting
         // nothing is not a delete — a "0 task(s)" row is pure noise there.
-        // ★★ `bulk.delete`, NOT `bulk.edit`: chat tool writes take no undo
-        // capture, so this row is the only account of an irreversible mass
-        // deletion and must not read as an edit.
+        // ★★ `bulk.delete`, NOT `bulk.edit`: this is a mass deletion and must
+        // not read as an edit. ★ The clause that used to justify this — "chat
+        // tool writes take no undo capture, so this row is the only account of
+        // an irreversible mass deletion" — was TRUE when written and is now
+        // false: the capture sits a few lines above. The KIND is unchanged and
+        // still right; only the reason was stale. An undo entry expires with
+        // the session, so the activity row remains the durable account.
         if (count > 0) {
           args.logActivityAs?.("ai", "bulk.delete", count);
           // Clearing every task is the archetypal case the bypass exists for.
@@ -523,6 +600,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const item = sanitizeResource({ ...input, id });
         if (!item) throw new Error("invalid resource: first or last name is required");
         const next = [...resourcesRef.current, item];
+        // ★★★ NO undo capture, deliberately — same reasoning as `createTask`
+        // above, in full there: `UndoOp` is "delete" | "edit", so a captured
+        // create would DUPLICATE the row on undo rather than remove it.
         resourcesRef.current = next;
         setResources(next);
         args.logActivityAs?.("ai", "resource.created", item.id, resourceLogName(item));
@@ -580,6 +660,22 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         });
         if (!merged) throw new Error("invalid resource update");
         const next = resourcesRef.current.map((r) => (r.id === id ? merged : r));
+        // `existing` is the STORED row (pre-merge) and `resourcesRef.current`
+        // is still the PRE-op array — the reassignment is below. Capturing
+        // `merged` would store the new values as the "before" image and undo
+        // would be a silent no-op.
+        undoRef.current?.captureComposite({
+          kind: "resource.updated",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setResources,
+            edited: [existing],
+            fromArray: resourcesRef.current,
+            isPrimary: true,
+          })],
+          name: resourceLogName(existing),
+          entityKey: "resource",
+        });
         resourcesRef.current = next;
         setResources(next);
         args.logActivityAs?.("ai", "resource.updated", merged.id, resourceLogName(merged));
@@ -590,6 +686,26 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const doomed = resourcesRef.current.find((r) => r.id === id);
         if (!doomed) return false;
         const next = resourcesRef.current.filter((r) => r.id !== id);
+        // ★★ ONE part, unlike the HUMAN resource delete
+        // (`use-resource-directory.ts`), whose composite also re-inserts the
+        // absences and shifts its own cascade purged. This path runs no such
+        // purge — it filters the resources array and nothing else — so a
+        // calendar part here would capture rows that were never removed.
+        // ★ That asymmetry is PRE-EXISTING behaviour (the AI delete leaves the
+        // person's calendar rows behind), not something this capture chose;
+        // if the cascade is ever added here, this part list must grow with it.
+        undoRef.current?.captureComposite({
+          kind: "resource.deleted",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setResources,
+            removed: [doomed],
+            fromArray: resourcesRef.current,
+            isPrimary: true,
+          })],
+          name: resourceLogName(doomed),
+          entityKey: "resource",
+        });
         resourcesRef.current = next;
         setResources(next);
         args.logActivityAs?.("ai", "resource.deleted", doomed.id, resourceLogName(doomed));

@@ -18,8 +18,12 @@
 // there is exactly ONE place to read the project's day from. The four register
 // refs below have no reader outside this file, so those DO move.
 //
-// ★★ Every write refuses in a read-only popout, exactly as before — chat tool
-// writes take no undo capture, so a mirror window must never reach a setter.
+// ★★ Every write refuses in a read-only popout, exactly as before. ★ The reason
+// that used to be given here — "chat tool writes take no undo capture, so a
+// mirror window must never reach a setter" — was true when written and is now
+// false: every update and delete below captures. The RULE is unchanged; a
+// popout owns no undo stack of its own, so a write reaching a setter there
+// would still be unrecoverable in that window.
 import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { AI_RICH_FIELDS, withAiRichFields } from "./ai-rich-text";
@@ -42,6 +46,7 @@ import {
 } from "./sanitize";
 import type { Settings } from "./settings-types";
 import type { ProjectClock } from "./timezone";
+import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
 
 /** The register slice of `ToolDispatcher` — derived from it with `Pick` rather
@@ -82,10 +87,20 @@ export interface RegisterToolsDeps {
   clockRef: RefObject<ProjectClock>;
   /** Owned by use-chat-dispatcher — read only for the read-only refusal's language. */
   settingsRef: RefObject<Settings>;
+  /** Undo capture for the eight update/delete writers below, as a REF owned by
+   *  use-chat-dispatcher (which syncs it from `ChatDispatcherArgs.undo`).
+   *  ★★ A REF, not the value: the memo below is exhaustive on purpose and lists
+   *  no ref objects, so passing the live API would either be read stale from
+   *  inside the memo or force a new dep that moves every register writer's
+   *  identity whenever the undo stack re-renders. A ref object is stable, and
+   *  `.current` is read at CALL time, which is what the memo needs.
+   *  ★ `.current` is optional for the same reason `ChatDispatcherArgs.undo` is —
+   *  tests and popouts supply none, and a write then applies exactly as before. */
+  undoRef: RefObject<Pick<UndoStackApi, "captureComposite"> | undefined>;
 }
 
 export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatcher {
-  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave } = deps;
+  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef } = deps;
   const {
     raid,
     setRaid,
@@ -148,6 +163,13 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       getMilestoneRow: (id: number) => milestonesRef.current.find((m) => m.id === id) ?? null,
       getStakeholderRow: (id: number) => stakeholdersRef.current.find((s) => s.id === id) ?? null,
 
+      // ★★★ THE FOUR `create*` WRITERS BELOW CAPTURE NO UNDO, DELIBERATELY, and
+      // that is true of all four — do not "complete the pattern" at any of them.
+      // `UndoOp` is "delete" | "edit" and the undo direction never removes, so a
+      // create captured as a `removed` image finds its row still live at undo
+      // time, takes `applyUndoRestoreWithRemap`'s id-reuse branch and splices in
+      // a SECOND copy. The full reasoning, measured, is at `createTask` in
+      // use-chat-dispatcher.ts. Every update and delete here DOES capture.
       createRaid: (input) => {
         if (isReadOnly) throw readOnlyError();
         const id = mintId("raid", raidRef.current);
@@ -185,6 +207,22 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (!merged) throw new Error("invalid RAID item update");
         // ★★★ Re-apply the STORED log — `sanitizeRaidItem` drops `noteLog` and cannot keep it (DOM-free). §49.
         const next = raidRef.current.map((r) => (r.id === id ? { ...merged, noteLog: existing.noteLog } : r));
+        // `existing` is the STORED row and `raidRef.current` the PRE-op array —
+        // both read ABOVE the reassignment on the next line. Capturing `merged`
+        // would store the NEW values as the "before" image, making undo a
+        // silent no-op that still reports success.
+        undoRef.current?.captureComposite({
+          kind: "raid.updated",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setRaid,
+            edited: [existing],
+            fromArray: raidRef.current,
+            isPrimary: true,
+          })],
+          name: existing.title,
+          entityKey: "raid",
+        });
         raidRef.current = next;
         setRaid(next);
         logActivityAs?.("ai", "raid.updated", merged.id, merged.category, merged.title);
@@ -201,6 +239,20 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const doomed = raidRef.current.find((r) => r.id === id);
         if (!doomed) return false;
         const next = raidRef.current.filter((r) => r.id !== id);
+        // Pre-op array, so `doomed` keeps its OWN index and returns where it
+        // was rather than at the head of the list.
+        undoRef.current?.captureComposite({
+          kind: "raid.deleted",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setRaid,
+            removed: [doomed],
+            fromArray: raidRef.current,
+            isPrimary: true,
+          })],
+          name: doomed.title,
+          entityKey: "raid",
+        });
         raidRef.current = next;
         setRaid(next);
         logActivityAs?.("ai", "raid.deleted", doomed.id, doomed.category, doomed.title);
@@ -240,8 +292,22 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (!merged) throw new Error("invalid change update");
         // Same transition, gated on the model's RAW status: absent leaves the stored pair alone, unrecognised is IGNORED rather than sanitized to "Proposed" (which would demote a decided change and clear its date). Why, in full: applyModelChangeStatus in change-log.ts.
         const stamped = applyModelChangeStatus(merged, patch.status, existing.status, clockRef.current.today);
-        // ★★★ Re-apply the STORED log — §49's defect class, one register over. WHY, and which of the sanitizer's six call sites must do this: `withStoredNoteLog`'s docblock in `change-log.ts`. Local to HERE: an AI write takes NO undo capture, so a log lost on this path is unrecoverable.
+        // ★★★ Re-apply the STORED log — §49's defect class, one register over. WHY, and which of the sanitizer's six call sites must do this: `withStoredNoteLog`'s docblock in `change-log.ts`. ★ The local justification used to be "an AI write takes NO undo capture, so a log lost on this path is unrecoverable"; that is now false — the capture is immediately below. The re-apply is still REQUIRED and the argument only got narrower: undo is session-scoped and holds one before-image, so it recovers a log dropped by THIS write and nothing after a reload.
         const next = changesRef.current.map((c) => (c.id === id ? withStoredNoteLog(stamped, existing.noteLog) : c));
+        // `existing` (STORED, log intact) against the PRE-op array — read
+        // before the reassignment below.
+        undoRef.current?.captureComposite({
+          kind: "change.updated",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setChanges,
+            edited: [existing],
+            fromArray: changesRef.current,
+            isPrimary: true,
+          })],
+          name: existing.title,
+          entityKey: "change",
+        });
         changesRef.current = next;
         setChanges(next);
         logActivityAs?.("ai", "change.updated", stamped.id, stamped.title);
@@ -252,6 +318,18 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const doomed = changesRef.current.find((c) => c.id === id);
         if (!doomed) return false;
         const next = changesRef.current.filter((c) => c.id !== id);
+        undoRef.current?.captureComposite({
+          kind: "change.deleted",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setChanges,
+            removed: [doomed],
+            fromArray: changesRef.current, // pre-op — keeps `doomed`'s own index
+            isPrimary: true,
+          })],
+          name: doomed.title,
+          entityKey: "change",
+        });
         changesRef.current = next;
         setChanges(next);
         logActivityAs?.("ai", "change.deleted", doomed.id, doomed.title);
@@ -288,6 +366,22 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         if (!merged) throw new Error("invalid milestone update");
         const next = milestonesRef.current.map((m) => (m.id === id ? merged : m));
+        // ★ The undo label DOES carry the name even though the activity row
+        // above deliberately does not — they answer different questions, and
+        // `buildUndoLabel` has a `name` slot the "Updated milestone #{0}"
+        // string has no placeholder for.
+        undoRef.current?.captureComposite({
+          kind: "milestone.updated",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setMilestones,
+            edited: [existing],
+            fromArray: milestonesRef.current, // pre-op — reassignment is below
+            isPrimary: true,
+          })],
+          name: existing.name,
+          entityKey: "milestone",
+        });
         milestonesRef.current = next;
         setMilestones(next);
         // ★★ ONE arg. "Updated milestone #{0}" has no {1}, and
@@ -298,8 +392,25 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       },
       deleteMilestone: (id) => {
         if (isReadOnly) throw readOnlyError();
-        if (!milestonesRef.current.some((m) => m.id === id)) return false;
+        // ★★ `find`, not the `some` this used to be: the capture below needs
+        // the ROW, and after the filter there is no copy of it left to take.
+        // The guard is otherwise identical — a miss still returns false before
+        // anything is written or armed.
+        const doomed = milestonesRef.current.find((m) => m.id === id);
+        if (!doomed) return false;
         const next = milestonesRef.current.filter((m) => m.id !== id);
+        undoRef.current?.captureComposite({
+          kind: "milestone.deleted",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setMilestones,
+            removed: [doomed],
+            fromArray: milestonesRef.current, // pre-op — keeps its own index
+            isPrimary: true,
+          })],
+          name: doomed.name,
+          entityKey: "milestone",
+        });
         milestonesRef.current = next;
         setMilestones(next);
         // ★★ ONE arg — "Deleted milestone #{0}", same as the panel's own row.
@@ -331,6 +442,18 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         if (!merged) throw new Error("invalid stakeholder update");
         const next = stakeholdersRef.current.map((s) => (s.id === id ? merged : s));
+        undoRef.current?.captureComposite({
+          kind: "stakeholder.updated",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setStakeholders,
+            edited: [existing], // STORED row, not `merged` — see updateRaid
+            fromArray: stakeholdersRef.current, // pre-op — reassignment is below
+            isPrimary: true,
+          })],
+          name: existing.name,
+          entityKey: "stakeholder",
+        });
         stakeholdersRef.current = next;
         setStakeholders(next);
         logActivityAs?.("ai", "stakeholder.updated", merged.id, merged.name);
@@ -341,6 +464,18 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const doomed = stakeholdersRef.current.find((s) => s.id === id);
         if (!doomed) return false;
         const next = stakeholdersRef.current.filter((s) => s.id !== id);
+        undoRef.current?.captureComposite({
+          kind: "stakeholder.deleted",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setStakeholders,
+            removed: [doomed],
+            fromArray: stakeholdersRef.current, // pre-op — keeps its own index
+            isPrimary: true,
+          })],
+          name: doomed.name,
+          entityKey: "stakeholder",
+        });
         stakeholdersRef.current = next;
         setStakeholders(next);
         logActivityAs?.("ai", "stakeholder.deleted", doomed.id, doomed.name);
@@ -385,6 +520,11 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       allowDestructiveSave,
       readOnlyError,
       clockRef,
+      // ★ Listed for the same reason `clockRef` is — exhaustive-deps cannot know
+      // a value destructured from `deps` is a ref object. Its identity never
+      // moves, so it recomputes nothing; it is here to keep the "no escape
+      // hatch" property above true.
+      undoRef,
       setRaid,
       setChanges,
       setMilestones,

@@ -13,7 +13,7 @@ import { vi } from "vitest";
 import { type AllocationsSnapshot } from "../app/alloc-plan/alloc-plan";
 import { type DashboardModel } from "../app/dashboard";
 import { defaultSettings } from "../app/settings-types";
-import { TestProviders } from "../app/test-providers";
+import { TestProviders, type TestSeed } from "../app/test-providers";
 import { asTimeZoneForTests, createProjectClock } from "../app/timezone";
 import { type Task } from "../app/types";
 import type { ChatDispatcherArgs } from "../app/use-chat-dispatcher";
@@ -74,5 +74,23 @@ export function makeDispatcherArgs(
 export function dispatcherWrapper(tasks: Task[] = []) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return <TestProviders tasks={tasks}>{children}</TestProviders>;
+  };
+}
+
+/** The same wrapper for the NON-task slices — RAID, changes, milestones,
+ *  stakeholders and resources — which the register and resource tool writers
+ *  read from `useWorkspace()` exactly as the task writers read `tasks`.
+ *
+ *  ★ A separate export rather than a widened `dispatcherWrapper` signature:
+ *  every existing caller passes a bare `Task[]` positionally, and the two
+ *  shapes (`Task[]` vs a slice bag) cannot be told apart by a default
+ *  parameter without a runtime `Array.isArray` sniff in a test helper.
+ *  ★★ `TestProviders` seeds ONCE on mount and ignores later prop changes, so
+ *  the bag must be complete at `renderHook` time — a slice added afterwards
+ *  never lands, and the write under test then returns null from its own
+ *  `!existing` guard while the capture assertion reads as a missing capture. */
+export function dispatcherWrapperWith(seed: TestSeed) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <TestProviders seed={seed}>{children}</TestProviders>;
   };
 }
