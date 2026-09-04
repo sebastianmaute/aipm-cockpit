@@ -894,6 +894,7 @@ export const de: Record<TranslationKey, string> = {
   wizardImportErrorTooLarge: "Diese Datei ist zu groß (max. 20 MB).",
   wizardImportErrorConfluenceUrl: "Diese Confluence-URL konnte nicht gelesen werden.",
   wizardImportErrorSource: "Import aus dieser Quelle nicht möglich.",
+  wizardImportErrorEncrypted: "Diese Datei ist kennwortgeschützt. Speichere sie ohne Schutz und versuche es erneut.",
   versionHighlightAiCreateWizard: "Erstellen Sie ein Projekt aus einer Beschreibung in natürlicher Sprache – Claude schlägt Einrichtung und Startinhalte vor.",
   versionHighlightAiActionSuggestions: "Action Center: KI-Triage per Klick + vorgeschlagene nächste Schritte",
   versionHighlightScheduledJobs: "Planen Sie wiederkehrende KI-Portfolioanalysen, die als Benachrichtigungen und als In-App-Verlauf erscheinen.",

@@ -135,6 +135,15 @@ export function Step0ImportPanel({
           // Exclude<>) is what makes a new variant a compile error: a derived
           // type would simply widen to admit it. chat-panel.tsx gets the same
           // property for free, since attachmentErrorText names the full union.
+          // ★★ THE ANNOTATION IS AN EXHAUSTIVENESS CHECK, NOT A SURFACING ONE,
+          // and reading it as both is how "encrypted" stayed invisible here.
+          // It names the variant, so it compiled unchanged when the protected
+          // -attachment work landed and nothing forced anyone to look at the
+          // catch below — which rendered the generic source-failure string for
+          // every variant alike. The chat panel told the user to remove the
+          // password while the wizard said "Could not import from that
+          // source." The message code travels in the Error so the catch can
+          // tell them apart; a new variant still fails to compile HERE.
           const fatal: "read-failed" | "encrypted" | "budget-exhausted" = result.error;
           throw new Error(fatal);
         }
@@ -142,8 +151,12 @@ export function Step0ImportPanel({
         // flattenIngestBlocks. One dropped .eml can contribute several blocks.
         blocks.push(...flattenIngestBlocks(result.node));
       }
-    } catch {
-      setImportError(t(lang, "wizardImportErrorSource"));
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "";
+      setImportError(t(
+        lang,
+        code === "encrypted" ? "wizardImportErrorEncrypted" : "wizardImportErrorSource",
+      ));
       setReading(false);
       return;
     }
@@ -196,9 +209,11 @@ export function Step0ImportPanel({
             lang,
             result.error === "too-large"
               ? "wizardImportErrorTooLarge"
-              : result.error === "unsupported-type" || unresolvableOffice
-                ? "wizardImportErrorUnsupported"
-                : "wizardImportErrorSource",
+              : result.error === "encrypted"
+                ? "wizardImportErrorEncrypted"
+                : result.error === "unsupported-type" || unresolvableOffice
+                  ? "wizardImportErrorUnsupported"
+                  : "wizardImportErrorSource",
           ),
         );
         return;

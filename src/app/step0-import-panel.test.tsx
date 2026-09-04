@@ -4,6 +4,7 @@ import { Step0ImportPanel } from "./step0-import-panel";
 import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
 import { ATTACHMENT_ACCEPT, type DocumentBlock } from "./chat-attachments";
+import { buildCfbf } from "./__fixtures__/cfbf-writer";
 
 // SharePoint path stubs — the picker itself and the Graph fetch are mocked so
 // the regression test below can drive Step0ImportPanel's onSharePointPick
@@ -94,6 +95,48 @@ describe("Step0ImportPanel multi-file", () => {
     await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
     expect(onIngest.mock.calls[0][0].length).toBe(2); // prompt + 1 block (good only)
     expect(screen.getByText(/skipped|übersprungen/i)).toBeTruthy();
+  });
+
+  // ★★★ THE WIZARD IS THE SECOND CONSUMER OF ingestFile AND IT DROPPED THE
+  // VERDICT. The protected-attachment work made ingest answer "encrypted"
+  // instead of a generic read failure, and the chat panel surfaced it — but
+  // both call sites here collapsed every fatal variant into the generic
+  // source-failure string, so the wizard's behaviour was byte-identical to
+  // before that work. The user was told "Could not import from that source."
+  // and never told to remove the password, which is the exact complaint the
+  // change was made to fix. The exhaustiveness annotation at the throw site
+  // NAMES "encrypted", so it compiled unchanged and flagged nothing.
+  it("tells the user a password-protected file needs its protection removed", async () => {
+    const onIngest = vi.fn();
+    render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
+    selectFileMethod();
+    // The MS-OFFCRYPTO shape: an Encrypt-with-Password .docx is a compound
+    // file, not a zip. 4608 bytes so the writer emits a real (non-mini)
+    // stream — a short payload reads back as zero-length and would make this
+    // pass for the wrong reason.
+    const encrypted = buildCfbf([
+      { name: "EncryptionInfo", data: new Uint8Array(4608).fill(1) },
+      { name: "EncryptedPackage", data: new Uint8Array(4608).fill(2) },
+    ]);
+    fireEvent.change(fileInput(), {
+      target: {
+        // Copied into a fresh ArrayBuffer: buildCfbf returns
+        // Uint8Array<ArrayBufferLike>, which is not a BlobPart — vitest runs
+        // it happily and only tsc objects.
+        files: [new File([new Uint8Array(encrypted)], "plan.docx", {
+          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        })],
+      },
+    });
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.getByRole("alert").textContent)
+      .toContain(t("en-US", "wizardImportErrorEncrypted"));
+    // Discriminating, not merely present: the generic string is what this
+    // rendered before, so asserting only on the new one would pass if both
+    // were shown.
+    expect(screen.getByRole("alert").textContent)
+      .not.toContain(t("en-US", "wizardImportErrorSource"));
+    expect(onIngest).not.toHaveBeenCalled();
   });
 
   it("errors and does not ingest when all files are invalid", async () => {

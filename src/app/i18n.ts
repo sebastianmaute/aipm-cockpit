@@ -924,6 +924,7 @@ const enUS = {
   wizardImportErrorTooLarge: "That file is too large (max 20 MB).",
   wizardImportErrorConfluenceUrl: "Could not read that Confluence URL.",
   wizardImportErrorSource: "Could not import from that source.",
+  wizardImportErrorEncrypted: "That file is password-protected. Save it without protection and try again.",
   versionHighlightAiCreateWizard:
     "Create a project from a plain-language description — Claude proposes the setup and starter content.",
   versionHighlightAiActionSuggestions:
