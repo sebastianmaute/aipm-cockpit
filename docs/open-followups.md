@@ -579,7 +579,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
 | [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--open) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | open |
 | [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--open) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | open |
-| [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--open) | RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish from the tree | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--closed-2026-09-04) | ~~RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish from the tree~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (both forms decoded, capped and routed through the existing filename sanitizer) |
 | [§354](#354-negative-rtf-un-values-are-dropped-losing-every-code-point-above-u7fff--closed-2026-09-04) | ~~Negative RTF `\uN` values are dropped, losing every code point above U+7FFF~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (a lone unpaired surrogate is CARRIED, not repaired — the entry records what that costs downstream) |
 | [§355](#355-a-pt_string8-msg-yields-an-entirely-empty-mail-with-no-diagnostic--open) | A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic | found 2026-09-03 in the ingest-breadth review | S | open |
 | [§356](#356-three-cfbf-guard-assertions-do-not-discriminate-the-guard-they-name--open) | Three cfbf guard assertions do not discriminate the guard they name | found 2026-09-03 in the ingest-breadth review | S | open |
@@ -27252,21 +27252,53 @@ streams and renders an empty mail with no rejection at all.
 finds the variant, the branch and two translated strings, and concludes it exists. Either wire a
 detector or delete the variant and both i18n keys — a dead user-facing string reads as coverage.
 
-## 353. RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish — OPEN
+## 353. RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish — CLOSED 2026-09-04
 
-**Status:** OPEN. Filed 2026-09-03 from the ingest-breadth review. **Never machine-verified** as a
-user-visible loss; the code path was verified by reading it and by a reviewer's probe, and no test
-covers it. Read the parameter reader with `grep -n "function paramOf" -A 8 src/app/mime-parse.ts`.
+**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Filed 2026-09-03 from the ingest-breadth
+review as **never machine-verified**; the loss was then **measured** against the real modules before
+anything was changed, and 14 new cases pin the fix. Run
+`npx vitest run src/app/mime-parse.test.ts src/app/eml-extract.test.ts` (exit 0). Read the decoder
+with `grep -n "function extendedParamOf" -A 30 src/app/mime-parse.ts`.
 
-`paramOf` matches `name` followed by `\s*=`. For `filename*=UTF-8''Bericht.pdf` the next character
-is `*`, so it correctly does not false-positive — but nothing else handles the RFC 2231 form, and
-`name` is usually absent too, so `fileName` stays `null`. `eml-extract.ts` keeps only parts with
-`fileName !== null || isMessage`, so the part is dropped from `ParsedMail.attachments` entirely and
-never recursed into. The continuation form (`filename*0=` / `filename*1=`) behaves the same way.
-No diagnostic is emitted, so neither the user nor the model learns anything was dropped.
+★★ BEFORE AND AFTER, MEASURED WITH A NODE PROBE AGAINST THE REAL MODULES, not reasoned. A
+`multipart/mixed` message whose PDF part carried
+`Content-Disposition: attachment; filename*=UTF-8''Bericht%20Q3%20f%C3%BCr%20M%C3%BCller.pdf` gave
+part filenames `[null, null]`, `ParsedMail.attachments` `[]` and diagnostics `[]` — the attachment
+gone, and nothing said about it. It now yields `Bericht Q3 für Müller.pdf` with the umlauts intact
+and the attachment present. The continuation form behaved, and now behaves, the same way.
 
-RFC 2231 — not RFC 2047 — is what modern clients use for non-ASCII filenames, so this is an
-everyday German/French case rather than a hostile one.
+`paramOf` is UNCHANGED and still cannot see the form (it wants the name then `=`, and here the next
+character is `*`). A new `extendedParamOf` reads both shapes — the extended
+`filename*=charset'language'pct-encoded`, and the numbered `filename*0`/`filename*1` continuation
+whose sections may individually be percent-encoded or literal — and `fileNameParamOf` prefers it
+over the plain parameter, as RFC 2231 §4 requires, while Content-Disposition still outranks
+Content-Type wholesale. The decoded value goes through the SAME `sanitizeFileName` the RFC 2047 path
+uses, so a `../../etc/passwd` smuggled through 2231 is neutralised identically; there is no second
+sanitizer.
+
+★★ SECTIONS ARE JOINED AS BYTES, NEVER AS DECODED STRINGS. A multi-byte character may straddle a
+section boundary (`...M%C3` then `%BCller`), and decoding each half on its own turns it into two
+U+FFFD. Pinned by "joins continuation sections as bytes, so a split multi-byte character survives",
+which a per-section-decode mutant kills — and kills nothing else, so the case is not riding on
+another assertion.
+
+★ Bounded like the rest of the module: `MAX_PARAM_SEGMENTS` sections and `MAX_PARAM_VALUE_BYTES`
+assembled bytes, both attacker-controlled otherwise, each with a `noteOnce` diagnostic so the
+truncation is visible rather than silent. The cap is on BYTES rather than characters partly so a
+truncation can only ever produce a U+FFFD, never a lone surrogate. An unknown charset label — and
+the `replacement` encoding family, which `new TextDecoder` also throws a `RangeError` for — degrades
+to UTF-8 with a diagnostic; the label itself stays OUT of that text, because it is
+attacker-controlled and diagnostics are rendered for a reader and for the model.
+
+★ WHAT IS DELIBERATELY NOT COVERED: RFC 2231 permits the extended form on ANY parameter, and only
+`filename` and `name` are read this way. `boundary` and `charset` are ASCII by definition and no
+client encodes them, so widening it would add a regex pass per part for a case nobody has.
+★★ AND A KNOWN RESIDUE, stated because a closure that overclaims is worse than an open entry: RFC
+2231 §3 numbers sections from 0 and runs them contiguously, and this reader stops at the first gap
+rather than guessing across it — so a continuation with a gap keeps only the run from 0, and one
+that never HAS a section 0 yields no filename at all. In that second case, absent a plain
+`filename=` alongside it, the part is still dropped silently, exactly as it was before this fix.
+That is malformed input rather than the everyday case §353 was filed for, and it is not closed here.
 
 ## 354. Negative RTF `\uN` values are dropped, losing every code point above U+7FFF — CLOSED 2026-09-04
 

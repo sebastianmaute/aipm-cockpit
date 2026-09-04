@@ -42,6 +42,10 @@ export const MAX_HEADER_BYTES = 64 * 1024;
 export const MAX_PARTS = 1000;
 /** Bounds the running total AND any single part's decoded byte count. */
 export const MAX_TOTAL_OUTPUT_BYTES = 20 * 1024 * 1024;
+/** Continuation sections read from one RFC 2231 parameter (filename*0, *1, ...). */
+export const MAX_PARAM_SEGMENTS = 64;
+/** Bytes kept from an assembled RFC 2231 filename, before charset decoding. */
+export const MAX_PARAM_VALUE_BYTES = 1024;
 
 export type MimePart = {
   mimeType: string;
@@ -174,6 +178,168 @@ function paramOf(headerValue: string, name: string): string | null {
   return m ? (m[2] ?? m[3] ?? null) : null;
 }
 
+/**
+ * Percent-decoding for an RFC 2231 value, to BYTES (the charset is named by
+ * the parameter itself and applied later, once every section is joined).
+ *
+ * Deliberately NOT decodeQuotedPrintable with "%" swapped for "=": a filename
+ * legitimately containing "=" ("a=41.pdf") would then be read as an escape and
+ * silently corrupted. A literal run is encoded through TextEncoder rather than
+ * masked per char code, for the same reason decodeQuotedPrintable does it.
+ */
+function percentDecodeToBytes(s: string): Uint8Array {
+  const buf = new Uint8Array(s.length * 3 + 16);
+  let n = 0;
+  let literalStart = 0;
+  const flushLiteral = (end: number) => {
+    if (end <= literalStart) return;
+    const { written } = textEncoder.encodeInto(s.slice(literalStart, end), buf.subarray(n));
+    n += written;
+  };
+  let i = 0;
+  while (i < s.length) {
+    if (s[i] === "%" && /^[0-9A-Fa-f]{2}$/.test(s.slice(i + 1, i + 3))) {
+      flushLiteral(i);
+      buf[n++] = Number.parseInt(s.slice(i + 1, i + 3), 16);
+      i += 3;
+      literalStart = i;
+      continue;
+    }
+    i++;
+  }
+  flushLiteral(s.length);
+  return buf.subarray(0, n);
+}
+
+type ParamSection = { value: string; encoded: boolean };
+
+/**
+ * RFC 2231 §3-4 parameter values — what every modern client emits for a
+ * non-ASCII filename, and the form `paramOf` cannot see (it wants "name" then
+ * "=", and here the next character is "*"). Two shapes, which compose:
+ *
+ *   filename*=UTF-8''Bericht%20Q3.pdf          extended, one section
+ *   filename*0*=UTF-8''Bericht%20; filename*1="Q3.pdf"   continued
+ *
+ * A section carrying a trailing "*" is percent-encoded, one without it is
+ * literal, and mixing the two in one parameter is legal and real. The
+ * charset'language' prefix rides the FIRST section only, and only when that
+ * section is encoded; the language is ignored.
+ *
+ * ★★ Sections are joined as BYTES, never as decoded strings — a multi-byte
+ * character may straddle a section boundary ("...M%C3" + "%BCller"), and
+ * decoding each half on its own turns it into two U+FFFD.
+ *
+ * Bounded like everything else here: at most MAX_PARAM_SEGMENTS sections and
+ * MAX_PARAM_VALUE_BYTES assembled bytes, both attacker-controlled otherwise.
+ * The byte cap (rather than a character cap) also means a truncation can only
+ * ever produce a U+FFFD, never a lone surrogate.
+ *
+ * Returns the DECODED, still-unsanitised value — the caller runs it through
+ * the same sanitizeFileName the RFC 2047 path uses. Never throws: an unknown
+ * or unsupported charset label degrades to UTF-8 with a diagnostic, because
+ * this module's contract is partial results rather than an exception.
+ *
+ * Anchored exactly like paramOf, so "xfilename*=" cannot hijack "filename".
+ */
+function extendedParamOf(
+  headerValue: string,
+  name: string,
+  diagnostics: string[],
+  budget: Budget,
+): string | null {
+  const re = new RegExp(`(?:^|[;\\s])${name}\\*(\\d{1,4})?(\\*)?\\s*=\\s*("([^"]*)"|([^;\\s]+))`, "gi");
+  const sections = new Map<number, ParamSection>();
+  let single: ParamSection | null = null;
+  let capped = false;
+  for (let m = re.exec(headerValue); m !== null; m = re.exec(headerValue)) {
+    const section: ParamSection = { value: m[4] ?? m[5] ?? "", encoded: m[2] !== undefined };
+    if (m[1] === undefined) {
+      // "filename*=" — the un-numbered extended form, always encoded.
+      if (single === null) single = { value: section.value, encoded: true };
+      continue;
+    }
+    if (sections.size >= MAX_PARAM_SEGMENTS) { capped = true; break; }
+    const index = Number.parseInt(m[1], 10);
+    // First wins on a repeated section number, matching paramOf's first-match
+    // rule for a repeated plain parameter.
+    if (!sections.has(index)) sections.set(index, section);
+  }
+
+  // RFC 2231 numbers sections from 0 and runs them contiguously. Stop at the
+  // first gap rather than reordering or guessing across it.
+  const ordered: ParamSection[] = [];
+  for (let i = 0; sections.has(i); i++) ordered.push(sections.get(i)!);
+  if (ordered.length === 0 && single !== null) ordered.push(single);
+  if (ordered.length === 0) return null;
+
+  let charsetLabel = "";
+  const first = ordered[0];
+  if (first.encoded) {
+    const quote = first.value.indexOf("'");
+    const secondQuote = quote === -1 ? -1 : first.value.indexOf("'", quote + 1);
+    if (secondQuote !== -1) {
+      charsetLabel = first.value.slice(0, quote);
+      ordered[0] = { value: first.value.slice(secondQuote + 1), encoded: true };
+    }
+  }
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (const section of ordered) {
+    const bytes = section.encoded
+      ? percentDecodeToBytes(section.value)
+      : textEncoder.encode(section.value);
+    if (total + bytes.byteLength > MAX_PARAM_VALUE_BYTES) {
+      chunks.push(bytes.subarray(0, MAX_PARAM_VALUE_BYTES - total));
+      total = MAX_PARAM_VALUE_BYTES;
+      capped = true;
+      break;
+    }
+    chunks.push(bytes);
+    total += bytes.byteLength;
+  }
+  const joined = new Uint8Array(total);
+  let at = 0;
+  for (const chunk of chunks) { joined.set(chunk, at); at += chunk.byteLength; }
+
+  const label = charsetLabel.trim().toLowerCase();
+  let text: string;
+  try {
+    // Throws a RangeError on an unknown label, and on the "replacement"
+    // encoding family — both land in the catch rather than escaping.
+    text = new TextDecoder(label === "" ? "utf-8" : label).decode(joined);
+  } catch {
+    // The label itself is attacker-controlled, so it stays OUT of the
+    // diagnostic text, which is rendered for a reader and for the model.
+    noteOnce(budget, "param-charset", diagnostics,
+      "attachment filename used an unsupported charset; decoded as UTF-8");
+    text = new TextDecoder().decode(joined);
+  }
+  if (capped) {
+    noteOnce(budget, "param-length", diagnostics, "attachment filename truncated at the size cap");
+  }
+  return text === "" ? null : text;
+}
+
+/**
+ * The extended (RFC 2231) form wins over the plain one when a header carries
+ * both, as RFC 2231 §4 requires. Both forms end at the SAME sanitizeFileName
+ * — a decoded "../../etc/passwd" or a filename bearing control characters is
+ * neutralised identically whichever encoding smuggled it in.
+ */
+function fileNameParamOf(
+  headerValue: string,
+  name: string,
+  diagnostics: string[],
+  budget: Budget,
+): string | null {
+  const extended = extendedParamOf(headerValue, name, diagnostics, budget);
+  if (extended !== null) return sanitizeFileName(extended);
+  const plain = paramOf(headerValue, name);
+  return plain ? sanitizeFileName(decodeEncodedWords(plain)) : null;
+}
+
 const FIRST_WINS_HEADERS = new Set(["content-type", "content-transfer-encoding"]);
 
 function splitHeaders(raw: string): { headers: Map<string, string>; body: string; diagnostics: string[] } {
@@ -270,7 +436,10 @@ function walkNode(headers: Map<string, string>, body: string, depth: number, out
   }
 
   const disp = headers.get("content-disposition") ?? "";
-  const rawFileName = paramOf(disp, "filename") ?? paramOf(ctype, "name");
+  // Content-Disposition still wins over Content-Type wholesale: the extended
+  // form only outranks the plain one WITHIN a header, never across the two.
+  const fileName = fileNameParamOf(disp, "filename", diagnostics, budget)
+    ?? fileNameParamOf(ctype, "name", diagnostics, budget);
 
   // A part whose raw (still-encoded) body is already longer than what
   // remains of the output budget cannot possibly decode to fit inside it —
@@ -290,7 +459,7 @@ function walkNode(headers: Map<string, string>, body: string, depth: number, out
   budget.bytesLeft -= bytes.byteLength;
   out.push({
     mimeType,
-    fileName: rawFileName ? sanitizeFileName(decodeEncodedWords(rawFileName)) : null,
+    fileName,
     text,
     bytes,
     isMessage: mimeType === "message/rfc822",

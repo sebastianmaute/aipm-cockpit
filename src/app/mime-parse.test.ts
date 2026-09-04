@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { parseMimeMessage, MAX_MIME_DEPTH, MAX_HEADER_BYTES, MAX_PARTS, MAX_TOTAL_OUTPUT_BYTES } from "./mime-parse";
+import {
+  parseMimeMessage, MAX_MIME_DEPTH, MAX_HEADER_BYTES, MAX_PARTS, MAX_TOTAL_OUTPUT_BYTES,
+  MAX_PARAM_SEGMENTS, MAX_PARAM_VALUE_BYTES,
+} from "./mime-parse";
 
 const CRLF = "\r\n";
 const msg = (lines: string[]) => lines.join(CRLF);
@@ -286,6 +289,186 @@ describe("parseMimeMessage", () => {
     expect(fileName).not.toMatch(/[\r\n]/);
     expect(fileName).not.toContain("..\\");
     expect(fileName).not.toContain("../");
+  });
+
+  // ★★★ RFC 2231 (open-followups §353). This — not RFC 2047 — is what every
+  // modern client emits for a non-ASCII filename, so it is the everyday
+  // German/French case. Before the fix `paramOf` saw "filename" followed by
+  // "*" rather than "=", nothing else handled the form, and the part was
+  // dropped from the attachment list entirely with no diagnostic.
+  //
+  // `dispositionLines` are folded into ONE Content-Disposition header exactly
+  // as a real client wraps a long continued parameter (a line starting with
+  // whitespace continues the previous header).
+  const withDisposition = (dispositionLines: string[]) => parseMimeMessage(msg([
+    'Content-Type: multipart/mixed; boundary="B"', "",
+    "--B", "Content-Type: application/pdf",
+    ...dispositionLines, "", "x",
+    "--B--", "",
+  ]));
+
+  it("decodes an RFC 2231 extended-form filename", () => {
+    const m = withDisposition([
+      "Content-Disposition: attachment; filename*=UTF-8''Bericht%20Q3%20f%C3%BCr%20M%C3%BCller.pdf",
+    ]);
+    expect(m.parts[0].fileName).toBe("Bericht Q3 für Müller.pdf");
+    expect(m.diagnostics).toEqual([]);
+  });
+
+  it("decodes an RFC 2231 filename in a non-UTF-8 charset", () => {
+    // 0xFC is "ü" and 0xE9 is "é" in windows-1252, and NEITHER is valid UTF-8
+    // on its own — so a decoder that ignored the named charset would yield
+    // U+FFFD here rather than these characters.
+    const m = withDisposition([
+      "Content-Disposition: attachment; filename*=windows-1252''M%FCller%20caf%E9.pdf",
+    ]);
+    expect(m.parts[0].fileName).toBe("Müller café.pdf");
+    expect(m.parts[0].fileName).not.toContain("�");
+    expect(m.diagnostics).toEqual([]);
+  });
+
+  it("assembles an RFC 2231 continuation filename", () => {
+    const m = withDisposition([
+      "Content-Disposition: attachment;",
+      ' filename*0="Bericht ";',
+      ' filename*1="Q3.pdf"',
+    ]);
+    expect(m.parts[0].fileName).toBe("Bericht Q3.pdf");
+  });
+
+  // The charset'language' prefix rides an ENCODED first section only. Section
+  // 0 here is literal and happens to contain two apostrophes, which a decoder
+  // that stripped the prefix unconditionally would eat — leaving "Roll Q3.pdf"
+  // after reading "Rock" as a charset and "n" as a language.
+  it("does not read a charset prefix out of a literal first section", () => {
+    const m = withDisposition([
+      "Content-Disposition: attachment;",
+      ` filename*0="Rock'n'Roll ";`,
+      ' filename*1="Q3.pdf"',
+    ]);
+    expect(m.parts[0].fileName).toBe("Rock'n'Roll Q3.pdf");
+  });
+
+  it("assembles a continuation mixing an encoded and a literal section", () => {
+    // Legal and real: the trailing "*" marks a section percent-encoded, its
+    // absence marks it literal, and one parameter may carry both.
+    const m = withDisposition([
+      "Content-Disposition: attachment;",
+      " filename*0*=UTF-8''Bericht%20f%C3%BCr%20M%C3%BCller%20;",
+      ' filename*1="Q3.pdf"',
+    ]);
+    expect(m.parts[0].fileName).toBe("Bericht für Müller Q3.pdf");
+
+    // The other half of the same rule, and the direction the case above
+    // cannot see: a LITERAL section is not percent-decoded, so a "%" in it
+    // stays a "%". Treating every section as encoded would silently rewrite
+    // this filename to "Bericht Q3 final.pdf".
+    const literalPercent = withDisposition([
+      "Content-Disposition: attachment;",
+      " filename*0*=UTF-8''Bericht%20;",
+      ' filename*1="Q3%20final.pdf"',
+    ]);
+    expect(literalPercent.parts[0].fileName).toBe("Bericht Q3%20final.pdf");
+  });
+
+  // ★★ Pins the byte-level join. The UTF-8 encoding of "ü" is C3 BC, split
+  // here across two sections. Decoding each section to a STRING before
+  // joining gives "M�" + "�ller.pdf"; only joining the BYTES first
+  // recovers the character.
+  it("joins continuation sections as bytes, so a split multi-byte character survives", () => {
+    const m = withDisposition([
+      "Content-Disposition: attachment;",
+      " filename*0*=UTF-8''M%C3;",
+      " filename*1*=%BCller.pdf",
+    ]);
+    expect(m.parts[0].fileName).toBe("Müller.pdf");
+    expect(m.parts[0].fileName).not.toContain("�");
+  });
+
+  // new TextDecoder(label) throws a RangeError on an unknown label AND on the
+  // "replacement" encoding family (hz-gb-2312 is one). This module's contract
+  // is partial results, never an exception, so both must degrade.
+  it("degrades an unknown or unsupported RFC 2231 charset instead of throwing", () => {
+    for (const label of ["x-not-a-real-charset", "hz-gb-2312"]) {
+      const m = withDisposition([
+        `Content-Disposition: attachment; filename*=${label}''Bericht%20Q3.pdf`,
+      ]);
+      expect(m.parts[0].fileName).toBe("Bericht Q3.pdf");
+      expect(m.diagnostics.some((d) => d.includes("unsupported charset"))).toBe(true);
+      // The label is attacker-controlled and must not be echoed into text
+      // that is rendered for a reader and for the model.
+      expect(m.diagnostics.join(" ")).not.toContain(label);
+    }
+  });
+
+  // ★★ SECURITY. The same payloads the RFC 2047 test above smuggles, smuggled
+  // instead through RFC 2231 — they must be neutralised by the SAME
+  // sanitizer, not merely decoded.
+  it("sanitizes path traversal and control characters out of an RFC 2231 filename", () => {
+    const forward = withDisposition([
+      "Content-Disposition: attachment; filename*=UTF-8''..%2F..%2Fetc%2Fpasswd",
+    ]);
+    expect(forward.parts[0].fileName).toBe("passwd");
+
+    const back = withDisposition([
+      "Content-Disposition: attachment; filename*=UTF-8''..%5C..%5Cwin.ini%0D%0AX-Injected:%201",
+    ]);
+    const fileName = back.parts[0].fileName ?? "";
+    expect(fileName).not.toMatch(/[\r\n]/);
+    expect(fileName).not.toContain("..\\");
+    expect(fileName).not.toContain("../");
+  });
+
+  // RFC 2231 §4: the extended form wins when a header carries both.
+  it("prefers the extended form over a plain filename on the same header", () => {
+    const m = withDisposition([
+      `Content-Disposition: attachment; filename="fallback.pdf"; filename*=UTF-8''Bericht.pdf`,
+    ]);
+    expect(m.parts[0].fileName).toBe("Bericht.pdf");
+  });
+
+  // Content-Disposition still outranks Content-Type wholesale: the extended
+  // form only outranks the plain one WITHIN one header.
+  it("still prefers Content-Disposition's plain filename over Content-Type's extended name", () => {
+    const m = parseMimeMessage(msg([
+      'Content-Type: multipart/mixed; boundary="B"', "",
+      "--B", `Content-Type: application/pdf; name*=UTF-8''from-content-type.pdf`,
+      'Content-Disposition: attachment; filename="from-disposition.pdf"', "", "x",
+      "--B--", "",
+    ]));
+    expect(m.parts[0].fileName).toBe("from-disposition.pdf");
+  });
+
+  // The paramOf anchor must hold for the extended form too — a longer name
+  // sharing the suffix cannot hijack it.
+  it("does not let a longer parameter name hijack an extended filename", () => {
+    const hijack = withDisposition([
+      "Content-Disposition: attachment; xfilename*=UTF-8''evil.pdf",
+    ]);
+    expect(hijack.parts[0].fileName).toBeNull();
+    // Non-vacuity: the same message with a properly anchored parameter IS read.
+    const real = withDisposition([
+      "Content-Disposition: attachment; filename*=UTF-8''good.pdf",
+    ]);
+    expect(real.parts[0].fileName).toBe("good.pdf");
+  });
+
+  it("caps the number of RFC 2231 continuation sections", () => {
+    const sections = Array.from(
+      { length: MAX_PARAM_SEGMENTS + 10 },
+      (_, i) => ` filename*${i}="a"${i === MAX_PARAM_SEGMENTS + 9 ? "" : ";"}`,
+    );
+    const m = withDisposition(["Content-Disposition: attachment;", ...sections]);
+    expect(m.parts[0].fileName).toBe("a".repeat(MAX_PARAM_SEGMENTS));
+    expect(m.diagnostics.some((d) => d.includes("filename truncated"))).toBe(true);
+  });
+
+  it("caps the assembled length of an RFC 2231 filename", () => {
+    const m = withDisposition([
+      `Content-Disposition: attachment; filename*=UTF-8''${"a".repeat(MAX_PARAM_VALUE_BYTES + 500)}`,
+    ]);
+    expect(m.parts[0].fileName).toHaveLength(MAX_PARAM_VALUE_BYTES);
+    expect(m.diagnostics.some((d) => d.includes("filename truncated"))).toBe(true);
   });
 
   it("flags a message/rfc822 part as isMessage", () => {

@@ -83,6 +83,29 @@ describe("emlToParsedMail", () => {
     expect(p.diagnostics.some((d) => d.includes("To") && d.includes("truncated"))).toBe(false);
   });
 
+  // ★★★ open-followups §353. This is the VISIBLE half of that defect: an
+  // attachment named the way every modern client names a non-ASCII file
+  // (RFC 2231, not RFC 2047) had no fileName, so the `fileName !== null ||
+  // isMessage` filter above dropped it from the list entirely — silently,
+  // with no diagnostic for the user or the model to notice.
+  it("keeps an attachment whose filename uses the RFC 2231 extended form", () => {
+    const p = emlToParsedMail(parseMimeMessage(msg([
+      "From: a@example.com",
+      'Content-Type: multipart/mixed; boundary="B"', "",
+      "--B", "Content-Type: text/plain", "", "hello",
+      "--B", "Content-Type: application/pdf",
+      "Content-Transfer-Encoding: base64",
+      "Content-Disposition: attachment; filename*=UTF-8''Bericht%20f%C3%BCr%20M%C3%BCller.pdf",
+      "", "AAEC",
+      "--B--", "",
+    ])));
+    expect(p.attachments).toHaveLength(1);
+    expect(p.attachments[0].fileName).toBe("Bericht für Müller.pdf");
+    expect(p.attachments[0].mimeType).toBe("application/pdf");
+    expect(p.attachments[0].bytes).toEqual(new Uint8Array([0, 1, 2]));
+    expect(p.diagnostics).toEqual([]);
+  });
+
   it("truncates attachments past the attachment cap and records a diagnostic", () => {
     const boundary = "B";
     const lines = [`Content-Type: multipart/mixed; boundary="${boundary}"`, ""];
