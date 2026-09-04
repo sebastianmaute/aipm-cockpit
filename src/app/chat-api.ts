@@ -47,7 +47,32 @@ export type DisplayItem =
       input: unknown;
       result: string;
       error: boolean;
-    };
+    }
+  /**
+   * A staged-proposal MARKER — the review card's place in the transcript.
+   *
+   * ★★★ IT CARRIES NO PLAN, AND THAT IS THE WHOLE POINT. Both halves of a
+   * `ChatConversation` are persisted (to the per-project in-memory store, and
+   * in Turso mode to the thread row), so anything on a `DisplayItem` can be
+   * restored arbitrarily later. A restored PLAN would offer to apply writes
+   * staged against a workspace that has since moved; every row's token would be
+   * stale so `applyProposal` would refuse it, but the card would still invite a
+   * click that cannot succeed. The live plan therefore lives in component state
+   * keyed by `id`, and this marker survives instead.
+   *
+   * ★★ A MARKER WITH NO MATCHING LIVE PLAN RENDERS AS EXPIRED, and that rule
+   * clears a pending proposal on EVERY transcript reset for free — the
+   * synchronous project-switch reconcile AND every asynchronous Turso thread
+   * path, which replaces `display` from several sites — count them with
+   * `grep -c "^\s*setDisplay(" src/app/use-chat-threads.ts` rather than trusting
+   * a number here. Nothing has to remember to clear the plan, which is the
+   * failure mode `panel-chat` invites: it is mounted unconditionally and never
+   * remounts.
+   *
+   * ★ `count` is kept so the expired form can still say how many writes were
+   * proposed there. It is display-only and nothing derives behaviour from it.
+   */
+  | { kind: "proposal"; id: string; count: number };
 
 export type ApiUsage = { input_tokens: number; output_tokens: number };
 

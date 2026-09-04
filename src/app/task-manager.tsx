@@ -76,6 +76,7 @@ import { useAiOrchestration } from "./use-ai-orchestration";
 import { buildShellChrome } from "./shell-chrome";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { useUndoHotkey } from "./use-undo-hotkey";
+import { useUndoBatch } from "./use-undo-batch";
 import { UndoControl, RedoControl } from "./undo/undo-control";
 import { buildMoveAbsenceHandler } from "./absence-move-handler";
 import { RolesPanel } from "./roles-panel";
@@ -206,6 +207,15 @@ function TaskManagerInner() {
   const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
   const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo });
   useUndoHotkey(undoApi.undo, undoApi.redo);
+  // ★★★ ONE INSTANCE, TWO CONSUMERS, AND THEY MUST BE THE SAME ONE. `.undo`
+  // goes in as the chat dispatcher's `undo` prop (below) so the fourteen AI
+  // capture sites are intercepted; `.runBatched` goes down to `ChatPanel` so an
+  // applied staged plan pushes ONE undo entry instead of one per row. A second
+  // `useUndoBatch(...)` for the panel would collect nothing — the dispatcher's
+  // captures would still reach the live stack — and NOTHING would report it:
+  // the plan would apply, undo would work, and the user would simply have to
+  // press it N times. Read the module header before splitting these.
+  const chatUndoBatch = useUndoBatch(undoApi);
   // Stable identity so ToastProvider consumers don't re-render on every parent render.
   const toastApi = useMemo(() => ({ showToast, showToastAction }), [showToast, showToastAction]);
 
@@ -1808,12 +1818,20 @@ function TaskManagerInner() {
     // ★ `delete_document` is a second removal route into a COUNTED slice — see
     //   the arming site in `use-document-tools.ts`.
     allowDestructiveSave,
-    // ★★ A FRESH OBJECT EVERY RENDER, AND THAT IS CORRECT — do NOT `useMemo` it.
-    //   The dispatcher reads `undoRef.current`, refreshed by an effect keyed on
-    //   `args.undo`; that effect simply re-runs each render. Stabilising this (or
-    //   adding it to the dispatcher's memo deps) would rebuild the dispatcher on
-    //   every render and defeat the ref arrangement entirely.
-    undo: undoApi,
+    // ★★★ THE BATCH WRAPPER, NOT `undoApi` — and the STABILITY note that used
+    //   to sit here is not merely still satisfied, it is now the mechanism.
+    //   The old text said this had to be A FRESH OBJECT EVERY RENDER and must
+    //   not be memoized, because the dispatcher reads `undoRef.current` through
+    //   an effect keyed on `args.undo`. `chatUndoBatch.undo` is the OPPOSITE —
+    //   minted once (`useMemo` with no deps) — and that is exactly what
+    //   `use-undo-batch.ts`'s header asks for: the wrapper forwards to
+    //   `liveRef.current`, which its OWN effect re-points at `undoApi` every
+    //   render, so freshness is preserved one level down while `undoRef.current`
+    //   stops being swapped mid-replay. An `await` inside `runBatched` can no
+    //   longer have the surface swapped out from under it by a re-render.
+    //   ★ What the old note actually forbade still holds: do NOT add this to the
+    //   dispatcher's memo deps.
+    undo: chatUndoBatch.undo,
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
     getAllocationsSnapshot,
@@ -2087,6 +2105,18 @@ function TaskManagerInner() {
     workspaceCollapsed,
     setWorkspaceCollapsed,
     dispatcher,
+    // ★★★ THIS MUST RIDE `workspaceProps`, NOT A JSX ATTRIBUTE ON A NEIGHBOURING
+    //   MOUNT. `WorkspaceSection` is spread (`{...workspaceProps}`) and the chat
+    //   panel it renders is the only consumer; a first cut put this on the
+    //   `<TasksSection>` block immediately below, where `ChatPanel` never sees
+    //   it. That is silent at RUNTIME — the prop is optional and its default is a
+    //   pass-through — so every applied plan would have pushed one undo entry per
+    //   WRITE instead of one per PLAN, which is the exact defect `useUndoBatch`
+    //   exists to prevent. Only `tsc` caught it: the workspace-section seam test
+    //   asserts the panel gets what the SECTION was handed, one hop below here.
+    // Same `useUndoBatch` instance whose `.undo` is the dispatcher's `undo` prop
+    // — see the note at that call.
+    runProposalBatch: chatUndoBatch.runBatched,
     handleGanttBarUpdate: guardEdit(handleGanttBarUpdate),
     handleCancelEdit,
     setTaskModalOpen,

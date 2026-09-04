@@ -740,3 +740,38 @@ describe("WorkspaceSection — Timelog cache key agreement", () => {
     });
   });
 });
+
+describe("WorkspaceSection — staged-proposal wiring into ChatPanel", () => {
+  // ★★ THE PRODUCTION SEAM. Both props are OPTIONAL on ChatPanel so the ~39
+  //  mounts in `chat-panel.test.tsx` compile unchanged — which means the ONLY
+  //  thing standing between a working review card and a silently unwired one is
+  //  this file. A missing `workspace` costs the card its per-row diffs and
+  //  resolved titles; a missing `runBatched` costs an applied plan its single
+  //  undo entry. Neither failure is loud, and neither shows up in a rendered
+  //  assertion inside the panel's own tests.
+  beforeEach(() => {
+    chatPanelMock.props.length = 0;
+  });
+
+  it("hands ChatPanel the live workspace and the very runBatched it was given", async () => {
+    const runProposalBatch: WorkspaceSectionProps["runProposalBatch"] = (fn) => fn();
+    render(<WorkspaceSection {...makeProps({ runProposalBatch })} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    const props = chatPanelMock.props.at(-1)!;
+
+    // ★ Identity, not "is a function": the batch only collapses captures when
+    //   it is the SAME `useUndoBatch` instance the dispatcher's `undo` came
+    //   from, and a locally-minted stand-in would satisfy a shape check.
+    expect(props.runBatched).toBe(runProposalBatch);
+
+    // ★ Every slice `describeProposal` grounds against — it takes the FULL
+    //   `Workspace` (resources included), not `RecommendPlanWorkspace`, and
+    //   `describeEntityCalls` reads `ws[wsKey]` UNGUARDED, so a missing slice
+    //   throws rather than yielding an empty plan.
+    const ws = props.workspace as Record<string, unknown> | undefined;
+    expect(ws).toBeDefined();
+    for (const key of ["tasks", "raid", "changes", "milestones", "stakeholders", "resources"]) {
+      expect(Array.isArray(ws?.[key])).toBe(true);
+    }
+  });
+});

@@ -4316,6 +4316,12 @@ const enUS = {
   chatProposalRowToggle: "Include",
   chatProposalCascaded: "Needs a change you rejected",
   chatProposalFailed: "Not applied — changed since you reviewed",
+  // Shown in place of the card when the transcript still carries a proposal
+  // marker but the live plan is gone (a project or thread switch, or a restored
+  // conversation). Deliberately NOT an error: nothing failed, the plan simply
+  // stopped being applyable and the transcript keeps the record that it existed.
+  chatProposalExpired: "This proposal is no longer active.",
+  chatProposalDiscarded: "Proposal discarded.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

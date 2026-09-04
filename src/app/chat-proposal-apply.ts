@@ -149,7 +149,14 @@ export interface ApplyProposalArgs {
   readonly rows: readonly DescribedRow[];
   /** Positions in `rows` the user kept. */
   readonly selected: ReadonlySet<number>;
-  readonly batch: UndoBatch;
+  /** ★★ `Pick<UndoBatch, "runBatched">`, NOT the whole `UndoBatch`, because
+   *  `runBatched` is the only member this function touches — the wrapper's
+   *  `undo` half is installed as the DISPATCHER's `undo` prop, one layer up,
+   *  and never reaches here. Requiring the full object forced the wiring layer
+   *  to fabricate an `undo` it does not own, and a fabricated capture surface
+   *  that silently swallows captures is exactly the failure the batch exists to
+   *  prevent. The real `UndoBatch` still satisfies this. */
+  readonly batch: Pick<UndoBatch, "runBatched">;
 }
 
 /** The real id a create tool's result carries, or `undefined` when it carries

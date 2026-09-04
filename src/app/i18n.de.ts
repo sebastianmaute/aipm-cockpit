@@ -4188,4 +4188,6 @@ export const de: Record<TranslationKey, string> = {
   chatProposalRowToggle: "Einbeziehen",
   chatProposalCascaded: "Benötigt eine von Ihnen abgelehnte Änderung",
   chatProposalFailed: "Nicht übernommen – seit Ihrer Prüfung geändert",
+  chatProposalExpired: "Dieser Vorschlag ist nicht mehr aktiv.",
+  chatProposalDiscarded: "Vorschlag verworfen.",
 };
