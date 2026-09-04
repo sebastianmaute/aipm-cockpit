@@ -978,7 +978,14 @@ Import `writeDeviceJson` from `./device-store` and `TIMELOG_ACTUALS_KEY` from `.
 - [ ] **Step 6: Run and watch it fail**
 
 Run: `npx vitest run src/app/timelog-actuals-store.test.ts > "$SCRATCH/store-red.log" 2>&1; echo "EXIT=$?"; grep -E "Tests |×" "$SCRATCH/store-red.log"`
-Expected: red on the round-trip case (`daily` is not carried), green on the other two.
+★★★ **CORRECTED 2026-09-04 AFTER EXECUTION — this expectation was WRONG, and the way it was wrong hides the real red.** All three new tests pass here with no field and no validator branch: `EXIT=0`, `Tests 12 passed (12)`. `saveActualsCache` writes the entry object wholesale through JSON and `readMap` returns `v` wholesale, so an excess `daily` property round-trips with zero code change, and **vitest never typechecks**.
+
+The real red is at tsc, and it must be measured there before Step 7:
+
+```bash
+npx tsc --noEmit; echo "EXIT=$?"
+```
+Expected: `EXIT=2` with `TS2353: … 'daily' does not exist in type 'ActualsCacheEntry'` plus two `TS2339`s in the test file. So Step 7's TYPE half is load-bearing and its VALIDATOR half is not needed for the round-trip at all.
 
 - [ ] **Step 7: Add the field and the validator branch**
 
@@ -998,7 +1005,7 @@ Add the type import:
 import type { TimelogDailyRoll } from "./timelog-types";
 ```
 
-And in `isEntry`, alongside the other optional-field branches:
+★★★ **CORRECTED 2026-09-04 AFTER EXECUTION — the branch this step dictated CONTRADICTED ITS OWN COMMENT AND ITS OWN TEST. Do not restore it.** It read:
 
 ```ts
   // Fails OPEN on garbage, deliberately: rejecting the whole entry would drop
@@ -1006,7 +1013,27 @@ And in `isEntry`, alongside the other optional-field branches:
   if (e.daily !== undefined && (typeof e.daily !== "object" || e.daily === null || Array.isArray(e.daily))) return false;
 ```
 
-★ Note the asymmetry and keep it: this branch **rejects the entry** for a structurally impossible `daily`, matching the `aggregates`/`users`/`projectRefs` branches. The "fails open" property the third test asserts comes from the value being *dropped by the reader* rather than the entry being rejected — so if the test above goes red at this step, change the branch to leave `daily` unread rather than loosening the others. Re-run Step 6's command and confirm all three pass.
+A comment saying "fails OPEN" over a body that `return false`s fails CLOSED. Applied literally it measured `EXIT=1`, `Tests 1 failed | 11 passed (12)`, failing "keeps the rest of an entry whose daily field is malformed" — `daily: "nonsense"` rejects the entry, `readMap` drops it, and `loadActualsCache("p3")` is undefined. The ★ note beneath it also called matching the `aggregates`/`users`/`projectRefs` branches a virtue, which cannot hold for the one field that must not take the entry down.
+
+**Add NO `daily` branch to `isEntry`.** Give it a comment stating why the obvious branch is wrong, then add a separate reader-side strip:
+
+```ts
+/** Drop a `daily` that is not an object, keeping the rest of the entry. The
+ *  fail-open half of the rule stated in `isEntry`. */
+function withCheckedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
+  const d: unknown = e.daily;
+  if (d === undefined || (typeof d === "object" && d !== null && !Array.isArray(d))) return e;
+  const copy = { ...e };
+  delete copy.daily;
+  return copy;
+}
+```
+
+and call it from `readMap`: `if (isEntry(v)) out[k] = withCheckedDaily(v);`
+
+This is strictly stronger than "leave `daily` unread": the entry survives AND no downstream rule can ever iterate a `daily` that is a string while the type claims `TimelogDailyRoll`.
+
+★★ The third test as written asserts only `fetchedAt`, which passes against a `withCheckedDaily` that returns its argument unchanged — it pins entry survival but NOT the drop. Add `expect(loadActualsCache("p3")?.daily).toBeUndefined();`. Mutating the guard to `if (d === undefined || true) return e;` must kill it on that added line specifically.
 
 - [ ] **Step 8: Run the store tests**
 
