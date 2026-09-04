@@ -1558,6 +1558,8 @@ export const de: Record<TranslationKey, string> = {
     "Markiert Buchungen, die gegen diese Regeln verstoßen. Cockpit ändert keine Buchung — es weist nur darauf hin. Alle Regeln sind aus, bis Sie sie einschalten.",
   timelogEntryCapLabel: "Limit pro Eintrag (Stunden)",
   timelogDayCapLabel: "Tageslimit (Stunden)",
+  timelogThresholdNeeded:
+    "Geben Sie eine Obergrenze über 0 und bis zu {0} Stunden ein. Bis dahin ist diese Regel eingeschaltet, aber wirkungslos.",
   timelogMatchPeople: "Personen",
   timelogPeopleCollapse: "Personen einklappen",
   timelogPeopleExpand: "Personen ausklappen",

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { evaluateTimelogPolicy } from "./timelog-policy";
 import { dailyKey, TIMELOG_RULE_IDS, type TimelogDailyRoll, type TimelogPolicy, type TimelogRuleId } from "./timelog-types";
 import { INSIGHT_TYPES, type InsightType } from "./insights/insight";
-import type { Shift, WeekHours } from "./types";
+import { MAX_HOURS_PER_DAY, type Shift, type WeekHours } from "./types";
 import type { TimelogUserLink } from "./timelog-types";
 
 const NO_HOLIDAYS: ReadonlySet<string> = new Set();
@@ -46,6 +46,42 @@ describe("evaluateTimelogPolicy", () => {
     });
     expect(res.evaluated).toEqual([]);
     expect(res.violations).toEqual([]);
+  });
+
+  // ★★★ THE BOUNDARY PAIR IS THE POINT — either half alone pins nothing. The
+  // out-of-range half alone passes with `isCap`'s upper bound written as `<`
+  // instead of `<=`; the exactly-at-the-bound half alone passes with the upper
+  // bound deleted outright, which is the pre-fix code. The engine's window must
+  // be the one `sanitizeTimelogPolicy` enforces on load, or a stored threshold
+  // means one thing in memory and another after a reload.
+  // ★ The fixture books 25h on one day, ABOVE both thresholds under test, so
+  // "no violations" can only come from the rule being dark — never from the
+  // booking being innocent.
+  const OVER_CAP = roll({ [dailyKey(7, TUE)]: [25, 25, 1] });
+
+  it("does not evaluate a rule whose threshold is above MAX_HOURS_PER_DAY", () => {
+    const res = evaluateTimelogPolicy({
+      daily: OVER_CAP,
+      policy: { timelogCapPerDay: { enabled: true, threshold: MAX_HOURS_PER_DAY + 1 } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+    });
+    expect(res.evaluated).toEqual([]);
+    expect(res.violations).toEqual([]);
+  });
+
+  it("evaluates a rule whose threshold is exactly MAX_HOURS_PER_DAY", () => {
+    const res = evaluateTimelogPolicy({
+      daily: OVER_CAP,
+      policy: { timelogCapPerDay: { enabled: true, threshold: MAX_HOURS_PER_DAY } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [], shifts: [],
+    });
+    expect(res.evaluated).toEqual(["timelogCapPerDay"]);
+    expect(res.violations).toHaveLength(1);
+    expect(res.violations[0]).toMatchObject({
+      rule: "timelogCapPerDay",
+      threshold: MAX_HOURS_PER_DAY,
+      worstHours: 25,
+    });
   });
 
   it("does not evaluate a disabled rule even when the roll is present", () => {

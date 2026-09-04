@@ -1597,6 +1597,8 @@ const enUS = {
     "Flag bookings that break these rules. Cockpit never changes a booking — it only tells you. All rules are off until you turn them on.",
   timelogEntryCapLabel: "Entry cap (hours)",
   timelogDayCapLabel: "Daily cap (hours)",
+  timelogThresholdNeeded:
+    "Enter a cap above 0 and up to {0} hours. Until then this rule is switched on but is not applied.",
   timelogMatchPeople: "People",
   timelogPeopleCollapse: "Collapse people",
   timelogPeopleExpand: "Expand people",

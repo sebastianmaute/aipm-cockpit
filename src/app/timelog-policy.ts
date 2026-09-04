@@ -21,7 +21,7 @@ import {
   type TimelogRuleId,
   type TimelogUserLink,
 } from "./timelog-types";
-import { DEFAULT_WEEK_HOURS, type Shift } from "./types";
+import { DEFAULT_WEEK_HOURS, MAX_HOURS_PER_DAY, type Shift } from "./types";
 
 export interface TimelogViolation {
   readonly rule: TimelogRuleId;
@@ -74,8 +74,21 @@ export interface TimelogPolicyResult {
 
 const EMPTY: TimelogPolicyResult = { violations: [], evaluated: [] };
 
+/** The threshold window this engine accepts, deliberately IDENTICAL to the one
+ *  `sanitizeTimelogPolicy` enforces on LOAD (`> 0 && <= MAX_HOURS_PER_DAY`).
+ *  ★★★ They used to differ — this had no upper bound at all — and a threshold
+ *  the loader would reject therefore meant two different things either side of
+ *  a reload: `999` evaluated in memory as a cap that can never fire, and was
+ *  then dropped by the sanitizer on the next load, leaving the rule enabled
+ *  with no threshold. One stored value, two behaviours, no signal for either.
+ *  ★ CONSEQUENCE of the bound, and it is the safe direction: an out-of-range
+ *  threshold now leaves the rule NOT EVALUATED, so its stored insights FREEZE
+ *  rather than being certified clean. "Produced nothing" is what
+ *  `reconcileInsights` reads as "resolved" (see the header note), so a 999-hour
+ *  cap silently resolving every real breach is the unrecoverable direction; a
+ *  freeze that ends the moment the threshold is repaired is not. */
 function isCap(v: number | undefined): v is number {
-  return typeof v === "number" && Number.isFinite(v) && v > 0;
+  return typeof v === "number" && Number.isFinite(v) && v > 0 && v <= MAX_HOURS_PER_DAY;
 }
 
 /** Weekday index matching WeekHours: 0 = Sunday. Parsed from the ISO date

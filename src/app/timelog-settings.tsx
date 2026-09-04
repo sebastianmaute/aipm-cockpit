@@ -178,6 +178,34 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
   );
 }
 
+/** The two rules that carry a numeric threshold. The other two are on/off. */
+const CAP_RULES: readonly TimelogRuleId[] = ["timelogCapPerEntry", "timelogCapPerDay"];
+
+/** The threshold window this component will PERSIST, deliberately the same
+ *  expression `sanitizeTimelogPolicy` applies on load and `isCap`
+ *  (`timelog-policy.ts`) applies when evaluating — all three derived from
+ *  `MAX_HOURS_PER_DAY` so a second, differently-worded bound cannot drift away
+ *  from the other two. Returns `undefined` for anything the policy must not
+ *  hold, which is also exactly the value the writer stores for it.
+ *  ★ `Number("")` is `0` and `Number("x")` is `NaN`, so a blank or unparsable
+ *  field falls out of `> 0` / `Number.isFinite` without a separate emptiness
+ *  test — one that would be a permanently-unreachable conjunct. */
+function parseCap(text: string): number | undefined {
+  const n = Number(text);
+  return Number.isFinite(n) && n > 0 && n <= MAX_HOURS_PER_DAY ? n : undefined;
+}
+
+/** A threshold the user is typing, and the value that keystroke wrote into the
+ *  policy. Held because the field is bound to the PERSISTED value while an
+ *  out-of-range value is deliberately never persisted: without it, the box
+ *  would blank under the typist at the exact keystroke that took the number out
+ *  of range. `wrote` is what lets the reconcile below tell OUR write apart from
+ *  someone else's. */
+interface ThresholdDraft {
+  readonly text: string;
+  readonly wrote: number | undefined;
+}
+
 /** The four review-time booking rules, all OFF until the user turns them on.
  *  Split out of `TimelogSettings` so the two workspace props can be NON-optional
  *  here — the parent renders this only when both are present, which removes the
@@ -192,6 +220,27 @@ function TimelogGuardrails({
   onLinksChange: (next: TimelogLinks) => void;
 }) {
   const policy = links.policy ?? {};
+  const [drafts, setDrafts] = useState<Partial<Record<TimelogRuleId, ThresholdDraft>>>({});
+
+  // ★★★ RENDER-TIME RECONCILE, never a `useEffect` —
+  // `react-hooks/set-state-in-effect` is BANNED and fatal here. A draft lives
+  // only while the policy still holds what that draft wrote; anything else means
+  // somebody ELSE moved the threshold (another tab, an AI write, a project
+  // switch) and the draft is abandoned rather than left masking it. Comparing
+  // against `wrote` rather than against the parsed text is what keeps our own
+  // write from reading as an external one — the two are equal by construction,
+  // so a controlled parent echoing our value back never drops the draft.
+  const staleDrafts = CAP_RULES.filter((rule) => {
+    const draft = drafts[rule];
+    return draft !== undefined && policy[rule]?.threshold !== draft.wrote;
+  });
+  if (staleDrafts.length > 0) {
+    setDrafts((prev) => {
+      const next = { ...prev };
+      for (const rule of staleDrafts) delete next[rule];
+      return next;
+    });
+  }
 
   // ★★ BYTE-STABILITY, and it is the reason this is not a one-line spread.
   // `TimelogPolicy` is Partial by construction, and `sanitizeTimelogLinks`
@@ -237,12 +286,41 @@ function TimelogGuardrails({
     );
   }
 
+  /** ★★★ THE WRITER'S WINDOW, and the whole point is that it is `parseCap` —
+   *  the SAME expression the loader and the engine use. `min`/`max` on the field
+   *  are decorative (they block neither typing nor a paste), and the writer used
+   *  to be `Number(e.target.value) || undefined`: `-5` persisted and failed
+   *  `isCap` immediately, so the rule sat pressed and inert from the first
+   *  keystroke; `999` persisted, evaluated in-session as a cap that can never
+   *  fire, and was then dropped by `sanitizeTimelogPolicy` on the next load.
+   *  Nothing out of range reaches the policy now — the field goes on showing it
+   *  and the notice says why it does not count. */
+  function commitThreshold(rule: TimelogRuleId, text: string) {
+    const cap = parseCap(text);
+    setDrafts((prev) => ({ ...prev, [rule]: { text, wrote: cap } }));
+    setRule(rule, { threshold: cap });
+  }
+
+  /** What the field is currently offering, as the cap it would persist —
+   *  `undefined` when it is not one, which is precisely when the rule is on but
+   *  cannot evaluate. */
+  function effectiveCap(rule: TimelogRuleId): number | undefined {
+    const draft = drafts[rule];
+    return draft === undefined ? policy[rule]?.threshold : parseCap(draft.text);
+  }
+
   // ★★ `aria-label`, never a placeholder — a placeholder is NOT an accessible
   // name, and a placeholder-only input is an axe-critical failure that still
   // LOOKS labeled. The two labels are distinct strings so the two spinbuttons
   // cannot share an accessible name (WCAG 2.4.6); axe cannot see that class at
   // all, so `timelog-settings.test.tsx` is the only detector.
-  function thresholdField(rule: TimelogRuleId, labelKey: Parameters<typeof t>[1]) {
+  function thresholdField(
+    rule: TimelogRuleId,
+    labelKey: Parameters<typeof t>[1],
+    incomplete: boolean,
+    noticeId: string,
+  ) {
+    const draft = drafts[rule];
     return (
       <Input
         size="xs"
@@ -250,10 +328,52 @@ function TimelogGuardrails({
         min={1}
         max={MAX_HOURS_PER_DAY}
         aria-label={t(lang, labelKey)}
-        value={policy[rule]?.threshold ?? ""}
-        onChange={(e) => setRule(rule, { threshold: Number(e.target.value) || undefined })}
+        invalid={incomplete}
+        // ★ Only while the notice actually renders — an `aria-describedby`
+        // pointing at an absent element describes nothing and is a dangling
+        // reference for every AT that resolves it.
+        aria-describedby={incomplete ? noticeId : undefined}
+        value={draft?.text ?? String(policy[rule]?.threshold ?? "")}
+        onChange={(e) => commitThreshold(rule, e.target.value)}
         className="w-20"
       />
+    );
+  }
+
+  /** Toggle + threshold + the incomplete-rule notice, for one cap rule.
+   *  ★★★ A cap rule can be ON and evaluate NOTHING: `isCap` rejects a missing
+   *  threshold, so the rule produces no answer while the toggle reads pressed
+   *  and the section says it is on. That is the state the FIRST click creates —
+   *  enabling deliberately invents no threshold, because 8h vs 6h is an org
+   *  decision and no universal default is correct — and the state the user
+   *  re-enters every time they clear the field to retype. Nothing used to mark
+   *  it. Do NOT "fix" this by seeding a default; the notice is the fix. */
+  function capRule(
+    rule: TimelogRuleId,
+    toggleKey: Parameters<typeof t>[1],
+    fieldKey: Parameters<typeof t>[1],
+  ) {
+    const on = policy[rule]?.enabled === true;
+    const incomplete = on && effectiveCap(rule) === undefined;
+    // Row-unique by construction: one row per rule, and `rule` is the row key.
+    const noticeId = `timelog-threshold-${rule}`;
+    return (
+      <div className="flex flex-col items-start gap-1">
+        {/* ★ The threshold field renders only while its rule is ON. An inert
+            field beside an off rule looks editable and changes nothing, and
+            typing in one would write a policy key for a rule the user never
+            switched on — the scaffolding the byte-stability note above exists
+            to prevent. */}
+        <div className="flex items-center gap-2">
+          {ruleToggle(rule, toggleKey)}
+          {on && thresholdField(rule, fieldKey, incomplete, noticeId)}
+        </div>
+        {incomplete && (
+          <FieldNotice id={noticeId}>
+            {t(lang, "timelogThresholdNeeded", MAX_HOURS_PER_DAY)}
+          </FieldNotice>
+        )}
+      </div>
     );
   }
 
@@ -264,21 +384,8 @@ function TimelogGuardrails({
       </h3>
       <p className="mb-2 text-xs text-muted-foreground">{t(lang, "timelogGuardrailsHint")}</p>
       <div className="flex flex-col items-start gap-2">
-        {/* ★ The threshold field renders only while its rule is ON. An inert
-            field beside an off rule looks editable and changes nothing, and
-            typing in one would write a policy key for a rule the user never
-            switched on — the scaffolding the byte-stability note above exists
-            to prevent. */}
-        <div className="flex items-center gap-2">
-          {ruleToggle("timelogCapPerEntry", "insightTimelogCapPerEntryTitle")}
-          {policy.timelogCapPerEntry?.enabled === true &&
-            thresholdField("timelogCapPerEntry", "timelogEntryCapLabel")}
-        </div>
-        <div className="flex items-center gap-2">
-          {ruleToggle("timelogCapPerDay", "insightTimelogCapPerDayTitle")}
-          {policy.timelogCapPerDay?.enabled === true &&
-            thresholdField("timelogCapPerDay", "timelogDayCapLabel")}
-        </div>
+        {capRule("timelogCapPerEntry", "insightTimelogCapPerEntryTitle", "timelogEntryCapLabel")}
+        {capRule("timelogCapPerDay", "insightTimelogCapPerDayTitle", "timelogDayCapLabel")}
         {ruleToggle("timelogNonWorkingDay", "insightTimelogNonWorkingDayTitle")}
         {ruleToggle("timelogWorkingHours", "insightTimelogWorkingHoursTitle")}
       </div>
