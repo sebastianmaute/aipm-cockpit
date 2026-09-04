@@ -582,7 +582,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--closed-2026-09-04) | ~~RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish from the tree~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (both forms decoded, capped and routed through the existing filename sanitizer) |
 | [§354](#354-negative-rtf-un-values-are-dropped-losing-every-code-point-above-u7fff--closed-2026-09-04) | ~~Negative RTF `\uN` values are dropped, losing every code point above U+7FFF~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (a lone unpaired surrogate is CARRIED, not repaired — the entry records what that costs downstream) |
 | [§355](#355-a-pt_string8-msg-yields-an-entirely-empty-mail-with-no-diagnostic--closed-2026-09-04) | ~~A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (`…001E` siblings decoded through the shared charset ladder, PT_UNICODE still winning; the diagnostic fires whenever no known tag matched at all) |
-| [§356](#356-three-cfbf-guard-assertions-do-not-discriminate-the-guard-they-name--open) | Three cfbf guard assertions do not discriminate the guard they name | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§356](#356-three-cfbf-guard-assertions-do-not-discriminate-the-guard-they-name--closed-2026-09-04) | ~~Three cfbf guard assertions do not discriminate the guard they name~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (two now discriminate; the 64 MB ceiling is unpinnable by arithmetic and the `chain()` offset bound is dominated by the length bound one line above it — both recorded, neither an open action) |
 | [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--closed-2026-09-04) | ~~`rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (the removed group leaves `{}` behind, never a space; the real `.msg` fixture cannot discriminate any of the three states) |
 | [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
@@ -27429,25 +27429,58 @@ must not be told the second. Moving that flag behind `pickText` turns the "prese
 red. The text names no stream, because diagnostics are rendered for the reader and for the model.
 The committed Unicode fixture yields `diagnostics: []`, so it gained nothing spurious.
 
-## 356. Three cfbf guard assertions do not discriminate the guard they name — OPEN
+## 356. Three cfbf guard assertions do not discriminate the guard they name — CLOSED 2026-09-04
 
-**Status:** OPEN. Filed 2026-09-03. **Measured twice** — by a reviewer and independently re-verified
-by the agent that later hardened the module, each mutating a scratchpad copy: all three tests still
-pass with the guard they name deleted. Each carries an in-file annotation recording its mutant;
-read all three with `grep -n "MEASURED VACUOUS" src/app/cfbf.test.ts`.
+**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Filed 2026-09-03 and **measured twice**
+before that — by a reviewer and independently by the agent that later hardened the module. All four
+mutants were re-measured a third time before anything changed (`npx vitest run src/app/cfbf.test.ts`,
+13 passed under each), then two of the three assertions were made to discriminate and the third was
+re-pointed at the guard that actually does the work its title claims. Every claim below is RED/GREEN
+proved. **The fixture writer and the tests changed; `cfbf.ts` did not** — this was never a defect.
 
-- *rejects an illegal sector shift* — deleting the `shift !== 9 && shift !== 12` rejection still
-  passes; the fixture uses shift 7 and downstream bounds checks catch it at this size.
-- *clamps an absurd declared stream size* — dropping `MAX_CFBF_STREAM_BYTES` from the `Math.min`
-  still passes, and is now **doubly** redundant since the per-chain clamp added in the hardening
-  commit bounds that fixture first.
-- *stops a chain that runs past the end of the file* — still passes with the length guard deleted,
-  and **also** with both that guard and the adjacent offset bound deleted. Two independent guards,
-  neither observable through `not.toThrow()`.
+- *rejects an illegal sector shift* — **CLOSED, discriminates.** The old fixture declared shift 7
+  over a 512-byte LAYOUT, so whichever downstream bound met the resulting garbage offsets first
+  rejected the file and the shift check was never the reason. `buildCfbf` now lays the WHOLE file
+  out at 1024-byte sectors and declares shift 10 to match — an illegal MS-CFB sector size (only 512
+  and 4096 are legal) but internally consistent at every field, so `shift !== 9 && shift !== 12` is
+  the only thing that can reject it. 1024 rather than 128 because the reader's `(sector + 1) * sec`
+  origin must clear the 512-byte header. Deleting that line: `expected 1 to be +0`.
+- *clamps an absurd declared stream size* — **CLOSED as unprovable for the constant, with the test
+  re-pointed at the guard that does the job.** `MAX_CFBF_STREAM_BYTES` cannot be pinned at ANY
+  fixture size, and that is ARITHMETIC, not a complaint about cost: `chain()` pushes a sector only
+  while `s < ctx.fat.length`, and `buildContext` never lets `ctx.fat` grow past
+  `floor(bytes.length / sec) - 1`, so `sectors.length * ctx.sec` is always at most
+  `ctx.b.length - ctx.sec` — strictly below the file length, which the same `Math.min` also carries.
+  The 64 MB term can therefore only be the smallest of the five on a file LARGER than 64 MB. The
+  module's own comment on the constant already conceded this; what was missing was the proof, which
+  now sits beside the test. The assertion itself was `a.length < 1_000_000`, which discriminated
+  nothing whatever; it now reads `a.buffer.byteLength === 10 * 512` and discriminates the
+  chain-derived clamp — the term that actually stops a 4 GB declared size from being allocated, and
+  the one the title has always been about. `.buffer.byteLength` is load-bearing because
+  `out.subarray(0, written)` returns the same 5,120-byte view either way. Deleting
+  `sectors.length * ctx.sec`: `expected 6656 to be 5120`.
+- *stops a chain that runs past the end of the file* — **CLOSED for the length bound; the offset
+  bound beside it is DOMINATED, not merely untested.** The fixture now under-declares `nFat` as 1
+  and links the first stream to the file's LAST sector: one 512-byte FAT sector describes 128
+  sectors and the file has 133, so sector 132 is inside the file (the offset bound passes) and past
+  `ctx.fat.length` (only the length bound rejects it). Deleting `s >= ctx.fat.length`:
+  `expected 1024 to be 512`; with that assertion removed the second one fires on its own
+  (`not to contain 'Z'` — the stream absorbs a neighbouring stream's sector), so both are proved
+  rather than one shadowing the other. ★★★ NO FIXTURE CAN EVER SINGLE OUT
+  `offsetOf(ctx, s) + ctx.sec > ctx.b.length`. It fires exactly when
+  `s >= floor(b.length / sec) - 1`, which is `fileSectors`, and `ctx.fat.length <= fileSectors`
+  always — `grep -n "fat.push" src/app/cfbf.ts` finds one call site and it is guarded by
+  `ctx.fat.length < fileSectors` — so the length bound one line above has already broken. Argued
+  and also measured: deleting the offset bound ALONE leaves the file 13 passed, while deleting the
+  length bound alone is red. It stays in as a standing check on that invariant. Do not re-annotate
+  it as testable-but-untested, and do not delete it as dead code.
 
-★ Filed rather than fixed because making them discriminate needs fixtures that reach each guard
-before any other bound does, which is a different exercise from the DoS hardening they sat beside.
-The annotations exist so a later mutation run does not read the survival as "the guard is dead".
+★ The in-file annotations were rewritten in the same commit. An annotation still reading MEASURED
+VACUOUS over a test that now discriminates is worse than no annotation at all — it tells a later
+mutation run to ignore a real survival. Read today's with `grep -n "★★★" src/app/cfbf.test.ts`.
+★ The writer's own header carries the rule these two fixtures exist to illustrate: a malformed
+fixture that is ALSO garbage everywhere else is rejected by whichever bound sees the garbage first,
+so the test named after the guard passes with that guard deleted. Malform exactly one thing.
 
 ## 357. `rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group — CLOSED 2026-09-04
 

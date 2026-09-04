@@ -6,15 +6,30 @@
 // VERIFIED: this exact layout round-trips through a reference reader — a simple
 // stream yields 1 reachable entry, two same-named streams in two storages yield
 // 4 and resolve to distinct paths, and each defect flag reproduces its hostile
-// condition. illegalSectorShift crashes a NAIVE reader that lacks the
-// downstream sector-bounds checks cfbf.ts has (it derives sector size directly
-// from the shift and indexes into the buffer with it) with
-// ERR_BUFFER_OUT_OF_BOUNDS. In cfbf.ts itself the other bounds checks already
-// catch the resulting garbage offsets for THIS fixture's size, so the explicit
-// shift check is redundant here — it is kept because a differently-shaped
-// corrupt file could reach an offset the other checks do not cover.
+// condition.
+//
+// ★★★ TWO DEFECT FLAGS ARE DELIBERATELY SELF-CONSISTENT, AND THAT IS THE WHOLE
+// POINT OF THEM. A malformed fixture that ALSO has garbage everywhere else is
+// rejected by whichever bound happens to see the garbage first, so the test
+// named after the guard passes with that guard deleted — three assertions in
+// `cfbf.test.ts` were measured vacuous for exactly that reason (open-followups
+// §356). Each of these two now reaches its guard with nothing else to object to:
+//   · illegalSectorShift lays the ENTIRE file out at 1024-byte sectors and
+//     declares shift 10 to match. 1024 is not a legal MS-CFB sector size (only
+//     512 and 4096 are), but every other field — DIFAT slots, FAT, directory
+//     chain, stream chains, sector offsets — is internally consistent at that
+//     size, so `buildContext`'s shift check is the ONLY thing that can reject
+//     the file. Removing that check makes the file read back normally.
+//   · chainPastEnd under-declares `nFat` as 1 and links the first stream's
+//     chain to the file's LAST sector. One 512-byte FAT sector describes 128
+//     sectors, so with a file longer than that the target sector is inside the
+//     file (the offset bound passes) but past `ctx.fat.length` (the length
+//     bound rejects it). Removing the length bound makes the stream absorb that
+//     sector's bytes, which is observable. The caller must therefore supply
+//     enough stream data to push the file past 128 sectors — `buildCfbf`
+//     throws rather than emitting a fixture that silently cannot reach the
+//     guard.
 
-const SEC = 512;
 const FREE = 0xffffffff;
 const EOC = 0xfffffffe;
 const FATSECT = 0xfffffffd;
@@ -35,6 +50,15 @@ type Entry = {
 };
 
 export function buildCfbf(root: CfbfEntryInput[], defects: CfbfDefects = {}): Uint8Array {
+  // ★ EVERY offset below derives from SEC, which is why the illegal-shift file
+  //  comes out self-consistent rather than merely mislabelled. 1024 keeps the
+  //  reader's own `(sector + 1) * sec` origin clear of the 512-byte header, so
+  //  no sector overlaps it — the same reason 4096 works. A smaller illegal
+  //  shift (7 -> 128) would put sectors 0-2 inside the header and need three
+  //  reserved sectors to stay consistent.
+  const SEC = defects.illegalSectorShift ? 1024 : 512;
+  const PER_DIR = SEC / 128;          // 128-byte directory entries per sector
+
   // --- 1. flatten into directory entries; index 0 is the Root Entry ---
   const E: Entry[] = [{
     name: "Root Entry", type: 5, data: null,
@@ -66,7 +90,7 @@ export function buildCfbf(root: CfbfEntryInput[], defects: CfbfDefects = {}): Ui
   if (defects.cyclicDirTree) E[0].child = 0;
 
   // --- 2. allocate sectors: [FAT][directory][streams] ---
-  const nDir = Math.ceil(E.length / 4);
+  const nDir = Math.ceil(E.length / PER_DIR);
   const streamSecs = E.map((e) => (e.data ? Math.ceil(e.data.length / SEC) : 0));
   const totalStream = streamSecs.reduce((a, b) => a + b, 0);
   let nFat = 1;
@@ -94,7 +118,22 @@ export function buildCfbf(root: CfbfEntryInput[], defects: CfbfDefects = {}): Ui
 
   const firstStream = E.find((e) => e.data);
   if (defects.cyclicFat && firstStream) fat[firstStream.start] = firstStream.start;
-  if (defects.chainPastEnd && firstStream) fat[firstStream.start] = totalSectors + 500;
+  if (defects.chainPastEnd && firstStream) {
+    // ★ The LAST sector of the file, not one past it. Past the end, the offset
+    //  bound in `chain()` would reject the link too — and since `ctx.fat` is
+    //  never longer than the file's own sector count, the length bound it sits
+    //  behind ALWAYS fires first, so the offset bound is unreachable and no
+    //  fixture can single it out. Inside the file but past the DECLARED FAT is
+    //  the only shape the length bound alone rejects.
+    const declaredFatEntries = SEC / 4;
+    if (totalSectors - 1 < declaredFatEntries) {
+      throw new Error(
+        `chainPastEnd needs more than ${declaredFatEntries} sectors to reach past the declared FAT; `
+        + `this fixture has ${totalSectors}. Give buildCfbf more stream data.`,
+      );
+    }
+    fat[firstStream.start] = totalSectors - 1;
+  }
 
   // --- 3. serialise ---
   const buf = new Uint8Array((totalSectors + 1) * SEC);
@@ -103,9 +142,13 @@ export function buildCfbf(root: CfbfEntryInput[], defects: CfbfDefects = {}): Ui
   dv.setUint16(0x18, 0x003e, true);
   dv.setUint16(0x1a, 3, true);
   dv.setUint16(0x1c, 0xfffe, true);
-  dv.setUint16(0x1e, defects.illegalSectorShift ? 7 : 9, true);
+  dv.setUint16(0x1e, Math.log2(SEC), true);
   dv.setUint16(0x20, 6, true);
-  dv.setUint32(0x2c, nFat, true);
+  // ★ `nFat` is a HEADER field and therefore attacker-set — cfbf.ts narrows its
+  //  FAT to `Math.min(nFat, difat.length)` sectors. Under-declaring it is what
+  //  makes `ctx.fat` shorter than the file's own sector count, which is the only
+  //  way a chain link can be inside the file and past the FAT at once.
+  dv.setUint32(0x2c, defects.chainPastEnd ? 1 : nFat, true);
   dv.setUint32(0x30, dirStart, true);
   dv.setUint32(0x38, 4096, true);
   dv.setUint32(0x3c, EOC, true);
@@ -123,7 +166,7 @@ export function buildCfbf(root: CfbfEntryInput[], defects: CfbfDefects = {}): Ui
   }
 
   E.forEach((e, i) => {
-    const p = off(dirStart + Math.floor(i / 4)) + (i % 4) * 128;
+    const p = off(dirStart + Math.floor(i / PER_DIR)) + (i % PER_DIR) * 128;
     const nm = Buffer.from(`${e.name}\0`, "utf16le");
     buf.set(nm.subarray(0, Math.min(64, nm.length)), p);
     dv.setUint16(p + 64, Math.min(64, nm.length), true);

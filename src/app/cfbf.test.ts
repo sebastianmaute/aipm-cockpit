@@ -119,47 +119,85 @@ describe("cfbf guards", () => {
     expect(() => readCfbfTree(buildCfbf([{ name: "A", data: enc("x") }], { cyclicDirTree: true }))).not.toThrow();
   });
 
-  // ★★★ MEASURED VACUOUS AGAINST THE CONSTANT IT NAMES, re-verified 2026-09-03
-  //  on the CURRENT reader: dropping `MAX_CFBF_STREAM_BYTES` from
-  //  readEntryBytes' `Math.min` leaves all tests in this file green. It is
-  //  now doubly redundant here — `sectors.length * ctx.sec` clamps this
-  //  fixture's entry to 5,120 bytes long before either the 64 MB ceiling or
-  //  `ctx.b.length` is consulted, so the assertion cannot see the constant at
-  //  any fixture this writer can emit. What it DOES still pin is the
-  //  chain-derived clamp: see "retains no more stream bytes in total than the
-  //  file is long" below, which goes red when that term is removed.
-  //  Not a bug to fix here — closing it is filed separately.
+  // ★★★ `MAX_CFBF_STREAM_BYTES` CANNOT BE PINNED BY ANY FIXTURE, AND THAT IS
+  //  ARITHMETIC, not a complaint about fixture size. `readEntryBytes` takes
+  //  `Math.min(e.size, sectors.length * ctx.sec, budget, ctx.b.length,
+  //  MAX_CFBF_STREAM_BYTES)`. `chain()` pushes a sector only while
+  //  `s < ctx.fat.length`, and `buildContext` never lets `ctx.fat` grow past
+  //  `floor(bytes.length / sec) - 1` — so `sectors.length * ctx.sec` is always
+  //  at most `ctx.b.length - ctx.sec`, strictly BELOW the file length, and
+  //  `budget` starts at the file length. The 64 MB term can therefore only be
+  //  the smallest of the five on a file LARGER THAN 64 MB. Confirming that
+  //  would cost a 64 MB fixture to observe a term that changes nothing for any
+  //  input the app can produce. Re-verified by mutation 2026-09-04: dropping
+  //  the term leaves this file green. `cfbf.ts`'s own comment on the constant
+  //  concedes the same thing; this is the proof rather than the observation.
+  //  ★★ WHAT THIS TEST DOES DISCRIMINATE is the chain-derived clamp — the term
+  //  that actually stops a 4 GB declared size from being allocated, which is
+  //  what the title claims. `.buffer.byteLength` is load-bearing and `.length`
+  //  is not: `out.subarray(0, written)` returns the same 5,120-byte VIEW with
+  //  the clamp removed, onto a buffer that is then the whole file. MEASURED,
+  //  not reasoned — with the clamp deleted a `.length` assertion for 5,120
+  //  PASSES on the line above a `.buffer.byteLength` one that fails with 6,656.
   it("clamps an absurd declared stream size rather than allocating it", () => {
     const streams = readCfbfStreams(buildCfbf([{ name: "A", data: enc("x") }], { hugeStreamSize: true }));
     const a = streams.get("A");
-    expect(a === undefined || a.length < 1_000_000).toBe(true);
+    expect(a).toBeDefined();
+    // The entry declares ~4 GB; its chain is ten 512-byte sectors (5,000 bytes
+    // of data). The ALLOCATION must follow the chain, never the declaration.
+    expect(a!.buffer.byteLength).toBe(10 * 512);
   });
 
-  // ★★★ MEASURED VACUOUS, re-verified 2026-09-03: deleting
-  //  `if (shift !== 9 && shift !== 12) return null;` from buildContext leaves
-  //  all tests in this file green. The fixture's illegal shift is 7, and at
-  //  that size the downstream bounds checks reject the resulting garbage
-  //  offsets on their own, so `.size` is 0 either way. The guard is kept
-  //  because a differently-SHAPED corrupt file could reach an offset those
-  //  checks do not cover — `cfbf-writer.ts`'s own header says the same — but
-  //  this assertion does not discriminate it. Do not read a green run here as
-  //  cover for the shift check.
+  // ★★★ THE FIXTURE IS SELF-CONSISTENT AT THE ILLEGAL SIZE, WHICH IS THE ONLY
+  //  WAY THIS ASSERTION CAN SEE THE SHIFT CHECK. Until 2026-09-04 it declared
+  //  shift 7 over a 512-byte LAYOUT, so the resulting garbage offsets were
+  //  rejected by whichever downstream bound met them first and `.size` was 0
+  //  with the shift check deleted (measured twice, open-followups §356).
+  //  `buildCfbf` now lays the WHOLE file out at 1024-byte sectors — an illegal
+  //  MS-CFB sector size, but internally consistent — so nothing downstream has
+  //  anything to object to and only `shift !== 9 && shift !== 12` can reject
+  //  it. Verified RED 2026-09-04 by deleting that line: the file reads back one
+  //  5,000-byte stream.
+  //  ★ The 512-byte control is the anti-vacuity floor: without it, a fixture
+  //  that stopped being readable for some unrelated reason would restore
+  //  exactly the vacuity this replaced, and every gate would stay green.
   it("rejects an illegal sector shift", () => {
-    expect(readCfbfStreams(buildCfbf([{ name: "A", data: enc("x") }], { illegalSectorShift: true })).size).toBe(0);
+    const items = [{ name: "A", data: enc("x") }];
+    expect(readCfbfStreams(buildCfbf(items)).size).toBe(1);
+    expect(readCfbfStreams(buildCfbf(items, { illegalSectorShift: true })).size).toBe(0);
   });
 
-  // ★★★ MEASURED VACUOUS AND DOCUMENTED NOWHERE ELSE, verified 2026-09-03.
-  //  Deleting `if (s >= ctx.fat.length) break;` from `chain()` leaves all
-  //  tests green — and so does deleting BOTH that line and the
-  //  `offsetOf(...) > ctx.b.length` line beside it, which is the measurement
-  //  that shows how little this assertion is worth. `not.toThrow()` cannot
-  //  fail here: the fixture links to sector `totalSectors + 500`, and with
-  //  every bound removed `ctx.fat[s]` is `undefined`, `undefined <= MAXREGSECT`
-  //  is false, and the loop exits cleanly. Both guards are real (an unbounded
-  //  `s` is what a hostile file drives), but only their RESOURCE effect is
-  //  observable, and nothing here observes it. Not a bug to fix here.
-  it("stops a chain that runs past the end of the file", () => {
-    expect(() => readCfbfStreams(buildCfbf([{ name: "A", data: enc("x") }], { chainPastEnd: true }))).not.toThrow();
+  // ★★★ `not.toThrow()` COULD NEVER FAIL HERE, WHICH IS WHY THE ASSERTION IS
+  //  NOW ABOUT BYTES. The old fixture linked to sector `totalSectors + 500`;
+  //  with every bound in `chain()` deleted, `ctx.fat[s]` is `undefined`,
+  //  `undefined <= MAXREGSECT` is false and the loop exits cleanly, so the test
+  //  passed against both guards removed (open-followups §356). The fixture now
+  //  under-declares `nFat` as 1 and links A's chain to the file's LAST sector:
+  //  one 512-byte FAT sector describes 128 sectors, the file has 133, so sector
+  //  132 is inside the file (the offset bound passes) and past `ctx.fat.length`
+  //  (only the length bound rejects it). Deleting the length bound makes A
+  //  absorb sector 132 — 1,024 bytes, half of them the filler's "Z"s. Verified
+  //  RED 2026-09-04 on both assertions.
+  //  ★★★ THE OFFSET BOUND BESIDE IT IS UNREACHABLE AND NO FIXTURE CAN CHANGE
+  //  THAT — it is dominated, not merely hard to reach. `buildContext` pushes to
+  //  `ctx.fat` only under `ctx.fat.length < fileSectors` (nothing else pushes:
+  //  `grep -n "fat.push" src/app/cfbf.ts`), so `ctx.fat.length <= fileSectors =
+  //  floor(b.length / sec) - 1`. The offset bound fires exactly when
+  //  `(s + 2) * sec > b.length`, i.e. when `s >= floor(b.length / sec) - 1 =
+  //  fileSectors >= ctx.fat.length` — every such `s` has already tripped the
+  //  length bound one line above. Keep the offset bound as a standing check on
+  //  that invariant; do NOT annotate it as untested-but-testable.
+  it("stops a chain that runs past the FAT the header declares", () => {
+    const filler = new TextEncoder().encode("Z".repeat(120 * 512));
+    const bytes = buildCfbf([{ name: "A", data: enc("x") }, { name: "Filler", data: filler }], { chainPastEnd: true });
+    const a = readCfbfStreams(bytes).get("A");
+    expect(a).toBeDefined();
+    expect(a!.length).toBe(512);                                  // A's own first sector, and nothing after it
+    expect(new TextDecoder().decode(a!)).not.toContain("Z");      // never another stream's bytes
+    // ★ And the writer refuses to emit the undersized version of this fixture,
+    //  whose link would land INSIDE the declared FAT and quietly restore the
+    //  vacuity above — a fixture that cannot reach its guard must fail loudly.
+    expect(() => buildCfbf([{ name: "A", data: enc("x") }], { chainPastEnd: true })).toThrow(/declared FAT/);
   });
 
   it("returns an empty map for a non-CFBF file rather than guessing", () => {
