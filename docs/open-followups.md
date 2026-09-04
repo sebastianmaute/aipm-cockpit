@@ -27288,6 +27288,21 @@ one is correct behaviour rather than a miss. The byte tell is the first four: `5
 readable, `D0 CF` is the encrypted container. ★ The `.msg` half is still spec-fixture only — no real
 RMS message has been run through it.
 
+★★★ **A REAL MESSAGE REFUTED THE OBVIOUS ALTERNATIVE DETECTOR, 2026-09-04.** A real Outlook `.msg`
+saved from a tenant that applies rights protection carries `PidNameContentClass` = `"rpmsg.message"`
+— the marker [MS-OXORMMS] itself names — while its `PR_MESSAGE_CLASS` is
+`IPM.Note.SMIME.MultipartSigned`, its only attachment is `smime.p7m`, and **its body renders fine**
+(392 chars through the RTF path). The consistent reading is that Outlook UNWRAPS the protection when
+the saving user holds rights, leaving the content-class property behind as residue. ★★★ So a
+detector keyed on that content class — the first thing an implementer reaches for, because it is
+what the spec names — would have **refused a readable message and told the reader it was
+protected.** Requiring BOTH the `message.rpmsg` attachment AND an empty body is what avoids that,
+and this file is the evidence. ★★ Consequence for anyone trying to close the `.msg` half: a
+locally-saved `.msg` from your own mailbox may be incapable of exercising it, because the wrapper is
+gone by the time the file exists. Reproduce the shape with
+`__substg1.0_8000001F` (named-property range, so the mapping is per-message) against
+`__substg1.0_001A001F`.
+
 ★★ **TWO THINGS THE BRIEF FOR THIS WORK GOT WRONG, both caught by measurement.** The MIME type is
 `application/x-microsoft-rpmsg-message`, not `application/x-microsoft-rpmsg` — verified against
 [MS-OXORMMS] "Creating the Wrapper Email Message", which the shortened spelling matches nowhere. And
