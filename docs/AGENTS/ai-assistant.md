@@ -218,7 +218,7 @@
   (`blockToken`), not the full-block `expect` echo, because `blockChanged` is structural `deepEqual` and a
   model cannot reproduce rich HTML byte-for-byte. ★ The ENGINE (`document-ops.ts`) stays permissive on an
   absent `expectHash` — the hand block editor shares those arms — so the strictness lives at the tool
-  boundary alone, the mirror image of `requireToken`.
+  boundary alone.
   ★★★ **THE READ PATH EMITS THE TOKEN, AND IT RIDES EVERY ROW.** Eight read tools carry an `expectedToken`
   field: `get_task` and `get_resource` on the returned object, and `list_tasks` / `list_raid` / `list_changes`
   / `list_milestones` / `list_stakeholders` / `list_resources` on EACH ROW. `withToken` / `withRowTokens`
