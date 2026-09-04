@@ -595,6 +595,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§376](#376-a-staged-document-row-cannot-be-named-in-the-review-card--open) | A staged document row cannot be named in the review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
 | [§377](#377-the-staging-gate-the-review-card-and-the-apply-path-have-no-production-caller--open) | The staging gate, the review card and the apply path have no production caller | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
 | [§378](#378-a-staged-creates-provisional-id-is-not-reconciled-with-the-id-apply-mints--open) | A staged create's provisional id is not reconciled with the id Apply mints | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
+| [§379](#379-the-registers-index_matches-recipe-compares-two-sequences-while-its-prose-claims-membership--open) | The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership | found 2026-09-04, reproduced independently by two sessions across four tree states | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -602,9 +603,15 @@ agree by construction, so this proves only that the rebuild was RUN — a headin
 closed without one leaves the table a row short or an anchor stale, and nothing else will say so:
 
 ```bash
-diff <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md | grep -oE '^\| \[§[0-9]+' | grep -oE '[0-9]+') \
-     <(grep -oE '^## [0-9]+\.' docs/open-followups.md | grep -oE '[0-9]+')
-echo "INDEX_MATCHES=$?"
+TABLE=$(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md | grep -oE '^\| \[§[0-9]+' | grep -oE '[0-9]+')
+BODY=$(grep -oE '^## [0-9]+\.' docs/open-followups.md | grep -oE '[0-9]+')
+diff <(echo "$TABLE") <(echo "$BODY")
+RC=$?
+# The two counts are the VACUITY CHECK, not decoration - see §379. A broken
+# sed range yields two EMPTY sets, which diff clean and exit 0, so the verdict
+# alone reads GREEN over a register nothing compared. Both counts must equal the
+# entry count; RC=0 beside rows=0 is a defeated check, not a pass.
+echo "INDEX_MATCHES=$RC  rows=$(echo "$TABLE" | grep -c .)  headings=$(echo "$BODY" | grep -c .)"
 ```
 
 ★★★ **Nothing GATES this, and the paragraph that stood here is the argument for generating the table
@@ -28137,3 +28144,53 @@ write on its first destructive multi-call turn.
 
 ★ Scope note: this is a property of ANY staged create whose id a later call references, not of
 tasks specifically — every entity with a `create_*` tool in the gate's write set has it.
+
+## 379. The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership — OPEN
+
+**Status:** OPEN. Filed 2026-09-04, never previously recorded — the red was known to two sessions
+and written down by neither. Last executed verification 2026-09-04:
+`grep -nE '^## (320|321|322|323)\.' docs/open-followups.md` prints the headings in the order
+320, **322, 321**, 323, while the table emits them in correct numeric order; the recipe's own
+`diff` reports exactly one difference, and the same recipe with `sort -n` applied to both sides
+exits 0.
+
+**What the recipe does versus what the prose beside it claims.** The instruction above the recipe
+says to check the table against the headings, and the failure it describes is a row that is missing,
+stale or short — a MEMBERSHIP claim. The recipe `diff`s two SEQUENCES, so it is order-sensitive by
+construction and reports a pure ordering difference in the same shape as a missing row. Both
+properties are worth checking; only one of them is written down, and it is not the one the command
+implements.
+
+**It is red at HEAD, and for neither reason a reader expects.** Nothing is missing and no anchor is
+stale: §322's section sits ABOVE §321's in the body, while the table lists them in numeric order.
+Reproduced independently by two sessions across four different tree states (before a register edit,
+after six index rows were added, and after two further entries landed); the difference is the same
+single pair every time.
+
+★★★ **THE COST IS NOT THE MISORDER, IT IS THAT A STANDING RED HIDES THE NEXT ONE.** Measured, not
+argued: while this was red, six entries (§360-§365) were filed with NO index rows at all, and both
+defects appeared in one `diff` output with nothing to say which belonged to whom. A check that has
+been failing for a known reason stops being read, and the next failure hides inside it. That is the
+argument for fixing this promptly, and it is a better argument than tidiness.
+
+★★ **THE RECIPE ALSO HAD NO VACUITY CHECK, and that half is closed in the recipe above.** As
+written it printed the verdict alone, so a broken `sed` range — the marker renamed, or matched
+against a code sample that QUOTES it — would compare two EMPTY sets, diff clean, and report
+`INDEX_MATCHES=0` over a register nothing had compared. Not hypothetical: a peer session's anchor
+generator reported "0 match, 0 mismatch" for precisely that reason (its `indexOf` landed on a
+quoted marker sixty lines above the real table) and was one commit from writing 351 unvalidated
+anchors. The recipe now prints `rows=` and `headings=` beside the verdict. ★ A vacuity check the
+reader has to think of is not a check — which is why it went INTO the recipe rather than being
+described here.
+
+★ **Two fixes, and they are NOT equivalent.** Moving §321's section below §322's costs one edit and
+keeps the ordering property, which is worth having: a register whose sections run in numeric order
+is navigable by scrolling. Relaxing the recipe instead (`sort -n` on both sides) makes the red go
+away without the register becoming ordered, and silently drops a property the command enforces
+today. Prefer the move. If the recipe is ever relaxed instead, the prose must say that ordering is
+no longer checked — otherwise the next reader inherits the same command/claim mismatch in the
+opposite direction.
+
+★ Scope note: this entry is about the RECIPE and its prose. §321 itself — the `submitPrompt`
+single-flight entry whose section is out of place — is unaffected in content; only its POSITION in
+the file is wrong.
