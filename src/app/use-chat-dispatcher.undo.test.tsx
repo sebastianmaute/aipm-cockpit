@@ -61,4 +61,55 @@ describe("AI writes capture undo", () => {
 
     expect(captureComposite).not.toHaveBeenCalled();
   });
+
+  test("updateTask captures the PRE-edit row as an edit image", () => {
+    // The image must hold the value as it was BEFORE the edit. Capturing the
+    // merged row would store the new values as the "before" image and undo
+    // would be a silent no-op — green against a wrong implementation.
+    const captureComposite = vi.fn();
+    const existing = [seedTask(1, "First"), seedTask(2, "Before")];
+    const { result } = renderHook(
+      () => useChatDispatcher(makeDispatcherArgs({ undo: { captureComposite } })),
+      { wrapper: dispatcherWrapper(existing) },
+    );
+
+    // ★ No `= null` initializer: control-flow analysis does not follow the
+    //   assignment inside the `act` closure, so an initialized `let` narrows to
+    //   `null` and `updated?.taskName` fails tsc as `never` (vitest is green
+    //   either way — the build-vs-tsc split AGENTS.md warns about).
+    let updated: Task | null | undefined;
+    act(() => {
+      updated = result.current.updateTask(2, { taskName: "After" });
+    });
+
+    // Positive observable: the edit really landed, so what follows is an
+    // assertion about a LIVE path rather than about an early throw.
+    expect(updated?.taskName).toBe("After");
+    expect(result.current.getTask(2)?.taskName).toBe("After");
+
+    expect(captureComposite).toHaveBeenCalledTimes(1);
+    const opts = captureComposite.mock.calls[0][0];
+    expect(opts.kind).toBe("task.updated");
+    expect(opts.primaryCount).toBe(1);
+    expect(opts.parts[0]).not.toBeNull();
+    expect(opts.name).toBe("Before");
+
+    // ★★★ THE LOAD-BEARING ASSERTION, AND IT HAS TO BE A ROUND-TRIP.
+    //   `capturePart` returns `{ isPrimary, restore }` — the before-images are
+    //   CLOSED OVER, never exposed — so NOTHING reachable off the mock's
+    //   argument can tell an `edited: [existing]` capture from an
+    //   `edited: [mergedBase]` one: both build exactly one non-null fragment.
+    //   Every assertion above therefore survives that mutant. Running the
+    //   fragment's own restore thunk is the only way to observe WHICH row was
+    //   captured: against the pre-edit image it reverts the name to "Before";
+    //   against the merged row it writes "After" back over "After" — a silent
+    //   no-op, which is precisely the defect this test exists to catch.
+    act(() => {
+      opts.parts[0].restore({ current: new Map<number, number>() }, true);
+    });
+    expect(result.current.getTask(2)?.taskName).toBe("Before");
+    // The op touched ONLY the row it captured — row 1 is untouched, so the
+    // revert is not a wholesale rewrite of the list.
+    expect(result.current.getTask(1)?.taskName).toBe("First");
+  });
 });

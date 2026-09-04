@@ -324,6 +324,28 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const next = tasksRef.current.map((row) =>
           row.id === id ? merged : row,
         );
+        // Captured from `existing` — the stored row BEFORE the merge — and
+        // against `tasksRef.current`, which is still the PRE-op array because
+        // this sits ABOVE the reassignment below. Both halves matter: capturing
+        // `merged`/`mergedBase` would store the NEW values as the "before"
+        // image, and undo would silently revert to what is already there.
+        // ★ Unlike a create, an EDIT image is index-insensitive here — `.map`
+        //   is position-preserving, so the row sits at the same index in the
+        //   pre- and post-op arrays and `buildBeforeImages` resolves the same
+        //   number either way. The pre-op array is used regardless, because
+        //   that is the contract `buildBeforeImages` documents.
+        undoRef.current?.captureComposite({
+          kind: "task.updated",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setTasks,
+            edited: [existing],
+            fromArray: tasksRef.current,
+            isPrimary: true,
+          })],
+          name: existing.taskName,
+          entityKey: "task",
+        });
         tasksRef.current = next;
         setTasks(next);
         args.logActivityAs?.("ai", "task.updated", merged.id, merged.taskName);
