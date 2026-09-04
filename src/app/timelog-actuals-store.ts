@@ -5,7 +5,7 @@
 import { readDeviceJson, writeDeviceJson } from "./device-store";
 import type { ActualsAggregate } from "./timelog-actuals";
 import type { TimelogProjectRef } from "./timelog-match";
-import type { TimelogUser } from "./timelog-types";
+import type { TimelogDailyRoll, TimelogUser } from "./timelog-types";
 
 export const TIMELOG_ACTUALS_KEY = "aipm-cockpit:timelog-actuals";
 const MAX_PROJECTS = 50;
@@ -36,6 +36,11 @@ export type ActualsCacheEntry = {
   // would disable Apply with no way back but Clear all. Failing OPEN on garbage
   // only restores the pre-existing behaviour. See open-followups §172.
   partial?: boolean;
+  // Per-(user, date) roll — the guardrail rules' only input. Optional for
+  // back-compat with entries written before this field existed.
+  // ★★ Like `partial`, this rides along on EVERY save. An entry is rewritten
+  // whole, so a save that omits it CLEARS it (register §172, one field over).
+  daily?: TimelogDailyRoll;
 };
 type CacheMap = Record<string, ActualsCacheEntry>;
 
@@ -46,7 +51,26 @@ function isEntry(v: unknown): v is ActualsCacheEntry {
   if (e.aggregates !== undefined && (typeof e.aggregates !== "object" || e.aggregates === null || Array.isArray(e.aggregates))) return false;
   if (e.users !== undefined && !Array.isArray(e.users)) return false;
   if (e.projectRefs !== undefined && !Array.isArray(e.projectRefs)) return false;
+  // ★★★ `daily` is DELIBERATELY NOT CHECKED HERE. The obvious branch —
+  // `if (e.daily !== undefined && !isRoll(e.daily)) return false;` — matches
+  // the three above but fails CLOSED: it drops the whole entry, losing
+  // aggregates that cost a network round trip, over an optional field no
+  // aggregate reader touches. `partial` already made that call (§172); the
+  // roll gets the same treatment one field over. `withCheckedDaily` below
+  // strips a malformed value instead, so no consumer ever sees a `daily`
+  // that is not a roll. Measured, not reasoned: with the rejecting branch in
+  // place, "keeps the rest of an entry whose daily field is malformed" is RED.
   return true;
+}
+
+/** Drop a `daily` that is not an object, keeping the rest of the entry. The
+ *  fail-open half of the rule stated in `isEntry`. */
+function withCheckedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
+  const d: unknown = e.daily;
+  if (d === undefined || (typeof d === "object" && d !== null && !Array.isArray(d))) return e;
+  const copy = { ...e };
+  delete copy.daily;
+  return copy;
 }
 
 function readMap(): CacheMap {
@@ -54,7 +78,7 @@ function readMap(): CacheMap {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
   const out: CacheMap = {};
   for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-    if (isEntry(v)) out[k] = v;
+    if (isEntry(v)) out[k] = withCheckedDaily(v);
   }
   return out;
 }

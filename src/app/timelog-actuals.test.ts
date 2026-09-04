@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { aggregateActuals } from "./timelog-actuals";
+import { aggregateActuals, buildDailyRoll } from "./timelog-actuals";
 import { periodKeyForDate, generatePeriods } from "./resource-capacity";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
@@ -121,5 +121,42 @@ describe("aggregateActuals", () => {
     const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-06-15", 3)], links, "week");
     expect(out.byBucket[7][keyW24].hours).toBe(4);
     expect(out.byBucket[7][keyW25].hours).toBe(3);
+  });
+});
+
+describe("buildDailyRoll", () => {
+  const item = (userId: number, date: string, hours: number): TimelogTimeItem => ({
+    timeRegistrationId: Math.round(Math.random() * 1e9),
+    userId, projectId: 1, projectName: "P", projectNo: "1", taskId: 1,
+    date, hours, billableHours: hours, isBillable: true,
+  });
+
+  it("sums hours per user and date and records the largest single entry", () => {
+    const roll = buildDailyRoll([
+      item(7, "2026-09-01", 3),
+      item(7, "2026-09-01", 4.5),
+      item(7, "2026-09-02", 8),
+      item(9, "2026-09-01", 2),
+    ]);
+    expect(roll).toEqual({
+      "7|2026-09-01": { hours: 7.5, maxEntryHours: 4.5, entryCount: 2 },
+      "7|2026-09-02": { hours: 8, maxEntryHours: 8, entryCount: 1 },
+      "9|2026-09-01": { hours: 2, maxEntryHours: 2, entryCount: 1 },
+    });
+  });
+
+  // ★★ The roll must NOT reproduce aggregateActuals' attribution: it is the
+  // input to rules about a PERSON's day, and an unlinked project is still that
+  // person's time. Dropping ProjectID 0 (absence / non-project time) here would
+  // make the daily total under-report against the very cap it is checked by.
+  it("keeps non-project time, which aggregation folds into unattributed", () => {
+    const zero = { ...item(7, "2026-09-01", 5), projectId: 0, projectName: "", projectNo: "" };
+    expect(buildDailyRoll([zero])["7|2026-09-01"]).toEqual({
+      hours: 5, maxEntryHours: 5, entryCount: 1,
+    });
+  });
+
+  it("returns an empty roll for no items", () => {
+    expect(buildDailyRoll([])).toEqual({});
   });
 });

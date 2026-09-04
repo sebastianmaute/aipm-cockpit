@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { loadActualsCache, saveActualsCache, TIMELOG_ACTUALS_KEY } from "./timelog-actuals-store";
+import { writeDeviceJson } from "./device-store";
 
 afterEach(() => window.localStorage.clear());
 
@@ -58,5 +59,39 @@ describe("timelog actuals cache", () => {
     }
     expect(loadActualsCache("p-0")).toBeUndefined();
     expect(loadActualsCache("p-50")?.aggregates?.unattributed.hours).toBe(50);
+  });
+});
+
+describe("ActualsCacheEntry.daily", () => {
+  it("round-trips a daily roll", () => {
+    saveActualsCache("p1", {
+      fetchedAt: "2026-09-04T00:00:00.000Z",
+      daily: { "7|2026-09-01": { hours: 8, maxEntryHours: 8, entryCount: 1 } },
+    });
+    expect(loadActualsCache("p1")?.daily).toEqual({
+      "7|2026-09-01": { hours: 8, maxEntryHours: 8, entryCount: 1 },
+    });
+  });
+
+  // Back-compat: an entry written before `daily` existed must still load.
+  it("loads an entry that has no daily field", () => {
+    saveActualsCache("p2", { fetchedAt: "2026-09-04T00:00:00.000Z" });
+    const e = loadActualsCache("p2");
+    expect(e?.fetchedAt).toBe("2026-09-04T00:00:00.000Z");
+    expect(e?.daily).toBeUndefined();
+  });
+
+  // ★★ FAILS OPEN, matching `partial` (register §172): rejecting the whole
+  // entry over a malformed optional field would drop good aggregates.
+  it("keeps the rest of an entry whose daily field is malformed", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, {
+      p3: { fetchedAt: "2026-09-04T00:00:00.000Z", daily: "nonsense" },
+    });
+    expect(loadActualsCache("p3")?.fetchedAt).toBe("2026-09-04T00:00:00.000Z");
+    // ★ The second half of failing open, and the half the reader depends on:
+    // the entry survives AND the bad value is DROPPED, so no consumer of the
+    // roll ever iterates a string. Without this line the test passes against a
+    // `withCheckedDaily` that returns its argument unchanged.
+    expect(loadActualsCache("p3")?.daily).toBeUndefined();
   });
 });

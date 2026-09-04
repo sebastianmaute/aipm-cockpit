@@ -1,6 +1,7 @@
 // src/app/timelog-actuals.ts — pure, i18n-free aggregation of Timelog bookings.
 import type { PlanGranularity } from "./types";
 import { periodKeyForDate } from "./resource-capacity";
+import { dailyKey, type TimelogDailyRoll } from "./timelog-types";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
 export type HourCell = { hours: number; billableHours: number };
@@ -64,4 +65,32 @@ export function aggregateActuals(
     };
   }
   return { byBucket, byResource, unattributed };
+}
+
+/**
+ * Per-(user, date) roll — the input to the guardrail rules.
+ *
+ * ★★★ SEPARATE FROM `aggregateActuals` ON PURPOSE, and the difference is the
+ * point. Aggregation answers "how do these hours attribute to budget buckets",
+ * so it collapses the date to a period key, sums per-entry hours away, and
+ * folds every unlinked item into `unattributed`. The rules ask "what did this
+ * PERSON book that day", so the roll keeps the calendar date, keeps the largest
+ * single entry, and keeps non-project time — it is still their time.
+ *
+ * Sparse: only (user, date) pairs that carry bookings get a key.
+ */
+export function buildDailyRoll(items: readonly TimelogTimeItem[]): TimelogDailyRoll {
+  const out: TimelogDailyRoll = {};
+  for (const it of items) {
+    const k = dailyKey(it.userId, it.date);
+    const cur = out[k];
+    if (cur === undefined) {
+      out[k] = { hours: it.hours, maxEntryHours: it.hours, entryCount: 1 };
+      continue;
+    }
+    cur.hours += it.hours;
+    if (it.hours > cur.maxEntryHours) cur.maxEntryHours = it.hours;
+    cur.entryCount += 1;
+  }
+  return out;
 }
