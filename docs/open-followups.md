@@ -581,7 +581,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--open) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | open |
 | [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--closed-2026-09-04) | ~~RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish from the tree~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (both forms decoded, capped and routed through the existing filename sanitizer) |
 | [§354](#354-negative-rtf-un-values-are-dropped-losing-every-code-point-above-u7fff--closed-2026-09-04) | ~~Negative RTF `\uN` values are dropped, losing every code point above U+7FFF~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (a lone unpaired surrogate is CARRIED, not repaired — the entry records what that costs downstream) |
-| [§355](#355-a-pt_string8-msg-yields-an-entirely-empty-mail-with-no-diagnostic--open) | A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§355](#355-a-pt_string8-msg-yields-an-entirely-empty-mail-with-no-diagnostic--closed-2026-09-04) | ~~A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (`…001E` siblings decoded through the shared charset ladder, PT_UNICODE still winning; the diagnostic fires whenever no known tag matched at all) |
 | [§356](#356-three-cfbf-guard-assertions-do-not-discriminate-the-guard-they-name--open) | Three cfbf guard assertions do not discriminate the guard they name | found 2026-09-03 in the ingest-breadth review | S | open |
 | [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--closed-2026-09-04) | ~~`rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (the removed group leaves `{}` behind, never a space; the real `.msg` fixture cannot discriminate any of the three states) |
 | [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
@@ -27359,20 +27359,44 @@ for that count on purpose: the obvious one (`grep -c "u-" src/app/lzfu.test.ts`)
 COINCIDENCE — it matches the phrase "LZFu-magic" and misses the positive control, two errors that
 happen to cancel.
 
-## 355. A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic — OPEN
+## 355. A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic — CLOSED 2026-09-04
 
-**Status:** OPEN. Filed 2026-09-03 from the ingest-breadth review, **measured** by a reviewer with a
-synthetic stream map. Read the tag table with `grep -n "const TAG" -A 12 src/app/msg-extract.ts`.
+**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Filed 2026-09-03 from the ingest-breadth
+review, **measured** by a reviewer with a synthetic stream map and **re-measured** with the same map
+before anything was changed. Run `npx vitest run src/app/msg-extract.test.ts` (exit 0). Read the tag
+tables with `grep -n "const TEXT_ID" -B 12 -A 12 src/app/msg-extract.ts`.
 
-Every entry in `TAG` is a PT_UNICODE (`…001F`) or PT_BINARY (`…0102`) tag. There is no PT_STRING8
-(`…001E`) fallback, and no diagnostic for "the stream map was non-empty but no recognised tag
-matched". Measured against streams `__substg1.0_0037001E`, `_0C1A001E` and `_1000001E`, all
-populated: `subject=""`, `from=""`, `body=""`, `diagnostics=[]`.
+Before: every entry in the old `TAG` table was a PT_UNICODE (`…001F`) or PT_BINARY (`…0102`) tag.
+There was no PT_STRING8 (`…001E`) fallback, and no diagnostic for "the stream map was non-empty but
+no recognised tag matched". Re-measured against streams `__substg1.0_0037001E`, `_0C1A001E` and
+`_1000001E`, all populated: `subject=""`, `from=""`, `body=""`, `diagnostics=[]`. After, with the
+same three streams: `subject="Q3 plan"`, `from="Alice Example"`, `body="Body text here"`,
+`diagnostics=[]`.
 
-★★ This is the silent-wrong-answer shape rather than a crash: the user gets a mail block with an
-empty subject and an empty body, and nothing anywhere says the message was not understood. The
-committed fixture is Unicode and `msg-extract.test.ts` only ever builds `001F`/`0102` maps, so
-nothing covers it. The minimum honest fix is the diagnostic; the fuller one is the `001E` branch.
+★★ This was the silent-wrong-answer shape rather than a crash: the user got a mail block with an
+empty subject and an empty body, and nothing anywhere said the message was not understood. The
+committed fixture is Unicode and `msg-extract.test.ts` only ever built `001F`/`0102` maps, so nothing
+covered it.
+
+Both halves landed. The tag table split into `TEXT_ID` (property IDs whose value is text, resolved
+`…001F` first and `…001E` second by `pickText`) and `BIN_TAG` (the three PT_BINARY tags, which have
+no text-typed sibling). PT_STRING8 has the same code-page question `10130102` had, so it reuses the
+same ladder: `decodeCodePageBytes` was **extracted** from `decodeHtmlBytes` and is now shared —
+strict UTF-8 with `{ stream: true }`, then windows-1252. The declaration sniff was NOT reused, and
+could not be: a bare property string carries no `<meta>`.
+
+★★ TWO RULES WORTH KNOWING BEFORE TOUCHING `pickText`. A PT_UNICODE stream wins over its PT_STRING8
+sibling — it is the lossless one — but only when it CARRIES BYTES: an empty `…001F` beside a
+populated `…001E` reproduces this very defect one property at a time, and preferring the populated
+sibling there can lose nothing. Both directions are pinned, and both mutants (swapping the two
+branches; relaxing `wide && wide.length > 0` to `wide`) go red.
+
+★★ THE DIAGNOSTIC KEYS ON PRESENCE, NOT USABILITY. `matchedAnyTag` is set by the LOOKUP, before
+`pickText` discards an empty stream, so a recognised tag carrying nothing means the message WAS
+understood and said nothing — a different claim from "this parser cannot read it", and the reader
+must not be told the second. Moving that flag behind `pickText` turns the "present but empty" test
+red. The text names no stream, because diagnostics are rendered for the reader and for the model.
+The committed Unicode fixture yields `diagnostics: []`, so it gained nothing spurious.
 
 ## 356. Three cfbf guard assertions do not discriminate the guard they name — OPEN
 

@@ -45,19 +45,40 @@ import { extractHtmlMarkdown } from "./html-extract";
 import { decompressRtf, rtfToPlainText } from "./lzfu";
 import type { ParsedMail } from "./mail-extract";
 
-const TAG = {
-  SUBJECT: "0037001F",
-  SENDER_NAME: "0C1A001F",
-  SENDER_EMAIL: "0C1F001F",
-  DISPLAY_TO: "0E04001F",
-  DISPLAY_CC: "0E03001F",
-  BODY_PLAIN: "1000001F",
+/** The two TYPE suffixes a text property can be written with. A producer
+ *  picks one per property and writes only that stream: PT_UNICODE is UTF-16LE
+ *  by definition, PT_STRING8 is 8-bit bytes in the message's code page.
+ *
+ *  ★★ Reading only PT_UNICODE — what this did before — made an all-PT_STRING8
+ *  message decode to an entirely empty mail: no subject, no sender, no body
+ *  and no diagnostic saying anything had gone wrong. That is the
+ *  silent-wrong-answer shape, not a crash, which is why BOTH the fallback and
+ *  the `matchedAnyTag` diagnostic below exist. */
+const PT_UNICODE = "001F";
+const PT_STRING8 = "001E";
+
+/** Property IDs (MS-OXPROPS) whose value is TEXT. Each is resolved as its
+ *  PT_UNICODE stream first and its PT_STRING8 sibling second — see
+ *  `pickText` for why that order and not the other. */
+const TEXT_ID = {
+  SUBJECT: "0037",
+  SENDER_NAME: "0C1A",
+  SENDER_EMAIL: "0C1F",
+  DISPLAY_TO: "0E04",
+  DISPLAY_CC: "0E03",
+  BODY_PLAIN: "1000",
+  BODY_HTML: "1013",
+  ATTACH_LONG_FILENAME: "3707",
+  ATTACH_FILENAME: "3704",
+  ATTACH_MIME_TAG: "370E",
+} as const;
+
+/** PT_BINARY (`…0102`) tags, spelled out in full: these carry bytes rather
+ *  than characters, so there is no text-typed sibling to resolve against.
+ *  PR_HTML's own charset problem is decodeHtmlBytes's, not this table's. */
+const BIN_TAG = {
   BODY_HTML: "10130102",
-  BODY_HTML_UNICODE: "1013001F",
   BODY_RTF: "10090102",
-  ATTACH_LONG_FILENAME: "3707001F",
-  ATTACH_FILENAME: "3704001F",
-  ATTACH_MIME_TAG: "370E001F",
   ATTACH_DATA: "37010102",
 } as const;
 
@@ -132,14 +153,9 @@ function sniffCharset(bytes: Uint8Array): string {
  *    3. windows-1252, which cannot fail and is what a legacy Outlook body on
  *       a Western-European tenant actually is.
  *
- *  ★★ `stream: true` on the strict attempt is load-bearing, not incidental.
- *  The caller clamps at MAX_BODY_PROPERTY_BYTES, which can cut a multi-byte
- *  sequence in half; a non-streaming fatal decode THROWS on that truncated
- *  tail (measured) and would send an entire valid 4MB UTF-8 body down the
- *  windows-1252 branch — turning one lost character into whole-body mojibake.
- *  Streaming buffers an INCOMPLETE trailing sequence and drops it, while an
- *  invalid INTERIOR sequence still throws, so the fallback stays reachable
- *  (both measured). */
+ *  Steps 2 and 3 are decodeCodePageBytes, shared with every PT_STRING8
+ *  property — those have the same code-page question and no step 1, since a
+ *  bare property string carries no declaration to sniff. */
 function decodeHtmlBytes(bytes: Uint8Array): string {
   const label = sniffCharset(bytes);
   if (label !== "") {
@@ -156,6 +172,24 @@ function decodeHtmlBytes(bytes: Uint8Array): string {
       // to the ladder, which always produces something.
     }
   }
+  return decodeCodePageBytes(bytes);
+}
+
+/** Strict UTF-8, then windows-1252 — the lower two rungs of the charset
+ *  ladder, for bytes whose code page this parser cannot know (PR_INTERNET_CPID
+ *  lives in the fixed-length `__properties_version1.0` stream, which is not
+ *  parsed here). `fatal: true` throws on an invalid sequence instead of
+ *  substituting U+FFFD, so a modern value decodes exactly and a legacy one is
+ *  DETECTED rather than silently rotted.
+ *
+ *  ★★ `stream: true` on the strict attempt is load-bearing, not incidental.
+ *  Callers clamp at a byte cap, which can cut a multi-byte sequence in half;
+ *  a non-streaming fatal decode THROWS on that truncated tail (measured) and
+ *  would send an entire valid 4MB UTF-8 body down the windows-1252 branch —
+ *  turning one lost character into whole-body mojibake. Streaming buffers an
+ *  INCOMPLETE trailing sequence and drops it, while an invalid INTERIOR
+ *  sequence still throws, so the fallback stays reachable (both measured). */
+function decodeCodePageBytes(bytes: Uint8Array): string {
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes, { stream: true });
   } catch {
@@ -165,8 +199,7 @@ function decodeHtmlBytes(bytes: Uint8Array): string {
 
 type DecodeBudget = { truncatedProperties: number };
 
-function decodeUnicode(b: Uint8Array | undefined, cap: number, budget: DecodeBudget): string {
-  if (!b || b.length === 0) return "";
+function decodeUnicode(b: Uint8Array, cap: number, budget: DecodeBudget): string {
   let slice = b;
   if (b.length > cap) {
     // Keep the clamp on an even byte boundary — a lone trailing byte of a
@@ -177,6 +210,44 @@ function decodeUnicode(b: Uint8Array | undefined, cap: number, budget: DecodeBud
     budget.truncatedProperties++;
   }
   return new TextDecoder("utf-16le").decode(slice).replace(/\0+$/, "");
+}
+
+/** PT_STRING8: one byte per code unit, so unlike decodeUnicode there is no
+ *  code-unit alignment for the clamp to respect and it may land on any byte —
+ *  decodeCodePageBytes's streaming strict decode is what keeps a cut UTF-8
+ *  sequence from dragging the whole value onto the windows-1252 branch. */
+function decodeString8(b: Uint8Array, cap: number, budget: DecodeBudget): string {
+  let slice = b;
+  if (b.length > cap) {
+    slice = b.subarray(0, cap);
+    budget.truncatedProperties++;
+  }
+  return decodeCodePageBytes(slice).replace(/\0+$/, "");
+}
+
+/** A resolved text property plus how to read its bytes: `wide` is PT_UNICODE
+ *  (UTF-16LE), otherwise PT_STRING8 (code page). The two must not be merged —
+ *  decoding either one's bytes with the other's decoder is mojibake. */
+type TextValue = { bytes: Uint8Array; wide: boolean };
+
+/** ★ PT_UNICODE wins over its PT_STRING8 sibling when both carry bytes: it is
+ *  the lossless one, while a code-page byte string can only be guessed at.
+ *  ★ An EMPTY PT_UNICODE stream does NOT win. Preferring a populated
+ *  PT_STRING8 sibling there cannot lose a character — the winner carried
+ *  none — and dropping the populated one would reproduce, per-property,
+ *  exactly the silent-empty-field shape this whole branch exists to remove. */
+function pickText(
+  wide: Uint8Array | undefined,
+  narrow: Uint8Array | undefined,
+): TextValue | undefined {
+  if (wide && wide.length > 0) return { bytes: wide, wide: true };
+  if (narrow && narrow.length > 0) return { bytes: narrow, wide: false };
+  return undefined;
+}
+
+function decodeText(v: TextValue | undefined, cap: number, budget: DecodeBudget): string {
+  if (!v) return "";
+  return v.wide ? decodeUnicode(v.bytes, cap, budget) : decodeString8(v.bytes, cap, budget);
 }
 
 /** Root-level property: no "/" in the path. */
@@ -219,20 +290,51 @@ export function msgToParsedMail(streams: Map<string, Uint8Array>): ParsedMail {
   const diagnostics: string[] = [];
   const budget: DecodeBudget = { truncatedProperties: 0 };
 
-  const dec = (b: Uint8Array | undefined): string => decodeUnicode(b, MAX_PROPERTY_BYTES, budget);
-  const decBody = (b: Uint8Array | undefined): string => decodeUnicode(b, MAX_BODY_PROPERTY_BYTES, budget);
+  // ★ Records that a tag this parser KNOWS was present in the map — not that
+  //  it carried a usable value. An empty stream still means the message was
+  //  understood, so presence is set by the LOOKUP, before pickText discards
+  //  an empty one. Every read below goes through one of these four helpers so
+  //  that a tag added to the tables above is covered without a second edit.
+  let matchedAnyTag = false;
 
-  const plain = decBody(rootProp(streams, TAG.BODY_PLAIN));
+  const rootText = (id: string): TextValue | undefined => {
+    const wide = rootProp(streams, `${id}${PT_UNICODE}`);
+    const narrow = rootProp(streams, `${id}${PT_STRING8}`);
+    if (wide || narrow) matchedAnyTag = true;
+    return pickText(wide, narrow);
+  };
+  const storageText = (storage: string, id: string): TextValue | undefined => {
+    const wide = storageProp(streams, storage, `${id}${PT_UNICODE}`);
+    const narrow = storageProp(streams, storage, `${id}${PT_STRING8}`);
+    if (wide || narrow) matchedAnyTag = true;
+    return pickText(wide, narrow);
+  };
+  const rootBin = (tag: string): Uint8Array | undefined => {
+    const v = rootProp(streams, tag);
+    if (v) matchedAnyTag = true;
+    return v;
+  };
+  const storageBin = (storage: string, tag: string): Uint8Array | undefined => {
+    const v = storageProp(streams, storage, tag);
+    if (v) matchedAnyTag = true;
+    return v;
+  };
+
+  const dec = (v: TextValue | undefined): string => decodeText(v, MAX_PROPERTY_BYTES, budget);
+  const decBody = (v: TextValue | undefined): string => decodeText(v, MAX_BODY_PROPERTY_BYTES, budget);
+
+  const plain = decBody(rootText(TEXT_ID.BODY_PLAIN));
   // ★★ PR_HTML is PT_BINARY (10130102) in MS-OXPROPS and that is what real
-  //  Outlook writes, so it wins when both are present — but a PT_UNICODE
-  //  variant (1013001F) is written by some producers and is just as much a
-  //  real HTML body. Looking up only the binary tag reported a map carrying
-  //  only the unicode one as an EMPTY text body (measured). The two decode
-  //  differently and must not be merged: PT_UNICODE is UTF-16LE by
-  //  definition, PT_BINARY is code-page bytes (see decodeHtmlBytes).
-  const htmlBytes = rootProp(streams, TAG.BODY_HTML);
-  const htmlUnicodeBytes = rootProp(streams, TAG.BODY_HTML_UNICODE);
-  const rtfBytes = rootProp(streams, TAG.BODY_RTF);
+  //  Outlook writes, so it wins when both are present — but a text-typed
+  //  variant (1013001F / 1013001E) is written by some producers and is just as
+  //  much a real HTML body. Looking up only the binary tag reported a map
+  //  carrying only the text-typed one as an EMPTY text body (measured). The
+  //  two decode differently and must not be merged: the text-typed one is
+  //  UTF-16LE or code-page per its own suffix, PT_BINARY is always code-page
+  //  bytes with a declaration worth sniffing (see decodeHtmlBytes).
+  const htmlBytes = rootBin(BIN_TAG.BODY_HTML);
+  const htmlTextValue = rootText(TEXT_ID.BODY_HTML);
+  const rtfBytes = rootBin(BIN_TAG.BODY_RTF);
 
   // ★★ The extracted body carries `kind: "html"` holding MARKDOWN, not
   //  markup — eml-extract.ts's convention exactly, because mail-extract.ts's
@@ -245,8 +347,8 @@ export function msgToParsedMail(streams: Map<string, Uint8Array>): ParsedMail {
     const htmlSlice = clamped ? htmlBytes.subarray(0, MAX_BODY_PROPERTY_BYTES) : htmlBytes;
     if (clamped) budget.truncatedProperties++;
     body = { kind: "html", content: extractHtmlMarkdown(decodeHtmlBytes(htmlSlice)) };
-  } else if (htmlUnicodeBytes && htmlUnicodeBytes.length > MIN_HTML_BODY_BYTES) {
-    body = { kind: "html", content: extractHtmlMarkdown(decBody(htmlUnicodeBytes)) };
+  } else if (htmlTextValue && htmlTextValue.bytes.length > MIN_HTML_BODY_BYTES) {
+    body = { kind: "html", content: extractHtmlMarkdown(decBody(htmlTextValue)) };
   } else if (rtfBytes && rtfBytes.length > 0) {
     const raw = decompressRtf(rtfBytes);
     const text = rtfToPlainText(new TextDecoder("latin1").decode(raw));
@@ -269,17 +371,17 @@ export function msgToParsedMail(streams: Map<string, Uint8Array>): ParsedMail {
   }
 
   const attachments = keptStorages.flatMap((storage) => {
-    const bytes = storageProp(streams, storage, TAG.ATTACH_DATA);
+    const bytes = storageBin(storage, BIN_TAG.ATTACH_DATA);
     if (!bytes) {
       diagnostics.push(`an attachment in ${storage} carried no data and was skipped`);
       return [];
     }
     const fileName =
-      dec(storageProp(streams, storage, TAG.ATTACH_LONG_FILENAME)) ||
-      dec(storageProp(streams, storage, TAG.ATTACH_FILENAME)) ||
+      dec(storageText(storage, TEXT_ID.ATTACH_LONG_FILENAME)) ||
+      dec(storageText(storage, TEXT_ID.ATTACH_FILENAME)) ||
       "attachment";
     const mimeType =
-      dec(storageProp(streams, storage, TAG.ATTACH_MIME_TAG)) || "application/octet-stream";
+      dec(storageText(storage, TEXT_ID.ATTACH_MIME_TAG)) || "application/octet-stream";
     return [{ fileName, mimeType, bytes }];
   });
 
@@ -288,12 +390,26 @@ export function msgToParsedMail(streams: Map<string, Uint8Array>): ParsedMail {
   //  object literal would run AFTER that check reads budget.truncatedProperties,
   //  silently dropping the diagnostic for a truncated subject/sender/to/cc.
   const headers = {
-    from: dec(rootProp(streams, TAG.SENDER_NAME)) || dec(rootProp(streams, TAG.SENDER_EMAIL)),
-    to: addressList(dec(rootProp(streams, TAG.DISPLAY_TO)), diagnostics, "To"),
-    cc: addressList(dec(rootProp(streams, TAG.DISPLAY_CC)), diagnostics, "Cc"),
-    subject: dec(rootProp(streams, TAG.SUBJECT)),
+    from: dec(rootText(TEXT_ID.SENDER_NAME)) || dec(rootText(TEXT_ID.SENDER_EMAIL)),
+    to: addressList(dec(rootText(TEXT_ID.DISPLAY_TO)), diagnostics, "To"),
+    cc: addressList(dec(rootText(TEXT_ID.DISPLAY_CC)), diagnostics, "Cc"),
+    subject: dec(rootText(TEXT_ID.SUBJECT)),
     date: "",
   };
+
+  // ★★ THE SILENT-WRONG-ANSWER GUARD, and it must come after every lookup
+  //  above. A map carrying only tags this parser does not read yields an empty
+  //  subject, an empty sender and an empty body — byte-identical to what a
+  //  genuinely empty message yields, so NOTHING in the returned value can tell
+  //  the two apart and the reader is handed a mail block that quietly asserts
+  //  the message said nothing. Say so once instead. Stream names stay OUT of
+  //  the text: diagnostics are rendered for the reader and for the model, and
+  //  a `__substg1.0_…` path is noise to both.
+  if (streams.size > 0 && !matchedAnyTag) {
+    diagnostics.push(
+      "the message used an unrecognised property encoding; no fields could be read from it",
+    );
+  }
 
   if (budget.truncatedProperties > 0) {
     diagnostics.push(`${budget.truncatedProperties} property value(s) truncated to their byte cap`);

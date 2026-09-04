@@ -261,7 +261,9 @@ describe("msgToParsedMail", () => {
   //    node -e "const s=require('fs').readFileSync(process.argv[1],'utf8');
   //      const m=new Set(); for(const c of s) if(c.codePointAt(0)>127) m.add(c);
   //      console.log([...m].join(' '))" src/app/msg-extract.test.ts
-  //  (the em dash and ★ of these comments will show up too).
+  //  (the punctuation of these comments shows up too and is not part of the
+  //  set under test: em dash, ★, the ellipsis of a `…001E` tag shorthand, and
+  //  the § of a followup reference).
 
   /** windows-1252 bytes. Every character used here is in the 0x00-0xFF range
    *  where windows-1252 and the code point agree, so this is exact. */
@@ -361,5 +363,122 @@ describe("msgToParsedMail", () => {
     }));
     expect(p.body.kind).toBe("text");
     expect(p.body.content).toBe("plain fallback");
+  });
+
+  // --- PT_STRING8 (…001E) properties, and the unrecognised-encoding guard ---
+  //
+  // ★★★ A producer writes each text property as EITHER PT_UNICODE or
+  //  PT_STRING8, so a message built entirely from the 8-bit form missed EVERY
+  //  field at once. Measured on the pre-fix code with exactly the three
+  //  streams of the first test below: `subject=""`, `from=""`, `body=""`,
+  //  `diagnostics=[]` — an empty mail block quietly asserting the message
+  //  said nothing, with nothing anywhere reporting that it had not been
+  //  understood (open-followups §355). Both halves are pinned here: the
+  //  decode, and the diagnostic that must fire when even that cannot help.
+  //
+  // ★★ THE cp1252 FIXTURES CARRY LITERAL NON-ASCII CHARACTERS — the same
+  //  self-check warning as the HTML block above applies verbatim, and the
+  //  byte-scan there covers these too (no character outside its listed set is
+  //  introduced below).
+
+  it("reads a message whose text properties are all PT_STRING8", () => {
+    const p = msgToParsedMail(streams({
+      "__substg1.0_0037001E": cp1252("Q3 plan"),
+      "__substg1.0_0C1A001E": cp1252("Alice Example"),
+      "__substg1.0_1000001E": cp1252("Body text here"),
+    }));
+    expect(p.headers.subject).toBe("Q3 plan");
+    expect(p.headers.from).toBe("Alice Example");
+    expect(p.body.kind).toBe("text");
+    expect(p.body.content).toBe("Body text here");
+    expect(p.diagnostics).toEqual([]);
+  });
+
+  // ★ PT_STRING8 is bytes in the message's code page, which lives in a stream
+  //  this parser does not read — so it runs the same strict-UTF-8-then-1252
+  //  ladder PR_HTML does. These bytes are not valid UTF-8, so the strict rung
+  //  throws and windows-1252 keeps the umlauts.
+  it("decodes a windows-1252 PT_STRING8 body without losing its umlauts", () => {
+    const p = msgToParsedMail(streams({
+      "__substg1.0_1000001E": cp1252("Preisverhältnis und Maßnahmen für München"),
+    }));
+    expect(p.body.content).toBe("Preisverhältnis und Maßnahmen für München");
+    expect(p.body.content).not.toContain("�");
+  });
+
+  // ★ The other rung of the same ladder: a PT_STRING8 property whose bytes ARE
+  //  valid UTF-8 must decode exactly, not be read as windows-1252 mojibake.
+  it("decodes a UTF-8 PT_STRING8 subject exactly", () => {
+    const p = msgToParsedMail(streams({
+      "__substg1.0_0037001E": new TextEncoder().encode("Größe und Maß"),
+    }));
+    expect(p.headers.subject).toBe("Größe und Maß");
+  });
+
+  it("reads a PT_STRING8 attachment filename and MIME tag", () => {
+    const p = msgToParsedMail(streams({
+      "__attach_version1.0_#00000000/__substg1.0_3707001E": cp1252("plan.xlsx"),
+      "__attach_version1.0_#00000000/__substg1.0_370E001E": cp1252("application/vnd.ms-excel"),
+      "__attach_version1.0_#00000000/__substg1.0_37010102": new Uint8Array([1, 2, 3]),
+    }));
+    expect(p.attachments[0].fileName).toBe("plan.xlsx");
+    expect(p.attachments[0].mimeType).toBe("application/vnd.ms-excel");
+  });
+
+  it("honours the PT_STRING8 variant of the HTML body tag", () => {
+    const p = msgToParsedMail(streams({
+      "__substg1.0_1013001E": cp1252("<html><body><p>Maßnahmen aus dem 8-bit-Tag</p></body></html>"),
+    }));
+    expect(p.body.kind).toBe("html");
+    expect(p.body.content).toBe("Maßnahmen aus dem 8-bit-Tag");
+  });
+
+  // ★ The 8-bit stream is inserted FIRST so a "whichever the map yields first"
+  //  reading of the pair cannot pass this by accident.
+  it("prefers the PT_UNICODE property over its PT_STRING8 sibling", () => {
+    const p = msgToParsedMail(streams({
+      "__substg1.0_0037001E": cp1252("From the 8-bit tag"),
+      "__substg1.0_0037001F": uni("From the Unicode tag"),
+    }));
+    expect(p.headers.subject).toBe("From the Unicode tag");
+  });
+
+  // ★★ An EMPTY PT_UNICODE stream must NOT win that contest: the sibling is
+  //  the only one carrying characters, so preferring it can lose nothing,
+  //  while dropping it reproduces §355's empty field one property at a time.
+  it("falls through to the PT_STRING8 sibling when the PT_UNICODE stream is empty", () => {
+    const p = msgToParsedMail(streams({
+      "__substg1.0_0037001F": new Uint8Array(0),
+      "__substg1.0_0037001E": cp1252("Real subject"),
+    }));
+    expect(p.headers.subject).toBe("Real subject");
+  });
+
+  // ★★★ THE FLOOR. Whatever else fails, a message this parser could not read
+  //  must not come back byte-identical to one that genuinely said nothing.
+  it("reports an unrecognised property encoding for a map holding no known tag", () => {
+    const p = msgToParsedMail(streams({
+      // Real property IDs under type suffixes this parser does not read.
+      "__substg1.0_00370033": uni("Q3 plan"),
+      "__substg1.0_10000048": uni("Body text here"),
+    }));
+    expect(p.headers.subject).toBe("");
+    expect(p.body.content).toBe("");
+    expect(p.diagnostics).toEqual([
+      "the message used an unrecognised property encoding; no fields could be read from it",
+    ]);
+  });
+
+  it("does not report an unrecognised encoding for an empty stream map", () => {
+    expect(msgToParsedMail(new Map()).diagnostics).toEqual([]);
+  });
+
+  // ★ Presence, not usability. A recognised tag carrying an EMPTY stream means
+  //  the message WAS understood and said nothing — a different claim from
+  //  "this parser cannot read it", and the reader must not be told the second.
+  it("does not report an unrecognised encoding when a known tag is present but empty", () => {
+    const p = msgToParsedMail(streams({ "__substg1.0_0037001F": new Uint8Array(0) }));
+    expect(p.headers.subject).toBe("");
+    expect(p.diagnostics).toEqual([]);
   });
 });
