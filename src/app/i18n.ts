@@ -1587,6 +1587,11 @@ const enUS = {
   timelogTestOk: "Connected — {0} users, scope: {1}",
   timelogTestFail: "Connection failed (HTTP {0})",
   timelogTokenInvalid: "Token was rejected. Re-enter it.",
+  timelogGuardrailsTitle: "Booking guardrails",
+  timelogGuardrailsHint:
+    "Flag bookings that break these rules. Cockpit never changes a booking — it only tells you. All rules are off until you turn them on.",
+  timelogEntryCapLabel: "Entry cap (hours)",
+  timelogDayCapLabel: "Daily cap (hours)",
   timelogMatchPeople: "People",
   timelogPeopleCollapse: "Collapse people",
   timelogPeopleExpand: "Expand people",

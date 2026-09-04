@@ -7,6 +7,29 @@ import {
 } from "./timelog-types";
 import { MAX_HOURS_PER_DAY } from "./types";
 
+/** A `timelogLinks` blob with nothing in it. Exported so the settings surface
+ *  has ONE stable identity to hand `TimelogSettings` when the workspace carries
+ *  no blob yet, rather than minting a fresh object every render. */
+export const EMPTY_TIMELOG_LINKS: TimelogLinks = { userLinks: [], projectLinks: [] };
+
+/** True when the blob carries nothing worth persisting.
+ *  ★★ THE OUTER HALF OF THE BYTE-STABILITY RULE, and it is a genuinely separate
+ *  one: `sanitizeTimelogPolicy` below drops an empty `policy` key, but
+ *  `workspaceToJson` emits a `timelogLinks` key for ANY truthy blob, so writing
+ *  `{userLinks: [], projectLinks: []}` back where the workspace previously had
+ *  `undefined` puts a new key into the exported artifact. That is what a user
+ *  who switches a guardrail on and straight back off would otherwise leave
+ *  behind. A writer that can go back to empty must route through this. */
+export function isBlankTimelogLinks(links: TimelogLinks): boolean {
+  return (
+    links.userLinks.length === 0 &&
+    links.projectLinks.length === 0 &&
+    links.customerId === undefined &&
+    (links.projectIds?.length ?? 0) === 0 &&
+    (links.policy === undefined || Object.keys(links.policy).length === 0)
+  );
+}
+
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 

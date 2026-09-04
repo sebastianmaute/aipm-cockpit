@@ -100,6 +100,7 @@ import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile
 import { loadLandingState } from "./landing-state";
 import { loadActualsCache } from "./timelog-actuals-store";
 import { evaluateTimelogPolicy } from "./timelog-policy";
+import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
 import { metricAtActionPatch } from "./insights/outcome";
 import { useInsightRecommendations } from "./use-insight-recommendations";
 import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
@@ -2495,6 +2496,19 @@ function TaskManagerInner() {
       onSectionConsumed={clearSettingsSectionRequest}
       isPopout={isPopout}
       resources={resources}
+      // The TimeLog guardrail policy rides the workspace `timelogLinks` blob,
+      // so it is threaded from here rather than read off per-device settings.
+      // ★★ The write goes back to `undefined` when the blob ends up empty:
+      // `workspaceToJson` emits a `timelogLinks` key for any truthy blob, so a
+      // plain `setTimelogLinks(next)` would put one into the exported artifact
+      // for a user who switched a rule on and straight back off again.
+      // ★ Read-only in a popout, which has no business writing shared policy.
+      timelogLinks={timelogLinks ?? EMPTY_TIMELOG_LINKS}
+      onTimelogLinksChange={
+        isPopout
+          ? undefined
+          : (next) => setTimelogLinks(isBlankTimelogLinks(next) ? undefined : next)
+      }
     />
   );
 

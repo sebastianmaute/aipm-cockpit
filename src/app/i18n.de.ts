@@ -1548,6 +1548,11 @@ export const de: Record<TranslationKey, string> = {
   timelogTestOk: "Verbunden — {0} Benutzer, Bereich: {1}",
   timelogTestFail: "Verbindung fehlgeschlagen (HTTP {0})",
   timelogTokenInvalid: "Token wurde abgelehnt. Bitte erneut eingeben.",
+  timelogGuardrailsTitle: "Buchungs-Leitplanken",
+  timelogGuardrailsHint:
+    "Markiert Buchungen, die gegen diese Regeln verstoßen. Cockpit ändert keine Buchung — es weist nur darauf hin. Alle Regeln sind aus, bis Sie sie einschalten.",
+  timelogEntryCapLabel: "Limit pro Eintrag (Stunden)",
+  timelogDayCapLabel: "Tageslimit (Stunden)",
   timelogMatchPeople: "Personen",
   timelogPeopleCollapse: "Personen einklappen",
   timelogPeopleExpand: "Personen ausklappen",

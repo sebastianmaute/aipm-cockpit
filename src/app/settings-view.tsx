@@ -82,6 +82,11 @@ interface SettingsViewProps {
   projectId?: string;
   /** Resource directory for the Appearance "I am this resource" picker. */
   resources?: readonly import("./types").Resource[];
+  /** The workspace `timelogLinks` blob + its setter, forwarded to the TimeLog
+   *  guardrails section. Optional (like `onMigrateToTurso`) because the popout
+   *  and pre-project surfaces have no workspace blob; omitted ⇒ no guardrails. */
+  timelogLinks?: import("./timelog-types").TimelogLinks;
+  onTimelogLinksChange?: (next: import("./timelog-types").TimelogLinks) => void;
 }
 
 type SectionId =
@@ -439,7 +444,14 @@ export function SettingsView(props: SettingsViewProps) {
                 </Button>
               </div>
             )}
-            <IntegrationsSection lang={lang} settings={settings} onChange={onChange} onMigrateToTurso={props.onMigrateToTurso} />
+            <IntegrationsSection
+              lang={lang}
+              settings={settings}
+              onChange={onChange}
+              onMigrateToTurso={props.onMigrateToTurso}
+              timelogLinks={props.timelogLinks}
+              onTimelogLinksChange={props.onTimelogLinksChange}
+            />
           </div>
         )}
         {active === "export" && (
