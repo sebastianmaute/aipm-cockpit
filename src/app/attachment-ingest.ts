@@ -40,10 +40,17 @@ import {
   type AttachmentBlock,
   type AttachmentError,
 } from "./chat-attachments";
-import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
+import { officeKindOf, extractOfficeMarkdown, looksLikeEncryptedOfficeFile } from "./office-extract";
 import { extractHtmlMarkdown } from "./html-extract";
 import { bytesToBase64 } from "./base64";
-import { parseMail, renderMailParts, MAIL_BODY_FLOOR, truncateField, type ParsedMail } from "./mail-extract";
+import {
+  parseMail,
+  renderMailParts,
+  isRightsProtectedMail,
+  MAIL_BODY_FLOOR,
+  truncateField,
+  type ParsedMail,
+} from "./mail-extract";
 
 export type IngestNode = {
   fileName: string;
@@ -310,6 +317,25 @@ async function ingestNode(
 
   if (kind !== "mail") {
     try {
+      // ★★★ ENCRYPTED BEFORE CORRUPT, and the ORDER is the whole point. A
+      // password-protected Office file is a compound file rather than a zip
+      // (see looksLikeEncryptedOfficeFile), so payloadFor below throws on one
+      // and the catch reports "read-failed" — "Could not read plan.docx",
+      // which withholds the single thing the user can act on. The detector is
+      // a pure shape test that is FALSE for a merely corrupt file and for a
+      // legacy binary .doc renamed .docx, so "read-failed" keeps every case it
+      // had; the two stay distinguishable because only one of them is a
+      // compound file carrying an EncryptedPackage stream.
+      //
+      // ★★ It sits INSIDE the try deliberately. readCfbfTree is hardened
+      // against hostile input, but that is a claim about the code and not a
+      // guarantee of the language (the mail branch below carries the same
+      // note, and cfbf.ts threw RangeError two different ways before it was
+      // hardened) — inside the try, a throw from the DETECTOR degrades to
+      // "read-failed" instead of rejecting ingestBytes' promise.
+      if (kind === "office" && looksLikeEncryptedOfficeFile(bytes)) {
+        return { ok: false, error: "encrypted" };
+      }
       const raw = await payloadFor(kind, bytes, mimeType, fileName);
       const outputMime =
         kind === "image" && mimeType.trim() === "" ? (imageMimeFallback(fileName) ?? mimeType) : mimeType;
@@ -371,6 +397,19 @@ async function ingestNode(
   } catch {
     return { ok: false, error: "read-failed" };
   }
+
+  // ★★ A rights-managed (RMS / IRM) message is a WRAPPER whose real content
+  // lives in an encrypted `message.rpmsg` attachment nothing here can open.
+  // Measured on a spec-shaped wrapper, not reasoned: what it renders today is
+  // a subject line, a one-item attachment list and
+  // `_(attachment "message.rpmsg" skipped - unsupported-type)_` — a block that
+  // never says the message was protected, which is the second half of
+  // `docs/open-followups.md` §352. isRightsProtectedMail fires only when the
+  // body is empty as well, so a readable mail that merely carries a protected
+  // attachment keeps rendering its own text; read its docstring before
+  // loosening this to a filename test.
+  if (isRightsProtectedMail(mail)) return { ok: false, error: "encrypted" };
+
   const notes: string[] = [...mail.diagnostics];
 
   if (depth >= MAX_INGEST_DEPTH) {

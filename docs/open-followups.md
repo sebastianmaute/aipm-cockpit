@@ -578,7 +578,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--open) | `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model | found 2026-09-03 in the AI write-concurrency slice | S–M | open |
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--open) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | open |
 | [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--open) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | open |
-| [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--open) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§352](#352-the-encrypted-attachment-error-variant-has-no-producer--closed-2026-09-04) | The `"encrypted"` attachment error variant has no producer, so both its i18n strings are unreachable | found 2026-09-03 in the ingest-breadth review | S | closed 2026-09-04 |
 | [§353](#353-rfc-2231-encoded-attachment-filenames-are-not-decoded-so-those-attachments-vanish--closed-2026-09-04) | ~~RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish from the tree~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (both forms decoded, capped and routed through the existing filename sanitizer) |
 | [§354](#354-negative-rtf-un-values-are-dropped-losing-every-code-point-above-u7fff--closed-2026-09-04) | ~~Negative RTF `\uN` values are dropped, losing every code point above U+7FFF~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (a lone unpaired surrogate is CARRIED, not repaired — the entry records what that costs downstream) |
 | [§355](#355-a-pt_string8-msg-yields-an-entirely-empty-mail-with-no-diagnostic--closed-2026-09-04) | ~~A PT_STRING8 `.msg` yields an entirely empty mail with no diagnostic~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (`…001E` siblings decoded through the shared charset ladder, PT_UNICODE still winning; the diagnostic fires whenever no known tag matched at all) |
@@ -27232,25 +27232,56 @@ rediscover.
 - Split the replay into create-then-update phases with the updates' refusal rolling back the
   creates, which is the only option that actually preserves retryability and is much the largest.
 
-## 352. The `"encrypted"` attachment error variant has no producer — OPEN
+## 352. The `"encrypted"` attachment error variant has no producer — CLOSED 2026-09-04
 
-**Status:** OPEN. Filed 2026-09-03 from the ingest-breadth review. **Measured**, not reasoned —
-nothing in `src` returns it:
-`grep -rn '"encrypted"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'` returns four
-lines — the union member in `attachment-ingest.ts`, the declaration and branch in `chat-panel.tsx`,
-and the exhaustiveness annotation in `step0-import-panel.tsx` — and no producer anywhere.
+**Status:** CLOSED 2026-09-04 on the ingest-breadth branch. Both producers were written and the
+before/after was **measured** against the real modules — not reasoned — first with a node probe and
+then pinned by 12 new cases. Run
+`npx vitest run src/app/attachment-ingest.test.ts src/app/office-extract.test.ts src/app/chat-panel.test.tsx`
+(exit 0). Read the two detectors with
+`grep -n "function looksLikeEncryptedOfficeFile" -B 30 src/app/office-extract.ts` and
+`grep -n "function isRightsProtectedMail" -B 35 src/app/mail-extract.ts`.
 
-The design spec made `chatAttachmentEncrypted` a named requirement: RMS-protected mail and
-password-protected workbooks were to stop surfacing as a generic read failure. The union member,
-the chat-panel branch and both dictionary strings (EN and DE) shipped; the detector did not. A
-password-protected `.docx` throws inside `extractOfficeMarkdown`, is caught, and becomes
-`"read-failed"` — so the user is told "Could not read plan.docx" and never told to remove the
-password, which is the one thing that string exists to say. An RMS-protected `.msg` finds no body
-streams and renders an empty mail with no rejection at all.
+The original finding, kept because it is the record of what was wrong: the design spec made
+`chatAttachmentEncrypted` a named requirement — RMS-protected mail and password-protected workbooks
+were to stop surfacing as a generic read failure — and the union member, the chat-panel branch and
+both dictionary strings (EN and DE) shipped while the detector did not. ★★ That is the
+**false-coverage shape** this register tracks: a reader greps for the capability, finds the variant,
+the branch and two translated strings, and concludes it exists.
 
-★★ This is the **false-coverage shape** this register tracks: a reader greps for the capability,
-finds the variant, the branch and two translated strings, and concludes it exists. Either wire a
-detector or delete the variant and both i18n keys — a dead user-facing string reads as coverage.
+**MEASURED BEFORE, with a node probe against the real `ingestBytes`.** A compound file carrying
+`EncryptionInfo` + `EncryptedPackage` (the MS-OFFCRYPTO shape) named `plan.docx` returned
+`{"ok":false,"error":"read-failed"}` — identical to what a file of prose named `.docx` returned, so
+the user was told "Could not read plan.docx" either way. A `.msg` built to [MS-OXORMMS] section
+2.2.3.1 (one `message.rpmsg` attachment, no body streams) returned `ok: true` and rendered a subject
+line, a one-item attachment list and `_(attachment "message.rpmsg" skipped - unsupported-type)_`,
+never saying the message was protected. **AFTER**, the same three inputs give `"encrypted"`,
+`"read-failed"` and `"encrypted"`.
+
+★★★ **THE FIX IS THE PAIR, NOT THE POSITIVE, AND THE NEGATIVE IS THE HARDER HALF.** A detector that
+turned every unreadable Office file into `"encrypted"` would be exactly as wrong in the other
+direction — it would tell the owner of a truncated download to remove a password that was never set.
+`looksLikeEncryptedOfficeFile` is therefore FALSE for a compound file without that stream, which is
+what a legacy binary `.doc` renamed `.docx` is. Both the shortcut ("is it a compound file?") and a
+nested-path match are mutation-proved dead: each turns three, resp. one, of the new cases red.
+
+★★ **The `.msg` half is gated on an EMPTY BODY as well**, and that conjunct is separately
+mutation-proved (dropping it reddens "still renders a readable mail that merely carries a protected
+attachment"). Refusing any mail that carries an `.rpmsg` attachment would destroy readable content
+in order to report an unreadability. [MS-OXORMMS] specifies nothing about the wrapper's body, so a
+real wrapper whose producer wrote a boilerplate "this message is rights-protected" body is
+deliberately NOT matched and keeps rendering — the boilerplate itself tells the reader what
+happened.
+
+★★ **TWO THINGS THE BRIEF FOR THIS WORK GOT WRONG, both caught by measurement.** The MIME type is
+`application/x-microsoft-rpmsg-message`, not `application/x-microsoft-rpmsg` — verified against
+[MS-OXORMMS] "Creating the Wrapper Email Message", which the shortened spelling matches nowhere. And
+"renders an empty mail" above was imprecise: the BODY is empty, but the subject and sender still
+render, which is exactly what made the old behaviour read as a successful ingest.
+
+★ Detection is format-agnostic (it tests a `ParsedMail`, so `.eml` gets it too) but the office half
+runs ONLY on `kind === "office"`. Encrypted PDFs are deliberately out of scope: a PDF reaches the
+model as a base64 document block with no extraction step, so nothing fails.
 
 ## 353. RFC 2231 encoded attachment filenames are not decoded, so those attachments vanish — CLOSED 2026-09-04
 

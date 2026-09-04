@@ -10,6 +10,8 @@ import {
 } from "./attachment-ingest";
 import { MAX_ATTACHMENT_BYTES } from "./chat-attachments";
 import { MAIL_BODY_FLOOR } from "./mail-extract";
+import { buildCfbf } from "./__fixtures__/cfbf-writer";
+import { buildZip } from "./zip";
 
 /** Pass-through mock of `parseMail` — every test here keeps the REAL parser
  *  unless it flips this flag, so the mock cannot quietly hollow out the rest
@@ -548,5 +550,167 @@ describe("mail recursion", () => {
     } finally {
       mailParser.throwOnParse = false;
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Protected files (docs/open-followups.md §352)
+//
+// ★★★ THE POINT OF EVERY TEST BELOW IS THE PAIR, NOT THE POSITIVE. Before
+// this, EVERY unreadable office file — encrypted or merely damaged — came back
+// "read-failed", i.e. "Could not read plan.docx", which withholds the one
+// thing the user can act on. A detector that turned every unreadable file into
+// "encrypted" would be exactly as bad in the other direction, telling the
+// owner of a truncated download to remove a password that was never set. So
+// each positive case here is paired with the negative that must NOT move.
+// ---------------------------------------------------------------------------
+describe("password-protected and rights-protected input", () => {
+  const DOCX_MIME =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+  /** ★ Above the fixture writer's declared 4096-byte mini-stream cutoff — it
+   *  writes every stream into the regular FAT, so a smaller one reads back
+   *  EMPTY and these fixtures would silently stop carrying what they name. */
+  const stream = (fill: number) => new Uint8Array(4608).fill(fill);
+
+  it("reports a password-protected office file as encrypted, not as a read failure", async () => {
+    // MS-OFFCRYPTO: Office replaces the whole zip with a compound file whose
+    // root storage holds the ciphertext beside its key-derivation parameters.
+    const encrypted = buildCfbf([
+      { name: "EncryptionInfo", data: stream(1) },
+      { name: "EncryptedPackage", data: stream(2) },
+    ]);
+    const r = await ingestBytes(encrypted, DOCX_MIME, "plan.docx");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("encrypted");
+  });
+
+  it("still reports a merely corrupt office file as a read failure", async () => {
+    const r = await ingestBytes(enc("not a zip, not a compound file"), DOCX_MIME, "broken.docx");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("read-failed");
+  });
+
+  it("still reports a compound file that is not encrypted as a read failure", async () => {
+    // A legacy binary .doc renamed .docx. Unreadable because it is the wrong
+    // format, not because it is protected — the distinction the whole detector
+    // turns on, and the one a "is it a compound file?" shortcut would erase.
+    const legacy = buildCfbf([{ name: "WordDocument", data: stream(3) }]);
+    const r = await ingestBytes(legacy, DOCX_MIME, "legacy.docx");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("read-failed");
+  });
+
+  it("still extracts an ordinary office file", async () => {
+    const blob = buildZip([
+      {
+        path: "word/document.xml",
+        data: enc(`<w:document><w:body><w:p><w:r><w:t>Hello world</w:t></w:r></w:p></w:body></w:document>`),
+      },
+    ]);
+    const r = await ingestBytes(new Uint8Array(await blob.arrayBuffer()), DOCX_MIME, "plan.docx");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.node.kind).toBe("office");
+      expect((r.node.block.source as { data: string }).data).toContain("Hello world");
+    }
+  });
+
+  /** A rights-managed wrapper, as [MS-OXORMMS] section 2.2.3.1 specifies it:
+   *  one attachment named `message.rpmsg`, typed
+   *  `application/x-microsoft-rpmsg-message`, and no readable body. */
+  const rpmsgEml = (
+    parts: string[],
+    contentType = "application/x-microsoft-rpmsg-message",
+    fileName = "message.rpmsg",
+  ) =>
+    enc(
+      [
+        "From: alice@example.com",
+        "Subject: Protected: Q3 numbers",
+        'Content-Type: multipart/mixed; boundary="B"',
+        "",
+        ...parts,
+        "--B",
+        `Content-Type: ${contentType}`,
+        `Content-Disposition: attachment; filename="${fileName}"`,
+        "Content-Transfer-Encoding: base64",
+        "",
+        "dugEYMQR44Y=",
+        "--B--",
+        "",
+      ].join("\r\n"),
+    );
+
+  it("reports a rights-managed mail with no readable body as encrypted", async () => {
+    const r = await ingestBytes(rpmsgEml([]), "message/rfc822", "protected.eml");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("encrypted");
+  });
+
+  // ★★ THE TWO DISJUNCTS, SEPARATELY. The spec-shaped fixture above sets BOTH
+  //  the filename and the MIME type, so it passes with either half of
+  //  isRightsProtectedMail's test deleted — mutation-measured, not assumed.
+  //  Each case below leaves exactly one of them recognisable, which is also
+  //  what a relaying MTA that flattens a Content-Type, or a client that drops
+  //  a Content-Disposition, actually produces.
+  it("recognises the wrapper by its filename when the MIME type has been flattened", async () => {
+    const r = await ingestBytes(
+      rpmsgEml([], "application/octet-stream", "message.rpmsg"),
+      "message/rfc822",
+      "protected.eml",
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("encrypted");
+  });
+
+  it("recognises the wrapper by its MIME type when the filename has been rewritten", async () => {
+    const r = await ingestBytes(
+      rpmsgEml([], "application/x-microsoft-rpmsg-message", "part2.bin"),
+      "message/rfc822",
+      "protected.eml",
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("encrypted");
+  });
+
+  it("still renders a readable mail that merely carries a protected attachment", async () => {
+    // ★★ THE CONJUNCT'S OWN TEST. Refusing this mail would destroy readable
+    //  content in order to report an unreadability — see isRightsProtectedMail.
+    const r = await ingestBytes(
+      rpmsgEml(["--B", "Content-Type: text/plain", "", "Here is the protected file.", ""]),
+      "message/rfc822",
+      "cover.eml",
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect((r.node.block.source as { data: string }).data).toContain("Here is the protected file.");
+    }
+  });
+
+  it("reports a rights-managed .msg as encrypted, reading it as real compound-file bytes", async () => {
+    // UTF-16LE padded to a full stream; decodeUnicode strips the trailing NULs.
+    const u16 = (s: string) => {
+      const b = new Uint8Array(4608);
+      for (let i = 0; i < s.length; i++) {
+        b[i * 2] = s.charCodeAt(i) & 0xff;
+        b[i * 2 + 1] = s.charCodeAt(i) >> 8;
+      }
+      return b;
+    };
+    const msg = buildCfbf([
+      { name: "__substg1.0_0037001F", data: u16("Protected: Q3 numbers") },
+      {
+        name: "__attach_version1.0_#00000000",
+        children: [
+          { name: "__substg1.0_3707001F", data: u16("message.rpmsg") },
+          { name: "__substg1.0_370E001F", data: u16("application/x-microsoft-rpmsg-message") },
+          { name: "__substg1.0_37010102", data: stream(9) },
+        ],
+      },
+    ]);
+    const r = await ingestBytes(msg, "application/vnd.ms-outlook", "protected.msg");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("encrypted");
   });
 });

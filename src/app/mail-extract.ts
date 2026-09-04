@@ -179,3 +179,54 @@ export function parseMail(bytes: Uint8Array): ParsedMail {
   if (looksLikeCfbf(bytes)) return msgToParsedMail(readCfbfTree(bytes));
   return emlToParsedMail(parseMimeMessage(new TextDecoder().decode(bytes)));
 }
+
+/** The two identifying values of the ONE attachment a rights-managed (RMS /
+ *  IRM) message carries its whole content in. Both are quoted from
+ *  [MS-OXORMMS] section 2.2.3.1 ("Creating the Wrapper Email Message"), which
+ *  reads: the `PidTagAttachLongFilename` property "is set to 'message.rpmsg'
+ *  and the `PidTagAttachMimeTag` property ... is set to
+ *  'application/x-microsoft-rpmsg-message'". Verified against that page rather
+ *  than recalled — an earlier statement of this rule had the MIME type as
+ *  `application/x-microsoft-rpmsg`, which matches nothing. */
+const RPMSG_FILE_NAME = "message.rpmsg";
+const RPMSG_MIME_TYPE = "application/x-microsoft-rpmsg-message";
+
+/** True when this mail is a rights-managed WRAPPER whose readable content is
+ *  entirely inside an encrypted `message.rpmsg` attachment.
+ *
+ *  ★★★ THE EMPTY-BODY CONJUNCT IS LOAD-BEARING AND IS NOT REDUNDANT. Carrying
+ *  an .rpmsg attachment is not by itself a reason to refuse a mail: a perfectly
+ *  readable message can forward a protected file alongside its own cover text,
+ *  and rejecting THAT would destroy readable content to report an
+ *  unreadability. What this predicate identifies is the case where nothing
+ *  readable is left — measured on a spec-shaped wrapper, whose rendered block
+ *  is a subject line, an attachment list and one "unsupported-type" note, and
+ *  which never says the word "protected" anywhere. That is the shape
+ *  `docs/open-followups.md` §352 describes.
+ *
+ *  ★★ CONSEQUENCE, AND IT IS DELIBERATE: a real wrapper whose producer DID
+ *  write a boilerplate "this message is rights-protected" body is NOT matched
+ *  here and keeps rendering. That is the better outcome of the two — the
+ *  boilerplate itself tells the reader what happened — and it is why this is a
+ *  conjunction rather than a filename test. [MS-OXORMMS] specifies nothing
+ *  about the wrapper's body either way, so neither branch can be assumed away.
+ *
+ *  ★ Format-agnostic on purpose. A rights-managed message reaches us as a .msg
+ *  (the attachment is a MAPI attachment storage) or as an .eml (it is a MIME
+ *  part with the same name and Content-Type), and both funnel through
+ *  `ParsedMail`, so one predicate covers both.
+ *
+ *  ★ The parameter strip on the MIME test is DEFENSIVE, not load-bearing:
+ *  measured, `eml-extract.ts` already hands over a bare `type/subtype` with
+ *  `; name=…` removed, and the .msg path hands over a `PidTagAttachMimeTag`
+ *  value that carries no parameters either. Nothing today reaches it — it is
+ *  there so a future producer that keeps the parameters cannot silently fall
+ *  through to the mail being rendered as if it were readable. */
+export function isRightsProtectedMail(mail: ParsedMail): boolean {
+  if (mail.body.content.trim() !== "") return false;
+  return mail.attachments.some(
+    (a) =>
+      a.fileName.trim().toLowerCase() === RPMSG_FILE_NAME ||
+      a.mimeType.split(";")[0].trim().toLowerCase() === RPMSG_MIME_TYPE,
+  );
+}

@@ -3,6 +3,7 @@
 // Pure + node-testable.
 
 import { readZipEntries } from "./unzip";
+import { readCfbfTree } from "./cfbf";
 import { extractDocx } from "./docx-extract";
 import { extractXlsx } from "./xlsx-extract";
 import { extractPptx } from "./pptx-extract";
@@ -33,6 +34,43 @@ export function officeKindOf(mimeType: string, fileName: string): OfficeFormat |
   const dot = fileName.lastIndexOf(".");
   const ext = dot >= 0 ? fileName.slice(dot).toLowerCase() : "";
   return EXT_FORMAT[ext] ?? null;
+}
+
+/** The root-storage stream a password-protected OOXML file carries in place of
+ *  the zip archive: the ciphertext (MS-OFFCRYPTO, "\EncryptedPackage Stream").
+ *  Its sibling `EncryptionInfo` holds the key-derivation parameters; either
+ *  alone identifies the shape, and matching on the payload stream keeps the
+ *  test to the one entry that must exist for the file to hold any content. */
+const ENCRYPTED_PACKAGE_STREAM = "EncryptedPackage";
+
+/** True when these bytes are an ENCRYPTED Office file rather than a readable
+ *  or a merely corrupt one.
+ *
+ *  ★★★ A PASSWORD-PROTECTED OOXML FILE IS NOT A ZIP AT ALL — that is the whole
+ *  reason this exists. Office replaces the entire archive with an MS-CFB
+ *  compound file whose root storage holds `EncryptedPackage` beside
+ *  `EncryptionInfo`, so `readZipEntries` below never finds a local file header
+ *  and `extractOfficeMarkdown` throws. Its caller could then only report the
+ *  generic read failure, and the difference matters to the USER, not to us:
+ *  "remove the password and re-attach" and "this file is damaged" are
+ *  different instructions.
+ *
+ *  ★ `readCfbfTree` self-guards on the 8-byte MS-CFB signature and returns an
+ *  EMPTY map for anything else, so an ordinary .docx pays eight byte
+ *  comparisons here and allocates nothing. That is also why this needs no
+ *  separate `looksLikeCfbf` call — a non-compound file cannot reach the walk.
+ *
+ *  ★★ Deliberately FALSE for a compound file WITHOUT that stream. A legacy
+ *  binary .doc/.xls renamed to .docx is a compound file too, and it is
+ *  unreadable-because-wrong-format, not unreadable-because-encrypted; it must
+ *  keep falling through to the read failure. Widening this to "is a compound
+ *  file" would tell those users to remove a password that was never set.
+ *
+ *  ★ Root-storage streams are exactly the paths with no "/" in them
+ *  (`readCfbfTree`'s path convention), so the bare name is a root-only match
+ *  and a crafted file cannot smuggle one in from a nested storage. */
+export function looksLikeEncryptedOfficeFile(bytes: Uint8Array): boolean {
+  return readCfbfTree(bytes).has(ENCRYPTED_PACKAGE_STREAM);
 }
 
 /** Unzip + extract an Office file to structured Markdown. Rejects on a corrupt

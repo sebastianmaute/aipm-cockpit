@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
 import { ATTACHMENT_ACCEPT } from "./chat-attachments";
+import { buildCfbf } from "./__fixtures__/cfbf-writer";
 import { loadThreads, saveThread } from "./chat-threads-store";
 import type { ChatThread } from "./chat-threads";
 import { t } from "./i18n";
@@ -161,6 +162,41 @@ describe("Attachment guidance", () => {
     // Previously only the LAST file's error survived; both must now appear.
     expect(alert.textContent).toContain("notes.exe");
     expect(alert.textContent).toContain("data.bin");
+  });
+
+  // ★★★ THE ONLY END-TO-END COVER FOR `chatAttachmentEncrypted`, and the reason
+  //  it exists is that the string, the union member and the branch below all
+  //  shipped with NO producer (docs/open-followups.md §352) — a reader grepped
+  //  for the capability, found three of its four parts, and concluded it
+  //  worked. A unit test on the detector would have reproduced exactly that
+  //  gap, so this drives a real File through the real ingest pipeline and
+  //  asserts on the rendered text.
+  it("tells the user a password-protected office file needs its password removed", async () => {
+    const { container } = renderComposer();
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    // MS-OFFCRYPTO: a password-protected .docx is an MS-CFB compound file
+    // carrying the ciphertext, not a zip. Streams are padded past the fixture
+    // writer's 4096-byte mini-stream cutoff so they read back non-empty.
+    const encrypted = buildCfbf([
+      { name: "EncryptionInfo", data: new Uint8Array(4608).fill(1) },
+      { name: "EncryptedPackage", data: new Uint8Array(4608).fill(2) },
+    ]);
+    // ★ Copy into a plain ArrayBuffer rather than handing the Uint8Array to
+    //  File directly: a `Uint8Array<ArrayBufferLike>` is not a `BlobPart`
+    //  under this tsconfig, and vitest is green either way — `next build`
+    //  does not typecheck tests, so only `npx tsc --noEmit` catches it.
+    const buf = new ArrayBuffer(encrypted.byteLength);
+    new Uint8Array(buf).set(encrypted);
+    const file = new File([buf], "plan.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    const alert = await screen.findByRole("alert");
+    // ★ `toContain`, not `toBe`: the alert also holds its own dismiss glyph.
+    expect(alert.textContent).toContain(t("en-US", "chatAttachmentEncrypted", "plan.docx"));
+    // And NOT the generic read failure this file used to surface — the whole
+    // point of the variant is that the two messages differ.
+    expect(alert.textContent).not.toContain(t("en-US", "chatAttachmentReadFailed", "plan.docx"));
   });
 
   it("offers the shared accept list, not a hand-written literal", () => {
