@@ -1004,12 +1004,12 @@ function TaskManagerInner() {
         if (!rollUsers.includes(who)) return false;
         // ★★★ THE PER-PERSON LINK FLOOR. The two shift-dependent rules need this
         // person to resolve to a resource before "no violation" means anything:
-        // `workingHours` reads their expected hours from the shift, and
-        // `nonWorkingDay`'s weekday half reads their weekend from it. The
+        // `timelogWorkingHours` reads their expected hours from the shift, and
+        // `timelogNonWorkingDay`'s weekday half reads their weekend from it. The
         // whole-rule floor in the engine only asks whether SOME link exists, so
         // removing one person's link leaves the rule evaluated while that person
         // goes dark — and the key is per person.
-        // ★★ `nonWorkingDay` is included even though its HOLIDAY half needs no
+        // ★★ `timelogNonWorkingDay` is included even though its HOLIDAY half needs no
         // link, and that is deliberately conservative: the two halves share one
         // insight key, so a currently-unlinked person's "no violation" is an
         // answer about the holiday half ALONE and cannot certify the other.

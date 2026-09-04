@@ -72,8 +72,9 @@ export interface TimelogPolicyResult {
   readonly evaluated: readonly TimelogRuleId[];
   /** ★★★ THE PEOPLE WITH A RESOLVABLE LINK — the
    *  per-PERSON companion to `evaluated`, which is per-RULE and was not enough.
-   *  `workingHours` needs a resolvable link to know a person's expected hours,
-   *  and `nonWorkingDay`'s weekday half needs it to know their weekend. The old
+   *  `timelogWorkingHours` needs a resolvable link to know a person's expected
+   *  hours, and `timelogNonWorkingDay`'s weekday half needs it to know their
+ *  weekend. The old
    *  floor asked only whether ANY link existed, so removing ONE person's link
    *  left the rule reporting itself evaluated while that person could no longer
    *  produce a violation — and the insight key is per person, so their row
