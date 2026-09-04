@@ -95,7 +95,7 @@ import { useVersionHistory } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
-import { detectInsights, type InsightInput } from "./insights/detect";
+import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insights/detect";
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
 import { loadLandingState } from "./landing-state";
 import { metricAtActionPatch } from "./insights/outcome";
@@ -893,7 +893,7 @@ function TaskManagerInner() {
       const detected = detectInsights(buildInsightInput(), today);
       setInsights((prev) => {
         const base = prev ?? [];
-        const next = reconcileInsights(base, detected, today);
+        const next = reconcileInsights(base, detected, today, new Set(CORE_INSIGHT_TYPES));
         return insightsMateriallyEqual(base, next) ? base : next;
       });
     }, INSIGHTS_RECONCILE_DEBOUNCE_MS);

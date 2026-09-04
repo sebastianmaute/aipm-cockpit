@@ -8,7 +8,20 @@ import { isTaskFinished } from "../task-status";
 import { partitionUpcoming } from "../dashboard";
 import { computeBudgetReport } from "../budget-report";
 import type { Task, Milestone, RaidItem, BudgetBucket, ResourcePlan, Role, Resource } from "../types";
-import { INSIGHT_SEVERITY_RANK, type DetectedInsight } from "./insight";
+import { INSIGHT_SEVERITY_RANK, type DetectedInsight, type InsightType } from "./insight";
+
+/** The five detectors below that ALWAYS run — this module needs no
+ *  configuration and no per-device cache to produce them, so their absence from
+ *  a detection pass really does mean the condition cleared. Guardrail types are
+ *  added to `reconcileInsights`'s evaluated set BY THE CALLER, and only when the
+ *  rules were actually evaluated; see the doc comment on that function. */
+export const CORE_INSIGHT_TYPES: readonly InsightType[] = [
+  "milestoneSlip",
+  "overdueTrend",
+  "stalledWork",
+  "budgetVariance",
+  "raidAging",
+];
 
 // --- thresholds (pinned by detect.test.ts) ---------------------------------
 export const MILESTONE_SLIP_MIN_REBASELINES = 2;

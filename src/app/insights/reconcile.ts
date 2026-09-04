@@ -6,6 +6,7 @@ import {
   MAX_INSIGHTS,
   type DetectedInsight,
   type Insight,
+  type InsightType,
 } from "./insight";
 import { baselineOf, computeClearedOutcome, computeOutcome, insightMetricValue } from "./outcome";
 
@@ -119,10 +120,30 @@ function clear(prev: Insight, today: string): Insight | null {
   return null;
 }
 
+/**
+ * @param evaluated - The insight types whose detectors ACTUALLY RAN this pass.
+ *
+ * ★★★ REQUIRED, WITH NO DEFAULT, AND THAT IS THE POINT. `clear()` above reads
+ * "absent from the detection set" as "the condition cleared". That inference is
+ * sound only for a detector that always runs. A detector that can go DARK —
+ * TimeLog unconfigured on this device, a failed fetch, a disabled rule —
+ * produces nothing, and producing nothing is exactly what triggers clear().
+ *
+ * Because bookings are a PER-DEVICE cache while `Workspace.insights` is SHARED
+ * AND EXPORTED, defaulting this to "all types" would let a second device prune
+ * another device's guardrail insights and resolve any `acted` one through
+ * `computeClearedOutcome`, which always writes "improved" — a fabricated win in
+ * an exported artifact, which then rides every AI turn via the outcomes section.
+ *
+ * A default would reintroduce exactly that for the NEXT go-dark detector while
+ * leaving this guard looking present. Required makes a forgetful detector a
+ * typecheck error instead. `reconcile.test.ts` pins that with @ts-expect-error.
+ */
 export function reconcileInsights(
   stored: readonly Insight[],
   detected: readonly DetectedInsight[],
   today: string,
+  evaluated: ReadonlySet<InsightType>,
 ): Insight[] {
   const byKey = new Map<string, Insight>();
   let maxId = 0;
@@ -144,6 +165,14 @@ export function reconcileInsights(
 
   for (const prev of stored) {
     if (detectedKeys.has(prev.key)) continue;
+    // Not evaluated ⇒ FROZEN, carried through byte-for-byte. Reconcile cannot
+    // distinguish "not violated" from "not evaluated" on its own, so the caller
+    // says which it was. Anything less than an untouched carry-through — even
+    // keeping the row while resolving it — writes the fabricated win.
+    if (!evaluated.has(prev.type)) {
+      result.push(prev);
+      continue;
+    }
     const cleared = clear(prev, today);
     if (cleared !== null) result.push(cleared);
   }
