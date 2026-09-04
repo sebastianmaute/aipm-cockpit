@@ -5,7 +5,7 @@
 import { readDeviceJson, writeDeviceJson } from "./device-store";
 import type { ActualsAggregate } from "./timelog-actuals";
 import type { TimelogProjectRef } from "./timelog-match";
-import type { TimelogDailyRoll, TimelogUser } from "./timelog-types";
+import type { TimelogDailyCell, TimelogDailyRoll, TimelogUser } from "./timelog-types";
 
 export const TIMELOG_ACTUALS_KEY = "aipm-cockpit:timelog-actuals";
 const MAX_PROJECTS = 50;
@@ -57,20 +57,66 @@ function isEntry(v: unknown): v is ActualsCacheEntry {
   // aggregates that cost a network round trip, over an optional field no
   // aggregate reader touches. `partial` already made that call (§172); the
   // roll gets the same treatment one field over. `withCheckedDaily` below
-  // strips a malformed value instead, so no consumer ever sees a `daily`
-  // that is not a roll. Measured, not reasoned: with the rejecting branch in
+  // strips the malformed PARTS instead: a `daily` that is not a plain object
+  // goes whole, and inside one, every cell that is not cell-SHAPED goes on its
+  // own — so no consumer ever reads a cell it cannot read. ★★ SHAPE, not
+  // sense: the three fields are checked for being finite numbers, never for
+  // being plausible ones, so a negative or absurd `hours` still reaches the
+  // rules. Measured, not reasoned: with the rejecting branch in
   // place, "keeps the rest of an entry whose daily field is malformed" is RED.
   return true;
 }
 
-/** Drop a `daily` that is not an object, keeping the rest of the entry. The
- *  fail-open half of the rule stated in `isEntry`. */
+/** ★★ The shape the policy engine reads unguarded (`timelog-policy.ts` takes
+ *  `cell.maxEntryHours` / `cell.hours` straight off each `Object.entries`
+ *  value), which is why a cell that fails this must never reach it: that call
+ *  runs in a debounced effect with no try/catch, so a `null` cell is an
+ *  UNCAUGHT throw that kills the whole insights reconcile, not a bad number.
+ *  ★★★ EXPORTED ONLY SO THE `Number.isFinite` GUARD CAN BE PINNED AT ALL, and
+ *  that is a statement about REACHABILITY, not a preference. `JSON.parse` is
+ *  this store's sole ingress (`readDeviceJson`) and JSON has no `NaN` or
+ *  `Infinity` literal, so no non-finite field can ever arrive through
+ *  `loadActualsCache` — `JSON.stringify` writes both as `null` on the way out
+ *  too. A test driving the store therefore CANNOT tell `Number.isFinite(x)`
+ *  from `typeof x === "number"`: the string case does not separate them either
+ *  (`typeof "8" === "number"` is false, so the weaker check drops it too), and
+ *  a mutation proof run through the store reports that guard as vacuous. The
+ *  strictness is kept for the ingress this store does not have yet — a
+ *  structured-clone cache, an in-memory hand-off, a caller passing a computed
+ *  roll straight to `saveActualsCache` — where non-finite IS expressible. */
+export function isDailyCell(v: unknown): v is TimelogDailyCell {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+  const c = v as TimelogDailyCell;
+  // ★ `Number.isFinite`, never the global `isFinite`: the global COERCES, so
+  // it reads a stored `"8"` as a number and lets a string reach the rules,
+  // where it propagates into the rendered violation text instead of throwing.
+  return Number.isFinite(c.hours) && Number.isFinite(c.maxEntryHours) && Number.isFinite(c.entryCount);
+}
+
+/** Strip what is not a roll, keeping the rest of the entry. The fail-open half
+ *  of the rule stated in `isEntry`, applied at CELL granularity: one corrupt
+ *  day must cost neither the other days' cells nor the cache entry it rode in
+ *  on — §172's principle one level down.
+ *  ★ The KEY is deliberately NOT validated here. `parseDailyKey` already skips
+ *  a malformed one downstream; a second key rule in a second place is how the
+ *  two drift apart.
+ *  ★ A clean roll is returned BY IDENTITY — the rebuild runs only when a cell
+ *  was actually dropped, so the common path allocates nothing. */
 function withCheckedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
   const d: unknown = e.daily;
-  if (d === undefined || (typeof d === "object" && d !== null && !Array.isArray(d))) return e;
-  const copy = { ...e };
-  delete copy.daily;
-  return copy;
+  if (d === undefined) return e;
+  if (typeof d !== "object" || d === null || Array.isArray(d)) {
+    const copy = { ...e };
+    delete copy.daily;
+    return copy;
+  }
+  const entries = Object.entries(d as Record<string, unknown>);
+  if (entries.every(([, cell]) => isDailyCell(cell))) return e;
+  const kept: TimelogDailyRoll = {};
+  for (const [k, cell] of entries) {
+    if (isDailyCell(cell)) kept[k] = cell;
+  }
+  return { ...e, daily: kept };
 }
 
 function readMap(): CacheMap {
