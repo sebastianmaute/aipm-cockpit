@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.279.0";
-export const APP_BUILD_DATE = "2026-09-03"; // 0.279.0: the assistant's edit tools must now prove they are editing the row they read, so a concurrent change is refused instead of silently overwritten; list responses carry a total and an honoured page size, and descriptions reach the model as plain text (Sriduangkaew)
+export const APP_VERSION = "0.280.0";
+export const APP_BUILD_DATE = "2026-09-04"; // 0.280.0: the assistant's document edits must now prove they are editing the block they read, so a hand edit made in between is refused instead of silently overwritten, and reordering a block is one safe operation rather than a delete plus an insert (Banks)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.279.x line is "Sriduangkaew" (Benjanun Sriduangkaew, Thai SF author,
- *  "Winterglass" and the Machine Mandate series). Checked dash-agnostically
+ *  0.280.x line is "Banks" (Iain M. Banks, Scottish SF author, the Culture
+ *  series). Checked dash-agnostically
  *  BEFORE the bump — the stronger order, and the one the note below argues
  *  for — with the command quoted further down: zero hits, against a pattern
  *  proved in the same run to see all 372 named headers and returning 2 for
@@ -163,7 +163,7 @@ export const APP_BUILD_DATE = "2026-09-03"; // 0.279.0: the assistant's edit too
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Sriduangkaew";
+export const APP_MILESTONE = "Banks";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

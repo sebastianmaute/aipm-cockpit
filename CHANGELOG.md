@@ -8,6 +8,24 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.280.0] - 2026-09-04 "Banks"
+
+### Added
+
+- **The assistant can no longer overwrite a document edit it never saw.** When
+  it replaces, deletes or moves a block, it now has to hand back a marker
+  proving it is editing the block it actually read. If you edited that block in
+  the meantime — in the document editor, in a second tab, or through an earlier
+  step of the same request — the edit is refused and the assistant re-reads
+  before trying again. Previously the edit went through and your text was
+  silently replaced, with no undo available.
+- **A refused edit says which one it was.** When a batch of edits is partly
+  applied, the assistant reports exactly which ones landed and which were
+  refused, rather than reporting the whole batch as done.
+- **The assistant can reorder a block directly.** Moving a block is now one
+  operation instead of a delete followed by an insert, which could lose the
+  block entirely if the insert was refused.
+
 ## [0.279.0] - 2026-09-03 "Sriduangkaew"
 
 ### Added

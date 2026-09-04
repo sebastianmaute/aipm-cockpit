@@ -2,7 +2,7 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.279.0_%22Sriduangkaew%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.280.0_%22Banks%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
 > **The AI project-management cockpit that knows *your* project.**
