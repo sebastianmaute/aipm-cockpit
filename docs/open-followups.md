@@ -27806,3 +27806,94 @@ the unimplemented batch ceiling is more reachable than it was the day before.
 `MAX_BASE64_CHARS` binds only below the root (§ the ingest-breadth fix round), so a multi-file
 import of N large PDFs carries N x up to 20 MB of base64 with no ceiling at any level. Recorded
 here because a reader closing this entry should not conclude the batch question is settled.
+
+## 360. A guardrail insight names a resource but its AI recommendation gets no entity digest — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by reading, 2026-09-04:
+`grep -n "resolveInsightEntity" src/app/use-insight-recommendations.ts` — its view arms are
+`milestones` and `raid` only, so `resources` falls through to undefined.
+
+`detect.ts` attaches `entityRef: {view: "resources", id}` when a violation's `resourceId` resolves to
+a live `Resource` (a dangling id deliberately yields no ref). The digest card already honours that —
+it gates on `entityRef !== undefined`, so those rows render as buttons. But the recommendation path
+has no `resources` resolver, so a guardrail insight is recommended on `insight.data` alone.
+
+★ Recorded as a DECISION, not a defect. The guardrail sentence already carries person, count,
+threshold and worst hours, and an entity digest costs billed prompt tokens. The asymmetry is
+invisible from either file alone and will read as an oversight to whoever finds it next; adding a
+`resources` arm is the closure if it ever earns its place.
+
+## 361. The daily-roll budget is per-entry, so nothing bounds total device storage — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 with the fix that introduced the budget. Verified by reading,
+2026-09-04: `grep -n "MAX_DAILY_ROLL_CHARS\|MAX_PROJECTS" src/app/timelog-actuals-store.ts`.
+
+`withBoundedDaily` bounds ONE entry's roll to `MAX_DAILY_ROLL_CHARS` (512 KiB). The map-level bound
+is still `MAX_PROJECTS` (50) eviction, which counts entries and never measures them — so 50 entries
+each just under budget is ~25 MB against a ~5 MB shared origin quota, and `writeDeviceJson` swallows
+the resulting quota error whole.
+
+★ Why per-entry was chosen anyway: a whole-map trim would have to rewrite ANOTHER project's
+`dailyWindow` during a save for this one, and that window is a coverage claim `reconcileInsights`
+trusts — narrowing it silently is worse than the headroom it buys. `MAX_PROJECTS` eviction is safe
+precisely because it drops entries WHOLE: an absent entry reads as unknown, which freezes insights.
+The natural closure is making that eviction size-based rather than count-based; it is safe for the
+same reason and was left undone deliberately.
+
+## 362. A guardrail insight's deep link arms `pendingOpen` with no consumer — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by command, 2026-09-04:
+`grep -rhn 'pendingOpen?.view !== "\|pendingOpen?.view === "' src/app --include=*.tsx | grep -oE '"[a-z-]+"' | sort -u`
+returns changes · documents · milestones · open-points · raid · stakeholders — `resources` is absent.
+
+Opening a guardrail insight calls `requestOpen("resources", id)`, which sets `pendingOpen`. No
+resources surface reads it, so the view opens and the person is never selected or scrolled to. Every
+existing consumer view-guards, so the stale entry is harmless — it is a dead half of an affordance,
+not a leak.
+
+★ Degrades gracefully and is not urgent. Recorded because the button LOOKS like it navigates.
+
+## 363. The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by reading, 2026-09-04:
+`grep -n "MAX_INSIGHTS" src/app/insights/reconcile.ts` — the function ends `return
+result.slice(0, MAX_INSIGHTS);`.
+
+An insight the caller declined to certify is carried through byte-for-byte, but it still competes for
+the 200-row cap and can be dropped by that slice — after which it is absent from `stored` on the next
+pass and never returns, even once the data covering it comes back.
+
+★ Losing a row is strictly better than fabricating an `"improved"` outcome for it, so this is a
+NOTE, not a defect. It matters because guardrail cardinality is 4 x (TimeLog users seen in a fetch)
+at `"medium"` severity with no cap in `detect.ts`, so an org-scope fetch can push `"low"`-severity
+core insights — `overdueTrend` among them — out of the cap entirely.
+
+## 364. An older build prunes the four guardrail insight types on load, and can write the pruned list back — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by reading, 2026-09-04:
+`grep -n "INSIGHT_TYPES.includes" src/app/insights/sanitize-insights.ts`.
+
+`sanitizeInsights` drops any insight whose type is not in that build's `INSIGHT_TYPES`. Insights are
+shared workspace data and exported, so a device on a pre-§347 build that loads this workspace prunes
+every guardrail insight and can persist the pruned list — silent cross-version data loss in a slice
+both builds can write.
+
+★ Presumably acceptable (the alternative is carrying unknown types through a validator whose whole
+job is bounding what it admits), but it is recorded nowhere in the slice and is not obvious from
+either build.
+
+## 365. The threshold field's `min={1}` understates the window the writer, engine and sanitiser share — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 with the fix that aligned the three consumers. Verified by
+reading, 2026-09-04: `grep -n "min={1}" src/app/timelog-settings.tsx` against `parseCap` in the same
+file, `isCap` in `src/app/timelog-policy.ts`, and `sanitizeTimelogPolicy` in
+`src/app/timelog-sanitize.ts`.
+
+All three now enforce `> 0 && <= MAX_HOURS_PER_DAY`, which admits `0.5`. The field's `min={1}` is
+pre-existing, decorative (it blocks nothing) and narrower than the real window.
+
+★ Deliberately NOT narrowed to `>= 1` in the fix round: doing so at the writer alone would
+reintroduce exactly the writer/loader divergence that fix removed. Moving all three to `>= 1`
+together is a coherent three-site change if a sub-hour cap is judged meaningless; leaving the
+attribute alone is the other coherent answer. What is not coherent is the current split, where the
+attribute says one thing and every enforcement point says another.
