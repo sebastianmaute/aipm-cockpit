@@ -42,10 +42,21 @@ Four measured gaps this spec closes:
    `delete_stakeholder` (:726). It is a model instruction. Nothing stops the call.
 3. **The proposal pipeline has one producer.** Everything needed to stage, describe, token-stamp and
    replay a plan exists — built for insights, unreachable from chat.
-4. **The descriptor maps are narrow.** `insights/recommend-plan.ts` covers `update_*` and `delete_*`
-   for five entities only (task · raid · milestone · change · stakeholder). No `create_*`, no
-   resource, no allocation, no calendarEvent. This is where the real work of this slice sits — not
-   in the plumbing.
+4. **The descriptor engine has a one-item binding and one missing entity.**
+   `describeEntityCalls` is bound to a single `ctx.item`: an update whose `input.id !== item.id` is
+   rejected as `"unsupported"`. That is exactly why `insights/recommend-plan.ts` exists — it calls
+   the describer **once per call**, grounding each by its own id, and its header says so. A chat
+   plan spans many rows and must do the same.
+
+   Coverage, measured in `inline-ai-edit/plan.ts`: `CREATE_TOOLS` and `DELETE_TOOLS` each hold
+   **five** entries (task · raid · change · milestone · stakeholder), and `InlineEntity` is those
+   same five. So `create_*` and `delete_*` **are** already describable for them. What is missing is
+   `resource` — the string "resource" appears zero times in `plan.ts`, so `create_resource`,
+   `update_resource` and `delete_resource` cannot be described at all.
+
+   ★ An earlier revision of this section said the maps carry "no `create_*`". That is true of
+   `recommend-plan.ts`'s own `UPDATE_DESCRIPTOR`/`DELETE_DESCRIPTOR` maps and false of the engine
+   underneath, which is the reading that matters here.
 
 ## Architecture
 
@@ -84,7 +95,7 @@ pushUndoMany -> ONE undo entry for the whole applied plan
 | Unit | Responsibility | State |
 |---|---|---|
 | `chat-proposal.ts` | Pure, i18n-free. Given a turn's tool calls, decide stage-vs-apply and build the plan. Owns the destructive/multi-write rule and the dependency-cascade rule. | new |
-| `inline-ai-edit/plan.ts`, `entity-descriptor.ts` | Render a call as a human-readable diff row. | existing — **extended** with `create_*`, resource, allocation, calendarEvent |
+| `inline-ai-edit/plan.ts`, `entity-descriptor.ts` | Render a call as a human-readable diff row. | existing — **extended** with `resource` only (the other five entities are already covered for create, update and delete) |
 | `ai-entity-token.ts`, `stampCall` | Stamp tokens at propose time, verify at apply time. | existing, reused unchanged |
 | `chat-proposal-block.tsx` | The inline card: per-row checkboxes, show-more, Discard/Apply, failure reporting. Presentational — data and handlers as props. | new |
 | `use-chat-dispatcher.ts` | Capture before-images and call `pushUndo`/`pushUndoMany` on every AI write. | existing — this is B1 |
@@ -179,14 +190,20 @@ Three vacuity traps this repo has already paid for, each with a named countermea
 3. **New i18n keys get a `loadI18n("de")` test per site.** An EN-only assertion is vacuous whenever
    the EN string is byte-identical to what it replaced.
 
-Beyond those: descriptor tests per newly-described call kind (`create_*`, resource, allocation,
-calendarEvent); a cascade test (reject a create, its dependent rows deselect); a `pushUndoMany` test
+Beyond those: descriptor tests for the newly-described `resource` calls (`create_resource`,
+`update_resource`, `delete_resource`); a multi-row grounding test proving a plan spanning several
+ids describes every row rather than rejecting all but one as `"unsupported"` — the one-item binding
+is the trap here, and a single-row fixture cannot see it; a cascade test (reject a create, its
+dependent rows deselect); a `pushUndoMany` test
 proving **one** undo entry rather than N, and that undo restores every applied row and only those.
 
 ## Non-goals
 
-- **The allocation and calendar writer tools** — track C. This slice makes such calls *describable*
-  so C can stage them; it adds no writer.
+- **The allocation and calendar writer tools** — track C, and so are their descriptors. An earlier
+  revision proposed describing those calls here so C could stage them; that is speculative work
+  against tools that do not exist, and C should add each writer and its descriptor together. What
+  this slice guarantees C is the *mechanism*: a new writer joins the gate, the plan and the undo
+  capture by being added to the descriptor maps, with no change to any of the three engines.
 - **Editing a staged value in the card.** Accept or reject a row; to change it, ask the model.
   Editing would make the card a second write path with its own sanitization boundary.
 - **Persisting plans independently of the thread.**
@@ -195,8 +212,8 @@ proving **one** undo entry rather than N, and that undo restores every applied r
 ## Size and sequencing
 
 Larger than any slice this branch has shipped: one new pure module, one new component, descriptor
-extensions across roughly four entity kinds, dispatcher capture at about ten write sites, a
-system-prompt change, and new EN + DE i18n keys.
+extension for one entity (`resource`), dispatcher capture at about ten write sites, a system-prompt
+change, and new EN + DE i18n keys.
 
 **B1 (dispatcher capture) is independently shippable** if the whole proves too large in one go. It
 closes the unrecoverable-write hole on its own and is what track C actually depends on.
