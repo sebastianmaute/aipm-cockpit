@@ -49,7 +49,60 @@ export type TimelogLinks = {
   projectLinks: TimelogProjectLink[];
   customerId?: number;
   projectIds?: number[];
+  /** Guardrail policy. Absent when no rule is configured — see
+   *  `sanitizeTimelogLinks`, which drops the key to keep the blob byte-stable. */
+  policy?: TimelogPolicy;
 };
+
+/** The four guardrail rules. These literals are ALSO the four guardrail
+ *  `InsightType` members — deliberately identical, so no rule→type lookup
+ *  table exists to drift. `timelog-policy.test.ts` pins the identity. */
+export type TimelogRuleId =
+  | "timelogCapPerEntry"
+  | "timelogCapPerDay"
+  | "timelogNonWorkingDay"
+  | "timelogWorkingHours";
+
+export const TIMELOG_RULE_IDS: readonly TimelogRuleId[] = [
+  "timelogCapPerEntry",
+  "timelogCapPerDay",
+  "timelogNonWorkingDay",
+  "timelogWorkingHours",
+];
+
+/** `threshold` is hours. Absent on the two rules that compare against the
+ *  shift rather than a number. */
+export type TimelogRulePolicy = { enabled: boolean; threshold?: number };
+
+/** Partial by construction: an unconfigured rule has NO key, which is what
+ *  keeps an unconfigured blob byte-stable. */
+export type TimelogPolicy = Partial<Record<TimelogRuleId, TimelogRulePolicy>>;
+
+/** One (user, date) cell of the daily roll.
+ *  ★ `maxEntryHours` is the whole reason this is a roll and not a sum: a daily
+ *  total cannot distinguish one 18h entry from three 6h ones, and
+ *  `timelogCapPerEntry` is exactly that distinction. */
+export type TimelogDailyCell = {
+  hours: number;
+  maxEntryHours: number;
+  entryCount: number;
+};
+
+/** Keyed by `dailyKey(userId, date)`. Sparse — only days carrying bookings. */
+export type TimelogDailyRoll = Record<string, TimelogDailyCell>;
+
+export function dailyKey(userId: number, date: string): string {
+  return `${userId}|${date}`;
+}
+
+export function parseDailyKey(key: string): { userId: number; date: string } | null {
+  const i = key.indexOf("|");
+  if (i <= 0) return null;
+  const userId = Number(key.slice(0, i));
+  const date = key.slice(i + 1);
+  if (!Number.isInteger(userId) || !date) return null;
+  return { userId, date };
+}
 
 export type TimelogScopeMode = "auto" | "self" | "org";
 
