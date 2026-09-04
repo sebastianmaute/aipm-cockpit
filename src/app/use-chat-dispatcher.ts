@@ -288,29 +288,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           : baseTask;
         const next = [...list, newTask];
         tasksRef.current = next; // keep ref in sync for back-to-back tool calls
-        // ★★★ THIS CAPTURE DOES NOT YET UNDO THE CREATE, and the comment must
-        //   say so rather than assert the intent. `UndoOp` is "delete" | "edit"
-        //   ONLY (`undo/undo-stack.ts`), so `removed: [newTask]` reads as "this
-        //   row was DELETED; on undo, put it back" — and the row is still live,
-        //   so `applyUndoRestoreWithRemap` takes its id-reuse branch and inserts
-        //   a SECOND copy under a fresh id instead of removing anything.
-        //   Measured against the real engine, not reasoned: seeding two rows,
-        //   creating a third and running the undo yields four rows for BOTH
-        //   `fromArray` spellings. `use-undo-stack.ts` states the gap outright
-        //   ("created rows are excluded entirely … no entity in the app
-        //   captures a create"); closing it needs an engine-level create op.
-        // ★ `fromArray` is `next`, not `list`, because only `next` records a
-        //   TRUTHFUL index: `buildBeforeImages` resolves the index with
-        //   `fromArray.findIndex(r => r.id === item.id)`, and against the PRE-op
-        //   `list` the new row is absent, so -1 becomes index 0 via
-        //   `Math.max(0, …)`. That choice does not rescue the direction above.
-        undoRef.current?.captureComposite({
-          kind: "task.created",
-          primaryCount: 1,
-          parts: [capturePart({ setter: setTasks, removed: [newTask], fromArray: next, isPrimary: true })],
-          name: newTask.taskName,
-          entityKey: "task",
-        });
+        // ★★★ NO UNDO CAPTURE HERE, AND THAT IS THE DESIGN. `UndoOp` is
+        //   "delete" | "edit" ONLY (`undo/undo-stack.ts`) — the engine has no
+        //   create op, and `use-undo-stack.ts` says so outright ("created rows
+        //   are excluded entirely … no entity in the app captures a create").
+        //   Capturing a create as a `removed` image is WORSE than capturing
+        //   nothing: the row is still live at undo time, so
+        //   `applyUndoRestoreWithRemap` takes its id-reuse branch, mints max+1
+        //   and splices in a SECOND copy — undoing the create DUPLICATES the
+        //   row. Measured against the real engine, not reasoned: seeding two
+        //   rows, creating a third and undoing yields FOUR rows. Adding a
+        //   capture here is a regression, not a completion of the pattern.
         setTasks(next);
         args.logActivityAs?.("ai", "task.created", newTask.id, newTask.taskName);
         return newTask;

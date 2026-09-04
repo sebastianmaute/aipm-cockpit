@@ -27,28 +27,14 @@ function seedTask(id: number, taskName: string): Task {
 // tool-call path is the one writer that bypasses it, so an AI write is
 // unrecoverable. This file pins the contract that closes that gap.
 describe("AI writes capture undo", () => {
-  test("createTask pushes exactly one undo entry", () => {
-    const captureComposite = vi.fn();
-    const { result } = renderHook(
-      () => useChatDispatcher(makeDispatcherArgs({ undo: { captureComposite } })),
-      { wrapper: dispatcherWrapper() },
-    );
-
-    act(() => {
-      result.current.createTask({
-        taskName: "Ingest review",
-        assignee: "M. Jordan",
-        dueDate: "2026-09-30",
-      });
-    });
-
-    expect(captureComposite).toHaveBeenCalledTimes(1);
-    const opts = captureComposite.mock.calls[0][0];
-    expect(opts.kind).toBe("task.created");
-    expect(opts.primaryCount).toBe(1);
-  });
-
-  test("createTask captures a fragment against a non-empty task list", () => {
+  test("createTask captures NO undo entry — the engine cannot reverse a create", () => {
+    // ★★★ NOT AN OMISSION. `UndoOp` is "delete" | "edit" (undo-stack.ts) and the
+    //   undo direction never removes. A create captured as a `removed` image is
+    //   WORSE than no capture: the row is still live at undo time, so
+    //   applyUndoRestoreWithRemap takes its id-reuse branch, mints max+1 and
+    //   splices in a SECOND copy — undoing a create DUPLICATES the row.
+    //   Adding a capture here is a regression, not a completion. Creates are
+    //   protected by the staging gate instead (a turn writing >1 row stages).
     const captureComposite = vi.fn();
     const existing = [seedTask(1, "First"), seedTask(2, "Second")];
     const { result } = renderHook(
@@ -56,23 +42,23 @@ describe("AI writes capture undo", () => {
       { wrapper: dispatcherWrapper(existing) },
     );
 
+    let created: Task | undefined;
     act(() => {
-      result.current.createTask({
+      created = result.current.createTask({
         taskName: "Third",
         assignee: "M. Jordan",
         dueDate: "2026-09-30",
       });
     });
 
-    // ★★ DELIBERATELY WEAK, AND IT MUST NOT BE OVERSOLD. `capturePart` returns
-    //    null ONLY for an empty image list, so this proves that
-    //    `buildBeforeImages` produced an image at all — it can NOT observe the
-    //    recorded index, and so cannot tell a `fromArray: next` capture from a
-    //    `fromArray: list` one (which silently records index 0 for a row absent
-    //    from the pre-op array). Nor can it see that the undo DIRECTION is wrong
-    //    for a create: the engine has no create op, so restoring this image
-    //    duplicates the row rather than removing it. Both need the real
-    //    `useUndoStack` and an actual undo — the round-trip test, not this one.
-    expect(captureComposite.mock.calls[0][0].parts[0]).not.toBeNull();
+    // ★ POSITIVE OBSERVABLE FIRST — a `not.toHaveBeenCalled()` is vacuous when
+    //   the path never ran, and would pass just as well if `createTask` threw on
+    //   its first line. These two assertions prove the create actually happened:
+    //   the row was minted (id 3 = max+1 over the seeded two) and it carries the
+    //   requested name, so the absence below is an absence ON A LIVE PATH.
+    expect(created?.id).toBe(3);
+    expect(created?.taskName).toBe("Third");
+
+    expect(captureComposite).not.toHaveBeenCalled();
   });
 });
