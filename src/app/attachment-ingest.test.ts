@@ -7,6 +7,7 @@ import {
   MAX_NODE_EXTRACT_CHARS,
   MAX_TREE_EXTRACT_CHARS,
   MAX_BASE64_CHARS,
+  flattenIngestBlocks,
 } from "./attachment-ingest";
 import { MAX_ATTACHMENT_BYTES } from "./chat-attachments";
 import { MAIL_BODY_FLOOR } from "./mail-extract";
@@ -686,6 +687,51 @@ describe("password-protected and rights-protected input", () => {
     if (r.ok) {
       expect((r.node.block.source as { data: string }).data).toContain("Here is the protected file.");
     }
+  });
+
+  // ★★★ THE CONJUNCT ABOVE PROTECTS BODY TEXT AND NOTHING ELSE, which is why
+  //  the attachment side has to be `every` and not `some`. With `some`, this
+  //  mail — no cover text, a protected file forwarded ALONGSIDE a readable
+  //  agenda — was refused whole and the agenda's content was discarded: the
+  //  exact "destroy readable content to report an unreadability" outcome the
+  //  test above exists to prevent, reached by the route it does not cover.
+  //  Every other rpmsg fixture here carries exactly ONE attachment, so
+  //  `some` and `every` are indistinguishable across all of them.
+  it("still renders a body-less mail carrying a protected file beside a readable one", async () => {
+    const r = await ingestBytes(
+      rpmsgEml([
+        "--B",
+        'Content-Type: text/plain; name="agenda.txt"',
+        'Content-Disposition: attachment; filename="agenda.txt"',
+        "", "READABLE-CONTENT-MARKER", "",
+      ]),
+      "message/rfc822",
+      "forwarded.eml",
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(flattenIngestBlocks(r.node).map((b) => JSON.stringify(b)).join(" "))
+        .toContain("READABLE-CONTENT-MARKER");
+    }
+  });
+
+  // ★★★ "NO READABLE BODY" IS NOT `content === ""`. extractHtmlMarkdown
+  //  substitutes NO_EXTRACTABLE_TEXT for a document that rendered to nothing,
+  //  and eml-extract PREFERS the html part — so a wrapper whose body is
+  //  `<html><body></body></html>`, which is the shape a real Outlook wrapper
+  //  has, arrived at the detector with a non-empty body and was never
+  //  recognised. It ingested `ok` and rendered a subject, an attachment list
+  //  and an "unsupported-type" note, never saying the mail was protected.
+  //  Every OTHER rpmsg fixture omits the body part entirely, so none of them
+  //  has body.kind === "html" and none could witness this.
+  it("recognises a wrapper whose html body renders to nothing", async () => {
+    const r = await ingestBytes(
+      rpmsgEml(["--B", "Content-Type: text/html", "", "<html><body></body></html>", ""]),
+      "message/rfc822",
+      "protected.eml",
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("encrypted");
   });
 
   it("reports a rights-managed .msg as encrypted, reading it as real compound-file bytes", async () => {

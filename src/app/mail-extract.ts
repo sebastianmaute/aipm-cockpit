@@ -22,6 +22,7 @@ import { parseMimeMessage } from "./mime-parse";
 import { emlToParsedMail } from "./eml-extract";
 import { readCfbfTree } from "./cfbf";
 import { msgToParsedMail } from "./msg-extract";
+import { NO_EXTRACTABLE_TEXT } from "./html-extract";
 
 export type ParsedMail = {
   headers: {
@@ -223,10 +224,41 @@ const RPMSG_MIME_TYPE = "application/x-microsoft-rpmsg-message";
  *  there so a future producer that keeps the parameters cannot silently fall
  *  through to the mail being rendered as if it were readable. */
 export function isRightsProtectedMail(mail: ParsedMail): boolean {
-  if (mail.body.content.trim() !== "") return false;
-  return mail.attachments.some(
-    (a) =>
-      a.fileName.trim().toLowerCase() === RPMSG_FILE_NAME ||
-      a.mimeType.split(";")[0].trim().toLowerCase() === RPMSG_MIME_TYPE,
+  if (!hasNoReadableBody(mail)) return false;
+  // ★★★ `every`, NOT `some` — and the length guard is what makes `every`
+  // safe. With `some`, a body-less mail carrying an .rpmsg ALONGSIDE readable
+  // attachments was refused whole and those attachments' content was thrown
+  // away: forwarding a protected message together with an agenda, writing no
+  // cover text, lost the agenda. That is precisely the outcome the paragraph
+  // above says this predicate exists to avoid, and the empty-body conjunct
+  // does not prevent it — it protects BODY text and nothing else. Bare
+  // `every` is vacuously true on an empty list, which would refuse every
+  // body-less mail, so the count test is load-bearing rather than defensive.
+  return mail.attachments.length > 0 && mail.attachments.every(isRpmsgAttachment);
+}
+
+function isRpmsgAttachment(a: ParsedMail["attachments"][number]): boolean {
+  return (
+    a.fileName.trim().toLowerCase() === RPMSG_FILE_NAME ||
+    a.mimeType.split(";")[0].trim().toLowerCase() === RPMSG_MIME_TYPE
   );
+}
+
+/** ★★★ "EMPTY BODY" IS NOT `content.trim() === ""`, because the HTML path
+ *  never yields an empty string. `extractHtmlMarkdown` substitutes
+ *  `NO_EXTRACTABLE_TEXT` for a document that rendered to nothing, and both
+ *  the .eml path (`eml-extract`, which PREFERS the html part) and the .msg
+ *  path (`msg-extract`, for PR_HTML and its text-typed variant) route through
+ *  it. So a wrapper whose body part is `<html><body></body></html>` — the
+ *  shape a real Outlook-originated wrapper has — arrived here with a
+ *  non-empty body and short-circuited the whole detector.
+ *
+ *  ★★ Measured: of three wrapper shapes each carrying one message.rpmsg, only
+ *  the no-body-part and blank-text-part cases were detected; the empty-html
+ *  case ingested `ok` and rendered exactly the pre-fix output, never telling
+ *  the reader the message was protected. Every rpmsg fixture in the suite
+ *  omitted the body part entirely, so nothing had `body.kind === "html"`. */
+function hasNoReadableBody(mail: ParsedMail): boolean {
+  const content = mail.body.content.trim();
+  return content === "" || content === NO_EXTRACTABLE_TEXT;
 }

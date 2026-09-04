@@ -363,6 +363,20 @@ function renderOneTable(table: string): string {
   return `\n\n${lines.join("\n")}\n\n`;
 }
 
+/** ★★★ WHAT `extractHtmlMarkdown` RETURNS FOR AN EMPTY DOCUMENT, and it is
+ *  NOT the empty string — which makes `body.content !== ""` a false test for
+ *  "this mail has no readable body". A rights-protected wrapper whose body
+ *  part is `<html><body></body></html>` — the shape Outlook actually produces
+ *  — yielded this placeholder, so a caller asking whether the body was empty
+ *  was told "no" and skipped its protected-mail handling entirely.
+ *
+ *  ★ Exported so that caller can compare against the value rather than
+ *  restating the literal. `office-extract.ts` deliberately keeps its own copy
+ *  of the same string: it is the same MESSAGE to a reader but a different
+ *  FACT (an office document that yielded nothing, not an HTML body), and
+ *  collapsing the two would make either one impossible to reword alone. */
+export const NO_EXTRACTABLE_TEXT = "_(document contained no extractable text)_";
+
 /** ★★ Every step below is linear in the clamped input length, and that is a
  *  property of the whole pipeline, not of any one step: input reaching here is
  *  hostile by assumption and is processed on the browser MAIN THREAD, so one
@@ -397,5 +411,5 @@ export function extractHtmlMarkdown(html: string): string {
   s = s.replace(/[ \t ]+/g, " ");
   s = s.split("\n").map((l) => l.trim()).join("\n");
   s = s.replace(/\n{3,}/g, "\n\n").trim();
-  return s === "" ? "_(document contained no extractable text)_" : s;
+  return s === "" ? NO_EXTRACTABLE_TEXT : s;
 }
