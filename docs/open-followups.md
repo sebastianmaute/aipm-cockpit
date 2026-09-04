@@ -27236,9 +27236,9 @@ rediscover.
 
 **Status:** OPEN. Filed 2026-09-03 from the ingest-breadth review. **Measured**, not reasoned —
 nothing in `src` returns it:
-`grep -rn '"encrypted"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'` returns the
-union member in `attachment-ingest.ts` plus the declaration and branch in `chat-panel.tsx`, and no
-producer anywhere.
+`grep -rn '"encrypted"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'` returns four
+lines — the union member in `attachment-ingest.ts`, the declaration and branch in `chat-panel.tsx`,
+and the exhaustiveness annotation in `step0-import-panel.tsx` — and no producer anywhere.
 
 The design spec made `chatAttachmentEncrypted` a named requirement: RMS-protected mail and
 password-protected workbooks were to stop surfacing as a generic read failure. The union member,
@@ -27305,7 +27305,7 @@ nothing covers it. The minimum honest fix is the diagnostic; the fuller one is t
 **Status:** OPEN. Filed 2026-09-03. **Measured twice** — by a reviewer and independently re-verified
 by the agent that later hardened the module, each mutating a scratchpad copy: all three tests still
 pass with the guard they name deleted. Each carries an in-file annotation recording its mutant;
-read them with `grep -n "does not discriminate" src/app/cfbf.test.ts`.
+read all three with `grep -n "MEASURED VACUOUS" src/app/cfbf.test.ts`.
 
 - *rejects an illegal sector shift* — deleting the `shift !== 9 && shift !== 12` rejection still
   passes; the fixture uses shift 7 and downstream bounds checks catch it at this size.
@@ -27376,14 +27376,19 @@ code first and the plan only for intent.**
 
 **Status:** OPEN. Filed 2026-09-03, raised by the agent that wired the tree into the payload.
 **Never machine-verified:** no probe has driven a multi-file import to the ceiling. The disclosure
-is in the module: `grep -n "belongs in the caller" src/app/attachment-ingest.ts`.
+is in the module: `grep -n "A whole-batch ceiling" src/app/attachment-ingest.ts`.
 
 `newBudget()` is per-`ingestBytes` call, so `MAX_TREE_EXTRACT_CHARS` (400,000) bounds one dropped
 file's tree and nothing bounds a batch. `attachment-ingest.ts` says so deliberately — a whole-batch
 ceiling belongs to the caller and is unimplemented.
 
-★ **What changed on 2026-09-03**: before the wiring fix, only one block per file was ever sent, so
-the per-file budget was academic in the wizard's multi-file path. Now the full 400,000-character
-budget per file genuinely reaches the model, so a 10-file import can carry roughly 4M characters.
-Behaviour is exactly as designed and no cap was weakened — but the unimplemented batch ceiling is
-materially more reachable than it was the day before, which is the reason to record it now.
+★ **What changed on 2026-09-03**: before the wiring fix only one block per file was ever sent, so a
+file contributed at most `MAX_NODE_EXTRACT_CHARS` (200,000). Now the full 400,000-character budget
+per file reaches the model, so a 10-file import carries roughly 4M characters — **double** the
+previous worst case, not a new one. Behaviour is exactly as designed and no cap was weakened, but
+the unimplemented batch ceiling is more reachable than it was the day before.
+
+★★ A larger unbounded batch quantity sits beside it and is NOT what this entry is about:
+`MAX_BASE64_CHARS` binds only below the root (§ the ingest-breadth fix round), so a multi-file
+import of N large PDFs carries N x up to 20 MB of base64 with no ceiling at any level. Recorded
+here because a reader closing this entry should not conclude the batch question is settled.
