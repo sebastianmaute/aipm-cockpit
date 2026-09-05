@@ -72,14 +72,71 @@ describe("INLINE_DESCRIPTORS", () => {
   });
 
   // ★★ THE TWO EMAIL CAPS ARE NOT THE SAME NUMBER, and a shared-cap assumption
-  //  is the defect `textCaps` exists to close: a stakeholder's email is clipped
-  //  by `sanitizeText(o.email, BUDGET_NAME_MAX)` (200), a task's by EMAIL_MAX
-  //  (320). They also live in two DIFFERENT modules.
+  //  is the defect `fieldSanitizers` exists to close: a stakeholder's email is
+  //  clipped by `sanitizeText(o.email, BUDGET_NAME_MAX)` (200), a task's by
+  //  EMAIL_MAX (320). They also live in two DIFFERENT modules.
+  //  ★ Asserted on OUTPUT LENGTH rather than on a stored number, because the
+  //  member no longer holds a number to compare — and the output is the thing
+  //  the preview actually shows.
   it("does not share one email cap across entities", () => {
-    const task = INLINE_DESCRIPTORS.task.textCaps.assigneeEmail;
-    const stakeholder = INLINE_DESCRIPTORS.stakeholder.textCaps.email;
-    expect(task).toBeGreaterThan(0);
-    expect(stakeholder).toBeGreaterThan(0);
-    expect(stakeholder).not.toBe(task);
+    const long = "a".repeat(1000);
+    const task = INLINE_DESCRIPTORS.task.fieldSanitizers.assigneeEmail(long);
+    const stakeholder = INLINE_DESCRIPTORS.stakeholder.fieldSanitizers.email(long);
+    expect(task.length).toBeGreaterThan(0);
+    expect(stakeholder.length).toBeGreaterThan(0);
+    expect(stakeholder.length).not.toBe(task.length);
+  });
+
+  // ★★★ THE ONE NON-STRING `diffField` IN THE WHOLE SET, and the regression
+  //  that motivated inverting `fieldSanitizers`' default. `FieldDiff.raw` is
+  //  what `use-inline-entity-edit.ts` puts in the write patch, and
+  //  `sanitizeResource` stores the flag only for `true` / `"true"` — so a TEXT
+  //  sanitizer here (which blanks a non-string to `""`) does not merely
+  //  mispreview, it DROPS the flag on apply.
+  //  ★★ `"false"`, not `""`, is the assertion that matters: the flag is stored
+  //  present-or-absent, so leaving the field OUT of the map (previewing
+  //  `str(v)` verbatim) is right for `true` and still wrong for `false`, which
+  //  would read as a change against an absent key. Both directions are pinned.
+  it("normalises the one non-string diffField through the sanitizer's predicate", () => {
+    const f = INLINE_DESCRIPTORS.resource.fieldSanitizers.isExternal;
+    expect(INLINE_DESCRIPTORS.resource.diffFields).toContain("isExternal");
+    expect(f(true)).toBe("true");
+    expect(f("true")).toBe("true");
+    // The stored shape of an INTERNAL resource: no key at all.
+    expect(f(undefined)).toBe("false");
+    expect(f(false)).toBe("false");
+    expect(f("false")).toBe("false");
+    // Not blanked, which is what a text sanitizer would have done.
+    expect(f(true)).not.toBe("");
+  });
+
+  // ★★ A NUMBER FIELD MUST NOT CARRY A TEXT SANITIZER. Every text sanitizer in
+  //  play blanks a non-string to `""`, and `Number("")` is `0` — which
+  //  satisfies any range starting at 0 and silently skips the out-of-range
+  //  rejection in `describeEntityCalls`. Same failure the int-range test above
+  //  guards from the other direction, so both are needed.
+  it("keeps numberFields out of fieldSanitizers", () => {
+    const overlaps = entities.flatMap((e) =>
+      [...INLINE_DESCRIPTORS[e].numberFields]
+        .filter((f) => INLINE_DESCRIPTORS[e].fieldSanitizers[f] !== undefined)
+        .map((f) => `${e}.${f}`),
+    );
+    // The population is asserted so a descriptor set declaring NO number field
+    // could not read as a pass.
+    expect(entities.flatMap((e) => [...INLINE_DESCRIPTORS[e].numberFields]).length).toBeGreaterThan(0);
+    expect(overlaps).toEqual([]);
+  });
+
+  // ★★ A `fieldSanitizers` KEY THAT IS NOT A `diffField` IS DEAD — the preview
+  //  loop only ever looks one up per `diffFields` member, so a typo'd or stale
+  //  key is inert and invisible. Cheap to check, and the differential test in
+  //  plan.sanitizer-parity.test.ts cannot see it (it iterates diffFields).
+  it("has no fieldSanitizers key outside diffFields", () => {
+    const strays = entities.flatMap((e) =>
+      Object.keys(INLINE_DESCRIPTORS[e].fieldSanitizers)
+        .filter((f) => !INLINE_DESCRIPTORS[e].diffFields.includes(f))
+        .map((f) => `${e}.${f}`),
+    );
+    expect(strays).toEqual([]);
   });
 });

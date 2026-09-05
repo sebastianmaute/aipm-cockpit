@@ -5,7 +5,7 @@
 // side effects.
 import { type Task } from "../types";
 import { type Workspace } from "../workspace";
-import { sanitizeIsoDate } from "../sanitize";
+import { isValidEmail, sanitizeIsoDate } from "../sanitize";
 import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
 import { splitName } from "../resource-foundation";
@@ -85,24 +85,6 @@ function str(v: unknown): string {
   return String(v);
 }
 
-/** What Apply will actually store for a text field, so the preview cannot show
- *  a value the sanitizer would change.
- *
- *  ★★★ MIRRORS `sanitizeText`: a non-string becomes `""`, a string is trimmed
- *   and clipped at the field's cap. `str` did none of that, so the card showed
- *   the raw input while Apply stored the sanitized form — diverging on length,
- *   on non-strings and on whitespace.
- *
- *  ★★ THE NON-STRING CASE IS THE EXPENSIVE ONE. `sanitize-entities.ts` writes
- *   `if (email) resource.email = email;`, so an empty result OMITS the key, and
- *   on an update built by spreading the stored row that CLEARS an address the
- *   row already had. The card previewed `old@x.com → 42`; the row ended with no
- *   email at all. */
-function normalizePreviewValue(v: unknown, cap: number | undefined): string {
-  if (typeof v !== "string") return v == null || Array.isArray(v) ? str(v).trim() : "";
-  const trimmed = v.trim();
-  return cap === undefined ? trimmed : trimmed.slice(0, cap);
-}
 /** A person's display name from either shape `create_resource` accepts:
  *  firstName/lastName, or the single `name` the dispatcher splits. Empty when
  *  the object carries neither. */
@@ -188,15 +170,27 @@ export function describeEntityCalls(
       const applied: Record<string, string> = {};
       for (const f of d.diffFields) {
         if (!(f in input)) continue;
-        const before = str(item[f]);
-        // A number field (probability, impact, scheduleImpactDays, costImpact)
-        // is coerced by the dispatcher via `toNumber`, which accepts a real
-        // number verbatim — NOT by `sanitizeText`, whose rules
-        // `normalizePreviewValue` mirrors. Running a number field through it
-        // would blank any non-string input to "", making `9` and `""` compare
-        // equal to a same-valued stored field and silently skip the
-        // out-of-range rejection below.
-        const after = d.numberFields.has(f) ? str(input[f]) : normalizePreviewValue(input[f], d.textCaps[f]);
+        // ★★★ WHICH NORMALISATION A FIELD GETS IS THE DESCRIPTOR'S CALL, and a
+        // field it does not name is previewed VERBATIM. The inverse default —
+        // "everything that is not a number is text" — ran `resource.isExternal`
+        // through a text sanitizer that blanks a non-string to `""`; since
+        // `raw` feeds the write patch in `use-inline-entity-edit.ts`, that
+        // DROPPED the flag on apply, not merely in the card. The same blanking
+        // would silently defeat the int-range rejection below for a number
+        // field, because `Number("")` is `0`. An entry, where one exists, CALLS
+        // the apply path's own sanitizer — never a copy of its cap, and never a
+        // copy of its clipping algorithm.
+        //
+        // ★★ BOTH SIDES GO THROUGH IT. Comparing a normalised `after` against a
+        // raw `before` reports a change whenever the two spellings differ but
+        // the stored outcome does not — `isExternal` is stored present-or-
+        // absent, so `str(undefined)` ("") vs an incoming `false` made a no-op
+        // render a diff. The sanitizers are idempotent on an already-stored
+        // value, so normalising `before` costs nothing where the spellings
+        // already agree.
+        const normalize = d.fieldSanitizers[f];
+        const before = normalize ? normalize(item[f]) : str(item[f]);
+        const after = normalize ? normalize(input[f]) : str(input[f]);
         if (before === after) continue;
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
         if (d.requiredNonEmpty.has(f) && after === "") { bad(`${f}=empty`); continue; }
@@ -204,6 +198,14 @@ export function describeEntityCalls(
         // (1900-2100), returning the input verbatim when valid and "" otherwise,
         // so a previewed date can never diverge from what apply persists.
         if (d.dateFields.has(f) && after !== "" && sanitizeIsoDate(after) !== after) { bad(`${f}=${after}`); continue; }
+        // ★★ A THROW ON APPLY COSTS THE WHOLE PATCH, not just this field.
+        // `buildTaskCleanPatch` throws "assigneeEmail is invalid" for an address
+        // `isValidEmail` rejects, and the dispatcher surfaces that as a failed
+        // tool call — so every OTHER field the same edit changed is lost with
+        // it. Rejecting here keeps the bad value out of the patch and lets the
+        // rest apply. Blank is exempt because the sanitizer's own guard is
+        // `if (e && !isValidEmail(e))` — clearing an address is legal.
+        if (d.emailFormatFields.has(f) && after !== "" && !isValidEmail(after)) { bad(`${f}=${after}`); continue; }
         const range = d.intRangeFields[f];
         if (range) {
           const n = Number(after);

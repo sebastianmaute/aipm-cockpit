@@ -15,8 +15,32 @@ import {
   type RaidCategory,
 } from "../types";
 import { type Workspace } from "../workspace";
-import { EMAIL_MAX } from "../sanitize-core";
-import { BUDGET_NAME_MAX } from "../sanitize-entities";
+import {
+  BUDGET_NAME_MAX,
+  isExternalFlag,
+  optMultiline,
+  optText,
+} from "../sanitize-entities";
+import {
+  TASK_NAME_MAX,
+  TEXTAREA_MAX,
+  sanitizeAssignee,
+  sanitizeBlockers,
+  sanitizeEmail,
+  sanitizeGroup,
+  sanitizeTaskName,
+  sanitizeText,
+} from "../sanitize-core";
+
+/** `sanitizeText` bound to one cap, as the apply-path sanitizers call it.
+ *  Written as a factory so a `fieldSanitizers` entry can never carry a cap
+ *  without the function that consumes it. */
+const text = (max: number) => (v: unknown): string => sanitizeText(v, max);
+/** The resource optional-text path. `undefined` there means "key dropped",
+ *  which on an update spread over the stored row clears the field — the same
+ *  outcome `""` denotes everywhere else in a preview. */
+const optionalText = (v: unknown): string => optText(v) ?? "";
+const optionalMultiline = (v: unknown): string => optMultiline(v) ?? "";
 
 export type InlineEntity = "task" | "raid" | "change" | "milestone" | "stakeholder" | "resource";
 
@@ -53,22 +77,74 @@ export interface EntityDescriptor {
    *  sanitizer-induced reset (e.g. category R→I silently moves status to the
    *  Issue default). Undefined for fields with no such cross-field dependency. */
   enumDefaultFor?: (field: string, patchedItem: Record<string, unknown>) => string | undefined;
+  /** Fields whose apply path REJECTS a malformed address outright, rather than
+   *  storing whatever the length cap left.
+   *
+   *  ★★★ NOT EVERY EMAIL FIELD — this is per-FIELD, not per-shape, and reading
+   *   it as "the email fields" gets it wrong in both directions.
+   *   `buildTaskCleanPatch` THROWS "assigneeEmail is invalid" when
+   *   `isValidEmail` fails, and a throw there fails the WHOLE patch, so every
+   *   other field in the same edit is lost with it. `sanitizeRaidItem` runs the
+   *   same `sanitizeEmail` over `ownerEmail` and simply stores the result with
+   *   no format guard at all, so rejecting there would be the preview inventing
+   *   a rule apply does not have.
+   *
+   *  ★ Found by `plan.sanitizer-parity.test.ts`, which had to carry this pair
+   *   as an enumerated exception until the guard existed. */
+  emailFormatFields: ReadonlySet<string>;
   /** Fields sent to Apply as a comma-split string[] (task labels). */
   arrayFields: ReadonlySet<string>;
   /** Fields coerced to Number on Apply. */
   numberFields: ReadonlySet<string>;
-  /** Text fields whose sanitizer clips at a cap, → that cap.
+  /** A field → the EXACT normalisation the APPLY path performs on it, rendered
+   *  as the string the preview shows. `""` means "the sanitizer's result is
+   *  dropped", which on an update spread over the stored row CLEARS the field.
+   *  `describeEntityCalls` runs BOTH the stored `before` and the incoming
+   *  `after` through the same entry, so the two sides are always compared in
+   *  the same normal form.
    *
-   *  ★★★ POPULATED FROM THE SANITIZERS' OWN EXPORTED CONSTANTS, NEVER TYPED-OUT
-   *   NUMBERS. A literal here is a second copy of a value that lives in
-   *   `sanitize-core.ts`, and it goes stale silently the first time that cap
-   *   moves — reintroducing the preview/apply divergence this member exists to
-   *   close, by the same mechanism.
+   *  ★★★ DELEGATE, NEVER RESTATE. Each entry calls the real function — not a
+   *   copy of its cap, and not a copy of its ALGORITHM. §373's first cut did
+   *   both: it read caps from the exported constants (right) and then
+   *   reimplemented the clipping as `trimmed.slice(0, cap)` (wrong), so a value
+   *   ending on an astral character at the boundary previewed one UTF-16 code
+   *   unit longer than `clipText`'s surrogate back-off stores. `clipText` is
+   *   not even exported, which is the signal that a preview must call the
+   *   field's own sanitizer rather than reproduce it.
    *
-   *  ★ A field absent from this map is trimmed and non-string-coerced but not
-   *   clipped. That is the correct default: those two divergences are universal,
-   *   a cap is not. */
-  textCaps: Record<string, number>;
+   *  ★★★ AN ABSENT FIELD IS PREVIEWED VERBATIM (`str`), and that default is the
+   *   load-bearing half. The inverse — "everything not a number is text" —
+   *   ran `resource.isExternal`, the one non-string field any `diffFields`
+   *   names, through a text sanitizer that blanks a non-string to `""`; since
+   *   `FieldDiff.raw` feeds the write patch in `use-inline-entity-edit.ts`,
+   *   that DROPPED the flag on apply, not merely in the card.
+   *
+   *  ★★ VERBATIM IS NOT ENOUGH FOR THAT FIELD EITHER, which is why it has an
+   *   entry rather than being left out. `isExternal` is stored PRESENT-OR-
+   *   ABSENT (`sanitizeResource` sets the key only when the flag is true), so
+   *   an internal resource carries no key: `str(undefined)` is `""`, an
+   *   incoming `false` reads as a change, and a no-op renders a spurious diff.
+   *   Both sides go through `isExternalFlag` — the predicate `sanitizeResource`
+   *   itself calls — so `false` vs absent compares equal.
+   *
+   *  ★★ THE SANITIZERS ARE NOT UNIFORM — read the field's own, do not pattern-
+   *   match on its name. `sanitizeText` trims then clips; `sanitizeMultiline`
+   *   clips WITHOUT trimming; `optText`/`optMultiline` (the resource optional
+   *   path) trim with NO cap, and `optMultiline` also normalises CRLF. Three
+   *   different caps are in play for fields all called "a name", and
+   *   `stakeholder.email` is capped at BUDGET_NAME_MAX (200), not EMAIL_MAX.
+   *
+   *  ★ Rich HTML fields (`RICH_FIELDS` in plan.ts) are deliberately absent:
+   *   their apply-path sanitizer is `sanitizeAiRichText`, which needs a DOM,
+   *   and their preview is a plain-text PROJECTION of the value rather than the
+   *   value itself. `descriptor-drift.test.ts` owns that pair. Enum, date,
+   *   int-range and array fields are absent too — `describeEntityCalls` guards
+   *   each of those with a rule of its own, against the same sanitizer.
+   *
+   *  ★ `plan.sanitizer-parity.test.ts` is the differential gate on all of it:
+   *   every entity × every `diffField` × a hostile probe set, preview against
+   *   the real sanitizer. */
+  fieldSanitizers: Record<string, (v: unknown) => string>;
   titleOf: (item: Record<string, unknown>) => string;
 }
 
@@ -110,9 +186,21 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     dateFields: new Set(["dueDate"]),
     intRangeFields: {},
     enumFields: { status: constSet(TASK_STATUSES), priority: constSet(PRIORITIES) },
+    // ★ The ONLY member across all six entities: `buildTaskCleanPatch` throws
+    //   on a malformed address, and the throw fails the whole patch.
+    emailFormatFields: new Set(["assigneeEmail"]),
     arrayFields: new Set(["labels"]),
     numberFields: new Set(),
-    textCaps: { assigneeEmail: EMAIL_MAX },
+    // Mirrors `buildTaskCleanPatch` (chat-task-patch.ts) field for field.
+    // ★ `blockers` is the ONE multiline member here — `sanitizeBlockers` is
+    //   `sanitizeMultiline(_, TEXTAREA_MAX)`, which does NOT trim.
+    fieldSanitizers: {
+      taskName: sanitizeTaskName,
+      assignee: sanitizeAssignee,
+      assigneeEmail: sanitizeEmail,
+      blockers: sanitizeBlockers,
+      group: sanitizeGroup,
+    },
     titleOf: (i) => String(i.taskName ?? ""),
   },
   raid: {
@@ -127,9 +215,18 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     intRangeFields: { probability: [1, 5], impact: [1, 5] },
     enumFields: { category: constSet(RAID_CATEGORIES), severity: constSet(RAID_SEVERITIES), status: raidStatusResolver },
     enumDefaultFor: (field, item) => (field === "status" ? raidStatusDefault(raidCategoryOf(item)) : undefined),
+    emailFormatFields: new Set(),
     arrayFields: new Set(),
     numberFields: new Set(["probability", "impact"]),
-    textCaps: { ownerEmail: EMAIL_MAX },
+    // Mirrors `sanitizeRaidItem` (sanitize-records.ts). ★ `title` is capped at
+    // TASK_NAME_MAX (500) here and at BUDGET_NAME_MAX (200) on `change` and
+    // `milestone` — same field name, different cap, which is why this map is
+    // per-entity.
+    fieldSanitizers: {
+      title: text(TASK_NAME_MAX),
+      owner: text(BUDGET_NAME_MAX),
+      ownerEmail: sanitizeEmail,
+    },
     titleOf: (i) => String(i.title ?? ""),
   },
   change: {
@@ -139,9 +236,15 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     dateFields: new Set(["raisedDate", "decisionDate"]),
     intRangeFields: { scheduleImpactDays: [0, Infinity], costImpact: [0, Infinity] },
     enumFields: { type: constSet(CHANGE_TYPES), status: constSet(CHANGE_STATUSES), impact: constSet(CHANGE_IMPACT_LEVELS) },
+    emailFormatFields: new Set(),
     arrayFields: new Set(),
     numberFields: new Set(["scheduleImpactDays", "costImpact"]),
-    textCaps: {},
+    // Mirrors `sanitizeChangeItem` (sanitize-records.ts).
+    fieldSanitizers: {
+      title: text(BUDGET_NAME_MAX),
+      requestedBy: text(BUDGET_NAME_MAX),
+      decisionBy: text(BUDGET_NAME_MAX),
+    },
     titleOf: (i) => String(i.title ?? ""),
   },
   milestone: {
@@ -151,9 +254,12 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     dateFields: new Set(["date", "achievedDate"]),
     intRangeFields: {},
     enumFields: {},
+    emailFormatFields: new Set(),
     arrayFields: new Set(),
     numberFields: new Set(),
-    textCaps: {},
+    // Mirrors `sanitizeMilestone` (sanitize-records.ts) — `name` is the only
+    // non-date, non-rich field it has.
+    fieldSanitizers: { name: text(BUDGET_NAME_MAX) },
     titleOf: (i) => String(i.name ?? ""),
   },
   stakeholder: {
@@ -163,9 +269,21 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     dateFields: new Set(),
     intRangeFields: {},
     enumFields: { category: constSet(STAKEHOLDER_CATEGORIES), influence: constSet(INFLUENCE_INTEREST_LEVELS), interest: constSet(INFLUENCE_INTEREST_LEVELS) },
+    emailFormatFields: new Set(),
     arrayFields: new Set(),
     numberFields: new Set(),
-    textCaps: { email: BUDGET_NAME_MAX },
+    // Mirrors `sanitizeStakeholder` (sanitize-records.ts). ★★ `notes` is
+    // `sanitizeText(_, TEXTAREA_MAX)` — TRIMMED, despite being a textarea and
+    // despite `Task.blockers` (the same shape) using `sanitizeMultiline`. Read
+    // the field's own sanitizer; the name does not tell you which family it is
+    // in. ★ `email` is BUDGET_NAME_MAX (200), NOT EMAIL_MAX.
+    fieldSanitizers: {
+      name: text(BUDGET_NAME_MAX),
+      organization: text(BUDGET_NAME_MAX),
+      title: text(BUDGET_NAME_MAX),
+      email: text(BUDGET_NAME_MAX),
+      notes: text(TEXTAREA_MAX),
+    },
     titleOf: (i) => String(i.name ?? ""),
   },
   resource: {
@@ -198,9 +316,34 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     dateFields: new Set(),
     intRangeFields: {},
     enumFields: {},
+    emailFormatFields: new Set(),
     arrayFields: new Set(),
     numberFields: new Set(),
-    textCaps: { email: EMAIL_MAX },
+    // Mirrors `sanitizeResource` (sanitize-entities.ts), which uses THREE
+    // different helpers across these ten fields:
+    //   • firstName/lastName → `sanitizeAssignee` (trim + ASSIGNEE_MAX 200)
+    //   • email              → `sanitizeEmail`    (trim + EMAIL_MAX 320)
+    //   • the five optional single-line fields → `optText` (trim, NO cap)
+    //   • notes              → `optMultiline`     (CRLF→LF, trim, NO cap)
+    // ★★★ `isExternal` — the only non-string field in any entity's
+    //  `diffFields` — goes through `sanitizeResource`'s OWN predicate. A text
+    //  sanitizer here blanks it to `""`, which drops the flag on apply
+    //  (`FieldDiff.raw` is the write patch's value); leaving it out entirely
+    //  previews `str(v)` verbatim, which is right for `true` but renders a
+    //  spurious diff for a no-op `false`, because the flag is stored
+    //  present-or-absent and `str(undefined)` is `""`, not `"false"`.
+    fieldSanitizers: {
+      firstName: sanitizeAssignee,
+      lastName: sanitizeAssignee,
+      email: sanitizeEmail,
+      title: optionalText,
+      department: optionalText,
+      company: optionalText,
+      location: optionalText,
+      businessPhone: optionalText,
+      notes: optionalMultiline,
+      isExternal: (v) => String(isExternalFlag(v)),
+    },
     // ★ NOT `i.title` — that is the JOB title. The two name parts are the row's
     // identity (`sanitizeResource` rejects a row with neither).
     titleOf: (i) => `${String(i.firstName ?? "")} ${String(i.lastName ?? "")}`.trim(),

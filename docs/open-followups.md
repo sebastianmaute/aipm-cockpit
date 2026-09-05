@@ -597,7 +597,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§370](#370-redo-of-an-ai-captured-delete-is-unproved--closed-2026-09-05) | ~~Redo of an AI-captured delete is unproved~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (a redo leg added to the existing AI `deleteTask` round trip in `use-chat-dispatcher.undo.test.tsx`, asserting the row is gone again after `redo()`) |
 | [§371](#371-a-stakeholder-deletion-offers-to-delete-their-job-title-not-the-person--closed-2026-09-04) | ~~A stakeholder deletion offers to delete their job title, not the person~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-04 (one shared `PERSON_ENTITIES` set now names both person entities by `personName`, at the create label AND the delete label; mutation-proved by reverting the set to `["resource"]` alone) |
 | [§372](#372-an-update_resource-rename-sent-as-the-name-alias-previews-an-empty-plan--closed-2026-09-05) | ~~An update_resource rename sent as the name alias previews an empty plan~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (`describeEntityCalls` projects an alias-only `update_resource({name})` onto `firstName`/`lastName` via the dispatcher's own `splitName` before diffing) |
-| [§373](#373-an-email-shaped-field-previews-a-value-apply-clips-or-discards--closed-2026-09-05) | ~~An email-shaped field previews a value Apply clips or discards~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (`textCaps` added to `EntityDescriptor`, sourced from the sanitizers' own caps; every text `diffField` now runs through `normalizePreviewValue`, mirroring `sanitizeText`) |
+| [§373](#373-an-email-shaped-field-previews-a-value-apply-clips-or-discards--closed-2026-09-05) | ~~An email-shaped field previews a value Apply clips or discards~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 — but NOT by `05a2efcb`, whose closure was false and shipped a CRITICAL regression; re-closed by `fieldSanitizers` (delegate to each field's own sanitizer; absent ⇒ verbatim) + the `plan.sanitizer-parity.test.ts` differential |
 | [§374](#374-help-contentts-still-says-five-inline-entities-and-there-are-now-six--closed-2026-09-05) | ~~help-content.ts still says five inline entities and there are now six~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (comment now reads six entities, matching `InlineEntity`) |
 | [§375](#375-eye-verify-owed-a-real-model-turn-through-the-staged-review-card--open) | Eye-verify owed: a real model turn through the staged review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
 | [§376](#376-a-staged-document-row-cannot-be-named-in-the-review-card--closed-2026-09-05) | ~~A staged document row cannot be named in the review card~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`liveRowTitle` resolves an `update_document`/`delete_document` row's title from `ws.documents` by `input.id`; the plan beside it stays empty by design) |
@@ -28085,16 +28085,46 @@ it unless it gets the same projection step.
 
 ## 373. An email-shaped field previews a value Apply clips or discards — CLOSED 2026-09-05
 
-**Status:** CLOSED 2026-09-05 by `05a2efcb`. `EntityDescriptor` gained `textCaps`, populated from
-the sanitizers' own exported `EMAIL_MAX`/`BUDGET_NAME_MAX` constants so the two cannot drift, and
-`describeEntityCalls` now runs every text `diffField` — not merely the four email-shaped ones this
-entry named — through `normalizePreviewValue`, which mirrors `sanitizeText`: trim, cap at the
-field's `textCaps` entry (if any), and coerce a non-string to `""`. A `numberField` (probability,
-impact, scheduleImpactDays, costImpact) is deliberately excluded and keeps the old `String()`
-coercion, because the dispatcher coerces those via `toNumber`, not `sanitizeText` — running them
-through the new path would blank a real out-of-range number to `""` and silently skip the existing
-rejection test for it. Reproduce:
-`npx vitest run src/app/inline-ai-edit/plan.test.ts -t "preview matches what Apply stores"`.
+**Status:** CLOSED 2026-09-05. ★★★ THE FIRST CLOSURE (`05a2efcb`) WAS FALSE AND SHIPPED A CRITICAL
+REGRESSION; the mechanism it describes no longer exists and neither `textCaps` nor
+`normalizePreviewValue` is a symbol today. It gave `EntityDescriptor` a `textCaps` map and ran every
+`diffField` except a `numberFields` member through `normalizePreviewValue`. That is a TEXT-FIELD rule
+applied to the whole diff set, and it broke three ways, all found by cold review: (1) CRITICAL —
+`resource.isExternal`, the one non-string `diffField`, was BLANKED to `""`, and since `FieldDiff.raw`
+is what `use-inline-entity-edit.ts` puts in the write patch, that dropped the flag on APPLY, not only
+in the card; (2) its "a cap is not universal" claim was false for twelve further fields, all capped by
+their sanitizer and all absent from the map; (3) it copied the clipping ALGORITHM as
+`trimmed.slice(0, cap)` while forbidding a copy of the cap VALUE, losing `clipText`'s lone-high-
+surrogate back-off.
+
+Closed properly by inverting the default. The member is now `fieldSanitizers`, a field → the EXACT
+apply-path function (never a copy of its cap and never of its algorithm), and a field ABSENT from it
+is previewed VERBATIM — so a number, enum, date or rich field cannot be text-mangled by
+construction. Both the stored `before` and the incoming `after` go through the same entry, which is
+what makes a no-op `isExternal: false` compare equal against a row that carries no key at all
+(`sanitizeResource` stores the flag present-or-absent, so verbatim `str` was NOT sufficient there
+either — it fixes `true` and still mispreviews `false`). Sixteen fields across six entities now
+delegate, spanning five distinct sanitizers: `sanitizeText` at four different caps,
+`sanitizeMultiline` (`task.blockers` — no trim), `optText`/`optMultiline` (the resource optional
+path — trim, NO cap, and CRLF→LF for notes) and `isExternalFlag`. The last three were exported for
+this; ★ `stakeholder.notes` is `sanitizeText`, NOT the multiline one, despite being a textarea.
+
+★★ THE REAL DELIVERABLE IS THE DIFFERENTIAL, not the sixteen entries — an enumerated list is how
+this entry shipped covering four fields of sixteen the first time.
+`src/app/inline-ai-edit/plan.sanitizer-parity.test.ts` sweeps EVERY entity × EVERY `diffField` × a
+hostile probe set (6000-char string, two surrogates straddling real caps, padded, CRLF, both
+booleans, a number), pushing each through `describeEntityCalls` and through that field's REAL
+sanitizer, and asserting they agree. It enumerates over `diffFields`, so a new field or entity is
+covered the moment it is declared, and its two exclusions are named with reasons. Measured 192
+compared pairs / 175 preview-only rejections; mutation-proved 3/3 (a broken `stakeholder.notes` cap,
+the dropped `assigneeEmail` exception, and the original `isExternal` blanking each turn it red).
+
+★ It also found an adjacent defect in the other direction, now fixed: `buildTaskCleanPatch` THROWS
+`"assigneeEmail is invalid"` — failing the WHOLE patch, so every other field in the edit is lost —
+while the preview checked only an address's LENGTH. `emailFormatFields` closes that, and is
+deliberately per-FIELD: `sanitizeRaidItem` runs the same `sanitizeEmail` over `ownerEmail` with no
+format guard, so rejecting there would be the preview inventing a rule apply does not have.
+Reproduce: `npx vitest run src/app/inline-ai-edit src/app/chat-proposal-describe.test.ts`.
 
 Rewritten 2026-09-04, before this closure: the divergence was real, the mechanism the entry was
 filed with was not. Last executed verification 2026-09-04 —
@@ -28163,8 +28193,12 @@ about both.
 ★ `requiredNonEmpty` could not express any of this — the field was not required, it was silently
 normalised. Closing it needed the preview to run something like the field's own sanitizer before
 diffing, the same shape `dateFields` already used for dates (`sanitizeIsoDate(after) !== after` →
-reject); `textCaps` + `normalizePreviewValue` is that shape, generalised to every text field rather
-than a new per-field "may drop" flag.
+reject); `fieldSanitizers` is that shape, generalised to every field rather than a new per-field
+"may drop" flag. ★ It was `textCaps` + `normalizePreviewValue` for one commit — the same shape with
+the default inverted, which is what made it wrong; see the Status block above. Note this paragraph's
+own conclusion has since been overtaken too: the `assigneeEmail` throw IS now mirrored in the
+preview, by `emailFormatFields`, so the two paths no longer behave oppositely to a reader of the
+card — only to the sanitizers underneath.
 
 ★ Pre-existing across every entity with an email-shaped field. `email` on `resource` joined the
 existing three in the AI bulk-write-safety slice rather than introducing the problem.

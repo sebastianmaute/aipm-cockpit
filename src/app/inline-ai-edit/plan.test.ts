@@ -553,14 +553,50 @@ describe("preview matches what Apply stores", () => {
     expect(plan.updates.map((u) => u.after)).toEqual([""]);
   });
 
+  // ★★ THE FIXTURE PUTS THE `@` INSIDE THE CAP ON PURPOSE. This test is about
+  //  the CAP, and an over-cap address whose `@x.com` sits PAST 320 is clipped
+  //  into something `isValidEmail` rejects — which `buildTaskCleanPatch` throws
+  //  on, so the preview rejects it too (the case below). Using such a value
+  //  here would make this test assert the REJECTION while claiming to assert
+  //  the clip. Measured: this value stores at length 320 with its tail intact.
   it("clips an over-cap email at the task cap", () => {
     const item = { id: 1, assigneeEmail: "old@x.com" };
-    const long = "a".repeat(400) + "@x.com";
+    const long = `${"a".repeat(300)}@x.com${"b".repeat(100)}`;
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_task", input: { id: 1, assigneeEmail: long } }],
       { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsWith({ tasks: [item] as never }) },
     );
     expect(plan.updates[0].after.length).toBe(320);
+  });
+
+  // ★★★ A THROW ON APPLY COSTS THE WHOLE PATCH. `buildTaskCleanPatch` throws
+  //  "assigneeEmail is invalid" for an address `isValidEmail` rejects, and the
+  //  dispatcher surfaces that as a failed tool call — so every OTHER field the
+  //  same edit changed is lost with it. Before `emailFormatFields` the preview
+  //  had no format guard and happily showed this as an accepted diff; the
+  //  clipped value here (320 "a"s, the `@x.com` cut off) is exactly what Apply
+  //  chokes on. Found by `plan.sanitizer-parity.test.ts`, which had to carry
+  //  the pair as an enumerated exception until this guard existed.
+  it("rejects an email the sanitizer's clip makes malformed", () => {
+    const item = { id: 1, assigneeEmail: "old@x.com" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, assigneeEmail: `${"a".repeat(400)}@x.com` } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsWith({ tasks: [item] as never }) },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected.map((r) => r.reason)).toEqual(["bad-input"]);
+  });
+
+  // ★ Blanking an address stays legal — the sanitizer's own guard is
+  //  `if (e && !isValidEmail(e))`, so the format check must exempt "".
+  it("allows clearing an email", () => {
+    const item = { id: 1, assigneeEmail: "old@x.com" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, assigneeEmail: "" } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsWith({ tasks: [item] as never }) },
+    );
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates.map((u) => u.after)).toEqual([""]);
   });
 
   it("clips a stakeholder email at ITS cap, which is not the task one", () => {
