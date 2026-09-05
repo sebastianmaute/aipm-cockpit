@@ -355,8 +355,17 @@ const RESOURCE_EMAILS_MAX = 10;
 /** Sanitize a resource's additional emails from a JSON array or a delimited
  *  CSV/MD string. Trims + length-caps each (via sanitizeEmail — NO format
  *  validation, matching the primary `email` field), drops blanks,
- *  case-insensitive dupes, and any equal to the primary email; caps the list. */
-function sanitizeEmailList(input: unknown, primary: string | undefined): string[] {
+ *  case-insensitive dupes, and any equal to the primary email; caps the list.
+ *
+ *  ★★ EXPORTED FOR THE AI EDIT PREVIEW, which must call this rather than
+ *   approximate it (`INLINE_DESCRIPTORS.resource.fieldSanitizers.emails`) —
+ *   the descriptor's standing rule is delegate, never restate. ★★★ THAT CALLER
+ *   PASSES `undefined` FOR `primary` AND CANNOT DO OTHERWISE: a `fieldSanitizers`
+ *   entry receives the FIELD's value alone, never the row, so it cannot know the
+ *   resource's primary address. The preview therefore keeps an extra equal to the
+ *   primary where this function, called with the merged row's `email`, drops it —
+ *   a residual preview/apply divergence recorded rather than hidden. */
+export function sanitizeEmailList(input: unknown, primary: string | undefined): string[] {
   let raw: unknown[];
   if (Array.isArray(input)) raw = input;
   else if (typeof input === "string") raw = input.split(/[;,]/);

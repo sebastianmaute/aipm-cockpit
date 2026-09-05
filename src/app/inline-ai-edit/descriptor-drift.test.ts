@@ -54,6 +54,12 @@ const RES_VALUES: Record<string, unknown> = {
   firstName: "New", lastName: "Fam", title: "CTO", email: "a@b.co",
   department: "Delivery", company: "AIPM", location: "Berlin",
   businessPhone: "+49 30 1234", isExternal: true, notes: "n",
+  // ★ TWO distinct addresses, and RES_BASE deliberately carries no primary
+  //  `email` — `sanitizeEmailList` drops any extra equal to the primary, so a
+  //  one-element value that happened to match would make a DROPPED list read as
+  //  a survival. The `String(array)` comparison this file uses pins the order
+  //  as well as the membership.
+  emails: ["c@d.co", "e@f.co"],
 };
 
 const CASES = [

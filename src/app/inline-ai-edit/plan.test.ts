@@ -401,16 +401,23 @@ describe("describeEntityCalls — resource", () => {
     expect(plan.rejected).toEqual([]);
   });
 
-  it("ignores roleId and emails — neither round-trips verbatim through sanitizeResource", () => {
-    // roleId is an FK (excluded like Task.resourceId); `emails` is deduped
-    // against the primary and capped by sanitizeEmailList, so a previewed value
-    // would diverge from the stored one.
+  it("keeps roleId out of updates — an FK is disclosed as a link, never as a field diff", () => {
+    // ★★ THIS TEST USED TO PIN `emails` AS IGNORED TOO, on the recorded ground
+    //  that "sanitizeEmailList dedupes against the primary and caps it, so a
+    //  previewed value would diverge". That rationale predates `fieldSanitizers`,
+    //  which exists so a preview can CALL the writer's rule instead of
+    //  approximating it — see the "resource extra emails" describe below, which
+    //  is the assertion that replaced this half (§383).
+    // ★ `roleId` stays excluded for a different reason that still holds:
+    //  `FieldDiff.raw` becomes the write patch, and a rendered role LABEL
+    //  arriving at `toNumber` nulls the FK. It is disclosed via `linkFields`.
     const plan = describeEntityCalls(
-      [{ type: "tool_use", name: "update_resource", input: { id: 5, roleId: 3, emails: ["a@b.co"] } }],
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, roleId: 3 } }],
       { descriptor: d, item: resource, ws: resWs },
     );
     expect(plan.updates).toEqual([]);
     expect(plan.rejected).toEqual([]);
+    expect(plan.links.map((l) => l.field)).toEqual(["roleId"]);
   });
 
   it("previews blanking ONE name part as the clearing the writer performs", () => {
@@ -447,6 +454,111 @@ describe("describeEntityCalls — resource", () => {
       { descriptor: d, item: resource, ws: resWs },
     );
     expect(absent.rejected).toEqual([{ toolName: "update_resource", reason: "unknown-id", detail: "999999" }]);
+  });
+});
+
+describe("resource extra emails (383)", () => {
+  const d = INLINE_DESCRIPTORS.resource;
+  // ★ A stored row's extras are ALREADY sanitized, so the descriptor entry is
+  //  idempotent on `before` and the whole diff below comes from `after`.
+  const item = { id: 5, firstName: "M.", lastName: "Jordan", email: "m@x.com", emails: ["b@x.com"] };
+  const emailWs = wsWith({ resources: [item] as never });
+
+  it("previews the writer's own dedupe of the extra address list", () => {
+    // ★★★ MEASURED AGAINST `sanitizeResource`, NOT ASSUMED, and the measurement
+    //  overturned the expectation this test was drafted with. The draft asserted
+    //  an EMPTY plan on the ground that the repeat collapses AND the primary is
+    //  dropped, leaving what is stored — but "m@x.com" is not IN this list, so
+    //  only the dedupe fires: `["b@x.com","b@x.com","a@x.com"]` sanitizes to
+    //  `["b@x.com","a@x.com"]` against a stored `["b@x.com"]`. That is a real
+    //  change and the preview must show it. Reproduce:
+    //  `sanitizeResource({id:5,firstName:"M.",lastName:"Jordan",email:"m@x.com",
+    //   emails:["b@x.com","b@x.com","a@x.com"]}).emails` -> ["b@x.com","a@x.com"].
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: ["b@x.com", "b@x.com", "a@x.com"] } }],
+      { descriptor: d, item, ws: emailWs },
+    );
+    expect(plan.updates).toEqual([
+      { field: "emails", before: "b@x.com", after: "b@x.com, a@x.com", raw: "b@x.com, a@x.com" },
+    ]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("emits nothing when the sanitized list already equals the stored one", () => {
+    // The other side of the same entry: a repeat that collapses BACK to what is
+    // stored is a no-op, and normalising `before` through the same function is
+    // what makes it compare equal. Without that, every send would render a diff.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: ["b@x.com", "  b@x.com  "] } }],
+      { descriptor: d, item, ws: emailWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("previews clearing the extras", () => {
+    // `sanitizeEmailList` yields `[]`, `sanitizeResource` then omits the key
+    // entirely — the field is genuinely cleared, so `""` is the honest preview.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: [] } }],
+      { descriptor: d, item, ws: emailWs },
+    );
+    expect(plan.updates).toEqual([{ field: "emails", before: "b@x.com", after: "", raw: "" }]);
+  });
+
+  it("KNOWN DIVERGENCE: keeps an extra equal to the primary, which the write drops", () => {
+    // ★★★ NOT THE BEHAVIOUR THE WRITER HAS, and pinned deliberately so the gap
+    //  is visible rather than discovered again. `sanitizeResource` calls
+    //  `sanitizeEmailList(input.emails, email)` with the MERGED row's primary and
+    //  drops "m@x.com" from the extras; a `fieldSanitizers` entry is handed the
+    //  FIELD's value alone and cannot know the primary, so it keeps it. The card
+    //  therefore promises one address the write will not store. Widening the
+    //  signature to take the row would change every entry in every entity, so
+    //  this is recorded, not fixed. If the entry ever DOES learn the primary,
+    //  this expectation is the one to flip.
+    //  Reproduce the writer's half: `sanitizeResource({...item,
+    //   emails:["m@x.com","a@x.com"]}).emails` -> ["a@x.com"].
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: ["m@x.com", "a@x.com"] } }],
+      { descriptor: d, item, ws: emailWs },
+    );
+    expect(plan.updates).toEqual([
+      { field: "emails", before: "b@x.com", after: "m@x.com, a@x.com", raw: "m@x.com, a@x.com" },
+    ]);
+  });
+});
+
+describe("task lastUpdateDate", () => {
+  const d = INLINE_DESCRIPTORS.task;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const item = { id: 1, taskName: "T", dueDate: "2026-01-01", lastUpdateDate: "2026-01-01" } as any;
+  const lupWs = wsWith({ tasks: [item] as never });
+
+  it("previews an explicit lastUpdateDate change", () => {
+    // Never stamped implicitly by any writer on this path, so an explicit change
+    // is signal rather than noise. `buildTaskCleanPatch` persists it verbatim
+    // once `sanitizeIsoDate` accepts it.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, lastUpdateDate: "2026-02-02" } }],
+      { descriptor: d, item, ws: lupWs },
+    );
+    expect(plan.updates).toEqual([
+      { field: "lastUpdateDate", before: "2026-01-01", after: "2026-02-02", raw: "2026-02-02" },
+    ]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("rejects a malformed lastUpdateDate the writer would silently drop", () => {
+    // `dateFields` membership is what buys this: `buildTaskCleanPatch` runs
+    // `sanitizeIsoDate` and keeps the key only when it parses, so an unparseable
+    // value leaves the field untouched. Previewing it as a change would promise
+    // a write that does not happen.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, lastUpdateDate: "02/02/2026" } }],
+      { descriptor: d, item, ws: lupWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([{ toolName: "update_task", reason: "bad-input", detail: "lastUpdateDate=02/02/2026" }]);
   });
 });
 

@@ -20,6 +20,7 @@ import {
   isExternalFlag,
   optMultiline,
   optText,
+  sanitizeEmailList,
   sanitizeIdList,
 } from "../sanitize-entities";
 import {
@@ -244,10 +245,25 @@ function raidStatusDefault(cat: RaidCategory): string {
 export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   task: {
     entity: "task", updateTool: "update_task", deleteTool: "delete_task", createTool: "create_task", wsKey: "tasks",
-    diffFields: ["taskName", "assignee", "assigneeEmail", "dueDate", "status", "priority", "description", "blockers", "group", "labels"],
+    // ★★ `lastUpdateDate` is LAST because the loop emits diffs in this order and
+    //  the existing expectations read positionally. It is a real declared input
+    //  (`TaskInput.lastUpdateDate`, written by `buildTaskCleanPatch`) that NO
+    //  writer stamps implicitly on an inline edit, so an explicit change is
+    //  signal rather than noise.
+    diffFields: ["taskName", "assignee", "assigneeEmail", "dueDate", "status", "priority", "description", "blockers", "group", "labels", "lastUpdateDate"],
     requiredNonEmpty: new Set(["taskName", "dueDate"]),
     requiredNonEmptyGroups: [],
-    dateFields: new Set(["dueDate"]),
+    // ★★ THE TWO TASK DATES ARE NOT SYMMETRIC ON A BLANK, and only `dueDate`'s
+    //  half is closed here. `buildTaskCleanPatch` THROWS on an unparseable
+    //  `dueDate` and `requiredNonEmpty` rejects the blank ahead of it; for
+    //  `lastUpdateDate` it merely DROPS the key (`if (d) cleanPatch.lastUpdateDate = d`), and
+    //  a dropped key on a PATCH merged over the stored task leaves the field
+    //  UNCHANGED — where the full-record sanitizers behind raid/change/milestone
+    //  clear theirs. So `lastUpdateDate: ""` still previews a clear the write
+    //  will not make. Recorded, not fixed: closing it needs a "blank is a no-op"
+    //  mechanism this descriptor does not have, and `requiredNonEmpty` is the
+    //  wrong one (it means "the writer throws", which is not what happens).
+    dateFields: new Set(["dueDate", "lastUpdateDate"]),
     intRangeFields: {},
     enumFields: { status: constSet(TASK_STATUSES), priority: constSet(PRIORITIES) },
     // ★ The ONLY member across all six entities: `buildTaskCleanPatch` throws
@@ -385,10 +401,6 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // Derived from `ResourceInput` (chat-tools.ts) ∩ what `sanitizeResource`
     // stores VERBATIM. Four writable inputs are deliberately absent:
     //   • `roleId` — an FK, excluded by the same rule as Task.resourceId.
-    //   • `emails` — sanitizeEmailList DEDUPES it against the primary `email`
-    //     and caps it, so a previewed list routinely diverges from the stored
-    //     one. `arrayFields` cannot express that (it means "comma-split on
-    //     Apply", which is the task-labels shape, not this one).
     //   • `name` — a WRITE ALIAS the dispatcher splits into first/last; it is
     //     not a stored field, so `before` would read empty for every resource.
     //     Diffing the parts is the honest form. ★ `describeEntityCalls` projects
@@ -397,7 +409,16 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //     see 372.
     //   • `birthday` — stored, but absent from `ResourceInput`: the tool cannot
     //     write it, so a diff here could never be applied.
-    diffFields: ["firstName", "lastName", "title", "email", "department", "company", "location", "businessPhone", "isExternal", "notes"],
+    // ★★★ `emails` IS THE ONE ARRAY-VALUED MEMBER HERE, and it is deliberately
+    //  NOT in `arrayFields`. Its entry below renders the list as the joined
+    //  string `FieldDiff.raw` carries, and `coerce` (use-inline-entity-edit.ts)
+    //  passes a non-`arrayFields` value through UNTOUCHED — so the string
+    //  reaches `sanitizeEmailList`'s OWN delimited-string branch (it splits on
+    //  `[;,]`), which is the writer parsing its own format. Adding it to
+    //  `arrayFields` would instead split it in `coerce` on "," alone: a SECOND
+    //  parser for a format the writer already owns, i.e. the restatement the
+    //  `fieldSanitizers` docstring forbids.
+    diffFields: ["firstName", "lastName", "title", "email", "department", "company", "location", "businessPhone", "isExternal", "notes", "emails"],
     // ★★★ THE ONLY GROUP ACROSS THESE SIX DESCRIPTORS today (grep
     // `requiredNonEmptyGroups: [` — every other entry is `[]`), and the reason
     // `requiredNonEmptyGroups` exists. `sanitizeResource`'s gate is
@@ -450,6 +471,21 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       businessPhone: optionalText,
       notes: optionalMultiline,
       isExternal: (v) => String(isExternalFlag(v)),
+      // ★★★ `undefined` FOR THE PRIMARY IS A NARROWING, NOT A CHOICE. A
+      //  `fieldSanitizers` entry is handed the FIELD's value and nothing else,
+      //  so it cannot see the row's `email` — while `sanitizeResource` calls
+      //  `sanitizeEmailList(input.emails, email)` with the MERGED row's primary
+      //  and drops an extra equal to it. The dedupe, the trim, the per-address
+      //  cap and the 10-address list cap are all the writer's own and agree; an
+      //  incoming extra that EQUALS the primary is the one case where the
+      //  preview shows an address the write will not store (and, at the list
+      //  cap, shifts which address is the tenth). Widening the signature to
+      //  take the row would touch every entry in every entity, so the
+      //  divergence is recorded here and in `sanitizeEmailList`'s docstring
+      //  rather than papered over with a local re-implementation.
+      // ★ Joined with ", " like every other list this module renders (`str`,
+      //  `resolveLinkTitles`); the writer's `[;,]` split accepts it back.
+      emails: (v) => sanitizeEmailList(v, undefined).join(", "),
     },
     // ★★★ `roleId` IS writable — it is listed as absent from `diffFields` above
     //  under "an FK, excluded by the same rule as Task.resourceId", and that

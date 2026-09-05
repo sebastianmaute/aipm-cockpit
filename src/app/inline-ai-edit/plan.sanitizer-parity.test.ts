@@ -254,12 +254,12 @@ const fieldsUnderTest = (entity: InlineEntity): string[] =>
  *  under test except the enum and date fields.
  *
  *  ★★ THE EXCLUSION IS DELIBERATELY WIDER THAN THE SET THAT YIELDS NOTHING, and
- *  the two numbers must not be conflated. It drops 19 of the 50 fields under
- *  test (11 enum + 8 date); only 13 of those actually contribute zero
+ *  the two numbers must not be conflated. It drops 20 of the 52 fields under
+ *  test (11 enum + 9 date); only 13 of those actually contribute zero
  *  comparisons — the 11 enum fields plus `task.dueDate` and `milestone.date`.
- *  The other SIX date fields each contribute exactly one: `raid.raisedDate`,
+ *  The other SEVEN date fields each contribute exactly one: `raid.raisedDate`,
  *  `raid.targetDate`, `raid.closedDate`, `change.raisedDate`,
- *  `change.decisionDate`, `milestone.achievedDate`. The date guard is
+ *  `change.decisionDate`, `milestone.achievedDate`, `task.lastUpdateDate`. The date guard is
  *  `after !== "" && sanitizeIsoDate(after) !== after`, so the EMPTY-STRING probe
  *  sails straight through it, and the two fields that still yield nothing are
  *  the ones `requiredNonEmpty` catches first.
@@ -374,8 +374,12 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     expect(silent).toEqual([]);
 
     // (3) AGGREGATE, as a fraction of what the comparable fields could yield.
-    // MEASURED 2026-09-05: 234 comparisons over 31 comparable fields × 9 probes
-    // = 279 possible, i.e. 84%. (It was 226/81% until §384 turned the resource
+    // MEASURED 2026-09-05: 244 comparisons over 32 comparable fields × 9 probes
+    // = 288 possible, i.e. 85%. (It was 234/279/84% until §383 added
+    // `resource.emails` — a 32nd comparable field, +9 — and `task.lastUpdateDate`,
+    // a DATE field that is NOT comparable yet still contributes its one
+    // empty-string comparison, +1: which is why the numerator moved by 10 and
+    // the denominator by 9.) (It was 226/81% until §384 turned the resource
     // name parts' joint rule into a group: the four probes that blank a part —
     // `true`, `false`, `42`, `""` — used to be preview-only REJECTIONS on both
     // `firstName` and `lastName`, and are now comparisons that agree. The floor
@@ -395,7 +399,7 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     // return NOTHING left `silent` empty and `possible` zero, so both floors
     // above passed with the whole differential switched off (measured: 7 passed,
     // EXIT=0). Pinning the comparable pairs to a majority of the ENUMERATED ones
-    // — 279 of 450, i.e. 62%, on 2026-09-05 — means the denominator cannot be
+    // — 288 of 468, i.e. 62%, on 2026-09-05 — means the denominator cannot be
     // shrunk to make the numerator look good.
     expect(possible).toBeGreaterThan(enumerated / 2);
     expect(compared).toBeGreaterThan(possible / 2);
