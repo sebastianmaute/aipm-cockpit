@@ -2147,7 +2147,10 @@ describe("DocumentsPanel — edit mode toggle", () => {
       updatedAt: NOW,
     };
     renderPanel([headingDoc]);
-    await userEvent.click(screen.getByRole("button", { name: headingDoc.title }));
+    // ★ No opening click: `selected` falls back to selectionPool[0], so the sole
+    // document is ALREADY open. Clicking its name was a no-op before the collapse
+    // landed and is now the collapse gesture itself — it would hide the very body
+    // this test then looks for.
 
     // Preview is the default — no block editor textbox mounted yet.
     expect(screen.queryByRole("textbox", { name: /Heading text/ })).toBeNull();
@@ -2215,7 +2218,10 @@ describe("DocumentsPanel — document-switch commit guard", () => {
 
   it("shows the new document and commits nothing when switching without editing", async () => {
     const { mutateDocuments } = renderWithSpy();
-    await userEvent.click(screen.getByRole("button", { name: docA.title }));
+    // ★ docA is ALREADY open (the selectionPool[0] fallback), so no opening
+    // click — that click is now the collapse gesture and would hide the editor.
+    // The docB click below is a real SWITCH and still expands, which is the
+    // behaviour this test cares about.
     await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
     expect(
       await screen.findByRole("textbox", { name: headingTextName(0) }),
@@ -2242,7 +2248,8 @@ describe("DocumentsPanel — document-switch commit guard", () => {
   //   exists. fireEvent dispatches the click alone and leaves focus put.
   it("flushes a pending unblurred edit to the OLD document on a switch, never the new one", async () => {
     const { mutateDocuments } = renderWithSpy();
-    await userEvent.click(screen.getByRole("button", { name: docA.title }));
+    // ★ docA is ALREADY open (the selectionPool[0] fallback) — see the sibling
+    // test: an opening click is now the collapse gesture, not a no-op.
     await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
     const text = await screen.findByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!"); // dirty, unblurred — and still focused
@@ -2518,5 +2525,37 @@ describe("DocumentsPanel — the list is sized by its rows, not crushed by the p
     renderPanel([doc(1, "Alpha")]);
     expect(listBox()).toHaveClass("max-h-80");
     expect(listBox()).toHaveClass("overflow-auto");
+  });
+});
+
+describe("documents pane — collapsing the open document's body", () => {
+  it("collapses the body when the open document's name is clicked again", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Alpha")]);
+    await user.click(screen.getByRole("button", { name: "Alpha" }));
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "false");
+    await user.click(screen.getByRole("button", { name: "Alpha" }));
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  // ★★★ THE REGRESSION THIS DESIGN EXISTS TO PREVENT. `selected` falls back to
+  // selectionPool[0], so the FIRST document renders as open while `selectedId` is
+  // still null. A toggle comparing the clicked id against `selectedId` therefore
+  // does nothing here — and a fixture that clicks only AFTER an explicit
+  // selection passes either way, which is why this case is separate.
+  it("collapses the FIRST document even though selectedId is still null", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Alpha")]);
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "Alpha" }));
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("selecting a different document expands it rather than inheriting the collapse", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Alpha"), doc(2, "Beta")]);
+    await user.click(screen.getByRole("button", { name: "Alpha" })); // collapse Alpha
+    await user.click(screen.getByRole("button", { name: "Beta" })); // switch
+    expect(screen.getByRole("button", { name: "Beta" })).toHaveAttribute("aria-expanded", "true");
   });
 });

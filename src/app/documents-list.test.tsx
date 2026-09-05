@@ -73,3 +73,19 @@ describe("DocumentsList — the empty-state create box", () => {
     ).toBeNull();
   });
 });
+
+describe("DocumentsList — the open row's disclosure state", () => {
+  it("marks the open document's title button expanded, and only that one", () => {
+    renderList({ documents: [doc(1, "Alpha"), doc(2, "Beta")], selectedId: 1, collapsed: false });
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "true");
+    // A row that is not open is not a disclosure at all — it must carry no
+    // aria-expanded, rather than aria-expanded="false", which would announce
+    // every closed row as a collapsed section.
+    expect(screen.getByRole("button", { name: "Beta" })).not.toHaveAttribute("aria-expanded");
+  });
+
+  it("marks the open document's title button collapsed when the body is collapsed", () => {
+    renderList({ documents: [doc(1, "Alpha")], selectedId: 1, collapsed: true });
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "false");
+  });
+});

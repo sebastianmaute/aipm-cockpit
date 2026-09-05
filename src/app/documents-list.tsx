@@ -35,6 +35,10 @@ export interface DocumentsListProps {
   /** Already sorted by the orchestrator. */
   documents: readonly ProjectDocument[];
   selectedId: number | null;
+  /** Whether the OPEN document's body is collapsed. Drives `aria-expanded` on
+   *  that one row's title button; every other row is not a disclosure and
+   *  carries no `aria-expanded` at all. */
+  collapsed?: boolean;
   onSelect: (id: number) => void;
   sortKey: DocumentSortKey;
   sortDir: SortDir;
@@ -85,6 +89,7 @@ export function DocumentsList({
   lang,
   documents,
   selectedId,
+  collapsed = false,
   onSelect,
   sortKey,
   sortDir,
@@ -198,12 +203,20 @@ export function DocumentsList({
               {/* Selection rides a real button so it is keyboard-operable. The
                   name is the DISAMBIGUATED token, not the raw title - titles are
                   NOT unique (uniqueDocumentTitle is bypassed by commitRename and
-                  the AI createDocument path). `aria-current` marks the current
-                  item in a set, not a toggle, so it is not aria-pressed. */}
+                  the AI createDocument path).
+                  `aria-current` marks the current item in the set; `aria-expanded`
+                  marks the same row as a disclosure, because clicking an
+                  already-open document's name now collapses its body. Both are
+                  correct together and neither replaces the other — a row that is
+                  not open carries `aria-expanded` NOT AT ALL rather than "false",
+                  which would announce every closed row as a collapsed section.
+                  Superseded the earlier "not a toggle" note, which described the
+                  behaviour before the collapse landed. */}
               <button
                 type="button"
                 onClick={() => onSelect(doc.id)}
                 aria-current={doc.id === selectedId ? "true" : undefined}
+                aria-expanded={doc.id === selectedId ? !collapsed : undefined}
                 aria-label={token}
                 className={`text-left underline-offset-2 hover:underline ${INTERACTIVE}`}
               >
