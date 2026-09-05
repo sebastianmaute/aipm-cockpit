@@ -51,6 +51,7 @@ function validForm(): TaskFormDraft {
     successorLinks: [],
     originalEstimateMinutes: undefined,
     timeSpentMinutes: undefined,
+    remainingEstimateMinutes: undefined,
     pushToJira: false,
     healthOverride: "",
     knowledgeLinks: [],
@@ -1275,5 +1276,41 @@ describe("useTaskSubmit — staged successor links", () => {
     const reset = setForm.mock.calls.at(-1)?.[0] as TaskFormDraft;
     expect(reset.successorLinks).toEqual([]);
     expect(reset.successorLinks).not.toEqual(staged.successorLinks);
+  });
+});
+
+describe("useTaskSubmit — remainingEstimateMinutes threading", () => {
+  it("carries a pinned remaining value from the draft into the saved task", () => {
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          setTasks,
+          tasks: [],
+          tasksRef: { current: [] },
+          form: {
+            ...validForm(),
+            originalEstimateMinutes: 480,
+            timeSpentMinutes: 120,
+            remainingEstimateMinutes: 240,
+          },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const nextList = setTasks.mock.calls[0][0] as Task[];
+    expect(nextList[0].remainingEstimateMinutes).toBe(240);
+  });
+
+  // THE SITE A FIRST CUT MISSES. Without the hydration line, opening a task
+  // that carries a pinned remaining value and pressing Save silently clears
+  // it -- a data loss with the whole suite green.
+  it("hydrates a pinned remaining value when an existing task is opened for edit", () => {
+    const setForm = vi.fn();
+    const pinned = makeTask({ id: 1, remainingEstimateMinutes: 240 });
+    const { result } = renderHook(() => useTaskSubmit(makeArgs({ setForm })));
+    act(() => result.current.openEditModal(pinned));
+    const seeded = setForm.mock.calls[0][0] as TaskFormDraft;
+    expect(seeded.remainingEstimateMinutes).toBe(240);
   });
 });

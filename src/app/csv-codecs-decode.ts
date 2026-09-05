@@ -731,6 +731,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     resourceId: fkIdOrUndefined(obj.resourceId),
     originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
     timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
+    remainingEstimateMinutes: sanitizeOptionalMinutes(obj.remainingEstimateMinutes),
     knowledgeLinks: decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks),
     noteLog: (() => {
       const nl = decodeNoteLog(obj.noteLog);

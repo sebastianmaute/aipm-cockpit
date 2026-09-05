@@ -87,6 +87,7 @@ export const CSV_COLUMNS = [
   "resourceId",
   "originalEstimateMinutes",
   "timeSpentMinutes",
+  "remainingEstimateMinutes",
   "knowledgeLinks",
   "outlookEventId",
   "noteLog",

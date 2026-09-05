@@ -79,6 +79,10 @@ export type Task = {
   originalEstimateMinutes?: number;
   /** Optional time-spent so far, stored canonically in MINUTES (same basis). */
   timeSpentMinutes?: number;
+  /** Minutes still to do, when the user has PINNED a value in the Time tracking
+   *  dialog. Absent means "not overridden" — read `derivedRemaining()` instead.
+   *  Never 0 for "not overridden": 0 is the real claim "no work left". */
+  remainingEstimateMinutes?: number;
   /** Single optional category/project this task belongs to. */
   group?: string;
   /** Free-form tags for cross-cutting filtering. */

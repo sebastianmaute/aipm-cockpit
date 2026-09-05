@@ -134,6 +134,36 @@ describe("task effort fields round-trip (estimate/time-spent)", () => {
     expect(back.originalEstimateMinutes).toBeUndefined();
     expect(back.timeSpentMinutes).toBeUndefined();
   });
+
+  function pinnedRemainingWorkspace(): Workspace {
+    const t: Task = {
+      ...task(1, "Alex Example"),
+      originalEstimateMinutes: 480,
+      timeSpentMinutes: 120,
+      remainingEstimateMinutes: 240,
+    };
+    return { ...emptyWorkspace(), tasks: [t] };
+  }
+
+  test("round-trips remainingEstimateMinutes through CSV", () => {
+    const back = csvToWorkspace(workspaceToCsv(pinnedRemainingWorkspace())).tasks[0];
+    expect(back.remainingEstimateMinutes).toBe(240);
+  });
+
+  test("round-trips remainingEstimateMinutes through Markdown", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(pinnedRemainingWorkspace())).tasks[0];
+    expect(back.remainingEstimateMinutes).toBe(240);
+  });
+
+  // THIS is the test that catches a codec change masquerading as a new column.
+  // A task with no remaining value must decode to `undefined`, never 0 -- a stored
+  // zero is the real claim "no work left", which is a different thing from
+  // "not overridden".
+  test("a task with no remaining value decodes to undefined, not zero", () => {
+    const ws = { ...emptyWorkspace(), tasks: [task(1, "Alex Example")] };
+    const back = csvToWorkspace(workspaceToCsv(ws)).tasks[0];
+    expect(back.remainingEstimateMinutes).toBeUndefined();
+  });
 });
 
 describe("ProjectStatus defaults", () => {

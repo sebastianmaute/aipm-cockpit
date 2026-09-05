@@ -65,13 +65,28 @@ describe("TaskFormFields dictation", () => {
     expect(descriptionMic).toBeDefined();
   });
 
-  it("renders a dictation mic button next to the task-name input", () => {
+  it("renders the task-name dictation mic in the field caption, above the input", () => {
+    // ★ The mic no longer shares a parent with the input. It moved INTO the
+    //   Field's caption via `captionAction`, which FORCES `group` mode --
+    //   because a <label> with no `for` binds to its first labelable
+    //   descendant, and a button is labelable, so a mic inside the default
+    //   <label> branch would make clicking the words "Task name" start
+    //   dictation. `task-form-layout.test.tsx` mutation-proves that forcing.
     render(<Harness />, { wrapper: TestProviders });
     const taskNameInput = screen.getByPlaceholderText("What needs to happen?");
+    const group = screen.getByRole("group", { name: "Task name" });
     const mics = screen.getAllByRole("button", { name: /hold to dictate/i });
     expect(mics.length).toBe(2);
-    const titleMic = mics.find((m) => m.parentElement?.contains(taskNameInput));
+    const titleMic = mics.find((m) => group.contains(m));
     expect(titleMic).toBeDefined();
+    // In the CAPTION specifically, i.e. ahead of the input -- not merely
+    // somewhere inside the group.
+    expect(
+      titleMic!.compareDocumentPosition(taskNameInput) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    // And the input keeps its own accessible name: a named role="group" does
+    // NOT name its input, and an unlabeled form control is axe-critical.
+    expect(screen.getByRole("textbox", { name: "Task name" })).toBeDefined();
   });
 
   it("caps a dictated task-name append at TASK_NAME_MAX", () => {

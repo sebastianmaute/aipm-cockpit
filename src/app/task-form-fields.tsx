@@ -1,14 +1,14 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import { ComboInput } from "./combo-input";
+import { EffortField } from "./effort-field";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { NoteLogPanel, type NoteLogPanelProps } from "./note-log-panel";
 import { ResourcePicker } from "./resource-picker";
 import type { listContacts } from "./contacts";
 import { DependencyLinkGroup } from "./dependencies-editor";
-import { formatDuration, parseDuration } from "./duration";
-import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
+import { CharCounter, FieldError } from "./field-feedback";
 import { Field, TaskFormSection } from "./task-form-layout";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
@@ -35,7 +35,7 @@ import {
   TEXTAREA_MAX,
 } from "./sanitize";
 import { describeTextCap } from "./sanitize-report";
-import { EffortProgressBar } from "./effort-progress-bar";
+import { TaskTimeTrackingButton } from "./task-time-tracking-button";
 import { SegmentedControl } from "./segmented-control";
 import { useTaskForm } from "./task-form-context";
 import { useModalVisibility } from "./use-modal-visibility";
@@ -198,26 +198,28 @@ export function TaskFormFields({
           label={t(lang, "taskName")}
           required
           className="sm:col-span-2"
+          captionAction={titleMic}
         >
-          <div className="flex items-center gap-1">
-            <Input
-              type="text"
-              required
-              value={form.taskName}
-              onChange={(e) => setForm({ ...form, taskName: e.target.value })}
-              onFocus={titleDictationReg.onFocus}
-              onBlur={(e) => {
-                setForm({ ...form, taskName: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() });
-                markTouched("taskName");
-                titleDictationReg.onBlur();
-              }}
-              placeholder={t(lang, "placeholderTaskName")}
-              invalid={errorFor("taskName") ? true : undefined}
-              aria-describedby={describedBy("taskName", "taskName-counter")}
-              className="w-full"
-            />
-            {titleMic}
-          </div>
+          <Input
+            type="text"
+            required
+            value={form.taskName}
+            // Explicit, because `captionAction` forces `group` mode and a named
+            // role="group" does NOT give its input an accessible name. An
+            // unlabeled form control is an axe-CRITICAL failure.
+            aria-label={t(lang, "taskName")}
+            onChange={(e) => setForm({ ...form, taskName: e.target.value })}
+            onFocus={titleDictationReg.onFocus}
+            onBlur={(e) => {
+              setForm({ ...form, taskName: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() });
+              markTouched("taskName");
+              titleDictationReg.onBlur();
+            }}
+            placeholder={t(lang, "placeholderTaskName")}
+            invalid={errorFor("taskName") ? true : undefined}
+            aria-describedby={describedBy("taskName", "taskName-counter")}
+            className="w-full"
+          />
           <CharCounter value={form.taskName} max={TASK_NAME_MAX} id="taskName-counter" lang={lang} />
           {titleDictationStatus}
           <FieldError id="taskName-error">{errorFor("taskName")}</FieldError>
@@ -394,148 +396,7 @@ export function TaskFormFields({
       </TaskFormSection>
       )}
 
-      <TaskFormSection index={3} title={t(lang, "taskFormSectionEffort")}>
-        <Field label={t(lang, "group")} hint={t(lang, "taskHintGroup")}>
-          <ComboInput
-            lang={lang}
-            value={form.group}
-            suggestions={uniqueGroups}
-            onChange={(group) => setForm({ ...form, group })}
-            onBlur={(e) =>
-              setForm((prev) => ({ ...prev, group: describeTextCap(e.target.value, GROUP_MAX).value.trim() }))
-            }
-            aria-describedby="group-counter"
-            placeholder={t(lang, "placeholderGroup")}
-          />
-          <CharCounter value={form.group} max={GROUP_MAX} id="group-counter" lang={lang} />
-        </Field>
-
-        {isVisible("estimate") && (
-          <EffortField
-            key={`estimate-${editingId ?? "new"}`}
-            lang={lang}
-            label={t(lang, "taskOriginalEstimate")}
-            minutes={form.originalEstimateMinutes}
-            onChange={(minutes) =>
-              setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
-            }
-          />
-        )}
-
-        {isVisible("timeSpent") && (
-          <>
-            <EffortField
-              key={`spent-${editingId ?? "new"}`}
-              lang={lang}
-              label={t(lang, "taskTimeSpent")}
-              minutes={form.timeSpentMinutes}
-              onChange={(minutes) =>
-                setForm((prev) => ({ ...prev, timeSpentMinutes: minutes }))
-              }
-            />
-
-            <EffortProgressBar
-              lang={lang}
-              estimateMin={form.originalEstimateMinutes}
-              spentMin={form.timeSpentMinutes}
-            />
-          </>
-        )}
-
-        {isVisible("labels") && (
-          <Field label={t(lang, "labels")} group>
-            <LabelsInput
-              lang={lang}
-              value={form.labels}
-              suggestions={uniqueLabels}
-              onChange={(labels) => setForm({ ...form, labels })}
-            />
-          </Field>
-        )}
-      </TaskFormSection>
-
-      {(isVisible("dependencies") || isVisible("blockers") || (budgetLink !== undefined && isVisible("budgetBucket"))) && (
-      <TaskFormSection index={4} title={t(lang, "taskFormSectionRelationships")}>
-        {isVisible("dependencies") && (
-        <>
-        {/* `group` on BOTH: once a group holds a chip, that chip's remove ✕ is
-            the first labelable element inside the Field, so a plain <label>
-            caption would adopt it and clicking the caption would fire a
-            removal. ★ On an EMPTY list the first labelable descendant is
-            `EntityLinkPicker`'s search box — an unconditional `<Input
-            role="combobox">` that `DependencyLinkGroup` renders ahead of the
-            type `<Select>` — so the caption merely focuses the search field and
-            looks fine. (An earlier revision of this comment named the `<Select>`
-            here. That was true of the OLD editor, which had no search box; it
-            went stale in this branch's own rewrite.) The benign empty case is
-            why the single field this replaced survived the first sweep and a
-            cold review found it. */}
-        <Field label={t(lang, "depPredecessors")} hint={t(lang, "taskHintDependencies")} className="sm:col-span-2" group>
-          <DependencyLinkGroup
-            lang={lang}
-            direction="predecessor"
-            links={form.dependencies}
-            allTasks={tasksForDeps}
-            ownTaskId={editingId}
-            onChange={(dependencies) =>
-              setForm((prev) => ({ ...prev, dependencies }))
-            }
-          />
-        </Field>
-        <Field label={t(lang, "depSuccessors")} hint={t(lang, "taskHintSuccessors")} className="sm:col-span-2" group>
-          <DependencyLinkGroup
-            lang={lang}
-            direction="successor"
-            links={form.successorLinks}
-            allTasks={tasksForDeps}
-            ownTaskId={editingId}
-            onChange={(successorLinks) =>
-              setForm((prev) => ({ ...prev, successorLinks }))
-            }
-          />
-        </Field>
-        {/* Rendered ONCE for both groups — it lived inside the editor, which is
-            now instantiated twice, and printing the type legend twice on one
-            modal is noise. */}
-        <p className="sm:col-span-2 text-xs text-muted-foreground">{t(lang, "depHelp")}</p>
-        </>
-        )}
-
-        {isVisible("blockers") && (
-        <Field label={t(lang, "blockers")} hint={t(lang, "taskHintBlockers")} className="sm:col-span-2">
-          <Textarea
-            rows={2}
-            value={form.blockers}
-            onChange={(e) => setForm({ ...form, blockers: e.target.value })}
-            onBlur={(e) =>
-              setForm({ ...form, blockers: describeTextCap(e.target.value, TEXTAREA_MAX).value })
-            }
-            placeholder={t(lang, "placeholderBlockers")}
-            aria-describedby="blockers-counter"
-            className="w-full"
-          />
-          <CharCounter value={form.blockers} max={TEXTAREA_MAX} id="blockers-counter" lang={lang} />
-        </Field>
-        )}
-
-        {budgetLink !== undefined && isVisible("budgetBucket") && (
-        <Field label={t(lang, "taskBudgetBucket")}>
-          <Select
-            value={budgetLink.bucketId === null ? "" : String(budgetLink.bucketId)}
-            onChange={(e) => budgetLink.onChange(e.target.value === "" ? null : Number(e.target.value))}
-            className="w-full"
-          >
-            <option value="">{t(lang, "budgetBucketNone")}</option>
-            {budgetLink.buckets.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </Select>
-        </Field>
-        )}
-      </TaskFormSection>
-      )}
-
-      <TaskFormSection index={5} title={t(lang, "taskFormSectionStatus")}>
+      <TaskFormSection index={3} title={t(lang, "taskFormSectionStatus")}>
         {(isVisible("health") || isVisible("healthOverride")) && (
         <Field label={t(lang, "health")} hint={t(lang, "taskHintHealth")} className="sm:col-span-2" group>
           {(() => {
@@ -724,56 +585,169 @@ export function TaskFormFields({
             </label>
           )}
       </TaskFormSection>
+
+      <TaskFormSection index={4} title={t(lang, "taskFormSectionEffort")}>
+        {isVisible("estimate") && (
+          <EffortField
+            key={`estimate-${editingId ?? "new"}`}
+            lang={lang}
+            label={t(lang, "taskOriginalEstimate")}
+            minutes={form.originalEstimateMinutes}
+            onChange={(minutes) =>
+              setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
+            }
+          />
+        )}
+
+        {/* ★ NOT wrapped in a `Field`: the button renders its OWN `Field` (in
+            `group` mode, since its child is a button) internally, so a wrapper
+            here would print the caption twice. */}
+        {isVisible("timeSpent") && (
+          <TaskTimeTrackingButton
+            lang={lang}
+            estimateMinutes={form.originalEstimateMinutes}
+            spentMinutes={form.timeSpentMinutes}
+            remainingMinutes={form.remainingEstimateMinutes}
+            onChange={({ spentMinutes, remainingMinutes }) =>
+              setForm((prev) => ({
+                ...prev,
+                timeSpentMinutes: spentMinutes,
+                remainingEstimateMinutes: remainingMinutes,
+              }))
+            }
+          />
+        )}
+
+        {/* Half width in the left column, matching every other select in this
+            modal; the right cell stays empty. A full-width select for short
+            bucket names would read as more important than the estimate row. */}
+        {budgetLink !== undefined && isVisible("budgetBucket") && (
+        <Field label={t(lang, "taskBudgetBucket")}>
+          <Select
+            value={budgetLink.bucketId === null ? "" : String(budgetLink.bucketId)}
+            onChange={(e) => budgetLink.onChange(e.target.value === "" ? null : Number(e.target.value))}
+            className="w-full"
+          >
+            <option value="">{t(lang, "budgetBucketNone")}</option>
+            {budgetLink.buckets.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </Select>
+        </Field>
+        )}
+
+        {/* ★★ `sm:col-start-1` FORCES a new row, and it is what leaves the cell
+            beside Budget bucket empty. Grid auto-flow packs the next item into
+            that cell otherwise, which put Group next to Budget bucket and
+            stranded Labels alone on the row below — measured in Chromium, since
+            jsdom has no layout and the DOM ORDER was correct either way.
+            ★ Correct whether or not Budget bucket renders: with it, the rows are
+            [estimate|tracking] [bucket|—] [group|labels]; without it, Group
+            already starts column 1 and the class is inert. */}
+        <Field
+          label={t(lang, "group")}
+          hint={t(lang, "taskHintGroup")}
+          className="sm:col-start-1"
+        >
+          <ComboInput
+            lang={lang}
+            value={form.group}
+            suggestions={uniqueGroups}
+            onChange={(group) => setForm({ ...form, group })}
+            onBlur={(e) =>
+              setForm((prev) => ({ ...prev, group: describeTextCap(e.target.value, GROUP_MAX).value.trim() }))
+            }
+            aria-describedby="group-counter"
+            placeholder={t(lang, "placeholderGroup")}
+          />
+          <CharCounter value={form.group} max={GROUP_MAX} id="group-counter" lang={lang} />
+        </Field>
+
+        {isVisible("labels") && (
+          <Field label={t(lang, "labels")} group>
+            <LabelsInput
+              lang={lang}
+              value={form.labels}
+              suggestions={uniqueLabels}
+              onChange={(labels) => setForm({ ...form, labels })}
+            />
+          </Field>
+        )}
+      </TaskFormSection>
+
+      {/* ★ The budgetBucket disjunct went with the field itself. Leaving it
+          would render an EMPTY Relationships section for a user who has
+          dependencies and blockers hidden but budget bucket shown. */}
+      {(isVisible("dependencies") || isVisible("blockers")) && (
+      <TaskFormSection index={5} title={t(lang, "taskFormSectionRelationships")}>
+        {isVisible("dependencies") && (
+        <>
+        {/* `group` on BOTH: once a group holds a chip, that chip's remove ✕ is
+            the first labelable element inside the Field, so a plain <label>
+            caption would adopt it and clicking the caption would fire a
+            removal. ★ On an EMPTY list the first labelable descendant is
+            `EntityLinkPicker`'s search box — an unconditional `<Input
+            role="combobox">` that `DependencyLinkGroup` renders ahead of the
+            type `<Select>` — so the caption merely focuses the search field and
+            looks fine. (An earlier revision of this comment named the `<Select>`
+            here. That was true of the OLD editor, which had no search box; it
+            went stale in this branch's own rewrite.) The benign empty case is
+            why the single field this replaced survived the first sweep and a
+            cold review found it. */}
+        {/* ★★★ One grid cell each, so the two pickers pair on one row —
+            `TaskFormSection` is `grid-cols-1 sm:grid-cols-2`, so dropping
+            `sm:col-span-2` IS the pairing. `group` STAYS on both: see the
+            comment above for what the default `<label>` branch would adopt. */}
+        <Field label={t(lang, "depPredecessors")} hint={t(lang, "taskHintDependencies")} group>
+          <DependencyLinkGroup
+            lang={lang}
+            direction="predecessor"
+            links={form.dependencies}
+            allTasks={tasksForDeps}
+            ownTaskId={editingId}
+            onChange={(dependencies) =>
+              setForm((prev) => ({ ...prev, dependencies }))
+            }
+          />
+        </Field>
+        <Field label={t(lang, "depSuccessors")} hint={t(lang, "taskHintSuccessors")} group>
+          <DependencyLinkGroup
+            lang={lang}
+            direction="successor"
+            links={form.successorLinks}
+            allTasks={tasksForDeps}
+            ownTaskId={editingId}
+            onChange={(successorLinks) =>
+              setForm((prev) => ({ ...prev, successorLinks }))
+            }
+          />
+        </Field>
+        {/* Rendered ONCE for both groups — it lived inside the editor, which is
+            now instantiated twice, and printing the type legend twice on one
+            modal is noise. */}
+        <p className="sm:col-span-2 text-xs text-muted-foreground">{t(lang, "depHelp")}</p>
+        </>
+        )}
+
+        {isVisible("blockers") && (
+        <Field label={t(lang, "blockers")} hint={t(lang, "taskHintBlockers")} className="sm:col-span-2">
+          <Textarea
+            rows={2}
+            value={form.blockers}
+            onChange={(e) => setForm({ ...form, blockers: e.target.value })}
+            onBlur={(e) =>
+              setForm({ ...form, blockers: describeTextCap(e.target.value, TEXTAREA_MAX).value })
+            }
+            placeholder={t(lang, "placeholderBlockers")}
+            aria-describedby="blockers-counter"
+            className="w-full"
+          />
+          <CharCounter value={form.blockers} max={TEXTAREA_MAX} id="blockers-counter" lang={lang} />
+        </Field>
+        )}
+      </TaskFormSection>
+      )}
     </>
   );
 }
 
-// Effort field — a controlled text input that parses Jira-style "w/d/h/m"
-// into canonical minutes. Keeps a local string so the user can type freely
-// (and so an existing task renders as "2w 3d"). Empty → unset (undefined);
-// unparseable → keep the string, flag invalid, and DON'T write a value.
-function EffortField({
-  lang,
-  label,
-  minutes,
-  onChange,
-}: {
-  lang: Lang;
-  label: string;
-  minutes: number | undefined;
-  onChange: (minutes: number | undefined) => void;
-}) {
-  const [text, setText] = useState(() => formatDuration(minutes ?? 0));
-  const [invalid, setInvalid] = useState(false);
-  const noticeId = useId();
-
-  return (
-    <Field label={label}>
-      <Input
-        type="text"
-        value={text}
-        onChange={(e) => {
-          const value = e.target.value;
-          setText(value);
-          if (value.trim() === "") {
-            setInvalid(false);
-            onChange(undefined);
-            return;
-          }
-          const mins = parseDuration(value);
-          if (mins === null) {
-            setInvalid(true);
-            return;
-          }
-          setInvalid(false);
-          onChange(mins);
-        }}
-        placeholder={t(lang, "taskEffortHint")}
-        invalid={invalid}
-        aria-describedby={invalid ? noticeId : undefined}
-        className="w-full"
-      />
-      {invalid && <FieldNotice id={noticeId}>{t(lang, "taskEffortInvalid")}</FieldNotice>}
-    </Field>
-  );
-}

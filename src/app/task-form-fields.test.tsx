@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { TestProviders } from "./test-providers";
@@ -22,7 +22,9 @@ beforeAll(() => {
   Range.prototype.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) });
 });
 
-function Harness(over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink } = {}) {
+function Harness(
+  over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink; tasksForDeps?: Task[] } = {},
+) {
   return (
     <form aria-label="form">
       <TaskFormFields
@@ -33,7 +35,7 @@ function Harness(over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink }
         resources={[]}
         onCreateResource={vi.fn(() => 1)}
         absences={[]}
-        tasksForDeps={[]}
+        tasksForDeps={over.tasksForDeps ?? []}
         uniqueGroups={[]}
         uniqueLabels={[]}
         editingIsJiraLinked={false}
@@ -130,13 +132,76 @@ describe("TaskFormFields", () => {
     expect(screen.getByText("Due date")).toBeTruthy();
   });
 
+  it("puts the dictation control in the task-name caption and keeps the input separately named", () => {
+    // ★★ `voice.ts` `getCtor()` reads `window.SpeechRecognition`, which jsdom
+    //    does not define — so `useDictationMic` returns `mic: null` and
+    //    `captionAction={titleMic}` would be NULL. `Field` forces `group` on
+    //    `group || captionAction`, so a null mic does NOT force it and the
+    //    whole shape under test would be invisible here. Stub the ctor so the
+    //    mic really renders; without this the test passes for the wrong reason
+    //    in the label branch, or fails against correct code.
+    vi.stubGlobal("SpeechRecognition", class {});
+    try {
+      render(<Harness />, { wrapper: TestProviders });
+      const group = screen.getByRole("group", { name: t("en-US", "taskName") });
+      // The mic is INSIDE the caption group, not a sibling of the input.
+      expect(within(group).getByRole("button", { name: /dictate/i })).toBeInTheDocument();
+      // And the input still has its own accessible name, which the named group
+      // does NOT give it — an unlabeled form control is an axe-critical failure.
+      expect(screen.getByRole("textbox", { name: t("en-US", "taskName") })).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("renders all 5 numbered section headings", () => {
     render(<Harness />, { wrapper: TestProviders });
     expect(screen.getByText("1. Details")).toBeTruthy();
     expect(screen.getByText("2. Scheduling")).toBeTruthy();
-    expect(screen.getByText("3. Effort & Classification")).toBeTruthy();
-    expect(screen.getByText("4. Relationships")).toBeTruthy();
-    expect(screen.getByText("5. Status & Notes")).toBeTruthy();
+    expect(screen.getByText("3. Status & Notes")).toBeTruthy();
+    expect(screen.getByText("4. Effort & Classification")).toBeTruthy();
+    expect(screen.getByText("5. Relationships")).toBeTruthy();
+  });
+
+  // The heading order is the reworked one -- Status & Notes moved from fifth to
+  // third. Section headings are `<h3>` (task-form-layout.tsx's `TaskFormSection`)
+  // rendering `${index}. ${title}`; titles come from `t()` rather than hardcoded
+  // English so a copy change doesn't silently defeat this. All 5 sections render
+  // under the plain Harness with no tier switch -- confirmed by the test above,
+  // which uses the same harness.
+  it("renders the five sections in the reworked order", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(headings).toEqual([
+      `1. ${t("en-US", "taskFormSectionDetails")}`,
+      `2. ${t("en-US", "taskFormSectionScheduling")}`,
+      `3. ${t("en-US", "taskFormSectionStatus")}`,
+      `4. ${t("en-US", "taskFormSectionEffort")}`,
+      `5. ${t("en-US", "taskFormSectionRelationships")}`,
+    ]);
+  });
+
+  it("gives the group field the `sm:col-start-1` that starts a new grid row", () => {
+    // ★★ This pins the CLASS, not the geometry -- jsdom has no layout, which is
+    //   exactly how the defect it guards reached a real browser with the whole
+    //   suite green. MEASURED in Chromium: without `sm:col-start-1`, grid
+    //   auto-flow packed Group into the cell beside Budget bucket and stranded
+    //   Labels alone on the row below. DOM ORDER was correct either way, so the
+    //   ordering test above could not see it.
+    // ★★ AND IT PINS THE CLASS IN THE CONFIGURATION WHERE THE DEFECT IS INERT.
+    //   The plain `Harness` passes no `budgetLink`, and the budget field renders
+    //   only when one is supplied ("renders no budget field at all when no
+    //   budgetLink is supplied", above) — so the Budget bucket neighbour whose
+    //   empty cell motivated `sm:col-start-1` is NOT ON SCREEN here. This test
+    //   is therefore a class-presence regression pin, not a reproduction of the
+    //   packing bug; the test name used to promise the latter. Reproducing it
+    //   needs a `budgetLink` harness AND a real layout engine, which jsdom is
+    //   not.
+    render(<Harness />, { wrapper: TestProviders });
+    // The accessible name is "Groupi" -- the hint's InfoTooltip glyph joins the
+    // wrapping label's text (open-followups 386), hence the prefix match.
+    const group = screen.getByRole("combobox", { name: /^Group/ });
+    expect(group.closest("label")?.className).toContain("sm:col-start-1");
   });
 
   it("places the Due date field within the Scheduling section", () => {
@@ -167,7 +232,7 @@ describe("TaskFormFields", () => {
   });
 
   describe("field visibility", () => {
-    function VisHarness() {
+    function VisHarness(over: { budgetLink?: TaskBudgetLink } = {}) {
       return (
         <>
           <ModalFieldControls modalId="task" lang="en-US" />
@@ -180,6 +245,7 @@ describe("TaskFormFields", () => {
               fieldErrors={{}} submitted={false}
               holidaySet={new Set()} jiraProjectKey={undefined} jiraDefaultIssueType={undefined}
               onRemoveContact={vi.fn()} onAddAssigneeToAddressBook={vi.fn()}
+              budgetLink={over.budgetLink}
             />
           </form>
         </>
@@ -204,6 +270,56 @@ describe("TaskFormFields", () => {
 
       expect(screen.queryByText("Priority")).toBeNull();
       expect(screen.getByText("Task name")).toBeTruthy();
+    });
+
+    // Lives in THIS describe because only `VisHarness` mounts the
+    // `ModalFieldControls` trigger `selectFieldTier` needs.
+    // ★ `timeSpent` is an ADVANCED-tier field (`modal-fields.ts`), so the
+    //   tracking button ALREADY renders at this harness's default tier — the
+    //   Full switch is not what reveals it. It is kept because Full mounts the
+    //   widest field set, which makes the NEGATIVE assertion below strictly
+    //   stronger: a standalone "Time spent" textbox at ANY tier renders here.
+    //   (This comment previously called the field FULL-tier; it moved.)
+    it("replaces the standalone Time spent field with the Time tracking button", () => {
+      render(<VisHarness />, { wrapper: TestProviders });
+      selectFieldTier("fieldViewFull");
+
+      expect(screen.getByRole("button", { name: /time tracking/i })).toBeTruthy();
+      // Spent is edited only in the dialog now. A testing-library string `name`
+      // is a WHOLE-STRING match, so this cannot be satisfied by the dialog's own
+      // "Time spent" box even once that is mounted.
+      expect(screen.queryByRole("textbox", { name: t("en-US", "taskTimeSpent") })).toBeNull();
+    });
+
+    // DOM ORDER is all this asserts, and all jsdom can see. The VISUAL row
+    // placement (half width, empty right cell) is the eye-verify task's job —
+    // a green run here is not proof the layout is right.
+    // ★ Lives in THIS describe for the same reason as the test above: only
+    //   `VisHarness` mounts the `ModalFieldControls` that `selectFieldTier`
+    //   drives. BOTH anchors are ADVANCED-tier (`timeSpent`, `budgetBucket`),
+    //   so both render at the default tier and the Full switch is not what
+    //   makes this assertion reachable — it asserts the ordering at the widest
+    //   tier. (This comment previously called the button FULL-tier.)
+    it("renders budget bucket between the tracking button and the group field", () => {
+      const buckets = [{ id: 1, name: "Design" }, { id: 2, name: "Build" }] as unknown as BudgetBucket[];
+      render(
+        <VisHarness budgetLink={{ buckets, bucketId: 1, onChange: vi.fn() }} />,
+        { wrapper: TestProviders },
+      );
+      selectFieldTier("fieldViewFull");
+
+      const tracking = screen.getByRole("button", { name: /time tracking/i });
+      // Both are `role="combobox"`: the bucket is a `<Select>`, the group a
+      // `ComboInput` that sets the role explicitly.
+      // ★ The group caption carries a `hint`, so its `InfoTooltip` glyph joins
+      //   the wrapping `<label>`'s text and the computed name is "Groupi", not
+      //   "Group" — a whole-string `name` finds nothing. Anchored with a prefix
+      //   regex rather than the literal so a reworded tooltip cannot break it.
+      const bucket = screen.getByRole("combobox", { name: t("en-US", "taskBudgetBucket") });
+      const group = screen.getByRole("combobox", { name: new RegExp(`^${t("en-US", "group")}`) });
+
+      expect(tracking.compareDocumentPosition(bucket) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(bucket.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 });
@@ -381,5 +497,44 @@ describe("TaskFormFields — successor/predecessor draft wiring", () => {
       JSON.stringify([{ taskId: 42, type: "FS" }, { taskId: 41, type: "FS" }]),
     );
     expect(screen.getByTestId("probe-successors").textContent).toBe("[]");
+  });
+});
+
+// ★★★ Once a link exists, the chip's remove ✕ is the `Field`'s first LABELABLE
+// descendant — so the default `<label>` branch would bind the "Predecessors"
+// caption to it and clicking the caption would DELETE a link. `group` is what
+// prevents that, and this is the only behavioural test that says so. Dropping
+// `sm:col-span-2` to pair the two pickers is a hair away from also dropping
+// `group`, which is why it is pinned here rather than left to the source scan.
+// ★★★ IT IS VACUOUS WITHOUT A REAL CHIP. The default `tasksForDeps={[]}` offers
+// no option, nothing can be added, `before` is 0, and the assertion then holds
+// against ANY implementation — the mutation proof cannot go red. The link is
+// seeded through the picker rather than as a prop because `TaskFormProvider`
+// always starts from `emptyForm` and exposes no way to seed a draft.
+describe("TaskFormFields — dependency caption binding", () => {
+  const DEP_TASK = { id: 41, taskName: "Zeta groundwork", dependencies: [] } as unknown as Task;
+
+  it("does not remove a dependency chip when the predecessors caption is clicked", async () => {
+    const user = userEvent.setup();
+    render(<Harness tasksForDeps={[DEP_TASK]} />, { wrapper: TestProviders });
+
+    await user.type(screen.getByRole("combobox", { name: "Search predecessor tasks" }), "Zeta");
+    await user.click(screen.getByRole("option", { name: /Zeta groundwork/ }));
+
+    // `EntityLinkPicker`'s inert branch names each remove button
+    // `<removeLabel> <code> <label>` — "Remove predecessor FS #41 Zeta
+    // groundwork" — so a bare `/remove/i` would also catch the successor
+    // group's chips if the fixture ever grew one.
+    const removes = () => screen.queryAllByRole("button", { name: /^Remove predecessor/ });
+    const before = removes().length;
+    expect(before).toBeGreaterThan(0);
+
+    // `Field` builds the caption once and hands the SAME `<span>` to either
+    // branch, so this locator resolves identically under the mutant and the
+    // click really lands on the caption either way. The `InfoTooltip` glyph
+    // joins the span's text, hence the prefix regex rather than the literal.
+    await user.click(screen.getByText(/^Predecessors/, { selector: "span" }));
+
+    expect(removes()).toHaveLength(before);
   });
 });

@@ -171,6 +171,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         healthOverride: form.healthOverride || undefined,
         originalEstimateMinutes: form.originalEstimateMinutes,
         timeSpentMinutes: form.timeSpentMinutes,
+        remainingEstimateMinutes: form.remainingEstimateMinutes,
         resourceId: form.resourceId ?? undefined,
         knowledgeLinks: form.knowledgeLinks,
         // ★★ `noteLog` is DELIBERATELY absent — from this payload AND from the
@@ -566,6 +567,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         successorLinks: [],
         originalEstimateMinutes: task.originalEstimateMinutes,
         timeSpentMinutes: task.timeSpentMinutes,
+        remainingEstimateMinutes: task.remainingEstimateMinutes,
         resourceId: task.resourceId,
         pushToJira: false,
         healthOverride: task.healthOverride ?? "",

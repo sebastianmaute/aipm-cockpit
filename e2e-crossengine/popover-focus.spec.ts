@@ -50,11 +50,10 @@ import { test, expect, gotoApp, openView } from "../e2e/seed";
  * been written up here as covered before anyone ran it.
  */
 
-/** The EN DASH (U+2013) the app uses as its accessible-name separator.
- *  ★ Spelled as an escape rather than the literal glyph on purpose: this repo
- *  has a recorded history of editing tools corrupting non-ASCII bytes in source
- *  files, and a corrupted separator here would silently match nothing. */
-const NDASH = "–";
+/** U+2013 EN DASH — the app's accessible-name separator (`rowLabel` in
+ *  `src/app/row-tokens.ts`; the names below are hand-built to the same shape).
+ *  An escape, so the codepoint is explicit and no editing tool can corrupt it. */
+const NDASH = "\u2013";
 
 /** `export-menu.tsx` — the top-bar trigger's `aria-label`, `t(lang, "exportTitle")`. */
 const EXPORT_TRIGGER = "Export tasks";
@@ -231,10 +230,15 @@ test.describe("PopoverPanel focus, in a real engine", () => {
 
     // ★ `.first()` is REQUIRED, not defensive: `tasks-section.tsx` renders TWO
     // controls whose accessible name is exactly "Add task" — the toolbar
-    // `AddButton` (`addTaskButton`) and the table's trailing add row
-    // (`addTask`), two distinct i18n keys that both resolve to "Add task" in
-    // EN. Without it this is a strict-mode violation, and it is a real
-    // duplicate-accessible-name collision in a shipped view.
+    // `AddButton` and the table's trailing add row. Both now use the SAME key
+    // (`addTaskButton`); the trailing row used to be mis-keyed to `addTask`,
+    // the task modal's SUBMIT verb, which is why this comment once described
+    // two distinct keys colliding on one string. One key at two sites still
+    // matches `{name:"Add task", exact:true}` twice, so the workaround stands.
+    // ★ The repeat is DELIBERATE and conformant: identical purpose, identical
+    // handler, so WCAG 2.4.6 permits it. What was NOT conformant — and is now
+    // fixed — is the modal's submit sharing that name while doing the opposite
+    // thing; it carries a qualified `aria-label` ("Add task – New task").
     await page.getByRole("button", { name: "Add task", exact: true }).first().click();
 
     const trigger = page.getByRole("button", { name: FIELDS_TRIGGER, exact: true });

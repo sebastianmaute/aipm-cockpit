@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { parseDuration, formatDuration, effortProgress } from "./duration";
+import { parseDuration, formatDuration, effortProgress, derivedRemaining } from "./duration";
 
 describe("parseDuration (1w=5d, 1d=8h, 1h=60m)", () => {
   test("parses a single unit", () => {
@@ -54,5 +54,23 @@ describe("effortProgress", () => {
     expect(r.hasEstimate).toBe(true);
     expect(r.over).toBe(true);
     expect(r.pct).toBeCloseTo(1.25, 5);
+  });
+});
+
+describe("derivedRemaining", () => {
+  test("is the estimate less the spent time", () => {
+    expect(derivedRemaining(480, 180)).toBe(300);
+  });
+
+  test("floors at zero when spent exceeds the estimate", () => {
+    expect(derivedRemaining(120, 500)).toBe(0);
+  });
+
+  test("treats a missing spent value as zero spent", () => {
+    expect(derivedRemaining(480, undefined)).toBe(480);
+  });
+
+  test("is zero with no estimate, because nothing is known to remain", () => {
+    expect(derivedRemaining(undefined, 300)).toBe(0);
   });
 });

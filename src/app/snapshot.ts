@@ -245,10 +245,14 @@ export function buildSnapshot(input: BuildSnapshotInput): SnapshotRecord {
  *  is non-null iff `budgets.length > 0`), so an output-shaped test would refuse
  *  to snapshot a project that genuinely should be snapshotted. Scope is the
  *  question, so ask it of the INPUT.
- *  ★ `spi`/`cpi` are NOT part of that argument — `computeEvm` reads task
- *  `originalEstimateMinutes`/`timeSpentMinutes` and never touches budgets, so a
- *  budget-less project can report a non-null SPI. An earlier revision blamed
- *  the missing budget bucket for all four KPIs; it accounts for two.
+ *  ★ `spi`/`cpi` are NOT part of that argument — `computeEvm` reads task effort
+ *  minutes and never touches budgets, so a budget-less project can report a
+ *  non-null SPI. An earlier revision blamed the missing budget bucket for all
+ *  four KPIs; it accounts for two.
+ *  ★★ It reads only TWO of the three effort fields on `Task`:
+ *  `remainingEstimateMinutes` is a user-pinned override and no EVM term
+ *  consumes it, so do NOT assume a newly added effort field reaches these KPIs.
+ *  Verify against the code, not this line: `grep -n "Minutes" src/app/evm.ts`.
  *  ★★ KNOWN GAP (open-followups §78): this admits a project with one task and
  *  no budget, whose capture is then baselined with partial KPIs — the exact
  *  case §78 named when it warned that "a naive `tasks.length > 0` test would

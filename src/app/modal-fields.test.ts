@@ -32,4 +32,21 @@ describe("MODAL_FIELDS registry", () => {
       expect(MODAL_FIELDS[id].some((f) => f.tier === "simple"), id).toBe(true);
     }
   });
+
+  it("time tracking is an advanced-tier field, so the estimate row is never half empty", () => {
+    const task = MODAL_FIELDS.task;
+    const estimate = task.find((f) => f.id === "estimate");
+    const tracking = task.find((f) => f.id === "timeSpent");
+    expect(tracking?.tier).toBe(estimate?.tier);
+    // Pin the intended tier too, not just that the two travel together -
+    // this would also pass if "estimate" were later moved to "full".
+    expect(tracking?.tier).toBe("advanced");
+  });
+
+  it("keeps the persisted id 'timeSpent'", () => {
+    // The id IS the key under which each user's cog-checklist choice is
+    // stored. Renaming it silently resets the preference for everyone who set it.
+    expect(MODAL_FIELDS.task.some((f) => f.id === "timeSpent")).toBe(true);
+    expect(MODAL_FIELDS.task.some((f) => f.id === "timeTracking")).toBe(false);
+  });
 });

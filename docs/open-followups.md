@@ -610,6 +610,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§383](#383-a-resources-extra-emails-preview-a-list-apply-dedupes-and-caps--open) | A resource's extra emails preview a list Apply dedupes and caps | found 2026-09-05 while closing 373 | S | open |
 | [§384](#384-a-mononym-update_resource-rename-previews-a-rejected-lastname-that-apply-accepts-and-wipes--open) | A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes | found 2026-09-05 in cold review of the §372 fix | S | open |
 | [§385](#385-srcsymbolscheck-prints-a-remedy-it-does-not-implement--open) | `src:symbols:check` prints a remedy it does not implement | found 2026-09-05 while acting on that report's own advice | S | open |
+| [§386](#386-fields-hint-pollutes-its-controls-accessible-name--open) | `Field`'s `hint` pollutes its control's accessible name | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§387](#387-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--open) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide | found 2026-09-05 in the edit-task modal rework | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -28828,3 +28832,151 @@ cheaper; (a) is what a reader already expects. Not doing either is the one optio
 out. Anything that WEAKENS the report — suppression that hides a real invented name — is the
 failure mode to avoid, so (a) needs the same self-exclusion care recorded elsewhere in this
 register for checkers scanning their own corpus.
+
+## 386. `Field`'s `hint` pollutes its control's accessible name — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by
+measurement, not by reading: a whole-string `getByRole("combobox", { name: "Group" })` finds NOTHING
+on the task form while the same query anchored with a prefix regex passes. The mechanism is
+structural — `grep -n "hint && (" -A 5 src/app/task-form-layout.tsx` shows the `InfoTooltip`
+rendered INSIDE `caption`, and the default (non-`group`) branch wraps that same `caption` in the
+`<label>`.
+
+A `<label>`'s accessible name is its text CONTENT, so the tooltip trigger's visible glyph is
+concatenated onto the caption: the Group control computes `"Groupi"`, not `"Group"`.
+
+★★★ `"Groupi"` IS A TESTING-LIBRARY RESULT, NOT A BROWSER ONE — do not carry it to Chrome as
+though it were. It is what `dom-accessibility-api` computes, and it lands there for a
+library-specific reason: on RECURSING into a descendant it skips the aria-label step (accname 2C)
+whenever that descendant is a "control", and its `isControl` counts anything with a `button`,
+`combobox`, `listbox` or `textbox` role. The `InfoTooltip` trigger is a `<span role="button">`
+carrying an `aria-label`, so it qualifies, its `aria-label` is skipped, and its text CONTENT — the
+single glyph `"i"` — is what gets concatenated. The library's own source marks this as a deliberate
+divergence, commenting that it is "Changed from the spec" ahead of w3c/accname issue 64; read it at
+`node_modules/dom-accessibility-api/dist/accessible-name-and-description.js` (`grep -n "skipToStep2E"
+-B 3`, then `grep -n "function isControl" -A 3`). Under the spec as written the aria-label is NOT
+skipped, so a browser is more likely to compute `"Group "` plus the trigger's full hint text.
+★★ NEITHER browser result is MEASURED — nobody has driven a real browser or a real AT here, so treat
+both the concatenated-hint reading and the `"i"` reading as computations, not observations. What IS
+measured is the testing-library behaviour, which is all the prefix-regex fix in the tests depends on;
+that fix is correct under either reading and should be left alone.
+
+★★ APP-WIDE AND PRE-EXISTING, not a property of this slice. It affects every `Field` that passes a
+`hint`, on every surface that renders one, and the Time tracking dialog's own remaining-minutes box
+has the same shape. Not fixed here because the blast radius is far wider than the slice that found
+it — enumerate the affected call sites before attempting a fix, since the repair changes a name
+every existing test may be matching on.
+
+★ The TEST consequence is the immediate one and is why this is worth a number. A string `name` is a
+whole-string match in testing-library, so any future assertion against a hinted field's control
+finds nothing and reads as a broken selector rather than as this defect. `task-form-fields.test.tsx`
+carries the worked example: its "renders budget bucket between the tracking button and the group
+field" anchors the group with a `new RegExp` prefix match for exactly this reason, and carries the
+reason in a comment beside it.
+
+★ The USER consequence is a screen reader announcing the glyph as part of the field name. That is
+the expected reading of the computed name, NOT an observation — no real AT was driven.
+
+★★ The axe gate cannot see it, in any view, at any seed size. A name EXISTS, which is all the
+unlabeled-control rules ask, and the only rule comparing a name against its visible label is
+`label-content-name-mismatch`, which is tagged `experimental` and so is dropped by axe's default
+`tagExclude` before it runs. A unit test is the only possible detector.
+
+Closure options, none taken: render the tooltip as a SIBLING of the caption rather than inside it;
+or mark the trigger `aria-hidden` and deliver the hint through `aria-describedby`, which is where an
+explanatory hint belongs regardless.
+
+## 387. The Relationships empty-section guard is unpinned — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. **Never machine-verified** — and
+there is nothing to verify, because the claim is that NO test covers the case; the guard itself is
+correct today. Read it with
+`grep -n "isVisible(\"dependencies\") || isVisible(\"blockers\")" src/app/task-form-fields.tsx`.
+
+This slice moved Budget bucket out of Relationships into Effort and narrowed that section's render
+guard to the two fields it still holds, dropping a `budgetBucket` disjunct. With the disjunct left
+in place, a user who hides dependencies AND blockers while showing budget bucket renders an EMPTY
+Relationships section — a numbered heading with nothing beneath it.
+
+Nothing tests that case. Restoring the disjunct, or adding a field to the section without adding it
+to the guard, is therefore a SILENT regression: every gate stays green, and only an eye on one
+specific visibility configuration would catch it.
+
+★ The test that closes this cannot be a TIER test. `dependencies`, `blockers` and `budgetBucket` are
+all `advanced`, so any tier switch shows or hides the three together and can never produce the mixed
+state. It has to drive the per-field checklist — `grep -n "toggleField" src/app/modal-field-controls.tsx`
+— which is what makes the offending configuration reachable by a user in the first place.
+
+## 388. The task-name mic is now invisible to the label-binding source scan — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by reading
+the scan's own predicate: `grep -n "standsFirst(b.body, re) && !hasGroupProp(b.attrs)" src/app/label-binding.guard.test.ts`
+returns the `<Field>` check, and `grep -n "captionAction={titleMic}" src/app/task-form-fields.tsx`
+returns the mic's new position.
+
+`label-binding.guard.test.ts` scans SOURCE rather than a rendered tree because the dictation mic
+renders `null` under jsdom — `getCtor()` reads `window.SpeechRecognition`, which does not exist
+there, so a DOM-based guard would be vacuous. The scan looks for a button standing FIRST inside a
+`<Field>` BODY. The task-name mic now sits in an ATTRIBUTE (`captionAction={titleMic}`), not the
+body, so `standsFirst(b.body, …)` no longer sees it and the guard stays green for that field
+whatever happens to it.
+
+★★ This is a NARROWING OF COVERAGE, not a hole. That field's protection now rests on `captionAction`
+forcing `group` mode, which IS pinned — by the mutation-proved tests in `task-form-layout.test.tsx`,
+which go red when the forced `group` is reverted. The guarantee moved; it did not disappear.
+
+★ `hasGroupProp` recognises only a literal `group` prop and was deliberately NOT widened to know
+about `captionAction`. Widening a gate that nothing currently trips buys nothing, and it would make
+the gate green on the very shape it exists to catch: a caption-mounted button in a `<Field>` that
+did NOT force `group` is exactly the mis-binding the scan is for.
+
+★ The residual risk is a FUTURE caller adding a caption control to a `Field` variant that does not
+force `group`. Nothing detects that today from either direction — the source scan cannot see the
+attribute, and the layout tests only cover the primitive as it currently behaves.
+
+## 389. `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework, where this defect was fixed
+LOCALLY for one dialog. Verified 2026-09-05 by reading the default and counting consumers:
+`grep -n "closeName = closeLabel" src/app/modal-header.tsx` returns the fallback, and
+`grep -rn "closeLabel=" src/app --include=*.tsx | grep -v "\.test\."` returns exactly ONE call site.
+★ Use that direct grep, not a `grep -A N` window after `<ModalHeader` — the prop sits ~28 lines
+below the tag behind a long comment, so a short window reports ZERO and reads as "nobody uses it".
+
+`ModalHeader` defaults its ✕ to `t(lang, "alertModalClose")`, so every modal in the app names that
+button with the same string. Two modals open at once present two controls with one accessible name,
+and they do DIFFERENT things: the upper ✕ dismisses the nested dialog, the lower one discards
+whatever the surface beneath was holding.
+
+★★ Screen readers scope announcements by `aria-modal`, so a SR user is not exposed. SPEECH INPUT
+does not scope at all — "click Close" resolves against every matching control in the document, and
+picking the lower one can discard an in-progress edit. That is why the local fix was made rather
+than deferred.
+
+★★★ NO GATE CAN SEE THIS, in any view, at any seed size. Measured against the installed axe-core in
+AGENTS.md's a11y bullet: of the rules carrying the four tags `e2e/a11y.spec.ts` requests, NOT ONE
+flags two controls sharing an accessible name. A unit test is the only possible detector, and it
+must render BOTH layers — a fixture with one modal cannot fail.
+
+**What was fixed, and what was not.** `modal-header.tsx` gained an optional `closeLabel` defaulting
+to the shared string, so every call site stayed byte-identical, and `task-time-tracking-modal.tsx`
+passes the close string qualified with the dialog title using an EN DASH (U+2013, the `rowLabel`
+separator). That closes ONE pair. Every other stackable pair is untouched.
+
+**Why it was not fixed globally.** Qualifying every ✕ renames the control in all of them and breaks
+any test or spec selecting the bare name, for a defect that only manifests while two modals are
+actually stacked. The cheap wrong-shaped fix is to default `closeLabel` to include the title — that
+changes every surface at once to fix the few that stack.
+
+★ The tractable next step is an ENUMERATION, not a rename: find which modals can actually be open
+simultaneously. `Modal` pushes onto the dismissal stack, so a pair is stackable iff one renders a
+`Modal` inside another's subtree, or a handler opens one from inside the other. Qualify only those
+pairs and pin each with a two-layer unit test.
+
+★★ Do NOT reach for `aria-modal` to justify skipping this. It governs the accessibility tree for
+assistive technology that honours it; it has no effect on speech-input target resolution, which is
+the channel this defect rides.
+
+★ Same family as the `addTask`/`addTaskButton` collision found in the same review round — that one
+was live in a single view and carried a data-loss path (both openers call `handleCancelEdit()`),
+so it was fixed rather than filed.

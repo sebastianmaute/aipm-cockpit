@@ -308,4 +308,73 @@ describe("Modal — nested stacking", () => {
 
     popDismissal(popover);
   });
+
+  test("backdrop click closes only the topmost modal", async () => {
+    // ★★ The nested modal must open in a LATER commit than its parent, exactly
+    // as production does. Mounting both in ONE commit inverts the stack (React
+    // runs child effects before parent effects), so the parent would end up
+    // topmost over its own child and the assertion would pass for the wrong
+    // reason — see the ESCAPE PROTOCOL precondition in docs/AGENTS/ui-shell.md.
+    const { resetDismissalStack } = await import("./dismissal-stack");
+    resetDismissalStack();
+    const outerClose = vi.fn();
+    function Harness({ innerOpen }: { innerOpen: boolean }) {
+      return (
+        <Modal open onClose={outerClose} ariaLabel="Outer">
+          <div data-testid="outer-panel">
+            <Modal open={innerOpen} onClose={() => {}} ariaLabel="Inner">
+              <p>inner</p>
+            </Modal>
+          </div>
+        </Modal>
+      );
+    }
+    const { rerender } = render(<Harness innerOpen={false} />);
+    rerender(<Harness innerOpen />);
+
+    const outer = screen.getByRole("dialog", { name: "Outer" });
+    fireEvent.mouseDown(outer);
+    fireEvent.click(outer);
+    expect(outerClose).not.toHaveBeenCalled();
+
+    // Converse — without it the assertion above passes against a modal that
+    // never closes on a backdrop click at all.
+    rerender(<Harness innerOpen={false} />);
+    fireEvent.mouseDown(outer);
+    fireEvent.click(outer);
+    expect(outerClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Modal — portal", () => {
+  test("renders in place by default", () => {
+    render(
+      <div data-testid="host">
+        <Modal open onClose={() => {}} ariaLabel="In place">
+          <p>panel</p>
+        </Modal>
+      </div>,
+    );
+    // Control for the portal test below: without `portal` the dialog is a
+    // descendant of wherever the caller sits in the tree.
+    expect(screen.getByTestId("host")).toContainElement(
+      screen.getByRole("dialog"),
+    );
+  });
+
+  test("portal renders the dialog into document.body instead of in place", () => {
+    render(
+      <div data-testid="host">
+        <Modal open portal onClose={() => {}} ariaLabel="Portaled">
+          <p>panel</p>
+        </Modal>
+      </div>,
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(screen.getByTestId("host")).not.toContainElement(dialog);
+    // A direct child of <body>, i.e. the portal target itself -- "somewhere in
+    // the document" would be true of the un-portaled tree too, since RTL's own
+    // container is appended to <body>.
+    expect(dialog.parentElement).toBe(document.body);
+  });
 });

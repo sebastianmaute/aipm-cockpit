@@ -41,6 +41,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import { type Lang } from "./i18n";
 import {
   claimsEscape,
@@ -80,6 +81,12 @@ interface BaseProps {
    *  so callers that thread a `lang` through their dialog props still typecheck;
    *  the panel + all labels are rendered by the caller's children. */
   lang?: Lang;
+  /** Render the dialog into `document.body` instead of in place. Opt-in
+   *  because it changes where the dialog lands in the DOM. Needed when an
+   *  ancestor establishes a containing block for `position: fixed` (any
+   *  non-`none` `transform`, `filter`, `perspective` or `will-change`), which
+   *  otherwise scopes this backdrop to that ancestor instead of the viewport. */
+  portal?: boolean;
   children: ReactNode;
 }
 
@@ -99,6 +106,7 @@ export function Modal({
   backdropScroll = false,
   zIndex = 40,
   initialFocusRef,
+  portal = false,
   children,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -241,7 +249,7 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  const tree = (
     <div
       ref={dialogRef}
       role="dialog"
@@ -253,7 +261,27 @@ export function Modal({
         pressStartedOnBackdrop.current = e.target === e.currentTarget;
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && pressStartedOnBackdrop.current) onClose();
+        // ★★ Gated on the dismissal STACK, not on geometry. Skipping it was
+        // only ever safe if a nested layer covered this backdrop — but any
+        // ancestor with a non-`none` transform/filter/perspective becomes the
+        // containing block for a nested `position: fixed` backdrop, which then
+        // stops short of the viewport and leaves this one clickable underneath.
+        // ★★ This asks Tab's question (`isTopmostOfKind`), not Escape's
+        // (`claimsEscape`): with a `kind:"layer"` open, Escape goes to the layer
+        // while a backdrop click still closes this modal — pre-existing, and
+        // unchanged by this guard. A `"modal"` entry that does NOT cover us
+        // (`PopoverPanel`) is harmless only by TIMING — it dismisses on
+        // `mousedown`, which is discrete, so React flushes the `[open]` cleanup
+        // calling `popDismissal` before `click` is dispatched. REASONED from
+        // React's discrete-event flush contract, not measured; a `"modal"` layer
+        // dismissing on `click` instead would make this backdrop a dead control.
+        if (
+          e.target === e.currentTarget &&
+          pressStartedOnBackdrop.current &&
+          isTopmostOfKind(tokenRef.current, "modal")
+        ) {
+          onClose();
+        }
         pressStartedOnBackdrop.current = false;
       }}
       className={`fixed inset-0 flex ${
@@ -264,4 +292,11 @@ export function Modal({
       {children}
     </div>
   );
+
+  // `typeof document` mirrors the repo's established portal shape (see
+  // `PopoverPanel`'s own guard). Nothing reaches it today: the branch needs
+  // `open && portal`, and the sole `portal` call site (`TaskTimeTrackingModal`)
+  // is itself mounted behind a `useState(false)`, so no server pass renders it.
+  if (!portal || typeof document === "undefined") return tree;
+  return createPortal(tree, document.body);
 }
