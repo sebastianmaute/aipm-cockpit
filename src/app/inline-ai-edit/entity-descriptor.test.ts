@@ -45,4 +45,41 @@ describe("INLINE_DESCRIPTORS", () => {
     expect(INLINE_DESCRIPTORS.task.arrayFields.has("labels")).toBe(true);
     expect(Object.keys(INLINE_DESCRIPTORS.stakeholder.enumFields)).toContain("influence");
   });
+
+  // ★★★ EVERY INT-RANGE FIELD MUST ALSO BE A NUMBER FIELD, and nothing else
+  //  checks it. `describeEntityCalls` routes a `numberFields` member through
+  //  `str` and EVERY OTHER field through `normalizePreviewValue`, which mirrors
+  //  `sanitizeText` and therefore BLANKS a non-string to `""`. A model sends
+  //  `probability: 9` as a real JSON number, so an int-range field missing from
+  //  `numberFields` previews as `""` — and `Number("")` is `0`, which satisfies
+  //  any range starting at 0 and skips the out-of-range rejection outright.
+  //  Silent in both directions: no throw, no rejected row, just a blank diff.
+  //  ★★ The containment holds today by COINCIDENCE, not by construction — the
+  //  two members are declared independently a few lines apart — which is why it
+  //  is pinned here rather than left to be re-derived.
+  it("keeps every int-range field inside numberFields", () => {
+    const ranged = entities.flatMap((e) =>
+      Object.keys(INLINE_DESCRIPTORS[e].intRangeFields).map((f) => `${e}.${f}`),
+    );
+    const gaps = ranged.filter((k) => {
+      const [e, f] = k.split(".") as [InlineEntity, string];
+      return !INLINE_DESCRIPTORS[e].numberFields.has(f);
+    });
+    // ★ The population is asserted separately so a descriptor set that declared
+    //  NO int-range field at all could not read as a pass.
+    expect(ranged.length).toBeGreaterThan(0);
+    expect(gaps).toEqual([]);
+  });
+
+  // ★★ THE TWO EMAIL CAPS ARE NOT THE SAME NUMBER, and a shared-cap assumption
+  //  is the defect `textCaps` exists to close: a stakeholder's email is clipped
+  //  by `sanitizeText(o.email, BUDGET_NAME_MAX)` (200), a task's by EMAIL_MAX
+  //  (320). They also live in two DIFFERENT modules.
+  it("does not share one email cap across entities", () => {
+    const task = INLINE_DESCRIPTORS.task.textCaps.assigneeEmail;
+    const stakeholder = INLINE_DESCRIPTORS.stakeholder.textCaps.email;
+    expect(task).toBeGreaterThan(0);
+    expect(stakeholder).toBeGreaterThan(0);
+    expect(stakeholder).not.toBe(task);
+  });
 });
