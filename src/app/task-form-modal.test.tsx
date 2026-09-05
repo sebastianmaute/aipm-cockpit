@@ -144,9 +144,9 @@ describe("TaskFormModal", () => {
     render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     expect(screen.getByText("1. Details")).toBeInTheDocument();
     expect(screen.getByText("2. Scheduling")).toBeInTheDocument();
-    expect(screen.getByText("3. Effort & Classification")).toBeInTheDocument();
-    expect(screen.getByText("4. Relationships")).toBeInTheDocument();
-    expect(screen.getByText("5. Status & Notes")).toBeInTheDocument();
+    expect(screen.getByText("3. Status & Notes")).toBeInTheDocument();
+    expect(screen.getByText("4. Effort & Classification")).toBeInTheDocument();
+    expect(screen.getByText("5. Relationships")).toBeInTheDocument();
   });
 
   test("shows 'Edit task' heading when editing an existing task", () => {
