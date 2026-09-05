@@ -396,156 +396,7 @@ export function TaskFormFields({
       </TaskFormSection>
       )}
 
-      <TaskFormSection index={3} title={t(lang, "taskFormSectionEffort")}>
-        {isVisible("estimate") && (
-          <EffortField
-            key={`estimate-${editingId ?? "new"}`}
-            lang={lang}
-            label={t(lang, "taskOriginalEstimate")}
-            minutes={form.originalEstimateMinutes}
-            onChange={(minutes) =>
-              setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
-            }
-          />
-        )}
-
-        {/* ★ NOT wrapped in a `Field`: the button renders its own caption
-            <span> internally, so a wrapper would print the caption twice. */}
-        {isVisible("timeSpent") && (
-          <TaskTimeTrackingButton
-            lang={lang}
-            estimateMinutes={form.originalEstimateMinutes}
-            spentMinutes={form.timeSpentMinutes}
-            remainingMinutes={form.remainingEstimateMinutes}
-            onChange={({ spentMinutes, remainingMinutes }) =>
-              setForm((prev) => ({
-                ...prev,
-                timeSpentMinutes: spentMinutes,
-                remainingEstimateMinutes: remainingMinutes,
-              }))
-            }
-          />
-        )}
-
-        {/* Half width in the left column, matching every other select in this
-            modal; the right cell stays empty. A full-width select for short
-            bucket names would read as more important than the estimate row. */}
-        {budgetLink !== undefined && isVisible("budgetBucket") && (
-        <Field label={t(lang, "taskBudgetBucket")}>
-          <Select
-            value={budgetLink.bucketId === null ? "" : String(budgetLink.bucketId)}
-            onChange={(e) => budgetLink.onChange(e.target.value === "" ? null : Number(e.target.value))}
-            className="w-full"
-          >
-            <option value="">{t(lang, "budgetBucketNone")}</option>
-            {budgetLink.buckets.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </Select>
-        </Field>
-        )}
-
-        <Field label={t(lang, "group")} hint={t(lang, "taskHintGroup")}>
-          <ComboInput
-            lang={lang}
-            value={form.group}
-            suggestions={uniqueGroups}
-            onChange={(group) => setForm({ ...form, group })}
-            onBlur={(e) =>
-              setForm((prev) => ({ ...prev, group: describeTextCap(e.target.value, GROUP_MAX).value.trim() }))
-            }
-            aria-describedby="group-counter"
-            placeholder={t(lang, "placeholderGroup")}
-          />
-          <CharCounter value={form.group} max={GROUP_MAX} id="group-counter" lang={lang} />
-        </Field>
-
-        {isVisible("labels") && (
-          <Field label={t(lang, "labels")} group>
-            <LabelsInput
-              lang={lang}
-              value={form.labels}
-              suggestions={uniqueLabels}
-              onChange={(labels) => setForm({ ...form, labels })}
-            />
-          </Field>
-        )}
-      </TaskFormSection>
-
-      {/* ★ The budgetBucket disjunct went with the field itself. Leaving it
-          would render an EMPTY Relationships section for a user who has
-          dependencies and blockers hidden but budget bucket shown. */}
-      {(isVisible("dependencies") || isVisible("blockers")) && (
-      <TaskFormSection index={4} title={t(lang, "taskFormSectionRelationships")}>
-        {isVisible("dependencies") && (
-        <>
-        {/* `group` on BOTH: once a group holds a chip, that chip's remove ✕ is
-            the first labelable element inside the Field, so a plain <label>
-            caption would adopt it and clicking the caption would fire a
-            removal. ★ On an EMPTY list the first labelable descendant is
-            `EntityLinkPicker`'s search box — an unconditional `<Input
-            role="combobox">` that `DependencyLinkGroup` renders ahead of the
-            type `<Select>` — so the caption merely focuses the search field and
-            looks fine. (An earlier revision of this comment named the `<Select>`
-            here. That was true of the OLD editor, which had no search box; it
-            went stale in this branch's own rewrite.) The benign empty case is
-            why the single field this replaced survived the first sweep and a
-            cold review found it. */}
-        {/* ★★★ One grid cell each, so the two pickers pair on one row —
-            `TaskFormSection` is `grid-cols-1 sm:grid-cols-2`, so dropping
-            `sm:col-span-2` IS the pairing. `group` STAYS on both: see the
-            comment above for what the default `<label>` branch would adopt. */}
-        <Field label={t(lang, "depPredecessors")} hint={t(lang, "taskHintDependencies")} group>
-          <DependencyLinkGroup
-            lang={lang}
-            direction="predecessor"
-            links={form.dependencies}
-            allTasks={tasksForDeps}
-            ownTaskId={editingId}
-            onChange={(dependencies) =>
-              setForm((prev) => ({ ...prev, dependencies }))
-            }
-          />
-        </Field>
-        <Field label={t(lang, "depSuccessors")} hint={t(lang, "taskHintSuccessors")} group>
-          <DependencyLinkGroup
-            lang={lang}
-            direction="successor"
-            links={form.successorLinks}
-            allTasks={tasksForDeps}
-            ownTaskId={editingId}
-            onChange={(successorLinks) =>
-              setForm((prev) => ({ ...prev, successorLinks }))
-            }
-          />
-        </Field>
-        {/* Rendered ONCE for both groups — it lived inside the editor, which is
-            now instantiated twice, and printing the type legend twice on one
-            modal is noise. */}
-        <p className="sm:col-span-2 text-xs text-muted-foreground">{t(lang, "depHelp")}</p>
-        </>
-        )}
-
-        {isVisible("blockers") && (
-        <Field label={t(lang, "blockers")} hint={t(lang, "taskHintBlockers")} className="sm:col-span-2">
-          <Textarea
-            rows={2}
-            value={form.blockers}
-            onChange={(e) => setForm({ ...form, blockers: e.target.value })}
-            onBlur={(e) =>
-              setForm({ ...form, blockers: describeTextCap(e.target.value, TEXTAREA_MAX).value })
-            }
-            placeholder={t(lang, "placeholderBlockers")}
-            aria-describedby="blockers-counter"
-            className="w-full"
-          />
-          <CharCounter value={form.blockers} max={TEXTAREA_MAX} id="blockers-counter" lang={lang} />
-        </Field>
-        )}
-      </TaskFormSection>
-      )}
-
-      <TaskFormSection index={5} title={t(lang, "taskFormSectionStatus")}>
+      <TaskFormSection index={3} title={t(lang, "taskFormSectionStatus")}>
         {(isVisible("health") || isVisible("healthOverride")) && (
         <Field label={t(lang, "health")} hint={t(lang, "taskHintHealth")} className="sm:col-span-2" group>
           {(() => {
@@ -734,6 +585,155 @@ export function TaskFormFields({
             </label>
           )}
       </TaskFormSection>
+
+      <TaskFormSection index={4} title={t(lang, "taskFormSectionEffort")}>
+        {isVisible("estimate") && (
+          <EffortField
+            key={`estimate-${editingId ?? "new"}`}
+            lang={lang}
+            label={t(lang, "taskOriginalEstimate")}
+            minutes={form.originalEstimateMinutes}
+            onChange={(minutes) =>
+              setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
+            }
+          />
+        )}
+
+        {/* ★ NOT wrapped in a `Field`: the button renders its own caption
+            <span> internally, so a wrapper would print the caption twice. */}
+        {isVisible("timeSpent") && (
+          <TaskTimeTrackingButton
+            lang={lang}
+            estimateMinutes={form.originalEstimateMinutes}
+            spentMinutes={form.timeSpentMinutes}
+            remainingMinutes={form.remainingEstimateMinutes}
+            onChange={({ spentMinutes, remainingMinutes }) =>
+              setForm((prev) => ({
+                ...prev,
+                timeSpentMinutes: spentMinutes,
+                remainingEstimateMinutes: remainingMinutes,
+              }))
+            }
+          />
+        )}
+
+        {/* Half width in the left column, matching every other select in this
+            modal; the right cell stays empty. A full-width select for short
+            bucket names would read as more important than the estimate row. */}
+        {budgetLink !== undefined && isVisible("budgetBucket") && (
+        <Field label={t(lang, "taskBudgetBucket")}>
+          <Select
+            value={budgetLink.bucketId === null ? "" : String(budgetLink.bucketId)}
+            onChange={(e) => budgetLink.onChange(e.target.value === "" ? null : Number(e.target.value))}
+            className="w-full"
+          >
+            <option value="">{t(lang, "budgetBucketNone")}</option>
+            {budgetLink.buckets.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </Select>
+        </Field>
+        )}
+
+        <Field label={t(lang, "group")} hint={t(lang, "taskHintGroup")}>
+          <ComboInput
+            lang={lang}
+            value={form.group}
+            suggestions={uniqueGroups}
+            onChange={(group) => setForm({ ...form, group })}
+            onBlur={(e) =>
+              setForm((prev) => ({ ...prev, group: describeTextCap(e.target.value, GROUP_MAX).value.trim() }))
+            }
+            aria-describedby="group-counter"
+            placeholder={t(lang, "placeholderGroup")}
+          />
+          <CharCounter value={form.group} max={GROUP_MAX} id="group-counter" lang={lang} />
+        </Field>
+
+        {isVisible("labels") && (
+          <Field label={t(lang, "labels")} group>
+            <LabelsInput
+              lang={lang}
+              value={form.labels}
+              suggestions={uniqueLabels}
+              onChange={(labels) => setForm({ ...form, labels })}
+            />
+          </Field>
+        )}
+      </TaskFormSection>
+
+      {/* ★ The budgetBucket disjunct went with the field itself. Leaving it
+          would render an EMPTY Relationships section for a user who has
+          dependencies and blockers hidden but budget bucket shown. */}
+      {(isVisible("dependencies") || isVisible("blockers")) && (
+      <TaskFormSection index={5} title={t(lang, "taskFormSectionRelationships")}>
+        {isVisible("dependencies") && (
+        <>
+        {/* `group` on BOTH: once a group holds a chip, that chip's remove ✕ is
+            the first labelable element inside the Field, so a plain <label>
+            caption would adopt it and clicking the caption would fire a
+            removal. ★ On an EMPTY list the first labelable descendant is
+            `EntityLinkPicker`'s search box — an unconditional `<Input
+            role="combobox">` that `DependencyLinkGroup` renders ahead of the
+            type `<Select>` — so the caption merely focuses the search field and
+            looks fine. (An earlier revision of this comment named the `<Select>`
+            here. That was true of the OLD editor, which had no search box; it
+            went stale in this branch's own rewrite.) The benign empty case is
+            why the single field this replaced survived the first sweep and a
+            cold review found it. */}
+        {/* ★★★ One grid cell each, so the two pickers pair on one row —
+            `TaskFormSection` is `grid-cols-1 sm:grid-cols-2`, so dropping
+            `sm:col-span-2` IS the pairing. `group` STAYS on both: see the
+            comment above for what the default `<label>` branch would adopt. */}
+        <Field label={t(lang, "depPredecessors")} hint={t(lang, "taskHintDependencies")} group>
+          <DependencyLinkGroup
+            lang={lang}
+            direction="predecessor"
+            links={form.dependencies}
+            allTasks={tasksForDeps}
+            ownTaskId={editingId}
+            onChange={(dependencies) =>
+              setForm((prev) => ({ ...prev, dependencies }))
+            }
+          />
+        </Field>
+        <Field label={t(lang, "depSuccessors")} hint={t(lang, "taskHintSuccessors")} group>
+          <DependencyLinkGroup
+            lang={lang}
+            direction="successor"
+            links={form.successorLinks}
+            allTasks={tasksForDeps}
+            ownTaskId={editingId}
+            onChange={(successorLinks) =>
+              setForm((prev) => ({ ...prev, successorLinks }))
+            }
+          />
+        </Field>
+        {/* Rendered ONCE for both groups — it lived inside the editor, which is
+            now instantiated twice, and printing the type legend twice on one
+            modal is noise. */}
+        <p className="sm:col-span-2 text-xs text-muted-foreground">{t(lang, "depHelp")}</p>
+        </>
+        )}
+
+        {isVisible("blockers") && (
+        <Field label={t(lang, "blockers")} hint={t(lang, "taskHintBlockers")} className="sm:col-span-2">
+          <Textarea
+            rows={2}
+            value={form.blockers}
+            onChange={(e) => setForm({ ...form, blockers: e.target.value })}
+            onBlur={(e) =>
+              setForm({ ...form, blockers: describeTextCap(e.target.value, TEXTAREA_MAX).value })
+            }
+            placeholder={t(lang, "placeholderBlockers")}
+            aria-describedby="blockers-counter"
+            className="w-full"
+          />
+          <CharCounter value={form.blockers} max={TEXTAREA_MAX} id="blockers-counter" lang={lang} />
+        </Field>
+        )}
+      </TaskFormSection>
+      )}
     </>
   );
 }

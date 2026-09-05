@@ -158,9 +158,27 @@ describe("TaskFormFields", () => {
     render(<Harness />, { wrapper: TestProviders });
     expect(screen.getByText("1. Details")).toBeTruthy();
     expect(screen.getByText("2. Scheduling")).toBeTruthy();
-    expect(screen.getByText("3. Effort & Classification")).toBeTruthy();
-    expect(screen.getByText("4. Relationships")).toBeTruthy();
-    expect(screen.getByText("5. Status & Notes")).toBeTruthy();
+    expect(screen.getByText("3. Status & Notes")).toBeTruthy();
+    expect(screen.getByText("4. Effort & Classification")).toBeTruthy();
+    expect(screen.getByText("5. Relationships")).toBeTruthy();
+  });
+
+  // The heading order is the reworked one -- Status & Notes moved from fifth to
+  // third. Section headings are `<h3>` (task-form-layout.tsx's `TaskFormSection`)
+  // rendering `${index}. ${title}`; titles come from `t()` rather than hardcoded
+  // English so a copy change doesn't silently defeat this. All 5 sections render
+  // under the plain Harness with no tier switch -- confirmed by the test above,
+  // which uses the same harness.
+  it("renders the five sections in the reworked order", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(headings).toEqual([
+      `1. ${t("en-US", "taskFormSectionDetails")}`,
+      `2. ${t("en-US", "taskFormSectionScheduling")}`,
+      `3. ${t("en-US", "taskFormSectionStatus")}`,
+      `4. ${t("en-US", "taskFormSectionEffort")}`,
+      `5. ${t("en-US", "taskFormSectionRelationships")}`,
+    ]);
   });
 
   it("places the Due date field within the Scheduling section", () => {
