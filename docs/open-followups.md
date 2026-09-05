@@ -593,9 +593,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§374](#374-help-contentts-still-says-five-inline-entities-and-there-are-now-six--open) | help-content.ts still says five inline entities and there are now six | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
 | [§375](#375-eye-verify-owed-a-real-model-turn-through-the-staged-review-card--open) | Eye-verify owed: a real model turn through the staged review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
 | [§376](#376-a-staged-document-row-cannot-be-named-in-the-review-card--open) | A staged document row cannot be named in the review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
-| [§377](#377-the-staging-gate-the-review-card-and-the-apply-path-have-no-production-caller--open) | The staging gate, the review card and the apply path have no production caller | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
-| [§378](#378-a-staged-creates-provisional-id-is-not-reconciled-with-the-id-apply-mints--open) | A staged create's provisional id is not reconciled with the id Apply mints | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
+| [§377](#377-the-staging-gate-the-review-card-and-the-apply-path-have-no-production-caller--closed-2026-09-05) | ~~The staging gate, the review card and the apply path have no production caller~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`chat-panel.tsx` now consults `shouldStage`, mints, describes, mounts the card and applies inside `useUndoBatch`; the entry's own reproduce command returns real call sites) |
+| [§378](#378-a-staged-creates-provisional-id-is-not-reconciled-with-the-id-apply-mints--closed-2026-09-05) | ~~A staged create's provisional id is not reconciled with the id Apply mints~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`DescribedRow.mintedId` + `remapStagedCall`; landed BEFORE the wiring commit, so it was never reachable in a shipped product) |
 | [§379](#379-the-registers-index_matches-recipe-compares-two-sequences-while-its-prose-claims-membership--open) | The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership | found 2026-09-04, reproduced independently by two sessions across four tree states | S | open |
+| [§380](#380-a-staged-plan-cannot-update-a-row-it-created-in-the-same-plan--open) | A staged plan cannot update a row it created in the same plan | found 2026-09-05 in the AI bulk-write-safety slice | M | open |
+| [§381](#381-a-row-refused-for-a-capability-gap-is-labelled-as-a-conflict--open) | A row refused for a capability gap is labelled as a conflict | found 2026-09-05 in the AI bulk-write-safety slice | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27894,8 +27896,11 @@ stored field. It is therefore deliberately absent from the `resource` descriptor
 (`inline-ai-edit/entity-descriptor.ts`), because `before` would read empty for every resource.
 
 Consequence: `update_resource({id, name})` — a rename sent as the alias alone — produces NO diff
-and previews as an empty plan, while applying normally. The staged review card would show the user
-a row with nothing in it and then change the person's name.
+and previews as an empty plan, while applying normally. ★ Mood corrected 2026-09-05, when §377
+closed: the staged review card SHOWS the user a row with nothing in it and then changes the
+person's name. The conditional this sentence carried was keyed to the card having no production
+caller, and that is no longer the case — nothing else about the entry changes, and no probe has
+observed it.
 
 ★ Diffing the parts is the honest form and is what ships. The blind spot is real and is a property
 of the alias, not of the descriptor: any write alias that fans out to several stored fields has it.
@@ -27990,160 +27995,165 @@ check and the easiest to leave rotting" shape.
 
 ## 375. Eye-verify owed: a real model turn through the staged review card — OPEN
 
-**Status:** OPEN. Re-scoped 2026-09-04: the eye-verify is BLOCKED, not merely owed. Last executed
-verification 2026-09-04 — `grep -rn "ChatProposalBlock" src/app --include=*.tsx | grep -v "\.test\."`
-returns only the component's own definition and props interface, i.e. no production caller (§377).
+**Status:** OPEN. Re-scoped 2026-09-05 once the wiring landed: the eye-verify is no longer blocked,
+it is simply OWED and performable at HEAD. Last executed verification 2026-09-05 —
+`grep -n "ChatProposalBlock" src/app/chat-panel.tsx` returns an import and a mount, so the card is
+reachable from the application. The eye-verify ITSELF has never been performed.
 
-★★★ **BLOCKED ON §377 — THE CARD IS NOT REACHABLE FROM THE APPLICATION, so this is not an
-eye-verify anyone can perform today at any configuration.** `chat-panel.tsx` does not render
-`ChatProposalBlock` (plan Task 12 Step 3 is unstarted), so no model turn — destructive,
-multi-write or otherwise — puts the card on screen. Run the eye-verify AFTER the wiring lands, not
-before.
+★★ **THE WIRING LANDED (§377), SO THIS IS NOW A PLAIN OWED ACT.** Two earlier wordings of this entry
+each named a different thing as the gap — the SUITES first, then the wiring. Both are retired, and
+nothing now stands between a reader and the act below.
 
-★★ The earlier wording of this entry named the SUITES as the gap. That was the wrong diagnosis:
-the suites' inability to drive a real turn is true but secondary, and stating it alone invites a
-reader to close this by writing another test. **The gap is the wiring.**
+Owed: against `PORT=3100 npm run dev`, provoke a destructive or multi-write turn, confirm the card
+renders, reject one row, confirm the cascade deselects its dependents, apply, and confirm ONE undo
+entry restores the applied updates and deletes.
 
-Owed once §377 is closed: against `PORT=3100 npm run dev`, provoke a destructive or multi-write
-turn, confirm the card renders, reject one row, confirm the cascade deselects its dependents,
-apply, and confirm ONE undo entry restores the applied updates and deletes.
+★★ The unit tests still do not substitute, and the reason is structural rather than a coverage gap:
+`chat-proposal-block.test.tsx` renders the card from fixture props, so it proves the card's own
+behaviour and nothing about whether a real turn produces those props. The gate suites cannot reach it
+either — the axe run seeds file mode and the card exists only after a model turn, so no e2e seed will
+render it at any configuration.
 
-★★ The unit tests would still not substitute even then, and the reason is structural rather than a
-coverage gap: `chat-proposal-block.test.tsx` renders the card from fixture props, so it proves the
-card's own behaviour and nothing about whether a real turn produces those props. The gate suites
-could not reach it either — the axe run seeds file mode and the card would only exist after a
-model turn, so no e2e seed will render it at any configuration.
+★ Two outcomes filed since the wiring are worth watching for while performing it, because both are
+reachable from an ordinary multi-write turn and neither is visible to any suite: a create-then-update
+plan refusing its update row (§380), and the card labelling that refusal as a conflict (§381).
 
 ## 376. A staged document row cannot be named in the review card — OPEN
 
-**Status:** OPEN. Re-scoped 2026-09-04 to the conditional mood §372 already uses. Last executed
-verification 2026-09-04 — `grep -n "document" src/app/chat-proposal.ts src/app/chat-proposal-describe.ts`
-shows the three `*_document` tools in the gate's write set and NO `document` entry in the
-entity map. The runtime consequence stays unobservable for the reason in the first ★★ below.
+**Status:** OPEN. Re-scoped 2026-09-05 out of the conditional mood, because the gate is now wired
+(§377) and the row is reachable. Last executed verification 2026-09-05 —
+`grep -n "document" src/app/chat-proposal.ts src/app/chat-proposal-describe.ts` shows the three
+`*_document` tools in the gate's write set and NO `document` entry in the entity map. The
+engine-level claim is what that verifies; no probe has driven a document write onto a rendered card.
 
-★★ **CONDITIONAL ON §377 — nothing in the application stages anything yet, so no user has ever
-seen this row.** The defect is in the engine and is real at HEAD; the sentence "the card DOES
-render such a row" was true of the component under test and false of the application. Read every
-"would" below literally, the way §372 does.
+★★ **LIVE, NOT CONDITIONAL.** The earlier wording said "nothing in the application stages anything
+yet, so no user has ever seen this row", and asked the reader to take every "would" below literally.
+That is retired: `chat-panel.tsx` consults `shouldStage` and mounts `ChatProposalBlock`, so a turn
+containing a `*_document` write now puts this row in front of a real user.
 
-The three `*_document` tools are in the staging gate's write set, so they WOULD be staged once the
-gate is wired — but the descriptor engine has no `document` entity, so `describeProposal` returns
-them with an EMPTY plan. The card would therefore have only `call.name` and `call.input` to
-render: it could not say WHICH document an `update_document` touches, WHAT it changes, or WHICH
-document a `delete_document` removes. Contrast `delete_task`, whose plan carries a label.
+The three `*_document` tools are in the staging gate's write set, so they ARE staged — but the
+descriptor engine has no `document` entity, so `describeProposal` returns them with an EMPTY plan.
+The card therefore has only `call.name` and `call.input` to render: it cannot say WHICH document an
+`update_document` touches, WHAT it changes, or WHICH document a `delete_document` removes. Contrast
+`delete_task`, whose plan carries a label.
 
-★★★ **This is the row that will most need to be legible.** Document chat writes take NO undo
-capture at all (`use-document-tools.ts` says so at three sites; they recover via
-`documentVersions` instead), so once §377 is closed the gate will be the only thing between the
-model and an unreviewed multi-document rewrite — and it is the row the card can say least about.
-The reviewer would be asked to approve a write they cannot see. ★★ Until §377 lands there is no
-gate in the product at all, so today the model's document writes are unreviewed outright; that is
-§377's problem, not this one, and closing this entry does not touch it.
+★★★ **This is the row that most needs to be legible, and it is now the row a user actually sees.**
+Document chat writes take NO undo capture at all (`use-document-tools.ts` says so at three sites;
+they recover via `documentVersions` instead), so the gate is the only thing between the model and an
+unreviewed multi-document rewrite — and it is the row the card can say least about. The reviewer is
+asked to approve a write they cannot see.
 
 Closing it needs either a `document` descriptor, or a small name-resolution step reading
 `ws.documents` by `input.id` for the title alone. Neither exists today.
 
-★ Under test the card renders such a row with its tool name rather than blank, and the row is
-selectable and rejectable — so the failure is legibility, not invisibility. That is a property of
-`ChatProposalBlock` measured by `chat-proposal-block.test.tsx`, NOT an observation of the running
-app, which never mounts it.
+★ The card renders such a row with its tool name rather than blank, and the row is selectable and
+rejectable — so the failure is legibility, not invisibility. That was measured under test
+(`chat-proposal-block.test.tsx`) and is a property of `ChatProposalBlock`; §375's owed eye-verify is
+what would confirm it in the running app.
 
-## 377. The staging gate, the review card and the apply path have no production caller — OPEN
+## 377. The staging gate, the review card and the apply path have no production caller — CLOSED 2026-09-05
 
-**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice. Last executed verification
-2026-09-04 — the fenced command below (`grep -rn` over the six symbols, `\|`-escaped for BRE, then
-filtered for non-test files) returns only comments, the six declarations themselves, and
-intra-cluster `import type` lines. A narrower cross-check,
-`grep -rn "ChatProposalBlock" src/app --include=*.tsx | grep -v "\.test\."`, returns three lines,
-all in `chat-proposal-block.tsx` itself — its props interface and its own declaration — and no
-third file. (Reading OUTPUT through a pipe is safe; only an EXIT CODE must never be piped.)
-
-★★★ **THE PHASE 2 STAGING FEATURE IS NOT WIRED INTO THE APPLICATION.** The gate (`shouldStage`),
-the plan builder (`buildPlanRows`), the describe pass (`describeProposal`), the review card
-(`ChatProposalBlock`), the apply path (`applyProposal`) and the capture collapser (`useUndoBatch`)
-all exist and are tested — and are imported by NOTHING outside their own test files and each
-other. `chat-panel.tsx` renders no card; `use-chat-dispatcher.ts` consults no gate. At HEAD a
-model turn therefore writes exactly as it did before the slice: unstaged, unreviewed, one tool
-call at a time. Reproduce:
+**Status:** CLOSED 2026-09-05. Closed by this entry's OWN reproduce command, re-run at HEAD: it now
+returns imports and call sites in `chat-panel.tsx`, `task-manager.tsx` and
+`workspace-section-types.ts`, where on 2026-09-04 it returned only declarations, comments and
+intra-cluster `import type` lines. Reproduce:
 
 ```bash
 grep -rn "ChatProposalBlock\|applyProposal\|describeProposal\|shouldStage\|buildPlanRows\|useUndoBatch" \
   src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
 ```
 
-★ The one hit that reads like an outside consumer is not one: `activity-log.ts` names
-`use-undo-batch.ts` in a PROSE COMMENT, not in an import. Confirm with
-`grep -n "use-undo-batch" src/app/activity-log.ts`, which returns a line beginning with ` *`.
+**What the wiring is.** `chat-panel.tsx` consults `shouldStage` on the proposed calls, mints
+provisional ids with `mintProvisionalIds`, builds the graph with `buildPlanRows`, grounds it against
+the live workspace with `describeProposal`, mounts `ChatProposalBlock` in the transcript, and applies
+the user's selection through `applyProposal` inside the `runBatched` of the SAME `useUndoBatch`
+instance whose `.undo` the dispatcher already carries. A destructive or multi-write model turn is
+staged and reviewed before it writes. It landed in `6d31ffc7`; the prompt half followed in
+`0ca2a6aa`.
 
-★★★ **DO NOT READ THIS ENTRY AS COVERING PHASE 1. PHASE 1 (undo capture) IS WIRED AND LIVE.**
+★★ **PAST TENSE IS LOAD-BEARING FROM HERE DOWN.** Everything below describes HEAD on 2026-09-04 and
+is kept as the record of what was wrong, not as a description of today.
+
+**What was wrong.** The gate (`shouldStage`), the plan builder (`buildPlanRows`), the describe pass
+(`describeProposal`), the review card (`ChatProposalBlock`), the apply path (`applyProposal`) and the
+capture collapser (`useUndoBatch`) all existed and were tested — and were imported by NOTHING outside
+their own test files and each other. `chat-panel.tsx` rendered no card; `use-chat-dispatcher.ts`
+consulted no gate. A model turn wrote exactly as it did before the slice: unstaged, unreviewed, one
+tool call at a time.
+
+★★★ **THIS ENTRY NEVER COVERED PHASE 1, AND PHASE 1 (undo capture) WAS WIRED AND LIVE THROUGHOUT.**
 `task-manager.tsx` threads `undo: undoApi` into the dispatcher args and the field is REQUIRED on
 `ChatDispatcherArgs`, so all fourteen capture sites run in production —
 `grep -cE "undoRef\.current\?\.capture" src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts`
-returns 6 and 8. An AI write today IS undoable. What is missing is the review step in front of it,
-not the recovery behind it. Scoping this entry to B1 would be wrong in the expensive direction: it
-would read as "AI writes are unprotected", and they are not.
+still returns 6 and 8 at HEAD. An AI write was undoable then and is undoable now; what was missing
+was the review step in front of it, never the recovery behind it. The note is kept because scoping
+this entry to B1 would have been wrong in the expensive direction — it would have read as "AI writes
+are unprotected", and they were not.
 
-**Plan status.** The apply path and its round trip landed, in a module of their own
-(`chat-proposal-apply.ts`, `chat-proposal-apply.test.tsx`) rather than in the two files Task 12
-named. **Task 12 Step 3 — "render the card in the transcript" — is unstarted, and so is all of
-Task 13.** Both are checkable without reading the plan:
-`grep -ci "confirm with the user" src/app/chat-tool-defs.ts` still returns 7 (Task 13 Step 2
-removes those clauses) and `grep -c "staged" src/app/chat-api.ts` returns 0 (Task 13 Step 3 adds
-the staged-result paragraph to the system prompt).
-
-★★★ **TASK 13 MUST NOT LAND BEFORE TASK 12 STEP 3, and the ordering is the whole risk.** Task 13
-DELETES the "Confirm with the user before calling this" prose from seven tool descriptions, on the
-stated grounds that "the instruction is now enforced by the gate". While this entry is open there
-is no gate in the product. Removing the prose first would leave destructive AI writes with neither
+**The ordering risk, and how it went.** Task 13 DELETES the "Confirm with the user before calling
+this" prose from seven tool descriptions on the stated grounds that "the instruction is now enforced
+by the gate", so landing it while no gate existed would have left destructive AI writes with neither
 a prompt asking the model to confirm nor a card asking the user to review — strictly worse than
-either end state.
+either end state. The order held: the card was mounted first, the prose replaced after. Both halves
+are checkable without reading the plan — `grep -ci "confirm with the user" src/app/chat-tool-defs.ts`
+now returns 0 where it returned 7, and `grep -c "staged" src/app/chat-api.ts` now returns 4 where it
+returned 0.
 
-★★ Consequences for the entries filed beside this one, all re-scoped 2026-09-04: §375's eye-verify
-is not performable at any configuration, because the card it asks you to look at never mounts;
-§376 describes a row no user has seen. §378 must be closed in the SAME change that closes this
-one — wiring the gate without it is what makes that defect reachable.
+★★ Consequences for the entries filed beside this one, all re-scoped 2026-09-05: §375's eye-verify is
+performable and simply owed; §376 describes a row a user can now see. §378 was required to close in
+the same change set and did — `5db7900a` landed BEFORE this wiring commit rather than alongside it,
+which satisfies the requirement that the wiring must not ship without it.
 
-## 378. A staged create's provisional id is not reconciled with the id Apply mints — OPEN
+★★ Closing this OPENED two entries, both of them properties the wiring made reachable rather than
+regressions it introduced: §380 (a staged plan cannot update a row it created in the same plan) and
+§381 (that refusal is labelled as a conflict).
 
-**Status:** OPEN. Filed 2026-09-04, promoted out of the design spec — which was its only record,
-and which no gate reads. Last executed verification 2026-09-04 —
-`grep -n "runTool" src/app/chat-proposal-apply.ts` shows the replay discarding the call's return
-value, and `grep -n "mintedId" src/app/chat-proposal.ts src/app/chat-proposal-describe.ts` shows
-the field on `PlanRow` and nowhere on `DescribedRow`.
+## 378. A staged create's provisional id is not reconciled with the id Apply mints — CLOSED 2026-09-05
 
-★★★ **OF EVERYTHING FILED FOR THIS FEATURE THIS IS THE ONLY DEFECT THAT CAN SILENTLY WRITE TO THE
-WRONG ROW.** §370-§376 are a missing proof, an alias blind spot, a preview/apply string mismatch, a
-stale count, a blocked eye-verify and an illegible label. This one mis-targets a write, with no
-error, no rejected row and nothing on the card to show it happened.
+**Status:** CLOSED 2026-09-05 by `5db7900a`, which landed BEFORE the wiring commit `6d31ffc7` (a
+chore commit sits between the two, so "one commit ahead" would be wrong), meaning the defect was
+never reachable in a shipped product. Verified at HEAD —
+`grep -rn "remapStagedCall\|mintedId" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+returns `mintedId` on `DescribedRow` as well as on `PlanRow`, `remapStagedCall` imported and called
+by `chat-proposal-apply.ts`, and a `resolveMintedId` step that captures each create's REAL returned
+id.
 
-**The mechanism.** Staging mints a PROVISIONAL id ahead of time and hands it to the model in the
+**What was wrong.** Staging mints a PROVISIONAL id ahead of time and hands it to the model in the
 staged tool result, so the model can reference the not-yet-created row in a later call in the same
-turn — that is the point of minting ahead. At apply time the create is replayed through `runTool`,
-and `createTask` (and its per-entity peers) mint their OWN id from the session high-water map. The
-dependent row is replayed still carrying the PROVISIONAL id. **The two agree only by luck.**
+turn — that is the point of minting ahead. At apply time the create was replayed through `runTool`
+and `createTask` (and its per-entity peers) minted their OWN id from the session high-water map,
+while the dependent row was replayed still carrying the PROVISIONAL id.
 
-`PlanRow` already carries the graph that would fix this — `mintedId` per create, `dependsOn`
-pointing at the row whose minted id this call's `id` refers to — but `DescribedRow`, which is what
-`applyProposal` actually iterates, carries NEITHER, and `applyProposal` discards `runTool`'s
-return value. So nothing in the apply path can currently reconcile provisional against real. The
-fix is to capture each create's REAL returned id and remap dependents' `id` fields before
-replaying them, using the mapping the `PlanRow` graph already describes.
+★★★ **THE ENTRY SAID THOSE TWO "AGREE ONLY BY LUCK", AND THAT WAS WRONG.** Corrected 2026-09-05 by
+reading `src/app/id-mint-session.ts` rather than reasoning about it: `mintIds` ADVANCES the
+module-level `highWater` mark to the last id it reserved, and `mintId` then returns
+`max(highWater, listMax) + 1` — so the id minted at apply is STRICTLY HIGHER than every provisional
+id handed out for that kind, and the two NEVER agree. That is the worse reading for the unfixed code
+(the mis-target was certain, not occasional) and the better one for the fix: `remapStagedCall` fires
+on every staged create rather than lying dormant. `mintProvisionalIds`' own docstring already records
+this as the reason it calls `mintIds` and never `peekMintId` — `peekMintId` does not advance the
+mark, so the FIRST create's provisional id WOULD equal its real one and the remap would be a no-op
+for exactly the row a test fixture is most likely to use.
 
-★★★ **THIS IS NOT THE `mintId` COLLISION HAZARD, and conflating the two is how it gets closed
-without being fixed.** That hazard — a provisional id being handed out and then re-minted for a
-different row — IS handled: the high-water mark guarantees a discarded provisional id is never
-re-minted. This is the REVERSE problem. The id minted at apply DIFFERS from the one already handed
-to the model, and the dependent call still points at the old one. A green test for the collision
-hazard says nothing about this.
+**The fix.** `DescribedRow` now carries `mintedId`; `applyProposal` keeps a per-entity map from
+provisional to real id, fills it from each create's return value via `createdIdOf`, and rewrites
+every later row's id fields through `remapStagedCall` before replaying them. A create that succeeds
+but yields no usable id stays `ok: true` and leaves its dependents refused with `PENDING_MINT_ERROR`
+rather than pointed at a guess.
 
-★★ **LATENT, NOT LIVE — and it must be closed in the SAME change that closes §377.** Nothing
-stages today (§377), so no provisional id has ever been handed to a model in production and this
-cannot currently mis-target anything. That is exactly why it is easy to defer: wiring the gate is
-the change that makes it reachable, and a wiring commit that leaves this open ships the wrong-row
-write on its first destructive multi-call turn.
+★★★ **THIS WAS NEVER THE `mintId` COLLISION HAZARD, and conflating the two is how it could have been
+closed without being fixed.** That hazard — a provisional id handed out and then re-minted for a
+different row — was always handled by the high-water mark. This was the REVERSE problem: the id
+minted at apply differed from the one already handed to the model, and the dependent call still
+pointed at the old one. A green test for the collision hazard says nothing about it.
 
-★ Scope note: this is a property of ANY staged create whose id a later call references, not of
-tasks specifically — every entity with a `create_*` tool in the gate's write set has it.
+★ Scope note: it was a property of ANY staged create whose id a later call references, not of tasks
+specifically, and the fix is entity-generic for the same reason.
+
+★★ **CLOSING IT DID NOT MAKE A CREATE-THEN-UPDATE PLAN WORK.** The remap resolves the ID; it cannot
+supply a concurrency TOKEN for a row that did not exist when the plan was reviewed, so an update
+targeting a same-plan create is now refused honestly instead of mis-targeted silently. That remaining
+gap is §380 — a capability gap, not a data risk.
 
 ## 379. The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership — OPEN
 
@@ -28194,3 +28204,103 @@ opposite direction.
 ★ Scope note: this entry is about the RECIPE and its prose. §321 itself — the `submitPrompt`
 single-flight entry whose section is out of place — is unaffected in content; only its POSITION in
 the file is wrong.
+
+## 380. A staged plan cannot update a row it created in the same plan — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 by the AI bulk-write-safety slice, found while wiring the gate
+(§377) and distinct from §378. Last executed verification 2026-09-05 —
+`grep -n "NEW_ROW_TOKEN_UNAVAILABLE_ERROR" src/app/chat-proposal-apply.ts` shows the pre-emptive
+refusal, and `grep -n "expectedToken is required" src/app/chat-tools-updates.ts` shows the throw it
+exists to keep out of the `stale` bucket. No probe has driven the shape onto a rendered card; that is
+§375's owed eye-verify.
+
+`[create_task, update_task({ id: <provisional> })]` — the canonical shape, and the one the staged
+tool result actively invites, since `stagedToolResult` tells the model to "refer to it as id N in
+later calls in THIS turn only" — applies the create and REFUSES the update.
+
+**The mechanism.** `describeProposal` deliberately does not stamp a row whose target does not exist
+yet; it marks it `pendingOn` instead. Stamping it would be worse: a provisional id colliding with a
+live row would be stamped with THAT row's token, i.e. a permit for the wrong row. So the remapped
+call carries no `expectedToken`, and every one of the seven token-guarded tools requires one —
+`requireToken` (`chat-tools-updates.ts`) throws `ConcurrencyTokenError` on an absent or empty token
+before it derives anything.
+
+★★ **THE REFUSAL IS PRE-EMPTIVE RATHER THAN A CAUGHT THROW, and that is the whole point of the
+exported `NEW_ROW_TOKEN_UNAVAILABLE_ERROR` constant.** `applyProposal` checks `pendingOn` +
+`TOKEN_REQUIRED_TOOLS` + `hasUsableToken` and refuses the row BEFORE `runTool`, precisely so the
+failure cannot reach `requireToken` and inherit the `stale` label — which would tell the user their
+data changed underneath them when nothing had. A MODEL-SUPPLIED token deliberately passes that guard
+and does reach `requireToken`; a wrong value there genuinely IS a token conflict.
+
+**Affected tools** — the seven `requireToken` / `requireTaskWriteToken` enforcement sites, enumerated
+by the repo's own command rather than typed out (it is quoted in `chat-proposal-apply.ts`'s
+`TOKEN_REQUIRED_TOOLS` docstring, which also records that the three different facts that set could
+mean all equal seven today only by coincidence):
+
+```bash
+awk '/case "/{c=$0} /requireToken\("|requireTaskWriteToken\(/{print c}' src/app/chat-tools.ts
+```
+
+RUN 2026-09-05 — `update_task`, `set_task_dependencies`, `update_raid_item`, `update_change`,
+`update_milestone`, `update_resource`, `update_stakeholder`.
+
+★★★ **THE OBVIOUS FIX IS BLOCKED, and the dead end is recorded so nobody re-derives it.** "Derive the
+token from what the create returned" fails because `entityToken` needs the FULL stored row, and five
+of the six entity create tools return a `*Summary`: `createRaid`, `createChange`, `createMilestone`,
+`createStakeholder` and `createResource` all do, and only `createTask` returns a full `Task`.
+`withToken`'s docstring in `chat-tools-lists.ts` records that a summary-derived token is a FALSE
+PERMIT for every field the summary omits — `RaidSummary` drops `description` and `mitigation`, so the
+token is byte-identical before and after an edit to either — and names `chat-tools.test.ts` as what
+pins against it (the same docstring records that it cited `ai-entity-token.test.ts` for a release and
+that a summary-derivation mutant leaves that file fully green).
+
+★ So a fix reading the create's return value would WORK for `update_task` and be wrong for the other
+five — partial coverage that looks general, which is the worst available shape. A proper fix needs a
+per-entity full-row resolver run after the create lands.
+
+★★ **SAFE AND VISIBLE, so this is a capability gap and not a data risk.** The refused row writes
+NOTHING — the guard fires before the dispatcher — and it is reported as not applied, so the plan is
+half-applied in exactly the way the card says. What the user cannot do is express create-then-update
+in one turn; they must apply the create and ask again.
+
+★ It is reachable from an ordinary turn rather than a contrived one, because the staged tool result
+tells the model to reference the provisional id in later calls: a model doing what it is told
+produces this plan.
+
+★ How the refusal is LABELLED is a separate defect — §381.
+
+## 381. A row refused for a capability gap is labelled as a conflict — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 by the AI bulk-write-safety slice. Last executed verification
+2026-09-05 — `grep -n "failed" src/app/chat-proposal-block.tsx` returns one optional boolean and one
+render site, and `grep -n "chatProposalFailed" src/app/i18n.ts src/app/i18n.de.ts` returns the single
+EN/DE pair it renders. **Never machine-verified** as a user-visible outcome: no probe has driven a
+refused row onto a rendered card (§375's owed eye-verify would).
+
+`ProposalCardRow.failed` is a single boolean, and the card renders `chatProposalFailed` — EN "Not
+applied — changed since you reviewed" — for every not-ok row. `chat-panel.tsx` collapses
+`applyProposal`'s result into a set of the indices where `ok` is false, discarding `AppliedRow.error`
+and `AppliedRow.stale` alike.
+
+★★★ **THE APPLY PATH ALREADY DISTINGUISHES THREE OUTCOMES AND THE CARD THROWS THE DISTINCTION
+AWAY.** `stale: true` is the genuine token conflict and the string is right for it. The other two are
+not conflicts at all: `PENDING_MINT_ERROR` (a row this call depended on was not created) and
+`NEW_ROW_TOKEN_UNAVAILABLE_ERROR` (§380 — the target was created earlier in the same plan). For
+those, nothing changed; the row did not EXIST when it was reviewed. The string therefore tells the
+user something false and invites the one recovery that cannot work — it asks them to re-read and
+retry, and there is nothing to re-read.
+
+★★ The engine went out of its way to prevent exactly this. `chat-proposal-apply.ts` refuses a pending
+token-guarded row before `runTool` specifically so the failure cannot inherit the `stale` label, and
+both constants are EXPORTED so that a card can recognise the outcome without matching prose. The card
+consumes neither, so the lie the engine was written to avoid is reintroduced one layer up.
+
+★★★ **THE FIX IS A SECOND CARD STRING, NOT A NARROWER `failed` CONDITION.** Under-reporting is the
+worse direction: a row that did not land must never read as applied. So `failed` must go on covering
+every not-ok row; what it needs is to carry WHICH kind, plus a second EN/DE string for the
+not-a-conflict case. Anything that drops rows out of the failed set to avoid the wrong label trades a
+misleading message for a silent one.
+
+★ Scope note: this is about the CARD's vocabulary. Whether a create-then-update plan should work at
+all is §380, and this entry stands even if §380 is never fixed, because `PENDING_MINT_ERROR` is
+reachable independently — a create that throws, or one that returns no usable id.
