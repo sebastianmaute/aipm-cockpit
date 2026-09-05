@@ -290,3 +290,73 @@ describe.each(CASES)("write-path differential — $name", (c) => {
     }
   });
 });
+
+/** The stored task #1, read the way `rowOf` reads a `CASES` row and for the same
+ *  reason: a missing row would make every assertion below vacuous in the passing
+ *  direction, so it is a hard error rather than a silent `undefined`. */
+function taskRow(ws: Workspace): Task {
+  const found = ws.tasks.find((t) => t.id === 1);
+  if (!found) throw new Error("fixture did not seed task #1");
+  return found;
+}
+
+/** ★★★ THE REFUSAL SHAPE `CASES` STRUCTURALLY CANNOT HOLD, which is why this
+ *  sits outside it rather than as a tenth entry. Every case above asserts a
+ *  write that LANDS — `expect(stored).not.toBe(before)` is its anti-vacuity
+ *  guard — so a tool call the dispatcher THROWS on cannot be expressed there:
+ *  the row is untouched by construction and that very guard would go red for
+ *  the right reason. The property is the same one the file is about, asserted
+ *  from the other side: the preview refuses `taskName=empty`, so the REPLAY
+ *  must refuse it too rather than storing "".
+ *
+ *  ★★ AND THE PARITY SWEEP CANNOT SEE THIS AT ALL. `plan.sanitizer-parity.
+ *  test.ts` drives `buildTaskCleanPatch` directly; it can prove the FUNCTION
+ *  throws, never that the throw survives `buildPatch`'s coercion, the token
+ *  check and the dispatcher's merge to leave the stored row alone. That whole
+ *  chain is what the replaying consumers (`chat-proposal-apply.ts`,
+ *  `use-insight-recommendations.ts`) actually run.
+ *
+ *  ★★ `taskName: null` rather than `""` on purpose — it is the shape a model
+ *  reaches the writer with, and the one that makes this non-exotic. `buildPatch`
+ *  (chat-tools-updates.ts) gates on `input.taskName !== undefined` and then
+ *  collapses ANY non-string to `""`, so a null buried in a multi-field patch
+ *  arrives at `buildTaskCleanPatch` as a blank.
+ *
+ *  ★ The `priority` half is the blast-radius assertion, not decoration: a throw
+ *  costs the WHOLE patch, so the co-supplied field must not land either. A guard
+ *  that dropped the bad name and carried on would store the priority under a
+ *  card that had promised a rename. */
+describe("write-path differential — a preview refusal is a WRITE refusal", () => {
+  it("refuses an empty taskName instead of blanking the stored one", async () => {
+    const { result } = renderHook(
+      () => ({ d: useChatDispatcher(makeDispatcherArgs()), ws: useWorkspace() }),
+      { wrapper: dispatcherWrapperWith({ tasks: [seedTask(1, "First")] }) },
+    );
+
+    const wsBefore = snapshot(result.current.ws);
+    const before = taskRow(wsBefore);
+    const input = { id: 1, taskName: null, priority: "Urgent" };
+
+    const plan = describeEntityCalls([{ type: "tool_use", name: "update_task", input }], {
+      descriptor: INLINE_DESCRIPTORS.task,
+      item: before,
+      ws: wsBefore,
+    });
+    // Anti-vacuity for the whole test: were the preview to stop rejecting this,
+    // the write-side assertions below would be about nothing in particular.
+    expect(rejectedFields(plan)).toContain("taskName");
+
+    await act(async () => {
+      await expect(
+        runTool(result.current.d, "update_task", {
+          ...input,
+          expectedToken: entityToken("task", before),
+        }),
+      ).rejects.toThrow(/taskName is required/);
+    });
+
+    const stored = taskRow(snapshot(result.current.ws));
+    expect(stored.taskName).toBe("First");
+    expect(stored.priority).toBe(before.priority);
+  });
+});

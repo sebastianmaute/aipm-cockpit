@@ -302,12 +302,21 @@ const APPLY_ONLY_REJECTS: ReadonlySet<string> = new Set<string>([
  *  granting cover to the next one.
  *
  *  ★★ MEASURED 2026-09-05, printed from inside the totals test rather than
- *  derived: of 185 preview-only rejections, 54 pairs across these SEVEN fields
+ *  derived: of 181 preview-only rejections, 50 pairs across these SIX fields
  *  move the field and are excused here; the remaining 131 leave it where it was
- *  and are genuine agreement. The three bucket counters and every floor are
- *  UNMOVED by this direction (compared 244, possible 288, enumerated 468) —
- *  it adds reporting to a branch that already counted its pairs, so a figure
- *  elsewhere in this file that changed with this work would be a bug. */
+ *  and are genuine agreement.
+ *
+ *  ★★★ IT WAS 185 / 54 / SEVEN UNTIL `task.taskName` WAS FIXED, and the way the
+ *  numbers moved is the point rather than a footnote. `buildTaskCleanPatch` now
+ *  THROWS on a blank name, so `taskReader`'s catch returns null and those four
+ *  pairs (`true`, `false`, `42`, `""`) left the preview-only bucket for the
+ *  APPLY-REJECTS one — 185 → 181 and 43 apply-rejects — where preview and write
+ *  agree outright and nothing needs excusing. `remaining` is UNCHANGED at 131
+ *  because the four were excused, not compared. The three bucket counters and
+ *  every floor are UNMOVED (compared 244, possible 288, enumerated 468) — a
+ *  figure elsewhere in this file that changed with this work would be a bug.
+ *  Re-print, never re-derive: `console.log` the reduce results in the totals
+ *  test and run this file alone. */
 const PREVIEW_REJECTS_APPLY_WRITES: Readonly<Record<string, string>> = {
   // `sanitizeRaidItem` sets `severity` ONLY when the value is in
   // `RAID_SEVERITY_SET`; there is no fallback, so a value the preview's enum
@@ -327,11 +336,6 @@ const PREVIEW_REJECTS_APPLY_WRITES: Readonly<Record<string, string>> = {
   // preview's date guard refuses exactly the values that blank a stored date.
   "raid.raisedDate": "unconditional sanitizeIsoDate: an invalid date is written as \"\", blanking a stored date",
   "change.raisedDate": "unconditional sanitizeIsoDate: an invalid date is written as \"\", blanking a stored date",
-  // The descriptor calls `taskName` `requiredNonEmpty`, which describes what the
-  // WRITER ought to refuse — but `buildTaskCleanPatch` has no non-empty guard
-  // (`cleanPatch.taskName = sanitizeTaskName(patch.taskName)`), so a blank or
-  // non-string name is STORED as "". §384's shape on a second entity.
-  "task.taskName": "requiredNonEmpty in the descriptor only: buildTaskCleanPatch stores sanitizeTaskName(x) with no guard, blanking the name",
 };
 
 // --- the differential ------------------------------------------------------
