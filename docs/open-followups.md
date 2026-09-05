@@ -594,9 +594,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--open) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | open |
-| [§383](#383-fields-hint-pollutes-its-controls-accessible-name--open) | `Field`'s `hint` pollutes its control's accessible name | found 2026-09-05 in the edit-task modal rework | S | open |
-| [§384](#384-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
-| [§385](#385-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§386](#386-fields-hint-pollutes-its-controls-accessible-name--open) | `Field`'s `hint` pollutes its control's accessible name | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§387](#387-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27974,7 +27974,7 @@ insight FREEZES, which is the safe direction — this is recorded as a latent sh
 writes comes from `dailyKey(userId, it.date)` over API-supplied dates. The paths that could carry a
 hostile key are a hand-edited `localStorage` blob and a future writer; neither has been probed.
 
-## 383. `Field`'s `hint` pollutes its control's accessible name — OPEN
+## 386. `Field`'s `hint` pollutes its control's accessible name — OPEN
 
 **Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by
 measurement, not by reading: a whole-string `getByRole("combobox", { name: "Group" })` finds NOTHING
@@ -28027,7 +28027,7 @@ Closure options, none taken: render the tooltip as a SIBLING of the caption rath
 or mark the trigger `aria-hidden` and deliver the hint through `aria-describedby`, which is where an
 explanatory hint belongs regardless.
 
-## 384. The Relationships empty-section guard is unpinned — OPEN
+## 387. The Relationships empty-section guard is unpinned — OPEN
 
 **Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. **Never machine-verified** — and
 there is nothing to verify, because the claim is that NO test covers the case; the guard itself is
@@ -28048,7 +28048,7 @@ all `advanced`, so any tier switch shows or hides the three together and can nev
 state. It has to drive the per-field checklist — `grep -n "toggleField" src/app/modal-field-controls.tsx`
 — which is what makes the offending configuration reachable by a user in the first place.
 
-## 385. The task-name mic is now invisible to the label-binding source scan — OPEN
+## 388. The task-name mic is now invisible to the label-binding source scan — OPEN
 
 **Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by reading
 the scan's own predicate: `grep -n "standsFirst(b.body, re) && !hasGroupProp(b.attrs)" src/app/label-binding.guard.test.ts`

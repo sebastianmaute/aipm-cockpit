@@ -199,7 +199,7 @@ describe("TaskFormFields", () => {
     //   not.
     render(<Harness />, { wrapper: TestProviders });
     // The accessible name is "Groupi" -- the hint's InfoTooltip glyph joins the
-    // wrapping label's text (open-followups 383), hence the prefix match.
+    // wrapping label's text (open-followups 386), hence the prefix match.
     const group = screen.getByRole("combobox", { name: /^Group/ });
     expect(group.closest("label")?.className).toContain("sm:col-start-1");
   });
