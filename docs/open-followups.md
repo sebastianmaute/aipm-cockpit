@@ -29033,3 +29033,15 @@ persisted `Workspace` field" hard constraint). A *transient*, in-session-only re
 resets on reload, the way Jira's and Timelog's test results already behave) would not. That
 difference — not the absence of a Turso client call — is the whole reason this was deferred
 rather than added inline to this batch.
+
+## 398. Collapsing an open document's body can commit a pending unblurred edit and mint a version — OPEN
+
+**Status:** OPEN. 2026-09-05, never machine-verified — this is a code-reading claim (the mechanism it describes has no automated reproduce; see the closing paragraph for the nearest existing test). `documents-panel.tsx`'s `bodyCollapsed` state (added in `ede67ddd`, "collapse the body by re-clicking the open document's name") wraps `DocumentEditModeBody` in `{!bodyCollapsed && (...)}`, so toggling it unmounts the whole editor subtree. Its own comment calls the state transient — "collapsing is a momentary 'give me room' gesture, not a preference. Nothing persists it."
+
+`useBlockDraft` (`document-block-editors.tsx`) holds a mount-only effect whose cleanup runs on any unmount, blur or not: if the draft is dirty, not a no-op against its baseline, and not superseded by a concurrent write, it normalises the draft and calls `onCommit` — i.e. it flushes a dirty draft on unmount. That `onCommit` is `commitBlock` (`use-document-editor.ts`), which calls `mutateDocuments({kind: "ops", ...})` and — per the coalescing/`lastMintedRef`/`MAX_VERSIONS_PER_DOC` machinery around it — routes through `applyDocMutation`, the single document-mutation path that mints `DocVersion` before-images (see `docs/AGENTS/documents.md`).
+
+So collapsing the body while a block editor holds an uncommitted, unblurred edit commits that edit and can mint a document version, from a gesture whose own comment says nothing should persist from it.
+
+**This is the safe direction, not data loss** — the edit is written, never discarded, and must not be filed as a loss. It is also not a new failure shape: `useBlockDraft`'s unmount-cleanup comment already anticipates non-blur unmounts, naming a narrow-pane collapse of a non-selected row and a pane resize as existing cases with the identical commit-on-unmount behavior; the new collapse toggle is a third path of the same shape, and `documents-panel.test.tsx`'s "flushes a pending unblurred edit to the OLD document on a switch, never the new one" test already pins the document-switch instance of it.
+
+The open question is a product one, not a correctness one: should a gesture presented as momentary ("give me room") be allowed to write persistent history? Nothing pins the collapse-specific case today — a `documents-panel.test.tsx` analogue mirroring the existing switch-flush test would be the cheap way to characterize (and, if the product answer changes, to pin a fix for) this specific trigger.
