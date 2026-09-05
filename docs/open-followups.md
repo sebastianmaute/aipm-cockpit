@@ -594,19 +594,22 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--open) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | open |
-| [§370](#370-redo-of-an-ai-captured-delete-is-unproved--open) | Redo of an AI-captured delete is unproved | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§370](#370-redo-of-an-ai-captured-delete-is-unproved--closed-2026-09-05) | ~~Redo of an AI-captured delete is unproved~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (a redo leg added to the existing AI `deleteTask` round trip in `use-chat-dispatcher.undo.test.tsx`, asserting the row is gone again after `redo()`) |
 | [§371](#371-a-stakeholder-deletion-offers-to-delete-their-job-title-not-the-person--closed-2026-09-04) | ~~A stakeholder deletion offers to delete their job title, not the person~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-04 (one shared `PERSON_ENTITIES` set now names both person entities by `personName`, at the create label AND the delete label; mutation-proved by reverting the set to `["resource"]` alone) |
-| [§372](#372-an-update_resource-rename-sent-as-the-name-alias-previews-an-empty-plan--open) | An update_resource rename sent as the name alias previews an empty plan | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
-| [§373](#373-an-email-shaped-field-previews-a-value-apply-clips-or-discards--open) | An email-shaped field previews a value Apply clips or discards | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
-| [§374](#374-help-contentts-still-says-five-inline-entities-and-there-are-now-six--open) | help-content.ts still says five inline entities and there are now six | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§372](#372-an-update_resource-rename-sent-as-the-name-alias-previews-an-empty-plan--closed-2026-09-05) | ~~An update_resource rename sent as the name alias previews an empty plan~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (`describeEntityCalls` projects an alias-only `update_resource({name})` onto `firstName`/`lastName` via the dispatcher's own `splitName` before diffing) |
+| [§373](#373-an-email-shaped-field-previews-a-value-apply-clips-or-discards--closed-2026-09-05) | ~~An email-shaped field previews a value Apply clips or discards~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 — but NOT by `05a2efcb`, whose closure was false and shipped a CRITICAL regression; re-closed by `fieldSanitizers` (delegate to each field's own sanitizer; absent ⇒ verbatim) + the `plan.sanitizer-parity.test.ts` differential |
+| [§374](#374-help-contentts-still-says-five-inline-entities-and-there-are-now-six--closed-2026-09-05) | ~~help-content.ts still says five inline entities and there are now six~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (comment now reads six entities, matching `InlineEntity`) |
 | [§375](#375-eye-verify-owed-a-real-model-turn-through-the-staged-review-card--open) | Eye-verify owed: a real model turn through the staged review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
-| [§376](#376-a-staged-document-row-cannot-be-named-in-the-review-card--open) | A staged document row cannot be named in the review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
+| [§376](#376-a-staged-document-row-cannot-be-named-in-the-review-card--closed-2026-09-05) | ~~A staged document row cannot be named in the review card~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`liveRowTitle` resolves an `update_document`/`delete_document` row's title from `ws.documents` by `input.id`; the plan beside it stays empty by design) |
 | [§377](#377-the-staging-gate-the-review-card-and-the-apply-path-have-no-production-caller--closed-2026-09-05) | ~~The staging gate, the review card and the apply path have no production caller~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`chat-panel.tsx` now consults `shouldStage`, mints, describes, mounts the card and applies inside `useUndoBatch`; the entry's own reproduce command returns real call sites) |
 | [§378](#378-a-staged-creates-provisional-id-is-not-reconciled-with-the-id-apply-mints--closed-2026-09-05) | ~~A staged create's provisional id is not reconciled with the id Apply mints~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`DescribedRow.mintedId` + `remapStagedCall`; landed BEFORE the wiring commit, so it was never reachable in a shipped product) |
 | [§379](#379-the-registers-index_matches-recipe-compares-two-sequences-while-its-prose-claims-membership--open) | The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership | found 2026-09-04, reproduced independently by two sessions across four tree states | S | open |
-| [§380](#380-a-staged-plan-cannot-update-a-row-it-created-in-the-same-plan--open) | A staged plan cannot update a row it created in the same plan | found 2026-09-05 in the AI bulk-write-safety slice | M | open |
-| [§381](#381-a-row-refused-for-a-capability-gap-is-labelled-as-a-conflict--open) | A row refused for a capability gap is labelled as a conflict | found 2026-09-05 in the AI bulk-write-safety slice | S | open |
+| [§380](#380-a-staged-plan-cannot-update-a-row-it-created-in-the-same-plan--closed-2026-09-05) | ~~A staged plan cannot update a row it created in the same plan~~ | found 2026-09-05 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`applyProposal` stamps a real concurrency token at apply time via `TOKEN_ROW_SOURCE`'s six full-row resolvers, already on `ToolDispatcher`) |
+| [§381](#381-a-row-refused-for-a-capability-gap-is-labelled-as-a-conflict--closed-2026-09-05) | ~~A row refused for a capability gap is labelled as a conflict~~ | found 2026-09-05 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (`failed` now carries a `failedKind` — conflict/dependency/unreadable/error — classified by `failureKindOf`, with four EN/DE strings) |
 | [§382](#382-the-registers-own-index-rebuild-is-lossy-and-calls-itself-idempotent--open) | The register's own index rebuild is lossy, and calls itself idempotent | found 2026-09-05 while closing 377 and 378 | S | open |
+| [§383](#383-a-resources-extra-emails-preview-a-list-apply-dedupes-and-caps--open) | A resource's extra emails preview a list Apply dedupes and caps | found 2026-09-05 while closing 373 | S | open |
+| [§384](#384-a-mononym-update_resource-rename-previews-a-rejected-lastname-that-apply-accepts-and-wipes--open) | A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes | found 2026-09-05 in cold review of the §372 fix | S | open |
+| [§385](#385-srcsymbolscheck-prints-a-remedy-it-does-not-implement--open) | `src:symbols:check` prints a remedy it does not implement | found 2026-09-05 while acting on that report's own advice | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -13875,7 +13878,8 @@ one-line fix would have left the register half-correct while this entry read as 
 ★★ And the dispatcher could not take that same line. `sanitizeChangeItem` falls back to `"Proposed"`
 for anything off the enum, so a mistyped status silently DEMOTED a decided change; routing the MERGED
 status would then have cleared its `decisionDate` as well. It needed a gate on the model's RAW value
-— `applyModelChangeStatus` — mirroring the task dispatcher's `isTaskStatus` shape. `applyChangeStatus`
+— `applyModelChangeStatus` — mirroring `isTaskStatus`'s shape (which lived in the task dispatcher
+when this was written and moved to `task-status.ts` on 2026-09-05). `applyChangeStatus`
 also had to MOVE to `change-log.ts`, because the dispatcher cannot import a React module.
 
 ★★★ **"SOLE WRITER" WAS NEVER TRUE AND IS STILL NOT — what is exclusive is the TRANSITION, not the
@@ -18622,7 +18626,12 @@ and **(6) `applyFilters`** (~20). REJECTED, both: each is one tool's helper, so 
 relocates a function without buying a surface. `applyFilters` exists only to adapt `useFilters()`'s
 five setters, so extracting it moves that context dependency without removing it. **(7)
 `isTaskStatus` and its status set** (~8 lines). REJECTED: a module-scope type guard, ~1% of the gap,
-a pure relocation.
+a pure relocation. ★★ IT HAS SINCE MOVED ANYWAY, 2026-09-05, and the rejection above still stands as
+written: `isTaskStatus` now lives in `task-status.ts` beside `applyStatusChange` — not to shrink
+`use-chat-dispatcher.ts` (it does not, materially) but because the guard and the transition are ONE
+unit at every call site, and a test could not compose the real pair while the guard was private to a
+React hook module. It also retired a duplicate `STATUS_SET` sitting beside the identical one in
+`task-status.ts`. Read item (7) as "rejected as a SIZE remedy", which is what it was.
 
 **`use-storage-backend.ts` — A SEAM EXISTS, but every candidate is dearer than the dispatcher's, and
 the file has already been mined four times.** `useLoadTruncation`, `useFileProjectOps`,
@@ -27989,21 +27998,28 @@ insight FREEZES, which is the safe direction — this is recorded as a latent sh
 ★ Reachability is the open question and is deliberately not asserted here. Every key the app itself
 writes comes from `dailyKey(userId, it.date)` over API-supplied dates. The paths that could carry a
 hostile key are a hand-edited `localStorage` blob and a future writer; neither has been probed.
-## 370. Redo of an AI-captured delete is unproved — OPEN
+## 370. Redo of an AI-captured delete is unproved — CLOSED 2026-09-05
 
-**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
-**Never machine-verified:** no probe has been run against this entry.
+**Status:** CLOSED 2026-09-05 by `d96cf025`, which adds a redo leg to the pre-existing "undoing an
+AI deleteTask puts the MIDDLE row back at its own index" round trip in
+`use-chat-dispatcher.undo.test.tsx`, asserting the row is gone AGAIN after `redo()` — not merely
+that redo ran without throwing. Reproduce:
+`npx vitest run src/app/use-chat-dispatcher.undo.test.tsx -t "MIDDLE row"`.
 
 `task-manager.tsx` passes `allowDestructiveSave: armDestructiveForUndo` to `useUndoStack`, so
-production is wired — but nothing exercises the REDO direction on an entry captured by an AI write.
+production is wired — but nothing exercised the REDO direction on an entry captured by an AI write.
 A redo of an AI `deleteAllTasks` re-removes rows, which is the §295 arming shape.
 
-The Phase 1 round trips (`use-chat-dispatcher.undo.test.tsx`) all stop after `undo()`. So the
-undo direction is proved at all 14 capture sites and the redo direction at none of them.
+The Phase 1 round trips (`use-chat-dispatcher.undo.test.tsx`) all stopped after `undo()`. So the
+undo direction was proved at all 14 capture sites and the redo direction at none of them.
 
 ★ Not evidence of a defect — the capture path is shared with the human writers, whose redo IS
-exercised. This entry records that the AI path inherits that coverage by construction rather than
-by test, which is a weaker guarantee than the round trips give the undo direction.
+exercised. This entry recorded that the AI path inherited that coverage by construction rather than
+by test, which was a weaker guarantee than the round trips gave the undo direction.
+
+★★ CLOSED BY EXTENDING THE EXISTING single-row `deleteTask` round trip, not a new `deleteAllTasks`
+one — the `§295 arming shape` example above stays illustrative of the class of bug, not the site of
+the fix.
 
 ## 371. A stakeholder deletion offers to delete their job title, not the person — CLOSED 2026-09-04
 
@@ -28050,33 +28066,112 @@ must populate both fields with DIFFERENT values or the assertion proves nothing.
 descriptor for that entity is in scope. Routing both through the descriptor is the deeper fix
 and is not this one.
 
-## 372. An update_resource rename sent as the name alias previews an empty plan — OPEN
+## 372. An update_resource rename sent as the name alias previews an empty plan — CLOSED 2026-09-05
 
-**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
-**Never machine-verified:** no probe has been run against this entry.
+**Status:** CLOSED 2026-09-05 by `ecb7f4f6`. `describeEntityCalls` now projects an alias-only
+`update_resource({name})` onto `firstName`/`lastName` before diffing, via the dispatcher's own
+`splitName` and its exact four-condition predicate — mirrored line for line from `updateResource`
+in `use-chat-dispatcher.ts`, including the `typeof … !== "string"` part tests — so the preview and
+Apply cannot diverge. Reproduce:
+`npx vitest run src/app/inline-ai-edit/plan.test.ts -t "resource rename sent as the name alias"`.
 
 `name` is a WRITE ALIAS that the dispatcher splits into `firstName`/`lastName`; it is not a
 stored field. It is therefore deliberately absent from the `resource` descriptor's `diffFields`
-(`inline-ai-edit/entity-descriptor.ts`), because `before` would read empty for every resource.
+(`inline-ai-edit/entity-descriptor.ts`), because `before` would read empty for every resource —
+that absence is unchanged by the fix below; only the PREVIEW path changed.
 
-Consequence: `update_resource({id, name})` — a rename sent as the alias alone — produces NO diff
-and previews as an empty plan, while applying normally. ★ Mood corrected 2026-09-05, when §377
-closed: the staged review card SHOWS the user a row with nothing in it and then changes the
-person's name. The conditional this sentence carried was keyed to the card having no production
-caller, and that is no longer the case — nothing else about the entry changes, and no probe has
-observed it.
+★★ PAST TENSE FROM HERE DOWN. `update_resource({id, name})` — a rename sent as the alias alone —
+USED TO produce NO diff and preview as an empty plan while applying normally, so once §377 wired the
+card into production the reviewer SAW a row with nothing in it and then the person's name changed
+underneath them. `describeEntityCalls` now projects the alias onto `firstName`/`lastName` before
+diffing, so the two parts render as an ordinary two-field update instead — and an explicit
+`firstName`/`lastName` in the same call still overrides the projection, matching the dispatcher.
 
-★ Diffing the parts is the honest form and is what ships. The blind spot is real and is a property
-of the alias, not of the descriptor: any write alias that fans out to several stored fields has it.
+★ Diffing the parts is the honest form and is what ships. The blind spot was real and was a property
+of the alias, not of the descriptor: any write alias that fans out to several stored fields still has
+it unless it gets the same projection step.
 
-## 373. An email-shaped field previews a value Apply clips or discards — OPEN
+★ See §384 for a consequence this reachability introduced: for a MONONYM rename (`name: "Cher"`),
+`splitName` yields one empty part, the preview correctly REJECTS it as `bad-input`, and
+`sanitizeResource` (which needs only ONE part non-empty) applies the rename and WIPES that part
+anyway — a card misrepresenting a write, unreachable before this fix.
 
-**Status:** OPEN. Rewritten 2026-09-04: the divergence is real, the mechanism the entry was filed
-with is not. Last executed verification 2026-09-04 —
+## 373. An email-shaped field previews a value Apply clips or discards — CLOSED 2026-09-05
+
+**Status:** CLOSED 2026-09-05. ★★★ THE FIRST CLOSURE (`05a2efcb`) WAS FALSE AND SHIPPED A CRITICAL
+REGRESSION; the mechanism it describes no longer exists and neither `textCaps` nor
+`normalizePreviewValue` is a symbol today. It gave `EntityDescriptor` a `textCaps` map and ran every
+`diffField` except a `numberFields` member through `normalizePreviewValue`. That is a TEXT-FIELD rule
+applied to the whole diff set, and it broke three ways, all found by cold review: (1) CRITICAL —
+`resource.isExternal`, the only BOOLEAN `diffField`, was BLANKED to `""`, and since `FieldDiff.raw`
+is what `use-inline-entity-edit.ts` puts in the write patch, that dropped the flag on APPLY, not only
+in the card; (2) its "a cap is not universal" claim was false for twelve further fields, all capped by
+their sanitizer and all absent from the map; (3) it copied the clipping ALGORITHM as
+`trimmed.slice(0, cap)` while forbidding a copy of the cap VALUE, losing `clipText`'s lone-high-
+surrogate back-off.
+
+Closed properly by inverting the default. The member is now `fieldSanitizers`, a field → the EXACT
+apply-path function (never a copy of its cap and never of its algorithm), and a field ABSENT from it
+is previewed VERBATIM — so a number, enum, date or rich field cannot be text-mangled by
+construction. Both the stored `before` and the incoming `after` go through the same entry, which is
+what makes a no-op `isExternal: false` compare equal against a row that carries no key at all
+(`sanitizeResource` stores the flag present-or-absent, so verbatim `str` was NOT sufficient there
+either — it fixes `true` and still mispreviews `false`). The map spans five distinct sanitizers:
+`sanitizeText` (at SEVERAL DIFFERENT CAPS — the same field name carries a different one on a
+different entity, which is the whole reason the map is per-entity; the caps arrive mostly through
+named wrappers rather than as literals, so read the map itself:
+`grep -n "fieldSanitizers" -A 12 src/app/inline-ai-edit/entity-descriptor.ts`),
+`sanitizeMultiline` (`task.blockers` — no trim),
+`optText`/`optMultiline` (the resource optional path — trim, NO cap, and CRLF→LF for notes) and
+`isExternalFlag`. The last three were exported for this; ★ `stakeholder.notes` is `sanitizeText`,
+NOT the multiline one, despite being a textarea, so `task.blockers` is the only field routed through
+`sanitizeMultiline` — `resource.notes` is multiline TEXT but takes `optMultiline`, a different
+function, which is the distinction this sentence used to blur.
+
+★★ NO ENTRY COUNT IS QUOTED HERE, DELIBERATELY, and restoring one is a regression. The first draft
+of this paragraph said "sixteen fields" — a hand tally, never measured — and the commit message that
+carried it says the same; the measured figure at that moment was 27. The tally was wrong before the
+ink dried and would rot again on the next field added. What BOUNDS the set is machine-checked
+instead: `entity-descriptor.test.ts`'s "has no fieldSanitizers key outside diffFields" (no stray or
+typo'd key can hide in the map) plus the differential below (every `diffField`, whether or not it
+has an entry). Read a count off `Object.keys(...).length` if you need one; do not trust a doc for it.
+
+★★ THE REAL DELIVERABLE IS THE DIFFERENTIAL, not the enumerated map — a hand-written list is how
+this entry shipped covering four fields the first time. ★★★ THE TWO SENTENCES ABOVE USED TO QUOTE
+"the sixteen entries" and "four fields of sixteen", ONE PARAGRAPH BELOW the ★★ that forbids a count
+and records 16 as the disproved figure. A rule and its own violation, adjacent, in the entry that
+exists to record the violation — which is how durable a stale number is once it is in prose.
+`src/app/inline-ai-edit/plan.sanitizer-parity.test.ts` sweeps EVERY entity × EVERY `diffField` × a
+hostile probe set (6000-char string, two surrogates straddling real caps, padded, CRLF, both
+booleans, a number, and the empty string — the last added late in the round, which is why no COUNT
+is given here), pushing each through `describeEntityCalls` and through that field's REAL
+sanitizer, and asserting they agree. It enumerates over `diffFields`, so a new field or entity is
+covered the moment it is declared, and every exclusion is named IN THE FILE with a reason — one
+named field (`task.labels`, array-valued), one CLASS (the rich HTML fields, DOM-bound and owned by
+`descriptor-drift.test.ts`), and a deliberately-empty third bucket. Mutation-proved 3/3 (a broken
+`stakeholder.notes` cap, the dropped `assigneeEmail` exception, and the original `isExternal`
+blanking each turn it red).
+
+★★★ **NO SWEEP TOTAL IS QUOTED HERE, for the same reason no entry count is** — and this line DID
+quote one ("192 compared pairs / 175 preview-only rejections"), which went stale inside this very
+branch: adding ONE probe (the empty string, which found the number path's divergence) moved it to
+226/185 over 450 enumerated pairs. A total is a function of `diffFields × PROBES`, so every field,
+entity or probe added anywhere moves it. The file's floors are DERIVED from that product rather than
+pinned, precisely so nothing needs re-baselining — read today's off the test if you need them.
+
+★ It also found an adjacent defect in the other direction, now fixed: `buildTaskCleanPatch` THROWS
+`"assigneeEmail is invalid"` — failing the WHOLE patch, so every other field in the edit is lost —
+while the preview checked only an address's LENGTH. `emailFormatFields` closes that, and is
+deliberately per-FIELD: `sanitizeRaidItem` runs the same `sanitizeEmail` over `ownerEmail` with no
+format guard, so rejecting there would be the preview inventing a rule apply does not have.
+Reproduce: `npx vitest run src/app/inline-ai-edit src/app/chat-proposal-describe.test.ts`.
+
+Rewritten 2026-09-04, before this closure: the divergence was real, the mechanism the entry was
+filed with was not. Last executed verification 2026-09-04 —
 `grep -n "export function sanitizeEmail" -A 2 src/app/sanitize-core.ts` (one line, no validity
 branch) and `grep -nE "= sanitizeEmail\(" -A 1 src/app/sanitize-entities.ts src/app/sanitize-records.ts`
-(the caller-side emptiness drop), plus the other commands quoted below. No RUNTIME probe has been
-executed: every claim rests on the functions cited, not on an observed write.
+(the caller-side emptiness drop), plus the other commands quoted below. No RUNTIME probe was
+executed at that time: every claim rested on the functions cited, not on an observed write.
 
 ★★★ **THE ORIGINAL FILING NAMED A MECHANISM THAT DOES NOT EXIST, and it is recorded here rather
 than silently replaced — the correction is the more useful half.** It read: "`sanitizeEmail`
@@ -28095,6 +28190,9 @@ entry said had none. `buildTaskCleanPatch` (`chat-task-patch.ts`) runs
 `createTask` carries the same guard, so an invalid `assigneeEmail` fails the write LOUDLY rather
 than dropping. `grep -rn "isValidEmail" src/app --include=*.ts --include=*.tsx` enumerates every
 site; none of them is in `sanitize-entities.ts` or `sanitize-records.ts`.
+
+★★★ PAST TENSE FROM HERE DOWN — describes HEAD before `05a2efcb`, kept as the record of what was
+wrong.
 
 **What is actually true.** The preview's `after` is the RAW input coerced to a string —
 `const after = str(input[f])` in `describeEntityCalls` (`inline-ai-edit/plan.ts`), where `str` is
@@ -28132,29 +28230,44 @@ of this entry used to assert only one of them.** A syntactically invalid but non
 same value on `assigneeEmail` throws. "An invalid email previews a diff Apply drops" was wrong
 about both.
 
-★ `requiredNonEmpty` still cannot express any of this, and that observation survives the rewrite:
-the field is not required, it is silently normalised. Closing it needs the preview to run the
-field's OWN sanitizer before diffing — which is what `dateFields` already does for dates
-(`sanitizeIsoDate(after) !== after` → reject) — rather than a new per-field "may drop" flag.
+★ `requiredNonEmpty` could not express any of this — the field was not required, it was silently
+normalised. Closing it needed the preview to run something like the field's own sanitizer before
+diffing, the same shape `dateFields` already used for dates (`sanitizeIsoDate(after) !== after` →
+reject); `fieldSanitizers` is that shape, generalised to every field rather than a new per-field
+"may drop" flag. ★ It was `textCaps` + `normalizePreviewValue` for one commit — the same shape with
+the default inverted, which is what made it wrong; see the Status block above. Note this paragraph's
+own conclusion has since been overtaken too: the `assigneeEmail` throw IS now mirrored in the
+preview, by `emailFormatFields`, so the two paths no longer behave oppositely to a reader of the
+card — only to the sanitizers underneath.
 
 ★ Pre-existing across every entity with an email-shaped field. `email` on `resource` joined the
 existing three in the AI bulk-write-safety slice rather than introducing the problem.
 
-## 374. help-content.ts still says five inline entities and there are now six — OPEN
+## 374. help-content.ts still says five inline entities and there are now six — CLOSED 2026-09-05
 
-**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
-**Never machine-verified:** no probe has been run against this entry.
+**Status:** CLOSED 2026-09-05 by `34bd8c1b`, REWORDED by `cc752326`. The comment now reads
+"★ Six `InlineEntity` members, only five with a surface" and goes on to reconcile that six against
+the FIVE entries `relatedViews` lists — the reconciliation was the point of the reword, and the
+count alone had been the closure. Reproduce:
+`grep -n "Six .InlineEntity. members" src/app/help-content.ts`.
 
-`help-content.ts` carries a prose comment reading "★ Five entities, from `InlineEntity`".
-`InlineEntity` gained `resource` in the AI bulk-write-safety slice, so there are six.
+★★★ THAT REPRODUCE COMMAND IS THE SECOND ONE. The first quoted the pre-reword text
+("entities, from `InlineEntity`") and returned NOTHING at EXIT=1 — a command certifying a CLOSURE
+while proving the opposite of what its sentence claimed, found by cold review and not by any gate.
+The reword landed later in the same branch and this Status was not swept. A reproduce command
+sitting beside a claim reads as verified; re-run it AFTER the last edit to the thing it cites.
 
-★ The comment's CLAIM (which views the help entry relates to) is still true; only its
-justification is stale, and `resource` is not inline-editable, so the count is wrong in a way that
-does not change the behaviour it describes. Left for that file's owner rather than fixed in a slice
-that had no other reason to touch it.
+`help-content.ts` USED TO carry a prose comment reading "★ Five entities, from `InlineEntity`".
+`InlineEntity` gained `resource` in the AI bulk-write-safety slice, making it six, and the comment
+now says so.
 
-★★ No gate can see this. `docs:symbols:check` proves a backticked NAME exists — `InlineEntity`
-exists either way — and it cannot see a COUNT at all. This is the "a count is the easiest claim to
+★ The comment's CLAIM (which views the help entry relates to) was and stays true; only its
+justification was stale, and `resource` is not inline-editable, so the count was wrong in a way
+that never changed the behaviour it describes. Fixed in this slice rather than left for that file's
+owner, since the slice was already touching `InlineEntity`.
+
+★★ No gate could see this. `docs:symbols:check` proves a backticked NAME exists — `InlineEntity`
+exists either way — and it cannot see a COUNT at all. This was the "a count is the easiest claim to
 check and the easiest to leave rotting" shape.
 
 ## 375. Eye-verify owed: a real model turn through the staged review card — OPEN
@@ -28162,7 +28275,11 @@ check and the easiest to leave rotting" shape.
 **Status:** OPEN. Re-scoped 2026-09-05 once the wiring landed: the eye-verify is no longer blocked,
 it is simply OWED and performable at HEAD. Last executed verification 2026-09-05 —
 `grep -n "ChatProposalBlock" src/app/chat-panel.tsx` returns an import and a mount, so the card is
-reachable from the application. The eye-verify ITSELF has never been performed.
+reachable from the application. The eye-verify ITSELF has never been performed. ★ Also record: §380
+and §381, filed alongside this entry as outcomes to watch for while performing it, were both closed
+later the same day (`b8c78fe3`, `5a146245`) — so the eye-verify should now see a create-then-update
+plan apply BOTH rows, and any refused row labelled by its actual kind, rather than either of the two
+failure shapes the paragraph below still describes for the record.
 
 ★★ **THE WIRING LANDED (§377), SO THIS IS NOW A PLAIN OWED ACT.** Two earlier wordings of this entry
 each named a different thing as the gap — the SUITES first, then the wiring. Both are retired, and
@@ -28178,14 +28295,27 @@ behaviour and nothing about whether a real turn produces those props. The gate s
 either — the axe run seeds file mode and the card exists only after a model turn, so no e2e seed will
 render it at any configuration.
 
-★ Two outcomes filed since the wiring are worth watching for while performing it, because both are
-reachable from an ordinary multi-write turn and neither is visible to any suite: a create-then-update
-plan refusing its update row (§380), and the card labelling that refusal as a conflict (§381).
+★ Two outcomes filed since the wiring were worth watching for while performing it, because both were
+reachable from an ordinary multi-write turn and neither was visible to any suite: a create-then-update
+plan refusing its update row (§380), and the card labelling that refusal as a conflict (§381). Both
+are now CLOSED (see above) — the eye-verify should confirm they behave as fixed, not merely that they
+no longer reproduce.
 
-## 376. A staged document row cannot be named in the review card — OPEN
+## 376. A staged document row cannot be named in the review card — CLOSED 2026-09-05
 
-**Status:** OPEN. Re-scoped 2026-09-05 out of the conditional mood, because the gate is now wired
-(§377) and the row is reachable. Last executed verification 2026-09-05 —
+**Status:** CLOSED 2026-09-05 by `c119976e` (docstring reattached to the function it documents by
+`663dc3c0`). `liveRowTitle` (`chat-proposal-stage.ts`) now special-cases TWO of the three
+`*_document` tools via a `TITLED_DOCUMENT_TOOLS` set — `update_document` and `delete_document`, the
+two
+that address an EXISTING row: it resolves the title from `ws.documents` by `input.id`, returning
+`null` when the id matches nothing or the title is blank. `create_document` is deliberately NOT in
+the set, because it addresses no existing row; it falls through to the caller's own fallback, which
+is `proposalRowTitle` — and that tries `input.title` BEFORE the tool name, so a create row is named
+by the title the model supplied, not by `create_document`. Reproduce:
+`npx vitest run src/app/chat-proposal-stage.test.ts -t "document rows"`.
+
+Re-scoped 2026-09-05, before this closure, out of the conditional mood, because the gate was wired
+(§377) and the row was reachable. Last executed verification then —
 `grep -n "document" src/app/chat-proposal.ts src/app/chat-proposal-describe.ts` shows the three
 `*_document` tools in the gate's write set and NO `document` entry in the entity map. The
 engine-level claim is what that verifies; no probe has driven a document write onto a rendered card.
@@ -28195,20 +28325,25 @@ yet, so no user has ever seen this row", and asked the reader to take every "wou
 That is retired: `chat-panel.tsx` consults `shouldStage` and mounts `ChatProposalBlock`, so a turn
 containing a `*_document` write now puts this row in front of a real user.
 
-The three `*_document` tools are in the staging gate's write set, so they ARE staged — but the
-descriptor engine has no `document` entity, so `describeProposal` returns them with an EMPTY plan.
-The card therefore has only `call.name` and `call.input` to render: it cannot say WHICH document an
-`update_document` touches, WHAT it changes, or WHICH document a `delete_document` removes. Contrast
-`delete_task`, whose plan carries a label.
+★★★ **PAST TENSE FROM HERE DOWN FOR THE NAMING HALF — THE EMPTY-PLAN HALF IS UNCHANGED AND
+DELIBERATE.** The three `*_document` tools are in the staging gate's write set, so they ARE staged,
+and the descriptor engine STILL has no `document` entity, so `describeProposal` STILL returns them
+with an EMPTY plan — that half was never this entry's fix target: a `document` descriptor would diff
+the title alone (`blocks` is a typed union outside `diffFields`' scalar model) while implying it
+diffs more, which is worse than no plan at all. What changed is the row's TITLE: `liveRowTitle` now
+resolves `update_document`/`delete_document` to the live document's title from `ws.documents` by
+`input.id`, via the fix below. Contrast `delete_task`, whose plan STILL carries a label AND a diff —
+this row now has the label without the diff.
 
-★★★ **This is the row that most needs to be legible, and it is now the row a user actually sees.**
+★★★ **This was the row that most needed to be legible, and it is the row a user actually sees.**
 Document chat writes take NO undo capture at all (`use-document-tools.ts` says so at three sites;
 they recover via `documentVersions` instead), so the gate is the only thing between the model and an
-unreviewed multi-document rewrite — and it is the row the card can say least about. The reviewer is
-asked to approve a write they cannot see.
+unreviewed multi-document rewrite — and it was the row the card could say least about. It now names
+the document; the reviewer still cannot see WHAT changes inside it, only WHICH document is touched.
 
-Closing it needs either a `document` descriptor, or a small name-resolution step reading
-`ws.documents` by `input.id` for the title alone. Neither exists today.
+Closing the naming half needed either a `document` descriptor, or a small name-resolution step
+reading `ws.documents` by `input.id` for the title alone — `c119976e` took the second, matching the
+reasoning above about why the first would overclaim.
 
 ★ The card renders such a row with its tool name rather than blank, and the row is selectable and
 rejectable — so the failure is legibility, not invisibility. That was measured under test
@@ -28314,10 +28449,16 @@ pointed at the old one. A green test for the collision hazard says nothing about
 ★ Scope note: it was a property of ANY staged create whose id a later call references, not of tasks
 specifically, and the fix is entity-generic for the same reason.
 
-★★ **CLOSING IT DID NOT MAKE A CREATE-THEN-UPDATE PLAN WORK.** The remap resolves the ID; it cannot
-supply a concurrency TOKEN for a row that did not exist when the plan was reviewed, so an update
-targeting a same-plan create is now refused honestly instead of mis-targeted silently. That remaining
-gap is §380 — a capability gap, not a data risk.
+★★ **CLOSING IT DID NOT MAKE A CREATE-THEN-UPDATE PLAN WORK — AND THAT IS HISTORY NOW, NOT TODAY.**
+The remap resolves the ID; it could not supply a concurrency TOKEN for a row that did not exist when
+the plan was reviewed, so an update targeting a same-plan create WAS refused honestly instead of
+mis-targeted silently. That gap was §380, and **§380 is CLOSED 2026-09-05** — `applyProposal` now
+re-reads the just-created row through `TOKEN_ROW_SOURCE` and stamps a real token, so a
+create-then-update plan applies. The refusal survives only for a row that cannot be read back.
+
+★★★ THE PARAGRAPH ABOVE STOOD IN THE PRESENT TENSE ("is now refused", "That remaining gap is §380")
+AFTER §380 WAS CLOSED IN THE SAME BRANCH. §375 and §377 were swept for exactly this and §378 was
+missed — a closure falsifies sentences inside OTHER entries, and nothing gates that.
 
 ## 379. The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership — OPEN
 
@@ -28369,18 +28510,26 @@ opposite direction.
 single-flight entry whose section is out of place — is unaffected in content; only its POSITION in
 the file is wrong.
 
-## 380. A staged plan cannot update a row it created in the same plan — OPEN
+## 380. A staged plan cannot update a row it created in the same plan — CLOSED 2026-09-05
 
-**Status:** OPEN. Filed 2026-09-05 by the AI bulk-write-safety slice, found while wiring the gate
-(§377) and distinct from §378. Last executed verification 2026-09-05 —
+**Status:** CLOSED 2026-09-05 by `b8c78fe3`. `applyProposal` now stamps a real concurrency token at
+apply time for a pending-target row, resolved through `TOKEN_ROW_SOURCE` — six full-row resolvers
+already sitting on `ToolDispatcher` — read live off the dispatcher's own refs, never
+`chat-panel.tsx`'s effect-updated `workspaceRef` (which stays pre-create inside a tight apply loop).
+`[create_task, update_task({id: <provisional>})]` now applies both rows. The refusal
+(`NEW_ROW_TOKEN_UNAVAILABLE_ERROR`) is retained for the one case it is now honest about: a create
+that landed whose row cannot be read back. Reproduce: `npx vitest run src/app/chat-proposal-apply.test.tsx`.
+
+Filed 2026-09-05 by the AI bulk-write-safety slice, found while wiring the gate (§377) and distinct
+from §378. Last executed verification before this closure —
 `grep -n "NEW_ROW_TOKEN_UNAVAILABLE_ERROR" src/app/chat-proposal-apply.ts` shows the pre-emptive
 refusal, and `grep -n "expectedToken is required" src/app/chat-tools-updates.ts` shows the throw it
-exists to keep out of the `stale` bucket. No probe has driven the shape onto a rendered card; that is
-§375's owed eye-verify.
+exists to keep out of the `stale` bucket.
 
 `[create_task, update_task({ id: <provisional> })]` — the canonical shape, and the one the staged
 tool result actively invites, since `stagedToolResult` tells the model to "refer to it as id N in
-later calls in THIS turn only" — applies the create and REFUSES the update.
+later calls in THIS turn only" — USED TO apply the create and REFUSE the update; it now applies
+both.
 
 **The mechanism.** `describeProposal` deliberately does not stamp a row whose target does not exist
 yet; it marks it `pendingOn` instead. Stamping it would be worse: a provisional id colliding with a
@@ -28419,13 +28568,20 @@ pins against it (the same docstring records that it cited `ai-entity-token.test.
 that a summary-derivation mutant leaves that file fully green).
 
 ★ So a fix reading the create's return value would WORK for `update_task` and be wrong for the other
-five — partial coverage that looks general, which is the worst available shape. A proper fix needs a
-per-entity full-row resolver run after the create lands.
+five — partial coverage that looks general, which is the worst available shape.
 
-★★ **SAFE AND VISIBLE, so this is a capability gap and not a data risk.** The refused row writes
-NOTHING — the guard fires before the dispatcher — and it is reported as not applied, so the plan is
-half-applied in exactly the way the card says. What the user cannot do is express create-then-update
-in one turn; they must apply the create and ask again.
+★★★ **THIS ENTRY THEN SAID "A proper fix needs a per-entity full-row resolver run after the create
+lands" — THAT WAS FALSE, AND `b8c78fe3` IS THE CORRECTION.** Six full-row resolvers already sat on
+`ToolDispatcher` (one per token-guarded entity — task, RAID, change, milestone, resource,
+stakeholder), and every token-guarded case in `chat-tools.ts` already called its own before
+`requireToken`. The fix is a table over those six (`TOKEN_ROW_SOURCE` in `chat-proposal-apply.ts`),
+not a new resolver.
+
+★★ **SAFE AND VISIBLE, so this WAS a capability gap and not a data risk.** The refused row wrote
+NOTHING — the guard fired before the dispatcher — and it was reported as not applied, so the plan
+was half-applied in exactly the way the card said. What the user could not do was express
+create-then-update in one turn; they had to apply the create and ask again. `b8c78fe3` closes that
+gap for the seven `TOKEN_REQUIRED_TOOLS`.
 
 ★ It is reachable from an ordinary turn rather than a contrived one, because the staged tool result
 tells the model to reference the provisional id in later calls: a model doing what it is told
@@ -28433,13 +28589,20 @@ produces this plan.
 
 ★ How the refusal is LABELLED is a separate defect — §381.
 
-## 381. A row refused for a capability gap is labelled as a conflict — OPEN
+## 381. A row refused for a capability gap is labelled as a conflict — CLOSED 2026-09-05
 
-**Status:** OPEN. Filed 2026-09-05 by the AI bulk-write-safety slice. Last executed verification
-2026-09-05 — `grep -n "failed" src/app/chat-proposal-block.tsx` returns one optional boolean and one
+**Status:** CLOSED 2026-09-05 by `5a146245` (+ `e718fadf`, pinning each failure label to its whole
+string rather than a substring). `ProposalCardRow.failed` still covers every not-ok row —
+under-reporting stayed the worse direction — but now carries an optional `failedKind`
+(`ProposalFailureKind`: `"conflict" | "dependency" | "unreadable" | "error"`), classified by the new
+`failureKindOf` off the exported constants rather than by matching prose, and the card renders one of
+FOUR EN/DE strings accordingly. Reproduce: `npx vitest run src/app/chat-proposal-block.test.tsx`.
+
+Filed 2026-09-05 by the AI bulk-write-safety slice. Last executed verification before this closure —
+`grep -n "failed" src/app/chat-proposal-block.tsx` returns one optional boolean and one
 render site, and `grep -n "chatProposalFailed" src/app/i18n.ts src/app/i18n.de.ts` returns the single
-EN/DE pair it renders. **Never machine-verified** as a user-visible outcome: no probe has driven a
-refused row onto a rendered card (§375's owed eye-verify would).
+EN/DE pair it renders. **Never machine-verified** as a user-visible outcome at that time: no probe
+had driven a refused row onto a rendered card (§375's owed eye-verify still would).
 
 `ProposalCardRow.failed` is a single boolean, and the card renders `chatProposalFailed` — EN "Not
 applied — changed since you reviewed" — for every not-ok row. `chat-panel.tsx` collapses
@@ -28459,11 +28622,18 @@ token-guarded row before `runTool` specifically so the failure cannot inherit th
 both constants are EXPORTED so that a card can recognise the outcome without matching prose. The card
 consumes neither, so the lie the engine was written to avoid is reintroduced one layer up.
 
-★★★ **THE FIX IS A SECOND CARD STRING, NOT A NARROWER `failed` CONDITION.** Under-reporting is the
-worse direction: a row that did not land must never read as applied. So `failed` must go on covering
-every not-ok row; what it needs is to carry WHICH kind, plus a second EN/DE string for the
-not-a-conflict case. Anything that drops rows out of the failed set to avoid the wrong label trades a
-misleading message for a silent one.
+★★★ **THE FIX WAS THREE CARD STRINGS, NOT ONE, AND THIS ENTRY ONLY NAMED THE NEED FOR "A SECOND".**
+It said the fix needed `failed` to carry WHICH kind "plus a second EN/DE string for the
+not-a-conflict case," naming only `PENDING_MINT_ERROR` and `NEW_ROW_TOKEN_UNAVAILABLE_ERROR` (§380)
+as the outcomes needing one. A THIRD shared the identical mislabelling and was never accounted for
+here: an ORDINARY dispatcher throw — a sanitizer rejection, a not-found — is caught with
+`stale: false` and fell into the same "changed since you reviewed" string for the same reason, since
+nothing distinguished it from a genuine conflict either. `failureKindOf` therefore classifies FOUR
+outcomes, not two: `stale` → "conflict", `PENDING_MINT_ERROR` → "dependency",
+`NEW_ROW_TOKEN_UNAVAILABLE_ERROR` → "unreadable", anything else → "error". Under-reporting stayed
+the worse direction — `failed` still covers every not-ok row; what changed is that it now carries
+which of the four it is. Anything that drops rows out of the failed set to avoid the wrong label
+would trade a misleading message for a silent one, which is why that path was not taken.
 
 ★ Scope note: this is about the CARD's vocabulary. Whether a create-then-update plan should work at
 all is §380, and this entry stands even if §380 is never fixed, because `PENDING_MINT_ERROR` is
@@ -28522,3 +28692,139 @@ covers the separate, pre-existing ordering red.
 rebuild. Reproduce the loss with the fenced recipe above, run against a copy:
 `cp docs/open-followups.md /tmp-copy/ && cd /tmp-copy && <recipe> && diff` — count the changed
 rows, do not read the exit code, which is 0 either way.
+
+## 383. A resource's extra emails preview a list Apply dedupes and caps — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 by the AI bulk-write-safety slice, while closing §373 (an
+email-shaped SCALAR field) and reading `sanitizeEmailList` for what it actually does. Last executed
+verification 2026-09-05 — `grep -n "function sanitizeEmailList" -A 16 src/app/sanitize-entities.ts`
+(dedupe against the primary email, dedupe within the list, cap at `RESOURCE_EMAILS_MAX`), and
+`grep -n "arrayFields" src/app/inline-ai-edit/entity-descriptor.ts` (confirms `resource.arrayFields`
+is empty, so `emails` is not routed through it). **No RUNTIME probe:** every claim rests on a static
+reading of the sanitizer and the descriptor, not on an observed preview.
+
+`resource.emails` — the array of ADDITIONAL emails beyond the primary — is a writable input
+`update_resource` accepts that the `resource` descriptor's `diffFields` deliberately omits. The
+descriptor's own comment already names it and why (`entity-descriptor.ts`):
+
+> `emails` — sanitizeEmailList DEDUPES it against the primary `email` and caps it, so a previewed
+> list routinely diverges from the stored one. `arrayFields` cannot express that (it means
+> "comma-split on Apply", which is the task-labels shape, not this one).
+
+**What `sanitizeEmailList` actually does** (`sanitize-entities.ts`): accepts a JSON array or a
+`;`/`,`-delimited string; trims and length-caps each surviving entry through `sanitizeEmail` — the
+SAME non-validating sanitizer §373 covered, so no format check applies here either; drops entries
+that are not strings or that sanitize to empty; drops entries equal (case-insensitively) to the
+resource's PRIMARY email; drops case-insensitive duplicates WITHIN the list; and caps the survivors
+at `RESOURCE_EMAILS_MAX` (10).
+
+So a previewed `emails` array — were it ever shown raw, the way `arrayFields` shows `labels` on
+Apply — would diverge from what gets stored in the same three ways §373 found for the scalar `email`
+field (length, non-string entries, whitespace), PLUS two more that are specific to a LIST: an entry
+equal to the primary email silently disappears, and an entry that repeats an earlier one in the same
+list (case-insensitively) silently disappears too. None of that is a format rejection — every
+divergence here is a silent drop, same as §373's `email`.
+
+★ This is not a live preview bug today, because the field is not previewed at all — like §373, it is
+filed as a NON-GOAL rather than a defect: the mechanism exists and the field is excluded from
+`diffFields` for exactly that reason, so there is nothing user-visible to fix yet. It is worth its
+own entry because `arrayFields`' one existing member (`labels`) means something different — "comma-
+split the input into an array on Apply" — and extending it to `emails` would silently claim a
+guarantee (preview shows what Apply stores) that DEDUPING and CAPPING both break.
+
+★ Closing it, if it is ever wanted, needs the same shape §373 closed with: run the field's own
+sanitizer — here, `sanitizeEmailList` against the diffed item's OWN primary email — before diffing,
+rather than teaching `arrayFields` a second meaning it was never designed to carry.
+
+## 384. A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 in cold review of the §372 fix. Last executed verification
+2026-09-05 — a temporary `*.test.ts` file (kept OUT of `src/app`, per the §230 reproduce note on why:
+a stray one there is picked up by `eslint --max-warnings=0 src/app` and the full-suite glob) that
+calls `describeEntityCalls` for an `update_resource({id, name: "Cher"})` block against a resource
+whose stored name is "Amanda Palmer", then mirrors `use-chat-dispatcher.ts`'s own `updateResource`
+merge (`splitName` + `sanitizeResource({...existing, ...patch, ...renamed})`) on the same input. Run
+with `npx vitest run <temp-path>`; the captured output was:
+
+```
+PREVIEW PLAN: {
+  "updates": [ { "field": "firstName", "before": "Amanda", "after": "Cher", "raw": "Cher" } ],
+  "creates": [], "deletes": [],
+  "rejected": [ { "toolName": "update_resource", "reason": "bad-input", "detail": "lastName=empty" } ]
+}
+DISPATCHER MERGED RESULT: { "id": 1, "firstName": "Cher", "lastName": "", … }
+```
+
+§372 taught `describeEntityCalls` to project an alias-only `update_resource({id, name})` onto
+`firstName`/`lastName` via the dispatcher's own `splitName`, so the two parts render as an ordinary
+two-field update instead of an empty plan. That made a shape reachable that could not occur before:
+`splitName` on a MONONYM (a name with no space, e.g. `"Cher"`) yields `{firstName: "Cher", lastName:
+""}` — one part filled, one blanked.
+
+The `resource` descriptor's `requiredNonEmpty` marks BOTH `firstName` and `lastName` as required
+(`entity-descriptor.ts`), and its own comment says why: `sanitizeResource`'s real rule is "at least
+ONE of the two non-empty", a disjunction `requiredNonEmpty` cannot express, so both are marked and
+the entry documents that as deliberately over-rejecting — "the alternative previews a diff whose
+Apply throws." That reasoning is only true when BOTH parts would end up empty. For a mononym rename
+only `lastName` goes empty; `firstName` stays `"Cher"`, so `sanitizeResource`'s actual guard
+(`if (!firstName && !lastName) return null`) is satisfied and Apply SUCCEEDS — it does not throw, and
+it does not skip the field. It merges `renamed` (`{firstName: "Cher", lastName: ""}`) over `existing`
+and stores `lastName: ""`, silently WIPING the previous last name.
+
+So the card shows a REJECTED chip on `lastName` ("bad-input: lastName=empty") while the write that
+runs when the row is confirmed clears that same field anyway — the chat apply path replays the
+original `ProposedCall`, not the previewed (and partially rejected) plan, so the rejection is
+display-only. That is a card misrepresenting a write, which is this whole slice's subject: a reviewer
+who reads "lastName rejected" as "lastName is left alone" is wrong, and finds out only by re-opening
+the resource afterward.
+
+★★★ **THE TWO CONSUMERS OF `describeEntityCalls` FAIL DIFFERENTLY HERE, AND THIS ENTRY DESCRIBED
+ONLY ONE.** "The apply path replays the original `ProposedCall`" is true of the chat card
+(`chat-proposal-describe.ts`) and of `insights/recommend-plan.ts`, and FALSE of the inline editor:
+`use-inline-entity-edit.ts` rebuilds the patch FROM `plan.updates`, so a rejected `lastName` is
+simply OMITTED from the patch and the stored last name SURVIVES. Same defect, opposite outcome — the
+chat card promises a no-op and wipes the field; the inline editor promises a rename and performs a
+partial one ("Cher Lovelace"). A fix must say which consumer it closes, because a change that makes
+one truthful does not touch the other. Found by cold review 2026-09-05.
+
+★ Before §372 this was unreachable: an alias-only rename previewed as an EMPTY plan (no diff, no
+rejection), so nothing on the card claimed anything about `lastName` at all — a different kind of
+wrong (silence) rather than this kind (a false promise of no-op).
+
+★ Closing it needs a rule `requiredNonEmpty` cannot express today: reject only when the write would
+ACTUALLY fail (both parts end up empty), not when either one, individually, would. That is the same
+disjunction `sanitizeResource` already encodes — the fix likely teaches the `resource` case a
+paired-fields check instead of two independent per-field ones, mirrored from `sanitizeResource`'s own
+`if (!firstName && !lastName)` guard the way §372 already mirrors `splitName`.
+
+## 385. `src:symbols:check` prints a remedy it does not implement — OPEN
+
+**Status:** OPEN 2026-09-05, never machine-verified beyond the two greps below.
+
+`scripts/check-src-symbols.mjs` ends every non-empty run by telling the reader to "say near it
+that the symbol is deliberately absent (the gate's `ABSENCE_MARKERS` suppress it)". They do not
+suppress it here. The report never imports `markedNear`, and `ABSENCE_MARKERS` occurs in that
+file exactly once — inside the advice string itself. Reproduce:
+`grep -n "markedNear" scripts/check-src-symbols.mjs` (no output) against
+`grep -n "markedNear" scripts/check-agents-symbols.mjs` (three hits — the BLOCKING gate does
+apply it, which is the control that makes the absence meaningful rather than a missing feature
+nobody built).
+
+Found by following the advice: a comment corrected on this branch names
+`normalizePreviewValue` in order to record that the helper was DELETED in `44c84bfc`, which is
+exactly the deliberate-absence case the sentence describes. Adding "DELETED" beside the mention
+changed nothing; the finding still reports.
+
+★★ THE COST IS A READER'S TIME, NOT A FALSE GREEN — this is a REPORT, exits 0 regardless, and gates
+nothing. But an instruction that does nothing is worse than none: it sends someone editing source
+comments to silence a finding that cannot be silenced, and the edit then looks like it failed for
+some other reason.
+
+★ Two defensible fixes, and they are NOT equivalent. (a) Import `markedNear` from
+`agents-symbols-lib.mjs` and apply it, matching the gate. That makes the printed advice true, and
+inherits the PROXIMITY-bleed hole that file's own docstring records. (b) Change the sentence to say
+markers do not apply here and the finding is triaged by a human every time. (b) is honest and
+cheaper; (a) is what a reader already expects. Not doing either is the one option this entry rules
+out. Anything that WEAKENS the report — suppression that hides a real invented name — is the
+failure mode to avoid, so (a) needs the same self-exclusion care recorded elsewhere in this
+register for checkers scanning their own corpus.

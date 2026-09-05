@@ -3,11 +3,15 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
 import {
   applyProposal,
+  failureKindOf,
   NEW_ROW_TOKEN_UNAVAILABLE_ERROR,
   PENDING_MINT_ERROR,
   TOKEN_REQUIRED_TOOLS,
+  TOKEN_ROW_SOURCE,
 } from "./chat-proposal-apply";
 import { buildPlanRows, type ProposedCall } from "./chat-proposal";
+import { entityToken, TOKEN_EXCLUDED, type TokenEntity } from "./ai-entity-token";
+import { runTool, type ToolDispatcher } from "./chat-tools";
 import { TOOL_DEFS } from "./chat-tool-defs";
 import { describeProposal } from "./chat-proposal-describe";
 import { type TestSeed } from "./test-providers";
@@ -554,14 +558,21 @@ describe("applyProposal remaps provisional ids to the real ones", () => {
   });
 });
 
-describe("a row targeting a row created in the same plan is labelled honestly", () => {
-  // ★★★ THE LABEL WAS A LIE, AND THAT IS THE DEFECT THIS PINS. A pending row is
-  //   never stamped, so the remapped call reaches `requireToken` carrying no
-  //   token, throws `ConcurrencyTokenError`, and was recorded `stale: true` —
-  //   defined on `AppliedRow` as "the row moved since it was staged". The row did
-  //   not EXIST when it was staged. Nothing moved, and no number of retries can
-  //   make the retry that label invites succeed.
-  test("it reports the capability gap and is NOT reported as stale", async () => {
+describe("a row targeting a row created in the same plan now applies (§380)", () => {
+  // ★★★ THIS USED TO PIN A LIE. A pending row is never stamped at DESCRIBE
+  //   time, so before §380 the remapped call reached `requireToken` carrying no
+  //   token, threw `ConcurrencyTokenError`, and was recorded `stale: true` —
+  //   defined on `AppliedRow` as "the row moved since it was staged". The row
+  //   did not EXIST when it was staged; nothing moved, and no number of retries
+  //   could make the retry that label invited succeed. §380 closes the common
+  //   case by stamping a REAL token at apply time through `TOKEN_ROW_SOURCE`
+  //   (see the "applying a staged update whose target this same plan created"
+  //   block above for the dedicated single-entity coverage, including the one
+  //   case that still refuses). This test is kept as the two-entity, two-create
+  //   regression pin for the DERIVATION: `TOKEN_REQUIRED_TOOLS` is computed from
+  //   `TOOL_DEFS`, so a single tool passing here cannot tell a working
+  //   derivation from a hardcoded special case.
+  test("it applies both updates instead of the old capability-gap refusal", async () => {
     const { result } = renderApply();
 
     const outcome = await applyPlan(
@@ -575,27 +586,14 @@ describe("a row targeting a row created in the same plan is labelled honestly", 
       [101, 202],
     );
 
-    // Both creates landed, so the two refusals below are on a LIVE path.
-    expect(outcome.rows[0].ok).toBe(true);
-    expect(outcome.rows[2].ok).toBe(true);
-    expect(result.current.dispatcher.getTask(4)?.taskName).toBe("Minted");
-    expect(result.current.dispatcher.getMilestoneRow(4)?.name).toBe("Minted milestone");
-
-    // ★★ TWO ENTITIES, because the guard reads a DERIVED set of token-requiring
-    //   tools rather than a literal — one tool cannot tell a working derivation
-    //   from a hardcoded special case.
-    for (const index of [1, 3]) {
-      expect(outcome.rows[index].ok).toBe(false);
-      expect(outcome.rows[index].error).toBe(NEW_ROW_TOKEN_UNAVAILABLE_ERROR);
-      // ★★★ THE ANTI-VACUITY ASSERTION. Without it this test passes against the
-      //   OLD behaviour as soon as the message happens to match, and `stale` is
-      //   the half that actually misinforms the user.
-      expect(outcome.rows[index].stale).toBeUndefined();
-    }
-
-    // Refused, so nothing was written — the created rows keep their create-time
-    // values and no seeded row was touched either.
-    expect(result.current.dispatcher.getTask(4)?.taskName).not.toBe("Renamed");
+    expect(outcome.rows).toEqual([
+      { index: 0, ok: true },
+      { index: 1, ok: true },
+      { index: 2, ok: true },
+      { index: 3, ok: true },
+    ]);
+    expect(result.current.dispatcher.getTask(4)?.taskName).toBe("Renamed");
+    expect(result.current.dispatcher.getMilestoneRow(4)?.name).toBe("Renamed milestone");
     expect(taskIds(result)).toEqual([1, 2, 3, 4]);
   });
 
@@ -622,6 +620,125 @@ describe("a row targeting a row created in the same plan is labelled honestly", 
     // the real #4 and the row was FOUND — a not-found would have thrown first
     // and set no `stale`.
     expect(outcome.rows[1].stale).toBe(true);
+  });
+});
+
+// §380 — the capability gap the block above pinned is now closed for the
+// common case: `TOKEN_ROW_SOURCE` lets a pending row be stamped with a REAL
+// token, read through the dispatcher after the create resolved.
+describe("applying a staged update whose target this same plan created", () => {
+  test("applies an update whose target this same plan created", async () => {
+    const { result } = renderApply();
+
+    // create_task mints #101 (real minter hands out #4 — SEED runs 1-2-3); the
+    // update row was staged against the provisional id and therefore carries
+    // NO `expectedToken`.
+    const outcome = await applyPlan(
+      result,
+      [
+        {
+          name: "create_task",
+          input: { taskName: "Drafted", assignee: "M. Jordan", dueDate: "2026-10-01" },
+        },
+        { name: "update_task", input: { id: 101, status: "Done" } },
+      ],
+      [101],
+    );
+
+    expect(outcome.rows).toEqual([
+      { index: 0, ok: true },
+      { index: 1, ok: true },
+    ]);
+    expect(result.current.dispatcher.getTask(4)?.status).toBe("Done");
+  });
+
+  // ★★ THE ONE CASE THE RESOLVER CANNOT RESCUE, and the reason the refusal
+  //  stays in place rather than being deleted now that the happy path works.
+  //  Deleting the guard would convert a loud, recoverable failure into an
+  //  untokened write attempt. A REAL dispatcher's `getTask` cannot be made to
+  //  miss a row it just created, so this wraps it with an override that lets
+  //  the create land while its row reads back as gone.
+  test("still refuses the row when the created row cannot be read back", async () => {
+    const { result } = renderApply();
+    const ws = seedWorkspace();
+    const calls: ProposedCall[] = [
+      {
+        name: "create_task",
+        input: { taskName: "Drafted", assignee: "M. Jordan", dueDate: "2026-10-01" },
+      },
+      { name: "update_task", input: { id: 101, status: "Done" } },
+    ];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
+    const selected = new Set(rows.map((_, i) => i));
+    const dispatcher = {
+      ...result.current.dispatcher,
+      getTask: (id: number) => (id === 4 ? null : result.current.dispatcher.getTask(id)),
+    };
+
+    let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
+    await act(async () => {
+      outcome = await applyProposal({ dispatcher, rows, selected, batch: result.current.batch });
+    });
+
+    // The create landed — so the refusal below is on a live path, not a create
+    // that never happened.
+    expect(outcome!.rows[0].ok).toBe(true);
+    expect(outcome!.rows[1]).toEqual({
+      index: 1,
+      ok: false,
+      error: NEW_ROW_TOKEN_UNAVAILABLE_ERROR,
+    });
+    expect(outcome!.rows[1].stale).toBeUndefined();
+  });
+
+  // ★★★ THE STAMPING BLOCK RUNS INSIDE THE PER-ROW `try`, AND THIS IS THE ONLY
+  //  THING THAT SAYS SO. `applyProposal`'s contract is that a row which fails
+  //  fails ALONE — `chat-panel.tsx` restates it in its own catch comment
+  //  ("`applyProposal` catches per row, so reaching here means the BATCH
+  //  failed") — and `source.getRow` (a live dispatcher read) plus `entityToken`
+  //  (which walks a stored row through a CSV renderer) are new work on that
+  //  path. Mutant: hoist the block back above `try {` and this row's throw
+  //  escapes the loop, aborting row 2 as well and surfacing as a BATCH failure
+  //  with no per-row detail at all.
+  // ★ The THIRD row is what makes the case bite: without a row after the throw,
+  //  an aborted loop and a per-row failure produce the same visible outcome for
+  //  rows 0 and 1.
+  test("a throwing resolver fails only ITS row, and later rows still apply", async () => {
+    const { result } = renderApply();
+    const ws = seedWorkspace();
+    const calls: ProposedCall[] = [
+      {
+        name: "create_task",
+        input: { taskName: "Drafted", assignee: "M. Jordan", dueDate: "2026-10-01" },
+      },
+      { name: "update_task", input: { id: 101, status: "Done" } },
+      { name: "update_task", input: { id: 2, taskName: "Later" } },
+    ];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
+    const selected = new Set(rows.map((_, i) => i));
+    const dispatcher = {
+      ...result.current.dispatcher,
+      // ONLY the row this plan created explodes. Every other read stays real,
+      // so a refused third row could only be the defect under test.
+      getTask: (id: number) => {
+        if (id === 4) throw new Error("resolver exploded");
+        return result.current.dispatcher.getTask(id);
+      },
+    };
+
+    let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
+    await act(async () => {
+      outcome = await applyProposal({ dispatcher, rows, selected, batch: result.current.batch });
+    });
+
+    expect(outcome!.rows).toEqual([
+      { index: 0, ok: true },
+      { index: 1, ok: false, stale: false, error: "resolver exploded" },
+      { index: 2, ok: true },
+    ]);
+    // The row AFTER the throw genuinely wrote — the claim the outcome array on
+    // its own cannot make.
+    expect(result.current.dispatcher.getTask(2)?.taskName).toBe("Later");
   });
 });
 
@@ -675,5 +792,168 @@ describe("TOKEN_REQUIRED_TOOLS", () => {
       "update_stakeholder",
       "update_task",
     ]);
+  });
+});
+
+// §380 — `TOKEN_ROW_SOURCE` is the map `applyProposal` reads to stamp a real
+// token onto a row targeting an entity THIS SAME PLAN created. Both directions
+// are asserted, and neither is redundant: a one-directional check passes
+// against the mutant that matters — a future token-guarded tool added with no
+// map entry, which would fall silently back to the refusal.
+describe("TOKEN_ROW_SOURCE", () => {
+  test("covers every token-guarded tool", () => {
+    const missing = [...TOKEN_REQUIRED_TOOLS].filter((t) => !(t in TOKEN_ROW_SOURCE));
+    // The population sits beside the verdict so an empty `TOKEN_REQUIRED_TOOLS`
+    // cannot read as a pass.
+    expect({ missing, guarded: TOKEN_REQUIRED_TOOLS.size }).toEqual({
+      missing: [],
+      guarded: TOKEN_REQUIRED_TOOLS.size,
+    });
+  });
+
+  test("names no tool that is not token-guarded", () => {
+    const extra = Object.keys(TOKEN_ROW_SOURCE).filter((t) => !TOKEN_REQUIRED_TOOLS.has(t));
+    expect({ extra, mapped: Object.keys(TOKEN_ROW_SOURCE).length }).toEqual({
+      extra: [],
+      mapped: Object.keys(TOKEN_ROW_SOURCE).length,
+    });
+  });
+
+  // ★★★ THE TWO CASES ABOVE COMPARE KEY SETS AND NOTHING ELSE, so membership
+  //   drift is caught and the VALUES are not. Neither half of an entry is
+  //   typed against its key: `getRow` is `(d, id) => object | null` and
+  //   `entityToken` takes `object`, so `update_change: { kind: "raid", getRow:
+  //   (d, id) => d.getChangeRow(id) }` typechecks and is internally consistent.
+  //   Measured before this case existed: that exact mutant left
+  //   `chat-proposal-apply.test.tsx` + `chat-proposal-describe.test.ts`
+  //   0 failed / 56 passed. Only `update_task` and `update_milestone` had
+  //   end-to-end cover (the two blocks above), so five of the seven entries
+  //   were unverified.
+  //
+  // ★★ THE RUNTIME CONSEQUENCE IS THE LIE §381 EXISTS TO REMOVE, not a cosmetic
+  //   slip: a token derived through the wrong projection fails `requireToken`,
+  //   `applyProposal` records `stale: true`, and the card tells the user the
+  //   row "changed since you reviewed" when nothing changed.
+  //
+  // ★★ GENERALISED OVER THE MAP, never a written-out list of seven — the whole
+  //   point is that a new entry is covered the moment it is declared. A
+  //   hand-written tool → getter → kind table would BE the map under test, so a
+  //   copy of it could not disagree with it.
+  describe("every entry agrees with the tool it names", () => {
+    /** A dispatcher whose EVERY member answers `row` and records its own name,
+     *  so this case never has to name a getter or a writer. That is what keeps
+     *  it generalised: `runTool`'s guarded cases all read their row, check the
+     *  token and write, and each of those three steps is satisfied by the same
+     *  stub. */
+    function recordingDispatcher(row: object, reached: string[]): ToolDispatcher {
+      return new Proxy(
+        {},
+        {
+          get: (_target, prop) => {
+            const member = String(prop);
+            return () => {
+              reached.push(member);
+              return row;
+            };
+          },
+        },
+      ) as unknown as ToolDispatcher;
+    }
+
+    test("its `kind` stamps a token that tool's own requireToken accepts", async () => {
+      // A bare id is enough as the stored row: `entityToken` length-prefixes
+      // every COLUMN NAME into the hashed string and no two entities share a
+      // column list, so a wrong `kind` moves the token for ANY row. The
+      // discrimination assertion below MEASURES that rather than assuming it.
+      const row = { id: 1 };
+      const kinds = Object.keys(TOKEN_EXCLUDED) as TokenEntity[];
+      let checked = 0;
+
+      for (const [tool, source] of Object.entries(TOKEN_ROW_SOURCE)) {
+        // Which dispatcher member the RESOLVER reads — the other untyped half
+        // of the entry, and a `getRow` pointing at a different entity's getter
+        // fails exactly the same way its `kind` does.
+        const viaResolver: string[] = [];
+        source.getRow(recordingDispatcher(row, viaResolver), 1);
+
+        // The input `applyProposal` builds: the remapped id plus an
+        // `expectedToken` derived through `source.kind`, run through the REAL
+        // guard rather than a re-derivation of it.
+        const reached: string[] = [];
+        let thrown: unknown;
+        try {
+          await runTool(recordingDispatcher(row, reached), tool, {
+            id: 1,
+            expectedToken: entityToken(source.kind, row),
+            // `set_task_dependencies` refuses a non-array BEFORE reaching the
+            // token check; the other six ignore or strip the key.
+            dependencies: [],
+          });
+        } catch (e) {
+          thrown = e;
+        }
+        expect({ tool, error: thrown instanceof Error ? thrown.message : thrown }).toEqual({
+          tool,
+          error: undefined,
+        });
+        // Anti-vacuity, per entry: a case that returned before touching the
+        // dispatcher would satisfy the line above having proved nothing. Every
+        // guarded case reads its row FIRST and then writes, and the resolver
+        // must read that same member.
+        expect({
+          tool,
+          resolverCalls: viaResolver.length,
+          readFirst: reached[0],
+          wrote: reached.length >= 2,
+        }).toEqual({ tool, resolverCalls: 1, readFirst: viaResolver[0], wrote: true });
+
+        // Anti-vacuity, per entry: the check above is only a test while some
+        // OTHER kind hashes this same row differently. If the projections
+        // agreed, a wrong `kind` would be undetectable and this loop would pass
+        // over a broken map.
+        const mine = entityToken(source.kind, row);
+        const others = kinds
+          .filter((k) => k !== source.kind)
+          .map((k) => entityToken(k, row));
+        expect({ tool, indistinguishable: others.includes(mine) }).toEqual({
+          tool,
+          indistinguishable: false,
+        });
+        checked += 1;
+      }
+
+      // Anti-vacuity, for the loop: it ran, over every declared entry, and over
+      // a non-zero number of them. An `it.each` over an empty map registers
+      // zero tests and reports green.
+      expect(checked).toBe(Object.keys(TOKEN_ROW_SOURCE).length);
+      expect(checked).toBeGreaterThan(0);
+    });
+  });
+});
+
+// §381 — the card must not call every not-ok row a concurrency conflict.
+// `failureKindOf` classifies the four outcomes `applyProposal` can report so a
+// consumer picks the right string without matching prose.
+describe("failureKindOf", () => {
+  test("calls a moved target a conflict", () => {
+    expect(failureKindOf({ index: 0, ok: false, stale: true, error: "x changed" })).toBe(
+      "conflict",
+    );
+  });
+
+  test("calls an uncreated dependency a dependency failure, not a conflict", () => {
+    expect(failureKindOf({ index: 0, ok: false, error: PENDING_MINT_ERROR })).toBe("dependency");
+  });
+
+  test("calls an unreadable new row unreadable, not a conflict", () => {
+    expect(failureKindOf({ index: 0, ok: false, error: NEW_ROW_TOKEN_UNAVAILABLE_ERROR })).toBe(
+      "unreadable",
+    );
+  });
+
+  test("calls any other dispatcher throw a plain error, not a conflict", () => {
+    expect(
+      failureKindOf({ index: 0, ok: false, stale: false, error: "assigneeEmail is invalid" }),
+    ).toBe("error");
   });
 });

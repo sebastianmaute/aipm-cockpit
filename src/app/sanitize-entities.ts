@@ -235,13 +235,48 @@ function sanitizeUtilizationMode(s: unknown): UtilizationMode {
   return s === "hours" ? "hours" : "percent";
 }
 
-function optText(v: unknown): string | undefined {
+/** `Resource.isExternal`'s decode rule: `true` for the JSON boolean and for the
+ *  string "true" the CSV/MD backends serialize it as, `false` for anything else.
+ *
+ *  ★★ THE FLAG IS STORED PRESENT-OR-ABSENT — `sanitizeResource` sets the key
+ *  ONLY when this returns true, so an internal resource carries no `isExternal`
+ *  key at all. Anything comparing a stored row's raw field against a candidate
+ *  value must run BOTH sides through here, or an absent flag (`undefined`)
+ *  reads as different from an incoming `false` and a no-op looks like a change.
+ *
+ *  ★ EXPORTED for the inline-AI-edit preview, which has to reproduce exactly
+ *  this predicate to show what Apply will store. It is the only BOOLEAN field
+ *  any entity's `diffFields` names — NOT the only non-string one, which is what
+ *  this said until a cold review enumerated all 58 `diffFields` against their
+ *  declared types. There are THREE non-string mechanisms, not one: four numeric
+ *  fields (`raid.probability`/`impact`, `change.scheduleImpactDays`/`costImpact`)
+ *  handled by `numberFields`, one array field (`task.labels`) handled by
+ *  `arrayFields`, and this flag. Naming only the numerics — which a first
+ *  correction did — makes the array field look like it has no home. */
+export function isExternalFlag(v: unknown): boolean {
+  return v === true || v === "true";
+}
+
+/** `sanitizeResource`'s optional SINGLE-LINE text path: trim, and `undefined`
+ *  for a non-string or an all-whitespace value. There is NO cap here — every
+ *  `if (x) resource.x = x` call site below drops the key when this returns
+ *  undefined, which on an update spread over the stored row CLEARS the field.
+ *
+ *  ★ EXPORTED so the inline-AI-edit preview can call the very function apply
+ *  calls, instead of restating "trim, no cap" in a second place. That restating
+ *  is what §373's first cut did with `sanitizeText`'s rules, and the copy
+ *  diverged on the surrogate back-off within one commit. */
+export function optText(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const s = v.trim();
   return s || undefined;
 }
 
-function optMultiline(v: unknown): string | undefined {
+/** `sanitizeResource`'s optional MULTI-LINE text path (`notes`). Same contract
+ *  as `optText` plus CRLF→LF normalisation — which is a real divergence a bare
+ *  trim does not reproduce, and the reason a preview must call this rather than
+ *  approximate it. Exported for the same reason as `optText`. */
+export function optMultiline(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const s = v.replace(/\r\n/g, "\n").trim();
   return s || undefined;
@@ -309,7 +344,7 @@ export function sanitizeResource(input: unknown): Resource | null {
   // Accept both so the soft-archive flag round-trips through every backend.
   if (input.active === false || input.active === "false") resource.active = false;
   // External: serialized as the string "true" in CSV/MD; boolean in JSON.
-  if (input.isExternal === true || input.isExternal === "true") resource.isExternal = true;
+  if (isExternalFlag(input.isExternal)) resource.isExternal = true;
   if (typeof input.localModifiedAt === "string" && input.localModifiedAt) resource.localModifiedAt = input.localModifiedAt;
   return resource;
 }

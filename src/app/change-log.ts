@@ -73,8 +73,9 @@ export function applyChangeStatus(item: ChangeItem, status: ChangeStatus, today:
  * ★ Gate on the model's RAW field, never on the merged row: a patch that never
  * mentions status must not stamp today's date onto a stored row that carries a
  * decided status with none (every pre-fix AI approval left one behind).
- * Mirrors the task dispatcher's `isTaskStatus(patch.status) ?
- * applyStatusChange(...) : merged`.
+ * Mirrors the task path's `isTaskStatus(patch.status) ?
+ * applyStatusChange(...) : merged`. (Both live in `task-status.ts` as of
+ * 2026-09-05; `isTaskStatus` was the task DISPATCHER's until then.)
  */
 export function applyModelChangeStatus(
   item: ChangeItem, raw: unknown, stored: ChangeStatus, today: string,

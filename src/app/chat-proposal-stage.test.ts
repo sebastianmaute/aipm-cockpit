@@ -198,6 +198,48 @@ describe("liveRowTitle", () => {
   });
 });
 
+describe("liveRowTitle — document rows", () => {
+  const documentWs = {
+    ...emptyWorkspace(),
+    documents: [
+      { id: 7, title: "Kickoff pack", blocks: [], createdAt: "", updatedAt: "" },
+    ],
+  } as unknown as Workspace;
+
+  it("names the document an update_document row touches", () => {
+    expect(liveRowTitle({ name: "update_document", input: { id: 7 } }, documentWs)).toBe(
+      "Kickoff pack",
+    );
+  });
+
+  it("names the document a delete_document row removes", () => {
+    expect(liveRowTitle({ name: "delete_document", input: { id: 7 } }, documentWs)).toBe(
+      "Kickoff pack",
+    );
+  });
+
+  it("returns null for an id no document has, so the caller falls back to the tool name", () => {
+    expect(liveRowTitle({ name: "delete_document", input: { id: 999 } }, documentWs)).toBeNull();
+  });
+
+  it("returns null for a document whose title is blank, rather than an empty row label", () => {
+    const blank = {
+      ...emptyWorkspace(),
+      documents: [{ id: 8, title: "   ", blocks: [], createdAt: "", updatedAt: "" }],
+    } as unknown as Workspace;
+    expect(liveRowTitle({ name: "update_document", input: { id: 8 } }, blank)).toBeNull();
+  });
+
+  it("does not borrow another document's title for a create_document call carrying a stray id", () => {
+    // create_document has no id of its own — a model-supplied one must never
+    // resolve against the live list, or a CREATE row reads as an edit to an
+    // unrelated existing document.
+    expect(
+      liveRowTitle({ name: "create_document", input: { id: 7, title: "New doc" } }, documentWs),
+    ).toBeNull();
+  });
+});
+
 describe("proposalTitles", () => {
   it("prefers the live row and falls back per row", () => {
     const workspace = ws({

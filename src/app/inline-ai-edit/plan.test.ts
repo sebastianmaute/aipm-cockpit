@@ -531,3 +531,152 @@ describe("a person is named by their name, never by their job title", () => {
     expect(plan.deletes[0].label).toBe("Go live");
   });
 });
+
+describe("preview matches what Apply stores", () => {
+  it("shows a trimmed value, not the raw padded one", () => {
+    const item = { id: 1, assignee: "Ada" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, assignee: "  Ada  " } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsWith({ tasks: [item] as never }) },
+    );
+    // "  Ada  " trims to "Ada", which EQUALS the stored value — so there is no
+    // change to show at all, and the old code showed a spurious one.
+    expect(plan.updates).toEqual([]);
+  });
+
+  it("shows the empty string a non-string coerces to, not its String() form", () => {
+    const item = { id: 1, assignee: "Ada" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, assignee: 42 } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsWith({ tasks: [item] as never }) },
+    );
+    expect(plan.updates.map((u) => u.after)).toEqual([""]);
+  });
+
+  // ★★ THE FIXTURE PUTS THE `@` INSIDE THE CAP ON PURPOSE. This test is about
+  //  the CAP, and an over-cap address whose `@x.com` sits PAST 320 is clipped
+  //  into something `isValidEmail` rejects — which `buildTaskCleanPatch` throws
+  //  on, so the preview rejects it too (the case below). Using such a value
+  //  here would make this test assert the REJECTION while claiming to assert
+  //  the clip. Measured: this value stores at length 320 with its tail intact.
+  it("clips an over-cap email at the task cap", () => {
+    const item = { id: 1, assigneeEmail: "old@x.com" };
+    const long = `${"a".repeat(300)}@x.com${"b".repeat(100)}`;
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, assigneeEmail: long } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsWith({ tasks: [item] as never }) },
+    );
+    expect(plan.updates[0].after.length).toBe(320);
+  });
+
+  // ★★★ A THROW ON APPLY COSTS THE WHOLE PATCH. `buildTaskCleanPatch` throws
+  //  "assigneeEmail is invalid" for an address `isValidEmail` rejects, and the
+  //  dispatcher surfaces that as a failed tool call — so every OTHER field the
+  //  same edit changed is lost with it. Before `emailFormatFields` the preview
+  //  had no format guard and happily showed this as an accepted diff; the
+  //  clipped value here (320 "a"s, the `@x.com` cut off) is exactly what Apply
+  //  chokes on. Found by `plan.sanitizer-parity.test.ts`, which had to carry
+  //  the pair as an enumerated exception until this guard existed.
+  it("rejects an email the sanitizer's clip makes malformed", () => {
+    const item = { id: 1, assigneeEmail: "old@x.com" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, assigneeEmail: `${"a".repeat(400)}@x.com` } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsWith({ tasks: [item] as never }) },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected.map((r) => r.reason)).toEqual(["bad-input"]);
+  });
+
+  // ★ Blanking an address stays legal — the sanitizer's own guard is
+  //  `if (e && !isValidEmail(e))`, so the format check must exempt "".
+  it("allows clearing an email", () => {
+    const item = { id: 1, assigneeEmail: "old@x.com" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, assigneeEmail: "" } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsWith({ tasks: [item] as never }) },
+    );
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates.map((u) => u.after)).toEqual([""]);
+  });
+
+  it("clips a stakeholder email at ITS cap, which is not the task one", () => {
+    const item = { id: 1, email: "old@x.com" };
+    const long = "a".repeat(400) + "@x.com";
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_stakeholder", input: { id: 1, email: long } }],
+      { descriptor: INLINE_DESCRIPTORS.stakeholder, item, ws: wsWith({ stakeholders: [item] as never }) },
+    );
+    expect(plan.updates[0].after.length).toBe(200);
+  });
+});
+
+describe("resource rename sent as the name alias", () => {
+  const item = { id: 1, firstName: "Grace", lastName: "Hopper" };
+  const resWs = wsWith({ resources: [item] as never });
+
+  it("previews the split parts instead of an empty plan", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "Ada Lovelace" } }],
+      { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
+    );
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["firstName", "Grace", "Ada"],
+      ["lastName", "Hopper", "Lovelace"],
+    ]);
+  });
+
+  // ★★★ THIS ONE PASSES AGAINST THE UNFIXED CODE, AND IT IS STILL LOAD-BEARING —
+  //  do not delete it as vacuous. `firstName` is already a `diffFields` member,
+  //  so the pre-§372 loop diffed it here anyway; the alias projection never even
+  //  fires, because the explicit part blocks it. What it pins is the PREDICATE,
+  //  not the projection: it is the only test in the suite that fails when the
+  //  two part-tests are dropped ALTOGETHER. Measured, not reasoned — replacing
+  //  both conditions with `true` makes exactly this test red with
+  //  `expected [['firstName','Ada'], …] to deeply equal [['firstName','Anita']]`,
+  //  i.e. the split silently overwriting the value the model asked for.
+  //  ★★★ IT PINS THE PREDICATE'S PRESENCE, NOT ITS SPELLING, and an earlier
+  //  revision of this comment claimed otherwise. `true && true` is the strictly
+  //  WEAKER mutant; the one that matters is narrowing `typeof … !== "string"` to
+  //  `… === undefined`, which this test CANNOT see (an explicit string part
+  //  blocks the split under either spelling). That narrower mutant is pinned by
+  //  "splits a rename whose part is an explicit JSON null" below — the two tests
+  //  are a pair, and deleting either leaves a live mutant.
+  it("does not override explicit parts, matching the dispatcher", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "Ada Lovelace", firstName: "Anita" } }],
+      { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
+    );
+    expect(plan.updates.map((u) => [u.field, u.after])).toEqual([["firstName", "Anita"]]);
+  });
+
+  // ★★★ THE `typeof` SPELLING IS WHAT THIS PINS, and nothing else in the suite
+  //  does. `updateResource` in `use-chat-dispatcher.ts` tests the parts with
+  //  `typeof … !== "string"` precisely because a JSON `null` is neither a string
+  //  NOR `undefined`: with `=== undefined` the split is skipped and `firstName:
+  //  null` is then spread over the stored row, which `sanitizeResource` reduces
+  //  to `""` — the rename dropped and the first name WIPED, the surviving last
+  //  name keeping the record valid enough to save. That is a real divergence,
+  //  not a stylistic one: under the narrowed predicate the PREVIEW shows a
+  //  `firstName=empty` rejection (the `requiredNonEmpty` guard fires on the
+  //  blanked part) while the DISPATCHER performs the rename, so the card
+  //  contradicts the write.
+  it("splits a rename whose part is an explicit JSON null", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "Ada Lovelace", firstName: null } }],
+      { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
+    );
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["firstName", "Grace", "Ada"],
+      ["lastName", "Hopper", "Lovelace"],
+    ]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("ignores a blank name, matching the dispatcher", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "   " } }],
+      { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
+    );
+    expect(plan.updates).toEqual([]);
+  });
+});

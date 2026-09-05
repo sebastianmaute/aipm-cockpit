@@ -40,21 +40,14 @@ import {
 } from "./sanitize";
 import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
-import { applyStatusChange, statusActivityKind } from "./task-status";
+import { applyStatusChange, isTaskStatus, statusActivityKind } from "./task-status";
 import { capturePart } from "./undo/use-undo-stack";
-import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
+import { DEFAULT_TASK_STATUS, type Task } from "./types";
 import { useWorkspace } from "./workspace-context";
 import { useDocumentTools } from "./use-document-tools";
 import { useRegisterTools } from "./use-register-tools";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
 export type { ChatDispatcherArgs };
-
-const STATUS_SET = new Set<string>(TASK_STATUSES);
-
-/** True when `v` is one of the known task statuses. */
-function isTaskStatus(v: unknown): v is TaskStatus {
-  return typeof v === "string" && STATUS_SET.has(v);
-}
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const {

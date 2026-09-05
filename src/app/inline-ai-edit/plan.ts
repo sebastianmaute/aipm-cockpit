@@ -5,9 +5,10 @@
 // side effects.
 import { type Task } from "../types";
 import { type Workspace } from "../workspace";
-import { sanitizeIsoDate } from "../sanitize";
+import { isValidEmail, sanitizeIsoDate, toNumber } from "../sanitize";
 import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
+import { splitName } from "../resource-foundation";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -83,12 +84,64 @@ function str(v: unknown): string {
   if (Array.isArray(v)) return v.join(", ");
   return String(v);
 }
+
 /** A person's display name from either shape `create_resource` accepts:
  *  firstName/lastName, or the single `name` the dispatcher splits. Empty when
  *  the object carries neither. */
 function personName(o: Record<string, unknown>): string {
   const parts = `${str(o.firstName)} ${str(o.lastName)}`.trim();
   return parts || str(o.name);
+}
+
+/** The preview normalisation for a `numberFields` member.
+ *
+ *  ★★★ IT LIVES HERE RATHER THAN IN `fieldSanitizers`, AND THAT PLACEMENT IS
+ *  THE POINT. `entity-descriptor.test.ts` asserts "keeps numberFields out of
+ *  fieldSanitizers" because every entry in that map is a TEXT sanitizer, and a
+ *  text sanitizer blanks a non-string to `""` — which `Number("")` then turns
+ *  into `0`, slipping the int-range rejection below. Giving these fields a
+ *  descriptor entry would close this divergence by reopening that one.
+ *
+ *  ★★ IT MIRRORS `toNumber` BECAUSE THE APPLY PATH IS `toNumber`.
+ *  `sanitizeChangeItem` stores `toNumber(o.scheduleImpactDays)` when the result
+ *  is finite and >= 0, and `toNumber("")` is `0` — so a `""` write (the "clear
+ *  this field" value) STORES 0 while the old verbatim `str("")` preview showed
+ *  `""`. The preview's own contract is that the string it shows is what apply
+ *  would store, so it must coerce the same way. Pinned by the empty-string
+ *  probe in `plan.sanitizer-parity.test.ts`.
+ *
+ *  ★ A NON-NUMERIC value falls back to the VERBATIM string rather than to
+ *  `"NaN"`: the int-range guard rejects it either way (`Number("abc")` is NaN),
+ *  and the rejection `detail` is more use to a reader carrying what the model
+ *  actually sent. */
+function numberPreview(v: unknown): string {
+  const n = toNumber(v);
+  return Number.isFinite(n) ? String(n) : str(v);
+}
+
+/** The normalisation a field's preview uses — the descriptor's own entry where
+ *  it has one, the numeric coercion for a `numberFields` member, and otherwise
+ *  `undefined` (previewed verbatim via `str`).
+ *
+ *  ★ Exported so `plan.sanitizer-parity.test.ts` can DELEGATE to it rather than
+ *  restate the resolution order; a second copy of that order is exactly the
+ *  preview/apply drift this module exists to prevent.
+ *
+ *  ★★★ THAT DELEGATION MEANS THE PARITY TEST CANNOT PIN THIS ORDER, and reading
+ *  it as the protection is the trap. The test's `previewOf` CALLS this function,
+ *  so reordering the `??` below moves the expectation with it and no mutant here
+ *  can turn that file red. What actually makes the order safe is
+ *  `entity-descriptor.test.ts`'s "keeps numberFields out of fieldSanitizers":
+ *  the two sources are DISJOINT by assertion (with a population check so an
+ *  empty set cannot read as a pass), so which one wins cannot matter. Delete
+ *  that test and this `??` becomes unguarded — the delegation is for
+ *  correctness, the disjointness test is for coverage, and they are not
+ *  interchangeable. Flagged by cold review, which measured the tautology. */
+export function previewNormalizerFor(
+  d: EntityDescriptor,
+  field: string,
+): ((v: unknown) => string) | undefined {
+  return d.fieldSanitizers[field] ?? (d.numberFields.has(field) ? numberPreview : undefined);
 }
 
 /** Entities whose display name is a PERSON rather than their `title` field.
@@ -135,7 +188,7 @@ export function describeEntityCalls(
   for (const b of blocks) {
     if (b.type !== "tool_use" || typeof b.name !== "string") continue;
     const name = b.name;
-    const input = (b.input && typeof b.input === "object" ? b.input : {}) as Record<string, unknown>;
+    let input = (b.input && typeof b.input === "object" ? b.input : {}) as Record<string, unknown>;
 
     if (name === d.updateTool) {
       const id = Number(input.id);
@@ -143,14 +196,54 @@ export function describeEntityCalls(
         plan.rejected.push({ toolName: name, reason: ownIds.has(id) ? "unsupported" : "unknown-id", detail: str(input.id) });
         continue;
       }
+      // ★★★ THE SPLIT MUST BE THE DISPATCHER'S OWN, AND SO MUST THE PREDICATE.
+      //  `name` is a WRITE ALIAS, not a stored field, so it is correctly absent
+      //  from `diffFields` — which left an alias-only rename previewing an EMPTY
+      //  plan and then renaming the person. Projecting it here closes that.
+      //  A second copy of the split rule is exactly how preview and apply
+      //  diverge again, which is this whole slice's subject: the four conditions
+      //  below mirror `updateResource` in `use-chat-dispatcher.ts` line for line,
+      //  including the `typeof … !== "string"` part tests (a JSON `null` is
+      //  neither a string nor `undefined`, and `=== undefined` there once
+      //  dropped a rename AND wiped the first name).
+      if (
+        d.entity === "resource" &&
+        typeof input.name === "string" &&
+        input.name.trim() !== "" &&
+        typeof input.firstName !== "string" &&
+        typeof input.lastName !== "string"
+      ) {
+        input = { ...input, ...splitName(input.name) };
+      }
       // Accepted diffs so far — used both to validate a category-scoped enum
       // (RAID status) against a CO-CHANGED category and to compute the effective
       // item for the induced-reset pass below. Only VALID values land here.
       const applied: Record<string, string> = {};
       for (const f of d.diffFields) {
         if (!(f in input)) continue;
-        const before = str(item[f]);
-        const after = str(input[f]);
+        // ★★★ WHICH NORMALISATION A FIELD GETS IS THE DESCRIPTOR'S CALL, and a
+        // field it does not name is previewed VERBATIM. The inverse default —
+        // "everything that is not a number is text" — ran `resource.isExternal`
+        // through a text sanitizer that blanks a non-string to `""`; since
+        // `raw` feeds the write patch in `use-inline-entity-edit.ts`, that
+        // DROPPED the flag on apply, not merely in the card. The same blanking
+        // would silently defeat the int-range rejection below for a number
+        // field, because `Number("")` is `0`. An entry, where one exists, CALLS
+        // the apply path's own sanitizer — never a copy of its cap, and never a
+        // copy of its clipping algorithm. ★ A `numberFields` member gets its
+        // coercion from `previewNormalizerFor` instead, for the reason that
+        // function's docstring gives: it must NOT be in `fieldSanitizers`.
+        //
+        // ★★ BOTH SIDES GO THROUGH IT. Comparing a normalised `after` against a
+        // raw `before` reports a change whenever the two spellings differ but
+        // the stored outcome does not — `isExternal` is stored present-or-
+        // absent, so `str(undefined)` ("") vs an incoming `false` made a no-op
+        // render a diff. The sanitizers are idempotent on an already-stored
+        // value, so normalising `before` costs nothing where the spellings
+        // already agree.
+        const normalize = previewNormalizerFor(d, f);
+        const before = normalize ? normalize(item[f]) : str(item[f]);
+        const after = normalize ? normalize(input[f]) : str(input[f]);
         if (before === after) continue;
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
         if (d.requiredNonEmpty.has(f) && after === "") { bad(`${f}=empty`); continue; }
@@ -158,6 +251,14 @@ export function describeEntityCalls(
         // (1900-2100), returning the input verbatim when valid and "" otherwise,
         // so a previewed date can never diverge from what apply persists.
         if (d.dateFields.has(f) && after !== "" && sanitizeIsoDate(after) !== after) { bad(`${f}=${after}`); continue; }
+        // ★★ A THROW ON APPLY COSTS THE WHOLE PATCH, not just this field.
+        // `buildTaskCleanPatch` throws "assigneeEmail is invalid" for an address
+        // `isValidEmail` rejects, and the dispatcher surfaces that as a failed
+        // tool call — so every OTHER field the same edit changed is lost with
+        // it. Rejecting here keeps the bad value out of the patch and lets the
+        // rest apply. Blank is exempt because the sanitizer's own guard is
+        // `if (e && !isValidEmail(e))` — clearing an address is legal.
+        if (d.emailFormatFields.has(f) && after !== "" && !isValidEmail(after)) { bad(`${f}=${after}`); continue; }
         const range = d.intRangeFields[f];
         if (range) {
           const n = Number(after);

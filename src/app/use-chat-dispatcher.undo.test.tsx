@@ -793,6 +793,19 @@ describe("AI writes round-trip through the real undo stack", () => {
     expect(result.current.dispatcher.getTask(2)?.taskName).toBe("Before");
     expect(result.current.dispatcher.getTask(2)?.assignee).toBe("M. Jordan");
     expect(result.current.undo.stack).toHaveLength(0);
+
+    // ★★ THE REDO DIRECTION, which no AI-capture round trip exercised. A redo of
+    //   an AI delete RE-REMOVES the row, which is the §295 arming shape — a
+    //   redo that re-applies a "delete" op — so this asserts the row is gone
+    //   again rather than merely that redo ran without throwing.
+    expect(result.current.undo.redoStack).toHaveLength(1);
+
+    act(() => { result.current.undo.redo(); });
+
+    expect(result.current.dispatcher.listTasks().map((row) => row.id)).toEqual([1, 3]);
+    expect(result.current.dispatcher.getTask(2)).toBeNull();
+    expect(result.current.undo.stack).toHaveLength(1);
+    expect(result.current.undo.redoStack).toHaveLength(0);
   });
 });
 
