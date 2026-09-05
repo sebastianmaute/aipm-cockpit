@@ -159,7 +159,7 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   // entry is worth having.
   { id: "feature-install", group: "features", titleKey: "helpSecInstallTitle", bodyKey: "helpSecInstallBody" },
   { id: "feature-undo", group: "features", titleKey: "helpSecUndoTitle", bodyKey: "helpSecUndoBody", relatedViews: ["open-points", "raid", "changes", "stakeholders", "resources"] },
-  // ★ Five entities, from `InlineEntity` — not the four the rich-text bullet
+  // ★ Six entities, from `InlineEntity` — not the four the rich-text bullet
   // in AGENTS.md happens to list; `stakeholder` is inline-editable too.
   { id: "feature-inline-ai-edit", group: "features", titleKey: "helpSecInlineAiEditTitle", bodyKey: "helpSecInlineAiEditBody", relatedViews: ["open-points", "raid", "changes", "milestones", "stakeholders"] },
   { id: "feature-digest", group: "features", titleKey: "helpSecDigestTitle", bodyKey: "helpSecDigestBody", relatedViews: ["dashboard"] },
