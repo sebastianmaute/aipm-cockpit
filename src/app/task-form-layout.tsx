@@ -56,6 +56,7 @@ export function Field({
   hint,
   className,
   group,
+  captionAction,
   children,
 }: {
   label: string;
@@ -66,6 +67,18 @@ export function Field({
   /** Children's first labelable element is a button (or there is none) — render
    *  a named `role="group"` wrapper rather than a mis-binding `<label>`. */
   group?: boolean;
+  /** A control rendered at the caption's trailing edge (the task-name dictation
+   *  mic). PASSING THIS FORCES `group` MODE, and that is the whole point.
+   *  The default branch wraps caption AND children in a `<label>`; a `<label>`
+   *  with no `for` binds to its FIRST LABELABLE descendant; a button IS
+   *  labelable — so a control in the caption would steal the click from the
+   *  input and clicking "Task name" would start dictation. Forcing `group`
+   *  makes that unreachable for every future caller rather than fixing it once
+   *  at one call site.
+   *  CONSEQUENCE: a named `role="group"` does NOT give its input an
+   *  accessible name, so a consumer passing this MUST give its own control an
+   *  explicit `aria-label`. An unlabeled form control is an axe-CRITICAL fail. */
+  captionAction?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const caption = (
@@ -79,9 +92,10 @@ export function Field({
           <InfoTooltip text={hint} />
         </span>
       )}
+      {captionAction && <span className="ml-auto inline-flex">{captionAction}</span>}
     </span>
   );
-  if (group) {
+  if (group || captionAction) {
     return (
       <FieldGroup name={label} caption={caption} className={`block ${className ?? ""}`}>
         {children}
