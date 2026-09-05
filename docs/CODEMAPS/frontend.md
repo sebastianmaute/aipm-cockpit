@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.283.0 "Lessing" | Files scanned: 342 .tsx + 552 .ts under src/app (excl. 906 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.284.0 "Kornbluth" | Files scanned: 342 .tsx + 552 .ts under src/app (excl. 906 test files) | Token estimate: ~1050 -->
 
 # Frontend
 
