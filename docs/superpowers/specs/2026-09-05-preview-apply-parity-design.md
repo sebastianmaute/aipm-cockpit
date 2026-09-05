@@ -110,10 +110,24 @@ exclusions. This spec states the invariant and enforces it.
 
 ### 4.1 Descriptor: the ten fields
 
-Each of the ten joins its entity's `diffFields`. Relationship arrays already
-render through the generic `str()` comma-join (`plan.ts`), which is not
-labels-specific, so no new array mechanism is needed for the preview — only for
-readability (4.2).
+★★★ **THE EIGHT RELATIONAL FIELDS MUST NOT JOIN `diffFields`, and an earlier
+revision of this section said they should.** `diffFields`' own docstring states
+its contract — "scalar/enum/date/number only — relational id-lists + FKs
+excluded" — and `use-inline-entity-edit.ts` rebuilds its write patch from
+`plan.updates` with `patch[diff.field] = coerce(d, diff.field, diff.raw ??
+diff.after)`. A link diff there writes the rendered TITLE STRING into
+`linkedTaskIds`; `sanitizeIdList` then splits that string on `[.;]`, finds no
+integers, and stores `[]` — **wiping every link on the row**. Disclosing a
+destructive write by introducing a worse one is the failure mode this whole
+document exists to prevent.
+
+So the eight relational fields (seven id lists plus `resource.roleId`) go in a
+NEW descriptor member `linkFields` and a NEW `EditPlan.links` bucket. The
+rebuild loop iterates `updates`, so the exclusion is structural — not a flag on
+`FieldDiff` that the rebuild would have to remember to check.
+
+Only the two SCALAR gaps — `resource.emails` and `task.lastUpdateDate` — join
+`diffFields` in the ordinary way.
 
 `resource.emails` additionally gains a `fieldSanitizers` entry calling the real
 `sanitizeEmailList`, mirroring §373's fix. `resource.roleId` and
