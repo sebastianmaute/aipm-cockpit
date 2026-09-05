@@ -2201,15 +2201,79 @@ describe("staged tool calls (the review card)", () => {
     await screen.findByText("ok"); // let the send settle before interacting
     fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
 
-    // Matched by regex, not by the literal string: `chatProposalFailed` carries
-    // an EM DASH, and a copied-out literal that lost it would fail for a reason
-    // that has nothing to do with the behaviour under test.
-    await waitFor(() => expect(within(card).getByText(/^Not applied/)).toBeInTheDocument());
-    // Exactly one row is flagged — the other genuinely wrote.
+    // ★★★ THE WHOLE STRING, NOT `/^Not applied/`. All four `chatProposalFailed*`
+    //   labels begin with "Not applied", so a prefix match cannot tell them
+    //   apart and the `failedKind` seam was UNPINNED by this file: mutating
+    //   `failedKind: p.failed.get(i)` to `undefined` in `chat-panel.tsx` left it
+    //   0 failed / 73 passed, i.e. all three §381 strings could be dead in
+    //   production behind a green suite. `delete_task`'s throw is kind "error",
+    //   whose label is the BARE string — so an exact match goes red the moment
+    //   the card falls back to the em-dashed conflict wording.
+    //   ★ Read through `t` rather than copied out: the fallback string carries
+    //   an EM DASH, and a literal that lost it would fail for a reason that has
+    //   nothing to do with the behaviour under test.
+    await waitFor(() =>
+      expect(within(card).getByText(t("en-US", "chatProposalFailedError"))).toBeInTheDocument(),
+    );
+    // Exactly one row is flagged — the other genuinely wrote. The prefix regex
+    // is the right matcher HERE: it counts failure labels of ANY kind.
     expect(within(card).getAllByText(/^Not applied/)).toHaveLength(1);
     const boxes = within(card).getAllByRole("checkbox");
     expect(boxes[0]).not.toBeChecked(); // landed → cannot be re-applied
     expect(boxes[1]).toBeChecked(); // refused → still offered for retry
+  });
+
+  it("labels a refused dependent by its OWN kind, not the conflict wording", async () => {
+    // ★★★ THE SECOND HALF OF THE `failedKind` SEAM, and the one that pins the
+    //   §381 strings rather than the bare fallback. `makeDispatcher`'s
+    //   `createTask` returns undefined, so `createdIdOf` finds no id, the
+    //   provisional stays PENDING and the dependent row is refused with
+    //   `PENDING_MINT_ERROR` → `failureKindOf` → "dependency". Mutant:
+    //   `failedKind: p.failed.get(i)` → `undefined` in `chat-panel.tsx` and this
+    //   row wears "changed since you reviewed" — the exact lie §381 removed.
+    // ★ Both labels are read through `t`, never copied out: each carries an EM
+    //   DASH, and a literal that lost it would fail for the wrong reason.
+    const provisional = peekMintId("task", []);
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK },
+          {
+            type: "tool_use",
+            id: "t2",
+            name: "update_task",
+            input: { id: provisional, assignee: "you" },
+          },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    send();
+
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok"); // let the send settle before interacting
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+
+    await waitFor(() =>
+      expect(
+        within(card).getByText(t("en-US", "chatProposalFailedDependency")),
+      ).toBeInTheDocument(),
+    );
+    // The create itself LANDED (a create with no usable id stays `ok: true`), so
+    // exactly one row wears a failure label — and the conflict wording appears
+    // on none of them.
+    expect(within(card).getAllByText(/^Not applied/)).toHaveLength(1);
+    expect(within(card).queryByText(t("en-US", "chatProposalFailed"))).toBeNull();
   });
 
   it("deselecting a create cascades to the row that depends on it", async () => {

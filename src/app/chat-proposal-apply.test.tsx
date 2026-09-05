@@ -10,6 +10,8 @@ import {
   TOKEN_ROW_SOURCE,
 } from "./chat-proposal-apply";
 import { buildPlanRows, type ProposedCall } from "./chat-proposal";
+import { entityToken, TOKEN_EXCLUDED, type TokenEntity } from "./ai-entity-token";
+import { runTool, type ToolDispatcher } from "./chat-tools";
 import { TOOL_DEFS } from "./chat-tool-defs";
 import { describeProposal } from "./chat-proposal-describe";
 import { type TestSeed } from "./test-providers";
@@ -688,6 +690,56 @@ describe("applying a staged update whose target this same plan created", () => {
     });
     expect(outcome!.rows[1].stale).toBeUndefined();
   });
+
+  // ★★★ THE STAMPING BLOCK RUNS INSIDE THE PER-ROW `try`, AND THIS IS THE ONLY
+  //  THING THAT SAYS SO. `applyProposal`'s contract is that a row which fails
+  //  fails ALONE — `chat-panel.tsx` restates it in its own catch comment
+  //  ("`applyProposal` catches per row, so reaching here means the BATCH
+  //  failed") — and `source.getRow` (a live dispatcher read) plus `entityToken`
+  //  (which walks a stored row through a CSV renderer) are new work on that
+  //  path. Mutant: hoist the block back above `try {` and this row's throw
+  //  escapes the loop, aborting row 2 as well and surfacing as a BATCH failure
+  //  with no per-row detail at all.
+  // ★ The THIRD row is what makes the case bite: without a row after the throw,
+  //  an aborted loop and a per-row failure produce the same visible outcome for
+  //  rows 0 and 1.
+  test("a throwing resolver fails only ITS row, and later rows still apply", async () => {
+    const { result } = renderApply();
+    const ws = seedWorkspace();
+    const calls: ProposedCall[] = [
+      {
+        name: "create_task",
+        input: { taskName: "Drafted", assignee: "M. Jordan", dueDate: "2026-10-01" },
+      },
+      { name: "update_task", input: { id: 101, status: "Done" } },
+      { name: "update_task", input: { id: 2, taskName: "Later" } },
+    ];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
+    const selected = new Set(rows.map((_, i) => i));
+    const dispatcher = {
+      ...result.current.dispatcher,
+      // ONLY the row this plan created explodes. Every other read stays real,
+      // so a refused third row could only be the defect under test.
+      getTask: (id: number) => {
+        if (id === 4) throw new Error("resolver exploded");
+        return result.current.dispatcher.getTask(id);
+      },
+    };
+
+    let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
+    await act(async () => {
+      outcome = await applyProposal({ dispatcher, rows, selected, batch: result.current.batch });
+    });
+
+    expect(outcome!.rows).toEqual([
+      { index: 0, ok: true },
+      { index: 1, ok: false, stale: false, error: "resolver exploded" },
+      { index: 2, ok: true },
+    ]);
+    // The row AFTER the throw genuinely wrote — the claim the outcome array on
+    // its own cannot make.
+    expect(result.current.dispatcher.getTask(2)?.taskName).toBe("Later");
+  });
 });
 
 describe("TOKEN_REQUIRED_TOOLS", () => {
@@ -764,6 +816,117 @@ describe("TOKEN_ROW_SOURCE", () => {
     expect({ extra, mapped: Object.keys(TOKEN_ROW_SOURCE).length }).toEqual({
       extra: [],
       mapped: Object.keys(TOKEN_ROW_SOURCE).length,
+    });
+  });
+
+  // ★★★ THE TWO CASES ABOVE COMPARE KEY SETS AND NOTHING ELSE, so membership
+  //   drift is caught and the VALUES are not. Neither half of an entry is
+  //   typed against its key: `getRow` is `(d, id) => object | null` and
+  //   `entityToken` takes `object`, so `update_change: { kind: "raid", getRow:
+  //   (d, id) => d.getChangeRow(id) }` typechecks and is internally consistent.
+  //   Measured before this case existed: that exact mutant left
+  //   `chat-proposal-apply.test.tsx` + `chat-proposal-describe.test.ts`
+  //   0 failed / 56 passed. Only `update_task` and `update_milestone` had
+  //   end-to-end cover (the two blocks above), so five of the seven entries
+  //   were unverified.
+  //
+  // ★★ THE RUNTIME CONSEQUENCE IS THE LIE §381 EXISTS TO REMOVE, not a cosmetic
+  //   slip: a token derived through the wrong projection fails `requireToken`,
+  //   `applyProposal` records `stale: true`, and the card tells the user the
+  //   row "changed since you reviewed" when nothing changed.
+  //
+  // ★★ GENERALISED OVER THE MAP, never a written-out list of seven — the whole
+  //   point is that a new entry is covered the moment it is declared. A
+  //   hand-written tool → getter → kind table would BE the map under test, so a
+  //   copy of it could not disagree with it.
+  describe("every entry agrees with the tool it names", () => {
+    /** A dispatcher whose EVERY member answers `row` and records its own name,
+     *  so this case never has to name a getter or a writer. That is what keeps
+     *  it generalised: `runTool`'s guarded cases all read their row, check the
+     *  token and write, and each of those three steps is satisfied by the same
+     *  stub. */
+    function recordingDispatcher(row: object, reached: string[]): ToolDispatcher {
+      return new Proxy(
+        {},
+        {
+          get: (_target, prop) => {
+            const member = String(prop);
+            return () => {
+              reached.push(member);
+              return row;
+            };
+          },
+        },
+      ) as unknown as ToolDispatcher;
+    }
+
+    test("its `kind` stamps a token that tool's own requireToken accepts", async () => {
+      // A bare id is enough as the stored row: `entityToken` length-prefixes
+      // every COLUMN NAME into the hashed string and no two entities share a
+      // column list, so a wrong `kind` moves the token for ANY row. The
+      // discrimination assertion below MEASURES that rather than assuming it.
+      const row = { id: 1 };
+      const kinds = Object.keys(TOKEN_EXCLUDED) as TokenEntity[];
+      let checked = 0;
+
+      for (const [tool, source] of Object.entries(TOKEN_ROW_SOURCE)) {
+        // Which dispatcher member the RESOLVER reads — the other untyped half
+        // of the entry, and a `getRow` pointing at a different entity's getter
+        // fails exactly the same way its `kind` does.
+        const viaResolver: string[] = [];
+        source.getRow(recordingDispatcher(row, viaResolver), 1);
+
+        // The input `applyProposal` builds: the remapped id plus an
+        // `expectedToken` derived through `source.kind`, run through the REAL
+        // guard rather than a re-derivation of it.
+        const reached: string[] = [];
+        let thrown: unknown;
+        try {
+          await runTool(recordingDispatcher(row, reached), tool, {
+            id: 1,
+            expectedToken: entityToken(source.kind, row),
+            // `set_task_dependencies` refuses a non-array BEFORE reaching the
+            // token check; the other six ignore or strip the key.
+            dependencies: [],
+          });
+        } catch (e) {
+          thrown = e;
+        }
+        expect({ tool, error: thrown instanceof Error ? thrown.message : thrown }).toEqual({
+          tool,
+          error: undefined,
+        });
+        // Anti-vacuity, per entry: a case that returned before touching the
+        // dispatcher would satisfy the line above having proved nothing. Every
+        // guarded case reads its row FIRST and then writes, and the resolver
+        // must read that same member.
+        expect({
+          tool,
+          resolverCalls: viaResolver.length,
+          readFirst: reached[0],
+          wrote: reached.length >= 2,
+        }).toEqual({ tool, resolverCalls: 1, readFirst: viaResolver[0], wrote: true });
+
+        // Anti-vacuity, per entry: the check above is only a test while some
+        // OTHER kind hashes this same row differently. If the projections
+        // agreed, a wrong `kind` would be undetectable and this loop would pass
+        // over a broken map.
+        const mine = entityToken(source.kind, row);
+        const others = kinds
+          .filter((k) => k !== source.kind)
+          .map((k) => entityToken(k, row));
+        expect({ tool, indistinguishable: others.includes(mine) }).toEqual({
+          tool,
+          indistinguishable: false,
+        });
+        checked += 1;
+      }
+
+      // Anti-vacuity, for the loop: it ran, over every declared entry, and over
+      // a non-zero number of them. An `it.each` over an empty map registers
+      // zero tests and reports green.
+      expect(checked).toBe(Object.keys(TOKEN_ROW_SOURCE).length);
+      expect(checked).toBeGreaterThan(0);
     });
   });
 });

@@ -61,7 +61,12 @@ import {
   proposalRowTitle,
   type ProposalCardRow,
 } from "./chat-proposal-block";
-import { applyProposal, failureKindOf, type ProposalFailureKind } from "./chat-proposal-apply";
+import {
+  applyProposal,
+  failureKindOf,
+  type FailedAppliedRow,
+  type ProposalFailureKind,
+} from "./chat-proposal-apply";
 import {
   isCascadedRow,
   mintProvisionalIds,
@@ -827,7 +832,9 @@ function ChatPanelInner({
         batch: { runBatched: runBatched ?? RUN_UNBATCHED },
       });
       const failed = new Map(
-        result.rows.filter((r) => !r.ok).map((r) => [r.index, failureKindOf(r)] as const),
+        result.rows
+          .filter((r): r is FailedAppliedRow => !r.ok)
+          .map((r) => [r.index, failureKindOf(r)] as const),
       );
       setPendingProposal((prev) =>
         prev?.id === p.id
