@@ -427,6 +427,24 @@ export function TaskFormFields({
           />
         )}
 
+        {/* Half width in the left column, matching every other select in this
+            modal; the right cell stays empty. A full-width select for short
+            bucket names would read as more important than the estimate row. */}
+        {budgetLink !== undefined && isVisible("budgetBucket") && (
+        <Field label={t(lang, "taskBudgetBucket")}>
+          <Select
+            value={budgetLink.bucketId === null ? "" : String(budgetLink.bucketId)}
+            onChange={(e) => budgetLink.onChange(e.target.value === "" ? null : Number(e.target.value))}
+            className="w-full"
+          >
+            <option value="">{t(lang, "budgetBucketNone")}</option>
+            {budgetLink.buckets.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </Select>
+        </Field>
+        )}
+
         <Field label={t(lang, "group")} hint={t(lang, "taskHintGroup")}>
           <ComboInput
             lang={lang}
@@ -454,7 +472,10 @@ export function TaskFormFields({
         )}
       </TaskFormSection>
 
-      {(isVisible("dependencies") || isVisible("blockers") || (budgetLink !== undefined && isVisible("budgetBucket"))) && (
+      {/* ★ The budgetBucket disjunct went with the field itself. Leaving it
+          would render an EMPTY Relationships section for a user who has
+          dependencies and blockers hidden but budget bucket shown. */}
+      {(isVisible("dependencies") || isVisible("blockers")) && (
       <TaskFormSection index={4} title={t(lang, "taskFormSectionRelationships")}>
         {isVisible("dependencies") && (
         <>
@@ -470,7 +491,11 @@ export function TaskFormFields({
             went stale in this branch's own rewrite.) The benign empty case is
             why the single field this replaced survived the first sweep and a
             cold review found it. */}
-        <Field label={t(lang, "depPredecessors")} hint={t(lang, "taskHintDependencies")} className="sm:col-span-2" group>
+        {/* ★★★ One grid cell each, so the two pickers pair on one row —
+            `TaskFormSection` is `grid-cols-1 sm:grid-cols-2`, so dropping
+            `sm:col-span-2` IS the pairing. `group` STAYS on both: see the
+            comment above for what the default `<label>` branch would adopt. */}
+        <Field label={t(lang, "depPredecessors")} hint={t(lang, "taskHintDependencies")} group>
           <DependencyLinkGroup
             lang={lang}
             direction="predecessor"
@@ -482,7 +507,7 @@ export function TaskFormFields({
             }
           />
         </Field>
-        <Field label={t(lang, "depSuccessors")} hint={t(lang, "taskHintSuccessors")} className="sm:col-span-2" group>
+        <Field label={t(lang, "depSuccessors")} hint={t(lang, "taskHintSuccessors")} group>
           <DependencyLinkGroup
             lang={lang}
             direction="successor"
@@ -515,21 +540,6 @@ export function TaskFormFields({
             className="w-full"
           />
           <CharCounter value={form.blockers} max={TEXTAREA_MAX} id="blockers-counter" lang={lang} />
-        </Field>
-        )}
-
-        {budgetLink !== undefined && isVisible("budgetBucket") && (
-        <Field label={t(lang, "taskBudgetBucket")}>
-          <Select
-            value={budgetLink.bucketId === null ? "" : String(budgetLink.bucketId)}
-            onChange={(e) => budgetLink.onChange(e.target.value === "" ? null : Number(e.target.value))}
-            className="w-full"
-          >
-            <option value="">{t(lang, "budgetBucketNone")}</option>
-            {budgetLink.buckets.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </Select>
         </Field>
         )}
       </TaskFormSection>

@@ -22,7 +22,9 @@ beforeAll(() => {
   Range.prototype.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) });
 });
 
-function Harness(over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink } = {}) {
+function Harness(
+  over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink; tasksForDeps?: Task[] } = {},
+) {
   return (
     <form aria-label="form">
       <TaskFormFields
@@ -33,7 +35,7 @@ function Harness(over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink }
         resources={[]}
         onCreateResource={vi.fn(() => 1)}
         absences={[]}
-        tasksForDeps={[]}
+        tasksForDeps={over.tasksForDeps ?? []}
         uniqueGroups={[]}
         uniqueLabels={[]}
         editingIsJiraLinked={false}
@@ -189,7 +191,7 @@ describe("TaskFormFields", () => {
   });
 
   describe("field visibility", () => {
-    function VisHarness() {
+    function VisHarness(over: { budgetLink?: TaskBudgetLink } = {}) {
       return (
         <>
           <ModalFieldControls modalId="task" lang="en-US" />
@@ -202,6 +204,7 @@ describe("TaskFormFields", () => {
               fieldErrors={{}} submitted={false}
               holidaySet={new Set()} jiraProjectKey={undefined} jiraDefaultIssueType={undefined}
               onRemoveContact={vi.fn()} onAddAssigneeToAddressBook={vi.fn()}
+              budgetLink={over.budgetLink}
             />
           </form>
         </>
@@ -242,6 +245,36 @@ describe("TaskFormFields", () => {
       // is a WHOLE-STRING match, so this cannot be satisfied by the dialog's own
       // "Time spent" box even once that is mounted.
       expect(screen.queryByRole("textbox", { name: t("en-US", "taskTimeSpent") })).toBeNull();
+    });
+
+    // DOM ORDER is all this asserts, and all jsdom can see. The VISUAL row
+    // placement (half width, empty right cell) is the eye-verify task's job —
+    // a green run here is not proof the layout is right.
+    // ★ Lives in THIS describe for the same reason as the test above: the
+    //   tracking button is a FULL-tier field, so without `selectFieldTier` the
+    //   first anchor is absent and the whole assertion is unreachable rather
+    //   than merely weak. `budgetBucket` itself is ADVANCED, so it renders at
+    //   the default tier too — the switch is needed for the button alone.
+    it("renders budget bucket between the tracking button and the group field", () => {
+      const buckets = [{ id: 1, name: "Design" }, { id: 2, name: "Build" }] as unknown as BudgetBucket[];
+      render(
+        <VisHarness budgetLink={{ buckets, bucketId: 1, onChange: vi.fn() }} />,
+        { wrapper: TestProviders },
+      );
+      selectFieldTier("fieldViewFull");
+
+      const tracking = screen.getByRole("button", { name: /time tracking/i });
+      // Both are `role="combobox"`: the bucket is a `<Select>`, the group a
+      // `ComboInput` that sets the role explicitly.
+      // ★ The group caption carries a `hint`, so its `InfoTooltip` glyph joins
+      //   the wrapping `<label>`'s text and the computed name is "Groupi", not
+      //   "Group" — a whole-string `name` finds nothing. Anchored with a prefix
+      //   regex rather than the literal so a reworded tooltip cannot break it.
+      const bucket = screen.getByRole("combobox", { name: t("en-US", "taskBudgetBucket") });
+      const group = screen.getByRole("combobox", { name: new RegExp(`^${t("en-US", "group")}`) });
+
+      expect(tracking.compareDocumentPosition(bucket) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(bucket.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 });
@@ -419,5 +452,44 @@ describe("TaskFormFields — successor/predecessor draft wiring", () => {
       JSON.stringify([{ taskId: 42, type: "FS" }, { taskId: 41, type: "FS" }]),
     );
     expect(screen.getByTestId("probe-successors").textContent).toBe("[]");
+  });
+});
+
+// ★★★ Once a link exists, the chip's remove ✕ is the `Field`'s first LABELABLE
+// descendant — so the default `<label>` branch would bind the "Predecessors"
+// caption to it and clicking the caption would DELETE a link. `group` is what
+// prevents that, and this is the only behavioural test that says so. Dropping
+// `sm:col-span-2` to pair the two pickers is a hair away from also dropping
+// `group`, which is why it is pinned here rather than left to the source scan.
+// ★★★ IT IS VACUOUS WITHOUT A REAL CHIP. The default `tasksForDeps={[]}` offers
+// no option, nothing can be added, `before` is 0, and the assertion then holds
+// against ANY implementation — the mutation proof cannot go red. The link is
+// seeded through the picker rather than as a prop because `TaskFormProvider`
+// always starts from `emptyForm` and exposes no way to seed a draft.
+describe("TaskFormFields — dependency caption binding", () => {
+  const DEP_TASK = { id: 41, taskName: "Zeta groundwork", dependencies: [] } as unknown as Task;
+
+  it("does not remove a dependency chip when the predecessors caption is clicked", async () => {
+    const user = userEvent.setup();
+    render(<Harness tasksForDeps={[DEP_TASK]} />, { wrapper: TestProviders });
+
+    await user.type(screen.getByRole("combobox", { name: "Search predecessor tasks" }), "Zeta");
+    await user.click(screen.getByRole("option", { name: /Zeta groundwork/ }));
+
+    // `EntityLinkPicker`'s inert branch names each remove button
+    // `<removeLabel> <code> <label>` — "Remove predecessor FS #41 Zeta
+    // groundwork" — so a bare `/remove/i` would also catch the successor
+    // group's chips if the fixture ever grew one.
+    const removes = () => screen.queryAllByRole("button", { name: /^Remove predecessor/ });
+    const before = removes().length;
+    expect(before).toBeGreaterThan(0);
+
+    // `Field` builds the caption once and hands the SAME `<span>` to either
+    // branch, so this locator resolves identically under the mutant and the
+    // click really lands on the caption either way. The `InfoTooltip` glyph
+    // joins the span's text, hence the prefix regex rather than the literal.
+    await user.click(screen.getByText(/^Predecessors/, { selector: "span" }));
+
+    expect(removes()).toHaveLength(before);
   });
 });
