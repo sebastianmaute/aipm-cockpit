@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { TestProviders } from "./test-providers";
@@ -128,6 +128,28 @@ describe("TaskFormFields", () => {
     expect(screen.getByText("Task name")).toBeTruthy();
     expect(screen.getByText("Assignee")).toBeTruthy();
     expect(screen.getByText("Due date")).toBeTruthy();
+  });
+
+  it("puts the dictation control in the task-name caption and keeps the input separately named", () => {
+    // ★★ `voice.ts` `getCtor()` reads `window.SpeechRecognition`, which jsdom
+    //    does not define — so `useDictationMic` returns `mic: null` and
+    //    `captionAction={titleMic}` would be NULL. `Field` forces `group` on
+    //    `group || captionAction`, so a null mic does NOT force it and the
+    //    whole shape under test would be invisible here. Stub the ctor so the
+    //    mic really renders; without this the test passes for the wrong reason
+    //    in the label branch, or fails against correct code.
+    vi.stubGlobal("SpeechRecognition", class {});
+    try {
+      render(<Harness />, { wrapper: TestProviders });
+      const group = screen.getByRole("group", { name: t("en-US", "taskName") });
+      // The mic is INSIDE the caption group, not a sibling of the input.
+      expect(within(group).getByRole("button", { name: /dictate/i })).toBeInTheDocument();
+      // And the input still has its own accessible name, which the named group
+      // does NOT give it — an unlabeled form control is an axe-critical failure.
+      expect(screen.getByRole("textbox", { name: t("en-US", "taskName") })).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("renders all 5 numbered section headings", () => {

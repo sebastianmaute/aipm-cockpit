@@ -198,26 +198,28 @@ export function TaskFormFields({
           label={t(lang, "taskName")}
           required
           className="sm:col-span-2"
+          captionAction={titleMic}
         >
-          <div className="flex items-center gap-1">
-            <Input
-              type="text"
-              required
-              value={form.taskName}
-              onChange={(e) => setForm({ ...form, taskName: e.target.value })}
-              onFocus={titleDictationReg.onFocus}
-              onBlur={(e) => {
-                setForm({ ...form, taskName: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() });
-                markTouched("taskName");
-                titleDictationReg.onBlur();
-              }}
-              placeholder={t(lang, "placeholderTaskName")}
-              invalid={errorFor("taskName") ? true : undefined}
-              aria-describedby={describedBy("taskName", "taskName-counter")}
-              className="w-full"
-            />
-            {titleMic}
-          </div>
+          <Input
+            type="text"
+            required
+            value={form.taskName}
+            // Explicit, because `captionAction` forces `group` mode and a named
+            // role="group" does NOT give its input an accessible name. An
+            // unlabeled form control is an axe-CRITICAL failure.
+            aria-label={t(lang, "taskName")}
+            onChange={(e) => setForm({ ...form, taskName: e.target.value })}
+            onFocus={titleDictationReg.onFocus}
+            onBlur={(e) => {
+              setForm({ ...form, taskName: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() });
+              markTouched("taskName");
+              titleDictationReg.onBlur();
+            }}
+            placeholder={t(lang, "placeholderTaskName")}
+            invalid={errorFor("taskName") ? true : undefined}
+            aria-describedby={describedBy("taskName", "taskName-counter")}
+            className="w-full"
+          />
           <CharCounter value={form.taskName} max={TASK_NAME_MAX} id="taskName-counter" lang={lang} />
           {titleDictationStatus}
           <FieldError id="taskName-error">{errorFor("taskName")}</FieldError>
