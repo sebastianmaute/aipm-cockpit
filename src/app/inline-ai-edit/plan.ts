@@ -37,16 +37,28 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *   `sanitizeIdList` splits a string on `[.;]`, finds no integers and stores
  *   `[]` — wiping every link the row had.
  *
- *  ★★ THE TYPE SYSTEM DOES NOT ENFORCE THIS, and an earlier revision of this
- *   docstring claimed it did ("unreachable by construction"). Measured with
- *   tsc, not reasoned: `LinkDiff` and `FieldDiff` are MUTUALLY assignable —
- *   `raw` is optional, so `plan.updates.push(someLinkDiff)` and
- *   `plan.links.push(someFieldDiff)` both compile today. What actually holds
- *   the invariant is the CALL GRAPH: the populator writes only to `links` and
- *   the rebuild loop reads only `updates`. The separate array is still the
- *   right shape — a marker flag on `FieldDiff` would leave the rebuild loop
- *   having to remember to check it — but it is a convention the tests pin,
- *   not a guarantee the compiler gives. See the characterization test in
+ *  ★★ WHAT THE TYPE SYSTEM DOES AND DOES NOT CATCH — measured with tsc, and
+ *   BOTH earlier wordings of this paragraph were wrong in opposite directions.
+ *   The first claimed the wipe was "unreachable by construction"; its
+ *   correction over-swung to "the type system does not enforce this". Neither
+ *   is right, because it depends on the SHAPE of the mistake:
+ *
+ *   - Pushing an already-typed value into the wrong bucket COMPILES.
+ *     `LinkDiff` and `FieldDiff` are mutually assignable (`raw` is optional),
+ *     so `plan.updates.push(someLinkDiff)` and `plan.links.push(someFieldDiff)`
+ *     are both accepted. A merge site copying the wrong array is this shape.
+ *   - Building a link diff INLINE into `updates` does NOT compile. Excess
+ *     property checking on a fresh object literal rejects `rawIds` against
+ *     `FieldDiff` — `TS2353`. Mutating the populator below from
+ *     `plan.links.push({…rawIds})` to `plan.updates.push({…rawIds})` gives
+ *     `tsc` exit 2 AND reddens 10 tests across two files. That mutation is the
+ *     realistic defect, and it is caught twice.
+ *
+ *   So the compiler covers the inline shape and the CALL GRAPH plus the tests
+ *   cover the aliased one: the populator writes only to `links`, the rebuild
+ *   loop reads only `updates`. The separate array is still the right design —
+ *   a marker flag on `FieldDiff` would leave the rebuild loop having to
+ *   remember to check it. See the characterization test in
  *   `use-inline-entity-edit.test.tsx`.
  *
  *  ★★ `before`/`after` are RESOLVED TITLES for the human; `rawIds` is what the
