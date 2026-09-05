@@ -29,11 +29,55 @@ import type { Workspace } from "../workspace";
 // somebody maintains: a new field, or a new entity, is covered the moment it is
 // declared.
 //
-// THE CONTRACT: when the preview ACCEPTS a field, the string it shows (and puts
-// in `FieldDiff.raw`) is what the apply path would STORE. Rejection parity —
-// "the preview rejects everything apply would throw on" — is a DIFFERENT
-// contract; the one place the two diverge today is enumerated in
-// `APPLY_ONLY_REJECTS` rather than skipped silently.
+// THE CONTRACT, IN BOTH DIRECTIONS:
+//  • the preview ACCEPTS a field ⇒ the string it shows (and puts in
+//    `FieldDiff.raw`) is what the apply path would STORE;
+//  • the preview REJECTS a field ⇒ the replayed write leaves that field where it
+//    was. Enumerated gaps in `PREVIEW_REJECTS_APPLY_WRITES`.
+// A third relation — "the preview rejects everything apply would throw on" — is
+// a DIFFERENT contract again; its gaps go in `APPLY_ONLY_REJECTS`.
+//
+// ★★★ THE SECOND BULLET IS NEW, AND ITS ABSENCE MADE THIS FILE VACUOUS AGAINST
+// THE VERY DEFECT THE SLICE IS NAMED AFTER. The rejects branch used to
+// `continue` under a comment reading "the safe direction — nothing is written",
+// which is true of the REBUILDING consumer (`use-inline-entity-edit.ts` rebuilds
+// its patch from `plan.updates`) and false of both REPLAYING ones
+// (`chat-proposal-apply.ts`, `use-insight-recommendations.ts` resend the
+// ORIGINAL `ProposedCall.input` and never read the plan). Measured, not argued:
+// running the mutant that RESTORES §384 turned five `plan.test.ts` tests red
+// while this differential stayed GREEN throughout, because it `continue`d before
+// comparing anything.
+//
+// ★★★ WHAT THIS SWEEP STILL CANNOT SEE, measured 2026-09-05:
+//  (1) it compares the preview against the SANITIZER, never against a REPLAY, so
+//      a DISPATCHER-level derivation (`use-chat-dispatcher.ts` re-deriving the
+//      name parts via `splitName`) is invisible here — `use-chat-dispatcher.test.tsx`
+//      owns that. ★ NOT `plan.write-path.test.ts`: no such file exists, and a
+//      false filename in a test comment is ungated (`docs:symbols:check` reads
+//      only AGENTS.md + `docs/AGENTS/*.md`).
+//  (2) `previewOf` overrides exactly ONE key per probe, so a JOINT guard
+//      (`!firstName && !lastName`) is never exercised jointly — every group
+//      member's sibling stays populated, so `requiredNonEmptyGroups` never
+//      refuses and `sanitizeResource`'s own OR gate never returns null.
+//  (3) no probe sets `name` on the RESOURCE entity — it is absent from that
+//      descriptor's `diffFields` — so the `splitName` WRITE ALIAS is never
+//      exercised, on either side. ★ Read that as the resource alias ALONE:
+//      `milestone.name` and `stakeholder.name` ARE probed, but there `name` is a
+//      stored field rather than an alias, so they say nothing about it.
+//  (4) EVERY REQUIRED ENUM'S FIXTURE VALUE COINCIDES WITH ITS SANITIZER'S
+//      HARDCODED FALLBACK, so the silent-reset half of the rejects direction is
+//      unexercised. `task.status`/`priority`, `raid.category`/`status`,
+//      `change.type`/`status`, `stakeholder.category`/`influence`/`interest` all
+//      read back the value they already held when fed a refused value; only
+//      `raid.severity` and `change.impact` — stored as OPTIONAL keys, fallback
+//      "" — move, which is why exactly those two are in the exception list. A
+//      row whose enum is NOT the default would be silently RESET with the card
+//      showing nothing. Do NOT "fix" this by editing a fixture: that
+//      manufactures reds outside the direction under test. Reproduce by printing
+//      `base[f]` beside `read(f, 42)` for each `enumFields` key.
+//  (5) `TASK_BASE` carries no `lastUpdateDate`, so `update_task({lastUpdateDate:
+//      ""})` — a clear the preview shows and the writer may not make — compares
+//      "" against "" and says nothing. Same rule as (4): do not add one here.
 //
 // ★★ NO CROSS-TEST STATE. The totals check below recomputes the whole sweep
 // inside its own body rather than reading counters the per-entity tests
@@ -215,9 +259,97 @@ const EXCLUDED_FIELDS: Readonly<Record<string, string>> = {
 const APPLY_ONLY_REJECTS: ReadonlySet<string> = new Set<string>([
 ]);
 
+/** ★★★ PREVIEW REJECTS WHERE THE REPLAYED WRITE MOVES THE FIELD — §384's OWN
+ *  SHAPE, and the direction this file used to `continue` past under a comment
+ *  calling it "the safe direction — nothing is written".
+ *
+ *  That comment held for the REBUILDING consumer (`use-inline-entity-edit.ts`
+ *  rebuilds its patch from `plan.updates`, so a rejected field is genuinely
+ *  absent) and was false for both REPLAYING ones: `chat-proposal-apply.ts` and
+ *  `use-insight-recommendations.ts` resend the ORIGINAL `ProposedCall.input` and
+ *  never read the plan, so the dispatcher merges + sanitizes the model's value
+ *  and stores whatever falls out. §384 is exactly that — a mononym rename
+ *  previewed `lastName` as rejected while the write stored `""`.
+ *
+ *  ★★ THE COMPARISON IS AGAINST THE FIELD'S OWN UNCHANGED VALUE, not against
+ *  "was anything written". A write always happens on the replay path, so
+ *  `stored !== null` would flag all 185 preview-only rejections and make the
+ *  exception list bigger than the gate. What the preview's rejection actually
+ *  PROMISES the reader is that THIS FIELD does not move; the sweep therefore
+ *  pushes the field's CURRENT value through the same apply path and compares.
+ *  Note this is measured on the WRITER's output, never on a consumer's
+ *  behaviour — "nothing is written" is the reasoning that shipped §384.
+ *
+ *  ★★★ EVERY ENTRY BELOW IS AN OPEN DEFECT IN THE PRODUCT, NOT A PROPERTY OF
+ *  THE TEST, and all seven are one mechanism: the preview refuses a value the
+ *  WRITER does not refuse — the writer silently coerces or drops it, clearing a
+ *  populated field. The card says "unchanged"; the replay wipes it. Fixing them
+ *  belongs in the writer or the descriptor and is out of this file's scope; they
+ *  are enumerated so a NEW member of the class is a red run.
+ *
+ *  ★ The totals test asserts this set is exactly the set that FIRES, so an entry
+ *  whose defect gets fixed goes red as a stale exception rather than quietly
+ *  granting cover to the next one.
+ *
+ *  ★★ MEASURED 2026-09-05, printed from inside the totals test rather than
+ *  derived: of 185 preview-only rejections, 54 pairs across these SEVEN fields
+ *  move the field and are excused here; the remaining 131 leave it where it was
+ *  and are genuine agreement. The three bucket counters and every floor are
+ *  UNMOVED by this direction (compared 244, possible 288, enumerated 468) —
+ *  it adds reporting to a branch that already counted its pairs, so a figure
+ *  elsewhere in this file that changed with this work would be a bug. */
+const PREVIEW_REJECTS_APPLY_WRITES: Readonly<Record<string, string>> = {
+  // `sanitizeRaidItem` sets `severity` ONLY when the value is in
+  // `RAID_SEVERITY_SET`; there is no fallback, so a value the preview's enum
+  // guard refuses DROPS the key and a stored "High" becomes absent.
+  "raid.severity": "optional enum: an invalid value drops the key, clearing a stored severity",
+  // Same shape one entity over: `if (typeof o.impact === "string" &&
+  // CHANGE_IMPACT_SET.has(o.impact)) item.impact = …` — no fallback, so a
+  // refused value clears a stored "High".
+  "change.impact": "optional enum: an invalid value drops the key, clearing a stored impact",
+  // `intRangeFields` is [1, 5] and `sanitizeRaidItem` sets the key only for an
+  // integer in that range, so the values the preview's range guard refuses are
+  // precisely the ones that clear a stored score.
+  "raid.probability": "optional int-range [1,5]: an out-of-range value drops the key, clearing a stored score",
+  "raid.impact": "optional int-range [1,5]: an out-of-range value drops the key, clearing a stored score",
+  // `raisedDate: sanitizeIsoDate(o.raisedDate)` is UNCONDITIONAL on both
+  // entities — an unparseable date is written as "" rather than skipped — so the
+  // preview's date guard refuses exactly the values that blank a stored date.
+  "raid.raisedDate": "unconditional sanitizeIsoDate: an invalid date is written as \"\", blanking a stored date",
+  "change.raisedDate": "unconditional sanitizeIsoDate: an invalid date is written as \"\", blanking a stored date",
+  // The descriptor calls `taskName` `requiredNonEmpty`, which describes what the
+  // WRITER ought to refuse — but `buildTaskCleanPatch` has no non-empty guard
+  // (`cleanPatch.taskName = sanitizeTaskName(patch.taskName)`), so a blank or
+  // non-string name is STORED as "". §384's shape on a second entity.
+  "task.taskName": "requiredNonEmpty in the descriptor only: buildTaskCleanPatch stores sanitizeTaskName(x) with no guard, blanking the name",
+};
+
 // --- the differential ------------------------------------------------------
 
 interface Outcome { rejected: boolean; shown: string }
+
+/** ★★★ A REJECTION DETAIL IS NOT ALWAYS `${field}=…`, and reading it as one is a
+ *  SILENT blind spot rather than a loud one. `describeEntityCalls` spells a JOINT
+ *  `requiredNonEmptyGroups` refusal as `${members.join("+")}=empty`, so the
+ *  obvious `detail.startsWith(`${field}=`)` misses it — measured 2026-09-05
+ *  against a both-parts-blank `update_resource`, which yields
+ *  `["firstName+lastName=empty", …]` and `startsWith("lastName=") === false`.
+ *
+ *  A MISSED rejection does not read as "no outcome": `previewOf` falls through to
+ *  its no-diff branch and returns the field's BEFORE value, i.e. the sweep would
+ *  record the preview as ACCEPTING what it in fact refused. In the apply-rejects
+ *  branch that inverts into a mismatch the code does not have — `sanitizeResource`
+ *  returns null for a both-blank row, so the pair would be reported as "apply
+ *  REJECTS, preview accepts" when the preview rejected it too.
+ *
+ *  ★ It cannot fire TODAY only because `previewOf` overrides exactly ONE key
+ *  (see the sweep's stated limits), so the surviving member always keeps the row
+ *  alive. That is a property of the probe shape, not of the detector — fixed here
+ *  rather than left to the first probe that sets two keys. */
+const rejectsField = (detail: string, field: string): boolean => {
+  const eq = detail.indexOf("=");
+  return eq >= 0 && detail.slice(0, eq).split("+").includes(field);
+};
 
 function previewOf(
   entity: InlineEntity,
@@ -229,7 +361,7 @@ function previewOf(
   const ws = { [d.wsKey]: [base] } as unknown as Workspace;
   const block: ToolUseLike = { type: "tool_use", name: d.updateTool, input: { id: 1, [field]: value } };
   const plan = describeEntityCalls([block], { descriptor: d, item: base as { id: number }, ws });
-  if (plan.rejected.some((r) => r.detail.startsWith(`${field}=`))) return { rejected: true, shown: "" };
+  if (plan.rejected.some((r) => rejectsField(r.detail, field))) return { rejected: true, shown: "" };
   const diff = plan.updates.find((u) => u.field === field);
   if (diff) return { rejected: false, shown: diff.raw ?? diff.after };
   // NO diff is itself a claim — "applying this stores what is already there" —
@@ -290,14 +422,29 @@ interface Sweep {
   previewOnlyRejects: number;
   applyRejects: number;
   comparedByField: Record<string, number>;
+  /** The `PREVIEW_REJECTS_APPLY_WRITES` keys that actually fired, so the totals
+   *  test can red on a stale entry as well as on a new divergence. */
+  excusedRejectWrites: string[];
 }
 
 /** One entity's full sweep. Returns every disagreement rather than throwing at
  *  the first, so a broken normalisation shows its whole blast radius at once. */
 function sweep(entity: InlineEntity, base: Record<string, unknown>, read: StoredReader): Sweep {
-  const out: Sweep = { mismatches: [], compared: 0, previewOnlyRejects: 0, applyRejects: 0, comparedByField: {} };
+  const out: Sweep = {
+    mismatches: [], compared: 0, previewOnlyRejects: 0, applyRejects: 0,
+    comparedByField: {}, excusedRejectWrites: [],
+  };
   for (const field of fieldsUnderTest(entity)) {
     const key = `${entity}.${field}`;
+    // The field's value after a NO-OP write: its own stored value pushed back
+    // through the same apply path. `null` would mean the fixture itself is a
+    // row the sanitizer rejects, which would make every rejection below
+    // unreadable — so it is reported rather than silently compared against.
+    const unchanged = read(field, base[field]);
+    if (unchanged === null) {
+      out.mismatches.push(`${key}: FIXTURE DEFECT — the stored value is rejected by its own apply path`);
+      continue;
+    }
     for (const { label, value } of PROBES) {
       const stored = read(field, value);
       const preview = previewOf(entity, base, field, value);
@@ -310,10 +457,18 @@ function sweep(entity: InlineEntity, base: Record<string, unknown>, read: Stored
         continue;
       }
       if (preview.rejected) {
-        // Preview rejects where apply would have stored something. The safe
-        // direction — nothing is written — and the enum/date/range guards
-        // deliberately over-reject; the descriptor's own comments say so.
+        // ★★★ NOT A SAFE DIRECTION, and the comment this replaces said it was:
+        // "nothing is written". That holds only for the REBUILDING consumer.
+        // The two REPLAYING ones resend the original tool input, so a field the
+        // preview calls rejected is still put through the writer — §384.
+        // Enumerated known gaps live in `PREVIEW_REJECTS_APPLY_WRITES`.
         out.previewOnlyRejects += 1;
+        if (stored !== unchanged) {
+          if (key in PREVIEW_REJECTS_APPLY_WRITES) { out.excusedRejectWrites.push(key); continue; }
+          out.mismatches.push(
+            `${key} on ${label}: preview REJECTS, apply moves ${JSON.stringify(unchanged)} -> ${JSON.stringify(stored)}`,
+          );
+        }
         continue;
       }
       out.compared += 1;
@@ -403,5 +558,13 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     // shrunk to make the numerator look good.
     expect(possible).toBeGreaterThan(enumerated / 2);
     expect(compared).toBeGreaterThan(possible / 2);
+
+    // (4) THE EXCEPTION LIST IS EXACTLY THE SET THAT FIRES. An entry whose
+    // defect is fixed goes red as STALE rather than silently covering the next
+    // field to acquire the same shape — the failure mode the register records
+    // for every enumerated allow-set. The reverse direction is already covered:
+    // an unlisted divergence lands in `mismatches`.
+    const fired = [...new Set(sweeps.flatMap(({ s }) => s.excusedRejectWrites))].sort();
+    expect(fired).toEqual(Object.keys(PREVIEW_REJECTS_APPLY_WRITES).sort());
   });
 });
