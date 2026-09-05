@@ -163,8 +163,13 @@ async function openTimeTrackingDialog(page: Page): Promise<void> {
 
   // ★ `.first()` is REQUIRED, not defensive: `tasks-section.tsx` renders TWO
   // controls whose accessible name is exactly "Add task" (the toolbar
-  // `AddButton` and the table's trailing add row), a real duplicate-name
-  // collision in a shipped view. Without it this is a strict-mode violation.
+  // `AddButton` and the table's trailing add row). Both now use ONE key
+  // (`addTaskButton`) at two sites — the trailing row used to be mis-keyed to
+  // `addTask`, the modal's SUBMIT verb — so the count is unchanged and this is
+  // still a strict-mode violation without `.first()`. The repeat is deliberate
+  // and WCAG 2.4.6-conformant: identical purpose, identical handler. The
+  // modal's submit no longer joins them; it is qualified as "Add task – New
+  // task", which also keeps THIS locator from matching it once the form opens.
   await page.getByRole("button", { name: "Add task", exact: true }).first().click();
   await expect(taskForm(page)).toBeVisible();
 

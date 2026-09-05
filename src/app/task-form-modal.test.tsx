@@ -7,7 +7,7 @@ import { WorkspaceProvider } from "./workspace-context";
 import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import { TaskFormModal } from "./task-form-modal";
 import { fieldTierTrigger } from "../test/field-tier";
-import { t } from "./i18n";
+import { t, loadI18n } from "./i18n";
 import type { NoteLogPanelProps } from "./note-log-panel";
 import type { BudgetBucket, NoteLogEntry } from "./types";
 
@@ -197,7 +197,73 @@ describe("TaskFormModal — cancel in create mode", () => {
     // — so the old unanchored /add task/i matched TWO elements and this query
     // threw. A leading `^` alone does not fix it either, since that sentence
     // also STARTS with "Add task". Matches the submit label and nothing else.
-    expect(screen.getByRole("button", { name: /^(add task|aufgabe hinzuf.*)$/i })).toBeInTheDocument();
+    // ★★ The submit now carries a QUALIFIED `aria-label` ("Add task – New
+    // task"), so the trailing `$` must sit after the qualifier, not after the
+    // verb. Composed from the same i18n keys the component uses rather than
+    // hardcoded, so a DE run resolves too.
+    expect(
+      screen.getByRole("button", {
+        name: `${t(EN, "addTask")} – ${t(EN, "tabNewTask")}`,
+      }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("TaskFormModal — submit name does not collide with the editor openers", () => {
+  // WCAG 2.4.6. `tasks-section.tsx` renders TWO openers (toolbar `AddButton`
+  // and the table's trailing add row), both named `addTaskButton` = "Add task",
+  // and BOTH discard the in-progress edit via `handleCancelEdit()`. The submit
+  // sits over them in the same accessibility tree; speech input does not scope
+  // by `aria-modal`. So the submit's name must differ from theirs.
+  const openerName = t(EN, "addTaskButton");
+
+  it("qualifies the CREATE-mode submit so it differs from the openers, still containing the visible label", () => {
+    stubTaskForm();
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    const submit = screen.getByRole("button", { name: /new task$/i });
+    expect(submit).toHaveAttribute("type", "submit");
+    const name = submit.getAttribute("aria-label")!;
+    expect(name).not.toBe(openerName);
+    // WCAG 2.5.3 is CONTAINMENT (case-insensitive, position-independent).
+    expect(name.toLowerCase()).toContain(submit.textContent!.trim().toLowerCase());
+    // And nothing in the modal is left wearing the openers' bare name.
+    expect(screen.queryAllByRole("button", { name: openerName })).toHaveLength(0);
+  });
+
+  it("qualifies the EDIT-mode submit the same way", () => {
+    mockUseTaskForm.mockReturnValue({
+      form: { ...emptyForm() },
+      setForm: vi.fn(),
+      editingId: 42,
+      setEditingId: vi.fn(),
+      taskModalOpen: true,
+      setTaskModalOpen: vi.fn(),
+      bulkEdit: emptyBulkEdit(),
+      setBulkEdit: vi.fn(),
+      bulkEditOpen: false,
+      setBulkEditOpen: vi.fn(),
+    });
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    const submit = screen.getByRole("button", {
+      name: `${t(EN, "updateTask")} – ${t(EN, "taskEditTitle")}`,
+    });
+    expect(submit).toHaveAttribute("type", "submit");
+    expect(submit.getAttribute("aria-label")).not.toBe(openerName);
+    expect(submit.textContent!.trim()).toBe(t(EN, "updateTask"));
+  });
+
+  it("qualifies the submit in DE too, and keeps the visible German label contained", async () => {
+    // The two openers and this submit are byte-identical in DE as well
+    // ("Aufgabe hinzufügen"), so the DE branch needs its own pin.
+    await loadI18n("de");
+    stubTaskForm();
+    render(<TaskFormModal {...defaultProps({ lang: "de" })} />, { wrapper: Providers });
+    const submit = screen.getByRole("button", {
+      name: `${t("de", "addTask")} – ${t("de", "tabNewTask")}`,
+    });
+    const name = submit.getAttribute("aria-label")!;
+    expect(name).not.toBe(t("de", "addTaskButton"));
+    expect(name.toLowerCase()).toContain(submit.textContent!.trim().toLowerCase());
   });
 });
 

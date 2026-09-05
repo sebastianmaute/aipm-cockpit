@@ -103,13 +103,29 @@ export function TaskFormModal({
   const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:task-form");
   if (!taskModalOpen) return null;
 
+  const dialogTitle = isEditing ? t(lang, "taskEditTitle") : t(lang, "tabNewTask");
+  const submitLabel = isEditing ? t(lang, "updateTask") : t(lang, "addTask");
+  // WCAG 2.4.6. While this modal is open over Open Points, the submit below and
+  // the TWO openers behind it (the toolbar `AddButton` and the table's trailing
+  // add row, both `addTaskButton`) would otherwise all be named "Add task" —
+  // and the openers run `handleCancelEdit()`, which DISCARDS the in-progress
+  // edit. Screen readers scope by `aria-modal`; speech input does NOT, so
+  // "click Add task" mid-edit could throw the user's work away. Qualifying with
+  // the dialog's own title makes the submit distinct without inventing a word:
+  // every part is an existing i18n key (EN/DE parity is tsc-enforced).
+  // ★ The separator is an EN DASH (U+2013), the `rowLabel` convention.
+  // ★ WCAG 2.5.3 is CONTAINMENT, case-insensitive and position-independent —
+  // the VISIBLE label is `submitLabel` itself, so it is contained by
+  // construction in both modes and in both languages.
+  const submitAriaLabel = `${submitLabel} – ${dialogTitle}`;
+
   return (
     <Modal
       open
       onClose={onCancel}
-      ariaLabel={
-        isEditing ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")
-      }
+      // Same `dialogTitle` the submit's qualifier uses, so the dialog's own
+      // accessible name and the name that disambiguates its submit cannot drift.
+      ariaLabel={dialogTitle}
       backdropClassName="bg-ui-dark-blue/40 overflow-y-auto"
     >
       <div
@@ -127,7 +143,7 @@ export function TaskFormModal({
       >
         <ModalHeader
           lang={lang}
-          title={isEditing ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")}
+          title={dialogTitle}
           onClose={onCancel}
           dragHandleProps={handleProps}
           headerExtra={<ModalFieldControls modalId="task" lang={lang} />}
@@ -177,8 +193,8 @@ export function TaskFormModal({
               <Button variant="secondary" onClick={onCancel}>
                 {t(lang, "cancel")}
               </Button>
-              <Button type="submit" variant="primary" disabled={saveDisabled}>
-                {isEditing ? t(lang, "updateTask") : t(lang, "addTask")}
+              <Button type="submit" variant="primary" disabled={saveDisabled} aria-label={submitAriaLabel}>
+                {submitLabel}
               </Button>
             </div>
           </div>

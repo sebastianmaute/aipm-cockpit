@@ -659,28 +659,62 @@ describe("TasksSection", () => {
     expect(thead!.className).not.toContain("bg-surface-muted");
   });
 
-  it("inline add row is present when tasks list is non-empty", () => {
+  // ★★ These three used to query `t("en-US","addTask")` with a `>= 1` floor and
+  // pick `addBtns[addBtns.length - 1]` ("last = inline row"). Both shapes are
+  // weak: the floor passes on any single match, and the positional index silently
+  // follows DOM order. They now scope by CONTAINER (the table holds the inline
+  // row; the toolbar sits outside it) and assert exact counts.
+  // ★★★ HONEST LIMIT: `addTask` and `addTaskButton` are BYTE-IDENTICAL in EN
+  // ("Add task") and in DE ("Aufgabe hinzufügen"), so NO rendered-output test can
+  // tell the two keys apart — re-keying the inline row from `addTask` to
+  // `addTaskButton` is a MEANING fix that no mutation here can turn red, and
+  // `loadI18n("de")` does not help either. What IS observable is the modal
+  // submit's qualified name, pinned in `task-form-modal.test.tsx`.
+  it("renders exactly one in-table add-task opener, and the toolbar one outside it", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} />);
-    const addBtns = screen.getAllByRole("button", { name: t("en-US", "addTask") });
-    expect(addBtns.length).toBeGreaterThanOrEqual(1);
+    const openerName = t("en-US", "addTaskButton");
+    const table = screen.getByRole("table");
+    // The trailing add row is the ONLY opener inside the table.
+    expect(within(table).getAllByRole("button", { name: openerName })).toHaveLength(1);
+    // The toolbar opener is a second one, and it is NOT inside the table.
+    const all = screen.getAllByRole("button", { name: openerName });
+    expect(all).toHaveLength(2);
+    expect(all.filter((b) => !table.contains(b))).toHaveLength(1);
   });
 
-  it("inline add row is present when tasks list is empty", () => {
+  it("renders NO table and NO inline add row when the tasks list is empty", () => {
+    // The predecessor of this test was called "inline add row is present when
+    // tasks list is empty" and asserted `>= 1` — but at `tasks.length === 0`
+    // `tasks-section.tsx` renders `AddFirstItemButton` INSTEAD of the table, so
+    // the inline row does not exist and the assertion was satisfied by the
+    // toolbar button. The name was false; this pins what actually happens.
     stubWorkspace([], []);
     render(<TasksSection {...makeProps()} />);
-    const addBtns = screen.getAllByRole("button", { name: t("en-US", "addTask") });
-    expect(addBtns.length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByRole("table")).toBeNull();
+    // Only the toolbar opener carries the BARE opener name. The empty-state CTA
+    // is `AddFirstItemButton` with no `ariaLabel`, so its accessible name comes
+    // from content — the `noTasks` sentence PLUS "+ Add task…" — hence a
+    // substring matcher, not the exact-string form (which would not match).
+    expect(screen.getAllByRole("button", { name: t("en-US", "addTaskButton") })).toHaveLength(1);
+    expect(
+      screen.getByRole("button", {
+        name: (accessibleName) => accessibleName.includes(`+ ${t("en-US", "addTaskButton")}`),
+      }),
+    ).toBeInTheDocument();
   });
 
-  it("clicking inline add row calls setTaskModalOpen with true", () => {
+  it("clicking the in-table add row calls setTaskModalOpen with true", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);
     const setTaskModalOpen = vi.fn();
     render(<TasksSection {...makeProps()} setTaskModalOpen={setTaskModalOpen} />);
-    const addBtns = screen.getAllByRole("button", { name: t("en-US", "addTask") });
-    fireEvent.click(addBtns[addBtns.length - 1]); // last = inline row
+    // Scoped, not positional: this is the trailing add row by CONTAINMENT.
+    const inlineAdd = within(screen.getByRole("table")).getByRole("button", {
+      name: t("en-US", "addTaskButton"),
+    });
+    fireEvent.click(inlineAdd);
     expect(setTaskModalOpen).toHaveBeenCalledWith(true);
   });
 
