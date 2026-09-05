@@ -46,3 +46,14 @@ export function effortProgress(estimateMin?: number, spentMin?: number): EffortP
   const pct = spent / estimate;
   return { hasEstimate: true, pct, over: pct > 1 };
 }
+
+/** Minutes still to do when the user has NOT pinned a remaining value.
+ *
+ *  Zero with no estimate: "no estimate" means nothing is known to remain, and
+ *  returning the spent time instead would claim the task is exactly as far
+ *  from done as the work already put into it. Floors at zero — negative
+ *  remaining is not a state the UI can render or the user can act on. */
+export function derivedRemaining(estimateMin?: number, spentMin?: number): number {
+  if (!estimateMin) return 0;
+  return Math.max(0, estimateMin - (spentMin ?? 0));
+}
