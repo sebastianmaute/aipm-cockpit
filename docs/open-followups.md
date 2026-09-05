@@ -29079,3 +29079,23 @@ two tasks on a raid item and links nothing on a milestone.
 ★ The preview now calls the milestone's OWN rule, so the card and the write agree — this entry is
 about the two rules disagreeing with EACH OTHER, which is a data-model question, not a preview one.
 Changing either one moves stored data on a path this register would want to see argued first.
+
+## 404. A dependency proposal whose links are all refused shows no change and no reason — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 by the task that gave `set_task_dependencies` its describer, as a
+stated limit of that describer rather than a defect it introduced. Last executed verification
+2026-09-06 — `npx vitest run src/app/chat-proposal-describe.test.ts -t "shows no change when every proposed link is refused"`.
+
+The describer previews what the write would STORE, by calling the write path's own
+`resolveDependencyWrite`, so self-links, unknown ids, duplicates, over-cap entries and cycles are
+correctly NOT shown as landing. When EVERY proposed link is refused that way, the card correctly
+shows no change — and says nothing about why.
+
+★ It is the §392 shape on another surface: a refusal that is computed and not surfaced. Closing it
+means per-entry dependency rejections on the row, which the `Rejected` bucket can carry but the
+describer does not currently populate.
+
+★★ One line of the dispatcher's wholly-destructive refusal is MIRRORED in the describer rather than
+shared, because that branch lives in the hook and not in the pure resolver. The docstring says so.
+That duplication is the thing to watch: this register records several defects that began as one
+rule spelled in two places.
