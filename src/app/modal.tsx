@@ -41,6 +41,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import { type Lang } from "./i18n";
 import {
   claimsEscape,
@@ -80,6 +81,12 @@ interface BaseProps {
    *  so callers that thread a `lang` through their dialog props still typecheck;
    *  the panel + all labels are rendered by the caller's children. */
   lang?: Lang;
+  /** Render the dialog into `document.body` instead of in place. Opt-in
+   *  because it changes where the dialog lands in the DOM. Needed when an
+   *  ancestor establishes a containing block for `position: fixed` (any
+   *  non-`none` `transform`, `filter`, `perspective` or `will-change`), which
+   *  otherwise scopes this backdrop to that ancestor instead of the viewport. */
+  portal?: boolean;
   children: ReactNode;
 }
 
@@ -99,6 +106,7 @@ export function Modal({
   backdropScroll = false,
   zIndex = 40,
   initialFocusRef,
+  portal = false,
   children,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -241,7 +249,7 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  const tree = (
     <div
       ref={dialogRef}
       role="dialog"
@@ -253,7 +261,22 @@ export function Modal({
         pressStartedOnBackdrop.current = e.target === e.currentTarget;
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && pressStartedOnBackdrop.current) onClose();
+        // ★★ A backdrop click is a DISMISSAL, so it asks the stack the same
+        // question Escape (`claimsEscape`) and Tab (`isTopmostOfKind`) already
+        // do. Skipping it was only ever safe because a nested layer was assumed
+        // to cover this backdrop — but GEOMETRY IS NOT A SAFE REASON: any
+        // ancestor with a non-`none` transform/filter/perspective becomes the
+        // containing block for a nested `position: fixed` backdrop, which then
+        // stops short of the viewport and leaves this one clickable underneath.
+        // The guard is a strict narrowing: wherever the child really does cover
+        // us this backdrop is unreachable, so it changes nothing there.
+        if (
+          e.target === e.currentTarget &&
+          pressStartedOnBackdrop.current &&
+          isTopmostOfKind(tokenRef.current, "modal")
+        ) {
+          onClose();
+        }
         pressStartedOnBackdrop.current = false;
       }}
       className={`fixed inset-0 flex ${
@@ -264,4 +287,9 @@ export function Modal({
       {children}
     </div>
   );
+
+  // `typeof document` is load-bearing — this file renders during SSR, where
+  // `createPortal` has no host node and throws.
+  if (!portal || typeof document === "undefined") return tree;
+  return createPortal(tree, document.body);
 }
