@@ -464,6 +464,51 @@ describe("useInlineEntityEdit — raid", () => {
     expect(deps.showToast).toHaveBeenCalledWith("info", expect.anything());
   });
 
+  it("writes link ids, never the rendered title string", async () => {
+    // ★★★ THE REGRESSION THIS EXISTS FOR: a LinkDiff landing in `plan.updates`.
+    //  The rebuild loop would write `diff.raw ?? diff.after` — the TITLE STRING —
+    //  into `linkedTaskIds`. `sanitizeIdList` splits a string on [.;], finds no
+    //  integers, and stores [] — wiping every link on the row.
+    //  ★★ THE TYPE SYSTEM DOES NOT PREVENT THIS: `LinkDiff` and `FieldDiff` are
+    //  mutually assignable (`raw` is optional), measured with tsc. What holds
+    //  the invariant is the CALL GRAPH — `describeEntityCalls` populates only
+    //  `links`, and the rebuild loop reads only `updates`. This test is the pin.
+    //  Assert on the patch the dispatcher RECEIVES, not on the plan: the plan
+    //  being right is exactly what this is guarding against assuming.
+    //  ★ A MIXED plan (one scalar update AND one link), so a green run proves
+    //  the patch was BUILT — not merely that one key is absent from an empty one.
+    const linked = { id: 7, category: "R", title: "Old", status: "Open", linkedTaskIds: [1, 3] };
+    const linkedWs = {
+      tasks: [{ id: 1, taskName: "Draft brief" }, { id: 2, taskName: "Ship" }, { id: 3, taskName: "Review" }],
+      raid: [linked], milestones: [], changes: [], stakeholders: [],
+    } as unknown as InlineEntityEditDeps["ws"];
+    vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+      blocks: [{
+        type: "tool_use", id: "b1", name: "update_raid_item",
+        input: { id: 7, title: "New", linkedTaskIds: [2] },
+      }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    const runToolSpy = vi.spyOn(tools, "runTool").mockResolvedValue({ id: 7 });
+    const deps = mkEntityDeps({ ws: linkedWs });
+    const { result } = renderHook(() => useInlineEntityEdit(deps));
+    act(() => result.current.openFor(linked));
+    await act(async () => { await result.current.submit("rename it and link it to Ship"); });
+    // Positive control: without it apply()'s guard early-returns and every
+    // assertion below passes because runTool was never reached at all.
+    expect(result.current.phase).toBe("preview");
+    await act(async () => { await result.current.apply(); });
+    const input = runToolSpy.mock.calls[0]?.[2] as Record<string, unknown> | undefined;
+    expect(input?.linkedTaskIds).toEqual([2]);
+    // ★ Kept even though the assertion above already catches today's defect: a
+    //   future `raw` on the diff could satisfy a shape check while still being a
+    //   string. This is the assertion that NAMES the defect.
+    expect(typeof input?.linkedTaskIds).not.toBe("string");
+    // The scalar update in the same plan still lands, so the patch really was
+    // built — the link assertion is not passing over an unbuilt one.
+    expect(input?.title).toBe("New");
+  });
+
   it("auto-closes a left-open edit when the pane goes inactive (active -> false)", () => {
     const { result, rerender } = renderHook(
       ({ active }: { active: boolean }) => useInlineEntityEdit(mkEntityDeps({ active })),
