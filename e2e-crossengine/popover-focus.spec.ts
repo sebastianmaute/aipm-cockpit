@@ -51,9 +51,14 @@ import { test, expect, gotoApp, openView } from "../e2e/seed";
  */
 
 /** The EN DASH (U+2013) the app uses as its accessible-name separator.
- *  ★ Spelled as an escape rather than the literal glyph on purpose: this repo
- *  has a recorded history of editing tools corrupting non-ASCII bytes in source
- *  files, and a corrupted separator here would silently match nothing. */
+ *  ★★ THIS IS THE LITERAL GLYPH, not an escape — the comment here claimed the
+ *  opposite until 2026-09-05, describing a protection the line never had. The
+ *  risk it named is real (this repo has a recorded history of editing tools
+ *  corrupting non-ASCII bytes, and a corrupted separator would silently match
+ *  NOTHING rather than fail loudly), so verify the byte rather than trusting
+ *  either this comment or the shape of the character in your editor:
+ *    node -e "console.log([...require('fs').readFileSync(process.argv[1],'utf8').match(/const NDASH = \"(.)\"/)[1]].map(c=>c.codePointAt(0).toString(16)))" e2e-crossengine/popover-focus.spec.ts
+ *  → 2013. Any other answer means the glyph was corrupted. */
 const NDASH = "–";
 
 /** `export-menu.tsx` — the top-bar trigger's `aria-label`, `t(lang, "exportTitle")`. */

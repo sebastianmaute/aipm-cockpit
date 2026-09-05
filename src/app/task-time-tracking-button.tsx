@@ -11,10 +11,15 @@ import { TaskTimeTrackingModal, type TimeTrackingValues } from "./task-time-trac
  *  figures, opening the dialog.
  *
  *  The dialog is CONDITIONALLY MOUNTED, not kept mounted with open={false}.
- *  Two independent reasons: EffortField seeds its text once via lazy useState,
- *  so a retained instance would reopen showing the previous session's text;
- *  and the dismissal stack is OPEN-ordered, so a layer rendered in the same
- *  commit as its parent inverts Escape with nothing to detect it. */
+ *  The reason is STATE FRESHNESS: both `EffortField`s seed their text once via
+ *  a lazy `useState`, so a retained instance would reopen showing the previous
+ *  session's text and its discarded edits.
+ *  ★★ IT IS NOT A DISMISSAL-ORDER REQUIREMENT, and this comment claimed it was
+ *  for four commits. `Modal`'s stack effect early-returns on `if (!open)`, so a
+ *  retained `open={false}` instance pushes NOTHING and the push still happens
+ *  on the click — after the form's. The inversion that comment described needs
+ *  both layers to mount ALREADY OPEN in one commit (React runs child effects
+ *  before parent effects), which is a different shape from this one. */
 export function TaskTimeTrackingButton({
   lang,
   estimateMinutes,
