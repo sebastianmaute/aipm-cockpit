@@ -589,6 +589,18 @@ describe("resource rename sent as the name alias", () => {
     ]);
   });
 
+  // ★★★ THIS ONE PASSES AGAINST THE UNFIXED CODE, AND IT IS STILL LOAD-BEARING —
+  //  do not delete it as vacuous. `firstName` is already a `diffFields` member,
+  //  so the pre-§372 loop diffed it here anyway; the alias projection never even
+  //  fires, because the explicit part blocks it. What it pins is the PREDICATE,
+  //  not the projection: it is the only test in the suite that fails when the
+  //  two `typeof … !== "string"` part-tests are dropped. Measured, not reasoned —
+  //  replacing both conditions with `true` makes exactly this test red with
+  //  `expected [['firstName','Ada'], …] to deeply equal [['firstName','Anita']]`,
+  //  i.e. the split silently overwriting the value the model asked for.
+  //  ★★ Those part-tests are `typeof … !== "string"`, never `=== undefined`: a
+  //  JSON `null` is neither, and `=== undefined` there once dropped a rename AND
+  //  wiped the first name.
   it("does not override explicit parts, matching the dispatcher", () => {
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "Ada Lovelace", firstName: "Anita" } }],
