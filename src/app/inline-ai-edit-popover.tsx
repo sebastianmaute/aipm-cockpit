@@ -3,6 +3,8 @@ import { useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type EditPlan } from "./inline-ai-edit/plan";
+import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
+import { fieldLabel } from "./inline-ai-edit/field-labels";
 import { type InlinePhase } from "./use-inline-ai-edit";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { useFocusTrap } from "./use-focus-trap";
@@ -17,6 +19,13 @@ export interface InlineAiEditPopoverProps {
   lang: Lang;
   itemTitle: string;
   entityLabel: string;
+  /** Which entity the open row belongs to — NOT derivable from `entityLabel`,
+   *  which is an already-translated display string. It names the descriptor the
+   *  plan was diffed against, so `fieldLabel` can resolve `${entity}.${field}`:
+   *  `title` is a job title on a resource and a person's role on a stakeholder,
+   *  so an unqualified label would be wrong for one of them. Both call sites
+   *  (`use-entity-inline-ai-edit`, `use-tasks-inline-ai-edit`) already hold it. */
+  entity: InlineEntity;
   phase: InlinePhase;
   plan: EditPlan | null;
   clarifyText: string;
@@ -27,7 +36,7 @@ export interface InlineAiEditPopoverProps {
 }
 
 export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
-  const { lang, itemTitle, entityLabel, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
+  const { lang, itemTitle, entityLabel, entity, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
   const [value, setValue] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -111,16 +120,31 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
             <p className="mb-2 text-xs font-medium text-foreground">{t(lang, "inlineAiEditPreview")}</p>
             <ul className="mb-3 space-y-1 text-xs text-foreground">
               {plan.updates.map((d) => (
-                <li key={d.field}><span className="font-medium">{d.field}</span>: {d.before || "—"} → {d.after || "—"}</li>
+                <li key={d.field}><span className="font-medium">{fieldLabel(lang, entity, d.field)}</span>: {d.before || "—"} → {d.after || "—"}</li>
               ))}
               {/* ★★ This popover's Apply REBUILDS its write patch from `links`,
                   and a relationship write REPLACES — so an unrendered link
                   change is a silent destructive write. `before`/`after` are the
                   resolved TITLES, never `rawIds`; the `|| "—"` is load-bearing
                   because `after` is legitimately "" when every link is removed. */}
-              {plan.links.map((l, i) => (<li key={`l${i}-${l.field}`}><span className="font-medium">{l.field}</span>: {l.before || "—"} → {l.after || "—"}</li>))}
+              {plan.links.map((l, i) => (<li key={`l${i}-${l.field}`}><span className="font-medium">{fieldLabel(lang, entity, l.field)}</span>: {l.before || "—"} → {l.after || "—"}</li>))}
               {plan.creates.map((c, i) => (<li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}</li>))}
               {plan.deletes.map((del, i) => (<li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>))}
+              {/* ★★★ THE PARTS THAT WILL NOT LAND, and this surface is the one
+                  that APPLIES what it renders. Rendered nowhere at all before —
+                  the same gap the chat approval card had — so a field the
+                  sanitizer refused simply vanished from a preview the user then
+                  approved, and they read the remaining lines as the whole change.
+                  Last, and in the same failure colour the card uses.
+                  ★★ IN THE LIVE APP THIS IS ONLY REACHABLE ON A PLAN THAT ALSO
+                  WRITES SOMETHING: `use-inline-entity-edit.ts` routes an
+                  `isEmptyPlan` result to the "clarify" phase, and `isEmptyPlan`
+                  does not count `rejected` — so a rejection-ONLY plan never
+                  reaches `phase === "preview"` and the user is told "no changes"
+                  instead of which field was refused. That is a defect one layer
+                  up, not here; this renderer is correct for both shapes and is
+                  tested against both. */}
+              {plan.rejected.map((r, i) => (<li key={`r${i}`} className="text-ui-pink-strong">{t(lang, "inlineAiEditRejected", r.detail)}</li>))}
             </ul>
             <div className="flex justify-end gap-2">
               <Button variant="secondary" size="sm" onClick={onCancel}>{t(lang, "cancel")}</Button>

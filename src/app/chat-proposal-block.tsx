@@ -9,7 +9,7 @@
 //
 // ★★★ EVERY STAGED CALL GETS A ROW, INCLUDING ONE THE DESCRIPTOR ENGINE CANNOT
 // DIFF. `describeProposal` emits an EMPTY plan (`{updates:[],creates:[],
-// deletes:[],rejected:[]}`) for every tool with no `INLINE_DESCRIPTORS` entity —
+// deletes:[],rejected:[],links:[]}`) for every tool with no `INLINE_DESCRIPTORS` entity —
 // the three `*_document` tools, plus `delete_all_tasks`, `send_inquiry` and
 // `set_task_dependencies`. Those rows carry only `call.name` and `call.input`,
 // and they are the rows that most need to be VISIBLE: document writes take no
@@ -41,6 +41,9 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 import type { ProposedCall } from "./chat-proposal";
 import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type EditPlan } from "./inline-ai-edit/plan";
+import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
+import { fieldLabel } from "./inline-ai-edit/field-labels";
+import { TOOL_ENTITY } from "./chat-proposal-describe";
 
 /** Rows shown before the disclosure collapses the rest. */
 export const PROPOSAL_COLLAPSE_AFTER = 5;
@@ -119,14 +122,28 @@ export function proposalRowTitle(call: ProposedCall, plan: EditPlan): string {
  *  NOT land is exactly the row a reviewer most needs to see, and under
  *  `isEmptyPlan` alone the rejection renderer below would be unreachable for
  *  it. Pinned by "renders a rejection on a row whose plan writes nothing". */
-function PlanDetail({ lang, plan }: { lang: Lang; plan: EditPlan }) {
+function PlanDetail({
+  lang,
+  plan,
+  entity,
+}: {
+  lang: Lang;
+  plan: EditPlan;
+  /** ★★ RESOLVED FROM THE ROW'S OWN TOOL NAME, not from the card. A staged
+   *  proposal mixes entities freely, so one card-wide entity would mislabel
+   *  every row but the first — `impact` is a 1-5 rating on a RAID item and a
+   *  free-text rating on a change. `undefined` for a tool the descriptor engine
+   *  has no entity for (every `*_document` tool), and `fieldLabel` then falls
+   *  back to the raw property name rather than guessing. */
+  entity: InlineEntity | undefined;
+}) {
   if (isEmptyPlan(plan) && plan.rejected.length === 0) return null;
   return (
     <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
       {plan.updates.map((d, i) => (
         <li key={`u${i}-${d.field}`}>
-          <span className="font-medium text-foreground">{d.field}</span>: {d.before || "—"} →{" "}
-          {d.after || "—"}
+          <span className="font-medium text-foreground">{fieldLabel(lang, entity, d.field)}</span>:{" "}
+          {d.before || "—"} → {d.after || "—"}
         </li>
       ))}
       {/* ★★ A relationship write REPLACES, so an unrendered link change is a
@@ -137,8 +154,8 @@ function PlanDetail({ lang, plan }: { lang: Lang; plan: EditPlan }) {
           nothing, which is the most destructive line this card can show. */}
       {plan.links.map((l, i) => (
         <li key={`l${i}-${l.field}`}>
-          <span className="font-medium text-foreground">{l.field}</span>: {l.before || "—"} →{" "}
-          {l.after || "—"}
+          <span className="font-medium text-foreground">{fieldLabel(lang, entity, l.field)}</span>:{" "}
+          {l.before || "—"} → {l.after || "—"}
         </li>
       ))}
       {plan.creates.map((c, i) => (
@@ -191,7 +208,7 @@ function ProposalRow({
           <span className="block font-mono text-[11px] text-muted-foreground">{row.call.name}</span>
         </span>
       </label>
-      <PlanDetail lang={lang} plan={row.plan} />
+      <PlanDetail lang={lang} plan={row.plan} entity={TOOL_ENTITY[row.call.name]} />
       {row.cascaded && (
         <p className="mt-1 text-xs text-muted-foreground">{t(lang, "chatProposalCascaded")}</p>
       )}

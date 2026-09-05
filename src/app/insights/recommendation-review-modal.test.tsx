@@ -23,11 +23,33 @@ it("renders the summary and the plan's updates/creates/deletes", () => {
     />,
   );
   expect(screen.getByText("Mark the overdue task done")).toBeInTheDocument();
+  // ★★ No `entity` here, deliberately — this is the MIXED-PLAN fallback.
+  // `describeRecommendationPlan` merges every proposed call's diffs into one
+  // plan, so a recommendation touching two registers has no single entity and
+  // `recommendationPlanEntity` returns `undefined`. The raw property name is
+  // then the honest answer: harder to read, but it cannot be WRONG.
   expect(screen.getByText(/status/)).toBeInTheDocument();
   expect(screen.getByText(/To Do/)).toBeInTheDocument();
   expect(screen.getByText(/Done/)).toBeInTheDocument();
   expect(screen.getByText(/New risk/)).toBeInTheDocument();
   expect(screen.getByText(/Old task/)).toBeInTheDocument();
+});
+
+// ★ The other half of the pair above: given an unambiguous entity, the same
+// plan renders the register's own field label instead of the property name.
+it("names the fields readably when the plan targets one entity", () => {
+  render(
+    <RecommendationReviewModal
+      lang="en-US"
+      summary="s"
+      plan={planWithChanges}
+      entity="task"
+      onConfirm={vi.fn()}
+      onCancel={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("Status")).toBeInTheDocument();
+  expect(screen.queryByText("status")).not.toBeInTheDocument();
 });
 
 it("calls onConfirm when Confirm is clicked", () => {
@@ -108,11 +130,15 @@ it("renders a link change with its resolved titles", () => {
       lang="en-US"
       summary="s"
       plan={planWithLinks}
+      entity="raid"
       onConfirm={vi.fn()}
       onCancel={vi.fn()}
     />,
   );
-  expect(screen.getByText("linkedTaskIds")).toBeInTheDocument();
+  // ★★ The READABLE name. This read `getByText("linkedTaskIds")` — the raw
+  // property — until field labels landed.
+  expect(screen.getByText("Linked tasks")).toBeInTheDocument();
+  expect(screen.queryByText("linkedTaskIds")).not.toBeInTheDocument();
   expect(screen.getByText(/Draft brief, Review → Ship/)).toBeInTheDocument();
   // A link-only plan is NOT empty — `isEmptyPlan` counts `links` — so Confirm
   // must stay live and the empty-plan note must not appear.

@@ -3440,6 +3440,12 @@ const enUS = {
   changeFieldLinkedTasks: "Linked tasks",
   changeFieldLinkedRaid: "Linked RAID items",
   fieldStakeholders: "Stakeholders",
+  // Field names an AI edit preview renders (src/app/inline-ai-edit/field-labels.ts).
+  // ★ ONLY the three names no form labelled anywhere — every other previewable
+  // field reuses the key its own entity form already ships in EN and DE.
+  fieldAssigneeEmail: "Assignee email",
+  fieldOwnerEmail: "Owner email",
+  fieldClosedDate: "Closed date",
   changeFilterSearch: "Search changes...",
   changeFilterTypeAll: "All types",
   changeFilterStatusAll: "All statuses",

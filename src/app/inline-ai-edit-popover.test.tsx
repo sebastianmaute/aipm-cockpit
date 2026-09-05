@@ -6,6 +6,10 @@ const base = {
   lang: "en-US" as const,
   itemTitle: "Fix login bug",
   entityLabel: "RAID item",
+  // ★ Must agree with `entityLabel` — the field labels below are resolved as
+  // `raid.<field>`, and a mismatched pair would silently label a RAID preview
+  // with another register's strings.
+  entity: "raid" as const,
   phase: "idle" as const, plan: null, clarifyText: "", errorText: "",
   onSubmit: vi.fn(), onApply: vi.fn(), onCancel: vi.fn(),
 };
@@ -75,8 +79,67 @@ it("renders a link change in preview", () => {
       }}
     />,
   );
-  expect(screen.getByText("linkedTaskIds")).toBeInTheDocument();
+  // ★★ The READABLE name, not the property. This assertion USED to read
+  // `getByText("linkedTaskIds")` — a test that pinned the defect it was written
+  // alongside: the surface that APPLIES this write named the field
+  // `linkedTaskIds` to the user.
+  expect(screen.getByText("Linked tasks")).toBeInTheDocument();
+  expect(screen.queryByText("linkedTaskIds")).not.toBeInTheDocument();
   expect(screen.getByText(/Draft brief, Review → Ship/)).toBeInTheDocument();
+});
+
+// ★★★ THE PARTS THAT WILL NOT LAND WERE RENDERED BY NOTHING HERE, on the
+// surface whose Apply writes what it shows. A user approving a preview reads the
+// lines it shows as the whole change, so a field the sanitizer refused simply
+// disappeared.
+it("renders a rejected field in preview", () => {
+  render(
+    <InlineAiEditPopover
+      {...base}
+      phase="preview"
+      plan={{
+        updates: [{ field: "status", before: "Open", after: "Closed" }],
+        creates: [],
+        deletes: [],
+        rejected: [{ toolName: "update_raid_item", reason: "bad-input", detail: "targetDate=nope" }],
+        links: [],
+      }}
+    />,
+  );
+  expect(screen.getByText("Not applied: targetDate=nope")).toBeInTheDocument();
+});
+
+// ★★ A plan whose ONLY outcome is a rejection. This popover has no
+// `isEmptyPlan` guard of its own — it gates on `phase === "preview"` — so the
+// renderer is correct for this shape. It is `use-inline-entity-edit.ts` that
+// routes such a plan to the "clarify" phase instead (`isEmptyPlan` does not
+// count `rejected`), so in the live app the user is told "no changes" rather
+// than which field was refused. That is a defect one layer up; this pins that
+// the component itself is not the one dropping it.
+it("renders a rejection on a plan that writes nothing", () => {
+  render(
+    <InlineAiEditPopover
+      {...base}
+      phase="preview"
+      plan={{ updates: [], creates: [], deletes: [], rejected: [{ toolName: "update_raid_item", reason: "unknown-id", detail: "99" }], links: [] }}
+    />,
+  );
+  expect(screen.getByText("Not applied: 99")).toBeInTheDocument();
+});
+
+// ★★ The label is keyed `${entity}.${field}`, so the SAME property name must
+// read differently per register. `title` is a RAID item's summary and a
+// stakeholder's role — a bare field-name map would collapse them.
+it("labels a field through its own entity", () => {
+  const plan = {
+    updates: [{ field: "title", before: "Old", after: "New" }],
+    creates: [], deletes: [], rejected: [], links: [],
+  };
+  const { unmount } = render(<InlineAiEditPopover {...base} phase="preview" plan={plan} />);
+  expect(screen.getByText("Title")).toBeInTheDocument();
+  unmount();
+  render(<InlineAiEditPopover {...base} entity="stakeholder" phase="preview" plan={plan} />);
+  expect(screen.getByText("Title / role")).toBeInTheDocument();
 });
 
 // ★★ `after` can legitimately be "" (every link removed) — the most

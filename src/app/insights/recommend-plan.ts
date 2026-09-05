@@ -39,6 +39,33 @@ const DELETE_DESCRIPTOR: Record<string, InlineEntity> = {
   delete_stakeholder: "stakeholder",
 };
 
+/** The ONE entity every field-bearing call in this recommendation targets, or
+ *  `undefined` when there is not exactly one.
+ *
+ *  ★★★ IT EXISTS BECAUSE `describeRecommendationPlan` MERGES ACROSS ENTITIES.
+ *   Unlike the inline editor — bound to one open row — a recommendation grounds
+ *   each call independently and pushes every result into ONE `EditPlan`, so
+ *   `merged.updates` can hold a task diff and a raid diff side by side. There is
+ *   no per-diff entity on `FieldDiff`, so a plan-level answer is the only one
+ *   available, and it is only SOUND when unambiguous: labelling a mixed plan
+ *   with either entity would mislabel the other half, and `impact` means
+ *   different things on raid and change. The review modal renders raw property
+ *   names in that case, which is the honest fallback.
+ *
+ *  ★ Only UPDATE calls can contribute `updates`/`links` — the delete and create
+ *   branches push `deletes`/`creates`/`rejected` only — so a recommendation that
+ *   updates one task and deletes a milestone is still unambiguous. */
+export function recommendationPlanEntity(
+  calls: readonly InsightToolCall[],
+): InlineEntity | undefined {
+  const seen = new Set<InlineEntity>();
+  for (const call of calls) {
+    const entity = UPDATE_DESCRIPTOR[call.name];
+    if (entity) seen.add(entity);
+  }
+  return seen.size === 1 ? [...seen][0] : undefined;
+}
+
 function emptyPlan(): EditPlan {
   return { updates: [], creates: [], deletes: [], rejected: [], links: [] };
 }
