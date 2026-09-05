@@ -20,7 +20,7 @@ import type { Workspace } from "../workspace";
 //
 // It exists because §373 closed the divergence for the four email-shaped fields
 // its title named and left a dozen open: twelve fields were clipped by their
-// sanitizer and absent from the descriptor, and the one non-string `diffField`
+// sanitizer and absent from the descriptor, and the one BOOLEAN `diffField`
 // was blanked outright, which — since `FieldDiff.raw` becomes the write patch —
 // dropped a flag on APPLY rather than only in the card. Closing a class one
 // member at a time is the register's best-recorded way to ship a false closure,

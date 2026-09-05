@@ -86,13 +86,21 @@ export const PENDING_MINT_ERROR =
  *   is blocked: `entityToken` needs the FULL row while five of the seven creates
  *   return a `*Summary`, and `withToken`'s own docstring records that a
  *   summary-derived token is wrong and is pinned against.
- *   The resolver turned out to already exist — six `get*Row` getters on the
- *   dispatcher — so this refusal now fires ONLY when the created row cannot be
- *   read back. See `TOKEN_ROW_SOURCE` below. */
+ *   The resolver turned out to already exist — six full-row resolvers on the
+ *   dispatcher, only five of them spelled `get*Row` (`getTask` is the sixth) —
+ *   so this refusal now fires ONLY when the created row cannot be read back.
+ *   See `TOKEN_ROW_SOURCE` below.
+ *
+ *  ★★★ THE MESSAGE BELOW IS THE READ-BACK FAILURE, NOT THE OLD CAPABILITY GAP.
+ *   It used to say a row created during an apply "cannot yet carry the
+ *   concurrency token this tool requires", which was the pre-`b8c78fe3` reason
+ *   and is now false — it can, and normally does. Nothing renders this string
+ *   today (`failureKindOf` keys off the CONSTANT, and the card shows its own
+ *   i18n label), but it is EXPORTED, so the next consumer that surfaces it
+ *   would have shown a retired reason. Found by cold review, gated by nothing. */
 export const NEW_ROW_TOKEN_UNAVAILABLE_ERROR =
-  "this call targets a row created earlier in the same plan, and a row created " +
-  "during an apply cannot yet carry the concurrency token this tool requires — " +
-  "it was not applied";
+  "this call targets a row created earlier in the same plan, and that row " +
+  "could not be read back to derive its concurrency token — it was not applied";
 
 /** Which of the four not-ok outcomes a row hit, so the card can say something
  *  true about it.
@@ -162,8 +170,9 @@ export const TOKEN_REQUIRED_TOOLS: ReadonlySet<string> = new Set(
  *  ★★★ THE RESOLVERS ALREADY EXISTED. 380 was filed saying a fix "needs a
  *   per-entity full-row resolver"; six sit on the `ToolDispatcher` this function
  *   already takes, and every token-guarded case in `chat-tools.ts` already calls
- *   its own before `requireToken`. They are the `get*Row` family, distinct from
- *   the `list*`/`create*` family that returns a `*Summary` — which is what makes
+ *   its own before `requireToken`. They are the FULL-ROW resolvers, distinct
+ *   from the `list*`/`create*` family that returns a `*Summary` — which is what
+ *   makes
  *   the summary-derived-token dead end 380 documents inapplicable here.
  *
  *  ★★★ READ THROUGH THE DISPATCHER, NEVER THROUGH A WORKSPACE PROP. These

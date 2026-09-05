@@ -28754,11 +28754,20 @@ it does not skip the field. It merges `renamed` (`{firstName: "Cher", lastName: 
 and stores `lastName: ""`, silently WIPING the previous last name.
 
 So the card shows a REJECTED chip on `lastName` ("bad-input: lastName=empty") while the write that
-runs when the row is confirmed clears that same field anyway — the apply path replays the original
-`ProposedCall`, not the previewed (and partially rejected) plan, so the rejection is display-only.
-That is a card misrepresenting a write, which is this whole slice's subject: a reviewer who reads
-"lastName rejected" as "lastName is left alone" is wrong, and finds out only by re-opening the
-resource afterward.
+runs when the row is confirmed clears that same field anyway — the chat apply path replays the
+original `ProposedCall`, not the previewed (and partially rejected) plan, so the rejection is
+display-only. That is a card misrepresenting a write, which is this whole slice's subject: a reviewer
+who reads "lastName rejected" as "lastName is left alone" is wrong, and finds out only by re-opening
+the resource afterward.
+
+★★★ **THE TWO CONSUMERS OF `describeEntityCalls` FAIL DIFFERENTLY HERE, AND THIS ENTRY DESCRIBED
+ONLY ONE.** "The apply path replays the original `ProposedCall`" is true of the chat card
+(`chat-proposal-describe.ts`) and of `insights/recommend-plan.ts`, and FALSE of the inline editor:
+`use-inline-entity-edit.ts` rebuilds the patch FROM `plan.updates`, so a rejected `lastName` is
+simply OMITTED from the patch and the stored last name SURVIVES. Same defect, opposite outcome — the
+chat card promises a no-op and wipes the field; the inline editor promises a rename and performs a
+partial one ("Cher Lovelace"). A fix must say which consumer it closes, because a change that makes
+one truthful does not touch the other. Found by cold review 2026-09-05.
 
 ★ Before §372 this was unreachable: an alias-only rename previewed as an EMPTY plan (no diff, no
 rejection), so nothing on the card claimed anything about `lastName` at all — a different kind of

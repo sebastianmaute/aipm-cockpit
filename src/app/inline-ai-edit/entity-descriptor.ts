@@ -114,7 +114,7 @@ export interface EntityDescriptor {
    *
    *  ★★★ AN ABSENT FIELD IS PREVIEWED VERBATIM (`str`), and that default is the
    *   load-bearing half. The inverse — "everything not a number is text" —
-   *   ran `resource.isExternal`, the one non-string field any `diffFields`
+   *   ran `resource.isExternal`, the only BOOLEAN field any `diffFields`
    *   names, through a text sanitizer that blanks a non-string to `""`; since
    *   `FieldDiff.raw` feeds the write patch in `use-inline-entity-edit.ts`,
    *   that DROPPED the flag on apply, not merely in the card.
@@ -319,14 +319,18 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     emailFormatFields: new Set(),
     arrayFields: new Set(),
     numberFields: new Set(),
-    // Mirrors `sanitizeResource` (sanitize-entities.ts), which uses THREE
-    // different helpers across these ten fields:
+    // Mirrors `sanitizeResource` (sanitize-entities.ts), which uses FIVE
+    // different helpers across these ten fields — four for the nine text ones,
+    // plus a predicate for the tenth:
     //   • firstName/lastName → `sanitizeAssignee` (trim + ASSIGNEE_MAX 200)
     //   • email              → `sanitizeEmail`    (trim + EMAIL_MAX 320)
     //   • the five optional single-line fields → `optText` (trim, NO cap)
     //   • notes              → `optMultiline`     (CRLF→LF, trim, NO cap)
-    // ★★★ `isExternal` — the only non-string field in any entity's
-    //  `diffFields` — goes through `sanitizeResource`'s OWN predicate. A text
+    //   • isExternal         → `isExternalFlag`   (the predicate below)
+    // ★★★ `isExternal` — the only BOOLEAN field in any entity's
+    //  `diffFields` (four NUMERIC ones exist: `raid.probability`/`impact`,
+    //  `change.scheduleImpactDays`/`costImpact`, all held by `numberFields`) —
+    //  goes through `sanitizeResource`'s OWN predicate. A text
     //  sanitizer here blanks it to `""`, which drops the flag on apply
     //  (`FieldDiff.raw` is the write patch's value); leaving it out entirely
     //  previews `str(v)` verbatim, which is right for `true` but renders a

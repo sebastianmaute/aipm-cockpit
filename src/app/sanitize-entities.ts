@@ -245,8 +245,12 @@ function sanitizeUtilizationMode(s: unknown): UtilizationMode {
  *  reads as different from an incoming `false` and a no-op looks like a change.
  *
  *  ★ EXPORTED for the inline-AI-edit preview, which has to reproduce exactly
- *  this predicate to show what Apply will store. It is the only non-string
- *  field any entity's `diffFields` names. */
+ *  this predicate to show what Apply will store. It is the only BOOLEAN field
+ *  any entity's `diffFields` names — NOT the only non-string one, which is what
+ *  this said until a cold review enumerated all 58 `diffFields` against their
+ *  declared types: four are numeric (`raid.probability`/`impact`,
+ *  `change.scheduleImpactDays`/`costImpact`) and are handled by `numberFields`,
+ *  a different mechanism. */
 export function isExternalFlag(v: unknown): boolean {
   return v === true || v === "true";
 }

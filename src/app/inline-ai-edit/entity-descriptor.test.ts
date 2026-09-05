@@ -47,16 +47,23 @@ describe("INLINE_DESCRIPTORS", () => {
   });
 
   // ★★★ EVERY INT-RANGE FIELD MUST ALSO BE A NUMBER FIELD, and nothing else
-  //  checks it. `describeEntityCalls` routes a `numberFields` member through
-  //  `str` and EVERY OTHER field through `normalizePreviewValue`, which mirrors
-  //  `sanitizeText` and therefore BLANKS a non-string to `""`. A model sends
-  //  `probability: 9` as a real JSON number, so an int-range field missing from
-  //  `numberFields` previews as `""` — and `Number("")` is `0`, which satisfies
-  //  any range starting at 0 and skips the out-of-range rejection outright.
-  //  Silent in both directions: no throw, no rejected row, just a blank diff.
+  //  checks it. `numberFields` is what makes `describeEntityCalls` run the
+  //  int-range guard on that field at all, so a range declared for a field
+  //  outside the set is never enforced: the value is previewed and accepted
+  //  whatever it is. Silent in both directions — no throw, no rejected row.
   //  ★★ The containment holds today by COINCIDENCE, not by construction — the
   //  two members are declared independently a few lines apart — which is why it
   //  is pinned here rather than left to be re-derived.
+  //  ★★★ THIS COMMENT USED TO STATE A MECHANISM THAT NO LONGER EXISTS: that
+  //  every non-`numberFields` field ran through `normalizePreviewValue`, which
+  //  "mirrors `sanitizeText` and therefore BLANKS a non-string to `""`", so a
+  //  numeric `probability: 9` previewed as `""` and `Number("")` slipped the
+  //  guard. That was true of §373's FIRST cut and was reverted in the same
+  //  branch — the default is now verbatim `str`, and `raid.probability` has no
+  //  `fieldSanitizers` entry, so `str(9)` is `"9"`. The TEST is still right and
+  //  still worth having; only its stated reason had rotted. `docs:symbols:check`
+  //  cannot see a `src/` comment — `npm run src:symbols:check` is what reported
+  //  the dangling `normalizePreviewValue`.
   it("keeps every int-range field inside numberFields", () => {
     const ranged = entities.flatMap((e) =>
       Object.keys(INLINE_DESCRIPTORS[e].intRangeFields).map((f) => `${e}.${f}`),
