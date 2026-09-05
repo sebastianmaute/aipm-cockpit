@@ -87,14 +87,24 @@ const BUTTON_FIRST: readonly { readonly what: string; readonly re: RegExp }[] = 
 // positive — but it no longer trails: it moved into the caption as
 // `captionAction`, which forces `Field` into `group` mode (a `<div
 // role="group">`, never a binding `<label>`), so that field is now safe for a
-// DIFFERENT reason than the one this paragraph states. Re-enumerating every mic
-// render site under src/app leaves NO trailing-mic call site anywhere: each
+// DIFFERENT reason than the one this paragraph states. Re-enumerate every mic
+// render site with
+//   grep -rnE "\{[a-zA-Z]*[Mm]ic\}" src/app --include=*.tsx | grep -v "\.test\."
+// ★★ NOT the obvious `"Mic}"` anchor, which is case-SENSITIVE and silently
+// misses `chat-panel.tsx`'s `{mic}` — a recipe written to prevent an incomplete
+// enumeration, itself incomplete, and the SECOND miss in this class (an earlier
+// cut of the same enumeration missed `raid-edit-modal.tsx`). The scan's own
+// regex above is unaffected: its `\w*` matches the empty prefix.
+// The widened enumeration leaves NO trailing-mic call site anywhere: each
 // survivor is a LEADING mic rescued by an explicit `htmlFor`/`id` (change,
 // milestone, RAID, the four stakeholder fields), or is not a label-binding case
-// at all (the note-log mics sit beside buttons in a flex row; the task
-// description mic's caption is a plain `<span>`, not a `<label>`). So the
-// trailing half of the rule is pinned ONLY by the synthetic assertions below —
-// do not delete them for want of a live example, and do not go looking for one.
+// at all — the note-log mics sit beside buttons in a flex row; the task
+// description mic's caption is a plain `<span>`, not a `<label>`; and
+// chat-panel's sits in a button column beside a `<textarea>`, with no `<label>`
+// or `<Field>` ancestor at all (that file's only `<label>` opens further down,
+// so it cannot enclose the mic). So the trailing half of the rule is pinned
+// ONLY by the synthetic assertions below — do not delete them for want of a
+// live example, and do not go looking for one.
 // ★★ This set holds only elements that ARE labelable, or components that
 // certainly render one FIRST. `<button>`/`<Button>` are deliberately ABSENT: a
 // button getting in front IS the defect, so treating it as safe would silence

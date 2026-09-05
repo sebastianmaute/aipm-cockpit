@@ -44,10 +44,10 @@ export function EffortField({
    *  instead, or it commits a number the user believes they replaced. */
   onValidityChange?: (valid: boolean) => void;
 }) {
-  // ★ `minutes === 0` must render "0m", NOT the empty box `formatDuration`
-  //   returns for zero: empty is pixel-identical to "not overridden", and the
-  //   0-vs-undefined distinction is the whole point of this field
-  //   (`types.ts` — "Never 0 for 'not overridden'").
+  // ★ A defined `minutes` that `formatDuration` renders empty (≤ 0, NaN
+  //   included) must still render "0m": empty is pixel-identical to "not
+  //   overridden", and the 0-vs-undefined distinction is the whole point of
+  //   this field (`types.ts` — "Never 0 for 'not overridden'").
   const [text, setText] = useState(() =>
     minutes === undefined ? "" : formatDuration(minutes) || "0m",
   );

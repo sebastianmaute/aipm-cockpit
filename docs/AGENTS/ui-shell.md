@@ -468,13 +468,14 @@ commits that merely added comments above it; its `onChange` is
   association. ★★ THE WORKED EXAMPLE IS GONE AND THE RULE IS UNCHANGED: task-form-fields' title field
   WAS that trailing mic, and no longer trails — it moved into the caption as `captionAction`, which
   forces `Field` into `group` mode (a `<div role="group">`, never a binding `<label>`), so it is now
-  safe for a DIFFERENT reason than the order. Re-enumerate before citing any replacement — `grep -rn
-  "Mic}" src/app --include=*.tsx | grep -v "\.test\."` — because there is no trailing-mic call site
-  left to cite: every survivor is a LEADING mic rescued by an explicit `htmlFor`/`id` (change,
-  milestone, RAID, the four stakeholder fields), or is not a label-binding case at all (the note-log
-  mics sit beside buttons in a flex row; the task description mic's caption is a plain `<span>`, not a
-  `<label>`). So the trailing half of the rule is now pinned ONLY by the synthetic assertions in
+  safe for a DIFFERENT reason than the order. There is no trailing-mic call site left to cite, so the
+  trailing half of the rule is now pinned ONLY by the synthetic assertions in
   `label-binding.guard.test.ts` — do not delete those for want of a live example.
+  ★★ Re-enumerate before citing any replacement, and take BOTH the recipe and the per-survivor
+  disposition from the comment above `LABELABLE` in that file rather than restating either here — a
+  second copy of a per-file enumeration is what rots. It is worth reading before you trust your own
+  grep: the obvious anchor for that enumeration was case-SENSITIVE and silently missed a live call
+  site, so a recipe written to prevent an incomplete enumeration was itself incomplete.
   ★★★ NEITHER GATE SEES THIS BY DEFAULT. No axe rule models label→control binding — enumerating axe
   4.12.1 under the four tags the gate uses returns 69 rules and none of them do; axe's own name computation
   takes the nearest ANCESTOR `<label>`, so it credits that text to the input regardless of the real binding.

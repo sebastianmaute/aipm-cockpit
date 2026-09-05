@@ -22,6 +22,9 @@ describe("EffortField", () => {
   });
 
   test("seeds a real duration through formatDuration", () => {
+    // The third leg of the seed table — the only one that dies if the seed
+    // collapses to a constant. It does NOT pin this commit's `|| "0m"` fix (90
+    // formats identically without it), and is not meant to.
     render(<EffortField {...base} minutes={90} onChange={vi.fn()} />);
     expect(screen.getByRole("textbox", { name: /effort/i })).toHaveValue("1h 30m");
   });
