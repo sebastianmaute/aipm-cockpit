@@ -294,7 +294,7 @@ export const TOOL_DEFS = [
   {
     name: "delete_task",
     description:
-      "Delete a single task by ID. Confirm with the user before calling this if they were not explicit.",
+      "Delete a single task by ID.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },
@@ -304,7 +304,7 @@ export const TOOL_DEFS = [
   {
     name: "delete_all_tasks",
     description:
-      "Delete every task in the app. Always confirm with the user in chat before calling this.",
+      "Delete every task in the app.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -612,7 +612,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "delete_resource",
-    description: "Delete a resource from the directory by ID. Confirm with the user first unless they were explicit.",
+    description: "Delete a resource from the directory by ID.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },
@@ -640,7 +640,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "delete_raid_item",
-    description: "Delete a RAID item by ID. Confirm with the user first unless they were explicit.",
+    description: "Delete a RAID item by ID.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },
@@ -668,7 +668,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "delete_change",
-    description: "Delete a change item by ID. Confirm with the user first unless they were explicit.",
+    description: "Delete a change item by ID.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },
@@ -695,7 +695,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "delete_milestone",
-    description: "Delete a milestone by ID. Confirm with the user first unless they were explicit.",
+    description: "Delete a milestone by ID.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },
@@ -723,7 +723,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "delete_stakeholder",
-    description: "Delete a stakeholder by ID. Confirm with the user first unless they were explicit.",
+    description: "Delete a stakeholder by ID.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },

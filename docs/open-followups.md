@@ -594,6 +594,19 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--open) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§370](#370-redo-of-an-ai-captured-delete-is-unproved--open) | Redo of an AI-captured delete is unproved | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§371](#371-a-stakeholder-deletion-offers-to-delete-their-job-title-not-the-person--closed-2026-09-04) | ~~A stakeholder deletion offers to delete their job title, not the person~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-04 (one shared `PERSON_ENTITIES` set now names both person entities by `personName`, at the create label AND the delete label; mutation-proved by reverting the set to `["resource"]` alone) |
+| [§372](#372-an-update_resource-rename-sent-as-the-name-alias-previews-an-empty-plan--open) | An update_resource rename sent as the name alias previews an empty plan | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§373](#373-an-email-shaped-field-previews-a-value-apply-clips-or-discards--open) | An email-shaped field previews a value Apply clips or discards | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§374](#374-help-contentts-still-says-five-inline-entities-and-there-are-now-six--open) | help-content.ts still says five inline entities and there are now six | found 2026-09-04 in the AI bulk-write-safety slice | S | open |
+| [§375](#375-eye-verify-owed-a-real-model-turn-through-the-staged-review-card--open) | Eye-verify owed: a real model turn through the staged review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
+| [§376](#376-a-staged-document-row-cannot-be-named-in-the-review-card--open) | A staged document row cannot be named in the review card | found 2026-09-04 in the AI bulk-write-safety slice | M | open |
+| [§377](#377-the-staging-gate-the-review-card-and-the-apply-path-have-no-production-caller--closed-2026-09-05) | ~~The staging gate, the review card and the apply path have no production caller~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`chat-panel.tsx` now consults `shouldStage`, mints, describes, mounts the card and applies inside `useUndoBatch`; the entry's own reproduce command returns real call sites) |
+| [§378](#378-a-staged-creates-provisional-id-is-not-reconciled-with-the-id-apply-mints--closed-2026-09-05) | ~~A staged create's provisional id is not reconciled with the id Apply mints~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`DescribedRow.mintedId` + `remapStagedCall`; landed BEFORE the wiring commit, so it was never reachable in a shipped product) |
+| [§379](#379-the-registers-index_matches-recipe-compares-two-sequences-while-its-prose-claims-membership--open) | The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership | found 2026-09-04, reproduced independently by two sessions across four tree states | S | open |
+| [§380](#380-a-staged-plan-cannot-update-a-row-it-created-in-the-same-plan--open) | A staged plan cannot update a row it created in the same plan | found 2026-09-05 in the AI bulk-write-safety slice | M | open |
+| [§381](#381-a-row-refused-for-a-capability-gap-is-labelled-as-a-conflict--open) | A row refused for a capability gap is labelled as a conflict | found 2026-09-05 in the AI bulk-write-safety slice | S | open |
+| [§382](#382-the-registers-own-index-rebuild-is-lossy-and-calls-itself-idempotent--open) | The register's own index rebuild is lossy, and calls itself idempotent | found 2026-09-05 while closing 377 and 378 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -601,9 +614,15 @@ agree by construction, so this proves only that the rebuild was RUN — a headin
 closed without one leaves the table a row short or an anchor stale, and nothing else will say so:
 
 ```bash
-diff <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md | grep -oE '^\| \[§[0-9]+' | grep -oE '[0-9]+') \
-     <(grep -oE '^## [0-9]+\.' docs/open-followups.md | grep -oE '[0-9]+')
-echo "INDEX_MATCHES=$?"
+TABLE=$(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md | grep -oE '^\| \[§[0-9]+' | grep -oE '[0-9]+')
+BODY=$(grep -oE '^## [0-9]+\.' docs/open-followups.md | grep -oE '[0-9]+')
+diff <(echo "$TABLE") <(echo "$BODY")
+RC=$?
+# The two counts are the VACUITY CHECK, not decoration - see §379. A broken
+# sed range yields two EMPTY sets, which diff clean and exit 0, so the verdict
+# alone reads GREEN over a register nothing compared. Both counts must equal the
+# entry count; RC=0 beside rows=0 is a defeated check, not a pass.
+echo "INDEX_MATCHES=$RC  rows=$(echo "$TABLE" | grep -c .)  headings=$(echo "$BODY" | grep -c .)"
 ```
 
 ★★★ **Nothing GATES this, and the paragraph that stood here is the argument for generating the table
@@ -27970,3 +27989,536 @@ insight FREEZES, which is the safe direction — this is recorded as a latent sh
 ★ Reachability is the open question and is deliberately not asserted here. Every key the app itself
 writes comes from `dailyKey(userId, it.date)` over API-supplied dates. The paths that could carry a
 hostile key are a hand-edited `localStorage` blob and a future writer; neither has been probed.
+## 370. Redo of an AI-captured delete is unproved — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
+**Never machine-verified:** no probe has been run against this entry.
+
+`task-manager.tsx` passes `allowDestructiveSave: armDestructiveForUndo` to `useUndoStack`, so
+production is wired — but nothing exercises the REDO direction on an entry captured by an AI write.
+A redo of an AI `deleteAllTasks` re-removes rows, which is the §295 arming shape.
+
+The Phase 1 round trips (`use-chat-dispatcher.undo.test.tsx`) all stop after `undo()`. So the
+undo direction is proved at all 14 capture sites and the redo direction at none of them.
+
+★ Not evidence of a defect — the capture path is shared with the human writers, whose redo IS
+exercised. This entry records that the AI path inherits that coverage by construction rather than
+by test, which is a weaker guarantee than the round trips give the undo direction.
+
+## 371. A stakeholder deletion offers to delete their job title, not the person — CLOSED 2026-09-04
+
+**Status:** CLOSED 2026-09-04. Verified by mutation, not by assertion: reverting `PERSON_ENTITIES` to
+`new Set(["resource"])` turns exactly the two stakeholder tests red (2 failed / 37 passed — the
+file's 39 runtime tests) while the milestone anti-over-reach pin stays green. Reproduce:
+`npx vitest run src/app/inline-ai-edit/plan.test.ts`.
+
+`Stakeholder.title` is a JOB title. The generic label chains in `inline-ai-edit/plan.ts` read
+`input.title ?? input.taskName ?? input.name ?? …` for creates and `found.title ?? found.taskName
+?? found.name ?? id` for deletes, so a stakeholder with a job title USED TO create AND be offered
+for deletion under that job title rather than their name.
+
+★★ **Past tense is load-bearing — those two chains are still in the file, and a reader who greps
+for them will find them intact.** They are no longer reached for a person: `PERSON_ENTITIES` (a
+`ReadonlySet` of `"resource"` and `"stakeholder"`) short-circuits AHEAD of both, at `titleOf`
+(`if (PERSON_ENTITIES.has(entity)) return personName(input) || entity;`) and again at the delete
+label (`PERSON_ENTITIES.has(entity) ? personName(found) || str(id) : str(found.title ?? …)`). The
+chains remain the FALLBACK for every non-person entity — task, RAID, change, milestone — which is
+why they were left in place rather than replaced. Reproduce:
+`grep -n "PERSON_ENTITIES" src/app/inline-ai-edit/plan.ts` returns the declaration plus exactly
+the two guarded sites.
+
+★★ **This is a wrong-target prompt on an irreversible action** — the class where the user's mental
+model and the system's disagree at exactly the moment the user is asked to authorise. A
+confirmation reading "Engineer" when the row is a person is worse than an unlabelled one.
+
+The identical bug existed for `resource` and was fixed there first by a scoped `personName`
+branch. It was deliberately NOT extended to stakeholder in that commit, because changing an
+entity the task was not asked to touch belongs in its own commit — which is this one.
+
+★★ The two entities arrive at the same place from DIFFERENT shapes — `resource` carries
+`firstName`/`lastName` (or the single `name` write alias the dispatcher splits), `stakeholder`
+carries `name` alone — and `personName` already falls through to `o.name`, which is why one
+shared set covers both rather than two branches.
+
+★ TEST TRAP recorded because it makes the obvious fixture vacuous: a stakeholder with NO job
+title, or one whose `title` equals their `name`, passes against the unfixed code. The fixture
+must populate both fields with DIFFERENT values or the assertion proves nothing.
+
+★ A THIRD mechanism knows the right answer and is still not consulted:
+`INLINE_DESCRIPTORS.stakeholder.titleOf` is `(i) => String(i.name ?? "")`. `titleOf` in
+`plan.ts` is deliberately descriptor-free because it also names CROSS-ENTITY creates, where no
+descriptor for that entity is in scope. Routing both through the descriptor is the deeper fix
+and is not this one.
+
+## 372. An update_resource rename sent as the name alias previews an empty plan — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
+**Never machine-verified:** no probe has been run against this entry.
+
+`name` is a WRITE ALIAS that the dispatcher splits into `firstName`/`lastName`; it is not a
+stored field. It is therefore deliberately absent from the `resource` descriptor's `diffFields`
+(`inline-ai-edit/entity-descriptor.ts`), because `before` would read empty for every resource.
+
+Consequence: `update_resource({id, name})` — a rename sent as the alias alone — produces NO diff
+and previews as an empty plan, while applying normally. ★ Mood corrected 2026-09-05, when §377
+closed: the staged review card SHOWS the user a row with nothing in it and then changes the
+person's name. The conditional this sentence carried was keyed to the card having no production
+caller, and that is no longer the case — nothing else about the entry changes, and no probe has
+observed it.
+
+★ Diffing the parts is the honest form and is what ships. The blind spot is real and is a property
+of the alias, not of the descriptor: any write alias that fans out to several stored fields has it.
+
+## 373. An email-shaped field previews a value Apply clips or discards — OPEN
+
+**Status:** OPEN. Rewritten 2026-09-04: the divergence is real, the mechanism the entry was filed
+with is not. Last executed verification 2026-09-04 —
+`grep -n "export function sanitizeEmail" -A 2 src/app/sanitize-core.ts` (one line, no validity
+branch) and `grep -nE "= sanitizeEmail\(" -A 1 src/app/sanitize-entities.ts src/app/sanitize-records.ts`
+(the caller-side emptiness drop), plus the other commands quoted below. No RUNTIME probe has been
+executed: every claim rests on the functions cited, not on an observed write.
+
+★★★ **THE ORIGINAL FILING NAMED A MECHANISM THAT DOES NOT EXIST, and it is recorded here rather
+than silently replaced — the correction is the more useful half.** It read: "`sanitizeEmail`
+DROPS a value it cannot parse rather than rejecting the write." `sanitizeEmail` parses nothing.
+It is one line, `return sanitizeText(s, EMAIL_MAX)`, and `sanitizeText` returns `""` for a
+non-string and otherwise trims and length-clips. No branch anywhere in it turns on validity.
+
+```bash
+grep -n "export function sanitizeEmail" -A 2 src/app/sanitize-core.ts
+grep -n "export function sanitizeText" -A 3 src/app/sanitize-core.ts
+```
+
+★★ Its negative half is false in the opposite direction too — a REJECTION exists, on the path the
+entry said had none. `buildTaskCleanPatch` (`chat-task-patch.ts`) runs
+`if (e && !isValidEmail(e)) throw new Error("assigneeEmail is invalid")`, and the dispatcher's
+`createTask` carries the same guard, so an invalid `assigneeEmail` fails the write LOUDLY rather
+than dropping. `grep -rn "isValidEmail" src/app --include=*.ts --include=*.tsx` enumerates every
+site; none of them is in `sanitize-entities.ts` or `sanitize-records.ts`.
+
+**What is actually true.** The preview's `after` is the RAW input coerced to a string —
+`const after = str(input[f])` in `describeEntityCalls` (`inline-ai-edit/plan.ts`), where `str` is
+`String(v)` with a null/array shim and NO trim, NO cap and NO format check. Apply runs the value
+through a sanitizer instead. The two diverge in three ways, and none of them is about validity:
+
+1. **Length.** An email past its field's cap previews in full and stores clipped. The caps are not
+   shared: `assigneeEmail`, RAID `ownerEmail` and resource `email` route through `sanitizeEmail`
+   (`EMAIL_MAX` = 320), while `sanitizeStakeholder` uses `sanitizeText(o.email, BUDGET_NAME_MAX)`
+   — a DIFFERENT sanitizer at a DIFFERENT cap (200). Four email-shaped `diffFields`, three
+   sanitizer call shapes, two caps.
+2. **Non-string.** `str(42)` previews `"42"` and `str({})` previews `"[object Object]"`;
+   `sanitizeText` returns `""` for both. So the card shows a value the write never stores.
+3. **Whitespace.** `str` does not trim and the sanitizers do, so `"  a@b.com  "` differs from the
+   stored `before` string, previews as a change, and stores the trimmed form.
+
+★★ **The DROP the original entry reached for is real but sits at the CALLER, and it keys on
+EMPTINESS, not on parseability.** `sanitize-entities.ts` writes `if (email) resource.email =
+email;` and `sanitize-records.ts` writes `if (ownerEmail) item.ownerEmail = ownerEmail;` /
+`if (email) item.email = email;` — so case 2 above does not merely fail to write the new value,
+it OMITS THE KEY, and on an update built by spreading the stored row that CLEARS an email the row
+already had. Preview: `old@x.com → 42`. Result: no email at all.
+
+```bash
+grep -nE "= sanitizeEmail\(" -A 1 src/app/sanitize-entities.ts src/app/sanitize-records.ts
+grep -n "sanitizeText(o.email" src/app/sanitize-records.ts
+grep -n "const after = str(input\[f\])" src/app/inline-ai-edit/plan.ts
+grep -n "^function str(v: unknown)" -A 5 src/app/inline-ai-edit/plan.ts
+```
+
+★★ **The two email-shaped paths therefore behave OPPOSITELY on an invalid value, and the heading
+of this entry used to assert only one of them.** A syntactically invalid but non-empty string —
+`"42"`, `"not an email"` — is stored VERBATIM by the resource, RAID and stakeholder sanitizers
+(no format check exists there), so its preview is correct and there is no divergence at all; the
+same value on `assigneeEmail` throws. "An invalid email previews a diff Apply drops" was wrong
+about both.
+
+★ `requiredNonEmpty` still cannot express any of this, and that observation survives the rewrite:
+the field is not required, it is silently normalised. Closing it needs the preview to run the
+field's OWN sanitizer before diffing — which is what `dateFields` already does for dates
+(`sanitizeIsoDate(after) !== after` → reject) — rather than a new per-field "may drop" flag.
+
+★ Pre-existing across every entity with an email-shaped field. `email` on `resource` joined the
+existing three in the AI bulk-write-safety slice rather than introducing the problem.
+
+## 374. help-content.ts still says five inline entities and there are now six — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 by the AI bulk-write-safety slice.
+**Never machine-verified:** no probe has been run against this entry.
+
+`help-content.ts` carries a prose comment reading "★ Five entities, from `InlineEntity`".
+`InlineEntity` gained `resource` in the AI bulk-write-safety slice, so there are six.
+
+★ The comment's CLAIM (which views the help entry relates to) is still true; only its
+justification is stale, and `resource` is not inline-editable, so the count is wrong in a way that
+does not change the behaviour it describes. Left for that file's owner rather than fixed in a slice
+that had no other reason to touch it.
+
+★★ No gate can see this. `docs:symbols:check` proves a backticked NAME exists — `InlineEntity`
+exists either way — and it cannot see a COUNT at all. This is the "a count is the easiest claim to
+check and the easiest to leave rotting" shape.
+
+## 375. Eye-verify owed: a real model turn through the staged review card — OPEN
+
+**Status:** OPEN. Re-scoped 2026-09-05 once the wiring landed: the eye-verify is no longer blocked,
+it is simply OWED and performable at HEAD. Last executed verification 2026-09-05 —
+`grep -n "ChatProposalBlock" src/app/chat-panel.tsx` returns an import and a mount, so the card is
+reachable from the application. The eye-verify ITSELF has never been performed.
+
+★★ **THE WIRING LANDED (§377), SO THIS IS NOW A PLAIN OWED ACT.** Two earlier wordings of this entry
+each named a different thing as the gap — the SUITES first, then the wiring. Both are retired, and
+nothing now stands between a reader and the act below.
+
+Owed: against `PORT=3100 npm run dev`, provoke a destructive or multi-write turn, confirm the card
+renders, reject one row, confirm the cascade deselects its dependents, apply, and confirm ONE undo
+entry restores the applied updates and deletes.
+
+★★ The unit tests still do not substitute, and the reason is structural rather than a coverage gap:
+`chat-proposal-block.test.tsx` renders the card from fixture props, so it proves the card's own
+behaviour and nothing about whether a real turn produces those props. The gate suites cannot reach it
+either — the axe run seeds file mode and the card exists only after a model turn, so no e2e seed will
+render it at any configuration.
+
+★ Two outcomes filed since the wiring are worth watching for while performing it, because both are
+reachable from an ordinary multi-write turn and neither is visible to any suite: a create-then-update
+plan refusing its update row (§380), and the card labelling that refusal as a conflict (§381).
+
+## 376. A staged document row cannot be named in the review card — OPEN
+
+**Status:** OPEN. Re-scoped 2026-09-05 out of the conditional mood, because the gate is now wired
+(§377) and the row is reachable. Last executed verification 2026-09-05 —
+`grep -n "document" src/app/chat-proposal.ts src/app/chat-proposal-describe.ts` shows the three
+`*_document` tools in the gate's write set and NO `document` entry in the entity map. The
+engine-level claim is what that verifies; no probe has driven a document write onto a rendered card.
+
+★★ **LIVE, NOT CONDITIONAL.** The earlier wording said "nothing in the application stages anything
+yet, so no user has ever seen this row", and asked the reader to take every "would" below literally.
+That is retired: `chat-panel.tsx` consults `shouldStage` and mounts `ChatProposalBlock`, so a turn
+containing a `*_document` write now puts this row in front of a real user.
+
+The three `*_document` tools are in the staging gate's write set, so they ARE staged — but the
+descriptor engine has no `document` entity, so `describeProposal` returns them with an EMPTY plan.
+The card therefore has only `call.name` and `call.input` to render: it cannot say WHICH document an
+`update_document` touches, WHAT it changes, or WHICH document a `delete_document` removes. Contrast
+`delete_task`, whose plan carries a label.
+
+★★★ **This is the row that most needs to be legible, and it is now the row a user actually sees.**
+Document chat writes take NO undo capture at all (`use-document-tools.ts` says so at three sites;
+they recover via `documentVersions` instead), so the gate is the only thing between the model and an
+unreviewed multi-document rewrite — and it is the row the card can say least about. The reviewer is
+asked to approve a write they cannot see.
+
+Closing it needs either a `document` descriptor, or a small name-resolution step reading
+`ws.documents` by `input.id` for the title alone. Neither exists today.
+
+★ The card renders such a row with its tool name rather than blank, and the row is selectable and
+rejectable — so the failure is legibility, not invisibility. That was measured under test
+(`chat-proposal-block.test.tsx`) and is a property of `ChatProposalBlock`; §375's owed eye-verify is
+what would confirm it in the running app.
+
+## 377. The staging gate, the review card and the apply path have no production caller — CLOSED 2026-09-05
+
+**Status:** CLOSED 2026-09-05. Closed by this entry's OWN reproduce command, re-run at HEAD: it now
+returns imports and call sites in `chat-panel.tsx`, `task-manager.tsx` and
+`workspace-section-types.ts`, where on 2026-09-04 it returned only declarations, comments and
+intra-cluster `import type` lines. Reproduce:
+
+```bash
+grep -rn "ChatProposalBlock\|applyProposal\|describeProposal\|shouldStage\|buildPlanRows\|useUndoBatch" \
+  src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+**What the wiring is.** `chat-panel.tsx` consults `shouldStage` on the proposed calls, mints
+provisional ids with `mintProvisionalIds`, builds the graph with `buildPlanRows`, grounds it against
+the live workspace with `describeProposal`, mounts `ChatProposalBlock` in the transcript, and applies
+the user's selection through `applyProposal` inside the `runBatched` of the SAME `useUndoBatch`
+instance whose `.undo` the dispatcher already carries. A destructive or multi-write model turn is
+staged and reviewed before it writes. It landed in `6d31ffc7`; the prompt half followed in
+`0ca2a6aa`.
+
+★★ **PAST TENSE IS LOAD-BEARING FROM HERE DOWN.** Everything below describes HEAD on 2026-09-04 and
+is kept as the record of what was wrong, not as a description of today.
+
+**What was wrong.** The gate (`shouldStage`), the plan builder (`buildPlanRows`), the describe pass
+(`describeProposal`), the review card (`ChatProposalBlock`), the apply path (`applyProposal`) and the
+capture collapser (`useUndoBatch`) all existed and were tested — and were imported by NOTHING outside
+their own test files and each other. `chat-panel.tsx` rendered no card; `use-chat-dispatcher.ts`
+consulted no gate. A model turn wrote exactly as it did before the slice: unstaged, unreviewed, one
+tool call at a time.
+
+★★★ **THIS ENTRY NEVER COVERED PHASE 1, AND PHASE 1 (undo capture) WAS WIRED AND LIVE THROUGHOUT.**
+`task-manager.tsx` threads `undo: undoApi` into the dispatcher args and the field is REQUIRED on
+`ChatDispatcherArgs`, so all fourteen capture sites run in production —
+`grep -cE "undoRef\.current\?\.capture" src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts`
+still returns 6 and 8 at HEAD. An AI write was undoable then and is undoable now; what was missing
+was the review step in front of it, never the recovery behind it. The note is kept because scoping
+this entry to B1 would have been wrong in the expensive direction — it would have read as "AI writes
+are unprotected", and they were not.
+
+**The ordering risk, and how it went.** Task 13 DELETES the "Confirm with the user before calling
+this" prose from seven tool descriptions on the stated grounds that "the instruction is now enforced
+by the gate", so landing it while no gate existed would have left destructive AI writes with neither
+a prompt asking the model to confirm nor a card asking the user to review — strictly worse than
+either end state. The order held: the card was mounted first, the prose replaced after. Both halves
+are checkable without reading the plan — `grep -ci "confirm with the user" src/app/chat-tool-defs.ts`
+now returns 0 where it returned 7, and `grep -c "staged" src/app/chat-api.ts` now returns 4 where it
+returned 0.
+
+★★ Consequences for the entries filed beside this one, all re-scoped 2026-09-05: §375's eye-verify is
+performable and simply owed; §376 describes a row a user can now see. §378 was required to close in
+the same change set and did — `5db7900a` landed BEFORE this wiring commit rather than alongside it,
+which satisfies the requirement that the wiring must not ship without it.
+
+★★ Closing this OPENED two entries, both of them properties the wiring made reachable rather than
+regressions it introduced: §380 (a staged plan cannot update a row it created in the same plan) and
+§381 (that refusal is labelled as a conflict).
+
+## 378. A staged create's provisional id is not reconciled with the id Apply mints — CLOSED 2026-09-05
+
+**Status:** CLOSED 2026-09-05 by `5db7900a`, which landed BEFORE the wiring commit `6d31ffc7` (a
+chore commit sits between the two, so "one commit ahead" would be wrong), meaning the defect was
+never reachable in a shipped product. Verified at HEAD —
+`grep -rn "remapStagedCall\|mintedId" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+returns `mintedId` on `DescribedRow` as well as on `PlanRow`, `remapStagedCall` imported and called
+by `chat-proposal-apply.ts`, and a `resolveMintedId` step that captures each create's REAL returned
+id.
+
+**What was wrong.** Staging mints a PROVISIONAL id ahead of time and hands it to the model in the
+staged tool result, so the model can reference the not-yet-created row in a later call in the same
+turn — that is the point of minting ahead. At apply time the create was replayed through `runTool`
+and `createTask` (and its per-entity peers) minted their OWN id from the session high-water map,
+while the dependent row was replayed still carrying the PROVISIONAL id.
+
+★★★ **THE ENTRY SAID THOSE TWO "AGREE ONLY BY LUCK", AND THAT WAS WRONG.** Corrected 2026-09-05 by
+reading `src/app/id-mint-session.ts` rather than reasoning about it: `mintIds` ADVANCES the
+module-level `highWater` mark to the last id it reserved, and `mintId` then returns
+`max(highWater, listMax) + 1` — so the id minted at apply is STRICTLY HIGHER than every provisional
+id handed out for that kind, and the two NEVER agree. That is the worse reading for the unfixed code
+(the mis-target was certain, not occasional) and the better one for the fix: `remapStagedCall` fires
+on every staged create rather than lying dormant. `mintProvisionalIds`' own docstring already records
+this as the reason it calls `mintIds` and never `peekMintId` — `peekMintId` does not advance the
+mark, so the FIRST create's provisional id WOULD equal its real one and the remap would be a no-op
+for exactly the row a test fixture is most likely to use.
+
+**The fix.** `DescribedRow` now carries `mintedId`; `applyProposal` keeps a per-entity map from
+provisional to real id, fills it from each create's return value via `createdIdOf`, and rewrites
+every later row's id fields through `remapStagedCall` before replaying them. A create that succeeds
+but yields no usable id stays `ok: true` and leaves its dependents refused with `PENDING_MINT_ERROR`
+rather than pointed at a guess.
+
+★★★ **THIS WAS NEVER THE `mintId` COLLISION HAZARD, and conflating the two is how it could have been
+closed without being fixed.** That hazard — a provisional id handed out and then re-minted for a
+different row — was always handled by the high-water mark. This was the REVERSE problem: the id
+minted at apply differed from the one already handed to the model, and the dependent call still
+pointed at the old one. A green test for the collision hazard says nothing about it.
+
+★ Scope note: it was a property of ANY staged create whose id a later call references, not of tasks
+specifically, and the fix is entity-generic for the same reason.
+
+★★ **CLOSING IT DID NOT MAKE A CREATE-THEN-UPDATE PLAN WORK.** The remap resolves the ID; it cannot
+supply a concurrency TOKEN for a row that did not exist when the plan was reviewed, so an update
+targeting a same-plan create is now refused honestly instead of mis-targeted silently. That remaining
+gap is §380 — a capability gap, not a data risk.
+
+## 379. The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership — OPEN
+
+**Status:** OPEN. Filed 2026-09-04, never previously recorded — the red was known to two sessions
+and written down by neither. Last executed verification 2026-09-04:
+`grep -nE '^## (320|321|322|323)\.' docs/open-followups.md` prints the headings in the order
+320, **322, 321**, 323, while the table emits them in correct numeric order; the recipe's own
+`diff` reports exactly one difference, and the same recipe with `sort -n` applied to both sides
+exits 0.
+
+**What the recipe does versus what the prose beside it claims.** The instruction above the recipe
+says to check the table against the headings, and the failure it describes is a row that is missing,
+stale or short — a MEMBERSHIP claim. The recipe `diff`s two SEQUENCES, so it is order-sensitive by
+construction and reports a pure ordering difference in the same shape as a missing row. Both
+properties are worth checking; only one of them is written down, and it is not the one the command
+implements.
+
+**It is red at HEAD, and for neither reason a reader expects.** Nothing is missing and no anchor is
+stale: §322's section sits ABOVE §321's in the body, while the table lists them in numeric order.
+Reproduced independently by two sessions across four different tree states (before a register edit,
+after six index rows were added, and after two further entries landed); the difference is the same
+single pair every time.
+
+★★★ **THE COST IS NOT THE MISORDER, IT IS THAT A STANDING RED HIDES THE NEXT ONE.** Measured, not
+argued: while this was red, six entries (§360-§365) were filed with NO index rows at all, and both
+defects appeared in one `diff` output with nothing to say which belonged to whom. A check that has
+been failing for a known reason stops being read, and the next failure hides inside it. That is the
+argument for fixing this promptly, and it is a better argument than tidiness.
+
+★★ **THE RECIPE ALSO HAD NO VACUITY CHECK, and that half is closed in the recipe above.** As
+written it printed the verdict alone, so a broken `sed` range — the marker renamed, or matched
+against a code sample that QUOTES it — would compare two EMPTY sets, diff clean, and report
+`INDEX_MATCHES=0` over a register nothing had compared. Not hypothetical: a peer session's anchor
+generator reported "0 match, 0 mismatch" for precisely that reason (its `indexOf` landed on a
+quoted marker sixty lines above the real table) and was one commit from writing 351 unvalidated
+anchors. The recipe now prints `rows=` and `headings=` beside the verdict. ★ A vacuity check the
+reader has to think of is not a check — which is why it went INTO the recipe rather than being
+described here.
+
+★ **Two fixes, and they are NOT equivalent.** Moving §321's section below §322's costs one edit and
+keeps the ordering property, which is worth having: a register whose sections run in numeric order
+is navigable by scrolling. Relaxing the recipe instead (`sort -n` on both sides) makes the red go
+away without the register becoming ordered, and silently drops a property the command enforces
+today. Prefer the move. If the recipe is ever relaxed instead, the prose must say that ordering is
+no longer checked — otherwise the next reader inherits the same command/claim mismatch in the
+opposite direction.
+
+★ Scope note: this entry is about the RECIPE and its prose. §321 itself — the `submitPrompt`
+single-flight entry whose section is out of place — is unaffected in content; only its POSITION in
+the file is wrong.
+
+## 380. A staged plan cannot update a row it created in the same plan — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 by the AI bulk-write-safety slice, found while wiring the gate
+(§377) and distinct from §378. Last executed verification 2026-09-05 —
+`grep -n "NEW_ROW_TOKEN_UNAVAILABLE_ERROR" src/app/chat-proposal-apply.ts` shows the pre-emptive
+refusal, and `grep -n "expectedToken is required" src/app/chat-tools-updates.ts` shows the throw it
+exists to keep out of the `stale` bucket. No probe has driven the shape onto a rendered card; that is
+§375's owed eye-verify.
+
+`[create_task, update_task({ id: <provisional> })]` — the canonical shape, and the one the staged
+tool result actively invites, since `stagedToolResult` tells the model to "refer to it as id N in
+later calls in THIS turn only" — applies the create and REFUSES the update.
+
+**The mechanism.** `describeProposal` deliberately does not stamp a row whose target does not exist
+yet; it marks it `pendingOn` instead. Stamping it would be worse: a provisional id colliding with a
+live row would be stamped with THAT row's token, i.e. a permit for the wrong row. So the remapped
+call carries no `expectedToken`, and every one of the seven token-guarded tools requires one —
+`requireToken` (`chat-tools-updates.ts`) throws `ConcurrencyTokenError` on an absent or empty token
+before it derives anything.
+
+★★ **THE REFUSAL IS PRE-EMPTIVE RATHER THAN A CAUGHT THROW, and that is the whole point of the
+exported `NEW_ROW_TOKEN_UNAVAILABLE_ERROR` constant.** `applyProposal` checks `pendingOn` +
+`TOKEN_REQUIRED_TOOLS` + `hasUsableToken` and refuses the row BEFORE `runTool`, precisely so the
+failure cannot reach `requireToken` and inherit the `stale` label — which would tell the user their
+data changed underneath them when nothing had. A MODEL-SUPPLIED token deliberately passes that guard
+and does reach `requireToken`; a wrong value there genuinely IS a token conflict.
+
+**Affected tools** — the seven `requireToken` / `requireTaskWriteToken` enforcement sites, enumerated
+by the repo's own command rather than typed out (it is quoted in `chat-proposal-apply.ts`'s
+`TOKEN_REQUIRED_TOOLS` docstring, which also records that the three different facts that set could
+mean all equal seven today only by coincidence):
+
+```bash
+awk '/case "/{c=$0} /requireToken\("|requireTaskWriteToken\(/{print c}' src/app/chat-tools.ts
+```
+
+RUN 2026-09-05 — `update_task`, `set_task_dependencies`, `update_raid_item`, `update_change`,
+`update_milestone`, `update_resource`, `update_stakeholder`.
+
+★★★ **THE OBVIOUS FIX IS BLOCKED, and the dead end is recorded so nobody re-derives it.** "Derive the
+token from what the create returned" fails because `entityToken` needs the FULL stored row, and five
+of the six entity create tools return a `*Summary`: `createRaid`, `createChange`, `createMilestone`,
+`createStakeholder` and `createResource` all do, and only `createTask` returns a full `Task`.
+`withToken`'s docstring in `chat-tools-lists.ts` records that a summary-derived token is a FALSE
+PERMIT for every field the summary omits — `RaidSummary` drops `description` and `mitigation`, so the
+token is byte-identical before and after an edit to either — and names `chat-tools.test.ts` as what
+pins against it (the same docstring records that it cited `ai-entity-token.test.ts` for a release and
+that a summary-derivation mutant leaves that file fully green).
+
+★ So a fix reading the create's return value would WORK for `update_task` and be wrong for the other
+five — partial coverage that looks general, which is the worst available shape. A proper fix needs a
+per-entity full-row resolver run after the create lands.
+
+★★ **SAFE AND VISIBLE, so this is a capability gap and not a data risk.** The refused row writes
+NOTHING — the guard fires before the dispatcher — and it is reported as not applied, so the plan is
+half-applied in exactly the way the card says. What the user cannot do is express create-then-update
+in one turn; they must apply the create and ask again.
+
+★ It is reachable from an ordinary turn rather than a contrived one, because the staged tool result
+tells the model to reference the provisional id in later calls: a model doing what it is told
+produces this plan.
+
+★ How the refusal is LABELLED is a separate defect — §381.
+
+## 381. A row refused for a capability gap is labelled as a conflict — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 by the AI bulk-write-safety slice. Last executed verification
+2026-09-05 — `grep -n "failed" src/app/chat-proposal-block.tsx` returns one optional boolean and one
+render site, and `grep -n "chatProposalFailed" src/app/i18n.ts src/app/i18n.de.ts` returns the single
+EN/DE pair it renders. **Never machine-verified** as a user-visible outcome: no probe has driven a
+refused row onto a rendered card (§375's owed eye-verify would).
+
+`ProposalCardRow.failed` is a single boolean, and the card renders `chatProposalFailed` — EN "Not
+applied — changed since you reviewed" — for every not-ok row. `chat-panel.tsx` collapses
+`applyProposal`'s result into a set of the indices where `ok` is false, discarding `AppliedRow.error`
+and `AppliedRow.stale` alike.
+
+★★★ **THE APPLY PATH ALREADY DISTINGUISHES THREE OUTCOMES AND THE CARD THROWS THE DISTINCTION
+AWAY.** `stale: true` is the genuine token conflict and the string is right for it. The other two are
+not conflicts at all: `PENDING_MINT_ERROR` (a row this call depended on was not created) and
+`NEW_ROW_TOKEN_UNAVAILABLE_ERROR` (§380 — the target was created earlier in the same plan). For
+those, nothing changed; the row did not EXIST when it was reviewed. The string therefore tells the
+user something false and invites the one recovery that cannot work — it asks them to re-read and
+retry, and there is nothing to re-read.
+
+★★ The engine went out of its way to prevent exactly this. `chat-proposal-apply.ts` refuses a pending
+token-guarded row before `runTool` specifically so the failure cannot inherit the `stale` label, and
+both constants are EXPORTED so that a card can recognise the outcome without matching prose. The card
+consumes neither, so the lie the engine was written to avoid is reintroduced one layer up.
+
+★★★ **THE FIX IS A SECOND CARD STRING, NOT A NARROWER `failed` CONDITION.** Under-reporting is the
+worse direction: a row that did not land must never read as applied. So `failed` must go on covering
+every not-ok row; what it needs is to carry WHICH kind, plus a second EN/DE string for the
+not-a-conflict case. Anything that drops rows out of the failed set to avoid the wrong label trades a
+misleading message for a silent one.
+
+★ Scope note: this is about the CARD's vocabulary. Whether a create-then-update plan should work at
+all is §380, and this entry stands even if §380 is never fixed, because `PENDING_MINT_ERROR` is
+reachable independently — a create that throws, or one that returns no usable id.
+
+## 382. The register's own index rebuild is lossy, and calls itself idempotent — OPEN
+
+**Status:** OPEN. Filed 2026-09-05. Last executed verification 2026-09-05 — the register's own
+rebuild recipe was extracted verbatim from the fenced block above the index and run against a
+SCRATCH COPY of this file (never the tracked one), then the two index blocks were compared with
+`grep -c "^<" <(diff <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md) <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' COPY))`
+
+★★ **NO COUNT IS QUOTED AS THE FINDING, deliberately.** It was 67 before this slice closed two
+entries, 69 after, and 70 once this entry's own row existed — the number counts CLOSED rows, so it
+rises every time anyone closes anything, including while you are reading it. The durable claim is
+the invariant: **every closed row loses its `~~strikethrough~~` and its State-cell reason.** Run the
+command for today's number. ★ Count rows; do NOT read the exit code, which is 0 either way — the
+recipe succeeds at doing the wrong thing.
+
+★★★ **THE RECIPE CALLS ITSELF IDEMPOTENT AND IS NOT.** Its own prose says it "is idempotent — a
+rebuild that changes nothing is the proof that the table already matches the headings", and tells
+you to "rebuild after adding, closing, retitling or renumbering an entry". Following that
+instruction after a closure silently destroys the closure formatting of every entry closed before
+it.
+
+**What it strips, measured on two rows rather than reasoned:**
+
+```
+before  | [§371](#371-…--closed-2026-09-04) | ~~A stakeholder deletion offers to delete their job title, not the person~~ | … | S | **CLOSED** 2026-09-04 (one shared PERSON_ENTITIES set now names both person entities…) |
+after   | [§371](#371-…--closed-2026-09-04) |   A stakeholder deletion offers to delete their job title, not the person   | … | S | **CLOSED** 2026-09-04 |
+```
+
+Two losses per closed row: the `~~strikethrough~~` on the Item cell, and the parenthetical REASON
+on the State cell. The reason is the expensive one — it is the only place the table says what
+closed an entry, and recovering 69 of them means walking the history of a file that is rewritten on
+almost every commit.
+
+★★ **THE PROSE AND THE PRACTICE HAVE DIVERGED, AND THE PROSE LOST.** The block says `Item` and
+`State` are FUNCTIONS of the heading and "do not hand-edit" them. They are not functions of the
+heading any more: a closure reason has no machine source, exactly as `Origin` and `Size` have none,
+and the file's own recent closures all carry one. The rebuild HARVESTS `Origin` and `Size` across a
+run for that reason; it does not harvest the State cell's reason or the Item cell's strikethrough.
+Adding both to the harvest is the obvious fix and would make the claim of idempotence true.
+
+★★ **NOT A HYPOTHETICAL, AND THE NEAR-MISS IS THE ARGUMENT.** This was found because an agent
+closing §377 and §378 read the instruction, went to obey it, and probed it on a scratch copy first.
+Had it obeyed, this slice's own §371 closure — landed the previous day — would have been among the
+69. The instruction is followed by whoever closes the NEXT entry, which is the person least likely
+to notice that rows they never touched changed underneath them.
+
+★ Scope: this is about the REBUILD, not about the table's accuracy. The index is correct today —
+363 rows against 363 headings, every anchor regenerating from its heading with 0 mismatches. §379
+covers the separate, pre-existing ordering red.
+
+★ Until it is fixed: hand-edit a closed row to match the shape §371 uses, and do NOT run the
+rebuild. Reproduce the loss with the fenced recipe above, run against a copy:
+`cp docs/open-followups.md /tmp-copy/ && cd /tmp-copy && <recipe> && diff` — count the changed
+rows, do not read the exit code, which is 0 either way.

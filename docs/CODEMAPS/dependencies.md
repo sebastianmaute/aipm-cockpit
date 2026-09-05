@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.282.0 "Zamyatin" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.283.0 "Lessing" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
 
 # Dependencies
 

@@ -33,6 +33,7 @@ export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: D
 const CREATE_TOOLS: Record<string, string> = {
   create_raid_item: "raid", create_change: "change",
   create_milestone: "milestone", create_stakeholder: "stakeholder", create_task: "task",
+  create_resource: "resource",
 };
 const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> = {
   delete_task: { entity: "task", wsKey: "tasks" },
@@ -40,6 +41,7 @@ const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> =
   delete_change: { entity: "change", wsKey: "changes" },
   delete_milestone: { entity: "milestone", wsKey: "milestones" },
   delete_stakeholder: { entity: "stakeholder", wsKey: "stakeholders" },
+  delete_resource: { entity: "resource", wsKey: "resources" },
 };
 
 // Fields stored as rich HTML, keyed `${entity}.${field}`. Only the PREVIEW
@@ -81,7 +83,38 @@ function str(v: unknown): string {
   if (Array.isArray(v)) return v.join(", ");
   return String(v);
 }
+/** A person's display name from either shape `create_resource` accepts:
+ *  firstName/lastName, or the single `name` the dispatcher splits. Empty when
+ *  the object carries neither. */
+function personName(o: Record<string, unknown>): string {
+  const parts = `${str(o.firstName)} ${str(o.lastName)}`.trim();
+  return parts || str(o.name);
+}
+
+/** Entities whose display name is a PERSON rather than their `title` field.
+ *
+ *  ★★★ `title` on BOTH of these is a JOB TITLE, so the generic chain below
+ *  labels the card with the job instead of the person — a create card reading
+ *  "Engineer", and worse, a delete confirmation OFFERING TO DELETE "Engineer"
+ *  when the row is a human being. That is a wrong-target prompt on an
+ *  irreversible action: the user is asked to authorise a deletion against a
+ *  name that is not the thing being deleted.
+ *
+ *  ★★ Both members are load-bearing and they arrive at the same place from
+ *  different shapes — `resource` carries `firstName`/`lastName` (or the single
+ *  `name` write alias the dispatcher splits), `stakeholder` carries `name`
+ *  alone. `personName` handles both, which is why one set works.
+ *
+ *  ★ A THIRD mechanism already knows this and is not consulted here:
+ *  `INLINE_DESCRIPTORS.stakeholder.titleOf` is `(i) => String(i.name ?? "")`.
+ *  This function is deliberately descriptor-free because it also names
+ *  CROSS-ENTITY creates, where no descriptor for that entity is in scope.
+ *  Routing both through the descriptor would be the deeper fix and is not this
+ *  one. */
+const PERSON_ENTITIES: ReadonlySet<string> = new Set(["resource", "stakeholder"]);
+
 function titleOf(entity: string, input: Record<string, unknown>): string {
+  if (PERSON_ENTITIES.has(entity)) return personName(input) || entity;
   return str(input.title ?? input.taskName ?? input.name ?? input.description ?? entity);
 }
 
@@ -171,7 +204,16 @@ export function describeEntityCalls(
       const rows = ws[wsKey] as ReadonlyArray<{ id: number; title?: string; taskName?: string; name?: string }>;
       const found = Array.isArray(rows) ? rows.find((r) => r.id === id) : undefined;
       if (!found) { plan.rejected.push({ toolName: name, reason: "unknown-id", detail: str(input.id) }); continue; }
-      plan.deletes.push({ entity, label: str(found.title ?? found.taskName ?? found.name ?? id), toolName: name, id });
+      // ★★★ Same job-title collision as `titleOf` above, on the stored ROW
+      // instead of the input — and this is the site where it does real harm,
+      // because this label is what a DELETE confirmation shows. A resource
+      // carries `title` ("Engineer") and no `name`; a stakeholder carries both,
+      // and `title` wins the generic chain. Either way the user is offered a
+      // deletion named after a job rather than the person.
+      const label = PERSON_ENTITIES.has(entity)
+        ? personName(found as Record<string, unknown>) || str(id)
+        : str(found.title ?? found.taskName ?? found.name ?? id);
+      plan.deletes.push({ entity, label, toolName: name, id });
       continue;
     }
   }

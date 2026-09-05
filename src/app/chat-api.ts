@@ -47,7 +47,32 @@ export type DisplayItem =
       input: unknown;
       result: string;
       error: boolean;
-    };
+    }
+  /**
+   * A staged-proposal MARKER — the review card's place in the transcript.
+   *
+   * ★★★ IT CARRIES NO PLAN, AND THAT IS THE WHOLE POINT. Both halves of a
+   * `ChatConversation` are persisted (to the per-project in-memory store, and
+   * in Turso mode to the thread row), so anything on a `DisplayItem` can be
+   * restored arbitrarily later. A restored PLAN would offer to apply writes
+   * staged against a workspace that has since moved; every row's token would be
+   * stale so `applyProposal` would refuse it, but the card would still invite a
+   * click that cannot succeed. The live plan therefore lives in component state
+   * keyed by `id`, and this marker survives instead.
+   *
+   * ★★ A MARKER WITH NO MATCHING LIVE PLAN RENDERS AS EXPIRED, and that rule
+   * clears a pending proposal on EVERY transcript reset for free — the
+   * synchronous project-switch reconcile AND every asynchronous Turso thread
+   * path, which replaces `display` from several sites — count them with
+   * `grep -c "^\s*setDisplay(" src/app/use-chat-threads.ts` rather than trusting
+   * a number here. Nothing has to remember to clear the plan, which is the
+   * failure mode `panel-chat` invites: it is mounted unconditionally and never
+   * remounts.
+   *
+   * ★ `count` is kept so the expired form can still say how many writes were
+   * proposed there. It is display-only and nothing derives behaviour from it.
+   */
+  | { kind: "proposal"; id: string; count: number };
 
 export type ApiUsage = { input_tokens: number; output_tokens: number };
 
@@ -91,7 +116,19 @@ export function buildSystemPrompt(
     "Beyond tasks you can also read and write RAID items (Risks/Assumptions/Issues/Dependencies), change-control items, milestones, and stakeholders via their list_/create_/update_/delete_ tools. RAID category is R/A/I/D; status must match the category. Dates are YYYY-MM-DD.",
     "You can also manage the resource directory: list_resources, get_resource, create_resource (firstName/lastName), update_resource, and delete_resource. IMPORTANT: assigning a task to a person by name does NOT add them to the directory — when a document describes a team or resource plan, call create_resource for each person so they appear in the directory, not just as task assignees.",
     "When the user attaches a document, read it and, when they ask, extract the relevant items (tasks, risks, milestones, stakeholders, people/resources) and create them with the matching create_ tool. Summarise what you created and ask before bulk-creating many records.",
-    "Before deleting anything (delete_task, delete_all_tasks, delete_raid_item, delete_change, delete_milestone, delete_stakeholder, delete_resource) confirm with the user in chat unless they were already explicit.",
+    // ★★★ THIS REPLACED AN INSTRUCTION TO "confirm with the user in chat", and
+    //    the replacement is not a rewording — the mechanism changed underneath
+    //    it. Destructive turns are now STAGED by `shouldStage` and reviewed on a
+    //    card, so telling the model to seek confirmation in chat described a
+    //    protocol the app no longer runs, and one that was never enforced by
+    //    anything when it did. Seven identical clauses in `chat-tool-defs.ts`
+    //    went with it. Do NOT reintroduce a confirm-in-chat instruction: the gate
+    //    stages the write whatever the model was told, and prose asking for a
+    //    second, weaker confirmation trains the model to narrate a step the user
+    //    never sees.
+    "Some turns are STAGED for the user to review instead of being applied: any turn that deletes something, and any turn that writes more than one row. You do not choose this and cannot opt out of it.",
+    "A tool result saying the write was staged means NOTHING was written. Do not call that tool again for the same change, and never tell the user the change is done — tell them it is waiting for their approval in the review card.",
+    "While writes are staged, read tools still return COMMITTED state, so they will not reflect anything you staged in this turn. A staged create's result carries a PROVISIONAL id: reference it in later calls in THIS turn so dependent writes are linked correctly, but it is not the id the row will finally have, so never show it to the user.",
     "When the user references a record by name or fragment, call the matching list_ tool to find its ID first.",
     `Active language code: ${lang}.`,
   ].join("\n");

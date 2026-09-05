@@ -217,6 +217,7 @@ export function WorkspaceSection({
   absenceCalendar,
   guides = [],
   guidesReady = true,
+  runProposalBatch,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
   const features = settings.features;
@@ -227,7 +228,14 @@ export function WorkspaceSection({
     () => setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } })),
     [setSettings],
   );
-  const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights } = useWorkspace();
+  // ★ The whole context value is kept as well as the destructured slices: the
+  //   chat panel grounds a STAGED plan's diffs, row titles and concurrency
+  //   tokens against it, and `describeProposal` takes a full `Workspace` (six
+  //   entity slices, resources included) rather than a Pick. This is the same
+  //   thing `use-entity-inline-ai-edit.tsx` does with `useWorkspace()` for the
+  //   inline row editor, which grounds through the same descriptor engine.
+  const workspace = useWorkspace();
+  const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights } = workspace;
   // Per-project EFFECTIVE settings — device folded with this project's policy
   // overrides (nextActions/notifications/timezone) AND its per-device appearance
   // overrides (density/view-hints/tasks-view-mode). Reactive: an appearance change
@@ -374,6 +382,8 @@ export function WorkspaceSection({
             saveChatConversation={saveChatConversation}
             tursoMode={chatTursoMode}
             tursoConfig={chatTursoConfig}
+            workspace={workspace}
+            runBatched={runProposalBatch}
           />
         </div>
 

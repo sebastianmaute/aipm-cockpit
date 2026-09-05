@@ -9,6 +9,7 @@ import { type Settings } from "./settings-types";
 import { type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
+import { type UndoStackApi } from "./undo/use-undo-stack";
 
 export interface ChatDispatcherArgs {
   settings: Settings;
@@ -114,4 +115,21 @@ export interface ChatDispatcherArgs {
    *  Optional, like `logActivityAs`: a test harness or a popout supplies no
    *  bypass at all. */
   allowDestructiveSave?: () => void;
+  /** Undo capture for AI writes. REQUIRED, and that is the whole defence of one
+   *  line of wiring.
+   *
+   *  ★★★ IT WAS `undo?:` FOR EXACTLY ONE MIGRATION, AND THIS IS THAT MIGRATION
+   *  ENDING. Every capture site reads it through `undoRef`, so an absent value
+   *  turns all fourteen of them into `undefined?.captureComposite(...)` — the
+   *  assistant's writes silently stop being recoverable and NOTHING says so.
+   *  Measured while the field was optional: deleting `undo: undoApi` from
+   *  `task-manager.tsx` (its ONLY production call site) was green on eslint, on
+   *  `npx tsc --noEmit` and on the whole unit suite. Requiring it is what makes
+   *  that deletion a compile error, so do NOT reintroduce the `?` — an
+   *  always-optional dependency is how a write path silently stops capturing.
+   *
+   *  ★ It costs unrelated tests nothing: `makeDispatcherArgs`
+   *  (`src/test/chat-dispatcher-fixture.tsx`) supplies an inert default, so only
+   *  a fixture that asserts on capture has to pass one. */
+  undo: Pick<UndoStackApi, "captureComposite">;
 }
