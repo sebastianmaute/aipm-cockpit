@@ -160,6 +160,24 @@ export function mintProvisionalIds(
   return out;
 }
 
+/** The three document tools address a document by `input.id` but have no
+ *  descriptor, so `TOOL_ENTITY` misses them and `liveRowTitle` would fall back
+ *  to the bare tool name.
+ *
+ *  ★★★ THIS IS THE ROW THAT MOST NEEDS A NAME. Document chat writes take NO
+ *   undo capture (they recover via `documentVersions` instead), so the staged
+ *   card is the only thing between the model and an unreviewed multi-document
+ *   rewrite — and it was the row the card could say least about.
+ *
+ *  ★ Deliberately NOT a `document` entry in `INLINE_DESCRIPTORS`: `blocks` is a
+ *   typed union outside `diffFields`' scalar model, so a descriptor would diff
+ *   the title alone while implying it diffs more. */
+const DOCUMENT_TOOLS: ReadonlySet<string> = new Set([
+  "create_document",
+  "update_document",
+  "delete_document",
+]);
+
 /**
  * The LIVE row's own title for a call that addresses one, or `null`.
  *
@@ -179,24 +197,6 @@ export function mintProvisionalIds(
  * against (`TOOL_ENTITY` → `INLINE_DESCRIPTORS`), so the title and the diff
  * beneath it can never describe two different rows.
  */
-/** The three document tools address a document by `input.id` but have no
- *  descriptor, so `TOOL_ENTITY` misses them and `liveRowTitle` would fall back
- *  to the bare tool name.
- *
- *  ★★★ THIS IS THE ROW THAT MOST NEEDS A NAME. Document chat writes take NO
- *   undo capture (they recover via `documentVersions` instead), so the staged
- *   card is the only thing between the model and an unreviewed multi-document
- *   rewrite — and it was the row the card could say least about.
- *
- *  ★ Deliberately NOT a `document` entry in `INLINE_DESCRIPTORS`: `blocks` is a
- *   typed union outside `diffFields`' scalar model, so a descriptor would diff
- *   the title alone while implying it diffs more. */
-const DOCUMENT_TOOLS: ReadonlySet<string> = new Set([
-  "create_document",
-  "update_document",
-  "delete_document",
-]);
-
 export function liveRowTitle(call: ProposedCall, ws: Workspace): string | null {
   const entity = TOOL_ENTITY[call.name];
   if (entity === undefined && DOCUMENT_TOOLS.has(call.name)) {
