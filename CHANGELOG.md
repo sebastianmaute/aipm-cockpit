@@ -8,6 +8,61 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.285.0] - 2026-09-05 "Barnhill"
+
+### Added
+
+- **Time tracking is now a Jira-style dialog, opened from the progress bar.**
+  The task editor's single "Time spent" box is replaced by the effort bar
+  itself acting as a button: it opens a dialog holding time spent, a remaining
+  estimate and the original estimate, with the same w/d/h/m format the rest of
+  the app accepts. Remaining work is an OVERRIDE — leave it empty and it keeps
+  following the estimate, shown as the box's placeholder so you can see what
+  the app will use without that figure being stored. Typing a value pins it;
+  clearing it returns to the derived figure rather than storing a zero, because
+  a stored zero is the different and real claim "no work left".
+- **A task carries a remaining-estimate override.** A new optional field on the
+  task, in minutes, written across all six persistence paths.
+
+### Changed
+
+- **The edit-task dialog is reorganised.** Status & Notes moves up to third, so
+  the order reads Details, Scheduling, Status & Notes, Effort & Classification,
+  Relationships. Predecessors and successors now share one row at half width
+  each instead of stacking; group and labels likewise. The budget bucket moves
+  out of Relationships into Effort & Classification, where the rest of the
+  classification fields already were. The task-name dictation button moves up
+  beside its caption.
+
+### Fixed
+
+- **Three controls named "Add task" no longer do opposite things.** With the
+  task form open, its submit button and the two openers behind it all carried
+  the same name, and the openers discard an in-progress edit before reopening
+  the editor. Screen readers scope announcements to the open dialog and were
+  never exposed; speech input does not scope at all, so "click Add task"
+  mid-edit could throw the edit away. The submit is now qualified with the
+  dialog's own title, and the trailing add row uses the opener wording it
+  should always have had. The two openers keep one shared name deliberately:
+  same purpose, same result.
+- **A stacked dialog no longer repeats the surface beneath it.** The time
+  tracking dialog's Close and Cancel are qualified with its title, so they no
+  longer collide with the task form's own, and its header no longer renders a
+  second voice-command button.
+- **The time tracking dialog is positioned against the window.** An ancestor
+  transform on the task form made that panel, rather than the viewport, the
+  reference for the dialog's backdrop, so it was sized and offset to the form
+  beneath instead of covering the window.
+- **Clicking the dimmed background behind a stacked dialog no longer dismisses
+  the surface underneath it.**
+- **Pressing Enter in a duration box commits the dialog instead of saving the
+  task behind it.** Enter is also no longer swallowed on the dialog's own
+  buttons, which had briefly stopped them responding to the keyboard.
+- **A pinned zero shows as "0m" rather than an empty box,** which had been
+  indistinguishable from "not overridden" — the distinction the field exists
+  for. Save is disabled while either duration box holds text that cannot be
+  read as a duration, instead of silently saving the last value that could.
+
 ## [0.284.0] - 2026-09-05 "Kornbluth"
 
 ### Changed
