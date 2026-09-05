@@ -8,6 +8,44 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.282.0] - 2026-09-05 "Zamyatin"
+
+### Added
+
+- **TimeLog bookings are reviewed against four optional guardrails.** Switch on
+  any of a per-entry cap, a daily cap, work booked on a holiday or weekend, and
+  hours beyond a person's contracted day. Each surfaces as an insight naming the
+  person, how many days breached and the worst day; none of them blocks
+  anything, because Cockpit never writes a time entry — these describe bookings
+  already made elsewhere. All four default to off.
+- **The two capped rules take a threshold you set**, between 1 and 24 hours. A
+  rule switched on without a usable threshold tells you so in the settings row
+  and stays inert rather than quietly passing everything.
+
+### Fixed
+
+- **A guardrail insight is no longer resolved as an improvement when nobody
+  looked.** These rules read a per-device cache of fetched bookings, so a rule
+  that could not run at all produced the same silence as a rule that ran and
+  found nothing — and the second reads as "fixed". An insight is now only
+  resolved when the data behind it demonstrably covered the days and the person
+  it was about; otherwise it is left exactly as it was until a fetch that does
+  cover it. This matters because insights are shared and exported, so a
+  fabricated improvement travelled to everyone and into the AI's context.
+- **Re-checking one person no longer resolves everyone else's.** Fetching
+  bookings for a subset of people wrote a result that looked complete, so
+  everybody who was not fetched appeared to have no violations. The stored
+  bookings now record which people they cover as well as which days.
+- **Removing one person's resource link no longer clears their guardrails.**
+  The two rules that need a work schedule went silent for that person while
+  still reporting themselves as having run.
+- **The holiday rule waits for the holiday list to load.** Before it did, an
+  unloaded list was indistinguishable from a country with no holidays, so
+  bookings on a holiday could read as clean.
+- **A very large booking history no longer costs the whole cached result.**
+  Per-project booking data is now bounded, and what it claims to cover is
+  narrowed to match what was actually kept.
+
 ## [0.281.0] - 2026-09-04 "Womack"
 
 ### Added

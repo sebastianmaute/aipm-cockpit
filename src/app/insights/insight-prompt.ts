@@ -46,6 +46,14 @@ function factLine(insight: Insight): string {
       return `Budget "${str(d, "name")}" variance ${num(d, "variancePct")}% over ${num(d, "buckets")} buckets`;
     case "raidAging":
       return `RAID "${str(d, "name")}" aging, ${num(d, "daysSinceUpdate")}d since update`;
+    case "timelogCapPerEntry":
+      return `TimeLog: ${str(d, "person")} has ${num(d, "count")} day(s) with a single entry over the ${num(d, "threshold")}h cap, worst ${num(d, "worstHours")}h`;
+    case "timelogCapPerDay":
+      return `TimeLog: ${str(d, "person")} has ${num(d, "count")} day(s) over the ${num(d, "threshold")}h daily cap, worst ${num(d, "worstHours")}h (fetched projects only)`;
+    case "timelogNonWorkingDay":
+      return `TimeLog: ${str(d, "person")} booked time on ${num(d, "count")} non-working day(s), worst ${num(d, "worstHours")}h`;
+    case "timelogWorkingHours":
+      return `TimeLog: ${str(d, "person")} booked over defined hours on ${num(d, "count")} day(s), worst ${num(d, "worstHours")}h`;
   }
 }
 

@@ -96,9 +96,13 @@ import { useVersionHistory } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
-import { detectInsights, type InsightInput } from "./insights/detect";
+import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insights/detect";
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
+import type { Insight, InsightType } from "./insights/insight";
 import { loadLandingState } from "./landing-state";
+import { loadActualsCache } from "./timelog-actuals-store";
+import { evaluateTimelogPolicy } from "./timelog-policy";
+import { EMPTY_TIMELOG_LINKS, isBlankTimelogLinks } from "./timelog-sanitize";
 import { metricAtActionPatch } from "./insights/outcome";
 import { useInsightRecommendations } from "./use-insight-recommendations";
 import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
@@ -378,7 +382,7 @@ function TaskManagerInner() {
     document.title = `${t(lang, navLabelKey(activeTab))} — ${t(lang, "appTitle")}`;
   }, [isPopout, activeTab, lang]);
 
-  const { holidaySet } = useHolidaySet({
+  const { holidaySet, holidaysReady } = useHolidaySet({
     holidayCountries: settings.holidayCountries,
   });
 
@@ -876,8 +880,12 @@ function TaskManagerInner() {
     () => loadLandingState(landingProjectId).metrics?.overdue ?? null,
     [landingProjectId],
   );
+  // ★ Returns everything EXCEPT `timelogViolations`: those come from the
+  // per-device actuals cache, which is read inside the debounced body below so
+  // a fetch landing between recomputes is picked up on the next pass. Building
+  // them here would key the effect on a value this builder cannot observe.
   const buildInsightInput = useCallback(
-    (): InsightInput => ({
+    (): Omit<InsightInput, "timelogViolations"> => ({
       tasks,
       milestones,
       raid,
@@ -900,15 +908,144 @@ function TaskManagerInner() {
   useEffect(() => {
     if (!hydrated || isPopout) return;
     const timer = setTimeout(() => {
-      const detected = detectInsights(buildInsightInput(), today);
+      // The guardrail rules read the per-device daily roll from the actuals
+      // cache — keyed the same way TimelogPanel WRITES it (open-followups §14).
+      // ★★ Read the entry ONCE. `daily`, `partial` and `dailyWindow` describe
+      // ONE fetch, and the predicate below compares them against each other;
+      // three separate `loadActualsCache` calls could straddle a write and pair
+      // a window with a roll it never covered.
+      const actuals = loadActualsCache(currentProjectId ?? "default");
+      const policyResult = evaluateTimelogPolicy({
+        daily: actuals?.daily ?? null,
+        policy: timelogLinks?.policy,
+        holidaySet,
+        holidaysReady,
+        userLinks: timelogLinks?.userLinks ?? [],
+        shifts,
+      });
+      const detected = detectInsights(
+        { ...buildInsightInput(), timelogViolations: policyResult.violations },
+        today,
+      );
+      // ★★★ THE PREDICATE THAT KEEPS "this produced no violation" DISTINCT FROM
+      // "this was never looked at". Answered PER INSIGHT, never per type: for
+      // the guardrails the answer depends on the row's own violating days.
+      // Every unproven case returns FALSE, because freezing is recoverable (the
+      // next covering fetch clears it) and a fabricated "improved" in an
+      // exported artifact is not.
+      const evaluatedRules = new Set<InsightType>(policyResult.evaluated);
+      const rollWindow = actuals?.dailyWindow;
+      const rollUsers = actuals?.dailyUsers;
+      // ★★★ ANY NON-FALSE `partial` FREEZES HERE — and this deliberately does
+      // NOT match how the Apply path reads the same flag. `partial` is validated
+      // NOWHERE, so a non-boolean
+      // survives into the entry and `=== true` read `partial: "yes"` as NOT
+      // partial, then went on to certify a clean.
+      // ★★★ §172 IS RIGHT FOR ITS OWN CONSUMER AND WRONG FOR THIS ONE, which is
+      // why the two now differ on purpose. Its rule is `=== true` because
+      // treating a hand-edited value as partial would DISABLE APPLY with no way
+      // back but Clear all — there, the unsafe direction is refusing to act.
+      // Here the unsafe direction is the opposite: acting on an unproven flag
+      // writes a fabricated "improved" into shared, exported data, which no user
+      // can undo because nothing tells them it happened. `budget-unapplied-
+      // notice.tsx` keeps `=== true` and should. One flag, two consumers,
+      // opposite safe directions — do not "harmonise" them.
+      // ★★ Absent stays not-partial: that is the real back-compat case (§172),
+      // and it is untouched here.
+      const partialFlag = actuals?.partial;
+      const rollPartial = partialFlag !== undefined && partialFlag !== false;
+      const isEvaluated = (insight: Insight): boolean => {
+        // ★★ NOT a core type merely because it is in the list: `overdueTrend`
+        // goes dark whenever this device has no landing snapshot for the
+        // project, so it is certified by the same value the detector gates on.
+        if (insight.type === "overdueTrend") return priorOverdueCount !== null;
+        // ★★★ THE READINESS FLOOR IS NOT A GUARDRAIL-ONLY RULE, and applying it
+        // to one rule while a CORE detector consumed the same value was the gap.
+        // `budgetVarianceInsight` threads `holidaySet` into `computeBudgetReport`
+        // (capacity → `budgetHours` → the variance pct), so an
+        // empty-because-unloaded set moves the number the threshold is compared
+        // against and the insight can go dark. The other two core detectors
+        // receiving `holidaySet` are unaffected and were checked rather than
+        // assumed: `overdueTrend` and `milestoneSlip` both decide on a bare
+        // `date < today` that returns BEFORE any holiday-aware workday maths.
+        // ★★ Not just the transient load: if `loadHolidaysCtor()` rejects,
+        // `useHolidaySet` keeps `ready:false` and an empty set permanently, so
+        // this is the difference between freezing and fabricating forever.
+        if (insight.type === "budgetVariance") return holidaysReady;
+        if (CORE_INSIGHT_TYPES.includes(insight.type)) return true;
+        // Everything left is a guardrail rule (or, defensively, a type nothing
+        // here evaluates — which falls through to false, the safe direction).
+        // The policy module's OWN report, never the rules that happened to
+        // yield violations and never all four unconditionally.
+        if (!evaluatedRules.has(insight.type)) return false;
+        // A `partial` fetch is missing whole people while every rule still
+        // reports itself evaluated — a lost zero, not a real one.
+        if (rollPartial) return false;
+        // ★★★ The roll is a WINDOW-and-scope snapshot that `finish()` replaces
+        // wholesale, so a rule can run, find nothing, and simply never have
+        // looked at the days this insight is about (fetch Feb, act, re-fetch
+        // Apr). Only a window demonstrably covering them certifies a clean.
+        // ★★ An EMPTY roll over a covering, non-partial window is a REAL clean
+        // — a fetch that legitimately returned no rows — and clears here. "No
+        // data" and "no bookings" are what `partial` and this window separate.
+        if (rollWindow === undefined) return false;
+        // ★★ BACK-COMPAT FREEZES. An insight stored before the dates existed,
+        // or a cache entry written before `dailyWindow` did, cannot ESTABLISH
+        // coverage — absent evidence is not evidence of coverage.
+        const first = insight.data.firstViolationDate;
+        const last = insight.data.lastViolationDate;
+        if (typeof first !== "string" || typeof last !== "string") return false;
+        // ISO `YYYY-MM-DD` compares correctly with `<=`/`>=`; the store already
+        // rejects a window that is not two ISO dates with `from <= to`.
+        if (!(rollWindow.from <= first && rollWindow.to >= last)) return false;
+        // ★★★ THE SCOPE HALF, AND THE WINDOW ALONE WAS NOT ENOUGH. The roll is a
+        // window-AND-scope snapshot: `fetchBookings` iterates only the ticked
+        // people and a successful narrow fetch is NOT `partial`, so without this
+        // check one "re-check just Bob" resolves every other person's insight as
+        // "improved". Project scope reports covering nobody, because it fetches
+        // selected PROJECTS rather than whole days and can never certify a
+        // person's total.
+        // ★★ Absent freezes, exactly like an absent window: an entry written
+        // before this field existed cannot ESTABLISH who it covered, and absent
+        // evidence is not evidence of coverage.
+        if (rollUsers === undefined) return false;
+        const who = insight.data.timelogUserId;
+        if (typeof who !== "number") return false;
+        if (!rollUsers.includes(who)) return false;
+        // ★★★ THE PER-PERSON LINK FLOOR. The two shift-dependent rules need this
+        // person to resolve to a resource before "no violation" means anything:
+        // `timelogWorkingHours` reads their expected hours from the shift, and
+        // `timelogNonWorkingDay`'s weekday half reads their weekend from it. The
+        // whole-rule floor in the engine only asks whether SOME link exists, so
+        // removing one person's link leaves the rule evaluated while that person
+        // goes dark — and the key is per person.
+        // ★★ `timelogNonWorkingDay` is included even though its HOLIDAY half needs no
+        // link, and that is deliberately conservative: the two halves share one
+        // insight key, so a currently-unlinked person's "no violation" is an
+        // answer about the holiday half ALONE and cannot certify the other.
+        // ★ Cost: a never-linked booker's guardrail rows stop auto-resolving.
+        // They still get RAISED — detection is deliberately link-independent
+        // (`buildDailyRoll` measures unlinked bookers on purpose). Measuring and
+        // certifying-a-clean are different acts, and only the second needs this.
+        if (insight.type === "timelogWorkingHours" || insight.type === "timelogNonWorkingDay") {
+          return policyResult.linkedUsers.includes(who);
+        }
+        return true;
+      };
       setInsights((prev) => {
         const base = prev ?? [];
-        const next = reconcileInsights(base, detected, today);
+        const next = reconcileInsights(base, detected, today, isEvaluated);
         return insightsMateriallyEqual(base, next) ? base : next;
       });
     }, INSIGHTS_RECONCILE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [buildInsightInput, today, hydrated, isPopout, setInsights]);
+    // ★ `holidaysReady` is a real dep, not noise: the pass taken while it is
+    // false leaves `timelogNonWorkingDay` unevaluated, so the reconcile MUST
+    // re-run when it flips true or those insights stay frozen for the session.
+    // ★ `priorOverdueCount` is a dep in its OWN right, not merely via
+    // `buildInsightInput`: the predicate above reads it directly to decide
+    // whether `overdueTrend` was evaluated at all.
+  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, holidaysReady, shifts, priorOverdueCount]);
 
   // Lifecycle handlers (threaded to the dashboard as an insightActions bag; the
   // review UI that invokes them is built in Task 6/7). Each is a functional
@@ -2506,6 +2643,19 @@ function TaskManagerInner() {
       onSectionConsumed={clearSettingsSectionRequest}
       isPopout={isPopout}
       resources={resources}
+      // The TimeLog guardrail policy rides the workspace `timelogLinks` blob,
+      // so it is threaded from here rather than read off per-device settings.
+      // ★★ The write goes back to `undefined` when the blob ends up empty:
+      // `workspaceToJson` emits a `timelogLinks` key for any truthy blob, so a
+      // plain `setTimelogLinks(next)` would put one into the exported artifact
+      // for a user who switched a rule on and straight back off again.
+      // ★ Read-only in a popout, which has no business writing shared policy.
+      timelogLinks={timelogLinks ?? EMPTY_TIMELOG_LINKS}
+      onTimelogLinksChange={
+        isPopout
+          ? undefined
+          : (next) => setTimelogLinks(isBlankTimelogLinks(next) ? undefined : next)
+      }
     />
   );
 

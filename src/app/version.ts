@@ -2,19 +2,23 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.281.0";
-export const APP_BUILD_DATE = "2026-09-04"; // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
+export const APP_VERSION = "0.282.0";
+export const APP_BUILD_DATE = "2026-09-05"; // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
+// 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 // 0.280.0: the assistant's document edits must now prove they are editing the block they read, so a hand edit made in between is refused instead of silently overwritten, and reordering a block is one safe operation rather than a delete plus an insert (Sinisalo)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.281.x line is "Womack" (Jack Womack, American SF author, "Random Acts of
- *  Senseless Violence"). Checked BEFORE the bump — the stronger order this
+ *  0.282.x line is "Zamyatin" (Yevgeny Zamyatin, Russian author of "We", the
+ *  novel that founded the dystopian line Orwell and Huxley followed).
+ *  Checked BEFORE the bump — the stronger order this
  *  docstring asks for, and the one its 0.278.x note says was skipped — with
  *  the command quoted further down: zero hits, against a pattern proved in the
- *  same run to see all 374 named headers, returning 2 for "Cadigan" AND 1 for
+ *  same run to see all 375 named headers, returning 2 for "Cadigan" AND 1 for
  *  "Sinisalo" as positive controls. A whole-file case-insensitive sweep
- *  (`grep -ic womack CHANGELOG.md`) also returns 0, which covers the
+ *  (`grep -ic zamyatin CHANGELOG.md`) also returns 0, which covers the
  *  codename-before-the-date header shape that let "Banks" through. So this one
  *  is genuinely fresh rather than a permitted reuse.
+ *  0.281.x was "Womack" (Jack Womack, American SF author, "Random Acts of
+ *  Senseless Violence").
  *  0.280.x was "Sinisalo" (Johanna Sinisalo, Finnish SF author, "Troll: A
  *  Love Story").
  *  ★★★ IT WAS THE SECOND CANDIDATE. "Banks" was written into this constant,
@@ -180,7 +184,7 @@ export const APP_BUILD_DATE = "2026-09-04"; // 0.281.0: the assistant can now re
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Womack";
+export const APP_MILESTONE = "Zamyatin";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

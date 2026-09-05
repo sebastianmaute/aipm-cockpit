@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Task, Milestone, RaidItem, BudgetBucket, ResourcePlan, Role, Resource } from "../types";
 import {
+  CORE_INSIGHT_TYPES,
   detectInsights,
   type InsightInput,
   MILESTONE_SLIP_MIN_REBASELINES,
@@ -9,6 +10,7 @@ import {
   RAID_AGING_DAYS,
   STALE_DAYS,
 } from "./detect";
+import { sanitizeInsights } from "./sanitize-insights";
 
 const TODAY = "2026-06-15";
 
@@ -44,7 +46,7 @@ const PLAN: ResourcePlan = {
 function input(over: Partial<InsightInput>): InsightInput {
   return {
     tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan: null,
-    priorOverdueCount: null, holidaySet: new Set<string>(), ...over,
+    priorOverdueCount: null, timelogViolations: null, holidaySet: new Set<string>(), ...over,
   };
 }
 function detect(over: Partial<InsightInput>) {
@@ -250,5 +252,146 @@ describe("composition", () => {
       "raidAging:1",     // medium
       "overdueTrend",    // low
     ]);
+  });
+});
+
+describe("timelog guardrail insights", () => {
+  const violation = {
+    rule: "timelogCapPerDay" as const,
+    timelogUserId: 7,
+    resourceId: 40,
+    count: 2,
+    worstHours: 12,
+    threshold: 8,
+    // Two NON-ADJACENT breaching days, so a `data` assertion below cannot pass
+    // by accident against a single-day range or a swapped pair.
+    firstViolationDate: "2026-02-03",
+    lastViolationDate: "2026-02-19",
+  };
+  const ada: Resource = {
+    id: 40, firstName: "Ada", lastName: "Lovelace",
+    roleId: null, utilizationMode: "percent", utilization: {},
+  };
+
+  it("emits nothing when violations are null", () => {
+    const out = detect({ timelogViolations: null });
+    expect(out.filter((i) => i.type.startsWith("timelog"))).toEqual([]);
+  });
+
+  it("names the person from the linked resource", () => {
+    const out = detect({ timelogViolations: [violation], resources: [ada] });
+    const g = out.find((i) => i.type === "timelogCapPerDay");
+    expect(g).toBeDefined();
+    expect(g?.key).toBe("timelog:timelogCapPerDay:7");
+    expect(g?.severity).toBe("medium");
+    expect(g?.entityRef).toEqual({ view: "resources", id: 40 });
+    expect(g?.data).toEqual({
+      person: "Ada Lovelace", count: 2, worstHours: 12, threshold: 8,
+      firstViolationDate: "2026-02-03", lastViolationDate: "2026-02-19",
+      // The identity the reconcile's SCOPE check reads. Deliberately the raw
+      // timelog userId and not the resource id: `dailyUsers` records who the
+      // FETCH covered, and a fetch knows people by their timelog id — a person
+      // with no link has one of these and no resource id at all.
+      timelogUserId: 7,
+    });
+  });
+
+  // ★★ The two dates are the whole reason a later reconcile can tell "this rule
+  // ran and found nothing" apart from "the roll no longer covers the days this
+  // insight was about". They must reach `data` UNSWAPPED and unrounded — an
+  // exact-object assertion above already pins the set of keys; this pins each
+  // date to its own end against a range whose two days differ.
+  it("carries the violation's first and last violating day into data", () => {
+    const out = detect({ timelogViolations: [violation], resources: [ada] });
+    const g = out.find((i) => i.type === "timelogCapPerDay");
+    expect(g?.data.firstViolationDate).toBe("2026-02-03");
+    expect(g?.data.lastViolationDate).toBe("2026-02-19");
+  });
+
+  // ★★★ Not decoration: `sanitizeData` is what every LOAD path runs, and it
+  // keeps only finite numbers and strings. If it ever narrowed to numbers, the
+  // dates would vanish on reload while every in-memory test above stayed green
+  // — the insight would silently go back to being unwindowed.
+  it("keeps both dates through the persisted-insight sanitiser", () => {
+    const out = detect({ timelogViolations: [violation], resources: [ada] });
+    const g = out.find((i) => i.type === "timelogCapPerDay");
+    const [restored] = sanitizeInsights([{
+      id: 1, key: g!.key, type: g!.type, severity: g!.severity, data: g!.data,
+      status: "active", firstSeenAt: "2026-02-20", lastSeenAt: "2026-02-20", occurrences: 1,
+    }]);
+    expect(restored.data.firstViolationDate).toBe("2026-02-03");
+    expect(restored.data.lastViolationDate).toBe("2026-02-19");
+  });
+
+  // No entityRef without a link: InsightEntityRef requires a real workspace id,
+  // and the recommendation-replay path resolves it as a real row.
+  it("omits entityRef and identifies the person by TimeLog id when unlinked", () => {
+    const out = detect({ timelogViolations: [{ ...violation, resourceId: null }] });
+    const g = out.find((i) => i.type === "timelogCapPerDay");
+    expect(g?.entityRef).toBeUndefined();
+    expect(g?.data.person).toBe("#7");
+  });
+
+  // A DANGLING link (the resource was deleted) must behave like no link at all —
+  // it is the id-resolution, not the link's presence, that decides.
+  it("omits entityRef when the linked resource no longer exists", () => {
+    const out = detect({ timelogViolations: [violation], resources: [{ ...ada, id: 41 }] });
+    const g = out.find((i) => i.type === "timelogCapPerDay");
+    expect(g?.entityRef).toBeUndefined();
+    expect(g?.data.person).toBe("#7");
+  });
+
+  it("emits one insight per violation, all at medium severity", () => {
+    const out = detect({
+      timelogViolations: [
+        violation,
+        { ...violation, rule: "timelogNonWorkingDay" as const, timelogUserId: 8, resourceId: null, threshold: 0 },
+      ],
+    });
+    const guardrails = out.filter((i) => i.type.startsWith("timelog"));
+    expect(guardrails.map((i) => i.key)).toEqual([
+      "timelog:timelogCapPerDay:7",
+      "timelog:timelogNonWorkingDay:8",
+    ]);
+    expect(guardrails.every((i) => i.severity === "medium")).toBe(true);
+  });
+});
+
+// ★★★ The list was entirely unpinned: gutting it at the call site left every
+// test green while making every core insight IMMORTAL — never resolved, never
+// pruned. (A grep count once quoted here refuted itself — the comment became
+// one of the matches, so nobody could reproduce the number.) `task-manager.guardrail-reconcile
+// .test.tsx` now kills that mutant behaviourally; this pins the membership.
+describe("CORE_INSIGHT_TYPES", () => {
+  it("is exactly the five non-guardrail types", () => {
+    // Deliberately a hand-written list, not derived from `INSIGHT_TYPES` minus
+    // the rule ids — a derived expectation restates the code and pins nothing.
+    // Same precedent, and the same reason, as `METRIC_FIELD` in outcome.test.ts.
+    // Adding an insight type is meant to land here and force the decision of
+    // whether it can go dark on a device.
+    expect([...CORE_INSIGHT_TYPES].sort()).toEqual([
+      "budgetVariance",
+      "milestoneSlip",
+      "overdueTrend",
+      "raidAging",
+      "stalledWork",
+    ]);
+  });
+
+  // ★★ Membership is NOT a licence to clear, which is the correction this slice
+  // made to the list's own docstring. `overdueTrend` is in the list AND goes
+  // dark without a per-device landing snapshot, so a reader who takes the list
+  // as "always evaluated" reintroduces the defect. Pinned so a future edit that
+  // re-asserts the old invariant has to confront this line.
+  it("includes overdueTrend, which is nonetheless not always evaluated", () => {
+    expect(CORE_INSIGHT_TYPES).toContain("overdueTrend");
+    const overdue = [task({ id: 1, dueDate: "2026-06-01" }), task({ id: 2, dueDate: "2026-06-02" })];
+    // The positive control is what stops this being vacuous: the SAME tasks
+    // that produce a detection with a snapshot produce NONE without one, so the
+    // absence is attributable to `priorOverdueCount`, not to the fixture.
+    const withSnapshot = detect({ tasks: overdue, priorOverdueCount: 1 });
+    expect(withSnapshot.filter((i) => i.type === "overdueTrend")).toHaveLength(1);
+    const noSnapshot = detect({ tasks: overdue, priorOverdueCount: null });
+    expect(noSnapshot.filter((i) => i.type === "overdueTrend")).toHaveLength(0);
   });
 });

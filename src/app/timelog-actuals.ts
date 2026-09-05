@@ -1,6 +1,7 @@
 // src/app/timelog-actuals.ts — pure, i18n-free aggregation of Timelog bookings.
 import type { PlanGranularity } from "./types";
 import { periodKeyForDate } from "./resource-capacity";
+import { dailyKey, type TimelogDailyRoll } from "./timelog-types";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
 export type HourCell = { hours: number; billableHours: number };
@@ -64,4 +65,45 @@ export function aggregateActuals(
     };
   }
   return { byBucket, byResource, unattributed };
+}
+
+/**
+ * Per-(user, date) roll — the input to the guardrail rules.
+ *
+ * ★★★ SEPARATE FROM `aggregateActuals` ON PURPOSE, and the difference is the
+ * point. Aggregation answers "how do these hours attribute to budget buckets",
+ * so it collapses the date to a period key, sums per-entry hours away, and
+ * folds every unlinked item into `unattributed`. The rules ask "what did this
+ * PERSON book that day", so the roll keeps the calendar date, keeps the largest
+ * single entry, and keeps non-project time — it is still their time.
+ *
+ * Sparse: only (user, date) pairs that carry bookings get a key.
+ */
+export function buildDailyRoll(items: readonly TimelogTimeItem[]): TimelogDailyRoll {
+  const out: TimelogDailyRoll = {};
+  for (const it of items) {
+    // Drop the unidentified-booker SENTINEL. `mapV2TimeItem` (timelog-api.ts)
+    // resolves `EmployeeInitials` against the directory and falls back to
+    // `userId: 0` via its `|| 0`, so without this every employee the directory
+    // could not identify sums into ONE `0|<date>` cell — three unresolved
+    // people booking 8h each become a 24h day, and the guardrail rules report
+    // a cap violation for a person who does not exist. `use-timelog-sync.ts`
+    // already filters `id > 0` when it builds the People table; the roll
+    // honours the same convention.
+    // ★ NARROW ON PURPOSE: an UNLINKED booker (a real positive userId with no
+    // TimelogUserLink) must still be measured — see the "deliberately
+    // links-independent" comment at the buildDailyRoll call site. Only the
+    // non-positive sentinel is excluded.
+    if (it.userId <= 0) continue;
+    const k = dailyKey(it.userId, it.date);
+    const cur = out[k];
+    if (cur === undefined) {
+      out[k] = { hours: it.hours, maxEntryHours: it.hours, entryCount: 1 };
+      continue;
+    }
+    cur.hours += it.hours;
+    if (it.hours > cur.maxEntryHours) cur.maxEntryHours = it.hours;
+    cur.entryCount += 1;
+  }
+  return out;
 }

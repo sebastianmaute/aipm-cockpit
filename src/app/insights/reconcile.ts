@@ -105,10 +105,12 @@ function clear(prev: Insight, today: string): Insight | null {
     const resolved: Insight = { ...prev, status: "resolved", resolvedAt: today };
     if (prev.status !== "acted") return resolved;
     const baseline = baselineOf(prev);
-    // SP3 — DIRECTION-ONLY: the condition cleared, but four of the five detectors
-    // are threshold-gated, so "cleared" means BELOW THRESHOLD, not zero, and there
-    // is no detection left to read the true value from. Emitting a magnitude here
-    // would overstate the win. `baseline` is passed through UNCLAMPED: it is the
+    // SP3 — DIRECTION-ONLY: the condition cleared, and a disappearance carries no
+    // number — this branch is reached precisely because there is no detection left
+    // to read a current value from. Emitting a magnitude here would invent one,
+    // and for the threshold-gated detectors it would be wrong on its face
+    // ("cleared" means below threshold, not zero). `InsightOutcome.current` holds
+    // the per-type split. `baseline` is passed through UNCLAMPED: it is the
     // one number this feature exists to preserve faithfully, and clamping would
     // report a "before" value the user never had. (Direction cannot read as
     // "worsened" regardless — computeClearedOutcome always emits "improved".)
@@ -119,10 +121,46 @@ function clear(prev: Insight, today: string): Insight | null {
   return null;
 }
 
+/**
+ * @param isEvaluated - Answers, for ONE stored insight, whether this pass could
+ * actually have re-detected it. `false` ⇒ freeze it untouched.
+ *
+ * ★★★ REQUIRED, WITH NO DEFAULT, AND THAT IS THE POINT. `clear()` above reads
+ * "absent from the detection set" as "the condition cleared". That inference is
+ * sound only for a detector that always runs. A detector that can go DARK —
+ * TimeLog unconfigured on this device, a failed fetch, a disabled rule —
+ * produces nothing, and producing nothing is exactly what triggers clear().
+ *
+ * Because bookings are a PER-DEVICE cache while `Workspace.insights` is SHARED
+ * AND EXPORTED, defaulting this to "everything was evaluated" would let a second
+ * device prune another device's guardrail insights and resolve any `acted` one
+ * through `computeClearedOutcome`, which always writes "improved" — a fabricated
+ * win in an exported artifact, which then rides every AI turn via the outcomes
+ * section.
+ *
+ * ★★★ A PER-INSIGHT PREDICATE, NOT A SET OF TYPES, AND THE DIFFERENCE IS THE
+ * WHOLE DEFECT CLASS. A `ReadonlySet<InsightType>` can only say "this TYPE ran";
+ * every real go-dark case here is "this SPECIFIC stored insight cannot be
+ * certified", which no set can express. Three that shipped inside one:
+ *   - `overdueTrend` is a core detector that returns null when the per-device
+ *     landing snapshot is absent, so the TYPE is never uniformly evaluated.
+ *   - the guardrail daily roll is a WINDOW-and-scope snapshot: a rule can run,
+ *     find nothing, and still not have looked at the days a stored insight is
+ *     about.
+ *   - a `partial` roll is missing whole people while every rule still reports
+ *     itself evaluated.
+ * The caller therefore compares each insight's own `data` against the roll it
+ * actually holds. See the predicate built at the `task-manager.tsx` call site.
+ *
+ * A default would reintroduce exactly that for the NEXT go-dark detector while
+ * leaving this guard looking present. Required makes a forgetful detector a
+ * typecheck error instead. `reconcile.test.ts` pins that with @ts-expect-error.
+ */
 export function reconcileInsights(
   stored: readonly Insight[],
   detected: readonly DetectedInsight[],
   today: string,
+  isEvaluated: (insight: Insight) => boolean,
 ): Insight[] {
   const byKey = new Map<string, Insight>();
   let maxId = 0;
@@ -142,17 +180,59 @@ export function reconcileInsights(
     result.push(prev ? upsert(prev, det, today) : create(det, nextId++, today));
   }
 
+  const frozenKeys = new Set<string>();
   for (const prev of stored) {
     if (detectedKeys.has(prev.key)) continue;
+    // Not evaluated ⇒ FROZEN, carried through byte-for-byte. Reconcile cannot
+    // distinguish "not violated" from "not evaluated" on its own, so the caller
+    // says which it was — per INSIGHT, because for the guardrails the answer
+    // depends on this row's own violating days, not on its type. Anything less
+    // than an untouched carry-through — even keeping the row while resolving
+    // it — writes the fabricated win.
+    if (!isEvaluated(prev)) {
+      result.push(prev);
+      frozenKeys.add(prev.key);
+      continue;
+    }
     const cleared = clear(prev, today);
     if (cleared !== null) result.push(cleared);
   }
 
+  // ★★★ A FROZEN ROW MUST NOT SINK, or "freezing is recoverable" stops being
+  // true and the whole design rests on that claim. A frozen row is carried
+  // through untouched, so its `lastSeenAt` never advances while every detected
+  // row's does — under a `lastSeenAt` sort it therefore loses ground on EVERY
+  // pass, monotonically, and sinks toward the cap below. Once sliced away it is
+  // gone from `stored` and
+  // never returns, so the freeze that was supposed to protect an acted insight
+  // from a fabricated win instead deletes it by attrition.
+  // ★★ ORDERING ONLY — `lastSeenAt` is NOT rewritten. The row still records
+  // when it was genuinely last observed; it simply is not punished in the
+  // ranking for a staleness the freeze itself imposed. Writing `today` into the
+  // record would be a lie about observation, which is the class of defect this
+  // module exists to prevent.
+  const orderKey = (i: Insight): string => (frozenKeys.has(i.key) ? today : i.lastSeenAt);
   result.sort((a, b) => {
     const bySeverity = INSIGHT_SEVERITY_RANK[a.severity] - INSIGHT_SEVERITY_RANK[b.severity];
     if (bySeverity !== 0) return bySeverity;
-    if (a.lastSeenAt < b.lastSeenAt) return 1;
-    if (a.lastSeenAt > b.lastSeenAt) return -1;
+    const ka = orderKey(a);
+    const kb = orderKey(b);
+    if (ka < kb) return 1;
+    if (ka > kb) return -1;
+    // ★★★ FROZEN DELIBERATELY LOSES THE TIE TO A DETECTED ROW, and an earlier
+    // cut of this had frozen WIN it. That was worse than the defect it fixed.
+    // A tie here is "frozen row versus a row detected on this pass", and the
+    // detected row is a CONFIRMED live problem while the frozen one is merely
+    // unverifiable. Simulated at the committed comparator: 190 frozen medium +
+    // 30 active medium under a 200 cap evicted ALL THIRTY active rows when
+    // frozen won the tie, and none when it lost. Evicted active rows are
+    // re-detected and re-evicted every pass, so they are permanently invisible.
+    // ★★ So this ordering buys exactly one thing, and it is worth being precise
+    // about because the first version of this comment claimed a pure win: a
+    // frozen row no longer sinks below rows carrying an OLD `lastSeenAt` —
+    // dismissed and resolved rows, which `clear()` returns with their original
+    // date. Against rows detected THIS pass the behaviour is unchanged from
+    // before the fix. The ratchet is gone; the cap is not.
     return 0;
   });
 

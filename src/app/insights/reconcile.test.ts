@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { insightsMateriallyEqual, reconcileInsights } from "./reconcile";
-import type { DetectedInsight, Insight } from "./insight";
+import type { DetectedInsight, Insight, InsightType } from "./insight";
 import { MAX_INSIGHTS } from "./insight";
+
+// Every pre-existing test in this file is about the ALWAYS-EVALUATED behaviour,
+// so each of its calls certifies every insight. A DISCRIMINATING predicate
+// belongs only in the "evaluated scope" describe at the bottom of this file —
+// converting those to this constant too would delete the only coverage the
+// freeze path has at this level.
+const ALL_EVALUATED = (): boolean => true;
+
+/** Certifies exactly one type — the narrow shape the freeze path is about. */
+const onlyType =
+  (type: InsightType) =>
+  (i: Insight): boolean =>
+    i.type === type;
 
 function detected(
   key: string,
@@ -41,7 +54,7 @@ const REC: NonNullable<Insight["recommendation"]> = {
 describe("reconcileInsights", () => {
   it("creates a new active record for an unseen detection (id=max+1, timestamps=today, occurrences=1)", () => {
     const existing = stored("a", { id: 7 });
-    const out = reconcileInsights([existing], [detected("a"), detected("b")], "2026-02-01");
+    const out = reconcileInsights([existing], [detected("a"), detected("b")], "2026-02-01", ALL_EVALUATED);
     const created = out.find((i) => i.key === "b")!;
     expect(created).toBeDefined();
     expect(created.id).toBe(8); // max(7)+1
@@ -52,7 +65,7 @@ describe("reconcileInsights", () => {
   });
 
   it("mints id=1 when the store is empty", () => {
-    const out = reconcileInsights([], [detected("x")], "2026-02-01");
+    const out = reconcileInsights([], [detected("x")], "2026-02-01", ALL_EVALUATED);
     expect(out).toHaveLength(1);
     expect(out[0].id).toBe(1);
   });
@@ -70,6 +83,7 @@ describe("reconcileInsights", () => {
       [existing],
       [detected("a", { severity: "high", data: { count: 9 } })],
       "2026-02-01",
+      ALL_EVALUATED,
     );
     const upserted = out.find((i) => i.key === "a")!;
     expect(upserted.id).toBe(5);
@@ -86,7 +100,7 @@ describe("reconcileInsights", () => {
       status: "acted",
       actedAt: "2026-01-15",
     });
-    const out = reconcileInsights([existing], [], "2026-02-01");
+    const out = reconcileInsights([existing], [], "2026-02-01", ALL_EVALUATED);
     const rec = out.find((i) => i.key === "a")!;
     expect(rec).toBeDefined();
     expect(rec.status).toBe("resolved");
@@ -95,7 +109,7 @@ describe("reconcileInsights", () => {
 
   it("PRUNES a cleared auto-surfaced record with no user event", () => {
     const existing = stored("a", { status: "active" });
-    const out = reconcileInsights([existing], [], "2026-02-01");
+    const out = reconcileInsights([existing], [], "2026-02-01", ALL_EVALUATED);
     expect(out.find((i) => i.key === "a")).toBeUndefined();
     expect(out).toHaveLength(0);
   });
@@ -106,7 +120,7 @@ describe("reconcileInsights", () => {
       dismissedAt: "2026-01-20",
       dismissReason: "noise",
     });
-    const out = reconcileInsights([existing], [], "2026-02-01");
+    const out = reconcileInsights([existing], [], "2026-02-01", ALL_EVALUATED);
     const rec = out.find((i) => i.key === "a")!;
     expect(rec).toBeDefined();
     expect(rec.status).toBe("dismissed");
@@ -122,7 +136,7 @@ describe("reconcileInsights", () => {
       dismissReason: "noise",
       occurrences: 2,
     });
-    const out = reconcileInsights([existing], [detected("a")], "2026-02-01");
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_EVALUATED);
     const rec = out.find((i) => i.key === "a")!;
     expect(rec.status).toBe("active");
     expect(rec.dismissedAt).toBeUndefined();
@@ -137,7 +151,7 @@ describe("reconcileInsights", () => {
       resolvedAt: "2026-01-25",
       occurrences: 4,
     });
-    const out = reconcileInsights([existing], [detected("a")], "2026-02-01");
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_EVALUATED);
     const rec = out.find((i) => i.key === "a")!;
     expect(rec.status).toBe("active");
     expect(rec.resolvedAt).toBeUndefined();
@@ -155,7 +169,7 @@ describe("reconcileInsights", () => {
     const d = s.map((i) =>
       detected(i.key, { severity: i.severity, data: i.data }),
     );
-    const out = reconcileInsights(s, d, "2026-01-09");
+    const out = reconcileInsights(s, d, "2026-01-09", ALL_EVALUATED);
     // Upsert bumps lastSeenAt to today for all — so within a severity tier the
     // order falls back to stable insertion order. Use distinct stored dates by
     // detecting only a subset instead.
@@ -170,7 +184,7 @@ describe("reconcileInsights", () => {
     // No detections → both cleared, but they had no user event → pruned.
     // Instead make them dismissed so they persist with their stored dates.
     const dismissed = s.map((i) => stored(i.key, { ...i, status: "dismissed", dismissedAt: "2025-12-01" }));
-    const out = reconcileInsights(dismissed, [], "2026-02-01");
+    const out = reconcileInsights(dismissed, [], "2026-02-01", ALL_EVALUATED);
     expect(out.map((i) => i.key)).toEqual(["high-new", "high-old"]);
   });
 
@@ -179,13 +193,67 @@ describe("reconcileInsights", () => {
       { length: MAX_INSIGHTS + 25 },
       (_, i) => detected(`k${i}`),
     );
-    const out = reconcileInsights([], many, "2026-02-01");
+    const out = reconcileInsights([], many, "2026-02-01", ALL_EVALUATED);
     expect(out).toHaveLength(MAX_INSIGHTS);
+  });
+
+  // ★★★ THE CAP MUST NOT EVICT THE FROZEN ROW, or "freezing is recoverable" —
+  // the justification the whole per-insight predicate rests on — is false. A
+  // frozen row is carried through untouched, so its `lastSeenAt` never advances
+  // while every detected row's does; under a naive `lastSeenAt` sort it loses
+  // ground on every pass and sinks toward the slice.
+  // Once gone from `stored` it never comes back, so the freeze that protected
+  // an acted insight from a fabricated win deletes it by attrition instead.
+  it("keeps a frozen insight ahead of rows carrying an older lastSeenAt", () => {
+    const FROZEN = "frozen-and-stale";
+    // Deliberately the OLDEST row in the set: it is what a row frozen across
+    // several passes looks like, and it is the one a lastSeenAt sort drops.
+    const frozen = stored(FROZEN, { status: "acted", lastSeenAt: "2020-01-01" });
+    // ★★★ DISMISSED rows, not detected ones, and that is the whole point of the
+    // scope this test claims. `clear()` returns a dismissed row with its
+    // ORIGINAL `lastSeenAt`, so these are exactly the rows a frozen row used to
+    // sink below as its own date aged. Against rows detected THIS pass a frozen
+    // row still loses, deliberately — see the comparator's note. An earlier
+    // version of this test used 225 DETECTED rows and therefore pinned the
+    // opposite, harmful behaviour: frozen rows outranking live ones, which
+    // evicts confirmed problems in favour of unverifiable ones.
+    const many: Insight[] = Array.from({ length: MAX_INSIGHTS + 25 }, (_, i) =>
+      stored(`k${i}`, { id: i + 2, status: "dismissed", dismissedAt: "2025-12-01", lastSeenAt: "2026-01-01" }),
+    );
+    // Same severity throughout, so severity cannot be what saves or sinks it —
+    // the ordering key is the entire subject of this test.
+    const out = reconcileInsights([frozen, ...many], [], "2026-02-01", (i) => i.key !== FROZEN);
+    expect(out).toHaveLength(MAX_INSIGHTS);
+    expect(out.map((i) => i.key)).toContain(FROZEN);
+    // ★★ ORDERING ONLY: the row survives, and its record still says when it was
+    // genuinely last seen. Advancing `lastSeenAt` would also make it survive —
+    // by writing a lie about observation into exported data, which is the exact
+    // class of defect this module exists to prevent. Without this assertion the
+    // test passes against that fix too.
+    expect(out.find((i) => i.key === FROZEN)?.lastSeenAt).toBe("2020-01-01");
+  });
+
+  // ★★★ THE INVERSION, and it is the test the first cut of this fix did not
+  // have. Frozen rows must never evict rows detected on this pass: a detected
+  // row is a CONFIRMED live problem, a frozen one is unverifiable, and an
+  // evicted active row is re-detected and re-evicted every pass — permanently
+  // invisible. Reachability is not exotic: an entry written before `dailyUsers`
+  // existed, or a device with TimeLog unconfigured, freezes the WHOLE stored
+  // guardrail population at once, and `isEvaluated` ignores `status`, so
+  // never-touched `active` rows freeze too rather than being pruned.
+  it("never evicts a detected row in favour of frozen ones", () => {
+    const frozen: Insight[] = Array.from({ length: MAX_INSIGHTS }, (_, i) =>
+      stored(`frozen${i}`, { id: i + 1, status: "acted", lastSeenAt: "2020-01-01" }),
+    );
+    const live = detected("live-one");
+    const out = reconcileInsights(frozen, [live], "2026-02-01", (i) => !i.key.startsWith("frozen"));
+    expect(out).toHaveLength(MAX_INSIGHTS);
+    expect(out.map((i) => i.key)).toContain("live-one");
   });
 
   it("upsert preserves a pending recommendation", () => {
     const existing = stored("a", { recommendation: REC });
-    const out = reconcileInsights([existing], [detected("a")], "2026-02-01");
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_EVALUATED);
     const upserted = out.find((i) => i.key === "a")!;
     expect(upserted.recommendation?.summary).toBe("do X");
     expect(upserted.occurrences).toBe(2);
@@ -198,7 +266,7 @@ describe("reconcileInsights", () => {
       dismissedAt: "2026-01-19",
       recommendation: applied,
     });
-    const out = reconcileInsights([existing], [detected("a")], "2026-02-01");
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01", ALL_EVALUATED);
     const rec = out.find((i) => i.key === "a")!;
     expect(rec.status).toBe("active");
     expect(rec.recommendation).toBeUndefined();
@@ -214,7 +282,7 @@ describe("reconcileInsights", () => {
     });
     const snapshot = structuredClone(existing);
     const arr = [existing];
-    reconcileInsights(arr, [detected("a", { severity: "high" })], "2026-02-01");
+    reconcileInsights(arr, [detected("a", { severity: "high" })], "2026-02-01", ALL_EVALUATED);
     expect(existing).toEqual(snapshot);
     expect(arr).toHaveLength(1);
   });
@@ -309,7 +377,7 @@ function stalledDet(count: number): DetectedInsight {
 
 describe("outcome measurement (SP3)", () => {
   it("measures an improvement while the insight is STILL detected", () => {
-    const out = reconcileInsights([actedStalled()], [stalledDet(4)], TODAY);
+    const out = reconcileInsights([actedStalled()], [stalledDet(4)], TODAY, ALL_EVALUATED);
     const rec = out.find((i) => i.key === "stalledWork")!;
     expect(rec.status).toBe("acted");
     expect(rec.outcome).toEqual({
@@ -322,7 +390,7 @@ describe("outcome measurement (SP3)", () => {
   });
 
   it("measures a worsening when the metric grew", () => {
-    const out = reconcileInsights([actedStalled()], [stalledDet(14)], TODAY);
+    const out = reconcileInsights([actedStalled()], [stalledDet(14)], TODAY, ALL_EVALUATED);
     const rec = out.find((i) => i.key === "stalledWork")!;
     expect(rec.outcome).toMatchObject({ direction: "worsened", delta: -4 });
   });
@@ -332,7 +400,7 @@ describe("outcome measurement (SP3)", () => {
   // count < 3, so a baseline of 10 could really be a move to 2, not to 0).
   // Reporting a magnitude here would overstate the win.
   it("records a direction-only win when the condition CLEARS and the record resolves", () => {
-    const out = reconcileInsights([actedStalled()], [], TODAY);
+    const out = reconcileInsights([actedStalled()], [], TODAY, ALL_EVALUATED);
     const rec = out.find((i) => i.key === "stalledWork")!;
     expect(rec.status).toBe("resolved");
     expect(rec.outcome).toEqual({
@@ -344,19 +412,19 @@ describe("outcome measurement (SP3)", () => {
 
   it("writes NO outcome without a captured metricAtAction", () => {
     const noBaseline = actedStalled({ metricAtAction: undefined });
-    expect(reconcileInsights([noBaseline], [stalledDet(4)], TODAY)[0].outcome).toBeUndefined();
-    expect(reconcileInsights([noBaseline], [], TODAY)[0]?.outcome).toBeUndefined();
+    expect(reconcileInsights([noBaseline], [stalledDet(4)], TODAY, ALL_EVALUATED)[0].outcome).toBeUndefined();
+    expect(reconcileInsights([noBaseline], [], TODAY, ALL_EVALUATED)[0]?.outcome).toBeUndefined();
   });
 
   it("writes NO outcome for a record that was never acted on", () => {
     const active = actedStalled({ status: "active", actedAt: undefined });
-    const out = reconcileInsights([active], [stalledDet(4)], TODAY);
+    const out = reconcileInsights([active], [stalledDet(4)], TODAY, ALL_EVALUATED);
     expect(out[0].outcome).toBeUndefined();
   });
 
   it("is idempotent: re-reconciling the measured record converges (no measure→persist loop)", () => {
-    const once = reconcileInsights([actedStalled()], [stalledDet(4)], TODAY);
-    const twice = reconcileInsights(once, [stalledDet(4)], TODAY);
+    const once = reconcileInsights([actedStalled()], [stalledDet(4)], TODAY, ALL_EVALUATED);
+    const twice = reconcileInsights(once, [stalledDet(4)], TODAY, ALL_EVALUATED);
     // `occurrences` counts detections and legitimately bumps on every pass, so it
     // is normalized out; EVERYTHING else — the outcome above all — must converge.
     const norm = (l: readonly Insight[]) => l.map((i) => ({ ...i, occurrences: 0 }));
@@ -374,7 +442,7 @@ describe("outcome measurement (SP3)", () => {
         direction: "improved", baseline: 10, current: 6, delta: 4, measuredAt: "2026-06-03",
       },
     });
-    const out = reconcileInsights([dismissed], [stalledDet(6)], TODAY);
+    const out = reconcileInsights([dismissed], [stalledDet(6)], TODAY, ALL_EVALUATED);
     const rec = out.find((i) => i.key === "stalledWork")!;
     expect(rec.status).toBe("active");
     // The stale measurement still goes — it describes the previous state.
@@ -395,7 +463,7 @@ describe("outcome measurement (SP3)", () => {
         measuredAt: "2026-06-05",
       },
     });
-    const out = reconcileInsights([stale], [stalledDet(7)], TODAY);
+    const out = reconcileInsights([stale], [stalledDet(7)], TODAY, ALL_EVALUATED);
     const rec = out.find((i) => i.key === "stalledWork")!;
     expect(rec.status).toBe("active");
     expect(rec.outcome).toBeUndefined();
@@ -440,3 +508,147 @@ describe("insightsMateriallyEqual — outcome (data-loss guard)", () => {
     expect(insightsMateriallyEqual(a, b)).toBe(true);
   });
 });
+
+describe("evaluated scope", () => {
+  // A stored TimeLog guardrail insight. Named distinctly rather than shadowing
+  // the file-level `stored(key, over)` above, whose signature differs.
+  const guardrail = (over: Partial<Insight> = {}): Insight => ({
+    id: 1,
+    key: "timelog:timelogCapPerDay:7",
+    type: "timelogCapPerDay",
+    severity: "medium",
+    data: { person: "Ada", count: 2, worstHours: 12, threshold: 8 },
+    status: "active",
+    firstSeenAt: "2026-09-01",
+    lastSeenAt: "2026-09-03",
+    occurrences: 2,
+    ...over,
+  });
+
+  // Asserting only "it was not pruned" PASSES against a version that keeps the
+  // row and resolves it to "improved" — the exact fabricated win this argument
+  // exists to prevent. So the assertion is UNCHANGED: same object, same status,
+  // no outcome, no resolvedAt.
+  it("leaves an acted insight completely unchanged when its type was not evaluated", () => {
+    const prev = guardrail({ status: "acted", actedAt: "2026-09-02", metricAtAction: { count: 4 } });
+    const out = reconcileInsights([prev], [], "2026-09-04", onlyType("milestoneSlip"));
+    expect(out).toHaveLength(1);
+    expect(out[0]).toEqual(prev);
+    expect(out[0].status).toBe("acted");
+    expect(out[0].outcome).toBeUndefined();
+    expect(out[0].resolvedAt).toBeUndefined();
+  });
+
+  it("does not prune an untouched insight whose type was not evaluated", () => {
+    const prev = guardrail();
+    const out = reconcileInsights([prev], [], "2026-09-04", onlyType("milestoneSlip"));
+    expect(out).toEqual([prev]);
+  });
+
+  it("still resolves an acted insight whose type WAS evaluated", () => {
+    const prev = guardrail({ status: "acted", actedAt: "2026-09-02", metricAtAction: { count: 4 } });
+    const out = reconcileInsights([prev], [], "2026-09-04", ALL_EVALUATED);
+    expect(out[0].status).toBe("resolved");
+    expect(out[0].outcome?.direction).toBe("improved");
+  });
+
+  it("still prunes an untouched insight whose type WAS evaluated", () => {
+    const out = reconcileInsights([guardrail()], [], "2026-09-04", ALL_EVALUATED);
+    expect(out).toEqual([]);
+  });
+
+  // A disabled rule freezes rather than resolves. Distinct from the
+  // bookings-unavailable case above: neither implies the other.
+  it("freezes a guardrail insight when its rule has been switched off", () => {
+    const prev = guardrail({ status: "acknowledged", acknowledgedAt: "2026-09-02" });
+    const out = reconcileInsights(
+      [prev],
+      [],
+      "2026-09-04",
+      (i) => i.type !== "timelogCapPerDay",
+    );
+    expect(out).toEqual([prev]);
+  });
+});
+
+// ★★★ WHAT WIDENING A GUARDRAIL `data` RECORD DOES, AND WHERE. Adding the two
+// violating-day keys to a timelog insight's `data` was expected to change when
+// an insight counts as CHANGED between passes. It does — but NOT in `upsert`,
+// which contains no comparison at all: it assigns `data: det.data` outright and
+// advances `lastSeenAt`/`occurrences` on EVERY detection, identical data or
+// not. The only `data` comparison in this module is `shallowRecordEqual`, and
+// its sole consumer is `insightsMateriallyEqual` — the write-back skip. So the
+// whole behaviour delta lives there, and it is narrow: it needs the violating
+// DAYS to move while `count`, `worstHours` and `threshold` all stay equal (a
+// sliding window that drops one breaching day and gains another at the same
+// peak). In that case the workspace is now written where it previously was not.
+//
+// ★★★ THAT EXTRA WRITE IS REQUIRED, NOT TOLERATED. Skipping it would leave the
+// STORED dates describing a roll that has moved on, and the stored dates are
+// exactly what a later reconcile reads to ask "does the current roll still
+// cover the days this insight was about". A stale bound answers that question
+// confidently and wrongly — the fabricated-win shape this field exists to make
+// detectable. The two tests below pin both halves.
+describe("widening a guardrail data record", () => {
+  const withDays = (first: string, last: string) => ({
+    count: 2, worstHours: 12, threshold: 8,
+    firstViolationDate: first, lastViolationDate: last,
+  });
+
+  // The write-back skip MUST see a date-only shift as material. Everything the
+  // old record compared on (count/worstHours/threshold) is held equal here, so
+  // this is red against a `data` comparison that ignores unknown keys.
+  it("treats a violating-day shift as a material change even when the counts match", () => {
+    const a = [stored("g", { type: "timelogCapPerDay", data: withDays("2026-02-03", "2026-02-11") })];
+    const b = [stored("g", { type: "timelogCapPerDay", data: withDays("2026-02-05", "2026-02-19") })];
+    expect(insightsMateriallyEqual(a, b)).toBe(false);
+  });
+
+  // `upsert` has no equality gate: identical data still advances the counters,
+  // which is why adding keys cannot have changed anything there. Asserting the
+  // IDENTICAL-data case is the half that proves the absence of a comparison —
+  // a differing-data case would pass either way.
+  it("upserts on identical data, so the new keys change nothing in the lifecycle", () => {
+    const data = withDays("2026-02-03", "2026-02-11");
+    const prev = stored("g", {
+      type: "timelogCapPerDay", data, occurrences: 4, lastSeenAt: "2026-06-01",
+    });
+    const out = reconcileInsights(
+      [prev],
+      [detected("g", { type: "timelogCapPerDay", data })],
+      "2026-06-10",
+      ALL_EVALUATED,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].status).toBe("active");
+    expect(out[0].occurrences).toBe(5);
+    expect(out[0].lastSeenAt).toBe("2026-06-10");
+    expect(out[0].data).toEqual(data);
+  });
+
+  // The fresh dates must actually REPLACE the stored ones — a merge that kept
+  // the older bound would widen coverage the roll no longer has.
+  it("adopts the freshly detected dates rather than merging them", () => {
+    const out = reconcileInsights(
+      [stored("g", { type: "timelogCapPerDay", data: withDays("2026-02-03", "2026-02-11") })],
+      [detected("g", { type: "timelogCapPerDay", data: withDays("2026-05-04", "2026-05-06") })],
+      "2026-06-10",
+      ALL_EVALUATED,
+    );
+    expect(out[0].data.firstViolationDate).toBe("2026-05-04");
+    expect(out[0].data.lastViolationDate).toBe("2026-05-06");
+  });
+});
+
+// The compile-error property is the ENTIRE justification for making the argument
+// REQUIRED rather than defaulting it to "all types". Prose cannot pin that;
+// the directive below can, and `npx tsc --noEmit` is where it is checked —
+// vitest never typechecks. If the argument is ever given a default, tsc fails
+// here with "Unused '@ts-expect-error' directive".
+//
+// ★★ Do NOT start a prose line in this block with the bare directive text: a
+// comment line beginning `// @ts-` IS a directive to tsc, so an explanatory
+// mention becomes a second, unused one and fails the build on the wrong line.
+// @ts-expect-error - the evaluated-scope argument is REQUIRED, never defaulted
+const _requiredArgumentPin = () => reconcileInsights([], [], "2026-09-04");
+void _requiredArgumentPin;
