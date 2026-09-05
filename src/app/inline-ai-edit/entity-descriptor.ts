@@ -95,6 +95,16 @@ export interface EntityDescriptor {
   /** Required fields whose value must stay non-empty (sanitizer returns null →
    *  dispatcher throws otherwise). */
   requiredNonEmpty: ReadonlySet<string>;
+  /** Groups of fields the WRITER requires only JOINTLY — at least one member
+   *  non-empty. `sanitizeResource`'s gate is `if (!firstName && !lastName)
+   *  return null`, a whole-row OR evaluated after the merge, where
+   *  `requiredNonEmpty` is a per-field partition. Judging a member alone is
+   *  §384: the preview called a mononym rename's `lastName` rejected while the
+   *  write accepted the row and stored "". A member of a group is EXEMPT from
+   *  `requiredNonEmpty` — `describeEntityCalls` checks group membership FIRST,
+   *  so the exemption holds by construction rather than by this entity's
+   *  `requiredNonEmpty` happening to be empty. */
+  requiredNonEmptyGroups: ReadonlyArray<ReadonlySet<string>>;
   /** Fields validated as YYYY-MM-DD when non-empty (invalid → sanitizer drops/blanks). */
   dateFields: ReadonlySet<string>;
   /** Integer-range fields [min, max]; use Infinity for an open upper bound. */
@@ -236,6 +246,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     entity: "task", updateTool: "update_task", deleteTool: "delete_task", createTool: "create_task", wsKey: "tasks",
     diffFields: ["taskName", "assignee", "assigneeEmail", "dueDate", "status", "priority", "description", "blockers", "group", "labels"],
     requiredNonEmpty: new Set(["taskName", "dueDate"]),
+    requiredNonEmptyGroups: [],
     dateFields: new Set(["dueDate"]),
     intRangeFields: {},
     enumFields: { status: constSet(TASK_STATUSES), priority: constSet(PRIORITIES) },
@@ -267,6 +278,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // checked. Pinned by the "co-changed category" test in plan.test.ts.
     diffFields: ["category", "title", "status", "description", "mitigation", "owner", "ownerEmail", "severity", "probability", "impact", "raisedDate", "targetDate", "closedDate"],
     requiredNonEmpty: new Set(["title"]),
+    requiredNonEmptyGroups: [],
     dateFields: new Set(["raisedDate", "targetDate", "closedDate"]),
     intRangeFields: { probability: [1, 5], impact: [1, 5] },
     enumFields: { category: constSet(RAID_CATEGORIES), severity: constSet(RAID_SEVERITIES), status: raidStatusResolver },
@@ -294,6 +306,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     entity: "change", updateTool: "update_change", deleteTool: "delete_change", createTool: "create_change", wsKey: "changes",
     diffFields: ["title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays", "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes"],
     requiredNonEmpty: new Set(["title"]),
+    requiredNonEmptyGroups: [],
     dateFields: new Set(["raisedDate", "decisionDate"]),
     intRangeFields: { scheduleImpactDays: [0, Infinity], costImpact: [0, Infinity] },
     enumFields: { type: constSet(CHANGE_TYPES), status: constSet(CHANGE_STATUSES), impact: constSet(CHANGE_IMPACT_LEVELS) },
@@ -319,6 +332,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     entity: "milestone", updateTool: "update_milestone", deleteTool: "delete_milestone", createTool: "create_milestone", wsKey: "milestones",
     diffFields: ["name", "date", "description", "achievedDate"],
     requiredNonEmpty: new Set(["name", "date"]),
+    requiredNonEmptyGroups: [],
     dateFields: new Set(["date", "achievedDate"]),
     intRangeFields: {},
     enumFields: {},
@@ -341,6 +355,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     entity: "stakeholder", updateTool: "update_stakeholder", deleteTool: "delete_stakeholder", createTool: "create_stakeholder", wsKey: "stakeholders",
     diffFields: ["name", "organization", "title", "email", "category", "influence", "interest", "notes"],
     requiredNonEmpty: new Set(["name"]),
+    requiredNonEmptyGroups: [],
     dateFields: new Set(),
     intRangeFields: {},
     enumFields: { category: constSet(STAKEHOLDER_CATEGORIES), influence: constSet(INFLUENCE_INTEREST_LEVELS), interest: constSet(INFLUENCE_INTEREST_LEVELS) },
@@ -383,13 +398,20 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //   • `birthday` — stored, but absent from `ResourceInput`: the tool cannot
     //     write it, so a diff here could never be applied.
     diffFields: ["firstName", "lastName", "title", "email", "department", "company", "location", "businessPhone", "isExternal", "notes"],
-    // ★★ The sanitizer's REAL rule is "at least ONE of firstName/lastName
-    // non-empty" — blanking both returns null and the dispatcher throws
-    // "invalid resource update". `requiredNonEmpty` is per-field and cannot
-    // express a disjunction, so BOTH are marked. That over-rejects blanking one
-    // part while the other stands; over-rejecting is the safe direction here,
-    // since the alternative previews a diff whose Apply throws.
-    requiredNonEmpty: new Set(["firstName", "lastName"]),
+    // ★★★ THE ONLY GROUP ACROSS THESE SIX DESCRIPTORS today (grep
+    // `requiredNonEmptyGroups: [` — every other entry is `[]`), and the reason
+    // `requiredNonEmptyGroups` exists. `sanitizeResource`'s gate is
+    // `if (!firstName && !lastName) return null` — an OR over the row the
+    // dispatcher has already MERGED, not a per-field rule. Marking both parts
+    // `requiredNonEmpty` was the previous shape and it over-rejected: a mononym
+    // rename ("Cher Bono" -> "Cher") previewed `lastName` as REJECTED while the
+    // write accepted the row and stored `""`. That is not the safe direction it
+    // was written as — the two REPLAYING consumers (`chat-proposal-apply.ts`,
+    // `use-insight-recommendations.ts`) resend the ORIGINAL tool input and never
+    // read the plan, so they perform the write the card said would not happen
+    // (§384). Blanking BOTH is still rejected, by the group rule.
+    requiredNonEmpty: new Set<string>([]),
+    requiredNonEmptyGroups: [new Set(["firstName", "lastName"])],
     // `birthday` is the only date-shaped Resource field and it is NOT writable
     // (see above) — and it is "MM-DD", which sanitizeIsoDate would reject anyway.
     dateFields: new Set(),

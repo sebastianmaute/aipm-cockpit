@@ -374,8 +374,13 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     expect(silent).toEqual([]);
 
     // (3) AGGREGATE, as a fraction of what the comparable fields could yield.
-    // MEASURED 2026-09-05: 226 comparisons over 31 comparable fields × 9 probes
-    // = 279 possible, i.e. 81%. Half is the floor, so a ~38% collapse fails
+    // MEASURED 2026-09-05: 234 comparisons over 31 comparable fields × 9 probes
+    // = 279 possible, i.e. 84%. (It was 226/81% until §384 turned the resource
+    // name parts' joint rule into a group: the four probes that blank a part —
+    // `true`, `false`, `42`, `""` — used to be preview-only REJECTIONS on both
+    // `firstName` and `lastName`, and are now comparisons that agree. The floor
+    // is computed, so nothing had to move with them; the COMMENT did.)
+    // Half is the floor, so a ~38% collapse fails
     // while the ordinary churn of a probe that a new field happens to reject
     // does not.
     // ★★ THE FOUR FIGURES ABOVE WERE WRONG ON FIRST WRITING (37 fields / 333

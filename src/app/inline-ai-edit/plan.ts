@@ -288,7 +288,44 @@ export function describeEntityCalls(
         const after = normalize ? normalize(input[f]) : str(input[f]);
         if (before === after) continue;
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
-        if (d.requiredNonEmpty.has(f) && after === "") { bad(`${f}=empty`); continue; }
+        // ★★★ A JOINT REQUIREMENT IS JUDGED ON THE MERGED ROW, NEVER ON THIS
+        // FIELD ALONE, and the group takes PRECEDENCE over `requiredNonEmpty`
+        // so the descriptor's "a member of a group is exempt" holds by
+        // construction rather than by that set happening to be empty.
+        // `sanitizeResource`'s gate is `if (!firstName && !lastName) return
+        // null` — an OR over the row `updateResource` has already merged — so a
+        // mononym rename is a legal write that stores `lastName: ""`. Judging
+        // the halves separately previewed it as REJECTED while the write went
+        // through: the two REPLAYING consumers resend the original tool input
+        // and never read this plan (§384).
+        const group = d.requiredNonEmptyGroups.find((g) => g.has(f));
+        if (after === "") {
+          if (group) {
+            // ★★ EVERY MEMBER GOES THROUGH ITS OWN NORMALISER, never `str`.
+            // The writer sees `sanitizeAssignee`, whose `clipText` returns ""
+            // for a NON-STRING — so `{firstName: "", lastName: 42}` arrives as
+            // two empty parts and THROWS, while a verbatim `str(42)` would read
+            // "42", call the row survivable and preview a diff whose Apply
+            // fails, taking every other field in the same patch with it.
+            // ★ No `.trim()` here: the member's own sanitizer already trims
+            // where the writer trims, and adding one would diverge for a future
+            // group member whose sanitizer (like `sanitizeMultiline`) does not.
+            // ★ The merge mirrors `updateResource`'s `{...existing, ...patch}`:
+            // the model's input where it supplied the key, the stored row
+            // otherwise. The `name` write alias is already projected onto the
+            // parts above, exactly as the dispatcher spreads `splitName`.
+            const members = [...group];
+            const survives = members.some((m) => {
+              // The field under judgement takes its NEW value — "" in this
+              // branch, so it can never be the survivor.
+              if (m === f) return after !== "";
+              const raw = m in input ? input[m] : item[m];
+              const norm = previewNormalizerFor(d, m);
+              return (norm ? norm(raw) : str(raw)) !== "";
+            });
+            if (!survives) { bad(`${members.join("+")}=empty`); continue; }
+          } else if (d.requiredNonEmpty.has(f)) { bad(`${f}=empty`); continue; }
+        }
         // Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range
         // (1900-2100), returning the input verbatim when valid and "" otherwise,
         // so a previewed date can never diverge from what apply persists.

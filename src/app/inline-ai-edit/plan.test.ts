@@ -413,17 +413,21 @@ describe("describeEntityCalls — resource", () => {
     expect(plan.rejected).toEqual([]);
   });
 
-  it("rejects blanking a name part (sanitizeResource returns null for a nameless row)", () => {
-    // ★ The sanitizer's real rule is "at least ONE part non-empty"; the
-    // descriptor can only express a per-field requirement, so BOTH parts are
-    // marked required. Over-rejecting is the safe direction — the alternative
-    // previews a diff whose Apply throws "invalid resource update".
+  it("previews blanking ONE name part as the clearing the writer performs", () => {
+    // ★★★ 384, and the symmetric half of the mononym case below — this test
+    //  used to assert the opposite. The sanitizer's rule is "at least ONE part
+    //  non-empty" (`if (!firstName && !lastName) return null`), an OR over the
+    //  MERGED row, so blanking `firstName` while `lastName` stands is a legal
+    //  write that stores `firstName: ""`. Calling it rejected was not the "safe
+    //  direction" the old comment claimed: the two REPLAYING consumers resend
+    //  the original tool call and perform the write regardless, so the card
+    //  promised a refusal that never happened.
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_resource", input: { id: 5, firstName: "" } }],
       { descriptor: d, item: resource, ws: resWs },
     );
-    expect(plan.updates).toEqual([]);
-    expect(plan.rejected).toEqual([{ toolName: "update_resource", reason: "bad-input", detail: "firstName=empty" }]);
+    expect(plan.updates).toEqual([{ field: "firstName", before: "M.", after: "", raw: "" }]);
+    expect(plan.rejected).toEqual([]);
   });
 
   it("rejects an update aimed at another row, by whether that row exists", () => {
@@ -657,9 +661,14 @@ describe("resource rename sent as the name alias", () => {
   //  to `""` — the rename dropped and the first name WIPED, the surviving last
   //  name keeping the record valid enough to save. That is a real divergence,
   //  not a stylistic one: under the narrowed predicate the PREVIEW shows a
-  //  `firstName=empty` rejection (the `requiredNonEmpty` guard fires on the
-  //  blanked part) while the DISPATCHER performs the rename, so the card
-  //  contradicts the write.
+  //  `firstName` CLEARING — the joint rule accepts it, because the surviving
+  //  `lastName` keeps the row valid — while the DISPATCHER performs the
+  //  RENAME, so the card contradicts the write. ★ That sentence used to say the
+  //  preview showed a `firstName=empty` REJECTION, which was true only while
+  //  both parts sat in `requiredNonEmpty`; §384 moved them into a
+  //  `requiredNonEmptyGroups` entry, so the mutant's symptom changed shape
+  //  without becoming any less of a contradiction. Measured under the mutant,
+  //  not reasoned.
   it("splits a rename whose part is an explicit JSON null", () => {
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "Ada Lovelace", firstName: null } }],
@@ -678,6 +687,68 @@ describe("resource rename sent as the name alias", () => {
       { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
     );
     expect(plan.updates).toEqual([]);
+  });
+});
+
+describe("the writer's JOINT name rule (384)", () => {
+  // ★★★ The preview judges each field alone; `sanitizeResource`'s gate is a
+  //  whole-row OR evaluated AFTER the merge. That mismatch is 384: a mononym
+  //  rename previewed `lastName` as REJECTED while the write accepted the row
+  //  and stored `lastName: ""`. The two REPLAYING consumers
+  //  (`chat-proposal-apply.ts`, `use-insight-recommendations.ts`) resend the
+  //  ORIGINAL tool input and never read the plan, so the refusal the card
+  //  promised was one nothing performed.
+  const cher = { id: 4, firstName: "Cher", lastName: "Bono" };
+  const cherWs = wsWith({ resources: [cher] as never });
+  const d = INLINE_DESCRIPTORS.resource;
+
+  it("previews a mononym rename as the surname being cleared, not rejected", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 4, name: "Cher" } }],
+      { descriptor: d, item: cher, ws: cherWs },
+    );
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates).toEqual([{ field: "lastName", before: "Bono", after: "", raw: "" }]);
+  });
+
+  it("still rejects emptying BOTH halves of the name", () => {
+    // The joint rule is "at least one non-empty" — the writer returns null and
+    // the dispatcher throws "invalid resource update", so rejecting is truthful.
+    // Both members are judged, so both report the GROUP's detail.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 4, firstName: "", lastName: "" } }],
+      { descriptor: d, item: cher, ws: cherWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected.map((r) => r.detail)).toContain("firstName+lastName=empty");
+  });
+
+  it("judges the surviving member through ITS OWN sanitizer, not verbatim", () => {
+    // ★★★ THE CRUX, and the one shape a `str(input[m])` survivor check gets
+    //  wrong in the DANGEROUS direction. `sanitizeAssignee` is
+    //  `sanitizeText(_, ASSIGNEE_MAX)`, whose `clipText` returns "" for any
+    //  NON-STRING — so `lastName: 42` reaches `sanitizeResource` as an empty
+    //  part, both halves are empty, and the write THROWS. Read verbatim, `42`
+    //  reads as a surviving surname and the preview would accept a diff whose
+    //  Apply fails, losing every other field in the same patch with it.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 4, firstName: "", lastName: 42 } }],
+      { descriptor: d, item: cher, ws: cherWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected.map((r) => r.detail)).toContain("firstName+lastName=empty");
+  });
+
+  it("reads an unsupplied member from the STORED row, as the writer's spread does", () => {
+    // `updateResource` merges `{...existing, ...patch}`, so a member the model
+    // did not send keeps its stored value — which is what lets the mononym
+    // rename above survive on a `firstName` that is not in the input at all.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 4, lastName: "" } }],
+      { descriptor: d, item: cher, ws: cherWs },
+    );
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates).toEqual([{ field: "lastName", before: "Bono", after: "", raw: "" }]);
   });
 });
 
