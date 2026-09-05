@@ -6,6 +6,7 @@ import {
   NEW_ROW_TOKEN_UNAVAILABLE_ERROR,
   PENDING_MINT_ERROR,
   TOKEN_REQUIRED_TOOLS,
+  TOKEN_ROW_SOURCE,
 } from "./chat-proposal-apply";
 import { buildPlanRows, type ProposedCall } from "./chat-proposal";
 import { TOOL_DEFS } from "./chat-tool-defs";
@@ -554,14 +555,21 @@ describe("applyProposal remaps provisional ids to the real ones", () => {
   });
 });
 
-describe("a row targeting a row created in the same plan is labelled honestly", () => {
-  // ★★★ THE LABEL WAS A LIE, AND THAT IS THE DEFECT THIS PINS. A pending row is
-  //   never stamped, so the remapped call reaches `requireToken` carrying no
-  //   token, throws `ConcurrencyTokenError`, and was recorded `stale: true` —
-  //   defined on `AppliedRow` as "the row moved since it was staged". The row did
-  //   not EXIST when it was staged. Nothing moved, and no number of retries can
-  //   make the retry that label invites succeed.
-  test("it reports the capability gap and is NOT reported as stale", async () => {
+describe("a row targeting a row created in the same plan now applies (§380)", () => {
+  // ★★★ THIS USED TO PIN A LIE. A pending row is never stamped at DESCRIBE
+  //   time, so before §380 the remapped call reached `requireToken` carrying no
+  //   token, threw `ConcurrencyTokenError`, and was recorded `stale: true` —
+  //   defined on `AppliedRow` as "the row moved since it was staged". The row
+  //   did not EXIST when it was staged; nothing moved, and no number of retries
+  //   could make the retry that label invited succeed. §380 closes the common
+  //   case by stamping a REAL token at apply time through `TOKEN_ROW_SOURCE`
+  //   (see the "applying a staged update whose target this same plan created"
+  //   block above for the dedicated single-entity coverage, including the one
+  //   case that still refuses). This test is kept as the two-entity, two-create
+  //   regression pin for the DERIVATION: `TOKEN_REQUIRED_TOOLS` is computed from
+  //   `TOOL_DEFS`, so a single tool passing here cannot tell a working
+  //   derivation from a hardcoded special case.
+  test("it applies both updates instead of the old capability-gap refusal", async () => {
     const { result } = renderApply();
 
     const outcome = await applyPlan(
@@ -575,27 +583,14 @@ describe("a row targeting a row created in the same plan is labelled honestly", 
       [101, 202],
     );
 
-    // Both creates landed, so the two refusals below are on a LIVE path.
-    expect(outcome.rows[0].ok).toBe(true);
-    expect(outcome.rows[2].ok).toBe(true);
-    expect(result.current.dispatcher.getTask(4)?.taskName).toBe("Minted");
-    expect(result.current.dispatcher.getMilestoneRow(4)?.name).toBe("Minted milestone");
-
-    // ★★ TWO ENTITIES, because the guard reads a DERIVED set of token-requiring
-    //   tools rather than a literal — one tool cannot tell a working derivation
-    //   from a hardcoded special case.
-    for (const index of [1, 3]) {
-      expect(outcome.rows[index].ok).toBe(false);
-      expect(outcome.rows[index].error).toBe(NEW_ROW_TOKEN_UNAVAILABLE_ERROR);
-      // ★★★ THE ANTI-VACUITY ASSERTION. Without it this test passes against the
-      //   OLD behaviour as soon as the message happens to match, and `stale` is
-      //   the half that actually misinforms the user.
-      expect(outcome.rows[index].stale).toBeUndefined();
-    }
-
-    // Refused, so nothing was written — the created rows keep their create-time
-    // values and no seeded row was touched either.
-    expect(result.current.dispatcher.getTask(4)?.taskName).not.toBe("Renamed");
+    expect(outcome.rows).toEqual([
+      { index: 0, ok: true },
+      { index: 1, ok: true },
+      { index: 2, ok: true },
+      { index: 3, ok: true },
+    ]);
+    expect(result.current.dispatcher.getTask(4)?.taskName).toBe("Renamed");
+    expect(result.current.dispatcher.getMilestoneRow(4)?.name).toBe("Renamed milestone");
     expect(taskIds(result)).toEqual([1, 2, 3, 4]);
   });
 
@@ -622,6 +617,75 @@ describe("a row targeting a row created in the same plan is labelled honestly", 
     // the real #4 and the row was FOUND — a not-found would have thrown first
     // and set no `stale`.
     expect(outcome.rows[1].stale).toBe(true);
+  });
+});
+
+// §380 — the capability gap the block above pinned is now closed for the
+// common case: `TOKEN_ROW_SOURCE` lets a pending row be stamped with a REAL
+// token, read through the dispatcher after the create resolved.
+describe("applying a staged update whose target this same plan created", () => {
+  test("applies an update whose target this same plan created", async () => {
+    const { result } = renderApply();
+
+    // create_task mints #101 (real minter hands out #4 — SEED runs 1-2-3); the
+    // update row was staged against the provisional id and therefore carries
+    // NO `expectedToken`.
+    const outcome = await applyPlan(
+      result,
+      [
+        {
+          name: "create_task",
+          input: { taskName: "Drafted", assignee: "M. Jordan", dueDate: "2026-10-01" },
+        },
+        { name: "update_task", input: { id: 101, status: "Done" } },
+      ],
+      [101],
+    );
+
+    expect(outcome.rows).toEqual([
+      { index: 0, ok: true },
+      { index: 1, ok: true },
+    ]);
+    expect(result.current.dispatcher.getTask(4)?.status).toBe("Done");
+  });
+
+  // ★★ THE ONE CASE THE RESOLVER CANNOT RESCUE, and the reason the refusal
+  //  stays in place rather than being deleted now that the happy path works.
+  //  Deleting the guard would convert a loud, recoverable failure into an
+  //  untokened write attempt. A REAL dispatcher's `getTask` cannot be made to
+  //  miss a row it just created, so this wraps it with an override that lets
+  //  the create land while its row reads back as gone.
+  test("still refuses the row when the created row cannot be read back", async () => {
+    const { result } = renderApply();
+    const ws = seedWorkspace();
+    const calls: ProposedCall[] = [
+      {
+        name: "create_task",
+        input: { taskName: "Drafted", assignee: "M. Jordan", dueDate: "2026-10-01" },
+      },
+      { name: "update_task", input: { id: 101, status: "Done" } },
+    ];
+    const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
+    const selected = new Set(rows.map((_, i) => i));
+    const dispatcher = {
+      ...result.current.dispatcher,
+      getTask: (id: number) => (id === 4 ? null : result.current.dispatcher.getTask(id)),
+    };
+
+    let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
+    await act(async () => {
+      outcome = await applyProposal({ dispatcher, rows, selected, batch: result.current.batch });
+    });
+
+    // The create landed — so the refusal below is on a live path, not a create
+    // that never happened.
+    expect(outcome!.rows[0].ok).toBe(true);
+    expect(outcome!.rows[1]).toEqual({
+      index: 1,
+      ok: false,
+      error: NEW_ROW_TOKEN_UNAVAILABLE_ERROR,
+    });
+    expect(outcome!.rows[1].stale).toBeUndefined();
   });
 });
 
@@ -675,5 +739,30 @@ describe("TOKEN_REQUIRED_TOOLS", () => {
       "update_stakeholder",
       "update_task",
     ]);
+  });
+});
+
+// §380 — `TOKEN_ROW_SOURCE` is the map `applyProposal` reads to stamp a real
+// token onto a row targeting an entity THIS SAME PLAN created. Both directions
+// are asserted, and neither is redundant: a one-directional check passes
+// against the mutant that matters — a future token-guarded tool added with no
+// map entry, which would fall silently back to the refusal.
+describe("TOKEN_ROW_SOURCE", () => {
+  test("covers every token-guarded tool", () => {
+    const missing = [...TOKEN_REQUIRED_TOOLS].filter((t) => !(t in TOKEN_ROW_SOURCE));
+    // The population sits beside the verdict so an empty `TOKEN_REQUIRED_TOOLS`
+    // cannot read as a pass.
+    expect({ missing, guarded: TOKEN_REQUIRED_TOOLS.size }).toEqual({
+      missing: [],
+      guarded: TOKEN_REQUIRED_TOOLS.size,
+    });
+  });
+
+  test("names no tool that is not token-guarded", () => {
+    const extra = Object.keys(TOKEN_ROW_SOURCE).filter((t) => !TOKEN_REQUIRED_TOOLS.has(t));
+    expect({ extra, mapped: Object.keys(TOKEN_ROW_SOURCE).length }).toEqual({
+      extra: [],
+      mapped: Object.keys(TOKEN_ROW_SOURCE).length,
+    });
   });
 });

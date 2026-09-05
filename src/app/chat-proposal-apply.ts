@@ -33,6 +33,8 @@ import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { namesPendingMint, remapStagedCall } from "./chat-proposal";
 import type { DescribedRow } from "./chat-proposal-describe";
 import type { UndoBatch } from "./use-undo-batch";
+import type { TokenEntity } from "./ai-entity-token";
+import { entityToken } from "./ai-entity-token";
 
 /** What one selected row did. `index` is the row's position in the FULL
  *  described list — the same identity the review card's checkboxes and
@@ -83,9 +85,10 @@ export const PENDING_MINT_ERROR =
  *   the underlying gap means stamping from the create's return value, and that
  *   is blocked: `entityToken` needs the FULL row while five of the seven creates
  *   return a `*Summary`, and `withToken`'s own docstring records that a
- *   summary-derived token is wrong and is pinned against. That needs a
- *   per-entity full-row resolver and is its own slice. Until then this refusal
- *   is honest about what happened; it does not make the write land. */
+ *   summary-derived token is wrong and is pinned against.
+ *   The resolver turned out to already exist — six `get*Row` getters on the
+ *   dispatcher — so this refusal now fires ONLY when the created row cannot be
+ *   read back. See `TOKEN_ROW_SOURCE` below. */
 export const NEW_ROW_TOKEN_UNAVAILABLE_ERROR =
   "this call targets a row created earlier in the same plan, and a row created " +
   "during an apply cannot yet carry the concurrency token this tool requires — " +
@@ -133,6 +136,43 @@ export const TOKEN_REQUIRED_TOOLS: ReadonlySet<string> = new Set(
     })
     .map((d) => d.name),
 );
+
+/** Token-guarded tool → how to read its target's FULL stored row, so a row this
+ *  same plan created can be stamped with a real token at apply time.
+ *
+ *  ★★★ THE RESOLVERS ALREADY EXISTED. 380 was filed saying a fix "needs a
+ *   per-entity full-row resolver"; six sit on the `ToolDispatcher` this function
+ *   already takes, and every token-guarded case in `chat-tools.ts` already calls
+ *   its own before `requireToken`. They are the `get*Row` family, distinct from
+ *   the `list*`/`create*` family that returns a `*Summary` — which is what makes
+ *   the summary-derived-token dead end 380 documents inapplicable here.
+ *
+ *  ★★★ READ THROUGH THE DISPATCHER, NEVER THROUGH A WORKSPACE PROP. These
+ *   getters read the dispatcher's refs, which the writers update SYNCHRONOUSLY
+ *   (the reason this loop is sequential and never `Promise.all`).
+ *   `chat-panel.tsx`'s `workspaceRef` is updated in a `useEffect`, so inside a
+ *   tight apply loop it is still PRE-CREATE: a resolver sourced from it would
+ *   stamp a token for a row that is not there yet, and a unit test with a mock
+ *   accessor would pass while production failed.
+ *
+ *  ★★★ THE GUARD THIS STAMPS IS VACUOUS FOR THESE ROWS, DELIBERATELY, AND THAT
+ *   IS NOT PROTECTION. The token is read moments before the write, so such a row
+ *   can never report `stale`. That is correct rather than a hole: the token
+ *   answers "you reviewed state X, has it moved?", and a row that did not EXIST
+ *   at review time has no reviewed state and nothing to clobber but what this
+ *   same plan just wrote. Do not read the stamped token as evidence the row was
+ *   checked against anything. */
+export const TOKEN_ROW_SOURCE: Readonly<
+  Record<string, { kind: TokenEntity; getRow: (d: ToolDispatcher, id: number) => object | null }>
+> = {
+  update_task: { kind: "task", getRow: (d, id) => d.getTask(id) },
+  set_task_dependencies: { kind: "task", getRow: (d, id) => d.getTask(id) },
+  update_raid_item: { kind: "raid", getRow: (d, id) => d.getRaidRow(id) },
+  update_change: { kind: "change", getRow: (d, id) => d.getChangeRow(id) },
+  update_milestone: { kind: "milestone", getRow: (d, id) => d.getMilestoneRow(id) },
+  update_resource: { kind: "resource", getRow: (d, id) => d.getResourceRow(id) },
+  update_stakeholder: { kind: "stakeholder", getRow: (d, id) => d.getStakeholderRow(id) },
+};
 
 /** `requireToken`'s OWN predicate for "a usable token", mirrored so this refusal
  *  and that throw cannot disagree about which calls carry one — a call the guard
@@ -273,25 +313,42 @@ export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyPropo
       // ★★ SECOND, AND ONLY REACHABLE ONCE THE MINT RESOLVED — the check above
       //  has already claimed every row whose create did not produce an id, so a
       //  `pendingOn` surviving to here means the target now EXISTS and the row
-      //  would be remapped onto it. It still cannot be applied: a pending row is
-      //  never stamped, and this tool's schema requires a token. Refused BEFORE
-      //  `runTool` so it cannot reach `requireToken` and inherit the `stale`
-      //  label, which would tell the user a row moved that never existed.
-      //  ★ A MODEL-SUPPLIED token deliberately passes this guard. It may be
-      //  garbage, but `requireToken` refuses a wrong VALUE loudly and that
-      //  refusal genuinely is a token conflict — relabelling it here would
-      //  swallow the one case `stale` is right about.
+      //  would be remapped onto it. A pending row is never stamped at DESCRIBE
+      //  time, so if this tool's schema requires a token, one has to be minted
+      //  HERE — after the create resolved and `remapStagedCall` pointed this row
+      //  at the real id — through `TOKEN_ROW_SOURCE`, read live off the
+      //  dispatcher. A MODEL-SUPPLIED token deliberately skips this branch
+      //  entirely: it may be garbage, but `requireToken` refuses a wrong VALUE
+      //  loudly and that refusal genuinely is a token conflict — relabelling it
+      //  here would swallow the one case `stale` is right about.
+      const call = remapStagedCall(stamped, real);
+      let guarded = call;
       if (
         row.pendingOn !== undefined &&
-        TOKEN_REQUIRED_TOOLS.has(stamped.name) &&
-        !hasUsableToken(stamped)
+        TOKEN_REQUIRED_TOOLS.has(call.name) &&
+        !hasUsableToken(call)
       ) {
-        applied.push({ index, ok: false, error: NEW_ROW_TOKEN_UNAVAILABLE_ERROR });
-        continue;
+        const source = TOKEN_ROW_SOURCE[call.name];
+        const targetId = Number((call.input as { id?: unknown }).id);
+        const current =
+          source !== undefined && Number.isFinite(targetId)
+            ? source.getRow(dispatcher, targetId)
+            : null;
+        if (current === null) {
+          // The create landed but its row cannot be read back, so no honest
+          // token exists. Refused BEFORE `runTool` so it cannot reach
+          // `requireToken` and inherit the `stale` label, which would tell the
+          // user a row moved that never existed.
+          applied.push({ index, ok: false, error: NEW_ROW_TOKEN_UNAVAILABLE_ERROR });
+          continue;
+        }
+        guarded = {
+          ...call,
+          input: { ...call.input, expectedToken: entityToken(source.kind, current) },
+        };
       }
-      const call = remapStagedCall(stamped, real);
       try {
-        const result = await runTool(dispatcher, call.name, call.input);
+        const result = await runTool(dispatcher, guarded.name, guarded.input);
         resolveMintedId(row, result, real, pending);
         applied.push({ index, ok: true });
       } catch (e) {
