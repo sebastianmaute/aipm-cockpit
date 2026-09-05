@@ -53,10 +53,14 @@ import { FOCUSABLE_SELECTOR } from "../src/app/focusables";
  *       fired, i.e. focus really was still inside the dialog. That is the
  *       blindness described above, measured rather than argued. (Shift+Tab
  *       landed on the dialog's LAST control instead — received 6 in chromium
- *       and 5 in firefox, because the header's voice button is focusable in
- *       one engine and `disabled` in the other; the Tab test's own comment
- *       carries that measurement, and it is why no assertion here depends on
- *       the focusable total or on any absolute index but the non-edge start.)
+ *       and 5 in firefox. ★ THOSE TWO NUMBERS PREDATE THE MIC SUPPRESSION and
+ *       have not been re-measured under a mutant since; they differed only
+ *       because the dialog header then rendered a `VoiceCommandButton`, which
+ *       is focusable in one engine and `disabled` in the other. The dialog's
+ *       header no longer renders one at all, so the engine divergence is gone
+ *       — see the measurement in the Tab test below. The reason no assertion
+ *       here depends on the focusable total, or on any absolute index but the
+ *       non-edge start, is unchanged and is why this file stayed green.)
  *
  * ★★ TWO MUTANTS THE BRIEF FOR THIS FILE SUGGESTED AND WHICH DO NOT WORK, kept
  * here so nobody re-derives them:
@@ -77,11 +81,9 @@ import { FOCUSABLE_SELECTOR } from "../src/app/focusables";
  * the same two clicks a person makes.
  */
 
-/** The EN DASH (U+2013) the app uses as its accessible-name separator, spelled
- *  as an ESCAPE. ★ This repo has a recorded history of editing tools corrupting
- *  non-ASCII bytes in source files, and a corrupted separator here would
- *  silently match nothing. ★★ `popover-focus.spec.ts` carries the same comment
- *  over a LITERAL glyph (verified by `od -c`) — do not copy that spelling. */
+/** U+2013 EN DASH — the app's accessible-name separator (`rowLabel` in
+ *  `src/app/row-tokens.ts`; the names below are hand-built to the same shape).
+ *  An escape, so the codepoint is explicit and no editing tool can corrupt it. */
 const NDASH = "\u2013";
 
 /** `task-form-modal.tsx` — `ariaLabel` for the CREATE case, `t(lang,
@@ -252,20 +254,25 @@ test.describe("Time tracking dialog dismissal, in a real engine", () => {
     const dialog = timeTrackingDialog(page);
     const labels = await tagFocusables(dialog);
 
-    // ★★ REPORTED, NOT ASSERTED — the list is engine-dependent and asserting a
-    // COUNT or a POSITION here would pin the machine rather than the product.
-    // MEASURED 2026-09-05: chromium enumerates SEVEN focusables and firefox
-    // SIX, and the extra one is the FIRST — `ModalHeader`'s
-    // `VoiceCommandButton`, which is `disabled={!supported}` and whose support
-    // probe reads `window.SpeechRecognition`. Firefox has none, so the button
-    // renders disabled and `FOCUSABLE_SELECTOR`'s
-    // `button:not([disabled])` skips it. So the DOM is the same in both engines
-    // and the selector is the same; only the feature detection differs.
-    // ★★★ CONSEQUENCE: index 1 is a DIFFERENT CONTROL per engine (chromium: the
-    // ✕; firefox: the Time-spent input). That is fine and deliberate — this
-    // file asserts that Tab moves exactly ONE STEP from a NON-EDGE start, never
-    // which control it reaches — but it is why nothing below may be rewritten
-    // to name a control by index.
+    // ★★ REPORTED, NOT ASSERTED — asserting a COUNT or a POSITION here would
+    // pin the machine rather than the product, and that stays true even now
+    // that the two engines agree.
+    // MEASURED 2026-09-05, AFTER the nested-header mic suppression: BOTH
+    // engines enumerate the same SIX focusables in the same order — ✕, Time
+    // spent, the remaining box's hint trigger, Time remaining, Cancel, Save.
+    // ★★ THIS USED TO DIVERGE and the divergence is what the suppression
+    // removed. The dialog's `ModalHeader` previously rendered a
+    // `VoiceCommandButton` at index 0, `disabled={!supported}` off a probe of
+    // `window.SpeechRecognition`; firefox has none, so it rendered disabled and
+    // `FOCUSABLE_SELECTOR`'s `button:not([disabled])` skipped it — seven in
+    // chromium against six in firefox, from an identical DOM under an identical
+    // selector, differing only by feature detection. `hideVoiceCommand` on this
+    // dialog's header removed the control on both, because a second mic
+    // collided with the task form's on an unqualified shared name.
+    // ★★★ Nothing below may still be rewritten to name a control by index. The
+    // engines agreeing today is not a guarantee: any control whose rendering
+    // turns on a feature probe re-opens exactly this gap, and this file asserts
+    // only that Tab moves ONE STEP from a NON-EDGE start.
     const summary = JSON.stringify({ project: testInfo.project.name, labels }, null, 2);
     console.log(`[time tracking dismissal] dialog focusables:\n${summary}`);
     await testInfo.attach("time-tracking-dialog-focusables", {
