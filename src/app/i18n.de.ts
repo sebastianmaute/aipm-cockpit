@@ -4203,9 +4203,9 @@ export const de: Record<TranslationKey, string> = {
   chatProposalRowToggle: "Einbeziehen",
   chatProposalCascaded: "Benötigt eine von Ihnen abgelehnte Änderung",
   chatProposalFailed: "Nicht übernommen – seit Ihrer Prüfung geändert",
-  chatProposalFailedDependency: "Nicht angewendet — eine Zeile, von der sie abhängt, wurde nicht erstellt",
-  chatProposalFailedUnreadable: "Nicht angewendet — das Ziel konnte nicht erneut gelesen werden",
-  chatProposalFailedError: "Nicht angewendet",
+  chatProposalFailedDependency: "Nicht übernommen – eine Zeile, von der sie abhängt, wurde nicht erstellt",
+  chatProposalFailedUnreadable: "Nicht übernommen – das Ziel konnte nicht erneut gelesen werden",
+  chatProposalFailedError: "Nicht übernommen",
   chatProposalExpired: "Dieser Vorschlag ist nicht mehr aktiv.",
   chatProposalDiscarded: "Vorschlag verworfen.",
 };
