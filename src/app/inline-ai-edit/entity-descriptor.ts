@@ -20,6 +20,7 @@ import {
   isExternalFlag,
   optMultiline,
   optText,
+  sanitizeIdList,
 } from "../sanitize-entities";
 import {
   TASK_NAME_MAX,
@@ -30,7 +31,10 @@ import {
   sanitizeGroup,
   sanitizeTaskName,
   sanitizeText,
+  toNumber,
 } from "../sanitize-core";
+import { sanitizeMilestoneTaskIds } from "../sanitize-records";
+import { roleLabel } from "../resource-foundation";
 
 /** `sanitizeText` bound to one cap, as the apply-path sanitizers call it.
  *  Written as a factory so a `fieldSanitizers` entry can never carry a cap
@@ -42,6 +46,13 @@ const text = (max: number) => (v: unknown): string => sanitizeText(v, max);
 const optionalText = (v: unknown): string => optText(v) ?? "";
 const optionalMultiline = (v: unknown): string => optMultiline(v) ?? "";
 
+/** A referenced row's display value as a string. ★ Deliberately a LOCAL copy of
+ *  `plan.ts`'s helper of the same name and the same behaviour, not an import:
+ *  `plan.ts` imports THIS module, so importing it back would close a cycle. The
+ *  array-joining branch is carried over verbatim so the two cannot drift into
+ *  meaning different things under one name. */
+const str = (v: unknown): string => (v == null ? "" : Array.isArray(v) ? v.join(", ") : String(v));
+
 export type InlineEntity = "task" | "raid" | "change" | "milestone" | "stakeholder" | "resource";
 
 // Change impact reuses RAID severities plus "Critical" (matches CHANGE_IMPACT_SET
@@ -52,6 +63,25 @@ const CHANGE_IMPACT_LEVELS = ["Low", "Medium", "High", "Critical"] as const;
  *  RAID status, which is category-scoped. Returns the set of strings the
  *  sanitizer would keep verbatim. */
 export type EnumResolver = (patchedItem: Record<string, unknown>) => ReadonlySet<string>;
+
+export interface LinkField {
+  /** The workspace array holding the referenced rows. */
+  readonly wsKey: keyof Workspace;
+  /** `"list"` for an id array, `"id"` for a single FK (`resource.roleId`). */
+  readonly kind: "list" | "id";
+  /** The referenced row's display name.
+   *
+   *  ★★★ IT TAKES THE WORKSPACE, and that is not ceremony — `Role` HAS NO
+   *   `name` FIELD. A role's label is `disciplineId` + `gradeId` resolved
+   *   against two OTHER workspace arrays (`roleLabel`), so a single-row
+   *   accessor renders `""` for every role, which on this card is
+   *   indistinguishable from the link having been dropped. `version-diff.ts`
+   *   widened its `roles` `nameOf` for exactly this reason. The caller pays
+   *   nothing: it must already hold the workspace to resolve `ws[wsKey]`. */
+  readonly titleOf: (row: Record<string, unknown>, ws: Workspace) => string;
+  /** The APPLY path's own id rule for this field. */
+  readonly sanitize: (v: unknown) => number[];
+}
 
 export interface EntityDescriptor {
   entity: InlineEntity;
@@ -145,6 +175,29 @@ export interface EntityDescriptor {
    *   every entity × every `diffField` × a hostile probe set, preview against
    *   the real sanitizer. */
   fieldSanitizers: Record<string, (v: unknown) => string>;
+  /** Relationship and FK inputs the update tool accepts, which `diffFields`
+   *  deliberately excludes (its contract is scalar/enum/date/number only).
+   *
+   *  ★★★ SUPPLYING ONE REPLACES THE STORED LIST — every dispatcher merges by
+   *   object spread, so `linkedTaskIds: [7]` drops the other links. Nothing
+   *   reconstructs them: there is no reciprocal field on the referenced row, the
+   *   derived index is computed FROM this array, and the activity-log entry
+   *   carries no field diff. The undo stack's before-image is the only surviving
+   *   copy and it is session-scoped. Disclosure before approval is the whole
+   *   mitigation.
+   *
+   *  ★★★ THE TWO SETS MUST STAY DISJOINT FROM `diffFields`, and the reason is a
+   *   write, not a render: `use-inline-entity-edit.ts` puts every `diffFields`
+   *   member's rendered value BACK as the patch value, so a link field named in
+   *   both would write a title STRING into an id array and wipe it. Pinned by
+   *   "declares no link field that is also a diffField".
+   *
+   *  `sanitize` must be the WRITER'S OWN function, never a copy of its rule —
+   *  raid and change use `sanitizeIdList` (parses a delimited string, dedupes),
+   *  milestone uses `sanitizeMilestoneTaskIds` (array-only, no dedupe), and
+   *  `resource.roleId` coerces with `toNumber`, which rejects the array shapes
+   *  bare `Number` would accept. */
+  linkFields: Record<string, LinkField>;
   titleOf: (item: Record<string, unknown>) => string;
 }
 
@@ -201,6 +254,9 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       blockers: sanitizeBlockers,
       group: sanitizeGroup,
     },
+    // ★ `taskFields` declares no id-list input — a task's relationships
+    //  (`resourceId`, `dependencies`) are not writable by `update_task`.
+    linkFields: {},
     titleOf: (i) => String(i.taskName ?? ""),
   },
   raid: {
@@ -227,6 +283,11 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       owner: text(BUDGET_NAME_MAX),
       ownerEmail: sanitizeEmail,
     },
+    linkFields: {
+      linkedTaskIds: { wsKey: "tasks", kind: "list", titleOf: (r) => str(r.taskName), sanitize: sanitizeIdList },
+      causedByRaidIds: { wsKey: "raid", kind: "list", titleOf: (r) => str(r.title), sanitize: sanitizeIdList },
+      stakeholderIds: { wsKey: "stakeholders", kind: "list", titleOf: (r) => str(r.name), sanitize: sanitizeIdList },
+    },
     titleOf: (i) => String(i.title ?? ""),
   },
   change: {
@@ -245,6 +306,13 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       requestedBy: text(BUDGET_NAME_MAX),
       decisionBy: text(BUDGET_NAME_MAX),
     },
+    // ★ `linkedRaidIds` here, `causedByRaidIds` on raid — the same referenced
+    //  array under two different input names. The tool's spelling wins.
+    linkFields: {
+      linkedTaskIds: { wsKey: "tasks", kind: "list", titleOf: (r) => str(r.taskName), sanitize: sanitizeIdList },
+      linkedRaidIds: { wsKey: "raid", kind: "list", titleOf: (r) => str(r.title), sanitize: sanitizeIdList },
+      stakeholderIds: { wsKey: "stakeholders", kind: "list", titleOf: (r) => str(r.name), sanitize: sanitizeIdList },
+    },
     titleOf: (i) => String(i.title ?? ""),
   },
   milestone: {
@@ -260,6 +328,13 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // Mirrors `sanitizeMilestone` (sanitize-records.ts) — `name` is the only
     // non-date, non-rich field it has.
     fieldSanitizers: { name: text(BUDGET_NAME_MAX) },
+    // ★★ NOT `sanitizeIdList`. The milestone writer has its own rule: array
+    //  only (a delimited string yields `[]`, where raid/change parse one) and NO
+    //  dedupe. Substituting the raid/change function would preview links this
+    //  write drops — `sanitize-records.ts` exports it to prevent exactly that.
+    linkFields: {
+      linkedTaskIds: { wsKey: "tasks", kind: "list", titleOf: (r) => str(r.taskName), sanitize: sanitizeMilestoneTaskIds },
+    },
     titleOf: (i) => String(i.name ?? ""),
   },
   stakeholder: {
@@ -284,6 +359,10 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       email: text(BUDGET_NAME_MAX),
       notes: text(TEXTAREA_MAX),
     },
+    // ★ `Stakeholder.raci` IS a relationship, but `stakeholderFields` does not
+    //  declare it — `update_stakeholder` cannot write it, so there is nothing
+    //  here to disclose.
+    linkFields: {},
     titleOf: (i) => String(i.name ?? ""),
   },
   resource: {
@@ -349,6 +428,27 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       businessPhone: optionalText,
       notes: optionalMultiline,
       isExternal: (v) => String(isExternalFlag(v)),
+    },
+    // ★★★ `roleId` IS writable — it is listed as absent from `diffFields` above
+    //  under "an FK, excluded by the same rule as Task.resourceId", and that
+    //  exclusion is right: an FK must never round-trip through `FieldDiff.raw`.
+    //  It still has to be DISCLOSED, which is what this member is for.
+    //  ★★ `titleOf` reads NEITHER a `name` (Role has none) NOR `i.title` (that
+    //   is the JOB title on a Resource, a different entity entirely) — the label
+    //   is discipline + grade, resolved against the workspace.
+    //  ★★ `toNumber`, not `Number`: they disagree on `[5]`, which bare `Number`
+    //   coerces to 5 while `sanitizeResource` rejects it to a null FK.
+    linkFields: {
+      roleId: {
+        wsKey: "roles",
+        kind: "id",
+        titleOf: (r, ws) =>
+          roleLabel({ disciplineId: toNumber(r.disciplineId), gradeId: toNumber(r.gradeId) }, ws.disciplines, ws.grades),
+        sanitize: (v) => {
+          const n = toNumber(v);
+          return Number.isFinite(n) && n > 0 ? [n] : [];
+        },
+      },
     },
     // ★ NOT `i.title` — that is the JOB title. The two name parts are the row's
     // identity (`sanitizeResource` rejects a row with neither).

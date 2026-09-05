@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { INLINE_DESCRIPTORS, validSetFor, type InlineEntity } from "./entity-descriptor";
+import { emptyWorkspace } from "../workspace";
 import type { RaidItem } from "../types";
 
 describe("INLINE_DESCRIPTORS", () => {
@@ -147,5 +148,81 @@ describe("INLINE_DESCRIPTORS", () => {
         .map((f) => `${e}.${f}`),
     );
     expect(strays).toEqual([]);
+  });
+});
+
+describe("linkFields", () => {
+  it("names a real workspace array for every link field", () => {
+    // A wrong wsKey resolves nothing and every title renders as unknown, which
+    // reads like data loss on the card. The ws fixture proves the key exists.
+    const ws = emptyWorkspace();
+    let checked = 0;
+    for (const d of Object.values(INLINE_DESCRIPTORS)) {
+      for (const [field, link] of Object.entries(d.linkFields)) {
+        expect(Array.isArray(ws[link.wsKey]), `${d.entity}.${field} -> ${String(link.wsKey)}`).toBe(true);
+        checked += 1;
+      }
+    }
+    // Guards against an empty map registering zero assertions and reporting green.
+    expect(checked).toBe(8);
+  });
+
+  it("declares no link field that is also a diffField", () => {
+    // The two sets must stay disjoint: a field in BOTH would be written back by
+    // the inline editor as a title string. See the LinkDiff docstring.
+    for (const d of Object.values(INLINE_DESCRIPTORS)) {
+      for (const field of Object.keys(d.linkFields)) {
+        expect(d.diffFields, `${d.entity}.${field}`).not.toContain(field);
+      }
+    }
+  });
+
+  // ★★★ `Role` HAS NO `name` FIELD — a role's human label is `disciplineId` +
+  //  `gradeId` resolved against TWO OTHER workspace arrays (`roleLabel`), which
+  //  is the whole reason `titleOf` takes the workspace as its second argument.
+  //  A single-row accessor (`r.name`) returns `""` for EVERY role, and an empty
+  //  title on this card is indistinguishable from the link having been dropped
+  //  — the exact failure the disclosure exists to prevent. `version-diff.ts`
+  //  solved the same problem the same way for its `roles` `nameOf`; this is not
+  //  a new shape.
+  it("resolves a role title through the workspace, not through a name field", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      disciplines: [{ id: 1, name: "Developer" }],
+      grades: [{ id: 2, name: "Senior" }],
+    };
+    const link = INLINE_DESCRIPTORS.resource.linkFields.roleId;
+    expect(link.titleOf({ id: 7, disciplineId: 1, gradeId: 2 }, ws)).toBe("Developer Senior");
+  });
+
+  // ★★ `sanitizeResource` coerces `roleId` with `toNumber`, NOT `Number`, and
+  //  the two disagree on exactly the shape a model is most likely to emit for a
+  //  link field: `Number([5])` is 5 (accepted) while `toNumber([5])` is NaN
+  //  (rejected → the FK stores `null`). Previewing an array as a resolved link
+  //  the writer then drops is the divergence `sanitize` exists to close, so the
+  //  entry must call the writer's own coercion rather than restate its rule.
+  it("rejects a roleId shape the resource writer would drop", () => {
+    const link = INLINE_DESCRIPTORS.resource.linkFields.roleId;
+    expect(link.sanitize(5)).toEqual([5]);
+    expect(link.sanitize("5")).toEqual([5]);
+    expect(link.sanitize([5])).toEqual([]);
+    expect(link.sanitize(0)).toEqual([]);
+    expect(link.sanitize(undefined)).toEqual([]);
+  });
+
+  // ★★ The milestone rule is NOT the raid/change one, and the descriptor must
+  //  carry each writer's OWN function: `sanitizeIdList` parses a delimited
+  //  string and dedupes; `sanitizeMilestoneTaskIds` accepts an array only and
+  //  keeps duplicates. Approximating one with the other previews links a
+  //  milestone write silently drops.
+  it("carries each writer's own id rule, not a shared approximation", () => {
+    const raid = INLINE_DESCRIPTORS.raid.linkFields.linkedTaskIds.sanitize;
+    const milestone = INLINE_DESCRIPTORS.milestone.linkFields.linkedTaskIds.sanitize;
+    // A delimited string: raid/change parse it, milestone does not.
+    expect(raid("1;2")).toEqual([1, 2]);
+    expect(milestone("1;2")).toEqual([]);
+    // Duplicates: raid/change dedupe, milestone does not.
+    expect(raid([3, 1, 3])).toEqual([3, 1]);
+    expect(milestone([3, 1, 3])).toEqual([3, 1, 3]);
   });
 });
