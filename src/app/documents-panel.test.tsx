@@ -2529,13 +2529,30 @@ describe("DocumentsPanel — the list is sized by its rows, not crushed by the p
 });
 
 describe("documents pane — collapsing the open document's body", () => {
+  // ★★★ THE `aria-expanded` HALF ALONE IS VACUOUS. Both it and the guard around
+  // the body are threaded from the SAME `bodyCollapsed` state, so reverting
+  // `{!bodyCollapsed && (<DocumentEditModeBody …/>)}` to the unconditional
+  // element deletes the entire user-visible feature — the body never collapses,
+  // only the announcement flips — and every ARIA-only assertion in this describe
+  // stays green. Assert the RENDERED BODY too, and take the observable from
+  // INSIDE `DocumentEditModeBody`: the `<h2>` `DocumentPreview` renders for
+  // `doc.title` (`document-preview.tsx`), which is the same locator the rest of
+  // this file already uses for "the pane is showing this document".
+  // ★★ NOT `DocumentLinksSection` / `DocumentsAssetSection` — both sit OUTSIDE
+  // the guard by design and stay mounted while collapsed, so an assertion on
+  // either passes under that revert and reproduces the very gap this closes.
   it("collapses the body when the open document's name is clicked again", async () => {
     const user = userEvent.setup();
     renderLive([doc(1, "Alpha")]);
+    // `selected` falls back to selectionPool[0], so the body is rendered before
+    // the first click — without this the absence below could pass vacuously.
+    expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Alpha" }));
     expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("heading", { name: "Alpha" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Alpha" }));
     expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
   });
 
   // ★★★ THE REGRESSION THIS DESIGN EXISTS TO PREVENT. `selected` falls back to
