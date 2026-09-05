@@ -135,8 +135,12 @@ export function SingleEntityPicker({
   // index. This drops an index now out of RANGE; the reconcile above covers an
   // index still in range but naming a different entity — and only because every
   // caller re-filters in RESPONSE to the query changing. A caller that swapped
-  // `options` WITHOUT changing `query` would defeat both guards; see the
-  // CONTRACT on the `options` prop, which this rests on rather than enforces.
+  // `options` WITHOUT changing `query` defeats the reconcile outright, but
+  // defeats THIS clamp only when the stale index is still in range in the new
+  // list: an index past the new end is still caught here, which is what
+  // "drops an active option that the shrinking option list no longer has"
+  // pins. See the CONTRACT on the `options` prop, which this rests on rather
+  // than enforces.
   const active = highlight >= 0 && highlight < options.length ? highlight : -1;
 
   function move(delta: 1 | -1) {
