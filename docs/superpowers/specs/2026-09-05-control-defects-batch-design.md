@@ -85,9 +85,16 @@ information is lost from the row.
 
 **Change, part B — the accessible name.** `task-raid-badge.tsx` builds its `aria-label` so the
 visible text is contained in it by construction. The chain is rebuilt to lead with the NEW
-visible text, then the breakdown, then the row token:
+visible text, then the spelled-out count, then the row token:
 
-    aria-label={rowLabel(rowLabel(countText, mix), rowToken)}
+    aria-label={rowLabel(rowLabel(countText, t(lang, "raidReferencedBy", refs.length)), rowToken)}
+
+★★ CORRECTED 2026-09-05, before planning. An earlier revision of this line put `mix` — the
+glyph string — in the middle slot. Two things were wrong with that. It made
+`raidReferencedBy` DEAD (grep proves the badge is its only consumer: `title` and `aria-label`,
+both of which that change rewrites), directly contradicting the "both still used" claim below
+it. And it made a screen reader announce "2R 1A 0I 0D" where a sentence belongs. The glyph
+string is a SIGHTED shorthand; it goes to `title`, which is where this change sends it anyway.
 
 Leading with the visible text satisfies WCAG 2.5.3 by construction rather than by coincidence.
 2.5.3 is CONTAINMENT — case-insensitive and position-independent — so front position is the
