@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { TaskTimeTrackingModal } from "./task-time-tracking-modal";
@@ -50,6 +50,26 @@ describe("TaskTimeTrackingModal", () => {
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onSave).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  test("swallows a bare Enter on a duration box", () => {
+    // The panel's own guard, asserted at ITS level -- independent of where the
+    // dialog sits in the DOM, so portalling it cannot make this pass for the
+    // wrong reason. Typing a duration and pressing Enter is the natural way to
+    // finish the entry; unguarded it would submit the task form beneath.
+    render(<TaskTimeTrackingModal {...base} onSave={vi.fn()} onClose={vi.fn()} />);
+    const input = screen.getByRole("textbox", { name: /time spent/i });
+    const ev = createEvent.keyDown(input, { key: "Enter" });
+    fireEvent(input, ev);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  test("leaves other keys alone, so typing a duration still works", () => {
+    render(<TaskTimeTrackingModal {...base} onSave={vi.fn()} onClose={vi.fn()} />);
+    const input = screen.getByRole("textbox", { name: /time spent/i });
+    const ev = createEvent.keyDown(input, { key: "h" });
+    fireEvent(input, ev);
+    expect(ev.defaultPrevented).toBe(false);
   });
 
   test("states plainly that there is no original estimate rather than printing an empty one", () => {

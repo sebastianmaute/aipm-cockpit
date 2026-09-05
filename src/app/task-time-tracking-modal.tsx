@@ -61,8 +61,30 @@ export function TaskTimeTrackingModal({
       ariaLabel={t(lang, "taskTimeTracking")}
       align="center"
       zIndex={50}
+      // PORTALED because an ancestor panel carries a non-`none` transform,
+      // which makes that panel — not the viewport — the containing block for
+      // `position: fixed` descendants. Rendered in place, this dialog's
+      // backdrop would be sized and offset to the task form beneath it.
+      portal
     >
-      <div className="flex w-[520px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface">
+      <div
+        className="flex w-[520px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        // Swallow a bare Enter. Typing a duration and pressing Enter is the
+        // natural way to finish the entry, and this dialog opens from inside
+        // the task <form>, where that is implicit submission: the task saves
+        // with its PRE-dialog values and both layers close, discarding the
+        // edits held in local state here.
+        //
+        // KEEP THIS EVEN THOUGH `portal` ALONE ALSO STOPS IT. The portal moves
+        // these inputs out of the <form>, but that is a side effect of DOM
+        // location, stated nowhere at this call site — un-portalling the dialog
+        // would silently re-arm the bug. The guard states the rule locally and
+        // is testable on its own. `isComposing` spares IME users, for whom
+        // Enter commits the candidate rather than the field.
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.nativeEvent.isComposing) e.preventDefault();
+        }}
+      >
         <ModalHeader lang={lang} title={t(lang, "taskTimeTracking")} onClose={onClose} />
 
         <div className="space-y-4 p-6">

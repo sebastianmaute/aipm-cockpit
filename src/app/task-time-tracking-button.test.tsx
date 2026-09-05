@@ -80,6 +80,48 @@ describe("TaskTimeTrackingButton", () => {
     expect(screen.getByRole("textbox", { name: /time spent/i })).toHaveValue("2h");
   });
 
+  test("portals the dialog out of the surrounding form", async () => {
+    // The dialog must not be a DESCENDANT of the task <form>: an ancestor panel
+    // carries a non-`none` transform, which would scope the dialog's own fixed
+    // backdrop to that panel instead of the viewport.
+    render(
+      <form data-testid="host">
+        <TaskTimeTrackingButton {...base} />
+      </form>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /time tracking/i }));
+    const dialog = screen.getByRole("dialog", { name: /time tracking/i });
+    expect(screen.getByTestId("host")).not.toContainElement(dialog);
+    // A direct child of <body>, i.e. the portal target itself -- "somewhere in
+    // the document" would be true of the un-portaled tree too.
+    expect(dialog.parentElement).toBe(document.body);
+  });
+
+  test("pressing Enter in a duration box cannot submit the surrounding task form", async () => {
+    const submitSpy = vi.fn((e: { preventDefault: () => void }) => e.preventDefault());
+    render(
+      <form onSubmit={submitSpy}>
+        <input aria-label="outside" />
+        <TaskTimeTrackingButton {...base} />
+        <button type="submit">Save task</button>
+      </form>,
+    );
+
+    // ANTI-VACUITY CONTROL. If jsdom did not implement implicit form
+    // submission, the negative assertion below would pass against ANY
+    // implementation and certify nothing. Assert the positive first.
+    await userEvent.type(screen.getByRole("textbox", { name: "outside" }), "x{Enter}");
+    expect(submitSpy).toHaveBeenCalledTimes(1);
+    submitSpy.mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: /time tracking/i }));
+    const spent = screen.getByRole("textbox", { name: /time spent/i });
+    await userEvent.clear(spent);
+    await userEvent.type(spent, "3h{Enter}");
+    expect(submitSpy).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: /time tracking/i })).toBeInTheDocument();
+  });
+
   test("does not expose a progressbar role, because the track is decorative here", () => {
     render(<TaskTimeTrackingButton {...base} />);
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
