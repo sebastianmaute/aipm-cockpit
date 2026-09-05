@@ -4,6 +4,7 @@ import { it, expect, vi, afterEach, describe } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import * as call from "./inline-ai-edit-call";
 import * as tools from "./chat-tools";
+import * as planMod from "./inline-ai-edit/plan";
 import { useInlineAiEdit, type InlineAiEditDeps } from "./use-inline-ai-edit";
 import { useInlineEntityEdit, type InlineEntityEditDeps } from "./use-inline-entity-edit";
 import { entityToken } from "./ai-entity-token";
@@ -380,6 +381,42 @@ describe("useInlineEntityEdit — raid", () => {
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
       id: 7, category: "I", status: "Open", expectedToken: entityToken("raid", item),
     });
+  });
+
+  // ★★★ A NON-EMPTY PLAN THAT EVERY APPLY BRANCH SKIPS MUST NOT REPORT SUCCESS.
+  // `isEmptyPlan` counts EVERY bucket — `links` included — so a plan reaches
+  // `preview` and passes apply()'s guard while the three write branches
+  // (`updates` / `creates` / `deletes`) all skip it. The toast used to fire
+  // unconditionally, claiming a write that never happened. The gate is
+  // `applied > 0`, so it protects every FUTURE bucket added to `EditPlan`, not
+  // just this one — nothing populates `links` yet, which is precisely why this
+  // has to be pinned before something does.
+  it("does not claim success when no apply branch wrote anything", async () => {
+    vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+      blocks: [{ type: "tool_use", id: "b1", name: "update_raid_item", input: { id: 7 } }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    // Nothing populates `links` today, so the plan is injected at the seam the
+    // hook actually consumes. `isEmptyPlan` stays REAL — it is the half of the
+    // contradiction under test.
+    vi.spyOn(planMod, "describeEntityCalls").mockReturnValue({
+      updates: [], creates: [], deletes: [], rejected: [],
+      links: [{ field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] }],
+    });
+    const runToolSpy = vi.spyOn(tools, "runTool").mockResolvedValue({ id: 7 });
+    const deps = mkEntityDeps();
+    const { result } = renderHook(() => useInlineEntityEdit(deps));
+    act(() => result.current.openFor(raidItem));
+    await act(async () => { await result.current.submit("link it to the brief"); });
+    // Positive control: without this the apply() guard returns early and the
+    // "no toast" assertion below passes for the wrong reason.
+    expect(result.current.phase).toBe("preview");
+    await act(async () => { await result.current.apply(); });
+    expect(runToolSpy).not.toHaveBeenCalled();
+    expect(deps.showToast).not.toHaveBeenCalledWith("info", expect.anything());
+    // cancel() stays OUTSIDE the guard — closing the popover is right either way.
+    expect(result.current.phase).toBe("idle");
+    expect(result.current.activeItem).toBeNull();
   });
 
   it("auto-closes a left-open edit when the pane goes inactive (active -> false)", () => {

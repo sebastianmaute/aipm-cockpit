@@ -264,7 +264,21 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       // strip actually ran. Delete or reword the sentinel and that control
       // passes trivially, so a broken comment-strip would no longer be caught
       // and the `ai.inlineEdit` ban beside it would be scanning nothing.
-      deps.showToast("info", t(deps.lang, "inlineAiEditApplied", d.titleOf(activeItem)));
+      // ★★★ GATED ON `applied`, BECAUSE A NON-EMPTY PLAN IS NOT A WRITTEN ONE.
+      // The guard at the top of apply() rejects an EMPTY plan, and `isEmptyPlan`
+      // counts EVERY bucket of `EditPlan` — but only three of them (`updates`,
+      // `creates`, `deletes`) have a branch above that writes anything. A plan
+      // whose only content is in some other bucket therefore passes the guard,
+      // skips all three branches, and used to reach an UNCONDITIONAL success
+      // toast: "applied" for a write that never happened. `links` is the live
+      // instance (nothing populates it yet — the next slice does), so this is
+      // written against `applied`, not against any one bucket: every future
+      // bucket added to `EditPlan` is covered without touching this line.
+      // ★ `cancel()` stays OUTSIDE the guard — closing the popover is correct
+      //   either way; only the success CLAIM is conditional.
+      if (applied > 0) {
+        deps.showToast("info", t(deps.lang, "inlineAiEditApplied", d.titleOf(activeItem)));
+      }
       cancel();
     } catch (err) {
       if (applied > 0) {
