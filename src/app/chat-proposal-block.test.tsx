@@ -132,9 +132,9 @@ describe("ChatProposalBlock", () => {
   // string for every not-ok row. Each `failedKind` now gets its own truthful
   // string; an absent kind still falls back to the pre-existing conflict copy.
   it.each([
-    ["conflict", "changed since you reviewed"],
-    ["dependency", "a row it depends on was not created"],
-    ["unreadable", "could not be read back"],
+    ["conflict", "Not applied — changed since you reviewed"],
+    ["dependency", "Not applied — a row it depends on was not created"],
+    ["unreadable", "Not applied — its target could not be read back"],
     ["error", "Not applied"],
   ] as const)("labels a %s failure with its own string", (kind, expected) => {
     render(
@@ -156,7 +156,15 @@ describe("ChatProposalBlock", () => {
         onDiscard={() => {}}
       />,
     );
-    expect(screen.getByText(new RegExp(expected))).toBeInTheDocument();
+    // ★★★ THE WHOLE STRING, NOT A SUBSTRING, AND THAT IS THE POINT. All four
+    //  labels open with "Not applied", and the `conflict` fallback contains the
+    //  distinguishing clause of none of the others — so a `new RegExp(...)`
+    //  substring match let the `error` case PASS AGAINST THE UNFIXED CODE, where
+    //  every kind still rendered `chatProposalFailed`. Measured: with the render
+    //  branch reverted to the single key, a substring assertion left 2 of 4 green.
+    //  An RTL string matcher is a normalised WHOLE-STRING match, which is what
+    //  makes each kind's assertion able to fail.
+    expect(screen.getByText(expected)).toBeInTheDocument();
   });
 
   it("reports the selected count on Apply and calls the handlers it was given", async () => {
