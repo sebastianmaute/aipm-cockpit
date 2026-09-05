@@ -303,6 +303,36 @@ describe("TaskRow", () => {
 
     expect(renderSpy.mock.calls.length).toBeGreaterThan(before);
   });
+
+  test("gives the leading Ask-Claude cell tight padding so the icon cannot clip", () => {
+    // The cell is `w-7` (28px). At the default `padding="normal"` it carries
+    // `px-4` — 32px — which is wider than the cell itself, so the icon clips and
+    // is pushed left over the checkbox cell. jsdom has no layout, so the class is
+    // the only observable; the visual result is covered by the eye-verify.
+    const ctx = makeContext();
+    const task = makeTask({ id: 1, taskName: "Alpha" });
+    const { container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            rowToken={task.taskName}
+            isSelected={false}
+            isEditing={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    // The leading Ask-Claude cell is the FIRST <td> in the row — it renders
+    // ahead of the checkbox cell (task-row.tsx:314).
+    const leading = container.querySelectorAll("td")[0];
+    expect(leading.className).toContain("w-7");
+    expect(leading.className).toContain("px-1");
+    expect(leading.className).not.toContain("px-4");
+  });
 });
 
 describe("TaskRow workflow-status badge", () => {

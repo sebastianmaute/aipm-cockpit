@@ -311,7 +311,7 @@ function TaskRowImpl({
       {/* Leading cell always renders (reserves width → no hover layout shift);
           the inline "Ask Claude" trigger is revealed on row hover / focus and
           only mounts when the row is AI-editable (not popout / not Jira-synced). */}
-      <Td className="w-7">
+      <Td className="w-7" padding="tight">
         {aiEditEnabled(task) && (
           <button
             type="button"
