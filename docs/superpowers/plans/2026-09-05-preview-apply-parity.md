@@ -1701,7 +1701,35 @@ GitHub anchor slugs DROP colons rather than hyphenating them.
     `plan.test.ts` would redden on the extra property. That is the design
     question, not a defect.
 
-★★ Numbers 5-11 came out of the cold review and the task investigations, not out
+12. ★★★ **SEVEN MORE FIELDS OF §384's SHAPE, found by Task 12 the moment the
+    parity gate stopped swallowing that direction.** One mechanism throughout:
+    the PREVIEW refuses a value the WRITER does not refuse, so the writer
+    silently coerces or drops it and CLEARS a populated field — the card says
+    "unchanged" and the replay wipes it.
+    - `task.taskName` `"T"` → `""` — **the most serious.** The descriptor
+      declares it `requiredNonEmpty`, but `buildTaskCleanPatch` has NO guard:
+      `cleanPatch.taskName = sanitizeTaskName(patch.taskName)` stores `""`.
+      This is §384's shape on a second entity.
+    - `raid.severity`, `change.impact` — optional enum, no fallback; an invalid
+      value drops the key.
+    - `raid.probability`, `raid.impact` — optional int-range [1,5]; out of range
+      drops the key.
+    - `raid.raisedDate`, `change.raisedDate` — `sanitizeIsoDate` is applied
+      UNCONDITIONALLY.
+    They are excepted in the gate with reasons, NOT fixed — fixing seven fields
+    is its own slice. ★ The exception list cannot rot: the totals test asserts
+    the fired set EQUALS the declared set, so a fixed entry goes red as stale
+    rather than silently covering the next field.
+13. **The parity sweep cannot exercise the silent-RESET half at all**, because
+    every required enum's fixture value coincides with its own sanitizer's
+    hardcoded fallback (`task.status` "To Do"/"To Do", `raid.category` "R"/"R",
+    and seven more). A row whose enum is NOT the default would be silently RESET
+    by a replay with the card showing nothing. Only `raid.severity` and
+    `change.impact` move, which is why those two surfaced above. Fixing this
+    means changing fixtures, which manufactures reds outside a task's scope —
+    it wants its own slice.
+
+★★ Numbers 5-13 came out of the cold review and the task investigations, not out
 of the original spec. All are measured; cite the measurement in the entry, not
 this plan.
 
