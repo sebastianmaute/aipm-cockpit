@@ -227,6 +227,22 @@ describe("TaskFormFields", () => {
       expect(screen.queryByText("Priority")).toBeNull();
       expect(screen.getByText("Task name")).toBeTruthy();
     });
+
+    // Lives in THIS describe rather than beside the plain `Harness` tests
+    // because `timeSpent` is a FULL-tier field (`modal-fields.ts`), so the
+    // Advanced default hides the whole row and the assertion below would pass
+    // against ANY implementation. Only `VisHarness` mounts the
+    // `ModalFieldControls` trigger `selectFieldTier` needs.
+    it("replaces the standalone Time spent field with the Time tracking button", () => {
+      render(<VisHarness />, { wrapper: TestProviders });
+      selectFieldTier("fieldViewFull");
+
+      expect(screen.getByRole("button", { name: /time tracking/i })).toBeTruthy();
+      // Spent is edited only in the dialog now. A testing-library string `name`
+      // is a WHOLE-STRING match, so this cannot be satisfied by the dialog's own
+      // "Time spent" box even once that is mounted.
+      expect(screen.queryByRole("textbox", { name: t("en-US", "taskTimeSpent") })).toBeNull();
+    });
   });
 });
 

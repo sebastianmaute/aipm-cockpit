@@ -35,7 +35,7 @@ import {
   TEXTAREA_MAX,
 } from "./sanitize";
 import { describeTextCap } from "./sanitize-report";
-import { EffortProgressBar } from "./effort-progress-bar";
+import { TaskTimeTrackingButton } from "./task-time-tracking-button";
 import { SegmentedControl } from "./segmented-control";
 import { useTaskForm } from "./task-form-context";
 import { useModalVisibility } from "./use-modal-visibility";
@@ -397,6 +397,36 @@ export function TaskFormFields({
       )}
 
       <TaskFormSection index={3} title={t(lang, "taskFormSectionEffort")}>
+        {isVisible("estimate") && (
+          <EffortField
+            key={`estimate-${editingId ?? "new"}`}
+            lang={lang}
+            label={t(lang, "taskOriginalEstimate")}
+            minutes={form.originalEstimateMinutes}
+            onChange={(minutes) =>
+              setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
+            }
+          />
+        )}
+
+        {/* ★ NOT wrapped in a `Field`: the button renders its own caption
+            <span> internally, so a wrapper would print the caption twice. */}
+        {isVisible("timeSpent") && (
+          <TaskTimeTrackingButton
+            lang={lang}
+            estimateMinutes={form.originalEstimateMinutes}
+            spentMinutes={form.timeSpentMinutes}
+            remainingMinutes={form.remainingEstimateMinutes}
+            onChange={({ spentMinutes, remainingMinutes }) =>
+              setForm((prev) => ({
+                ...prev,
+                timeSpentMinutes: spentMinutes,
+                remainingEstimateMinutes: remainingMinutes,
+              }))
+            }
+          />
+        )}
+
         <Field label={t(lang, "group")} hint={t(lang, "taskHintGroup")}>
           <ComboInput
             lang={lang}
@@ -411,38 +441,6 @@ export function TaskFormFields({
           />
           <CharCounter value={form.group} max={GROUP_MAX} id="group-counter" lang={lang} />
         </Field>
-
-        {isVisible("estimate") && (
-          <EffortField
-            key={`estimate-${editingId ?? "new"}`}
-            lang={lang}
-            label={t(lang, "taskOriginalEstimate")}
-            minutes={form.originalEstimateMinutes}
-            onChange={(minutes) =>
-              setForm((prev) => ({ ...prev, originalEstimateMinutes: minutes }))
-            }
-          />
-        )}
-
-        {isVisible("timeSpent") && (
-          <>
-            <EffortField
-              key={`spent-${editingId ?? "new"}`}
-              lang={lang}
-              label={t(lang, "taskTimeSpent")}
-              minutes={form.timeSpentMinutes}
-              onChange={(minutes) =>
-                setForm((prev) => ({ ...prev, timeSpentMinutes: minutes }))
-              }
-            />
-
-            <EffortProgressBar
-              lang={lang}
-              estimateMin={form.originalEstimateMinutes}
-              spentMin={form.timeSpentMinutes}
-            />
-          </>
-        )}
 
         {isVisible("labels") && (
           <Field label={t(lang, "labels")} group>
