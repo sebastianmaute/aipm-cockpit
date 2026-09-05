@@ -249,11 +249,14 @@ describe("TaskFormFields", () => {
       expect(screen.getByText("Task name")).toBeTruthy();
     });
 
-    // Lives in THIS describe rather than beside the plain `Harness` tests
-    // because `timeSpent` is a FULL-tier field (`modal-fields.ts`), so the
-    // Advanced default hides the whole row and the assertion below would pass
-    // against ANY implementation. Only `VisHarness` mounts the
+    // Lives in THIS describe because only `VisHarness` mounts the
     // `ModalFieldControls` trigger `selectFieldTier` needs.
+    // ★ `timeSpent` is an ADVANCED-tier field (`modal-fields.ts`), so the
+    //   tracking button ALREADY renders at this harness's default tier — the
+    //   Full switch is not what reveals it. It is kept because Full mounts the
+    //   widest field set, which makes the NEGATIVE assertion below strictly
+    //   stronger: a standalone "Time spent" textbox at ANY tier renders here.
+    //   (This comment previously called the field FULL-tier; it moved.)
     it("replaces the standalone Time spent field with the Time tracking button", () => {
       render(<VisHarness />, { wrapper: TestProviders });
       selectFieldTier("fieldViewFull");
@@ -268,11 +271,12 @@ describe("TaskFormFields", () => {
     // DOM ORDER is all this asserts, and all jsdom can see. The VISUAL row
     // placement (half width, empty right cell) is the eye-verify task's job —
     // a green run here is not proof the layout is right.
-    // ★ Lives in THIS describe for the same reason as the test above: the
-    //   tracking button is a FULL-tier field, so without `selectFieldTier` the
-    //   first anchor is absent and the whole assertion is unreachable rather
-    //   than merely weak. `budgetBucket` itself is ADVANCED, so it renders at
-    //   the default tier too — the switch is needed for the button alone.
+    // ★ Lives in THIS describe for the same reason as the test above: only
+    //   `VisHarness` mounts the `ModalFieldControls` that `selectFieldTier`
+    //   drives. BOTH anchors are ADVANCED-tier (`timeSpent`, `budgetBucket`),
+    //   so both render at the default tier and the Full switch is not what
+    //   makes this assertion reachable — it asserts the ordering at the widest
+    //   tier. (This comment previously called the button FULL-tier.)
     it("renders budget bucket between the tracking button and the group field", () => {
       const buckets = [{ id: 1, name: "Design" }, { id: 2, name: "Build" }] as unknown as BudgetBucket[];
       render(

@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-05
 **Branch:** to be cut from `origin/main` (`03df1445`, 0.282.0 "Zamyatin")
-**Register range:** mint from **§383**. §368–369 are mine and unused; §370–382 are a peer's, unlanded, and by our own rule not reserved — but renumbering into a reused number means sweeping every citation, so the gap is left deliberately.
+**Register range:** mint from **§383**. §368–369 are mine and unused; §370–382 were a peer's and unlanded when this was written; they have since MERGED and are now on `origin/main` (0.283.0 "Lessing"), so they are properly reserved and the gap is no longer merely a courtesy. Renumbering into a reused number would mean sweeping every citation, so the gap stands.
 
 ## Goal
 
@@ -156,6 +156,17 @@ grep -rn "timeSpentMinutes" src/app --include=*.ts | grep -v "\.test\."
 | `use-task-submit.ts` | form → task |
 | `__fixtures__/golden-*` | regenerated — a legitimate new-column format change |
 
+★★ **THERE IS NO REGENERATION SCRIPT, so do not go hunting for one.** Nothing in `package.json` or
+`scripts/` regenerates `__fixtures__/golden-*`; the serializers are the only writer. And it cannot
+be driven from bare node: `jsonToWorkspace` needs a DOM and returns an EMPTY workspace without one,
+which would silently write empty fixtures over the byte-pinned ones. ★ The DOM requirement is
+measured and long-recorded; the consequence beside it — that the overwritten fixtures would then
+still satisfy `golden-workspace.test`, because both sides would derive from the same empty workspace
+— is REASONED and was never provoked. Do not cite it as measured. Regeneration was done as a
+deliberate one-off under vitest's jsdom, with a
+guard refusing to write when the decoded workspace came back empty. Anyone repeating it needs both
+halves — the jsdom environment AND the non-empty guard.
+
 Turso needs no hand-written code: `turso-schema.ts`'s task spec takes `columns: CSV_COLUMNS` and
 `fromObj: buildTaskFromObj`, so DDL and inserts derive for both the single and tenant layouts. An
 existing database self-heals through `turso-migrate.ts`'s PRAGMA diff.
@@ -205,9 +216,26 @@ What gets written:
    dictation. Mutation-proved by reverting the forced `group` — the test must go red.
 2. **Tracking button name.** Its accessible name contains its visible text (WCAG 2.5.3 is
    containment, case-insensitive and position-independent — not prefix).
-3. **Round-trip.** `remainingEstimateMinutes` survives all six write paths.
-4. **Byte-stability.** A task carrying no remaining value serialises byte-identically to today. This
-   is the test that catches a codec change masquerading as a new column.
+3. **Round-trip.** `remainingEstimateMinutes` survives every write path that carries it.
+   ★★ **THAT IS CSV AND MARKDOWN ONLY — NOT ALL SIX, and this line said six.** `migrateTask`
+   (`task-status.ts`) is a passthrough: it spreads and returns the task by reference once `status`
+   and `createdDate` are fine, and it is the only task normalizer on the JSON and IndexedDB load
+   paths, so an unknown field rides through untouched. Both Turso layouts derive from `CSV_COLUMNS`
+   through the `turso-schema.ts` task spec. Verified in-slice rather than reasoned:
+   `turso-schema.execute.test.ts` runs the real DDL and INSERT statements against `node:sqlite`,
+   generalised over `ENTITY_SPECS`, and passed with the new column and no hand-written change.
+4. **Byte-stability.** ★★★ **NOT WRITABLE AS SPECIFIED — this asked for an impossible test.** It
+   read: "a task carrying no remaining value serialises byte-identically to today". Adding a column
+   changes the bytes for EVERY task, which is the entire point of adding one, so no such test can
+   exist. The intent — catch a codec change masquerading as a new column — was served instead by
+   inspecting the regenerated fixture diff and requiring every changed line to be a PURE INSERTION
+   of exactly one of: `remainingEstimateMinutes,` (CSV header) · `,` (14 CSV rows) ·
+   `RemainingEstimateMin | ` (MD header) · ` --- |` (MD separator) · ` | ` (14 MD rows). That was
+   done and the evidence was mechanical. ★ Re-derive the two row counts rather than trusting them
+   here — they are a property of the sample master, which moves. The command must be scoped to the
+   TASKS table: the obvious `grep -c "^| "` returns 102, every table row in the file, and so refutes
+   the number it sits beside (measured — this is the reproduce-beside-a-number trap, caught here).
+   `awk '/RemainingEstimateMin/{f=1;next} f&&!/^\|/{exit} f&&!/^\| ---/{n++} END{print n+0}' src/app/__fixtures__/golden-workspace.md`
 5. **Override semantics.** Clearing the remaining box stores `undefined`, not `0`, and the widget
    returns to the derived figure.
 6. **Section order.** The five headings render in the new order with the new numbers.
@@ -236,7 +264,25 @@ Escape-ordering behaviour in real Chromium and real Firefox.
 ## Risks
 
 - **The new column is the only irreversible part.** Everything else is layout. If the column proves
-  wrong it has to be removed from six paths and the fixtures regenerated again.
-- **The peer's unlanded branch edits `i18n.ts`, `i18n.de.ts` and `task-manager.tsx`.** This slice adds
-  i18n keys to both dictionaries. That merge is adjudicated per row, not per file — a resolution
-  taking one side wholesale loses the other's keys and every gate stays green afterwards.
+  wrong it has to be removed and the fixtures regenerated again — from the CSV and Markdown codecs,
+  NOT from six paths, for the reason recorded under "Round-trip" above.
+- **The peer's branch HAS NOW MERGED — it is no longer unlanded, and this bullet said it was.**
+  `origin/main` carries `0.283.0 "Lessing"` (merge commit `2f59561c`) and its `docs/open-followups.md`
+  ends at §382, against §367 on this branch. The risk is therefore not hypothetical any more: it is
+  pending on this branch's eventual rebase onto main, and it is now certain rather than possible.
+  ★★★ The substantive warning is unchanged and is the whole point. **That merge is adjudicated PER
+  ROW, never per file.** Both branches edit `i18n.ts` and `i18n.de.ts`, and this slice adds keys to
+  both dictionaries; a resolution taking one side wholesale loses the other's keys.
+  ★★★ **BUT NOT SILENTLY IN THE OBVIOUS CASE, and this bullet used to claim "every gate stays green
+  afterwards" flatly, which is FALSE.** `TranslationKey` is `keyof typeof enUS`, so a wholesale take
+  on the two dictionaries ALONE is LOUD: every surviving `t(lang, "<droppedKey>")` call site becomes
+  a `tsc` error. Verify the typing rather than this sentence:
+  `grep -n "export type TranslationKey\|key: TranslationKey" src/app/i18n.ts`.
+  The SILENT shape is the narrower and more dangerous one — a resolution that drops a key TOGETHER
+  WITH its call sites, i.e. takes one side wholesale across the whole feature's files. Nothing is
+  then inconsistent, every gate passes, and a feature is simply gone. That is the recorded
+  merge-can-contain-what-neither-parent-had shape, and it is why `--cc` is not enough to review this
+  merge. `docs/open-followups.md` is the same shape for a different
+  reason: both branches APPEND at the end of the file, so the conflict there resolves by UNION and
+  never by taking a side. Re-measure both maxima before merging rather than trusting the numbers
+  here: `grep -oE "^## [0-9]+\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1`

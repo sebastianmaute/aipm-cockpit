@@ -155,11 +155,14 @@ export function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * Optional canonical-minutes guard for task effort fields
- * (originalEstimateMinutes / timeSpentMinutes). Mirrors the budget `order`
- * guard: keep the value only when present, non-empty, and a finite
- * non-negative integer. An empty CSV cell ("") or any malformed value
+ * Optional canonical-minutes guard for every task effort field. Mirrors the
+ * budget `order` guard: keep the value only when present, non-empty, and a
+ * finite non-negative integer. An empty CSV cell ("") or any malformed value
  * becomes `undefined` (unset) — never 0.
+ * ★ The fields are deliberately NOT enumerated here. An earlier revision named
+ *   two and a third one falsified it; the list is what rots, not the rule.
+ *   Read today's set off a decode site, which cannot self-match this comment:
+ *   `grep -n "sanitizeOptionalMinutes" src/app/csv-codecs-decode.ts`
  */
 export function sanitizeOptionalMinutes(n: unknown): number | undefined {
   if (n === undefined || n === null || n === "") return undefined;
