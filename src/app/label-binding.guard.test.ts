@@ -80,9 +80,21 @@ const BUTTON_FIRST: readonly { readonly what: string; readonly re: RegExp }[] = 
 
 // ★★★ THE RULE IS POSITIONAL — "first labelable descendant" — so the scan must
 // be too. A mic AFTER its `<Input>` is harmless: the input already won the
-// association (task-form-fields' title field is exactly that, and flagging it
-// was this guard's first false positive). Only a widget standing BEFORE every
-// labelable element can be adopted.
+// association. Only a widget standing BEFORE every labelable element can be
+// adopted.
+// ★★ THE WORKED EXAMPLE IS GONE, AND THE RULE IS UNCHANGED. task-form-fields'
+// title field WAS that trailing mic — flagging it was this guard's first false
+// positive — but it no longer trails: it moved into the caption as
+// `captionAction`, which forces `Field` into `group` mode (a `<div
+// role="group">`, never a binding `<label>`), so that field is now safe for a
+// DIFFERENT reason than the one this paragraph states. Re-enumerating every mic
+// render site under src/app leaves NO trailing-mic call site anywhere: each
+// survivor is a LEADING mic rescued by an explicit `htmlFor`/`id` (change,
+// milestone, RAID, the four stakeholder fields), or is not a label-binding case
+// at all (the note-log mics sit beside buttons in a flex row; the task
+// description mic's caption is a plain `<span>`, not a `<label>`). So the
+// trailing half of the rule is pinned ONLY by the synthetic assertions below —
+// do not delete them for want of a live example, and do not go looking for one.
 // ★★ This set holds only elements that ARE labelable, or components that
 // certainly render one FIRST. `<button>`/`<Button>` are deliberately ABSENT: a
 // button getting in front IS the defect, so treating it as safe would silence
@@ -403,8 +415,14 @@ describe("label binding guard", () => {
 
   it("ignores a widget that TRAILS a labelable element, and only that", () => {
     // The positional half of the rule, both directions. Trailing mic = the
-    // input already won the association (task-form-fields' title field);
-    // leading mic = the mic is adopted instead.
+    // input already won the association; leading mic = the mic is adopted
+    // instead.
+    // ★ SYNTHETIC BY NECESSITY, not by preference. task-form-fields' title
+    // field used to be the live trailing example; it moved into the caption as
+    // `captionAction` and no trailing-mic call site remains anywhere in
+    // src/app, so these assertions are the ONLY thing pinning the trailing
+    // half of the rule. Deleting them because "nothing does this" would retire
+    // the guard against the defect coming back.
     const mic = /\{\s*\w*[Mm]ic\s*\}/;
     expect(standsFirst(`<Input value={v} />{titleMic}`, mic)).toBe(false);
     expect(standsFirst(`{titleMic}<Input value={v} />`, mic)).toBe(true);

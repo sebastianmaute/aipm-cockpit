@@ -181,13 +181,22 @@ describe("TaskFormFields", () => {
     ]);
   });
 
-  it("starts the group field on a new grid row, so the cell beside budget bucket stays empty", () => {
+  it("gives the group field the `sm:col-start-1` that starts a new grid row", () => {
     // ★★ This pins the CLASS, not the geometry -- jsdom has no layout, which is
     //   exactly how the defect it guards reached a real browser with the whole
     //   suite green. MEASURED in Chromium: without `sm:col-start-1`, grid
     //   auto-flow packed Group into the cell beside Budget bucket and stranded
     //   Labels alone on the row below. DOM ORDER was correct either way, so the
     //   ordering test above could not see it.
+    // ★★ AND IT PINS THE CLASS IN THE CONFIGURATION WHERE THE DEFECT IS INERT.
+    //   The plain `Harness` passes no `budgetLink`, and the budget field renders
+    //   only when one is supplied ("renders no budget field at all when no
+    //   budgetLink is supplied", above) — so the Budget bucket neighbour whose
+    //   empty cell motivated `sm:col-start-1` is NOT ON SCREEN here. This test
+    //   is therefore a class-presence regression pin, not a reproduction of the
+    //   packing bug; the test name used to promise the latter. Reproducing it
+    //   needs a `budgetLink` harness AND a real layout engine, which jsdom is
+    //   not.
     render(<Harness />, { wrapper: TestProviders });
     // The accessible name is "Groupi" -- the hint's InfoTooltip glyph joins the
     // wrapping label's text (open-followups 383), hence the prefix match.

@@ -4,11 +4,18 @@ import { describe, expect, test, vi } from "vitest";
 import { Field } from "./task-form-layout";
 
 describe("Field captionAction", () => {
-  test("clicking the caption focuses the input and does NOT activate the caption control", async () => {
+  test("clicking the caption does NOT activate the caption control", async () => {
     // THE POINT OF THE WHOLE PROP. A <label> with no `for` binds to its
     // first LABELABLE descendant, and a button IS labelable. With the caption
     // control inside a binding <label>, clicking the words "Task name" would
     // fire the mic instead of focusing the field.
+    // ★ The name deliberately claims ONLY the negative half. This test once
+    // also promised "focuses the input", which it never asserted AND which is
+    // false here: `captionAction` puts the Field in `group` mode, where the
+    // caption is a plain <span> with no binding at all, so clicking it focuses
+    // NOTHING. Do not "complete" this test by adding a focus assertion — it
+    // would be pinning behaviour the component does not have. The input gets
+    // its name from an explicit aria-label instead (see task-form-fields).
     const onMic = vi.fn();
     render(
       <Field

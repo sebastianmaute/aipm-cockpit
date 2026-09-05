@@ -12,9 +12,14 @@ import { Field } from "./task-form-layout";
  *  Extracted from `task-form-fields.tsx` so the Time tracking dialog can reuse
  *  it. `minutes` seeds the text ONCE via lazy `useState` — the box is
  *  free-text while focused and must not be re-formatted under the user's
- *  cursor, so remount (a `key`) is how a caller forces a reseed. Both existing
- *  call sites already pass `key={`estimate-${editingId ?? "new"}`}` for that
- *  reason; keep doing so. */
+ *  cursor, so a caller forces a reseed by REMOUNTING this component. The
+ *  invariant is "reseed on remount" — a `key` and a conditional mount satisfy
+ *  it equally, so state the requirement that way rather than counting call
+ *  sites. The task form's estimate field is inside a long-lived form and so
+ *  passes an explicit `key`; the Time tracking dialog's two boxes carry none
+ *  and need none, because the dialog itself is mounted only while open and
+ *  therefore remounts on every open. Anything reusing this from a surface that
+ *  outlives the value it seeds from needs the `key`. */
 export function EffortField({
   lang,
   label,

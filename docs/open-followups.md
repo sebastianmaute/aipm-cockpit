@@ -27986,6 +27986,22 @@ rendered INSIDE `caption`, and the default (non-`group`) branch wraps that same 
 A `<label>`'s accessible name is its text CONTENT, so the tooltip trigger's visible glyph is
 concatenated onto the caption: the Group control computes `"Groupi"`, not `"Group"`.
 
+★★★ `"Groupi"` IS A TESTING-LIBRARY RESULT, NOT A BROWSER ONE — do not carry it to Chrome as
+though it were. It is what `dom-accessibility-api` computes, and it lands there for a
+library-specific reason: on RECURSING into a descendant it skips the aria-label step (accname 2C)
+whenever that descendant is a "control", and its `isControl` counts anything with a `button`,
+`combobox`, `listbox` or `textbox` role. The `InfoTooltip` trigger is a `<span role="button">`
+carrying an `aria-label`, so it qualifies, its `aria-label` is skipped, and its text CONTENT — the
+single glyph `"i"` — is what gets concatenated. The library's own source marks this as a deliberate
+divergence, commenting that it is "Changed from the spec" ahead of w3c/accname issue 64; read it at
+`node_modules/dom-accessibility-api/dist/accessible-name-and-description.js` (`grep -n "skipToStep2E"
+-B 3`, then `grep -n "function isControl" -A 3`). Under the spec as written the aria-label is NOT
+skipped, so a browser is more likely to compute `"Group "` plus the trigger's full hint text.
+★★ NEITHER browser result is MEASURED — nobody has driven a real browser or a real AT here, so treat
+both the concatenated-hint reading and the `"i"` reading as computations, not observations. What IS
+measured is the testing-library behaviour, which is all the prefix-regex fix in the tests depends on;
+that fix is correct under either reading and should be left alone.
+
 ★★ APP-WIDE AND PRE-EXISTING, not a property of this slice. It affects every `Field` that passes a
 `hint`, on every surface that renders one, and the Time tracking dialog's own remaining-minutes box
 has the same shape. Not fixed here because the blast radius is far wider than the slice that found
