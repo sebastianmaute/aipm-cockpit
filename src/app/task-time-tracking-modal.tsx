@@ -9,6 +9,22 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { ProgressTrack } from "./progress-track";
 
+/** Qualify a control name that this dialog shares with the task form beneath it
+ *  (Close, Cancel) with the dialog's own title.
+ *
+ *  ★ EN DASH (U+2013), not a hyphen — the same separator `rowLabel`
+ *  (`row-tokens.ts`) uses for row-unique names. Composed from EXISTING i18n
+ *  keys on purpose: `i18n.ts`/`i18n.de.ts` key sets must stay identical (tsc
+ *  enforces it), and a new key would have to be added to both for no new words.
+ *
+ *  ★ WCAG 2.5.3 holds by CONSTRUCTION here: the base string is the control's
+ *  own visible text, so the visible label is CONTAINED in the name (2.5.3 is
+ *  containment, case-insensitive and position-independent — not a prefix rule).
+ *  The ✕ has no visible text at all, so 2.5.3 does not reach it. */
+function qualifyWithTitle(base: string, lang: Lang): string {
+  return `${base} – ${t(lang, "taskTimeTracking")}`;
+}
+
 export interface TimeTrackingValues {
   spentMinutes: number | undefined;
   remainingMinutes: number | undefined;
@@ -114,7 +130,20 @@ export function TaskTimeTrackingModal({
           commit();
         }}
       >
-        <ModalHeader lang={lang} title={t(lang, "taskTimeTracking")} onClose={onClose} />
+        <ModalHeader
+          lang={lang}
+          title={t(lang, "taskTimeTracking")}
+          onClose={onClose}
+          // WCAG 2.4.6 / speech input. This dialog opens ON TOP of the task
+          // form, which renders a Close and a Cancel of its own — and every
+          // ModalHeader names its ✕ with the same shared string. Screen readers
+          // scope announcements by `aria-modal`; speech input does not, so
+          // "click Close" would pick one of two arbitrarily and the wrong one
+          // discards the whole task edit. Qualified with the repo's en-dash
+          // convention (U+2013), composed from existing keys so both
+          // dictionaries stay untouched.
+          closeLabel={qualifyWithTitle(t(lang, "alertModalClose"), lang)}
+        />
 
         <div className="space-y-4 p-6">
           <div>
@@ -171,12 +200,21 @@ export function TaskTimeTrackingModal({
             </ul>
           </div>
 
+          {/* Secondary first, primary last — the order every other modal in the
+              app uses (`task-form-modal.tsx`, `documents-rename-modal.tsx`).
+              This dialog shipped the other way round. */}
           <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={onClose}
+              // Same collision as the ✕ above: the task form beneath renders
+              // its own unqualified Cancel.
+              aria-label={qualifyWithTitle(t(lang, "cancel"), lang)}
+            >
+              {t(lang, "cancel")}
+            </Button>
             <Button variant="primary" disabled={!canSave} onClick={commit}>
               {t(lang, "taskTimeTrackingSave")}
-            </Button>
-            <Button variant="secondary" onClick={onClose}>
-              {t(lang, "cancel")}
             </Button>
           </div>
         </div>

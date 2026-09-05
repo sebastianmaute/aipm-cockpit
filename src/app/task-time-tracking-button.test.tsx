@@ -1,6 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
+import { expectRowUniqueNames } from "../test/row-unique-names";
+import { Button } from "./button";
+import { t } from "./i18n";
+import { ModalHeader } from "./modal-header";
 import { TaskTimeTrackingButton } from "./task-time-tracking-button";
 
 const base = {
@@ -71,7 +75,13 @@ describe("TaskTimeTrackingButton", () => {
     await userEvent.click(screen.getByRole("button", { name: /time tracking/i }));
     await userEvent.clear(screen.getByRole("textbox", { name: /time spent/i }));
     await userEvent.type(screen.getByRole("textbox", { name: /time spent/i }), "3h");
-    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    // The dialog's Cancel is QUALIFIED with the dialog title, so the task form
+    // beneath can keep an unqualified Cancel of its own without colliding.
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "cancel")} – ${t("en-US", "taskTimeTracking")}`,
+      }),
+    );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
 
@@ -126,6 +136,48 @@ describe("TaskTimeTrackingButton", () => {
     // onSubmit is what the assertion pair above and below actually says.
     expect(onChange).toHaveBeenCalledWith({ spentMinutes: 180, remainingMinutes: undefined });
     expect(screen.queryByRole("dialog", { name: /time tracking/i })).not.toBeInTheDocument();
+  });
+
+  test("captions itself through the shared Field primitive, in `group` mode", () => {
+    // The caption is `Field`'s, not a hand-rolled copy of its markup — and
+    // `group` mode specifically: the child IS a button, and a <label> with no
+    // `for` binds to its first LABELABLE descendant, so the default branch
+    // would make clicking the caption OPEN the dialog. `Field` renders
+    // <div role="group" aria-label> instead (task-form-layout.tsx).
+    render(<TaskTimeTrackingButton {...base} />);
+    const group = screen.getByRole("group", { name: t("en-US", "taskTimeTracking") });
+    expect(group).toContainElement(screen.getByRole("button", { name: /time tracking/i }));
+    // The caption text is rendered once, inside that group.
+    expect(within(group).getByText(t("en-US", "taskTimeTracking"))).toBeInTheDocument();
+  });
+
+  test("the dialog's Close and Cancel do not collide with the task form's", async () => {
+    // WCAG 2.4.6 / speech input. The task form beneath renders a ModalHeader
+    // close button and a secondary Cancel (`task-form-modal.tsx`); this dialog
+    // renders one of each again. Screen readers scope announcements by
+    // aria-modal, but SPEECH INPUT does not — "click Cancel" with two Cancels
+    // picks one arbitrarily, and the wrong one abandons the whole task edit.
+    //
+    // ★ The form beneath is REPRODUCED here (its two controls, verbatim from
+    // task-form-modal.tsx) rather than mounted: TaskFormModal needs Workspace
+    // and Filters providers plus an advanced-tier field toggle before this
+    // button renders at all. A change to the form's own two controls would not
+    // reach this fixture — re-read task-form-modal.tsx's footer if it moves.
+    render(
+      <>
+        <ModalHeader lang="en-US" title="Edit task" onClose={vi.fn()} />
+        <TaskTimeTrackingButton {...base} />
+        <Button variant="secondary">{t("en-US", "cancel")}</Button>
+      </>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /time tracking/i }));
+    // SIX controls, the exact measured count: the form's Close + Cancel, the
+    // tracking trigger, and the dialog's Close + Save + Cancel. A loose floor
+    // would let a fixture that stopped rendering the dialog read as a pass.
+    // `requireCollisionSeed` is deliberately OFF — this is a distinct-name pin,
+    // and that guard THROWS unless two names collide once " (N)" is stripped,
+    // which is the state this test exists to forbid.
+    expectRowUniqueNames({ minControls: 6 });
   });
 
   test("does not expose a progressbar role, because the track is decorative here", () => {

@@ -50,6 +50,27 @@ describe("ModalHeader", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("closeLabel overrides the close button's name and title, leaving the default untouched", () => {
+    // Two modals can be open at once (this dialog's own header plus the task
+    // form's beneath it), and every ModalHeader hardcoded the same close name.
+    // Screen readers scope by aria-modal; SPEECH INPUT does not.
+    const qualified = `${t("en-US", "alertModalClose")} – Time tracking`;
+    setup({ closeLabel: qualified });
+    const btn = screen.getByRole("button", { name: qualified });
+    expect(btn.getAttribute("title")).toBe(qualified);
+    // The default must be BYTE-IDENTICAL for every existing call site, so the
+    // bare name must NOT resolve any more once an override was passed.
+    expect(screen.queryByRole("button", { name: t("en-US", "alertModalClose") })).toBeNull();
+  });
+
+  it("falls back to alertModalClose for both name and title when closeLabel is omitted", () => {
+    // The pin for "every existing call site is unchanged": the title attribute
+    // is asserted too, because the prop feeds both.
+    setup();
+    const btn = screen.getByRole("button", { name: t("en-US", "alertModalClose") });
+    expect(btn.getAttribute("title")).toBe(t("en-US", "alertModalClose"));
+  });
+
   it("hideClose=true removes the close button", () => {
     setup({ hideClose: true });
     expect(

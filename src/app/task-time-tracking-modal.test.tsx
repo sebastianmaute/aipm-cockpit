@@ -1,6 +1,8 @@
 import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
+import { expectButtonOrder } from "../test/toolbar-order";
+import { loadI18n, t } from "./i18n";
 import { TaskTimeTrackingModal } from "./task-time-tracking-modal";
 
 const base = {
@@ -10,6 +12,14 @@ const base = {
   spentMinutes: 120,
   remainingMinutes: undefined,
 };
+
+// This dialog's Close and Cancel are QUALIFIED with the dialog title, because
+// the task form beneath renders a Close and a Cancel of its own and speech
+// input does not scope by aria-modal. Composed here from the same parts the
+// component composes, so these incidental queries do not re-pin the format —
+// the format itself is pinned by the 2.5.3 test below.
+const DIALOG_CLOSE = `${t("en-US", "alertModalClose")} – ${t("en-US", "taskTimeTracking")}`;
+const DIALOG_CANCEL = `${t("en-US", "cancel")} – ${t("en-US", "taskTimeTracking")}`;
 
 describe("TaskTimeTrackingModal", () => {
   test("shows the derived remaining figure as a placeholder when nothing is pinned", () => {
@@ -47,7 +57,7 @@ describe("TaskTimeTrackingModal", () => {
     render(<TaskTimeTrackingModal {...base} onSave={onSave} onClose={onClose} />);
     await userEvent.clear(screen.getByRole("textbox", { name: /time spent/i }));
     await userEvent.type(screen.getByRole("textbox", { name: /time spent/i }), "3h");
-    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await userEvent.click(screen.getByRole("button", { name: DIALOG_CANCEL }));
     expect(onSave).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
@@ -73,7 +83,7 @@ describe("TaskTimeTrackingModal", () => {
     // passed throughout; `defaultPrevented` is the observable that survives
     // both engines, so BOTH halves have to be asserted together.
     render(<TaskTimeTrackingModal {...base} onSave={vi.fn()} onClose={vi.fn()} />);
-    for (const name of ["Save", "Cancel", "Close"]) {
+    for (const name of ["Save", DIALOG_CANCEL, DIALOG_CLOSE]) {
       const button = screen.getByRole("button", { name });
       const ev = createEvent.keyDown(button, { key: "Enter" });
       fireEvent(button, ev);
@@ -154,5 +164,46 @@ describe("TaskTimeTrackingModal", () => {
       />,
     );
     expect(screen.getByText(/no original estimate/i)).toBeInTheDocument();
+  });
+
+  test("puts the secondary action first and the primary last, like every other modal", () => {
+    // CONVENTION PIN. task-form-modal.tsx and documents-rename-modal.tsx both
+    // render Cancel then the primary CTA; this dialog shipped the other way
+    // round. `contiguous` is what catches a control drifting BETWEEN the two —
+    // ordering alone stays ascending in that case.
+    render(<TaskTimeTrackingModal {...base} onSave={vi.fn()} onClose={vi.fn()} />);
+    expectButtonOrder(["cancel", "taskTimeTrackingSave"], { contiguous: true });
+  });
+
+  test("qualifies Close and Cancel with the dialog title, keeping the visible label inside the name", () => {
+    // WCAG 2.4.6 needs the qualification (the task form beneath renders a Close
+    // and a Cancel of its own); WCAG 2.5.3 needs the VISIBLE text to stay
+    // CONTAINED in the accessible name — containment, not prefix.
+    render(<TaskTimeTrackingModal {...base} onSave={vi.fn()} onClose={vi.fn()} />);
+    const cancel = screen.getByRole("button", { name: DIALOG_CANCEL });
+    // The visible text is read from the DOM, not hand-copied: a component that
+    // stopped rendering the base word would fail rather than pass silently.
+    expect(cancel.textContent).toBe(t("en-US", "cancel"));
+    expect(DIALOG_CANCEL.toLowerCase()).toContain(cancel.textContent!.toLowerCase());
+    // The close ✕ has no visible text at all, so 2.5.3 does not reach it; the
+    // 2.4.6 qualification still must be there.
+    const close = screen.getByRole("button", { name: DIALOG_CLOSE });
+    expect(close.textContent).toBe("");
+  });
+
+  test("keeps 2.5.3 containment in German, where both halves of the name differ", async () => {
+    // The DE dictionary is lazy; without this the assertion would run against
+    // the EN fallback and certify nothing about German.
+    await loadI18n("de");
+    render(<TaskTimeTrackingModal {...base} lang="de" onSave={vi.fn()} onClose={vi.fn()} />);
+    const deCancel = `${t("de", "cancel")} – ${t("de", "taskTimeTracking")}`;
+    // Anti-vacuity: if the DE dict had not loaded these would still read
+    // "Cancel"/"Time tracking" and the containment check below would pass for
+    // the wrong reason.
+    expect(t("de", "cancel")).toBe("Abbrechen");
+    expect(t("de", "taskTimeTracking")).toBe("Zeiterfassung");
+    const cancel = screen.getByRole("button", { name: deCancel });
+    expect(cancel.textContent).toBe(t("de", "cancel"));
+    expect(deCancel.toLowerCase()).toContain(cancel.textContent!.toLowerCase());
   });
 });

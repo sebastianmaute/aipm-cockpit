@@ -27,6 +27,16 @@ interface ModalHeaderProps {
   /** Hide the ✕ close button (e.g. a non-dismissable empty-state header where
    *  the close gesture is a no-op and the button would be a dead control). */
   hideClose?: boolean;
+  /** Accessible name AND `title` for the ✕. Defaults to the shared
+   *  `alertModalClose` string, so every call site that omits it is unchanged.
+   *  ★ PASS IT WHENEVER THIS HEADER CAN BE OPEN ON TOP OF ANOTHER MODAL. Every
+   *  ModalHeader otherwise names its ✕ identically; screen readers scope
+   *  announcements by `aria-modal`, but SPEECH INPUT DOES NOT — "click Close"
+   *  with two Closes rendered picks one arbitrarily, and the wrong one can
+   *  discard the work in the layer beneath. Qualify with the repo's en-dash
+   *  convention: `${t(lang, "alertModalClose")} – ${dialogTitle}`. NOT defaulted
+   *  to include the title, which would rename every ✕ in the app at once. */
+  closeLabel?: string;
   /** Extra controls rendered in the header's right cluster, before the close
    *  button (e.g. a reset-size button for a resizable modal panel). */
   headerExtra?: ReactNode;
@@ -50,11 +60,13 @@ export function ModalHeader({
   onClose,
   dragHandleProps,
   hideClose = false,
+  closeLabel,
   headerExtra,
   onResetLayout,
   logo,
 }: ModalHeaderProps) {
   const voice = useVoiceCommand();
+  const closeName = closeLabel ?? t(lang, "alertModalClose");
   return (
     <header
       {...dragHandleProps}
@@ -88,8 +100,8 @@ export function ModalHeader({
           <button
             type="button"
             onClick={onClose}
-            aria-label={t(lang, "alertModalClose")}
-            title={t(lang, "alertModalClose")}
+            aria-label={closeName}
+            title={closeName}
             className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
           >
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />

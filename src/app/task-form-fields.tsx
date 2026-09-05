@@ -599,8 +599,9 @@ export function TaskFormFields({
           />
         )}
 
-        {/* ★ NOT wrapped in a `Field`: the button renders its own caption
-            <span> internally, so a wrapper would print the caption twice. */}
+        {/* ★ NOT wrapped in a `Field`: the button renders its OWN `Field` (in
+            `group` mode, since its child is a button) internally, so a wrapper
+            here would print the caption twice. */}
         {isVisible("timeSpent") && (
           <TaskTimeTrackingButton
             lang={lang}

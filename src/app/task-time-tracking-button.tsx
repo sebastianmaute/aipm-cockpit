@@ -4,6 +4,7 @@ import { useState } from "react";
 import { EffortProgressBar, effortCaption } from "./effort-progress-bar";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
+import { Field } from "./task-form-layout";
 import { TaskTimeTrackingModal, type TimeTrackingValues } from "./task-time-tracking-modal";
 
 /** The task form's Time tracking cell: a button showing the bar and the
@@ -37,10 +38,18 @@ export function TaskTimeTrackingButton({
   const name = t(lang, "taskTimeTrackingButton", effortCaption(lang, estimateMinutes, spentMinutes));
 
   return (
-    <div>
-      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-        {t(lang, "taskTimeTracking")}
-      </span>
+    // ★ `group`, never the default <label> branch: the child IS a button, and a
+    // <label> with no `for` binds to its first LABELABLE descendant — so the
+    // caption would become a second way to OPEN the dialog. `Field` renders a
+    // <div role="group" aria-label> instead. The caption markup used to be
+    // hand-rolled here, byte-identical to the primitive's own.
+    // ★★ A named role="group" does NOT name the button inside it, so the
+    // `aria-label` below stays load-bearing — it is the button's only name, and
+    // the WCAG 2.5.3 derivation from `effortCaption` depends on it.
+    // ★ The dialog stays INSIDE the Field: it is `portal`ed to <body>, so its
+    // DOM ancestry here is inert, and keeping it beside its trigger keeps the
+    // open-state and the control that sets it in one block.
+    <Field label={t(lang, "taskTimeTracking")} group>
       <button
         // ★★ NOT a bare <button>: this sits inside the task <form>, where the
         // default type="submit" would save the task on every dialog open.
@@ -62,6 +71,6 @@ export function TaskTimeTrackingButton({
           onClose={() => setOpen(false)}
         />
       )}
-    </div>
+    </Field>
   );
 }
