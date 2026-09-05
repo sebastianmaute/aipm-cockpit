@@ -594,6 +594,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--open) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§383](#383-fields-hint-pollutes-its-controls-accessible-name--open) | `Field`'s `hint` pollutes its control's accessible name | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§384](#384-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§385](#385-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27970,3 +27973,88 @@ insight FREEZES, which is the safe direction — this is recorded as a latent sh
 ★ Reachability is the open question and is deliberately not asserted here. Every key the app itself
 writes comes from `dailyKey(userId, it.date)` over API-supplied dates. The paths that could carry a
 hostile key are a hand-edited `localStorage` blob and a future writer; neither has been probed.
+
+## 383. `Field`'s `hint` pollutes its control's accessible name — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by
+measurement, not by reading: a whole-string `getByRole("combobox", { name: "Group" })` finds NOTHING
+on the task form while the same query anchored with a prefix regex passes. The mechanism is
+structural — `grep -n "hint && (" -A 5 src/app/task-form-layout.tsx` shows the `InfoTooltip`
+rendered INSIDE `caption`, and the default (non-`group`) branch wraps that same `caption` in the
+`<label>`.
+
+A `<label>`'s accessible name is its text CONTENT, so the tooltip trigger's visible glyph is
+concatenated onto the caption: the Group control computes `"Groupi"`, not `"Group"`.
+
+★★ APP-WIDE AND PRE-EXISTING, not a property of this slice. It affects every `Field` that passes a
+`hint`, on every surface that renders one, and the Time tracking dialog's own remaining-minutes box
+has the same shape. Not fixed here because the blast radius is far wider than the slice that found
+it — enumerate the affected call sites before attempting a fix, since the repair changes a name
+every existing test may be matching on.
+
+★ The TEST consequence is the immediate one and is why this is worth a number. A string `name` is a
+whole-string match in testing-library, so any future assertion against a hinted field's control
+finds nothing and reads as a broken selector rather than as this defect. `task-form-fields.test.tsx`
+carries the worked example: its "renders budget bucket between the tracking button and the group
+field" anchors the group with a `new RegExp` prefix match for exactly this reason, and carries the
+reason in a comment beside it.
+
+★ The USER consequence is a screen reader announcing the glyph as part of the field name. That is
+the expected reading of the computed name, NOT an observation — no real AT was driven.
+
+★★ The axe gate cannot see it, in any view, at any seed size. A name EXISTS, which is all the
+unlabeled-control rules ask, and the only rule comparing a name against its visible label is
+`label-content-name-mismatch`, which is tagged `experimental` and so is dropped by axe's default
+`tagExclude` before it runs. A unit test is the only possible detector.
+
+Closure options, none taken: render the tooltip as a SIBLING of the caption rather than inside it;
+or mark the trigger `aria-hidden` and deliver the hint through `aria-describedby`, which is where an
+explanatory hint belongs regardless.
+
+## 384. The Relationships empty-section guard is unpinned — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. **Never machine-verified** — and
+there is nothing to verify, because the claim is that NO test covers the case; the guard itself is
+correct today. Read it with
+`grep -n "isVisible(\"dependencies\") || isVisible(\"blockers\")" src/app/task-form-fields.tsx`.
+
+This slice moved Budget bucket out of Relationships into Effort and narrowed that section's render
+guard to the two fields it still holds, dropping a `budgetBucket` disjunct. With the disjunct left
+in place, a user who hides dependencies AND blockers while showing budget bucket renders an EMPTY
+Relationships section — a numbered heading with nothing beneath it.
+
+Nothing tests that case. Restoring the disjunct, or adding a field to the section without adding it
+to the guard, is therefore a SILENT regression: every gate stays green, and only an eye on one
+specific visibility configuration would catch it.
+
+★ The test that closes this cannot be a TIER test. `dependencies`, `blockers` and `budgetBucket` are
+all `advanced`, so any tier switch shows or hides the three together and can never produce the mixed
+state. It has to drive the per-field checklist — `grep -n "toggleField" src/app/modal-field-controls.tsx`
+— which is what makes the offending configuration reachable by a user in the first place.
+
+## 385. The task-name mic is now invisible to the label-binding source scan — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework. Verified 2026-09-05 by reading
+the scan's own predicate: `grep -n "standsFirst(b.body, re) && !hasGroupProp(b.attrs)" src/app/label-binding.guard.test.ts`
+returns the `<Field>` check, and `grep -n "captionAction={titleMic}" src/app/task-form-fields.tsx`
+returns the mic's new position.
+
+`label-binding.guard.test.ts` scans SOURCE rather than a rendered tree because the dictation mic
+renders `null` under jsdom — `getCtor()` reads `window.SpeechRecognition`, which does not exist
+there, so a DOM-based guard would be vacuous. The scan looks for a button standing FIRST inside a
+`<Field>` BODY. The task-name mic now sits in an ATTRIBUTE (`captionAction={titleMic}`), not the
+body, so `standsFirst(b.body, …)` no longer sees it and the guard stays green for that field
+whatever happens to it.
+
+★★ This is a NARROWING OF COVERAGE, not a hole. That field's protection now rests on `captionAction`
+forcing `group` mode, which IS pinned — by the mutation-proved tests in `task-form-layout.test.tsx`,
+which go red when the forced `group` is reverted. The guarantee moved; it did not disappear.
+
+★ `hasGroupProp` recognises only a literal `group` prop and was deliberately NOT widened to know
+about `captionAction`. Widening a gate that nothing currently trips buys nothing, and it would make
+the gate green on the very shape it exists to catch: a caption-mounted button in a `<Field>` that
+did NOT force `group` is exactly the mis-binding the scan is for.
+
+★ The residual risk is a FUTURE caller adding a caption control to a `Field` variant that does not
+force `group`. Nothing detects that today from either direction — the source scan cannot see the
+attribute, and the layout tests only cover the primitive as it currently behaves.
