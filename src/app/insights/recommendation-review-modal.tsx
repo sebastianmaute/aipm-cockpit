@@ -40,6 +40,17 @@ export function RecommendationReviewModal({ lang, summary, plan, onConfirm, onCa
                   <span className="font-medium">{d.field}</span>: {d.before || "—"} → {d.after || "—"}
                 </li>
               ))}
+              {/* ★★ This consumer REPLAYS the original tool calls through the
+                  dispatcher, so it really does write these links — and a
+                  relationship write REPLACES. `before`/`after` are the resolved
+                  titles, never `rawIds`; the `|| "—"` is load-bearing because
+                  `after` is legitimately "" when every link is removed. */}
+              {plan.links.map((l, i) => (
+                <li key={`l${i}-${l.field}`}>
+                  <span className="font-medium">{l.field}</span>: {l.before || "—"} →{" "}
+                  {l.after || "—"}
+                </li>
+              ))}
               {plan.creates.map((c, i) => (
                 <li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}</li>
               ))}
@@ -50,9 +61,16 @@ export function RecommendationReviewModal({ lang, summary, plan, onConfirm, onCa
           </>
         )}
 
+        {/* ★★ The FIELDS, not a tally. A bare count told the user how many
+            proposed changes would not land but never WHICH, which is the half
+            they need in order to decide whether to confirm the rest. */}
         {plan.rejected.length > 0 && (
           <p className="mb-3 text-xs text-muted-foreground">
-            {t(lang, "insightRecommendationSkipped", plan.rejected.length)}
+            {t(
+              lang,
+              "insightRecommendationSkippedFields",
+              plan.rejected.map((r) => r.detail).join(", "),
+            )}
           </p>
         )}
 

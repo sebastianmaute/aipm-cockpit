@@ -58,6 +58,47 @@ it("closes via the header ✕, so the focus-trapped dialog stays escapable by po
   expect(onCancel).toHaveBeenCalled();
 });
 
+// ★★★ The inline path APPLIES `plan.links` (it rebuilds the write patch from
+// them), so a link change this popover does not render is a silent destructive
+// write, not merely an undisclosed one: relationship writes REPLACE.
+it("renders a link change in preview", () => {
+  render(
+    <InlineAiEditPopover
+      {...base}
+      phase="preview"
+      plan={{
+        updates: [],
+        creates: [],
+        deletes: [],
+        rejected: [],
+        links: [{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
+      }}
+    />,
+  );
+  expect(screen.getByText("linkedTaskIds")).toBeInTheDocument();
+  expect(screen.getByText(/Draft brief, Review → Ship/)).toBeInTheDocument();
+});
+
+// ★★ `after` can legitimately be "" (every link removed) — the most
+// destructive change this preview can show. A bare `{l.after}` renders nothing
+// at all, so the `|| "—"` fallback is load-bearing rather than cosmetic.
+it("renders a cleared link list as an em dash rather than as nothing", () => {
+  render(
+    <InlineAiEditPopover
+      {...base}
+      phase="preview"
+      plan={{
+        updates: [],
+        creates: [],
+        deletes: [],
+        rejected: [],
+        links: [{ field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
+      }}
+    />,
+  );
+  expect(screen.getByText(/Draft brief → —/)).toBeInTheDocument();
+});
+
 it("shows the diff and an Apply button in preview", () => {
   render(<InlineAiEditPopover {...base} phase="preview" plan={{ updates: [{ field: "status", before: "To Do", after: "Done" }], creates: [], deletes: [], rejected: [], links: [] }} />);
   expect(screen.getByText(/status/i)).toBeInTheDocument();

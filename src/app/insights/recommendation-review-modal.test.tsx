@@ -60,14 +60,18 @@ it("calls onCancel when Cancel is clicked", () => {
   expect(onCancel).toHaveBeenCalledTimes(1);
 });
 
-it("surfaces a skipped-count notice when the plan has rejected calls", () => {
+// ★★★ REWRITTEN, not merely extended. This test used to assert the bare COUNT
+// ("2 proposed change(s) no longer apply…"), which pinned the gap: a user was
+// told HOW MANY fields would not land but never WHICH. The count string is
+// gone; the fields are named.
+it("names the fields that will not land when the plan has rejected calls", () => {
   const planWithRejected: EditPlan = {
     updates: [{ field: "status", before: "To Do", after: "Done" }],
     creates: [],
     deletes: [],
     rejected: [
-      { toolName: "update_task", reason: "unknown-id", detail: "99" },
-      { toolName: "update_raid_item", reason: "unknown-id", detail: "42" },
+      { toolName: "update_task", reason: "unknown-id", detail: "targetDate=nope" },
+      { toolName: "update_raid_item", reason: "unknown-id", detail: "owner=empty" },
     ],
     links: [],
   };
@@ -80,11 +84,60 @@ it("surfaces a skipped-count notice when the plan has rejected calls", () => {
       onCancel={vi.fn()}
     />,
   );
-  // "{0} proposed change(s) no longer apply and will be skipped."
-  expect(screen.getByText(/no longer apply and will be skipped/i)).toBeInTheDocument();
-  expect(screen.getByText(/^2 /)).toBeInTheDocument();
+  // "Skipped: {0}" — the DETAILS, not a tally.
+  expect(screen.getByText("Skipped: targetDate=nope, owner=empty")).toBeInTheDocument();
+  expect(screen.queryByText(/no longer apply and will be skipped/i)).toBeNull();
   // Confirm still enabled — there is one real update to apply.
   expect(screen.getByRole("button", { name: /apply recommendation/i })).not.toBeDisabled();
+});
+
+// ★★★ This consumer REPLAYS the original tool input through the dispatcher, so
+// it really does write these links — and a relationship write REPLACES. An
+// unrendered link change is therefore a destructive write the user was never
+// shown, not merely an undisclosed one.
+it("renders a link change with its resolved titles", () => {
+  const planWithLinks: EditPlan = {
+    updates: [],
+    creates: [],
+    deletes: [],
+    rejected: [],
+    links: [{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
+  };
+  render(
+    <RecommendationReviewModal
+      lang="en-US"
+      summary="s"
+      plan={planWithLinks}
+      onConfirm={vi.fn()}
+      onCancel={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("linkedTaskIds")).toBeInTheDocument();
+  expect(screen.getByText(/Draft brief, Review → Ship/)).toBeInTheDocument();
+  // A link-only plan is NOT empty — `isEmptyPlan` counts `links` — so Confirm
+  // must stay live and the empty-plan note must not appear.
+  expect(screen.getByRole("button", { name: /apply recommendation/i })).not.toBeDisabled();
+});
+
+// ★★ `after` can legitimately be "" (every link removed) — the most
+// destructive change this modal can show. A bare `{l.after}` renders nothing.
+it("renders a cleared link list as an em dash rather than as nothing", () => {
+  render(
+    <RecommendationReviewModal
+      lang="en-US"
+      summary="s"
+      plan={{
+        updates: [],
+        creates: [],
+        deletes: [],
+        rejected: [],
+        links: [{ field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
+      }}
+      onConfirm={vi.fn()}
+      onCancel={vi.fn()}
+    />,
+  );
+  expect(screen.getByText(/Draft brief → —/)).toBeInTheDocument();
 });
 
 it("disables Confirm and shows the empty-plan note when the plan has no changes", () => {

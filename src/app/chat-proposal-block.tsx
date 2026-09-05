@@ -110,9 +110,17 @@ export function proposalRowTitle(call: ProposedCall, plan: EditPlan): string {
 }
 
 /** The plan's changes, one line each. Renders nothing when the engine had no
- *  entity for the call — the tool name beside it is then the whole story. */
+ *  entity for the call — the tool name beside it is then the whole story.
+ *
+ *  ★★★ THE GUARD IS NOT `isEmptyPlan` ALONE, deliberately. That predicate
+ *  answers "would this WRITE anything", which is the right question for
+ *  enabling Apply and the wrong one here: it excludes `rejected` because a
+ *  rejected call writes nothing. A row whose only outcome is that a field will
+ *  NOT land is exactly the row a reviewer most needs to see, and under
+ *  `isEmptyPlan` alone the rejection renderer below would be unreachable for
+ *  it. Pinned by "renders a rejection on a row whose plan writes nothing". */
 function PlanDetail({ lang, plan }: { lang: Lang; plan: EditPlan }) {
-  if (isEmptyPlan(plan)) return null;
+  if (isEmptyPlan(plan) && plan.rejected.length === 0) return null;
   return (
     <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
       {plan.updates.map((d, i) => (
@@ -121,11 +129,30 @@ function PlanDetail({ lang, plan }: { lang: Lang; plan: EditPlan }) {
           {d.after || "—"}
         </li>
       ))}
+      {/* ★★ A relationship write REPLACES, so an unrendered link change is a
+          silent destructive write rather than mere under-disclosure — the
+          inline path rebuilds its patch from this bucket. `before`/`after` are
+          RESOLVED TITLES (never `rawIds`), and the `|| "—"` is load-bearing:
+          `after` is legitimately "" for a cleared FK or a list emptied to
+          nothing, which is the most destructive line this card can show. */}
+      {plan.links.map((l, i) => (
+        <li key={`l${i}-${l.field}`}>
+          <span className="font-medium text-foreground">{l.field}</span>: {l.before || "—"} →{" "}
+          {l.after || "—"}
+        </li>
+      ))}
       {plan.creates.map((c, i) => (
         <li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}</li>
       ))}
       {plan.deletes.map((del, i) => (
         <li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>
+      ))}
+      {/* Last, and in the failure colour the row's own not-applied notice uses:
+          these are the parts of the call that will NOT land. */}
+      {plan.rejected.map((r, i) => (
+        <li key={`r${i}`} className="text-ui-pink-strong">
+          {t(lang, "inlineAiEditRejected", r.detail)}
+        </li>
       ))}
     </ul>
   );

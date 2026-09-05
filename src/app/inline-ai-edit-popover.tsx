@@ -113,6 +113,12 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
               {plan.updates.map((d) => (
                 <li key={d.field}><span className="font-medium">{d.field}</span>: {d.before || "—"} → {d.after || "—"}</li>
               ))}
+              {/* ★★ This popover's Apply REBUILDS its write patch from `links`,
+                  and a relationship write REPLACES — so an unrendered link
+                  change is a silent destructive write. `before`/`after` are the
+                  resolved TITLES, never `rawIds`; the `|| "—"` is load-bearing
+                  because `after` is legitimately "" when every link is removed. */}
+              {plan.links.map((l, i) => (<li key={`l${i}-${l.field}`}><span className="font-medium">{l.field}</span>: {l.before || "—"} → {l.after || "—"}</li>))}
               {plan.creates.map((c, i) => (<li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}</li>))}
               {plan.deletes.map((del, i) => (<li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>))}
             </ul>
