@@ -245,6 +245,88 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
   return item;
 }
 
+/** One guarded field's acceptance rule, read from `sanitizeRaidItem` above.
+ *  `category` is threaded rather than closed over because `status` is validated
+ *  against the EFFECTIVE category — the patch's when that is itself accepted,
+ *  the stored one otherwise — exactly as the sanitizer does it. */
+type RaidFieldGuard = (value: unknown, category: RaidCategory) => boolean;
+
+/** ★ `""` is ACCEPTED. The AI edit preview's date guard is `after !== "" &&
+ *  sanitizeIsoDate(after) !== after`, so an empty string sails through it and is
+ *  DISCLOSED to the user as a clear. Refusing it here would make the card
+ *  promise a clear the write silently declined — the same preview/apply
+ *  disagreement this guard exists to close, pointing the other way. */
+const acceptsRaidDate: RaidFieldGuard = (v) => v === "" || sanitizeIsoDate(v) !== "";
+
+/** ★★ `toNumber`, NOT `typeof v === "number"`. The sanitizer coerces with
+ *  `toNumber` and so does the preview's numeric normalisation, so a stricter
+ *  rule here would refuse a value the card shows as accepted. Note the
+ *  consequence, which this does NOT change: `toNumber(true)` is `1`, so
+ *  `probability: true` still stores a fabricated score of 1. */
+const acceptsRiskScale: RaidFieldGuard = (v) => {
+  const n = toNumber(v);
+  return Number.isInteger(n) && n >= 1 && n <= 5;
+};
+
+const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
+  category: (v) => typeof v === "string" && RAID_CATEGORY_SET.has(v),
+  status: (v, category) => typeof v === "string" && statusSetForCategory(category).set.has(v),
+  severity: (v) => typeof v === "string" && RAID_SEVERITY_SET.has(v),
+  probability: acceptsRiskScale,
+  impact: acceptsRiskScale,
+  raisedDate: acceptsRaidDate,
+  targetDate: acceptsRaidDate,
+  closedDate: acceptsRaidDate,
+};
+
+/**
+ * Drop the keys of a MODEL-supplied RAID patch whose values `sanitizeRaidItem`
+ * would not accept, so an unaccepted value means "leave the stored value
+ * alone" rather than "wipe it".
+ *
+ * ★★★ THIS IS A MERGE-SITE GUARD AND MUST NOT MIGRATE INTO THE SANITIZER.
+ * `sanitizeRaidItem` REBUILDS a whole record from an untrusted blob, so a value
+ * it refuses is not left alone: the key is DROPPED (`severity`, `probability`,
+ * `impact`, `targetDate`, `closedDate`), written as `""` (`raisedDate`), or
+ * reset to a HARDCODED DEFAULT (`category`, and `status` with it, since
+ * `statusSetForCategory` is keyed off the category the fallback just chose).
+ * `updateRaid` feeds it `{...stored, ...patch}`, so a refused patch value wipes
+ * the STORED one — while the AI edit preview refuses that same value and shows
+ * the field as unchanged. That fallback is CORRECT on the paths the sanitizer
+ * also serves (JSON load, CSV decode, template apply, AI proposal), where there
+ * is no prior value to preserve; the divergence is only ever about an UPDATE.
+ *
+ * ★★ It is a per-field guard and does not pretend otherwise: an ACCEPTED
+ * category change narrows the status set, so a stored status the new category
+ * does not have is still reset by the sanitizer. There is no prior value to
+ * keep in that case.
+ *
+ * ★ Mirrors `applyModelChangeStatus` (`change-log.ts`), which does this for the
+ * one `change.status` field and whose docstring carries the same reasoning.
+ * Written over a predicate TABLE rather than one branch per field so a new
+ * guarded field is a row, not a new code path.
+ *
+ * ★ Copy-on-write like `withAiRichFields`: the common case (nothing refused)
+ * returns the argument itself and allocates nothing.
+ */
+export function dropUnacceptedRaidFields<T extends object>(
+  patch: T,
+  stored: Pick<RaidItem, "category">,
+): T {
+  const raw = patch as Record<string, unknown>;
+  const category =
+    "category" in raw && RAID_FIELD_GUARDS.category(raw.category, stored.category)
+      ? (raw.category as RaidCategory)
+      : stored.category;
+  let out: Record<string, unknown> | null = null;
+  for (const [field, accepts] of Object.entries(RAID_FIELD_GUARDS)) {
+    if (!(field in raw) || accepts(raw[field], category)) continue;
+    out ??= { ...raw };
+    delete out[field];
+  }
+  return (out ?? patch) as T;
+}
+
 // --- Stakeholder + RACI ----------------------------------------------------
 
 const STAKEHOLDER_CATEGORY_SET = new Set<string>(STAKEHOLDER_CATEGORIES);

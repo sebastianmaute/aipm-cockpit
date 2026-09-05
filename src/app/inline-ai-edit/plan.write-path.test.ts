@@ -11,7 +11,7 @@
 // against a MOCK of the write path would be worthless, because the mock would
 // be written from the same reading of the code the preview already encodes.
 //
-// It exists for the three structural limits `plan.sanitizer-parity.test.ts`
+// It exists for the structural limits `plan.sanitizer-parity.test.ts`
 // records about itself, each of which is invisible to a sanitizer-level sweep:
 //  (1) a DISPATCHER-level derivation. `updateResource` re-derives
 //      `splitName(patch.name)` and spreads it over the patch; no sanitizer sees
@@ -23,6 +23,12 @@
 //  (3) a WRITE ALIAS. `name` is absent from the resource descriptor's
 //      `diffFields` (correctly — it is not a stored field), so no probe there
 //      ever sets it and the alias is unexercised on either side.
+//  (4) a MERGE-SITE GUARD. `updateRaid` filters the model's patch through
+//      `dropUnacceptedRaidFields` before handing it to `sanitizeRaidItem`, so a
+//      value the sanitizer alone would coerce, drop or reset to a default is
+//      never merged at all. A sanitizer-level sweep reads the sanitizer, so it
+//      is blind to whether the WRITER actually calls the guard — that wiring is
+//      pinned here and nowhere else.
 // Plus the relationship arrays, which replace rather than merge.
 //
 // THE CONTRACT, in two directions, both asserted per case:
@@ -93,6 +99,24 @@ function seedRaid(over: Partial<RaidItem> = {}): RaidItem {
     stakeholderIds: [],
     ...over,
   };
+}
+
+/** A RAID row whose every merge-site-guarded field carries a NON-DEFAULT value,
+ *  so a reset-to-default is observable rather than indistinguishable from a
+ *  preserved value: `category: "A"` is not `RAID_CATEGORIES[0]` and
+ *  `status: "Validated"` is not `ASSUMPTION_STATUSES[0]`. A base row missing any
+ *  of them would make the cases below pass for the wrong reason — a field that
+ *  was already absent cannot be observed being cleared. */
+function seedGuardedRaid(): RaidItem {
+  return seedRaid({
+    category: "A",
+    status: "Validated",
+    severity: "High",
+    probability: 3,
+    impact: 4,
+    targetDate: "2026-06-30",
+    closedDate: "2026-07-31",
+  });
 }
 
 function seedResource(over: Partial<Resource> = {}): Resource {
@@ -166,6 +190,74 @@ const CASES: WriteCase[] = [
     // `toNumber`, which is NaN for an array (bare `Number` would accept `[3]`
     // as 3), so the write REMOVES the role rather than setting it. The preview
     // must disclose a removal, not a change to role #3.
+    // ★★★ THE MERGE-SITE GUARD, and the shape §384 has in the RAID register:
+    // `sanitizeRaidItem` REBUILDS a whole record, so a value it refuses is not
+    // left alone — `severity`/`probability`/`impact` lose their key outright.
+    // The preview refuses these three and shows the row as unchanged, so before
+    // `dropUnacceptedRaidFields` the card promised "unchanged" while the replay
+    // wiped all three. Driven through the REAL dispatcher, which is the only
+    // place the guard and the sanitizer meet.
+    name: "a refused severity and out-of-range scores leave the stored values alone",
+    tool: "update_raid_item",
+    entity: "raid",
+    kind: "raid",
+    wsKey: "raid",
+    id: 10,
+    seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS },
+    input: { id: 10, severity: "Sehr hoch", probability: 9, impact: 0 },
+    expectStored: { severity: "High", probability: 3, impact: 4 },
+  },
+  {
+    // ★★ THE COUPLED PAIR. `statusSetForCategory` is keyed off the category the
+    // sanitizer's own fallback just chose, so an unrecognised category used to
+    // reset to "R" AND drag the stored assumption status "Validated" to the
+    // risk default "Open" — two fields wiped by one refused value, and `status`
+    // is not even mentioned in the tool input, so no preview line could have
+    // disclosed it.
+    name: "a refused category leaves the coupled status alone",
+    tool: "update_raid_item",
+    entity: "raid",
+    kind: "raid",
+    wsKey: "raid",
+    id: 10,
+    seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS },
+    input: { id: 10, category: "Z" },
+    expectStored: { category: "A", status: "Validated" },
+  },
+  {
+    // `raisedDate` is written UNCONDITIONALLY by the sanitizer
+    // (`raisedDate: sanitizeIsoDate(o.raisedDate)`), so an unparseable value
+    // blanked it to ""; `targetDate`/`closedDate` lost their key instead. Three
+    // shapes, one guard.
+    name: "unparseable dates leave the stored dates alone",
+    tool: "update_raid_item",
+    entity: "raid",
+    kind: "raid",
+    wsKey: "raid",
+    id: 10,
+    seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS },
+    input: { id: 10, raisedDate: "02/01/2026", targetDate: "not a date", closedDate: "2026/07/31" },
+    expectStored: { raisedDate: "2026-05-01", targetDate: "2026-06-30", closedDate: "2026-07-31" },
+  },
+  {
+    // ★★★ THE OTHER DIRECTION, and the reason the guard carves `""` out rather
+    // than demanding a parseable date: the preview's date rule is `after !== ""
+    // && sanitizeIsoDate(after) !== after`, so an empty string is ACCEPTED and
+    // DISCLOSED as a clear. A guard that refused it would make the card promise
+    // a clear the write declined — the same disagreement, pointing the other
+    // way. `expectStored` is `undefined` rather than `""` because the sanitizer
+    // stores `targetDate` sparsely (`if (targetDate) item.targetDate = …`).
+    name: "an explicitly empty date still clears the stored one",
+    tool: "update_raid_item",
+    entity: "raid",
+    kind: "raid",
+    wsKey: "raid",
+    id: 10,
+    seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS },
+    input: { id: 10, targetDate: "" },
+    expectStored: { targetDate: undefined },
+  },
+  {
     name: "an id ARRAY on a single-FK link REMOVES the role",
     tool: "update_resource",
     entity: "resource",

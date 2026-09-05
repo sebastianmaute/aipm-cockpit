@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { describeEntityCalls, previewNormalizerFor, RICH_FIELDS, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import {
+  dropUnacceptedRaidFields,
   sanitizeChangeItem,
   sanitizeMilestone,
   sanitizeRaidItem,
@@ -10,7 +11,7 @@ import {
 } from "../sanitize";
 import { buildTaskCleanPatch } from "../chat-task-patch";
 import { applyStatusChange, isTaskStatus } from "../task-status";
-import { type Task } from "../types";
+import { type RaidItem, type Task } from "../types";
 import type { Workspace } from "../workspace";
 
 // ★★★ THE DIFFERENTIAL GATE ON `fieldSanitizers`. For EVERY entity, EVERY
@@ -79,12 +80,19 @@ import type { Workspace } from "../workspace";
 //      unexercised. `task.status`/`priority`, `raid.category`/`status`,
 //      `change.type`/`status`, `stakeholder.category`/`influence`/`interest` all
 //      read back the value they already held when fed a refused value; only
-//      `raid.severity` and `change.impact` — stored as OPTIONAL keys, fallback
-//      "" — move, which is why exactly those two are in the exception list. A
-//      row whose enum is NOT the default would be silently RESET with the card
-//      showing nothing. Do NOT "fix" this by editing a fixture: that
-//      manufactures reds outside the direction under test. Reproduce by printing
-//      `base[f]` beside `read(f, 42)` for each `enumFields` key.
+//      `change.impact` — stored as an OPTIONAL key, no fallback — moves, which
+//      is why exactly one enum sits in the exception list. A row whose enum is
+//      NOT the default would be silently RESET with the card showing nothing.
+//      Do NOT "fix" this by editing a fixture: that manufactures reds outside
+//      the direction under test. Reproduce by printing `base[f]` beside
+//      `read(f, 42)` for each `enumFields` key.
+//      ★★ THE RAID PAIR IS THE ONE EXCEPTION AND IS NO LONGER A BLIND SPOT:
+//      `dropUnacceptedRaidFields` drops a refused `category`/`status` at the
+//      MERGE SITE, so the stored pair survives whatever the fixture happens to
+//      hold — including the coupling, where an unrecognised category used to
+//      fall back to "R" and drag a non-risk `status` to "Open" with it.
+//      `sanitize-raid-patch.test.ts` pins that on a NON-default row, which is
+//      the fixture this file must not grow.
 //  (5) `TASK_BASE` carries no `lastUpdateDate`, so `update_task({lastUpdateDate:
 //      ""})` — a clear the preview shows and the writer may not make — compares
 //      "" against "" and says nothing. Same rule as (4): do not add one here.
@@ -217,13 +225,34 @@ const taskReader: StoredReader = (field, value) => {
   }
 };
 
+/** The RAID apply path is NOT a bare full-record sanitizer either. `updateRaid`
+ *  (`use-register-tools.ts`) runs the model's patch through
+ *  `dropUnacceptedRaidFields` BEFORE merging it over the stored row, so a value
+ *  `sanitizeRaidItem` would refuse leaves the stored one alone instead of
+ *  clearing it (or resetting it to a hardcoded default).
+ *
+ *  ★★ COMPOSED FROM THE REAL FUNCTIONS, for the reason `taskReader` gives: a
+ *  re-spelled guard is the exact drift this file exists to catch, and reading
+ *  the raw sanitizer here made the sweep blind to the merge-site fix — the four
+ *  raid entries in `PREVIEW_REJECTS_APPLY_WRITES` went on firing after the
+ *  divergence they named was closed, i.e. the exception list would have kept
+ *  granting cover to a defect that no longer existed. */
+const raidReader: StoredReader = (field, value) => {
+  const patch = dropUnacceptedRaidFields(
+    { [field]: value },
+    RAID_BASE as unknown as Pick<RaidItem, "category">,
+  );
+  const out = sanitizeRaidItem({ ...RAID_BASE, ...patch });
+  return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
+};
+
 const CASES: ReadonlyArray<{
   entity: InlineEntity;
   base: Record<string, unknown>;
   read: StoredReader;
 }> = [
   { entity: "task", base: TASK_BASE as unknown as Record<string, unknown>, read: taskReader },
-  { entity: "raid", base: RAID_BASE, read: sanitizerReader(RAID_BASE, sanitizeRaidItem as never) },
+  { entity: "raid", base: RAID_BASE, read: raidReader },
   { entity: "change", base: CHANGE_BASE, read: sanitizerReader(CHANGE_BASE, sanitizeChangeItem as never) },
   { entity: "milestone", base: MILE_BASE, read: sanitizerReader(MILE_BASE, sanitizeMilestone as never) },
   { entity: "stakeholder", base: STK_BASE, read: sanitizerReader(STK_BASE, sanitizeStakeholder as never) },
@@ -291,7 +320,7 @@ const APPLY_ONLY_REJECTS: ReadonlySet<string> = new Set<string>([
  *  behaviour — "nothing is written" is the reasoning that shipped §384.
  *
  *  ★★★ EVERY ENTRY BELOW IS AN OPEN DEFECT IN THE PRODUCT, NOT A PROPERTY OF
- *  THE TEST, and all seven are one mechanism: the preview refuses a value the
+ *  THE TEST, and both are one mechanism: the preview refuses a value the
  *  WRITER does not refuse — the writer silently coerces or drops it, clearing a
  *  populated field. The card says "unchanged"; the replay wipes it. Fixing them
  *  belongs in the writer or the descriptor and is out of this file's scope; they
@@ -302,39 +331,44 @@ const APPLY_ONLY_REJECTS: ReadonlySet<string> = new Set<string>([
  *  granting cover to the next one.
  *
  *  ★★ MEASURED 2026-09-05, printed from inside the totals test rather than
- *  derived: of 181 preview-only rejections, 50 pairs across these SIX fields
- *  move the field and are excused here; the remaining 131 leave it where it was
+ *  derived: of 181 preview-only rejections, 17 pairs across these TWO fields
+ *  move the field and are excused here; the remaining 164 leave it where it was
  *  and are genuine agreement.
+ *
+ *  ★★★ IT WAS 50 / SIX UNTIL THE FOUR RAID FIELDS WERE FIXED, and the way the
+ *  numbers moved is again the point. `updateRaid` now runs the model's patch
+ *  through `dropUnacceptedRaidFields` before merging, so `raid.severity`,
+ *  `raid.probability`, `raid.impact` and `raid.raisedDate` stopped moving and
+ *  their 33 pairs left the EXCUSED bucket for the agreeing one — 50 → 17
+ *  excused, 131 → 164 remaining, with `previewOnlyRejects` itself UNMOVED at
+ *  181 (a rejection is still a rejection; only what the write then does to the
+ *  field changed). ★★ Nothing here would have moved on the fix alone: the raid
+ *  reader used to be a bare `sanitizerReader(RAID_BASE, sanitizeRaidItem)`, so
+ *  the sweep could not see a merge-site guard at all and went on excusing four
+ *  closed defects. `raidReader` composes the real guard for the same reason
+ *  `taskReader` composes the real status path.
  *
  *  ★★★ IT WAS 185 / 54 / SEVEN UNTIL `task.taskName` WAS FIXED, and the way the
  *  numbers moved is the point rather than a footnote. `buildTaskCleanPatch` now
  *  THROWS on a blank name, so `taskReader`'s catch returns null and those four
  *  pairs (`true`, `false`, `42`, `""`) left the preview-only bucket for the
  *  APPLY-REJECTS one — 185 → 181 and 43 apply-rejects — where preview and write
- *  agree outright and nothing needs excusing. `remaining` is UNCHANGED at 131
+ *  agree outright and nothing needs excusing. `remaining` was UNCHANGED at 131
  *  because the four were excused, not compared. The three bucket counters and
- *  every floor are UNMOVED (compared 244, possible 288, enumerated 468) — a
- *  figure elsewhere in this file that changed with this work would be a bug.
+ *  every floor are UNMOVED by BOTH fixes (compared 244, possible 288,
+ *  enumerated 468) — a figure elsewhere in this file that changed with this
+ *  work would be a bug.
  *  Re-print, never re-derive: `console.log` the reduce results in the totals
  *  test and run this file alone. */
 const PREVIEW_REJECTS_APPLY_WRITES: Readonly<Record<string, string>> = {
-  // `sanitizeRaidItem` sets `severity` ONLY when the value is in
-  // `RAID_SEVERITY_SET`; there is no fallback, so a value the preview's enum
-  // guard refuses DROPS the key and a stored "High" becomes absent.
-  "raid.severity": "optional enum: an invalid value drops the key, clearing a stored severity",
-  // Same shape one entity over: `if (typeof o.impact === "string" &&
-  // CHANGE_IMPACT_SET.has(o.impact)) item.impact = …` — no fallback, so a
-  // refused value clears a stored "High".
+  // `sanitizeChangeItem` sets `impact` ONLY when the value is in
+  // `CHANGE_IMPACT_SET` — `if (typeof o.impact === "string" && …) item.impact =
+  // …`, no fallback — so a value the preview's enum guard refuses DROPS the key
+  // and a stored "High" becomes absent.
   "change.impact": "optional enum: an invalid value drops the key, clearing a stored impact",
-  // `intRangeFields` is [1, 5] and `sanitizeRaidItem` sets the key only for an
-  // integer in that range, so the values the preview's range guard refuses are
-  // precisely the ones that clear a stored score.
-  "raid.probability": "optional int-range [1,5]: an out-of-range value drops the key, clearing a stored score",
-  "raid.impact": "optional int-range [1,5]: an out-of-range value drops the key, clearing a stored score",
-  // `raisedDate: sanitizeIsoDate(o.raisedDate)` is UNCONDITIONAL on both
-  // entities — an unparseable date is written as "" rather than skipped — so the
-  // preview's date guard refuses exactly the values that blank a stored date.
-  "raid.raisedDate": "unconditional sanitizeIsoDate: an invalid date is written as \"\", blanking a stored date",
+  // `raisedDate: sanitizeIsoDate(o.raisedDate)` is UNCONDITIONAL — an
+  // unparseable date is written as "" rather than skipped — so the preview's
+  // date guard refuses exactly the values that blank a stored date.
   "change.raisedDate": "unconditional sanitizeIsoDate: an invalid date is written as \"\", blanking a stored date",
 };
 

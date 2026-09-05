@@ -38,6 +38,7 @@ import {
 import { t } from "./i18n";
 import { mintId } from "./id-mint-session";
 import {
+  dropUnacceptedRaidFields,
   sanitizeIsoDate,
   sanitizeRaidItem,
   sanitizeChangeItem,
@@ -207,9 +208,18 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = raidRef.current.find((r) => r.id === id);
         if (!existing) return null;
+        // ★★★ `dropUnacceptedRaidFields` FIRST — `sanitizeRaidItem` rebuilds a
+        // whole record, so a value it refuses CLEARS the merged field rather
+        // than leaving the stored one alone (or resets it to a hardcoded
+        // default, for `category`/`status`). The AI edit preview refuses those
+        // same values and shows the field as unchanged, so without this the
+        // card says "unchanged" while the write wipes a populated field. Guard
+        // here and never in the sanitizer: that runs on JSON load, CSV decode,
+        // template apply and AI proposal too, where there IS no prior value.
+        // Mirrors `applyModelChangeStatus`, applied one field over.
         const merged = sanitizeRaidItem({
           ...existing,
-          ...withAiRichFields(patch, AI_RICH_FIELDS.raid),
+          ...dropUnacceptedRaidFields(withAiRichFields(patch, AI_RICH_FIELDS.raid), existing),
           id,
           localModifiedAt: new Date().toISOString(),
         });
