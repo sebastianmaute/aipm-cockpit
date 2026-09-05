@@ -597,6 +597,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§386](#386-fields-hint-pollutes-its-controls-accessible-name--open) | `Field`'s `hint` pollutes its control's accessible name | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§387](#387-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
+| [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--open) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide | found 2026-09-05 in the edit-task modal rework | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -28074,3 +28075,50 @@ did NOT force `group` is exactly the mis-binding the scan is for.
 ★ The residual risk is a FUTURE caller adding a caption control to a `Field` variant that does not
 force `group`. Nothing detects that today from either direction — the source scan cannot see the
 attribute, and the layout tests only cover the primitive as it currently behaves.
+
+## 389. `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 from the edit-task modal rework, where this defect was fixed
+LOCALLY for one dialog. Verified 2026-09-05 by reading the default and counting consumers:
+`grep -n "closeName = closeLabel" src/app/modal-header.tsx` returns the fallback, and
+`grep -rn "closeLabel=" src/app --include=*.tsx | grep -v "\.test\."` returns exactly ONE call site.
+★ Use that direct grep, not a `grep -A N` window after `<ModalHeader` — the prop sits ~28 lines
+below the tag behind a long comment, so a short window reports ZERO and reads as "nobody uses it".
+
+`ModalHeader` defaults its ✕ to `t(lang, "alertModalClose")`, so every modal in the app names that
+button with the same string. Two modals open at once present two controls with one accessible name,
+and they do DIFFERENT things: the upper ✕ dismisses the nested dialog, the lower one discards
+whatever the surface beneath was holding.
+
+★★ Screen readers scope announcements by `aria-modal`, so a SR user is not exposed. SPEECH INPUT
+does not scope at all — "click Close" resolves against every matching control in the document, and
+picking the lower one can discard an in-progress edit. That is why the local fix was made rather
+than deferred.
+
+★★★ NO GATE CAN SEE THIS, in any view, at any seed size. Measured against the installed axe-core in
+AGENTS.md's a11y bullet: of the rules carrying the four tags `e2e/a11y.spec.ts` requests, NOT ONE
+flags two controls sharing an accessible name. A unit test is the only possible detector, and it
+must render BOTH layers — a fixture with one modal cannot fail.
+
+**What was fixed, and what was not.** `modal-header.tsx` gained an optional `closeLabel` defaulting
+to the shared string, so every call site stayed byte-identical, and `task-time-tracking-modal.tsx`
+passes the close string qualified with the dialog title using an EN DASH (U+2013, the `rowLabel`
+separator). That closes ONE pair. Every other stackable pair is untouched.
+
+**Why it was not fixed globally.** Qualifying every ✕ renames the control in all of them and breaks
+any test or spec selecting the bare name, for a defect that only manifests while two modals are
+actually stacked. The cheap wrong-shaped fix is to default `closeLabel` to include the title — that
+changes every surface at once to fix the few that stack.
+
+★ The tractable next step is an ENUMERATION, not a rename: find which modals can actually be open
+simultaneously. `Modal` pushes onto the dismissal stack, so a pair is stackable iff one renders a
+`Modal` inside another's subtree, or a handler opens one from inside the other. Qualify only those
+pairs and pin each with a two-layer unit test.
+
+★★ Do NOT reach for `aria-modal` to justify skipping this. It governs the accessibility tree for
+assistive technology that honours it; it has no effect on speech-input target resolution, which is
+the channel this defect rides.
+
+★ Same family as the `addTask`/`addTaskButton` collision found in the same review round — that one
+was live in a single view and carried a data-loss path (both openers call `handleCancelEdit()`),
+so it was fixed rather than filed.
