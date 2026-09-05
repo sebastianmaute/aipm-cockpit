@@ -69,6 +69,15 @@ import {
 import { sanitizeRichText } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 
+/** The milestone's OWN linked-task rule. ★★ It is deliberately NOT
+ *  `sanitizeIdList`: it accepts an array only (a delimited string yields `[]`,
+ *  where raid/change parse one) and it does NOT dedupe. Exported so the preview
+ *  can call the real rule instead of approximating it with the raid/change one,
+ *  which would show links a milestone write drops. */
+export function sanitizeMilestoneTaskIds(v: unknown): number[] {
+  return Array.isArray(v) ? v.map((n) => toNumber(n)).filter((n) => Number.isFinite(n) && n > 0) : [];
+}
+
 /** Accept only well-formed milestones from untrusted JSON. id>0, name+date
  *  required; linkedTaskIds reduced to positive finite ints. */
 export function sanitizeMilestone(input: unknown): Milestone | null {
@@ -80,10 +89,12 @@ export function sanitizeMilestone(input: unknown): Milestone | null {
   if (!name) return null;
   const date = sanitizeIsoDate(o.date);
   if (!date) return null;
-  const linkedTaskIds = Array.isArray(o.linkedTaskIds)
-    ? o.linkedTaskIds.map((n) => toNumber(n)).filter((n) => Number.isFinite(n) && n > 0)
-    : [];
-  const m: Milestone = { id: Math.floor(id), name, date, linkedTaskIds };
+  const m: Milestone = {
+    id: Math.floor(id),
+    name,
+    date,
+    linkedTaskIds: sanitizeMilestoneTaskIds(o.linkedTaskIds),
+  };
   const achievedDate = sanitizeIsoDate(o.achievedDate);
   if (achievedDate) m.achievedDate = achievedDate;
   const description = sanitizeRichText(o.description, TEXTAREA_MAX, RICH_SINK);
