@@ -3,6 +3,7 @@ import { describeEntityCalls, previewNormalizerFor, RICH_FIELDS, type ToolUseLik
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import {
   dropUnacceptedChangeFields,
+  dropUnacceptedMilestoneFields,
   dropUnacceptedRaidFields,
   sanitizeChangeItem,
   sanitizeMilestone,
@@ -244,6 +245,23 @@ const taskReader: StoredReader = (field, value) => {
  *  raid entries in `PREVIEW_REJECTS_APPLY_WRITES` went on firing after the
  *  divergence they named was closed, i.e. the exception list would have kept
  *  granting cover to a defect that no longer existed. */
+/** The MILESTONE apply path, composed for the same reason as the two below.
+ *  `updateMilestone` runs the model's patch through
+ *  `dropUnacceptedMilestoneFields` before merging it over the stored row, so a
+ *  refused `achievedDate` leaves the stored date alone instead of clearing it.
+ *
+ *  ★★ This entity had NO stale entry to un-cover when the guard landed — the
+ *  exception map was already empty by then — so the red-on-stale proof the raid
+ *  and change readers earned was not available here. Composed anyway, and that
+ *  is the point: a raw-sanitizer reader would leave milestone permanently blind
+ *  to any future merge-site guard, and the absence of a failing test is exactly
+ *  what makes that blindness cheap to ship. */
+const milestoneReader: StoredReader = (field, value) => {
+  const patch = dropUnacceptedMilestoneFields({ [field]: value });
+  const out = sanitizeMilestone({ ...MILE_BASE, ...patch });
+  return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
+};
+
 const raidReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedRaidFields(
     { [field]: value },
@@ -296,7 +314,7 @@ const CASES: ReadonlyArray<{
   { entity: "task", base: TASK_BASE as unknown as Record<string, unknown>, read: taskReader },
   { entity: "raid", base: RAID_BASE, read: raidReader },
   { entity: "change", base: CHANGE_BASE, read: changeReader },
-  { entity: "milestone", base: MILE_BASE, read: sanitizerReader(MILE_BASE, sanitizeMilestone as never) },
+  { entity: "milestone", base: MILE_BASE, read: milestoneReader },
   { entity: "stakeholder", base: STK_BASE, read: sanitizerReader(STK_BASE, sanitizeStakeholder as never) },
   { entity: "resource", base: RES_BASE, read: sanitizerReader(RES_BASE, sanitizeResource as never) },
 ];

@@ -63,7 +63,7 @@ import { entityToken, type TokenEntity } from "../ai-entity-token";
 import { runTool } from "../chat-tools";
 import { resetMintState } from "../id-mint-session";
 import { type TestSeed } from "../test-providers";
-import { type ChangeItem, DEFAULT_TASK_STATUS, type RaidItem, type Resource, type Task } from "../types";
+import { type ChangeItem, DEFAULT_TASK_STATUS, type Milestone, type RaidItem, type Resource, type Task } from "../types";
 import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
 import { emptyWorkspace, type Workspace } from "../workspace";
@@ -148,6 +148,20 @@ function seedGuardedChange(over: Partial<ChangeItem> = {}): ChangeItem {
   };
 }
 
+/** ★ `achievedDate` is POPULATED on purpose. The parity sweep's `MILE_BASE`
+ *  leaves it blank, which is exactly why this member of the class was invisible
+ *  there: a clear of an empty field reads as agreement. */
+function seedGuardedMilestone(over: Partial<Milestone> = {}): Milestone {
+  return {
+    id: 30,
+    name: "GA",
+    date: "2026-06-01",
+    achievedDate: "2026-05-20",
+    linkedTaskIds: [],
+    ...over,
+  };
+}
+
 function seedResource(over: Partial<Resource> = {}): Resource {
   return {
     id: 4,
@@ -163,7 +177,7 @@ function seedResource(over: Partial<Resource> = {}): Resource {
 /** The workspace slices this file writes to, and the key each case reads back
  *  through. Deliberately narrow — a case needing another slice adds it here so
  *  the read-back stays a lookup rather than a per-case cast. */
-type WsKey = "raid" | "resources" | "changes";
+type WsKey = "raid" | "resources" | "changes" | "milestones";
 
 interface WriteCase {
   name: string;
@@ -303,6 +317,24 @@ const CASES: WriteCase[] = [
     seed: { changes: [seedGuardedChange()] },
     input: { id: 20, type: "Umfang", impact: "Sehr hoch" },
     expectStored: { type: "Scope", impact: "High" },
+  },
+  {
+    // ★★ THE WIRING, not the helper. `sanitize-milestone-patch.test.ts` calls
+    // `dropUnacceptedMilestoneFields` directly, so it stays green if the call
+    // site in `updateMilestone` is deleted. Only a replay through the real
+    // dispatcher sees that, which is what this file is for.
+    // ★ The parity sweep cannot reach this case at all: its `MILE_BASE` leaves
+    // `achievedDate` blank, so the clear this used to perform landed on an
+    // already-empty field and read as agreement.
+    name: "a refused achievedDate leaves the stored sign-off date alone",
+    tool: "update_milestone",
+    entity: "milestone",
+    kind: "milestone",
+    wsKey: "milestones",
+    id: 30,
+    seed: { milestones: [seedGuardedMilestone()] },
+    input: { id: 30, achievedDate: "20/05/2026" },
+    expectStored: { achievedDate: "2026-05-20" },
   },
   {
     // `raisedDate` is written UNCONDITIONALLY by the sanitizer

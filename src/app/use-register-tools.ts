@@ -39,6 +39,7 @@ import { t } from "./i18n";
 import { mintId } from "./id-mint-session";
 import {
   dropUnacceptedChangeFields,
+  dropUnacceptedMilestoneFields,
   dropUnacceptedRaidFields,
   sanitizeIsoDate,
   sanitizeRaidItem,
@@ -392,9 +393,14 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = milestonesRef.current.find((m) => m.id === id);
         if (!existing) return null;
+        // ★★ `dropUnacceptedMilestoneFields` before the spread, for the reason
+        // its docstring gives: `sanitizeMilestone` rebuilds the whole record and
+        // assigns `achievedDate` conditionally, so a refused value CLEARS the
+        // stored date instead of failing. The guard turns "refused" back into
+        // "unchanged", which is what the preview already promises.
         const merged = sanitizeMilestone({
           ...existing,
-          ...withAiRichFields(patch, AI_RICH_FIELDS.milestone),
+          ...dropUnacceptedMilestoneFields(withAiRichFields(patch, AI_RICH_FIELDS.milestone)),
           id,
           localModifiedAt: new Date().toISOString(),
         });

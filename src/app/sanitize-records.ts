@@ -80,6 +80,59 @@ export function sanitizeMilestoneTaskIds(v: unknown): number[] {
 
 /** Accept only well-formed milestones from untrusted JSON. id>0, name+date
  *  required; linkedTaskIds reduced to positive finite ints. */
+type MilestoneFieldGuard = (value: unknown) => boolean;
+
+/** ★★★ THE MERGE-SITE GUARD. `sanitizeMilestone` assigns its optional fields
+ *  CONDITIONALLY (`if (achievedDate) m.achievedDate = ...`), and it rebuilds the
+ *  whole record — so a value it does not accept does not merely fail to apply,
+ *  it OMITS the key and CLEARS a populated field. The AI edit preview refuses
+ *  the same value, so the card reads "unchanged" while the write wipes the date.
+ *  Two of the three apply paths replay the original tool input and never consult
+ *  the preview, so that wipe really lands.
+ *
+ *  The rule, shared with `dropUnacceptedRaidFields` and
+ *  `dropUnacceptedChangeFields`: hoist the sanitizer's OWN acceptance predicate
+ *  to the patch level and drop the key when it fails, so a refused value means
+ *  "unchanged" rather than "cleared". It lives here rather than at the call site
+ *  because the predicates below are this module's, and re-spelling them
+ *  elsewhere is how the two copies drift apart.
+ *
+ *  ★★ NOT IN THE TABLE, deliberately:
+ *  • `name` / `date` — required. An unaccepted value makes `sanitizeMilestone`
+ *    return null and `updateMilestone` throws, which is a REFUSAL the user sees,
+ *    not a silent clear. Guarding them would convert a loud failure into a
+ *    silent partial write.
+ *  • `linkedTaskIds` — assigned UNCONDITIONALLY via `sanitizeMilestoneTaskIds`,
+ *    so a garbage value stores `[]`. The preview models that exact function and
+ *    shows the emptying, so the two already agree; guarding it would make the
+ *    card promise a clear the write no longer performs.
+ *  • `description` — a RICH field. It has the same drop-key shape (a non-string
+ *    clears it), but the preview PROJECTS a non-string rather than refusing it,
+ *    so guarding it here would create this slice's own defect pointing the other
+ *    way. Closing it needs a coordinated change on both sides; filed, not
+ *    patched. Pinned in `sanitize-milestone-patch.test.ts`.
+ *  • `localModifiedAt` / `outlookEventId` / `knowledgeLinks` — not model-writable
+ *    (absent from `milestoneFields` in `chat-tool-defs.ts`), so no AI patch can
+ *    reach them; the merge carries the stored values through. */
+const MILESTONE_FIELD_GUARDS: Readonly<Record<string, MilestoneFieldGuard>> = {
+  // ★ The `v === ""` carve-out is load-bearing: the preview's date rule is
+  //  `after !== "" && sanitizeIsoDate(after) !== after`, so an explicit empty
+  //  string is DISCLOSED to the user as a clear. Refusing it here would invert
+  //  the defect — the card would promise a clear the write no longer makes.
+  achievedDate: (v) => v === "" || sanitizeIsoDate(v) !== "",
+};
+
+export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
+  const raw = patch as Record<string, unknown>;
+  let out: Record<string, unknown> | null = null;
+  for (const [field, accepts] of Object.entries(MILESTONE_FIELD_GUARDS)) {
+    if (!(field in raw) || accepts(raw[field])) continue;
+    out ??= { ...raw };
+    delete out[field];
+  }
+  return (out ?? patch) as T;
+}
+
 export function sanitizeMilestone(input: unknown): Milestone | null {
   if (!isPlainObject(input)) return null;
   const o = input;
