@@ -43,8 +43,18 @@ fields to disclose: seven relationship arrays, `resource.roleId`,
 ★★ **The seven relationship arrays REPLACE.** `updateRaid` / `updateChange` /
 `updateMilestone` merge by object spread, so supplying `linkedTaskIds: [7]`
 drops every other link. Omitting the key leaves the stored list untouched. An
-undisclosed replace is the worst case in this document: the links live only on
-that row, so nothing reconstructs them.
+undisclosed replace is the worst case in this document.
+
+★★★ **AND THE DROPPED IDS ARE RECOVERABLE FROM EXACTLY ONE PLACE, WHICH DOES
+NOT SURVIVE THE SESSION.** `Task` carries no reciprocal back-link array;
+`linked-task-index.ts`'s `groupByLinkedTaskIds` is a read-time index derived
+FROM this array, so it cannot reconstruct what the source already lost; and the
+activity-log entry records the update without any field diff, so the dropped ids
+are named nowhere. The only surviving copy is the undo stack's captured
+before-image, which is session-scoped and single-shot. If undo is not used
+before the session ends or another edit lands, the links are gone with no record
+of what they were. That is what makes disclosure before approval the whole
+mitigation — there is no after-the-fact repair path.
 
 ★★ **No id is checked for existence.** `sanitizeIdList` keeps any positive
 finite integer and dedupes; `sanitizeMilestone` filters inline and does **not**
@@ -117,6 +127,18 @@ A list of numeric ids is unreadable on an approval card. `liveRowTitle`
 (`chat-proposal-stage.ts`) already resolves ONE id via the descriptor's `wsKey`
 and `titleOf`; this slice generalises that shape to a list. A resolved diff
 reads `Linked tasks: Draft brief, Sign off → Draft brief, Ship`.
+
+★★ **The lookup material is asymmetric across the six referenced entities, so do
+not assume a map exists.** `workspace-context.tsx` memoizes `tasksById`, already
+consumed by `raid-panel-rows.tsx` — reuse it for the three `linkedTaskIds`
+fields. There is NO `raidById`, `changesById` or `stakeholdersById`, and `roles`
+is a plain array, so `causedByRaidIds`, `linkedRaidIds`, `stakeholderIds` and
+`roleId` have nothing to reuse. `liveRowTitle`'s linear `.find` per id is
+correct but is O(rows x ids) when applied to a list; whether that matters at
+this slice's list sizes is a question for the plan, not an assumption for the
+spec. Do NOT introduce new memoized maps into `WorkspaceProvider` without
+measuring — its value is one `useMemo` over ~30 slices and every direct consumer
+re-renders on any change to it, which is a documented landmine.
 
 An id with no matching row renders as an explicit unknown marker rather than
 being dropped. Hiding it would launder a real problem: these paths store
@@ -211,8 +233,16 @@ Close §384. Re-open §383 as folded in. File, at numbers re-checked against
    rates live on `Role` and are resolved at read time. `chat-tools.ts` says the
    opposite in its own doc comment. This is a false claim in the text the MODEL
    reads.
-3. `sanitizeMilestone` filters ids inline without the `Set` dedupe that
-   `sanitizeIdList` applies for raid and change.
+3. `sanitizeMilestone` filters `linkedTaskIds` inline and diverges from
+   `sanitizeIdList` in TWO ways, not one. It does not dedupe — observable, not
+   inert: a duplicated id inflates the `linkedTasks: N` count the insight digest
+   renders (`use-insight-recommendations.ts`), though nothing renders a doubled
+   row. And it accepts ONLY an array, where `sanitizeIdList` also parses a
+   delimited string — so `linkedTaskIds: "1;2"` links two tasks on a raid or a
+   change and silently yields `[]` on a milestone. The second divergence is the
+   one that matters here: it is a preview/apply divergence in its own right,
+   since a preview modelling `sanitizeIdList` would show links the milestone
+   writer drops.
 4. Rejections are computed and never rendered on the chat card (1.3).
 
 Record the invariant (§2) in `docs/AGENTS/ai-assistant.md`, which owns inline edit.
