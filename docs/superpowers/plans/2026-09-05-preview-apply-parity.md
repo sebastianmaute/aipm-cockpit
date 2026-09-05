@@ -546,6 +546,23 @@ style rather than inventing a second one.
 ★ Keep `cancel()` OUTSIDE the guard — closing the popover is correct either
 way; only the success CLAIM is conditional.
 
+★★★ THIS TEST'S PREMISE EXPIRES IN TASK 5, and whoever touches it next needs
+this. It reaches its branch by INJECTING a links-only plan, because at Task 4b
+`links` has no writer. After Task 5 `links` DOES write, so no bucket with the
+original gap remains and the gap must be simulated. The obvious repair —
+injecting a `rejected`-only plan — DOES NOT WORK: `isEmptyPlan` counts
+updates/creates/deletes/links and NOT `rejected`, so that plan is EMPTY,
+`submit()` routes it to `"clarify"`, and the positive control never reaches
+`apply()`. As built, Task 5 fakes the emptiness VERDICT instead (stubs
+`isEmptyPlan` false over a genuinely empty plan), leaving the hook's guard, all
+four write branches, the `applied` counter and the toast call real. Do NOT
+"restore" a links-only injection. If a future bucket ships
+previewable-but-unwritten, inject THAT bucket against a real `isEmptyPlan`.
+
+★★ Keep `expect(result.current.phase).toBe("preview")`. Without it the guard at
+the top of `apply()` can early-return and the no-toast assertion passes for the
+wrong reason.
+
 - [ ] **Step 4: Green, then typecheck**
 
 ```
@@ -698,11 +715,25 @@ Then, in `use-inline-entity-edit.ts`, extend the patch build. ★★★ Apply
 `rawIds` and NEVER `after`: `after` is a rendered title string, and that is the
 exact value whose arrival in `sanitizeIdList` wipes the row.
 
+★★★ AS BUILT — THE OBVIOUS FORM IS A SILENT FK WIPE, and this plan specified it.
+`patch[l.field] = l.rawIds` is correct for the seven `kind: "list"` fields and
+DESTRUCTIVE for the one `kind: "id"` field, `resource.roleId`. `LinkField.sanitize`
+returns `number[]` for BOTH kinds, so a single FK arrives as `[12]`;
+`sanitizeResource` does `toNumber(input.roleId)`; `toNumber` yields NaN for an
+array, so `roleId` becomes `null`. The card would read "Engineering L3 → Design
+L3" while the write REMOVED the role — a preview lying in the most damaging
+direction, on the exact surface built to stop that. The descriptor's own comment
+on that field already warned that `toNumber` and `Number` disagree on `[5]`.
+
 ```ts
       for (const l of plan.links) {
-        patch[l.field] = l.rawIds;
+        patch[l.field] = linkPatchValue(d, l);
       }
 ```
+
+with a helper branching on the declared kind — `"id"` writes `rawIds[0] ?? null`,
+everything else writes `rawIds`. Pinned by two tests and mutation-proved
+(`kind !== "id"` → a never-matching literal: 2 failed / 26 passed).
 
 ★ Place it so a links-only plan still reaches the dispatcher — the existing
 `if (plan.updates.length > 0)` branch must no longer be the only thing that can
@@ -1096,6 +1127,11 @@ markup, same raw field name (Task 10 relabels all three surfaces in one pass):
           </li>
         ))}
 ```
+
+★★ `l.after` CAN LEGITIMATELY BE THE EMPTY STRING — a cleared FK, or a list
+emptied to nothing. That is the most destructive change the card can show, so it
+must not render as a bare blank: the `|| "—"` fallback above is load-bearing, not
+cosmetic. A naive `{l.after}` shows nothing at all for "every link removed".
 
 ★ Read each file's existing list markup first and MATCH it — the three surfaces
 do not share a component, and their `<li>` styling differs. Do not introduce a
