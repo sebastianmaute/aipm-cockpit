@@ -2,21 +2,29 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.282.0";
-export const APP_BUILD_DATE = "2026-09-05"; // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
+export const APP_VERSION = "0.284.0";
+export const APP_BUILD_DATE = "2026-09-05"; // 0.284.0: a row a staged plan could not write now says which of the three things went wrong instead of a single flat refusal, one unreadable row no longer takes the rest of the plan down with it, and an inline AI edit's preview of a numeric field shows the number that would actually be stored (Kornbluth)
+// 0.283.0: when the assistant is about to delete something, or to change more than one row at once, it now shows you the plan first — every row with what it would change — and writes nothing until you approve it; the rows you keep are applied as ONE step you can undo in one press (Lessing)
+// 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
-// 0.280.0: the assistant's document edits must now prove they are editing the block they read, so a hand edit made in between is refused instead of silently overwritten, and reordering a block is one safe operation rather than a delete plus an insert (Sinisalo)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.282.x line is "Zamyatin" (Yevgeny Zamyatin, Russian author of "We", the
+ *  0.284.x line is "Kornbluth" (C. M. Kornbluth, American SF author of "The
+ *  Marching Morons" and, with Pohl, "The Space Merchants").
+ *  Checked BEFORE the bump, with the whole-file case-insensitive sweep this
+ *  docstring prescribes rather than an anchored pattern:
+ *  `grep -ic kornbluth CHANGELOG.md` returns 0, in a run whose positive
+ *  controls all fired — `lessing` 1, `banks` 1 (the header shape an
+ *  END-OF-LINE anchor cannot see) and `emshwiller` 1 — and whose NEGATIVE
+ *  control `zzznotaname` returned 0, so a zero is a real absence rather than a
+ *  broken pattern. ★★ THE POOL IS VISIBLY EXHAUSTED AT THIS DEPTH: of 55
+ *  candidates swept for this bump, 51 were already taken, several of them
+ *  names a reader would call obscure (`slonczewski`, `emshwiller`, `budrys`).
+ *  Sweep a BATCH, not a favourite. Three further candidates cleared the same
+ *  run and were not needed (`barnhill`, `sladek`, `malzberg`).
+ *  0.283.x was "Lessing" (Doris Lessing, British-Zimbabwean Nobel laureate,
+ *  whose "Canopus in Argos" sequence is her science fiction).
+ *  0.282.x was "Zamyatin" (Yevgeny Zamyatin, Russian author of "We", the
  *  novel that founded the dystopian line Orwell and Huxley followed).
- *  Checked BEFORE the bump — the stronger order this
- *  docstring asks for, and the one its 0.278.x note says was skipped — with
- *  the command quoted further down: zero hits, against a pattern proved in the
- *  same run to see all 375 named headers, returning 2 for "Cadigan" AND 1 for
- *  "Sinisalo" as positive controls. A whole-file case-insensitive sweep
- *  (`grep -ic zamyatin CHANGELOG.md`) also returns 0, which covers the
- *  codename-before-the-date header shape that let "Banks" through. So this one
- *  is genuinely fresh rather than a permitted reuse.
  *  0.281.x was "Womack" (Jack Womack, American SF author, "Random Acts of
  *  Senseless Violence").
  *  0.280.x was "Sinisalo" (Johanna Sinisalo, Finnish SF author, "Troll: A
@@ -184,7 +192,7 @@ export const APP_BUILD_DATE = "2026-09-05"; // 0.282.0: TimeLog bookings are now
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Zamyatin";
+export const APP_MILESTONE = "Kornbluth";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

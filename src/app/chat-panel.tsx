@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { PaperClipIcon } from "./icons";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
@@ -48,6 +48,34 @@ import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
 import { useChatThreads } from "./use-chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
+import {
+  buildPlanRows,
+  cascadeDeselect,
+  shouldStage,
+  type PlanRow,
+  type ProposedCall,
+} from "./chat-proposal";
+import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
+import {
+  ChatProposalBlock,
+  proposalRowTitle,
+  type ProposalCardRow,
+} from "./chat-proposal-block";
+import {
+  applyProposal,
+  failureKindOf,
+  type FailedAppliedRow,
+  type ProposalFailureKind,
+} from "./chat-proposal-apply";
+import {
+  isCascadedRow,
+  mintProvisionalIds,
+  newProposalId,
+  proposalTitles,
+  stagedToolResult,
+} from "./chat-proposal-stage";
+import type { UndoBatch } from "./use-undo-batch";
+import { emptyWorkspace, type Workspace } from "./workspace";
 
 // A staged upload: the Anthropic content blocks plus display metadata.
 // summary is the non-error disclosure of what the tree under this file
@@ -61,6 +89,50 @@ type StagedAttachment = { id: string; name: string; blocks: AttachmentBlock[]; s
 
 // Full-width, drag-to-resize pane (same chrome as the primary views).
 const CHAT_PANE_CLASS = VIEW_PANE_RESIZABLE_CLASS;
+
+/** The live plan behind a `{kind:"proposal"}` marker in the transcript.
+ *
+ *  ★★★ IT IS DELIBERATELY NOT PART OF `ChatConversation`. Both `history` and
+ *   `display` are persisted, so anything stored on a display item can be
+ *   restored much later and would offer to apply a plan staged against a
+ *   workspace that has since moved. This state is component-local, dies with
+ *   the panel's state, and is bound to the transcript ONLY by `id` — see the
+ *   `DisplayItem` proposal variant for the full reasoning. */
+interface PendingProposal {
+  readonly id: string;
+  readonly rows: readonly DescribedRow[];
+  /** The SAME array `describeProposal` was handed, kept because the dependency
+   *  graph lives here and nowhere else — `DescribedRow` keeps only `mintedId`
+   *  and `pendingOn`, while `cascadeDeselect` walks `dependsOn`/`dependsOnAll`.
+   *  Positionally aligned with `rows`, as `describeProposal` requires. */
+  readonly planRows: readonly PlanRow[];
+  /** One per row, positionally aligned — resolved against the live workspace at
+   *  staging time so an `update_*` row is titled by its target, not its tool. */
+  readonly titles: readonly string[];
+  readonly selected: ReadonlySet<number>;
+  readonly applying: boolean;
+  /** Row indices `applyProposal` reported as not applied → WHY.
+   *  ★★ A Map, not a Set: the apply path distinguishes four outcomes and
+   *  collapsing them here is what made the card call every one a conflict. */
+  readonly failed: ReadonlyMap<number, ProposalFailureKind>;
+}
+
+/** `runBatched`'s stand-in when no batch was threaded: run the plan, collect
+ *  nothing, so each write pushes its own undo entry.
+ *
+ *  ★ ANNOTATED, not inlined at the call site: the property is GENERIC
+ *   (`<T>(fn: () => Promise<T>) => Promise<T>`), and a bare `(fn) => fn()`
+ *   written inline infers `Promise<unknown>` and fails to satisfy it. */
+const RUN_UNBATCHED: UndoBatch["runBatched"] = (fn) => fn();
+
+/** The staging path's fallback workspace when no `workspace` prop was threaded.
+ *
+ *  ★★ NEVER CALLED DURING RENDER — `emptyWorkspace()` reads the clock, which
+ *   the react-hooks purity rule bans in a component body. Every call site here
+ *   is inside the async send. */
+function stagingWorkspace(ws: Workspace | undefined): Workspace {
+  return ws ?? emptyWorkspace();
+}
 
 function ChatPanelImpl({
   lang,
@@ -79,6 +151,8 @@ function ChatPanelImpl({
   saveChatConversation,
   tursoMode = false,
   tursoConfig = null,
+  workspace,
+  runBatched,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -98,7 +172,8 @@ function ChatPanelImpl({
    *  exactly as before: one ephemeral in-memory conversation, no sidebar. */
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
-} & ChatConversationStoreProps) {
+} & ChatProposalProps &
+  ChatConversationStoreProps) {
   if (!ai.consentAccepted) {
     return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
   }
@@ -119,8 +194,36 @@ function ChatPanelImpl({
       saveChatConversation={saveChatConversation}
       tursoMode={tursoMode}
       tursoConfig={tursoConfig}
+      workspace={workspace}
+      runBatched={runBatched}
     />
   );
+}
+
+/** Wiring for the destructive-write review card. BOTH are optional with safe
+ *  defaults so the ~39 `<ChatPanel>` mounts in `chat-panel.test.tsx` compile
+ *  unchanged; the PRODUCTION seam is pinned by `workspace-section.test.tsx`.
+ *
+ *  ★★ THE TWO DEGRADE DIFFERENTLY AND NEITHER LOSES DATA. Without `workspace`
+ *   the card still lists every staged call and apply still replays it — only the
+ *   per-row DIFF and the resolved row title are lost, because there is nothing
+ *   to ground them against. Without `runBatched` an applied plan pushes ONE undo
+ *   entry PER WRITE instead of one for the plan; every write is still
+ *   individually reversible.
+ *
+ *  ★ A REQUIRED prop would be the stronger guarantee and was rejected only on
+ *   edit cost. If a third consumer of `ChatPanel` ever appears, make them
+ *   required and pay the churn — a silently unwired card is a disclosure the
+ *   user never sees. */
+interface ChatProposalProps {
+  /** The live workspace, for grounding a staged plan's diffs and row titles.
+   *  Read through a ref at staging time, never captured at send time. */
+  workspace?: Workspace;
+  /** `useUndoBatch(...).runBatched` from the SAME batch whose `.undo` is the
+   *  dispatcher's `undo` prop. A DIFFERENT instance would collect nothing —
+   *  the captures would go straight to the live stack — and nothing would say
+   *  so; see the wiring comment in `task-manager.tsx`. */
+  runBatched?: UndoBatch["runBatched"];
 }
 
 /** Optional in-memory per-project conversation store (from WorkspaceTabProvider)
@@ -154,6 +257,8 @@ function ChatPanelInner({
   saveChatConversation,
   tursoMode = false,
   tursoConfig = null,
+  workspace,
+  runBatched,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -169,7 +274,8 @@ function ChatPanelInner({
   onConfigureAi?: () => void;
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
-} & ChatConversationStoreProps) {
+} & ChatProposalProps &
+  ChatConversationStoreProps) {
   const confirm = useConfirm();
   // Restore this project's in-memory conversation on (re)mount — the modern
   // shell remounts the chat view on every visit, so local state alone is lost.
@@ -184,8 +290,20 @@ function ChatPanelInner({
   // effect — the set-state-in-effect ban. Seeding from the live projectId is
   // correct here (steady-state prop, not a request/nonce — no remount-swallow).
   const [seenProjectId, setSeenProjectId] = useState(projectId);
+  // A staged plan is bound to ONE project's rows, ids and concurrency tokens.
+  // `panel-chat` is one of the two tabpanels `workspace-section` mounts
+  // UNCONDITIONALLY (`hidden={activeTab !== …}`), so this panel NEVER remounts
+  // and nothing clears project-scoped state for us — see the reconcile below.
+  const [pendingProposal, setPendingProposal] = useState<PendingProposal | null>(null);
   if (projectId !== seenProjectId) {
     setSeenProjectId(projectId);
+    // ★★★ OUTSIDE the `!tursoMode` branch on purpose. The plan must go in BOTH
+    // modes: in Turso mode the transcript is replaced asynchronously by the
+    // thread-list fetch, so leaving the plan here would keep a project A card
+    // live over project B for the length of that round trip. Clearing it
+    // synchronously closes that window in the one place both modes pass
+    // through.
+    setPendingProposal(null);
     // Turso mode resets history/display asynchronously via the thread-list
     // fetch effect below (it needs an await, so it can't be a synchronous
     // render-time reconcile) — skip the file-mode in-memory-cache path here.
@@ -214,6 +332,17 @@ function ChatPanelInner({
   // Latest committed projectId, read by the in-flight send to detect a mid-send
   // project switch (so its trailing writes can't land on the new project).
   const projectIdRef = useRef(projectId);
+  // ★★ THE WORKSPACE IS READ THROUGH A REF, NOT FROM THE CLOSURE. Staging
+  // happens after `await callClaude(...)`, and `submitPrompt` is redefined every
+  // render — so the running closure holds the workspace as it was when SEND was
+  // pressed. An edit made while the model was thinking would then be invisible
+  // to the plan's diffs and, worse, to `stampCall`'s concurrency tokens. Same
+  // ref-sync pattern `use-chat-dispatcher.ts` uses for every live slice it
+  // reads. Written in an effect, never during render.
+  const workspaceRef = useRef(workspace);
+  useEffect(() => {
+    workspaceRef.current = workspace;
+  }, [workspace]);
   // Turso thread state (deps-object hook, AGENTS.md rule 1). Kept as one
   // object — most fields wire onto ChatThreadList in Task 6; submitPrompt
   // below reads .activeThreadId/.threadIdRef and calls .ensureThreadForSend.
@@ -281,6 +410,31 @@ function ChatPanelInner({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [busy, chatRef]);
+
+  /** The card's view of the pending plan. `index` is the row's POSITION, which
+   *  is the identity `PlanRow.index`, `cascadeDeselect` and `AppliedRow.index`
+   *  all key on — `describeProposal` emits one row per call in the input's
+   *  order and filters nothing, so the three cannot drift. */
+  const proposalCardRows = useMemo<readonly ProposalCardRow[]>(() => {
+    const p = pendingProposal;
+    if (!p) return [];
+    return p.rows.map((row, i) => ({
+      index: i,
+      call: row.call,
+      plan: row.plan,
+      // `titles` is resolved against the live workspace; the tool name is the
+      // last resort `proposalRowTitle` itself falls back to.
+      title: p.titles[i] ?? row.call.name,
+      cascaded: isCascadedRow(p.planRows[i], p.selected),
+      // ★★ SET FOR EVERY NOT-OK ROW, NOT ONLY THE STALE ONES — under-reporting
+      //   is the worse direction and a row that did not land must never read as
+      //   applied. `failedKind` (§381) then picks the truthful string for the
+      //   kind `p.failed` recorded, rather than the card wearing one string for
+      //   all four outcomes.
+      failed: p.failed.has(i),
+      failedKind: p.failed.get(i),
+    }));
+  }, [pendingProposal]);
 
   const guidesPending = ai.groundInGuides && !guidesReady;
   // Master switch: when AI is disabled in Settings, the assistant is fully off
@@ -418,6 +572,70 @@ function ChatPanelInner({
         // Complete tool call: run each tool, feed the results back, loop so the
         // model can use them.
         if (response.stop_reason === "tool_use") {
+          // The turn's calls, paired with the ids their results must answer.
+          const proposed: { readonly useId: string; readonly call: ProposedCall }[] = [];
+          for (const block of response.content) {
+            if (block.type !== "tool_use") continue;
+            proposed.push({
+              useId: block.id,
+              // `ToolUseBlock.input` is `unknown` (the API's own shape). The
+              // gate, the plan builder and `runTool` all treat it as a bag of
+              // keys, exactly as the immediate path below does when it hands
+              // `block.input` straight to `runTool`.
+              call: { name: block.name, input: block.input as Readonly<Record<string, unknown>> },
+            });
+          }
+
+          // ★★★ THE GATE. A turn holding a destructive call, or more than one
+          // entity write, is STAGED: nothing runs, a review card goes into the
+          // transcript, and every `tool_use` id is still answered. A turn that
+          // does not stage takes the original path below UNCHANGED — that
+          // equivalence is pinned by a test, because "one extra branch" is how
+          // a working path acquires a condition nobody meant to add.
+          if (shouldStage(proposed.map((p) => p.call))) {
+            const ws = stagingWorkspace(workspaceRef.current);
+            const calls = proposed.map((p) => p.call);
+            // ★★★ `mintProvisionalIds` ADVANCES the session mark, so every
+            // provisional id differs from the one apply mints and the remap is
+            // exercised on every create. See its own docstring for what a
+            // peek-based mint would have made dormant.
+            const planRows = buildPlanRows(calls, mintProvisionalIds(calls, ws));
+            const described = describeProposal(calls, ws, planRows);
+            const proposalId = newProposalId();
+            setPendingProposal({
+              id: proposalId,
+              rows: described,
+              planRows,
+              titles: proposalTitles(described, ws, (r) => proposalRowTitle(r.call, r.plan)),
+              // Everything starts kept: the card is a chance to REFUSE, and a
+              // plan that arrives all-unchecked reads as "nothing to do here".
+              selected: new Set(described.map((_, i) => i)),
+              applying: false,
+              failed: new Map<number, ProposalFailureKind>(),
+            });
+            setDisplay((prev) => [
+              ...prev,
+              { kind: "proposal", id: proposalId, count: described.length },
+            ]);
+            // ★★★ EVERY `tool_use` ID IS ANSWERED, staged or not. An unanswered
+            // id makes the NEXT request a 400 and wedges the chat for good —
+            // `closeDanglingToolUses` exists because of exactly that. The
+            // result also carries the create's provisional id, so a later call
+            // in this same turn can name the row the plan will create.
+            messages.push({
+              role: "user",
+              content: proposed.map(
+                (p, i): ToolResultBlock => ({
+                  type: "tool_result",
+                  tool_use_id: p.useId,
+                  content: stagedToolResult(planRows[i].mintedId),
+                }),
+              ),
+            });
+            continueBubble = false;
+            continue;
+          }
+
           const results: ToolResultBlock[] = [];
           for (const block of response.content) {
             if (block.type !== "tool_use") continue;
@@ -551,6 +769,84 @@ function ChatPanelInner({
       setBusy(false);
       // Refocus the input after the round-trip resolves.
       inputRef.current?.focus();
+    }
+  }
+
+  /** Toggle one staged row. Deselecting CASCADES to its dependents; selecting
+   *  is a plain add, which is safe because a row with an unselected dependency
+   *  renders `cascaded` and its checkbox is disabled (see `isCascadedRow`). */
+  function toggleProposalRow(index: number) {
+    setPendingProposal((prev) => {
+      if (!prev || prev.applying) return prev;
+      const selected = prev.selected.has(index)
+        ? cascadeDeselect(prev.planRows, prev.selected, index)
+        : new Set([...prev.selected, index]);
+      return { ...prev, selected };
+    });
+  }
+
+  /** Discard the plan without writing anything, leaving the transcript honest
+   *  about the fact that a proposal was made here. The marker is REPLACED (not
+   *  removed) so the surrounding messages keep their order and the discard is
+   *  itself part of the record. */
+  function discardProposal() {
+    const p = pendingProposal;
+    if (!p || p.applying) return;
+    setPendingProposal(null);
+    setDisplay((prev) =>
+      prev.map((item) =>
+        item.kind === "proposal" && item.id === p.id
+          ? { kind: "notice", text: t(lang, "chatProposalDiscarded") }
+          : item,
+      ),
+    );
+  }
+
+  /**
+   * Replay the kept rows as ONE undoable commit and mark each row's outcome.
+   *
+   * ★★★ THE SUCCEEDED ROWS ARE DESELECTED AND THE FAILED ONES ARE NOT. That is
+   * what stops a second Apply click re-running a write that already landed
+   * (`Apply` disables itself at zero selected), while leaving a genuinely stale
+   * row checked and marked so the user can retry it after the model re-reads.
+   * The card is deliberately NOT unmounted on success: the transcript should
+   * still show WHICH writes the user approved.
+   *
+   * ★★ `runBatched` DEFAULTS TO A PASSTHROUGH, never to a no-op. Without the
+   * prop the plan still applies — it simply pushes one undo entry per write
+   * instead of one per plan. Swallowing `fn` would drop the writes entirely.
+   *
+   * ★ Every state write re-checks `prev.id === p.id`: a project switch during
+   * the replay clears `pendingProposal`, and a stale resolution must not
+   * resurrect the old project's card.
+   */
+  async function applyPendingProposal() {
+    const p = pendingProposal;
+    if (!p || p.applying) return;
+    setPendingProposal((prev) => (prev?.id === p.id ? { ...prev, applying: true } : prev));
+    try {
+      const result = await applyProposal({
+        dispatcher,
+        rows: p.rows,
+        selected: p.selected,
+        batch: { runBatched: runBatched ?? RUN_UNBATCHED },
+      });
+      const failed = new Map(
+        result.rows
+          .filter((r): r is FailedAppliedRow => !r.ok)
+          .map((r) => [r.index, failureKindOf(r)] as const),
+      );
+      setPendingProposal((prev) =>
+        prev?.id === p.id
+          ? { ...prev, applying: false, failed, selected: new Set(failed.keys()) }
+          : prev,
+      );
+    } catch (err) {
+      // `applyProposal` catches per row, so reaching here means the BATCH
+      // itself refused (a nested batch). Nothing was written; surface it and
+      // leave the plan exactly as it was so the user can try again.
+      setPendingProposal((prev) => (prev?.id === p.id ? { ...prev, applying: false } : prev));
+      setError(t(lang, "chatError", err instanceof Error ? err.message : String(err)));
     }
   }
 
@@ -782,6 +1078,32 @@ function ChatPanelInner({
                     lang={lang} tursoConfig={tursoConfig} projectId={projectId}
                   />
                 )}
+                {/* ★★★ THE ID MATCH IS THE CLEAR. The marker is persisted and
+                    the plan is not, so a transcript restored from the in-memory
+                    store or from a Turso thread row carries a marker with no
+                    live plan and renders expired — which is what clears a
+                    pending proposal on EVERY asynchronous reset path
+                    (`use-chat-threads` replaces `display` at several sites;
+                    count them rather than trusting a number, see the
+                    `DisplayItem` proposal variant) without any of them knowing
+                    this state exists. The synchronous project-switch reconcile
+                    clears it explicitly as well. */}
+                {item.kind === "proposal" &&
+                  (pendingProposal !== null && pendingProposal.id === item.id ? (
+                    <ChatProposalBlock
+                      lang={lang}
+                      rows={proposalCardRows}
+                      selected={pendingProposal.selected}
+                      onToggleRow={toggleProposalRow}
+                      onApply={applyPendingProposal}
+                      onDiscard={discardProposal}
+                      busy={pendingProposal.applying}
+                    />
+                  ) : (
+                    <Banner severity="info" role="status">
+                      {t(lang, "chatProposalExpired")}
+                    </Banner>
+                  ))}
               </li>
             ))}
             {busy && (

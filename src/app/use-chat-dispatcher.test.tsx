@@ -65,6 +65,16 @@ const stubGetBudgetRollup = () => null;
 const stubGetAllocationsSnapshot = (): AllocationsSnapshot => {
   throw new Error("getAllocationsSnapshot not stubbed for this test");
 };
+/** ★★ NOT a throwing stub, unlike the three above, and the difference matters:
+ *  `undo.captureComposite` is called by EVERY update and delete writer on the
+ *  dispatcher, so a throwing stub would fail dozens of tests in this file that
+ *  have nothing to do with undo. It is REQUIRED on `ChatDispatcherArgs`
+ *  (deliberately — its own note there says why), so every probe below has to
+ *  pass something; this is the inert something. Undo behaviour is asserted in
+ *  `use-chat-dispatcher.undo.test.tsx`, never here.
+ *  ★ A FRESH mock per probe, so a `toHaveBeenCalledTimes` in that other file
+ *  can never be perturbed by whatever this file did first. */
+const stubUndo = () => ({ captureComposite: vi.fn() });
 
 function makeSettings(): Settings {
   const storageConfig: StorageConfig = { kind: "browser" };
@@ -179,7 +189,7 @@ function renderRaidProbe() {
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
       }),
       ws: useWorkspace(),
     }),
@@ -221,7 +231,7 @@ function renderDispatcher(
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
         logActivityAs,
         onSettingsLoggedByAi,
         allowDestructiveSave,
@@ -872,7 +882,7 @@ describe("useChatDispatcher", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
         }),
       { wrapper },
     );
@@ -931,7 +941,7 @@ describe("useChatDispatcher", () => {
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
       });
       const form = useTaskForm();
       return { dispatcher, form };
@@ -3563,7 +3573,7 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
         }),
         ws: useWorkspace(),
       }),
@@ -3634,7 +3644,7 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
         }),
         ws: useWorkspace(),
       }),

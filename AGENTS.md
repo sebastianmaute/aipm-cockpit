@@ -366,6 +366,24 @@ npm run followups:check     # REPORT, not a gate — it runs in NO CI job and ex
                             # ago. It rules claims OUT, never IN, and a verdict routes work to a probe
                             # rather than closing anything. `--run-repro` also executes the allowlisted
                             # reproduce commands; `--json <out>` writes a snapshot.
+npm run src:symbols:check   # REPORT, not a gate — backticked names cited in `src/` COMMENTS that resolve
+                            # nowhere in the CODE. ★★★ IT COVERS THE HALF `docs:symbols:check` CANNOT SEE:
+                            # that gate reads AGENTS.md + `docs/AGENTS/*.md` and NOTHING else, so an
+                            # invented identifier inside a source docstring is ungated forever. Live
+                            # instance: a reproduce command naming a function that never existed, which
+                            # STILL RETURNED THE RIGHT ANSWER because a substring matched the real call —
+                            # so it read as verified, and it arrived in a round that was CORRECTING a
+                            # different claim in the same docstring. ★★ Its universe EXCLUDES comment text,
+                            # which the GATE considered and deliberately REJECTED for itself (literal/key
+                            # names would produce false findings, and a gate that cries wolf gets switched
+                            # off). That trade is right for a report a human triages once and wrong for a
+                            # blocking gate — do NOT "align" the two. ★★ A first cut built the universe from
+                            # raw text like the gate does and reported 0 findings over 516 names; the same
+                            # corpus reports 13 once comments are excluded, because an invented name
+                            # resolves against its own docstring. ★ Every finding is a QUESTION — an
+                            # upstream API, a spec field, a deliberately hypothetical name and an invented
+                            # one all look identical; correct it or say near it that it is absent (the
+                            # gate's `ABSENCE_MARKERS` suppress it). `--since <ref>` scopes it to one branch.
 ```
 
 ★★★ **NEVER READ A GATE'S EXIT CODE THROUGH A PIPE — you get the PIPE's status, not the command's.**

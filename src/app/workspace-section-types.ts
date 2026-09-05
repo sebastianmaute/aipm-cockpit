@@ -17,6 +17,7 @@ import type {
   FieldChange,
 } from "./activity-log";
 import type { LogActivityAsFn } from "./activity-log-context";
+import type { UndoBatch } from "./use-undo-batch";
 import type { CalendarEvent } from "./calendar-event";
 import type { ProjectDocument } from "./document-model";
 import type { BucketCommitMeta } from "./use-budget-buckets";
@@ -125,6 +126,15 @@ export interface WorkspaceSectionProps {
   workspaceCollapsed: boolean;
   setWorkspaceCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   dispatcher: ToolDispatcher;
+  /** `useUndoBatch(...).runBatched` for the chat panel's staged-plan apply, so
+   *  the whole plan pushes ONE undo entry.
+   *
+   *  ★★ IT MUST COME FROM THE SAME `useUndoBatch` INSTANCE whose `.undo` is the
+   *   dispatcher's `undo` prop. A different one collects nothing and says
+   *   nothing — the plan applies, undo works, and the user simply presses it N
+   *   times. Optional so popouts and tests need not thread it; the degradation
+   *   is N entries instead of 1, never a lost write. */
+  runProposalBatch?: UndoBatch["runBatched"];
   fullBleed?: boolean;
   handleGanttBarUpdate: (edit: {
     taskId: number;

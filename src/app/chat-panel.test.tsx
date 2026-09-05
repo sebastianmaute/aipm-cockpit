@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { asTimeZoneForTests } from "./timezone";
-import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { useState } from "react";
@@ -19,6 +19,8 @@ import type { OperatingGuide } from "./operating-guide";
 import type { FeatureModuleId } from "./feature-modules";
 import { saveSealed } from "./secrets-store";
 import { sealPassphrase } from "./secrets";
+import { peekMintId } from "./id-mint-session";
+import type { ChatConversation } from "./workspace-tab-context";
 
 // Force the dictation mic to be "supported" so useDictationMic renders the
 // button (mirrors note-log-panel.test.tsx / task-form-fields.dictation.test.tsx
@@ -1960,5 +1962,434 @@ describe("abortRef ownership across concurrent sends", () => {
     // Control: send 1 already settled and was never the target, so a passing
     // assertion above cannot come from a blanket abort of every controller.
     expect(signals[0].aborted).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Staged destructive writes: the review card (follow-up 377)
+// ---------------------------------------------------------------------------
+describe("staged tool calls (the review card)", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const CARD = { name: "Proposed changes" } as const;
+  const NEW_TASK = { taskName: "A", assignee: "me", dueDate: "2026-06-10" };
+
+  type Block = { type: string; id?: string; name?: string; input?: unknown; text?: string };
+  const usage = { input_tokens: 1, output_tokens: 1 };
+  const toolTurn = (content: Block[]) => ({ content, stop_reason: "tool_use", usage });
+  const doneTurn = (text: string) => ({
+    content: [{ type: "text", text }],
+    stop_reason: "end_turn",
+    usage,
+  });
+
+  /** Serve `turns` in order, recording every request body. */
+  function scriptFetch(turns: unknown[], bodies: string[]) {
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ""));
+      const body = turns[Math.min(call, turns.length - 1)];
+      call += 1;
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () => Promise.resolve(body),
+      } as unknown as Response);
+    });
+  }
+
+  function send(text = "go") {
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), {
+      target: { value: text },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  }
+
+  /** The `tool_result` blocks the SECOND request carries back to the model. */
+  function resultsIn(body: string): { type: string; tool_use_id: string; content: string }[] {
+    const sent = JSON.parse(body) as { messages: { role: string; content: unknown }[] };
+    const last = sent.messages[sent.messages.length - 1];
+    return last.content as { type: string; tool_use_id: string; content: string }[];
+  }
+
+  it("a NON-destructive single write still runs immediately — the unchanged path", async () => {
+    // ★ THE CONTROL FOR THE WHOLE FEATURE. `shouldStage` is false for one
+    //   non-destructive entity write, and that turn must behave exactly as it
+    //   did before the gate existed: the tool RUNS, its real result goes back to
+    //   the model, and no card appears. Mutant: `if (true)` at the gate — the
+    //   dispatcher assertion and the tool-block assertion both go red.
+    const dispatcher = makeDispatcher();
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK }]),
+        doneTurn("done"),
+      ],
+      bodies,
+    );
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+    );
+    send();
+
+    await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
+    expect(dispatcher.createTask).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+    // The transcript shows the tool block the immediate path has always pushed.
+    expect(screen.getByText(/Used create_task/)).toBeInTheDocument();
+    // ...and the model got the REAL result, not the staged notice.
+    expect(bodies[1]).not.toContain("staged for the user");
+  });
+
+  it("a destructive turn runs NOTHING, renders the card, and answers EVERY tool_use id", async () => {
+    // ★★★ THE UNANSWERED-ID HALF IS THE EXPENSIVE ONE. A `tool_use` left with
+    //   no `tool_result` 400s the next request and wedges the chat permanently
+    //   — `closeDanglingToolUses` exists because of exactly that. Mutant: drop
+    //   `messages.push({role:"user", content: …})` from the staging branch and
+    //   the id assertion goes red.
+    const dispatcher = makeDispatcher();
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "delete_all_tasks", input: {} },
+          { type: "tool_use", id: "t2", name: "create_task", input: NEW_TASK },
+        ]),
+        doneTurn("ok"),
+      ],
+      bodies,
+    );
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+    );
+    send();
+
+    await screen.findByRole("region", CARD);
+    expect(dispatcher.deleteAllTasks).not.toHaveBeenCalled();
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+
+    const results = resultsIn(bodies[1]);
+    expect(results.every((b) => b.type === "tool_result")).toBe(true);
+    expect(results.map((b) => b.tool_use_id).sort()).toEqual(["t1", "t2"]);
+    expect(results[0].content).toContain("has NOT been applied");
+  });
+
+  it("the staged result for a create carries its provisional id, and the mint ADVANCED", async () => {
+    // ★★★ THE `peekMintId` MUTANT AT THE SEAM. `peekMintId` does not advance
+    //   the mark, so the first create's provisional id would equal the id apply
+    //   later mints for it and the remap would be dormant for that row — live
+    //   for every later one. The second assertion is what separates the two.
+    //   Read BEFORE the send: the mark is module state this file shares, so an
+    //   absolute number would be order-dependent, a relative one is not.
+    const before = peekMintId("task", []);
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "delete_all_tasks", input: {} },
+          { type: "tool_use", id: "t2", name: "create_task", input: NEW_TASK },
+        ]),
+        doneTurn("ok"),
+      ],
+      bodies,
+    );
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    send();
+    await screen.findByRole("region", CARD);
+
+    const created = resultsIn(bodies[1]).find((b) => b.tool_use_id === "t2");
+    expect(created?.content).toContain(`id ${before}`);
+    // The non-minting row must NOT invent one.
+    expect(resultsIn(bodies[1]).find((b) => b.tool_use_id === "t1")?.content).not.toMatch(
+      /refer to it as id/,
+    );
+    expect(peekMintId("task", [])).toBeGreaterThan(before);
+  });
+
+  it("Apply replays every kept row INSIDE one undo batch", async () => {
+    // ★★★ ONE ENTRY, NOT N. The collapse itself is `use-undo-batch`'s own test;
+    //   what this pins is the WIRING — that the replay happens inside the
+    //   threaded `runBatched` and not around it. Mutant: pass `RUN_UNBATCHED`
+    //   unconditionally instead of `runBatched ?? RUN_UNBATCHED` and `batchCalls`
+    //   stays 0.
+    const dispatcher = makeDispatcher();
+    // `delete_task` THROWS when the dispatcher reports not-found, so a default
+    // `false` would make both rows fail and this test would still pass — for
+    // the wrong reason. Succeed, so the counts below describe real writes.
+    vi.mocked(dispatcher.deleteTask).mockReturnValue(true);
+    let batchCalls = 0;
+    let deletesAtStart = -1;
+    let deletesAtEnd = -1;
+    const runBatched = async <T,>(fn: () => Promise<T>): Promise<T> => {
+      batchCalls += 1;
+      deletesAtStart = vi.mocked(dispatcher.deleteTask).mock.calls.length;
+      const out = await fn();
+      deletesAtEnd = vi.mocked(dispatcher.deleteTask).mock.calls.length;
+      return out;
+    };
+
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } },
+          { type: "tool_use", id: "t2", name: "delete_task", input: { id: 2 } },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        onAcceptConsent={vi.fn()}
+        runBatched={runBatched}
+      />,
+    );
+    send();
+
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok"); // let the send settle before interacting
+    expect(dispatcher.deleteTask).not.toHaveBeenCalled();
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+
+    await waitFor(() => expect(batchCalls).toBe(1));
+    // Every write happened between the batch opening and closing — none leaked
+    // outside it, which is what makes the collapse cover the whole plan.
+    expect(deletesAtStart).toBe(0);
+    expect(deletesAtEnd).toBe(2);
+  });
+
+  it("marks the row that did not land, and unticks the ones that did", async () => {
+    // ★★★ THE CARD MUST NOT CLAIM SUCCESS FOR A ROW THAT DID NOT WRITE. Row 1
+    //   succeeds, row 2 throws (`delete_task` throws on not-found). Mutant:
+    //   `selected: failed` → `selected: prev.selected` and the succeeded row
+    //   stays ticked, offering a second Apply that would re-run a landed write;
+    //   mutant: drop `failed` and the refused row reads as applied.
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.deleteTask).mockImplementation((id: number) => id === 1);
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } },
+          { type: "tool_use", id: "t2", name: "delete_task", input: { id: 2 } },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+    );
+    send();
+
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok"); // let the send settle before interacting
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+
+    // ★★★ THE WHOLE STRING, NOT `/^Not applied/`. All four `chatProposalFailed*`
+    //   labels begin with "Not applied", so a prefix match cannot tell them
+    //   apart and the `failedKind` seam was UNPINNED by this file: mutating
+    //   `failedKind: p.failed.get(i)` to `undefined` in `chat-panel.tsx` left it
+    //   0 failed / 73 passed, i.e. all three §381 strings could be dead in
+    //   production behind a green suite. `delete_task`'s throw is kind "error",
+    //   whose label is the BARE string — so an exact match goes red the moment
+    //   the card falls back to the em-dashed conflict wording.
+    //   ★ Read through `t` rather than copied out: the fallback string carries
+    //   an EM DASH, and a literal that lost it would fail for a reason that has
+    //   nothing to do with the behaviour under test.
+    await waitFor(() =>
+      expect(within(card).getByText(t("en-US", "chatProposalFailedError"))).toBeInTheDocument(),
+    );
+    // Exactly one row is flagged — the other genuinely wrote. The prefix regex
+    // is the right matcher HERE: it counts failure labels of ANY kind.
+    expect(within(card).getAllByText(/^Not applied/)).toHaveLength(1);
+    const boxes = within(card).getAllByRole("checkbox");
+    expect(boxes[0]).not.toBeChecked(); // landed → cannot be re-applied
+    expect(boxes[1]).toBeChecked(); // refused → still offered for retry
+  });
+
+  it("labels a refused dependent by its OWN kind, not the conflict wording", async () => {
+    // ★★★ THE SECOND HALF OF THE `failedKind` SEAM, and the one that pins the
+    //   §381 strings rather than the bare fallback. `makeDispatcher`'s
+    //   `createTask` returns undefined, so `createdIdOf` finds no id, the
+    //   provisional stays PENDING and the dependent row is refused with
+    //   `PENDING_MINT_ERROR` → `failureKindOf` → "dependency". Mutant:
+    //   `failedKind: p.failed.get(i)` → `undefined` in `chat-panel.tsx` and this
+    //   row wears "changed since you reviewed" — the exact lie §381 removed.
+    // ★ Both labels are read through `t`, never copied out: each carries an EM
+    //   DASH, and a literal that lost it would fail for the wrong reason.
+    const provisional = peekMintId("task", []);
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK },
+          {
+            type: "tool_use",
+            id: "t2",
+            name: "update_task",
+            input: { id: provisional, assignee: "you" },
+          },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    send();
+
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok"); // let the send settle before interacting
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+
+    await waitFor(() =>
+      expect(
+        within(card).getByText(t("en-US", "chatProposalFailedDependency")),
+      ).toBeInTheDocument(),
+    );
+    // The create itself LANDED (a create with no usable id stays `ok: true`), so
+    // exactly one row wears a failure label — and the conflict wording appears
+    // on none of them.
+    expect(within(card).getAllByText(/^Not applied/)).toHaveLength(1);
+    expect(within(card).queryByText(t("en-US", "chatProposalFailed"))).toBeNull();
+  });
+
+  it("deselecting a create cascades to the row that depends on it", async () => {
+    // The update names the id the create will mint, so `buildPlanRows` links
+    // row 1 → row 0. Mutant: replace `cascadeDeselect(...)` with a plain
+    // set-minus and row 1 stays checked and enabled — it would then be applied
+    // at a provisional id whose row is never created.
+    const provisional = peekMintId("task", []);
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK },
+          {
+            type: "tool_use",
+            id: "t2",
+            name: "update_task",
+            input: { id: provisional, assignee: "you" },
+          },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    send();
+
+    const card = await screen.findByRole("region", CARD);
+    expect(within(card).getAllByRole("checkbox")).toHaveLength(2);
+    expect(within(card).getAllByRole("checkbox")[1]).toBeChecked();
+
+    fireEvent.click(within(card).getAllByRole("checkbox")[0]);
+
+    await waitFor(() =>
+      expect(within(card).getAllByRole("checkbox")[1]).not.toBeChecked(),
+    );
+    // Disabled as well as unchecked: re-ticking it alone would send a write at
+    // a provisional id (see `isCascadedRow`).
+    expect(within(card).getAllByRole("checkbox")[1]).toBeDisabled();
+  });
+
+  it("a project switch clears a pending proposal, even when the transcript comes back", async () => {
+    // ★★★ NON-VACUOUS ONLY BECAUSE THE STORE RESTORES THE MARKER. Without
+    //   `getChatConversation`, switching away empties `display` outright and the
+    //   card cannot render whether or not the plan was cleared — the obvious
+    //   version of this test passes with `setPendingProposal(null)` DELETED.
+    //   Here p1's transcript (and its marker) comes back, so the card would
+    //   render again if the plan had survived.
+    const store = new Map<string, ChatConversation>();
+    const base = {
+      lang: "en-US" as const,
+      ai: AI_WITH_KEY,
+      dispatcher: makeDispatcher(),
+      onAcceptConsent: vi.fn(),
+      getChatConversation: (id: string) => store.get(id),
+      saveChatConversation: (id: string, conv: ChatConversation) => {
+        store.set(id, conv);
+      },
+    };
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "delete_all_tasks", input: {} }]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+
+    const { rerender } = render(<ChatPanel {...base} projectId="p1" />);
+    send();
+    await screen.findByRole("region", CARD);
+    // Let the send settle before switching, so its trailing writes cannot race
+    // the reconcile and make this test order-dependent.
+    await screen.findByText("ok");
+
+    await act(async () => {
+      rerender(<ChatPanel {...base} projectId="p2" />);
+    });
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+
+    await act(async () => {
+      rerender(<ChatPanel {...base} projectId="p1" />);
+    });
+    // The marker returned...
+    expect(screen.getByText("This proposal is no longer active.")).toBeInTheDocument();
+    // ...and it is NOT an applyable card.
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+  });
+
+  it("a restored transcript's marker renders expired, never an applyable plan", () => {
+    // The persistence decision, stated as a test: the MARKER is persisted and
+    // the plan is not, so a conversation restored from the store (or, in Turso
+    // mode, from a thread row) can never offer to apply writes staged against a
+    // workspace that has since moved. Mutant: put the described rows on the
+    // DisplayItem and render from those — this goes red.
+    const stored: ChatConversation = {
+      history: [],
+      display: [{ kind: "proposal", id: "from-a-previous-session", count: 3 }],
+    };
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+        projectId="p1"
+        getChatConversation={() => stored}
+      />,
+    );
+    expect(screen.getByText("This proposal is no longer active.")).toBeInTheDocument();
+    expect(screen.queryByRole("region", CARD)).toBeNull();
   });
 });

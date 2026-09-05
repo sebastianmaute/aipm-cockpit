@@ -2,7 +2,7 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.282.0_%22Zamyatin%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.284.0_%22Kornbluth%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
 > **The AI project-management cockpit that knows *your* project.**
@@ -163,6 +163,7 @@ No environment variables are required to run the app — every integration is co
 | `npm run size:check` | Fail if a src file exceeds the LIMIT in scripts/check-file-sizes.mjs (1600 since 2026-09-03, doubled from 800 with every baseline entry) or grows past its baselined size (ratchet) |
 | `npm run docs:symbols:check` | Fail if AGENTS.md or any docs/AGENTS/*.md names a code symbol that does not exist (nothing else gates them) |
 | `npm run docs:claims:check` | Fail if a doc gains a new `path:LINE` citation or cites a line that cannot exist (ratchet; prefer a symbol, a line number rots on any insertion above it) |
+| `npm run src:symbols:check` | Report backticked identifiers cited in src/ COMMENTS that resolve nowhere in the code — the class docs:symbols:check cannot see, since it reads only AGENTS.md and docs/AGENTS/*.md. REPORTING ONLY, never blocking (exit 0 with findings; exit 2 only when its own control fails or nothing was examined). Unlike the gate its universe EXCLUDES comment text, so a name kept alive by the comment that cites it is caught; that trade produces false findings and is correct only because a human triages this once. Add --since <ref> to scope it to one branch |
 | `npm run followups:check` | Report which claims in docs/open-followups.md a machine can still check — REPORTING ONLY, never blocking, and it rules claims OUT rather than IN (a CLEAN entry may still be stale) |
 | `npm run followups:status:check` | Fail if an OPEN docs/open-followups.md entry has no conforming `**Status:**` line (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all) |
 | `npm run rownames:check` | Enumerate where a per-row control's accessible name is composed and which surfaces a unit test asserts are distinct (WCAG 2.4.6) — REPORTING ONLY, never blocking, and a COVERED line is not evidence the test is non-vacuous |

@@ -39,6 +39,14 @@ const ENTITY_LABEL_KEY: Record<InlineEntity, TranslationKey> = {
   change: "inlineAiEditEntityChange",
   milestone: "inlineAiEditEntityMilestone",
   stakeholder: "inlineAiEditEntityStakeholder",
+  // ★ Reuses the existing `resource` key rather than minting a sixth
+  // `inlineAiEditEntity*` string. The descriptor engine knows `resource` so a
+  // chat plan can be described, but no surface calls
+  // `useEntityInlineAiEdit("resource")` — this entry exists because
+  // `Record<InlineEntity, …>` is exhaustive, not because it renders anywhere
+  // today. Mint the dedicated key if the resources table ever gains the
+  // inline editor.
+  resource: "resource",
 };
 
 export function useEntityInlineAiEdit(entity: InlineEntity, deps: EntityInlineAiEditDeps): EntityInlineAiEdit {

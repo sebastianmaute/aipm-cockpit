@@ -1,6 +1,6 @@
 {
   "name": "aipm-cockpit",
-  "version": "0.282.0",
+  "version": "0.284.0",
   "private": true,
   "license": "EUPL-1.2",
   "engines": {
@@ -31,6 +31,7 @@
     "size:check": "node scripts/check-file-sizes.mjs",
     "docs:symbols:check": "node scripts/check-agents-symbols.mjs",
     "docs:claims:check": "node scripts/check-doc-claims.mjs",
+    "src:symbols:check": "node scripts/check-src-symbols.mjs",
     "followups:check": "node scripts/check-followup-claims.mjs",
     "followups:status:check": "node scripts/check-followup-status.mjs",
     "rownames:check": "node scripts/check-rowname-surfaces.mjs",
@@ -62,6 +63,7 @@
     "size:check": "Fail if a src file exceeds the LIMIT in scripts/check-file-sizes.mjs (1600 since 2026-09-03, doubled from 800 with every baseline entry) or grows past its baselined size (ratchet)",
     "docs:symbols:check": "Fail if AGENTS.md or any docs/AGENTS/*.md names a code symbol that does not exist (nothing else gates them)",
     "docs:claims:check": "Fail if a doc gains a new `path:LINE` citation or cites a line that cannot exist (ratchet; prefer a symbol, a line number rots on any insertion above it)",
+    "src:symbols:check": "Report backticked identifiers cited in src/ COMMENTS that resolve nowhere in the code — the class docs:symbols:check cannot see, since it reads only AGENTS.md and docs/AGENTS/*.md. REPORTING ONLY, never blocking (exit 0 with findings; exit 2 only when its own control fails or nothing was examined). Unlike the gate its universe EXCLUDES comment text, so a name kept alive by the comment that cites it is caught; that trade produces false findings and is correct only because a human triages this once. Add --since <ref> to scope it to one branch",
     "followups:check": "Report which claims in docs/open-followups.md a machine can still check — REPORTING ONLY, never blocking, and it rules claims OUT rather than IN (a CLEAN entry may still be stale)",
     "followups:status:check": "Fail if an OPEN docs/open-followups.md entry has no conforming `**Status:**` line (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all)",
     "rownames:check": "Enumerate where a per-row control's accessible name is composed and which surfaces a unit test asserts are distinct (WCAG 2.4.6) — REPORTING ONLY, never blocking, and a COVERED line is not evidence the test is non-vacuous",
