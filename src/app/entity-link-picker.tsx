@@ -118,8 +118,16 @@ export function EntityLinkPicker({
   // can shrink `options` under a stored index, so this drops an index that is
   // now out of RANGE. It cannot detect an index that is still in range but now
   // names a DIFFERENT entity — the reconcile above covers that, because every
-  // caller re-filters in response to the query changing. A caller that swapped
-  // `options` WITHOUT changing `query` would defeat both.
+  // caller re-filters in response to the query changing.
+  //
+  // ★★ A caller that swapped `options` WITHOUT changing `query` defeats the
+  // RECONCILE outright, but defeats THIS clamp only when the stale index is
+  // still in range in the new list — a shrink PAST the index is still caught,
+  // which is what "drops an active option that the shrinking option list no
+  // longer has" (`entity-link-picker.test.tsx`) pins: the query is held at "s"
+  // while the options go 2 -> 1. Saying flatly that such a swap defeats BOTH
+  // guards would be licence to delete this clamp as moot, so keep the
+  // condition. Only the surviving in-range case rests on the contract below.
   //
   // ★★ CONTRACT, relied on and NOT enforced. Measured 2026-09-05: every call
   // site clears the query on add, so none defeats it today. Enumerate them —
