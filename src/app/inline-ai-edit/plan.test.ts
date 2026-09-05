@@ -686,7 +686,7 @@ describe("EditPlan.links", () => {
     // A plan that ONLY changes relationships must still render. Treating it as
     // empty would hide the most destructive write class behind a blank card.
     const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [
-      { field: "linkedTaskIds", before: "Draft brief", after: "Ship" },
+      { field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] },
     ] };
     expect(isEmptyPlan(plan)).toBe(false);
   });

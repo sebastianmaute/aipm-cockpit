@@ -34,10 +34,28 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *   `patch[diff.field] = coerce(d, diff.field, diff.raw ?? diff.after)`. A link
  *   diff there would write the TITLE STRING into `linkedTaskIds`, and
  *   `sanitizeIdList` splits a string on `[.;]`, finds no integers and stores
- *   `[]` — wiping every link the row had. The separate array is what makes that
- *   unreachable by construction; a marker flag on `FieldDiff` would not, because
- *   the rebuild loop would still have to remember to check it. */
-export interface LinkDiff { field: string; before: string; after: string }
+ *   `[]` — wiping every link the row had.
+ *
+ *  ★★ THE TYPE SYSTEM DOES NOT ENFORCE THIS, and an earlier revision of this
+ *   docstring claimed it did ("unreachable by construction"). Measured with
+ *   tsc, not reasoned: `LinkDiff` and `FieldDiff` are MUTUALLY assignable —
+ *   `raw` is optional, so `plan.updates.push(someLinkDiff)` and
+ *   `plan.links.push(someFieldDiff)` both compile today. What actually holds
+ *   the invariant is the CALL GRAPH: the populator writes only to `links` and
+ *   the rebuild loop reads only `updates`. The separate array is still the
+ *   right shape — a marker flag on `FieldDiff` would leave the rebuild loop
+ *   having to remember to check it — but it is a convention the tests pin,
+ *   not a guarantee the compiler gives. See the characterization test in
+ *   `use-inline-entity-edit.test.tsx`.
+ *
+ *  ★★ `before`/`after` are RESOLVED TITLES for the human; `rawIds` is what the
+ *   writer stores. They are separate members precisely because they must never
+ *   be confused: the rebuild path applies `rawIds`, the card renders the
+ *   titles. `rawIds` is already sanitized by THAT FIELD'S OWN writer rule
+ *   (`sanitizeIdList` for raid/change, `sanitizeMilestoneTaskIds` for
+ *   milestone — they differ on dedupe and on delimited strings), so what the
+ *   preview shows and what the patch carries come from one computation. */
+export interface LinkDiff { field: string; before: string; after: string; rawIds: number[] }
 export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: Deletion[]; rejected: Rejected[]; links: LinkDiff[] }
 
 // Any create_*/delete_* tool → its entity + workspace list key. Shared across

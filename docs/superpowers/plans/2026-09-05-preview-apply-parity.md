@@ -469,11 +469,100 @@ git commit -m "feat(inline-ai-edit): resolve link ids to titles, marking danglin
 
 ---
 
-### Task 5: Emit link diffs
+### Task 4b: Gate the success toast on work actually done
+
+**Files:**
+- Modify: `src/app/use-inline-entity-edit.ts`
+- Test: `src/app/use-inline-entity-edit.test.tsx`
+
+★★★ ADDED AFTER THE TASK-1 REVIEW, AND IT MUST LAND BEFORE TASK 5. Measured,
+not reasoned: `apply()` computes `let applied = 0`, runs three branches that can
+all be skipped, then calls `showToast("info", …inlineAiEditApplied…)`
+UNCONDITIONALLY — `applied` is read only inside the `catch`. Today that is
+unreachable, because `isEmptyPlan` already counts `links` and nothing populates
+`links`. **Task 5 is what arms it:** a links-only plan clears the `isEmptyPlan`
+guard, falls through all three branches with `applied === 0`, and reports
+success for a write that never happened.
+
+This is worth fixing on its own terms rather than as part of Task 5 — the gate
+protects every future bucket added to `EditPlan`, not just this one.
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+it("does not claim success when no branch wrote anything", async () => {
+  // A plan can be non-empty (isEmptyPlan counts every bucket) while every
+  // APPLY branch skips it. Reporting "applied" there is a false success.
+  const calls: Array<{ name: string; input: Record<string, unknown> }> = [];
+  const toasts: Array<{ kind: string; msg: string }> = [];
+  await applyPlanWith(recordingDispatcher(calls), {
+    updates: [], creates: [], deletes: [], rejected: [],
+    links: [{ field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] }],
+  }, { onToast: (kind, msg) => toasts.push({ kind, msg }) });
+  expect(calls).toHaveLength(0);
+  expect(toasts.filter((t) => t.kind === "info")).toHaveLength(0);
+});
+```
+
+★ `applyPlanWith` / `recordingDispatcher` are the harness this file already
+uses, or the one Task 6 needs. If they do not exist yet, build them HERE and
+Task 6 reuses them. Read the existing test file first and follow its harness
+style rather than inventing a second one.
+
+- [ ] **Step 2: Run it and watch it fail** — expected: an `info` toast fires with
+  zero dispatcher calls.
+
+- [ ] **Step 3: Gate the toast**
+
+```ts
+      if (applied > 0) {
+        deps.showToast("info", t(deps.lang, "inlineAiEditApplied", d.titleOf(activeItem)));
+      }
+      cancel();
+```
+
+★ Keep `cancel()` OUTSIDE the guard — closing the popover is correct either
+way; only the success CLAIM is conditional.
+
+- [ ] **Step 4: Green, then typecheck**
+
+```
+npx vitest run src/app/use-inline-entity-edit.test.tsx > <scratchpad>/t4b.log 2>&1; echo "EXIT=$?"
+npx tsc --noEmit; echo "EXIT=$?"
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git commit --only src/app/use-inline-entity-edit.ts src/app/use-inline-entity-edit.test.tsx \
+  -m "fix(inline-ai-edit): do not report success when no apply branch ran"
+```
+
+---
+
+### Task 5: Emit link diffs — and apply them
 
 **Files:**
 - Modify: `src/app/inline-ai-edit/plan.ts`
+- Modify: `src/app/use-inline-entity-edit.ts`
 - Test: `src/app/inline-ai-edit/plan.test.ts`
+- Test: `src/app/use-inline-entity-edit.test.tsx`
+
+★★★ SCOPE CHANGED AFTER THE TASK-1 REVIEW — the emission and the apply MUST
+land in one commit. The measured reason: the inline popover is sent the FULL
+`update_*` tool schemas (only the two recall tools are filtered out), so the
+model really can answer "link this risk to task 12" with
+`update_raid_item({id, linkedTaskIds:[12]})`. Today `diffFields` excludes link
+fields, so that input is silently dropped — invisible and unapplied, which is at
+least consistent. Emitting without applying converts a silent drop into a blank
+preview plus a false "applied" toast, which is strictly worse.
+
+★★ The inline path already disagrees with ITSELF here, and that is why "apply"
+is the chosen direction: `plan.creates` forwards raw tool input verbatim to
+`runTool`, so an inline `create_raid_item({title, linkedTaskIds:[…]})` writes
+those links TODAY, un-previewed. Updates dropping them was the anomaly. (The
+create-side DISCLOSURE gap is real and is filed in Task 14 — it is not fixed
+here.)
 
 - [ ] **Step 1: Write the failing test**
 
@@ -492,7 +581,7 @@ describe("link fields", () => {
       [{ type: "tool_use", name: "update_raid_item", input: { id: 10, linkedTaskIds: [2] } }],
       { descriptor: INLINE_DESCRIPTORS.raid, item: ws.raid[0], ws },
     );
-    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship" }]);
+    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }]);
     expect(plan.updates).toEqual([]);
   });
 
@@ -512,7 +601,18 @@ describe("link fields", () => {
       [{ type: "tool_use", name: "update_milestone", input: { id: 5, linkedTaskIds: "1;2" } }],
       { descriptor: INLINE_DESCRIPTORS.milestone, item: mws.milestones[0], ws: mws },
     );
-    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "Draft brief", after: "" }]);
+    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }]);
+  });
+
+  it("carries the sanitized ids the writer will store, not the titles", () => {
+    // ★★★ THE WHOLE POINT OF `rawIds`. The card renders titles; the rebuild
+    //  path applies THIS array. If the two ever came from different
+    //  computations the preview would stop being a promise about the write.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 10, linkedTaskIds: [2, 3] } }],
+      { descriptor: INLINE_DESCRIPTORS.raid, item: ws.raid[0], ws },
+    );
+    expect(plan.links[0].rawIds).toEqual([2, 3]);
   });
 });
 ```
@@ -535,10 +635,15 @@ loop and BEFORE the induced-enum-reset pass:
       // `updates` — see the `LinkDiff` docstring for the wipe this prevents.
       for (const [f, link] of Object.entries(d.linkFields)) {
         if (!(f in input)) continue;
-        const before = resolveLinkTitles(link.sanitize(item[f]), link, ws);
-        const after = resolveLinkTitles(link.sanitize(input[f]), link, ws);
+        // ONE sanitize per side, reused for both the rendered title and the
+        // applied value — so the card cannot promise something the patch does
+        // not carry. `link.sanitize` is the WRITER'S own rule for this field.
+        const beforeIds = link.sanitize(item[f]);
+        const afterIds = link.sanitize(input[f]);
+        const before = resolveLinkTitles(beforeIds, link, ws);
+        const after = resolveLinkTitles(afterIds, link, ws);
         if (before === after) continue;
-        plan.links.push({ field: f, before, after });
+        plan.links.push({ field: f, before, after, rawIds: afterIds });
       }
 ```
 
@@ -548,20 +653,57 @@ Import at the top of the file:
 import { resolveLinkTitles } from "./link-titles";
 ```
 
-- [ ] **Step 4: Run the test**
+- [ ] **Step 3b: Apply them — the half that makes the preview a promise**
+
+Write the failing test FIRST, in `src/app/use-inline-entity-edit.test.tsx`:
+
+```tsx
+it("writes the sanitized link ids the preview showed", async () => {
+  // The card said "Draft brief, Review -> Ship". The patch must carry [2].
+  // Asserting on the DISPATCHER input, never on the plan: the plan being right
+  // is what the other tests cover; this one covers the handoff.
+  const calls: Array<{ name: string; input: Record<string, unknown> }> = [];
+  await applyPlanWith(recordingDispatcher(calls), {
+    updates: [], creates: [], deletes: [], rejected: [],
+    links: [{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
+  });
+  expect(calls).toHaveLength(1);
+  expect(calls[0].input.linkedTaskIds).toEqual([2]);
+});
+```
+
+Then, in `use-inline-entity-edit.ts`, extend the patch build. ★★★ Apply
+`rawIds` and NEVER `after`: `after` is a rendered title string, and that is the
+exact value whose arrival in `sanitizeIdList` wipes the row.
+
+```ts
+      for (const l of plan.links) {
+        patch[l.field] = l.rawIds;
+      }
+```
+
+★ Place it so a links-only plan still reaches the dispatcher — the existing
+`if (plan.updates.length > 0)` branch must no longer be the only thing that can
+build and send a patch. Read the branch structure and restructure the condition
+to "there is anything to write", rather than nesting the link loop inside a
+guard that a links-only plan fails. Getting this wrong reproduces the exact
+false-success Task 4b just fixed, and the Task 4b test is what will catch you.
+
+- [ ] **Step 4: Run the tests**
 
 ```
-npx vitest run src/app/inline-ai-edit/plan.test.ts > /tmp/t5b.log 2>&1; echo "EXIT=$?"
+npx vitest run src/app/inline-ai-edit/plan.test.ts src/app/use-inline-entity-edit.test.tsx > <scratchpad>/t5b.log 2>&1; echo "EXIT=$?"
 npx tsc --noEmit; echo "EXIT=$?"
 ```
 
-Expected: both EXIT=0.
+Expected: both EXIT=0, and the Task 4b "does not claim success" test still green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/app/inline-ai-edit/plan.ts src/app/inline-ai-edit/plan.test.ts
-git commit -m "feat(inline-ai-edit): preview relationship and FK changes as resolved titles"
+git commit --only src/app/inline-ai-edit/plan.ts src/app/inline-ai-edit/plan.test.ts \
+  src/app/use-inline-entity-edit.ts src/app/use-inline-entity-edit.test.tsx \
+  -m "feat(inline-ai-edit): preview relationship changes, and apply them"
 ```
 
 ---
@@ -575,22 +717,30 @@ This task adds NO production code. It pins the invariant that makes Task 5 safe.
 
 - [ ] **Step 1: Write the test**
 
+★★★ THIS TEST WAS REWRITTEN AFTER THE TASK-1 REVIEW. It originally asserted
+that `linkedTaskIds` NEVER reaches the patch. That was correct while links were
+unapplied; once Task 5 applies them it is exactly backwards, and a test written
+to the old wording would have to be deleted — which is how a guard gets lost.
+The invariant was never "no link field in the patch". It is: **a link field's
+value in the patch is the sanitized ID ARRAY, never the rendered TITLE STRING.**
+
 ```ts
-it("never writes a link field into the rebuilt patch", async () => {
-  // ★★★ THE REGRESSION THIS EXISTS FOR: if a LinkDiff ever lands in
-  //  `plan.updates`, the rebuild writes the TITLE STRING into `linkedTaskIds`.
-  //  `sanitizeIdList` splits a string on [.;], finds no integers, and stores []
-  //  — wiping every link. Assert on the patch the dispatcher RECEIVES, not on
-  //  the plan, because the plan being right is exactly what this guards.
+it("writes link ids, never the rendered title string", async () => {
+  // ★★★ THE REGRESSION THIS EXISTS FOR: a LinkDiff landing in `plan.updates`.
+  //  The rebuild loop would then write `diff.raw ?? diff.after` — the TITLE
+  //  STRING — into `linkedTaskIds`. `sanitizeIdList` splits a string on [.;],
+  //  finds no integers, and stores [] — wiping every link on the row.
+  //  Assert on the patch the dispatcher RECEIVES, not on the plan: the plan
+  //  being right is exactly what this is guarding against assuming.
   const calls: Array<{ name: string; input: Record<string, unknown> }> = [];
-  const dispatcher = recordingDispatcher(calls);
-  await applyPlanWith(dispatcher, {
+  await applyPlanWith(recordingDispatcher(calls), {
     updates: [{ field: "title", before: "a", after: "b", raw: "b" }],
     creates: [], deletes: [], rejected: [],
-    links: [{ field: "linkedTaskIds", before: "Draft brief", after: "Ship" }],
+    links: [{ field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] }],
   });
   expect(calls).toHaveLength(1);
-  expect(Object.keys(calls[0].input)).not.toContain("linkedTaskIds");
+  expect(calls[0].input.linkedTaskIds).toEqual([2]);
+  expect(typeof calls[0].input.linkedTaskIds).not.toBe("string");
   expect(calls[0].input.title).toBe("b");
 });
 ```
@@ -598,24 +748,35 @@ it("never writes a link field into the rebuilt patch", async () => {
 - [ ] **Step 2: Run it**
 
 ```
-npx vitest run src/app/use-inline-entity-edit.test.tsx -t "never writes a link field" > /tmp/t6.log 2>&1; echo "EXIT=$?"
+npx vitest run src/app/use-inline-entity-edit.test.tsx -t "writes link ids" > <scratchpad>/t6.log 2>&1; echo "EXIT=$?"
 ```
 
-Expected: PASS immediately — the rebuild iterates `updates` only, so the
-property already holds. This is a characterization pin, not a red-green cycle.
+Expected: PASS immediately — Task 5 applies `rawIds`, and the rebuild loop reads
+`updates` only, so nothing can route a title string into the patch. This is a
+characterization pin, not a red-green cycle.
 
 - [ ] **Step 3: Prove the test can fail**
 
-Temporarily move the link diff into `updates` in the test fixture only:
+Temporarily move the link diff into `updates` in the test fixture only — this
+simulates the exact defect, since a `LinkDiff` is assignable to `FieldDiff`:
 
 ```ts
     updates: [{ field: "title", before: "a", after: "b", raw: "b" },
               { field: "linkedTaskIds", before: "Draft brief", after: "Ship" }],
+    links: [],
 ```
 
-Re-run. Expected: FAIL on `not.toContain("linkedTaskIds")`. **Revert the fixture
-immediately** and re-run to green — a mutant left in the tree is worse than no
-test. Confirm with `git diff --stat` showing only the intended file.
+Re-run. Expected: FAIL — `input.linkedTaskIds` is now the string `"Ship"`, so
+both the `toEqual([2])` and the `not.toBe("string")` assertions go red. That
+second assertion is the one that names the defect; keep it even though the
+first would catch this fixture, because a future `raw` on the diff would satisfy
+`toEqual` shapes while still being a string.
+
+**Revert the fixture immediately** and re-run to green — a mutant left in the
+tree is worse than no test. The revert must be an inverse anchored edit
+(`git checkout -- <file>` is DENY-BLOCKED in this repo); assert the anchor is
+unique in BOTH directions, and finish on `git diff --stat` showing only the
+intended file.
 
 - [ ] **Step 4: Commit**
 
@@ -810,7 +971,23 @@ git commit -m "feat(inline-ai-edit): preview the extra email list and an explici
 **Files:**
 - Modify: `src/app/chat-proposal-block.tsx`
 - Modify: `src/app/insights/recommendation-review-modal.tsx`
+- Modify: `src/app/inline-ai-edit-popover.tsx`
 - Test: `src/app/chat-proposal-block.test.tsx`
+- Test: `src/app/inline-ai-edit-popover.test.tsx`
+
+★★★ THREE SURFACES, NOT TWO — corrected after the Task-1 review measured them.
+All three render `updates`/`creates`/`deletes` and nothing else
+(`inline-ai-edit-popover.tsx`, `chat-proposal-block.tsx`,
+`insights/recommendation-review-modal.tsx`). Miss one and that consumer shows a
+blank change list for a link write. The popover is the one the original plan
+omitted, and after Task 5 it is the surface that APPLIES links — so a missing
+renderer there is a silent destructive write, not merely an under-disclosure.
+
+★★ `rejected` is NOT uniformly unrendered, and an earlier revision of this plan
+said it was: `recommendation-review-modal.tsx` already renders it as a bare
+COUNT. It is `chat-proposal-block.tsx` that renders it nowhere. So this task
+ADDS a renderer on the chat card and UPGRADES a count to a field list on the
+modal — two different changes, not one pattern applied twice.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -823,7 +1000,7 @@ it("renders a link change and a rejected field", () => {
     ...baseRow,
     plan: {
       updates: [], creates: [], deletes: [],
-      links: [{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship" }],
+      links: [{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
       rejected: [{ toolName: "update_raid_item", reason: "bad-input", detail: "targetDate=nope" }],
     },
   }]} />);
@@ -872,6 +1049,37 @@ list, keeping the count string as the fallback when no detail is available:
           </p>
         )}
 ```
+
+Also add the LINK list to that modal — the count upgrade above covers
+`rejected` only, and this consumer replays the original input, so it really does
+write these links:
+
+```tsx
+        {plan.links.map((l, i) => (
+          <li key={`l${i}-${l.field}`}>
+            <span className="font-medium text-foreground">{l.field}</span>:{" "}
+            {l.before || "—"} → {l.after || "—"}
+          </li>
+        ))}
+```
+
+And in `inline-ai-edit-popover.tsx`, beside its existing updates list — same
+markup, same raw field name (Task 10 relabels all three surfaces in one pass):
+
+```tsx
+        {plan.links.map((l, i) => (
+          <li key={`l${i}-${l.field}`}>
+            <span className="font-medium text-foreground">{l.field}</span>:{" "}
+            {l.before || "—"} → {l.after || "—"}
+          </li>
+        ))}
+```
+
+★ Read each file's existing list markup first and MATCH it — the three surfaces
+do not share a component, and their `<li>` styling differs. Do not introduce a
+shared primitive here; that is a bigger change than this task, and the repo's
+rule is to use an existing primitive or ASK, never to hand-roll a fourth
+variant.
 
 - [ ] **Step 4: Add the two i18n keys**
 
@@ -1344,6 +1552,24 @@ GitHub anchor slugs DROP colons rather than hyphenating them.
    inflates the digest's `linkedTasks: N`.
 4. The `emails` preview cannot dedupe against the row's own primary address,
    because a `fieldSanitizers` entry receives only the field's value (Task 8).
+5. **The inline CREATE path writes link fields with no preview at all.**
+   `plan.creates` forwards raw tool input verbatim to `runTool`, and the inline
+   scope block explicitly invites `create_raid_item` / `create_task`, so an
+   inline create carrying `linkedTaskIds` writes those links today and the card
+   shows only the new row's title. This slice fixes the UPDATE path (Task 5);
+   the create path is the same disclosure gap seen from the other side and is
+   deliberately NOT fixed here. ★ Note it is not the same SEVERITY: a create
+   cannot drop existing links, because there is no prior row to replace.
+6. **`chat-proposal-describe.ts`'s `emptyPlan()` has three call sites and only
+   two are safe forever.** The `pendingOn` create→update remap and the id-less
+   delete are correctly empty (no before-image; a rejected call writes nothing).
+   The third was `set_task_dependencies`, fixed by Task 15 — file this as the
+   record of WHY the branch is not uniformly safe, so the next reader does not
+   conclude from two examples that a hardcoded empty plan is always right.
+
+★★ Numbers 5 and 6 came out of the Task-1 cold review and an investigation it
+triggered, not out of the original spec. Both are measured; cite the measurement
+in the entry, not this plan.
 
 - [ ] **Step 4: Record the invariant**
 
@@ -1377,6 +1603,111 @@ Expected: all EXIT=0.
 ```bash
 git add docs/open-followups.md docs/AGENTS/ai-assistant.md
 git commit -m "docs: close 383/384, file four, record the preview/apply parity invariant"
+```
+
+---
+
+### Task 15: `set_task_dependencies` — the blank card
+
+**Files:**
+- Modify: `src/app/chat-proposal-describe.ts`
+- Test: `src/app/chat-proposal-describe.test.ts`
+
+★★★ ADDED BY DECISION AFTER THE TASK-1 REVIEW. This is NOT a `links` problem and
+no amount of `EditPlan.links` work reaches it — the tool has no descriptor at
+all, so it can never be a `TOOL_ENTITY` key.
+
+Measured: `TOOL_ENTITY` is built by looping `INLINE_DESCRIPTORS` and collecting
+each descriptor's `createTool`/`updateTool`/`deleteTool`. `set_task_dependencies`
+is none of those, so `TOOL_ENTITY[call.name]` is `undefined` and the row takes
+the `entity === undefined || op === undefined` branch, which pushes
+`plan: emptyPlan()`. `PlanDetail` then renders `null`, and `proposalRowTitle`
+falls through to `return call.name` — so the approval card shows the literal
+string `set_task_dependencies` and nothing else.
+
+What it writes: a REPLACE over a task's whole dependency graph. The dispatcher
+computes a `removed` set (the prior dependencies not present in the new list)
+and surfaces it ONLY in the tool result — i.e. to the model, in the transcript,
+AFTER the write. Two guards exist and neither is disclosure: the tool throws on
+a non-array `dependencies`, and the dispatcher refuses a wholly-destructive
+write (nothing applied, something rejected, prior non-empty). So a PARTIALLY
+destructive replace is both permitted and undisclosed.
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+it("names the task and the dropped dependencies for set_task_dependencies", () => {
+  // The card used to render the bare tool name for a REPLACE over the whole
+  // dependency graph. Predecessors 1 and 3 are stored; the call supplies 3
+  // only, so 1 is dropped and the user must see that BEFORE approving.
+  const ws = {
+    tasks: [
+      { id: 7, taskName: "Ship", dependencies: [{ taskId: 1, type: "FS" }, { taskId: 3, type: "FS" }] },
+      { id: 1, taskName: "Draft brief" },
+      { id: 3, taskName: "Review" },
+    ],
+  } as unknown as Workspace;
+  const rows = describeProposal(
+    [{ type: "tool_use", name: "set_task_dependencies", input: { taskId: 7, dependencies: [{ taskId: 3, type: "FS" }] } }],
+    ws,
+  );
+  expect(rows).toHaveLength(1);
+  expect(rows[0].plan.links).toEqual([
+    { field: "dependencies", before: "Draft brief, Review", after: "Review", rawIds: [3] },
+  ]);
+});
+```
+
+★ `describeProposal`'s real signature is what the file exports — read it and
+adapt the call, do not assume this shape. Keep the ASSERTION.
+
+- [ ] **Step 2: Run it and watch it fail** — expected: `plan.links` is `[]`
+  (the row takes the empty-plan branch).
+
+- [ ] **Step 3: Give that one tool a describer**
+
+In `chat-proposal-describe.ts`, BEFORE the `entity === undefined` fallback, add
+a narrow special case. Do NOT invent a descriptor entry for it — the tool has no
+create/update/delete triple and forcing one into `INLINE_DESCRIPTORS` would
+change what every other consumer of that map sees.
+
+```ts
+  if (call.name === "set_task_dependencies") {
+    rows.push({ call, stamped, plan: describeDependencyReplace(call.input, ws), mintedId });
+    continue;
+  }
+```
+
+Write `describeDependencyReplace` in the same file, next to `emptyPlan`. It
+resolves the target task, maps prior and supplied `dependencies[].taskId` to
+task names, and returns `{ ...emptyPlan(), links: [...] }` when they differ.
+★ Resolve titles with the SAME helper Task 4 created (`resolveLinkTitles`) so an
+unknown id renders with the same marker as everywhere else — a second
+id→title spelling is how two surfaces start disagreeing about what "unknown"
+looks like.
+
+★★ `rawIds` here is informational: this row is REPLAYED (the chat card re-sends
+the original input), so nothing reads it back. Populate it anyway for shape
+consistency, and do NOT wire it into any apply path.
+
+- [ ] **Step 4: Green, typecheck, and check the trio pin**
+
+`chat-proposal-describe.test.ts` has an existing test pinning that
+`delete_all_tasks`, `send_inquiry` and `set_task_dependencies` all take the
+empty-plan branch. That test is now WRONG for one of its three members. Update
+it to pin the remaining TWO and assert the third is described — do not delete
+it.
+
+```
+npx vitest run src/app/chat-proposal-describe.test.ts > <scratchpad>/t15.log 2>&1; echo "EXIT=$?"
+npx tsc --noEmit; echo "EXIT=$?"
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git commit --only src/app/chat-proposal-describe.ts src/app/chat-proposal-describe.test.ts \
+  -m "feat(chat): describe the set_task_dependencies replace instead of a blank card"
 ```
 
 ---

@@ -287,3 +287,90 @@ Record the invariant (§2) in `docs/AGENTS/ai-assistant.md`, which owns inline e
 - **A concurrent branch is editing `docs/open-followups.md`.** Union-merge per
   row; taking either side wholesale silently drops the other's entries and every
   gate stays green.
+
+---
+
+## 10. Amendments after the Task-1 cold review (2026-09-05)
+
+Three findings during implementation changed this design. Recorded here so the
+spec and the plan cannot disagree.
+
+### 10.1 The inline path APPLIES links — decided, not assumed
+
+The spec treated link fields as a pure disclosure problem. That was wrong for
+one of the three consumers, and the review measured why.
+
+The inline edit popover is sent the FULL `update_*` tool schemas — `callClaude`
+filters only the two recall tools — so the model can and will answer "link this
+risk to task 12" with `update_raid_item({id, linkedTaskIds:[12]})`. `diffFields`
+excludes link fields, so that input is silently dropped today: invisible and
+unapplied, which is at least self-consistent. **Emitting a link diff without
+applying it would convert a silent drop into a blank preview plus a false
+"applied" toast** — the §373 failure inverted, and strictly worse than the bug
+being fixed.
+
+The deciding measurement: **the inline path already writes links on CREATE.**
+`plan.creates` forwards raw tool input verbatim to `runTool`, and the inline
+scope block explicitly invites `create_raid_item`. So updates dropping links was
+the anomaly, not the capability.
+
+**Decision (user, 2026-09-05): apply them — full parity.** `LinkDiff` carries
+`rawIds: number[]` alongside the resolved-title `before`/`after`; the rebuild
+loop writes `rawIds` into the patch. Both come from ONE `link.sanitize` call per
+side, so what the card promises and what the patch carries cannot diverge.
+
+★★★ `rawIds` and `after` are separate members for a reason that is the whole
+subject of this spec: `after` is a rendered title string, and a title string
+reaching `sanitizeIdList` is exactly the wipe. Applying `after` would implement
+the defect.
+
+The CREATE-side disclosure gap is **not** closed here — filed instead. It is a
+lesser severity: a create has no prior row, so it cannot drop existing links.
+
+### 10.2 A links-only plan could report success — fixed independently
+
+`apply()` computes `let applied = 0`, runs three branches that can all be
+skipped, then calls `showToast("info", …inlineAiEditApplied…)` unconditionally;
+`applied` is read only in the `catch`. Because `isEmptyPlan` already counts
+`links`, a links-only plan clears the guard and reaches that toast having
+written nothing.
+
+Latent before this slice — nothing populated `links`. **The populating task is
+what arms it**, so the gate lands FIRST, as its own task, and it protects every
+future bucket added to `EditPlan` rather than just this one.
+
+### 10.3 Three render surfaces, not two
+
+All three of `inline-ai-edit-popover.tsx`, `chat-proposal-block.tsx` and
+`insights/recommendation-review-modal.tsx` render `updates`/`creates`/`deletes`
+only. The original plan named two. The popover is the omitted one, and after
+§10.1 it is the surface that APPLIES links — a missing renderer there is a
+silent destructive write, not merely under-disclosure.
+
+Correction to §3 of this spec: `rejected` is **not** uniformly unrendered. The
+insight modal renders it as a bare COUNT; it is the chat card that renders it
+nowhere. Two different changes, not one pattern applied twice.
+
+### 10.4 `set_task_dependencies` — folded in
+
+Out of scope as originally written, and unreachable by any `EditPlan.links`
+work: the tool has no descriptor, so it can never be a `TOOL_ENTITY` key and its
+row takes the empty-plan branch. Its approval card renders the bare string
+`set_task_dependencies` for a token-guarded REPLACE over a task's whole
+dependency graph. The dispatcher computes the dropped set but surfaces it only
+in the tool result — to the model, after the write.
+
+**Decision (user, 2026-09-05): fold it in.** A narrow special-case describer in
+`chat-proposal-describe.ts`, reusing `resolveLinkTitles` so "unknown id" renders
+identically everywhere. No `INLINE_DESCRIPTORS` entry — forcing one would change
+what every other consumer of that map sees.
+
+### 10.5 Correction to the `LinkDiff` docstring
+
+The docstring shipped in Task 1 claimed the wipe was "unreachable by
+construction". Measured with tsc: `LinkDiff` and `FieldDiff` are **mutually
+assignable** (`raw` is optional), so `plan.updates.push(someLinkDiff)` compiles.
+What holds the invariant is the CALL GRAPH — the populator writes only to
+`links`, the rebuild loop reads only `updates` — plus the characterization test.
+Corrected in place, because a sentence asserting protection that does not exist
+reads as protection and stops the next audit.
