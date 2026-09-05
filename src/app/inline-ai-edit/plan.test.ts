@@ -531,3 +531,45 @@ describe("a person is named by their name, never by their job title", () => {
     expect(plan.deletes[0].label).toBe("Go live");
   });
 });
+
+describe("preview matches what Apply stores", () => {
+  it("shows a trimmed value, not the raw padded one", () => {
+    const item = { id: 1, assignee: "Ada" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, assignee: "  Ada  " } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsWith({ tasks: [item] as never }) },
+    );
+    // "  Ada  " trims to "Ada", which EQUALS the stored value — so there is no
+    // change to show at all, and the old code showed a spurious one.
+    expect(plan.updates).toEqual([]);
+  });
+
+  it("shows the empty string a non-string coerces to, not its String() form", () => {
+    const item = { id: 1, assignee: "Ada" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, assignee: 42 } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsWith({ tasks: [item] as never }) },
+    );
+    expect(plan.updates.map((u) => u.after)).toEqual([""]);
+  });
+
+  it("clips an over-cap email at the task cap", () => {
+    const item = { id: 1, assigneeEmail: "old@x.com" };
+    const long = "a".repeat(400) + "@x.com";
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, assigneeEmail: long } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsWith({ tasks: [item] as never }) },
+    );
+    expect(plan.updates[0].after.length).toBe(320);
+  });
+
+  it("clips a stakeholder email at ITS cap, which is not the task one", () => {
+    const item = { id: 1, email: "old@x.com" };
+    const long = "a".repeat(400) + "@x.com";
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_stakeholder", input: { id: 1, email: long } }],
+      { descriptor: INLINE_DESCRIPTORS.stakeholder, item, ws: wsWith({ stakeholders: [item] as never }) },
+    );
+    expect(plan.updates[0].after.length).toBe(200);
+  });
+});

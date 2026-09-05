@@ -15,6 +15,8 @@ import {
   type RaidCategory,
 } from "../types";
 import { type Workspace } from "../workspace";
+import { EMAIL_MAX } from "../sanitize-core";
+import { BUDGET_NAME_MAX } from "../sanitize-entities";
 
 export type InlineEntity = "task" | "raid" | "change" | "milestone" | "stakeholder" | "resource";
 
@@ -55,6 +57,18 @@ export interface EntityDescriptor {
   arrayFields: ReadonlySet<string>;
   /** Fields coerced to Number on Apply. */
   numberFields: ReadonlySet<string>;
+  /** Text fields whose sanitizer clips at a cap, → that cap.
+   *
+   *  ★★★ POPULATED FROM THE SANITIZERS' OWN EXPORTED CONSTANTS, NEVER TYPED-OUT
+   *   NUMBERS. A literal here is a second copy of a value that lives in
+   *   `sanitize-core.ts`, and it goes stale silently the first time that cap
+   *   moves — reintroducing the preview/apply divergence this member exists to
+   *   close, by the same mechanism.
+   *
+   *  ★ A field absent from this map is trimmed and non-string-coerced but not
+   *   clipped. That is the correct default: those two divergences are universal,
+   *   a cap is not. */
+  textCaps: Record<string, number>;
   titleOf: (item: Record<string, unknown>) => string;
 }
 
@@ -98,6 +112,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     enumFields: { status: constSet(TASK_STATUSES), priority: constSet(PRIORITIES) },
     arrayFields: new Set(["labels"]),
     numberFields: new Set(),
+    textCaps: { assigneeEmail: EMAIL_MAX },
     titleOf: (i) => String(i.taskName ?? ""),
   },
   raid: {
@@ -114,6 +129,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     enumDefaultFor: (field, item) => (field === "status" ? raidStatusDefault(raidCategoryOf(item)) : undefined),
     arrayFields: new Set(),
     numberFields: new Set(["probability", "impact"]),
+    textCaps: { ownerEmail: EMAIL_MAX },
     titleOf: (i) => String(i.title ?? ""),
   },
   change: {
@@ -125,6 +141,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     enumFields: { type: constSet(CHANGE_TYPES), status: constSet(CHANGE_STATUSES), impact: constSet(CHANGE_IMPACT_LEVELS) },
     arrayFields: new Set(),
     numberFields: new Set(["scheduleImpactDays", "costImpact"]),
+    textCaps: {},
     titleOf: (i) => String(i.title ?? ""),
   },
   milestone: {
@@ -136,6 +153,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     enumFields: {},
     arrayFields: new Set(),
     numberFields: new Set(),
+    textCaps: {},
     titleOf: (i) => String(i.name ?? ""),
   },
   stakeholder: {
@@ -147,6 +165,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     enumFields: { category: constSet(STAKEHOLDER_CATEGORIES), influence: constSet(INFLUENCE_INTEREST_LEVELS), interest: constSet(INFLUENCE_INTEREST_LEVELS) },
     arrayFields: new Set(),
     numberFields: new Set(),
+    textCaps: { email: BUDGET_NAME_MAX },
     titleOf: (i) => String(i.name ?? ""),
   },
   resource: {
@@ -180,6 +199,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     enumFields: {},
     arrayFields: new Set(),
     numberFields: new Set(),
+    textCaps: { email: EMAIL_MAX },
     // ★ NOT `i.title` — that is the JOB title. The two name parts are the row's
     // identity (`sanitizeResource` rejects a row with neither).
     titleOf: (i) => `${String(i.firstName ?? "")} ${String(i.lastName ?? "")}`.trim(),

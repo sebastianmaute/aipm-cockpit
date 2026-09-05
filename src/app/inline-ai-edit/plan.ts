@@ -83,6 +83,25 @@ function str(v: unknown): string {
   if (Array.isArray(v)) return v.join(", ");
   return String(v);
 }
+
+/** What Apply will actually store for a text field, so the preview cannot show
+ *  a value the sanitizer would change.
+ *
+ *  ★★★ MIRRORS `sanitizeText`: a non-string becomes `""`, a string is trimmed
+ *   and clipped at the field's cap. `str` did none of that, so the card showed
+ *   the raw input while Apply stored the sanitized form — diverging on length,
+ *   on non-strings and on whitespace.
+ *
+ *  ★★ THE NON-STRING CASE IS THE EXPENSIVE ONE. `sanitize-entities.ts` writes
+ *   `if (email) resource.email = email;`, so an empty result OMITS the key, and
+ *   on an update built by spreading the stored row that CLEARS an address the
+ *   row already had. The card previewed `old@x.com → 42`; the row ended with no
+ *   email at all. */
+function normalizePreviewValue(v: unknown, cap: number | undefined): string {
+  if (typeof v !== "string") return v == null || Array.isArray(v) ? str(v).trim() : "";
+  const trimmed = v.trim();
+  return cap === undefined ? trimmed : trimmed.slice(0, cap);
+}
 /** A person's display name from either shape `create_resource` accepts:
  *  firstName/lastName, or the single `name` the dispatcher splits. Empty when
  *  the object carries neither. */
@@ -150,7 +169,14 @@ export function describeEntityCalls(
       for (const f of d.diffFields) {
         if (!(f in input)) continue;
         const before = str(item[f]);
-        const after = str(input[f]);
+        // A number field (probability, impact, scheduleImpactDays, costImpact)
+        // is coerced by the dispatcher via `toNumber`, which accepts a real
+        // number verbatim — NOT by `sanitizeText`, whose rules
+        // `normalizePreviewValue` mirrors. Running a number field through it
+        // would blank any non-string input to "", making `9` and `""` compare
+        // equal to a same-valued stored field and silently skip the
+        // out-of-range rejection below.
+        const after = d.numberFields.has(f) ? str(input[f]) : normalizePreviewValue(input[f], d.textCaps[f]);
         if (before === after) continue;
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
         if (d.requiredNonEmpty.has(f) && after === "") { bad(`${f}=empty`); continue; }
