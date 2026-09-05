@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { describeEntityCalls, RICH_FIELDS, type ToolUseLike } from "./plan";
+import { describeEntityCalls, previewNormalizerFor, RICH_FIELDS, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import {
   sanitizeChangeItem,
@@ -9,7 +9,8 @@ import {
   sanitizeStakeholder,
 } from "../sanitize";
 import { buildTaskCleanPatch } from "../chat-task-patch";
-import { TASK_STATUSES, type Task } from "../types";
+import { applyStatusChange, isTaskStatus } from "../task-status";
+import { type Task } from "../types";
 import type { Workspace } from "../workspace";
 
 // ★★★ THE DIFFERENTIAL GATE ON `fieldSanitizers`. For EVERY entity, EVERY
@@ -57,6 +58,19 @@ const PROBES: ReadonlyArray<{ label: string; value: unknown }> = [
   { label: "the boolean true", value: true },
   { label: "the boolean false", value: false },
   { label: "the number 42", value: 42 },
+  // ★★ THE "CLEAR THIS FIELD" VALUE, and the probe that found the number path's
+  // divergence. `Number("")` is `0`, so an int-range guard starting at 0 ACCEPTS
+  // it — the change fields previewed `""` where the sanitizer stores `0`. It is
+  // also the one value `emailFormatFields` carves out explicitly (`after !== ""`),
+  // so it exercises that exemption rather than the guard beside it.
+  // ★ It splits the four number fields on their RANGE, which is why it is worth
+  // keeping on both: `change.scheduleImpactDays`/`costImpact` range `[0, ∞)`, so
+  // 0 is in range and the pair is COMPARED (`"0"` on both sides). `raid.
+  // probability`/`impact` range `[1, 5]`, so 0 falls out and the preview
+  // REJECTS — while `sanitizeRaidItem` would have dropped the key, i.e. cleared
+  // the field. Preview refusing where apply would clear is the safe direction,
+  // so it is counted as a preview-only rejection rather than a mismatch.
+  { label: "the empty string", value: "" },
 ];
 
 // --- fixtures --------------------------------------------------------------
@@ -118,14 +132,25 @@ function sanitizerReader(
 }
 
 /** The task apply path is NOT a full-record sanitizer — `use-chat-dispatcher.ts`
- *  composes `buildTaskCleanPatch` with `applyStatusChange`, guarded by a private
- *  `isTaskStatus`. Mirrored here in the same shape, because the composition is
- *  what actually runs; `status` is the one field `buildTaskCleanPatch`
- *  deliberately does not handle (its own docstring says why). */
+ *  composes `buildTaskCleanPatch` with `applyStatusChange`, guarded by
+ *  `isTaskStatus`. `status` is the one field `buildTaskCleanPatch` deliberately
+ *  does not handle (its own docstring says why), so it is composed here.
+ *
+ *  ★★ COMPOSED FROM THE REAL FUNCTIONS, NOT MIRRORED. An earlier cut re-spelled
+ *  the guard as an inline `TASK_STATUSES.includes(...)`, which is the exact
+ *  drift class this file exists to catch: a predicate that stopped agreeing with
+ *  the dispatcher's would have made the sweep agree with a preview that no
+ *  longer matched the write. `isTaskStatus` was private to the dispatcher and is
+ *  now exported from `task-status.ts` beside `applyStatusChange` — the two are
+ *  one unit — so both halves of the composition below are the production ones.
+ *  `today` is irrelevant to the returned `status` (it only stamps
+ *  `completedDate`), so a fixed date is passed. */
 const taskReader: StoredReader = (field, value) => {
   if (field === "status") {
-    const kept = typeof value === "string" && (TASK_STATUSES as readonly string[]).includes(value);
-    return String(kept ? value : TASK_BASE.status);
+    const merged = isTaskStatus(value)
+      ? applyStatusChange(TASK_BASE, value, "2026-01-01")
+      : TASK_BASE;
+    return merged.status;
   }
   try {
     const patch = buildTaskCleanPatch({ [field]: value } as Partial<Task>, TASK_BASE);
@@ -210,7 +235,10 @@ function previewOf(
   // NO diff is itself a claim — "applying this stores what is already there" —
   // so it is compared like any other outcome. Reading it as "nothing to check"
   // is how a preview that silently drops a field passes a parity test.
-  const normalize = d.fieldSanitizers[field];
+  // ★ DELEGATED, not restated: `previewNormalizerFor` is the production
+  // resolution order (descriptor entry → numeric coercion → verbatim), so a
+  // field moving between those three cannot leave this branch behind.
+  const normalize = previewNormalizerFor(d, field);
   return {
     rejected: false,
     shown: normalize ? normalize(base[field]) : String(base[field] ?? ""),
@@ -222,18 +250,49 @@ const fieldsUnderTest = (entity: InlineEntity): string[] =>
     (f) => !RICH_FIELDS.has(`${entity}.${f}`) && !(`${entity}.${f}` in EXCLUDED_FIELDS),
   );
 
-interface Sweep { mismatches: string[]; compared: number; previewOnlyRejects: number }
+/** The fields the probe set can actually get a COMPARISON out of — everything
+ *  under test except the enum and date fields.
+ *
+ *  ★★ THE EXCLUSION IS A MEASUREMENT, NOT AN ASSUMPTION. Every probe is a
+ *  hostile value, and none of them is a member of any enum or a `YYYY-MM-DD`
+ *  date, so the enum and date guards in `describeEntityCalls` reject all nine
+ *  for those fields — they contribute zero comparisons BY CONSTRUCTION, not
+ *  through a defect. Measured 2026-09-05 by listing the fields with no
+ *  comparison at all: exactly the 11 enum fields plus `task.dueDate` and
+ *  `milestone.date`, 13 of the 50 under test. Everything else compared at least
+ *  once, which is what makes the structural floor below a real claim.
+ *
+ *  ★ Derived from the descriptor rather than listed, so a new enum/date field
+ *  classifies itself and a new TEXT field is held to the floor the moment it is
+ *  declared. */
+const comparableFields = (entity: InlineEntity): string[] => {
+  const d = INLINE_DESCRIPTORS[entity];
+  return fieldsUnderTest(entity).filter((f) => !(f in d.enumFields) && !d.dateFields.has(f));
+};
+
+/** ★ The three buckets PARTITION the enumerated pairs, and the totals test below
+ *  asserts exactly that — so a pair the sweep silently failed to classify is a
+ *  red run rather than a quietly smaller comparison count. `comparedByField`
+ *  carries the per-field split the structural floor needs. */
+interface Sweep {
+  mismatches: string[];
+  compared: number;
+  previewOnlyRejects: number;
+  applyRejects: number;
+  comparedByField: Record<string, number>;
+}
 
 /** One entity's full sweep. Returns every disagreement rather than throwing at
  *  the first, so a broken normalisation shows its whole blast radius at once. */
 function sweep(entity: InlineEntity, base: Record<string, unknown>, read: StoredReader): Sweep {
-  const out: Sweep = { mismatches: [], compared: 0, previewOnlyRejects: 0 };
+  const out: Sweep = { mismatches: [], compared: 0, previewOnlyRejects: 0, applyRejects: 0, comparedByField: {} };
   for (const field of fieldsUnderTest(entity)) {
     const key = `${entity}.${field}`;
     for (const { label, value } of PROBES) {
       const stored = read(field, value);
       const preview = previewOf(entity, base, field, value);
       if (stored === null) {
+        out.applyRejects += 1;
         // Apply would reject outright. The preview must reject too, unless the
         // pair is one of the enumerated known gaps.
         if (APPLY_ONLY_REJECTS.has(key)) continue;
@@ -248,6 +307,7 @@ function sweep(entity: InlineEntity, base: Record<string, unknown>, read: Stored
         continue;
       }
       out.compared += 1;
+      out.comparedByField[field] = (out.comparedByField[field] ?? 0) + 1;
       if (preview.shown !== stored) {
         out.mismatches.push(`${key} on ${label}: preview ${JSON.stringify(preview.shown)} ≠ stored ${JSON.stringify(stored)}`);
       }
@@ -271,21 +331,52 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
   // ★ Recomputed here rather than accumulated across the tests above, so the
   // file is order-independent under `npm run test:shuffle`.
   it("compares a meaningful number of value pairs overall", () => {
-    const totals = CASES.reduce(
-      (acc, c) => {
-        const s = sweep(c.entity, c.base, c.read);
-        return { compared: acc.compared + s.compared, rejected: acc.rejected + s.previewOnlyRejects };
-      },
-      { compared: 0, rejected: 0 },
+    const sweeps = CASES.map((c) => ({ entity: c.entity, s: sweep(c.entity, c.base, c.read) }));
+    const sum = (pick: (s: Sweep) => number): number => sweeps.reduce((n, x) => n + pick(x.s), 0);
+    const compared = sum((s) => s.compared);
+
+    // ★★★ THREE DERIVED FLOORS, NONE OF THEM A PINNED COUNTER. The previous pair
+    // was a hardcoded 120 plus `compared > rejected / 2`; at the MEASURED 192/175
+    // the second one held all the way down to 88 comparisons, so it could not
+    // have noticed the sweep losing half of them. Every floor below is computed
+    // from `diffFields` × `PROBES`, so adding a field, a probe or an entity moves
+    // the floor with it and needs no re-baseline — and none of them can be
+    // satisfied by a sweep that quietly stopped comparing.
+
+    // (1) PARTITION. Every enumerated pair lands in exactly one bucket, so a
+    // pair the sweep skipped — a `continue` added to the wrong branch, a probe
+    // swallowed by an early return — makes the arithmetic fail rather than
+    // silently shrinking the comparison count.
+    const enumerated = CASES.reduce((n, c) => n + fieldsUnderTest(c.entity).length * PROBES.length, 0);
+    expect(compared + sum((s) => s.previewOnlyRejects) + sum((s) => s.applyRejects)).toBe(enumerated);
+    expect(enumerated).toBeGreaterThan(0);
+
+    // (2) STRUCTURAL, per field and reported BY NAME. Every comparable field
+    // (see `comparableFields`) must get at least one probe all the way through
+    // to a comparison. This is the tight one: a guard that starts rejecting
+    // everything for ONE field fails here naming that field, where any aggregate
+    // floor would absorb it as a few percent.
+    const silent = sweeps.flatMap(({ entity, s }) =>
+      comparableFields(entity)
+        .filter((f) => (s.comparedByField[f] ?? 0) === 0)
+        .map((f) => `${entity}.${f}`),
     );
-    // ★★ BOTH HALVES MATTER. The first proves the differential ran at all; the
-    // second proves rejection did not swallow it — an enum/date/range guard
-    // that started rejecting everything would otherwise leave a green run over
-    // almost no comparisons. MEASURED 2026-09-05 by over-raising each floor and
-    // reading the failure: 192 compared, 175 preview-only rejections. Both
-    // floors sit well under that so routine descriptor growth needs no
-    // re-baseline, but a collapse to a handful still fails.
-    expect(totals.compared).toBeGreaterThan(120);
-    expect(totals.compared).toBeGreaterThan(totals.rejected / 2);
+    expect(silent).toEqual([]);
+
+    // (3) AGGREGATE, as a fraction of what the comparable fields could yield.
+    // MEASURED 2026-09-05: 226 comparisons over 37 comparable fields × 9 probes
+    // = 333 possible, i.e. 68%. Half is the floor, so a ~26% collapse fails
+    // while the ordinary churn of a probe that a new field happens to reject
+    // does not.
+    const possible = CASES.reduce((n, c) => n + comparableFields(c.entity).length * PROBES.length, 0);
+    // ★★★ THE DENOMINATOR NEEDS ITS OWN FLOOR, and this line was added after a
+    // mutant proved the first cut vacuous: narrowing `comparableFields` to
+    // return NOTHING left `silent` empty and `possible` zero, so both floors
+    // above passed with the whole differential switched off (measured: 7 passed,
+    // EXIT=0). Pinning the comparable pairs to a majority of the ENUMERATED ones
+    // — 333 of 450, i.e. 74%, on 2026-09-05 — means the denominator cannot be
+    // shrunk to make the numerator look good.
+    expect(possible).toBeGreaterThan(enumerated / 2);
+    expect(compared).toBeGreaterThan(possible / 2);
   });
 });

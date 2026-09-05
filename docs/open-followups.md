@@ -609,6 +609,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§382](#382-the-registers-own-index-rebuild-is-lossy-and-calls-itself-idempotent--open) | The register's own index rebuild is lossy, and calls itself idempotent | found 2026-09-05 while closing 377 and 378 | S | open |
 | [§383](#383-a-resources-extra-emails-preview-a-list-apply-dedupes-and-caps--open) | A resource's extra emails preview a list Apply dedupes and caps | found 2026-09-05 while closing 373 | S | open |
 | [§384](#384-a-mononym-update_resource-rename-previews-a-rejected-lastname-that-apply-accepts-and-wipes--open) | A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes | found 2026-09-05 in cold review of the §372 fix | S | open |
+| [§385](#385-srcsymbolscheck-prints-a-remedy-it-does-not-implement--open) | `src:symbols:check` prints a remedy it does not implement | found 2026-09-05 while acting on that report's own advice | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -13877,7 +13878,8 @@ one-line fix would have left the register half-correct while this entry read as 
 ★★ And the dispatcher could not take that same line. `sanitizeChangeItem` falls back to `"Proposed"`
 for anything off the enum, so a mistyped status silently DEMOTED a decided change; routing the MERGED
 status would then have cleared its `decisionDate` as well. It needed a gate on the model's RAW value
-— `applyModelChangeStatus` — mirroring the task dispatcher's `isTaskStatus` shape. `applyChangeStatus`
+— `applyModelChangeStatus` — mirroring `isTaskStatus`'s shape (which lived in the task dispatcher
+when this was written and moved to `task-status.ts` on 2026-09-05). `applyChangeStatus`
 also had to MOVE to `change-log.ts`, because the dispatcher cannot import a React module.
 
 ★★★ **"SOLE WRITER" WAS NEVER TRUE AND IS STILL NOT — what is exclusive is the TRANSITION, not the
@@ -18624,7 +18626,12 @@ and **(6) `applyFilters`** (~20). REJECTED, both: each is one tool's helper, so 
 relocates a function without buying a surface. `applyFilters` exists only to adapt `useFilters()`'s
 five setters, so extracting it moves that context dependency without removing it. **(7)
 `isTaskStatus` and its status set** (~8 lines). REJECTED: a module-scope type guard, ~1% of the gap,
-a pure relocation.
+a pure relocation. ★★ IT HAS SINCE MOVED ANYWAY, 2026-09-05, and the rejection above still stands as
+written: `isTaskStatus` now lives in `task-status.ts` beside `applyStatusChange` — not to shrink
+`use-chat-dispatcher.ts` (it does not, materially) but because the guard and the transition are ONE
+unit at every call site, and a test could not compose the real pair while the guard was private to a
+React hook module. It also retired a duplicate `STATUS_SET` sitting beside the identical one in
+`task-status.ts`. Read item (7) as "rejected as a SIZE remedy", which is what it was.
 
 **`use-storage-backend.ts` — A SEAM EXISTS, but every candidate is dearer than the dispatcher's, and
 the file has already been mined four times.** `useLoadTruncation`, `useFileProjectOps`,
@@ -28138,9 +28145,16 @@ booleans, a number), pushing each through `describeEntityCalls` and through that
 sanitizer, and asserting they agree. It enumerates over `diffFields`, so a new field or entity is
 covered the moment it is declared, and every exclusion is named IN THE FILE with a reason — one
 named field (`task.labels`, array-valued), one CLASS (the rich HTML fields, DOM-bound and owned by
-`descriptor-drift.test.ts`), and a deliberately-empty third bucket. Measured 192
-compared pairs / 175 preview-only rejections; mutation-proved 3/3 (a broken `stakeholder.notes` cap,
-the dropped `assigneeEmail` exception, and the original `isExternal` blanking each turn it red).
+`descriptor-drift.test.ts`), and a deliberately-empty third bucket. Mutation-proved 3/3 (a broken
+`stakeholder.notes` cap, the dropped `assigneeEmail` exception, and the original `isExternal`
+blanking each turn it red).
+
+★★★ **NO SWEEP TOTAL IS QUOTED HERE, for the same reason no entry count is** — and this line DID
+quote one ("192 compared pairs / 175 preview-only rejections"), which went stale inside this very
+branch: adding ONE probe (the empty string, which found the number path's divergence) moved it to
+226/185 over 450 enumerated pairs. A total is a function of `diffFields × PROBES`, so every field,
+entity or probe added anywhere moves it. The file's floors are DERIVED from that product rather than
+pinned, precisely so nothing needs re-baselining — read today's off the test if you need them.
 
 ★ It also found an adjacent defect in the other direction, now fixed: `buildTaskCleanPatch` THROWS
 `"assigneeEmail is invalid"` — failing the WHOLE patch, so every other field in the edit is lost —
@@ -28778,3 +28792,35 @@ ACTUALLY fail (both parts end up empty), not when either one, individually, woul
 disjunction `sanitizeResource` already encodes — the fix likely teaches the `resource` case a
 paired-fields check instead of two independent per-field ones, mirrored from `sanitizeResource`'s own
 `if (!firstName && !lastName)` guard the way §372 already mirrors `splitName`.
+
+## 385. `src:symbols:check` prints a remedy it does not implement — OPEN
+
+**Status:** OPEN 2026-09-05, never machine-verified beyond the two greps below.
+
+`scripts/check-src-symbols.mjs` ends every non-empty run by telling the reader to "say near it
+that the symbol is deliberately absent (the gate's `ABSENCE_MARKERS` suppress it)". They do not
+suppress it here. The report never imports `markedNear`, and `ABSENCE_MARKERS` occurs in that
+file exactly once — inside the advice string itself. Reproduce:
+`grep -n "markedNear" scripts/check-src-symbols.mjs` (no output) against
+`grep -n "markedNear" scripts/check-agents-symbols.mjs` (three hits — the BLOCKING gate does
+apply it, which is the control that makes the absence meaningful rather than a missing feature
+nobody built).
+
+Found by following the advice: a comment corrected on this branch names
+`normalizePreviewValue` in order to record that the helper was DELETED in `44c84bfc`, which is
+exactly the deliberate-absence case the sentence describes. Adding "DELETED" beside the mention
+changed nothing; the finding still reports.
+
+★★ THE COST IS A READER'S TIME, NOT A FALSE GREEN — this is a REPORT, exits 0 regardless, and gates
+nothing. But an instruction that does nothing is worse than none: it sends someone editing source
+comments to silence a finding that cannot be silenced, and the edit then looks like it failed for
+some other reason.
+
+★ Two defensible fixes, and they are NOT equivalent. (a) Import `markedNear` from
+`agents-symbols-lib.mjs` and apply it, matching the gate. That makes the printed advice true, and
+inherits the PROXIMITY-bleed hole that file's own docstring records. (b) Change the sentence to say
+markers do not apply here and the finding is triaged by a human every time. (b) is honest and
+cheaper; (a) is what a reader already expects. Not doing either is the one option this entry rules
+out. Anything that WEAKENS the report — suppression that hides a real invented name — is the
+failure mode to avoid, so (a) needs the same self-exclusion care recorded elsewhere in this
+register for checkers scanning their own corpus.

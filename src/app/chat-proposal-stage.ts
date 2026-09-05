@@ -160,9 +160,17 @@ export function mintProvisionalIds(
   return out;
 }
 
-/** The two document tools that address an EXISTING document by `input.id`,
- *  but have no descriptor, so `TOOL_ENTITY` misses them and `liveRowTitle`
- *  would fall back to the bare tool name.
+/** The document tools that address an EXISTING document by `input.id`, but have
+ *  no descriptor — so `TOOL_ENTITY` misses them and `liveRowTitle` would fall
+ *  back to the bare tool name.
+ *
+ *  ★★ THE `TITLED_` PREFIX IS THE POINT, and it was added after a review found
+ *   the collision. `chat-tools-documents.ts` has its own module-local
+ *   `DOCUMENT_TOOLS` — the FIVE tools `isDocumentTool` routes, `create_document`
+ *   and the two READ tools included. Same name, adjacent subject, different
+ *   membership, and the difference is precisely the exclusion the next paragraph
+ *   calls load-bearing. That one is the older and broader set and keeps its
+ *   name; this one says which document tools can be NAMED from the workspace.
  *
  *  ★★★ THIS IS THE ROW THAT MOST NEEDS A NAME. Document chat writes take NO
  *   undo capture (they recover via `documentVersions` instead), so the staged
@@ -179,7 +187,7 @@ export function mintProvisionalIds(
  *  ★ Deliberately NOT a `document` entry in `INLINE_DESCRIPTORS`: `blocks` is a
  *   typed union outside `diffFields`' scalar model, so a descriptor would diff
  *   the title alone while implying it diffs more. */
-const DOCUMENT_TOOLS: ReadonlySet<string> = new Set(["update_document", "delete_document"]);
+const TITLED_DOCUMENT_TOOLS: ReadonlySet<string> = new Set(["update_document", "delete_document"]);
 
 /**
  * The LIVE row's own title for a call that addresses one, or `null`.
@@ -202,7 +210,7 @@ const DOCUMENT_TOOLS: ReadonlySet<string> = new Set(["update_document", "delete_
  */
 export function liveRowTitle(call: ProposedCall, ws: Workspace): string | null {
   const entity = TOOL_ENTITY[call.name];
-  if (entity === undefined && DOCUMENT_TOOLS.has(call.name)) {
+  if (entity === undefined && TITLED_DOCUMENT_TOOLS.has(call.name)) {
     const docId = Number((call.input as { id?: unknown }).id);
     if (!Number.isFinite(docId)) return null;
     const found = ws.documents?.find((doc) => doc.id === docId);

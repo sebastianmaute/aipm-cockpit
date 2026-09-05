@@ -5,7 +5,7 @@
 // side effects.
 import { type Task } from "../types";
 import { type Workspace } from "../workspace";
-import { isValidEmail, sanitizeIsoDate } from "../sanitize";
+import { isValidEmail, sanitizeIsoDate, toNumber } from "../sanitize";
 import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
 import { splitName } from "../resource-foundation";
@@ -91,6 +91,46 @@ function str(v: unknown): string {
 function personName(o: Record<string, unknown>): string {
   const parts = `${str(o.firstName)} ${str(o.lastName)}`.trim();
   return parts || str(o.name);
+}
+
+/** The preview normalisation for a `numberFields` member.
+ *
+ *  ★★★ IT LIVES HERE RATHER THAN IN `fieldSanitizers`, AND THAT PLACEMENT IS
+ *  THE POINT. `entity-descriptor.test.ts` asserts "keeps numberFields out of
+ *  fieldSanitizers" because every entry in that map is a TEXT sanitizer, and a
+ *  text sanitizer blanks a non-string to `""` — which `Number("")` then turns
+ *  into `0`, slipping the int-range rejection below. Giving these fields a
+ *  descriptor entry would close this divergence by reopening that one.
+ *
+ *  ★★ IT MIRRORS `toNumber` BECAUSE THE APPLY PATH IS `toNumber`.
+ *  `sanitizeChangeItem` stores `toNumber(o.scheduleImpactDays)` when the result
+ *  is finite and >= 0, and `toNumber("")` is `0` — so a `""` write (the "clear
+ *  this field" value) STORES 0 while the old verbatim `str("")` preview showed
+ *  `""`. The preview's own contract is that the string it shows is what apply
+ *  would store, so it must coerce the same way. Pinned by the empty-string
+ *  probe in `plan.sanitizer-parity.test.ts`.
+ *
+ *  ★ A NON-NUMERIC value falls back to the VERBATIM string rather than to
+ *  `"NaN"`: the int-range guard rejects it either way (`Number("abc")` is NaN),
+ *  and the rejection `detail` is more use to a reader carrying what the model
+ *  actually sent. */
+function numberPreview(v: unknown): string {
+  const n = toNumber(v);
+  return Number.isFinite(n) ? String(n) : str(v);
+}
+
+/** The normalisation a field's preview uses — the descriptor's own entry where
+ *  it has one, the numeric coercion for a `numberFields` member, and otherwise
+ *  `undefined` (previewed verbatim via `str`).
+ *
+ *  ★ Exported so `plan.sanitizer-parity.test.ts` can DELEGATE to it rather than
+ *  restate the resolution order; a second copy of that order is exactly the
+ *  preview/apply drift this module exists to prevent. */
+export function previewNormalizerFor(
+  d: EntityDescriptor,
+  field: string,
+): ((v: unknown) => string) | undefined {
+  return d.fieldSanitizers[field] ?? (d.numberFields.has(field) ? numberPreview : undefined);
 }
 
 /** Entities whose display name is a PERSON rather than their `title` field.
@@ -179,7 +219,9 @@ export function describeEntityCalls(
         // would silently defeat the int-range rejection below for a number
         // field, because `Number("")` is `0`. An entry, where one exists, CALLS
         // the apply path's own sanitizer — never a copy of its cap, and never a
-        // copy of its clipping algorithm.
+        // copy of its clipping algorithm. ★ A `numberFields` member gets its
+        // coercion from `previewNormalizerFor` instead, for the reason that
+        // function's docstring gives: it must NOT be in `fieldSanitizers`.
         //
         // ★★ BOTH SIDES GO THROUGH IT. Comparing a normalised `after` against a
         // raw `before` reports a change whenever the two spellings differ but
@@ -188,7 +230,7 @@ export function describeEntityCalls(
         // render a diff. The sanitizers are idempotent on an already-stored
         // value, so normalising `before` costs nothing where the spellings
         // already agree.
-        const normalize = d.fieldSanitizers[f];
+        const normalize = previewNormalizerFor(d, f);
         const before = normalize ? normalize(item[f]) : str(item[f]);
         const after = normalize ? normalize(input[f]) : str(input[f]);
         if (before === after) continue;

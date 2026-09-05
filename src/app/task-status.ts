@@ -4,6 +4,17 @@ import { isTaskDelivered } from "./task-closed";
 
 const STATUS_SET = new Set<string>(TASK_STATUSES);
 
+/** True when `v` is one of the known task statuses.
+ *
+ *  ★ It lives HERE, beside `applyStatusChange`, because the two are one unit at
+ *  every call site: the guard decides whether a model-supplied status reaches
+ *  the writer at all. `use-chat-dispatcher.ts` held a private copy (with a
+ *  second `STATUS_SET` beside this one) until `plan.sanitizer-parity.test.ts`
+ *  needed the REAL predicate rather than a third copy of it. */
+export function isTaskStatus(v: unknown): v is TaskStatus {
+  return typeof v === "string" && STATUS_SET.has(v);
+}
+
 /** Done and Cancelled are terminal. Cancelled is "finished" for hiding and for
  *  active-surface exclusion, but it is NOT "completed" (no completedDate). */
 export function isTaskFinished(task: Pick<Task, "status">): boolean {

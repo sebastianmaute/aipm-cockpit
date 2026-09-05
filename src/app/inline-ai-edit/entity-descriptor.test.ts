@@ -55,7 +55,9 @@ describe("INLINE_DESCRIPTORS", () => {
   //  two members are declared independently a few lines apart — which is why it
   //  is pinned here rather than left to be re-derived.
   //  ★★★ THIS COMMENT USED TO STATE A MECHANISM THAT NO LONGER EXISTS: that
-  //  every non-`numberFields` field ran through `normalizePreviewValue`, which
+  //  every non-`numberFields` field ran through `normalizePreviewValue` — a
+  //  helper DELETED in `44c84bfc`, which exists nowhere in the tree today —
+  //  which
   //  "mirrors `sanitizeText` and therefore BLANKS a non-string to `""`", so a
   //  numeric `probability: 9` previewed as `""` and `Number("")` slipped the
   //  guard. That was true of §373's FIRST cut and was reverted in the same

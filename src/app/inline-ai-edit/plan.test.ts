@@ -630,19 +630,46 @@ describe("resource rename sent as the name alias", () => {
   //  so the pre-§372 loop diffed it here anyway; the alias projection never even
   //  fires, because the explicit part blocks it. What it pins is the PREDICATE,
   //  not the projection: it is the only test in the suite that fails when the
-  //  two `typeof … !== "string"` part-tests are dropped. Measured, not reasoned —
-  //  replacing both conditions with `true` makes exactly this test red with
+  //  two part-tests are dropped ALTOGETHER. Measured, not reasoned — replacing
+  //  both conditions with `true` makes exactly this test red with
   //  `expected [['firstName','Ada'], …] to deeply equal [['firstName','Anita']]`,
   //  i.e. the split silently overwriting the value the model asked for.
-  //  ★★ Those part-tests are `typeof … !== "string"`, never `=== undefined`: a
-  //  JSON `null` is neither, and `=== undefined` there once dropped a rename AND
-  //  wiped the first name.
+  //  ★★★ IT PINS THE PREDICATE'S PRESENCE, NOT ITS SPELLING, and an earlier
+  //  revision of this comment claimed otherwise. `true && true` is the strictly
+  //  WEAKER mutant; the one that matters is narrowing `typeof … !== "string"` to
+  //  `… === undefined`, which this test CANNOT see (an explicit string part
+  //  blocks the split under either spelling). That narrower mutant is pinned by
+  //  "splits a rename whose part is an explicit JSON null" below — the two tests
+  //  are a pair, and deleting either leaves a live mutant.
   it("does not override explicit parts, matching the dispatcher", () => {
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "Ada Lovelace", firstName: "Anita" } }],
       { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
     );
     expect(plan.updates.map((u) => [u.field, u.after])).toEqual([["firstName", "Anita"]]);
+  });
+
+  // ★★★ THE `typeof` SPELLING IS WHAT THIS PINS, and nothing else in the suite
+  //  does. `updateResource` in `use-chat-dispatcher.ts` tests the parts with
+  //  `typeof … !== "string"` precisely because a JSON `null` is neither a string
+  //  NOR `undefined`: with `=== undefined` the split is skipped and `firstName:
+  //  null` is then spread over the stored row, which `sanitizeResource` reduces
+  //  to `""` — the rename dropped and the first name WIPED, the surviving last
+  //  name keeping the record valid enough to save. That is a real divergence,
+  //  not a stylistic one: under the narrowed predicate the PREVIEW shows a
+  //  `firstName=empty` rejection (the `requiredNonEmpty` guard fires on the
+  //  blanked part) while the DISPATCHER performs the rename, so the card
+  //  contradicts the write.
+  it("splits a rename whose part is an explicit JSON null", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "Ada Lovelace", firstName: null } }],
+      { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
+    );
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["firstName", "Grace", "Ada"],
+      ["lastName", "Hopper", "Lovelace"],
+    ]);
+    expect(plan.rejected).toEqual([]);
   });
 
   it("ignores a blank name, matching the dispatcher", () => {
