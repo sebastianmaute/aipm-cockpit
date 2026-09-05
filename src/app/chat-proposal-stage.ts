@@ -160,23 +160,26 @@ export function mintProvisionalIds(
   return out;
 }
 
-/** The three document tools address a document by `input.id` but have no
- *  descriptor, so `TOOL_ENTITY` misses them and `liveRowTitle` would fall back
- *  to the bare tool name.
+/** The two document tools that address an EXISTING document by `input.id`,
+ *  but have no descriptor, so `TOOL_ENTITY` misses them and `liveRowTitle`
+ *  would fall back to the bare tool name.
  *
  *  ★★★ THIS IS THE ROW THAT MOST NEEDS A NAME. Document chat writes take NO
  *   undo capture (they recover via `documentVersions` instead), so the staged
  *   card is the only thing between the model and an unreviewed multi-document
  *   rewrite — and it was the row the card could say least about.
  *
+ *  ★★★ `create_document` is deliberately EXCLUDED, and that exclusion is
+ *   load-bearing, not merely accurate: a create call has no id of its own, so
+ *   a model-supplied stray `id` on it would resolve against the live list and
+ *   label a CREATE row with a DIFFERENT, pre-existing document's title.
+ *   `TOOL_ENTITY` misses `create_document` too, so its title still falls
+ *   through to `null` here and the caller's own create-title fallback wins.
+ *
  *  ★ Deliberately NOT a `document` entry in `INLINE_DESCRIPTORS`: `blocks` is a
  *   typed union outside `diffFields`' scalar model, so a descriptor would diff
  *   the title alone while implying it diffs more. */
-const DOCUMENT_TOOLS: ReadonlySet<string> = new Set([
-  "create_document",
-  "update_document",
-  "delete_document",
-]);
+const DOCUMENT_TOOLS: ReadonlySet<string> = new Set(["update_document", "delete_document"]);
 
 /**
  * The LIVE row's own title for a call that addresses one, or `null`.

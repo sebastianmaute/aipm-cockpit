@@ -229,6 +229,15 @@ describe("liveRowTitle — document rows", () => {
     } as unknown as Workspace;
     expect(liveRowTitle({ name: "update_document", input: { id: 8 } }, blank)).toBeNull();
   });
+
+  it("does not borrow another document's title for a create_document call carrying a stray id", () => {
+    // create_document has no id of its own — a model-supplied one must never
+    // resolve against the live list, or a CREATE row reads as an edit to an
+    // unrelated existing document.
+    expect(
+      liveRowTitle({ name: "create_document", input: { id: 7, title: "New doc" } }, documentWs),
+    ).toBeNull();
+  });
 });
 
 describe("proposalTitles", () => {
