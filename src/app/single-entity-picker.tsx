@@ -11,6 +11,25 @@
 // shared component would put TaskLinkPicker and RaidCausedByField at risk for a
 // third caller's benefit.
 //
+// Why not `combobox-shared` either (`useCombobox` / `ComboboxChevron` /
+// `ComboboxOptions`, behind ComboInput, GlobalSearchBox and LabelsInput): all
+// three exports mismatch this control, each in a way that would have to be
+// undone rather than configured. `useCombobox` owns `open` as its OWN state,
+// with an outside-click effect to close it; `open` here is DERIVED
+// (`hasQuery && options.length > 0 && !dismissed`), so the caller's filtering
+// alone can close the list and there is no second source of truth to keep in
+// step. Its `moveHighlight` moves the highlight through a FUNCTION updater and
+// schedules no `scrollIntoView` — this `max-h-60` list needs one, and it cannot
+// be scheduled from inside a pure updater (see `move` below). `ComboboxOptions`
+// renders `filtered: string[]` plus an "add new" row, not `{value, code, label}`
+// triples with no add path. And `ComboboxChevron` takes a `lang` and calls
+// `t()`, which would break the i18n-free contract stated below.
+// Recorded rather than merely decided: `src/app` already carries several
+// `role="combobox"` controls over more than one substrate (enumerate with
+// `grep -rln 'role="combobox"' src/app --include=*.tsx`), and "use a shared
+// primitive or ASK" means the next author should not have to re-derive whether
+// the shared module was even considered.
+//
 // What IS shared is the pure engine: callers filter with `filterPickerOptions`
 // (picker-filter.ts), which already layers `wildcardMatcher` over an `#id`
 // exact match. Nothing is reimplemented here.
@@ -38,7 +57,22 @@ interface SingleEntityPickerProps {
   /** Already-translated label for the current value. Omit for none. */
   selectedLabel?: string;
   /** Candidates — ALREADY filtered by the caller. Rendered only while the
-   *  query is non-blank, mirroring EntityLinkPicker. */
+   *  query is non-blank, mirroring EntityLinkPicker.
+   *
+   *  ★★ CONTRACT, relied on and NOT enforced: `options` may only change as a
+   *  RESULT of `query` changing. The highlight is reconciled on the query and
+   *  clamped against the list LENGTH, so a caller that swaps `options` while
+   *  `query` stands still can leave an index armed that is still in range but
+   *  now names a DIFFERENT entity — Enter would then commit something the user
+   *  never picked. EntityLinkPicker rests on the same contract and its own
+   *  comment claims every caller honours it; measured 2026-09-05, three of its
+   *  four call sites clear the query on add and `RaidCausedByField`
+   *  (`raid-edit-fields.tsx`) does NOT — `availableCauses` excludes
+   *  `draft.causedByRaidIds`, so an add SHRINKS its options under an unchanged
+   *  query. Reproduce the caller set with `grep -rn "<EntityLinkPicker" src/app`.
+   *  So this is a contract that has already been broken once by exactly the
+   *  shape described above, and this component has no callers at all yet —
+   *  which is when an unwritten contract is freest to be violated again. */
   options: readonly SingleEntityOption[];
   query: string;
   onQueryChange: (value: string) => void;
@@ -92,12 +126,18 @@ export function SingleEntityPicker({
   const open = hasQuery && options.length > 0 && !dismissed;
   // Clamped on READ: the caller's filtering can shrink `options` under a stored
   // index. This drops an index now out of RANGE; the reconcile above covers an
-  // index still in range but naming a different entity.
+  // index still in range but naming a different entity — and only because every
+  // caller re-filters in RESPONSE to the query changing. A caller that swapped
+  // `options` WITHOUT changing `query` would defeat both guards; see the
+  // CONTRACT on the `options` prop, which this rests on rather than enforces.
   const active = highlight >= 0 && highlight < options.length ? highlight : -1;
 
   function move(delta: 1 | -1) {
-    // ★ `next` is computed OUTSIDE the updater: a setState updater must be PURE,
-    // and StrictMode double-invokes it, which would schedule the rAF twice.
+    // ★ `next` is computed BEFORE the setState, rather than through the updater
+    // form `combobox-shared`'s `moveHighlight` uses: a setState updater must be
+    // PURE, and StrictMode double-invokes it, so scheduling the rAF from inside
+    // one would schedule it twice. `setHighlight` below therefore takes a plain
+    // value — there is no updater in this file.
     const cur = active;
     const next =
       delta === 1
@@ -147,7 +187,13 @@ export function SingleEntityPicker({
       // node. It reads as though it works only because RTL renders into a div
       // under body, a topology the real app never has.
       e.preventDefault();
-      // ★ Defence-in-depth for a host listening on an ANCESTOR or on `window`.
+      // ★ Kept as defence-in-depth for a host listening on an ANCESTOR or on
+      // `window` rather than on `document` — propagation to those genuinely is
+      // cut by this. The one host that ever needed it, the change edit modal's
+      // window-level Escape listener, has SINCE BEEN DELETED, so today
+      // `preventDefault` above is the real mechanism and this line is a backstop
+      // for a hypothetical. "No host needs this right now" is not the same as
+      // "no host can", which is why it stays — but do not read it as live.
       e.stopPropagation();
       setDismissed(true);
       setHighlight(-1);
@@ -217,8 +263,15 @@ export function SingleEntityPicker({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => onSelect(entry.value)}
                 // ★★ The active row keeps `text-foreground` and rings on
-                // `--foreground`, never an accent: any brand accent is tuned for
-                // one mode and drops under 3:1 (WCAG 1.4.11) in the other.
+                // `--foreground`, never an accent. The measurements behind that
+                // are the sibling's, on NAMED tokens: `ring-ui-green` is
+                // 6.0-7.9:1 on the dark row fills but only 1.7-2.1:1 on the
+                // light ones, under the 3:1 WCAG 1.4.11 asks of a non-text state
+                // indicator, while `--foreground` clears 3:1 in every shipped
+                // scheme because it is the text colour FOR that surface. The
+                // full block sits on EntityLinkPicker's own option row. Nothing
+                // here measured the rest of the palette, so read this as those
+                // tokens rather than as a claim about every brand accent.
                 className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-sm text-foreground ${
                   i === active
                     ? "bg-surface-muted font-medium ring-1 ring-inset ring-foreground"
