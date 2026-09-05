@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
 import {
   applyProposal,
+  failureKindOf,
   NEW_ROW_TOKEN_UNAVAILABLE_ERROR,
   PENDING_MINT_ERROR,
   TOKEN_REQUIRED_TOOLS,
@@ -764,5 +765,32 @@ describe("TOKEN_ROW_SOURCE", () => {
       extra: [],
       mapped: Object.keys(TOKEN_ROW_SOURCE).length,
     });
+  });
+});
+
+// §381 — the card must not call every not-ok row a concurrency conflict.
+// `failureKindOf` classifies the four outcomes `applyProposal` can report so a
+// consumer picks the right string without matching prose.
+describe("failureKindOf", () => {
+  test("calls a moved target a conflict", () => {
+    expect(failureKindOf({ index: 0, ok: false, stale: true, error: "x changed" })).toBe(
+      "conflict",
+    );
+  });
+
+  test("calls an uncreated dependency a dependency failure, not a conflict", () => {
+    expect(failureKindOf({ index: 0, ok: false, error: PENDING_MINT_ERROR })).toBe("dependency");
+  });
+
+  test("calls an unreadable new row unreadable, not a conflict", () => {
+    expect(failureKindOf({ index: 0, ok: false, error: NEW_ROW_TOKEN_UNAVAILABLE_ERROR })).toBe(
+      "unreadable",
+    );
+  });
+
+  test("calls any other dispatcher throw a plain error, not a conflict", () => {
+    expect(
+      failureKindOf({ index: 0, ok: false, stale: false, error: "assigneeEmail is invalid" }),
+    ).toBe("error");
   });
 });

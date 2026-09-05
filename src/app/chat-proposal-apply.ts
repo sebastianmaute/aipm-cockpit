@@ -94,6 +94,25 @@ export const NEW_ROW_TOKEN_UNAVAILABLE_ERROR =
   "during an apply cannot yet carry the concurrency token this tool requires — " +
   "it was not applied";
 
+/** Which of the four not-ok outcomes a row hit, so the card can say something
+ *  true about it.
+ *
+ *  ★★★ KEYED OFF THE EXPORTED CONSTANTS, NEVER BY MATCHING PROSE. Both refusal
+ *   strings are exported precisely so a consumer can recognise the outcome
+ *   without string-sniffing a message that may be reworded.
+ *
+ *  ★★ `stale` IS CHECKED FIRST because it is the only outcome the original card
+ *   string was ever right about. Everything else is a row that did not land for
+ *   a reason that has nothing to do with concurrency. */
+export type ProposalFailureKind = "conflict" | "dependency" | "unreadable" | "error";
+
+export function failureKindOf(row: AppliedRow): ProposalFailureKind {
+  if (row.stale === true) return "conflict";
+  if (row.error === PENDING_MINT_ERROR) return "dependency";
+  if (row.error === NEW_ROW_TOKEN_UNAVAILABLE_ERROR) return "unreadable";
+  return "error";
+}
+
 /** Tools whose SCHEMA marks `expectedToken` as REQUIRED, derived from the live
  *  `TOOL_DEFS` rather than typed out.
  *

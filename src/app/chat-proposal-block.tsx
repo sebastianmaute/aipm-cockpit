@@ -39,6 +39,7 @@ import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import type { ProposedCall } from "./chat-proposal";
+import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type EditPlan } from "./inline-ai-edit/plan";
 
 /** Rows shown before the disclosure collapses the rest. */
@@ -63,8 +64,14 @@ export interface ProposalCardRow {
   readonly title: string;
   /** A row this one depends on was deselected. Not selectable. */
   readonly cascaded?: boolean;
-  /** Apply reached this row and it did not land (its target had moved). */
+  /** Apply reached this row and it did not land. */
   readonly failed?: boolean;
+  /** WHY it did not land. ★★ `failed` still covers EVERY not-ok row —
+   *  under-reporting is the worse direction and a row that did not land must
+   *  never read as applied — so this narrows the MESSAGE, never the set.
+   *  Absent is treated as "conflict", preserving the pre-existing string for
+   *  any caller that has not been updated. */
+  readonly failedKind?: ProposalFailureKind;
 }
 
 export interface ChatProposalBlockProps {
@@ -162,7 +169,18 @@ function ProposalRow({
         <p className="mt-1 text-xs text-muted-foreground">{t(lang, "chatProposalCascaded")}</p>
       )}
       {row.failed && (
-        <p className="mt-1 text-xs text-ui-pink-strong">{t(lang, "chatProposalFailed")}</p>
+        <p className="mt-1 text-xs text-ui-pink-strong">
+          {t(
+            lang,
+            row.failedKind === "dependency"
+              ? "chatProposalFailedDependency"
+              : row.failedKind === "unreadable"
+                ? "chatProposalFailedUnreadable"
+                : row.failedKind === "error"
+                  ? "chatProposalFailedError"
+                  : "chatProposalFailed",
+          )}
+        </p>
       )}
     </li>
   );

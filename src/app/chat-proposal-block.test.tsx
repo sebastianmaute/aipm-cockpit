@@ -128,6 +128,37 @@ describe("ChatProposalBlock", () => {
     expect(screen.getByText("Not applied — changed since you reviewed")).toBeTruthy();
   });
 
+  // §381 — the card used to render the identical "changed since you reviewed"
+  // string for every not-ok row. Each `failedKind` now gets its own truthful
+  // string; an absent kind still falls back to the pre-existing conflict copy.
+  it.each([
+    ["conflict", "changed since you reviewed"],
+    ["dependency", "a row it depends on was not created"],
+    ["unreadable", "could not be read back"],
+    ["error", "Not applied"],
+  ] as const)("labels a %s failure with its own string", (kind, expected) => {
+    render(
+      <ChatProposalBlock
+        lang="en-US"
+        rows={[
+          {
+            index: 0,
+            call: { name: "update_task", input: { id: 1 } },
+            plan: emptyPlan(),
+            title: "A task",
+            failed: true,
+            failedKind: kind,
+          },
+        ]}
+        selected={new Set()}
+        onToggleRow={() => {}}
+        onApply={() => {}}
+        onDiscard={() => {}}
+      />,
+    );
+    expect(screen.getByText(new RegExp(expected))).toBeInTheDocument();
+  });
+
   it("reports the selected count on Apply and calls the handlers it was given", async () => {
     const user = userEvent.setup();
     const { onApply, onDiscard } = renderCard();

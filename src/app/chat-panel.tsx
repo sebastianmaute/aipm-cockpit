@@ -61,7 +61,7 @@ import {
   proposalRowTitle,
   type ProposalCardRow,
 } from "./chat-proposal-block";
-import { applyProposal } from "./chat-proposal-apply";
+import { applyProposal, failureKindOf, type ProposalFailureKind } from "./chat-proposal-apply";
 import {
   isCascadedRow,
   mintProvisionalIds,
@@ -106,8 +106,10 @@ interface PendingProposal {
   readonly titles: readonly string[];
   readonly selected: ReadonlySet<number>;
   readonly applying: boolean;
-  /** Row indices `applyProposal` reported as not applied. */
-  readonly failed: ReadonlySet<number>;
+  /** Row indices `applyProposal` reported as not applied → WHY.
+   *  ★★ A Map, not a Set: the apply path distinguishes four outcomes and
+   *  collapsing them here is what made the card call every one a conflict. */
+  readonly failed: ReadonlyMap<number, ProposalFailureKind>;
 }
 
 /** `runBatched`'s stand-in when no batch was threaded: run the plan, collect
@@ -419,15 +421,13 @@ function ChatPanelInner({
       // last resort `proposalRowTitle` itself falls back to.
       title: p.titles[i] ?? row.call.name,
       cascaded: isCascadedRow(p.planRows[i], p.selected),
-      // ★★ SET FOR EVERY NOT-OK ROW, NOT ONLY THE STALE ONES, and the card's
-      //   ONE flag then wears a string that names the stale case specifically
-      //   ("changed since you reviewed"). KNOWN IMPRECISION, chosen
-      //   deliberately: `AppliedRow` distinguishes `stale` from a plain failure
-      //   and from `PENDING_MINT_ERROR`, but `ProposalCardRow` carries a single
-      //   `failed`. Under-reporting is the worse direction — a row that did not
-      //   land must never read as applied — so every failure is flagged and the
-      //   wording is owed a second card string, not a narrower condition here.
+      // ★★ SET FOR EVERY NOT-OK ROW, NOT ONLY THE STALE ONES — under-reporting
+      //   is the worse direction and a row that did not land must never read as
+      //   applied. `failedKind` (§381) then picks the truthful string for the
+      //   kind `p.failed` recorded, rather than the card wearing one string for
+      //   all four outcomes.
       failed: p.failed.has(i),
+      failedKind: p.failed.get(i),
     }));
   }, [pendingProposal]);
 
@@ -606,7 +606,7 @@ function ChatPanelInner({
               // plan that arrives all-unchecked reads as "nothing to do here".
               selected: new Set(described.map((_, i) => i)),
               applying: false,
-              failed: new Set<number>(),
+              failed: new Map<number, ProposalFailureKind>(),
             });
             setDisplay((prev) => [
               ...prev,
@@ -826,9 +826,13 @@ function ChatPanelInner({
         selected: p.selected,
         batch: { runBatched: runBatched ?? RUN_UNBATCHED },
       });
-      const failed = new Set(result.rows.filter((r) => !r.ok).map((r) => r.index));
+      const failed = new Map(
+        result.rows.filter((r) => !r.ok).map((r) => [r.index, failureKindOf(r)] as const),
+      );
       setPendingProposal((prev) =>
-        prev?.id === p.id ? { ...prev, applying: false, failed, selected: failed } : prev,
+        prev?.id === p.id
+          ? { ...prev, applying: false, failed, selected: new Set(failed.keys()) }
+          : prev,
       );
     } catch (err) {
       // `applyProposal` catches per row, so reaching here means the BATCH
