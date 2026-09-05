@@ -1544,9 +1544,21 @@ git fetch origin
 git show origin/main:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1
 ```
 
-★★ A concurrent branch holds 386-388. Take the max on `origin/main` at THIS
-moment and mint above it — never a number quoted in a plan or a message,
-including this one.
+★★ RUN THE COMMAND. Take the max on `origin/main` at THIS moment and mint above
+it — never a number quoted in a plan or a message, including this one and
+including the paragraph directly below.
+
+★ Context as of 2026-09-05, for orientation ONLY: the concurrent branch merged
+as 0.285.0 "Barnhill" (`origin/main` = `2eeb68f8`), renumbered its entries to
+386/387/388, and 389 was taken by an unrelated app-wide `ModalHeader`
+close-name collision. So the expected mint is **390** — expected, not assumed.
+An earlier revision of this same paragraph said "386-388" and was stale within
+hours; that is the whole reason the command outranks it.
+
+★★ THIS BRANCH IS NOW BEHIND `origin/main`. Rebase before opening an MR, and
+expect `docs/open-followups.md` to conflict — resolve it UNION PER ROW and
+verify by COUNT afterwards, never by eye. Taking either side wholesale silently
+drops the other branch's entries while every gate stays green.
 
 - [ ] **Step 2: Close §384 and re-open §383**
 
