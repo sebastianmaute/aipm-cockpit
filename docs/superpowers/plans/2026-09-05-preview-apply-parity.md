@@ -305,14 +305,25 @@ linkFields: Record<string, LinkField>;
 
 Above the interface:
 
+★★★ AS BUILT (commit `1759901d`) — `titleOf` takes the WORKSPACE too, and the
+plan's original single-argument version was a defect, not a simplification.
+`Role` (`types.ts`) has NO `name` field: its label is discipline + grade,
+resolved against two OTHER workspace arrays via `roleLabel`. A single-argument
+accessor returns `""` for every role, and a blank title on this card is
+indistinguishable from the link having been dropped — the exact symptom this
+slice exists to prevent. The same widening already exists at `version-diff.ts`
+for the identical reason, and it costs consumers nothing: a renderer must
+already hold `ws` to resolve `ws[wsKey]`.
+
 ```ts
 export interface LinkField {
   /** The workspace array holding the referenced rows. */
   readonly wsKey: keyof Workspace;
   /** `"list"` for an id array, `"id"` for a single FK (`resource.roleId`). */
   readonly kind: "list" | "id";
-  /** The referenced row's display name. */
-  readonly titleOf: (row: Record<string, unknown>) => string;
+  /** The referenced row's display name. Takes `ws` because some labels are
+   *  derived from OTHER workspace arrays (`roleLabel`), not stored on the row. */
+  readonly titleOf: (row: Record<string, unknown>, ws: Workspace) => string;
   /** The APPLY path's own id rule for this field. */
   readonly sanitize: (v: unknown) => number[];
 }
@@ -350,9 +361,20 @@ Add the entries — `raid`:
 
 ```ts
     linkFields: {
-      roleId: { wsKey: "roles", kind: "id", titleOf: (r) => str(r.name), sanitize: (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? [n] : []; } },
+      roleId: { wsKey: "roles", kind: "id", titleOf: (r, ws) => roleLabel(r, ws.disciplines, ws.grades), sanitize: (v) => { const n = toNumber(v); return Number.isFinite(n) && n > 0 ? [n] : []; } },
     },
 ```
+
+★★ TWO CORRECTIONS FROM THE AS-BUILT COMMIT, both found by grepping rather than
+by trusting the transcription above:
+
+- `titleOf` is `roleLabel`, not `str(r.name)` — see the `LinkField` note above.
+- `sanitize` uses **`toNumber`**, the writer's own coercion (`sanitizeResource`
+  uses it), not `Number`. They disagree on exactly the shape a model is most
+  likely to emit: `Number([5])` is `5`, so the preview would show a resolved
+  link, while `toNumber([5])` is `NaN` and the writer stores a null FK. Writing
+  `Number` here restates the rule instead of calling it, which is the one thing
+  this member's own docstring forbids.
 
 `task` and `stakeholder` get `linkFields: {}`.
 
@@ -1567,9 +1589,23 @@ GitHub anchor slugs DROP colons rather than hyphenating them.
    record of WHY the branch is not uniformly safe, so the next reader does not
    conclude from two examples that a hardcoded empty plan is always right.
 
-★★ Numbers 5 and 6 came out of the Task-1 cold review and an investigation it
-triggered, not out of the original spec. Both are measured; cite the measurement
-in the entry, not this plan.
+7. **`str` is now defined twice** — privately in `inline-ai-edit/plan.ts` and
+   again in `entity-descriptor.ts`, because `plan.ts` imports the descriptor so
+   importing it back would close a cycle. Copied verbatim rather than
+   approximated, but two functions with one name and no shared source is a
+   drift risk a reviewer will flag. The fix is a shared leaf module; it was out
+   of scope for the task that hit it.
+
+★★ Numbers 5, 6 and 7 came out of the Task-1 cold review and the investigations
+it triggered, not out of the original spec. All are measured; cite the
+measurement in the entry, not this plan.
+
+★★★ AND THE GENERAL LESSON, which applies to every task still unstarted: the
+plan's transcribed-from-memory code blocks were **3-for-4 wrong** on Task 3's
+entry details, and one of those would have shipped a blank title for every role
+— the exact "reads as data loss" symptom this slice exists to remove. Treat
+every remaining code block here as UNVERIFIED until grepped against the real
+code. Where they disagree, the code wins and the disagreement is a finding.
 
 - [ ] **Step 4: Record the invariant**
 
