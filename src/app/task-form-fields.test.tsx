@@ -181,6 +181,20 @@ describe("TaskFormFields", () => {
     ]);
   });
 
+  it("starts the group field on a new grid row, so the cell beside budget bucket stays empty", () => {
+    // ★★ This pins the CLASS, not the geometry -- jsdom has no layout, which is
+    //   exactly how the defect it guards reached a real browser with the whole
+    //   suite green. MEASURED in Chromium: without `sm:col-start-1`, grid
+    //   auto-flow packed Group into the cell beside Budget bucket and stranded
+    //   Labels alone on the row below. DOM ORDER was correct either way, so the
+    //   ordering test above could not see it.
+    render(<Harness />, { wrapper: TestProviders });
+    // The accessible name is "Groupi" -- the hint's InfoTooltip glyph joins the
+    // wrapping label's text (open-followups 383), hence the prefix match.
+    const group = screen.getByRole("combobox", { name: /^Group/ });
+    expect(group.closest("label")?.className).toContain("sm:col-start-1");
+  });
+
   it("places the Due date field within the Scheduling section", () => {
     render(<Harness />, { wrapper: TestProviders });
     const section = screen.getByText("2. Scheduling").closest("section");

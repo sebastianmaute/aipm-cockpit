@@ -635,7 +635,19 @@ export function TaskFormFields({
         </Field>
         )}
 
-        <Field label={t(lang, "group")} hint={t(lang, "taskHintGroup")}>
+        {/* ★★ `sm:col-start-1` FORCES a new row, and it is what leaves the cell
+            beside Budget bucket empty. Grid auto-flow packs the next item into
+            that cell otherwise, which put Group next to Budget bucket and
+            stranded Labels alone on the row below — measured in Chromium, since
+            jsdom has no layout and the DOM ORDER was correct either way.
+            ★ Correct whether or not Budget bucket renders: with it, the rows are
+            [estimate|tracking] [bucket|—] [group|labels]; without it, Group
+            already starts column 1 and the class is inert. */}
+        <Field
+          label={t(lang, "group")}
+          hint={t(lang, "taskHintGroup")}
+          className="sm:col-start-1"
+        >
           <ComboInput
             lang={lang}
             value={form.group}
