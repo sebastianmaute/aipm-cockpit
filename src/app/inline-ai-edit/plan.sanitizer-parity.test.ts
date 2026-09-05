@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { describeEntityCalls, previewNormalizerFor, RICH_FIELDS, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import {
+  dropUnacceptedChangeFields,
   dropUnacceptedRaidFields,
   sanitizeChangeItem,
   sanitizeMilestone,
@@ -10,8 +11,9 @@ import {
   sanitizeStakeholder,
 } from "../sanitize";
 import { buildTaskCleanPatch } from "../chat-task-patch";
+import { applyModelChangeStatus } from "../change-log";
 import { applyStatusChange, isTaskStatus } from "../task-status";
-import { type RaidItem, type Task } from "../types";
+import { type ChangeStatus, type RaidItem, type Task } from "../types";
 import type { Workspace } from "../workspace";
 
 // ★★★ THE DIFFERENTIAL GATE ON `fieldSanitizers`. For EVERY entity, EVERY
@@ -79,20 +81,25 @@ import type { Workspace } from "../workspace";
 //      HARDCODED FALLBACK, so the silent-reset half of the rejects direction is
 //      unexercised. `task.status`/`priority`, `raid.category`/`status`,
 //      `change.type`/`status`, `stakeholder.category`/`influence`/`interest` all
-//      read back the value they already held when fed a refused value; only
-//      `change.impact` — stored as an OPTIONAL key, no fallback — moves, which
-//      is why exactly one enum sits in the exception list. A row whose enum is
+//      read back the value they already held when fed a refused value, and
+//      `change.impact` — an OPTIONAL key with no fallback — used to be the one
+//      that moved and the one enum in the exception list. A row whose enum is
 //      NOT the default would be silently RESET with the card showing nothing.
 //      Do NOT "fix" this by editing a fixture: that manufactures reds outside
 //      the direction under test. Reproduce by printing `base[f]` beside
 //      `read(f, 42)` for each `enumFields` key.
-//      ★★ THE RAID PAIR IS THE ONE EXCEPTION AND IS NO LONGER A BLIND SPOT:
-//      `dropUnacceptedRaidFields` drops a refused `category`/`status` at the
-//      MERGE SITE, so the stored pair survives whatever the fixture happens to
-//      hold — including the coupling, where an unrecognised category used to
-//      fall back to "R" and drag a non-risk `status` to "Open" with it.
-//      `sanitize-raid-patch.test.ts` pins that on a NON-default row, which is
-//      the fixture this file must not grow.
+//      ★★ THE RAID AND CHANGE ENUMS ARE NO LONGER A BLIND SPOT, though this
+//      sweep still cannot SEE that: `dropUnacceptedRaidFields` drops a refused
+//      `category`/`status` and `dropUnacceptedChangeFields` a refused
+//      `type`/`impact` at the MERGE SITE, so the stored value survives whatever
+//      the fixture happens to hold — including raid's coupling, where an
+//      unrecognised category used to fall back to "R" and drag a non-risk
+//      `status` to "Open" with it. `sanitize-raid-patch.test.ts` and
+//      `sanitize-change-patch.test.ts` pin those on NON-default rows, which are
+//      the fixtures this file must not grow.
+//      ★ `change.status` is the one guarded by neither table: `updateChange`
+//      hands it to `applyModelChangeStatus` after the sanitizer, which is why
+//      `changeReader` composes that too.
 //  (5) `TASK_BASE` carries no `lastUpdateDate`, so `update_task({lastUpdateDate:
 //      ""})` — a clear the preview shows and the writer may not make — compares
 //      "" against "" and says nothing. Same rule as (4): do not add one here.
@@ -246,6 +253,41 @@ const raidReader: StoredReader = (field, value) => {
   return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
 };
 
+/** The CHANGE apply path is not a bare full-record sanitizer either, and it is
+ *  the one with TWO production steps around the sanitizer rather than one.
+ *  `updateChange` (`use-register-tools.ts`) runs the model's patch through
+ *  `dropUnacceptedChangeFields` BEFORE merging it over the stored row — so a
+ *  value `sanitizeChangeItem` would refuse leaves the stored one alone instead
+ *  of clearing it or resetting it to "Other" — and then hands the merged row to
+ *  `applyModelChangeStatus`, which owns `status` and its coupled
+ *  `decisionDate`. Both are composed here.
+ *
+ *  ★★ COMPOSED FROM THE REAL FUNCTIONS, for the reason `taskReader` gives: a
+ *  re-spelled guard is the exact drift this file exists to catch, and reading
+ *  the raw sanitizer here made the sweep blind to the merge-site fix — the two
+ *  change entries in `PREVIEW_REJECTS_APPLY_WRITES` went on firing after the
+ *  divergence they named was closed, i.e. the exception list would have kept
+ *  granting cover to defects that no longer existed.
+ *
+ *  ★ `raw` is the probe value ONLY on the `status` field. Everywhere else the
+ *  model sent no status, which is exactly the `undefined` that makes
+ *  `applyModelChangeStatus` keep the stored pair — passing the probe value
+ *  unconditionally would make every field's read look like a status write. */
+const changeReader: StoredReader = (field, value) => {
+  const merged = sanitizeChangeItem({
+    ...CHANGE_BASE,
+    ...dropUnacceptedChangeFields({ [field]: value }),
+  });
+  if (!merged) return null;
+  const stamped = applyModelChangeStatus(
+    merged,
+    field === "status" ? value : undefined,
+    CHANGE_BASE.status as ChangeStatus,
+    "2026-01-01",
+  );
+  return readStored(stamped as unknown as Record<string, unknown>, field);
+};
+
 const CASES: ReadonlyArray<{
   entity: InlineEntity;
   base: Record<string, unknown>;
@@ -253,7 +295,7 @@ const CASES: ReadonlyArray<{
 }> = [
   { entity: "task", base: TASK_BASE as unknown as Record<string, unknown>, read: taskReader },
   { entity: "raid", base: RAID_BASE, read: raidReader },
-  { entity: "change", base: CHANGE_BASE, read: sanitizerReader(CHANGE_BASE, sanitizeChangeItem as never) },
+  { entity: "change", base: CHANGE_BASE, read: changeReader },
   { entity: "milestone", base: MILE_BASE, read: sanitizerReader(MILE_BASE, sanitizeMilestone as never) },
   { entity: "stakeholder", base: STK_BASE, read: sanitizerReader(STK_BASE, sanitizeStakeholder as never) },
   { entity: "resource", base: RES_BASE, read: sanitizerReader(RES_BASE, sanitizeResource as never) },
@@ -320,33 +362,45 @@ const APPLY_ONLY_REJECTS: ReadonlySet<string> = new Set<string>([
  *  behaviour — "nothing is written" is the reasoning that shipped §384.
  *
  *  ★★★ EVERY ENTRY BELOW IS AN OPEN DEFECT IN THE PRODUCT, NOT A PROPERTY OF
- *  THE TEST, and both are one mechanism: the preview refuses a value the
- *  WRITER does not refuse — the writer silently coerces or drops it, clearing a
- *  populated field. The card says "unchanged"; the replay wipes it. Fixing them
- *  belongs in the writer or the descriptor and is out of this file's scope; they
- *  are enumerated so a NEW member of the class is a red run.
+ *  THE TEST, and every one that has ever sat here was one mechanism: the preview
+ *  refuses a value the WRITER does not refuse — the writer silently coerces or
+ *  drops it, clearing a populated field. The card says "unchanged"; the replay
+ *  wipes it. Fixing them belongs in the writer or the descriptor and is out of
+ *  this file's scope; they are enumerated so a NEW member of the class is a red
+ *  run.
  *
- *  ★ The totals test asserts this set is exactly the set that FIRES, so an entry
- *  whose defect gets fixed goes red as a stale exception rather than quietly
- *  granting cover to the next one.
+ *  ★★★ IT IS NOW EMPTY, AND THAT IS A MEASUREMENT RATHER THAN A DELETION — the
+ *  totals test asserts this set is exactly the set that FIRES, so an entry whose
+ *  defect gets fixed goes red as a stale exception rather than quietly granting
+ *  cover to the next one, and both survivors did. It is kept, like
+ *  `APPLY_ONLY_REJECTS` above, because the sweep must have somewhere to put such
+ *  a pair other than a silent skip.
  *
  *  ★★ MEASURED 2026-09-05, printed from inside the totals test rather than
- *  derived: of 181 preview-only rejections, 17 pairs across these TWO fields
- *  move the field and are excused here; the remaining 164 leave it where it was
- *  and are genuine agreement.
+ *  derived: of 181 preview-only rejections, 0 now move the field, so all 181
+ *  leave it where it was and are genuine agreement.
  *
- *  ★★★ IT WAS 50 / SIX UNTIL THE FOUR RAID FIELDS WERE FIXED, and the way the
- *  numbers moved is again the point. `updateRaid` now runs the model's patch
- *  through `dropUnacceptedRaidFields` before merging, so `raid.severity`,
+ *  ★★★ IT WAS 17 / TWO UNTIL `change.impact` AND `change.raisedDate` WERE FIXED,
+ *  and the way the numbers moved is again the point. `updateChange` now runs the
+ *  model's patch through `dropUnacceptedChangeFields` before merging, so those
+ *  two stopped moving and their 17 pairs left the EXCUSED bucket for the
+ *  agreeing one — 17 → 0 excused, 164 → 181 remaining, `previewOnlyRejects`
+ *  itself UNMOVED at 181. ★★ Nothing here would have moved on the fix alone: the
+ *  change reader used to be a bare `sanitizerReader(CHANGE_BASE,
+ *  sanitizeChangeItem)`, so the sweep could not see a merge-site guard at all
+ *  and went on excusing two closed defects. `changeReader` composes the real
+ *  guard AND the real `applyModelChangeStatus`, for the same reason `raidReader`
+ *  and `taskReader` compose theirs.
+ *
+ *  ★★★ IT WAS 50 / SIX UNTIL THE FOUR RAID FIELDS WERE FIXED, by the same
+ *  mechanism one register over. `updateRaid` runs the model's patch through
+ *  `dropUnacceptedRaidFields` before merging, so `raid.severity`,
  *  `raid.probability`, `raid.impact` and `raid.raisedDate` stopped moving and
- *  their 33 pairs left the EXCUSED bucket for the agreeing one — 50 → 17
- *  excused, 131 → 164 remaining, with `previewOnlyRejects` itself UNMOVED at
- *  181 (a rejection is still a rejection; only what the write then does to the
- *  field changed). ★★ Nothing here would have moved on the fix alone: the raid
- *  reader used to be a bare `sanitizerReader(RAID_BASE, sanitizeRaidItem)`, so
- *  the sweep could not see a merge-site guard at all and went on excusing four
- *  closed defects. `raidReader` composes the real guard for the same reason
- *  `taskReader` composes the real status path.
+ *  their 33 pairs left the EXCUSED bucket — 50 → 17 excused, 131 → 164
+ *  remaining, `previewOnlyRejects` UNMOVED at 181 (a rejection is still a
+ *  rejection; only what the write then does to the field changed). The raid
+ *  reader had the same blind spot the change one did, and `raidReader` closed it
+ *  the same way.
  *
  *  ★★★ IT WAS 185 / 54 / SEVEN UNTIL `task.taskName` WAS FIXED, and the way the
  *  numbers moved is the point rather than a footnote. `buildTaskCleanPatch` now
@@ -355,21 +409,12 @@ const APPLY_ONLY_REJECTS: ReadonlySet<string> = new Set<string>([
  *  APPLY-REJECTS one — 185 → 181 and 43 apply-rejects — where preview and write
  *  agree outright and nothing needs excusing. `remaining` was UNCHANGED at 131
  *  because the four were excused, not compared. The three bucket counters and
- *  every floor are UNMOVED by BOTH fixes (compared 244, possible 288,
- *  enumerated 468) — a figure elsewhere in this file that changed with this
- *  work would be a bug.
+ *  every floor are UNMOVED by ALL THREE fixes (compared 244, applyRejects 43,
+ *  possible 288, enumerated 468) — a figure elsewhere in this file that changed
+ *  with this work would be a bug.
  *  Re-print, never re-derive: `console.log` the reduce results in the totals
  *  test and run this file alone. */
 const PREVIEW_REJECTS_APPLY_WRITES: Readonly<Record<string, string>> = {
-  // `sanitizeChangeItem` sets `impact` ONLY when the value is in
-  // `CHANGE_IMPACT_SET` — `if (typeof o.impact === "string" && …) item.impact =
-  // …`, no fallback — so a value the preview's enum guard refuses DROPS the key
-  // and a stored "High" becomes absent.
-  "change.impact": "optional enum: an invalid value drops the key, clearing a stored impact",
-  // `raisedDate: sanitizeIsoDate(o.raisedDate)` is UNCONDITIONAL — an
-  // unparseable date is written as "" rather than skipped — so the preview's
-  // date guard refuses exactly the values that blank a stored date.
-  "change.raisedDate": "unconditional sanitizeIsoDate: an invalid date is written as \"\", blanking a stored date",
 };
 
 // --- the differential ------------------------------------------------------

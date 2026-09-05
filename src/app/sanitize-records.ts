@@ -154,6 +154,88 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   return item;
 }
 
+/** One guarded field's acceptance rule, read from `sanitizeChangeItem` above.
+ *  Unlike the RAID table's, these take the value ALONE: no change field is
+ *  validated against another, so there is no stored context to thread. */
+type ChangeFieldGuard = (value: unknown) => boolean;
+
+/** ★ `""` is ACCEPTED. The AI edit preview's date guard is `after !== "" &&
+ *  sanitizeIsoDate(after) !== after`, so an empty string sails through it and is
+ *  DISCLOSED to the user as a clear. Refusing it here would make the card
+ *  promise a clear the write silently declined — the same preview/apply
+ *  disagreement this guard exists to close, pointing the other way. */
+const acceptsChangeDate: ChangeFieldGuard = (v) => v === "" || sanitizeIsoDate(v) !== "";
+
+/** ★★ `toNumber`, NOT `typeof v === "number"`. The sanitizer coerces with
+ *  `toNumber` and so does the preview's `numberPreview`, so a stricter rule here
+ *  would refuse a value the card shows as accepted. Two consequences this
+ *  deliberately does NOT change: `toNumber(true)` is `1` and `toNumber(false)`
+ *  is `0`, both of which the `[0, ∞)` range admits; and the sanitizer gates on
+ *  `Number.isFinite`, where the preview's `intRangeFields` guard demands
+ *  `Number.isInteger` — so `1.5` previews as rejected and still applies. Closing
+ *  that would mean abandoning the sanitizer's own predicate, which is the
+ *  property that makes every row of this table checkable against it. */
+const acceptsChangeAmount: ChangeFieldGuard = (v) => {
+  const n = toNumber(v);
+  return Number.isFinite(n) && n >= 0;
+};
+
+/** ★★★ `status` IS ABSENT ON PURPOSE, and adding it would be a REGRESSION, not
+ *  a completion. `updateChange` runs `applyModelChangeStatus` (`change-log.ts`)
+ *  after the sanitizer: it gates on the model's RAW status, restores the stored
+ *  one when the value is unrecognised, and routes a recognised one through
+ *  `applyChangeStatus` so the coupled `decisionDate` moves with it. Dropping the
+ *  key here would take that raw value away and turn "the model sent a status" into
+ *  "the model sent nothing", skipping the transition. */
+const CHANGE_FIELD_GUARDS: Readonly<Record<string, ChangeFieldGuard>> = {
+  type: (v) => typeof v === "string" && CHANGE_TYPE_SET.has(v),
+  impact: (v) => typeof v === "string" && CHANGE_IMPACT_SET.has(v),
+  raisedDate: acceptsChangeDate,
+  decisionDate: acceptsChangeDate,
+  scheduleImpactDays: acceptsChangeAmount,
+  costImpact: acceptsChangeAmount,
+};
+
+/**
+ * Drop the keys of a MODEL-supplied CHANGE patch whose values
+ * `sanitizeChangeItem` would not accept, so an unaccepted value means "leave the
+ * stored value alone" rather than "wipe it".
+ *
+ * ★★★ THIS IS A MERGE-SITE GUARD AND MUST NOT MIGRATE INTO THE SANITIZER.
+ * `sanitizeChangeItem` REBUILDS a whole record from an untrusted blob, so a
+ * value it refuses is not left alone: the key is DROPPED (`impact`,
+ * `decisionDate`, `scheduleImpactDays`, `costImpact`), written as `""`
+ * (`raisedDate`), or reset to a HARDCODED DEFAULT (`type` -> "Other").
+ * `updateChange` feeds it `{...stored, ...patch}`, so a refused patch value
+ * wipes the STORED one — while the AI edit preview refuses that same value and
+ * shows the field as unchanged. That fallback is CORRECT on the paths the
+ * sanitizer also serves (JSON load, CSV decode, template apply, AI proposal),
+ * where there is no prior value to preserve; the divergence is only ever about
+ * an UPDATE.
+ *
+ * ★ Takes NO stored row, which is the one structural difference from
+ * `dropUnacceptedRaidFields`: that one threads `category` because `status` is
+ * validated against it, and no change field is validated against another.
+ *
+ * ★ Mirrors `applyModelChangeStatus` (`change-log.ts`), which does this for the
+ * one `change.status` field — the field this table therefore leaves alone.
+ * Written over a predicate TABLE rather than one branch per field so a new
+ * guarded field is a row, not a new code path.
+ *
+ * ★ Copy-on-write like `withAiRichFields`: the common case (nothing refused)
+ * returns the argument itself and allocates nothing.
+ */
+export function dropUnacceptedChangeFields<T extends object>(patch: T): T {
+  const raw = patch as Record<string, unknown>;
+  let out: Record<string, unknown> | null = null;
+  for (const [field, accepts] of Object.entries(CHANGE_FIELD_GUARDS)) {
+    if (!(field in raw) || accepts(raw[field])) continue;
+    out ??= { ...raw };
+    delete out[field];
+  }
+  return (out ?? patch) as T;
+}
+
 // --- RAID sanitizer --------------------------------------------------------
 
 const RAID_CATEGORY_SET = new Set<string>(RAID_CATEGORIES);

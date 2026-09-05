@@ -24,11 +24,14 @@
 //      `diffFields` (correctly — it is not a stored field), so no probe there
 //      ever sets it and the alias is unexercised on either side.
 //  (4) a MERGE-SITE GUARD. `updateRaid` filters the model's patch through
-//      `dropUnacceptedRaidFields` before handing it to `sanitizeRaidItem`, so a
+//      `dropUnacceptedRaidFields` before handing it to `sanitizeRaidItem`, and
+//      `updateChange` does the same with `dropUnacceptedChangeFields`, so a
 //      value the sanitizer alone would coerce, drop or reset to a default is
 //      never merged at all. A sanitizer-level sweep reads the sanitizer, so it
 //      is blind to whether the WRITER actually calls the guard — that wiring is
-//      pinned here and nowhere else.
+//      pinned here and nowhere else. ★ On CHANGE it is a guard PAIR: `status` is
+//      excluded from the patch table and handled after the sanitizer by
+//      `applyModelChangeStatus`, so both halves are cased below.
 // Plus the relationship arrays, which replace rather than merge.
 //
 // THE CONTRACT, in two directions, both asserted per case:
@@ -60,7 +63,7 @@ import { entityToken, type TokenEntity } from "../ai-entity-token";
 import { runTool } from "../chat-tools";
 import { resetMintState } from "../id-mint-session";
 import { type TestSeed } from "../test-providers";
-import { DEFAULT_TASK_STATUS, type RaidItem, type Resource, type Task } from "../types";
+import { type ChangeItem, DEFAULT_TASK_STATUS, type RaidItem, type Resource, type Task } from "../types";
 import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
 import { emptyWorkspace, type Workspace } from "../workspace";
@@ -119,6 +122,32 @@ function seedGuardedRaid(): RaidItem {
   });
 }
 
+/** A CHANGE row whose every merge-site-guarded field carries a NON-DEFAULT
+ *  value, for the reason `seedGuardedRaid` gives: `type: "Scope"` is not
+ *  `sanitizeChangeItem`'s hardcoded "Other" fallback, and `impact`,
+ *  `decisionDate`, `scheduleImpactDays` and `costImpact` are all populated, so a
+ *  cleared key is observable. `status: "Approved"` is likewise not the "Proposed"
+ *  fallback — that half is `applyModelChangeStatus`'s and is pinned here as the
+ *  boundary between the two guards. */
+function seedGuardedChange(over: Partial<ChangeItem> = {}): ChangeItem {
+  return {
+    id: 20,
+    title: "Move the cutover window",
+    description: "",
+    type: "Scope",
+    status: "Approved",
+    impact: "High",
+    scheduleImpactDays: 12,
+    costImpact: 4500,
+    raisedDate: "2026-01-02",
+    decisionDate: "2026-03-04",
+    linkedTaskIds: [],
+    linkedRaidIds: [],
+    stakeholderIds: [],
+    ...over,
+  };
+}
+
 function seedResource(over: Partial<Resource> = {}): Resource {
   return {
     id: 4,
@@ -134,7 +163,7 @@ function seedResource(over: Partial<Resource> = {}): Resource {
 /** The workspace slices this file writes to, and the key each case reads back
  *  through. Deliberately narrow — a case needing another slice adds it here so
  *  the read-back stays a lookup rather than a per-case cast. */
-type WsKey = "raid" | "resources";
+type WsKey = "raid" | "resources" | "changes";
 
 interface WriteCase {
   name: string;
@@ -256,6 +285,88 @@ const CASES: WriteCase[] = [
     seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS },
     input: { id: 10, targetDate: "" },
     expectStored: { targetDate: undefined },
+  },
+  {
+    // ★★★ THE SAME MERGE-SITE GUARD, ONE REGISTER OVER — `updateChange` runs
+    // `dropUnacceptedChangeFields` before `sanitizeChangeItem`. `type` is the
+    // RESET shape (the sanitizer's fallback is the hardcoded "Other", so a
+    // refused value destroyed a stored "Scope") and `impact` the DROP shape (an
+    // optional key with no fallback). The preview refuses both and shows the row
+    // as unchanged. Driven through the REAL dispatcher, which is the only place
+    // the guard, the sanitizer and `applyModelChangeStatus` meet.
+    name: "a refused type and impact leave the stored values alone",
+    tool: "update_change",
+    entity: "change",
+    kind: "change",
+    wsKey: "changes",
+    id: 20,
+    seed: { changes: [seedGuardedChange()] },
+    input: { id: 20, type: "Umfang", impact: "Sehr hoch" },
+    expectStored: { type: "Scope", impact: "High" },
+  },
+  {
+    // `raisedDate` is written UNCONDITIONALLY by the sanitizer
+    // (`raisedDate: sanitizeIsoDate(o.raisedDate)`), so an unparseable value
+    // blanked it to ""; `decisionDate` lost its key instead. ★★ The second half
+    // is the one no fixture in the parity sweep can reach — `CHANGE_BASE` leaves
+    // `decisionDate` blank, so the field it clears was already empty there.
+    name: "unparseable change dates leave the stored dates alone",
+    tool: "update_change",
+    entity: "change",
+    kind: "change",
+    wsKey: "changes",
+    id: 20,
+    seed: { changes: [seedGuardedChange()] },
+    input: { id: 20, raisedDate: "02/01/2026", decisionDate: "not a date" },
+    expectStored: { raisedDate: "2026-01-02", decisionDate: "2026-03-04" },
+  },
+  {
+    // The optional NUMBERS, which no exception entry ever named because
+    // `CHANGE_BASE` carries neither: `toNumber("soon")` is NaN and -1 fails the
+    // `>= 0` gate, so both keys were dropped and both stored amounts lost.
+    name: "refused change amounts leave the stored numbers alone",
+    tool: "update_change",
+    entity: "change",
+    kind: "change",
+    wsKey: "changes",
+    id: 20,
+    seed: { changes: [seedGuardedChange()] },
+    input: { id: 20, scheduleImpactDays: "soon", costImpact: -1 },
+    expectStored: { scheduleImpactDays: 12, costImpact: 4500 },
+  },
+  {
+    // ★★★ THE OTHER DIRECTION, and the reason the guard carves `""` out rather
+    // than demanding a parseable date — see the raid case above. `expectStored`
+    // is `undefined` rather than `""` because the sanitizer stores
+    // `decisionDate` sparsely (`if (decDate) item.decisionDate = …`).
+    name: "an explicitly empty change date still clears the stored one",
+    tool: "update_change",
+    entity: "change",
+    kind: "change",
+    wsKey: "changes",
+    id: 20,
+    seed: { changes: [seedGuardedChange()] },
+    input: { id: 20, decisionDate: "" },
+    expectStored: { decisionDate: undefined },
+  },
+  {
+    // ★★★ THE BOUNDARY BETWEEN THE TWO CHANGE GUARDS, and the reason `status` is
+    // absent from `CHANGE_FIELD_GUARDS`. An unrecognised status is NOT dropped
+    // from the patch — `applyModelChangeStatus` gates on the model's RAW value
+    // and restores the stored "Approved" itself, where the sanitizer alone would
+    // have demoted it to "Proposed". Dropping the key here would take that raw
+    // value away, so this case would still pass while a RECOGNISED status
+    // silently stopped transitioning. That half is pinned in
+    // `sanitize-change-patch.test.ts`.
+    name: "an unrecognised status is left to applyModelChangeStatus",
+    tool: "update_change",
+    entity: "change",
+    kind: "change",
+    wsKey: "changes",
+    id: 20,
+    seed: { changes: [seedGuardedChange()] },
+    input: { id: 20, status: "Genehmigt", title: "Renamed in the same edit" },
+    expectStored: { status: "Approved", title: "Renamed in the same edit" },
   },
   {
     name: "an id ARRAY on a single-FK link REMOVES the role",

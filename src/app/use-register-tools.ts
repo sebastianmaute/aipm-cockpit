@@ -38,6 +38,7 @@ import {
 import { t } from "./i18n";
 import { mintId } from "./id-mint-session";
 import {
+  dropUnacceptedChangeFields,
   dropUnacceptedRaidFields,
   sanitizeIsoDate,
   sanitizeRaidItem,
@@ -303,9 +304,23 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = changesRef.current.find((c) => c.id === id);
         if (!existing) return null;
+        // ★★★ `dropUnacceptedChangeFields` FIRST — `sanitizeChangeItem` rebuilds
+        // a whole record, so a value it refuses CLEARS the merged field rather
+        // than leaving the stored one alone (`impact`, `decisionDate`,
+        // `scheduleImpactDays` and `costImpact` lose their key, `raisedDate` is
+        // written as "", and `type` resets to the hardcoded "Other"). The AI
+        // edit preview refuses those same values and shows the field as
+        // unchanged, so without this the card says "unchanged" while the write
+        // wipes a populated field. Guard here and never in the sanitizer: that
+        // runs on JSON load, CSV decode, template apply and AI proposal too,
+        // where there IS no prior value.
+        // ★★ `status` is NOT in that table — `applyModelChangeStatus` below
+        // already keeps the stored one and owns the coupled `decisionDate`
+        // transition, and it gates on the model's RAW value, which dropping the
+        // key would take away.
         const merged = sanitizeChangeItem({
           ...existing,
-          ...withAiRichFields(patch, AI_RICH_FIELDS.change),
+          ...dropUnacceptedChangeFields(withAiRichFields(patch, AI_RICH_FIELDS.change)),
           id, localModifiedAt: new Date().toISOString(),
         });
         if (!merged) throw new Error("invalid change update");
