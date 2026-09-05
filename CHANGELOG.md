@@ -8,6 +8,56 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.283.0] - 2026-09-05 "Lessing"
+
+### Added
+
+- **The assistant now shows you a destructive plan before it writes anything.**
+  Any turn that deletes something, or that changes more than one row, is staged
+  instead of applied: a card appears in the conversation listing every row it
+  wants to write, with the fields it would change and their before and after
+  values. Nothing reaches your project until you approve it. The assistant
+  cannot opt out of this — it is decided by what the turn does, not by what the
+  assistant decides to ask.
+- **You can refuse individual rows.** Untick anything you do not want and apply
+  the rest. If a row you untick was going to create something that a later row
+  depends on, that later row is unticked with it and cannot be re-selected on
+  its own, so the plan can never be applied in a state that references a record
+  that will not exist.
+- **An approved plan is one undo, not one per row.** Applying a fifteen-row plan
+  and changing your mind takes a single undo press. Previously each write would
+  have been its own entry, and a large enough plan would have pushed your whole
+  undo history out of the buffer.
+- **A row that does not land says so.** If something changed underneath a row
+  between review and approval, that row is refused and marked on the card while
+  the rest still apply — rather than the whole plan failing, or reporting
+  success for writes that did not happen.
+
+### Changed
+
+- **The assistant's own writes can now be undone.** Every update and delete it
+  makes captures an undo entry, so a mistaken instruction is reversible from the
+  normal undo control. Creates are deliberately excluded: the undo engine has no
+  way to remove a row, and capturing one would duplicate it instead.
+- **Deleting everything now says so.** A "delete all tasks" instruction used to
+  report itself as an edit in the undo toast and the activity log; it now
+  announces itself as a deletion, with the number of rows removed.
+- **Removing a person names the person.** A stakeholder or resource deletion
+  used to offer to delete their job title — "Delete Head of Finance?" — because
+  the confirmation read the wrong field. It now names the human being.
+
+### Fixed
+
+- **A record created and then changed in the same plan reaches the right row.**
+  A staged create is given a provisional number so later steps can refer to it;
+  applying the plan mints the real one, and every reference is now rewritten to
+  match. Previously a follow-up step could have addressed a different, existing
+  record. This never affected released behaviour, because staging did not exist
+  until this version.
+- **A document rewrite that discards unsent content is now treated as
+  destructive** and staged for review, even though it arrives as an ordinary
+  edit rather than a delete.
+
 ## [0.282.0] - 2026-09-05 "Zamyatin"
 
 ### Added
