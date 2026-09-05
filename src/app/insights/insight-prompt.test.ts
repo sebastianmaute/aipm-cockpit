@@ -113,6 +113,72 @@ describe("buildInsightsPromptBlock", () => {
   });
 });
 
+// ★★★ THE THREE NUMBERS MUST ALL DIFFER, for the same reason `insight-text.test.ts`
+// says they must there: the four guardrail fact lines interleave `count`,
+// `threshold` and `worstHours` positionally, and two of them render the threshold
+// BEFORE the peak ("over the 8h cap, worst 12h"). Transposing a pair yields a
+// perfectly fluent sentence carrying the WRONG numbers — tsc only enforces that the
+// switch is exhaustive, never which number lands where, and this text rides every
+// AI turn. A fixture where any two of these coincide is VACUOUS against exactly
+// that defect. Values match the sibling file so the two read as one convention.
+const G_COUNT = 2;
+const G_WORST_HOURS = 12;
+const G_THRESHOLD = 8;
+
+/** A guardrail insight. `severity` is uniformly "medium" (see `detect.ts`). */
+function guardrail(id: number, type: InsightType): Insight {
+  return make(id, type, "medium", "active", {
+    person: "Ada",
+    count: G_COUNT,
+    worstHours: G_WORST_HOURS,
+    threshold: G_THRESHOLD,
+  });
+}
+
+describe("guardrail fact lines", () => {
+  // ★ WHOLE rendered lines, never substrings — a substring match on "12h" cannot
+  // tell the peak from the threshold, so it would pass against the transposition.
+  const CASES: readonly (readonly [InsightType, string])[] = [
+    [
+      "timelogCapPerEntry",
+      "- [medium] TimeLog: Ada has 2 day(s) with a single entry over the 8h cap, worst 12h",
+    ],
+    [
+      "timelogCapPerDay",
+      "- [medium] TimeLog: Ada has 2 day(s) over the 8h daily cap, worst 12h (fetched projects only)",
+    ],
+    ["timelogNonWorkingDay", "- [medium] TimeLog: Ada booked time on 2 non-working day(s), worst 12h"],
+    [
+      "timelogWorkingHours",
+      "- [medium] TimeLog: Ada booked over defined hours on 2 day(s), worst 12h",
+    ],
+  ];
+
+  for (const [type, line] of CASES) {
+    it(`renders the ${type} fact line with each number in its own slot`, () => {
+      const block = buildInsightsPromptBlock([guardrail(1, type)]);
+      // Equality against the extracted line, not `toContain`: a `toContain` would
+      // still pass if the builder appended stray text to the same line.
+      const lines = block.split("\n").filter((l) => l.startsWith("- "));
+      expect(lines).toEqual([line]);
+    });
+  }
+
+  // ★ `timelogNonWorkingDay` is the one guardrail whose sentence reads NO
+  // threshold — a booking on a non-working day is a violation at any number of
+  // hours, and `timelog-policy.ts` records the threshold as a literal 0. Pinning
+  // the absence stops a future edit "completing the pattern" by interpolating a
+  // threshold that means nothing there.
+  it("omits the threshold from the non-working-day line", () => {
+    const block = buildInsightsPromptBlock([guardrail(1, "timelogNonWorkingDay")]);
+    expect(block).not.toContain(`${G_THRESHOLD}h`);
+    // Not vacuous: the SAME fixture does render the threshold for a rule that has one.
+    expect(buildInsightsPromptBlock([guardrail(1, "timelogCapPerDay")])).toContain(
+      `${G_THRESHOLD}h daily cap`,
+    );
+  });
+});
+
 describe("recent outcomes section", () => {
   it("surfaces acted insights that carry an outcome, with the measured move", () => {
     const out = buildInsightsPromptBlock([acted(1)]);

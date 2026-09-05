@@ -107,10 +107,16 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     [tasks, raid, milestones, changes, stakeholders],
   );
   // Resolve an insight's entityRef to a compact title + field digest for the
-  // recommendation context. Only milestoneSlip/raidAging carry an entityRef —
-  // the other detectors are project-level singletons, so there is deliberately
-  // no resolver for them. Bounded: a short fixed field list per view, never the
-  // whole row, and free text is capped — this text rides a billed prompt. The
+  // recommendation context. Resolvers exist for the `milestones` and `raid`
+  // views ONLY, so an insight gets a digest exactly when its ref points at one
+  // of those. Everything else falls through to undefined and is recommended on
+  // `insight.data` alone: a portfolio-level detection carries no ref, and the
+  // TimeLog guardrails DO carry one — view `resources` — for which there is no
+  // resolver here. That is a gap, not a category: the guardrail sentence
+  // already names the person and the numbers, so the digest would add little,
+  // and adding a `resources` arm is the way to close it if it ever earns its
+  // place on a billed prompt. Bounded: a short fixed field list per view, never
+  // the whole row, and free text is capped — this text rides that prompt. The
   // fields chosen EXCLUDE what `insight.data` already carries (name/date/
   // daysOverdue, title/targetDate/daysSinceUpdate) so the digest adds signal
   // rather than repeating it.

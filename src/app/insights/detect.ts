@@ -7,8 +7,37 @@ import { isRaidActiveForReview } from "../raid-review";
 import { isTaskFinished } from "../task-status";
 import { partitionUpcoming } from "../dashboard";
 import { computeBudgetReport } from "../budget-report";
+import { resourceDisplayName } from "../resource-foundation";
+import type { TimelogViolation } from "../timelog-policy";
 import type { Task, Milestone, RaidItem, BudgetBucket, ResourcePlan, Role, Resource } from "../types";
-import { INSIGHT_SEVERITY_RANK, type DetectedInsight } from "./insight";
+import { INSIGHT_SEVERITY_RANK, type DetectedInsight, type InsightType } from "./insight";
+
+/** The five detectors that run without TimeLog configuration — i.e. everything
+ *  in `INSIGHT_TYPES` that is not one of the four guardrail rules.
+ *
+ *  ★★★ MEMBERSHIP HERE IS NOT A LICENCE TO CLEAR, and reading it as one is a
+ *  shipped defect. This docstring used to claim all five need "no per-device
+ *  cache", so their absence from a pass really meant the condition cleared.
+ *  That is FALSE for `overdueTrend`: `overdueTrendInsight` returns null outright
+ *  when `priorOverdueCount === null`, and the caller reads that count from
+ *  `loadLandingState`, a per-browser, per-project store that is never exported
+ *  and never in Turso. A device that has not yet landed on that project's
+ *  Dashboard detects no `overdueTrend` at all — so treating the type as always
+ *  evaluated resolves ANOTHER device's `acted` insight as a fabricated
+ *  "improved", which is the exact per-device/shared asymmetry the evaluated
+ *  argument exists to prevent, sitting inside the list that argument trusted.
+ *
+ *  The caller therefore does NOT hand this list to `reconcileInsights`. It
+ *  builds a per-insight predicate that consults this list AND `priorOverdueCount`
+ *  AND the guardrail roll's own window; see the doc comment on that function.
+ *  `detect.test.ts` pins these five against a hand-written list. */
+export const CORE_INSIGHT_TYPES: readonly InsightType[] = [
+  "milestoneSlip",
+  "overdueTrend",
+  "stalledWork",
+  "budgetVariance",
+  "raidAging",
+];
 
 // --- thresholds (pinned by detect.test.ts) ---------------------------------
 export const MILESTONE_SLIP_MIN_REBASELINES = 2;
@@ -163,6 +192,58 @@ function raidAgingInsights(raid: readonly RaidItem[], today: string): DetectedIn
   return out;
 }
 
+// --- timelog guardrails ----------------------------------------------------
+/** Guardrail violations → insights. Aggregation already happened in
+ *  `timelog-policy.ts`; this only names the person and attaches the ref.
+ *  Severity is uniform: a cap breach is a review prompt, not a ranking.
+ *  ★ `count` is load-bearing beyond the sentence — it is the `METRIC_FIELD`
+ *  for all four types, so an outcome delta reads null without it. */
+function timelogGuardrailInsights(
+  violations: readonly TimelogViolation[] | null,
+  resources: readonly Resource[],
+): DetectedInsight[] {
+  if (violations === null) return [];
+  const byId = new Map<number, Resource>(resources.map((r) => [r.id, r]));
+  return violations.map((v) => {
+    // A DANGLING resourceId resolves to nothing and is treated exactly like an
+    // absent link: InsightEntityRef promises a real workspace row, and the
+    // recommendation-replay path resolves it as one.
+    const resource = v.resourceId === null ? undefined : byId.get(v.resourceId);
+    return {
+      key: `timelog:${v.rule}:${v.timelogUserId}`,
+      type: v.rule,
+      severity: "medium" as const,
+      ...(resource !== undefined ? { entityRef: { view: "resources" as const, id: resource.id } } : {}),
+      data: {
+        person: resource === undefined ? `#${v.timelogUserId}` : resourceDisplayName(resource),
+        count: v.count,
+        worstHours: v.worstHours,
+        threshold: v.threshold,
+        // ★★ Carried so a later reconcile can ask which DAYS this insight was
+        // about. The roll behind it is a per-device window-and-scope snapshot,
+        // so "the rule ran and found nothing" is only a real clean when the
+        // roll still covered these days. `sanitizeData` keeps any string value
+        // (sliced to INSIGHT_DATA_VALUE_MAX), so ISO dates survive every load
+        // path with no sanitiser change. ★ Not read by `insightMetricValue`,
+        // which takes only METRIC_FIELD (`count`) — these widen the record, not
+        // the measurement.
+        firstViolationDate: v.firstViolationDate,
+        lastViolationDate: v.lastViolationDate,
+        // ★★ Carried for the SCOPE half of the same question the dates answer
+        // for the window half: "did the roll behind this pass actually cover
+        // this PERSON?" The roll is a window-AND-scope snapshot, and a narrowed
+        // re-fetch covers only the people it asked for, so days alone cannot
+        // certify a clean. ★ Read from `data`, never re-parsed out of the
+        // `key` above: the key is a display-and-identity string whose format is
+        // free to change, and a reconcile silently mis-parsing it would fail in
+        // the certifying direction. `sanitizeData` keeps numeric values, so it
+        // survives every load path with no sanitiser change.
+        timelogUserId: v.timelogUserId,
+      },
+    };
+  });
+}
+
 export interface InsightInput {
   readonly tasks: readonly Task[];
   readonly milestones: readonly Milestone[];
@@ -176,6 +257,10 @@ export interface InsightInput {
   readonly plan: ResourcePlan | null;
   /** Overdue-task count from the last visit/snapshot; null when unknown. */
   readonly priorOverdueCount: number | null;
+  /** Pre-computed guardrail violations, or null when the rules could not run
+   *  (no daily roll on this device). This module never learns what a booking
+   *  is — same null-when-unknown shape as `priorOverdueCount`. */
+  readonly timelogViolations: readonly TimelogViolation[] | null;
   readonly holidaySet: ReadonlySet<string>;
 }
 
@@ -192,6 +277,7 @@ export function detectInsights(input: InsightInput, today: string): DetectedInsi
   if (stalled) out.push(stalled);
   const budget = budgetVarianceInsight(input.budgets, input.plan, input.roles, input.resources, input.holidaySet);
   if (budget) out.push(budget);
+  out.push(...timelogGuardrailInsights(input.timelogViolations, input.resources));
 
   out.sort(
     (a, b) =>

@@ -33,7 +33,7 @@ import { Button } from "../button";
 import { Checkbox, Input, Select } from "../form-controls";
 import { TimelogSettings } from "../timelog-settings";
 import { JiraSettingsSection } from "../jira-settings";
-import { defaultTimelogConfig } from "../timelog-types";
+import { defaultTimelogConfig, type TimelogLinks } from "../timelog-types";
 import { calendarSyncFor } from "../calendar-sync-config";
 import { useToastContext } from "../toast-context";
 import { reportSilentFailure } from "../guard-feedback";
@@ -62,6 +62,13 @@ interface IntegrationsSectionProps {
   /** Hide the Jira block. Set by the setup wizard, which has a dedicated Jira
    *  step — without this Jira would render twice (storage step + jira step). */
   hideJira?: boolean;
+  /** The workspace `timelogLinks` blob, which carries the TimeLog guardrail
+   *  policy. Optional for the same reason `onMigrateToTurso` is: the pre-project
+   *  surfaces (setup wizard, backend-config modal, flat settings menu) have no
+   *  workspace to write one to. Omitted ⇒ `TimelogSettings` renders no
+   *  guardrails section at all. */
+  timelogLinks?: TimelogLinks;
+  onTimelogLinksChange?: (next: TimelogLinks) => void;
 }
 
 /** One calendar write-back entity row (label + an Enable and an Auto-sync toggle
@@ -156,7 +163,7 @@ function CalendarSyncEntityRow({
   );
 }
 
-export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira, noCurrentProject }: IntegrationsSectionProps) {
+export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira, noCurrentProject, timelogLinks, onTimelogLinksChange }: IntegrationsSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
   const confirm = useConfirm();
   // Busy flags for the two genuinely-async buttons (M365 sign-in, portfolio
@@ -729,6 +736,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         lang={lang}
         config={settings.timelog ?? defaultTimelogConfig}
         onChange={(next) => onChange({ ...settings, timelog: next })}
+        links={timelogLinks}
+        onLinksChange={onTimelogLinksChange}
       />
       {!hideJira && (
         <div className="mt-4 border-t border-line pt-3">

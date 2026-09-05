@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeTimelogLinks, sanitizeTimelogConfig } from "./timelog-sanitize";
+import {
+  sanitizeTimelogLinks,
+  sanitizeTimelogConfig,
+  isBlankTimelogLinks,
+  EMPTY_TIMELOG_LINKS,
+} from "./timelog-sanitize";
 import { defaultTimelogConfig } from "./timelog-types";
 
 describe("sanitizeTimelogLinks", () => {
@@ -77,5 +82,104 @@ describe("sanitizeTimelogConfig", () => {
     expect(valid.tokenInvalidAt).toBe("2026-06-23T10:00:00.000Z");
     const invalid = sanitizeTimelogConfig({ tokenInvalidAt: 12345 });
     expect(invalid.tokenInvalidAt).toBeUndefined();
+  });
+});
+
+describe("sanitizeTimelogLinks policy", () => {
+  const base = { userLinks: [], projectLinks: [] };
+
+  // ★★ TRAP (d): the round-trip alone does not protect golden-workspace.test.
+  // This is the half that does — an unconfigured blob must be byte-identical
+  // to what it was before `policy` existed.
+  it("omits the policy key entirely when no rule is configured", () => {
+    const out = sanitizeTimelogLinks({ ...base });
+    expect(out).toBeDefined();
+    expect(Object.keys(out as object)).toEqual(["userLinks", "projectLinks"]);
+    expect(JSON.stringify(out)).toBe('{"userLinks":[],"projectLinks":[]}');
+  });
+
+  it("omits the policy key when the policy object is present but empty", () => {
+    const out = sanitizeTimelogLinks({ ...base, policy: {} });
+    expect(JSON.stringify(out)).toBe('{"userLinks":[],"projectLinks":[]}');
+  });
+
+  it("keeps a configured rule and its threshold", () => {
+    const out = sanitizeTimelogLinks({
+      ...base,
+      policy: { timelogCapPerDay: { enabled: true, threshold: 10 } },
+    });
+    expect(out?.policy).toEqual({ timelogCapPerDay: { enabled: true, threshold: 10 } });
+  });
+
+  it("keeps a disabled rule, because off is a decision the user made", () => {
+    const out = sanitizeTimelogLinks({
+      ...base,
+      policy: { timelogCapPerDay: { enabled: false, threshold: 10 } },
+    });
+    expect(out?.policy).toEqual({ timelogCapPerDay: { enabled: false, threshold: 10 } });
+  });
+
+  it("drops an unknown rule id", () => {
+    const out = sanitizeTimelogLinks({
+      ...base,
+      policy: { nope: { enabled: true, threshold: 3 }, timelogNonWorkingDay: { enabled: true } },
+    });
+    expect(out?.policy).toEqual({ timelogNonWorkingDay: { enabled: true } });
+  });
+
+  it("drops a non-finite or out-of-range threshold but keeps the enabled flag", () => {
+    const out = sanitizeTimelogLinks({
+      ...base,
+      policy: {
+        timelogCapPerDay: { enabled: true, threshold: Number.NaN },
+        timelogCapPerEntry: { enabled: true, threshold: 999 },
+      },
+    });
+    expect(out?.policy).toEqual({
+      timelogCapPerDay: { enabled: true },
+      timelogCapPerEntry: { enabled: true },
+    });
+  });
+
+  it("ignores a non-object policy without dropping the links", () => {
+    const out = sanitizeTimelogLinks({ ...base, policy: "yes" });
+    expect(out).toEqual({ userLinks: [], projectLinks: [] });
+  });
+});
+
+// ★★ `workspaceToJson` emits a `timelogLinks` key for ANY truthy blob, so a
+// settings writer that hands back an empty one puts a key into the exported
+// artifact where the workspace had none — the outer half of the byte-stability
+// rule `sanitizeTimelogPolicy` enforces on the inner one.
+describe("isBlankTimelogLinks", () => {
+  it("calls the empty blob blank", () => {
+    expect(isBlankTimelogLinks(EMPTY_TIMELOG_LINKS)).toBe(true);
+    expect(isBlankTimelogLinks({ userLinks: [], projectLinks: [], policy: {} })).toBe(true);
+    expect(isBlankTimelogLinks({ userLinks: [], projectLinks: [], projectIds: [] })).toBe(true);
+  });
+
+  it("calls a blob carrying anything at all non-blank", () => {
+    expect(
+      isBlankTimelogLinks({
+        userLinks: [{ timelogUserId: 1, resourceId: 2, manual: false }],
+        projectLinks: [],
+      }),
+    ).toBe(false);
+    expect(
+      isBlankTimelogLinks({
+        userLinks: [],
+        projectLinks: [{ timelogProjectId: 1, bucketId: null, manual: false }],
+      }),
+    ).toBe(false);
+    expect(isBlankTimelogLinks({ userLinks: [], projectLinks: [], customerId: 7 })).toBe(false);
+    expect(isBlankTimelogLinks({ userLinks: [], projectLinks: [], projectIds: [3] })).toBe(false);
+    // The case this exists for: one rule switched on and nothing else.
+    expect(
+      isBlankTimelogLinks({
+        userLinks: [],
+        projectLinks: [],
+        policy: { timelogNonWorkingDay: { enabled: true } },
+      }),
+    ).toBe(false);
   });
 });

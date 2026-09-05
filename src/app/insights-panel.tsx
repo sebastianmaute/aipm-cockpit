@@ -57,6 +57,10 @@ const TYPE_LABEL_KEY: Record<InsightType, TranslationKey> = {
   stalledWork: "insightStalledWorkTitle",
   budgetVariance: "insightBudgetVarianceTitle",
   raidAging: "insightRaidAgingTitle",
+  timelogCapPerEntry: "insightTimelogCapPerEntryTitle",
+  timelogCapPerDay: "insightTimelogCapPerDayTitle",
+  timelogNonWorkingDay: "insightTimelogNonWorkingDayTitle",
+  timelogWorkingHours: "insightTimelogWorkingHoursTitle",
 };
 
 type StatusFilter = "all" | InsightStatus;

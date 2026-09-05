@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { aggregateActuals } from "./timelog-actuals";
+import { aggregateActuals, buildDailyRoll } from "./timelog-actuals";
 import { periodKeyForDate, generatePeriods } from "./resource-capacity";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
@@ -121,5 +121,62 @@ describe("aggregateActuals", () => {
     const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-06-15", 3)], links, "week");
     expect(out.byBucket[7][keyW24].hours).toBe(4);
     expect(out.byBucket[7][keyW25].hours).toBe(3);
+  });
+});
+
+describe("buildDailyRoll", () => {
+  const item = (userId: number, date: string, hours: number): TimelogTimeItem => ({
+    timeRegistrationId: Math.round(Math.random() * 1e9),
+    userId, projectId: 1, projectName: "P", projectNo: "1", taskId: 1,
+    date, hours, billableHours: hours, isBillable: true,
+  });
+
+  it("sums hours per user and date and records the largest single entry", () => {
+    const roll = buildDailyRoll([
+      item(7, "2026-09-01", 3),
+      item(7, "2026-09-01", 4.5),
+      item(7, "2026-09-02", 8),
+      item(9, "2026-09-01", 2),
+    ]);
+    expect(roll).toEqual({
+      "7|2026-09-01": { hours: 7.5, maxEntryHours: 4.5, entryCount: 2 },
+      "7|2026-09-02": { hours: 8, maxEntryHours: 8, entryCount: 1 },
+      "9|2026-09-01": { hours: 2, maxEntryHours: 2, entryCount: 1 },
+    });
+  });
+
+  // ★★ The roll must NOT reproduce aggregateActuals' attribution: it is the
+  // input to rules about a PERSON's day, and an unlinked project is still that
+  // person's time. Dropping ProjectID 0 (absence / non-project time) here would
+  // make the daily total under-report against the very cap it is checked by.
+  it("keeps non-project time, which aggregation folds into unattributed", () => {
+    const zero = { ...item(7, "2026-09-01", 5), projectId: 0, projectName: "", projectNo: "" };
+    expect(buildDailyRoll([zero])["7|2026-09-01"]).toEqual({
+      hours: 5, maxEntryHours: 5, entryCount: 1,
+    });
+  });
+
+  // ★★ `mapV2TimeItem` (timelog-api.ts) maps an employee whose EmployeeInitials
+  // do not resolve against the directory to `userId: 0`. Unfiltered, every one
+  // of them merges into a single `0|<date>` cell holding summed hours no
+  // individual booked, and the guardrail rules then report a cap violation for
+  // a person who does not exist — persisted into the shared insights slice.
+  // TWO sentinel items share a date ON PURPOSE: with only one, "dropped" and
+  // "kept but not summed" are indistinguishable. The real booker alongside them
+  // is the anti-vacuity control — "no 0 key" is also true of an empty roll.
+  it("drops the unidentified-booker sentinel instead of summing it into a phantom day", () => {
+    const roll = buildDailyRoll([
+      item(0, "2026-09-01", 8),
+      item(0, "2026-09-01", 8),
+      item(7, "2026-09-01", 6),
+    ]);
+    expect(roll["0|2026-09-01"]).toBeUndefined();
+    // The identified booker is untouched — the filter must not widen past the sentinel.
+    expect(roll["7|2026-09-01"]).toEqual({ hours: 6, maxEntryHours: 6, entryCount: 1 });
+    expect(Object.keys(roll)).toEqual(["7|2026-09-01"]);
+  });
+
+  it("returns an empty roll for no items", () => {
+    expect(buildDailyRoll([])).toEqual({});
   });
 });

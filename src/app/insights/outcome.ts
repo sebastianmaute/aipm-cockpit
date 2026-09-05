@@ -12,6 +12,13 @@ export const METRIC_FIELD: Record<InsightType, string> = {
   stalledWork: "count",
   budgetVariance: "variancePct",
   raidAging: "daysSinceUpdate",
+  // All four guardrails count VIOLATING DAYS, so `count` is the comparable
+  // number — not `worstHours`, which is a peak and can rise while the number of
+  // breaching days falls. `threshold` is a setting, never a measurement.
+  timelogCapPerEntry: "count",
+  timelogCapPerDay: "count",
+  timelogNonWorkingDay: "count",
+  timelogWorkingHours: "count",
 };
 
 /** ★ An EMPTY or whitespace-only string must NOT coerce to 0 — `Number("")` is 0,
@@ -66,9 +73,12 @@ export function computeOutcome(baseline: number, current: number, today: string)
 }
 
 /** The outcome for an insight whose condition CLEARED (it stopped being detected).
- *  Direction-only: the detectors are threshold-gated, so we know the problem went
- *  away but NOT the true current value — and there is no detection left to read it
- *  from. Emitting a magnitude here would overstate the improvement. */
+ *  Direction-only for EVERY type: this is reached from a disappearance, and a
+ *  disappearance carries no number — there is no detection left to read a current
+ *  value from. For the threshold-gated detectors a substituted 0 would be wrong
+ *  outright, since "cleared" there means below threshold rather than zero; the
+ *  guardrails do clear at a true zero and are direction-only anyway, because this
+ *  function is never handed one. See `InsightOutcome.current` for the split. */
 export function computeClearedOutcome(baseline: number, today: string): InsightOutcome {
   return { direction: "improved", baseline, measuredAt: today };
 }

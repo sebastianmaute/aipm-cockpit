@@ -117,6 +117,18 @@ describe("sanitizeInsights", () => {
     expect(out.recommendation!.proposedCalls[0].name).toBe("update_task");
   });
 
+  test("keeps a guardrail insight, which needs no change here because the type check reads INSIGHT_TYPES", () => {
+    const out = sanitizeInsights([
+      {
+        id: 1, key: "timelog:timelogCapPerDay:7", type: "timelogCapPerDay",
+        severity: "medium", data: { person: "Ada", count: 2, worstHours: 12, threshold: 8 },
+        status: "active", firstSeenAt: "2026-09-01", lastSeenAt: "2026-09-04", occurrences: 2,
+      },
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].type).toBe("timelogCapPerDay");
+  });
+
   describe("outcome (SP3)", () => {
     function actedRaw() {
       return {

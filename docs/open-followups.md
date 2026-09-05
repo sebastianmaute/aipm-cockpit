@@ -586,6 +586,14 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§357](#357-rtftoplaintexts-control-word-strip-can-swallow-text-adjacent-to-a-removed-group--closed-2026-09-04) | ~~`rtfToPlainText`'s control-word strip can swallow text adjacent to a removed group~~ | found 2026-09-03 in the ingest-breadth review | S | **CLOSED** 2026-09-04 (the removed group leaves `{}` behind, never a space; the real `.msg` fixture cannot discriminate any of the three states) |
 | [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
+| [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--open) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--open) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--open) | A guardrail insight's deep link arms `pendingOpen` with no consumer | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--open) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--open) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27806,3 +27814,159 @@ the unimplemented batch ceiling is more reachable than it was the day before.
 `MAX_BASE64_CHARS` binds only below the root (§ the ingest-breadth fix round), so a multi-file
 import of N large PDFs carries N x up to 20 MB of base64 with no ceiling at any level. Recorded
 here because a reader closing this entry should not conclude the batch question is settled.
+
+## 360. A guardrail insight names a resource but its AI recommendation gets no entity digest — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified 2026-09-04:
+`grep -n 'ref.view ===' src/app/use-insight-recommendations.ts` returns exactly two lines,
+`"milestones"` and `"raid"`, so `resources` falls through to undefined.
+★ The command originally cited here was `grep -n "resolveInsightEntity" ...`, which RUNS and
+returns three lines — the declaration, the call and a dep-array entry — none of which exhibit a view
+arm. It answered a different question than the claim it was attached to, which is the failure shape
+this register's own Status rule exists to prevent: a command that runs and returns something
+plausible reads as verification.
+
+`detect.ts` attaches `entityRef: {view: "resources", id}` when a violation's `resourceId` resolves to
+a live `Resource` (a dangling id deliberately yields no ref). The digest card already honours that —
+it gates on `entityRef !== undefined`, so those rows render as buttons. But the recommendation path
+has no `resources` resolver, so a guardrail insight is recommended on `insight.data` alone.
+
+★ Recorded as a DECISION, not a defect. The guardrail sentence already carries person, count,
+threshold and worst hours, and an entity digest costs billed prompt tokens. The asymmetry is
+invisible from either file alone and will read as an oversight to whoever finds it next; adding a
+`resources` arm is the closure if it ever earns its place.
+
+## 361. The daily-roll budget is per-entry, so nothing bounds total device storage — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 with the fix that introduced the budget. Verified by reading,
+2026-09-04: `grep -n "MAX_DAILY_ROLL_CHARS\|MAX_PROJECTS" src/app/timelog-actuals-store.ts`.
+
+`withBoundedDaily` bounds ONE entry's roll to `MAX_DAILY_ROLL_CHARS` (512 KiB). The map-level bound
+is still `MAX_PROJECTS` (50) eviction, which counts entries and never measures them — so 50 entries
+each just under budget is ~25 MB against a ~5 MB shared origin quota, and `writeDeviceJson` swallows
+the resulting quota error whole.
+
+★ Why per-entry was chosen anyway: a whole-map trim would have to rewrite ANOTHER project's
+`dailyWindow` during a save for this one, and that window is a coverage claim `reconcileInsights`
+trusts — narrowing it silently is worse than the headroom it buys. `MAX_PROJECTS` eviction is safe
+precisely because it drops entries WHOLE: an absent entry reads as unknown, which freezes insights.
+The natural closure is making that eviction size-based rather than count-based; it is safe for the
+same reason and was left undone deliberately.
+
+## 362. A guardrail insight's deep link arms `pendingOpen` with no consumer — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by command, 2026-09-04:
+`grep -rhn 'pendingOpen?.view !== "\|pendingOpen?.view === "' src/app --include=*.tsx | grep -oE '"[a-z-]+"' | sort -u`
+returns changes · documents · milestones · open-points · raid · stakeholders — `resources` is absent.
+
+Opening a guardrail insight calls `requestOpen("resources", id)`, which sets `pendingOpen`. No
+resources surface reads it, so the view opens and the person is never selected or scrolled to. Every
+existing consumer view-guards, so the stale entry is harmless — it is a dead half of an affordance,
+not a leak.
+
+★ Degrades gracefully and is not urgent. Recorded because the button LOOKS like it navigates.
+
+## 363. The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by reading, 2026-09-04:
+`grep -n "MAX_INSIGHTS" src/app/insights/reconcile.ts` — the function ends `return
+result.slice(0, MAX_INSIGHTS);`.
+
+An insight the caller declined to certify is carried through byte-for-byte, but it still competes for
+the 200-row cap and can be dropped by that slice — after which it is absent from `stored` on the next
+pass and never returns, even once the data covering it comes back.
+
+★★★ NARROWED 2026-09-04, and the half that made this urgent is FIXED. As filed, this entry called
+the competition neutral. It was not: a frozen row is carried through untouched, so its `lastSeenAt`
+never advanced while every detected row's did, and under a `lastSeenAt` sort it lost ground on EVERY
+pass, sinking toward the cap on every pass rather than merely competing for it.
+That made "freezing is recoverable" — the justification the whole per-insight predicate rests on —
+false by attrition. `reconcile.ts` now ranks a frozen row as `today` for ORDERING ONLY and breaks the
+resulting tie in its favour; `lastSeenAt` itself is untouched, since rewriting it would put a lie
+about observation into exported data. Both halves are mutation-proved separately: ranking without the
+tie-break still evicted the row, because it then tied with every row detected on that pass and ties
+fall back to insertion order, where frozen rows are appended last.
+
+★ WHAT REMAINS OPEN is the plain cap: with more than `MAX_INSIGHTS` rows of one severity, frozen
+rows can still be dropped — they are simply no longer SELECTED for it. Losing a row is strictly
+better than fabricating an `"improved"` outcome for it, so the residue is a
+NOTE, not a defect. It matters because guardrail cardinality is 4 x (TimeLog users seen in a fetch)
+at `"medium"` severity with no cap in `detect.ts`, so an org-scope fetch can push `"low"`-severity
+core insights — `overdueTrend` among them — out of the cap entirely.
+
+## 364. An older build prunes the four guardrail insight types on load, and can write the pruned list back — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by reading, 2026-09-04:
+`grep -n "INSIGHT_TYPES.includes" src/app/insights/sanitize-insights.ts`.
+
+`sanitizeInsights` drops any insight whose type is not in that build's `INSIGHT_TYPES`. Insights are
+shared workspace data and exported, so a device on a pre-§347 build that loads this workspace prunes
+every guardrail insight and can persist the pruned list — silent cross-version data loss in a slice
+both builds can write.
+
+★ Presumably acceptable (the alternative is carrying unknown types through a validator whose whole
+job is bounding what it admits), but it is recorded nowhere in the slice and is not obvious from
+either build.
+
+## 365. The threshold field's `min={1}` understates the window the writer, engine and sanitiser share — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 with the fix that aligned the three consumers. Verified by
+reading, 2026-09-04: `grep -n "min={1}" src/app/timelog-settings.tsx` against `parseCap` in the same
+file, `isCap` in `src/app/timelog-policy.ts`, and `sanitizeTimelogPolicy` in
+`src/app/timelog-sanitize.ts`.
+
+All three now enforce `> 0 && <= MAX_HOURS_PER_DAY`, which admits `0.5`. The field's `min={1}` is
+pre-existing, decorative (it blocks nothing) and narrower than the real window.
+
+★ Deliberately NOT narrowed to `>= 1` in the fix round: doing so at the writer alone would
+reintroduce exactly the writer/loader divergence that fix removed. Moving all three to `>= 1`
+together is a coherent three-site change if a sub-hour cap is judged meaningless; leaving the
+attribute alone is the other coherent answer. What is not coherent is the current split, where the
+attribute says one thing and every enforcement point says another.
+
+## 366. Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 while fixing the scope half of the coverage claim. Verified
+2026-09-04: `grep -n "from: startDate, to: endDate }, \[\])" src/app/use-timelog-sync.ts` returns the
+single `finish(...)` call in `fetchBookingsForProjects`, whose covered-people argument is the empty
+array; and `grep -n "rollUsers.includes(who)" src/app/task-manager.tsx` returns the membership check
+that therefore fails for every person under that scope.
+
+`fetchBookingsForProjects` fetches the selected PROJECTS, not whole days. A person's remaining hours
+can sit on a project nobody ticked, so their day total, their worst single entry and their holiday
+bookings are all knowable only in part. "No violation found" there is evidence about a subset, never
+about the person — so the roll it writes reports covering nobody and every guardrail insight freezes
+under that scope.
+
+The alternative considered and rejected was handing over the bookers actually seen (`bookerIds`).
+That is worse than useless: a booker on one selected project is precisely somebody whose OTHER
+projects are missing, so it would certify the people this fetch measured least completely.
+
+★ The cost is real and is not a free win. A user who works only in project scope never sees a
+guardrail insight auto-resolve; the rows sit frozen until an org- or self-scope fetch covers the
+person. Closure options, none taken: surface "coverage unknown" in the panel so the freeze is
+legible; or fetch a person's whole day when the roll is being built even under project scope, which
+changes the request count and the rate-limit budget.
+
+## 367. `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible — OPEN
+
+**Status:** OPEN. Filed 2026-09-04 from a false claim a deletion-only review found. Verified by
+reading, 2026-09-04: `grep -n "!Number.isInteger(userId) || !date" src/app/timelog-types.ts` returns
+the only validation in the function — the date is checked for being non-EMPTY and for nothing else.
+
+Two consequences, one of which was previously documented as impossible.
+
+A cell key of `"7|" + "x".repeat(600000)` parses successfully and is a single cell larger than
+`MAX_DAILY_ROLL_CHARS` on its own. A comment in `timelog-actuals-store.test.ts` asserted the opposite
+("a single oversized cell cannot be constructed") on the strength of the userId half of the check,
+which is true only via `Number(...)` overflowing to `Infinity` at roughly 309 digits — a mechanism it
+never stated. That comment has been corrected.
+
+A malformed date also reaches the policy engine, where `weekdayIndex` returns null for a non-ISO
+string, so the working-hours and weekend halves skip it while the value still flows into
+`firstViolationDate` / `lastViolationDate`. The downstream window comparison then fails and the
+insight FREEZES, which is the safe direction — this is recorded as a latent shape, not a live defect.
+
+★ Reachability is the open question and is deliberately not asserted here. Every key the app itself
+writes comes from `dailyKey(userId, it.date)` over API-supplied dates. The paths that could carry a
+hostile key are a hand-edited `localStorage` blob and a future writer; neither has been probed.
