@@ -608,6 +608,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§381](#381-a-row-refused-for-a-capability-gap-is-labelled-as-a-conflict--closed-2026-09-05) | ~~A row refused for a capability gap is labelled as a conflict~~ | found 2026-09-05 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (`failed` now carries a `failedKind` — conflict/dependency/unreadable/error — classified by `failureKindOf`, with four EN/DE strings) |
 | [§382](#382-the-registers-own-index-rebuild-is-lossy-and-calls-itself-idempotent--open) | The register's own index rebuild is lossy, and calls itself idempotent | found 2026-09-05 while closing 377 and 378 | S | open |
 | [§383](#383-a-resources-extra-emails-preview-a-list-apply-dedupes-and-caps--open) | A resource's extra emails preview a list Apply dedupes and caps | found 2026-09-05 while closing 373 | S | open |
+| [§384](#384-a-mononym-update_resource-rename-previews-a-rejected-lastname-that-apply-accepts-and-wipes--open) | A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes | found 2026-09-05 in cold review of the §372 fix | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -28083,6 +28084,11 @@ diffing, so the two parts render as an ordinary two-field update instead — and
 of the alias, not of the descriptor: any write alias that fans out to several stored fields still has
 it unless it gets the same projection step.
 
+★ See §384 for a consequence this reachability introduced: for a MONONYM rename (`name: "Cher"`),
+`splitName` yields one empty part, the preview correctly REJECTS it as `bad-input`, and
+`sanitizeResource` (which needs only ONE part non-empty) applies the rename and WIPES that part
+anyway — a card misrepresenting a write, unreachable before this fix.
+
 ## 373. An email-shaped field previews a value Apply clips or discards — CLOSED 2026-09-05
 
 **Status:** CLOSED 2026-09-05. ★★★ THE FIRST CLOSURE (`05a2efcb`) WAS FALSE AND SHIPPED A CRITICAL
@@ -28687,3 +28693,55 @@ guarantee (preview shows what Apply stores) that DEDUPING and CAPPING both break
 ★ Closing it, if it is ever wanted, needs the same shape §373 closed with: run the field's own
 sanitizer — here, `sanitizeEmailList` against the diffed item's OWN primary email — before diffing,
 rather than teaching `arrayFields` a second meaning it was never designed to carry.
+
+## 384. A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes — OPEN
+
+**Status:** OPEN. Filed 2026-09-05 in cold review of the §372 fix. Last executed verification
+2026-09-05 — a temporary `*.test.ts` file (kept OUT of `src/app`, per the §230 reproduce note on why:
+a stray one there is picked up by `eslint --max-warnings=0 src/app` and the full-suite glob) that
+calls `describeEntityCalls` for an `update_resource({id, name: "Cher"})` block against a resource
+whose stored name is "Amanda Palmer", then mirrors `use-chat-dispatcher.ts`'s own `updateResource`
+merge (`splitName` + `sanitizeResource({...existing, ...patch, ...renamed})`) on the same input. Run
+with `npx vitest run <temp-path>`; the captured output was:
+
+```
+PREVIEW PLAN: {
+  "updates": [ { "field": "firstName", "before": "Amanda", "after": "Cher", "raw": "Cher" } ],
+  "creates": [], "deletes": [],
+  "rejected": [ { "toolName": "update_resource", "reason": "bad-input", "detail": "lastName=empty" } ]
+}
+DISPATCHER MERGED RESULT: { "id": 1, "firstName": "Cher", "lastName": "", … }
+```
+
+§372 taught `describeEntityCalls` to project an alias-only `update_resource({id, name})` onto
+`firstName`/`lastName` via the dispatcher's own `splitName`, so the two parts render as an ordinary
+two-field update instead of an empty plan. That made a shape reachable that could not occur before:
+`splitName` on a MONONYM (a name with no space, e.g. `"Cher"`) yields `{firstName: "Cher", lastName:
+""}` — one part filled, one blanked.
+
+The `resource` descriptor's `requiredNonEmpty` marks BOTH `firstName` and `lastName` as required
+(`entity-descriptor.ts`), and its own comment says why: `sanitizeResource`'s real rule is "at least
+ONE of the two non-empty", a disjunction `requiredNonEmpty` cannot express, so both are marked and
+the entry documents that as deliberately over-rejecting — "the alternative previews a diff whose
+Apply throws." That reasoning is only true when BOTH parts would end up empty. For a mononym rename
+only `lastName` goes empty; `firstName` stays `"Cher"`, so `sanitizeResource`'s actual guard
+(`if (!firstName && !lastName) return null`) is satisfied and Apply SUCCEEDS — it does not throw, and
+it does not skip the field. It merges `renamed` (`{firstName: "Cher", lastName: ""}`) over `existing`
+and stores `lastName: ""`, silently WIPING the previous last name.
+
+So the card shows a REJECTED chip on `lastName` ("bad-input: lastName=empty") while the write that
+runs when the row is confirmed clears that same field anyway — the apply path replays the original
+`ProposedCall`, not the previewed (and partially rejected) plan, so the rejection is display-only.
+That is a card misrepresenting a write, which is this whole slice's subject: a reviewer who reads
+"lastName rejected" as "lastName is left alone" is wrong, and finds out only by re-opening the
+resource afterward.
+
+★ Before §372 this was unreachable: an alias-only rename previewed as an EMPTY plan (no diff, no
+rejection), so nothing on the card claimed anything about `lastName` at all — a different kind of
+wrong (silence) rather than this kind (a false promise of no-op).
+
+★ Closing it needs a rule `requiredNonEmpty` cannot express today: reject only when the write would
+ACTUALLY fail (both parts end up empty), not when either one, individually, would. That is the same
+disjunction `sanitizeResource` already encodes — the fix likely teaches the `resource` case a
+paired-fields check instead of two independent per-field ones, mirrored from `sanitizeResource`'s own
+`if (!firstName && !lastName)` guard the way §372 already mirrors `splitName`.
