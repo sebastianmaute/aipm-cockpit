@@ -1657,9 +1657,39 @@ GitHub anchor slugs DROP colons rather than hyphenating them.
    drift risk a reviewer will flag. The fix is a shared leaf module; it was out
    of scope for the task that hit it.
 
-★★ Numbers 5, 6 and 7 came out of the Task-1 cold review and the investigations
-it triggered, not out of the original spec. All are measured; cite the
-measurement in the entry, not this plan.
+8. **The `emails` preview cannot see the row's own primary address** (Task 8, as
+   built). The `fieldSanitizers` entry receives only the field's value, so it
+   calls `sanitizeEmailList(v, undefined)` where `sanitizeResource` calls it as
+   `sanitizeEmailList(input.emails, email)` against the MERGED row. Two
+   consequences: an incoming extra EQUAL to the primary is kept by the preview
+   and dropped by the write; and at the 10-address cap the asymmetry shifts
+   WHICH address lands tenth. The first is pinned by a test titled "KNOWN
+   DIVERGENCE" naming the expectation to flip if the entry ever learns the row;
+   the second is unpinned (no fixture that large). Fixing either means threading
+   the row into every `fieldSanitizers` entry — a signature change, deliberately
+   out of scope.
+9. **`update_task({lastUpdateDate: ""})` previews a clear the write will not
+   make**, and the two task dates are asymmetric on a blank. `dueDate` THROWS
+   and `requiredNonEmpty` catches it first; `lastUpdateDate` merely drops the
+   key from the patch, and a dropped key merged over the stored task leaves the
+   field UNCHANGED — where the full-record sanitizers behind raid/change/
+   milestone clear theirs. Needs a "blank is a no-op" mechanism the descriptor
+   does not have; `requiredNonEmpty` is the WRONG one, since it means "the
+   writer throws". ★ The parity sweep cannot see this because `TASK_BASE`
+   carries no `lastUpdateDate`, and adding one would manufacture a red outside
+   this slice's scope.
+
+★★ Numbers 5-9 came out of the cold review and the task investigations, not out
+of the original spec. All are measured; cite the measurement in the entry, not
+this plan.
+
+★★★ A THIRD EXISTING TEST HAD GONE STALE, making three in this slice. Task 7
+found one asserting §384's wrong verdict under a comment calling it "the safe
+direction"; Task 8 found "ignores roleId and emails" carrying §383's expired
+rationale AND checking only `updates`/`rejected`, so it had silently stopped
+covering `roleId` once that became a link field. **When a task changes what a
+field does, grep the suite for tests that pinned the OLD behaviour** — they do
+not fail, they quietly agree with the wrong thing.
 
 ★★★ AND THE GENERAL LESSON, which applies to every task still unstarted: the
 plan's transcribed-from-memory code blocks were **3-for-4 wrong** on Task 3's
