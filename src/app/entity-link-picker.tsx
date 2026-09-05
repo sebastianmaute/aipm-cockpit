@@ -119,9 +119,24 @@ export function EntityLinkPicker({
   // now out of RANGE. It cannot detect an index that is still in range but now
   // names a DIFFERENT entity — the reconcile above covers that, because every
   // caller re-filters in response to the query changing. A caller that swapped
-  // `options` WITHOUT changing `query` would defeat both; no caller does today
-  // (both clear the query on add), so this rests on that contract rather than
-  // enforcing it.
+  // `options` WITHOUT changing `query` would defeat both.
+  //
+  // ★★ CONTRACT, relied on and NOT enforced. Measured 2026-09-05: every call
+  // site clears the query on add, so none defeats it today. Enumerate them —
+  // the `$` anchor is what keeps this comment out of its own result, and the
+  // `-v` drops the test file (measured after writing this: 4 hits, 0 of them
+  // a comment):
+  //   grep -rn "<EntityLinkPicker$" src/app --include=*.tsx | grep -v "\.test\."
+  // ★★ THREE clear it inline in their own `onAdd` arrow. `RaidCausedByField`
+  // (`raid-edit-fields.tsx`) is the one that does NOT, and it is compliant
+  // anyway: its `onAdd` calls `addCausedBy`, which clears the query itself one
+  // layer down in `raid-edit-modal.tsx`. Reading the arrow alone therefore
+  // misreads that caller as a violator — and it is the caller whose adds really
+  // do shrink the option list (`availableCauses` excludes
+  // `draft.causedByRaidIds`), so a clear lost THERE arms exactly this defect.
+  // Pinned by "the query clear is load-bearing" in `raid-edit-modal.test.tsx`,
+  // which the clamp below cannot substitute for: it reproduces at index 0 of
+  // >= 2 matches, where the surviving index is still in RANGE.
   const active = highlight >= 0 && highlight < options.length ? highlight : -1;
 
   function move(delta: 1 | -1) {

@@ -64,15 +64,22 @@ interface SingleEntityPickerProps {
    *  clamped against the list LENGTH, so a caller that swaps `options` while
    *  `query` stands still can leave an index armed that is still in range but
    *  now names a DIFFERENT entity — Enter would then commit something the user
-   *  never picked. EntityLinkPicker rests on the same contract and its own
-   *  comment claims every caller honours it; measured 2026-09-05, three of its
-   *  four call sites clear the query on add and `RaidCausedByField`
-   *  (`raid-edit-fields.tsx`) does NOT — `availableCauses` excludes
-   *  `draft.causedByRaidIds`, so an add SHRINKS its options under an unchanged
-   *  query. Reproduce the caller set with `grep -rn "<EntityLinkPicker" src/app`.
-   *  So this is a contract that has already been broken once by exactly the
-   *  shape described above, and this component has no callers at all yet —
-   *  which is when an unwritten contract is freest to be violated again. */
+   *  never picked. EntityLinkPicker rests on the same contract; measured
+   *  2026-09-05, all four of its call sites honour it.
+   *
+   *  ★★★ AN EARLIER REVISION OF THIS COMMENT SAID `RaidCausedByField`
+   *  (`raid-edit-fields.tsx`) DID NOT, and called the contract already broken.
+   *  That was false, and it is worth keeping the record of how: its `onAdd`
+   *  arrow really does not clear, but the `addCausedBy` it calls clears the
+   *  query itself one layer down in `raid-edit-modal.tsx`. The claim was
+   *  written from the arrow alone and dated as if measured, which is exactly
+   *  the shape nothing gates — every backticked name in it was real, so no
+   *  symbol check could object. Enumerate the callers before repeating any of
+   *  this, and follow each `onAdd` into its handler:
+   *    grep -rn "<EntityLinkPicker$" src/app --include=*.tsx | grep -v "\.test\."
+   *
+   *  The contract is still unenforced, and this component has no callers at all
+   *  yet — which is when an unwritten contract is freest to be violated. */
   options: readonly SingleEntityOption[];
   query: string;
   onQueryChange: (value: string) => void;
