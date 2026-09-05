@@ -225,6 +225,8 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
   }
   const timeSpentMinutes = sanitizeOptionalMinutes(raw.timeSpentMinutes);
   if (timeSpentMinutes !== undefined) task.timeSpentMinutes = timeSpentMinutes;
+  const remainingEstimateMinutes = sanitizeOptionalMinutes(raw.remainingEstimateMinutes);
+  if (remainingEstimateMinutes !== undefined) task.remainingEstimateMinutes = remainingEstimateMinutes;
   const resourceId = fkIdOrUndefined(raw.resourceId);
   if (resourceId !== undefined) task.resourceId = resourceId;
   const deps = Array.isArray(raw.dependencies)

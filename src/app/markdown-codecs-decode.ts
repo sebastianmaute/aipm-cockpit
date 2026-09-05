@@ -489,6 +489,8 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       colMap[idx] = "originalEstimateMinutes";
     else if (norm === "timespentmin" || norm === "timespentminutes")
       colMap[idx] = "timeSpentMinutes";
+    else if (norm === "remainingestimatemin" || norm === "remainingestimateminutes")
+      colMap[idx] = "remainingEstimateMinutes";
     else if (norm === "documentlinks" || norm === "knowledgelinks") colMap[idx] = "knowledgeLinks";
     else if (norm === "outlookeventid") colMap[idx] = "outlookEventId";
     else if (norm === "notelog") colMap[idx] = "noteLog";
@@ -537,6 +539,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       resourceId: fkIdOrUndefined(obj.resourceId),
       originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
       timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
+      remainingEstimateMinutes: sanitizeOptionalMinutes(obj.remainingEstimateMinutes),
       knowledgeLinks: decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks),
       noteLog: (() => {
         const nl = decodeNoteLog(obj.noteLog);
