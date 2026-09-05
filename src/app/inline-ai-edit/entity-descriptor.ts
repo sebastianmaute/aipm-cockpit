@@ -327,10 +327,12 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //   • the five optional single-line fields → `optText` (trim, NO cap)
     //   • notes              → `optMultiline`     (CRLF→LF, trim, NO cap)
     //   • isExternal         → `isExternalFlag`   (the predicate below)
-    // ★★★ `isExternal` — the only BOOLEAN field in any entity's
-    //  `diffFields` (four NUMERIC ones exist: `raid.probability`/`impact`,
-    //  `change.scheduleImpactDays`/`costImpact`, all held by `numberFields`) —
-    //  goes through `sanitizeResource`'s OWN predicate. A text
+    // ★★★ `isExternal` — the only BOOLEAN field in any entity's `diffFields`,
+    //  which is NOT the same as the only non-string one: four NUMERIC fields
+    //  (`raid.probability`/`impact`, `change.scheduleImpactDays`/`costImpact`)
+    //  are held by `numberFields` and one ARRAY field (`task.labels`) by
+    //  `arrayFields` — three mechanisms, not one — goes through
+    //  `sanitizeResource`'s OWN predicate. A text
     //  sanitizer here blanks it to `""`, which drops the flag on apply
     //  (`FieldDiff.raw` is the write patch's value); leaving it out entirely
     //  previews `str(v)` verbatim, which is right for `true` but renders a

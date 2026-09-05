@@ -28117,9 +28117,11 @@ construction. Both the stored `before` and the incoming `after` go through the s
 what makes a no-op `isExternal: false` compare equal against a row that carries no key at all
 (`sanitizeResource` stores the flag present-or-absent, so verbatim `str` was NOT sufficient there
 either — it fixes `true` and still mispreviews `false`). The map spans five distinct sanitizers:
-`sanitizeText` (at several different caps — six named constants, five distinct values, and NO count
-is quoted here for the same reason the entry count below is not: read them off
-`grep -rnE "^export const [A-Z_]+_MAX" src/app/`), `sanitizeMultiline` (`task.blockers` — no trim),
+`sanitizeText` (at SEVERAL DIFFERENT CAPS — the same field name carries a different one on a
+different entity, which is the whole reason the map is per-entity; the caps arrive mostly through
+named wrappers rather than as literals, so read the map itself:
+`grep -n "fieldSanitizers" -A 12 src/app/inline-ai-edit/entity-descriptor.ts`),
+`sanitizeMultiline` (`task.blockers` — no trim),
 `optText`/`optMultiline` (the resource optional path — trim, NO cap, and CRLF→LF for notes) and
 `isExternalFlag`. The last three were exported for this; ★ `stakeholder.notes` is `sanitizeText`,
 NOT the multiline one, despite being a textarea, so `task.blockers` is the only field routed through
@@ -28141,7 +28143,8 @@ and records 16 as the disproved figure. A rule and its own violation, adjacent, 
 exists to record the violation — which is how durable a stale number is once it is in prose.
 `src/app/inline-ai-edit/plan.sanitizer-parity.test.ts` sweeps EVERY entity × EVERY `diffField` × a
 hostile probe set (6000-char string, two surrogates straddling real caps, padded, CRLF, both
-booleans, a number), pushing each through `describeEntityCalls` and through that field's REAL
+booleans, a number, and the empty string — the last added late in the round, which is why no COUNT
+is given here), pushing each through `describeEntityCalls` and through that field's REAL
 sanitizer, and asserting they agree. It enumerates over `diffFields`, so a new field or entity is
 covered the moment it is declared, and every exclusion is named IN THE FILE with a reason — one
 named field (`task.labels`, array-valued), one CLASS (the rich HTML fields, DOM-bound and owned by
@@ -28302,7 +28305,8 @@ no longer reproduce.
 
 **Status:** CLOSED 2026-09-05 by `c119976e` (docstring reattached to the function it documents by
 `663dc3c0`). `liveRowTitle` (`chat-proposal-stage.ts`) now special-cases TWO of the three
-`*_document` tools via a `DOCUMENT_TOOLS` set — `update_document` and `delete_document`, the two
+`*_document` tools via a `TITLED_DOCUMENT_TOOLS` set — `update_document` and `delete_document`, the
+two
 that address an EXISTING row: it resolves the title from `ws.documents` by `input.id`, returning
 `null` when the id matches nothing or the title is blank. `create_document` is deliberately NOT in
 the set, because it addresses no existing row; it falls through to the caller's own fallback, which

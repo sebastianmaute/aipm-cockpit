@@ -253,14 +253,24 @@ const fieldsUnderTest = (entity: InlineEntity): string[] =>
 /** The fields the probe set can actually get a COMPARISON out of — everything
  *  under test except the enum and date fields.
  *
- *  ★★ THE EXCLUSION IS A MEASUREMENT, NOT AN ASSUMPTION. Every probe is a
- *  hostile value, and none of them is a member of any enum or a `YYYY-MM-DD`
- *  date, so the enum and date guards in `describeEntityCalls` reject all nine
- *  for those fields — they contribute zero comparisons BY CONSTRUCTION, not
- *  through a defect. Measured 2026-09-05 by listing the fields with no
- *  comparison at all: exactly the 11 enum fields plus `task.dueDate` and
- *  `milestone.date`, 13 of the 50 under test. Everything else compared at least
- *  once, which is what makes the structural floor below a real claim.
+ *  ★★ THE EXCLUSION IS DELIBERATELY WIDER THAN THE SET THAT YIELDS NOTHING, and
+ *  the two numbers must not be conflated. It drops 19 of the 50 fields under
+ *  test (11 enum + 8 date); only 13 of those actually contribute zero
+ *  comparisons — the 11 enum fields plus `task.dueDate` and `milestone.date`.
+ *  The other SIX date fields each contribute exactly one: `raid.raisedDate`,
+ *  `raid.targetDate`, `raid.closedDate`, `change.raisedDate`,
+ *  `change.decisionDate`, `milestone.achievedDate`. The date guard is
+ *  `after !== "" && sanitizeIsoDate(after) !== after`, so the EMPTY-STRING probe
+ *  sails straight through it, and the two fields that still yield nothing are
+ *  the ones `requiredNonEmpty` catches first.
+ *
+ *  ★★★ THAT IS WHY THIS PARAGRAPH NO LONGER CLAIMS "ZERO BY CONSTRUCTION". It
+ *  did, and said so as a MEASUREMENT — "exactly the 11 enum fields plus
+ *  `task.dueDate` and `milestone.date`, 13 of the 50" — which was true when
+ *  written and was falsified by the empty-string probe added in the SAME round,
+ *  a few hundred lines up. Excluding a field that does compare is conservative
+ *  (it shrinks the denominator, never the numerator) so no floor was wrong; the
+ *  sentence was. Re-measure both counts whenever `PROBES` changes.
  *
  *  ★ Derived from the descriptor rather than listed, so a new enum/date field
  *  classifies itself and a new TEXT field is held to the floor the moment it is
@@ -364,17 +374,23 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     expect(silent).toEqual([]);
 
     // (3) AGGREGATE, as a fraction of what the comparable fields could yield.
-    // MEASURED 2026-09-05: 226 comparisons over 37 comparable fields × 9 probes
-    // = 333 possible, i.e. 68%. Half is the floor, so a ~26% collapse fails
+    // MEASURED 2026-09-05: 226 comparisons over 31 comparable fields × 9 probes
+    // = 279 possible, i.e. 81%. Half is the floor, so a ~38% collapse fails
     // while the ordinary churn of a probe that a new field happens to reject
     // does not.
+    // ★★ THE FOUR FIGURES ABOVE WERE WRONG ON FIRST WRITING (37 fields / 333
+    // possible / 68% / and 74% below) and were caught by a review that printed
+    // them from inside this test rather than re-deriving them. The floors are
+    // computed, so nothing went red — a wrong denominator in a COMMENT is
+    // invisible to every gate. Print them, do not reason them:
+    // `console.log` the reduce results here and run this file alone.
     const possible = CASES.reduce((n, c) => n + comparableFields(c.entity).length * PROBES.length, 0);
     // ★★★ THE DENOMINATOR NEEDS ITS OWN FLOOR, and this line was added after a
     // mutant proved the first cut vacuous: narrowing `comparableFields` to
     // return NOTHING left `silent` empty and `possible` zero, so both floors
     // above passed with the whole differential switched off (measured: 7 passed,
     // EXIT=0). Pinning the comparable pairs to a majority of the ENUMERATED ones
-    // — 333 of 450, i.e. 74%, on 2026-09-05 — means the denominator cannot be
+    // — 279 of 450, i.e. 62%, on 2026-09-05 — means the denominator cannot be
     // shrunk to make the numerator look good.
     expect(possible).toBeGreaterThan(enumerated / 2);
     expect(compared).toBeGreaterThan(possible / 2);

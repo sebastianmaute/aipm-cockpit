@@ -125,7 +125,18 @@ function numberPreview(v: unknown): string {
  *
  *  ★ Exported so `plan.sanitizer-parity.test.ts` can DELEGATE to it rather than
  *  restate the resolution order; a second copy of that order is exactly the
- *  preview/apply drift this module exists to prevent. */
+ *  preview/apply drift this module exists to prevent.
+ *
+ *  ★★★ THAT DELEGATION MEANS THE PARITY TEST CANNOT PIN THIS ORDER, and reading
+ *  it as the protection is the trap. The test's `previewOf` CALLS this function,
+ *  so reordering the `??` below moves the expectation with it and no mutant here
+ *  can turn that file red. What actually makes the order safe is
+ *  `entity-descriptor.test.ts`'s "keeps numberFields out of fieldSanitizers":
+ *  the two sources are DISJOINT by assertion (with a population check so an
+ *  empty set cannot read as a pass), so which one wins cannot matter. Delete
+ *  that test and this `??` becomes unguarded — the delegation is for
+ *  correctness, the disjointness test is for coverage, and they are not
+ *  interchangeable. Flagged by cold review, which measured the tautology. */
 export function previewNormalizerFor(
   d: EntityDescriptor,
   field: string,

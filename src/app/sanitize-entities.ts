@@ -248,9 +248,11 @@ function sanitizeUtilizationMode(s: unknown): UtilizationMode {
  *  this predicate to show what Apply will store. It is the only BOOLEAN field
  *  any entity's `diffFields` names — NOT the only non-string one, which is what
  *  this said until a cold review enumerated all 58 `diffFields` against their
- *  declared types: four are numeric (`raid.probability`/`impact`,
- *  `change.scheduleImpactDays`/`costImpact`) and are handled by `numberFields`,
- *  a different mechanism. */
+ *  declared types. There are THREE non-string mechanisms, not one: four numeric
+ *  fields (`raid.probability`/`impact`, `change.scheduleImpactDays`/`costImpact`)
+ *  handled by `numberFields`, one array field (`task.labels`) handled by
+ *  `arrayFields`, and this flag. Naming only the numerics — which a first
+ *  correction did — makes the array field look like it has no home. */
 export function isExternalFlag(v: unknown): boolean {
   return v === true || v === "true";
 }

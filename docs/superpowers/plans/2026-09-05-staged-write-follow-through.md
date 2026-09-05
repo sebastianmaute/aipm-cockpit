@@ -20,7 +20,9 @@
 > field ABSENT from that map is previewed VERBATIM — inverting the default, so a number, enum, date
 > or boolean cannot be text-mangled by construction. The class is held by
 > `src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`, which compares every entity × every
-> `diffField` against its real sanitizer under eight hostile probes.
+> `diffField` against its real sanitizer under a hostile probe set. (No probe COUNT is quoted: this
+> banner said "eight" and a ninth — the empty string — landed one commit later in the same round,
+> which is the §374 failure this very round was fixing. Read `PROBES.length`.)
 >
 > Read `docs/open-followups.md` §373 before touching the preview engine. Nothing below is a
 > current description of `entity-descriptor.ts`.
