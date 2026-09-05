@@ -88,4 +88,37 @@ describe("DocumentsList — the open row's disclosure state", () => {
     renderList({ documents: [doc(1, "Alpha")], selectedId: 1, collapsed: true });
     expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "false");
   });
+
+  // ★★ THE ONLY COVERAGE THE VISIBLE CUE WILL EVER HAVE. aria-expanded is
+  // invisible to a sighted mouse user, so without the glyph the collapse
+  // gesture is undiscoverable; and axe has no rule that would notice either
+  // its absence or a chevron drawn on a row that is not a disclosure.
+  it("draws the expanded glyph on the open row alone", () => {
+    renderList({ documents: [doc(1, "Alpha"), doc(2, "Beta")], selectedId: 1, collapsed: false });
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveTextContent("▾");
+    // Exact, not a "no glyph" substring check: a chevron on every row would
+    // tell a sighted user that every row is a disclosure, which is the
+    // semantics the omitted aria-expanded above takes care to avoid.
+    expect(screen.getByRole("button", { name: "Beta" }).textContent).toBe("Beta");
+  });
+
+  it("swaps to the collapsed glyph when the open document's body is collapsed", () => {
+    renderList({ documents: [doc(1, "Alpha")], selectedId: 1, collapsed: true });
+    const open = screen.getByRole("button", { name: "Alpha" });
+    expect(open).toHaveTextContent("▸");
+    // Asserting the OTHER glyph is gone is what makes the line above evidence
+    // about the branch rather than about a glyph that is always drawn.
+    expect(open.textContent).not.toContain("▾");
+  });
+
+  // ★ The 2.4.6 / 2.5.3 guard: `aria-label` wins over content, so the glyph
+  // cannot reach the accessible name. The axe gate is provably blind to
+  // duplicate accessible names in every view, so nothing else checks this.
+  it("keeps the title button's accessible name free of the glyph", () => {
+    renderList({ documents: [doc(1, "Alpha")], selectedId: 1, collapsed: false });
+    // A whole-string RTL `name` match, so a glyph leaking into the name would
+    // make this query fail outright.
+    const open = screen.getByRole("button", { name: "Alpha" });
+    expect(open.textContent).toContain("▾");
+  });
 });

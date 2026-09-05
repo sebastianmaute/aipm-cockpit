@@ -212,6 +212,21 @@ export function DocumentsList({
                   which would announce every closed row as a collapsed section.
                   Superseded the earlier "not a toggle" note, which described the
                   behaviour before the collapse landed. */}
+              {/* ★★ THE GLYPH RENDERS ON EXACTLY THE ROW THAT CARRIES
+                  `aria-expanded`, under the same condition, so the visible cue
+                  and the announced one cannot disagree. Drawing it on every row
+                  would tell a sighted user that every row is a disclosure —
+                  which is precisely the semantics the `undefined` above takes
+                  care to avoid. Without it `aria-expanded` is the ONLY signal
+                  the collapse gesture exists, and a mouse user cannot perceive
+                  it.
+                  ★ `aria-hidden` because `aria-expanded` already carries the
+                  state for AT. It also cannot alter the accessible name here —
+                  `aria-label` wins over content — which is what keeps the
+                  row-unique naming (2.4.6) and containment (2.5.3) intact.
+                  ★ Same two characters as the `dashboard-shelf.tsx` toggle,
+                  which is the family this follows; there is no shared
+                  Disclosure primitive in this repo to reach for. */}
               <button
                 type="button"
                 onClick={() => onSelect(doc.id)}
@@ -220,6 +235,9 @@ export function DocumentsList({
                 aria-label={token}
                 className={`text-left underline-offset-2 hover:underline ${INTERACTIVE}`}
               >
+                {doc.id === selectedId ? (
+                  <span aria-hidden className="mr-1 text-muted-foreground">{collapsed ? "▸" : "▾"}</span>
+                ) : null}
                 {doc.title}
               </button>
             </td>
