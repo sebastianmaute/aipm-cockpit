@@ -28988,10 +28988,13 @@ a wording defect visible by inspection; no gate can see plural agreement in an i
 string.
 
 `taskRowChangesBadge` in `src/app/i18n.ts` is `"{0} changes"` (DE: `"{0} Änderungen"`,
-`src/app/i18n.de.ts`), called with `changeRefs.length` at both render sites —
-`src/app/task-row.tsx:376-380` (the ID-column badge, used for `title`, `aria-label` and the
-visible text) and `src/app/task-kanban-card.tsx:92` (the Kanban card). A task carrying exactly
-one linked change therefore reads "1 changes" everywhere the badge renders.
+`src/app/i18n.de.ts`), called with `changeRefs.length` at both render sites — the
+`title`/`aria-label`/visible-text badge in `task-row.tsx` and the Kanban card badge in
+`task-kanban-card.tsx`. A task carrying exactly one linked change therefore reads "1 changes"
+everywhere the badge renders. Reproduce:
+`grep -n 'taskRowChangesBadge' src/app/task-row.tsx src/app/task-kanban-card.tsx`
+(four call sites — three in `task-row.tsx`, one in `task-kanban-card.tsx`, all passing
+`changeRefs.length`).
 
 ★ This badge WAS touched by the control-defects batch — commit `f168a927` added
 `whitespace-nowrap` to stop it (and the RAID/Jira/Document ID-column badges) wrapping inside the
@@ -29011,17 +29014,20 @@ returns only `jiraTest`/`timelogTest` i18n keys and `jira-api.ts`'s/`jira-settin
 `testConnection` — nothing under any of the 20 `turso-*.ts(x)` files
 (`ls src/app | grep -i turso`).
 
-Jira and Timelog both ship a real test-connection round trip: `jira-settings.tsx:147` calls
-`testConnection(creds)` (`jira-api.ts:65`, hits the real API and returns the authenticated
-user); `timelog-settings.tsx`'s `test()` (line 50, wired to the `timelogTest` "Test connection"
-button) calls `listUsers`/`getPrivileges` (`timelog-api.ts`) and reports the result via
+Jira and Timelog both ship a real test-connection round trip: `jira-settings.tsx` calls
+`testConnection(creds)` (the function itself, `jira-api.ts`, hits the real API and returns the
+authenticated user — reproduce with
+`grep -n testConnection src/app/jira-settings.tsx src/app/jira-api.ts`); `timelog-settings.tsx`'s
+`test()` (wired to the `timelogTest` "Test connection" button) calls
+`listUsers`/`getPrivileges` (`timelog-api.ts`) and reports the result via
 `timelogTestOk`/`timelogTestFail`. Turso has no analogue — nothing calls the database to confirm
 a URL/token pair actually connects.
 
-Consequence: `canMoveToTurso` in `src/app/settings-sections/integrations-section.tsx:275` is
-`!!onMigrateToTurso && !onTurso && tursoConfigured`, and `tursoConfigured`
-(line 268) is `!!getTursoConfig(turso.databaseUrl, turso.authToken)` — a shape check on the two
-fields, never a live probe. The Move-to-Turso control, and the buttons in
+Consequence: `canMoveToTurso` in `src/app/settings-sections/integrations-section.tsx` is
+`!!onMigrateToTurso && !onTurso && tursoConfigured`, and `tursoConfigured` is
+`!!getTursoConfig(turso.databaseUrl, turso.authToken)` — a shape check on the two fields, never
+a live probe (reproduce: `grep -n 'canMoveToTurso\|tursoConfigured =' src/app/settings-sections/integrations-section.tsx`).
+The Move-to-Turso control, and the buttons in
 `src/app/projects-panel.tsx` that a later task in this batch makes visible-but-disabled, can
 therefore only gate on Turso configuration being **present**, never on it being **confirmed
 working** — which is what was originally wanted for parity with Jira/Timelog.
