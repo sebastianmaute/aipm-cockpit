@@ -241,6 +241,94 @@ describe("describeProposal", () => {
     }
   });
 
+  // `set_task_dependencies` has no create/update/delete triple, so it is absent
+  // from `TOOL_ENTITY` by design and used to take the empty-plan branch above:
+  // the card rendered a bare tool name over a WHOLESALE REPLACE of a task's
+  // predecessor graph. It gets its own narrow describer instead — see the
+  // `describeDependencyCall` docstring for why the map is left alone.
+  describe("set_task_dependencies", () => {
+    const linked = {
+      ...task3,
+      dependencies: [{ taskId: 1, type: "FS" }, { taskId: 2, type: "FS" }],
+    };
+    const depWs = { ...ws, tasks: [task1, task2, linked] } as unknown as Workspace;
+
+    test("names the task and shows the dropped dependency", () => {
+      const rows = describeProposal(
+        [call("set_task_dependencies", { id: 3, dependencies: [{ taskId: 1, type: "FS" }] })],
+        depWs,
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].plan.rejected).toEqual([]);
+      expect(rows[0].plan.links).toEqual([
+        { field: "C dependencies", before: "A (FS), B (FS)", after: "A (FS)", rawIds: [1] },
+      ]);
+    });
+
+    // The writer keys a link on the (taskId, type) PAIR, so this IS a drop plus
+    // an add. Rendering task titles alone would make it invisible — the
+    // same-titled-swap hazard `LinkDiff`'s own docstring records.
+    test("shows a type-only change", () => {
+      const rows = describeProposal(
+        [
+          call("set_task_dependencies", {
+            id: 3,
+            dependencies: [{ taskId: 1, type: "SS" }, { taskId: 2, type: "FS" }],
+          }),
+        ],
+        depWs,
+      );
+      expect(rows[0].plan.links[0].before).toBe("A (FS), B (FS)");
+      expect(rows[0].plan.links[0].after).toBe("A (SS), B (FS)");
+    });
+
+    test("marks a stored dependency whose task is gone with the shared marker", () => {
+      const dangling = { ...task3, dependencies: [{ taskId: 7, type: "FS" }] };
+      const rows = describeProposal(
+        [call("set_task_dependencies", { id: 3, dependencies: [] })],
+        { ...ws, tasks: [task1, task2, dangling] } as unknown as Workspace,
+      );
+      expect(rows[0].plan.links[0].before).toBe("#7 (FS)");
+      // The most destructive line this card can show; the renderer draws "—".
+      expect(rows[0].plan.links[0].after).toBe("");
+      expect(rows[0].plan.links[0].rawIds).toEqual([]);
+    });
+
+    // Mirrors the dispatcher: a write whose links were ALL refused, against a
+    // task that already has links, leaves the task untouched.
+    test("shows no change when every proposed link is refused", () => {
+      const rows = describeProposal(
+        [call("set_task_dependencies", { id: 3, dependencies: [{ taskId: 99, type: "FS" }] })],
+        depWs,
+      );
+      expect(rows[0].plan.links[0].after).toBe(rows[0].plan.links[0].before);
+    });
+
+    test("rejects a call whose target task does not exist", () => {
+      const rows = describeProposal(
+        [call("set_task_dependencies", { id: 99, dependencies: [] })],
+        depWs,
+      );
+      expect(rows[0].plan.links).toEqual([]);
+      expect(rows[0].plan.rejected).toEqual([
+        { toolName: "set_task_dependencies", reason: "unknown-id", detail: "99" },
+      ]);
+    });
+
+    // The tool throws on a non-array; describing it as a clear would preview a
+    // wipe the write never makes.
+    test("rejects a non-array dependencies field rather than previewing a wipe", () => {
+      const rows = describeProposal(
+        [call("set_task_dependencies", { id: 3, dependencies: "none" })],
+        depWs,
+      );
+      expect(rows[0].plan.links).toEqual([]);
+      expect(rows[0].plan.rejected).toEqual([
+        { toolName: "set_task_dependencies", reason: "bad-input", detail: "none" },
+      ]);
+    });
+  });
+
   test("returns rows in the same order as the input calls", () => {
     const calls = [
       call("create_task", { taskName: "New", dueDate: "2026-10-01" }),
@@ -377,9 +465,14 @@ describe("TOOL_ENTITY", () => {
   });
 
   test("omits exactly the stageable write tools the descriptor engine cannot diff", () => {
-    // These reach the card as rows with an empty plan (see the no-descriptor
-    // test above). Listing them here makes a NEW undescribable tool visible
-    // rather than letting it appear as a silently blank row.
+    // ★★ ABSENT FROM THE MAP IS NO LONGER THE SAME AS UNDESCRIBED, and this
+    // comment used to say it was: `set_task_dependencies` has a hand-written
+    // describer in `chat-proposal-describe.ts` while staying out of the map,
+    // because the map is DERIVED from create/update/delete triples it has none
+    // of. The rest of this list does still reach the card with an empty plan
+    // (see the no-descriptor test above). Listing them here makes a NEW
+    // undescribable tool visible rather than letting it appear as a silently
+    // blank row.
     const undescribable = [
       "create_document", "update_document", "delete_document",
       "delete_all_tasks", "send_inquiry", "set_task_dependencies",
@@ -402,6 +495,26 @@ describe("TOOL_ENTITY", () => {
       .map((d) => d.name)
       .filter((n) => isEntityWriteTool(n) && !(n in TOOL_ENTITY));
     expect(derived.sort()).toEqual([...undescribable].sort());
+
+    // ★★ AND PIN THE SPLIT THE COMMENT ABOVE NOW CLAIMS, in both directions:
+    // the two task-wide tools still produce a plan with nothing in it, while
+    // `set_task_dependencies` produces a real link diff. Asserting only the
+    // membership above cannot see either half — that is exactly how this test
+    // went on describing an empty plan for a tool that had gained a describer.
+    const [allTasks, inquiry, deps] = describeProposal(
+      [
+        call("delete_all_tasks", {}),
+        call("send_inquiry", { id: 1 }),
+        call("set_task_dependencies", { id: 1, dependencies: [{ taskId: 2, type: "FS" }] }),
+      ],
+      ws,
+    );
+    const empty = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+    expect(allTasks.plan).toEqual(empty);
+    expect(inquiry.plan).toEqual(empty);
+    expect(deps.plan.links).toEqual([
+      { field: "A dependencies", before: "", after: "B (FS)", rawIds: [2] },
+    ]);
   });
 });
 
