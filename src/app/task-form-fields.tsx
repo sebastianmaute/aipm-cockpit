@@ -1,14 +1,14 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import { ComboInput } from "./combo-input";
+import { EffortField } from "./effort-field";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { NoteLogPanel, type NoteLogPanelProps } from "./note-log-panel";
 import { ResourcePicker } from "./resource-picker";
 import type { listContacts } from "./contacts";
 import { DependencyLinkGroup } from "./dependencies-editor";
-import { formatDuration, parseDuration } from "./duration";
-import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
+import { CharCounter, FieldError } from "./field-feedback";
 import { Field, TaskFormSection } from "./task-form-layout";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
@@ -728,52 +728,3 @@ export function TaskFormFields({
   );
 }
 
-// Effort field — a controlled text input that parses Jira-style "w/d/h/m"
-// into canonical minutes. Keeps a local string so the user can type freely
-// (and so an existing task renders as "2w 3d"). Empty → unset (undefined);
-// unparseable → keep the string, flag invalid, and DON'T write a value.
-function EffortField({
-  lang,
-  label,
-  minutes,
-  onChange,
-}: {
-  lang: Lang;
-  label: string;
-  minutes: number | undefined;
-  onChange: (minutes: number | undefined) => void;
-}) {
-  const [text, setText] = useState(() => formatDuration(minutes ?? 0));
-  const [invalid, setInvalid] = useState(false);
-  const noticeId = useId();
-
-  return (
-    <Field label={label}>
-      <Input
-        type="text"
-        value={text}
-        onChange={(e) => {
-          const value = e.target.value;
-          setText(value);
-          if (value.trim() === "") {
-            setInvalid(false);
-            onChange(undefined);
-            return;
-          }
-          const mins = parseDuration(value);
-          if (mins === null) {
-            setInvalid(true);
-            return;
-          }
-          setInvalid(false);
-          onChange(mins);
-        }}
-        placeholder={t(lang, "taskEffortHint")}
-        invalid={invalid}
-        aria-describedby={invalid ? noticeId : undefined}
-        className="w-full"
-      />
-      {invalid && <FieldNotice id={noticeId}>{t(lang, "taskEffortInvalid")}</FieldNotice>}
-    </Field>
-  );
-}
