@@ -28103,11 +28103,19 @@ is previewed VERBATIM — so a number, enum, date or rich field cannot be text-m
 construction. Both the stored `before` and the incoming `after` go through the same entry, which is
 what makes a no-op `isExternal: false` compare equal against a row that carries no key at all
 (`sanitizeResource` stores the flag present-or-absent, so verbatim `str` was NOT sufficient there
-either — it fixes `true` and still mispreviews `false`). Sixteen fields across six entities now
-delegate, spanning five distinct sanitizers: `sanitizeText` at four different caps,
-`sanitizeMultiline` (`task.blockers` — no trim), `optText`/`optMultiline` (the resource optional
-path — trim, NO cap, and CRLF→LF for notes) and `isExternalFlag`. The last three were exported for
-this; ★ `stakeholder.notes` is `sanitizeText`, NOT the multiline one, despite being a textarea.
+either — it fixes `true` and still mispreviews `false`). The map spans five distinct sanitizers:
+`sanitizeText` at four different caps, `sanitizeMultiline` (`task.blockers` — no trim),
+`optText`/`optMultiline` (the resource optional path — trim, NO cap, and CRLF→LF for notes) and
+`isExternalFlag`. The last three were exported for this; ★ `stakeholder.notes` is `sanitizeText`,
+NOT the multiline one, despite being a textarea, and `task.blockers` is the only multiline member.
+
+★★ NO ENTRY COUNT IS QUOTED HERE, DELIBERATELY, and restoring one is a regression. The first draft
+of this paragraph said "sixteen fields" — a hand tally, never measured — and the commit message that
+carried it says the same; the measured figure at that moment was 27. The tally was wrong before the
+ink dried and would rot again on the next field added. What BOUNDS the set is machine-checked
+instead: `entity-descriptor.test.ts`'s "has no fieldSanitizers key outside diffFields" (no stray or
+typo'd key can hide in the map) plus the differential below (every `diffField`, whether or not it
+has an entry). Read a count off `Object.keys(...).length` if you need one; do not trust a doc for it.
 
 ★★ THE REAL DELIVERABLE IS THE DIFFERENTIAL, not the sixteen entries — an enumerated list is how
 this entry shipped covering four fields of sixteen the first time.
