@@ -70,7 +70,7 @@ function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadge
       // tagExclude drops, so the a11y gate never runs it. `task-raid-badge.test.tsx`
       // is the only detector.
       aria-label={rowLabel(rowLabel(mix, t(lang, "raidReferencedBy", refs.length)), rowToken)}
-      className={`ml-1 inline-flex items-center rounded bg-ui-purple px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-ui-purple/90 ${INTERACTIVE}`}
+      className={`ml-1 inline-flex items-center whitespace-nowrap rounded bg-ui-purple px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-ui-purple/90 ${INTERACTIVE}`}
     >
       {mix}
     </button>

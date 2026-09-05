@@ -87,4 +87,11 @@ describe("RaidBadge", () => {
       "2R · 1A · 0I · 0D – Referenced by 3 RAID item(s) – Beta",
     ]);
   });
+
+  // The badge lives in the task table's narrow, user-resizable ID column. Without
+  // this the glyph string breaks across four lines and inflates every row.
+  it("never wraps", () => {
+    render(<RaidBadge taskId={7} refs={MIXED_REFS} lang="en-US" rowToken="Alpha" onJumpToRaid={vi.fn()} />);
+    expect(screen.getByRole("button").className).toContain("whitespace-nowrap");
+  });
 });

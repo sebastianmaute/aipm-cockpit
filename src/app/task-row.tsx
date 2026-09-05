@@ -375,7 +375,7 @@ function TaskRowImpl({
           <span
             title={t(lang, "taskRowChangesBadge", changeRefs.length)}
             aria-label={t(lang, "taskRowChangesBadge", changeRefs.length)}
-            className="ml-1 inline-flex items-center rounded bg-ui-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:bg-ui-blue/20 dark:text-ui-light-grey"
+            className="ml-1 inline-flex items-center whitespace-nowrap rounded bg-ui-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:bg-ui-blue/20 dark:text-ui-light-grey"
           >
             {t(lang, "taskRowChangesBadge", changeRefs.length)}
           </span>

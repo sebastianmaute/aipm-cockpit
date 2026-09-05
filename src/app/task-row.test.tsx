@@ -1455,6 +1455,62 @@ describe("TaskRow linked-documents badge", () => {
   });
 });
 
+describe("TaskRow ID-column badges", () => {
+  // Four badges share the task table's narrow, user-resizable ID column: Jira,
+  // RAID, Document and the inline changes span. None carried `whitespace-nowrap`,
+  // so the RAID glyph string broke across four lines and the changes badge
+  // across two, inflating the whole row's height.
+  //
+  // ★ All four (and ONLY them, among the column's controls) carry `text-[10px]`
+  // — the `#<id>` button rendered beside them is `font-mono`, not `text-[10px]`,
+  // so filtering on that class is what keeps this test from also demanding
+  // `whitespace-nowrap` on a control this fix does not touch (that button's text
+  // never wraps anyway — a bare "#1" has nowhere to break).
+  test("keeps every ID-column badge on one line", () => {
+    const documentsByEntity = indexDocumentsByEntity([
+      {
+        id: 90,
+        title: "Doc 90",
+        blocks: [],
+        createdAt: "2026-06-01T00:00:00.000Z",
+        updatedAt: "2026-06-01T00:00:00.000Z",
+        linkedEntities: [{ kind: "task", id: 1 }],
+      },
+    ]);
+    const ctx = makeContext({ jiraSiteUrl: "https://jira.example.com" });
+    const task = makeTask({ id: 1, taskName: "Alpha", jiraKey: "AB-1" });
+    const { container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            rowToken="Alpha"
+            isSelected={false}
+            isEditing={false}
+            isPushing={false}
+            raidRefs={[makeRaidItem({ id: 1 }), makeRaidItem({ id: 2 })]}
+            changeRefs={[makeChange({ id: 1 })]}
+            documentsByEntity={documentsByEntity}
+            onOpenDocuments={vi.fn()}
+          />
+        ),
+      }),
+    );
+    // MEASURED (temporary console.log probe, since removed): with the default
+    // context (hiddenCols empty) the row's <td>s are, in order, the leading
+    // Ask-Claude cell, the checkbox, the status cell, then the id cell — index 3.
+    const idCell = container.querySelectorAll("td")[3];
+    const badges = [...idCell.querySelectorAll("a,button,span")].filter((el) =>
+      el.className.includes("text-[10px]"),
+    );
+    // Non-vacuity floor: Jira + RAID + Document + changes, all seeded above.
+    expect(badges.length).toBe(4);
+    const wrapping = badges.filter((el) => !el.className.includes("whitespace-nowrap"));
+    expect(wrapping.map((el) => el.className)).toEqual([]);
+  });
+});
+
 describe("row-unique accessible names (WCAG 2.4.6)", () => {
   // Builds each row's OWN token from `buildRowTokens` — the real disambiguator,
   // not a hand-written string and not a constant shared by every row. A
