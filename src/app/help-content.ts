@@ -159,8 +159,11 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   // entry is worth having.
   { id: "feature-install", group: "features", titleKey: "helpSecInstallTitle", bodyKey: "helpSecInstallBody" },
   { id: "feature-undo", group: "features", titleKey: "helpSecUndoTitle", bodyKey: "helpSecUndoBody", relatedViews: ["open-points", "raid", "changes", "stakeholders", "resources"] },
-  // ★ Six entities, from `InlineEntity` — not the four the rich-text bullet
-  // in AGENTS.md happens to list; `stakeholder` is inline-editable too.
+  // ★ Six `InlineEntity` members, only five with a surface — `resource` has
+  // none (see `use-entity-inline-ai-edit.tsx`'s own comment on that entry),
+  // which is why `relatedViews` below lists five, not six. Not the four the
+  // rich-text bullet in AGENTS.md happens to list; `stakeholder` is
+  // inline-editable too.
   { id: "feature-inline-ai-edit", group: "features", titleKey: "helpSecInlineAiEditTitle", bodyKey: "helpSecInlineAiEditBody", relatedViews: ["open-points", "raid", "changes", "milestones", "stakeholders"] },
   { id: "feature-digest", group: "features", titleKey: "helpSecDigestTitle", bodyKey: "helpSecDigestBody", relatedViews: ["dashboard"] },
   // ★ No `relatedViews` on these two: they apply to nearly every table and
