@@ -1898,6 +1898,99 @@ git commit --only src/app/chat-proposal-describe.ts src/app/chat-proposal-descri
 
 ---
 
+### Tasks 16-19: fix the seven (user: "fix all", 2026-09-05)
+
+Task 12's un-swallowed direction reported seven fields where the PREVIEW refuses
+a value the WRITER silently coerces, clearing a populated field while the card
+reads "unchanged". A read-only design pass produced these verdicts.
+
+★★★ **ALL SEVEN ARE WRITER-SIDE. None is a preview fix.** §384's precedent
+("the writer keeps its semantics, the preview stops lying") turns on whether the
+user's intent was EXPRESSIBLE — a mononym genuinely has no surname. None of
+these has that property: the tool schemas never advertise a clear (`severity`
+declares `enum: RAID_SEVERITIES` with no empty member; `raisedDate` is
+"YYYY-MM-DD, defaults to today"), and the probes that trigger them are garbage
+(`true`, `false`, `42`, `""`). Nobody expresses "clear the severity" by sending
+`severity: 42`.
+
+★★★ **FIX AT THE MERGE SITE, NEVER IN THE SANITIZER.** `sanitizeRaidItem` and
+`sanitizeChangeItem` are FULL-RECORD LOAD-PATH sanitizers — JSON load, CSV
+decode, template apply, AI proposal. On load there IS no prior value, so
+"preserve the stored one" is not expressible there, and their behaviour is
+pinned by ~8 tests (`sanitize-raid.test.ts` "omits severity when value is
+invalid", ×6, plus "keeps raisedDate as empty string when missing or invalid").
+A sanitizer-side fix rewrites those and touches byte-stable serializer inputs.
+**The merge-site fix rewrites zero tests.**
+
+★ The precedent already exists three lines from where the fix goes:
+`applyModelChangeStatus` (`change-log.ts`), whose docblock says exactly this —
+an unrecognised value would DEMOTE a decided change, so it is ignored. These
+tasks generalise that from `status` to its siblings.
+
+**The rule, stated precisely:** hoist each sanitizer's own acceptance predicate
+to the PATCH level and drop the key when it fails, instead of letting the failure
+fall through to the full-record rebuild. The discard then means "unchanged"
+rather than "cleared", and it matches the preview BY CONSTRUCTION, because the
+preview already mirrors those predicates.
+
+**Two traps, both measured:**
+- (a) `raisedDate` MUST keep accepting the explicit `""`. The preview's guard is
+  `after !== "" && sanitizeIsoDate(after) !== after`, so `""` sails through and
+  is previewed as a disclosed clear. A naive "drop anything `sanitizeIsoDate`
+  refuses" creates a NEW mismatch in the opposite direction. Guard on
+  `v !== "" && sanitizeIsoDate(v) === ""`.
+- (b) `probability`/`impact` must coerce with `toNumber`, NOT a
+  `typeof === "number"` test. raid declares them in `numberFields`, so the
+  preview normalises through `toNumber` — `true` becomes `1` and a string `"3"`
+  is ACCEPTED by the preview today. A stricter writer guard invents a fresh
+  divergence. Use the sanitizer's own predicate verbatim.
+
+★★★ **AND `update_raid_item({probability: true})` STORES A FABRICATED 1.** It is
+not a clear — `toNumber(true)` is `1`, the preview coerces identically so it
+reads as ACCEPTED, and the value feeds `riskSeverityFromMatrix`. It is not among
+the seven for exactly that reason. Fixing M2 with the sanitizer's own predicate
+closes it as a side effect; a `typeof` guard would not.
+
+★★★ **THE SEVEN IS A FLOOR, NOT A CENSUS** — which is this register's documented
+false-closure shape. About six more members are CONCEALED BY THE FIXTURES:
+`RAID_BASE` carries no `targetDate`/`closedDate`, `CHANGE_BASE` no
+`decisionDate`, `MILE_BASE` no `achievedDate` — all conditional-drop in their
+sanitizers, so on a row that DOES carry one a garbage value clears it, while the
+sweep sees `""` against `""` and records agreement. Likewise the required enums
+whose fixture value equals their own fallback (`raid.category` "R",
+`change.type` "Other"): a raid with category "I" is silently RESET to "R", which
+re-resolves `status` through `statusSetForCategory` and can move a SECOND field.
+**Write the helper generically per entity over the sanitizer's predicates, not
+field-by-field, or the class reopens.**
+
+- **Task 16 (M1) — `task.taskName`.** `chat-task-patch.ts` · `buildTaskCleanPatch`:
+  after `sanitizeTaskName`, throw when empty — the line
+  `use-chat-dispatcher.ts` already has on CREATE. This fixes an internal
+  inconsistency: create refuses an empty task name, update does not. One caller,
+  AI update path only, zero writer-test churn.
+  ★ Reachable on the MAIN chat path, not an exotic one: all six update tools are
+  proposal-gated and apply by REPLAY, and `buildPatch` collapses any non-string
+  to `""` before this function sees it.
+- **Task 17 (M2, raid) — riskiest.** `use-register-tools.ts` · `updateRaid`:
+  `severity`, `probability`, `impact`, `raisedDate`, plus the concealed
+  `targetDate`, `closedDate`, `category`/`status`. The category↔status coupling
+  is why this is the risky one — an over-eager guard moves a field nobody asked
+  about.
+- **Task 18 (M2, change).** `updateChange`: `impact`, `raisedDate`,
+  `decisionDate`, `type`. ★ `status` is ALREADY handled by
+  `applyModelChangeStatus` — do NOT route it through the new helper.
+- **Task 19 (M2, milestone).** `achievedDate`. Smallest surface; only if 17/18
+  land clean.
+
+**Test churn:** delete the seven `PREVIEW_REJECTS_APPLY_WRITES` entries as each
+lands (the totals assertion reds on a stale entry, which is the proof the fix
+worked). `sanitize-raid.test.ts` / `sanitize-change.test.ts` stay UNTOUCHED —
+that is the argument for the merge site. Regression pins belong in
+`plan.write-path.test.ts`, the real replay differential; the parity sweep alone
+cannot see a replay.
+
+---
+
 ## Final verification
 
 ```
