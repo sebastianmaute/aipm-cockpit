@@ -6,6 +6,7 @@ import { Button } from "./button";
 import { t } from "./i18n";
 import { ModalHeader } from "./modal-header";
 import { TaskTimeTrackingButton } from "./task-time-tracking-button";
+import { VoiceCommandProvider } from "./voice-command-context";
 
 const base = {
   lang: "en-US" as const,
@@ -163,21 +164,56 @@ describe("TaskTimeTrackingButton", () => {
     // and Filters providers plus an advanced-tier field toggle before this
     // button renders at all. A change to the form's own two controls would not
     // reach this fixture — re-read task-form-modal.tsx's footer if it moves.
+    //
+    // ★★★ THE PROVIDER IS LOAD-BEARING, AND WITHOUT IT THIS TEST WAS BLIND TO
+    // THE WORST HALF OF THE COLLISION. `ModalHeader` calls `useVoiceCommand()`
+    // and renders a `VoiceCommandButton` whenever a provider is in scope; that
+    // button's name is the fixed, UNQUALIFIED `voiceCommand` string, which no
+    // `closeLabel`-style override can qualify. `useVoiceCommand()` returns null
+    // outside a provider, so the un-wrapped fixture rendered NO mic at all and
+    // the assertion could not fail however many headers were stacked. In the
+    // app the provider sits at `task-manager.tsx`, ABOVE both layers.
     render(
-      <>
+      <VoiceCommandProvider value={{ onCommand: vi.fn(), onError: vi.fn() }}>
         <ModalHeader lang="en-US" title="Edit task" onClose={vi.fn()} />
         <TaskTimeTrackingButton {...base} />
         <Button variant="secondary">{t("en-US", "cancel")}</Button>
-      </>,
+      </VoiceCommandProvider>,
     );
     await userEvent.click(screen.getByRole("button", { name: /time tracking/i }));
-    // SIX controls, the exact measured count: the form's Close + Cancel, the
-    // tracking trigger, and the dialog's Close + Save + Cancel. A loose floor
-    // would let a fixture that stopped rendering the dialog read as a pass.
+    // SEVEN controls, the exact count, enumerated rather than guessed: the
+    // form's Close + Cancel + voice mic, the tracking trigger, and the dialog's
+    // Close + Save + Cancel. The dialog's own header contributes NO second mic
+    // (`hideVoiceCommand`), which is the fix this count encodes — it was SIX
+    // before, when the missing provider suppressed both mics at once. `Modal`,
+    // `EffortField` and `ProgressTrack` render no <button> of their own, so
+    // nothing else is in scope. A loose floor would let a fixture that stopped
+    // rendering the dialog read as a pass.
     // `requireCollisionSeed` is deliberately OFF — this is a distinct-name pin,
     // and that guard THROWS unless two names collide once " (N)" is stripped,
     // which is the state this test exists to forbid.
-    expectRowUniqueNames({ minControls: 6 });
+    expectRowUniqueNames({ minControls: 7 });
+  });
+
+  test("the stacked dialog suppresses the voice mic, leaving exactly one in the document", async () => {
+    // The mic cannot be disambiguated the way Close and Cancel are: its name is
+    // hardcoded in `voice-button.tsx` and `ModalHeader` takes no override for
+    // it. So the nested header renders none, and the task form's mic beneath
+    // stays the single, reachable global voice trigger.
+    render(
+      <VoiceCommandProvider value={{ onCommand: vi.fn(), onError: vi.fn() }}>
+        <ModalHeader lang="en-US" title="Edit task" onClose={vi.fn()} />
+        <TaskTimeTrackingButton {...base} />
+      </VoiceCommandProvider>,
+    );
+    // ANTI-VACUITY: the OUTER header must really render one first, or the
+    // "exactly one while stacked" assertion below would hold over a fixture
+    // that renders no mic at all — which is precisely how the old fixture read
+    // as a pass.
+    expect(screen.getAllByRole("button", { name: t("en-US", "voiceCommand") })).toHaveLength(1);
+    await userEvent.click(screen.getByRole("button", { name: /time tracking/i }));
+    expect(screen.getByRole("dialog", { name: /time tracking/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: t("en-US", "voiceCommand") })).toHaveLength(1);
   });
 
   test("does not expose a progressbar role, because the track is decorative here", () => {

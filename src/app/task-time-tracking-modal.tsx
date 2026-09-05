@@ -101,32 +101,34 @@ export function TaskTimeTrackingModal({
     >
       <div
         className="flex w-[520px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
-        // Swallow a bare Enter. Typing a duration and pressing Enter is the
-        // natural way to finish the entry, and this dialog opens from inside
-        // the task <form>, where that is implicit submission: the task saves
-        // with its PRE-dialog values and both layers close, discarding the
-        // edits held in local state here.
+        // Enter in ANY input in this panel COMMITS the dialog (Jira-shaped, and
+        // what `documents-rename-modal.tsx` does); `commit` is itself gated on
+        // validity, so an invalid box makes Enter a plain no-op. `isComposing`
+        // spares IME users, for whom Enter commits the candidate, not the field.
         //
-        // KEEP THIS EVEN THOUGH `portal` ALONE ALSO STOPS IT. The portal moves
-        // these inputs out of the <form>, but that is a side effect of DOM
-        // location, stated nowhere at this call site — un-portalling the dialog
-        // would silently re-arm the bug. The guard states the rule locally and
-        // is testable on its own. `isComposing` spares IME users, for whom
-        // Enter commits the candidate rather than the field.
+        // ★★ THE `portal` IS WHAT KEEPS THIS OFF THE TASK FORM, not anything
+        // here: portaled, these inputs are no longer DOM descendants of that
+        // <form>, so they have no form owner and implicit submission cannot
+        // occur (pinned by "pressing Enter in a duration box cannot submit the
+        // surrounding task form", `task-time-tracking-button.test.tsx`).
+        // ★★★ The dialog is STILL a REACT descendant of that form, though, and
+        // synthetic events bubble the REACT tree rather than the DOM one — so
+        // keydowns here DO reach its React handlers. That is harmless only
+        // because its sole handler is `onSubmit` (`task-form-modal.tsx`), and
+        // `submit` is a DOM event on the element the portal took these inputs
+        // off. Give that form an `onKeyDown` and it WILL receive these keydowns;
+        // nothing here would stop that, and a `preventDefault` would NOT either
+        // — that suppresses the DEFAULT ACTION, never propagation. Only
+        // `stopPropagation` would, and there is no live defect to justify one.
         //
-        // ★★ SCOPED TO THE DURATION INPUTS. A panel-wide preventDefault also
-        // kills Enter-activation of Save/Cancel/Close: activating a focused
-        // <button> is a DEFAULT ACTION of the keydown (WCAG 2.1.1). Measured in
-        // Chromium — 0 clicks with the unscoped guard, 1 without it. jsdom does
-        // not perform that default action, so no unit test can catch the
-        // regression; the pin below asserts `defaultPrevented` on both targets
-        // instead. On an input Enter COMMITS the dialog (Jira-shaped, and what
-        // `documents-rename-modal.tsx` does) — `commit` is itself gated on
-        // validity, so an invalid box makes Enter a plain no-op.
+        // ★★ SCOPED TO INPUTS, and that scoping is load-bearing: Enter on a
+        // focused <button> already activates it (a browser DEFAULT ACTION, WCAG
+        // 2.1.1), so an unscoped handler would fire `commit` on top of the
+        // Save/Cancel/Close click. jsdom performs no such default action, so the
+        // pin is that Enter on a BUTTON reaches neither `onSave` nor `onClose`.
         onKeyDown={(e) => {
           if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
           if (!(e.target instanceof HTMLInputElement)) return;
-          e.preventDefault();
           commit();
         }}
       >
@@ -143,6 +145,15 @@ export function TaskTimeTrackingModal({
           // convention (U+2013), composed from existing keys so both
           // dictionaries stay untouched.
           closeLabel={qualifyWithTitle(t(lang, "alertModalClose"), lang)}
+          // The SAME collision, one control along, and it cannot be fixed the
+          // same way: `ModalHeader` renders a voice mic whenever a
+          // `VoiceCommandProvider` is in scope, and that button's name is the
+          // fixed, unqualified `voiceCommand` string. The provider sits above
+          // BOTH layers, so stacked headers give two controls named "Voice
+          // command". Suppressed here rather than qualified — a nested dialog
+          // needs no second global voice trigger, and the task form's own mic
+          // stays reachable underneath.
+          hideVoiceCommand
         />
 
         <div className="space-y-4 p-6">

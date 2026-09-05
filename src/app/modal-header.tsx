@@ -37,6 +37,21 @@ interface ModalHeaderProps {
    *  convention: `${t(lang, "alertModalClose")} – ${dialogTitle}`. NOT defaulted
    *  to include the title, which would rename every ✕ in the app at once. */
   closeLabel?: string;
+  /** Suppress the voice-command mic in this header.
+   *
+   *  ★ PASS IT ON A STACKED DIALOG'S HEADER, for the same reason `closeLabel`
+   *  exists one prop up. This component renders the mic whenever a
+   *  `VoiceCommandProvider` is in scope, and `VoiceCommandButton` names itself
+   *  with the fixed, unqualified `voiceCommand` string — so two stacked headers
+   *  put TWO controls named "Voice command" in one document. Speech input does
+   *  not scope by `aria-modal` ("click Voice command" then picks one
+   *  arbitrarily), and axe has no rule that flags two controls sharing an
+   *  accessible name, so a unit test is the only detector that can exist.
+   *  SUPPRESSED rather than qualified: a nested dialog does not need a second
+   *  global voice trigger, and the one on the layer beneath stays reachable —
+   *  this removes the control AND the collision. Defaults to false, so every
+   *  existing call site renders byte-identically. */
+  hideVoiceCommand?: boolean;
   /** Extra controls rendered in the header's right cluster, before the close
    *  button (e.g. a reset-size button for a resizable modal panel). */
   headerExtra?: ReactNode;
@@ -61,6 +76,7 @@ export function ModalHeader({
   dragHandleProps,
   hideClose = false,
   closeLabel,
+  hideVoiceCommand = false,
   headerExtra,
   onResetLayout,
   logo,
@@ -82,7 +98,7 @@ export function ModalHeader({
       </div>
       <div className="flex items-center gap-1" onPointerDown={stopDrag}>
         {headerExtra}
-        {voice && (
+        {voice && !hideVoiceCommand && (
           <VoiceCommandButton lang={lang} onCommand={voice.onCommand} onError={voice.onError} />
         )}
         {onResetLayout && (

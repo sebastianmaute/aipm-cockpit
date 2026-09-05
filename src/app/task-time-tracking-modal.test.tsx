@@ -62,33 +62,29 @@ describe("TaskTimeTrackingModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  test("swallows a bare Enter on a duration box", () => {
-    // The panel's own guard, asserted at ITS level -- independent of where the
-    // dialog sits in the DOM, so portalling it cannot make this pass for the
-    // wrong reason. Typing a duration and pressing Enter is the natural way to
-    // finish the entry; unguarded it would submit the task form beneath.
-    render(<TaskTimeTrackingModal {...base} onSave={vi.fn()} onClose={vi.fn()} />);
-    const input = screen.getByRole("textbox", { name: /time spent/i });
-    const ev = createEvent.keyDown(input, { key: "Enter" });
-    fireEvent(input, ev);
-    expect(ev.defaultPrevented).toBe(true);
-  });
-
   test("leaves Enter on a BUTTON alone, so Save/Cancel/Close stay keyboard-operable", () => {
-    // REGRESSION PIN. The guard used to sit unscoped on the panel <div>, so it
-    // preventDefaulted Enter for every descendant — and activating a focused
-    // <button> is a DEFAULT ACTION of the keydown (WCAG 2.1.1). Measured in
-    // Chromium: 0 clicks with the unscoped guard, 1 without it. jsdom does not
-    // perform that default action, which is why the input-side test above
-    // passed throughout; `defaultPrevented` is the observable that survives
-    // both engines, so BOTH halves have to be asserted together.
-    render(<TaskTimeTrackingModal {...base} onSave={vi.fn()} onClose={vi.fn()} />);
+    // REGRESSION PIN for the `e.target instanceof HTMLInputElement` scoping.
+    // The handler used to sit unscoped on the panel <div>; activating a focused
+    // <button> is a DEFAULT ACTION of the keydown (WCAG 2.1.1), measured in
+    // Chromium at 0 clicks with the unscoped guard against 1 without it.
+    //
+    // ★★ ASSERTED ON `onSave`/`onClose`, NOT ON `defaultPrevented`. jsdom
+    // performs no button default action, so a `defaultPrevented === false`
+    // assertion says nothing now that the handler calls no `preventDefault` at
+    // all — it would pass with the scoping line DELETED. Reaching `commit` is
+    // the observable that survives: unscoped, Enter on Cancel would fire the
+    // dialog's commit on top of the click.
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    render(<TaskTimeTrackingModal {...base} onSave={onSave} onClose={onClose} />);
     for (const name of ["Save", DIALOG_CANCEL, DIALOG_CLOSE]) {
       const button = screen.getByRole("button", { name });
       const ev = createEvent.keyDown(button, { key: "Enter" });
       fireEvent(button, ev);
       expect(ev.defaultPrevented).toBe(false);
     }
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   test("shows a pinned remaining of ZERO as a value, not the derived placeholder", () => {
@@ -183,8 +179,11 @@ describe("TaskTimeTrackingModal", () => {
     const cancel = screen.getByRole("button", { name: DIALOG_CANCEL });
     // The visible text is read from the DOM, not hand-copied: a component that
     // stopped rendering the base word would fail rather than pass silently.
+    // ★ No `DIALOG_CANCEL.toContain(cancel.textContent)` follows: DIALOG_CANCEL
+    // is BUILT as `t("cancel") + " – " + t("taskTimeTracking")`, so once the
+    // line above has pinned textContent to `t("cancel")` the containment check
+    // compares a string against a substring of itself and cannot fail.
     expect(cancel.textContent).toBe(t("en-US", "cancel"));
-    expect(DIALOG_CANCEL.toLowerCase()).toContain(cancel.textContent!.toLowerCase());
     // The close ✕ has no visible text at all, so 2.5.3 does not reach it; the
     // 2.4.6 qualification still must be there.
     const close = screen.getByRole("button", { name: DIALOG_CLOSE });
@@ -202,8 +201,11 @@ describe("TaskTimeTrackingModal", () => {
     // the wrong reason.
     expect(t("de", "cancel")).toBe("Abbrechen");
     expect(t("de", "taskTimeTracking")).toBe("Zeiterfassung");
+    // Same tautology as in the EN test above: `deCancel` is composed from
+    // `t("de","cancel")`, so a containment check against it is self-comparing.
+    // The load-bearing pair is the two dictionary assertions above — they are
+    // what proves the DE strings really differ from the EN ones.
     const cancel = screen.getByRole("button", { name: deCancel });
     expect(cancel.textContent).toBe(t("de", "cancel"));
-    expect(deCancel.toLowerCase()).toContain(cancel.textContent!.toLowerCase());
   });
 });
