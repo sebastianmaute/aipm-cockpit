@@ -16,7 +16,7 @@ import { type AiConfig, isAiEnabled } from "./settings-types";
 import { type OperatingGuide } from "./operating-guide";
 import { callInlineEdit } from "./inline-ai-edit-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
-import { describeEntityCalls, isEmptyPlan, type EditPlan } from "./inline-ai-edit/plan";
+import { describeEntityCalls, isEmptyPlan, type EditPlan, type LinkDiff } from "./inline-ai-edit/plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 
 export type InlinePhase = "idle" | "thinking" | "preview" | "clarify" | "applying" | "error";
@@ -219,11 +219,20 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     // a total failure with a stranded write.
     let applied = 0;
     try {
-      if (plan.updates.length > 0) {
+      // ★★★ "IS THERE ANYTHING TO WRITE", NOT "ARE THERE FIELD UPDATES".
+      // `links` is a peer write bucket and a links-only plan is the COMMON
+      // shape for a relationship edit ("link this risk to task 12" sends
+      // `linkedTaskIds` and nothing else). Nesting the link loop inside a
+      // `plan.updates.length > 0` guard previews a relationship change and
+      // writes nothing — a preview that is not a promise about the write,
+      // which is the one property this whole surface exists to have.
+      if (plan.updates.length > 0 || plan.links.length > 0) {
         // `expectedToken` is the control value `requireToken` consumes, not a
         // field of the entity — `buildPatch`/`patchWithoutId` strip it before
-        // anything is persisted. It cannot be overwritten by the loop below:
-        // every key there comes from the descriptor's `diffFields` whitelist.
+        // anything is persisted. It cannot be overwritten by the loops below:
+        // every key there comes from a descriptor whitelist (`diffFields` for
+        // updates, `linkFields` for links), and neither names `id` or
+        // `expectedToken`.
         const patch: Record<string, unknown> = { id: activeItem.id, expectedToken: tokenRef.current };
         // ★★★ `raw`, NOT `after`. `after` is forPreview() output, which for any
         // RICH_FIELDS entry is descriptionText(html) — plain text. Applying it
@@ -236,6 +245,13 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         // enum reset carries no `raw`, because its `after` is a default enum
         // value that was never projected in the first place.
         for (const diff of plan.updates) patch[diff.field] = coerce(d, diff.field, diff.raw ?? diff.after);
+        // ★★★ `rawIds`, NEVER `after`. `after` is a RENDERED TITLE STRING, and
+        // a title arriving at `sanitizeIdList` is the exact wipe this feature
+        // exists to prevent: it splits on `[.;]`, finds no integers and stores
+        // `[]`, dropping every link the row had. The ids and the titles come
+        // from one sanitize per side in `describeEntityCalls`, so the patch
+        // carries precisely what the card promised.
+        for (const l of plan.links) patch[l.field] = linkPatchValue(d, l);
         await runTool(deps.dispatcher, d.updateTool, patch);
         applied++;
       }
@@ -308,6 +324,34 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   };
 
   return { activeItem, phase, plan, clarifyText, errorText, aiEditEnabled, openFor, submit, apply, cancel };
+}
+
+/** The value a link diff contributes to the update patch.
+ *
+ *  ★★★ THE `kind` BRANCH IS LOAD-BEARING AND WRITING `rawIds` VERBATIM WOULD BE
+ *  A SILENT FK WIPE. `LinkField.sanitize` returns `number[]` for BOTH kinds, so
+ *  a single FK (`resource.roleId`, the only `"id"` member today) arrives as a
+ *  one-element array. `update_resource` spreads the patch into
+ *  `sanitizeResource`, which reads `toNumber(input.roleId)` — and `toNumber` is
+ *  NaN for an array, by design (its descriptor comment contrasts it with bare
+ *  `Number`, which would coerce `[12]` to 12). So `roleId: [12]` stores NULL:
+ *  the card promises a new role and the write REMOVES the one the row had.
+ *  Pinned by the two cases in the "single-FK link" describe.
+ *
+ *  ★ An empty list clears with `null` rather than `[]` — both reduce to a null
+ *  FK downstream, but `null` is the value the sanitizer's own guard is written
+ *  against, and it matches the card's empty `after` instead of relying on a
+ *  coincidence of coercion.
+ *
+ *  ★ A field missing from `linkFields` cannot occur — `describeEntityCalls`
+ *  populates `plan.links` from that map alone — so the fallback is the list
+ *  shape rather than a throw. */
+function linkPatchValue(
+  d: { linkFields: Record<string, { readonly kind: "list" | "id" }> },
+  l: LinkDiff,
+): unknown {
+  if (d.linkFields[l.field]?.kind !== "id") return l.rawIds;
+  return l.rawIds.length > 0 ? l.rawIds[0] : null;
 }
 
 function coerce(d: { arrayFields: ReadonlySet<string>; numberFields: ReadonlySet<string> }, field: string, value: string): unknown {

@@ -9,6 +9,7 @@ import { isValidEmail, sanitizeIsoDate, toNumber } from "../sanitize";
 import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
 import { splitName } from "../resource-foundation";
+import { resolveLinkTitles } from "./link-titles";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -296,6 +297,36 @@ export function describeEntityCalls(
         if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
         plan.updates.push({ field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after });
         applied[f] = after;
+      }
+      // Relationship and FK inputs. Deliberately a SEPARATE bucket from
+      // `updates` — see the `LinkDiff` docstring for the wipe this prevents.
+      // ONE sanitize per side, reused for both the rendered title and the
+      // applied value, so the card cannot promise something the patch omits.
+      //
+      // ★★ A FIELD THE MODEL DID NOT SEND EMITS NOTHING, and the `in` guard is
+      // what holds that. These writes REPLACE, and the patch is rebuilt from
+      // this bucket — so emitting an untouched field would wipe it. RAID has
+      // three link fields; a model that sends one must not lose the other two.
+      //
+      // ★★★ THE SKIP COMPARES RENDERED TITLES, NOT IDS, AND THAT IS THE
+      // DELIBERATE CHOICE. Two DIFFERENT id lists that render identically (two
+      // rows sharing a title) emit nothing, so no write happens either — the
+      // edit is silently dropped rather than silently destructive. Comparing
+      // `rawIds` instead would write it, behind a card reading "Review ->
+      // Review": a change the user cannot see, on a disclosure surface whose
+      // whole purpose is that they can. One comparison gates BOTH the card and
+      // the patch, which is the invariant; a same-titled swap is the known,
+      // narrow price. ★ It is narrow because a DANGLING id renders as `#<id>`
+      // (`UNKNOWN_ID_MARKER`), so an unresolvable row stays distinguishable,
+      // and a REORDER changes the joined string — neither collapses here.
+      for (const [f, link] of Object.entries(d.linkFields)) {
+        if (!(f in input)) continue;
+        const beforeIds = link.sanitize(item[f]);
+        const afterIds = link.sanitize(input[f]);
+        const before = resolveLinkTitles(beforeIds, link, ws);
+        const after = resolveLinkTitles(afterIds, link, ws);
+        if (before === after) continue;
+        plan.links.push({ field: f, before, after, rawIds: afterIds });
       }
       // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)
       // changed, whose current value is no longer valid for the item as patched,

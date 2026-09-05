@@ -681,6 +681,103 @@ describe("resource rename sent as the name alias", () => {
   });
 });
 
+describe("link fields", () => {
+  const linkTasks = [
+    { id: 1, taskName: "Draft brief" },
+    { id: 2, taskName: "Ship" },
+    { id: 3, taskName: "Review" },
+  ];
+  const vendorRisk = { id: 10, title: "Vendor risk", linkedTaskIds: [1, 3] };
+  const linkWs = wsWith({ tasks: linkTasks as never, raid: [vendorRisk] as never });
+
+  it("shows a replaced link list as before -> after", () => {
+    // The write REPLACES: supplying [2] drops tasks 1 and 3. The card must show
+    // the removal, because nothing can reconstruct the dropped links afterwards.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 10, linkedTaskIds: [2] } }],
+      { descriptor: INLINE_DESCRIPTORS.raid, item: vendorRisk, ws: linkWs },
+    );
+    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }]);
+    expect(plan.updates).toEqual([]);
+  });
+
+  it("emits nothing when the resolved lists match", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 10, linkedTaskIds: [1, 3] } }],
+      { descriptor: INLINE_DESCRIPTORS.raid, item: vendorRisk, ws: linkWs },
+    );
+    expect(plan.links).toEqual([]);
+  });
+
+  it("leaves an untouched link field alone", () => {
+    // ★ `causedByRaidIds`/`stakeholderIds` are link fields too. A field the
+    // model did not send must not be previewed — and, since the patch is built
+    // from `links`, must not be WRITTEN either: an emitted empty diff here
+    // would wipe two more relationship arrays per edit.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 10, title: "Vendor risk 2" } }],
+      { descriptor: INLINE_DESCRIPTORS.raid, item: vendorRisk, ws: linkWs },
+    );
+    expect(plan.links).toEqual([]);
+  });
+
+  it("uses the milestone's OWN id rule, which drops a delimited string", () => {
+    // raid/change would parse "1;2" into two links; a milestone stores []. The
+    // preview must show what THIS writer does, not what the sibling does.
+    const ga = { id: 5, name: "GA", linkedTaskIds: [1] };
+    const mws = wsWith({ tasks: linkTasks as never, milestones: [ga] as never });
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_milestone", input: { id: 5, linkedTaskIds: "1;2" } }],
+      { descriptor: INLINE_DESCRIPTORS.milestone, item: ga, ws: mws },
+    );
+    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }]);
+  });
+
+  it("carries the sanitized ids the writer will store, not the titles", () => {
+    // ★★★ THE WHOLE POINT OF `rawIds`. The card renders titles; the rebuild
+    //  path applies THIS array. If the two ever came from different
+    //  computations the preview would stop being a promise about the write.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 10, linkedTaskIds: [2, 3] } }],
+      { descriptor: INLINE_DESCRIPTORS.raid, item: vendorRisk, ws: linkWs },
+    );
+    expect(plan.links[0].rawIds).toEqual([2, 3]);
+  });
+
+  // ★★★ A SINGLE FK IS A LINK FIELD TOO, and `rawIds` carries it as a ONE-
+  //  ELEMENT ARRAY because `LinkField.sanitize` returns `number[]` for both
+  //  kinds. The apply path has to unwrap it — `sanitizeResource` runs
+  //  `toNumber(input.roleId)`, and `toNumber([12])` is NaN, so writing the
+  //  array verbatim would NULL the role while the card promised a new one.
+  //  Pinned on the apply side by "unwraps a single-FK link" in
+  //  `use-inline-entity-edit.test.tsx`.
+  describe("a single FK (resource.roleId)", () => {
+    const ada = { id: 3, firstName: "Ada", lastName: "Lovelace", roleId: 11 };
+    const roleWs = wsWith({
+      resources: [ada] as never,
+      roles: [{ id: 11, disciplineId: 1, gradeId: 1 }, { id: 12, disciplineId: 2, gradeId: 1 }] as never,
+      disciplines: [{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }] as never,
+      grades: [{ id: 1, name: "L3" }] as never,
+    });
+
+    it("renders the role's derived label on both sides", () => {
+      const plan = describeEntityCalls(
+        [{ type: "tool_use", name: "update_resource", input: { id: 3, roleId: 12 } }],
+        { descriptor: INLINE_DESCRIPTORS.resource, item: ada, ws: roleWs },
+      );
+      expect(plan.links).toEqual([{ field: "roleId", before: "Engineering L3", after: "Design L3", rawIds: [12] }]);
+    });
+
+    it("shows a cleared FK as an empty after with no ids", () => {
+      const plan = describeEntityCalls(
+        [{ type: "tool_use", name: "update_resource", input: { id: 3, roleId: null } }],
+        { descriptor: INLINE_DESCRIPTORS.resource, item: ada, ws: roleWs },
+      );
+      expect(plan.links).toEqual([{ field: "roleId", before: "Engineering L3", after: "", rawIds: [] }]);
+    });
+  });
+});
+
 describe("EditPlan.links", () => {
   it("counts a links-only plan as non-empty", () => {
     // A plan that ONLY changes relationships must still render. Treating it as
