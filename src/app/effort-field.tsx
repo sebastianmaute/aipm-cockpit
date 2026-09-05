@@ -22,6 +22,7 @@ export function EffortField({
   onChange,
   placeholder,
   captionHint,
+  onValidityChange,
 }: {
   lang: Lang;
   label: string;
@@ -32,10 +33,26 @@ export function EffortField({
   placeholder?: string;
   /** Optional InfoTooltip text beside the caption. */
   captionHint?: string;
+  /** Fires whenever the box crosses between parsable and not. Unparsable text
+   *  is NOT reported through `onChange` — the parent keeps its last valid
+   *  number — so a caller with a Save button must gate that button on this
+   *  instead, or it commits a number the user believes they replaced. */
+  onValidityChange?: (valid: boolean) => void;
 }) {
-  const [text, setText] = useState(() => formatDuration(minutes ?? 0));
+  // ★ `minutes === 0` must render "0m", NOT the empty box `formatDuration`
+  //   returns for zero: empty is pixel-identical to "not overridden", and the
+  //   0-vs-undefined distinction is the whole point of this field
+  //   (`types.ts` — "Never 0 for 'not overridden'").
+  const [text, setText] = useState(() =>
+    minutes === undefined ? "" : formatDuration(minutes) || "0m",
+  );
   const [invalid, setInvalid] = useState(false);
   const noticeId = useId();
+
+  const applyInvalid = (next: boolean) => {
+    setInvalid(next);
+    if (next !== invalid) onValidityChange?.(!next);
+  };
 
   return (
     <Field label={label} hint={captionHint}>
@@ -46,16 +63,16 @@ export function EffortField({
           const value = e.target.value;
           setText(value);
           if (value.trim() === "") {
-            setInvalid(false);
+            applyInvalid(false);
             onChange(undefined);
             return;
           }
           const mins = parseDuration(value);
           if (mins === null) {
-            setInvalid(true);
+            applyInvalid(true);
             return;
           }
-          setInvalid(false);
+          applyInvalid(false);
           onChange(mins);
         }}
         placeholder={placeholder ?? t(lang, "taskEffortHint")}

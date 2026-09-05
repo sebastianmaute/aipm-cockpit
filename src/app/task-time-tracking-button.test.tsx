@@ -99,10 +99,11 @@ describe("TaskTimeTrackingButton", () => {
 
   test("pressing Enter in a duration box cannot submit the surrounding task form", async () => {
     const submitSpy = vi.fn((e: { preventDefault: () => void }) => e.preventDefault());
+    const onChange = vi.fn();
     render(
       <form onSubmit={submitSpy}>
         <input aria-label="outside" />
-        <TaskTimeTrackingButton {...base} />
+        <TaskTimeTrackingButton {...base} onChange={onChange} />
         <button type="submit">Save task</button>
       </form>,
     );
@@ -119,7 +120,12 @@ describe("TaskTimeTrackingButton", () => {
     await userEvent.clear(spent);
     await userEvent.type(spent, "3h{Enter}");
     expect(submitSpy).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog", { name: /time tracking/i })).toBeInTheDocument();
+    // Enter COMMITS this dialog (Jira-shaped) and closes it — so "still open"
+    // is no longer the right proxy for "the outer form was spared". The
+    // commit landing on the DIALOG's onChange rather than on the form's
+    // onSubmit is what the assertion pair above and below actually says.
+    expect(onChange).toHaveBeenCalledWith({ spentMinutes: 180, remainingMinutes: undefined });
+    expect(screen.queryByRole("dialog", { name: /time tracking/i })).not.toBeInTheDocument();
   });
 
   test("does not expose a progressbar role, because the track is decorative here", () => {

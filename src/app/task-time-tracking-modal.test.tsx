@@ -64,6 +64,78 @@ describe("TaskTimeTrackingModal", () => {
     expect(ev.defaultPrevented).toBe(true);
   });
 
+  test("leaves Enter on a BUTTON alone, so Save/Cancel/Close stay keyboard-operable", () => {
+    // REGRESSION PIN. The guard used to sit unscoped on the panel <div>, so it
+    // preventDefaulted Enter for every descendant — and activating a focused
+    // <button> is a DEFAULT ACTION of the keydown (WCAG 2.1.1). Measured in
+    // Chromium: 0 clicks with the unscoped guard, 1 without it. jsdom does not
+    // perform that default action, which is why the input-side test above
+    // passed throughout; `defaultPrevented` is the observable that survives
+    // both engines, so BOTH halves have to be asserted together.
+    render(<TaskTimeTrackingModal {...base} onSave={vi.fn()} onClose={vi.fn()} />);
+    for (const name of ["Save", "Cancel", "Close"]) {
+      const button = screen.getByRole("button", { name });
+      const ev = createEvent.keyDown(button, { key: "Enter" });
+      fireEvent(button, ev);
+      expect(ev.defaultPrevented).toBe(false);
+    }
+  });
+
+  test("shows a pinned remaining of ZERO as a value, not the derived placeholder", () => {
+    // 0 is the real claim "no work left" and must not render like an unpinned
+    // box. Its control is the placeholder test at the top of this file: without
+    // both, nothing here can tell the two states apart, which is the defect.
+    render(
+      <TaskTimeTrackingModal {...base} remainingMinutes={0} onSave={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.getByRole("textbox", { name: /time remaining/i })).toHaveValue("0m");
+  });
+
+  test("disables Save while a box holds unparsable text, and re-enables it on repair", async () => {
+    // Unparsable text never reaches the parent's number, so an ungated Save
+    // would close the dialog reporting the PREVIOUS figure while the user
+    // believes their entry was taken.
+    const onSave = vi.fn();
+    render(
+      <TaskTimeTrackingModal {...base} remainingMinutes={90} onSave={onSave} onClose={vi.fn()} />,
+    );
+    const remaining = screen.getByRole("textbox", { name: /time remaining/i });
+    await userEvent.clear(remaining);
+    await userEvent.type(remaining, "4 hours");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+    await userEvent.clear(remaining);
+    await userEvent.type(remaining, "4h");
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith({ spentMinutes: 120, remainingMinutes: 240 });
+  });
+
+  test("Enter in a VALID duration box commits the dialog", async () => {
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    render(<TaskTimeTrackingModal {...base} onSave={onSave} onClose={onClose} />);
+    const spent = screen.getByRole("textbox", { name: /time spent/i });
+    await userEvent.clear(spent);
+    await userEvent.type(spent, "3h{Enter}");
+    expect(onSave).toHaveBeenCalledWith({ spentMinutes: 180, remainingMinutes: undefined });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  test("Enter in an INVALID duration box commits nothing", async () => {
+    // Same gate as the disabled Save button — Enter must not be a way around
+    // it, or the keyboard path commits exactly the stale number the button
+    // refuses to.
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    render(<TaskTimeTrackingModal {...base} onSave={onSave} onClose={onClose} />);
+    const spent = screen.getByRole("textbox", { name: /time spent/i });
+    await userEvent.clear(spent);
+    await userEvent.type(spent, "4 hours{Enter}");
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   test("leaves other keys alone, so typing a duration still works", () => {
     render(<TaskTimeTrackingModal {...base} onSave={vi.fn()} onClose={vi.fn()} />);
     const input = screen.getByRole("textbox", { name: /time spent/i });

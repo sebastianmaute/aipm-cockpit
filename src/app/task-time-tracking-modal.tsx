@@ -50,9 +50,25 @@ export function TaskTimeTrackingModal({
 }) {
   const [spent, setSpent] = useState<number | undefined>(spentMinutes);
   const [remaining, setRemaining] = useState<number | undefined>(remainingMinutes);
+  // Unparsable text never reaches `onChange`, so a box holding "4 hours" leaves
+  // the number below at its LAST valid value. Saving then reports a figure the
+  // user believes they replaced — hence a real `disabled` Save while either box
+  // is invalid (never `aria-disabled`, which still fires onClick).
+  const [spentValid, setSpentValid] = useState(true);
+  const [remainingValid, setRemainingValid] = useState(true);
+  const canSave = spentValid && remainingValid;
 
   const { hasEstimate, pct, over } = effortProgress(estimateMinutes, spent);
   const fillPct = Math.min(pct, 1) * 100;
+
+  const commit = () => {
+    if (!canSave) return;
+    // `remaining` stays UNDEFINED when the box is empty — never 0. A stored
+    // zero is the different, real claim "no work left"; undefined means "not
+    // overridden, follow the estimate".
+    onSave({ spentMinutes: spent, remainingMinutes: remaining });
+    onClose();
+  };
 
   return (
     <Modal
@@ -81,8 +97,21 @@ export function TaskTimeTrackingModal({
         // would silently re-arm the bug. The guard states the rule locally and
         // is testable on its own. `isComposing` spares IME users, for whom
         // Enter commits the candidate rather than the field.
+        //
+        // ★★ SCOPED TO THE DURATION INPUTS. A panel-wide preventDefault also
+        // kills Enter-activation of Save/Cancel/Close: activating a focused
+        // <button> is a DEFAULT ACTION of the keydown (WCAG 2.1.1). Measured in
+        // Chromium — 0 clicks with the unscoped guard, 1 without it. jsdom does
+        // not perform that default action, so no unit test can catch the
+        // regression; the pin below asserts `defaultPrevented` on both targets
+        // instead. On an input Enter COMMITS the dialog (Jira-shaped, and what
+        // `documents-rename-modal.tsx` does) — `commit` is itself gated on
+        // validity, so an invalid box makes Enter a plain no-op.
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.nativeEvent.isComposing) e.preventDefault();
+          if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+          if (!(e.target instanceof HTMLInputElement)) return;
+          e.preventDefault();
+          commit();
         }}
       >
         <ModalHeader lang={lang} title={t(lang, "taskTimeTracking")} onClose={onClose} />
@@ -117,6 +146,7 @@ export function TaskTimeTrackingModal({
               label={t(lang, "taskTimeSpent")}
               minutes={spent}
               onChange={setSpent}
+              onValidityChange={setSpentValid}
             />
             <EffortField
               lang={lang}
@@ -127,6 +157,7 @@ export function TaskTimeTrackingModal({
               // what the app will use without claiming it as a stored value.
               placeholder={formatDuration(derivedRemaining(estimateMinutes, spent)) || "0m"}
               onChange={setRemaining}
+              onValidityChange={setRemainingValid}
             />
           </div>
 
@@ -141,16 +172,7 @@ export function TaskTimeTrackingModal({
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button
-              variant="primary"
-              onClick={() => {
-                // `remaining` stays UNDEFINED when the box is empty — never 0.
-                // A stored zero is the different, real claim "no work left";
-                // undefined means "not overridden, follow the estimate".
-                onSave({ spentMinutes: spent, remainingMinutes: remaining });
-                onClose();
-              }}
-            >
+            <Button variant="primary" disabled={!canSave} onClick={commit}>
               {t(lang, "taskTimeTrackingSave")}
             </Button>
             <Button variant="secondary" onClick={onClose}>
