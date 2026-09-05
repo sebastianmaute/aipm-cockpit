@@ -51,10 +51,16 @@ import type { Workspace } from "../workspace";
 // ★★★ WHAT THIS SWEEP STILL CANNOT SEE, measured 2026-09-05:
 //  (1) it compares the preview against the SANITIZER, never against a REPLAY, so
 //      a DISPATCHER-level derivation (`use-chat-dispatcher.ts` re-deriving the
-//      name parts via `splitName`) is invisible here — `use-chat-dispatcher.test.tsx`
-//      owns that. ★ NOT `plan.write-path.test.ts`: no such file exists, and a
-//      false filename in a test comment is ungated (`docs:symbols:check` reads
-//      only AGENTS.md + `docs/AGENTS/*.md`).
+//      name parts via `splitName`) is invisible here. ★ `plan.write-path.test.ts`
+//      now owns that: it replays through the REAL dispatcher (`runTool` over
+//      `useChatDispatcher`, via the shared `src/test/chat-dispatcher-fixture.tsx`)
+//      and reads back from the LIVE workspace, so the split, the joint guard and
+//      the single-FK link are all exercised for real. `use-chat-dispatcher.test.tsx`
+//      still owns the per-writer unit assertions.
+//      ★★ THAT FILE DID NOT EXIST WHEN THIS COMMENT WAS FIRST WRITTEN, and the
+//      comment said so — correctly at the time, and falsely one commit later.
+//      A filename in a test comment is ungated either way (`docs:symbols:check`
+//      reads only AGENTS.md + `docs/AGENTS/*.md`), so re-check it, do not trust it.
 //  (2) `previewOf` overrides exactly ONE key per probe, so a JOINT guard
 //      (`!firstName && !lastName`) is never exercised jointly — every group
 //      member's sibling stays populated, so `requiredNonEmptyGroups` never
@@ -64,6 +70,10 @@ import type { Workspace } from "../workspace";
 //      exercised, on either side. ★ Read that as the resource alias ALONE:
 //      `milestone.name` and `stakeholder.name` ARE probed, but there `name` is a
 //      stored field rather than an alias, so they say nothing about it.
+//      ★ (2) and (3) remain true OF THIS SWEEP and are no longer uncovered:
+//      `plan.write-path.test.ts`'s mononym case exercises the joint guard and
+//      the `name` alias together, against the real dispatcher. Read them as this
+//      file's boundaries, not as holes in the suite.
 //  (4) EVERY REQUIRED ENUM'S FIXTURE VALUE COINCIDES WITH ITS SANITIZER'S
 //      HARDCODED FALLBACK, so the silent-reset half of the rejects direction is
 //      unexercised. `task.status`/`priority`, `raid.category`/`status`,
