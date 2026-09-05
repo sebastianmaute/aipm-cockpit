@@ -1679,9 +1679,40 @@ GitHub anchor slugs DROP colons rather than hyphenating them.
    carries no `lastUpdateDate`, and adding one would manufacture a red outside
    this slice's scope.
 
-★★ Numbers 5-9 came out of the cold review and the task investigations, not out
+10. **A rejection-only inline plan never reaches the preview at all**, so the
+    user is told "no changes" instead of which field was refused.
+    `use-inline-entity-edit.ts` routes on `isEmptyPlan(next)` → `clarify`, and
+    `isEmptyPlan` does not count `rejected`. The popover's own renderer is
+    fine — the drop happens one layer up, in the hook. ★ Routing such a plan to
+    `preview` is NOT the fix on its own: `apply()` also rejects an empty plan,
+    so the user would get a live Apply button that no-ops. Needs a third phase
+    or a rejection-specific message.
+11. **The insight recommendation modal cannot always name a field's entity.**
+    `describeRecommendationPlan` MERGES every proposed call into ONE `EditPlan`
+    using a different descriptor per call, and `FieldDiff` carries no entity —
+    so a recommendation touching a task AND a raid item yields one array with
+    two entities' field names in it. Task 10 added
+    `recommendationPlanEntity(calls)`, which returns an entity only when exactly
+    one register is updated and `undefined` otherwise (falling back to raw
+    property names, which read worse but cannot be WRONG — `impact` is a 1-5
+    scale on RAID and free text on a change). ★ The complete fix is a per-diff
+    entity on `FieldDiff`/`LinkDiff`; it was measured and deliberately deferred,
+    because ~12 exact `toEqual([{field, before, after, raw}])` assertions in
+    `plan.test.ts` would redden on the extra property. That is the design
+    question, not a defect.
+
+★★ Numbers 5-11 came out of the cold review and the task investigations, not out
 of the original spec. All are measured; cite the measurement in the entry, not
 this plan.
+
+★★★ **SCOPING A TASK TO THE FILES IT EDITS LET A RED COMMIT LAND.** Task 9
+changed a SHARED rendering path and ran only its own files; `2f95cd2c` was red in
+`chat-panel.test.tsx` from the moment it was committed, and Task 10 found it. The
+new `inlineAiEditRejected` string is "Not applied: {0}", and two staged rows in
+that file's fixture ground to rejections, so a test pinning "exactly ONE row is
+flagged" saw three. **When a task touches a shared renderer, the affected test set
+is every CONSUMER of it, not the files in the diff.** A targeted sweep of the AI
+surfaces (33 files / 623 tests) is now green.
 
 ★★★ A THIRD EXISTING TEST HAD GONE STALE, making three in this slice. Task 7
 found one asserting §384's wrong verdict under a comment calling it "the safe
