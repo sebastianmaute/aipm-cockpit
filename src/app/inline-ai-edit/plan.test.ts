@@ -573,3 +573,35 @@ describe("preview matches what Apply stores", () => {
     expect(plan.updates[0].after.length).toBe(200);
   });
 });
+
+describe("resource rename sent as the name alias", () => {
+  const item = { id: 1, firstName: "Grace", lastName: "Hopper" };
+  const resWs = wsWith({ resources: [item] as never });
+
+  it("previews the split parts instead of an empty plan", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "Ada Lovelace" } }],
+      { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
+    );
+    expect(plan.updates.map((u) => [u.field, u.before, u.after])).toEqual([
+      ["firstName", "Grace", "Ada"],
+      ["lastName", "Hopper", "Lovelace"],
+    ]);
+  });
+
+  it("does not override explicit parts, matching the dispatcher", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "Ada Lovelace", firstName: "Anita" } }],
+      { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
+    );
+    expect(plan.updates.map((u) => [u.field, u.after])).toEqual([["firstName", "Anita"]]);
+  });
+
+  it("ignores a blank name, matching the dispatcher", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "   " } }],
+      { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
+    );
+    expect(plan.updates).toEqual([]);
+  });
+});

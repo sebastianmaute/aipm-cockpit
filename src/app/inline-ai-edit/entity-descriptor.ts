@@ -179,9 +179,10 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //     Apply", which is the task-labels shape, not this one).
     //   • `name` — a WRITE ALIAS the dispatcher splits into first/last; it is
     //     not a stored field, so `before` would read empty for every resource.
-    //     Diffing the parts is the honest form. ★ CONSEQUENCE: a rename sent as
-    //     `update_resource({name})` alone produces NO diff and previews as an
-    //     empty plan.
+    //     Diffing the parts is the honest form. ★ `describeEntityCalls` projects
+    //     an alias-only rename onto the parts before diffing (via the
+    //     dispatcher's own `splitName`), so such a rename previews correctly —
+    //     see 372.
     //   • `birthday` — stored, but absent from `ResourceInput`: the tool cannot
     //     write it, so a diff here could never be applied.
     diffFields: ["firstName", "lastName", "title", "email", "department", "company", "location", "businessPhone", "isExternal", "notes"],

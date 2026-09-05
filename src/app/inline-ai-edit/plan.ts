@@ -8,6 +8,7 @@ import { type Workspace } from "../workspace";
 import { sanitizeIsoDate } from "../sanitize";
 import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
+import { splitName } from "../resource-foundation";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -154,13 +155,32 @@ export function describeEntityCalls(
   for (const b of blocks) {
     if (b.type !== "tool_use" || typeof b.name !== "string") continue;
     const name = b.name;
-    const input = (b.input && typeof b.input === "object" ? b.input : {}) as Record<string, unknown>;
+    let input = (b.input && typeof b.input === "object" ? b.input : {}) as Record<string, unknown>;
 
     if (name === d.updateTool) {
       const id = Number(input.id);
       if (id !== item.id) {
         plan.rejected.push({ toolName: name, reason: ownIds.has(id) ? "unsupported" : "unknown-id", detail: str(input.id) });
         continue;
+      }
+      // ★★★ THE SPLIT MUST BE THE DISPATCHER'S OWN, AND SO MUST THE PREDICATE.
+      //  `name` is a WRITE ALIAS, not a stored field, so it is correctly absent
+      //  from `diffFields` — which left an alias-only rename previewing an EMPTY
+      //  plan and then renaming the person. Projecting it here closes that.
+      //  A second copy of the split rule is exactly how preview and apply
+      //  diverge again, which is this whole slice's subject: the four conditions
+      //  below mirror `updateResource` in `use-chat-dispatcher.ts` line for line,
+      //  including the `typeof … !== "string"` part tests (a JSON `null` is
+      //  neither a string nor `undefined`, and `=== undefined` there once
+      //  dropped a rename AND wiped the first name).
+      if (
+        d.entity === "resource" &&
+        typeof input.name === "string" &&
+        input.name.trim() !== "" &&
+        typeof input.firstName !== "string" &&
+        typeof input.lastName !== "string"
+      ) {
+        input = { ...input, ...splitName(input.name) };
       }
       // Accepted diffs so far — used both to validate a category-scoped enum
       // (RAID status) against a CO-CHANGED category and to compute the effective
