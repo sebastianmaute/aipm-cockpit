@@ -1439,6 +1439,19 @@ git commit -m "test(inline-ai-edit): fail when a write-tool input is neither pre
 **Files:**
 - Modify: `src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`
 
+★★★ THE PREMISE OF THIS TASK IS NOW MEASURED, NOT ARGUED. Task 7 ran the mutant
+that RESTORES §384 (`resource.requiredNonEmpty` back to
+`new Set(["firstName","lastName"])`, `requiredNonEmptyGroups: []`). It reddened
+five tests in `plan.test.ts` — and **this parity gate stayed GREEN**, because it
+classes a preview-only rejection as "the safe direction" and `continue`s before
+comparing. So the differential written to catch this class could never have
+caught the very defect the slice is named after. That is the vacuity this task
+removes.
+
+★ Task 7 also moved the file's own measured comment (`226` agreeing comparisons,
+"81%") to 234 / 279 = 84%, because four probes per name-half stopped being
+preview-only rejections. Re-measure rather than trusting either number.
+
 - [ ] **Step 1: Remove the false assumption**
 
 The sweep currently does:
