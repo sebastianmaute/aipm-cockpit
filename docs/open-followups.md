@@ -28980,3 +28980,56 @@ the channel this defect rides.
 ★ Same family as the `addTask`/`addTaskButton` collision found in the same review round — that one
 was live in a single view and carried a data-loss path (both openers call `handleCancelEdit()`),
 so it was fixed rather than filed.
+
+## 396. Task-row changes badge renders "1 changes" for a single linked change — OPEN
+
+**Status:** never machine-verified. Filed 2026-09-05 while scoping the control-defects batch —
+a wording defect visible by inspection; no gate can see plural agreement in an interpolated
+string.
+
+`taskRowChangesBadge` in `src/app/i18n.ts` is `"{0} changes"` (DE: `"{0} Änderungen"`,
+`src/app/i18n.de.ts`), called with `changeRefs.length` at both render sites —
+`src/app/task-row.tsx:376-380` (the ID-column badge, used for `title`, `aria-label` and the
+visible text) and `src/app/task-kanban-card.tsx:92` (the Kanban card). A task carrying exactly
+one linked change therefore reads "1 changes" everywhere the badge renders.
+
+★ This badge WAS touched by the control-defects batch — commit `f168a927` added
+`whitespace-nowrap` to stop it (and the RAID/Jira/Document ID-column badges) wrapping inside the
+narrow ID column — but the wording was deliberately left alone; that commit only ever adds a
+class.
+
+Fixing it is more than a string edit: EN needs only a singular/plural branch, but DE plural
+rules are not a suffix-drop the way EN's is, so a proper fix needs a per-language pluralisation
+rule (likely a small `pluralize(lang, count, one, other)` helper used at both call sites), not a
+second interpolation argument bolted onto the existing key.
+
+## 397. No Turso connection test exists anywhere in the repo — OPEN
+
+**Status:** OPEN. Verified 2026-09-05 by grep:
+`grep -rniE "test.?connection|verify.?connection|checkConnection|connectionTest|pingTurso|tursoTest" src/app --include=*.ts --include=*.tsx`
+returns only `jiraTest`/`timelogTest` i18n keys and `jira-api.ts`'s/`jira-settings.tsx`'s
+`testConnection` — nothing under any of the 20 `turso-*.ts(x)` files
+(`ls src/app | grep -i turso`).
+
+Jira and Timelog both ship a real test-connection round trip: `jira-settings.tsx:147` calls
+`testConnection(creds)` (`jira-api.ts:65`, hits the real API and returns the authenticated
+user); `timelog-settings.tsx`'s `test()` (line 50, wired to the `timelogTest` "Test connection"
+button) calls `listUsers`/`getPrivileges` (`timelog-api.ts`) and reports the result via
+`timelogTestOk`/`timelogTestFail`. Turso has no analogue — nothing calls the database to confirm
+a URL/token pair actually connects.
+
+Consequence: `canMoveToTurso` in `src/app/settings-sections/integrations-section.tsx:275` is
+`!!onMigrateToTurso && !onTurso && tursoConfigured`, and `tursoConfigured`
+(line 268) is `!!getTursoConfig(turso.databaseUrl, turso.authToken)` — a shape check on the two
+fields, never a live probe. The Move-to-Turso control, and the buttons in
+`src/app/projects-panel.tsx` that a later task in this batch makes visible-but-disabled, can
+therefore only gate on Turso configuration being **present**, never on it being **confirmed
+working** — which is what was originally wanted for parity with Jira/Timelog.
+
+★ Design consequence, recorded so a future fix does not reach for the wrong shape by default: a
+*persisted* "connection confirmed" flag would be a new `Workspace`/`Settings` field and therefore
+the six-write-paths case (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB — see AGENTS.md's "New
+persisted `Workspace` field" hard constraint). A *transient*, in-session-only result (state that
+resets on reload, the way Jira's and Timelog's test results already behave) would not. That
+difference — not the absence of a Turso client call — is the whole reason this was deferred
+rather than added inline to this batch.
