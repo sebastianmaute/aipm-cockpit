@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { effortProgress, formatDuration } from "./duration";
-import { EffortProgressBar } from "./effort-progress-bar";
+import { EffortProgressBar, effortCaption } from "./effort-progress-bar";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { TaskTimeTrackingModal, type TimeTrackingValues } from "./task-time-tracking-modal";
@@ -29,15 +28,13 @@ export function TaskTimeTrackingButton({
   onChange: (values: TimeTrackingValues) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const { hasEstimate } = effortProgress(estimateMinutes, spentMinutes);
-  const spentText = formatDuration(spentMinutes ?? 0) || "0m";
 
-  // WCAG 2.5.3: the name CONTAINS the figures the bar's caption prints, so a
-  // speech-input user can say what they see. The caption also prints a percent
-  // the name does not carry — see the note on the `t` keys.
-  const name = hasEstimate
-    ? t(lang, "taskTimeTrackingButton", spentText, formatDuration(estimateMinutes ?? 0))
-    : t(lang, "taskTimeTrackingButtonNoEstimate", spentText);
+  // WCAG 2.5.3: the name is BUILT FROM the caption the bar prints, so the
+  // visible text is contained in it by construction — no call site can defeat
+  // it, and no future edit can let the two drift. One string covers both
+  // branches, because `effortCaption` itself reads "No estimate set" when
+  // there is no estimate.
+  const name = t(lang, "taskTimeTrackingButton", effortCaption(lang, estimateMinutes, spentMinutes));
 
   return (
     <div>

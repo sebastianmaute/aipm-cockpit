@@ -12,15 +12,29 @@ const base = {
 };
 
 describe("TaskTimeTrackingButton", () => {
-  test("names itself with the figures, so the state is available without opening the dialog", () => {
-    render(<TaskTimeTrackingButton {...base} />);
-    // WCAG 2.5.3 is CONTAINMENT, case-insensitive and position-independent --
-    // not prefix. The visible text must appear somewhere in the name.
+  test("names itself with the caption verbatim, so a speech-input user can say what they see", () => {
+    // WCAG 2.5.3 is CONTAINMENT -- the VISIBLE text must appear in the name.
+    // Derived from one function, so this cannot drift; asserting the caption as
+    // RENDERED (not a hand-written copy) is what makes the test non-vacuous.
     // formatDuration uses a JIRA WORKING-TIME basis: 8h = 1 day, 5d = 1 week.
     // So 120 minutes is "2h" and 480 minutes is "1d", NOT "8h".
+    const { container } = render(<TaskTimeTrackingButton {...base} />);
     const btn = screen.getByRole("button", { name: /time tracking/i });
-    expect(btn).toHaveAccessibleName(expect.stringContaining("2h"));
-    expect(btn).toHaveAccessibleName(expect.stringContaining("1d"));
+    const caption = container.querySelector("p")?.textContent ?? "";
+    // Load-bearing: without it a caption that failed to render makes
+    // stringContaining("") trivially true and this test certifies nothing.
+    expect(caption).not.toBe("");
+    expect(btn).toHaveAccessibleName(expect.stringContaining(caption));
+  });
+
+  test("names itself with the caption verbatim in the no-estimate branch too", () => {
+    // One i18n string now serves both branches, so the no-estimate caption
+    // ("No estimate set") has to be contained in the name as well.
+    const { container } = render(<TaskTimeTrackingButton {...base} estimateMinutes={undefined} />);
+    const btn = screen.getByRole("button", { name: /time tracking/i });
+    const caption = container.querySelector("p")?.textContent ?? "";
+    expect(caption).not.toBe("");
+    expect(btn).toHaveAccessibleName(expect.stringContaining(caption));
   });
 
   test("does not submit the surrounding form, because the task form wraps it", () => {

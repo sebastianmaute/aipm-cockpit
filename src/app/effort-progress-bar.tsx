@@ -10,6 +10,18 @@ interface EffortProgressBarProps {
   spentMin?: number;
 }
 
+/** The caption this bar prints, as a string.
+ *
+ *  Exported so `TaskTimeTrackingButton` can build its accessible name FROM it.
+ *  WCAG 2.5.3 wants the visible text contained in the name; deriving both from
+ *  one function makes that true by construction rather than by two strings
+ *  being kept in sync by hand. */
+export function effortCaption(lang: Lang, estimateMin?: number, spentMin?: number): string {
+  const { hasEstimate, pct } = effortProgress(estimateMin, spentMin);
+  if (!hasEstimate) return t(lang, "taskEffortNoEstimate");
+  return `${formatDuration(spentMin ?? 0) || "0m"} / ${formatDuration(estimateMin ?? 0)} · ${Math.round(pct * 100)}%`;
+}
+
 /** Display-only bar: time spent consumption of the original estimate.
  *
  *  The track is DECORATIVE: it is rendered inside `TaskTimeTrackingButton`,
@@ -24,7 +36,6 @@ interface EffortProgressBarProps {
 export function EffortProgressBar({ lang, estimateMin, spentMin }: EffortProgressBarProps) {
   const { hasEstimate, pct, over } = effortProgress(estimateMin, spentMin);
   const fillPct = Math.min(pct, 1) * 100;
-  const labelPct = Math.round(pct * 100);
   return (
     <div>
       <ProgressTrack
@@ -40,9 +51,7 @@ export function EffortProgressBar({ lang, estimateMin, spentMin }: EffortProgres
         )}
       </ProgressTrack>
       <p className={`mt-1 text-xs ${over ? "text-ui-pink-strong" : "text-muted-foreground"}`}>
-        {hasEstimate
-          ? `${formatDuration(spentMin ?? 0) || "0m"} / ${formatDuration(estimateMin ?? 0)} · ${labelPct}%`
-          : t(lang, "taskEffortNoEstimate")}
+        {effortCaption(lang, estimateMin, spentMin)}
       </p>
     </div>
   );
