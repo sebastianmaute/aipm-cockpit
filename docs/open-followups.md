@@ -598,6 +598,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§379](#379-the-registers-index_matches-recipe-compares-two-sequences-while-its-prose-claims-membership--open) | The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership | found 2026-09-04, reproduced independently by two sessions across four tree states | S | open |
 | [§380](#380-a-staged-plan-cannot-update-a-row-it-created-in-the-same-plan--open) | A staged plan cannot update a row it created in the same plan | found 2026-09-05 in the AI bulk-write-safety slice | M | open |
 | [§381](#381-a-row-refused-for-a-capability-gap-is-labelled-as-a-conflict--open) | A row refused for a capability gap is labelled as a conflict | found 2026-09-05 in the AI bulk-write-safety slice | S | open |
+| [§382](#382-the-registers-own-index-rebuild-is-lossy-and-calls-itself-idempotent--open) | The register's own index rebuild is lossy, and calls itself idempotent | found 2026-09-05 while closing 377 and 378 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -28304,3 +28305,57 @@ misleading message for a silent one.
 ★ Scope note: this is about the CARD's vocabulary. Whether a create-then-update plan should work at
 all is §380, and this entry stands even if §380 is never fixed, because `PENDING_MINT_ERROR` is
 reachable independently — a create that throws, or one that returns no usable id.
+
+## 382. The register's own index rebuild is lossy, and calls itself idempotent — OPEN
+
+**Status:** OPEN. Filed 2026-09-05. Last executed verification 2026-09-05 — the register's own
+rebuild recipe was extracted verbatim from the fenced block above the index and run against a
+SCRATCH COPY of this file (never the tracked one), then the two index blocks were compared with
+`grep -c "^<" <(diff <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md) <(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' COPY))`
+
+★★ **NO COUNT IS QUOTED AS THE FINDING, deliberately.** It was 67 before this slice closed two
+entries, 69 after, and 70 once this entry's own row existed — the number counts CLOSED rows, so it
+rises every time anyone closes anything, including while you are reading it. The durable claim is
+the invariant: **every closed row loses its `~~strikethrough~~` and its State-cell reason.** Run the
+command for today's number. ★ Count rows; do NOT read the exit code, which is 0 either way — the
+recipe succeeds at doing the wrong thing.
+
+★★★ **THE RECIPE CALLS ITSELF IDEMPOTENT AND IS NOT.** Its own prose says it "is idempotent — a
+rebuild that changes nothing is the proof that the table already matches the headings", and tells
+you to "rebuild after adding, closing, retitling or renumbering an entry". Following that
+instruction after a closure silently destroys the closure formatting of every entry closed before
+it.
+
+**What it strips, measured on two rows rather than reasoned:**
+
+```
+before  | [§371](#371-…--closed-2026-09-04) | ~~A stakeholder deletion offers to delete their job title, not the person~~ | … | S | **CLOSED** 2026-09-04 (one shared PERSON_ENTITIES set now names both person entities…) |
+after   | [§371](#371-…--closed-2026-09-04) |   A stakeholder deletion offers to delete their job title, not the person   | … | S | **CLOSED** 2026-09-04 |
+```
+
+Two losses per closed row: the `~~strikethrough~~` on the Item cell, and the parenthetical REASON
+on the State cell. The reason is the expensive one — it is the only place the table says what
+closed an entry, and recovering 69 of them means walking the history of a file that is rewritten on
+almost every commit.
+
+★★ **THE PROSE AND THE PRACTICE HAVE DIVERGED, AND THE PROSE LOST.** The block says `Item` and
+`State` are FUNCTIONS of the heading and "do not hand-edit" them. They are not functions of the
+heading any more: a closure reason has no machine source, exactly as `Origin` and `Size` have none,
+and the file's own recent closures all carry one. The rebuild HARVESTS `Origin` and `Size` across a
+run for that reason; it does not harvest the State cell's reason or the Item cell's strikethrough.
+Adding both to the harvest is the obvious fix and would make the claim of idempotence true.
+
+★★ **NOT A HYPOTHETICAL, AND THE NEAR-MISS IS THE ARGUMENT.** This was found because an agent
+closing §377 and §378 read the instruction, went to obey it, and probed it on a scratch copy first.
+Had it obeyed, this slice's own §371 closure — landed the previous day — would have been among the
+69. The instruction is followed by whoever closes the NEXT entry, which is the person least likely
+to notice that rows they never touched changed underneath them.
+
+★ Scope: this is about the REBUILD, not about the table's accuracy. The index is correct today —
+363 rows against 363 headings, every anchor regenerating from its heading with 0 mismatches. §379
+covers the separate, pre-existing ordering red.
+
+★ Until it is fixed: hand-edit a closed row to match the shape §371 uses, and do NOT run the
+rebuild. Reproduce the loss with the fenced recipe above, run against a copy:
+`cp docs/open-followups.md /tmp-copy/ && cd /tmp-copy && <recipe> && diff` — count the changed
+rows, do not read the exit code, which is 0 either way.
