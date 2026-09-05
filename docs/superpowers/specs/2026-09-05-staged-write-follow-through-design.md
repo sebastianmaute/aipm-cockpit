@@ -1,5 +1,20 @@
 # Staged-write follow-through — design
 
+> ## ★★★ IMPLEMENTED AND SUPERSEDED IN PART — THE §373 DESIGN BELOW IS WRONG
+>
+> Implemented on 2026-09-05 and kept as the dated record of what was DESIGNED, not of what shipped.
+>
+> **The §373 section's normalisation design shipped a CRITICAL data-loss regression.** It specifies
+> a `textCaps: Record<string, number>` member and says the preview should apply "the same
+> normalization Apply will, for all `diffFields`" — a text-field rule generalised to the whole diff
+> set. `resource.isExternal` is a boolean; it previewed as `""`, and since `FieldDiff.raw` feeds the
+> real write patch, the flag was DROPPED ON APPLY.
+>
+> **What shipped instead** (`44c84bfc`): `fieldSanitizers`, a field → the exact apply-path sanitizer,
+> with an ABSENT field previewed VERBATIM. The default is inverted, so a non-text field cannot be
+> text-mangled by construction. See `docs/open-followups.md` §373 and
+> `src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`.
+
 **Goal.** Close the six defects 0.283.0 "Lessing" left behind in the staged review card and its apply
 path, plus the verification debt filed alongside them. The through-line for four of the six is one
 sentence: **the card must not misrepresent the write it is about to make.** The fifth (§380) is a

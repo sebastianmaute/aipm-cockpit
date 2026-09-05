@@ -1,5 +1,30 @@
 # Staged-Write Follow-Through Implementation Plan
 
+> ## ★★★ EXECUTED AND SUPERSEDED IN PART — DO NOT IMPLEMENT TASK 5 AS WRITTEN
+>
+> This plan was executed to completion on 2026-09-05. It is kept as the dated record of what was
+> planned, **not** as a description of what shipped, and it is NOT a live work item.
+>
+> **Task 5 as written below shipped a CRITICAL data-loss regression and was replaced.** (Task 6,
+> the `name`-alias projection, shipped as planned and is accurate. Every superseded site is inside
+> Task 5, plus the two File Structure rows and Task 10's review question — measured with
+> `grep -n "textCaps\|normalizePreviewValue"` on this file, not assumed.)
+> Task 5 specifies a `textCaps: Record<string, number>` member on `EntityDescriptor` plus a
+> `normalizePreviewValue(v, cap)` helper, and route every `diffField` that is not a `numberFields`
+> member through it. That is a TEXT-FIELD rule applied to the whole diff set. `resource.isExternal`
+> is a boolean, so it previewed as `""` — and because `FieldDiff.raw` feeds the real write patch in
+> `use-inline-entity-edit.ts`, the flag was DROPPED ON APPLY, not merely mispreviewed.
+>
+> **What shipped instead** (`44c84bfc`): `textCaps` and `normalizePreviewValue` do not exist.
+> `EntityDescriptor.fieldSanitizers` maps a field to the EXACT apply-path sanitizer function, and a
+> field ABSENT from that map is previewed VERBATIM — inverting the default, so a number, enum, date
+> or boolean cannot be text-mangled by construction. The class is held by
+> `src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`, which compares every entity × every
+> `diffField` against its real sanitizer under eight hostile probes.
+>
+> Read `docs/open-followups.md` §373 before touching the preview engine. Nothing below is a
+> current description of `entity-descriptor.ts`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the AI staged review card tell the truth about the write it is about to make, and let a staged plan update a row it created in the same turn.
@@ -735,6 +760,12 @@ Claude-Session: https://[session link removed]"
 ---
 
 ## Task 5: Make the preview show what Apply will store (§373)
+
+> ★★★ **SUPERSEDED — DO NOT IMPLEMENT THIS TASK AS WRITTEN.** The `textCaps` + `normalizePreviewValue`
+> design below blanks `resource.isExternal` to `""`, and `FieldDiff.raw` feeds the real write patch,
+> so it DROPS THE FLAG ON APPLY. What shipped is `fieldSanitizers` (a field → the exact apply-path
+> function, absent field previewed VERBATIM), in `44c84bfc`. See the banner at the top of this file
+> and `docs/open-followups.md` §373.
 
 The preview's `after` is `str(input[f])` — `String(v)` with a null/array shim, no trim, no cap, no format check — while Apply runs a sanitizer. `describeEntityCalls`' own docstring already promises the opposite ("so a previewed diff never diverges from what the sanitizer would persist"); this task makes that true.
 
