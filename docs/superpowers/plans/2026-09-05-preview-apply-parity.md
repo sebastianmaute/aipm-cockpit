@@ -1982,6 +1982,28 @@ field-by-field, or the class reopens.**
 - **Task 19 (M2, milestone).** `achievedDate`. Smallest surface; only if 17/18
   land clean.
 
+★★★ **THE PARITY GATE IS BLIND TO A MERGE-SITE FIX UNTIL ITS READER COMPOSES
+THE REAL PATH — measured on Task 17, and it nearly defeated the whole fix.**
+That file's raid reader was `sanitizerReader(RAID_BASE, sanitizeRaidItem)`, the
+RAW sanitizer. A guard added at the merge site is structurally invisible to it,
+so after the fix the gate stayed fully GREEN and the four stale entries would
+have gone on excusing four CLOSED defects forever — the register's documented
+false-closure shape, arriving through the gate built to prevent it. The fix is
+the file's own stated rule: compose the REAL functions (as `taskReader` already
+composed `buildTaskCleanPatch`), never re-spell the guard.
+★★ **THE REMAINING ENTITIES STILL HAVE THE RAW SHAPE** — `change`, `milestone`,
+`stakeholder` and `resource` are all `sanitizerReader(...)` today, so Tasks 18
+and 19 must fix their reader BEFORE they can see their own fix.
+
+★★ **`probability: true` STILL STORES A FABRICATED 1, deliberately.** The guard
+uses the sanitizer's own `toNumber`, and `toNumber(true)` is `1`, which is in
+range. The alternative was MEASURED and is worse: swapping in
+`typeof v === "number"` turns the parity sweep RED on raid, because the preview
+normalises through `toNumber` too — a stricter writer invents a new
+disagreement pointing the other way. Closing this needs a COORDINATED change to
+both sides, so it is filed rather than patched. (`toNumber(false)` is `0`, out
+of range, so `false` IS refused and the stored value survives.)
+
 **Test churn:** delete the seven `PREVIEW_REJECTS_APPLY_WRITES` entries as each
 lands (the totals assertion reds on a stale entry, which is the proof the fix
 worked). `sanitize-raid.test.ts` / `sanitize-change.test.ts` stay UNTOUCHED —
