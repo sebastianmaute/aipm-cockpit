@@ -129,6 +129,22 @@ export function TaskTimeTrackingModal({
         onKeyDown={(e) => {
           if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
           if (!(e.target instanceof HTMLInputElement)) return;
+          // ★★★ NOT INERT, AND TWO REVIEWERS PLUS I CONCLUDED IT WAS. The
+          // reasoning was that a portaled input has no form owner, so there is
+          // no implicit submission left to suppress and Enter carries no other
+          // default action. The first half is true; the second is false, and
+          // the full suite caught it where per-task gates and both reviews did
+          // not. `commit()` closes this dialog, and `Modal` then restores focus
+          // to the TRIGGER BUTTON that opened it — so Enter's default action
+          // lands on a control that was not focused when the key went down, and
+          // ACTIVATES it, reopening the dialog immediately. Measured: with this
+          // line removed, "pressing Enter in a duration box cannot submit the
+          // surrounding task form" fails with the dialog still present, having
+          // closed and reopened inside one keystroke.
+          // ★ So it guards the FOCUS HAND-OFF, not the form. Deleting it because
+          // the portal already stops submission is the exact mistake this
+          // comment exists to stop being made a third time.
+          e.preventDefault();
           commit();
         }}
       >
