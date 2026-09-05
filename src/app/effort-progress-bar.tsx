@@ -10,20 +10,26 @@ interface EffortProgressBarProps {
   spentMin?: number;
 }
 
-/** Display-only bar: time spent consumption of the original estimate. */
+/** Display-only bar: time spent consumption of the original estimate.
+ *
+ *  The track is DECORATIVE: it is rendered inside `TaskTimeTrackingButton`,
+ *  and THAT button carries the accessible name and the figures. A progressbar
+ *  nested inside a button announces twice. The caption below is plain text, so
+ *  the figures stay readable either way.
+ *  `settings-sections/ai-usage-panel.tsx` renders its OWN progressbar; this
+ *  change does not touch it.
+ *
+ *  No `sm:col-span-2` here: inside the button this component no longer owns a
+ *  grid cell, and a span class on a non-grid child is silently inert. */
 export function EffortProgressBar({ lang, estimateMin, spentMin }: EffortProgressBarProps) {
   const { hasEstimate, pct, over } = effortProgress(estimateMin, spentMin);
   const fillPct = Math.min(pct, 1) * 100;
   const labelPct = Math.round(pct * 100);
   return (
-    <div className="sm:col-span-2">
+    <div>
       <ProgressTrack
         height="h-2.5"
-        role="progressbar"
-        aria-label={t(lang, "taskEffortProgressLabel")}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={hasEstimate ? Math.min(labelPct, 100) : 0}
+        aria-hidden="true"
         className={hasEstimate ? undefined : "opacity-60"}
       >
         {hasEstimate && (
