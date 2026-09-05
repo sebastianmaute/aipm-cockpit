@@ -16,6 +16,17 @@ export const UNKNOWN_ID_MARKER = "#";
  *   genuinely exist in stored data. Omitting one would make a preview that is
  *   missing a link look identical to a preview of a link being removed.
  *
+ *  ★★ READ THAT CLAIM NARROWLY: it holds for a MISSING ROW, not for a row whose
+ *   own sub-FKs dangle. `roleId` is the live counter-example — `roleLabel`
+ *   returns the literal `"n/a n/a"` when a role's `disciplineId`/`gradeId`
+ *   resolve to nothing, never `""`, so the blank-title fallback below is
+ *   UNREACHABLE for roles and such a row renders as `"n/a n/a"` rather than as
+ *   `#id`. That is `roleLabel`'s pre-existing contract (`version-diff.ts`
+ *   records the same behaviour), not something this module can fix. Stated
+ *   because the unqualified sentence above reads as a stronger guarantee than
+ *   the code gives, and a claim of protection that does not exist is what stops
+ *   the next audit.
+ *
  *  ★★★ `titleOf` TAKES THE WORKSPACE AND MUST BE CALLED WITH IT. The resource
  *   descriptor's `roleId` is the reason: a `Role` has no `name`, so its label is
  *   `disciplineId` + `gradeId` resolved against two OTHER workspace arrays
