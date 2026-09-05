@@ -59,7 +59,7 @@ it("closes via the header ✕, so the focus-trapped dialog stays escapable by po
 });
 
 it("shows the diff and an Apply button in preview", () => {
-  render(<InlineAiEditPopover {...base} phase="preview" plan={{ updates: [{ field: "status", before: "To Do", after: "Done" }], creates: [], deletes: [], rejected: [] }} />);
+  render(<InlineAiEditPopover {...base} phase="preview" plan={{ updates: [{ field: "status", before: "To Do", after: "Done" }], creates: [], deletes: [], rejected: [], links: [] }} />);
   expect(screen.getByText(/status/i)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
   expect(base.onApply).toHaveBeenCalled();

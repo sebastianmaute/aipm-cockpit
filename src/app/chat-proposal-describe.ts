@@ -91,7 +91,7 @@ export interface DescribedRow {
 }
 
 function emptyPlan(): EditPlan {
-  return { updates: [], creates: [], deletes: [], rejected: [] };
+  return { updates: [], creates: [], deletes: [], rejected: [], links: [] };
 }
 
 /** `plan.ts`'s own `str`, for the one rejection this file has to raise itself.

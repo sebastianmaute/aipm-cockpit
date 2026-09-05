@@ -235,7 +235,7 @@ describe("describeProposal", () => {
     expect(rows).toHaveLength(2);
     expect(rows.map((r) => r.call.name)).toEqual(["create_document", "delete_document"]);
     for (const r of rows) {
-      expect(r.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [] });
+      expect(r.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
       // Nothing is invented for it — the call is forwarded verbatim.
       expect(r.stamped).toEqual(r.call);
     }
@@ -284,7 +284,7 @@ describe("rows pending on a staged create", () => {
     const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
 
     expect(rows[1].pendingOn).toBe(0);
-    expect(rows[1].plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [] });
+    expect(rows[1].plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
     // The create itself is still described normally.
     expect(rows[0].pendingOn).toBeUndefined();
     expect(rows[0].plan.creates).toHaveLength(1);
@@ -438,7 +438,7 @@ describe("mintedId is carried onto the described row", () => {
   test("a descriptor-less create still carries it", () => {
     const calls = [call("create_document", { title: "Doc" })];
     const rows = describeProposal(calls, ws, buildPlanRows(calls, [55]));
-    expect(rows[0].plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [] });
+    expect(rows[0].plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
     expect(rows[0].mintedId).toBe(55);
   });
 

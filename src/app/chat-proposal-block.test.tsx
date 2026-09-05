@@ -6,7 +6,7 @@ import type { EditPlan } from "./inline-ai-edit/plan";
 import type { ProposedCall } from "./chat-proposal";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
-const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [] });
+const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
 
 const updatePlan = (field: string, before: string, after: string): EditPlan => ({
   ...emptyPlan(),

@@ -8,8 +8,9 @@ const planWithChanges: EditPlan = {
   creates: [{ entity: "raid", title: "New risk", toolName: "create_raid_item", input: {} }],
   deletes: [{ entity: "task", label: "Old task", toolName: "delete_task", id: 3 }],
   rejected: [],
+  links: [],
 };
-const emptyPlan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [] };
+const emptyPlan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
 
 it("renders the summary and the plan's updates/creates/deletes", () => {
   render(
@@ -68,6 +69,7 @@ it("surfaces a skipped-count notice when the plan has rejected calls", () => {
       { toolName: "update_task", reason: "unknown-id", detail: "99" },
       { toolName: "update_raid_item", reason: "unknown-id", detail: "42" },
     ],
+    links: [],
   };
   render(
     <RecommendationReviewModal

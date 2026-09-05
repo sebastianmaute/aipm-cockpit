@@ -1,6 +1,6 @@
 // src/app/inline-ai-edit/plan.test.ts
 import { describe, it, expect } from "vitest";
-import { describeToolCalls, describeEntityCalls, type ToolUseLike } from "./plan";
+import { describeToolCalls, describeEntityCalls, isEmptyPlan, type EditPlan, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { type Workspace } from "../workspace";
 
@@ -35,12 +35,12 @@ describe("describeToolCalls", () => {
   });
 
   it("returns an empty plan for no blocks", () => {
-    expect(describeToolCalls([], { task, ws })).toEqual({ updates: [], creates: [], deletes: [], rejected: [] });
+    expect(describeToolCalls([], { task, ws })).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
   });
 
   it("ignores read-only tool calls (list_tasks/get_task)", () => {
     const plan = describeToolCalls([block("list_tasks", {})], { task, ws });
-    expect(plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [] });
+    expect(plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
   });
 
   it("rejects an out-of-enum status/priority instead of previewing an undroppable diff", () => {
@@ -678,5 +678,20 @@ describe("resource rename sent as the name alias", () => {
       { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
     );
     expect(plan.updates).toEqual([]);
+  });
+});
+
+describe("EditPlan.links", () => {
+  it("counts a links-only plan as non-empty", () => {
+    // A plan that ONLY changes relationships must still render. Treating it as
+    // empty would hide the most destructive write class behind a blank card.
+    const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [
+      { field: "linkedTaskIds", before: "Draft brief", after: "Ship" },
+    ] };
+    expect(isEmptyPlan(plan)).toBe(false);
+  });
+
+  it("is empty only when every bucket is empty", () => {
+    expect(isEmptyPlan({ updates: [], creates: [], deletes: [], rejected: [], links: [] })).toBe(true);
   });
 });

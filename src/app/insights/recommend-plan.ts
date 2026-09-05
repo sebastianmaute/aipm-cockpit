@@ -40,7 +40,7 @@ const DELETE_DESCRIPTOR: Record<string, InlineEntity> = {
 };
 
 function emptyPlan(): EditPlan {
-  return { updates: [], creates: [], deletes: [], rejected: [] };
+  return { updates: [], creates: [], deletes: [], rejected: [], links: [] };
 }
 
 function inputId(input: Readonly<Record<string, unknown>>): number {
@@ -78,6 +78,7 @@ export function describeRecommendationPlan(
       const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull });
       merged.updates.push(...p.updates);
       merged.rejected.push(...p.rejected);
+      merged.links.push(...p.links);
       continue;
     }
 
@@ -88,6 +89,7 @@ export function describeRecommendationPlan(
       const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull });
       merged.deletes.push(...p.deletes);
       merged.rejected.push(...p.rejected);
+      merged.links.push(...p.links);
       continue;
     }
 
@@ -97,6 +99,7 @@ export function describeRecommendationPlan(
     const p = describeEntityCalls([block], { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsFull });
     merged.creates.push(...p.creates);
     merged.rejected.push(...p.rejected);
+    merged.links.push(...p.links);
   }
 
   return merged;

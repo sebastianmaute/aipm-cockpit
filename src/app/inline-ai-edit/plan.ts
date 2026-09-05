@@ -27,7 +27,18 @@ export interface FieldDiff { field: string; before: string; after: string; raw?:
 export interface NewItem { entity: string; title: string; toolName: string; input: Record<string, unknown> }
 export interface Deletion { entity: string; label: string; toolName: string; id: number }
 export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input" | "unsupported"; detail: string }
-export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: Deletion[]; rejected: Rejected[] }
+/** A relationship or FK change, rendered from RESOLVED TITLES rather than ids.
+ *
+ *  ★★★ THIS IS NOT A `FieldDiff` AND MUST NEVER BE PUT IN `plan.updates`.
+ *   `use-inline-entity-edit.ts` rebuilds its write patch from `updates` with
+ *   `patch[diff.field] = coerce(d, diff.field, diff.raw ?? diff.after)`. A link
+ *   diff there would write the TITLE STRING into `linkedTaskIds`, and
+ *   `sanitizeIdList` splits a string on `[.;]`, finds no integers and stores
+ *   `[]` — wiping every link the row had. The separate array is what makes that
+ *   unreachable by construction; a marker flag on `FieldDiff` would not, because
+ *   the rebuild loop would still have to remember to check it. */
+export interface LinkDiff { field: string; before: string; after: string }
+export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: Deletion[]; rejected: Rejected[]; links: LinkDiff[] }
 
 // Any create_*/delete_* tool → its entity + workspace list key. Shared across
 // entities (an inline edit on any row may create/delete related items).
@@ -182,7 +193,7 @@ export function describeEntityCalls(
   ctx: { descriptor: EntityDescriptor; item: EntityItem; ws: Workspace },
 ): EditPlan {
   const { descriptor: d, item, ws } = ctx;
-  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [] };
+  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
   const ownIds = new Set((ws[d.wsKey] as ReadonlyArray<{ id: number }>).map((r) => r.id));
 
   for (const b of blocks) {
@@ -328,5 +339,5 @@ export function describeToolCalls(blocks: readonly ToolUseLike[], ctx: { task: T
 
 /** True when the plan would write nothing (used to disable Apply / show a note). */
 export function isEmptyPlan(p: EditPlan): boolean {
-  return p.updates.length === 0 && p.creates.length === 0 && p.deletes.length === 0;
+  return p.updates.length === 0 && p.creates.length === 0 && p.deletes.length === 0 && p.links.length === 0;
 }
