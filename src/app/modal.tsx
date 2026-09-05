@@ -261,15 +261,20 @@ export function Modal({
         pressStartedOnBackdrop.current = e.target === e.currentTarget;
       }}
       onClick={(e) => {
-        // ★★ A backdrop click is a DISMISSAL, so it asks the stack the same
-        // question Escape (`claimsEscape`) and Tab (`isTopmostOfKind`) already
-        // do. Skipping it was only ever safe because a nested layer was assumed
-        // to cover this backdrop — but GEOMETRY IS NOT A SAFE REASON: any
+        // ★★ Gated on the dismissal STACK, not on geometry. Skipping it was
+        // only ever safe if a nested layer covered this backdrop — but any
         // ancestor with a non-`none` transform/filter/perspective becomes the
         // containing block for a nested `position: fixed` backdrop, which then
         // stops short of the viewport and leaves this one clickable underneath.
-        // The guard is a strict narrowing: wherever the child really does cover
-        // us this backdrop is unreachable, so it changes nothing there.
+        // ★★ This asks Tab's question (`isTopmostOfKind`), not Escape's
+        // (`claimsEscape`): with a `kind:"layer"` open, Escape goes to the layer
+        // while a backdrop click still closes this modal — pre-existing, and
+        // unchanged by this guard. A `"modal"` entry that does NOT cover us
+        // (`PopoverPanel`) is harmless only by TIMING — it dismisses on
+        // `mousedown`, which is discrete, so React flushes the `[open]` cleanup
+        // calling `popDismissal` before `click` is dispatched. REASONED from
+        // React's discrete-event flush contract, not measured; a `"modal"` layer
+        // dismissing on `click` instead would make this backdrop a dead control.
         if (
           e.target === e.currentTarget &&
           pressStartedOnBackdrop.current &&
@@ -288,8 +293,10 @@ export function Modal({
     </div>
   );
 
-  // `typeof document` is load-bearing — this file renders during SSR, where
-  // `createPortal` has no host node and throws.
+  // `typeof document` mirrors the repo's established portal shape (see
+  // `PopoverPanel`'s own guard). Nothing reaches it today: the branch needs
+  // `open && portal`, and the sole `portal` call site (`TaskTimeTrackingModal`)
+  // is itself mounted behind a `useState(false)`, so no server pass renders it.
   if (!portal || typeof document === "undefined") return tree;
   return createPortal(tree, document.body);
 }

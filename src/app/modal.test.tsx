@@ -372,6 +372,9 @@ describe("Modal — portal", () => {
     );
     const dialog = screen.getByRole("dialog");
     expect(screen.getByTestId("host")).not.toContainElement(dialog);
-    expect(document.body).toContainElement(dialog);
+    // A direct child of <body>, i.e. the portal target itself -- "somewhere in
+    // the document" would be true of the un-portaled tree too, since RTL's own
+    // container is appended to <body>.
+    expect(dialog.parentElement).toBe(document.body);
   });
 });
