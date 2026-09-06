@@ -1474,6 +1474,7 @@ export const de: Record<TranslationKey, string> = {
   jiraApiToken: "API-Token",
   jiraApiTokenLink: "API-Token erstellen",
   jiraTest: "Verbindung testen",
+  jiraTestLabel: "Verbindung testen – Jira",
   jiraTesting: "Teste…",
   jiraConnectedAs: "Verbunden als {0}",
   jiraProject: "Projekt",
@@ -1563,6 +1564,7 @@ export const de: Record<TranslationKey, string> = {
   timelogScopeSelf: "Nur meine Buchungen",
   timelogScopeOrg: "Gesamte Organisation",
   timelogTest: "Verbindung testen",
+  timelogTestLabel: "Verbindung testen – Timelog",
   timelogTestOk: "Verbunden — {0} Benutzer, Bereich: {1}",
   timelogTestFail: "Verbindung fehlgeschlagen (HTTP {0})",
   timelogTokenInvalid: "Token wurde abgelehnt. Bitte erneut eingeben.",
@@ -2060,6 +2062,15 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoUrlPlaceholder: "libsql://ihre-db.turso.io",
   integrationsTursoUrlFromEnv:
     "Wird in dieser Installation über NEXT_PUBLIC_TURSO_DATABASE_URL gesetzt. Ein Wert aus der Umgebung hat Vorrang vor dieser Einstellung, daher ist das Feld ausgeblendet.",
+  integrationsTursoUrlEnvUnusable:
+    "NEXT_PUBLIC_TURSO_DATABASE_URL ist gesetzt, ist aber keine verwendbare Turso-URL. Stattdessen wird der Wert in diesem Feld verwendet.",
+  integrationsTursoTest: "Verbindung testen",
+  integrationsTursoTestLabel: "Verbindung testen – Turso",
+  integrationsTursoTestOk: "Verbunden.",
+  integrationsTursoTestUnreachable:
+    "Datenbank nicht erreichbar. Bitte URL und Netzwerkverbindung prüfen.",
+  integrationsTursoTestAuth: "Das Auth-Token wurde abgelehnt. Bitte Token prüfen.",
+  integrationsTursoTestFailGeneric: "Verbindung fehlgeschlagen.",
   integrationsTursoToken: "Auth-Token",
   integrationsTursoTokenPlaceholder: "Turso-Datenbank-Token",
   integrationsTursoTokenFromEnv:
@@ -3363,6 +3374,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardChangesHeading: "Änderungen",
   dashboardChangesPending: "{0} ausstehend",
   taskRowChangesBadge: "{0} Änderungen",
+  taskRowChangesBadgeOne: "1 Änderung",
   versionHighlightChangeLog: "Änderungs-Log — ein RAID-Schwesterregister für Änderungsanträge",
 
   navStakeholders: "Stakeholder",

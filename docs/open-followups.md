@@ -510,7 +510,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email--closed-2026-08-30) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | **CLOSED** 2026-08-30 |
-| [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open |
+| [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29--closed-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | **CLOSED** 2026-08-29 |
 | [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass--closed-2026-08-29) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29, fixed 2026-08-29 | M | **CLOSED** 2026-08-29 |
 | [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30) | The template seed's note-log validator diverges from the canonical one in seven ways — filed as six | found 2026-08-28, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
 | [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--closed-2026-08-30) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
@@ -631,6 +631,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§404](#404-a-dependency-proposal-whose-links-are-all-refused-shows-no-change-and-no-reason-open) | A dependency proposal whose links are all refused shows no change and no reason | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§405](#405-the-merge-site-guard-tables-restate-their-sanitizers-predicates-instead-of-sharing-them-open) | The merge-site guard tables restate their sanitizers' predicates instead of sharing them | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§406](#406-the-set_task_dependencies-card-label-is-hardcoded-english-open) | The `set_task_dependencies` card label is hardcoded English | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
+| [§415](#415-the-plural-agreement-defect-407-named-once-is-a-repeated-class-across-at-least-31-keys-and-the-count-itself-is-disputed--open) | The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed | found 2026-09-06 generalising §407 | L — 31+ keys, three grep traps, a disputed count | open |
+| [§416](#416-the-kanban-cards-changes-badge-had-no-test-at-all--closed-2026-09-06) | The Kanban card's changes badge had no test at all | found 2026-09-06 while closing §407 on this branch | S | **CLOSED** 2026-09-06 |
+| [§417](#417-three-test-connection-buttons-shared-one-accessible-name-and-none-announced-its-result--closed-2026-09-06) | Three "Test connection" buttons shared one accessible name, and none announced its result | found 2026-09-06 adding the Turso connection probe | S–M | **CLOSED** 2026-09-06 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -23213,9 +23216,9 @@ predates it. The branch is what made the divergence visible.
 
 ---
 
-## 284. A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29
+## 284. A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 — CLOSED 2026-08-29
 
-**Status:** open — the code fix shipped 2026-08-29 on the meta-decode-loss branch, and the end-to-end
+**Status:** resolved 2026-08-29 — the code fix shipped 2026-08-29 on the meta-decode-loss branch, and the end-to-end
 proof was DISCHARGED the same day against a real Turso database:
 `npx playwright test e2e/meta-decode-loss.spec.ts --project=chromium --workers=1` (1 passed), run
 with `PORT=3100` in the environment for THAT command as well as for the `npm run dev` that starts
@@ -23225,7 +23228,11 @@ invocation drives the long-running :3000 server instead, where `reuseExistingSer
 whatever predates `.env.local` — which tests nothing. The env pair is inlined at SERVER START for
 that same reason.
 CI is still permanently silent on it — there is no live database there (§95, §215) — so this entry
-stays OPEN as the place recording how to RE-MEASURE the chain, not as an unfinished fix.
+remains the reference for how to RE-MEASURE the chain, not because the fix is incomplete but because
+no CI run can exercise it. ★ The register's own heading did not reflect this resolution for eight
+days after the fix and its proof both landed 2026-08-29 — every entry parser had been counting it as
+an open action item until the heading was updated 2026-09-06. Nothing about the underlying fix or
+proof changed; only the register's bookkeeping did.
 
 ★★★ **THE PROOF IS MUTATION-PROVED BY TWO MUTANTS, AND ONE WAS NOT ENOUGH.** A live-database test
 that has quietly stopped exercising the product still passes, so re-do BOTH before trusting a green
@@ -29375,7 +29382,71 @@ rather than added inline to this batch.
 
 ## 409. Collapsing an open document's body can commit a pending unblurred edit and mint a version — OPEN
 
-**Status:** OPEN. 2026-09-05, never machine-verified — this is a code-reading claim (the mechanism it describes has no automated reproduce; see the closing paragraph for the nearest existing test). `documents-panel.tsx`'s `bodyCollapsed` state (added in `ede67ddd`, "collapse the body by re-clicking the open document's name") wraps `DocumentEditModeBody` in `{!bodyCollapsed && (...)}`, so toggling it unmounts the whole editor subtree. Its own comment calls the state transient — "collapsing is a momentary 'give me room' gesture, not a preference. Nothing persists it."
+**Status:** OPEN. 2026-09-06. The re-runnable half is
+`npx vitest run --maxWorkers=1 src/app/documents-panel.test.tsx` (108 passed), which pins the MOUNT
+SHAPE only — it goes red on a revert to the conditional render and is structurally incapable of
+seeing the browser behaviour below, because jsdom implements neither layout nor the focus-fixup
+rule. ★★ The browser findings in this entry were MEASURED in Chromium on 2026-09-06 (event-order
+log interleaved with a MutationObserver, plus IndexedDB `documentVersions` counts before/after and a
+positive control proving the detector fires on a real commit) but are NOT re-runnable from this
+repo: the probe used a throwaway Playwright spec against an isolated `PORT=3100` server and deleted
+it, so treat every number below as a dated observation, not as something a command will reproduce.
+Re-measuring needs a new probe. The measurement CONTRADICTED the fix attempted for this entry — read
+"What the browser actually showed" before acting on any part of it. The original text is kept as
+written, because it is the claim that was falsified.
+
+★★★ **WHAT THE BROWSER ACTUALLY SHOWED (2026-09-06), AND IT REFUTES TWO CLAIMS MADE WHILE
+"FIXING" THIS.** A change on `feat/control-defects-follow-through` replaced the conditional render
+with an always-mounted `<div hidden={bodyCollapsed}>`, and its commit message said that stopped the
+collapse from writing history. It does not.
+
+1. **The write still happens.** The block editors also commit on `onBlur`, and React's `onBlur` is a
+   delegated `focusout`, which bubbles; `commit()` carries no visibility guard. Hiding an ancestor
+   of a focused input DOES fire `blur`+`focusout` in Chromium (asynchronously, unlike DOM removal
+   which fires them synchronously) and moves `activeElement` to BODY. Measured in-app with a dirty,
+   still-focused heading draft and the collapse driven through real React state: the order was
+   `click` → `hidden` attribute set → `blur` → `focusout`, and `documentVersions` went 1 → 2 with
+   the block's text rewritten. So the change moved the write from the unmount-cleanup path to the
+   focusout path. It did not remove it. A unit test cannot see this: jsdom has no layout and no
+   focus-fixup rule, which is exactly why the test added alongside that change is green.
+2. **The defect is not reachable by an ordinary gesture anyway.** The only writer that SETS
+   `bodyCollapsed` true is the open document's own name button. Measured on both routes — real mouse
+   (`pointerdown, mousedown, blur, focusout, focus, focusin, mouseup, click`) and keyboard (`blur,
+   focusout, focus, focusin, keydown, click`) — `focusout` precedes the click handler, so the
+   ordinary blur-commit has already run and `dirtyRef` is clear by the time the collapse flips. The
+   old unmount flush would have returned early at its own dirty check. A commit does land on those
+   gestures, but it is the ordinary commit any click-away produces, not one the collapse caused.
+
+Not measured: Firefox and WebKit focus-fixup behaviour, and the pre-fix tree itself (the "before"
+was a `display:contents` structural proxy, since the probe could not modify tracked files).
+
+★★ **THE ATTEMPTED FIX ALSO SHIPPED A LAYOUT REGRESSION, since corrected — keep the lesson.** The
+wrapper was written with NO className on the stated grounds that a display utility would override
+`[hidden]{display:none}`. That premise is false (preflight's rule is `display: none !important`, and
+an important declaration beats a normal one from any layer), and the omission had a real cost: the
+bare wrapper became the flex item of the `overflow-auto` pane, and a plain block's content-based
+automatic minimum meant it could not shrink, so the preview section's own `overflow-auto` stopped
+bounding anything and the scrollbar moved out to the pane. Measured at 1200x500: section 2508/2508
+(no internal scroll), pane 2875/302. With `flex min-h-0 flex-1 flex-col` on the wrapper the section
+returns to 2508/32 and scrolls, and the pane drops to 399/302 — the fix lands on exactly the numbers
+a `display:contents` proxy for the pre-wrapper structure predicted, not merely near them. `min-h-0`
+alone does NOT fix it — the child is only a flex item if the wrapper is itself a flex container.
+Re-measured after applying it: computed display is `none` while collapsed (preflight's `!important`
+does beat the `flex` utility), the collapsed wrapper has zero client rects and a null `offsetParent`,
+and two collapse/expand cycles are bit-identical.
+
+★ One observation from that re-measurement, NOT a regression and NOT introduced by the className:
+at a 500px-tall viewport the preview ends up a ~32px-tall internal scroller (the list and metadata
+sections above it consume the column), which the pane-level scrollbar previously hid. The
+`display:contents` proxy produces the same squeeze, so this is the restored pre-wrapper behaviour.
+At 1200x900 nothing is squeezed — the section is 2508/335 and the pane does not scroll at all.
+Recorded because a future reader measuring only at a short viewport will find it and wonder.
+
+★ **What would actually close this entry** is a visibility guard on `commit()` (or an explicit
+"collapse discards nothing but writes nothing either" decision), NOT a mount-shape change. Given
+finding 2, the priority is low: no ordinary gesture reaches the state.
+
+The original code-reading claim, as written on 2026-09-05, follows. `documents-panel.tsx`'s `bodyCollapsed` state (added in `ede67ddd`, "collapse the body by re-clicking the open document's name") wraps `DocumentEditModeBody` in `{!bodyCollapsed && (...)}`, so toggling it unmounts the whole editor subtree. Its own comment calls the state transient — "collapsing is a momentary 'give me room' gesture, not a preference. Nothing persists it."
 
 `useBlockDraft` (`document-block-editors.tsx`) holds a mount-only effect whose cleanup runs on any unmount, blur or not: if the draft is dirty, not a no-op against its baseline, and not superseded by a concurrent write, it normalises the draft and calls `onCommit` — i.e. it flushes a dirty draft on unmount. That `onCommit` is `commitBlock` (`use-document-editor.ts`), which calls `mutateDocuments({kind: "ops", ...})` and — per the coalescing/`lastMintedRef`/`MAX_VERSIONS_PER_DOC` machinery around it — routes through `applyDocMutation`, the single document-mutation path that mints `DocVersion` before-images (see `docs/AGENTS/documents.md`).
 
@@ -29545,6 +29616,27 @@ three costs above are properties of the extra control, not of the tooltip primit
 
 **Status:** OPEN, work owed (a deferral recorded, not a defect). 2026-09-06, never machine-verified — every item below is a layout, hover or native-tooltip observation, and nothing in this repo can observe one.
 
+★★ **MEASURED 2026-09-06 for four of the six** — `e2e/control-defects-eye-verify.spec.ts`
+(`npx playwright test e2e/control-defects-eye-verify.spec.ts --project=chromium --workers=1`)
+now automates items 1–4, and **all four PASS**. This does NOT close the entry: the spec covers
+part of each claim, not all of it, and items 5–6 are still entirely unmeasured. Read the per-item
+notes below for what a green run here does and does not prove.
+- Item 1 passes, but reaches only 2 of the 3 buttons the item names — the third is in
+  `project-empty-state.tsx`, behind a fresh-install condition the seed cannot reach. The
+  cross-browser half stays UNANSWERED regardless: `playwright.config.ts` has no `firefox` project
+  (it is commented out), and the claim depends on each browser's own `title` lookup walking up
+  from a disabled child, which nothing here exercises.
+- Item 3 pins the mechanism (the shared `whitespace-nowrap` classes) but the seed never puts two
+  badges in one ID cell, so the run cannot demonstrate the wrap it is meant to guard against.
+- Items 5 and 6 need a Turso-backed seed; `e2e/seed.ts` seeds FILE mode, so neither control ever
+  mounts and this spec says nothing about either.
+- ★ **Harness trap found while writing the spec, recorded so nobody re-discovers it the hard way:**
+  the guided tour's full-screen backdrop intercepts `document.elementFromPoint` under the default
+  seed, because the fixture never dismisses the tour, while `openView`'s DOM `.click()` bypasses
+  the overlay — so navigation succeeds and hit-testing silently fails underneath it. The first run
+  of this spec read as a real product defect and was not one. Seed `tourSeen: true` in any spec
+  that hit-tests rather than merely clicking.
+
 The control-defects batch shipped fourteen commits whose visible result nobody has looked at in a
 browser. The user DEFERRED that pass rather than skipping it; this entry is what is owed, so the
 work is recoverable by someone who was not in the session.
@@ -29616,3 +29708,252 @@ FILE mode, so the control never mounts for the gate regardless.
 
 ★ None of the six is a reported defect. Each is a claim the tests could not reach, so a clean
 eye-verify closes this entry and anything it turns up gets its own.
+
+---
+
+## 415. The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed — OPEN
+
+**Status:** never machine-verified. Filed 2026-09-06, generalising §407 (fixed on this branch for
+`taskRowChangesBadge` only) into the class it belongs to. **At least 31 keys are call-site-verified
+TIER 1** — named in full below. An earlier, independent pass reported 46 (45 once §407's own key is
+subtracted for a fair comparison); that figure is recorded here as an UNRECONCILED earlier count, not
+averaged with, split against, or quietly preferred over the 31. Reproduce commands are inlined per
+claim below; none of them was run with `--update` or otherwise made to agree with a prior number.
+
+### The count is a floor, not a total, and here is why it cannot be closed today
+
+Two independent passes over `src/app/i18n.ts` disagree:
+
+- An earlier pass reported **423 total interpolated-with-a-count keys / 46 TIER 1 (genuine
+  singular/plural defects) / 6 unreachable-by-shape / 12 dead / 63 dodged (worded to avoid the
+  agreement question) / 296 count-safe (no noun/adjective/verb agreement at stake)**, and found DE
+  wrong in 45 of those 46. Its TIER 1 set included `taskRowChangesBadge`, so its figure comparable to
+  today's is **45**, not 46. **That pass's membership list — the actual 46 keys — was not retained
+  and cannot be recovered**; only the aggregate numbers survived.
+- A fresh, bottom-up re-derivation on 2026-09-06 reports **424 total / 31 TIER 1 / 10
+  unreachable-by-shape / 12 dead**, and deliberately did NOT split the remainder into a precise
+  dodged-vs-count-safe count (roughly 130 keys were verified as dodging the question one way or
+  another, but that figure is a rough band, not a claim).
+- **The DEAD set matched EXACTLY across both passes — the same 12 keys, by name** (list below). That
+  is the one cross-check available, and it is why the 45-vs-31 TIER 1 gap reads as credible rather
+  than as one pass being simply wrong: whatever methodology difference produced the gap did not touch
+  the dead-key classification at all.
+- Both passes claim call-site verification for their TIER 1 membership. Neither can be reconciled
+  against the other without the earlier pass's lost list — there is no way to tell, from the numbers
+  alone, whether the earlier pass over-counted (included keys that don't actually need per-language
+  branching), the fresh pass under-counted (missed real instances), or both, in different places.
+
+**What would close the gap:** either a second independent pass that reproduces one number or the
+other with its full membership list retained this time, or recovering the earlier pass's lost list
+(if it exists in some earlier draft, chat log, or intermediate file) so the two can be diffed key by
+key. Nothing short of that resolves it — re-running today's methodology again is not independent.
+
+★ Do NOT quote a precise total for "dodged" or "count-safe" keys — the fresh pass declined to stake a
+number it could not defend to the same rigor as the other three buckets, and inventing one here would
+manufacture a precision neither pass actually reached.
+
+### The 31 call-site-verified TIER 1 keys
+
+| key | EN | DE | call site | DE also wrong |
+|---|---|---|---|---|
+| `timelogApplyConfirm` | "Apply {0} bucket changes to budget actual hours?" | "{0} Bucket-Änderungen auf die Ist-Stunden des Budgets anwenden?" | `timelog-apply-confirm.tsx` | Yes |
+| `activityEntriesLogged` | "{0} entries logged" | "{0} Einträge protokolliert" | `activity-log-panel.tsx` | Yes |
+| `outlookCalImportedN` | "Imported {0} absences" | "{0} Abwesenheiten importiert" | `task-manager.tsx` | Yes |
+| `storageConvertConfirm` | "Convert your current workspace ({0} tasks) to {1} and write it to this storage, overwriting any data already there?" | "Aktuellen Workspace ({0} Aufgaben) nach {1} konvertieren und in diesen Speicher schreiben? Vorhandene Daten dort werden überschrieben." | `use-storage-file-ops.ts` | Yes — COUPLED (see below) |
+| `storageTursoLeaveWarn` | "Snapshot trend recording only works on the Turso backend. Switching to {1} stops recording (your {0} items are still converted)…" | "Die Snapshot-Trendaufzeichnung funktioniert nur mit dem Turso-Backend… (Ihre {0} Einträge werden weiterhin konvertiert)…" | `use-storage-file-ops.ts` | Yes — COUPLED (see below) |
+| `raciSuggestSkipped` | "{0} proposed assignments were refused because they did not match this project." | "{0} vorgeschlagene Zuordnungen wurden abgelehnt…" | `raci-suggest-modal.tsx` | Yes |
+| `raciSuggestSkippedAccountable` | "{0} proposed assignments were refused because that milestone already has an Accountable." | "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da dieser Meilenstein bereits einen Rechenschaftspflichtigen hat." | `raci-suggest-modal.tsx` | Yes |
+| `raciSuggestSkippedInvalidRole` | "{0} proposed assignments were refused because the role letter was not one of R, A, C or I." | "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da der Rollenbuchstabe nicht R, A, C oder I war." | `raci-suggest-modal.tsx` | Yes |
+| `snapshotDeleteSelectedConfirm` | "Delete {0} snapshots?" | "{0} Snapshots löschen?" | `trends-panel.tsx` | Yes |
+| `actionWorkloadWhyOverload` | "{0} overdue items assigned" | "{0} überfällige Aufgaben zugewiesen" | `next-actions/providers/workload.ts` | Yes |
+| `documentsTruncatedWarning` | "{0} document entries could not be opened - this project is over the limit…" | "{0} Dokumenteinträge konnten nicht geöffnet werden…" | `use-load-truncation.ts` | Yes |
+| `documentsTruncatedBlocksWarning` | "{0} blocks in stored documents could not be opened…" | "{0} Blöcke in gespeicherten Dokumenten konnten nicht geöffnet werden…" | `use-load-truncation.ts` | Yes |
+| `documentsTruncatedEntriesCount` | "{0} document entries could not be opened." | "{0} Dokumenteinträge konnten nicht geöffnet werden." | `notifications.tsx` | Yes |
+| `documentsTruncatedBlocksCount` | "{0} blocks in stored documents could not be opened." | "{0} Blöcke in gespeicherten Dokumenten konnten nicht geöffnet werden." | `notifications.tsx` | Yes |
+| `documentsUnreadableWarning` | "{0} kinds of saved data could not be read. Saving is paused…" | "{0} Arten gespeicherter Daten konnten nicht gelesen werden…" | `use-load-truncation.ts` | Yes |
+| `documentsUnreadableCount` | "{0} kinds of saved data could not be read." | "{0} Arten gespeicherter Daten konnten nicht gelesen werden." | `notifications.tsx` | Yes |
+| `notifySummaryTitle` | "{0} new urgent actions" | "{0} neue dringende Aktionen" | `use-action-notifications.ts` | Yes |
+| `calendarPullConflictsPending` | "{0} calendar conflicts — open Pull to resolve" | "{0} Kalenderkonflikte — im Pull auflösen" | `use-entity-calendar-pull.ts` | Yes |
+| `actionMoreReasons` | "+{0} more reasons" | "+{0} weitere Gründe" | `action-reasons.tsx` | Yes (noun AND adjective) |
+| `actionRaidWhyReviewStale` | "Not reviewed in {0} days" | "Seit {0} Tagen nicht überprüft" | `next-actions/providers/raid.ts` | Yes |
+| `actionChangeAggTitle` | "{0} changes awaiting decision" | "{0} Änderungen warten auf Entscheidung" | `next-actions/providers/change-pending.ts` | Yes |
+| `actionCommitteeInfoWhy` | "Due {0} — {1} ({2} days)" | "Fällig {0} — {1} ({2} Tage)" | `next-actions/providers/committee-info.ts`, `steering-committee-panel.tsx` | Yes |
+| `insightOverdueTrendDetail` | "{0} tasks overdue — up {1} since your last visit ({2} before)." | "{0} Aufgaben überfällig — {1} mehr seit Ihrem letzten Besuch ({2} zuvor)." | `insights/insight-text.ts` | Yes |
+| `insightStalledWorkDetail` | "{0} active tasks are stale, blocked, or waiting on a dependency." | "{0} aktive Aufgaben sind veraltet, blockiert oder warten auf eine Abhängigkeit." | `insights/insight-text.ts` | Yes |
+| `allocPlanApplied` | "Applied {0} allocation changes." | "{0} Planungsänderungen angewendet." | `use-alloc-plan.tsx` | Yes |
+| `activityAiAllocationPlan` | "AI planned {0} allocation cells" | "KI hat {0} Planungszellen geplant" | `activity-log.ts` map ← `use-alloc-plan.tsx` | Yes |
+| `scheduledJobActionsN` | "{0} suggestions" | "{0} Vorschläge" | `settings-sections/scheduled-jobs-section.tsx` | Yes |
+| `activityAiRaciSuggest` | "Applied {0} AI-proposed RACI assignments" | "{0} von der KI vorgeschlagene RACI-Zuordnungen übernommen" | `activity-log.ts` map ← `use-raci-suggest.tsx` | Yes |
+| `timelogTestOk` | "Connected — {0} users, scope: {1}" | "Verbunden — {0} Benutzer, Bereich: {1}" | `timelog-settings.tsx` | **No — EN only (see the asymmetry below)** |
+| `chatAttachmentSummarySkipped` | "{0} — {1} attachments, {2} skipped" | "{0} — {1} Anhänge, {2} übersprungen" | `chat-attachment-summary.ts` | Yes |
+| `dashboardGreetingSummary` | "{0} items need you · {1} milestones soon" | "{0} Einträge brauchen dich · {1} Meilensteine bald" | `dashboard-delta-strip.tsx` | Yes (both nouns) |
+
+★ The last two rows (`chatAttachmentSummarySkipped`, `dashboardGreetingSummary`) were found ONLY by
+the fresh 2026-09-06 pass — they are absent from whatever the earlier pass's lost membership list
+would have contained, by inference from the total gap.
+
+### The 10 unreachable-by-shape, and the gate that makes each unreachable
+
+A key can carry the same `{0} <plural noun>` shape and still never actually render at count values
+where English/German disagree (i.e. never at exactly 1), because something else in the code holds it
+above 1 or routes count-1 through a different template entirely:
+
+- `actionTaskWhyStale` — `STALE_DAYS = 14` is hardcoded (`next-actions/providers/task-attention.ts`)
+- `tourStepCount` — every deep-dive tour gates all its steps on one feature-module view (3 or 0
+  steps); `reporting` floors at 2; `ai` is a fixed 3; `getting-started` keeps ~8 core steps. Never 1.
+- `assetLibraryMaxPerDocument` — `ASSET_MAX_PER_DOCUMENT = 20` (`document-asset-upload.ts`)
+- `assetLibraryMaxPerDocumentFreeable` — same gate; its `{1}` is not a plural-noun defect at all (no
+  noun follows the interpolated count)
+- `dashboardCompletionTrendPoints` — render-gated on `completionSeries.length >= 2`
+  (`dashboard-tile-bodies.tsx`)
+- `dashboardCompletionTrendAria` — same gate
+- `timelogThresholdNeeded` — interpolates the hardcoded `MAX_HOURS_PER_DAY = 24` (`types.ts`)
+- `emailSubjectBulk` — `taskList.length === 1` routes to a wholly separate single-task template
+  (`bulk-operations-helpers.ts`)
+- `emailBodyBulkTemplate` — same gate
+- `suggestSignalTeam` — `TEAM_MID = 3` is hardcoded (`template-suggest.ts`)
+
+★ Four of these — `dashboardCompletionTrendPoints`, `dashboardCompletionTrendAria`,
+`emailSubjectBulk`, `emailBodyBulkTemplate` — were either classified differently or missed entirely
+by the earlier pass; say so rather than silently reconciling them into its number.
+
+### The 12 dead keys (identical across both passes)
+
+`editingTask`, `dashboardActivityOpenView`, `confirmClearAll`, `workDayLeft`, `workDaysLeft`,
+`tabEditTask`, `jiraSyncDone`, `jiraSyncConflicts`, `activityCount`, `undoRestored`, `redoRestored`,
+`guardTimelogPartialFetch`.
+
+★ `jiraSyncDone` and `jiraSyncConflicts` are orphaned by the live `jiraSyncDoneFull` and
+`jiraSyncConflictsReview`, which superseded them.
+
+### Three grep traps — each cost a real miscount, and each must be avoided by anyone re-deriving this
+
+1. **A single-line call-site grep OVER-reports defects.** `documentsVersionBlocks` and
+   `documentsCardRemoved` look like plural-agreement bugs from a bare match, but are already
+   correctly handled — their `=== 1 ?` guard sits on the line ABOVE the match
+   (`documents-history-modal.tsx`, `chat-tool-block.tsx`). Correcting for this moved
+   an earlier running count from 48 to 46 TIER 1 candidates. Re-scan any candidate with ±5 lines of
+   context, never a single matched line.
+2. **A bare-identifier grep OVER-reports liveness.** `activityCount` matches a local variable in
+   `dashboard-panel.tsx` and a backticked comment mention, while the key itself is dead. Match the
+   QUOTED key form (`"KEYNAME"`) and exclude comments, or a dead key reads as reachable.
+3. **A same-file `t(lang, "KEY")` grep OVER-reports DEAD by an order of magnitude — the largest trap,
+   and filing it is as much the point of this entry as the table is.** Many keys reach `t()` only
+   through a `Record<Reason, TranslationKey>` map (e.g. `activityBudgetCreated`, `SKIP_REASON_KEY`)
+   rather than through a literal call naming the key. A direct-call-only grep reports **~120 keys as
+   dead**; re-grepping for the bare quoted key ANYWHERE in non-comment, non-test `src` drops that to
+   **12** — which then matches the earlier pass's dead count exactly.
+
+Reproduce, each with a positive control (a bare "0 found" proves nothing without an "N found" run
+against a known-live key alongside it):
+
+```bash
+# Extraction must be a real .mjs FILE, not `node -e` — Git Bash eats backslashes inside an inline
+# regex literal and the process dies with "Unterminated regexp literal". The string-aware scanner
+# (walking i18n.ts's key: "value" pairs, not lines) counts 424 total interpolated keys; a naive
+# line grep undercounts:
+grep -cE '^\s*[A-Za-z0-9_]+:\s*"[^"]*\{[0-9]+\}' src/app/i18n.ts   # 390 — NOT the count, a floor on a floor
+
+# Liveness (direct call) — run against a known-live key FIRST as the positive control:
+grep -rn 't(\s*lang\s*,\s*"activityBudgetCreated"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+grep -rn 't(\s*lang\s*,\s*"KEYNAME"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+
+# Indirect liveness (through a Record<Reason, TranslationKey> map or similar) — the trap this entry
+# is filed to record:
+grep -rn '"KEYNAME"' src/app --include=*.ts --include=*.tsx | grep -v i18n | grep -v '\.test\.'
+```
+
+### Mechanism — settled, and record it so it is not re-proposed
+
+The fix idiom is the house `*One` sibling plus a `count === 1 ?` ternary at the call site — NOT a
+`pluralize(lang, count, one, other)` two-fragment helper. A two-fragment API cannot express the
+German singulars in this list, which re-word the NOUN, the ADJECTIVE and sometimes the VERB together
+as one unit: `"{0} aktive Aufgaben sind…"` → `"1 aktive Aufgabe ist…"` (adjective AND verb both
+change), `"Seit {0} Tagen"` → `"Seit 1 Tag"` (no suffix drop, a different word). An earlier draft of
+the design spec for this class called for the `pluralize` helper; it was reversed on this evidence,
+and should not be re-proposed without addressing the multi-word re-wording cases above.
+
+### Not uniformly mechanical — a judgment count, not a measurement
+
+~12 keys read better REWORDED than mechanically branched into `*One`/`*Other` siblings:
+`evmCoverage` ("estimates on {0} of {1} tasks"), `chatProposalCount` ("{0} × write"),
+`storageDestructiveCount` (the same "X of Y" shape), the coupled storage pair below, the four
+`documentsTruncated*` and two `documentsUnreadable*` keys (one message family, better handled
+together than as six separate `*One` siblings), and `dashboardGreetingSummary` (two independent
+counts in one sentence — better split into two labels than branched 4-way).
+
+### Coupling — one ternary, one argument list, shared by two keys
+
+`storageConvertConfirm` and `storageTursoLeaveWarn` are selected by ONE ternary at
+`use-storage-file-ops.ts` and share ONE positional argument list —
+`t(lang, confirmKey, deps.tasks.length, label)`. A `*One` fix at that site becomes a 4-way branch
+(leaving-Turso × count===1), not a simple sibling-key swap. The fresh pass searched for other
+instances of this exact shape and found none — record this as one known instance, not a pattern to
+generalise from.
+
+### The asymmetry — one key where German is right and English is wrong
+
+`timelogTestOk` is the only key in this set where EN needs the fix and DE does not: German
+"der Benutzer / die Benutzer" is plural-invariant (like Lehrer, Wagen, Fahrer — a class of German
+nouns with no distinct plural form), so the DE string is already correct at count 1. The fresh pass
+checked every other TIER 1 German noun for the same invariant-plural shape and found none — record
+this as one known instance, not a pattern.
+
+---
+
+## 416. The Kanban card's changes badge had no test at all — CLOSED 2026-09-06
+
+**Status:** resolved 2026-09-06 on this branch. `task-kanban-card.test.tsx` never exercised the
+changes badge in ANY count — plural, singular or absent — so when §407's singular fix landed on that
+badge, half of the named fix shipped with no regression pin at all. A "TaskKanbanCard changes badge"
+describe block now covers singular (renders "1 change"/"1 Änderung"), plural (renders "{n}
+changes"/"{n} Änderungen" for n > 1), empty (`changeRefs: []`, badge does not render) and undefined
+(`changeRefs` absent, badge does not render).
+
+★ This is a coverage gap, not a wording defect — the wording is §407's and §415's territory. Filed
+and closed together because it was found while closing the code half of §407 on this branch: the
+card's badge got the singular fix, and only then did it become visible that nothing had ever asserted
+on that badge before.
+
+---
+
+## 417. Three "Test connection" buttons shared one accessible name, and none announced its result — CLOSED 2026-09-06
+
+**Status:** resolved 2026-09-06 on this branch. Two defects in one entry, both WCAG and both
+invisible to CI.
+
+**WCAG 2.4.6 — three identically-named controls in one view.** `jiraTest`, `timelogTest` and
+`integrationsTursoTest` were all literally "Test connection". `settings-sections/integrations-section.tsx`
+renders `<TimelogSettings>` UNCONDITIONALLY and `<JiraSettingsSection>` behind `!hideJira`
+ALONGSIDE its own Turso probe button in the same section — so Settings → Integrations could
+show three identically-labelled buttons in one view at once. Two of the three already collided before
+this branch; the third arrived with the Turso connection probe added on this same branch.
+Reproduce the mounting relationship (cite the SYMBOLS, never line numbers — an earlier revision of
+this entry carried two bare `:NNN` cites that were BOTH off by one, and `docs:claims:check` could not
+see either, because a bare cite is resolved only from a file named earlier on the SAME line):
+`grep -n '<TimelogSettings\|<JiraSettingsSection\|!hideJira' src/app/settings-sections/integrations-section.tsx`
+
+**No live region — a passing or failing test result was never announced.** None of the three results
+was wired to assistive tech; each rendered as a plain `{result && <p>…}`, present in the DOM the
+instant it had content, with no `role` marking it as a status update.
+
+**Fix.** Each button now takes an `aria-label` of "<visible text> – <service>" (EN DASH U+2013) via
+three new i18n keys, which preserves WCAG 2.5.3 containment in both languages — verified: EN "Test
+connection" and DE "Verbindung testen" are each a literal substring of their own qualified name. Each
+result is now an ALWAYS-MOUNTED `role="status"` container, its content toggled rather than the
+element itself — a live region that enters the DOM in the same tick as its content is frequently not
+announced by assistive tech, because there was nothing there for it to have started watching.
+
+★★ **The generalisable lesson, and the one worth keeping past this specific fix:** the discriminator
+for this class of defect is not "are these controls defined in different components" but "can these
+two controls render in the same view at the same time." This was invisible reading
+`integrations-section.tsx` file-by-file and showed up only by grepping where each settings SECTION is
+MOUNTED — a component that renders its own sibling sections defeats per-file reasoning about
+accessible-name uniqueness.
+
+★★ **Nothing in CI can catch either half, and that is why both shipped.** axe carries no rule that
+flags two controls sharing an accessible name (measured elsewhere in this file, in the a11y
+hard-constraint section). `label-content-name-mismatch`, axe's WCAG 2.5.3 rule, is tagged
+`experimental`, and axe's default `tagExclude` is `experimental,deprecated` — so a rule LISTING for
+the gate's four requested tags reads as coverage while the rule never actually runs. Unit tests are
+the only detector for either defect, here and in general.

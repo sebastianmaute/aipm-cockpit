@@ -89,7 +89,9 @@ export function TaskKanbanCard({
   const priorityClass = priorityStyle[task.priority] ?? priorityStyle.Medium;
   const changesLabel =
     changeRefs && changeRefs.length > 0
-      ? t(lang, "taskRowChangesBadge", changeRefs.length)
+      ? changeRefs.length === 1
+        ? t(lang, "taskRowChangesBadgeOne")
+        : t(lang, "taskRowChangesBadge", changeRefs.length)
       : "";
 
   return (

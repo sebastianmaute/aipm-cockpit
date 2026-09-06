@@ -22,7 +22,10 @@ import type { SnapshotCadence } from "../snapshot";
 import { useMsAuth } from "../use-ms-auth";
 import { InfoTooltip } from "../info-tooltip";
 import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
-import { getTursoConfig } from "../turso-config";
+import { getTursoConfig, isUsableTursoUrl } from "../turso-config";
+import { testTursoConnection } from "../turso-pipeline";
+import { tursoErrorKind } from "../storage-error";
+import { INTERACTIVE } from "../interaction-styles";
 import { writeSettings } from "../use-settings";
 import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
@@ -179,6 +182,26 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const envClientIdSet = !!process.env.NEXT_PUBLIC_MSAL_CLIENT_ID;
   const envTenantIdSet = !!process.env.NEXT_PUBLIC_MSAL_TENANT_ID;
   const envTursoUrlSet = !!process.env.NEXT_PUBLIC_TURSO_DATABASE_URL;
+  // ★★ PRESENCE AND USABILITY ARE DIFFERENT QUESTIONS, and asking only the
+  // first is §337: a typo'd env var hid this field while `getTursoConfig`
+  // rejected the value, so Turso could not be configured from the UI at all.
+  // The predicate is imported rather than re-implemented so the two sites
+  // cannot drift apart again.
+  const envTursoUrlUsable =
+    envTursoUrlSet && isUsableTursoUrl(process.env.NEXT_PUBLIC_TURSO_DATABASE_URL ?? "");
+  // ★ The TOKEN gets no equivalent: any non-empty string is a plausible token,
+  // so there is nothing to test locally. UI and resolver therefore both gate
+  // the token on PRESENCE and so AGREE — that agreement is the property §337
+  // restored for the URL, not an unfinished half of it.
+  // ★★ BUT THE RECOURSE IS NOT SYMMETRIC, and an earlier version of this
+  // comment claimed the "Test connection" button was the remedy. It DETECTS a
+  // wrong env token; it gives no way to FIX one, because a present env token
+  // hides the token field and wins unconditionally. So the §337 shape is only
+  // half closed: with a typo'd env URL and a present env token, a user can now
+  // type a working URL and still be stuck with a token they cannot see or
+  // override — a mixed-credential pair that could not arise before this fix,
+  // since the unusable URL used to null the whole config. The only recourse is
+  // changing the deployment env; §337 (still open) is the nearest tracker.
   const envTursoTokenSet = !!process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
 
   function updateTurso(patch: Partial<TursoIntegrationsSettings>) {
@@ -197,6 +220,55 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const [tokenPassphrase, setTokenPassphrase] = useState("");
   const [tokenConfirm, setTokenConfirm] = useState("");
   const [tokenStored, setTokenStored] = useState(() => loadSealed("tursoAuthToken") != null);
+  // ★ The env-unusable notice is a DESCRIPTION, not part of the field's name —
+  // see the render site for why it sits outside the <label>.
+  const tursoUrlEnvNoticeId = `${useId()}-turso-url-env`;
+  const [tursoTesting, setTursoTesting] = useState(false);
+  // ★ TRANSIENT BY DESIGN — resets on reload, exactly like the Jira and
+  // Timelog test results. Persisting it would be a new Settings field and
+  // therefore the six-write-paths case (open-followups §408).
+  const [tursoTestResult, setTursoTestResult] = useState<string | null>(null);
+
+  async function runTursoTest() {
+    // ★★★ CLASSIFY, NEVER INTERPOLATE THE THROWN MESSAGE. The first cut of this
+    //     rendered `t(lang, "…TestFail", e.message)`. Every message reachable
+    //     here is untranslated English, and `StorageNotReadyError` prefixes its
+    //     own hint (`Storage not ready: ${hint}`, workspace.ts), so a German
+    //     user was shown "Verbindung fehlgeschlagen: Storage not ready:
+    //     storage-unreachable" — an internal prefix plus an internal code, in a
+    //     control that is otherwise fully localised. `tursoErrorKind`
+    //     (storage-error.ts) already discriminates exactly these cases and is
+    //     what the storage banner uses; reusing it keeps one classifier rather
+    //     than a second, drifting copy that matches English sentences by hand.
+    // ★ NO null-config branch here, and adding one back would be DEAD CODE:
+    // the button is `disabled={tursoTesting || !tursoConfigured}` and
+    // `tursoConfigured` is `!!getTursoConfig(...)` over these same two fields,
+    // so a null config means the control is disabled — and a disabled button
+    // dispatches no click at all. Measured: a test that clicked it and awaited
+    // a message timed out at 15 s rather than failing an assertion.
+    setTursoTesting(true);
+    setTursoTestResult(null);
+    try {
+      await testTursoConnection(getTursoConfig(turso.databaseUrl, turso.authToken));
+      setTursoTestResult(t(lang, "integrationsTursoTestOk"));
+    } catch (e) {
+      // ★ A kind, never the config and never a raw message — nothing thrown
+      // here may carry the URL or token into the DOM.
+      const kind = tursoErrorKind(e);
+      setTursoTestResult(
+        t(
+          lang,
+          kind === "auth"
+            ? "integrationsTursoTestAuth"
+            : kind === "unreachable"
+              ? "integrationsTursoTestUnreachable"
+              : "integrationsTursoTestFailGeneric",
+        ),
+      );
+    } finally {
+      setTursoTesting(false);
+    }
+  }
 
   function handleAuthTokenChange(value: string) {
     updateTurso({ authToken: value });
@@ -502,7 +574,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
       {turso.enabled && (
         <div className="mt-2 space-y-2 border-l-2 border-line pl-3">
-          {envTursoUrlSet && (
+          {envTursoUrlUsable && (
             <div className="block text-xs">
               <span className="inline-flex items-center gap-1 text-muted-foreground">
                 {t(lang, "integrationsTursoUrl")}
@@ -511,21 +583,40 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               <FieldHint className="mt-1">{t(lang, "integrationsTursoUrlFromEnv")}</FieldHint>
             </div>
           )}
-          {!envTursoUrlSet && (
-            <label className="block text-xs">
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                {t(lang, "integrationsTursoUrl")}
-                <InfoTooltip text={t(lang, "integrationsTursoUrlTooltip")} />
-              </span>
-              <Input
-                size="xs"
-                type="text"
-                value={turso.databaseUrl ?? ""}
-                onChange={(e) => updateTurso({ databaseUrl: e.target.value })}
-                placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
-                className="mt-1 w-full"
-              />
-            </label>
+          {!envTursoUrlUsable && (
+            // ★★ THE NOTICE SITS OUTSIDE THE <label> ON PURPOSE. An implicit
+            // label (no `for`/`id`) contributes its WHOLE SUBTREE to the
+            // control's accessible name, so a FieldNotice nested inside it made
+            // the field announce as "Database URL, <tooltip>,
+            // NEXT_PUBLIC_TURSO_DATABASE_URL is set but is not a usable Turso
+            // URL, …" — a paragraph as a name. Outside the label plus
+            // `aria-describedby` makes it a DESCRIPTION, which is what it is,
+            // and it is also what makes FieldNotice's own `role="status"`
+            // meaningful rather than decorative here.
+            // ★ axe cannot see any of this (no rule covers a bloated accessible
+            // name), so nothing but this comment and a unit test guards it.
+            <div className="text-xs">
+              <label className="block">
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  {t(lang, "integrationsTursoUrl")}
+                  <InfoTooltip text={t(lang, "integrationsTursoUrlTooltip")} />
+                </span>
+                <Input
+                  size="xs"
+                  type="text"
+                  value={turso.databaseUrl ?? ""}
+                  onChange={(e) => updateTurso({ databaseUrl: e.target.value })}
+                  placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
+                  className="mt-1 w-full"
+                  aria-describedby={envTursoUrlSet ? tursoUrlEnvNoticeId : undefined}
+                />
+              </label>
+              {envTursoUrlSet && (
+                <FieldNotice id={tursoUrlEnvNoticeId}>
+                  {t(lang, "integrationsTursoUrlEnvUnusable")}
+                </FieldNotice>
+              )}
+            </div>
           )}
           {envTursoTokenSet && (
             <div className="block text-xs">
@@ -613,6 +704,16 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               )}
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => void runTursoTest()}
+            disabled={tursoTesting || !tursoConfigured}
+            aria-label={t(lang, "integrationsTursoTestLabel")}
+            className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-ui-dark-blue disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
+          >
+            {t(lang, "integrationsTursoTest")}
+          </button>
+          <p role="status" className="text-xs text-muted-foreground">{tursoTestResult}</p>
           {/* Primary action: carry the current project into Turso. */}
           {canMoveToTurso && (
             <div className="mt-2 border-t border-line pt-2">

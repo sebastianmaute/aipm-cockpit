@@ -42,7 +42,7 @@ describe("TimelogSettings", () => {
     const cfg = { ...defaultTimelogConfig, enabled: true, host: "h", tenant: "t", apiToken: "tok" };
     render(<TimelogSettings lang="en-US" config={cfg} onChange={() => {}} />);
 
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTest") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
 
     await screen.findByText(/1/);
   });
@@ -55,7 +55,7 @@ describe("TimelogSettings", () => {
     const cfg = { ...defaultTimelogConfig, enabled: true, host: "h", tenant: "t", apiToken: "tok" };
     render(<TimelogSettings lang="en-US" config={cfg} onChange={() => {}} />);
 
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTest") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
 
     await screen.findByText(/401/);
   });

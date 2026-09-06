@@ -744,10 +744,42 @@ export function DocumentsPanel({
         {/* ★ Only the BODY collapses. The links and asset sections above stay
             mounted, so the metadata controls remain usable while the rendered
             document is out of the way. */}
-        {!bodyCollapsed && (
+        {/* ★★★ `hidden`, NEVER a conditional render. `useBlockDraft` flushes a
+            dirty draft on ANY unmount, and that commit routes through
+            `applyDocMutation` and can mint a DocVersion — so unmounting here
+            made a gesture whose own comment says "nothing persists it" write
+            persistent history (open-followups §409). Keeping the subtree
+            mounted is what makes the gesture actually transient.
+            ★★ Same shape as `panel-chat` / `panel-raid` in
+            `workspace-section.tsx`, and it inherits that shape's inverted
+            hazard: a fresh mount can no longer be relied on to clear anything,
+            so `bodyCollapsed`'s reset above must keep firing on its own. */}
+        {/* ★★★ THE CLASSES ARE LOAD-BEARING AND AN EARLIER CUT OMITTED THEM ON
+            A WRONG PREMISE. That cut said a display utility would override
+            `[hidden]{display:none}`. It cannot: preflight's rule is
+            `display: none !important` (node_modules/tailwindcss/preflight.css,
+            "Make elements with the HTML hidden attribute stay hidden"), and an
+            !important declaration beats a normal one from any layer — verified
+            in Chromium, computed display stays `none` while collapsed.
+            ★★ Omitting them DID cost a real regression: this wrapper is the
+            flex item of the `overflow-auto` pane above, and a plain block has a
+            content-based automatic minimum, so it could not shrink and the
+            preview `<section>`'s own `overflow-auto` stopped bounding anything
+            — the scrollbar moved out to the pane. `docs/open-followups.md`
+            §409 carries the measured figures AND the caveat that they came
+            from a throwaway probe and are not reproducible by any command; do
+            not restate them here.
+            ★ `min-h-0` ALONE DOES NOT FIX IT (measured) — the child is only a
+            flex item if this wrapper is itself a flex container, so `flex` and
+            `flex-col` are carrying that half. No other subset was measured, so
+            do not read this as a per-class necessity proof for all four.
+            ★ Consequence if this regresses: `document-preview.tsx`'s section
+            carries `tabIndex={0}` precisely because it scrolls, so it becomes a
+            focus stop on a region that no longer scrolls. */}
+        <div hidden={bodyCollapsed} className="flex min-h-0 flex-1 flex-col">
           <DocumentEditModeBody lang={lang} doc={selected} ws={ws} editing={editing} narrow={narrowPane} isReadOnly={isReadOnly} onCommitBlock={commitBlock} structural={structural}
             assetsTursoConfig={assetPane?.tursoConfig ?? null} assetsProjectId={assetPane?.projectId} />
-        )}
+        </div>
       </div>
 
       <DocumentsHistoryModal

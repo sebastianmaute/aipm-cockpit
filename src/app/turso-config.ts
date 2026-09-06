@@ -1,9 +1,13 @@
 // src/app/turso-config.ts
 //
-// Config resolver for the Turso (libSQL) storage backend. Env vars
-// (NEXT_PUBLIC_TURSO_*) win when set at build time; Settings (Integrations
-// panel inputs) are the fallback. Returns null when URL or token is missing
-// or the URL is unusable — the storage layer surfaces "not ready".
+// Config resolver for the Turso (libSQL) storage backend. A NEXT_PUBLIC_TURSO_*
+// env var wins over the Settings (Integrations panel) value ONLY when it is
+// usable; an unusable env URL falls through to Settings rather than poisoning
+// the result. The TOKEN has no usability test — any non-empty string is a
+// plausible token — so an env token still wins unconditionally, and the
+// Settings "Test connection" button is what tells a user it is wrong.
+// Returns null when the URL or token is missing or the URL is unusable — the
+// storage layer surfaces "not ready".
 
 export interface TursoConfig {
   /** Pipeline base, e.g. "https://db.turso.io" (no trailing slash). May be an
@@ -46,6 +50,20 @@ function toHttpUrl(raw: string): string | null {
   return null;
 }
 
+/** True when a raw URL string normalises to a usable pipeline base.
+ *
+ *  ★★ EXPORTED SO THE SETTINGS UI ASKS THE SAME QUESTION THIS FILE ANSWERS.
+ *  Before it existed, `integrations-section.tsx` hid the URL input on env-var
+ *  PRESENCE (`!!process.env.NEXT_PUBLIC_TURSO_DATABASE_URL`) while the
+ *  resolver below rejected the value on USABILITY. A typo'd env var was
+ *  therefore present enough to hide the field and unusable enough to yield no
+ *  config, locking the user out of configuring Turso from the UI at all
+ *  (open-followups §337). Two predicates answering one question is the defect;
+ *  do not reintroduce a second one. */
+export function isUsableTursoUrl(raw: string): boolean {
+  return toHttpUrl(raw) !== null;
+}
+
 // NOTE: a region-qualified host (`<db>-<org>.aws-eu-west-1.turso.io`) is a
 // VALID, officially-issued Turso URL — it is what `turso db show` prints. This
 // file once carried an `isLikelyRegionQualifiedTursoUrl` guard that drove a
@@ -58,7 +76,14 @@ export function getTursoConfig(
 ): TursoConfig | null {
   const envUrl = process.env.NEXT_PUBLIC_TURSO_DATABASE_URL;
   const envToken = process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
-  const rawUrl = (envUrl && envUrl !== "" ? envUrl : settingsUrl) ?? "";
+  // ★★ THE ENV VALUE WINS ONLY WHEN IT IS USABLE. An unusable one falls
+  // through to Settings rather than poisoning the result — see §337 and the
+  // predicate above. This is deployment-visible: an operator who set the env
+  // var to a deliberately malformed value to force "no Turso" now gets the
+  // Settings value instead. Nothing that WORKED before changes, because an
+  // unusable env value already resolved to null.
+  const envUrlUsable = !!envUrl && envUrl !== "" && isUsableTursoUrl(envUrl);
+  const rawUrl = (envUrlUsable ? envUrl : settingsUrl) ?? "";
   const authToken = (envToken && envToken !== "" ? envToken : settingsToken) ?? "";
   if (!rawUrl) return null;
   const httpUrl = toHttpUrl(rawUrl);

@@ -5,7 +5,7 @@ import { TaskKanbanCard } from "./task-kanban-card";
 import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { t } from "./i18n";
-import type { RaidItem, Resource, Task } from "./types";
+import type { ChangeItem, RaidItem, Resource, Task } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 
@@ -19,6 +19,21 @@ const raidFix = (category: RaidItem["category"]): RaidItem =>
 
 const resourceFix = (over: Partial<Resource> = {}): Resource =>
   ({ id: 3, firstName: "Cy", lastName: "Meyer", email: "", ...over }) as Resource;
+
+function makeChange(overrides: Partial<ChangeItem> = {}): ChangeItem {
+  return {
+    id: 1,
+    title: "Sample change",
+    description: "",
+    type: "Scope",
+    status: "Proposed",
+    raisedDate: "2026-05-18",
+    linkedTaskIds: [],
+    linkedRaidIds: [],
+    stakeholderIds: [],
+    ...overrides,
+  };
+}
 
 describe("TaskKanbanCard", () => {
   // `TaskStatusSelect` derives its accessible name from `rowLabel(t(lang,
@@ -289,5 +304,86 @@ describe("TaskKanbanCard linked-documents badge", () => {
       roles: ["button", "combobox"],
       requireCollisionSeed: true,
     });
+  });
+});
+
+describe("TaskKanbanCard changes badge", () => {
+  // Mirrors task-row.test.tsx's "TaskRow changes badge" assertion style —
+  // pins the singular taskRowChangesBadgeOne key against the plural
+  // taskRowChangesBadge key. No German case here: the singular-vs-plural DE
+  // stem (not a suffix drop) is already pinned once at that call site
+  // (task-row.test.tsx's "uses the German singular stem" test); this card
+  // renders the exact same `changesLabel` computation, so a second DE pin
+  // here would test i18n plumbing this file does not own, not the card.
+  it("uses the singular taskRowChangesBadgeOne key for exactly one linked change", () => {
+    render(
+      <TaskKanbanCard
+        lang="en-US"
+        task={taskFix()}
+        rowToken="Alpha"
+        today="2026-06-19"
+        holidaySet={new Set()}
+        changeRefs={[makeChange({ id: 1 })]}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onJumpToRaid={vi.fn()}
+      />,
+    );
+    // taskRowChangesBadgeOne EN value is the fixed "1 change" (no
+    // placeholder, no plural stem) — getByText is an exact whole-string
+    // match by default, so "1 change" cannot be satisfied by "1 changes".
+    expect(screen.getByText("1 change")).toBeInTheDocument();
+    expect(screen.queryByText("1 changes")).toBeNull();
+  });
+
+  it("uses the plural taskRowChangesBadge key for two linked changes", () => {
+    render(
+      <TaskKanbanCard
+        lang="en-US"
+        task={taskFix()}
+        rowToken="Alpha"
+        today="2026-06-19"
+        holidaySet={new Set()}
+        changeRefs={[makeChange({ id: 1 }), makeChange({ id: 2 })]}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onJumpToRaid={vi.fn()}
+      />,
+    );
+    // taskRowChangesBadge EN value is "{0} changes" → "2 changes".
+    expect(screen.getByText("2 changes")).toBeInTheDocument();
+  });
+
+  it("renders no changes badge when changeRefs is empty", () => {
+    render(
+      <TaskKanbanCard
+        lang="en-US"
+        task={taskFix()}
+        rowToken="Alpha"
+        today="2026-06-19"
+        holidaySet={new Set()}
+        changeRefs={[]}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onJumpToRaid={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/change/i)).toBeNull();
+  });
+
+  it("renders no changes badge when changeRefs is undefined", () => {
+    render(
+      <TaskKanbanCard
+        lang="en-US"
+        task={taskFix()}
+        rowToken="Alpha"
+        today="2026-06-19"
+        holidaySet={new Set()}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onJumpToRaid={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/change/i)).toBeNull();
   });
 });

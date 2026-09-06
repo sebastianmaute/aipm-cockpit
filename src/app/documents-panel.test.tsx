@@ -2268,6 +2268,75 @@ describe("DocumentsPanel — document-switch commit guard", () => {
     expect(op?.block?.text).toBe("Alpha!");
   });
 
+  // ★★★ open-followups §409. Collapsing is documented ON THE COMPONENT as a
+  // momentary "give me room" gesture that "nothing persists" — but until this
+  // fix `{!bodyCollapsed && (<DocumentEditModeBody …/>)}` UNMOUNTED the editor
+  // subtree, and `useBlockDraft` flushes a dirty draft on ANY unmount. That
+  // flush routes through `commitBlock` → `applyDocMutation`, which can mint a
+  // `DocVersion` before-image — so a "nothing persists" gesture was writing
+  // persistent version history.
+  // ★★ ASSERT ON THE ABSENCE OF THE COMMIT, NEVER ON VISIBILITY. `hidden`
+  // removes the subtree from the accessibility tree exactly like unmounting
+  // does, so a `queryByRole` visibility check cannot tell `hidden` from the
+  // old conditional render — only whether `mutateDocuments` fired can.
+  //
+  // ★★★ READ THIS BEFORE CITING THIS TEST AS PROOF THE DEFECT IS FIXED. IT IS
+  //     NOT, AND THIS TEST CANNOT SEE WHY. Measured in Chromium 2026-09-06
+  //     (see open-followups §409): the block editors ALSO commit on `onBlur`,
+  //     React's `onBlur` is a delegated `focusout` which bubbles, and hiding an
+  //     ancestor of a focused input fires `blur`+`focusout` in a real browser.
+  //     So in Chromium this same gesture still commits and still mints a
+  //     version — the write moved from the unmount path to the focusout path.
+  //     jsdom implements neither layout nor the focus-fixup rule, so nothing
+  //     here can observe that; this test is green for a reason that does not
+  //     hold outside jsdom.
+  //     What this test DOES legitimately pin is the mount shape: reverting to
+  //     `{!bodyCollapsed && …}` makes the unmount flush fire and turns it red.
+  //     Keep it for that, and do not upgrade the claim.
+  // ★ Also measured: the state below is not reachable by a real gesture at all
+  //   — on both mouse and keyboard, `focusout` precedes the click handler, so
+  //   the draft is already committed by the ordinary blur before the collapse
+  //   flips. That is why `fireEvent` is required here, and it is a sign this
+  //   test describes a synthetic state rather than a user-visible one.
+  it("does not commit a pending unblurred edit when the open document is collapsed", async () => {
+    const { mutateDocuments } = renderWithSpy();
+    // docA is ALREADY open (the selectionPool[0] fallback) — see the sibling
+    // tests above: an opening click is now the collapse gesture, not a no-op.
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
+    const text = await screen.findByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!"); // dirty, unblurred — and still focused
+
+    // The collapse gesture: click the OPEN document's own name button.
+    // `fireEvent`, never `userEvent.click` — userEvent moves focus and blurs
+    // the input BEFORE the click, which would commit through the ordinary
+    // blur path and make this indistinguishable from an already-blurred edit.
+    fireEvent.click(screen.getByRole("button", { name: docA.title }));
+
+    expect(mutateDocuments).not.toHaveBeenCalled();
+  });
+
+  // ★★ THE ROUND TRIP. It catches a commit suppressed some OTHER way (e.g.
+  // dropping the flush-on-unmount effect entirely) while still losing the draft
+  // on collapse: the typed text must survive a collapse/expand round trip.
+  // ★ The detection is FIXTURE-dependent, and that is the honest caveat here:
+  // `renderWithSpy` passes a `docs` array captured once and never re-renders
+  // the host, so a remount re-seeds the ORIGINAL text and the assertion goes
+  // red. In the real app a remount after the unmount-flush would re-seed from
+  // the WRITTEN text and this assertion would pass — so it discriminates here
+  // because of the fixture, not because of anything intrinsic to the gesture.
+  it("keeps a dirty draft after collapsing and re-expanding the document", async () => {
+    const { mutateDocuments } = renderWithSpy();
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
+    const text = await screen.findByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!");
+
+    fireEvent.click(screen.getByRole("button", { name: docA.title })); // collapse
+    fireEvent.click(screen.getByRole("button", { name: docA.title })); // expand
+
+    expect(await screen.findByRole("textbox", { name: headingTextName(0) })).toHaveValue("Alpha!");
+    expect(mutateDocuments).not.toHaveBeenCalled();
+  });
+
   // ★★★ A REFUSAL MUST REACH THE USER. The panel funnel (`mutate`) is the ONE
   //  place that renders one — its own comment says so — and the block editor
   //  was wired straight past it to `mutateDocuments`. A concurrent delete then

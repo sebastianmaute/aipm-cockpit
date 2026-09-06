@@ -163,11 +163,12 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
             type="button"
             onClick={() => void test()}
             disabled={testing}
+            aria-label={t(lang, "timelogTestLabel")}
             className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-ui-dark-blue disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
           >
             {t(lang, "timelogTest")}
           </button>
-          {testResult && <p className="text-xs text-muted-foreground">{testResult}</p>}
+          <p role="status" className="text-xs text-muted-foreground">{testResult}</p>
         </div>
       )}
     </div>

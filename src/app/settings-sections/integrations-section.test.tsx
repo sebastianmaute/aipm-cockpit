@@ -1,16 +1,27 @@
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, fireEvent, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { IntegrationsSection } from "./integrations-section";
 import { ConfirmProvider } from "../confirm-dialog";
-import { t } from "../i18n";
+import { t, loadI18n } from "../i18n";
+import { StorageNotReadyError } from "../storage";
 import {
   defaultSettings,
   defaultIntegrations,
   defaultM365Integrations,
   defaultTursoIntegrations,
+  defaultJiraConfig,
 } from "../settings-types";
+import { defaultTimelogConfig } from "../timelog-types";
 import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
+import { testTursoConnection } from "../turso-pipeline";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
+
+vi.mock("../turso-pipeline", async (importActual) => ({
+  ...(await importActual<typeof import("../turso-pipeline")>()),
+  testTursoConnection: vi.fn(),
+}));
 
 afterEach(async () => {
   // Editing the Turso auth token fires an un-awaited device-seal (encrypts then
@@ -238,13 +249,19 @@ describe("IntegrationsSection weekly digest control", () => {
 });
 
 describe("IntegrationsSection Turso credentials supplied by the environment", () => {
-  // ★★★ THE URL AND TOKEN INPUTS ARE HIDDEN WHENEVER THE MATCHING
-  // `NEXT_PUBLIC_TURSO_*` VAR IS SET, and that is deliberate: `getTursoConfig`
-  // lets a non-empty env value WIN over anything typed here, so an editable
-  // field would be inert. Nothing SAID so, and an env-configured deployment
-  // therefore rendered an empty bordered box that reads as a broken settings
-  // panel — reported 2026-09-02 against a working Turso backend. These pin the
-  // disclosure, which is the only thing standing between the two readings.
+  // ★★★ THE TOKEN INPUT IS HIDDEN WHENEVER ITS `NEXT_PUBLIC_TURSO_*` VAR IS
+  // SET, and that is deliberate: `getTursoConfig` lets a non-empty env token
+  // WIN over anything typed here, so an editable field would be inert.
+  // Nothing SAID so, and an env-configured deployment therefore rendered an
+  // empty bordered box that reads as a broken settings panel — reported
+  // 2026-09-02 against a working Turso backend. These pin the disclosure,
+  // which is the only thing standing between the two readings.
+  // ★★ THE URL INPUT IS DIFFERENT (§337): env PRESENCE and env USABILITY are
+  // separate questions, and `getTursoConfig` only lets a USABLE env URL win.
+  // A typo'd env value used to hide this field while resolving to no config
+  // at all — unconfigurable from the UI with no route back. The URL input
+  // hides only when the env value is usable; an unusable one keeps the input
+  // AND adds a disclosure naming the var. See the "§337" describe below.
   afterEach(() => {
     vi.unstubAllEnvs();
   });
@@ -278,6 +295,83 @@ describe("IntegrationsSection Turso credentials supplied by the environment", ()
       screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")),
     ).toBeInTheDocument();
     expect(screen.queryByText(/NEXT_PUBLIC_TURSO_/)).toBeNull();
+  });
+});
+
+describe("§337 — an unusable env URL still lets the user configure Turso", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("renders the URL input AND the disclosure when the env var is set but unusable", () => {
+    vi.stubEnv("NEXT_PUBLIC_TURSO_DATABASE_URL", "postgres://nope");
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(screen.getByText(t("en-US", "integrationsTursoUrlEnvUnusable"))).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")),
+    ).toBeInTheDocument();
+  });
+
+  // ★ THE MUTATION-RELEVANT CASE. A suite that only covers the unusable
+  // branch passes whether or not the usable branch still hides the field.
+  it("keeps the from-env hint and NO input when the env var is usable", () => {
+    vi.stubEnv("NEXT_PUBLIC_TURSO_DATABASE_URL", "libsql://db.turso.io");
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(screen.getByText(t("en-US", "integrationsTursoUrlFromEnv"))).toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(t("en-US", "integrationsTursoUrlEnvUnusable")),
+    ).not.toBeInTheDocument();
+  });
+
+  // ★★ The disclosure must be the field's DESCRIPTION, never part of its NAME.
+  // Nested inside the implicit <label> it joined the accessible name, turning
+  // it into a paragraph. axe has no rule for an over-long accessible name, so
+  // this test is the only thing that can catch a regression here.
+  it("attaches the disclosure as a description, not as part of the field name", () => {
+    vi.stubEnv("NEXT_PUBLIC_TURSO_DATABASE_URL", "postgres://nope");
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    const input = screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder"));
+    const notice = screen.getByText(t("en-US", "integrationsTursoUrlEnvUnusable"));
+
+    // Wired by id, and the notice really is outside the label.
+    expect(notice.id).toBeTruthy();
+    expect(input.getAttribute("aria-describedby")).toBe(notice.id);
+    expect(input.closest("label")?.contains(notice)).toBe(false);
+
+    // And the name itself stays short: no textbox may be NAMED by the
+    // disclosure sentence. This is the assertion that goes red on a revert to
+    // the nested form.
+    expect(
+      screen.queryByRole("textbox", {
+        name: /NEXT_PUBLIC_TURSO_DATABASE_URL is set but/,
+      }),
+    ).toBeNull();
+    // Positive control: the field IS still reachable by its real name, so the
+    // assertion above cannot pass merely because no textbox rendered.
+    expect(
+      screen.getByRole("textbox", { name: new RegExp(t("en-US", "integrationsTursoUrl")) }),
+    ).toBe(input);
+  });
+
+  it("shows neither hint nor disclosure when no env var is set", () => {
+    // ★ Clear the var explicitly — this test asserts an ABSENCE, so a host or
+    // CI shell that exports NEXT_PUBLIC_TURSO_DATABASE_URL would otherwise flip
+    // it red on correct code. `backend-setup-steps.test.ts` carries the same
+    // guard for the same reason.
+    vi.stubEnv("NEXT_PUBLIC_TURSO_DATABASE_URL", "");
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(
+      screen.queryByText(t("en-US", "integrationsTursoUrlFromEnv")),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(t("en-US", "integrationsTursoUrlEnvUnusable")),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")),
+    ).toBeInTheDocument();
   });
 });
 
@@ -328,5 +422,173 @@ describe("IntegrationsSection Turso auth token sealing", () => {
     fireEvent.click(screen.getByRole("button", { name: /remove stored secret/i }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(isPassphraseLocked("tursoAuthToken")).toBe(false));
+  });
+});
+
+describe("§408 — Turso test connection", () => {
+  it("reports success in transient state and stores nothing", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={onChange} />);
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
+    // ★ The whole point of the transient shape: a probe must not write settings.
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  // ★★★ THROW WHAT THE SUBSTRATE THROWS. An earlier version of this test
+  //     rejected with a bare `new Error("storage-unreachable")` and asserted
+  //     "Connection failed: storage-unreachable" — a string the production path
+  //     CANNOT emit, because `runTursoPipeline` throws `StorageNotReadyError`
+  //     and that constructor prefixes its hint (`Storage not ready: ${hint}`).
+  //     The test was green while the real UI said something else, and it would
+  //     have stayed green through any rewrite of the message shaping. Reject
+  //     with the real error type so the classifier under test actually runs.
+  it("reports a localized unreachable message when the probe rejects", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockRejectedValueOnce(
+      new StorageNotReadyError("storage-unreachable"),
+    );
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(
+      await screen.findByText(t("en-US", "integrationsTursoTestUnreachable")),
+    ).toBeInTheDocument();
+    // The raw hint and the StorageNotReadyError prefix must BOTH be absent —
+    // this is the assertion that would have caught the original defect.
+    expect(screen.queryByText(/storage-unreachable/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Storage not ready/)).not.toBeInTheDocument();
+  });
+
+  it("reports a localized auth message when the token is rejected", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockRejectedValueOnce(
+      new StorageNotReadyError("Turso auth token rejected. Check the token in Settings."),
+    );
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoTestAuth"))).toBeInTheDocument();
+    expect(screen.queryByText(/Check the token in Settings/)).not.toBeInTheDocument();
+  });
+
+  // ★ The fixture must be an error `tursoErrorKind` does NOT classify. Note
+  // that "Turso returned an unexpected response shape." would NOT work here:
+  // the classifier matches /^Turso returned/i and calls it "unreachable", so a
+  // response-shape failure is reported as an unreachable host. That is
+  // pre-existing shared behaviour (the storage banner reads the same
+  // classifier) and is deliberately not changed from this surface.
+  it("falls back to the generic message for an unclassified failure", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockRejectedValueOnce(new Error("boom"));
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(
+      await screen.findByText(t("en-US", "integrationsTursoTestFailGeneric")),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/boom/)).not.toBeInTheDocument();
+  });
+
+  // ★★ NOT "shows a message when unconfigured" — there is no such message, and
+  // writing one would be dead code. The control is DISABLED whenever
+  // `getTursoConfig` cannot resolve, and a disabled button dispatches no click,
+  // so the probe is unreachable rather than guarded. Pin the disabled state
+  // itself; an earlier version of this test clicked the button and awaited a
+  // message, which timed out at 15 s instead of failing an assertion.
+  it("disables the probe entirely when there is no usable config", () => {
+    vi.mocked(testTursoConnection).mockClear();
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(
+      screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }),
+    ).toBeDisabled();
+    expect(testTursoConnection).not.toHaveBeenCalled();
+  });
+
+  it("localizes the failure message in German too", async () => {
+    await loadI18n("de");
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockRejectedValueOnce(
+      new StorageNotReadyError("storage-unreachable"),
+    );
+    render(<IntegrationsSection lang="de" settings={tursoSettings("fake")} onChange={() => {}} />);
+    await user.click(screen.getByRole("button", { name: t("de", "integrationsTursoTestLabel") }));
+    expect(await screen.findByText(t("de", "integrationsTursoTestUnreachable"))).toBeInTheDocument();
+    // The defect this whole block exists for: English leaking into a DE surface.
+    expect(screen.queryByText(/Storage not ready/)).not.toBeInTheDocument();
+  });
+
+  it("disables the button while a probe is in flight", async () => {
+    const user = userEvent.setup();
+    let release: (() => void) | undefined;
+    vi.mocked(testTursoConnection).mockReturnValueOnce(
+      new Promise<void>((res) => {
+        release = res;
+      }),
+    );
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+    const btn = screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") });
+    await user.click(btn);
+    expect(btn).toBeDisabled();
+    release?.();
+    await waitFor(() => expect(btn).toBeEnabled());
+  });
+});
+
+describe("IntegrationsSection — Test-connection button names (WCAG 2.4.6)", () => {
+  // Turso, Timelog and Jira each render their own "Test connection" button
+  // (jiraTest/timelogTest/integrationsTursoTest are the SAME EN string), and
+  // all three mount in this one subtree once Turso + Timelog + Jira are all
+  // enabled. The visible text stays "Test connection" on every button; only
+  // the ACCESSIBLE NAME is qualified per service.
+  //
+  // ★ `requireCollisionSeed` does NOT fit this shape and is deliberately NOT
+  // used. It throws unless two RENDERED names collide once a trailing
+  // `" (N)"` occurrence suffix is stripped (`buildRowTokens`'s disambiguation
+  // shape) — but this fix's whole point is that the three rendered names are
+  // no longer equal, and none of them ever carries an "(N)" suffix. Calling
+  // it here would throw "seeded no two rows sharing a display name" against
+  // CORRECT code. This is instead the "distinct-name regression pin" case
+  // the helper's own docstring calls out as legitimate but different:
+  // `expectRowUniqueNames({ minControls: 3 })` with no `requireCollisionSeed`
+  // asserts the three qualified names are pairwise distinct, and the
+  // explicit `getAllByText`/`getByRole` assertions above it independently
+  // pin that the SHARED VISIBLE TEXT is what makes the collision possible in
+  // the first place.
+  it("gives each Test-connection button a service-qualified accessible name", () => {
+    const settings = {
+      ...tursoSettings("fake"),
+      timelog: { ...defaultTimelogConfig, enabled: true },
+      jira: { ...defaultJiraConfig, enabled: true },
+    };
+    render(<IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} />);
+
+    // Sanity: the fixture really does render three "Test connection"-worded
+    // buttons, i.e. the collision is genuinely possible here and this test is
+    // not passing because a button failed to mount.
+    // ★★ An earlier revision of this comment said `requireCollisionSeed`
+    // "below re-checks this against the RENDERED names" — there is no such
+    // call, and the block comment above this test explains at length why it is
+    // deliberately absent. That was a false-coverage claim: it named a second
+    // guard that does not exist.
+    expect(screen.getAllByText(t("en-US", "integrationsTursoTest"))).toHaveLength(3);
+
+    expect(
+      screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "jiraTestLabel") }),
+    ).toBeInTheDocument();
+
+    // ★★ THE THREE `getByRole` ASSERTIONS ABOVE ARE DOING THE REAL WORK, not
+    // this call — it is weaker than its name reads. `expectRowUniqueNames`
+    // fails on a DUPLICATE, and removing exactly ONE of the three `aria-label`s
+    // produces no duplicate at all ("Test connection" / "… – Timelog" /
+    // "… – Jira" are still pairwise distinct), so this call alone passes that
+    // regression. Keep all three `getByRole` lines: each pins one label by key,
+    // and they are what goes red when a single label is dropped.
+    expectRowUniqueNames({ minControls: 3 });
   });
 });
