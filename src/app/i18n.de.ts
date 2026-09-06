@@ -2071,6 +2071,8 @@ export const de: Record<TranslationKey, string> = {
     "Datenbank nicht erreichbar. Bitte URL und Netzwerkverbindung prüfen.",
   integrationsTursoTestAuth: "Das Auth-Token wurde abgelehnt. Bitte Token prüfen.",
   integrationsTursoTestFailGeneric: "Verbindung fehlgeschlagen.",
+  integrationsTursoMoveNeedsTest:
+    "Zuerst Verbindung testen — Zu Turso verschieben bleibt deaktiviert, bis die Verbindung bestätigt ist.",
   integrationsTursoToken: "Auth-Token",
   integrationsTursoTokenPlaceholder: "Turso-Datenbank-Token",
   integrationsTursoTokenFromEnv:

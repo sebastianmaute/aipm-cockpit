@@ -2145,6 +2145,12 @@ const enUS = {
   integrationsTursoTestUnreachable: "Could not reach the database. Check the URL and your network.",
   integrationsTursoTestAuth: "The auth token was rejected. Check the token.",
   integrationsTursoTestFailGeneric: "Connection failed.",
+  // ★ ONE key, not two. The CONFIRMED branch reuses the existing
+  // `projectMigrateToTursoHint`, which already describes what the action does —
+  // a second "connection confirmed" string would be read by nothing and a dead
+  // i18n key is invisible to every gate in this repo.
+  integrationsTursoMoveNeedsTest:
+    "Run Test connection first — Move to Turso stays disabled until the connection is confirmed.",
   integrationsTursoToken: "Auth token",
   integrationsTursoTokenPlaceholder: "Turso database token",
   integrationsTursoTokenFromEnv:
