@@ -282,14 +282,14 @@ const acceptsChangeDate: ChangeFieldGuard = acceptsPatchDate;
  *  `scheduleImpactDays` with `describeClamp(..., { round: 0 })` and `costImpact`
  *  with `{ round: 2 }`. One shared predicate could not express that divergence.
  *
- *  The schedule-impact rule. Today it is the historical predicate verbatim;
+ *  The schedule-impact rule. Today it is the historical predicate verbatim.
  *  To be tightened to integers by the commit that closes §399. */
 export const acceptsScheduleDays: ChangeFieldGuard = (v) => {
   const n = toNumber(v);
   return Number.isFinite(n) && n >= 0;
 };
 
-/** The cost-impact rule. Today it is the historical predicate verbatim;
+/** The cost-impact rule. Today it is the historical predicate verbatim.
  *  To be bounded by the commit that closes §399. */
 export const acceptsCostAmount: ChangeFieldGuard = (v) => {
   const n = toNumber(v);
@@ -608,10 +608,15 @@ type StakeholderFieldGuard = (value: unknown) => boolean;
  *  milestone list one entity over made exactly this omission and had to be
  *  corrected for it — an exclusion list that reads as exhaustive and is not is
  *  the false assurance that stops the next audit. */
+export const acceptsStakeholderCategory: StakeholderFieldGuard = (v) =>
+  typeof v === "string" && STAKEHOLDER_CATEGORY_SET.has(v);
+export const acceptsInfluenceInterest: StakeholderFieldGuard = (v) =>
+  typeof v === "string" && INFLUENCE_INTEREST_SET.has(v);
+
 const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> = {
-  category: (v) => typeof v === "string" && STAKEHOLDER_CATEGORY_SET.has(v),
-  influence: (v) => typeof v === "string" && INFLUENCE_INTEREST_SET.has(v),
-  interest: (v) => typeof v === "string" && INFLUENCE_INTEREST_SET.has(v),
+  category: acceptsStakeholderCategory,
+  influence: acceptsInfluenceInterest,
+  interest: acceptsInfluenceInterest,
 };
 
 export function dropUnacceptedStakeholderFields<T extends object>(patch: T): T {
@@ -633,12 +638,9 @@ export function sanitizeStakeholder(input: unknown): Stakeholder | null {
   const name = sanitizeText(o.name, BUDGET_NAME_MAX);
   if (!name) return null;
 
-  const category = (typeof o.category === "string" && STAKEHOLDER_CATEGORY_SET.has(o.category))
-    ? (o.category as StakeholderCategory) : "Other";
-  const influence = (typeof o.influence === "string" && INFLUENCE_INTEREST_SET.has(o.influence))
-    ? (o.influence as InfluenceInterest) : "Medium";
-  const interest = (typeof o.interest === "string" && INFLUENCE_INTEREST_SET.has(o.interest))
-    ? (o.interest as InfluenceInterest) : "Medium";
+  const category = acceptsStakeholderCategory(o.category) ? (o.category as StakeholderCategory) : "Other";
+  const influence = acceptsInfluenceInterest(o.influence) ? (o.influence as InfluenceInterest) : "Medium";
+  const interest = acceptsInfluenceInterest(o.interest) ? (o.interest as InfluenceInterest) : "Medium";
 
   const item: Stakeholder = {
     id: Math.floor(id),

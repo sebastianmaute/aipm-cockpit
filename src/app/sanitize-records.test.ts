@@ -5,9 +5,11 @@ import {
   sanitizeMilestone,
   sanitizeMilestoneTaskIds,
   sanitizeChangeItem,
+  sanitizeStakeholder,
   acceptsRiskScale,
   acceptsScheduleDays,
   acceptsCostAmount,
+  acceptsStakeholderCategory,
   sanitizeIsoDate,
 } from "./sanitize";
 
@@ -205,6 +207,22 @@ describe("delegate-never-restate: the milestone sanitizer and its merge-site gua
       // for, so the two are NOT equivalent here — assert the sanitizer's own
       // rule and let acceptsPatchDate stay the guard's business.
       expect("achievedDate" in m!).toBe(sanitizeIsoDate(probe) !== "");
+    },
+  );
+});
+
+describe("delegate-never-restate: the stakeholder sanitizer and its merge-site guard", () => {
+  const PROBES: unknown[] = ["Sponsor", "Other", "Nonsense", "", 42, true, null, undefined, [], {}];
+
+  it.each(PROBES.map((v) => [probeLabel(v), v] as const))(
+    "keeps category %s verbatim exactly when acceptsStakeholderCategory admits it",
+    (_label, probe) => {
+      const s = sanitizeStakeholder({ id: 1, name: "n", category: probe });
+      expect(s).not.toBeNull();
+      // A REFUSED value is reset to the hardcoded fallback, which is the defect
+      // class the merge-site guard exists to stop. Assert the RESET, not a
+      // missing key: this sanitizer always emits the field.
+      expect(s!.category === probe).toBe(acceptsStakeholderCategory(probe));
     },
   );
 });
