@@ -204,9 +204,21 @@ const MILESTONE_FIELD_GUARDS: Readonly<Record<string, MilestoneFieldGuard>> = {
   //  unconditionally true, the key survived, and `if (description)` then
   //  dropped it — the card refused the value while the write CLEARED the stored
   //  text. Do not read the parity off this predicate alone; it is a property of
-  //  the composition. Measured over {true, null, [], 42, "<p>new</p>", "",
-  //  key-absent} in `sanitize-milestone-patch.test.ts`'s "preview and write
-  //  agree on every shape", which runs the real preview and the real write.
+  //  the composition. Measured over the six shapes {true, null, [], 42,
+  //  "<p>new</p>", ""} in `sanitize-milestone-patch.test.ts`'s "preview and
+  //  write agree on every NON-STRING shape (§398's actual invariant)", which
+  //  runs the real preview and the real write.
+  // ★★★ THE "NON-STRING" QUALIFIER IS LOAD-BEARING AND AN EARLIER WORDING HERE
+  //  DROPPED IT, citing a shorter title that exists in no test file and
+  //  asserting a whole-input-space parity the cited block REFUTES on its own
+  //  last row: a string whose only content is a disallowed element is previewed
+  //  verbatim and WRITTEN AS A CLEAR, filed there as known, open and
+  //  pre-existing. The parity claimed here holds over the six shapes named
+  //  above and nowhere else — do not re-shorten the title when quoting it.
+  // ★★ That wording also listed key-absent as a seventh measured shape. It is
+  //  not in that block, and NOTHING measures it on both sides: it is pinned
+  //  write-side only, by a peer test that calls `applyMilestoneUpdate` with the
+  //  key omitted and never reaches the preview.
   description: (v) => typeof v === "string",
 };
 
