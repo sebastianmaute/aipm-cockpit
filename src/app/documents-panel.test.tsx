@@ -2147,7 +2147,10 @@ describe("DocumentsPanel — edit mode toggle", () => {
       updatedAt: NOW,
     };
     renderPanel([headingDoc]);
-    await userEvent.click(screen.getByRole("button", { name: headingDoc.title }));
+    // ★ No opening click: `selected` falls back to selectionPool[0], so the sole
+    // document is ALREADY open. Clicking its name was a no-op before the collapse
+    // landed and is now the collapse gesture itself — it would hide the very body
+    // this test then looks for.
 
     // Preview is the default — no block editor textbox mounted yet.
     expect(screen.queryByRole("textbox", { name: /Heading text/ })).toBeNull();
@@ -2215,7 +2218,10 @@ describe("DocumentsPanel — document-switch commit guard", () => {
 
   it("shows the new document and commits nothing when switching without editing", async () => {
     const { mutateDocuments } = renderWithSpy();
-    await userEvent.click(screen.getByRole("button", { name: docA.title }));
+    // ★ docA is ALREADY open (the selectionPool[0] fallback), so no opening
+    // click — that click is now the collapse gesture and would hide the editor.
+    // The docB click below is a real SWITCH and still expands, which is the
+    // behaviour this test cares about.
     await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
     expect(
       await screen.findByRole("textbox", { name: headingTextName(0) }),
@@ -2242,7 +2248,8 @@ describe("DocumentsPanel — document-switch commit guard", () => {
   //   exists. fireEvent dispatches the click alone and leaves focus put.
   it("flushes a pending unblurred edit to the OLD document on a switch, never the new one", async () => {
     const { mutateDocuments } = renderWithSpy();
-    await userEvent.click(screen.getByRole("button", { name: docA.title }));
+    // ★ docA is ALREADY open (the selectionPool[0] fallback) — see the sibling
+    // test: an opening click is now the collapse gesture, not a no-op.
     await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
     const text = await screen.findByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!"); // dirty, unblurred — and still focused
@@ -2259,6 +2266,75 @@ describe("DocumentsPanel — document-switch commit guard", () => {
       | { block?: { text?: string } }
       | undefined;
     expect(op?.block?.text).toBe("Alpha!");
+  });
+
+  // ★★★ open-followups §409. Collapsing is documented ON THE COMPONENT as a
+  // momentary "give me room" gesture that "nothing persists" — but until this
+  // fix `{!bodyCollapsed && (<DocumentEditModeBody …/>)}` UNMOUNTED the editor
+  // subtree, and `useBlockDraft` flushes a dirty draft on ANY unmount. That
+  // flush routes through `commitBlock` → `applyDocMutation`, which can mint a
+  // `DocVersion` before-image — so a "nothing persists" gesture was writing
+  // persistent version history.
+  // ★★ ASSERT ON THE ABSENCE OF THE COMMIT, NEVER ON VISIBILITY. `hidden`
+  // removes the subtree from the accessibility tree exactly like unmounting
+  // does, so a `queryByRole` visibility check cannot tell `hidden` from the
+  // old conditional render — only whether `mutateDocuments` fired can.
+  //
+  // ★★★ READ THIS BEFORE CITING THIS TEST AS PROOF THE DEFECT IS FIXED. IT IS
+  //     NOT, AND THIS TEST CANNOT SEE WHY. Measured in Chromium 2026-09-06
+  //     (see open-followups §409): the block editors ALSO commit on `onBlur`,
+  //     React's `onBlur` is a delegated `focusout` which bubbles, and hiding an
+  //     ancestor of a focused input fires `blur`+`focusout` in a real browser.
+  //     So in Chromium this same gesture still commits and still mints a
+  //     version — the write moved from the unmount path to the focusout path.
+  //     jsdom implements neither layout nor the focus-fixup rule, so nothing
+  //     here can observe that; this test is green for a reason that does not
+  //     hold outside jsdom.
+  //     What this test DOES legitimately pin is the mount shape: reverting to
+  //     `{!bodyCollapsed && …}` makes the unmount flush fire and turns it red.
+  //     Keep it for that, and do not upgrade the claim.
+  // ★ Also measured: the state below is not reachable by a real gesture at all
+  //   — on both mouse and keyboard, `focusout` precedes the click handler, so
+  //   the draft is already committed by the ordinary blur before the collapse
+  //   flips. That is why `fireEvent` is required here, and it is a sign this
+  //   test describes a synthetic state rather than a user-visible one.
+  it("does not commit a pending unblurred edit when the open document is collapsed", async () => {
+    const { mutateDocuments } = renderWithSpy();
+    // docA is ALREADY open (the selectionPool[0] fallback) — see the sibling
+    // tests above: an opening click is now the collapse gesture, not a no-op.
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
+    const text = await screen.findByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!"); // dirty, unblurred — and still focused
+
+    // The collapse gesture: click the OPEN document's own name button.
+    // `fireEvent`, never `userEvent.click` — userEvent moves focus and blurs
+    // the input BEFORE the click, which would commit through the ordinary
+    // blur path and make this indistinguishable from an already-blurred edit.
+    fireEvent.click(screen.getByRole("button", { name: docA.title }));
+
+    expect(mutateDocuments).not.toHaveBeenCalled();
+  });
+
+  // ★★ THE ROUND TRIP. It catches a commit suppressed some OTHER way (e.g.
+  // dropping the flush-on-unmount effect entirely) while still losing the draft
+  // on collapse: the typed text must survive a collapse/expand round trip.
+  // ★ The detection is FIXTURE-dependent, and that is the honest caveat here:
+  // `renderWithSpy` passes a `docs` array captured once and never re-renders
+  // the host, so a remount re-seeds the ORIGINAL text and the assertion goes
+  // red. In the real app a remount after the unmount-flush would re-seed from
+  // the WRITTEN text and this assertion would pass — so it discriminates here
+  // because of the fixture, not because of anything intrinsic to the gesture.
+  it("keeps a dirty draft after collapsing and re-expanding the document", async () => {
+    const { mutateDocuments } = renderWithSpy();
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
+    const text = await screen.findByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!");
+
+    fireEvent.click(screen.getByRole("button", { name: docA.title })); // collapse
+    fireEvent.click(screen.getByRole("button", { name: docA.title })); // expand
+
+    expect(await screen.findByRole("textbox", { name: headingTextName(0) })).toHaveValue("Alpha!");
+    expect(mutateDocuments).not.toHaveBeenCalled();
   });
 
   // ★★★ A REFUSAL MUST REACH THE USER. The panel funnel (`mutate`) is the ONE
@@ -2518,5 +2594,96 @@ describe("DocumentsPanel — the list is sized by its rows, not crushed by the p
     renderPanel([doc(1, "Alpha")]);
     expect(listBox()).toHaveClass("max-h-80");
     expect(listBox()).toHaveClass("overflow-auto");
+  });
+});
+
+describe("documents pane — collapsing the open document's body", () => {
+  // ★★★ THE `aria-expanded` HALF ALONE IS VACUOUS. Both it and the guard around
+  // the body are threaded from the SAME `bodyCollapsed` state, so reverting
+  // `{!bodyCollapsed && (<DocumentEditModeBody …/>)}` to the unconditional
+  // element deletes the entire user-visible feature — the body never collapses,
+  // only the announcement flips — and every ARIA-only assertion in this describe
+  // stays green. Assert the RENDERED BODY too, and take the observable from
+  // INSIDE `DocumentEditModeBody`: the `<h2>` `DocumentPreview` renders for
+  // `doc.title` (`document-preview.tsx`), which is the same locator the rest of
+  // this file already uses for "the pane is showing this document".
+  // ★★ NOT `DocumentLinksSection` / `DocumentsAssetSection` as the PRIMARY
+  // observable — both sit OUTSIDE the guard by design and stay mounted while
+  // collapsed, so an assertion on either passes under that revert and
+  // reproduces the very gap this closes. That argues for a SECOND assertion,
+  // not for dropping the requirement: staying mounted is itself what keeps the
+  // metadata controls usable, and folding either INSIDE the guard passed every
+  // test here until the pair below landed.
+  it("collapses the body when the open document's name is clicked again", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Alpha")]);
+    // `selected` falls back to selectionPool[0], so the body is rendered before
+    // the first click — without this the absence below could pass vacuously.
+    expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Alpha" }));
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("heading", { name: "Alpha" })).not.toBeInTheDocument();
+    // ★ The links + asset sections are STILL mounted while collapsed. Only the
+    // body is meant to go. (No `assetPane` is supplied here, so the asset
+    // section renders its Turso-only notice — that notice IS the section.)
+    expect(screen.getByText(t("en-US", "documentsLinkedEntities"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "assetLibraryTursoOnly"))).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Alpha" }));
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
+  });
+
+  // ★★★ THE REGRESSION THIS DESIGN EXISTS TO PREVENT. `selected` falls back to
+  // selectionPool[0], so the FIRST document renders as open while `selectedId` is
+  // still null. A toggle comparing the clicked id against `selectedId` therefore
+  // does nothing here — and a fixture that clicks only AFTER an explicit
+  // selection passes either way, which is why this case is separate.
+  it("collapses the FIRST document even though selectedId is still null", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Alpha")]);
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "Alpha" }));
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("selecting a different document expands it rather than inheriting the collapse", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Alpha"), doc(2, "Beta")]);
+    await user.click(screen.getByRole("button", { name: "Alpha" })); // collapse Alpha
+    await user.click(screen.getByRole("button", { name: "Beta" })); // switch
+    expect(screen.getByRole("button", { name: "Beta" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  // ★★★ THE ROUTE WITH NO CLICK HANDLER IN IT, and the reason the reset keys on
+  // `selected?.id` rather than living in `handleSelect`. Deleting the open
+  // document makes the `?? selectionPool[0]` fallback beside `selected`
+  // re-point at a SUCCESSOR — no selection gesture, no remount, nothing to
+  // patch. Before the render-time reconcile the successor inherited the
+  // collapse and rendered with its body already hidden.
+  //
+  // ★★ It also needs no remount, unlike the DEEP-LINK route that shares the
+  // defect: that one arrives by switching views, so this conditionally-mounted
+  // tabpanel remounts and resets the state on its own — reachable, but weaker.
+  //
+  // ★★ The ENTITY-FILTER route is NOT weaker. The banner's clear button runs
+  // `clearEntityFilter()` IN PLACE, which flips `selectionPool` from
+  // `visibleRows` back to `documents` so `selectionPool[0]` can re-point with
+  // no remount — exactly the shape this delete route pins.
+  it("expands the successor when the collapsed open document is deleted", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Alpha"), doc(2, "Beta")]);
+    // Alpha is open via the `selectionPool[0]` fallback, so this click is the
+    // collapse gesture. The absence check makes the assertion below non-vacuous.
+    await user.click(screen.getByRole("button", { name: "Alpha" }));
+    expect(screen.queryByRole("heading", { name: "Alpha" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Alpha" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Delete – Alpha" })).toBeNull());
+
+    // ARIA and the rendered body BOTH — see this describe's header for why the
+    // `aria-expanded` half alone cannot fail.
+    expect(screen.getByRole("button", { name: "Beta" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
   });
 });

@@ -20,7 +20,7 @@
 // storage/Turso/M365/Timelog) and a "Run setup wizard" button (the guided
 // BackendSetupWizard) before the user creates or loads a project.
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { BackendConfigModal } from "./backend-config-modal";
 import { BackendSetupWizard } from "./backend-setup-wizard";
 import { TursoProjectPicker } from "./turso-project-picker";
@@ -135,6 +135,17 @@ export function ProjectEmptyState({
     settings.integrations?.turso?.authToken,
   );
 
+  // ★★ Id for the Turso button's `aria-describedby` target. Minted with `useId`
+  // rather than a literal so a second mount of this component in one tree
+  // cannot point both buttons at whichever node the document happened to hold
+  // first (mirrors projects-panel.tsx, which renders TWO of these).
+  const loadFromTursoHintId = useId();
+  // One source, consumed by BOTH the wrapper's `title` (the sighted mouse
+  // user's tooltip) and the `sr-only` description node, so they cannot drift.
+  const loadFromTursoHint = tursoConfigured
+    ? t(lang, "projectLoadFromTursoHint")
+    : t(lang, "projectTursoNotConfigured");
+
   const titleKey = view === "create" ? "projectsNew" : "projectsEmptyTitle";
   const TITLE_ID = "project-empty-state-title";
   const startLogo = settings.branding?.startLogo;
@@ -213,14 +224,33 @@ export function ProjectEmptyState({
                 {/* Load an existing project from a configured Turso database —
                     file mode only (Turso mode already lists archived projects
                     and has its own picker via the mode selector). */}
-                {mode === "file" && tursoConfigured && (
-                  <Button
-                    variant="secondary"
-                    onClick={() => setTursoPickerOpen(true)}
-                    title={t(lang, "projectLoadFromTursoHint")}
+                {mode === "file" && (
+                  // ★★ The hint rides this WRAPPER, not the Button, and that
+                  // is DELIBERATE, not an oversight: a `disabled` button
+                  // dispatches no mouse events, so a `title` tidied onto the
+                  // Button would silently never appear. Three things are
+                  // coupled and must stay in step — the Button's
+                  // `disabled:pointer-events-none`, this wrapper's conditional
+                  // `cursor-not-allowed`, and `aria-describedby` pointing at
+                  // the `sr-only` node below. `projects-panel.tsx` carries the
+                  // reasoning for all three above its Load-from-Turso button.
+                  <span
+                    className={`inline-flex${tursoConfigured ? "" : " cursor-not-allowed"}`}
+                    title={loadFromTursoHint}
                   >
-                    {t(lang, "projectLoadFromTurso")}
-                  </Button>
+                    <Button
+                      variant="secondary"
+                      disabled={!tursoConfigured}
+                      onClick={() => setTursoPickerOpen(true)}
+                      aria-describedby={loadFromTursoHintId}
+                      className="disabled:pointer-events-none"
+                    >
+                      {t(lang, "projectLoadFromTurso")}
+                    </Button>
+                    <span id={loadFromTursoHintId} className="sr-only">
+                      {loadFromTursoHint}
+                    </span>
+                  </span>
                 )}
                 {/* Explore a demo project — guided-tour entry point. Rendered
                     only when a demo-load handler is wired (empty-state only). */}

@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { RaidEditModal } from "./raid-edit-modal";
@@ -493,5 +493,124 @@ describe("raid-edit-modal panel size", () => {
     expect(panel?.className).toContain("min-h-[420px]");
     expect(panel?.className).toContain("max-w-[95vw]");
     expect(panel?.className).toContain("max-h-[95vh]");
+  });
+});
+
+describe("RaidEditModal caused-by picker — the query clear is load-bearing", () => {
+  // ★★ EntityLinkPicker keeps its highlight index in VIEW state and clamps it
+  // only on READ (`highlight < options.length`). That clamp catches an index
+  // now out of RANGE; it CANNOT catch an index still in range that now names a
+  // DIFFERENT entity. The only thing covering the latter is the picker's
+  // render-time reconcile, which is keyed on the QUERY — so it fires only if
+  // the caller changes the query. Adding a cause shrinks `availableCauses`
+  // (`excludeIds: new Set(draft.causedByRaidIds)`), so a caller that left the
+  // query alone would slide the former index-1 option into index 0 under a
+  // still-armed highlight, and a second Enter would add a cause the user never
+  // picked. `addCausedBy` clears the query, which is what closes it — this
+  // pins that clear.
+  //
+  // ★ INDEX 0 IS LOAD-BEARING. Arming the LAST option instead would leave the
+  // stored index past the end of the shrunken list, where the existing clamp
+  // already drops it — so that arrangement passes with or without the clear and
+  // proves nothing. Index 0 of >= 2 matches is the case the clamp cannot see.
+
+  /** Controlled harness. `modalEl`'s `onChange={vi.fn()}` freezes the draft, so
+   *  `causedByRaidIds` would never grow and the option list would never shrink
+   *  — the exact shrink this test is about. Feeds the edited draft back in. */
+  function ControlledRaidModal({ raid, onDraftChange }: {
+    raid: readonly RaidItem[];
+    onDraftChange: (item: RaidItem) => void;
+  }) {
+    const [draft, setDraft] = useState<RaidItem>(makeDraft());
+    return (
+      <RaidEditModal
+        lang="en-US"
+        tasks={[]}
+        raid={raid}
+        stakeholdersEnabled
+        stakeholders={[]}
+        resources={[]}
+        contacts={[]}
+        onCreateResource={vi.fn(() => 1)}
+        draft={draft}
+        isNew={false}
+        onChange={(item) => {
+          setDraft(item);
+          onDraftChange(item);
+        }}
+        onApplyStatus={vi.fn()}
+        onApplyMatrix={vi.fn()}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+        onDelete={vi.fn()}
+        onCreateMitigationTask={vi.fn()}
+        onJumpToRaid={vi.fn()}
+      />
+    );
+  }
+
+  it("does not add a second cause when Enter is pressed again on an unchanged query", () => {
+    // Both titles match "vendor", so the dropdown offers exactly two options in
+    // seeded order: id 5 at index 0, id 6 at index 1.
+    const raid: RaidItem[] = [
+      makeDraft({ id: 5, title: "Vendor delay" }),
+      makeDraft({ id: 6, title: "Vendor pricing" }),
+    ];
+    const onDraftChange = vi.fn();
+    render(
+      <>
+        <Seed tier="full" />
+        <ControlledRaidModal raid={raid} onDraftChange={onDraftChange} />
+      </>,
+      { wrapper },
+    );
+
+    const input = screen.getByRole("combobox", { name: t("en-US", "raidCausedBy") });
+    fireEvent.change(input, { target: { value: "vendor" } });
+    expect(screen.getAllByRole("option")).toHaveLength(2);
+
+    // Arm the FIRST option (id 5) and add it.
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    expect((onDraftChange.mock.calls[0][0] as RaidItem).causedByRaidIds).toEqual([5]);
+
+    // WITHOUT touching the query, press Enter again. Nothing may be added: the
+    // add cleared the query, which both closes the dropdown and resets the
+    // highlight through the picker's render-time reconcile.
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+
+    // The direct observable of the claim: id 6 was never picked, so it must not
+    // be a cause. Read off the LAST draft the modal produced, not off a spy
+    // count alone — a second add landing with identical ids would satisfy the
+    // count check but not this one.
+    const last = onDraftChange.mock.calls.at(-1)?.[0] as RaidItem;
+    expect(last.causedByRaidIds).toEqual([5]);
+  });
+
+  it("clears the search query when a cause is added", () => {
+    // The mechanism the test above depends on, asserted directly: without this
+    // clear the query is unchanged, the reconcile never fires, and the stale
+    // index-0 highlight survives into a shrunken list.
+    const raid: RaidItem[] = [
+      makeDraft({ id: 5, title: "Vendor delay" }),
+      makeDraft({ id: 6, title: "Vendor pricing" }),
+    ];
+    render(
+      <>
+        <Seed tier="full" />
+        <ControlledRaidModal raid={raid} onDraftChange={vi.fn()} />
+      </>,
+      { wrapper },
+    );
+
+    const input = screen.getByRole("combobox", { name: t("en-US", "raidCausedBy") });
+    fireEvent.change(input, { target: { value: "vendor" } });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect((input as HTMLInputElement).value).toBe("");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 });

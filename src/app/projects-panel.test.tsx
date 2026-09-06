@@ -226,8 +226,12 @@ describe("ProjectsPanel", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
-  it("hides 'Move to Turso' when Turso is not configured", () => {
-    setup();
+  // `currentProject` stays a RENDER gate on Move-to-Turso: with no project
+  // there is nothing to move, so a permanently disabled control there would be
+  // noise. Not-configured is the DISABLED case instead — pinned in the
+  // "Load from Turso" describe below, which covers both buttons.
+  it("hides 'Move to Turso' when there is no current project", () => {
+    setup({ currentProject: undefined });
     expect(screen.queryByRole("button", { name: "Move to Turso" })).toBeNull();
   });
 
@@ -267,11 +271,12 @@ describe("ProjectsPanel file mode", () => {
       { id: "p2", name: "Migration", code: "MIG-2", storageConfig: { kind: "local-json" } as never },
     ];
     setup({ mode: "file", projects: shared, currentProjectId: null });
-    // 7 = MEASURED, exactly as above: Load from file… · + New project · reset
-    // pane size, plus Switch + Delete on each of the two rows. Turso is not
-    // configured in `defaultSettings`, so neither Load-from-Turso nor
-    // Migrate-to-Turso renders.
-    expectRowUniqueNames({ minControls: 7, requireCollisionSeed: true });
+    // 9 = MEASURED, exactly as above: Load from file… · Load from Turso ·
+    // Move to Turso · + New project · reset pane size, plus Switch + Delete on
+    // each of the two rows. Turso is not configured in `defaultSettings`, so
+    // the two Turso buttons render DISABLED rather than not at all — they are
+    // still in the accessible tree and still need row-distinct names.
+    expectRowUniqueNames({ minControls: 9, requireCollisionSeed: true });
   });
 });
 
@@ -386,9 +391,103 @@ describe("ProjectsPanel turso mode", () => {
 });
 
 describe("ProjectsPanel — Load from Turso", () => {
-  it("hides the button when Turso is not configured", () => {
+  it("shows the Turso buttons disabled when Turso is not configured", () => {
     setup();
-    expect(screen.queryByRole("button", { name: "Load from Turso" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move to Turso" })).toBeDisabled();
+  });
+
+  // ★★ A disabled button dispatches NO mouse events, so a `title` on the button
+  // itself never surfaces — the explanation would be unreachable on the very
+  // control it explains. It lives on a wrapper instead.
+  it("puts the not-configured hint on the wrapper, not on the disabled button", () => {
+    setup();
+    const btn = screen.getByRole("button", { name: "Load from Turso" });
+    expect(btn).not.toHaveAttribute("title");
+    expect(btn.closest("[title]")).toHaveAttribute(
+      "title",
+      "Configure a Turso database in Settings → Integrations first.",
+    );
+  });
+
+  it("describes both disabled Turso buttons with the not-configured hint", () => {
+    setup();
+    const hint = "Configure a Turso database in Settings → Integrations first.";
+    const load = screen.getByRole("button", { name: "Load from Turso" });
+    const migrate = screen.getByRole("button", { name: "Move to Turso" });
+    expect(load).toHaveAccessibleDescription(hint);
+    expect(migrate).toHaveAccessibleDescription(hint);
+    // ★ The two ids must DIFFER. This panel renders two of these buttons, so a
+    // hand-rolled literal id would point both at whichever node the document
+    // held first — which still passes the two assertions above, since both
+    // hints read identically while Turso is unconfigured. Configured, they do
+    // not (see the next test), which is what makes this check load-bearing.
+    expect(load.getAttribute("aria-describedby")).toBeTruthy();
+    expect(load.getAttribute("aria-describedby")).not.toBe(
+      migrate.getAttribute("aria-describedby"),
+    );
+  });
+
+  it("describes each enabled Turso button with its OWN capability hint", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultSettings.integrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toHaveAccessibleDescription(
+      "Browse projects already stored in the configured Turso database and switch into one.",
+    );
+    expect(screen.getByRole("button", { name: "Move to Turso" })).toHaveAccessibleDescription(
+      "Copy this project into a new Turso project and switch the portfolio to Turso. The original file project is left untouched.",
+    );
+  });
+
+  // ★★★ THIS PINS THE CLASSES ONLY — IT CANNOT PIN THE BEHAVIOUR THEY BUY.
+  // jsdom has no layout and renders no native tooltips, so nothing in this
+  // suite can observe whether a hover actually reaches the wrapper's `title`.
+  // Real reachability is owed a browser eye-verify — do not read this test as
+  // covering it.
+  it("takes the disabled Turso buttons out of hit-testing and moves the cursor to the wrapper", () => {
+    setup();
+    for (const name of ["Load from Turso", "Move to Turso"]) {
+      const btn = screen.getByRole("button", { name });
+      expect(btn.className).toContain("disabled:pointer-events-none");
+      expect(btn.closest("[title]")!.className).toContain("cursor-not-allowed");
+    }
+  });
+
+  it("drops the wrapper cursor once the Turso buttons are enabled", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultSettings.integrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    for (const name of ["Load from Turso", "Move to Turso"]) {
+      const btn = screen.getByRole("button", { name });
+      expect(btn.closest("[title]")!.className).not.toContain("cursor-not-allowed");
+    }
+  });
+
+  it("enables the Turso buttons once Turso is configured", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultSettings.integrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Move to Turso" })).toBeEnabled();
   });
 
   it("hides the button while already in turso mode", () => {

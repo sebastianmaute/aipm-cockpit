@@ -8,6 +8,85 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.288.0] - 2026-09-06 "Duchamp"
+
+### Added
+
+- **A "Test connection" button for Turso**, at parity with the Jira and Timelog
+  ones beside it. It round-trips the smallest possible statement through the
+  existing pipeline, so it proves the URL and token actually answer before you
+  commit a project to that database. The result is transient by design — it
+  resets on reload rather than being stored, exactly as the other two behave.
+- **Each Test-connection button now says which service it tests.** All three
+  were literally named "Test connection", and the Integrations section renders
+  the Timelog and Jira blocks inside itself, so a screen-reader user could meet
+  three identically-named buttons in one view with no way to tell them apart.
+  Each now carries a service-qualified accessible name while the visible label
+  is unchanged.
+- **A connection result is announced.** All three results now live in a
+  permanently present status region rather than appearing only once there is
+  something to say, so assistive technology reports the outcome instead of
+  silently gaining an element.
+
+### Fixed
+
+- **A typo in a deployment variable could make Turso impossible to configure.**
+  `NEXT_PUBLIC_TURSO_DATABASE_URL` being merely *present* hid the Settings
+  field, while the resolver only used the value if it parsed as a usable URL —
+  so an unusable value was present enough to hide the input and broken enough
+  to yield no configuration, with no way to type a correction. The field now
+  appears whenever the variable is unusable, explaining why, and the resolver
+  falls through to the typed value. A usable variable still wins, as before.
+- **A failed Turso connection was reported in English, with an internal
+  prefix.** Every failure interpolated a thrown error's message, so a German
+  user saw "Verbindung fehlgeschlagen: Storage not ready: …". Failures are now
+  classified and described in the active language, and no internal text or
+  configuration value reaches the screen.
+- **A task with one linked change read "1 changes."** The badge now reads
+  "1 change" in both languages, in the table and on the Kanban card.
+
+## [0.287.0] - 2026-09-06 "Tiptree"
+
+### Added
+
+- **A control that cannot act now says so instead of disappearing.** When no
+  Turso database is configured, "Load from Turso" and "Move to Turso" used to
+  vanish from the Projects panel and the empty state, so the feature looked as
+  though it did not exist. They now stay visible and disabled, carrying a hint
+  that explains what is missing. The hint is reachable two ways on purpose: as
+  a tooltip on hover, and as a description a screen reader announces — a
+  disabled button dispatches no mouse events and takes no keyboard focus, so
+  either channel alone would leave some users with an inert control and no
+  stated reason for it.
+- **The Knowledge "Attach to" field is a searchable picker.** It replaces a
+  plain dropdown with type-to-filter search over tasks, RAID items, changes,
+  milestones, stakeholders and the project itself, operable entirely from the
+  keyboard.
+- **An asset's name opens its preview.** Previously only the separate preview
+  button did, and the name looked inert. The name becomes a trigger only where
+  a preview can actually be shown.
+- **An open document's body collapses when you click its name again**, with a
+  chevron on the row showing which state it is in, so a long document can be
+  folded away without losing your place in the list.
+- **The RAID badge leads with a count.** The per-category R/A/I/D breakdown
+  moves into the badge's tooltip, leaving the visible text short enough to sit
+  in the ID column without pushing the task title around.
+
+### Fixed
+
+- **The Knowledge "Attach to" list was hiding most of your project.** The new
+  picker inherited a 20-item cap from a shared helper, which silently dropped
+  every target past the first twenty with nothing on screen to say so — enough
+  to hide half the targets in even a small plan. The cap is now sized for a
+  real project.
+- **Arrowing to an option and then having the list change under you could
+  commit the wrong entity.** Both entity pickers tracked the highlighted row by
+  position, so a list that grew while the highlight was armed left it pointing
+  at whatever had moved into that slot. They now track the entity itself and
+  disarm when it moves.
+- **The Ask Claude icon no longer clips out of its cell** in the task row, and
+  the four ID-column badges no longer wrap mid-run.
+
 ## [0.286.0] - 2026-09-06 "Sladek"
 
 ### Added

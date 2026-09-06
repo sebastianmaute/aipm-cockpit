@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_PIPELINE_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
+import {
+  DEFAULT_PIPELINE_TIMEOUT_MS,
+  TEST_CONNECTION_TIMEOUT_MS,
+  runTursoPipeline,
+  testTursoConnection,
+} from "./turso-pipeline";
 import { StorageNotReadyError } from "./storage";
 import type { TursoConfig } from "./turso-config";
 
@@ -209,5 +214,58 @@ describe("runTursoPipeline rollback on statement error", () => {
     vi.stubGlobal("fetch", fetchMock);
     await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow(/boom/);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("testTursoConnection", () => {
+  it("resolves when the pipeline answers ok", async () => {
+    stubFetch(() => jsonRes({ results: [{ type: "ok" }] }));
+    await expect(testTursoConnection(cfg)).resolves.toBeUndefined();
+  });
+
+  it("sends exactly one SELECT 1 statement", async () => {
+    const fetchMock = vi.fn();
+    fetchMock.mockImplementation(() => jsonRes({ results: [{ type: "ok" }] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await testTursoConnection(cfg);
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(String(init.body)).toContain("SELECT 1");
+  });
+
+  it("rejects with StorageNotReadyError on 401", async () => {
+    stubFetch(() => new Response("no", { status: 401 }));
+    await expect(testTursoConnection(cfg)).rejects.toBeInstanceOf(StorageNotReadyError);
+  });
+
+  it("rejects as unreachable on a network failure", async () => {
+    stubFetch(() => {
+      throw new Error("ECONNREFUSED");
+    });
+    await expect(testTursoConnection(cfg)).rejects.toMatchObject({
+      hint: "storage-unreachable",
+    });
+  });
+
+  it("rejects when the config is null", async () => {
+    await expect(testTursoConnection(null)).rejects.toBeInstanceOf(StorageNotReadyError);
+  });
+
+  // ★★ PINS THE THIRD ARGUMENT. Without this, deleting `TEST_CONNECTION_TIMEOUT_MS`
+  // from the `runTursoPipeline` call passes the whole suite — the default
+  // (15 s) would silently take over and nothing would notice. The assertion
+  // discriminates because the probe timeout is SHORTER than the default: at
+  // TEST_CONNECTION_TIMEOUT_MS the signal must already be aborted, which it
+  // would not be if the default were in force.
+  it("aborts at TEST_CONNECTION_TIMEOUT_MS, not the pipeline default", async () => {
+    expect(TEST_CONNECTION_TIMEOUT_MS).toBeLessThan(DEFAULT_PIPELINE_TIMEOUT_MS);
+    vi.useFakeTimers();
+    const fetchMock = stubHangingFetch();
+    const pending = testTursoConnection(cfg);
+    const expectation = expect(pending).rejects.toMatchObject({ hint: "storage-unreachable" });
+    await vi.advanceTimersByTimeAsync(TEST_CONNECTION_TIMEOUT_MS - 1);
+    expect((fetchMock.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect((fetchMock.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);
+    await expectation;
   });
 });

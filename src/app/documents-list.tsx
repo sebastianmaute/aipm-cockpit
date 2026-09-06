@@ -34,7 +34,15 @@ export interface DocumentsListProps {
   lang: Lang;
   /** Already sorted by the orchestrator. */
   documents: readonly ProjectDocument[];
-  selectedId: number | null;
+  /** The id of the document actually OPEN — `documents-panel.tsx` passes
+   *  `selected?.id`, which falls back to `selectionPool[0]`. Deliberately NOT
+   *  named `selectedId`: the panel's own `selectedId` STATE can be null while a
+   *  document is open, and a ★★★ warning there forbids comparing against it. */
+  openDocumentId: number | null;
+  /** Whether the OPEN document's body is collapsed. Drives `aria-expanded` on
+   *  that one row's title button; every other row is not a disclosure and
+   *  carries no `aria-expanded` at all. */
+  collapsed?: boolean;
   onSelect: (id: number) => void;
   sortKey: DocumentSortKey;
   sortDir: SortDir;
@@ -84,7 +92,8 @@ export interface DocumentsListProps {
 export function DocumentsList({
   lang,
   documents,
-  selectedId,
+  openDocumentId,
+  collapsed = false,
   onSelect,
   sortKey,
   sortDir,
@@ -190,7 +199,7 @@ export function DocumentsList({
           <tr
             key={doc.id}
             data-deeplink-row={doc.id}
-            className={[doc.id === selectedId ? "bg-surface-muted" : "", flashOutlineClass(flashId === doc.id)]
+            className={[doc.id === openDocumentId ? "bg-surface-muted" : "", flashOutlineClass(flashId === doc.id)]
               .filter(Boolean)
               .join(" ")}
           >
@@ -198,15 +207,41 @@ export function DocumentsList({
               {/* Selection rides a real button so it is keyboard-operable. The
                   name is the DISAMBIGUATED token, not the raw title - titles are
                   NOT unique (uniqueDocumentTitle is bypassed by commitRename and
-                  the AI createDocument path). `aria-current` marks the current
-                  item in a set, not a toggle, so it is not aria-pressed. */}
+                  the AI createDocument path).
+                  `aria-current` marks the current item in the set; `aria-expanded`
+                  marks the same row as a disclosure, because clicking an
+                  already-open document's name now collapses its body. Both are
+                  correct together and neither replaces the other — a row that is
+                  not open carries `aria-expanded` NOT AT ALL rather than "false",
+                  which would announce every closed row as a collapsed section.
+                  Superseded the earlier "not a toggle" note, which described the
+                  behaviour before the collapse landed. */}
+              {/* ★★ THE GLYPH RENDERS ON EXACTLY THE ROW THAT CARRIES
+                  `aria-expanded`, under the same condition, so the visible cue
+                  and the announced one cannot disagree. Drawing it on every row
+                  would tell a sighted user that every row is a disclosure —
+                  which is precisely the semantics the `undefined` above takes
+                  care to avoid. Without it `aria-expanded` is the ONLY signal
+                  the collapse gesture exists, and a mouse user cannot perceive
+                  it.
+                  ★ `aria-hidden` because `aria-expanded` already carries the
+                  state for AT. It also cannot alter the accessible name here —
+                  `aria-label` wins over content — which is what keeps the
+                  row-unique naming (2.4.6) and containment (2.5.3) intact.
+                  ★ Same two characters as the `dashboard-shelf.tsx` toggle,
+                  which is the family this follows; there is no shared
+                  Disclosure primitive in this repo to reach for. */}
               <button
                 type="button"
                 onClick={() => onSelect(doc.id)}
-                aria-current={doc.id === selectedId ? "true" : undefined}
+                aria-current={doc.id === openDocumentId ? "true" : undefined}
+                aria-expanded={doc.id === openDocumentId ? !collapsed : undefined}
                 aria-label={token}
                 className={`text-left underline-offset-2 hover:underline ${INTERACTIVE}`}
               >
+                {doc.id === openDocumentId ? (
+                  <span aria-hidden className="mr-1 text-muted-foreground">{collapsed ? "▸" : "▾"}</span>
+                ) : null}
                 {doc.title}
               </button>
             </td>

@@ -1233,6 +1233,7 @@ export const de: Record<TranslationKey, string> = {
   raidConfirmDelete: "Diesen RAID-Eintrag löschen? Das kann nicht rückgängig gemacht werden.",
   raidReferencedBy: "Verknüpft mit {0} RAID-Eintrag/-Einträgen",
   raidReferencedByMix: "{0}R · {1}A · {2}I · {3}D",
+  raidReferencedByCount: "{0} RAID",
   raidSearchPlaceholder: "Titel, Verantwortliche, Beschreibung durchsuchen…",
   raidErrorTitleRequired: "Titel ist erforderlich.",
   raidSave: "Speichern",
@@ -1473,6 +1474,7 @@ export const de: Record<TranslationKey, string> = {
   jiraApiToken: "API-Token",
   jiraApiTokenLink: "API-Token erstellen",
   jiraTest: "Verbindung testen",
+  jiraTestLabel: "Verbindung testen – Jira",
   jiraTesting: "Teste…",
   jiraConnectedAs: "Verbunden als {0}",
   jiraProject: "Projekt",
@@ -1562,6 +1564,7 @@ export const de: Record<TranslationKey, string> = {
   timelogScopeSelf: "Nur meine Buchungen",
   timelogScopeOrg: "Gesamte Organisation",
   timelogTest: "Verbindung testen",
+  timelogTestLabel: "Verbindung testen – Timelog",
   timelogTestOk: "Verbunden — {0} Benutzer, Bereich: {1}",
   timelogTestFail: "Verbindung fehlgeschlagen (HTTP {0})",
   timelogTokenInvalid: "Token wurde abgelehnt. Bitte erneut eingeben.",
@@ -2059,6 +2062,15 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoUrlPlaceholder: "libsql://ihre-db.turso.io",
   integrationsTursoUrlFromEnv:
     "Wird in dieser Installation über NEXT_PUBLIC_TURSO_DATABASE_URL gesetzt. Ein Wert aus der Umgebung hat Vorrang vor dieser Einstellung, daher ist das Feld ausgeblendet.",
+  integrationsTursoUrlEnvUnusable:
+    "NEXT_PUBLIC_TURSO_DATABASE_URL ist gesetzt, ist aber keine verwendbare Turso-URL. Stattdessen wird der Wert in diesem Feld verwendet.",
+  integrationsTursoTest: "Verbindung testen",
+  integrationsTursoTestLabel: "Verbindung testen – Turso",
+  integrationsTursoTestOk: "Verbunden.",
+  integrationsTursoTestUnreachable:
+    "Datenbank nicht erreichbar. Bitte URL und Netzwerkverbindung prüfen.",
+  integrationsTursoTestAuth: "Das Auth-Token wurde abgelehnt. Bitte Token prüfen.",
+  integrationsTursoTestFailGeneric: "Verbindung fehlgeschlagen.",
   integrationsTursoToken: "Auth-Token",
   integrationsTursoTokenPlaceholder: "Turso-Datenbank-Token",
   integrationsTursoTokenFromEnv:
@@ -2798,6 +2810,7 @@ export const de: Record<TranslationKey, string> = {
   documentsColActions: "",
   documentsTabAdd: "Link hinzufügen",
   documentsTarget: "Anhängen an",
+  knowledgeTargetSearchPlaceholder: "Aufgabe, RAID-Eintrag, Änderung, Meilenstein oder Stakeholder suchen, oder * für alle…",
   documentsManualName: "Dokumentname",
   documentsManualUrl: "URL (https://…)",
   documentsManualHint: "Confluence-Seite oder beliebige Web-URL direkt verknüpfen — kein SharePoint erforderlich.",
@@ -3362,6 +3375,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardChangesHeading: "Änderungen",
   dashboardChangesPending: "{0} ausstehend",
   taskRowChangesBadge: "{0} Änderungen",
+  taskRowChangesBadgeOne: "1 Änderung",
   versionHighlightChangeLog: "Änderungs-Log — ein RAID-Schwesterregister für Änderungsanträge",
 
   navStakeholders: "Stakeholder",
@@ -3903,6 +3917,7 @@ export const de: Record<TranslationKey, string> = {
   projectMigrateToTurso: "Zu Turso verschieben",
   projectMigrateToTursoHint: "Dieses Projekt in ein neues Turso-Projekt kopieren und das Portfolio auf Turso umstellen. Das ursprüngliche Datei-Projekt bleibt unverändert.",
   projectMigrateNoProject: "Kein aktuelles Projekt zum Verschieben.",
+  projectTursoNotConfigured: "Zuerst eine Turso-Datenbank unter Einstellungen → Integrationen konfigurieren.",
   projectLoadFromTurso: "Von Turso laden",
   projectLoadFromTursoHint:
     "Bereits in der konfigurierten Turso-Datenbank gespeicherte Projekte durchsuchen und in eines wechseln.",

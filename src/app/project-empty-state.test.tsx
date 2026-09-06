@@ -420,9 +420,83 @@ describe("start-window logo", () => {
 });
 
 describe("ProjectEmptyState — Load from Turso", () => {
-  it("hides the button when Turso is not configured", () => {
+  it("shows the button disabled when Turso is not configured", () => {
     setup();
-    expect(screen.queryByRole("button", { name: "Load from Turso" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toBeDisabled();
+  });
+
+  // ★★ A disabled button dispatches NO mouse events, so a `title` on the button
+  // itself never surfaces — the explanation would be unreachable on the very
+  // control it explains. It lives on a wrapper instead.
+  it("puts the not-configured hint on the wrapper, not on the disabled button", () => {
+    setup();
+    const btn = screen.getByRole("button", { name: "Load from Turso" });
+    expect(btn).not.toHaveAttribute("title");
+    expect(btn.closest("[title]")).toHaveAttribute(
+      "title",
+      "Configure a Turso database in Settings → Integrations first.",
+    );
+  });
+
+  it("describes the disabled button with the not-configured hint", () => {
+    setup();
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toHaveAccessibleDescription(
+      "Configure a Turso database in Settings → Integrations first.",
+    );
+  });
+
+  it("describes the enabled button with its capability hint", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultIntegrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toHaveAccessibleDescription(
+      "Browse projects already stored in the configured Turso database and switch into one.",
+    );
+  });
+
+  // ★★★ THIS PINS THE CLASSES ONLY — IT CANNOT PIN THE BEHAVIOUR THEY BUY.
+  // jsdom has no layout and renders no native tooltips, so nothing in this
+  // suite can observe whether a hover actually reaches the wrapper's `title`.
+  // Real reachability is owed a browser eye-verify — do not read this test as
+  // covering it.
+  it("takes the disabled button out of hit-testing and moves the cursor to the wrapper", () => {
+    setup();
+    const btn = screen.getByRole("button", { name: "Load from Turso" });
+    expect(btn.className).toContain("disabled:pointer-events-none");
+    expect(btn.closest("[title]")!.className).toContain("cursor-not-allowed");
+  });
+
+  it("drops the wrapper cursor once the button is enabled", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultIntegrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    const btn = screen.getByRole("button", { name: "Load from Turso" });
+    expect(btn.closest("[title]")!.className).not.toContain("cursor-not-allowed");
+  });
+
+  it("enables the button once Turso is configured", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultIntegrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toBeEnabled();
   });
 
   it("hides the button when the portfolio is already on Turso", () => {

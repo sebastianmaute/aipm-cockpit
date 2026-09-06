@@ -13,6 +13,7 @@ import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { buildRowTokens } from "./row-tokens";
+import { loadI18n } from "./i18n";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -302,6 +303,42 @@ describe("TaskRow", () => {
     act(() => setSel(true));
 
     expect(renderSpy.mock.calls.length).toBeGreaterThan(before);
+  });
+
+  test("gives the leading Ask-Claude cell tight padding so the icon cannot clip", () => {
+    // The cell is `w-7` (28px). At the default `padding="normal"` it carries
+    // `px-4` — 32px — which is wider than the cell itself, so the icon clips and
+    // is pushed left over the checkbox cell. jsdom has no layout, so the class is
+    // the only observable; the visual result is covered by the eye-verify.
+    const ctx = makeContext();
+    const task = makeTask({ id: 1, taskName: "Alpha" });
+    const { container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            rowToken={task.taskName}
+            isSelected={false}
+            isEditing={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    // The leading Ask-Claude cell is the FIRST <td> in the row — it renders
+    // ahead of the checkbox cell. Cited by SYMBOL, not by line: it is the `Td`
+    // in `task-row.tsx` that wraps the `inlineAiEdit` trigger, and it is the
+    // only cell in that file carrying `w-7` (the two other `padding="tight"`
+    // cells do not). A line number here would rot on the next insertion above
+    // it, and nothing would report that — `docs:claims:check` scans prose docs,
+    // never `src`. Locate it with
+    //   grep -n 'className="w-7"' src/app/task-row.tsx
+    const leading = container.querySelectorAll("td")[0];
+    expect(leading.className).toContain("w-7");
+    expect(leading.className).toContain("px-1");
+    expect(leading.className).not.toContain("px-4");
   });
 });
 
@@ -763,6 +800,79 @@ describe("TaskRow changes badge", () => {
     );
     // taskRowChangesBadge EN value is "{0} changes" → "2 changes".
     expect(getByText("2 changes")).toBeTruthy();
+  });
+
+  test("uses the singular taskRowChangesBadgeOne key for exactly one linked change", () => {
+    const ctx = makeContext();
+    const { getByText, queryByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 11 })}
+            rowToken="Sample task"
+            isSelected={false}
+            isEditing={false}            isPushing={false}
+            raidRefs={undefined}
+            changeRefs={[makeChange({ id: 1 })]}
+          />
+        ),
+      }),
+    );
+    // taskRowChangesBadgeOne EN value is the fixed "1 change" (no placeholder,
+    // no plural stem) — open-followups §407. getByText does an exact
+    // whole-string match by default (no `exact: false`), so "1 change" cannot
+    // be satisfied by a node whose text is "1 changes" — the two are asserted
+    // as mutually exclusive by pairing this with the negative queryByText.
+    expect(getByText("1 change")).toBeTruthy();
+    expect(queryByText("1 changes")).toBeNull();
+  });
+
+  test("still uses the plural taskRowChangesBadge key for two linked changes", () => {
+    const ctx = makeContext();
+    const { getByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 12 })}
+            rowToken="Sample task"
+            isSelected={false}
+            isEditing={false}            isPushing={false}
+            raidRefs={undefined}
+            changeRefs={[makeChange({ id: 1 }), makeChange({ id: 2 })]}
+          />
+        ),
+      }),
+    );
+    expect(getByText("2 changes")).toBeTruthy();
+  });
+
+  test("uses the German singular stem (not a suffix drop) for exactly one linked change", async () => {
+    // The DE dict is LAZY. Without this, t("de", …) silently falls back to
+    // the EN string and this assertion would pass against ENGLISH text —
+    // green, and proving nothing about the DE key.
+    await loadI18n("de");
+    const ctx = makeContext({ lang: "de" });
+    const { getByText, queryByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 13 })}
+            rowToken="Beispielaufgabe"
+            isSelected={false}
+            isEditing={false}            isPushing={false}
+            raidRefs={undefined}
+            changeRefs={[makeChange({ id: 1 })]}
+          />
+        ),
+      }),
+    );
+    // taskRowChangesBadgeOne DE value is "1 Änderung" — a different stem from
+    // the plural "1 Änderungen", not a suffix drop (open-followups §407).
+    expect(getByText("1 Änderung")).toBeTruthy();
+    expect(queryByText("1 Änderungen")).toBeNull();
   });
 
   test("renders no changes badge when changeRefs is empty", () => {
@@ -1425,6 +1535,63 @@ describe("TaskRow linked-documents badge", () => {
   });
 });
 
+describe("TaskRow ID-column badges", () => {
+  // Four badges share the task table's narrow, user-resizable ID column: Jira,
+  // RAID, Document and the inline changes span. None carried `whitespace-nowrap`,
+  // so the RAID badge — then a four-part glyph string, now a short count that
+  // still carries a space — broke across several lines and the changes badge
+  // across two, inflating the whole row's height.
+  //
+  // ★ All four (and ONLY them, among the column's controls) carry `text-[10px]`
+  // — the `#<id>` button rendered beside them is `font-mono`, not `text-[10px]`,
+  // so filtering on that class is what keeps this test from also demanding
+  // `whitespace-nowrap` on a control this fix does not touch (that button's text
+  // never wraps anyway — a bare "#1" has nowhere to break).
+  test("keeps every ID-column badge on one line", () => {
+    const documentsByEntity = indexDocumentsByEntity([
+      {
+        id: 90,
+        title: "Doc 90",
+        blocks: [],
+        createdAt: "2026-06-01T00:00:00.000Z",
+        updatedAt: "2026-06-01T00:00:00.000Z",
+        linkedEntities: [{ kind: "task", id: 1 }],
+      },
+    ]);
+    const ctx = makeContext({ jiraSiteUrl: "https://jira.example.com" });
+    const task = makeTask({ id: 1, taskName: "Alpha", jiraKey: "AB-1" });
+    const { container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            rowToken="Alpha"
+            isSelected={false}
+            isEditing={false}
+            isPushing={false}
+            raidRefs={[makeRaidItem({ id: 1 }), makeRaidItem({ id: 2 })]}
+            changeRefs={[makeChange({ id: 1 })]}
+            documentsByEntity={documentsByEntity}
+            onOpenDocuments={vi.fn()}
+          />
+        ),
+      }),
+    );
+    // MEASURED (temporary console.log probe, since removed): with the default
+    // context (hiddenCols empty) the row's <td>s are, in order, the leading
+    // Ask-Claude cell, the checkbox, the status cell, then the id cell — index 3.
+    const idCell = container.querySelectorAll("td")[3];
+    const badges = [...idCell.querySelectorAll("a,button,span")].filter((el) =>
+      el.className.includes("text-[10px]"),
+    );
+    // Non-vacuity floor: Jira + RAID + Document + changes, all seeded above.
+    expect(badges.length).toBe(4);
+    const wrapping = badges.filter((el) => !el.className.includes("whitespace-nowrap"));
+    expect(wrapping.map((el) => el.className)).toEqual([]);
+  });
+});
+
 describe("row-unique accessible names (WCAG 2.4.6)", () => {
   // Builds each row's OWN token from `buildRowTokens` — the real disambiguator,
   // not a hand-written string and not a constant shared by every row. A
@@ -1545,13 +1712,14 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
     // report the SAME count — so the pre-fix name was identical on both.
     const badges = within(container).getAllByRole("button", { name: /RAID item/i });
     expect(badges).toHaveLength(2);
-    // ★ The name LEADS with the badge's visible glyph string, so the accessible
+    // ★ The name LEADS with the badge's visible count text, so the accessible
     // name contains the visible text (WCAG 2.5.3, pinned in
-    // task-raid-badge.test.tsx). Both fixture items are category "R", hence
-    // "2R · 0A · 0I · 0D"; the spelled-out count and the row token follow.
+    // task-raid-badge.test.tsx). Two refs per row, hence "2 RAID"; the
+    // spelled-out count and the row token follow. The per-category breakdown
+    // is on `title`, which is the DESCRIPTION and not part of the name.
     expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
-      "2R · 0A · 0I · 0D – Referenced by 2 RAID item(s) – Alpha",
-      "2R · 0A · 0I · 0D – Referenced by 2 RAID item(s) – Beta",
+      "2 RAID – Referenced by 2 RAID item(s) – Alpha",
+      "2 RAID – Referenced by 2 RAID item(s) – Beta",
     ]);
 
     expectRowUniqueNames({

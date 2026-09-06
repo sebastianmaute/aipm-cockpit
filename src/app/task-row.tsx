@@ -285,6 +285,17 @@ function TaskRowImpl({
     ? t(lang, "completedOn", task.completedDate!)
     : formatHealthTooltip(health, lang);
 
+  // ★ Hoisted because the badge below uses it three times (title, aria-label,
+  // visible text) and all three must agree — WCAG 2.5.3 needs the accessible
+  // name to CONTAIN the visible text, which one shared string guarantees by
+  // construction. The `*One` sibling is the house idiom, not a helper: German
+  // re-words noun, adjective and verb together, so a singular is a different
+  // sentence rather than a suffix swap (open-followups §407).
+  const changesBadgeLabel =
+    changeRefs && changeRefs.length === 1
+      ? t(lang, "taskRowChangesBadgeOne")
+      : t(lang, "taskRowChangesBadge", changeRefs?.length ?? 0);
+
   // Precedence: editing > selected > completed > zebra stripe. The selected
   // branch intentionally drops the stripe — full-opacity bg-surface-muted
   // already covers the /40 tint.
@@ -311,7 +322,7 @@ function TaskRowImpl({
       {/* Leading cell always renders (reserves width → no hover layout shift);
           the inline "Ask Claude" trigger is revealed on row hover / focus and
           only mounts when the row is AI-editable (not popout / not Jira-synced). */}
-      <Td className="w-7">
+      <Td className="w-7" padding="tight">
         {aiEditEnabled(task) && (
           <button
             type="button"
@@ -373,11 +384,11 @@ function TaskRowImpl({
         />
         {changeRefs && changeRefs.length > 0 && (
           <span
-            title={t(lang, "taskRowChangesBadge", changeRefs.length)}
-            aria-label={t(lang, "taskRowChangesBadge", changeRefs.length)}
-            className="ml-1 inline-flex items-center rounded bg-ui-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:bg-ui-blue/20 dark:text-ui-light-grey"
+            title={changesBadgeLabel}
+            aria-label={changesBadgeLabel}
+            className="ml-1 inline-flex items-center whitespace-nowrap rounded bg-ui-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:bg-ui-blue/20 dark:text-ui-light-grey"
           >
-            {t(lang, "taskRowChangesBadge", changeRefs.length)}
+            {changesBadgeLabel}
           </span>
         )}
       </Td>}

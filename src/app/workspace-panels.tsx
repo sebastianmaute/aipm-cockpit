@@ -178,9 +178,9 @@ export function DocumentsTabPanel({
   //
   // ★★ Safe Mode ALSO defaulting `settings.integrations` does not make this
   // redundant: NEXT_PUBLIC_TURSO_DATABASE_URL takes PRECEDENCE over the settings
-  // value in `getTursoConfig` (it is not a fallback — env wins when set), so an
-  // env-configured deployment returns a non-null config from default settings
-  // alone. That is the reachable path this gate closes, and the one a test that
+  // value in `getTursoConfig` whenever it is USABLE (an unusable one falls
+  // through to settings instead — §337), so an env-configured deployment
+  // returns a non-null config from default settings alone. That is the reachable path this gate closes, and the one a test that
   // leans on the settings coupling would pass vacuously.
   const safeMode = isSafeMode();
   const assetsTursoConfig = useMemo(

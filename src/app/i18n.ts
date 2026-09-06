@@ -1270,6 +1270,7 @@ const enUS = {
   raidConfirmDelete: "Delete this RAID item? This can't be undone.",
   raidReferencedBy: "Referenced by {0} RAID item(s)",
   raidReferencedByMix: "{0}R · {1}A · {2}I · {3}D",
+  raidReferencedByCount: "{0} RAID",
   raidSearchPlaceholder: "Search title, owner, description…",
   raidErrorTitleRequired: "Title is required.",
   raidSave: "Save",
@@ -1513,6 +1514,11 @@ const enUS = {
   jiraApiToken: "API token",
   jiraApiTokenLink: "Create an API token",
   jiraTest: "Test connection",
+  // ★ Qualified accessible name for the Jira "Test connection" button — WCAG
+  // 2.4.6, since the identically-worded Timelog and Turso test buttons can
+  // render in the same Settings → Integrations subtree. Visible text stays
+  // "Test connection"; only the accessible name is qualified.
+  jiraTestLabel: "Test connection – Jira",
   jiraTesting: "Testing…",
   jiraConnectedAs: "Connected as {0}",
   jiraProject: "Project",
@@ -1601,6 +1607,8 @@ const enUS = {
   timelogScopeSelf: "My bookings only",
   timelogScopeOrg: "Whole organisation",
   timelogTest: "Test connection",
+  // ★ Qualified accessible name — see jiraTestLabel.
+  timelogTestLabel: "Test connection – Timelog",
   timelogTestOk: "Connected — {0} users, scope: {1}",
   timelogTestFail: "Connection failed (HTTP {0})",
   timelogTokenInvalid: "Token was rejected. Re-enter it.",
@@ -2110,6 +2118,33 @@ const enUS = {
   integrationsTursoUrlPlaceholder: "libsql://your-db.turso.io",
   integrationsTursoUrlFromEnv:
     "Set by NEXT_PUBLIC_TURSO_DATABASE_URL in this deployment. An environment value overrides this setting, so the field is hidden.",
+  // ★ Shown when NEXT_PUBLIC_TURSO_DATABASE_URL is set but is not a usable
+  // Turso URL. Before this existed the field was hidden on env-var PRESENCE
+  // while the resolver rejected the value on USABILITY, so a typo locked the
+  // user out of configuring Turso at all (open-followups §337).
+  integrationsTursoUrlEnvUnusable:
+    // ★ "in this field", never "below" — the notice RENDERS BELOW THE INPUT it
+    // is talking about, so "below" pointed the reader past the one field they
+    // have to fill in. That is the §337 lockout reproduced in the copy.
+    "NEXT_PUBLIC_TURSO_DATABASE_URL is set but is not a usable Turso URL, so the value in this field is used instead.",
+  integrationsTursoTest: "Test connection",
+  // ★ Qualified accessible name — see jiraTestLabel.
+  integrationsTursoTestLabel: "Test connection – Turso",
+  integrationsTursoTestOk: "Connected.",
+  // ★★★ FOUR OUTCOME KEYS, NOT ONE PASS-THROUGH. An earlier cut had a single
+  // `integrationsTursoTestFail: "Connection failed: {0}"` filled with the
+  // thrown `e.message`. Every message reaching it is UNTRANSLATED ENGLISH, and
+  // `StorageNotReadyError` prefixes its own hint, so a German user saw
+  // "Verbindung fehlgeschlagen: Storage not ready: storage-unreachable" — an
+  // internal prefix and an internal code, in an otherwise fully localised
+  // control. Route the throw through `tursoErrorKind` (storage-error.ts) and
+  // pick a key instead; never interpolate a thrown message into UI copy here.
+  // ★ There is deliberately NO "enter a URL first" key: the button is disabled
+  // whenever the config is unresolvable, so such a message would be unreachable
+  // — a dead key.
+  integrationsTursoTestUnreachable: "Could not reach the database. Check the URL and your network.",
+  integrationsTursoTestAuth: "The auth token was rejected. Check the token.",
+  integrationsTursoTestFailGeneric: "Connection failed.",
   integrationsTursoToken: "Auth token",
   integrationsTursoTokenPlaceholder: "Turso database token",
   integrationsTursoTokenFromEnv:
@@ -2898,6 +2933,7 @@ const enUS = {
   documentsColActions: "",
   documentsTabAdd: "Add link",
   documentsTarget: "Attach to",
+  knowledgeTargetSearchPlaceholder: "Search a task, RAID item, change, milestone or stakeholder, or * for all…",
   documentsManualName: "Document name",
   documentsManualUrl: "URL (https://…)",
   documentsManualHint: "Link a Confluence page or any web URL directly — no SharePoint required.",
@@ -3478,6 +3514,12 @@ const enUS = {
   dashboardChangesHeading: "Changes",
   dashboardChangesPending: "{0} pending",
   taskRowChangesBadge: "{0} changes",
+  // ★ Singular sibling. The house idiom is a `*One` key plus a `count === 1 ?`
+  // ternary at the call site (nine such keys today) — NOT a pluralize() helper.
+  // German breaks on noun AND adjective AND verb agreement at once, so a
+  // singular is a re-worded sentence, not a suffix swap on a fragment. That is
+  // why this key hardcodes the numeral and takes no placeholder.
+  taskRowChangesBadgeOne: "1 change",
   versionHighlightChangeLog: "Change-control log — a RAID-sibling register for tracking change requests",
 
   navStakeholders: "Stakeholders",
@@ -4014,6 +4056,7 @@ const enUS = {
   projectLoadFromTurso: "Load from Turso",
   projectLoadFromTursoHint:
     "Browse projects already stored in the configured Turso database and switch into one.",
+  projectTursoNotConfigured: "Configure a Turso database in Settings → Integrations first.",
   tursoPickerTitle: "Load a Turso project",
   tursoPickerLoading: "Loading projects…",
   tursoPickerEmpty: "No projects found in this Turso database.",

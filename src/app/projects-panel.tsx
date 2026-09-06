@@ -26,7 +26,7 @@
 // local state is which modal is open and (in create mode) the chosen file
 // format for the new project.
 
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { type ExportFormat } from "./export";
@@ -146,6 +146,22 @@ export function ProjectsPanel({
   const [hardDeleteTarget, setHardDeleteTarget] =
     useState<ProjectRegistryEntry | null>(null);
   const [tursoPickerOpen, setTursoPickerOpen] = useState(false);
+  // ★★ Ids for the two Turso buttons' `aria-describedby` targets. Minted with
+  // `useId` rather than hand-rolled strings: this panel renders TWO of them and
+  // can itself appear more than once in a tree, so a literal id would collide
+  // and point every button at whichever node the document happened to hold
+  // first. See the hint block beside each button for what they describe.
+  const loadFromTursoHintId = useId();
+  const migrateToTursoHintId = useId();
+  // One source per hint, consumed by BOTH the wrapper's `title` (the sighted
+  // mouse user's tooltip) and the `sr-only` description node — so the two can
+  // never drift apart.
+  const loadFromTursoHint = tursoConfigured
+    ? t(lang, "projectLoadFromTursoHint")
+    : t(lang, "projectTursoNotConfigured");
+  const migrateToTursoHint = tursoConfigured
+    ? t(lang, "projectMigrateToTursoHint")
+    : t(lang, "projectTursoNotConfigured");
   // Archived-row control names (Restore / Delete permanently) collide
   // unconditionally otherwise — every archived row emits the identical bare
   // verb (§276). ProjectRegistryEntry.id is a string, so `useRowTokens`
@@ -220,25 +236,80 @@ export function ProjectsPanel({
               {t(lang, "projectSwitcherLoadFile")}
             </Button>
           )}
-          {!isTurso && tursoConfigured && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setTursoPickerOpen(true)}
-              title={t(lang, "projectLoadFromTursoHint")}
+          {!isTurso && (
+            // ★★ The hint rides this WRAPPER, not the Button. A `disabled`
+            // button dispatches no mouse events, so a `title` on it never
+            // surfaces — the explanation of why it is disabled would be
+            // unreachable on the control it explains. Rendering disabled rather
+            // than hiding is deliberate: a hidden button never teaches the user
+            // the capability exists. `aria-disabled` is NOT a substitute — it
+            // still fires onClick.
+            //
+            // ★★★ THE WRAPPER ONLY WORKS BECAUSE OF `disabled:pointer-events-none`
+            // ON THE BUTTON. The span has ZERO uncovered hit area (its only
+            // child is the button), and a disabled button is still hit-testable
+            // by default — so whether the pointer ever reaches the title-bearing
+            // span is left to each browser's own title lookup. Dropping the
+            // button out of hit-testing makes it fall through deterministically.
+            // ★ CONSEQUENCE: an element with no pointer events cannot style a
+            // cursor either, so `button.tsx`'s `disabled:cursor-not-allowed`
+            // goes INERT here — the wrapper carries the cursor instead, gated on
+            // the same condition. Both changes are made HERE, never in the
+            // shared primitive, which every other disabled button rides.
+            // ★ Nothing in the unit suite can verify the reachability itself:
+            // jsdom has no layout and renders no native tooltips. The tests
+            // below pin the CLASSES and the `aria-describedby` wiring only; the
+            // hover behaviour is owed a browser eye-verify.
+            //
+            // ★★ And `title` is mouse-hover-only — a disabled button is not
+            // focusable, so there is no keyboard route to it at all, and it is
+            // unreachable on touch. `aria-describedby` IS exposed on a disabled
+            // control and OUTRANKS `title` as the accessible description, so the
+            // sr-only node below is what actually reaches AT. The `title` stays
+            // for the sighted mouse user.
+            <span
+              className={`inline-flex${tursoConfigured ? "" : " cursor-not-allowed"}`}
+              title={loadFromTursoHint}
             >
-              {t(lang, "projectLoadFromTurso")}
-            </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!tursoConfigured}
+                onClick={() => setTursoPickerOpen(true)}
+                aria-describedby={loadFromTursoHintId}
+                className="disabled:pointer-events-none"
+              >
+                {t(lang, "projectLoadFromTurso")}
+              </Button>
+              <span id={loadFromTursoHintId} className="sr-only">
+                {loadFromTursoHint}
+              </span>
+            </span>
           )}
-          {!isTurso && tursoConfigured && currentProject && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onMigrateToTurso}
-              title={t(lang, "projectMigrateToTursoHint")}
+          {/* `currentProject` stays a RENDER gate: with no project there is
+              nothing to move, so a permanently disabled control is noise. */}
+          {!isTurso && currentProject && (
+            // Same wrapper contract as Load-from-Turso above — read the block
+            // comment there for why the hint, the cursor and the pointer-events
+            // opt-out all sit at the call site rather than on `button.tsx`.
+            <span
+              className={`inline-flex${tursoConfigured ? "" : " cursor-not-allowed"}`}
+              title={migrateToTursoHint}
             >
-              {t(lang, "projectMigrateToTurso")}
-            </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!tursoConfigured}
+                onClick={onMigrateToTurso}
+                aria-describedby={migrateToTursoHintId}
+                className="disabled:pointer-events-none"
+              >
+                {t(lang, "projectMigrateToTurso")}
+              </Button>
+              <span id={migrateToTursoHintId} className="sr-only">
+                {migrateToTursoHint}
+              </span>
+            </span>
           )}
           <Button variant="primary" onClick={openCreate}>
             + {t(lang, "projectsNew")}
