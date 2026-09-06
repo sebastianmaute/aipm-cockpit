@@ -3,17 +3,27 @@
 // field. The sibling of `sanitize-raid-patch.test.ts`, one register over.
 //
 // ★★★ THE DEFECT THIS PINS. `sanitizeChangeItem` REBUILDS a whole record, so a
-// value it refuses is not "left alone": the key is DROPPED (`impact`,
-// `decisionDate`, `scheduleImpactDays`, `costImpact`), written as `""`
-// (`raisedDate`), or reset to a HARDCODED DEFAULT (`type` -> "Other").
+// value the PREVIEW refused is not "left alone" once it reaches the merge. It
+// lands one of two ways, and this header used to name only the first:
+//   CLEARED — the key is DROPPED (`impact`, `decisionDate`), written as `""`
+//     (`raisedDate`), or reset to a HARDCODED DEFAULT (`type` -> "Other").
+//   WRITTEN THROUGH — `scheduleImpactDays` and `costImpact`, which the sanitizer
+//     now stores VERBATIM (any coercible, finite, non-negative number) so that a
+//     LOAD cannot rewrite a person's saved figure. Those two were listed under
+//     "DROPPED" while the sanitizer still gated them; it no longer does, which
+//     makes this guard the only thing keeping them in step with the card.
 // `updateChange` (`use-register-tools.ts`) hands it a merged
 // `{...stored, ...patch}`, so a refused patch value wipes the STORED one —
 // while the AI edit preview refuses that same value and shows the field as
 // unchanged. The card says "unchanged"; the write wipes it.
 //
 // ★★ FIXED AT THE MERGE SITE, NEVER IN THE SANITIZER. That sanitizer also runs
-// on JSON load, CSV decode, template apply and AI proposal, where there is no
-// prior value to preserve and a hardcoded fallback is the right answer.
+// on JSON load, CSV decode and template apply, where there is no prior value to
+// preserve and a hardcoded fallback is the right answer. ★ The AI proposal was
+// in that list and has left it: `proposalToSeed` now calls
+// `sanitizeModelChangeItem`, which REPAIRS the two numeric fields instead. Its
+// exemption from this guard is unchanged and rests on the same fact — no prior
+// value behind it — so only the sanitizer it reaches for has moved.
 // `sanitize-change.test.ts` pins that behaviour and is deliberately untouched —
 // every "before" assertion below is the sanitizer's UNGUARDED output, so this
 // file also documents what the guard is protecting against rather than merely
@@ -295,11 +305,19 @@ describe("numeric coercion matches the sanitizer's own", () => {
     // comment says "Enter inside a text input submits WITHOUT firing blur" — so
     // typing 1.5 and pressing Enter stored 1.5 until the commit that added the
     // clamp to `handleSubmit` as well. Three files restated the false version;
-    // the at-risk stored population was never empty, which is why
-    // `sanitizeChangeItem` now REPAIRS such a value on load rather than dropping
-    // it. That repair does NOT reach this path: the merge-site guard runs first,
-    // so a MODEL-supplied 1.5 is still refused and the stored value survives —
-    // which is what the two assertions below pin.
+    // the at-risk stored population was never empty.
+    // ★★★ THAT PARAGRAPH USED TO END "…which is why `sanitizeChangeItem` now
+    // REPAIRS such a value on load rather than dropping it. That repair does NOT
+    // reach this path". Both halves are stale, and the second is stale in the
+    // DANGEROUS direction. The loader neither repairs nor drops a stored 1.5 any
+    // more — it stores it VERBATIM, because rewriting a person's saved number was
+    // the worse defect — and repair moved to `sanitizeModelChangeItem`, which
+    // serves creates and the proposal seed. So what this path is protected from
+    // changed shape: without the guard the sanitizer would now WRITE the model's
+    // 1.5 over the stored 12, where it once cleared the field. Still a
+    // preview/apply divergence, but a silent one in the data. The two assertions
+    // below pin the guarded half; the unguarded half is pinned by "still DROPS a
+    // refused amount on an UPDATE, now that the sanitizer would store it".
     expect("scheduleImpactDays" in mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 })).toBe(true);
     expect(mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 }).scheduleImpactDays)
       .toBe(storedChange().scheduleImpactDays);
