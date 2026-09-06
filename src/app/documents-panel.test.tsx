@@ -2538,9 +2538,13 @@ describe("documents pane — collapsing the open document's body", () => {
   // INSIDE `DocumentEditModeBody`: the `<h2>` `DocumentPreview` renders for
   // `doc.title` (`document-preview.tsx`), which is the same locator the rest of
   // this file already uses for "the pane is showing this document".
-  // ★★ NOT `DocumentLinksSection` / `DocumentsAssetSection` — both sit OUTSIDE
-  // the guard by design and stay mounted while collapsed, so an assertion on
-  // either passes under that revert and reproduces the very gap this closes.
+  // ★★ NOT `DocumentLinksSection` / `DocumentsAssetSection` as the PRIMARY
+  // observable — both sit OUTSIDE the guard by design and stay mounted while
+  // collapsed, so an assertion on either passes under that revert and
+  // reproduces the very gap this closes. That argues for a SECOND assertion,
+  // not for dropping the requirement: staying mounted is itself what keeps the
+  // metadata controls usable, and folding either INSIDE the guard passed every
+  // test here until the pair below landed.
   it("collapses the body when the open document's name is clicked again", async () => {
     const user = userEvent.setup();
     renderLive([doc(1, "Alpha")]);
@@ -2550,6 +2554,11 @@ describe("documents pane — collapsing the open document's body", () => {
     await user.click(screen.getByRole("button", { name: "Alpha" }));
     expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("heading", { name: "Alpha" })).not.toBeInTheDocument();
+    // ★ The links + asset sections are STILL mounted while collapsed. Only the
+    // body is meant to go. (No `assetPane` is supplied here, so the asset
+    // section renders its Turso-only notice — that notice IS the section.)
+    expect(screen.getByText(t("en-US", "documentsLinkedEntities"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "assetLibraryTursoOnly"))).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Alpha" }));
     expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
@@ -2574,5 +2583,34 @@ describe("documents pane — collapsing the open document's body", () => {
     await user.click(screen.getByRole("button", { name: "Alpha" })); // collapse Alpha
     await user.click(screen.getByRole("button", { name: "Beta" })); // switch
     expect(screen.getByRole("button", { name: "Beta" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  // ★★★ THE ROUTE WITH NO CLICK HANDLER IN IT, and the reason the reset keys on
+  // `selected?.id` rather than living in `handleSelect`. Deleting the open
+  // document makes the `?? selectionPool[0]` fallback beside `selected`
+  // re-point at a SUCCESSOR — no selection gesture, no remount, nothing to
+  // patch. Before the render-time reconcile the successor inherited the
+  // collapse and rendered with its body already hidden.
+  //
+  // ★★ It also needs no remount, unlike the deep-link and entity-filter routes
+  // that share the defect: navigating away from this conditionally-mounted
+  // tabpanel and back would reset the state on its own, so those two are
+  // reachable but weaker. This is the likely-in-practice one.
+  it("expands the successor when the collapsed open document is deleted", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Alpha"), doc(2, "Beta")]);
+    // Alpha is open via the `selectionPool[0]` fallback, so this click is the
+    // collapse gesture. The absence check makes the assertion below non-vacuous.
+    await user.click(screen.getByRole("button", { name: "Alpha" }));
+    expect(screen.queryByRole("heading", { name: "Alpha" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Alpha" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Delete – Alpha" })).toBeNull());
+
+    // ARIA and the rendered body BOTH — see this describe's header for why the
+    // `aria-expanded` half alone cannot fail.
+    expect(screen.getByRole("button", { name: "Beta" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
   });
 });
