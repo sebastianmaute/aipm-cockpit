@@ -201,8 +201,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // type a working URL and still be stuck with a token they cannot see or
   // override — a mixed-credential pair that could not arise before this fix,
   // since the unusable URL used to null the whole config. The only recourse is
-  // changing the deployment env. Filed as its own follow-up rather than
-  // widened into this slice.
+  // changing the deployment env; §337 (still open) is the nearest tracker.
   const envTursoTokenSet = !!process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
 
   function updateTurso(patch: Partial<TursoIntegrationsSettings>) {

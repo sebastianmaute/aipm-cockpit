@@ -2318,13 +2318,12 @@ describe("DocumentsPanel — document-switch commit guard", () => {
   // ★★ THE ROUND TRIP. It catches a commit suppressed some OTHER way (e.g.
   // dropping the flush-on-unmount effect entirely) while still losing the draft
   // on collapse: the typed text must survive a collapse/expand round trip.
-  // ★ Scope it honestly — an earlier comment here said it "PROVES THE SUBTREE
-  // STAYED MOUNTED, not merely that nothing committed". The value assertion
-  // alone does not prove that: `renderWithSpy` passes a `docs` array captured
-  // once, so under a plain revert a remounted editor re-seeds from the
-  // unchanged stored text and the assertion fails for the UNMOUNT reason
-  // rather than the state-loss one. It does kill the mutant it names; it is
-  // just not the stronger claim.
+  // ★ The detection is FIXTURE-dependent, and that is the honest caveat here:
+  // `renderWithSpy` passes a `docs` array captured once and never re-renders
+  // the host, so a remount re-seeds the ORIGINAL text and the assertion goes
+  // red. In the real app a remount after the unmount-flush would re-seed from
+  // the WRITTEN text and this assertion would pass — so it discriminates here
+  // because of the fixture, not because of anything intrinsic to the gesture.
   it("keeps a dirty draft after collapsing and re-expanding the document", async () => {
     const { mutateDocuments } = renderWithSpy();
     await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));

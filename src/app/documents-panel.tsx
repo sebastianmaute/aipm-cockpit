@@ -765,14 +765,14 @@ export function DocumentsPanel({
             flex item of the `overflow-auto` pane above, and a plain block has a
             content-based automatic minimum, so it could not shrink and the
             preview `<section>`'s own `overflow-auto` stopped bounding anything
-            — the scrollbar moved out to the pane. MEASURED at 1200x500:
-            section scrollHeight/clientHeight was 2508/2508 (no internal
-            scroll) with the pane at 2875/302; with these classes the section
-            is 2508/32 and scrolls, and the pane drops to 399/302.
-            ★ `min-h-0` ALONE DOES NOT FIX IT (measured: the section stays
-            2508/2508 and the wrapper's clientHeight collapses to 0) — the
-            child is only a flex item if this wrapper is itself a flex
-            container, so all four classes are required together.
+            — the scrollbar moved out to the pane. `docs/open-followups.md`
+            §409 carries the measured figures AND the caveat that they came
+            from a throwaway probe and are not reproducible by any command; do
+            not restate them here.
+            ★ `min-h-0` ALONE DOES NOT FIX IT (measured) — the child is only a
+            flex item if this wrapper is itself a flex container, so `flex` and
+            `flex-col` are carrying that half. No other subset was measured, so
+            do not read this as a per-class necessity proof for all four.
             ★ Consequence if this regresses: `document-preview.tsx`'s section
             carries `tabIndex={0}` precisely because it scrolls, so it becomes a
             focus stop on a region that no longer scrolls. */}

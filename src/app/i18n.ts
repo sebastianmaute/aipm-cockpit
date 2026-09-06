@@ -2141,7 +2141,7 @@ const enUS = {
   // pick a key instead; never interpolate a thrown message into UI copy here.
   // ★ There is deliberately NO "enter a URL first" key: the button is disabled
   // whenever the config is unresolvable, so such a message would be unreachable
-  // — a dead key, which is the exact class §415 exists to track.
+  // — a dead key.
   integrationsTursoTestUnreachable: "Could not reach the database. Check the URL and your network.",
   integrationsTursoTestAuth: "The auth token was rejected. Check the token.",
   integrationsTursoTestFailGeneric: "Connection failed.",

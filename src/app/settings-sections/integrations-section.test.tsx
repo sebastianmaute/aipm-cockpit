@@ -5,7 +5,6 @@ import userEvent from "@testing-library/user-event";
 import { IntegrationsSection } from "./integrations-section";
 import { ConfirmProvider } from "../confirm-dialog";
 import { t, loadI18n } from "../i18n";
-// ★ `StorageNotReadyError` is exported from ./storage, NOT from ./workspace.
 import { StorageNotReadyError } from "../storage";
 import {
   defaultSettings,
