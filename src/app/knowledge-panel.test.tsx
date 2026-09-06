@@ -286,6 +286,25 @@ describe("KnowledgePanel", () => {
     expect(options.length).toBeGreaterThanOrEqual(2);
   });
 
+  // ★★ The attach-to call site passes `MAX_TARGET_OPTIONS` (200) EXPLICITLY;
+  // `filterPickerOptions` would otherwise default to 20 and silently drop most
+  // of a real project's targets, with no "showing 20 of N" affordance and a
+  // placeholder promising `* for all`. Both assertions earn their place: the
+  // first is the regression itself (250 seeded tasks plus the standalone row is
+  // 251 candidates, of which the default returns 20), the second pins WHERE
+  // truncation lands, so the cap cannot quietly become unbounded either.
+  // ★ The 200 is written as a LITERAL rather than imported from the panel: an
+  // imported bound compares the constant against itself and would go on passing
+  // if someone lowered it back to 20.
+  it("caps attach-to options at the panel's own limit, not filterPickerOptions' default of 20", () => {
+    renderWithTasks(Array.from({ length: 250 }, (_, i) => namedTask(i + 1, `Target ${i + 1}`)));
+    openAdd();
+    searchTargets("*");
+    const options = within(screen.getByRole("listbox")).getAllByRole("option");
+    expect(options.length).toBeGreaterThan(20);
+    expect(options).toHaveLength(200);
+  });
+
   // ★ Asserted through the ADD, not through the picker's own selected caption:
   // the caption would render for any string the picker echoes back, while a
   // card whose source button names the task proves `targetKey` still resolves
@@ -295,8 +314,6 @@ describe("KnowledgePanel", () => {
     openAdd();
     const box = targetSearch();
     chooseTarget("ship", /Ship the release/);
-    // The query is cleared on select, which is what keeps this caller inside
-    // SingleEntityPicker's `options` contract.
     expect(box.value).toBe("");
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualName")), { target: { value: "Plan" } });
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualUrl")), {

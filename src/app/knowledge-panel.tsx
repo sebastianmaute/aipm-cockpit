@@ -68,8 +68,25 @@ const SOURCE_ORDER: DocSourceKind[] = ["project", "milestone", "task", "raid", "
 const STANDALONE_KEY = "__standalone__";
 
 /** `filterPickerOptions` requires an exclusion set; this picker excludes
- *  nothing, so one frozen empty set is shared rather than minted per render. */
+ *  nothing, so one shared module-level empty set stands in rather than a fresh
+ *  one minted per render. `ReadonlySet` is a COMPILE-TIME annotation and
+ *  nothing freezes this at runtime — `Object.freeze` would not help either, as
+ *  it seals a Set's own properties and leaves `.add()` working. */
 const NO_EXCLUDED_TARGETS: ReadonlySet<number> = new Set();
+
+/** Cap on the target rows `filterPickerOptions` returns, replacing its default
+ *  of 20. `targets` spans every task, RAID item, change, milestone and
+ *  stakeholder plus the project, which the sample workspaces measure at 40
+ *  (`sample-workspace-small.json`, the curated master), 118 (`-big`, 3x) and
+ *  391 (`-huge`, 10x) — so the default hid over half of even the SMALL sample,
+ *  and the placeholder's `* for all` promise returned 20 rows.
+ *  200 covers the small and big fixtures whole, which is the realistic span for
+ *  one project; the 10x fixture is a synthetic stress case, not a plan anyone
+ *  runs. ★ PAST 200 THE LIST STILL TRUNCATES SILENTLY — there is no "showing
+ *  200 of N" affordance, so the only recourse stays narrowing the query. The
+ *  listbox is `max-h-60 overflow-auto` (`single-entity-picker.tsx`), so it
+ *  scrolls at any length and a larger cap costs DOM rows, never layout. */
+const MAX_TARGET_OPTIONS = 200;
 
 export interface KnowledgePanelProps {
   /** ★★ Arms the one-shot destructive-save bypass (see `use-storage-backend.ts`)
@@ -194,7 +211,11 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
   );
 
   // `filterPickerOptions` already layers `wildcardMatcher` (the `*` wildcard)
-  // over an `#id` exact match and a 20-item cap. Nothing is reimplemented.
+  // over an `#id` exact match and a cap. Nothing is reimplemented.
+  // ★★ The cap is passed EXPLICITLY. Its default of 20 silently hid most of
+  //   this list — see `MAX_TARGET_OPTIONS` — and the three other call sites
+  //   depend on that default, so the override belongs here, not in
+  //   `picker-filter.ts`.
   // ★ Its `getId` returns a NUMBER, while a value here is the composite
   //   `"<kind>:<id>"` string, so the `#id` branch is deliberately inert:
   //   `filterPickerOptions` compares `String(getId(item))` — "NaN" — against a
@@ -207,6 +228,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
         excludeIds: NO_EXCLUDED_TARGETS,
         getId: () => Number.NaN,
         getText: (o) => `${o.code} ${o.label}`,
+        limit: MAX_TARGET_OPTIONS,
       }),
     [targetOptions, targetQuery],
   );
@@ -437,9 +459,6 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
                 options={visibleTargets}
                 query={targetQuery}
                 onQueryChange={setTargetQuery}
-                // ★ Clearing the query is what keeps this caller inside
-                //   SingleEntityPicker's `options` contract — `options` may
-                //   only change as a result of `query` changing.
                 onSelect={(v) => {
                   setTargetKey(v);
                   setTargetQuery("");
