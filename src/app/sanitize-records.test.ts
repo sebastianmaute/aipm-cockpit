@@ -10,6 +10,7 @@ import {
   acceptsScheduleDays,
   acceptsCostAmount,
   acceptsStakeholderCategory,
+  acceptsInfluenceInterest,
   sanitizeIsoDate,
 } from "./sanitize";
 
@@ -225,4 +226,37 @@ describe("delegate-never-restate: the stakeholder sanitizer and its merge-site g
       expect(s!.category === probe).toBe(acceptsStakeholderCategory(probe));
     },
   );
+
+  // influence/interest share acceptsInfluenceInterest and had no property
+  // coverage of their own — the category sweep above cannot stand in for
+  // them, since a divergence specific to this predicate would pass unseen.
+  const INFLUENCE_PROBES: unknown[] = [
+    "Low", "Medium", "High", "Nonsense", "", 42, true, null, undefined, [], {},
+  ];
+
+  it.each(INFLUENCE_PROBES.map((v) => [probeLabel(v), v] as const))(
+    "keeps influence/interest %s verbatim exactly when acceptsInfluenceInterest admits it",
+    (_label, probe) => {
+      const s = sanitizeStakeholder({ id: 1, name: "n", influence: probe, interest: probe });
+      expect(s).not.toBeNull();
+      // "Medium" plays the same role here that "Other" plays for category: it
+      // equals the fallback, so it is the probe that would catch a delegation
+      // that always refuses. Keep it in the probe set.
+      const admits = acceptsInfluenceInterest(probe);
+      expect(s!.influence === probe).toBe(admits);
+      expect(s!.interest === probe).toBe(admits);
+    },
+  );
+
+  // ★★ The two it.each sweeps above compute their expectation by CALLING the
+  //  predicate, so both sides move together — a predicate that accepted (or
+  //  refused) EVERYTHING would keep the whole table green either way. These
+  //  expectations are hardcoded on purpose: they are the only thing here that
+  //  pins WHICH values are legal, independent of the predicate under test.
+  it("names the accepted enum members, so an always-accepts mutant cannot hide", () => {
+    expect(acceptsStakeholderCategory("Sponsor")).toBe(true);
+    expect(acceptsStakeholderCategory("Nonsense")).toBe(false);
+    expect(acceptsInfluenceInterest("Medium")).toBe(true);
+    expect(acceptsInfluenceInterest("Nonsense")).toBe(false);
+  });
 });
