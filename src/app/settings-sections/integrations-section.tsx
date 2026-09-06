@@ -224,10 +224,36 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // see the render site for why it sits outside the <label>.
   const tursoUrlEnvNoticeId = `${useId()}-turso-url-env`;
   const [tursoTesting, setTursoTesting] = useState(false);
+  // ★★ FINGERPRINTED, and the fingerprint is the whole point. This holds the
+  // URL and token the verdict was obtained FOR, so "is the test still valid?"
+  // is DERIVED below rather than written by an invalidation handler. A written
+  // invalidation has to be remembered at every edit path, including ones added
+  // later; a derived one cannot be forgotten, and the stale-confirmed state is
+  // simply unrepresentable.
   // ★ TRANSIENT BY DESIGN — resets on reload, exactly like the Jira and
   // Timelog test results. Persisting it would be a new Settings field and
   // therefore the six-write-paths case (open-followups §408).
-  const [tursoTestResult, setTursoTestResult] = useState<string | null>(null);
+  // ★ The URL and token are already in component state; holding a copy here
+  // adds no exposure. Neither is ever rendered, logged or thrown.
+  // ★ `url`/`token` are `string | undefined` because the SETTINGS fields are,
+  // and they are stored RAW — the very expressions handed to `getTursoConfig`.
+  // Normalising them (`?? ""`) here would put a second transformation between
+  // the write and the comparison below, which is exactly the kind of drift the
+  // derived shape exists to rule out.
+  const [tursoTest, setTursoTest] = useState<
+    { kind: "ok" | "fail"; message: string; url: string | undefined; token: string | undefined }
+    | null
+  >(null);
+
+  // ★★ DERIVED, never written. An edit to either field moves the comparison,
+  // so no edit path — including one added later — has to remember to clear a
+  // flag. The "confirmed" reading (fresh AND kind === "ok") is deliberately
+  // NOT declared here yet: it has no consumer until the Move-to-Turso button
+  // is gated on it, and an unused const is fatal under --max-warnings=0.
+  const tursoTestFresh =
+    tursoTest !== null &&
+    tursoTest.url === turso.databaseUrl &&
+    tursoTest.token === turso.authToken;
 
   async function runTursoTest() {
     // ★★★ CLASSIFY, NEVER INTERPOLATE THE THROWN MESSAGE. The first cut of this
@@ -247,16 +273,22 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // dispatches no click at all. Measured: a test that clicked it and awaited
     // a message timed out at 15 s rather than failing an assertion.
     setTursoTesting(true);
-    setTursoTestResult(null);
+    setTursoTest(null);
     try {
       await testTursoConnection(getTursoConfig(turso.databaseUrl, turso.authToken));
-      setTursoTestResult(t(lang, "integrationsTursoTestOk"));
+      setTursoTest({
+        kind: "ok",
+        message: t(lang, "integrationsTursoTestOk"),
+        url: turso.databaseUrl,
+        token: turso.authToken,
+      });
     } catch (e) {
       // ★ A kind, never the config and never a raw message — nothing thrown
       // here may carry the URL or token into the DOM.
       const kind = tursoErrorKind(e);
-      setTursoTestResult(
-        t(
+      setTursoTest({
+        kind: "fail",
+        message: t(
           lang,
           kind === "auth"
             ? "integrationsTursoTestAuth"
@@ -264,7 +296,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               ? "integrationsTursoTestUnreachable"
               : "integrationsTursoTestFailGeneric",
         ),
-      );
+        url: turso.databaseUrl,
+        token: turso.authToken,
+      });
     } finally {
       setTursoTesting(false);
     }
@@ -713,7 +747,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           >
             {t(lang, "integrationsTursoTest")}
           </button>
-          <p role="status" className="text-xs text-muted-foreground">{tursoTestResult}</p>
+          <p role="status" className="text-xs text-muted-foreground">
+            {tursoTestFresh ? tursoTest?.message : null}
+          </p>
           {/* Primary action: carry the current project into Turso. */}
           {canMoveToTurso && (
             <div className="mt-2 border-t border-line pt-2">

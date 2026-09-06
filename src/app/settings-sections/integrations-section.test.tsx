@@ -1,4 +1,5 @@
 import "fake-indexeddb/auto";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -12,6 +13,7 @@ import {
   defaultM365Integrations,
   defaultTursoIntegrations,
   defaultJiraConfig,
+  type Settings,
 } from "../settings-types";
 import { defaultTimelogConfig } from "../timelog-types";
 import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
@@ -531,6 +533,34 @@ describe("§408 — Turso test connection", () => {
     expect(btn).toBeDisabled();
     release?.();
     await waitFor(() => expect(btn).toBeEnabled());
+  });
+
+  // ★★ THIS SECTION IS FULLY CONTROLLED — `turso` is derived from the
+  // `settings` prop — so the rest of this file's `onChange={() => {}}` renders
+  // CANNOT move the URL. A typing test against one of those would be VACUOUS:
+  // the field's value never changes, so nothing could invalidate the verdict
+  // and the assertion below would hold no matter what the component did. This
+  // wrapper feeds the edit back in, so the URL the fingerprint is compared
+  // against really moves.
+  function ControlledIntegrations() {
+    const [settings, setSettings] = useState<Settings>(tursoSettings("fake"));
+    return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+  }
+
+  it("drops the confirmed result when the URL is edited after a passing test", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+    render(<ControlledIntegrations />);
+
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
+
+    await user.type(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")),
+      "x",
+    );
+
+    expect(screen.queryByText(t("en-US", "integrationsTursoTestOk"))).toBeNull();
   });
 });
 
