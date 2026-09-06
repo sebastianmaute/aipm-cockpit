@@ -10,9 +10,12 @@ import {
   defaultIntegrations,
   defaultM365Integrations,
   defaultTursoIntegrations,
+  defaultJiraConfig,
 } from "../settings-types";
+import { defaultTimelogConfig } from "../timelog-types";
 import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
 import { testTursoConnection } from "../turso-pipeline";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 vi.mock("../turso-pipeline", async (importActual) => ({
   ...(await importActual<typeof import("../turso-pipeline")>()),
@@ -392,7 +395,7 @@ describe("§408 — Turso test connection", () => {
     const onChange = vi.fn();
     vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
     render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={onChange} />);
-    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTest") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
     expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
     // ★ The whole point of the transient shape: a probe must not write settings.
     expect(onChange).not.toHaveBeenCalled();
@@ -402,7 +405,7 @@ describe("§408 — Turso test connection", () => {
     const user = userEvent.setup();
     vi.mocked(testTursoConnection).mockRejectedValueOnce(new Error("storage-unreachable"));
     render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
-    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTest") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
     expect(
       await screen.findByText(t("en-US", "integrationsTursoTestFail", "storage-unreachable")),
     ).toBeInTheDocument();
@@ -417,10 +420,58 @@ describe("§408 — Turso test connection", () => {
       }),
     );
     render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
-    const btn = screen.getByRole("button", { name: t("en-US", "integrationsTursoTest") });
+    const btn = screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") });
     await user.click(btn);
     expect(btn).toBeDisabled();
     release?.();
     await waitFor(() => expect(btn).toBeEnabled());
+  });
+});
+
+describe("IntegrationsSection — Test-connection button names (WCAG 2.4.6)", () => {
+  // Turso, Timelog and Jira each render their own "Test connection" button
+  // (jiraTest/timelogTest/integrationsTursoTest are the SAME EN string), and
+  // all three mount in this one subtree once Turso + Timelog + Jira are all
+  // enabled. The visible text stays "Test connection" on every button; only
+  // the ACCESSIBLE NAME is qualified per service.
+  //
+  // ★ `requireCollisionSeed` does NOT fit this shape and is deliberately NOT
+  // used. It throws unless two RENDERED names collide once a trailing
+  // `" (N)"` occurrence suffix is stripped (`buildRowTokens`'s disambiguation
+  // shape) — but this fix's whole point is that the three rendered names are
+  // no longer equal, and none of them ever carries an "(N)" suffix. Calling
+  // it here would throw "seeded no two rows sharing a display name" against
+  // CORRECT code. This is instead the "distinct-name regression pin" case
+  // the helper's own docstring calls out as legitimate but different:
+  // `expectRowUniqueNames({ minControls: 3 })` with no `requireCollisionSeed`
+  // asserts the three qualified names are pairwise distinct, and the
+  // explicit `getAllByText`/`getByRole` assertions above it independently
+  // pin that the SHARED VISIBLE TEXT is what makes the collision possible in
+  // the first place.
+  it("gives each Test-connection button a service-qualified accessible name", () => {
+    const settings = {
+      ...tursoSettings("fake"),
+      timelog: { ...defaultTimelogConfig, enabled: true },
+      jira: { ...defaultJiraConfig, enabled: true },
+    };
+    render(<IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} />);
+
+    // Sanity: the fixture really does render three "Test connection"-worded
+    // buttons before qualification — `requireCollisionSeed` below re-checks
+    // this against the RENDERED names, but asserting the raw visible text
+    // here pins that none of the three dropped the shared word by accident.
+    expect(screen.getAllByText(t("en-US", "integrationsTursoTest"))).toHaveLength(3);
+
+    expect(
+      screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "jiraTestLabel") }),
+    ).toBeInTheDocument();
+
+    expectRowUniqueNames({ minControls: 3 });
   });
 });

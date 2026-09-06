@@ -1514,6 +1514,11 @@ const enUS = {
   jiraApiToken: "API token",
   jiraApiTokenLink: "Create an API token",
   jiraTest: "Test connection",
+  // ★ Qualified accessible name for the Jira "Test connection" button — WCAG
+  // 2.4.6, since the identically-worded Timelog and Turso test buttons can
+  // render in the same Settings → Integrations subtree. Visible text stays
+  // "Test connection"; only the accessible name is qualified.
+  jiraTestLabel: "Test connection – Jira",
   jiraTesting: "Testing…",
   jiraConnectedAs: "Connected as {0}",
   jiraProject: "Project",
@@ -1602,6 +1607,8 @@ const enUS = {
   timelogScopeSelf: "My bookings only",
   timelogScopeOrg: "Whole organisation",
   timelogTest: "Test connection",
+  // ★ Qualified accessible name — see jiraTestLabel.
+  timelogTestLabel: "Test connection – Timelog",
   timelogTestOk: "Connected — {0} users, scope: {1}",
   timelogTestFail: "Connection failed (HTTP {0})",
   timelogTokenInvalid: "Token was rejected. Re-enter it.",
@@ -2118,6 +2125,8 @@ const enUS = {
   integrationsTursoUrlEnvUnusable:
     "NEXT_PUBLIC_TURSO_DATABASE_URL is set but is not a usable Turso URL, so the value below is used instead.",
   integrationsTursoTest: "Test connection",
+  // ★ Qualified accessible name — see jiraTestLabel.
+  integrationsTursoTestLabel: "Test connection – Turso",
   integrationsTursoTestOk: "Connected.",
   integrationsTursoTestFail: "Connection failed: {0}",
   integrationsTursoToken: "Auth token",

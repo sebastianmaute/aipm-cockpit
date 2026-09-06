@@ -654,13 +654,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             type="button"
             onClick={() => void runTursoTest()}
             disabled={tursoTesting || !tursoConfigured}
+            aria-label={t(lang, "integrationsTursoTestLabel")}
             className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-ui-dark-blue disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
           >
             {t(lang, "integrationsTursoTest")}
           </button>
-          {tursoTestResult && (
-            <p className="text-xs text-muted-foreground">{tursoTestResult}</p>
-          )}
+          <p role="status" className="text-xs text-muted-foreground">{tursoTestResult}</p>
           {/* Primary action: carry the current project into Turso. */}
           {canMoveToTurso && (
             <div className="mt-2 border-t border-line pt-2">

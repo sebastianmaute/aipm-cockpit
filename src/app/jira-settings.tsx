@@ -328,21 +328,41 @@ export function JiraSettingsSection({
                 size="sm"
                 onClick={handleTest}
                 disabled={!credsReady || status.kind === "loading"}
+                // ★ While loading, the visible label swaps to `status.label`
+                // ("Testing…") — the accessible name mirrors that exactly so
+                // it still CONTAINS the visible text (WCAG 2.5.3). Idle/ok/err
+                // states use the qualified name so this button doesn't
+                // collide with the Timelog/Turso "Test connection" buttons
+                // elsewhere in the same Settings → Integrations subtree
+                // (WCAG 2.4.6).
+                aria-label={
+                  status.kind === "loading" ? status.label : t(lang, "jiraTestLabel")
+                }
               >
                 {status.kind === "loading"
                   ? status.label
                   : t(lang, "jiraTest")}
               </Button>
-              {status.kind === "ok" && (
-                <span className="text-xs text-ui-green-strong">
-                  ✓ {status.message}
-                </span>
-              )}
-              {status.kind === "err" && (
-                <span className="text-xs text-ui-pink-strong">
-                  ⚠ {status.message}
-                </span>
-              )}
+              {/* ★ Always-mounted live region — a container that enters the
+                  DOM in the same tick as its content is frequently NOT
+                  announced, since the screen reader has no prior state to
+                  diff. `role="status"` implies aria-live="polite". Colour +
+                  glyph both stay (the glyph is the non-colour cue, WCAG
+                  1.4.1) so ok/err remain distinguishable without colour
+                  alone. */}
+              <p
+                role="status"
+                className={
+                  status.kind === "ok"
+                    ? "text-xs text-ui-green-strong"
+                    : status.kind === "err"
+                      ? "text-xs text-ui-pink-strong"
+                      : "text-xs text-muted-foreground"
+                }
+              >
+                {status.kind === "ok" && <>✓ {status.message}</>}
+                {status.kind === "err" && <>⚠ {status.message}</>}
+              </p>
             </div>
 
             {projects.length > 0 && (

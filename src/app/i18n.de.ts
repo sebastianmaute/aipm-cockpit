@@ -1474,6 +1474,7 @@ export const de: Record<TranslationKey, string> = {
   jiraApiToken: "API-Token",
   jiraApiTokenLink: "API-Token erstellen",
   jiraTest: "Verbindung testen",
+  jiraTestLabel: "Verbindung testen – Jira",
   jiraTesting: "Teste…",
   jiraConnectedAs: "Verbunden als {0}",
   jiraProject: "Projekt",
@@ -1563,6 +1564,7 @@ export const de: Record<TranslationKey, string> = {
   timelogScopeSelf: "Nur meine Buchungen",
   timelogScopeOrg: "Gesamte Organisation",
   timelogTest: "Verbindung testen",
+  timelogTestLabel: "Verbindung testen – Timelog",
   timelogTestOk: "Verbunden — {0} Benutzer, Bereich: {1}",
   timelogTestFail: "Verbindung fehlgeschlagen (HTTP {0})",
   timelogTokenInvalid: "Token wurde abgelehnt. Bitte erneut eingeben.",
@@ -2063,6 +2065,7 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoUrlEnvUnusable:
     "NEXT_PUBLIC_TURSO_DATABASE_URL ist gesetzt, ist aber keine verwendbare Turso-URL. Stattdessen wird der Wert unten verwendet.",
   integrationsTursoTest: "Verbindung testen",
+  integrationsTursoTestLabel: "Verbindung testen – Turso",
   integrationsTursoTestOk: "Verbunden.",
   integrationsTursoTestFail: "Verbindung fehlgeschlagen: {0}",
   integrationsTursoToken: "Auth-Token",
