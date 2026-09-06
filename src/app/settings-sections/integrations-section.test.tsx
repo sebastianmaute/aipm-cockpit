@@ -537,9 +537,13 @@ describe("§408 — Turso test connection", () => {
 
   // ★★ THIS SECTION IS FULLY CONTROLLED — `turso` is derived from the
   // `settings` prop — so the rest of this file's `onChange={() => {}}` renders
-  // CANNOT move the URL or the token. Every test below therefore needs this
-  // wrapper, which feeds the edit back in so the fields the fingerprint is
-  // compared against really move.
+  // CANNOT move the URL or the token. Every test below THAT MOVES A FIELD
+  // therefore needs this wrapper, which feeds the edit back in so the fields
+  // the fingerprint is compared against really move. ★ That qualifier is
+  // measured, not hedging: making the wrapper uncontrolled reds the two
+  // editing tests and leaves the language and fail-probe tests GREEN, because
+  // neither of those edits anything. A non-editing test added here does not
+  // need the wrapper.
   // ★★ A typing test written against an UNCONTROLLED render is UNSATISFIABLE,
   // not vacuous, and the difference decides what a red means. Vacuous would
   // mean it silently PASSES; in fact it FAILS even against a correct
@@ -617,6 +621,13 @@ describe("§408 — Turso test connection", () => {
     // is a language switch under a live verdict, not a fresh probe.
     rerender(<ControlledIntegrations lang="de" />);
 
+    // ★★ THIS ASSERTION CARRIES A SECOND PROPERTY, and it is the stronger of
+    // the two: asserting the DE message IS PRESENT proves POSITIVELY that a
+    // language change does NOT invalidate the verdict — `lang` is not part of
+    // the fingerprint, and must never become part of it. An absence-only test
+    // ("the EN string is gone") would pass just as well if the verdict had
+    // been dropped entirely, which is the opposite of the intended behaviour.
+    // Keep both halves if this test is ever rewritten.
     expect(screen.getByText(t("de", "integrationsTursoTestOk"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "integrationsTursoTestOk"))).toBeNull();
   });
@@ -627,6 +638,12 @@ describe("§408 — Turso test connection", () => {
   // catch branch mis-tagged "ok" would surface here. That is a real pin on the
   // discriminator, but it is an INDIRECT one — when the confirmed reading gets
   // a consumer, assert on THAT too rather than treating this as sufficient.
+  // ★★ AND IT IS REDUNDANT TODAY — do not read it as independent coverage.
+  // A catch branch mis-tagged "ok" fails "reports a localized unreachable
+  // message when the probe rejects" (above) FIRST, and review could not
+  // construct a mutant that kills this test ALONE. Its value is documentary
+  // and forward-looking: it states the property Task 2's gate depends on, in
+  // the place someone will look for it. Deleting it loses no detection today.
   it("never reports a confirmed connection when the probe failed", async () => {
     const user = userEvent.setup();
     vi.mocked(testTursoConnection).mockRejectedValueOnce(

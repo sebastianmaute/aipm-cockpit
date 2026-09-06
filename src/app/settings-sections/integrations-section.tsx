@@ -308,7 +308,15 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       const kind = tursoErrorKind(e);
       setTursoTest({
         kind: "fail",
-        reason: kind === "auth" ? "auth" : kind === "unreachable" ? "unreachable" : "generic",
+        // ★★ `?? "generic"` RATHER THAN A TERNARY CHAIN, and the difference is
+        // a compile error. `reason` mirrors `StorageErrorKind` exactly, so the
+        // two are equivalent TODAY — but a chain ending in a `:` fallback
+        // absorbs any FUTURE member of that union into "generic" with no
+        // diagnostic, so a new storage kind with its own banner would leave
+        // this probe quietly reporting "Connection failed." The nullish
+        // coalesce only fills in `tursoErrorKind`'s `null` (unrecognised), and
+        // widening the union makes it TS2322 — the author has to decide.
+        reason: kind ?? "generic",
         url: turso.databaseUrl,
         token: turso.authToken,
       });
