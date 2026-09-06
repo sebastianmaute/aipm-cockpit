@@ -23,6 +23,8 @@ import { useMsAuth } from "../use-ms-auth";
 import { InfoTooltip } from "../info-tooltip";
 import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
 import { getTursoConfig, isUsableTursoUrl } from "../turso-config";
+import { testTursoConnection } from "../turso-pipeline";
+import { INTERACTIVE } from "../interaction-styles";
 import { writeSettings } from "../use-settings";
 import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
@@ -207,6 +209,28 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const [tokenPassphrase, setTokenPassphrase] = useState("");
   const [tokenConfirm, setTokenConfirm] = useState("");
   const [tokenStored, setTokenStored] = useState(() => loadSealed("tursoAuthToken") != null);
+  const [tursoTesting, setTursoTesting] = useState(false);
+  // ★ TRANSIENT BY DESIGN — resets on reload, exactly like the Jira and
+  // Timelog test results. Persisting it would be a new Settings field and
+  // therefore the six-write-paths case (open-followups §408).
+  const [tursoTestResult, setTursoTestResult] = useState<string | null>(null);
+
+  async function runTursoTest() {
+    setTursoTesting(true);
+    setTursoTestResult(null);
+    try {
+      await testTursoConnection(getTursoConfig(turso.databaseUrl, turso.authToken));
+      setTursoTestResult(t(lang, "integrationsTursoTestOk"));
+    } catch (e) {
+      // ★ The message, never the config — a thrown error here must not carry
+      // the URL or token into the DOM.
+      setTursoTestResult(
+        t(lang, "integrationsTursoTestFail", e instanceof Error ? e.message : "unknown"),
+      );
+    } finally {
+      setTursoTesting(false);
+    }
+  }
 
   function handleAuthTokenChange(value: string) {
     updateTurso({ authToken: value });
@@ -625,6 +649,17 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 </Button>
               )}
             </div>
+          )}
+          <button
+            type="button"
+            onClick={() => void runTursoTest()}
+            disabled={tursoTesting || !tursoConfigured}
+            className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-ui-dark-blue disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
+          >
+            {t(lang, "integrationsTursoTest")}
+          </button>
+          {tursoTestResult && (
+            <p className="text-xs text-muted-foreground">{tursoTestResult}</p>
           )}
           {/* Primary action: carry the current project into Turso. */}
           {canMoveToTurso && (

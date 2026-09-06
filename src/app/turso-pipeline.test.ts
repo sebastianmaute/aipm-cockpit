@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_PIPELINE_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
+import { DEFAULT_PIPELINE_TIMEOUT_MS, runTursoPipeline, testTursoConnection } from "./turso-pipeline";
 import { StorageNotReadyError } from "./storage";
 import type { TursoConfig } from "./turso-config";
 
@@ -209,5 +209,39 @@ describe("runTursoPipeline rollback on statement error", () => {
     vi.stubGlobal("fetch", fetchMock);
     await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow(/boom/);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("testTursoConnection", () => {
+  it("resolves when the pipeline answers ok", async () => {
+    stubFetch(() => jsonRes({ results: [{ type: "ok" }] }));
+    await expect(testTursoConnection(cfg)).resolves.toBeUndefined();
+  });
+
+  it("sends exactly one SELECT 1 statement", async () => {
+    const fetchMock = vi.fn();
+    fetchMock.mockImplementation(() => jsonRes({ results: [{ type: "ok" }] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await testTursoConnection(cfg);
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(String(init.body)).toContain("SELECT 1");
+  });
+
+  it("rejects with StorageNotReadyError on 401", async () => {
+    stubFetch(() => new Response("no", { status: 401 }));
+    await expect(testTursoConnection(cfg)).rejects.toBeInstanceOf(StorageNotReadyError);
+  });
+
+  it("rejects as unreachable on a network failure", async () => {
+    stubFetch(() => {
+      throw new Error("ECONNREFUSED");
+    });
+    await expect(testTursoConnection(cfg)).rejects.toMatchObject({
+      hint: "storage-unreachable",
+    });
+  });
+
+  it("rejects when the config is null", async () => {
+    await expect(testTursoConnection(null)).rejects.toBeInstanceOf(StorageNotReadyError);
   });
 });

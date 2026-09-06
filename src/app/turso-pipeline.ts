@@ -133,3 +133,21 @@ export async function runTursoPipeline(
   }
   return results;
 }
+
+/** Timeout for the Settings "Test connection" probe. Shorter than
+ *  DEFAULT_PIPELINE_TIMEOUT_MS because a human is watching a spinner. */
+export const TEST_CONNECTION_TIMEOUT_MS = 10_000;
+
+/** Round-trip the smallest possible statement to prove a URL/token pair
+ *  actually connects. Resolves on success; rejects with the error
+ *  `runTursoPipeline` already discriminates — StorageNotReadyError for an
+ *  absent config, an unreachable host or a rejected token, and a plain Error
+ *  carrying the status for anything else.
+ *
+ *  ★ NOTHING IS PERSISTED FROM THIS. The caller keeps the outcome in transient
+ *  component state, exactly as the Jira and Timelog test buttons do. A stored
+ *  "connection confirmed" flag would be a new Settings field and therefore the
+ *  six-write-paths case (open-followups §408). */
+export async function testTursoConnection(config: TursoConfig | null): Promise<void> {
+  await runTursoPipeline(config, [{ sql: "SELECT 1" }], TEST_CONNECTION_TIMEOUT_MS);
+}

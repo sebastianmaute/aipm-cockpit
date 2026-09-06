@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, fireEvent, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { IntegrationsSection } from "./integrations-section";
 import { ConfirmProvider } from "../confirm-dialog";
 import { t } from "../i18n";
@@ -11,6 +12,12 @@ import {
   defaultTursoIntegrations,
 } from "../settings-types";
 import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
+import { testTursoConnection } from "../turso-pipeline";
+
+vi.mock("../turso-pipeline", async (importActual) => ({
+  ...(await importActual<typeof import("../turso-pipeline")>()),
+  testTursoConnection: vi.fn(),
+}));
 
 afterEach(async () => {
   // Editing the Turso auth token fires an un-awaited device-seal (encrypts then
@@ -376,5 +383,44 @@ describe("IntegrationsSection Turso auth token sealing", () => {
     fireEvent.click(screen.getByRole("button", { name: /remove stored secret/i }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(isPassphraseLocked("tursoAuthToken")).toBe(false));
+  });
+});
+
+describe("§408 — Turso test connection", () => {
+  it("reports success in transient state and stores nothing", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={onChange} />);
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTest") }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
+    // ★ The whole point of the transient shape: a probe must not write settings.
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("reports the failure message when the probe rejects", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockRejectedValueOnce(new Error("storage-unreachable"));
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTest") }));
+    expect(
+      await screen.findByText(t("en-US", "integrationsTursoTestFail", "storage-unreachable")),
+    ).toBeInTheDocument();
+  });
+
+  it("disables the button while a probe is in flight", async () => {
+    const user = userEvent.setup();
+    let release: (() => void) | undefined;
+    vi.mocked(testTursoConnection).mockReturnValueOnce(
+      new Promise<void>((res) => {
+        release = res;
+      }),
+    );
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+    const btn = screen.getByRole("button", { name: t("en-US", "integrationsTursoTest") });
+    await user.click(btn);
+    expect(btn).toBeDisabled();
+    release?.();
+    await waitFor(() => expect(btn).toBeEnabled());
   });
 });
