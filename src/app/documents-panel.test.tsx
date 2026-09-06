@@ -2592,10 +2592,15 @@ describe("documents pane — collapsing the open document's body", () => {
   // patch. Before the render-time reconcile the successor inherited the
   // collapse and rendered with its body already hidden.
   //
-  // ★★ It also needs no remount, unlike the deep-link and entity-filter routes
-  // that share the defect: navigating away from this conditionally-mounted
-  // tabpanel and back would reset the state on its own, so those two are
-  // reachable but weaker. This is the likely-in-practice one.
+  // ★★ It also needs no remount, unlike the DEEP-LINK route that shares the
+  // defect: that one arrives by switching views, so this conditionally-mounted
+  // tabpanel remounts and resets the state on its own — reachable, but weaker.
+  //
+  // ★★ The ENTITY-FILTER route is NOT weaker, and grouping it with the deep
+  // link was wrong. The banner's clear button runs `clearEntityFilter()` IN
+  // PLACE, which flips `selectionPool` from `visibleRows` back to `documents`
+  // so `selectionPool[0]` can re-point with no remount — exactly the shape this
+  // delete route pins.
   it("expands the successor when the collapsed open document is deleted", async () => {
     const user = userEvent.setup();
     renderLive([doc(1, "Alpha"), doc(2, "Beta")]);

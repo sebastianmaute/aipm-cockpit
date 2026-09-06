@@ -34,7 +34,11 @@ export interface DocumentsListProps {
   lang: Lang;
   /** Already sorted by the orchestrator. */
   documents: readonly ProjectDocument[];
-  selectedId: number | null;
+  /** The id of the document actually OPEN — `documents-panel.tsx` passes
+   *  `selected?.id`, which falls back to `selectionPool[0]`. Deliberately NOT
+   *  named `selectedId`: the panel's own `selectedId` STATE can be null while a
+   *  document is open, and a ★★★ warning there forbids comparing against it. */
+  openDocumentId: number | null;
   /** Whether the OPEN document's body is collapsed. Drives `aria-expanded` on
    *  that one row's title button; every other row is not a disclosure and
    *  carries no `aria-expanded` at all. */
@@ -88,7 +92,7 @@ export interface DocumentsListProps {
 export function DocumentsList({
   lang,
   documents,
-  selectedId,
+  openDocumentId,
   collapsed = false,
   onSelect,
   sortKey,
@@ -195,7 +199,7 @@ export function DocumentsList({
           <tr
             key={doc.id}
             data-deeplink-row={doc.id}
-            className={[doc.id === selectedId ? "bg-surface-muted" : "", flashOutlineClass(flashId === doc.id)]
+            className={[doc.id === openDocumentId ? "bg-surface-muted" : "", flashOutlineClass(flashId === doc.id)]
               .filter(Boolean)
               .join(" ")}
           >
@@ -230,12 +234,12 @@ export function DocumentsList({
               <button
                 type="button"
                 onClick={() => onSelect(doc.id)}
-                aria-current={doc.id === selectedId ? "true" : undefined}
-                aria-expanded={doc.id === selectedId ? !collapsed : undefined}
+                aria-current={doc.id === openDocumentId ? "true" : undefined}
+                aria-expanded={doc.id === openDocumentId ? !collapsed : undefined}
                 aria-label={token}
                 className={`text-left underline-offset-2 hover:underline ${INTERACTIVE}`}
               >
-                {doc.id === selectedId ? (
+                {doc.id === openDocumentId ? (
                   <span aria-hidden className="mr-1 text-muted-foreground">{collapsed ? "▸" : "▾"}</span>
                 ) : null}
                 {doc.title}

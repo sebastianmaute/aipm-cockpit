@@ -222,9 +222,11 @@ export function DocumentsPanel({
   // Transient: collapsing is a momentary "give me room" gesture, not a
   // preference. Nothing persists it.
   //
-  // ★★ TWO WRITERS, AND ONLY ONE OF THEM CLEARS: `handleSelect`'s toggle branch
-  // sets it, and the render-time reconcile beside `selected` (below) is the
-  // sole reset. Do NOT add a second `setBodyCollapsed(false)` on a click path —
+  // ★★ TWO WRITERS, AND ONLY ONE OF THEM RESETS UNCONDITIONALLY:
+  // `handleSelect`'s branch is `setBodyCollapsed((v) => !v)`, a TOGGLE, so it
+  // does clear whenever the body is already collapsed — it is just not a reset.
+  // The render-time reconcile beside `selected` (below) is the sole
+  // UNCONDITIONAL reset. Do NOT add a second `setBodyCollapsed(false)` on a click path —
   // the whole point of keying the reset on `selected?.id` is that the open
   // document also changes by routes no click handler sees.
   const [bodyCollapsed, setBodyCollapsed] = useState(false);
@@ -391,8 +393,8 @@ export function DocumentsPanel({
   //
   // ★ SEEDED FROM THE LIVE `selected?.id`, NOT `null`. A `null` seed makes the
   // reconcile fire on the FIRST render (where `selected` is already
-  // `selectionPool[0]`), which is the remount-swallow seed shape AGENTS.md
-  // warns about — harmless only while `bodyCollapsed` happens to start `false`.
+  // `selectionPool[0]`) — harmless only while `bodyCollapsed` happens to start
+  // `false`.
   //
   // ★ It cannot fire on a COLLAPSE TOGGLE: `handleSelect`'s toggle branch
   // returns without touching `selectedId`, so `selected?.id` is unchanged and
@@ -677,7 +679,7 @@ export function DocumentsPanel({
         <DocumentsList
           lang={lang}
           documents={visibleRows}
-          selectedId={selected?.id ?? null}
+          openDocumentId={selected?.id ?? null}
           collapsed={bodyCollapsed}
           onSelect={handleSelect}
           sortKey={sort.key}
