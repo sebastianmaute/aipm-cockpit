@@ -43,6 +43,11 @@ export function useDashboardLayout({
     storageKey: DASHBOARD_LAYOUT_KEY,
     fallback: DEFAULT_LAYOUT,
     projectId,
-    isPopout,
+    // ★ THE PUBLIC SPELLING STAYS `isPopout` AND THE GENERIC ONE IS `readOnly`,
+    // and mapping between them is a job the adapter exists for. The hook knows
+    // only "suppress every write"; "popout" is a Dashboard feature, and renaming
+    // this parameter would break `dashboard-panel.tsx` and its tests, which the
+    // Phase F export-stability rule forbids.
+    readOnly: isPopout,
   });
 }

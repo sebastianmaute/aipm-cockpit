@@ -186,7 +186,7 @@ The rejected alternatives, for the record:
 |---|---|---|
 | `arrangement-layout.ts` | `dashboard-layout.ts` | `<Id extends string>`; catalogue is a **parameter** |
 | `arrangement-store.ts` | `dashboard-layout-store.ts` | storage key injected |
-| `use-arrangement.ts` | `use-dashboard-layout.ts` | `{catalogue, storageKey, defaultLayout, projectId, isPopout}` |
+| `use-arrangement.ts` | `use-dashboard-layout.ts` | `ArrangementOptions<Id>` = `{catalogue, storageKey, fallback, projectId, readOnly?, seed?}` |
 | `arrangement-tile.tsx` | `dashboard-tile.tsx` | `id: string`, `testIdPrefix` |
 | `arrangement-grid.tsx` | `dashboard-grid.tsx` | `rowClass` / `gapClass` injected |
 | `report-blocks.ts` | *new* | the Reports catalogue |

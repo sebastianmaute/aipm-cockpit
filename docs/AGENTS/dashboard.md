@@ -34,20 +34,31 @@ and there are no coordinates to store — every operation in `dashboard-layout.t
 `hideTile` · `restoreTile` · `resizeTile` · `reconcile`) is an array operation. ★★ THE FIRST FOUR
 return the SAME object reference on a no-op, so a caller can skip a persist cheaply; **`reconcile` DOES
 NOT** and never did — it allocates a fresh `{v, board, hidden}` on every non-null input, identical
-content or not. Harmless today, because its ONE production call site is a load — `readLayout`, which
-now lives in the generic `use-arrangement.ts` and is reached from the Dashboard through the
-`use-dashboard-layout.ts` adapter — but a persist-skip written against `next !== stored` would fire on
-every load. This sentence used to lump all five together, which is exactly the claim someone would
-build that skip on. ★ It then said "both of its call sites are loads": the TWO call sites are
-`readLayout`'s (the lazy `useState` initialiser and the project-switch render reconcile), not
-`reconcile`'s, and a reader goes hunting for a second caller that does not exist.
-★★ MEASURE IT, AND MATCH BOTH SPELLINGS — the Dashboard adapter imports the engine under a local
-alias, so a bare `reconcile(` grep misses that call, and it misses the declaration too
-(`reconcile<Id extends string>(`), which is why the "declaration plus one call" reading this line used
-to carry cannot be reproduced:
-`grep -rn "reconcile(\|reconcileWith(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'`
-— read the hits rather than counting them; it matches prose in several files as well. ★★ A user
-therefore CANNOT
+content or not. A persist-skip written against `next !== stored` would therefore fire on every load.
+This sentence used to lump all five together, which is exactly the claim someone would build that skip
+on.
+
+★★★ **ALL FIVE OF THOSE WRAPPERS ARE NOW TEST-ONLY, and two successive revisions of this paragraph
+got that wrong in different ways.** The first said `reconcile`'s "ONE production call site is a load —
+`readLayout` in `use-dashboard-layout.ts`"; the second moved `readLayout` to `use-arrangement.ts` and
+left the COUNT attached to a function that no longer has one. Both were false: since the hook was
+extracted, `use-arrangement.ts` calls the ENGINE's `reconcile` (`arrangement-layout.ts`) directly and
+bypasses this wrapper entirely, and `dashboard-panel.tsx` never called any of the five. The Dashboard
+binding is retained under the Phase F export-stability rule — every `dashboard-*` module keeps its
+current export signature so no Dashboard test needs editing — and its fate is a Phase F close-out
+decision, not something to tidy away here. `DEFAULT_LAYOUT` and the `PlacedTile` / `DashboardLayout`
+types ARE still live.
+
+★★ Enumerate the consumers rather than the call sites, because a call-site grep matches this very
+paragraph and every other doc that mentions the word:
+```
+grep -rn 'from "./dashboard-layout"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+```
+Three non-test importers today: `dashboard-layout-store.ts` and `dashboard-panel.tsx` take a TYPE
+only, and `use-dashboard-layout.ts` takes `DEFAULT_LAYOUT` only. None imports an operation. ★ A
+recipe matching its own text is a real hazard here and was shipped once already: the replacement
+`grep -rn "reconcile(\|reconcileWith(" …` returned nine hits, of which two were calls, six were prose,
+and one was a source comment quoting that grep. ★★ A user therefore CANNOT
 leave a deliberate hole: `dense` backfills it with the next tile that fits. ★★ That is also why the
 panel renders the reorder hook's `previewOrder` rather than the stored board and draws NO edge drop
 indicator — dense re-places everything after a move, so an edge marker would routinely point at a slot

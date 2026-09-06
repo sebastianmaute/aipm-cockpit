@@ -25,31 +25,38 @@ const KEY = "aipm-cockpit:test-arrangement";
 const FALLBACK = defaultLayout(CAT);
 
 /**
- * ★★★ `commits` RECORDS COMMITTED RENDERS ONLY, AND THAT IS THE WHOLE POINT.
- * A `useEffect` with no dependency array runs once per COMMIT, so a render React
- * throws away — which is what a render-phase `setState` produces — leaves no
- * entry. That is the only observable in jsdom that separates the two shapes this
- * hook's ★★ and ★★★ blocks are about: reading storage in a lazy initialiser /
- * the render body commits ONE frame carrying the stored layout, while reading it
- * in an effect commits the DEFAULT first and then corrects itself. Both end at
- * the same DOM, so a `screen.getBy*` assertion cannot tell them apart — and RTL
- * flushes effects inside `act`, so neither can looking at the DOM "in between".
+ * ★★★ THE `log` PROP RECORDS COMMITTED RENDERS ONLY, AND THAT IS THE WHOLE
+ * POINT. A `useEffect` with no dependency array runs once per COMMIT, so a
+ * render React throws away — which is what a render-phase `setState` produces —
+ * leaves no entry. That is the only observable in jsdom that separates the two
+ * shapes this hook's ★★ and ★★★ blocks are about: reading storage in a lazy
+ * initialiser / the render body commits ONE frame carrying the stored layout,
+ * while reading it in an effect commits the DEFAULT first and then corrects
+ * itself. Both end at the same DOM, so a `screen.getBy*` assertion cannot tell
+ * them apart — and RTL flushes effects inside `act`, so neither can looking at
+ * the DOM "in between".
+ *
+ * ★★ IT IS A PROP, NOT A MODULE-LEVEL ARRAY, and that is not style. A shared
+ * array carries an implicit one-Harness-per-test assumption: mount two and their
+ * commits interleave, so every `toEqual` below silently becomes order-dependent
+ * on which harness React happens to flush first. A reviewer hit exactly that
+ * writing a second probe into one of these tests. Each test owns its own array.
  */
-let commits: string[] = [];
-
 function Harness({
   projectId = "p1",
-  isPopout = false,
+  readOnly = false,
   seed,
+  log,
 }: {
   projectId?: string;
-  isPopout?: boolean;
+  readOnly?: boolean;
   seed?: () => ArrangementLayout<TestId> | null;
+  log?: string[];
 }) {
   const a = useArrangement<TestId>({
-    catalogue: CAT, storageKey: KEY, fallback: FALLBACK, projectId, isPopout, seed,
+    catalogue: CAT, storageKey: KEY, fallback: FALLBACK, projectId, readOnly, seed,
   });
-  useEffect(() => { commits.push(`${projectId}:${a.layout.hidden.join("+")}`); });
+  useEffect(() => { log?.push(`${projectId}:${a.layout.hidden.join("+")}`); });
   return (
     <div>
       <output data-testid="order">{a.layout.board.map((b) => `${b.id}${b.w}${b.h}`).join(",")}</output>
@@ -68,24 +75,26 @@ function Harness({
 
 const ids = () => screen.getByTestId("order").textContent!.split(",").map((s) => s.slice(0, 1));
 
-beforeEach(() => { localStorage.clear(); vi.useRealTimers(); commits = []; });
+beforeEach(() => { localStorage.clear(); vi.useRealTimers(); });
 
 describe("useArrangement — the initial read", () => {
   it("commits the STORED layout on the very first render, not the default", () => {
     // ★ Pins rule 1: the initial read is a LAZY `useState` initialiser. Moving it
     // into an effect adds a leading "p1:" commit carrying the default — and the
-    // final DOM is identical either way, so `commits` is the only detector.
+    // final DOM is identical either way, so the commit log is the only detector.
+    const log: string[] = [];
     saveArrangement(KEY, "p1", { v: 1, board: [{ id: "a", w: 2, h: 2 }], hidden: ["b"] });
-    render(<Harness />);
-    expect(commits).toEqual(["p1:b"]);
+    render(<Harness log={log} />);
+    expect(log).toEqual(["p1:b"]);
     expect(screen.getByTestId("hidden").textContent).toBe("b");
   });
 
   it("commits the fallback once when storage holds nothing for this project", () => {
     // The positive control for the test above: with nothing stored the single
     // commit carries the empty hidden list, so "p1:b" there is not a tautology.
-    render(<Harness />);
-    expect(commits).toEqual(["p1:"]);
+    const log: string[] = [];
+    render(<Harness log={log} />);
+    expect(log).toEqual(["p1:"]);
     expect(screen.getByTestId("is-fallback").textContent).toBe("true");
   });
 
@@ -103,12 +112,13 @@ describe("useArrangement — the project switch", () => {
     // ★ Pins rule 2. An effect-based switch commits `p2` with p1's layout first
     // and only then corrects itself, so the log gains a bare "p2:" entry. The
     // DOM after the rerender is the same in both shapes.
+    const log: string[] = [];
     saveArrangement(KEY, "p2", { v: 1, board: [{ id: "c", w: 4, h: 2 }], hidden: ["a"] });
-    const { rerender } = render(<Harness projectId="p1" />);
-    expect(commits).toEqual(["p1:"]);
+    const { rerender } = render(<Harness projectId="p1" log={log} />);
+    expect(log).toEqual(["p1:"]);
 
-    rerender(<Harness projectId="p2" />);
-    expect(commits).toEqual(["p1:", "p2:a"]);
+    rerender(<Harness projectId="p2" log={log} />);
+    expect(log).toEqual(["p1:", "p2:a"]);
     expect(screen.getByTestId("hidden").textContent).toBe("a");
   });
 
@@ -116,6 +126,16 @@ describe("useArrangement — the project switch", () => {
     // ★ Pins rule 3: `projectId` and `layout` are ONE state object. Split them
     // and the persist effect re-runs with the NEW id beside the OLD layout and,
     // one debounce later, replaces the new project's stored arrangement.
+    //
+    // ★★★ READ THE SCOPE OF THIS PIN NARROWLY. It kills the NAIVE split — the
+    // shape that actually shipped the bug, where `layout` is seeded once and
+    // `dirty` never resets — and it is a genuine regression pin on that. It
+    // CANNOT kill a DISCIPLINED three-state split that resets all three
+    // together, because React batches render-phase `setState`s into one pass, so
+    // such a split is behaviourally identical here. The one-object shape is a
+    // structural unrepresentability guarantee; no test can distinguish it from a
+    // carefully written alternative. Do not cite this test as proving the
+    // invariant, only as pinning the defect.
     vi.useFakeTimers();
     saveArrangement(KEY, "p2", { v: 1, board: [{ id: "c", w: 4, h: 2 }], hidden: ["a"] });
     const { rerender } = render(<Harness projectId="p1" />);
@@ -191,9 +211,9 @@ describe("useArrangement — persistence", () => {
     expect(loadArrangement(KEY, "p-clean")).toBeNull();
   });
 
-  it("neither persists nor flushes in a popout, and reports readOnly", async () => {
+  it("neither persists nor flushes when readOnly, and reports it", async () => {
     vi.useFakeTimers();
-    const { unmount } = render(<Harness projectId="p-popout" isPopout />);
+    const { unmount } = render(<Harness projectId="p-popout" readOnly />);
     expect(screen.getByTestId("readonly").textContent).toBe("true");
     act(() => { screen.getByText("hide-b").click(); });
     await act(async () => { vi.advanceTimersByTime(1000); });
@@ -204,18 +224,36 @@ describe("useArrangement — persistence", () => {
 });
 
 describe("useArrangement — the mutators", () => {
-  it("moves, hides, restores, resizes and resets", () => {
+  it("move reorders the board", () => {
     render(<Harness />);
     act(() => { screen.getByText("move-a-last").click(); });
     expect(ids()).toEqual(["b", "c", "a"]);
+  });
+
+  it("hide removes a block from the board and restore puts it back at an index", () => {
+    render(<Harness />);
     act(() => { screen.getByText("hide-b").click(); });
-    expect(ids()).toEqual(["c", "a"]);
+    expect(ids()).toEqual(["a", "c"]);
+    expect(screen.getByTestId("hidden").textContent).toBe("b");
     act(() => { screen.getByText("restore-b").click(); });
-    expect(ids()).toEqual(["b", "c", "a"]);
+    expect(ids()).toEqual(["b", "a", "c"]);
+    expect(screen.getByTestId("hidden").textContent).toBe("");
+  });
+
+  it("resize clamps to the block's own bounds", () => {
+    // "a" has maxW 4, so widening to 4 is legal and its height is untouched.
+    render(<Harness />);
     act(() => { screen.getByText("widen-a").click(); });
     expect(screen.getByTestId("order").textContent).toContain("a42");
+  });
+
+  it("reset restores catalogue order and clears the hidden list", () => {
+    render(<Harness />);
+    act(() => { screen.getByText("move-a-last").click(); });
+    act(() => { screen.getByText("hide-b").click(); });
     act(() => { screen.getByText("reset").click(); });
     expect(ids()).toEqual(["a", "b", "c"]);
+    expect(screen.getByTestId("hidden").textContent).toBe("");
   });
 
   it("reset returns the surface's OWN fallback BY REFERENCE", () => {
@@ -233,10 +271,46 @@ describe("useArrangement — the mutators", () => {
   it("re-renders nothing new when a mutation is a no-op", () => {
     // `mutate` returns the previous state object unchanged when the engine
     // hands back its input, so a no-op cannot mark the surface dirty.
-    render(<Harness />);
-    const before = commits.length;
+    const log: string[] = [];
+    render(<Harness log={log} />);
+    const before = log.length;
     act(() => { screen.getByText("restore-b").click(); });   // "b" is not hidden
-    expect(commits.length).toBe(before);
+    expect(log.length).toBe(before);
+  });
+});
+
+/** A deliberately WRONG binding: a fresh `fallback` object every render. This is
+ *  the misuse `ArrangementOptions.fallback`'s ★★★ block forbids — `reset()` then
+ *  returns an object that is not the one anything compares against — and no type
+ *  and no other test in the repo can see it, because the Dashboard binding uses
+ *  module constants. */
+function UnstableHarness({ projectId = "p1" }: { projectId?: string }) {
+  const a = useArrangement<TestId>({
+    catalogue: CAT, storageKey: KEY, fallback: { ...FALLBACK }, projectId,
+  });
+  return <output data-testid="hidden">{a.layout.hidden.join(",")}</output>;
+}
+
+describe("useArrangement — the dev-only stability detector", () => {
+  it("warns when `fallback` changes identity between renders", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { rerender } = render(<UnstableHarness />);
+    expect(warn).not.toHaveBeenCalled();          // nothing to compare against yet
+    rerender(<UnstableHarness />);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain("`fallback` changed identity");
+    warn.mockRestore();
+  });
+
+  it("stays silent for a correct module-constant binding", () => {
+    // The positive control: without this, the test above passes for a detector
+    // that warns unconditionally, which would be worse than none at all.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { rerender } = render(<Harness />);
+    rerender(<Harness />);
+    rerender(<Harness projectId="p2" />);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
 
@@ -266,6 +340,42 @@ describe("useArrangement — the optional seed", () => {
   it("falls back by reference when the seed itself returns null", () => {
     render(<Harness seed={() => null} />);
     expect(screen.getByTestId("is-fallback").textContent).toBe("true");
+  });
+
+  it("runs the seed when the stored blob is REJECTED, not only when the key is absent", () => {
+    // ★★★ The contract is "nothing USABLE", not "nothing stored", and this is
+    // the measurement behind that wording. `loadArrangement` returns `null` for
+    // a missing key and for a blob `isArrangementLayout` rejects alike, so the
+    // `stored ?? seed?.()` in `readLayout` cannot tell them apart. Written
+    // through raw localStorage because `saveArrangement` takes a well-typed
+    // layout and so cannot produce this state.
+    // The consequence is a downgrade round trip: a `v: 2` blob written by a
+    // future build is rejected here, so a legacy-preference seed runs AGAIN and
+    // silently reverts the user's arrangement.
+    localStorage.setItem(KEY, JSON.stringify({ p1: { v: 9, board: [], hidden: [] } }));
+    // ★★ THE TWO LINES BELOW ARE WHAT STOP THIS BEING VACUOUS. Without them a
+    // typo in the raw write leaves the key EMPTY, the test reads the seed for
+    // the ordinary missing-key reason, and it passes while proving nothing about
+    // rejection. So: the entry IS there, and the guard DOES reject it.
+    expect(JSON.parse(localStorage.getItem(KEY)!).p1).toEqual({ v: 9, board: [], hidden: [] });
+    expect(loadArrangement(KEY, "p1")).toBeNull();
+
+    render(<Harness seed={() => SEEDED} />);
+    expect(screen.getByTestId("hidden").textContent).toBe("a");
+  });
+
+  it("consults the seed once per READ, never per render", () => {
+    // ★ Pins the "one-time is a property of storage" claim with numbers rather
+    // than prose, and the middle assertion is the one that matters: a seed
+    // called per RENDER would make a pure-seed requirement much harder to meet.
+    let calls = 0;
+    const counting = () => { calls += 1; return SEEDED; };
+    const { rerender } = render(<Harness projectId="p1" seed={counting} />);
+    expect(calls).toBe(1);                                   // mount: one read
+    rerender(<Harness projectId="p1" seed={counting} />);
+    expect(calls).toBe(1);                                   // re-render: no read
+    rerender(<Harness projectId="p2" seed={counting} />);
+    expect(calls).toBe(2);                                   // switch: one more
   });
 
   it("runs the seed again for a project switched INTO with nothing stored", () => {

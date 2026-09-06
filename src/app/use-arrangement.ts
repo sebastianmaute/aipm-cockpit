@@ -7,7 +7,14 @@ import {
 import { loadArrangement, saveArrangement } from "./arrangement-store";
 
 /** Debounce before writing to localStorage, so a drag that reflows repeatedly
- *  does not write on every frame. */
+ *  does not write on every frame.
+ *
+ *  ★ ONE SHARED NUMBER FOR EVERY SURFACE, deliberately not a parameter — the
+ *  same shape as `arrangement-store.ts`'s shared `MAX_PROJECTS`, and for the
+ *  same reason: no surface has wanted its own, and making it injectable before
+ *  one does is speculative generality. It is a one-line change if that day
+ *  comes. Read this as "every binding debounces at 400ms", never as "each
+ *  surface sets its own". */
 export const LAYOUT_PERSIST_MS = 400;
 
 export interface ArrangementApi<Id extends string> {
@@ -19,6 +26,104 @@ export interface ArrangementApi<Id extends string> {
   reset: () => void;
   /** Arrangement is read-only here (popout). Render no grips, menus or shelf. */
   readOnly: boolean;
+}
+
+/**
+ * Everything a surface injects.
+ *
+ * ★ A NAMED interface rather than an inline type literal on the hook, for two
+ * reasons. A binding can name the shape it is constructing; and Next's
+ * `client-boundary` tsserver rule walks `ts.isTypeLiteralNode` looking for
+ * function-typed properties in a `"use client"` module, so an inline literal
+ * makes `seed` raise a spurious "Props must be serializable" diagnostic in the
+ * editor. ★★ That diagnostic could never have failed CI — it is emitted as a
+ * Warning, and it lives in a language-service plugin `tsc` does not load, which
+ * is why `npx tsc --noEmit` exits 0 either way — so this is tidiness, not a fix.
+ * ★★★ Do NOT silence it instead by renaming `seed` to something ending in
+ * `Action`: that spelling asserts it IS a Server Action, which is false, and the
+ * next reader would build on it.
+ */
+export interface ArrangementOptions<Id extends string> {
+  /**
+   * The surface's block catalogue.
+   *
+   * ★★ MUST BE A STABLE REFERENCE. It rides every returned mutator's dependency
+   * array, so a fresh array per render re-mints all five. That is a performance
+   * concern only — see `fallback` for the one that is a correctness contract.
+   */
+  catalogue: readonly BlockSpec<Id>[];
+  /**
+   * This surface's own localStorage key.
+   *
+   * ★ It must start `aipm-cockpit:` so `clearAppConfig`'s prefix sweep clears
+   * it; `arrangement-store.ts` owns that rule. ★★ It must also be UNIQUE per
+   * surface — two surfaces sharing a key would break the render-body read's
+   * idempotence argument below, and nothing would say so.
+   */
+  storageKey: string;
+  /**
+   * The surface's ONE default instance — returned by reference for a null blob.
+   *
+   * ★★★ MUST BE A STABLE REFERENCE, and unlike `catalogue` this is a CONTRACT
+   * rather than a performance note. `reconcile(…, null, fallback)` and `reset()`
+   * both hand it straight back, and the engine's four mutators signal "no
+   * change" by returning their input by reference. Build it per render and
+   * `reset()` stops being detectable as a reset — pinned by "reset returns the
+   * surface's OWN fallback BY REFERENCE", which was the FIRST test to cover that
+   * contract at all (the Dashboard suite is green with `reset` spreading a copy).
+   */
+  fallback: ArrangementLayout<Id>;
+  projectId: string;
+  /**
+   * Suppress every write, and tell the surface to render no grips, menus or
+   * shelf.
+   *
+   * ★ NAMED FOR WHAT IT MEANS, not for the one feature that sets it. The
+   * Dashboard's popout is what motivated it and `useDashboardLayout` keeps
+   * `isPopout` as its public spelling, but nothing in this file knows what a
+   * popout is, and the returned `readOnly` was already named this way.
+   */
+  readOnly?: boolean;
+  /**
+   * ★ Optional seed, consulted when storage holds nothing USABLE for this
+   * project. A surface supplies it to carry a pre-existing preference forward —
+   * Reports builds one from `settings.reports.extra`, putting every addable
+   * report absent from that list into `hidden`; the Dashboard passes nothing. It
+   * is reconciled like any stored blob, so a stale or malformed seed cannot
+   * corrupt the board.
+   *
+   * ★★★ "NOTHING USABLE" IS MORE THAN A MISSING KEY, and an earlier revision of
+   * this line said "ONLY when storage holds nothing for this project", which is
+   * measurably false. `loadArrangement` returns `null` for a missing key and for
+   * a blob `isArrangementLayout` REJECTS alike — it cannot distinguish them —
+   * and `readLayout`'s `stored ?? seed?.() ?? null` therefore reaches the seed in
+   * both. Pinned by "runs the seed when the stored blob is REJECTED".
+   * ★★ THE CONSEQUENCE IS A DOWNGRADE ROUND TRIP, compounding the one
+   * `arrangement-store.ts` already documents: a user on a future `v: 2` build who
+   * downgrades has their blob rejected, so a legacy-preference seed runs AGAIN
+   * and silently reverts them to the migrated legacy layout — and the next
+   * mutation writes `v: 1` over the `v: 2` blob. A seed that must not do that has
+   * to carry its own marker rather than lean on this `??`.
+   *
+   * ★★★ IT RUNS DURING RENDER, SO IT MUST BE PURE. Both `readLayout` call sites
+   * are the lazy `useState` initialiser and the render-body project-switch
+   * reconcile, so a "one-time migration" that DELETES or REWRITES the legacy key
+   * inside `seed` is a render-phase side effect — the exact class the hook's own
+   * ★★★ block is careful about for the READ, which is accepted there only
+   * because it is idempotent, and a delete is not. StrictMode also
+   * double-invokes a lazy initialiser, so in dev it can run twice on one mount.
+   * Do that cleanup from an effect, or not at all.
+   *
+   * ★★ "ONE-TIME" IS A PROPERTY OF STORAGE, NOT OF THIS HOOK, and the
+   * difference is visible: `readLayout` consults the seed on BOTH reads, so a
+   * project the user switches INTO with nothing stored is seeded too. What makes
+   * it run once PER PROJECT is that the first mutation writes the key, after
+   * which `loadArrangement` wins the `??`. Measured call counts: 1 on mount, 1
+   * still after a same-project re-render, 2 after a project switch — once per
+   * READ, never per render, pinned by "consults the seed once per READ". A seed
+   * that must run at most once globally has to carry that condition itself.
+   */
+  seed?: () => ArrangementLayout<Id> | null;
 }
 
 /**
@@ -35,6 +140,16 @@ export interface ArrangementApi<Id extends string> {
  * CONTRACT the rest of this subsystem reads (`arrangement-layout.ts` says so at
  * `defaultLayout` and at `reconcile`). `dashboard-layout.ts` holds exactly one
  * `DEFAULT_LAYOUT` for that reason; a new binding owes the same.
+ * ★★★ NOTHING TYPECHECKS THAT, WHICH IS WHY THERE IS A DEV-ONLY DETECTOR BELOW.
+ * An adapter building `fallback` inline per render breaks `reset()` and EVERY
+ * TEST STAYS GREEN — the Dashboard binding uses module constants, so no existing
+ * suite can see a second binding's mistake, and the engine's own no-op tests
+ * pass their own object in. The `console.warn` follows the existing precedent in
+ * `use-resource-directory.ts` (same `process.env.NODE_ENV !== "production"`
+ * guard, same purpose: a developer error a type cannot express). It fires from
+ * an EFFECT, not the render body — `react-hooks/refs` makes writing a ref during
+ * render fatal, and that ref is what makes the warning fire once per change
+ * rather than once per render.
  *
  * ★★ THE INITIAL READ IS A LAZY `useState`, not an effect. A `useEffect` that
  * called `setState` would violate the repo's banned `react-hooks/
@@ -92,8 +207,11 @@ export interface ArrangementApi<Id extends string> {
  * hook does not, so a `gate` option would be unused here, and an unused option
  * is fatal at `--max-warnings=0`.
  *
- * ★ Popout is read-only — it never persists. `use-landing-delta` shares that
- * `isPopout` guard and NOTHING ELSE: its persist effect has `[]` deps, so on a
+ * ★ `readOnly` suppresses every write. ★★ THE PARAMETER IS NAMED FOR THE
+ * BEHAVIOUR, NOT THE FEATURE: the Dashboard's popout is what sets it and
+ * `useDashboardLayout` keeps `isPopout` as its own public spelling, so a reader
+ * coming from `use-landing-delta` will see the older name there. That hook
+ * shares the guard and NOTHING ELSE: its persist effect has `[]` deps, so on a
  * project switch it goes STALE (never re-runs, writes the mount-time project
  * once) rather than cross-writing. Do not read one as a model for the other.
  */
@@ -102,30 +220,9 @@ export function useArrangement<Id extends string>({
   storageKey,
   fallback,
   projectId,
-  isPopout = false,
+  readOnly = false,
   seed,
-}: {
-  catalogue: readonly BlockSpec<Id>[];
-  storageKey: string;
-  /** The surface's ONE default instance — returned by reference for a null blob. */
-  fallback: ArrangementLayout<Id>;
-  projectId: string;
-  isPopout?: boolean;
-  /**
-   * ★ Optional one-time seed, used ONLY when storage holds nothing for this
-   * project. A surface supplies it to carry a pre-existing preference forward;
-   * the Dashboard passes nothing. It is reconciled like any stored blob, so a
-   * stale or malformed seed cannot corrupt the board.
-   *
-   * ★★ "ONE-TIME" IS A PROPERTY OF STORAGE, NOT OF THIS HOOK, and the
-   * difference is visible: `readLayout` consults the seed on BOTH reads, so a
-   * project the user switches INTO with nothing stored is seeded too. What makes
-   * it run once PER PROJECT is that the first mutation writes the key, after
-   * which `loadArrangement` wins the `??`. A seed that must run at most once
-   * globally has to carry that condition itself.
-   */
-  seed?: () => ArrangementLayout<Id> | null;
-}): ArrangementApi<Id> {
+}: ArrangementOptions<Id>): ArrangementApi<Id> {
   /**
    * The stored arrangement for `pid`, reconciled. SSR-safe.
    *
@@ -174,6 +271,25 @@ export function useArrangement<Id extends string>({
   const activeLayout = state.layout;
   const activeDirty = state.dirty;
 
+  // The dev-only stability detector for the ★★★ block above. `catalogue` and
+  // `fallback` are contractually module-level constants; nothing in the type
+  // system can say so, and a binding that gets it wrong is silent everywhere.
+  // ★ It lives in an EFFECT because `react-hooks/refs` makes a render-body ref
+  // write fatal, and the ref is what keeps this to one warning per change.
+  const firstSeen = useRef<{ catalogue: unknown; fallback: unknown } | null>(null);
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const prev = firstSeen.current;
+    firstSeen.current = { catalogue, fallback };
+    if (!prev) return;
+    if (prev.catalogue !== catalogue) {
+      console.warn("[useArrangement] `catalogue` changed identity — hold ONE module-level constant per surface; every mutator re-mints each render otherwise.");
+    }
+    if (prev.fallback !== fallback) {
+      console.warn("[useArrangement] `fallback` changed identity — hold ONE module-level constant per surface, or `reset()` stops returning it by reference.");
+    }
+  }, [catalogue, fallback]);
+
   // ★★ THE PENDING WRITE IS HELD WITH ITS OWN `projectId`, so a flush can never
   // land on the wrong project no matter when it fires.
   const pending = useRef<{ projectId: string; layout: ArrangementLayout<Id> } | null>(null);
@@ -186,11 +302,11 @@ export function useArrangement<Id extends string>({
 
   // Persist on change, debounced. A side effect only — no setState here.
   useEffect(() => {
-    if (isPopout || !activeDirty) return;
+    if (readOnly || !activeDirty) return;
     pending.current = { projectId: activeProjectId, layout: activeLayout };
     const id = window.setTimeout(flush, LAYOUT_PERSIST_MS);
     return () => window.clearTimeout(id);
-  }, [activeProjectId, activeLayout, activeDirty, isPopout, flush]);
+  }, [activeProjectId, activeLayout, activeDirty, readOnly, flush]);
 
   // ★★ FLUSH ON UNMOUNT **AND** ON A PROJECT SWITCH. A surface binding this hook
   // may be conditionally mounted (`DashboardPanel` is), so navigating away
@@ -212,7 +328,7 @@ export function useArrangement<Id extends string>({
 
   return {
     layout: activeLayout,
-    readOnly: isPopout,
+    readOnly,
     move: useCallback(
       (dragId: Id, targetId: Id) => mutate((l) => moveBlock(l, dragId, targetId)),
       [mutate],
