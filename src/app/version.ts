@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.284.0";
-export const APP_BUILD_DATE = "2026-09-05"; // 0.284.0: a row a staged plan could not write now says which of the three things went wrong instead of a single flat refusal, one unreadable row no longer takes the rest of the plan down with it, and an inline AI edit's preview of a numeric field shows the number that would actually be stored (Kornbluth)
+export const APP_VERSION = "0.285.0";
+export const APP_BUILD_DATE = "2026-09-05"; // 0.285.0: the edit-task dialog is reorganised — Status & Notes moves up, predecessors and successors share a row, group and labels share a row, the budget bucket joins Effort & Classification, and Time spent becomes a Jira-style Time tracking dialog opened from the progress bar, with a remaining-work override that is stored only when you pin it (Barnhill)
+// 0.284.0: a row a staged plan could not write now says which of the three things went wrong instead of a single flat refusal, one unreadable row no longer takes the rest of the plan down with it, and an inline AI edit’s preview of a numeric field shows the number that would actually be stored (Kornbluth)
 // 0.283.0: when the assistant is about to delete something, or to change more than one row at once, it now shows you the plan first — every row with what it would change — and writes nothing until you approve it; the rows you keep are applied as ONE step you can undo in one press (Lessing)
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
@@ -192,7 +193,7 @@ export const APP_BUILD_DATE = "2026-09-05"; // 0.284.0: a row a staged plan coul
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Kornbluth";
+export const APP_MILESTONE = "Barnhill";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

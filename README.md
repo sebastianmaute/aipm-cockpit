@@ -2,7 +2,7 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.284.0_%22Kornbluth%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.285.0_%22Barnhill%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
 > **The AI project-management cockpit that knows *your* project.**
@@ -155,7 +155,7 @@ No environment variables are required to run the app — every integration is co
 | `npm run e2e:smoke:prod` | Smoke against a real, already-built production server (scripts/e2e-smoke-prod.mjs): starts `next start`, runs the smoke, stops it. Does NOT build — run `npm run build` first. The ONLY local reproduction of the prod CSP; `e2e:smoke` alone only ever meets the permissive dev policy |
 | `npm run e2e:visual` | Playwright visual-regression snapshots (opt-in; baselines are per-platform — generate CI's in the Linux container) |
 | `npm run e2e:visual:update` | Regenerate visual snapshot baselines for the current platform |
-| `npm run e2e:crossengine` | Run e2e-crossengine/ in BOTH real Chromium and real Firefox (playwright.crossengine.config.ts, port 3300, workers=1). Covers behaviour the unit suite is structurally blind to, in two unrelated specs: popover focus (jsdom's element-removal focus semantics are Firefox's, so a Chromium-only defect stays green in vitest) and the dangling/blocked image marker's ::before glyph (jsdom computes no generated content at all, and the two engines resolve it differently). Runs in NO CI job. Needs Firefox installed (`npx playwright install firefox`) |
+| `npm run e2e:crossengine` | Run e2e-crossengine/ in BOTH real Chromium and real Firefox (playwright.crossengine.config.ts, port 3300, workers=1). Covers behaviour the unit suite is structurally blind to, in the unrelated specs `ls -1 e2e-crossengine/*.spec.ts` lists: popover focus (jsdom's element-removal focus semantics are Firefox's, so a Chromium-only defect stays green in vitest); the dangling/blocked image marker's ::before glyph (jsdom computes no generated content at all, and the two engines resolve it differently); and the stacked Time-tracking dialog's dismissal protocol — Escape closes only the topmost dialog and a non-edge Tab moves exactly one focusable (jsdom cannot see it because both focus traps are document keydown listeners firing in registration order, so whichever surface opened last silently corrects the other). Runs in NO CI job. Needs Firefox installed (`npx playwright install firefox`) |
 | `npm run e2e:install` | One-time: download Chromium browser binary |
 | `npm run docs:scripts` | Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json` |
 | `npm run docs:scripts:check` | Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode) |

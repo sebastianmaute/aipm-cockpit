@@ -1029,11 +1029,26 @@ export function TasksSection({
                   <button
                     type="button"
                     onClick={() => { handleCancelEdit(); setTaskModalOpen(true); }}
-                    aria-label={t(lang, "addTask")}
+                    // `addTaskButton`, NOT `addTask`. The two keys carry the
+                    // same STRING in EN and DE but not the same MEANING:
+                    // `addTask` is the task modal's SUBMIT verb, `addTaskButton`
+                    // is the label of every control that OPENS the editor. This
+                    // row is an opener (it runs `handleCancelEdit()` — which
+                    // DISCARDS an in-progress edit — then opens the modal), so
+                    // it wears the opener key. It was mis-keyed to `addTask`,
+                    // which put the submit's name on a control that throws the
+                    // submit's work away.
+                    // ★ This row and the toolbar `AddButton` above deliberately
+                    // KEEP one shared accessible name: identical purpose,
+                    // identical handler. WCAG 2.4.6 permits that, and this
+                    // repo's rule says a repeated name is a QUESTION, not an
+                    // automatic fix — the answer here is that they are the same
+                    // action rendered twice. Do not disambiguate them.
+                    aria-label={t(lang, "addTaskButton")}
                     className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue dark:hover:bg-white/5 ${INTERACTIVE}`}
                   >
                     <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />
-                    {t(lang, "addTask")}
+                    {t(lang, "addTaskButton")}
                   </button>
                 </td>
               </tr>

@@ -46,6 +46,9 @@ export function emptyForm() {
     // Optional Jira-style effort, canonical MINUTES. undefined = unset.
     originalEstimateMinutes: undefined as number | undefined,
     timeSpentMinutes: undefined as number | undefined,
+    // Pinned "time remaining". undefined = not overridden; the dialog then
+    // shows derivedRemaining() as a placeholder rather than a value.
+    remainingEstimateMinutes: undefined as number | undefined,
     // FK -> Resource.id; null/undefined = unlinked. Set by the assignee picker.
     resourceId: undefined as number | null | undefined,
     pushToJira: false,

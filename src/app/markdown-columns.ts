@@ -50,6 +50,7 @@ export const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "resourceId", label: "ResourceId" },
   { key: "originalEstimateMinutes", label: "OrigEstimateMin" },
   { key: "timeSpentMinutes", label: "TimeSpentMin" },
+  { key: "remainingEstimateMinutes", label: "RemainingEstimateMin" },
   { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
   { key: "noteLog", label: "NoteLog" },

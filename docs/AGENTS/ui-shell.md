@@ -465,7 +465,17 @@ commits that merely added comments above it; its `onChange` is
   leaves the field with no accessible name while looking fixed. `expectNoLabelBoundToButton` fails on a
   dangling `htmlFor` for that reason — the source scan can only see that the attribute is PRESENT.
   ★★ THE ORDER IS THE RULE — a mic AFTER its `<Input>` is harmless, because the input already won the
-  association (task-form-fields' title field).
+  association. ★★ THE WORKED EXAMPLE IS GONE AND THE RULE IS UNCHANGED: task-form-fields' title field
+  WAS that trailing mic, and no longer trails — it moved into the caption as `captionAction`, which
+  forces `Field` into `group` mode (a `<div role="group">`, never a binding `<label>`), so it is now
+  safe for a DIFFERENT reason than the order. There is no trailing-mic call site left to cite, so the
+  trailing half of the rule is now pinned ONLY by the synthetic assertions in
+  `label-binding.guard.test.ts` — do not delete those for want of a live example.
+  ★★ Re-enumerate before citing any replacement, and take BOTH the recipe and the per-survivor
+  disposition from the comment above `LABELABLE` in that file rather than restating either here — a
+  second copy of a per-file enumeration is what rots. It is worth reading before you trust your own
+  grep: the obvious anchor for that enumeration was case-SENSITIVE and silently missed a live call
+  site, so a recipe written to prevent an incomplete enumeration was itself incomplete.
   ★★★ NEITHER GATE SEES THIS BY DEFAULT. No axe rule models label→control binding — enumerating axe
   4.12.1 under the four tags the gate uses returns 69 rules and none of them do; axe's own name computation
   takes the nearest ANCESTOR `<label>`, so it credits that text to the input regardless of the real binding.
