@@ -296,12 +296,42 @@ describe("describeProposal", () => {
 
     // Mirrors the dispatcher: a write whose links were ALL refused, against a
     // task that already has links, leaves the task untouched.
+    //
+    // ★ FLIPPED FROM PINNING THE GAP (§404): this used to assert only the
+    //  no-op link and stop there — the row's `rejected` was `[]`, so the card
+    //  rendered an unchanged link line with no reason the write refused it.
+    //  Now it also asserts the resolver's own refusal reached the plan.
     test("shows no change when every proposed link is refused", () => {
       const rows = describeProposal(
         [call("set_task_dependencies", { id: 3, dependencies: [{ taskId: 99, type: "FS" }] })],
         depWs,
       );
       expect(rows[0].plan.links[0].after).toBe(rows[0].plan.links[0].before);
+      expect(rows[0].plan.rejected).toEqual([
+        { toolName: "set_task_dependencies", reason: "unknown-id", detail: "99:FS=unknown-id" },
+      ]);
+    });
+
+    // A proposal refused for TWO DIFFERENT reasons at once (a self-link and an
+    // unknown id) must name both — not just the fact that nothing changed.
+    test("names every refused dependency instead of showing an empty card", () => {
+      const rows = describeProposal(
+        [
+          call("set_task_dependencies", {
+            id: 3,
+            dependencies: [
+              { taskId: 3, type: "FS" }, // self-link
+              { taskId: 99, type: "FS" }, // unknown id
+            ],
+          }),
+        ],
+        depWs,
+      );
+      expect(rows[0].plan.links[0].after).toBe(rows[0].plan.links[0].before);
+      expect(rows[0].plan.rejected).toEqual([
+        { toolName: "set_task_dependencies", reason: "bad-input", detail: "3:FS=self" },
+        { toolName: "set_task_dependencies", reason: "unknown-id", detail: "99:FS=unknown-id" },
+      ]);
     });
 
     test("rejects a call whose target task does not exist", () => {

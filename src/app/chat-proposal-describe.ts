@@ -232,6 +232,24 @@ function describeDependencyCall(call: ProposedCall, ws: Workspace): EditPlan {
 
   const prior: readonly TaskDependency[] = target.dependencies ?? [];
   const { applied, rejected } = resolveDependencyWrite(id, input.dependencies, tasks);
+  // ★★ THE RESOLVER ALREADY COMPUTED THESE and they were dropped on the floor
+  //  (§404). Previewing only what WOULD land is correct — that is why a
+  //  self-link or a cycle is not shown as a change — but a proposal whose links
+  //  are ALL refused then rendered an empty card with no reason, which is
+  //  §392's shape on this surface.
+  //  ★ `detail` is `${taskId}:${type}=${reason}` rather than prose: this module
+  //  is i18n-free by construction, and the renderer is what translates.
+  //  ★ Only the resolver's OWN "unknown-id" maps to the shared reason of the
+  //  same name; the other four (self/cycle/duplicate/cap/bad-type) have no
+  //  counterpart in `Rejected["reason"]` and fold into "bad-input" — `detail`
+  //  still carries the specific reason, so nothing is lost, only re-classified.
+  for (const r of rejected) {
+    plan.rejected.push({
+      toolName: call.name,
+      reason: r.reason === "unknown-id" ? "unknown-id" : "bad-input",
+      detail: `${r.taskId}:${r.type}=${r.reason}`,
+    });
+  }
   const after =
     applied.length === 0 && rejected.length > 0 && prior.length > 0 ? prior : applied;
   const title = String(target.taskName ?? "").trim();
