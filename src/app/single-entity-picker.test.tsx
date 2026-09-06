@@ -135,6 +135,64 @@ describe("SingleEntityPicker", () => {
     expect(props.onSelect).not.toHaveBeenCalled();
   });
 
+  // ★★ The case NEITHER of the two above can see: the list GROWS under a
+  // standing query, so the stale index stays in RANGE and the reconcile never
+  // fires. On the multi-select sibling this was a shipped defect — every caller
+  // derives `options` by excluding its selected set, `filterPickerOptions`
+  // preserves source order, so unlinking a chip put the entity back at its
+  // source position and Enter re-added the entity just removed. This control
+  // has no callers yet, which is exactly when an unwritten contract is freest
+  // to be violated, so the identical mechanism is pinned here too. The grow is
+  // driven by `rerender` rather than by a chip, matching the two tests above.
+  const GROWN: SingleEntityOption[] = [
+    { value: "task:0", code: "Task", label: "Earlier arrival" },
+    ...OPTIONS,
+  ];
+
+  it("does not commit an option the growing list shifted under the highlight", () => {
+    const { rerender, props } = renderPicker({ query: "a" });
+    const box = screen.getByRole("combobox");
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    // Armed: index 1 of OPTIONS == raid:2. Load-bearing anti-vacuity — without
+    // these a fixture whose armed index happened not to shift would pass for
+    // the wrong reason.
+    expect(screen.getAllByRole("option")[1]).toHaveAttribute("aria-selected", "true");
+    expect(screen.getAllByRole("option")[1]).toHaveTextContent("Vendor delay");
+
+    rerender(<SingleEntityPicker {...props} options={GROWN} query="a" />);
+    // Index 1 now names task:1 — an option the user never armed.
+    expect(screen.getAllByRole("option")).toHaveLength(3);
+    expect(screen.getAllByRole("option")[1]).toHaveTextContent("Ship the release");
+
+    fireEvent.keyDown(box, { key: "Enter" });
+    // Before the identity check this committed `task:1`. The highlight is now
+    // disarmed instead, so Enter falls through to the enclosing form exactly as
+    // it does when nothing was ever armed. It does NOT follow raid:2 to its new
+    // index 2 — re-tracking would make the ring jump rows on someone else's
+    // edit, and the test below pins the same disarm on the VISIBLE channel.
+    expect(props.onSelect).not.toHaveBeenCalled();
+  });
+
+  it("drops the highlight the moment a growing option list shifts it", () => {
+    // The half that needs no further keystroke: `aria-selected` and
+    // `aria-activedescendant` would name the wrong row as soon as the list
+    // re-rendered, misleading a mouse user who clicks the ringed row.
+    const { rerender, props } = renderPicker({ query: "a" });
+    const box = screen.getByRole("combobox");
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    expect(box).toHaveAttribute("aria-activedescendant", screen.getAllByRole("option")[1].id);
+
+    rerender(<SingleEntityPicker {...props} options={GROWN} query="a" />);
+    expect(screen.getAllByRole("option")).toHaveLength(3);
+    expect(screen.getAllByRole("option")[1]).toHaveTextContent("Ship the release");
+    expect(box).not.toHaveAttribute("aria-activedescendant");
+    for (const option of screen.getAllByRole("option")) {
+      expect(option).toHaveAttribute("aria-selected", "false");
+    }
+  });
+
   it("claims Escape only while the list is open", () => {
     // ★★ Asserts `defaultPrevented`, NOT that a document listener went unheard.
     // The enclosing Modal is contained by bailing on `e.defaultPrevented`,

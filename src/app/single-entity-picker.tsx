@@ -59,48 +59,48 @@ interface SingleEntityPickerProps {
   /** Candidates — ALREADY filtered by the caller. Rendered only while the
    *  query is non-blank, mirroring EntityLinkPicker.
    *
-   *  ★★ CONTRACT, relied on and NOT enforced: `options` may only change as a
-   *  RESULT of `query` changing. The highlight is reconciled on the query and
-   *  clamped against the list LENGTH, so a caller that swaps `options` while
-   *  `query` stands still can leave an index armed that is still in range but
-   *  now names a DIFFERENT entity — Enter would then commit something the user
-   *  never picked. EntityLinkPicker rests on the same contract.
+   *  ★★ A swap under a STANDING query is now SAFE, and this block used to say
+   *  the opposite. It read: "CONTRACT, relied on and NOT enforced — `options`
+   *  may only change as a RESULT of `query` changing", because the highlight
+   *  was reconciled on the query and clamped against the list LENGTH alone, so
+   *  an index still in range but now naming a DIFFERENT entity stayed armed
+   *  and Enter committed something the user never picked. The highlight is now
+   *  additionally checked against the armed option's `value` (see `active`),
+   *  which catches a grow, a shrink-within-range and a same-length swap alike.
+   *  EntityLinkPicker carries the same three-condition guard.
    *
-   *  ★★★ THE 2026-09-05 MEASUREMENT BEHIND THAT COVERED THE ADD PATH ALONE,
-   *  and an earlier revision of this line stated its conclusion unscoped —
-   *  "all four of its call sites honour it". On ADD they do: each clears the
-   *  query. On REMOVE none of them does. Every `onRemove` arrow at the four
-   *  sites changes the caller's selected set with the query untouched, and
-   *  each caller's option list is derived by EXCLUDING that set
-   *  (`useTaskPickerOptions` for `task-link-picker.tsx` and
+   *  ★★★ WHY IT WAS WORTH FIXING RATHER THAN DOCUMENTING, measured on the
+   *  sibling: its four call sites all derive `options` by EXCLUDING the
+   *  selected set (`useTaskPickerOptions` for `task-link-picker.tsx` and
    *  `dependencies-editor.tsx`, the `linked` set in `document-links-field.tsx`,
-   *  `availableCauses` in `raid-edit-modal.tsx`), so unlinking an entity that
-   *  still matches the standing query puts it BACK into the list and shifts
-   *  every index after it.
+   *  `availableCauses` in `raid-edit-modal.tsx`), `filterPickerOptions`
+   *  (`picker-filter.ts`) preserves source order and never sorts, and no
+   *  `onRemove` touches the query — so an unlink put the entity BACK at its
+   *  source position, shifted every later index, and Enter re-added the entity
+   *  the user had just removed. The ADD path never showed it: each site clears
+   *  the query on add, which fires the reconcile.
    *
-   *  ★★★ AND THE EXEMPTION THAT SUGGESTS ITSELF DOES NOT HOLD — checked, not
-   *  assumed. "Clicking a chip's remove button moves focus off the search box,
-   *  so Enter never reaches the key handler" covers only the very next
-   *  keystroke: `IconButton` sets no `onMouseDown` preventDefault, so the click
-   *  really does take focus — but the search box's reopen handler is `onClick`
-   *  calling `setDismissed(false)` and it resets nothing else, so clicking back
-   *  into the field restores the open list with the stale highlight intact.
-   *  Read removes as UNCOVERED by the measurement, never as exempt from the
-   *  contract.
+   *  ★★ WHAT REMAINS A CONTRACT, unenforced: `value` must be UNIQUE within one
+   *  `options` array, as this interface already documents. Two options sharing
+   *  a `value` are indistinguishable here and the identity check would accept
+   *  the wrong one.
    *
-   *  ★★★ AN EARLIER REVISION OF THIS COMMENT SAID `RaidCausedByField`
-   *  (`raid-edit-fields.tsx`) DID NOT, and called the contract already broken.
-   *  That was false, and it is worth keeping the record of how: its `onAdd`
-   *  arrow really does not clear, but the `addCausedBy` it calls clears the
-   *  query itself one layer down in `raid-edit-modal.tsx`. The claim was
-   *  written from the arrow alone and dated as if measured, which is exactly
-   *  the shape nothing gates — every backticked name in it was real, so no
-   *  symbol check could object. Enumerate the callers before repeating any of
-   *  this, and follow each `onAdd` into its handler:
+   *  ★★ HISTORY worth keeping, because a correction here was itself the defect
+   *  twice over. The 2026-09-05 measurement covered the ADD path ALONE while
+   *  an earlier revision stated its conclusion unscoped ("all four of its call
+   *  sites honour it"); an earlier one still named `RaidCausedByField`
+   *  (`raid-edit-fields.tsx`) as a violator because its `onAdd` arrow does not
+   *  clear the query — false, the `addCausedBy` it calls clears the query one
+   *  layer down in `raid-edit-modal.tsx`. The claim was written from the arrow
+   *  alone and dated as if measured, which is exactly the shape nothing gates:
+   *  every backticked name in it was real, so no symbol check could object.
+   *  Enumerate the callers before repeating any of this, and follow each
+   *  `onAdd` into its handler:
    *    grep -rn "<EntityLinkPicker$" src/app --include=*.tsx | grep -v "\.test\."
    *
-   *  The contract is still unenforced, and this component has no callers at all
-   *  yet — which is when an unwritten contract is freest to be violated. */
+   *  This component still has no callers at all — which is when an unwritten
+   *  contract is freest to be violated, and why the guard is here rather than
+   *  only in prose. */
   options: readonly SingleEntityOption[];
   query: string;
   onQueryChange: (value: string) => void;
@@ -135,6 +135,11 @@ export function SingleEntityPicker({
   // Active option index for the combobox. VIEW state, so it lives here even
   // though `query` stays controlled by the caller.
   const [highlight, setHighlight] = useState(-1);
+  // The OPTION the index was armed against, by the same `value` that keys the
+  // rendered rows — the interface documents it as unique in the list. Read
+  // with `highlight` below: an index whose option no longer matches is not
+  // armed.
+  const [armedValue, setArmedValue] = useState<string | null>(null);
   // Escape closes the dropdown without touching the query. Reset whenever the
   // query changes, so typing on reopens the list.
   const [dismissed, setDismissed] = useState(false);
@@ -147,22 +152,30 @@ export function SingleEntityPicker({
   if (prevQuery !== query) {
     setPrevQuery(query);
     setHighlight(-1);
+    setArmedValue(null);
     setDismissed(false);
   }
 
   const hasQuery = query.trim() !== "";
   const open = hasQuery && options.length > 0 && !dismissed;
-  // Clamped on READ: the caller's filtering can shrink `options` under a stored
-  // index. This drops an index now out of RANGE; the reconcile above covers an
-  // index still in range but naming a different entity — and only because every
-  // caller re-filters in RESPONSE to the query changing. A caller that swapped
-  // `options` WITHOUT changing `query` defeats the reconcile outright, but
-  // defeats THIS clamp only when the stale index is still in range in the new
-  // list: an index past the new end is still caught here, which is what
-  // "drops an active option that the shrinking option list no longer has"
-  // pins. See the CONTRACT on the `options` prop, which this rests on rather
-  // than enforces.
-  const active = highlight >= 0 && highlight < options.length ? highlight : -1;
+  // THREE conditions, and none of them subsumes another:
+  //   1. the RECONCILE above clears both pieces of state on a query change;
+  //   2. the RANGE clamp drops an index past the end of a shrunken list — it
+  //      stays load-bearing regardless of (3), because the identity read
+  //      itself indexes `options[highlight]`;
+  //   3. the IDENTITY check catches what neither can see — `options` GROWING
+  //      or being SWAPPED under a standing query, where the stale index is
+  //      still in range but now names a DIFFERENT option.
+  // Identity of the OPTION, not of the `options` ARRAY: callers hand a fresh
+  // array every render, so reconciling on the array would reset the highlight
+  // on every keystroke-free re-render. See the `options` prop's own block for
+  // the defect this closed on the sibling and what is still only a contract.
+  const active =
+    highlight >= 0 &&
+    highlight < options.length &&
+    options[highlight].value === armedValue
+      ? highlight
+      : -1;
 
   function move(delta: 1 | -1) {
     // ★ `next` is computed BEFORE the setState, rather than through the updater
@@ -180,6 +193,11 @@ export function SingleEntityPicker({
           ? options.length - 1
           : cur - 1;
     setHighlight(next);
+    // ★ Armed against the OPTION, so a later render whose `options` shifted
+    // under this index disarms it (see `active`). `move` is only reached from
+    // `onKeyDown`, which returns early on an empty list, so `options[next]`
+    // always exists.
+    setArmedValue(options[next].value);
     // ★ The keyboard path is aria-activedescendant, which browsers do NOT
     // auto-scroll — focus never moves, so nothing brings the row into view.
     // Deferred a frame so the row carrying the new index has rendered.
@@ -229,6 +247,7 @@ export function SingleEntityPicker({
       e.stopPropagation();
       setDismissed(true);
       setHighlight(-1);
+      setArmedValue(null);
     }
   }
 

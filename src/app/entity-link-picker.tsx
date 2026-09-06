@@ -96,6 +96,11 @@ export function EntityLinkPicker({
   // though `query` stays controlled by the caller — the caller owns which
   // entities are linkable, not which one the keyboard is currently on.
   const [highlight, setHighlight] = useState(-1);
+  // The ENTITY the index was armed against, by the same identity `entryKey`
+  // gives the React keys — so a picker spanning several entity kinds, whose
+  // ids collide, compares on `key` here exactly as it does there. Read with
+  // `highlight` below: an index whose entry no longer matches is not armed.
+  const [armedKey, setArmedKey] = useState<string | null>(null);
   // Escape closes the dropdown without touching the query. Reset whenever the
   // query changes, so typing on reopens the list.
   const [dismissed, setDismissed] = useState(false);
@@ -109,63 +114,80 @@ export function EntityLinkPicker({
   if (prevQuery !== query) {
     setPrevQuery(query);
     setHighlight(-1);
+    setArmedKey(null);
     setDismissed(false);
   }
 
   const hasQuery = query.trim() !== "";
   const open = hasQuery && options.length > 0 && !dismissed;
-  // Clamped on READ (the band's focusChip precedent): the caller's filtering
-  // can shrink `options` under a stored index, so this drops an index that is
-  // now out of RANGE. It cannot detect an index that is still in range but now
-  // names a DIFFERENT entity — the reconcile above covers that, because every
-  // caller re-filters in response to the query changing.
+  // THREE conditions, and none of them subsumes another:
+  //   1. the RECONCILE above clears both pieces of state on a query change;
+  //   2. the RANGE clamp drops an index past the end of a shrunken list — it
+  //      stays load-bearing regardless of (3), because the identity read
+  //      itself indexes `options[highlight]`;
+  //   3. the IDENTITY check catches what neither can see — `options` GROWING
+  //      or being SWAPPED under a standing query, where the stale index is
+  //      still in range but now names a DIFFERENT entity.
   //
-  // ★★ A caller that swapped `options` WITHOUT changing `query` defeats the
-  // RECONCILE outright, but defeats THIS clamp only when the stale index is
-  // still in range in the new list — a shrink PAST the index is still caught,
-  // which is what "drops an active option that the shrinking option list no
-  // longer has" (`entity-link-picker.test.tsx`) pins: the query is held at "s"
-  // while the options go 2 -> 1. Saying flatly that such a swap defeats BOTH
-  // guards would be licence to delete this clamp as moot, so keep the
-  // condition. Only the surviving in-range case rests on the contract below.
+  // ★★ Identity of the ENTRY, not identity of the `options` ARRAY. Callers
+  // re-filter and hand a fresh array every render, so reconciling on the array
+  // would reset the highlight on every keystroke-free re-render and the arrow
+  // keys would never stick. Comparing the entry's key is immune to that: it
+  // clears only when the entity actually under the index changed.
   //
-  // ★★ CONTRACT, relied on and NOT enforced. Measured 2026-09-05, ON THE ADD
-  // PATH ONLY: every call site clears the query on add, so no ADD defeats it
-  // today. That scope is load-bearing and an earlier revision of this line
-  // dropped it, concluding flatly that "none defeats it". Enumerate them —
-  // the `$` anchor is what keeps this comment out of its own result, and the
-  // `-v` drops the test file (measured after writing this: 4 hits, 0 of them
-  // a comment):
-  //   grep -rn "<EntityLinkPicker$" src/app --include=*.tsx | grep -v "\.test\."
-  // ★★ THREE clear it inline in their own `onAdd` arrow. `RaidCausedByField`
-  // (`raid-edit-fields.tsx`) is the one that does NOT, and it is compliant
-  // anyway: its `onAdd` calls `addCausedBy`, which clears the query itself one
-  // layer down in `raid-edit-modal.tsx`. Reading the arrow alone therefore
-  // misreads that caller as a violator — and it is the caller whose adds really
-  // do shrink the option list (`availableCauses` excludes
-  // `draft.causedByRaidIds`), so a clear lost THERE arms exactly this defect.
-  // Pinned by "the query clear is load-bearing" in `raid-edit-modal.test.tsx`,
-  // which the clamp below cannot substitute for: it reproduces at index 0 of
-  // >= 2 matches, where the surviving index is still in RANGE.
-  //
-  // ★★★ THE REMOVE PATH IS OUTSIDE THAT MEASUREMENT AND DOES NOT HONOUR THE
-  // CONTRACT. All four `onRemove` arrows change the caller's selected set with
-  // the query untouched, and each caller's option list is derived by EXCLUDING
-  // that set (`useTaskPickerOptions` for `task-link-picker.tsx` and
+  // ★★★ WHAT (3) NOW ENFORCES — a real defect until 2026-09-06, and the reason
+  // this is a data-correctness guard rather than a cosmetic one. All four
+  // `onRemove` arrows change the caller's selected set with the query
+  // untouched, each caller's option list is derived by EXCLUDING that set
+  // (`useTaskPickerOptions` for `task-link-picker.tsx` and
   // `dependencies-editor.tsx`, the `linked` set in `document-links-field.tsx`,
-  // `availableCauses` in `raid-edit-modal.tsx`), so unlinking an entity that
-  // still matches the standing query puts it BACK into the list and shifts
-  // every index after it.
+  // `availableCauses` in `raid-edit-modal.tsx`), and `filterPickerOptions`
+  // (`picker-filter.ts`) is an order-preserving `.filter()` chain with no sort.
+  // So unlinking an entity that still matched the standing query put it BACK
+  // at its SOURCE position and shifted every index at or after it: arm the
+  // third option, unlink the second chip, click back into the field, press
+  // Enter — and the picker RE-ADDED the entity just removed. The visible half
+  // needed no keystroke at all: `aria-selected` and `aria-activedescendant`
+  // named the wrong row the moment the list re-rendered, so a mouse user
+  // clicking the highlighted row was misled too. Pinned by "does not re-add
+  // the entity that was just unlinked" and "drops the highlight the moment a
+  // removal shifts the option list" in `entity-link-picker.test.tsx`.
   //
-  // ★★★ AND THE EXEMPTION THAT SUGGESTS ITSELF DOES NOT HOLD — checked, not
+  // ★★ AND THE EXEMPTION THAT SUGGESTS ITSELF NEVER HELD — checked, not
   // assumed. "Clicking a chip's remove button moves focus off the search box,
   // so Enter never reaches `onKeyDown`" covers only the very next keystroke:
   // `IconButton` sets no `onMouseDown` preventDefault, so the click really does
   // take focus — but the search box's reopen handler is `onClick` calling
   // `setDismissed(false)` and it resets nothing else, so clicking back into the
-  // field restores the open list with the stale highlight intact. Read removes
-  // as UNCOVERED by the measurement, never as exempt from the contract.
-  const active = highlight >= 0 && highlight < options.length ? highlight : -1;
+  // field restored the open list with the stale highlight intact.
+  //
+  // ★★ WHAT REMAINS A CONTRACT, unenforced: entry keys must be UNIQUE within
+  // one `options` array. Two entries sharing a key are indistinguishable here,
+  // and the identity check would then accept the wrong one — which is what
+  // `LinkPickerEntry.key` exists for and documents itself as.
+  //
+  // ★★ HISTORY worth keeping, because a correction here was itself the defect
+  // twice over. A 2026-09-05 measurement covered the ADD path ALONE and an
+  // earlier revision of it stated the conclusion unscoped ("none defeats it");
+  // an earlier one still named `RaidCausedByField` (`raid-edit-fields.tsx`) as
+  // a violator because its `onAdd` arrow does not clear the query — false, the
+  // `addCausedBy` it calls clears the query one layer down in
+  // `raid-edit-modal.tsx`. Every backticked name in that claim was real, so no
+  // symbol check could object. Enumerate the callers before repeating any of
+  // it, and follow each `onAdd` into its handler (the `$` anchor keeps this
+  // comment out of its own result, the `-v` drops the test file):
+  //   grep -rn "<EntityLinkPicker$" src/app --include=*.tsx | grep -v "\.test\."
+  // ★ The add-path clear is still asserted for its own sake by "clears the
+  // search query when a cause is added" (`raid-edit-modal.test.tsx`) — it is
+  // what empties the field and closes the list after an add. Its sibling
+  // "does not add a second cause when Enter is pressed again on an unchanged
+  // query" is now belt-and-braces: (3) catches that shrink independently.
+  const active =
+    highlight >= 0 &&
+    highlight < options.length &&
+    entryKey(options[highlight]) === armedKey
+      ? highlight
+      : -1;
 
   function move(delta: 1 | -1) {
     // ★ `next` is computed OUTSIDE the updater and the scroll scheduled beside
@@ -183,6 +205,11 @@ export function EntityLinkPicker({
           ? options.length - 1
           : cur - 1;
     setHighlight(next);
+    // ★ Armed against the ENTITY, so a later render whose `options` shifted
+    // under this index disarms it (see `active`). `move` is only reached from
+    // `onKeyDown`, which returns early on an empty list, so `options[next]`
+    // always exists.
+    setArmedKey(entryKey(options[next]));
     // ★ The list is `max-h-60 overflow-auto` (~8 rows) and the keyboard path is
     // aria-activedescendant, which browsers do NOT auto-scroll — focus never
     // moves, so nothing brings the row into view. Past row 8 the ring, the
@@ -239,6 +266,7 @@ export function EntityLinkPicker({
       e.stopPropagation();
       setDismissed(true);
       setHighlight(-1);
+      setArmedKey(null);
     }
   }
 
