@@ -220,25 +220,52 @@ export function ProjectsPanel({
               {t(lang, "projectSwitcherLoadFile")}
             </Button>
           )}
-          {!isTurso && tursoConfigured && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setTursoPickerOpen(true)}
-              title={t(lang, "projectLoadFromTursoHint")}
+          {!isTurso && (
+            // ★★ The hint rides this WRAPPER, not the Button. A `disabled`
+            // button dispatches no mouse events, so a `title` on it never
+            // surfaces — the explanation of why it is disabled would be
+            // unreachable on the control it explains. Rendering disabled rather
+            // than hiding is deliberate: a hidden button never teaches the user
+            // the capability exists. `aria-disabled` is NOT a substitute — it
+            // still fires onClick.
+            <span
+              className="inline-flex"
+              title={
+                tursoConfigured
+                  ? t(lang, "projectLoadFromTursoHint")
+                  : t(lang, "projectTursoNotConfigured")
+              }
             >
-              {t(lang, "projectLoadFromTurso")}
-            </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!tursoConfigured}
+                onClick={() => setTursoPickerOpen(true)}
+              >
+                {t(lang, "projectLoadFromTurso")}
+              </Button>
+            </span>
           )}
-          {!isTurso && tursoConfigured && currentProject && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onMigrateToTurso}
-              title={t(lang, "projectMigrateToTursoHint")}
+          {/* `currentProject` stays a RENDER gate: with no project there is
+              nothing to move, so a permanently disabled control is noise. */}
+          {!isTurso && currentProject && (
+            <span
+              className="inline-flex"
+              title={
+                tursoConfigured
+                  ? t(lang, "projectMigrateToTursoHint")
+                  : t(lang, "projectTursoNotConfigured")
+              }
             >
-              {t(lang, "projectMigrateToTurso")}
-            </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!tursoConfigured}
+                onClick={onMigrateToTurso}
+              >
+                {t(lang, "projectMigrateToTurso")}
+              </Button>
+            </span>
           )}
           <Button variant="primary" onClick={openCreate}>
             + {t(lang, "projectsNew")}

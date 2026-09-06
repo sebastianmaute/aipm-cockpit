@@ -226,8 +226,12 @@ describe("ProjectsPanel", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
-  it("hides 'Move to Turso' when Turso is not configured", () => {
-    setup();
+  // `currentProject` stays a RENDER gate on Move-to-Turso: with no project
+  // there is nothing to move, so a permanently disabled control there would be
+  // noise. Not-configured is the DISABLED case instead — pinned in the
+  // "Load from Turso" describe below, which covers both buttons.
+  it("hides 'Move to Turso' when there is no current project", () => {
+    setup({ currentProject: undefined });
     expect(screen.queryByRole("button", { name: "Move to Turso" })).toBeNull();
   });
 
@@ -267,11 +271,12 @@ describe("ProjectsPanel file mode", () => {
       { id: "p2", name: "Migration", code: "MIG-2", storageConfig: { kind: "local-json" } as never },
     ];
     setup({ mode: "file", projects: shared, currentProjectId: null });
-    // 7 = MEASURED, exactly as above: Load from file… · + New project · reset
-    // pane size, plus Switch + Delete on each of the two rows. Turso is not
-    // configured in `defaultSettings`, so neither Load-from-Turso nor
-    // Migrate-to-Turso renders.
-    expectRowUniqueNames({ minControls: 7, requireCollisionSeed: true });
+    // 9 = MEASURED, exactly as above: Load from file… · Load from Turso ·
+    // Move to Turso · + New project · reset pane size, plus Switch + Delete on
+    // each of the two rows. Turso is not configured in `defaultSettings`, so
+    // the two Turso buttons render DISABLED rather than not at all — they are
+    // still in the accessible tree and still need row-distinct names.
+    expectRowUniqueNames({ minControls: 9, requireCollisionSeed: true });
   });
 });
 
@@ -386,9 +391,37 @@ describe("ProjectsPanel turso mode", () => {
 });
 
 describe("ProjectsPanel — Load from Turso", () => {
-  it("hides the button when Turso is not configured", () => {
+  it("shows the Turso buttons disabled when Turso is not configured", () => {
     setup();
-    expect(screen.queryByRole("button", { name: "Load from Turso" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move to Turso" })).toBeDisabled();
+  });
+
+  // ★★ A disabled button dispatches NO mouse events, so a `title` on the button
+  // itself never surfaces — the explanation would be unreachable on the very
+  // control it explains. It lives on a wrapper instead.
+  it("puts the not-configured hint on the wrapper, not on the disabled button", () => {
+    setup();
+    const btn = screen.getByRole("button", { name: "Load from Turso" });
+    expect(btn).not.toHaveAttribute("title");
+    expect(btn.closest("[title]")).toHaveAttribute(
+      "title",
+      "Configure a Turso database in Settings → Integrations first.",
+    );
+  });
+
+  it("enables the Turso buttons once Turso is configured", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultSettings.integrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Move to Turso" })).toBeEnabled();
   });
 
   it("hides the button while already in turso mode", () => {
