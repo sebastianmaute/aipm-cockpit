@@ -10,6 +10,7 @@ import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
 import { splitName } from "../resource-foundation";
 import { resolveLinkTitles } from "./link-titles";
+import { str } from "./str";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -125,12 +126,6 @@ export const RICH_FIELDS: ReadonlySet<string> = new Set([
 
 function forPreview(entity: InlineEntity, field: string, value: string): string {
   return RICH_FIELDS.has(`${entity}.${field}`) ? descriptionText(value) : value;
-}
-
-function str(v: unknown): string {
-  if (v == null) return "";
-  if (Array.isArray(v)) return v.join(", ");
-  return String(v);
 }
 
 /** A person's display name from either shape `create_resource` accepts:

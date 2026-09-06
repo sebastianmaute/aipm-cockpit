@@ -36,6 +36,7 @@ import {
 } from "../sanitize-core";
 import { sanitizeMilestoneTaskIds } from "../sanitize-records";
 import { roleLabel } from "../resource-foundation";
+import { str } from "./str";
 
 /** `sanitizeText` bound to one cap, as the apply-path sanitizers call it.
  *  Written as a factory so a `fieldSanitizers` entry can never carry a cap
@@ -46,13 +47,6 @@ const text = (max: number) => (v: unknown): string => sanitizeText(v, max);
  *  outcome `""` denotes everywhere else in a preview. */
 const optionalText = (v: unknown): string => optText(v) ?? "";
 const optionalMultiline = (v: unknown): string => optMultiline(v) ?? "";
-
-/** A referenced row's display value as a string. ★ Deliberately a LOCAL copy of
- *  `plan.ts`'s helper of the same name and the same behaviour, not an import:
- *  `plan.ts` imports THIS module, so importing it back would close a cycle. The
- *  array-joining branch is carried over verbatim so the two cannot drift into
- *  meaning different things under one name. */
-const str = (v: unknown): string => (v == null ? "" : Array.isArray(v) ? v.join(", ") : String(v));
 
 export type InlineEntity = "task" | "raid" | "change" | "milestone" | "stakeholder" | "resource";
 
