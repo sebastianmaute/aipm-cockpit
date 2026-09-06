@@ -625,7 +625,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§398](#398-milestonedescription-is-cleared-by-a-non-string-and-the-preview-projects-one-instead-of-refusing-it-open) | `Milestone.description` is cleared by a non-string, and the preview projects one instead of refusing it | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§399](#399-the-change-amount-sanitizer-accepts-a-fraction-the-preview-rejects-open) | The change amount sanitizer accepts a fraction the preview rejects | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§400](#400-str-is-defined-twice-in-plants-and-entity-descriptorts-open) | `str` is defined twice, in `plan.ts` and `entity-descriptor.ts` | found 2026-09-06 by the preview/apply-parity slice | S | open |
-| [§401](#401-update_task-accepts-an-undeclared-notes-input-that-no-schema-driven-gate-can-see-open) | `update_task` accepts an undeclared `notes` input that no schema-driven gate can see | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§401](#401-update_task-accepts-an-undeclared-notes-input-that-no-schema-driven-gate-can-see-closed-2026-09-06) | `update_task` accepts an undeclared `notes` input that no schema-driven gate can see | found 2026-09-06 by the preview/apply-parity slice | S | closed |
 | [§402](#402-update_resources-roleid-description-tells-the-model-it-assigns-rates-open) | `update_resource`'s `roleId` description tells the model it assigns rates | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§403](#403-sanitizemilestonetaskids-and-sanitizeidlist-disagree-two-ways-open) | `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§404](#404-a-dependency-proposal-whose-links-are-all-refused-shows-no-change-and-no-reason-open) | A dependency proposal whose links are all refused shows no change and no reason | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
@@ -29254,21 +29254,25 @@ records several defects that began exactly there.
 
 ★ The fix is a shared leaf module both import. It was out of scope for the task that hit it.
 
-## 401. `update_task` accepts an undeclared `notes` input that no schema-driven gate can see — OPEN
+## 401. `update_task` accepts an undeclared `notes` input that no schema-driven gate can see — CLOSED 2026-09-06
 
-**Status:** OPEN. Filed 2026-09-06 by the task that built the tool-input coverage gate, which
-established this limit while proving its own reach. Last executed verification 2026-09-06 —
-`grep -n "input.notes" src/app/chat-tools-updates.ts` (two hits, both in `buildPatch`) and `taskFields` in `chat-tool-defs.ts` declares no `notes`, while `buildPatch` resolves
-`input.description ?? input.notes` into `patch.description`.
+**Status:** CLOSED 2026-09-06 by a second scan in the same file, which reads the task write path's
+SOURCE for `input.<name>` instead of its schema. Last executed verification 2026-09-06 —
+`npx vitest run src/app/inline-ai-edit/tool-input-coverage.test.ts` (5 passed), proved non-vacuous by
+emptying the allowlist, which reds with `expected [ 'notes' ] to deeply equal []`.
 
 The alias is deliberate — it kept a pre-0.196.0 spelling working — and it is HARMLESS in itself,
-because it lands in `description`, which IS previewed.
+because it lands in `description`, which IS previewed. It is now allowlisted WITH that reason, and a
+third test reds if the entry ever outlives its call site.
 
-★★★ The point of the entry is the GATE'S REACH, not the alias: `tool-input-coverage.test.ts`
-enumerates DECLARED schema properties, so an input the dispatcher accepts and the schema never
-advertises is invisible to it forever. A green run means "every declared input is covered", never
-"every accepted input is covered". That limit is written into the gate's own header so a reader does
-not over-read it.
+★★★ The point of the entry was the GATE'S REACH, not the alias, and the reach is now WIDER but still
+BOUNDED — read the gate's own header before relying on it. The source scan reads ONE file, and
+`update_task` is the ONLY update tool whose accepted surface is enumerable from source at all: it is
+built by `buildPatch`, a whitelist. The other five go through `patchWithoutId`, which forwards
+whatever the model emits minus `id`, `expectedToken` and the token-excluded fields — so their
+accepted surface is bounded by the downstream sanitizers, not by any set of `input.<name>` reads a
+regex could find. A green run now means "every declared input is covered, and every input the TASK
+write path reads"; it still means nothing about the other five.
 
 ## 402. `update_resource`'s `roleId` description tells the model it assigns rates — OPEN
 

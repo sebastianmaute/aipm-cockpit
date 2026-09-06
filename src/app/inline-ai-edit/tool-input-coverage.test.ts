@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { INLINE_DESCRIPTORS, type EntityDescriptor } from "./entity-descriptor";
 import { TOOL_DEFS } from "../chat-tool-defs";
@@ -13,12 +15,25 @@ import { TOOL_DEFS } from "../chat-tool-defs";
 //  either previewable (`diffFields` / `linkFields`) or excluded HERE with a
 //  written reason.
 //
-// ★★ IT READS THE DECLARED SCHEMA, so its reach ends there. An input the
-//  dispatcher accepts but the schema never advertises is invisible to it —
-//  `buildPatch` (`chat-tools-updates.ts`) still resolves a legacy `notes` key
-//  into `description`, and no property named `notes` exists in `taskFields`, so
-//  nothing below can see that alias. That one is harmless (it lands in
-//  `description`, which IS previewed); the LIMIT is the point worth knowing.
+// ★★ TWO SCANS, AND THEY ANSWER DIFFERENT QUESTIONS. The first describe below
+//  reads the DECLARED schema — every property a `*Fields` helper advertises.
+//  The second reads the task write path's SOURCE for `input.<name>`, so an
+//  input `buildPatch` accepts that no schema advertises (the legacy `notes`
+//  alias) is caught too. Neither is a superset of the other: a declared
+//  property nothing reads is invisible to the second, and an accepted key
+//  nothing declares is invisible to the first.
+//
+// ★★★ WHAT REMAINS OUTSIDE BOTH, because a false coverage claim reads as
+//  protection and stops the next audit. The source scan reads ONE file, and
+//  that file is `update_task`'s alone. `update_task` is also the ONLY update
+//  tool whose accepted surface is enumerable from source at all: it is built by
+//  `buildPatch`, a whitelist. The other five go through `patchWithoutId`, which
+//  has no whitelist — it forwards whatever the model emits minus `id`,
+//  `expectedToken` and the token-excluded fields (its docstring says so), so
+//  their accepted surface is bounded downstream by the sanitizers, not by any
+//  set of `input.<name>` reads a regex could find. Nothing here says anything
+//  about those five, and a seventh update tool reading its inputs in some other
+//  file would be invisible to both scans.
 
 /** Inputs a write tool accepts that the preview deliberately does NOT show.
  *
@@ -130,6 +145,71 @@ describe("every declared write-tool input is previewable or excluded with a reas
       expect(entity, `${key} names no update tool; drop or fix the exclusion`).toBeDefined();
       if (!entity) continue;
       expect(shownFields(entity).has(field), `${key} is shown; drop the exclusion`).toBe(false);
+    }
+  });
+});
+
+/** Inputs `buildPatch` accepts that `update_task`'s schema does not declare.
+ *
+ *  ★★ A finding here is a QUESTION, not automatically a defect — but it is
+ *  never something to allowlist away to get a green run. `notes` earns its
+ *  entry because it resolves INTO `description`, which IS previewed, so the
+ *  user still sees the value the writer will store. An accepted key that lands
+ *  anywhere else is a preview gap, and belongs in the register rather than
+ *  here. */
+const UNDECLARED_ACCEPTED: Record<string, string> = {
+  "update_task.notes":
+    "pre-0.196.0 write ALIAS; `buildPatch` resolves it into `description`, which IS previewed — kept so a stored insight recommendation minted before the rename still replays",
+};
+
+describe("every input the task write path READS is declared, or allowlisted with a reason", () => {
+  // The whole file `buildPatch` lives in. Reading the source rather than the
+  // schema is the point: an accepted-but-undeclared key exists nowhere else.
+  const dispatcherSrc = readFileSync(
+    join(import.meta.dirname, "..", "chat-tools-updates.ts"),
+    "utf8",
+  );
+  const readInputs = new Set(
+    [...dispatcherSrc.matchAll(/\binput\.([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1]),
+  );
+
+  const declaredTaskInputs = (): ReadonlySet<string> => {
+    const def = TOOL_DEFS.find((d) => d.name === "update_task");
+    const schema = def?.input_schema as { properties?: Record<string, unknown> } | undefined;
+    return new Set(Object.keys(schema?.properties ?? {}));
+  };
+
+  it("reaches the real source — the scan is not matching an empty set", () => {
+    // ★★★ THE ANTI-VACUITY GUARD, and it needs a POSITIVE observable beside the
+    //  `toEqual([])` below: a regex that matches nothing reports every input as
+    //  declared and passes forever. `taskName` is asserted by NAME because a
+    //  bare count survives the file being replaced by something unrelated of
+    //  the same size. 13 distinct reads today.
+    expect(readInputs.has("taskName")).toBe(true);
+    expect(readInputs.size).toBeGreaterThanOrEqual(10);
+  });
+
+  it("declares every input the write path reads, or allowlists it with a reason", () => {
+    const declared = declaredTaskInputs();
+    const undeclared = [...readInputs]
+      .filter((name) => !declared.has(name))
+      .filter((name) => !UNDECLARED_ACCEPTED[`update_task.${name}`])
+      .sort();
+    expect(undeclared).toEqual([]);
+  });
+
+  it("keeps the allowlist honest — every entry must still be read by the write path", () => {
+    // An allowlist that outlives its call site is a false assurance, which is
+    // the failure mode this register keeps recording.
+    for (const key of Object.keys(UNDECLARED_ACCEPTED)) {
+      const [tool, field] = key.split(".");
+      // The tool half is checked too. The lookup above builds its probe as
+      // `update_task.${name}`, so an entry keyed to any other tool is INERT —
+      // it excuses nothing and reds nothing, which is the silent-rot shape this
+      // test exists to catch. Measured: a mutant that broke only the tool half
+      // left this test green until the check was added.
+      expect(tool, `${key} names no tool this scan reads`).toBe("update_task");
+      expect(readInputs.has(field), `${key} is no longer read; drop the entry`).toBe(true);
     }
   });
 });
