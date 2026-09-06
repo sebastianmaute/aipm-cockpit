@@ -23,9 +23,24 @@ import { TOOL_DEFS } from "../chat-tool-defs";
 //  property nothing reads is invisible to the second, and an accepted key
 //  nothing declares is invisible to the first.
 //
+// ★★★ THE SOURCE SCAN IS WIDER THAN THE SET IT CHECKS AGAINST, and that
+//  asymmetry is deliberate but must not be misread. It reads EVERY
+//  `input.<name>` in `chat-tools-updates.ts` — a file that is NOT
+//  `update_task`'s alone: `buildPatch` is task-only, but `patchWithoutId`
+//  serves the other five update tools and `requireToken` serves all six (its
+//  `input.expectedToken` read is already in the scanned set today). The
+//  assertion then compares that file-wide set against `update_task`'s DECLARED
+//  properties. So a key read only by some OTHER update tool in this file would
+//  be reported as an undeclared `update_task` input — a loud, MISATTRIBUTED
+//  finding. The direction is safe (it can over-report, never under-report), and
+//  the scan is left wide on purpose: narrowing it to `buildPatch` would drop
+//  `requireToken`'s read from the corpus the anti-vacuity guard below measures,
+//  and would blind it to a future task-relevant read placed outside
+//  `buildPatch`. Read a failure here as "some tool in this file reads a key
+//  `update_task` does not declare", never as "`update_task` reads it".
+//
 // ★★★ WHAT REMAINS OUTSIDE BOTH, because a false coverage claim reads as
-//  protection and stops the next audit. The source scan reads ONE file, and
-//  that file is `update_task`'s alone. `update_task` is also the ONLY update
+//  protection and stops the next audit. `update_task` is the ONLY update
 //  tool whose accepted surface is enumerable from source at all: it is built by
 //  `buildPatch`, a whitelist. The other five go through `patchWithoutId`, which
 //  has no whitelist — it forwards whatever the model emits minus `id`,
@@ -162,9 +177,12 @@ const UNDECLARED_ACCEPTED: Record<string, string> = {
     "pre-0.196.0 write ALIAS; `buildPatch` resolves it into `description`, which IS previewed — kept so a stored insight recommendation minted before the rename still replays",
 };
 
-describe("every input the task write path READS is declared, or allowlisted with a reason", () => {
-  // The whole file `buildPatch` lives in. Reading the source rather than the
-  // schema is the point: an accepted-but-undeclared key exists nowhere else.
+describe("every input read anywhere in the task dispatcher file is declared on update_task, or allowlisted", () => {
+  // The whole file `buildPatch` lives in — which also holds `patchWithoutId`
+  // and `requireToken`, shared with the other five update tools, so this set is
+  // NOT `update_task`'s reads alone (see the ★★★ scope note at the top).
+  // Reading the source rather than the schema is the point: an
+  // accepted-but-undeclared key exists nowhere else.
   const dispatcherSrc = readFileSync(
     join(import.meta.dirname, "..", "chat-tools-updates.ts"),
     "utf8",
@@ -189,13 +207,19 @@ describe("every input the task write path READS is declared, or allowlisted with
     expect(readInputs.size).toBeGreaterThanOrEqual(10);
   });
 
-  it("declares every input the write path reads, or allowlists it with a reason", () => {
+  it("declares every input read in this file on update_task, or allowlists it with a reason", () => {
     const declared = declaredTaskInputs();
     const undeclared = [...readInputs]
       .filter((name) => !declared.has(name))
       .filter((name) => !UNDECLARED_ACCEPTED[`update_task.${name}`])
       .sort();
-    expect(undeclared).toEqual([]);
+    expect(
+      undeclared,
+      "read in chat-tools-updates.ts but not declared on update_task. The scan is " +
+        "FILE-WIDE and that file also holds `patchWithoutId`/`requireToken`, shared with " +
+        "the other five update tools — so check WHICH tool reads the key before treating " +
+        "this as an `update_task` preview gap.",
+    ).toEqual([]);
   });
 
   it("keeps the allowlist honest — every entry must still be read by the write path", () => {

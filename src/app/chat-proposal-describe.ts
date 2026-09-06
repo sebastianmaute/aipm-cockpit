@@ -266,12 +266,18 @@ function describeDependencyCall(call: ProposedCall, ws: Workspace): EditPlan {
     //  `set_task_dependencies` alone, reads `ws.tasks`, renders `taskName` and
     //  emits a field that exists on `Task` and nowhere else. Every other
     //  producer passes `d.entity` (§393).
-    //  ★ It does NOT change what this surface renders. `PlanDetail` resolves
-    //  its label from the ROW's own tool name, and this tool is deliberately
-    //  absent from `TOOL_ENTITY` (see `DEPENDENCY_LINK`), so the card still
-    //  falls back to the raw property name. Wiring the renderer to `l.entity`
-    //  would translate it — a separate change with the consequences that
-    //  docstring lists, not a side effect of carrying the data.
+    //  ★ It does NOT change what this surface renders, and cannot: `PlanDetail`
+    //  resolves its label from the ROW's own tool name, and this tool is
+    //  deliberately absent from `TOOL_ENTITY` (see `DEPENDENCY_LINK`), so the
+    //  entity the renderer passes is `undefined` whatever is set here. The card
+    //  is translated all the same — `fieldLabel` resolves an undefined entity
+    //  through `ENTITYLESS_FIELD_LABEL_KEY`, the narrow exception written for
+    //  this very tool — so the row reads "<task title> – Dependencies" in the
+    //  user's language, not a raw property name.
+    //  ★★ Wiring the renderer to `l.entity` would make it WORSE, not better:
+    //  `FIELD_LABEL_KEY` declares no `task.dependencies` member, so
+    //  `keyedFieldLabel` would fall straight back to the raw name. Carrying
+    //  the data here is what keeps a future producer honest, nothing more.
     entity: "task" satisfies InlineEntity,
     // ★ `set_task_dependencies` rewrites an EXISTING task's predecessor list,
     //  so this is a real row write, not a create's disclosure — see

@@ -85,7 +85,7 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *   be confused: the rebuild path applies `rawIds`, the card renders the
  *   titles. `rawIds` is already sanitized by THAT FIELD'S OWN writer rule
  *   (`sanitizeIdList` for raid/change, `sanitizeMilestoneTaskIds` for
- *   milestone — the same rule since §403 aligned them in 0.289.0, but still
+ *   milestone — the same rule since §403 aligned them, but still
  *   reached through each field's own function so a later divergence cannot
  *   sneak past the preview), so what the preview shows and what the patch
  *   carries come from one computation.
@@ -99,8 +99,12 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *   a label composed there reaches the card in English whatever the user's
  *   language — the renderer composes and translates instead (§406).
  *   ★ Leave it undefined on any surface whose row already names the row, or the
- *   card reads "Migrate database – Migrate database". Nothing in
- *   `buildEditPlan` sets it; only the hand-written dependency describer does. */
+ *   card reads "Migrate database – Migrate database". Nothing the descriptor
+ *   engine produces sets it: every link diff on that path is built by
+ *   `pushLinkDiffs` below on behalf of `describeEntityCalls`, and the other two
+ *   `EditPlan` producers only delegate to it (`describeToolCalls` wraps it;
+ *   `describeRecommendationPlan` merges its results). `describeDependencyCall`
+ *   in `chat-proposal-describe.ts` is the sole producer that sets one. */
 export interface LinkDiff {
   /** The register this link belongs to — see `FieldDiff.entity` (§393). Same
    *  member, same reason: `linkedTaskIds` is declared on raid AND on change,

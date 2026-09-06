@@ -111,8 +111,9 @@ describe("linkLabel", () => {
     );
   });
 
-  // Every diff `buildEditPlan` produces is this shape — only the hand-written
-  // dependency describer sets a subject — so the no-subject render must stay
+  // Every diff the descriptor engine produces is this shape — `describeEntityCalls`
+  // and the two producers that delegate to it never set a subject; only the
+  // hand-written dependency describer does — so the no-subject render must stay
   // byte-identical to `fieldLabel`, not merely similar.
   it("renders exactly the field label when there is no subject", () => {
     expect(linkLabel("en-US", "raid", { field: "linkedTaskIds" })).toBe(

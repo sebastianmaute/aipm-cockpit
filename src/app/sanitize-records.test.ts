@@ -286,7 +286,20 @@ describe("delegate-never-restate: the change sanitizer and its merge-site guard"
   });
 });
 
-describe("delegate-never-restate: the milestone sanitizer and its merge-site guard", () => {
+/** ★★★ THIS BLOCK CANNOT SEE THE MERGE-SITE GUARD, WHICH IS WHY ITS NAME NO
+ *  LONGER CLAIMS TO — the peer blocks above still say "and its merge-site
+ *  guard" and this one deliberately does not. It exercises `sanitizeMilestone`
+ *  alone, and its expectation is COMPUTED BY THE SAME CALL the subject makes
+ *  (`sanitizeIsoDate(probe)`), so it is a round-trip check of the sanitizer's
+ *  own rule and nothing more. Kept because that round trip is real; renamed
+ *  because the old name pointed an auditor at coverage that is not here.
+ *
+ *  ★★ MEASURED, not reasoned: deleting the `achievedDate: acceptsPatchDate` row
+ *  from `MILESTONE_FIELD_GUARDS` leaves this WHOLE FILE green — 0 failed / 100
+ *  passed. The same mutant turns `sanitize-milestone-patch.test.ts` red at
+ *  8 failed / 26 passed, in its `dropUnacceptedMilestoneFields` describe. THAT
+ *  file is the guard's only pin; do not read a green run here as covering it. */
+describe("delegate-never-restate: the milestone sanitizer's own achievedDate rule", () => {
   const PROBES: unknown[] = ["2026-01-01", "not-a-date", "", "1899-01-01", 42, true, null, undefined, [], {}];
 
   it.each(PROBES.map((v) => [probeLabel(v), v] as const))(

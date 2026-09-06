@@ -1187,7 +1187,7 @@ describe("link fields", () => {
   it("uses the milestone's OWN id rule, which parses a delimited string", () => {
     // WAS "…which drops a delimited string", asserting after "" / rawIds [] —
     // the milestone rule was array-only, so raid/change parsed "1;2" into two
-    // links and a milestone stored []. §403 aligned it in 0.289.0. What this
+    // links and a milestone stored []. §403 aligned it. What this
     // still pins is the invariant that outlived the divergence: the preview
     // shows what THIS writer does, reached through the milestone's own
     // function, so a later re-divergence moves the card with the write.

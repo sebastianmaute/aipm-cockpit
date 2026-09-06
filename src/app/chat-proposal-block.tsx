@@ -131,10 +131,12 @@ function PlanDetail({
   plan: EditPlan;
   /** ★★ RESOLVED FROM THE ROW'S OWN TOOL NAME, not from the card. A staged
    *  proposal mixes entities freely, so one card-wide entity would mislabel
-   *  every row but the first — `impact` is a 1-5 rating on a RAID item and a
-   *  free-text rating on a change. `undefined` for a tool the descriptor engine
-   *  has no entity for (every `*_document` tool), and `fieldLabel` then falls
-   *  back to the raw property name rather than guessing. */
+   *  every row but the first — `impact` is a 1-5 `RiskScale` on a RAID item and
+   *  a Low/Medium/High/Critical `ChangeImpact` enum on a change. `undefined` for
+   *  a tool the descriptor engine has no entity for (every `*_document` tool,
+   *  and `set_task_dependencies`), and `fieldLabel` then falls back to the raw
+   *  property name rather than guessing — except for the fields
+   *  `ENTITYLESS_FIELD_LABEL_KEY` covers, which it translates instead. */
   entity: InlineEntity | undefined;
 }) {
   if (isEmptyPlan(plan) && plan.rejected.length === 0) return null;

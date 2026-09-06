@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { describeEntityCalls, previewNormalizerFor, RICH_FIELDS, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
@@ -820,7 +821,12 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
    *  tripwire that reports success is worse than none. */
   describe("the resource merge site stays unguarded, or this reader must be composed", () => {
     it("hands sanitizeResource the model's patch with nothing in between", () => {
-      const src = readFileSync("src/app/use-chat-dispatcher.ts", "utf8");
+      // ★ Anchored to THIS file rather than the cwd, matching
+      //  `tool-input-coverage.test.ts`. Use `join(import.meta.dirname, …)`, not
+      //  `new URL(…, import.meta.url)` — under this vitest config the latter
+      //  throws `The URL must be of scheme file`, which surfaces as "no tests"
+      //  at a non-zero exit rather than as a readable failure.
+      const src = readFileSync(join(import.meta.dirname, "..", "use-chat-dispatcher.ts"), "utf8");
       const start = src.indexOf("updateResource: (id: number, patch: Partial<ResourceInput>) => {");
       const end = src.indexOf("deleteResource: (id: number) => {", start);
       // ★ ANTI-VACUITY FIRST. Both `indexOf` calls return -1 on a rename, and a

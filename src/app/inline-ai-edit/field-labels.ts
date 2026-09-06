@@ -166,7 +166,9 @@ function keyedFieldLabel(lang: Lang, entity: InlineEntity, field: string): strin
  *   field label is what varies down the list beneath it.
  *
  *  ★★ A diff with no `subject` renders EXACTLY `fieldLabel`, byte for byte —
- *   which is every diff `buildEditPlan` produces. Only the hand-written
+ *   which is every diff the descriptor engine produces — `describeEntityCalls`
+ *   builds them all through its `pushLinkDiffs` helper, and `describeToolCalls`
+ *   and `describeRecommendationPlan` only delegate to it. Only the hand-written
  *   `set_task_dependencies` describer sets one today (§406), because that tool
  *   is the one whose row title cannot name its own task. */
 export function linkLabel(

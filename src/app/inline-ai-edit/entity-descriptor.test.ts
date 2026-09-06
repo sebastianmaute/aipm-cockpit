@@ -238,8 +238,8 @@ describe("linkFields", () => {
   //  is a disclosed coverage loss, not an oversight: it used to assert
   //  `milestone("1;2")` was `[]` where raid was `[1, 2]`, and
   //  `milestone([3, 1, 3])` was `[3, 1, 3]` where raid deduped — the milestone
-  //  rule was array-only and non-deduping. §403 aligned it onto `sanitizeIdList`
-  //  in 0.289.0, so the two now agree on every probe and no id value can tell a
+  //  rule was array-only and non-deduping. §403 aligned it onto `sanitizeIdList`,
+  //  so the two now agree on every probe and no id value can tell a
   //  real delegation from a shared approximation. The discriminator that
   //  SURVIVES is `resource.roleId`, pinned by the test above this one, which is
   //  the only reason that test must not be folded into this one.

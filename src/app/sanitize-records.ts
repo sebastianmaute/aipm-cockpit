@@ -74,7 +74,7 @@ import { RICH_SINK } from "./html-start";
  *  from `sanitizeIdList` — array-only and non-deduping — which meant
  *  `linkedTaskIds: "1;2"` linked two tasks on a raid item and nothing on a
  *  milestone, and duplicates inflated the digest's `linkedTasks` count. Aligned
- *  in 0.289.0 (§403). Kept as a named export because the preview calls it by
+ *  by §403. Kept as a named export because the preview calls it by
  *  name and because a future milestone-specific rule has somewhere to live. */
 export function sanitizeMilestoneTaskIds(v: unknown): number[] {
   return sanitizeIdList(v);
