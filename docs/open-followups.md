@@ -29214,3 +29214,79 @@ spelled-out sentence in the accessible name are what everyone else gets. ★ If 
 revisited, the cheap direction is making the split part of what the badge already announces (or
 rendering it in the RAID panel the badge jumps to), NOT adding a second per-row control — the
 three costs above are properties of the extra control, not of the tooltip primitive.
+
+## 414. The browser eye-verify owed by the control-defects batch — OPEN
+
+**Status:** OPEN, work owed (a deferral recorded, not a defect). 2026-09-06, never machine-verified — every item below is a layout, hover or native-tooltip observation, and nothing in this repo can observe one.
+
+The control-defects batch shipped fourteen commits whose visible result nobody has looked at in a
+browser. The user DEFERRED that pass rather than skipping it; this entry is what is owed, so the
+work is recoverable by someone who was not in the session.
+
+**Why no test can stand in for it.** jsdom has no layout — no box, no overflow, no wrapping — and
+it renders no native `title` tooltip, so clipping, wrapping, reflow and hover-hint questions are
+all outside the unit suite by construction. The tests these commits DID add assert CLASSES and
+ARIA wiring, which is the most a unit test can reach here; each says so in its own comment.
+
+**And the axe gate does not close the gap either, for two different reasons — do not merge them.**
+`A11Y_VIEWS` in `e2e/a11y.spec.ts` omits **Projects** and **Knowledge** outright, so items 1 and 5
+render in no scan at any scheme (reproduce: `grep -n "A11Y_VIEWS = " e2e/a11y.spec.ts`). Items 2,
+3, 4 and 6 are the OPPOSITE case and reading them as unscanned is the easy mistake: Open Points and
+Documents are both IN that list, so those surfaces are scanned — axe simply has no rule for any of
+the properties below, and for item 6 the asset library is Turso-gated while `e2e/seed.ts` seeds
+FILE mode, so the control never mounts for the gate regardless.
+
+### What is owed, item by item
+
+1. **The Turso disabled-button hint actually appearing on hover.** `78313fb4` / `49953128` /
+   `122d5b1d` render the Turso buttons visible-but-disabled and hang the explanatory hint on a
+   wrapping `<span title=…>`, relying on `disabled:pointer-events-none` on the button so the hit
+   test falls through to the wrapper. **Whether a browser then shows that tooltip is unverified**,
+   and it is the highest-value item here: if it does not, those three commits deliver materially
+   less than they claim while their tests stay green. Two surfaces, three buttons — Load from Turso
+   and Move to Turso in `projects-panel.tsx`, Load from Turso in `project-empty-state.tsx`
+   (`grep -n "disabled:pointer-events-none" src/app/projects-panel.tsx src/app/project-empty-state.tsx`).
+   ★ The `aria-describedby` → `sr-only` half is NOT what is owed: it is pinned by
+   `toHaveAccessibleDescription` in both `projects-panel.test.tsx` and `project-empty-state.test.tsx`.
+   Only the POINTER path is unverified. Check it in Firefox as well as Chromium — this depends on
+   each browser's own `title` lookup walking up from the disabled child.
+2. **The Ask-Claude icon no longer clipping.** `97ded2c2` gave the leading `<Td>` in `task-row.tsx`
+   `padding="tight"` because the default `padding="normal"` is `px-4` (32px) inside a `w-7` (28px)
+   cell. Owed: confirm the sparkles glyph sits inside its cell and no longer rides over the
+   checkbox, and that the row's leading alignment did not regress for rows where the trigger does
+   not mount.
+3. **The ID-column badge run not wrapping.** `f168a927` added `whitespace-nowrap` to four badges
+   and `178b2aa9` shortened the RAID badge's visible text to a count. Owed: confirm the run fits
+   the ID column at a realistic column width and at the narrowest the user can drag it to.
+   ★★ **TABLE ROW ONLY — the Kanban half of this was misstated when the item was assembled.** Three
+   of the four badges are shared components (`task-jira-badge.tsx`, `task-raid-badge.tsx`,
+   `document-badge.tsx`) so the Kanban card inherits their nowrap for free; the FOURTH, the changes
+   badge, is a duplicated inline `<span>` and only `task-row.tsx`'s copy was touched —
+   `grep -c whitespace-nowrap src/app/task-kanban-card.tsx` returns 0. That is not a defect to
+   fix: the card has no ID column, and its badge row is a `flex flex-wrap` container where wrapping
+   is the intended behaviour. Verify the card only for the SHORTENED RAID text reading sensibly in
+   a narrow column.
+4. **Documents body collapse reflow.** `9a703ead` put a disclosure chevron on the open document's
+   row, `ede67ddd` made the body collapse by re-clicking the name, and — omitted when this item was
+   assembled — `3f59c5a2` resets the collapse on every selection change rather than only on clicks.
+   Owed: confirm the panel reflows sensibly when the body collapses, and that the collapse really
+   does reset when the selection changes by a route other than a click.
+   ★ The chevron-underline half needs no browser and is already settled: the `aria-hidden` chevron
+   `<span>` is a CHILD of the title button carrying `hover:underline`, and `text-decoration`
+   propagates to in-flow descendants, so it IS underlined on hover
+   (`grep -n -A 4 'hover:underline' src/app/documents-list.tsx`). The open question is only whether
+   that reads acceptably — a taste call, not a fact-finding one.
+5. **Keyboard-only operation of the Knowledge attach-to picker.** `955fbe5b` replaced a native
+   `<select>` over every task, RAID item, change, milestone, stakeholder and the project with
+   `SingleEntityPicker`; `216581cc` then lifted the option cap off `filterPickerOptions`' default.
+   Owed: open, arrow, Enter, Escape end to end in a real browser, and specifically that Escape
+   closes the picker WITHOUT also dismissing the surface around it — the Escape/Tab protocol in
+   `docs/AGENTS/ui-shell.md` is what that has to satisfy.
+6. **An asset's name reading as interactive.** `57a6d8c7` made the name a preview trigger, but only
+   when `loadImage` is passed. Owed: confirm it reads as a control rather than as plain text, and
+   that the non-interactive branch (no loader) still reads as plain text. ★ Needs a REAL Turso
+   project: `documents-asset-section.tsx` passes `loadImage` only when `tursoConfig !== null`, so a
+   file-mode session renders the inert branch and cannot answer this at all.
+
+★ None of the six is a reported defect. Each is a claim the tests could not reach, so a clean
+eye-verify closes this entry and anything it turns up gets its own.
