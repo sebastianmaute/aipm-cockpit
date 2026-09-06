@@ -346,10 +346,15 @@ describe("ChatProposalBlock", () => {
     expect(screen.queryByText("C dependencies")).not.toBeInTheDocument();
   });
 
-  // A diff with no subject keeps the bare label — the subject exists for the one
-  // tool whose ROW TITLE cannot carry the task's name, and qualifying every link
-  // on a card that already names its row would read "Migrate database – Migrate
-  // database".
+  // A diff with no subject keeps the bare label: qualifying every link on a card
+  // that already names its row would read "Migrate database – Migrate database".
+  // ★★ THE SUBJECT IS NOT "for the one tool", which is what this comment said
+  //  until §420. There are TWO producers and they are ambiguous for OPPOSITE
+  //  reasons: `set_task_dependencies`, whose ROW TITLE cannot carry the task's
+  //  name (§406), and a `target: "create"` diff, whose row does not exist yet
+  //  for any title to name (§420). What the two share — and what this test
+  //  pins — is that neither shape is a `target: "row"` diff, so an ordinary
+  //  row rewrite still renders bare.
   it("leaves a subject-less link label bare", () => {
     renderCard([
       row({

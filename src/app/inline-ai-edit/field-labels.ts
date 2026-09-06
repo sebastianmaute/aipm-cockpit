@@ -172,7 +172,7 @@ function keyedFieldLabel(lang: Lang, entity: InlineEntity, field: string): strin
  *   list used to say ONE: the hand-written `set_task_dependencies` describer in
  *   `chat-proposal-describe.ts` (§406), whose tool's row title cannot carry its
  *   own task's name, and `pushLinkDiffs` in `plan.ts` on a `target: "create"`
- *   diff (§407), whose row does not exist yet. */
+ *   diff (§420), whose row does not exist yet. */
 export function linkLabel(
   lang: Lang,
   entity: InlineEntity | undefined,

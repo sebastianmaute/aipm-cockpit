@@ -446,10 +446,17 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // Mirrors `sanitizeMilestone` (sanitize-records.ts) — `name` is the only
     // non-date, non-rich field it has.
     fieldSanitizers: { name: text(BUDGET_NAME_MAX) },
-    // ★★ NOT `sanitizeIdList`. The milestone writer has its own rule: array
-    //  only (a delimited string yields `[]`, where raid/change parse one) and NO
-    //  dedupe. Substituting the raid/change function would preview links this
-    //  write drops — `sanitize-records.ts` exports it to prevent exactly that.
+    // ★★ `sanitizeMilestoneTaskIds` DELEGATES to `sanitizeIdList` — the two
+    //  agreed since §403 aligned them (`sanitize-records.ts`: the body is
+    //  `return sanitizeIdList(v);`). Before that the milestone rule was
+    //  array-only and non-deduping, so a delimited `"1;2"` linked two tasks on
+    //  a raid item and NOTHING on a milestone.
+    //  ★★ Reached through the milestone's OWN function anyway, never through
+    //  `sanitizeIdList` directly: the preview's job is to show what THIS
+    //  field's writer stores, so a later milestone-specific rule lands here
+    //  automatically instead of silently diverging from the card. That is also
+    //  why `sanitize-records.ts` keeps it as a named export rather than
+    //  collapsing the call sites.
     linkFields: {
       linkedTaskIds: { wsKey: "tasks", kind: "list", titleOf: (r) => str(r.taskName), sanitize: sanitizeMilestoneTaskIds },
     },

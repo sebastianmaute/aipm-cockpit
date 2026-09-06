@@ -68,6 +68,17 @@ describe("INLINE_DESCRIPTORS", () => {
   //  previewed verbatim by `str`, so an accepted `"3.0"` renders as the model's
   //  spelling rather than the `3` the writer stores — a disclosure defect
   //  rather than an unenforced guard, and still worth pinning.
+  //  ★★★ THAT CARD CLAIM IS STATED, NOT PINNED — by this test or by any other,
+  //  and saying so is the point. The `it` below asserts SET MEMBERSHIP only
+  //  (`numericFields` ⊆ `numberFields`); nothing anywhere renders a
+  //  non-`numberFields` numeric value and compares the two spellings, so a
+  //  change that made `str` and the coercion agree would leave this rationale
+  //  false and the suite green. It is left stated because it is the reason the
+  //  membership matters — but do not read the green run as covering it. What
+  //  would close it: a `describeEntityCalls` case feeding `"3.0"` to a numeric
+  //  field and asserting the rendered `after`, in `plan.test.ts` where the
+  //  engine and its private `numberPreview` are actually exercised —
+  //  `numberPreview` is not exported, so it cannot be compared from here.
   //  ★ The example used to be `"3"`, which cannot illustrate the point:
   //  `str("3")` and `numberPreview("3")` both return `"3"`, so the two sides
   //  are indistinguishable at that value. It takes a spelling the coercion

@@ -73,14 +73,14 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *     `tsc` exit 2 AND reddens tests in BOTH `plan.test.ts` and
  *     `use-inline-entity-edit.test.tsx`. That mutation is the realistic defect,
  *     and it is caught twice.
- *     ★ RE-MEASURED after §407 added a conditional `subject` spread to that
+ *     ★ RE-MEASURED after §420 added a conditional `subject` spread to that
  *      literal, because a spread is precisely the shape that could have
  *      silenced excess-property checking. It does not: `rawIds` is written
  *      explicitly, so it is still checked, and the mutation still exits 2.
  *     ★★ NO TALLY IS QUOTED HERE AND RESTORING ONE IS A REGRESSION. This line
  *      read "10 tests across two files" and the mutation measured FIFTEEN on
  *      2026-09-06, of which only two were new that day — so it was already
- *      stale before §407 touched it. Every test added anywhere that asserts on
+ *      stale before §420 touched it. Every test added anywhere that asserts on
  *      `links` moves the number; run the mutation for today's.
  *
  *   So the compiler covers the inline shape and the CALL GRAPH plus the tests
@@ -112,7 +112,7 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *     row title anywhere can name it — and it renders as a flat `<li>` in the
  *     same list as the open row's own link lines, with nothing between them, so
  *     unqualified it is READ as one of them. `pushLinkDiffs` sets it from the
- *     created item's own title (§407).
+ *     created item's own title (§420).
  *   It is DATA rather than a built string because `chat-proposal-describe.ts`
  *   is i18n-free by construction, so a label composed there reaches the card in
  *   English whatever the user's language — the renderer composes and translates
@@ -359,7 +359,7 @@ function pushLinkDiffs(
    *  `"<subject> – <field>"` prefix. Left undefined on a `"row"` push, whose
    *  links ARE the open row's and which the card already names; set on a
    *  `"create"` to the created item's own title, because that line otherwise
-   *  reads as a statement about the open row (§407).
+   *  reads as a statement about the open row (§420).
    *
    *  ★ A BLANK title must arrive here as `undefined`, not `""`: the key is
    *   omitted rather than set, so `linkLabel` cannot render a dangling " – ".
@@ -635,7 +635,7 @@ export function describeEntityCalls(
       //  WRITE. `apply()` rebuilds the open row's patch from `plan.links`, so
       //  before `target` existed these ids replaced the open row's own — see
       //  `LinkDiff.target`, and do not narrow that check to `entity`.
-      //  ★★★ AND THE CREATED ITEM'S OWN TITLE RIDES `subject` (§407). The card
+      //  ★★★ AND THE CREATED ITEM'S OWN TITLE RIDES `subject` (§420). The card
       //  renders `plan.links` as flat `<li>`s in the SAME list as the open
       //  row's, with nothing between them, so an unqualified create link line
       //  is indistinguishable from a statement about the OPEN ROW: a RAID row

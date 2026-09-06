@@ -111,10 +111,16 @@ describe("linkLabel", () => {
     );
   });
 
-  // Every diff the descriptor engine produces is this shape — `describeEntityCalls`
-  // and the two producers that delegate to it never set a subject; only the
-  // hand-written dependency describer does — so the no-subject render must stay
+  // Every `target: "row"` diff is this shape, so the no-subject render must stay
   // byte-identical to `fieldLabel`, not merely similar.
+  // ★★ TWO PRODUCERS SET A SUBJECT, not one, and this comment said "only the
+  //  hand-written dependency describer does" until §420 landed a second: the
+  //  `target: "create"` branch of `pushLinkDiffs` (`plan.ts`) sets it from the
+  //  created item's own title, because that row does not exist yet. So
+  //  "`describeEntityCalls` never sets a subject" is now FALSE — it is false
+  //  only on the create branch, and true for every `"row"` diff, which is the
+  //  half this test needs. Stating it the old way made a reader who found the
+  //  create branch distrust the test rather than the comment.
   it("renders exactly the field label when there is no subject", () => {
     expect(linkLabel("en-US", "raid", { field: "linkedTaskIds" })).toBe(
       fieldLabel("en-US", "raid", "linkedTaskIds"),

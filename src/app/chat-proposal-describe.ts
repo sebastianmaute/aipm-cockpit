@@ -247,7 +247,7 @@ function describeDependencyCall(call: ProposedCall, ws: Workspace): EditPlan {
   //  ★ `detail` is `${taskId}:${type}=${reason}` rather than prose: this module
   //  is i18n-free by construction, and the renderer is what translates.
   //  ★ Only the resolver's OWN "unknown-id" maps to the shared reason of the
-  //  same name; the other four (self/cycle/duplicate/cap/bad-type) have no
+  //  same name; the other five (self/cycle/duplicate/cap/bad-type) have no
   //  counterpart in `Rejected["reason"]` and fold into "bad-input" — `detail`
   //  still carries the specific reason, so nothing is lost, only re-classified.
   for (const r of rejected) {

@@ -21,6 +21,7 @@ import { AI_RICH_FIELDS, withAiRichFields } from "./ai-rich-text";
 import { describeEntityCalls } from "./inline-ai-edit/plan";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 import { type Workspace } from "./workspace";
+import { stripComments } from "../test/strip-comments";
 
 /** The composition `updateMilestone` (`use-register-tools.ts`) really performs.
  *
@@ -329,12 +330,31 @@ describe("dropUnacceptedMilestoneFields", () => {
       //  names a rich field TODAY, so nothing there depends on the order yet.
       //  That is exactly why they are worth pinning: the trap is armed for
       //  whoever adds one, and it is invisible until they do.
-      const src = readFileSync("src/app/use-register-tools.ts", "utf8");
+      // ★★ COMMENTS BLANKED FIRST. `use-register-tools.ts` documents this very
+      //  ordering in prose at all three call sites, so a raw-text scan reads
+      //  its own explanation: the ★★★ comment above `dropUnacceptedRaidFields`
+      //  spells out which helper goes first. Both directions fail LOUDLY here
+      //  (a prose mention of the outer form pushes `outer` past 3; of the inner
+      //  form pushes `inner` past 0), so this is a correctness fix, not a
+      //  false-green one — but a scan that can be reddened by an EDIT TO A
+      //  COMMENT is a scan that will be "fixed" by weakening it.
+      //  ★★ `stripComments` (`src/test/strip-comments.ts`), never a local
+      //   regex: it uses the TypeScript parser, and the four hand-rolled
+      //   strippers this repo has shipped were all wrong. It is LENGTH-
+      //   PRESERVING, so the `\s*` spans below are unaffected — a blanked
+      //   comment between the two calls would still read as whitespace, which
+      //   is the correct answer for `withAiRichFields( /* … */ dropUnaccepted`.
+      const src = stripComments(
+        readFileSync("src/app/use-register-tools.ts", "utf8"),
+        "use-register-tools.ts",
+      );
       const outer = src.match(/withAiRichFields\(\s*dropUnaccepted/g) ?? [];
       const inner = src.match(/dropUnaccepted\w+Fields\(\s*withAiRichFields/g) ?? [];
       // ★ Assert the POSITIVE count as well as the absence: a renamed helper
       //  would make both patterns match zero and the "no inner nesting" half
-      //  would pass vacuously.
+      //  would pass vacuously. It is also the ANTI-VACUITY guard on the strip —
+      //  an over-blanking stripper that ate the real calls reds here rather
+      //  than reporting a clean `inner` over an empty corpus.
       expect(outer).toHaveLength(3);
       expect(inner).toHaveLength(0);
     });

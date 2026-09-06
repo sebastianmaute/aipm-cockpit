@@ -136,7 +136,35 @@ function PlanDetail({
    *  a tool the descriptor engine has no entity for (every `*_document` tool,
    *  and `set_task_dependencies`), and `fieldLabel` then falls back to the raw
    *  property name rather than guessing — except for the fields
-   *  `ENTITYLESS_FIELD_LABEL_KEY` covers, which it translates instead. */
+   *  `ENTITYLESS_FIELD_LABEL_KEY` covers, which it translates instead.
+   *
+   *  ★★★ DO NOT "ALIGN" THIS TO THE PER-DIFF `d.entity` / `l.entity` THE OTHER
+   *   TWO SURFACES READ. `inline-ai-edit-popover.tsx` passes `d.entity` and
+   *   `l.entity`, and copying that here is a REGRESSION on the links line —
+   *   measured 2026-09-06, not reasoned. `set_task_dependencies` is
+   *   deliberately absent from `TOOL_ENTITY`, so this prop is `undefined` for
+   *   its row and `fieldLabel` routes through `ENTITYLESS_FIELD_LABEL_KEY`;
+   *   `describeDependencyCall` nonetheless sets the diff's own
+   *   `entity: "task"`, and `FIELD_LABEL_KEY` declares no `task.dependencies`
+   *   member, so `keyedFieldLabel` falls straight back to the RAW property
+   *   name. Reproduce with `linkLabel` directly:
+   *     linkLabel("en-US", undefined, {field:"dependencies",subject:"Draft brief"})
+   *       → "Draft brief – Dependencies"   (today, and the same in DE)
+   *     linkLabel("en-US", "task",      {field:"dependencies",subject:"Draft brief"})
+   *       → "Draft brief – dependencies"   (after the "alignment")
+   *   An untranslated lowercase property name on an approval card, in every
+   *   language. The same trade is spelled out from the producer's side in
+   *   `chat-proposal-describe.ts`, above its `entity: "task"` push.
+   *
+   *  ★★ THE UPDATES LINE IS A DIFFERENT CASE AND IS NOT WORTH CHANGING EITHER:
+   *   there, this prop and `d.entity` are provably the SAME VALUE, so no test
+   *   can discriminate the two forms. `TOOL_ENTITY` is built by walking
+   *   `INLINE_DESCRIPTORS` and mapping each descriptor's create/update/delete
+   *   tool to that descriptor's `entity`; a `FieldDiff`'s `entity` comes from
+   *   the descriptor the engine resolved for the same tool. A row whose tool
+   *   has no descriptor gets an EMPTY plan, so `plan.updates` is never
+   *   non-empty while this prop is `undefined`. Switching only that line would
+   *   buy nothing and leave the file reading as a half-finished edit. */
   entity: InlineEntity | undefined;
 }) {
   if (isEmptyPlan(plan) && plan.rejected.length === 0) return null;

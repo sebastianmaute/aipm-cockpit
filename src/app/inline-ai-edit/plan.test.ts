@@ -50,7 +50,7 @@ describe("describeToolCalls", () => {
     //  filters on exactly this, and `entity` cannot stand in for it: had the open
     //  row been a RAID item, `entity` would read "raid" here too. See
     //  `LinkDiff.target`.
-    // ★★ `subject` is the CREATED item's title (§407), and it is what stops this
+    // ★★ `subject` is the CREATED item's title (§420), and it is what stops this
     //  line reading as a statement about the OPEN row — `target` is invisible to
     //  the reader of the card. It is the same string `plan.creates` carries, so
     //  a create's two rendered lines cannot name the row differently.
@@ -1277,12 +1277,12 @@ describe("EditPlan.links", () => {
   });
 });
 
-// §407. `plan.links` is ONE flat bucket, and all three preview surfaces render
+// §420. `plan.links` is ONE flat bucket, and all three preview surfaces render
 // it as flat rows in the SAME list — nothing separates a line projected off a
 // `create_*` call from one that really does rewrite the open row. `target`
 // closed the WRITE half of that (the rebuild path filters on it); it cannot
 // close the DISCLOSURE half, because the reader of the card never sees `target`.
-describe("a create's link line names the row it belongs to (§407)", () => {
+describe("a create's link line names the row it belongs to (§420)", () => {
   const openRow = { id: 4, category: "R", title: "Risk A", status: "Open", linkedTaskIds: [1, 3] };
   const linkWs = wsWith({
     raid: [openRow] as never,

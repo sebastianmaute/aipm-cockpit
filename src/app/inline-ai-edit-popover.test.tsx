@@ -141,7 +141,7 @@ it("renders a link change in preview", () => {
   expect(screen.getByText(/Draft brief, Review → Ship/)).toBeInTheDocument();
 });
 
-// §407. `plan.links` is ONE flat bucket and this list renders it as flat <li>s
+// §420. `plan.links` is ONE flat bucket and this list renders it as flat <li>s
 // in ONE <ul>, with nothing — no nesting, no separator — between a line
 // projected off a `create_*` call (DISCLOSURE only; the create replays its own
 // input) and one that rewrites the OPEN row. Unqualified, the create's line is

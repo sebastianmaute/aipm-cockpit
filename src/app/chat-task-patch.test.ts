@@ -317,9 +317,16 @@ describe("buildTaskCleanPatch", () => {
 
     it("clears lastUpdateDate on a blank, matching what the preview already promises", () => {
       // The patch is merged over the stored task, so DROPPING the key left the
-      // stored value in place while the card showed a clear (§396). The
-      // fixture's own `lastUpdateDate` is populated, so a reverted writer
-      // cannot pass this by accident.
+      // stored value in place while the card showed a clear (§396).
+      // ★★ THE FIXTURE IS NOT WHAT MAKES THIS ASSERTION SAFE, and this comment
+      //  used to say it was ("the fixture's own `lastUpdateDate` is populated,
+      //  so a reverted writer cannot pass this by accident"). That reasoning
+      //  belongs to a test asserting on the MERGED task; `buildTaskCleanPatch`
+      //  returns the PATCH. A reverted writer that omits the key yields
+      //  `patch.lastUpdateDate === undefined`, which reds against `""` whatever
+      //  the stored task holds — so the assertion is sound for a reason the
+      //  fixture has no part in. Left as a false rationale it invites the next
+      //  reader to "simplify" the fixture and believe they have kept the guard.
       const patch = buildTaskCleanPatch({ lastUpdateDate: "" }, task());
       expect(patch.lastUpdateDate).toBe("");
     });

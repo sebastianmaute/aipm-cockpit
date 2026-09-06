@@ -636,6 +636,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§417](#417-three-test-connection-buttons-shared-one-accessible-name-and-none-announced-its-result--closed-2026-09-06) | Three "Test connection" buttons shared one accessible name, and none announced its result | found 2026-09-06 adding the Turso connection probe | S–M | **CLOSED** 2026-09-06 |
 | [§418](#418-only-update_task-has-a-source-enumerable-input-surface-so-the-coverage-gate-can-cover-one-tool-of-six--open) | Only `update_task` has a source-enumerable input surface, so the coverage gate can cover one tool of six | found 2026-09-06 by the preview/apply-parity round-2 slice | M | open |
 | [§419](#419-a-legacy-over-cap-costimpact-is-silently-clamped-to-amount_max-on-load--open) | A legacy over-cap `costImpact` is silently clamped to `AMOUNT_MAX` on LOAD | found 2026-09-06 by the preview/apply-parity round-2 register sweep | S | open |
+| [§420](#420-a-creates-link-line-rendered-with-a-bare-field-label-indistinguishable-from-the-open-rows--closed-2026-09-06) | A create's link line rendered with a bare field label, indistinguishable from the open row's | found 2026-09-06 in cold review of the preview/apply-parity branch | S | **CLOSED** 2026-09-06 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -30365,3 +30366,56 @@ value above it could only have arrived from a model or a hand-edited file, and d
 than capping it. What is owed is the framing: docstrings that name `9699f0a5` rather than their own
 parent as the baseline, and a decision on whether a stored-data rewrite this size should be
 disclosed at all. Related: §399 (which closed on the days half and does NOT cover this).
+
+---
+
+## 420. A create's link line rendered with a bare field label, indistinguishable from the open row's — CLOSED 2026-09-06
+
+**Status:** resolved 2026-09-06 on this branch. Last executed verification 2026-09-06 —
+`npx vitest run src/app/inline-ai-edit/plan.test.ts src/app/inline-ai-edit/field-labels.test.ts src/app/inline-ai-edit-popover.test.tsx`
+→ `Test Files 3 passed (3)` / `Tests 113 passed (113)`, including the `a create's link line names
+the row it belongs to (§420)` describe block. **No browser eye-verify was run** — the three surfaces
+are pinned by unit tests only.
+
+`plan.links` is ONE flat bucket, and all three preview surfaces — the inline popover's list, the
+chat proposal block and the recommendation review modal — render it as flat rows in the SAME list,
+with nothing (no nesting, no separator) between a line projected off a `create_*` call and one that
+really does rewrite the open row. Unqualified, the create's line was READ as a statement about the
+open row: a RAID row on `[1, 3]` plus `create_raid_item({ linkedTaskIds: [7] })` rendered
+"Linked tasks: — → Task Seven", of which BOTH halves are false about that row. In the mixed shape
+the two lines carry the byte-identical label with different values, so the reader cannot tell which
+is which.
+
+`LinkDiff.target` had already closed the WRITE half — `apply()` rebuilds the open row's patch from
+`plan.links` and filters on it, so a create's ids can no longer replace the open row's. It cannot
+close the DISCLOSURE half, because `target` is invisible to the reader of the card. A filtered write
+behind a card that still misreads is still a card the user cannot check.
+
+**What shipped.** `pushLinkDiffs` (`plan.ts`) takes a `subject` and sets it, on a `target: "create"`
+push ONLY, to the created item's own title — the same string `plan.creates` carries, from ONE
+`titleOf` call, so a create's two rendered lines cannot name the row differently. `linkLabel`
+(`field-labels.ts`) renders it as a `"<subject> – <field>"` prefix, subject first, matching
+`rowLabel`'s house order in `row-tokens.ts`. A `"row"` push leaves it undefined and renders exactly
+`fieldLabel`, byte for byte, so the open row's own lines are unchanged.
+
+★ A blank title arrives as `undefined`, not `""` — the key is omitted by a conditional spread rather
+than set, so `linkLabel` cannot render a dangling " – " even if a caller passes `""`.
+
+★★ `subject` now has TWO producers, not one, and they are ambiguous for OPPOSITE reasons so neither
+generalises to the other: `describeDependencyCall` in `chat-proposal-describe.ts` (§406) sets it for
+`set_task_dependencies`, whose row title cannot carry its own task's name because `TOOL_ENTITY` does
+not know that tool; `pushLinkDiffs` sets it for a row that does not exist yet. The comment on
+`LinkDiff.subject` carries the split.
+
+★★★ **Filed and cited on this branch as §407 for nine commits, and §407 was already taken** — by
+"Task-row changes badge renders '1 changes' for a single linked change", an unrelated still-OPEN
+entry inherited from `origin/main` and legitimately cited by `task-row.tsx` and
+`task-row.test.tsx`. One number meant two things. Renumbered to §420 on 2026-09-06 across TEN source
+citations in four files (`plan.ts` ×5, `plan.test.ts` ×3, `field-labels.ts` ×1,
+`inline-ai-edit-popover.test.tsx` ×1); the three `task-row` citations were left alone. The slip's
+cause is worth more than the fix: §407–414 are headings with NO index-table rows, so an index grep
+misses them entirely. Mint a number from the HEADING scan, against BOTH trees, because a number is
+reserved only once it is on `origin/main`:
+`grep -oE "^## [0-9]+\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1` and
+`git show origin/main:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1`
+→ 419 and 417 on 2026-09-06, so 420.

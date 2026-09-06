@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { INLINE_DESCRIPTORS, type EntityDescriptor } from "./entity-descriptor";
 import { TOOL_DEFS } from "../chat-tool-defs";
+import { stripComments } from "../../test/strip-comments";
 
 // The enumeration gate for the apply-preview.
 //
@@ -183,9 +184,31 @@ describe("every input read anywhere in the task dispatcher file is declared on u
   // NOT `update_task`'s reads alone (see the ★★★ scope note at the top).
   // Reading the source rather than the schema is the point: an
   // accepted-but-undeclared key exists nowhere else.
-  const dispatcherSrc = readFileSync(
-    join(import.meta.dirname, "..", "chat-tools-updates.ts"),
-    "utf8",
+  // ★★★ COMMENTS ARE BLANKED BEFORE THE SCAN, and skipping that step is a
+  //  FALSE GREEN in the one direction that matters. This scan's whole job is to
+  //  prove `UNDECLARED_ACCEPTED` still describes a key the code READS. Over raw
+  //  text it reads PROSE as code — so deleting `input.notes` from the
+  //  dispatcher and leaving a comment that names the removal (this repo's house
+  //  style, and the shape the `notes` entry itself is written in) keeps this
+  //  test green while the allowlist goes on excusing a key nothing reads. The
+  //  allowlist would then be documenting a preview gap that no longer exists,
+  //  which is the false-coverage shape this file exists to prevent.
+  //  ★★ `stripComments` (`src/test/strip-comments.ts`), NOT a local regex: four
+  //   hand-rolled strippers have shipped in this repo and all four were wrong,
+  //   with OVER-blanking the dangerous direction — it deletes real code from
+  //   the text this scan reads, which makes the set SMALLER and this test pass
+  //   MORE. The shared helper uses the TypeScript parser and pins both
+  //   directions in `strip-comments.test.ts`.
+  //  ★ The FILE-WIDE scope documented above is UNCHANGED — blanking comments
+  //   narrows what counts as code, never which file is read. Narrowing to
+  //   `buildPatch` is the fix this deliberately does NOT make; the ★★★ scope
+  //   note at the top of this file says why.
+  //  ★ `.ts`, not the helper's `.tsx` default: the script kind decides how a
+  //   non-comma generic arrow parses, and a garbage parse leaves comments
+  //   readable — the benign direction, but the guarantee is worth keeping.
+  const dispatcherSrc = stripComments(
+    readFileSync(join(import.meta.dirname, "..", "chat-tools-updates.ts"), "utf8"),
+    "chat-tools-updates.ts",
   );
   const readInputs = new Set(
     [...dispatcherSrc.matchAll(/\binput\.([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1]),
