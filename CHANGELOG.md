@@ -8,6 +8,48 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.287.0] - 2026-09-06 "Tiptree"
+
+### Added
+
+- **A control that cannot act now says so instead of disappearing.** When no
+  Turso database is configured, "Load from Turso" and "Move to Turso" used to
+  vanish from the Projects panel and the empty state, so the feature looked as
+  though it did not exist. They now stay visible and disabled, carrying a hint
+  that explains what is missing. The hint is reachable two ways on purpose: as
+  a tooltip on hover, and as a description a screen reader announces — a
+  disabled button dispatches no mouse events and takes no keyboard focus, so
+  either channel alone would leave some users with an inert control and no
+  stated reason for it.
+- **The Knowledge "Attach to" field is a searchable picker.** It replaces a
+  plain dropdown with type-to-filter search over tasks, RAID items, changes,
+  milestones, stakeholders and the project itself, operable entirely from the
+  keyboard.
+- **An asset's name opens its preview.** Previously only the separate preview
+  button did, and the name looked inert. The name becomes a trigger only where
+  a preview can actually be shown.
+- **An open document's body collapses when you click its name again**, with a
+  chevron on the row showing which state it is in, so a long document can be
+  folded away without losing your place in the list.
+- **The RAID badge leads with a count.** The per-category R/A/I/D breakdown
+  moves into the badge's tooltip, leaving the visible text short enough to sit
+  in the ID column without pushing the task title around.
+
+### Fixed
+
+- **The Knowledge "Attach to" list was hiding most of your project.** The new
+  picker inherited a 20-item cap from a shared helper, which silently dropped
+  every target past the first twenty with nothing on screen to say so — enough
+  to hide half the targets in even a small plan. The cap is now sized for a
+  real project.
+- **Arrowing to an option and then having the list change under you could
+  commit the wrong entity.** Both entity pickers tracked the highlighted row by
+  position, so a list that grew while the highlight was armed left it pointing
+  at whatever had moved into that slot. They now track the entity itself and
+  disarm when it moves.
+- **The Ask Claude icon no longer clips out of its cell** in the task row, and
+  the four ID-column badges no longer wrap mid-run.
+
 ## [0.286.0] - 2026-09-06 "Sladek"
 
 ### Added
