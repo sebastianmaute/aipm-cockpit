@@ -410,6 +410,80 @@ describe("ProjectsPanel — Load from Turso", () => {
     );
   });
 
+  // ★★ `title` is mouse-hover-only, and a disabled button is not focusable —
+  // so there is NO keyboard route to that wrapper title and it is unreachable
+  // on touch. `aria-describedby` is exposed on a disabled control and outranks
+  // `title` as the accessible description, so it is what actually reaches AT.
+  it("describes both disabled Turso buttons with the not-configured hint", () => {
+    setup();
+    const hint = "Configure a Turso database in Settings → Integrations first.";
+    const load = screen.getByRole("button", { name: "Load from Turso" });
+    const migrate = screen.getByRole("button", { name: "Move to Turso" });
+    expect(load).toHaveAccessibleDescription(hint);
+    expect(migrate).toHaveAccessibleDescription(hint);
+    // ★ The two ids must DIFFER. This panel renders two of these buttons, so a
+    // hand-rolled literal id would point both at whichever node the document
+    // held first — which still passes the two assertions above, since both
+    // hints read identically while Turso is unconfigured. Configured, they do
+    // not (see the next test), which is what makes this check load-bearing.
+    expect(load.getAttribute("aria-describedby")).toBeTruthy();
+    expect(load.getAttribute("aria-describedby")).not.toBe(
+      migrate.getAttribute("aria-describedby"),
+    );
+  });
+
+  it("describes each enabled Turso button with its OWN capability hint", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultSettings.integrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toHaveAccessibleDescription(
+      "Browse projects already stored in the configured Turso database and switch into one.",
+    );
+    expect(screen.getByRole("button", { name: "Move to Turso" })).toHaveAccessibleDescription(
+      "Copy this project into a new Turso project and switch the portfolio to Turso. The original file project is left untouched.",
+    );
+  });
+
+  // ★★★ THIS PINS THE CLASSES ONLY — IT CANNOT PIN THE BEHAVIOUR THEY BUY.
+  // jsdom has no layout and renders no native tooltips, so nothing in this
+  // suite can observe whether a hover actually reaches the wrapper's `title`.
+  // The wrapper has zero uncovered hit area, so `disabled:pointer-events-none`
+  // is what drops the button out of hit-testing and makes the fall-through
+  // deterministic across browsers; `cursor-not-allowed` moves to the wrapper
+  // because a pointer-events-none element cannot style a cursor at all. Real
+  // reachability is owed a browser eye-verify — do not read this test as
+  // covering it.
+  it("takes the disabled Turso buttons out of hit-testing and moves the cursor to the wrapper", () => {
+    setup();
+    for (const name of ["Load from Turso", "Move to Turso"]) {
+      const btn = screen.getByRole("button", { name });
+      expect(btn.className).toContain("disabled:pointer-events-none");
+      expect(btn.closest("[title]")!.className).toContain("cursor-not-allowed");
+    }
+  });
+
+  it("drops the wrapper cursor once the Turso buttons are enabled", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultSettings.integrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    for (const name of ["Load from Turso", "Move to Turso"]) {
+      const btn = screen.getByRole("button", { name });
+      expect(btn.closest("[title]")!.className).not.toContain("cursor-not-allowed");
+    }
+  });
+
   it("enables the Turso buttons once Turso is configured", () => {
     setup({
       settings: {

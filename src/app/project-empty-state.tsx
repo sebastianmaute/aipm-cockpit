@@ -20,7 +20,7 @@
 // storage/Turso/M365/Timelog) and a "Run setup wizard" button (the guided
 // BackendSetupWizard) before the user creates or loads a project.
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { BackendConfigModal } from "./backend-config-modal";
 import { BackendSetupWizard } from "./backend-setup-wizard";
 import { TursoProjectPicker } from "./turso-project-picker";
@@ -135,6 +135,17 @@ export function ProjectEmptyState({
     settings.integrations?.turso?.authToken,
   );
 
+  // ★★ Id for the Turso button's `aria-describedby` target. Minted with `useId`
+  // rather than a literal so a second mount of this component in one tree
+  // cannot point both buttons at whichever node the document happened to hold
+  // first (mirrors projects-panel.tsx, which renders TWO of these).
+  const loadFromTursoHintId = useId();
+  // One source, consumed by BOTH the wrapper's `title` (the sighted mouse
+  // user's tooltip) and the `sr-only` description node, so they cannot drift.
+  const loadFromTursoHint = tursoConfigured
+    ? t(lang, "projectLoadFromTursoHint")
+    : t(lang, "projectTursoNotConfigured");
+
   const titleKey = view === "create" ? "projectsNew" : "projectsEmptyTitle";
   const TITLE_ID = "project-empty-state-title";
   const startLogo = settings.branding?.startLogo;
@@ -221,21 +232,48 @@ export function ProjectEmptyState({
                   // rather than hiding is deliberate: a hidden button never
                   // teaches the user the capability exists. `aria-disabled` is
                   // NOT a substitute — it still fires onClick.
+                  //
+                  // ★★★ THE WRAPPER ONLY WORKS BECAUSE OF
+                  // `disabled:pointer-events-none` ON THE BUTTON. The span has
+                  // ZERO uncovered hit area (its only child is the button), and
+                  // a disabled button is still hit-testable by default — so
+                  // whether the pointer ever reaches the title-bearing span is
+                  // left to each browser's own title lookup. Dropping the button
+                  // out of hit-testing makes it fall through deterministically.
+                  // ★ CONSEQUENCE: an element with no pointer events cannot
+                  // style a cursor either, so `button.tsx`'s
+                  // `disabled:cursor-not-allowed` goes INERT here — the wrapper
+                  // carries the cursor instead, gated on the same condition.
+                  // Both changes are made HERE, never in the shared primitive,
+                  // which every other disabled button rides.
+                  // ★ Nothing in the unit suite can verify the reachability
+                  // itself: jsdom has no layout and renders no native tooltips.
+                  // The tests pin the CLASSES and the `aria-describedby` wiring
+                  // only; the hover behaviour is owed a browser eye-verify.
+                  //
+                  // ★★ And `title` is mouse-hover-only — a disabled button is
+                  // not focusable, so there is no keyboard route to it at all,
+                  // and it is unreachable on touch. `aria-describedby` IS
+                  // exposed on a disabled control and OUTRANKS `title` as the
+                  // accessible description, so the sr-only node below is what
+                  // actually reaches AT. The `title` stays for the sighted
+                  // mouse user.
                   <span
-                    className="inline-flex"
-                    title={
-                      tursoConfigured
-                        ? t(lang, "projectLoadFromTursoHint")
-                        : t(lang, "projectTursoNotConfigured")
-                    }
+                    className={`inline-flex${tursoConfigured ? "" : " cursor-not-allowed"}`}
+                    title={loadFromTursoHint}
                   >
                     <Button
                       variant="secondary"
                       disabled={!tursoConfigured}
                       onClick={() => setTursoPickerOpen(true)}
+                      aria-describedby={loadFromTursoHintId}
+                      className="disabled:pointer-events-none"
                     >
                       {t(lang, "projectLoadFromTurso")}
                     </Button>
+                    <span id={loadFromTursoHintId} className="sr-only">
+                      {loadFromTursoHint}
+                    </span>
                   </span>
                 )}
                 {/* Explore a demo project — guided-tour entry point. Rendered
