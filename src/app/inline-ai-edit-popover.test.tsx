@@ -65,28 +65,54 @@ it("closes via the header ✕, so the focus-trapped dialog stays escapable by po
 // bare `key={d.field}` collides. React drops one of the two <li>s and warns —
 // so the user reads a preview that is missing a line the write will make, on the
 // one surface whose Apply writes exactly what it renders.
-// ★ Asserted on React's own warning rather than on a rendered count: with a
-//   duplicate key React renders ONE row, and a count assertion would pin the
-//   render behaviour rather than the key. The `getAllByText` below is the
-//   positive control that both rows really do reach the DOM.
+// ★★ WHAT A COLLISION COSTS DEPENDS ON WHICH PATH REACHES IT, and an earlier
+//   wording of this comment asserted a mount behaviour its own next sentence
+//   contradicted ("React renders ONE row" — beside a passing `toHaveLength(2)`).
+//   On a FIRST MOUNT `reconcileChildrenArray` creates a fiber for every child
+//   regardless of duplicate keys, which is why React's own warning says the
+//   children "may be duplicated and/or omitted" rather than that one is
+//   dropped. Both <li>s reach the DOM here. Dropping a row is the UPDATE path,
+//   where the next render matches by key — and a line the write WILL make then
+//   silently leaves the preview, on the one surface whose Apply writes exactly
+//   what it renders.
+// ★★★ SO THE WARNING IS THE ONLY DETECTOR ON THIS PATH, which makes the
+//   assertion below an ABSENCE — and nothing about `.toBe(false)` proves the
+//   spy CAN fire. A React wording change, or a setup that intercepts
+//   console.error ahead of this spy, would leave it green forever. The ARMING
+//   render is the positive observable that gives the negative its meaning; it
+//   is measured here, in this file, rather than asserted from React's source.
+// ★ `getAllByText` is a different guard and is NOT that control: it is the
+//   anti-vacuity floor for the subject render, proving two rows were asked for
+//   at all so the absence is not an absence over an empty list. It survives the
+//   `key={d.field}` mutant, for the mount reason above.
 it("gives each update row a key of its own when two touch the same field", () => {
   const warn = vi.spyOn(console, "error").mockImplementation(() => {});
-  render(
-    <InlineAiEditPopover
-      {...base}
-      phase="preview"
-      plan={{
-        updates: [
-          { entity: "raid", field: "title", before: "Old", after: "Mid", raw: "Mid" },
-          { entity: "raid", field: "title", before: "Mid", after: "New", raw: "New" },
-        ],
-        creates: [], deletes: [], rejected: [], links: [],
-      }}
-    />,
-  );
-  expect(screen.getAllByText("Title")).toHaveLength(2);
-  expect(warn.mock.calls.some((c) => String(c[0]).includes("same key"))).toBe(false);
-  warn.mockRestore();
+  // ★ `finally`, because `vitest.config.ts` sets no `restoreMocks`: a failing
+  //  assertion below would otherwise leak a silenced console.error into every
+  //  later test in this file.
+  try {
+    render(<ul>{["dup", "dup"].map((k) => <li key={k}>{k}</li>)}</ul>);
+    expect(warn.mock.calls.some((c) => String(c[0]).includes("same key"))).toBe(true);
+    warn.mockClear();
+
+    render(
+      <InlineAiEditPopover
+        {...base}
+        phase="preview"
+        plan={{
+          updates: [
+            { entity: "raid", field: "title", before: "Old", after: "Mid", raw: "Mid" },
+            { entity: "raid", field: "title", before: "Mid", after: "New", raw: "New" },
+          ],
+          creates: [], deletes: [], rejected: [], links: [],
+        }}
+      />,
+    );
+    expect(screen.getAllByText("Title")).toHaveLength(2);
+    expect(warn.mock.calls.some((c) => String(c[0]).includes("same key"))).toBe(false);
+  } finally {
+    warn.mockRestore();
+  }
 });
 
 // ★★★ The inline path APPLIES `plan.links` (it rebuilds the write patch from
