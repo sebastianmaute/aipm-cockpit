@@ -537,11 +537,16 @@ describe("§408 — Turso test connection", () => {
 
   // ★★ THIS SECTION IS FULLY CONTROLLED — `turso` is derived from the
   // `settings` prop — so the rest of this file's `onChange={() => {}}` renders
-  // CANNOT move the URL. A typing test against one of those would be VACUOUS:
-  // the field's value never changes, so nothing could invalidate the verdict
-  // and the assertion below would hold no matter what the component did. This
-  // wrapper feeds the edit back in, so the URL the fingerprint is compared
-  // against really moves.
+  // CANNOT move the URL. A typing test against one of those is UNSATISFIABLE,
+  // NOT vacuous, and the difference is the whole reason this comment exists: a
+  // vacuous test would silently PASS and mislead you, whereas this one FAILS
+  // against a CORRECT implementation. The field's value never changes, so the
+  // fingerprint still matches, so nothing can invalidate the verdict and the
+  // message stays in the document. Measured against the shipped (correct)
+  // component, swapping this render for an uncontrolled one: 1 failed / 32
+  // passed. Read a red here as "the harness cannot express the behaviour",
+  // never as "the invalidation is broken". This wrapper feeds the edit back
+  // in, so the URL the fingerprint is compared against really moves.
   function ControlledIntegrations() {
     const [settings, setSettings] = useState<Settings>(tursoSettings("fake"));
     return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
