@@ -23,11 +23,15 @@ export { MAX_PROJECTS } from "./arrangement-store";
  * validates SHAPE, not membership: `isArrangementLayout` can prove `id` is a
  * string, never that it is a `DashboardTileId`, so nothing there could hand back
  * a `DashboardLayout` honestly. `reconcile` is what makes the narrowing true —
- * it drops every id the catalogue does not know — and the only caller of
- * `loadLayout` is `readLayout` in `use-dashboard-layout.ts`, which passes the
- * result straight into it (verify: `grep -n "loadLayout(" src/app/use-dashboard-layout.ts`).
- * Do not push the cast into the store as a generic id parameter; it would then
- * be invisible at every call site instead of stated once here. */
+ * it drops every id the catalogue does not know — and the only PRODUCTION caller
+ * of `loadLayout` is `readLayout` in `use-dashboard-layout.ts`, which passes the
+ * result straight into it. ★ Verify REPO-WIDE, never inside the file the
+ * sentence already names: `grep -rn "loadLayout(" src/app` — one production hit
+ * (`use-dashboard-layout.ts`), the rest in two test files, plus this comment
+ * matching itself. A file-scoped grep cannot falsify an "only" and so is not
+ * evidence for one. Do not push the cast into the store as a generic id
+ * parameter; it would then be invisible at every call site instead of stated
+ * once here. */
 export const loadLayout = (projectId: string): DashboardLayout | null =>
   loadArrangement(DASHBOARD_LAYOUT_KEY, projectId) as DashboardLayout | null;
 export const saveLayout = (projectId: string, layout: DashboardLayout): void =>

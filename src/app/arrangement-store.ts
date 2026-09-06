@@ -8,6 +8,11 @@
  * `{[projectId]: layout}` map, so two surfaces never share a project budget:
  * fifty projects arranged on the Dashboard evict nothing from Reports. Pinned
  * by "gives each key its own cap rather than one shared budget".
+ * ★ THE BUDGET IS PER KEY; THE NUMBER IS NOT. `MAX_PROJECTS` is ONE module
+ * constant every binding shares — deliberately, since no surface has wanted its
+ * own size — so read the ★★ above as "each key counts its own projects", never
+ * as "each surface sets its own limit". Making it a parameter is a one-line
+ * change if a surface ever needs one; do not pre-empt it.
  *
  * ★★ NOT A `Workspace` FIELD, deliberately — zero backend write paths, nothing
  * in exports or Turso. One localStorage key per surface holds a
@@ -54,18 +59,32 @@
  * unreadable blob under a side key — buys a user who downgrades once something
  * nobody has asked for. A future `v: 2` should MIGRATE a `v: 1` blob rather than
  * reject it, which costs the same round trip in the other direction.
+ * ★★ AND A VERSION BUMP IS NOW A LOCKSTEP DECISION ACROSS EVERY SURFACE, which
+ * it was not while each store carried its own guard. `isArrangementLayout`
+ * hardcodes `l.v !== 1` for all of them, so bumping one surface to `v: 2` either
+ * bumps the others with it or forces the guard to take the accepted version(s)
+ * per surface. Neither is hard; both are more than the one-file change the
+ * paragraph above reads like.
  */
 import { readDeviceJson, writeDeviceJson } from "./device-store";
 import type { ArrangementLayout } from "./arrangement-layout";
 
 export const MAX_PROJECTS = 50;
 
-/** ★ Deliberately loose: an unknown id or an out-of-range span is `reconcile`'s
- *  job, not this one. This only rejects a blob that is not a layout AT ALL. */
+/** ★ Deliberately loose: an unknown id or an out-of-RANGE span is `reconcile`'s
+ *  job, not this one. This only rejects a blob that is not a layout AT ALL.
+ *
+ *  ★★ `Number.isFinite`, NOT `typeof === "number"`, AND THE DIFFERENCE IS THE
+ *  ONE VALUE THIS PREDICATE EXISTS TO STOP. `typeof NaN === "number"`, so a
+ *  `typeof` test admits it, `clampSpan` yields NaN, `JSON.stringify` writes
+ *  `null`, and the NEXT load rejects the whole layout — the silent reset the
+ *  ★★★ block below describes, produced by the guard that claims to prevent it.
+ *  Measured: with `typeof`, `isArrangementLayout({v:1,board:[{id:"x",w:NaN,h:1}],
+ *  hidden:[]})` returned true. ±Infinity rides along for free. */
 function isPlacedBlock(v: unknown): boolean {
   if (!v || typeof v !== "object") return false;
   const t = v as { id?: unknown; w?: unknown; h?: unknown };
-  return typeof t.id === "string" && typeof t.w === "number" && typeof t.h === "number";
+  return typeof t.id === "string" && Number.isFinite(t.w) && Number.isFinite(t.h);
 }
 
 /**
@@ -81,10 +100,25 @@ function isPlacedBlock(v: unknown): boolean {
  * user's whole arrangement. Every surface reading a stored layout must pass it
  * through here first, which `loadArrangement` below does for anyone using it.
  *
+ * ★★ THE HOSTILE INPUTS THAT MATTER ARRIVE BY TWO DIFFERENT DOORS, and the
+ * narrower door is closed by JSON rather than by anything here. Through
+ * `loadArrangement` a blob has been through `JSON.parse`, so it can hold `null`,
+ * a wrong type or a stale `v` but never NaN, Infinity or `undefined` — JSON has
+ * no literal for any of them. This function is EXPORTED, though, and the pointer
+ * in `arrangement-layout.ts` invites calling it on a blob from somewhere else:
+ * an in-memory object, a structured clone, a test fixture. Those CAN carry NaN,
+ * which is why `isPlacedBlock` uses `Number.isFinite` — see its own ★★.
+ *
  * ★ The narrowing is to `ArrangementLayout<string>`, the widest id: this cannot
  * know a surface's id union, and a surface's own `ArrangementLayout<Id>` is
  * assignable TO that but not FROM it. The cast back down belongs at the
  * surface's adapter, where it is one visible line rather than a hidden generic.
+ * ★★ THE ID IS NOT THE ONLY UNSOUND AXIS — the SPANS are too, and by more. A
+ * `PlacedBlock`'s `w`/`h` are `BlockSpan = 1|2|3|4`, while this accepts any
+ * finite number: `99`, `-3` and `2.7` all pass. That is the deliberate
+ * looseness `isPlacedBlock` documents (range is `reconcile`'s job — it clamps
+ * per axis), but do not read the narrowing as proving anything about the values
+ * beyond "there is a number there".
  */
 export function isArrangementLayout(v: unknown): v is ArrangementLayout<string> {
   if (!v || typeof v !== "object" || Array.isArray(v)) return false;

@@ -25,6 +25,14 @@ const HOSTILE: Array<[string, unknown]> = [
   ["a missing span", { v: 1, board: [{ id: "x", h: 1 }], hidden: [] }],
   ["an undefined span", { v: 1, board: [{ id: "x", w: undefined, h: 1 }], hidden: [] }],
   ["a non-numeric span", { v: 1, board: [{ id: "x", w: "x", h: 1 }], hidden: [] }],
+  // ★ NaN and ±Infinity ARE `typeof "number"`, so a `typeof` test admits them and
+  // `clampSpan` then yields NaN — the exact silent-reset failure above. They cannot
+  // arrive through `loadArrangement` (JSON has no literal for either, and both
+  // serialise as `null`, which is rejected anyway), so these two rows are the ONLY
+  // detector: the through-the-store test below passes on them either way.
+  ["a NaN span", { v: 1, board: [{ id: "x", w: NaN, h: 1 }], hidden: [] }],
+  ["an infinite span", { v: 1, board: [{ id: "x", w: 1, h: Infinity }], hidden: [] }],
+  ["a negatively infinite span", { v: 1, board: [{ id: "x", w: -Infinity, h: 1 }], hidden: [] }],
   ["a future version", { v: 9, board: [{ id: "x", w: 1, h: 1 }], hidden: [] }],
   ["a non-string hidden entry", { v: 1, board: [], hidden: [1] }],
   ["a bare array", []],

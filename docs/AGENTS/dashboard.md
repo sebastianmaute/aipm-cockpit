@@ -109,7 +109,7 @@ who widens `burn` to w:2, hides it and restores it gets w:1 back. `dashboard-lay
 ("appends a hidden tile to the board at its catalogue default size"), so a change of mind has to go
 through that test rather than sliding in. ★ Preserving it would mean shelving the `PlacedTile` instead
 of the id, which changes the stored shape (`hidden: DashboardTileId[]`) and therefore
-`dashboard-layout-store.ts`'s validation, `reconcile`'s de-duplication and every stored blob in the
+`arrangement-store.ts`'s validation, `reconcile`'s de-duplication and every stored blob in the
 field. Not worth it for a lost span — but say so out loud, because "I resized that and it came back
 wrong" reads as a bug to whoever hits it.
 
@@ -154,11 +154,16 @@ renders its own list and merely shares the `insightsCardTitle` string — and th
 axe-scanned view for as long as the false premise stood.
 
 ★★ **THE ARRANGEMENT IS PER-DEVICE, PER-PROJECT localStorage — NOT a `Workspace` field**, so none of the
-six write paths change and no codec, DDL or golden fixture is touched. `dashboard-layout-store.ts` keeps
-one `{[projectId]: layout}` map under `DASHBOARD_LAYOUT_KEY`, capped at `MAX_PROJECTS` with
-insertion-order recency, over `device-store.ts`'s `readDeviceJson`/`writeDeviceJson` envelope — the same
-shape as `landing-state.ts`, so `clearAppConfig`'s `aipm-cockpit:*` sweep already clears it. A write
-failure (quota, private mode) is swallowed on purpose: the arrangement is a preference, not data.
+six write paths change and no codec, DDL or golden fixture is touched. ★★ THE STORE IS SHARED AND
+`dashboard-layout-store.ts` IS NOW A THIN ADAPTER — it keeps no map, applies no cap, validates
+nothing and does not import `device-store` at all; it holds `DASHBOARD_LAYOUT_KEY`, re-exports
+`MAX_PROJECTS`, and casts down to `DashboardLayout`. The map itself lives in `arrangement-store.ts`
+(`loadArrangement`/`saveArrangement`), which keeps one `{[projectId]: layout}` map PER KEY, capped at
+`MAX_PROJECTS` with insertion-order recency, over `device-store.ts`'s `readDeviceJson`/`writeDeviceJson`
+envelope — the same shape as `landing-state.ts`, so `clearAppConfig`'s `aipm-cockpit:*` sweep already
+clears it. Validation is its exported `isArrangementLayout`, which is what `reconcile`'s ★★★
+precondition demands and which no longer has a Dashboard-only copy. A write failure (quota, private
+mode) is swallowed on purpose: the arrangement is a preference, not data.
 ★ Popout is READ-ONLY (`readOnly` from `useDashboardLayout`) — no grips, no ⋮, no shelf, no persist.
 
 ★★ **PER-TILE CONTROL NAMES MUST BE TILE-UNIQUE, AND THE AXE GATE CANNOT SEE A COLLISION AT ANY SEED
