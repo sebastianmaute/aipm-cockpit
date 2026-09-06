@@ -1233,6 +1233,7 @@ export const de: Record<TranslationKey, string> = {
   raidConfirmDelete: "Diesen RAID-Eintrag löschen? Das kann nicht rückgängig gemacht werden.",
   raidReferencedBy: "Verknüpft mit {0} RAID-Eintrag/-Einträgen",
   raidReferencedByMix: "{0}R · {1}A · {2}I · {3}D",
+  raidReferencedByCount: "{0} RAID",
   raidSearchPlaceholder: "Titel, Verantwortliche, Beschreibung durchsuchen…",
   raidErrorTitleRequired: "Titel ist erforderlich.",
   raidSave: "Speichern",
@@ -2796,6 +2797,7 @@ export const de: Record<TranslationKey, string> = {
   documentsColActions: "",
   documentsTabAdd: "Link hinzufügen",
   documentsTarget: "Anhängen an",
+  knowledgeTargetSearchPlaceholder: "Aufgabe, RAID-Eintrag, Änderung, Meilenstein oder Stakeholder suchen, oder * für alle…",
   documentsManualName: "Dokumentname",
   documentsManualUrl: "URL (https://…)",
   documentsManualHint: "Confluence-Seite oder beliebige Web-URL direkt verknüpfen — kein SharePoint erforderlich.",
@@ -3898,6 +3900,7 @@ export const de: Record<TranslationKey, string> = {
   projectMigrateToTurso: "Zu Turso verschieben",
   projectMigrateToTursoHint: "Dieses Projekt in ein neues Turso-Projekt kopieren und das Portfolio auf Turso umstellen. Das ursprüngliche Datei-Projekt bleibt unverändert.",
   projectMigrateNoProject: "Kein aktuelles Projekt zum Verschieben.",
+  projectTursoNotConfigured: "Zuerst eine Turso-Datenbank unter Einstellungen → Integrationen konfigurieren.",
   projectLoadFromTurso: "Von Turso laden",
   projectLoadFromTursoHint:
     "Bereits in der konfigurierten Turso-Datenbank gespeicherte Projekte durchsuchen und in eines wechseln.",

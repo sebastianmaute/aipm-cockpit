@@ -1270,6 +1270,7 @@ const enUS = {
   raidConfirmDelete: "Delete this RAID item? This can't be undone.",
   raidReferencedBy: "Referenced by {0} RAID item(s)",
   raidReferencedByMix: "{0}R · {1}A · {2}I · {3}D",
+  raidReferencedByCount: "{0} RAID",
   raidSearchPlaceholder: "Search title, owner, description…",
   raidErrorTitleRequired: "Title is required.",
   raidSave: "Save",
@@ -2896,6 +2897,7 @@ const enUS = {
   documentsColActions: "",
   documentsTabAdd: "Add link",
   documentsTarget: "Attach to",
+  knowledgeTargetSearchPlaceholder: "Search a task, RAID item, change, milestone or stakeholder, or * for all…",
   documentsManualName: "Document name",
   documentsManualUrl: "URL (https://…)",
   documentsManualHint: "Link a Confluence page or any web URL directly — no SharePoint required.",
@@ -4006,6 +4008,7 @@ const enUS = {
   projectLoadFromTurso: "Load from Turso",
   projectLoadFromTursoHint:
     "Browse projects already stored in the configured Turso database and switch into one.",
+  projectTursoNotConfigured: "Configure a Turso database in Settings → Integrations first.",
   tursoPickerTitle: "Load a Turso project",
   tursoPickerLoading: "Loading projects…",
   tursoPickerEmpty: "No projects found in this Turso database.",
