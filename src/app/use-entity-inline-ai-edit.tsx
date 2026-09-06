@@ -74,6 +74,7 @@ export function useEntityInlineAiEdit(entity: InlineEntity, deps: EntityInlineAi
       lang={deps.lang}
       itemTitle={INLINE_DESCRIPTORS[entity].titleOf(edit.activeItem)}
       entityLabel={t(deps.lang, ENTITY_LABEL_KEY[entity])}
+      entity={entity}
       phase={edit.phase}
       plan={edit.plan}
       clarifyText={edit.clarifyText}

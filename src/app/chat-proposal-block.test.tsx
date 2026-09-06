@@ -6,7 +6,7 @@ import type { EditPlan } from "./inline-ai-edit/plan";
 import type { ProposedCall } from "./chat-proposal";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
-const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [] });
+const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
 
 const updatePlan = (field: string, before: string, after: string): EditPlan => ({
   ...emptyPlan(),
@@ -218,8 +218,124 @@ describe("ChatProposalBlock", () => {
 
   it("renders each described change beneath its row", () => {
     renderCard();
-    expect(screen.getByText("status")).toBeTruthy();
+    // ★★ The READABLE name. This read `getByText("status")` — the raw property
+    // — and the label is resolved per row from that row's OWN tool name, so
+    // row 0 (`update_task`) and row 1 (`update_raid_item`) go through different
+    // entities.
+    expect(screen.getByText("Status")).toBeTruthy();
+    expect(screen.getByText("Owner")).toBeTruthy();
     expect(screen.getByText(/To Do/)).toBeTruthy();
+  });
+
+  // ★★★ A staged proposal MIXES entities, so one card-wide entity would
+  // mislabel every row but the first. The SAME `title` property is a change's
+  // summary and a stakeholder's role, and the two registers label it
+  // differently — so this reddens if the entity is taken from the card rather
+  // than from each row's own tool name.
+  // ★ NOT resource-vs-change: `resourceJobTitle` and `changeFieldTitle` are
+  // both "Title" in EN, so that pairing asserts nothing (it was tried, and it
+  // failed on ambiguity rather than on a wrong label).
+  it("labels each row's fields through that row's own tool entity", () => {
+    renderCard([
+      row({
+        index: 0,
+        title: "Scope change",
+        call: { name: "update_change", input: { id: 1 } },
+        plan: updatePlan("title", "Old", "New"),
+      }),
+      row({
+        index: 1,
+        title: "Ada Lovelace",
+        call: { name: "update_stakeholder", input: { id: 2 } },
+        plan: updatePlan("title", "Engineer", "Architect"),
+      }),
+    ]);
+    expect(screen.getByText("Title")).toBeInTheDocument();
+    expect(screen.getByText("Title / role")).toBeInTheDocument();
+  });
+
+  // ★★ A tool with no `INLINE_DESCRIPTORS` entity (every `*_document` tool)
+  // yields `undefined`, and the fallback is the raw property name — legible if
+  // ugly. A blank label on an approval card would be strictly worse.
+  it("falls back to the raw property name for a descriptor-less tool", () => {
+    renderCard([
+      row({
+        index: 0,
+        title: "Q3 status report",
+        call: { name: "update_document", input: { id: 1 } },
+        plan: updatePlan("someDocField", "a", "b"),
+      }),
+    ]);
+    expect(screen.getByText("someDocField")).toBeInTheDocument();
+  });
+
+  // ★★★ Before this, `plan.links` and `plan.rejected` were rendered by NO
+  // surface — the only occurrence of "rejected" in the card was a comment. A
+  // missing LINK line is not merely under-disclosure: relationship writes
+  // REPLACE, so supplying one link drops the rest and nothing reconstructs
+  // them. The user has to be able to see that before approving it.
+  it("renders a link change and a rejected field", () => {
+    renderCard([
+      row({
+        index: 0,
+        title: "Migrate database",
+        // ★ `update_raid_item`, not the `row()` default `update_task` — TASKS
+        // HAVE NO `linkFields`, so a `task.linkedTaskIds` label does not exist
+        // and the row would fall back to the raw name, passing this assertion
+        // for the wrong reason.
+        call: { name: "update_raid_item", input: { id: 7 } },
+        plan: {
+          ...emptyPlan(),
+          links: [
+            { field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] },
+          ],
+          rejected: [
+            { toolName: "update_raid_item", reason: "bad-input", detail: "targetDate=nope" },
+          ],
+        },
+      }),
+    ]);
+    expect(screen.getByText("Linked tasks")).toBeInTheDocument();
+    expect(screen.queryByText("linkedTaskIds")).not.toBeInTheDocument();
+    expect(screen.getByText(/Draft brief, Review/)).toBeInTheDocument();
+    expect(screen.getByText(/Ship/)).toBeInTheDocument();
+    expect(screen.getByText("Not applied: targetDate=nope")).toBeInTheDocument();
+  });
+
+  // ★★ `isEmptyPlan` deliberately EXCLUDES `rejected` — a rejected call writes
+  // nothing, and the flag gates Apply. So a guard of `isEmptyPlan` alone makes
+  // the rejection renderer unreachable for the commonest shape a rejection
+  // arrives in: a row where the ONLY outcome is that nothing will land.
+  it("renders a rejection on a row whose plan writes nothing", () => {
+    renderCard([
+      row({
+        index: 0,
+        title: "Migrate database",
+        plan: {
+          ...emptyPlan(),
+          rejected: [{ toolName: "update_task", reason: "unknown-id", detail: "99" }],
+        },
+      }),
+    ]);
+    expect(screen.getByText("Not applied: 99")).toBeInTheDocument();
+  });
+
+  // ★★ `after` can legitimately be "" — a cleared FK, or a list emptied to
+  // nothing. That is the most destructive change this card can show, so the
+  // `|| "—"` fallback is load-bearing: a bare `{l.after}` renders NOTHING for
+  // "every link removed", and the row then reads as if it kept them.
+  it("renders a cleared link list as an em dash rather than as nothing", () => {
+    renderCard([
+      row({
+        index: 0,
+        title: "Migrate database",
+        plan: {
+          ...emptyPlan(),
+          links: [{ field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
+        },
+      }),
+    ]);
+    expect(screen.getByText(/Draft brief → —/)).toBeInTheDocument();
   });
 
   it("goes inert while an apply is in flight", () => {

@@ -4,6 +4,7 @@ import { it, expect, vi, afterEach, describe } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import * as call from "./inline-ai-edit-call";
 import * as tools from "./chat-tools";
+import * as planMod from "./inline-ai-edit/plan";
 import { useInlineAiEdit, type InlineAiEditDeps } from "./use-inline-ai-edit";
 import { useInlineEntityEdit, type InlineEntityEditDeps } from "./use-inline-entity-edit";
 import { entityToken } from "./ai-entity-token";
@@ -382,6 +383,132 @@ describe("useInlineEntityEdit — raid", () => {
     });
   });
 
+  // ★★★ A NON-EMPTY PLAN THAT EVERY APPLY BRANCH SKIPS MUST NOT REPORT SUCCESS.
+  // `isEmptyPlan` counts EVERY bucket of `EditPlan`, but only the buckets with
+  // a write branch in apply() can move `applied`. A plan that is non-empty by
+  // the first measure and unwritten by the second reaches an unconditional
+  // success toast: "applied" for a write that never happened. The gate is
+  // `applied > 0`, so it covers every FUTURE bucket without naming any.
+  //
+  // ★★★ ITS PREMISE CHANGED WITH THIS SLICE AND THE TEST HAD TO MOVE WITH IT.
+  // `links` used to be the live instance of that gap — non-empty, no writer —
+  // and this test injected a links-only plan to reach the branch. `links` is
+  // now WRITTEN, so that injection would exercise the opposite path and the
+  // assertions below would pass only by turning green on a real write. There
+  // is no longer ANY bucket with the gap, which is why the emptiness VERDICT is
+  // stubbed instead: it is the only way left to stand where the next bucket
+  // will stand. Everything else stays real — the hook's own guard, the four
+  // write branches, the `applied` counter and the toast call.
+  // ★ Do NOT "restore" a links-only injection here. If a future bucket lands
+  //   with no writer, prefer injecting THAT bucket with a real `isEmptyPlan`.
+  it("does not claim success when no apply branch wrote anything", async () => {
+    vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+      blocks: [{ type: "tool_use", id: "b1", name: "update_raid_item", input: { id: 7 } }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    vi.spyOn(planMod, "describeEntityCalls").mockReturnValue({
+      updates: [], creates: [], deletes: [], rejected: [], links: [],
+    });
+    // Stands in for a bucket apply() does not yet know how to write: the plan
+    // passes the guard and every write branch skips it.
+    vi.spyOn(planMod, "isEmptyPlan").mockReturnValue(false);
+    const runToolSpy = vi.spyOn(tools, "runTool").mockResolvedValue({ id: 7 });
+    const deps = mkEntityDeps();
+    const { result } = renderHook(() => useInlineEntityEdit(deps));
+    act(() => result.current.openFor(raidItem));
+    await act(async () => { await result.current.submit("link it to the brief"); });
+    // Positive control: without this the apply() guard returns early and the
+    // "no toast" assertion below passes for the wrong reason.
+    expect(result.current.phase).toBe("preview");
+    await act(async () => { await result.current.apply(); });
+    expect(runToolSpy).not.toHaveBeenCalled();
+    expect(deps.showToast).not.toHaveBeenCalledWith("info", expect.anything());
+    // cancel() stays OUTSIDE the guard — closing the popover is right either way.
+    expect(result.current.phase).toBe("idle");
+    expect(result.current.activeItem).toBeNull();
+  });
+
+  it("writes the sanitized link ids the preview showed", async () => {
+    // The card said "Draft brief, Review -> Ship". The patch must carry [2].
+    // Assert on what runTool RECEIVES, never on the plan: the plan being right
+    // is what `plan.test.ts` covers; this covers the HANDOFF.
+    // ★★ A LINKS-ONLY PLAN, deliberately — `updates` is empty, so this also
+    //  pins the restructured write condition. Nested inside `if
+    //  (plan.updates.length > 0)` the loop previews a change and writes
+    //  nothing, which is the exact defect the preview exists to prevent.
+    const linked = { id: 7, category: "R", title: "Old", status: "Open", linkedTaskIds: [1, 3] };
+    const linkedWs = {
+      tasks: [{ id: 1, taskName: "Draft brief" }, { id: 2, taskName: "Ship" }, { id: 3, taskName: "Review" }],
+      raid: [linked], milestones: [], changes: [], stakeholders: [],
+    } as unknown as InlineEntityEditDeps["ws"];
+    vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+      blocks: [{ type: "tool_use", id: "b1", name: "update_raid_item", input: { id: 7, linkedTaskIds: [2] } }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    const runToolSpy = vi.spyOn(tools, "runTool").mockResolvedValue({ id: 7 });
+    const deps = mkEntityDeps({ ws: linkedWs });
+    const { result } = renderHook(() => useInlineEntityEdit(deps));
+    act(() => result.current.openFor(linked));
+    await act(async () => { await result.current.submit("link it to Ship instead"); });
+    expect(result.current.phase).toBe("preview");
+    expect(result.current.plan?.updates).toEqual([]);
+    expect(result.current.plan?.links).toEqual([
+      { field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] },
+    ]);
+    await act(async () => { await result.current.apply(); });
+    expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
+      id: 7, linkedTaskIds: [2], expectedToken: entityToken("raid", linked),
+    });
+    // `applied` really was incremented — otherwise the success toast is gated
+    // off and the write above would be reported to the user as nothing.
+    expect(deps.showToast).toHaveBeenCalledWith("info", expect.anything());
+  });
+
+  it("writes link ids, never the rendered title string", async () => {
+    // ★★★ THE REGRESSION THIS EXISTS FOR: a LinkDiff landing in `plan.updates`.
+    //  The rebuild loop would write `diff.raw ?? diff.after` — the TITLE STRING —
+    //  into `linkedTaskIds`. `sanitizeIdList` splits a string on [.;], finds no
+    //  integers, and stores [] — wiping every link on the row.
+    //  ★★ THE TYPE SYSTEM DOES NOT PREVENT THIS: `LinkDiff` and `FieldDiff` are
+    //  mutually assignable (`raw` is optional), measured with tsc. What holds
+    //  the invariant is the CALL GRAPH — `describeEntityCalls` populates only
+    //  `links`, and the rebuild loop reads only `updates`. This test is the pin.
+    //  Assert on the patch the dispatcher RECEIVES, not on the plan: the plan
+    //  being right is exactly what this is guarding against assuming.
+    //  ★ A MIXED plan (one scalar update AND one link), so a green run proves
+    //  the patch was BUILT — not merely that one key is absent from an empty one.
+    const linked = { id: 7, category: "R", title: "Old", status: "Open", linkedTaskIds: [1, 3] };
+    const linkedWs = {
+      tasks: [{ id: 1, taskName: "Draft brief" }, { id: 2, taskName: "Ship" }, { id: 3, taskName: "Review" }],
+      raid: [linked], milestones: [], changes: [], stakeholders: [],
+    } as unknown as InlineEntityEditDeps["ws"];
+    vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+      blocks: [{
+        type: "tool_use", id: "b1", name: "update_raid_item",
+        input: { id: 7, title: "New", linkedTaskIds: [2] },
+      }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    const runToolSpy = vi.spyOn(tools, "runTool").mockResolvedValue({ id: 7 });
+    const deps = mkEntityDeps({ ws: linkedWs });
+    const { result } = renderHook(() => useInlineEntityEdit(deps));
+    act(() => result.current.openFor(linked));
+    await act(async () => { await result.current.submit("rename it and link it to Ship"); });
+    // Positive control: without it apply()'s guard early-returns and every
+    // assertion below passes because runTool was never reached at all.
+    expect(result.current.phase).toBe("preview");
+    await act(async () => { await result.current.apply(); });
+    const input = runToolSpy.mock.calls[0]?.[2] as Record<string, unknown> | undefined;
+    expect(input?.linkedTaskIds).toEqual([2]);
+    // ★ Kept even though the assertion above already catches today's defect: a
+    //   future `raw` on the diff could satisfy a shape check while still being a
+    //   string. This is the assertion that NAMES the defect.
+    expect(typeof input?.linkedTaskIds).not.toBe("string");
+    // The scalar update in the same plan still lands, so the patch really was
+    // built — the link assertion is not passing over an unbuilt one.
+    expect(input?.title).toBe("New");
+  });
+
   it("auto-closes a left-open edit when the pane goes inactive (active -> false)", () => {
     const { result, rerender } = renderHook(
       ({ active }: { active: boolean }) => useInlineEntityEdit(mkEntityDeps({ active })),
@@ -411,6 +538,69 @@ describe("useInlineEntityEdit — raid", () => {
 // throwing, while the caller still counted the call as applied.
 // ★ The comment-stripped shape is the repo idiom (see rich-text-plain.test.ts):
 //   the module may name the retired kind in PROSE, its code may not write it.
+// ★★★ A SINGLE FK IS A LINK FIELD TOO, AND IT MUST NOT BE WRITTEN AS AN ARRAY.
+//  `LinkField.sanitize` returns `number[]` for BOTH kinds, so `roleId` reaches
+//  the plan as `[12]`. `update_resource` spreads the patch into
+//  `sanitizeResource`, which reads `toNumber(input.roleId)` — and `toNumber` is
+//  NaN for an array (its own docstring calls this out against bare `Number`),
+//  so the stored FK becomes null. The card would have promised a new role and
+//  the write would have REMOVED the one the row had: the destructive direction,
+//  behind a green preview. The apply path unwraps by `kind`.
+describe("useInlineEntityEdit — a single-FK link (resource.roleId)", () => {
+  const ada = { id: 3, firstName: "Ada", lastName: "Lovelace", roleId: 11 };
+  const roleWs = {
+    tasks: [], raid: [], milestones: [], changes: [], stakeholders: [],
+    resources: [ada],
+    roles: [{ id: 11, disciplineId: 1, gradeId: 1 }, { id: 12, disciplineId: 2, gradeId: 1 }],
+    disciplines: [{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }],
+    grades: [{ id: 1, name: "L3" }],
+  } as unknown as InlineEntityEditDeps["ws"];
+
+  function mkResourceDeps(): InlineEntityEditDeps {
+    return {
+      entity: "resource",
+      dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }) } as unknown as InlineEntityEditDeps["dispatcher"],
+      ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
+      apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
+      isPopout: false, lang: "en-US",
+      showToast: vi.fn(), ws: roleWs, guides: [], recordUsage: vi.fn(),
+    };
+  }
+
+  async function applyRoleWrite(roleId: unknown) {
+    vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+      blocks: [{ type: "tool_use", id: "b1", name: "update_resource", input: { id: 3, roleId } }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    const runToolSpy = vi.spyOn(tools, "runTool").mockResolvedValue({ id: 3 });
+    const deps = mkResourceDeps();
+    const { result } = renderHook(() => useInlineEntityEdit(deps));
+    act(() => result.current.openFor(ada));
+    await act(async () => { await result.current.submit("change her role"); });
+    // Positive control: the preview really reached the Apply gate, so the
+    // patch assertion below cannot pass because apply() early-returned.
+    expect(result.current.phase).toBe("preview");
+    await act(async () => { await result.current.apply(); });
+    return { runToolSpy, deps };
+  }
+
+  it("unwraps a single-FK link into the number the writer stores", async () => {
+    const { runToolSpy, deps } = await applyRoleWrite(12);
+    expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_resource", {
+      id: 3, roleId: 12, expectedToken: entityToken("resource", ada),
+    });
+  });
+
+  it("clears a single-FK link with null, not with an empty array", async () => {
+    // `[]` would also survive `toNumber` as NaN and clear the FK by accident.
+    // Writing `null` says so on purpose, and matches the card's empty `after`.
+    const { runToolSpy, deps } = await applyRoleWrite(null);
+    expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_resource", {
+      id: 3, roleId: null, expectedToken: entityToken("resource", ada),
+    });
+  });
+});
+
 describe("writes no activity summary row of its own", () => {
   const code = readFileSync(join(import.meta.dirname, "use-inline-entity-edit.ts"), "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, "")

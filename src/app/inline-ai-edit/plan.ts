@@ -9,6 +9,7 @@ import { isValidEmail, sanitizeIsoDate, toNumber } from "../sanitize";
 import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
 import { splitName } from "../resource-foundation";
+import { resolveLinkTitles } from "./link-titles";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -27,7 +28,54 @@ export interface FieldDiff { field: string; before: string; after: string; raw?:
 export interface NewItem { entity: string; title: string; toolName: string; input: Record<string, unknown> }
 export interface Deletion { entity: string; label: string; toolName: string; id: number }
 export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input" | "unsupported"; detail: string }
-export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: Deletion[]; rejected: Rejected[] }
+/** A relationship or FK change, rendered from RESOLVED TITLES rather than ids.
+ *
+ *  ★★★ THIS IS NOT A `FieldDiff` AND MUST NEVER BE PUT IN `plan.updates`.
+ *   `use-inline-entity-edit.ts` rebuilds its write patch from `updates` with
+ *   `patch[diff.field] = coerce(d, diff.field, diff.raw ?? diff.after)`. A link
+ *   diff there would write the TITLE STRING into `linkedTaskIds`, and
+ *   `sanitizeIdList` splits a string on `[.;]`, finds no integers and stores
+ *   `[]` — wiping every link the row had.
+ *
+ *  ★★ WHAT THE TYPE SYSTEM DOES AND DOES NOT CATCH — measured with tsc, and
+ *   THREE earlier wordings of this paragraph were wrong. The first claimed the
+ *   wipe was "unreachable by construction"; the second over-swung to "the type
+ *   system does not enforce this"; the third said the two types were MUTUALLY
+ *   assignable. None is right, because it depends on the SHAPE and the
+ *   DIRECTION of the mistake:
+ *
+ *   - Pushing an already-typed `LinkDiff` into `updates` COMPILES — `raw` is
+ *     optional, so a `LinkDiff` satisfies `FieldDiff`. A merge site copying
+ *     `links` into `updates` is this shape, and nothing stops it.
+ *   - The REVERSE does not: `plan.links.push(someFieldDiff)` is `TS2345`,
+ *     because `rawIds` is required. Measured with a standalone `--strict`
+ *     probe carrying a deliberate control error, so the run could not be
+ *     vacuous. The two types are ONE-directionally assignable, and stating it
+ *     as symmetric overstated the exposure in the safe direction while leaving
+ *     the real one sounding equally hypothetical.
+ *   - Building a link diff INLINE into `updates` does NOT compile. Excess
+ *     property checking on a fresh object literal rejects `rawIds` against
+ *     `FieldDiff` — `TS2353`. Mutating the populator below from
+ *     `plan.links.push({…rawIds})` to `plan.updates.push({…rawIds})` gives
+ *     `tsc` exit 2 AND reddens 10 tests across two files. That mutation is the
+ *     realistic defect, and it is caught twice.
+ *
+ *   So the compiler covers the inline shape and the CALL GRAPH plus the tests
+ *   cover the aliased one: the populator writes only to `links`, the rebuild
+ *   loop reads only `updates`. The separate array is still the right design —
+ *   a marker flag on `FieldDiff` would leave the rebuild loop having to
+ *   remember to check it. See the characterization test in
+ *   `use-inline-entity-edit.test.tsx`.
+ *
+ *  ★★ `before`/`after` are RESOLVED TITLES for the human; `rawIds` is what the
+ *   writer stores. They are separate members precisely because they must never
+ *   be confused: the rebuild path applies `rawIds`, the card renders the
+ *   titles. `rawIds` is already sanitized by THAT FIELD'S OWN writer rule
+ *   (`sanitizeIdList` for raid/change, `sanitizeMilestoneTaskIds` for
+ *   milestone — they differ on dedupe and on delimited strings), so what the
+ *   preview shows and what the patch carries come from one computation. */
+export interface LinkDiff { field: string; before: string; after: string; rawIds: number[] }
+export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: Deletion[]; rejected: Rejected[]; links: LinkDiff[] }
 
 // Any create_*/delete_* tool → its entity + workspace list key. Shared across
 // entities (an inline edit on any row may create/delete related items).
@@ -182,7 +230,7 @@ export function describeEntityCalls(
   ctx: { descriptor: EntityDescriptor; item: EntityItem; ws: Workspace },
 ): EditPlan {
   const { descriptor: d, item, ws } = ctx;
-  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [] };
+  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
   const ownIds = new Set((ws[d.wsKey] as ReadonlyArray<{ id: number }>).map((r) => r.id));
 
   for (const b of blocks) {
@@ -215,6 +263,35 @@ export function describeEntityCalls(
       ) {
         input = { ...input, ...splitName(input.name) };
       }
+      // ★★★ THE SANITIZER'S OWN FALLBACK — a SECOND leg, and modelling it as a
+      //  suppression rather than a PROJECTION was a half-fix that shipped a
+      //  worse card than the bug it replaced.
+      //  `sanitizeResource` does not stop at the block above: after reading both
+      //  parts it runs `if (!firstName && !lastName && typeof input.name ===
+      //  "string") { …splitName… }` on the MERGED row. That fires precisely when
+      //  the block above does NOT — an explicit part was supplied as a string,
+      //  so the dispatcher's `renamed` is null and `name` reaches the sanitizer
+      //  raw.
+      //  Suppressing the rejection alone left the card saying `lastName: Bono →
+      //  ""` while the write stored "Something", with the `firstName` change
+      //  absent from the card entirely; and the inline consumer rebuilt
+      //  `{lastName: ""}`, which makes the sanitizer return null and the writer
+      //  THROW, costing the whole patch. Projecting instead puts both parts in
+      //  the diff, so all three consumers see what the writer will store.
+      //  ★ The parts are read through their own normalisers for the reason the
+      //  group guard below gives: `sanitizeAssignee` blanks a NON-STRING, so a
+      //  verbatim read would call `{firstName: 42}` populated and skip the leg
+      //  the writer is about to take.
+      if (d.entity === "resource" && typeof input.name === "string" && input.name.trim() !== "") {
+        const partOf = (m: string): string => {
+          const raw = m in input ? input[m] : item[m];
+          const norm = previewNormalizerFor(d, m);
+          return norm ? norm(raw) : str(raw);
+        };
+        if (partOf("firstName") === "" && partOf("lastName") === "") {
+          input = { ...input, ...splitName(input.name) };
+        }
+      }
       // Accepted diffs so far — used both to validate a category-scoped enum
       // (RAID status) against a CO-CHANGED category and to compute the effective
       // item for the induced-reset pass below. Only VALID values land here.
@@ -246,7 +323,52 @@ export function describeEntityCalls(
         const after = normalize ? normalize(input[f]) : str(input[f]);
         if (before === after) continue;
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
-        if (d.requiredNonEmpty.has(f) && after === "") { bad(`${f}=empty`); continue; }
+        // ★★★ A JOINT REQUIREMENT IS JUDGED ON THE MERGED ROW, NEVER ON THIS
+        // FIELD ALONE, and the group takes PRECEDENCE over `requiredNonEmpty`
+        // so the descriptor's "a member of a group is exempt" holds by
+        // construction rather than by that set happening to be empty.
+        // `sanitizeResource`'s gate is `if (!firstName && !lastName) return
+        // null` — an OR over the row `updateResource` has already merged — so a
+        // mononym rename is a legal write that stores `lastName: ""`. Judging
+        // the halves separately previewed it as REJECTED while the write went
+        // through: the two REPLAYING consumers resend the original tool input
+        // and never read this plan (§384).
+        const group = d.requiredNonEmptyGroups.find((g) => g.has(f));
+        if (after === "") {
+          if (group) {
+            // ★★ EVERY MEMBER GOES THROUGH ITS OWN NORMALISER, never `str`.
+            // The writer sees `sanitizeAssignee`, whose `clipText` returns ""
+            // for a NON-STRING — so `{firstName: "", lastName: 42}` arrives as
+            // two empty parts and THROWS, while a verbatim `str(42)` would read
+            // "42", call the row survivable and preview a diff whose Apply
+            // fails, taking every other field in the same patch with it.
+            // ★ No `.trim()` here: the member's own sanitizer already trims
+            // where the writer trims, and adding one would diverge for a future
+            // group member whose sanitizer (like `sanitizeMultiline`) does not.
+            // ★ The merge mirrors `updateResource`'s `{...existing, ...patch}`:
+            // the model's input where it supplied the key, the stored row
+            // otherwise. The `name` write alias is already projected onto the
+            // parts above, exactly as the dispatcher spreads `splitName`.
+            const members = [...group];
+            const survives = members.some((m) => {
+              // The field under judgement takes its NEW value — "" in this
+              // branch, so it can never be the survivor.
+              if (m === f) return after !== "";
+              const raw = m in input ? input[m] : item[m];
+              const norm = previewNormalizerFor(d, m);
+              return (norm ? norm(raw) : str(raw)) !== "";
+            });
+            // ★★ The sanitizer has a THIRD leg — a fallback that splits `name` when
+            //  both parts are empty — and it is modelled as a PROJECTION above,
+            //  not here. Suppressing the rejection at this point was the first
+            //  attempt and it was worse than the defect: the card then showed a
+            //  clear for a field the write repopulated, and hid the other half
+            //  of the rename entirely. Projecting means that by the time this
+            //  guard runs, a rescued rename has already put both parts in
+            //  `input`, so `survives` sees them and no special case is needed.
+            if (!survives) { bad(`${members.join("+")}=empty`); continue; }
+          } else if (d.requiredNonEmpty.has(f)) { bad(`${f}=empty`); continue; }
+        }
         // Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range
         // (1900-2100), returning the input verbatim when valid and "" otherwise,
         // so a previewed date can never diverge from what apply persists.
@@ -267,6 +389,45 @@ export function describeEntityCalls(
         if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
         plan.updates.push({ field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after });
         applied[f] = after;
+      }
+      // Relationship and FK inputs. Deliberately a SEPARATE bucket from
+      // `updates` — see the `LinkDiff` docstring for the wipe this prevents.
+      // ONE sanitize per side, reused for both the rendered title and the
+      // applied value, so the card cannot promise something the patch omits.
+      //
+      // ★★ A FIELD THE MODEL DID NOT SEND EMITS NOTHING, and the `in` guard is
+      // what holds that. These writes REPLACE, and the patch is rebuilt from
+      // this bucket — so emitting an untouched field would wipe it. RAID has
+      // three link fields; a model that sends one must not lose the other two.
+      //
+      // ★★★ THE SKIP COMPARES RENDERED TITLES, NOT IDS, AND THAT IS THE
+      // DELIBERATE CHOICE. Two DIFFERENT id lists that render identically (two
+      // rows sharing a title) emit nothing. Comparing `rawIds` instead would
+      // write the swap behind a card reading "Review -> Review": a change the
+      // user cannot see, on a disclosure surface whose whole purpose is that
+      // they can. One comparison gates BOTH the card and the patch, which is
+      // the invariant; a same-titled swap is the known, narrow price.
+      //
+      // ★★ WHAT THAT PRICE ACTUALLY IS, corrected in cold review. An earlier
+      // wording said "no write happens either — the edit is silently dropped
+      // rather than silently destructive". That is true ONLY of the REBUILDING
+      // consumer, which reconstructs its patch from this plan. The two
+      // REPLAYING consumers (`chat-proposal-apply.ts`,
+      // `use-insight-recommendations.ts`) resend the original tool input and
+      // never read the plan, so for them the swap IS written, behind a card
+      // that showed no link line at all. The trade still stands — but the cost
+      // is "undisclosed on two surfaces", not "dropped everywhere", and the
+      // difference is the whole subject of this module. ★ It is narrow because a DANGLING id renders as `#<id>`
+      // (`UNKNOWN_ID_MARKER`), so an unresolvable row stays distinguishable,
+      // and a REORDER changes the joined string — neither collapses here.
+      for (const [f, link] of Object.entries(d.linkFields)) {
+        if (!(f in input)) continue;
+        const beforeIds = link.sanitize(item[f]);
+        const afterIds = link.sanitize(input[f]);
+        const before = resolveLinkTitles(beforeIds, link, ws);
+        const after = resolveLinkTitles(afterIds, link, ws);
+        if (before === after) continue;
+        plan.links.push({ field: f, before, after, rawIds: afterIds });
       }
       // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)
       // changed, whose current value is no longer valid for the item as patched,
@@ -328,5 +489,5 @@ export function describeToolCalls(blocks: readonly ToolUseLike[], ctx: { task: T
 
 /** True when the plan would write nothing (used to disable Apply / show a note). */
 export function isEmptyPlan(p: EditPlan): boolean {
-  return p.updates.length === 0 && p.creates.length === 0 && p.deletes.length === 0;
+  return p.updates.length === 0 && p.creates.length === 0 && p.deletes.length === 0 && p.links.length === 0;
 }

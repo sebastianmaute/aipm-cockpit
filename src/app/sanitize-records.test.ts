@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeSteeringCommittee, sanitizeRaidItem, sanitizeMilestone, sanitizeChangeItem } from "./sanitize";
+import {
+  sanitizeSteeringCommittee,
+  sanitizeRaidItem,
+  sanitizeMilestone,
+  sanitizeMilestoneTaskIds,
+  sanitizeChangeItem,
+} from "./sanitize";
 
 const baseRaid = {
   id: 1,
@@ -116,5 +122,21 @@ describe("entity rich-field sink regression (open-followups §143)", () => {
     expect(r?.description).not.toContain("<img");
     expect(r?.mitigation).toContain("&lt;img");
     expect(r?.mitigation).not.toContain("<img");
+  });
+});
+
+describe("sanitizeMilestoneTaskIds", () => {
+  it("keeps positive integers in order and does NOT dedupe", () => {
+    expect(sanitizeMilestoneTaskIds([3, 1, 3])).toEqual([3, 1, 3]);
+  });
+
+  it("yields [] for a delimited string, unlike sanitizeIdList", () => {
+    // The asymmetry is deliberate to PRESERVE, not to fix here: this pins it so
+    // the preview can mirror it exactly. Filed separately in open-followups.
+    expect(sanitizeMilestoneTaskIds("1;2")).toEqual([]);
+  });
+
+  it("drops zero, negatives and non-numbers", () => {
+    expect(sanitizeMilestoneTaskIds([0, -1, "x", 2])).toEqual([2]);
   });
 });

@@ -69,8 +69,108 @@ import {
 import { sanitizeRichText } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 
+/** The milestone's OWN linked-task rule. ★★ It is deliberately NOT
+ *  `sanitizeIdList`: it accepts an array only (a delimited string yields `[]`,
+ *  where raid/change parse one) and it does NOT dedupe. Exported so the preview
+ *  can call the real rule instead of approximating it with the raid/change one,
+ *  which would show links a milestone write drops. */
+export function sanitizeMilestoneTaskIds(v: unknown): number[] {
+  return Array.isArray(v) ? v.map((n) => toNumber(n)).filter((n) => Number.isFinite(n) && n > 0) : [];
+}
+
+/** ★★★ THE ONE DATE PREDICATE FOR EVERY MERGE-SITE GUARD — raid, change and
+ *  milestone. It was three copies until a cold review pointed out that the
+ *  defect below would then have to be fixed in three places.
+ *
+ *  ★★★ THE `rendersAsClear` LEG IS THE DEFECT ITSELF, and the first cut got it
+ *  wrong by writing `v === ""` alone. The PREVIEW renders a diff's `after` with
+ *  `str(v)` (`inline-ai-edit/plan.ts`), which yields "" for `null`, `undefined`
+ *  and `[]` as well as for `""`. All four therefore appear on the card as a
+ *  DISCLOSED CLEAR — and `null` is the shape a model actually reaches for when
+ *  it means "clear this date", arriving raw because `patchWithoutId` does no
+ *  coercion. Refusing them here made the write silently KEEP the stored value
+ *  against a card promising a clear: the same class this guard exists to close,
+ *  pointing the other way.
+ *
+ *  ★★ Worse, it made ONE approved card behave differently per apply path. The
+ *  inline consumer rebuilds its patch from `FieldDiff.raw`, which is the
+ *  rendered `""`, so it cleared; the two REPLAYING consumers resend the raw
+ *  `null` and did not. Measured end-to-end in review, not reasoned.
+ *
+ *  ★ Anything else non-empty still has to satisfy the writer's own
+ *  `sanitizeIsoDate`, which returns its input verbatim or "" — so this is that
+ *  rule delegated, not a second parser. */
+const rendersAsClear = (v: unknown): boolean =>
+  v == null || v === "" || (Array.isArray(v) && v.length === 0);
+
+const acceptsPatchDate = (v: unknown): boolean => rendersAsClear(v) || sanitizeIsoDate(v) !== "";
+
 /** Accept only well-formed milestones from untrusted JSON. id>0, name+date
  *  required; linkedTaskIds reduced to positive finite ints. */
+type MilestoneFieldGuard = (value: unknown) => boolean;
+
+/** ★★★ THE MERGE-SITE GUARD. `sanitizeMilestone` assigns its optional fields
+ *  CONDITIONALLY (`if (achievedDate) m.achievedDate = ...`), and it rebuilds the
+ *  whole record — so a value it does not accept does not merely fail to apply,
+ *  it OMITS the key and CLEARS a populated field. The AI edit preview refuses
+ *  the same value, so the card reads "unchanged" while the write wipes the date.
+ *  Two of the three apply paths replay the original tool input and never consult
+ *  the preview, so that wipe really lands.
+ *
+ *  The rule, shared with `dropUnacceptedRaidFields` and
+ *  `dropUnacceptedChangeFields`: hoist the sanitizer's OWN acceptance predicate
+ *  to the patch level and drop the key when it fails, so a refused value means
+ *  "unchanged" rather than "cleared". It lives here rather than at the call site
+ *  because the predicates below are this module's, and re-spelling them
+ *  elsewhere is how the two copies drift apart.
+ *
+ *  ★★ NOT IN THE TABLE, deliberately:
+ *  • `name` / `date` — required. An unaccepted value makes `sanitizeMilestone`
+ *    return null and `updateMilestone` throws, which is a REFUSAL the user sees,
+ *    not a silent clear. Guarding them would convert a loud failure into a
+ *    silent partial write.
+ *  • `linkedTaskIds` — assigned UNCONDITIONALLY via `sanitizeMilestoneTaskIds`,
+ *    so a garbage value stores `[]`. The preview models that exact function and
+ *    shows the emptying, so the two already agree; guarding it would make the
+ *    card promise a clear the write no longer performs.
+ *  • `description` — a RICH field. It has the same drop-key shape (a non-string
+ *    clears it), but the preview PROJECTS a non-string rather than refusing it,
+ *    so guarding it here would create this slice's own defect pointing the other
+ *    way. Closing it needs a coordinated change on both sides; filed, not
+ *    patched. Pinned in `sanitize-milestone-patch.test.ts`.
+ *  • `localModifiedAt` / `outlookEventId` — unreachable because `patchWithoutId`
+ *    STRIPS them (`TOKEN_EXCLUDED.milestone`), NOT because they are absent from
+ *    `milestoneFields`. ★★ Corrected in cold review: `patchWithoutId` has no
+ *    whitelist, so absence from the tool schema protects nothing by itself.
+ *  • `knowledgeLinks` — REACHABLE, and deliberately still unguarded. It is
+ *    neither stripped nor declared, so a patch carrying it wipes the stored
+ *    links, and the preview cannot show that (it is neither a `diffField` nor a
+ *    `linkField`). Pre-existing rather than introduced here, and outside this
+ *    guard's scope — recorded because this list previously claimed "no AI patch
+ *    can reach them", which is the kind of false assurance that stops the next
+ *    audit. Same shape on raid's `ownerResourceId`. */
+const MILESTONE_FIELD_GUARDS: Readonly<Record<string, MilestoneFieldGuard>> = {
+  // ★ The clear carve-out inside `acceptsPatchDate` is load-bearing: the
+  //  preview's date rule is `after !== "" && sanitizeIsoDate(after) !== after`,
+  //  so anything it RENDERS as "" is disclosed to the user as a clear. Refusing
+  //  those here inverts the defect — the card promises a clear the write no
+  //  longer makes. Read the predicate, not this summary: the first cut checked
+  //  `v === ""` alone and missed `null`, which is the shape a model actually
+  //  sends.
+  achievedDate: acceptsPatchDate,
+};
+
+export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
+  const raw = patch as Record<string, unknown>;
+  let out: Record<string, unknown> | null = null;
+  for (const [field, accepts] of Object.entries(MILESTONE_FIELD_GUARDS)) {
+    if (!(field in raw) || accepts(raw[field])) continue;
+    out ??= { ...raw };
+    delete out[field];
+  }
+  return (out ?? patch) as T;
+}
+
 export function sanitizeMilestone(input: unknown): Milestone | null {
   if (!isPlainObject(input)) return null;
   const o = input;
@@ -80,10 +180,12 @@ export function sanitizeMilestone(input: unknown): Milestone | null {
   if (!name) return null;
   const date = sanitizeIsoDate(o.date);
   if (!date) return null;
-  const linkedTaskIds = Array.isArray(o.linkedTaskIds)
-    ? o.linkedTaskIds.map((n) => toNumber(n)).filter((n) => Number.isFinite(n) && n > 0)
-    : [];
-  const m: Milestone = { id: Math.floor(id), name, date, linkedTaskIds };
+  const m: Milestone = {
+    id: Math.floor(id),
+    name,
+    date,
+    linkedTaskIds: sanitizeMilestoneTaskIds(o.linkedTaskIds),
+  };
   const achievedDate = sanitizeIsoDate(o.achievedDate);
   if (achievedDate) m.achievedDate = achievedDate;
   const description = sanitizeRichText(o.description, TEXTAREA_MAX, RICH_SINK);
@@ -141,6 +243,88 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   if (dl.length) item.knowledgeLinks = dl;
   const oeid = sanitizeText(o.outlookEventId, 1024); if (oeid) item.outlookEventId = oeid;
   return item;
+}
+
+/** One guarded field's acceptance rule, read from `sanitizeChangeItem` above.
+ *  Unlike the RAID table's, these take the value ALONE: no change field is
+ *  validated against another, so there is no stored context to thread. */
+type ChangeFieldGuard = (value: unknown) => boolean;
+
+/** ★ `""` is ACCEPTED. The AI edit preview's date guard is `after !== "" &&
+ *  sanitizeIsoDate(after) !== after`, so an empty string sails through it and is
+ *  DISCLOSED to the user as a clear. Refusing it here would make the card
+ *  promise a clear the write silently declined — the same preview/apply
+ *  disagreement this guard exists to close, pointing the other way. */
+const acceptsChangeDate: ChangeFieldGuard = acceptsPatchDate;
+
+/** ★★ `toNumber`, NOT `typeof v === "number"`. The sanitizer coerces with
+ *  `toNumber` and so does the preview's `numberPreview`, so a stricter rule here
+ *  would refuse a value the card shows as accepted. Two consequences this
+ *  deliberately does NOT change: `toNumber(true)` is `1` and `toNumber(false)`
+ *  is `0`, both of which the `[0, ∞)` range admits; and the sanitizer gates on
+ *  `Number.isFinite`, where the preview's `intRangeFields` guard demands
+ *  `Number.isInteger` — so `1.5` previews as rejected and still applies. Closing
+ *  that would mean abandoning the sanitizer's own predicate, which is the
+ *  property that makes every row of this table checkable against it. */
+const acceptsChangeAmount: ChangeFieldGuard = (v) => {
+  const n = toNumber(v);
+  return Number.isFinite(n) && n >= 0;
+};
+
+/** ★★★ `status` IS ABSENT ON PURPOSE, and adding it would be a REGRESSION, not
+ *  a completion. `updateChange` runs `applyModelChangeStatus` (`change-log.ts`)
+ *  after the sanitizer: it gates on the model's RAW status, restores the stored
+ *  one when the value is unrecognised, and routes a recognised one through
+ *  `applyChangeStatus` so the coupled `decisionDate` moves with it. Dropping the
+ *  key here would take that raw value away and turn "the model sent a status" into
+ *  "the model sent nothing", skipping the transition. */
+const CHANGE_FIELD_GUARDS: Readonly<Record<string, ChangeFieldGuard>> = {
+  type: (v) => typeof v === "string" && CHANGE_TYPE_SET.has(v),
+  impact: (v) => typeof v === "string" && CHANGE_IMPACT_SET.has(v),
+  raisedDate: acceptsChangeDate,
+  decisionDate: acceptsChangeDate,
+  scheduleImpactDays: acceptsChangeAmount,
+  costImpact: acceptsChangeAmount,
+};
+
+/**
+ * Drop the keys of a MODEL-supplied CHANGE patch whose values
+ * `sanitizeChangeItem` would not accept, so an unaccepted value means "leave the
+ * stored value alone" rather than "wipe it".
+ *
+ * ★★★ THIS IS A MERGE-SITE GUARD AND MUST NOT MIGRATE INTO THE SANITIZER.
+ * `sanitizeChangeItem` REBUILDS a whole record from an untrusted blob, so a
+ * value it refuses is not left alone: the key is DROPPED (`impact`,
+ * `decisionDate`, `scheduleImpactDays`, `costImpact`), written as `""`
+ * (`raisedDate`), or reset to a HARDCODED DEFAULT (`type` -> "Other").
+ * `updateChange` feeds it `{...stored, ...patch}`, so a refused patch value
+ * wipes the STORED one — while the AI edit preview refuses that same value and
+ * shows the field as unchanged. That fallback is CORRECT on the paths the
+ * sanitizer also serves (JSON load, CSV decode, template apply, AI proposal),
+ * where there is no prior value to preserve; the divergence is only ever about
+ * an UPDATE.
+ *
+ * ★ Takes NO stored row, which is the one structural difference from
+ * `dropUnacceptedRaidFields`: that one threads `category` because `status` is
+ * validated against it, and no change field is validated against another.
+ *
+ * ★ Mirrors `applyModelChangeStatus` (`change-log.ts`), which does this for the
+ * one `change.status` field — the field this table therefore leaves alone.
+ * Written over a predicate TABLE rather than one branch per field so a new
+ * guarded field is a row, not a new code path.
+ *
+ * ★ Copy-on-write like `withAiRichFields`: the common case (nothing refused)
+ * returns the argument itself and allocates nothing.
+ */
+export function dropUnacceptedChangeFields<T extends object>(patch: T): T {
+  const raw = patch as Record<string, unknown>;
+  let out: Record<string, unknown> | null = null;
+  for (const [field, accepts] of Object.entries(CHANGE_FIELD_GUARDS)) {
+    if (!(field in raw) || accepts(raw[field])) continue;
+    out ??= { ...raw };
+    delete out[field];
+  }
+  return (out ?? patch) as T;
 }
 
 // --- RAID sanitizer --------------------------------------------------------
@@ -234,6 +418,88 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
   return item;
 }
 
+/** One guarded field's acceptance rule, read from `sanitizeRaidItem` above.
+ *  `category` is threaded rather than closed over because `status` is validated
+ *  against the EFFECTIVE category — the patch's when that is itself accepted,
+ *  the stored one otherwise — exactly as the sanitizer does it. */
+type RaidFieldGuard = (value: unknown, category: RaidCategory) => boolean;
+
+/** ★ `""` is ACCEPTED. The AI edit preview's date guard is `after !== "" &&
+ *  sanitizeIsoDate(after) !== after`, so an empty string sails through it and is
+ *  DISCLOSED to the user as a clear. Refusing it here would make the card
+ *  promise a clear the write silently declined — the same preview/apply
+ *  disagreement this guard exists to close, pointing the other way. */
+const acceptsRaidDate: RaidFieldGuard = acceptsPatchDate;
+
+/** ★★ `toNumber`, NOT `typeof v === "number"`. The sanitizer coerces with
+ *  `toNumber` and so does the preview's numeric normalisation, so a stricter
+ *  rule here would refuse a value the card shows as accepted. Note the
+ *  consequence, which this does NOT change: `toNumber(true)` is `1`, so
+ *  `probability: true` still stores a fabricated score of 1. */
+const acceptsRiskScale: RaidFieldGuard = (v) => {
+  const n = toNumber(v);
+  return Number.isInteger(n) && n >= 1 && n <= 5;
+};
+
+const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
+  category: (v) => typeof v === "string" && RAID_CATEGORY_SET.has(v),
+  status: (v, category) => typeof v === "string" && statusSetForCategory(category).set.has(v),
+  severity: (v) => typeof v === "string" && RAID_SEVERITY_SET.has(v),
+  probability: acceptsRiskScale,
+  impact: acceptsRiskScale,
+  raisedDate: acceptsRaidDate,
+  targetDate: acceptsRaidDate,
+  closedDate: acceptsRaidDate,
+};
+
+/**
+ * Drop the keys of a MODEL-supplied RAID patch whose values `sanitizeRaidItem`
+ * would not accept, so an unaccepted value means "leave the stored value
+ * alone" rather than "wipe it".
+ *
+ * ★★★ THIS IS A MERGE-SITE GUARD AND MUST NOT MIGRATE INTO THE SANITIZER.
+ * `sanitizeRaidItem` REBUILDS a whole record from an untrusted blob, so a value
+ * it refuses is not left alone: the key is DROPPED (`severity`, `probability`,
+ * `impact`, `targetDate`, `closedDate`), written as `""` (`raisedDate`), or
+ * reset to a HARDCODED DEFAULT (`category`, and `status` with it, since
+ * `statusSetForCategory` is keyed off the category the fallback just chose).
+ * `updateRaid` feeds it `{...stored, ...patch}`, so a refused patch value wipes
+ * the STORED one — while the AI edit preview refuses that same value and shows
+ * the field as unchanged. That fallback is CORRECT on the paths the sanitizer
+ * also serves (JSON load, CSV decode, template apply, AI proposal), where there
+ * is no prior value to preserve; the divergence is only ever about an UPDATE.
+ *
+ * ★★ It is a per-field guard and does not pretend otherwise: an ACCEPTED
+ * category change narrows the status set, so a stored status the new category
+ * does not have is still reset by the sanitizer. There is no prior value to
+ * keep in that case.
+ *
+ * ★ Mirrors `applyModelChangeStatus` (`change-log.ts`), which does this for the
+ * one `change.status` field and whose docstring carries the same reasoning.
+ * Written over a predicate TABLE rather than one branch per field so a new
+ * guarded field is a row, not a new code path.
+ *
+ * ★ Copy-on-write like `withAiRichFields`: the common case (nothing refused)
+ * returns the argument itself and allocates nothing.
+ */
+export function dropUnacceptedRaidFields<T extends object>(
+  patch: T,
+  stored: Pick<RaidItem, "category">,
+): T {
+  const raw = patch as Record<string, unknown>;
+  const category =
+    "category" in raw && RAID_FIELD_GUARDS.category(raw.category, stored.category)
+      ? (raw.category as RaidCategory)
+      : stored.category;
+  let out: Record<string, unknown> | null = null;
+  for (const [field, accepts] of Object.entries(RAID_FIELD_GUARDS)) {
+    if (!(field in raw) || accepts(raw[field], category)) continue;
+    out ??= { ...raw };
+    delete out[field];
+  }
+  return (out ?? patch) as T;
+}
+
 // --- Stakeholder + RACI ----------------------------------------------------
 
 const STAKEHOLDER_CATEGORY_SET = new Set<string>(STAKEHOLDER_CATEGORIES);
@@ -277,6 +543,59 @@ function coerceRaciMap(input: unknown): Record<string, RaciRole> {
 }
 
 /** Accept only well-formed stakeholders from untrusted JSON. id>0 + name required. */
+type StakeholderFieldGuard = (value: unknown) => boolean;
+
+/** ★★★ THE MERGE-SITE GUARD FOR STAKEHOLDER — the fourth, and the one the
+ *  parity sweep could not see. Its three enums RESET to a hardcoded fallback
+ *  rather than dropping a key, and `STK_BASE` in
+ *  `plan.sanitizer-parity.test.ts` happens to hold exactly those fallbacks, so a
+ *  refused value read back as the value already there and the sweep recorded
+ *  agreement. A review probe that moved the fixture off its defaults measured
+ *  **27 mismatch pairs**.
+ *
+ *  The user-visible defect: a stakeholder stored as "Sponsor" whose patch
+ *  carries an unrecognised `category` is silently demoted to "Other" — and
+ *  because `influence`/`interest` reset the same way, one refused value can move
+ *  a field the model never named. The card shows nothing, since the preview
+ *  refuses the value and the two REPLAYING consumers resend it anyway.
+ *
+ *  ★ Only the three enums are guarded, and they are the only fields this
+ *  sanitizer RESETS to a fallback; everything else drops or throws. `name` is
+ *  required, so an unaccepted value makes the sanitizer return null and
+ *  `updateStakeholder` throws — a refusal the user sees.
+ *  `organization`/`title`/`email`/`notes` are drop-key text fields whose preview
+ *  ALSO renders the clear (`sanitizeText` blanks a non-string and the preview
+ *  shows ""), so those two already agree and guarding them would make the card
+ *  promise a clear the write stops making.
+ *
+ *  ★★ THAT LIST COVERS THE TOOL-DECLARED FIELDS ONLY, and saying so is the
+ *  point: `raci`, `resourceId` and `knowledgeLinks` are REACHABLE and unguarded.
+ *  `patchWithoutId` has no whitelist — it strips `id`, `expectedToken` and
+ *  `TOKEN_EXCLUDED.stakeholder` (`localModifiedAt`) and forwards the rest — so a
+ *  patch carrying them lands, `raci` is overwritten unconditionally by
+ *  `coerceRaciMap` (junk wipes the map) and the other two drop on a refused
+ *  value. None is a `diffField` or a `linkField`, so the preview shows nothing
+ *  either way. Pre-existing and out of this guard's scope, recorded because the
+ *  milestone list one entity over made exactly this omission and had to be
+ *  corrected for it — an exclusion list that reads as exhaustive and is not is
+ *  the false assurance that stops the next audit. */
+const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> = {
+  category: (v) => typeof v === "string" && STAKEHOLDER_CATEGORY_SET.has(v),
+  influence: (v) => typeof v === "string" && INFLUENCE_INTEREST_SET.has(v),
+  interest: (v) => typeof v === "string" && INFLUENCE_INTEREST_SET.has(v),
+};
+
+export function dropUnacceptedStakeholderFields<T extends object>(patch: T): T {
+  const raw = patch as Record<string, unknown>;
+  let out: Record<string, unknown> | null = null;
+  for (const [field, accepts] of Object.entries(STAKEHOLDER_FIELD_GUARDS)) {
+    if (!(field in raw) || accepts(raw[field])) continue;
+    out ??= { ...raw };
+    delete out[field];
+  }
+  return (out ?? patch) as T;
+}
+
 export function sanitizeStakeholder(input: unknown): Stakeholder | null {
   if (!isPlainObject(input)) return null;
   const o = input;

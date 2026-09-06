@@ -607,13 +607,30 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§380](#380-a-staged-plan-cannot-update-a-row-it-created-in-the-same-plan--closed-2026-09-05) | ~~A staged plan cannot update a row it created in the same plan~~ | found 2026-09-05 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`applyProposal` stamps a real concurrency token at apply time via `TOKEN_ROW_SOURCE`'s six full-row resolvers, already on `ToolDispatcher`) |
 | [§381](#381-a-row-refused-for-a-capability-gap-is-labelled-as-a-conflict--closed-2026-09-05) | ~~A row refused for a capability gap is labelled as a conflict~~ | found 2026-09-05 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (`failed` now carries a `failedKind` — conflict/dependency/unreadable/error — classified by `failureKindOf`, with four EN/DE strings) |
 | [§382](#382-the-registers-own-index-rebuild-is-lossy-and-calls-itself-idempotent--open) | The register's own index rebuild is lossy, and calls itself idempotent | found 2026-09-05 while closing 377 and 378 | S | open |
-| [§383](#383-a-resources-extra-emails-preview-a-list-apply-dedupes-and-caps--open) | A resource's extra emails preview a list Apply dedupes and caps | found 2026-09-05 while closing 373 | S | open |
-| [§384](#384-a-mononym-update_resource-rename-previews-a-rejected-lastname-that-apply-accepts-and-wipes--open) | A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes | found 2026-09-05 in cold review of the §372 fix | S | open |
+| [§383](#383-a-resources-extra-emails-preview-a-list-apply-dedupes-and-caps--closed-2026-09-06) | A resource's extra emails preview a list Apply dedupes and caps | found 2026-09-05 while closing 373 | S | closed |
+| [§384](#384-a-mononym-update_resource-rename-previews-a-rejected-lastname-that-apply-accepts-and-wipes--closed-2026-09-06) | A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes | found 2026-09-05 in cold review of the §372 fix | S | closed |
 | [§385](#385-srcsymbolscheck-prints-a-remedy-it-does-not-implement--open) | `src:symbols:check` prints a remedy it does not implement | found 2026-09-05 while acting on that report's own advice | S | open |
 | [§386](#386-fields-hint-pollutes-its-controls-accessible-name--open) | `Field`'s `hint` pollutes its control's accessible name | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§387](#387-the-relationships-empty-section-guard-is-unpinned--open) | The Relationships empty-section guard is unpinned | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§388](#388-the-task-name-mic-is-now-invisible-to-the-label-binding-source-scan--open) | The task-name mic is now invisible to the label-binding source scan | found 2026-09-05 in the edit-task modal rework | S | open |
 | [§389](#389-modalheader-names-every-modals--identically-so-any-two-stacked-modals-collide--open) | `ModalHeader` names every modal's ✕ identically, so any two stacked modals collide | found 2026-09-05 in the edit-task modal rework | M | open |
+| [§390](#390-the-inline-create-path-writes-link-fields-with-no-preview-at-all-open) | The inline CREATE path writes link fields with no preview at all | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§391](#391-chat-proposal-describetss-emptyplan-is-safe-at-two-of-its-three-call-sites-and-the-reason-is-per-site-open) | `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§392](#392-a-rejection-only-inline-plan-never-reaches-the-preview-so-the-user-is-told-no-changes-open) | A rejection-only inline plan never reaches the preview, so the user is told "no changes" | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§393](#393-describerecommendationplan-merges-entities-so-a-fields-label-cannot-always-be-resolved-open) | `describeRecommendationPlan` merges entities, so a field's label cannot always be resolved | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§394](#394-the-parity-sweep-cannot-exercise-the-silent-reset-half-of-the-rejects-direction-open) | The parity sweep cannot exercise the silent-RESET half of the rejects direction | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§395](#395-update_raid_itemprobability-true-stores-a-fabricated-risk-score-of-1-open) | `update_raid_item({probability: true})` stores a fabricated risk score of 1 | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§396](#396-update_tasklastupdatedate-previews-a-clear-the-writer-does-not-make-open) | `update_task({lastUpdateDate: ""})` previews a clear the writer does not make | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§397](#397-the-emails-preview-cannot-see-the-rows-own-primary-address-open) | The `emails` preview cannot see the row's own primary address | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§398](#398-milestonedescription-is-cleared-by-a-non-string-and-the-preview-projects-one-instead-of-refusing-it-open) | `Milestone.description` is cleared by a non-string, and the preview projects one instead of refusing it | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§399](#399-the-change-amount-sanitizer-accepts-a-fraction-the-preview-rejects-open) | The change amount sanitizer accepts a fraction the preview rejects | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§400](#400-str-is-defined-twice-in-plants-and-entity-descriptorts-open) | `str` is defined twice, in `plan.ts` and `entity-descriptor.ts` | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§401](#401-update_task-accepts-an-undeclared-notes-input-that-no-schema-driven-gate-can-see-open) | `update_task` accepts an undeclared `notes` input that no schema-driven gate can see | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§402](#402-update_resources-roleid-description-tells-the-model-it-assigns-rates-open) | `update_resource`'s `roleId` description tells the model it assigns rates | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§403](#403-sanitizemilestonetaskids-and-sanitizeidlist-disagree-two-ways-open) | `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§404](#404-a-dependency-proposal-whose-links-are-all-refused-shows-no-change-and-no-reason-open) | A dependency proposal whose links are all refused shows no change and no reason | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
+| [§405](#405-the-merge-site-guard-tables-restate-their-sanitizers-predicates-instead-of-sharing-them-open) | The merge-site guard tables restate their sanitizers' predicates instead of sharing them | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
+| [§406](#406-the-set_task_dependencies-card-label-is-hardcoded-english-open) | The `set_task_dependencies` card label is hardcoded English | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -28697,9 +28714,18 @@ rebuild. Reproduce the loss with the fenced recipe above, run against a copy:
 `cp docs/open-followups.md /tmp-copy/ && cd /tmp-copy && <recipe> && diff` — count the changed
 rows, do not read the exit code, which is 0 either way.
 
-## 383. A resource's extra emails preview a list Apply dedupes and caps — OPEN
+## 383. A resource's extra emails preview a list Apply dedupes and caps — CLOSED 2026-09-06
 
-**Status:** OPEN. Filed 2026-09-05 by the AI bulk-write-safety slice, while closing §373 (an
+**Status:** CLOSED 2026-09-06 by the preview/apply-parity slice — `emails` joined the resource
+descriptor's `diffFields` with a `fieldSanitizers` entry calling the writer's own
+`sanitizeEmailList`, so the card now shows what the write stores. Verified 2026-09-06 by four tests
+in `src/app/inline-ai-edit/plan.test.ts` (dedupe, no-op, clear, and the known divergence below) plus
+the sanitizer-parity sweep, which now covers the field. ★★ ONE NARROWING SURVIVES AND IS FILED AS
+§397: the entry cannot see the row's own primary address, so an incoming extra equal to it is kept by
+the preview and dropped by the write. ★ The original rationale below — that deduping and capping
+"cannot be expressed" — predated `fieldSanitizers`, which is exactly the mechanism that expressed it.
+
+**Original filing:** 2026-09-05 by the AI bulk-write-safety slice, while closing §373 (an
 email-shaped SCALAR field) and reading `sanitizeEmailList` for what it actually does. Last executed
 verification 2026-09-05 — `grep -n "function sanitizeEmailList" -A 16 src/app/sanitize-entities.ts`
 (dedupe against the primary email, dedupe within the list, cap at `RESOURCE_EMAILS_MAX`), and
@@ -28740,9 +28766,23 @@ guarantee (preview shows what Apply stores) that DEDUPING and CAPPING both break
 sanitizer — here, `sanitizeEmailList` against the diffed item's OWN primary email — before diffing,
 rather than teaching `arrayFields` a second meaning it was never designed to carry.
 
-## 384. A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes — OPEN
+## 384. A mononym `update_resource` rename previews a rejected `lastName` that Apply accepts and wipes — CLOSED 2026-09-06
 
-**Status:** OPEN. Filed 2026-09-05 in cold review of the §372 fix. Last executed verification
+**Status:** CLOSED 2026-09-06 by the preview/apply-parity slice. The descriptor gained
+`requiredNonEmptyGroups`, and `resource` moved `firstName`/`lastName` out of the per-field
+`requiredNonEmpty` into ONE group judged against the MERGED row — mirroring the writer's own
+`if (!firstName && !lastName)`, which is a whole-row OR where the preview had a per-field partition.
+A mononym rename now previews the surname being CLEARED, which is what the write performs; emptying
+BOTH halves is still refused, which is also what the write does. Verified 2026-09-06 by four tests in
+`src/app/inline-ai-edit/plan.test.ts`, by `plan.write-path.test.ts` replaying through the real
+dispatcher, and by the mutant that RESTORES this defect, which now reddens both. ★★ An EXISTING test
+had enshrined the wrong verdict under a comment calling over-rejection "the safe direction"; it was
+rewritten, not deleted. ★★★ THE DIFFERENTIAL BUILT TO CATCH THIS CLASS COULD NOT SEE IT: the sweep
+classed a preview-only rejection as safe and `continue`d before comparing, measured by that same
+mutant staying green. Fixed in the same slice, and it then reported seven more fields of this shape —
+all since fixed at the merge site.
+
+**Original filing:** 2026-09-05 in cold review of the §372 fix. Last executed verification
 2026-09-05 — a temporary `*.test.ts` file (kept OUT of `src/app`, per the §230 reproduce note on why:
 a stray one there is picked up by `eslint --max-warnings=0 src/app` and the full-suite glob) that
 calls `describeEntityCalls` for an `update_resource({id, name: "Cher"})` block against a resource
@@ -28980,3 +29020,288 @@ the channel this defect rides.
 ★ Same family as the `addTask`/`addTaskButton` collision found in the same review round — that one
 was live in a single view and carried a data-loss path (both openers call `handleCancelEdit()`),
 so it was fixed rather than filed.
+## 390. The inline CREATE path writes link fields with no preview at all — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 by the preview/apply-parity slice, which fixed the UPDATE half of
+exactly this defect. Last executed verification 2026-09-06 — `grep -n "plan.creates.push" src/app/inline-ai-edit/plan.ts` (one hit, the raw `input` forwarded verbatim) and read of `describeEntityCalls`'
+create branch (`plan.creates.push({ …, input })`, the raw tool input verbatim) against
+`use-inline-entity-edit.ts`'s apply loop (`runTool(deps.dispatcher, c.toolName, c.input)`), plus the
+inline scope block in `inline-ai-edit-call.ts`, which explicitly invites `create_task` /
+`create_raid_item`. **No runtime probe.**
+
+`plan.creates` carries the model's tool input verbatim to `runTool`, so an inline
+`create_raid_item({title, linkedTaskIds:[…]})` writes those links today while the card shows only the
+new row's title. It is the same disclosure gap this slice closed for updates, seen from the other
+side.
+
+★ It is NOT the same severity, and the entry says so deliberately: a create has no prior row, so it
+cannot DROP existing links. The exposure is an undisclosed write, not an undisclosed destruction.
+
+## 391. `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site — OPEN
+
+**Status:** OPEN as a RECORD, not as a defect to fix. Filed 2026-09-06. Last executed verification
+2026-09-06 — `grep -c "emptyPlan()" src/app/chat-proposal-describe.ts` (returns 4 — the factory plus its three call sites) and read of the three call sites and their surrounding comments.
+
+Two are correct forever: the `pendingOn` create→update remap (no before-image exists, and inventing
+one would show a diff from fields the create has not written), and the id-less delete (a rejected
+call writes nothing). The third — the `entity === undefined || op === undefined` fallback — was NOT
+safe: `set_task_dependencies` took it, rendering a blank card for a wholesale replacement of a task's
+dependency graph.
+
+Filed so the next reader does not conclude from two correct examples that a hardcoded empty plan is
+always right here. ★ A future tool with no descriptor lands in the same branch and inherits the same
+blankness by default.
+
+## 392. A rejection-only inline plan never reaches the preview, so the user is told "no changes" — OPEN
+
+**Status:** OPEN. Filed 2026-09-06. Last executed verification 2026-09-06 — `grep -n "isEmptyPlan(next)" src/app/use-inline-entity-edit.ts` (line 200, the clarify route) and read of
+`use-inline-entity-edit.ts`'s submit path (`if (isEmptyPlan(next)) { …setPhase("clarify"); return; }`)
+against `isEmptyPlan`, which counts `updates`/`creates`/`deletes`/`links` and NOT `rejected`.
+**No runtime probe.**
+
+A plan whose only content is a refusal is EMPTY by that predicate, so the popover routes to
+`clarify` and shows the "no changes" copy instead of naming the field it refused. The popover's own
+renderer is fine — this slice added one — and the drop happens a layer above it.
+
+★★ Routing such a plan to `preview` is NOT the fix on its own: `apply()` also rejects an empty plan,
+so the user would get a live Apply button that no-ops. It needs a third phase, or a
+rejection-specific message on the clarify path.
+
+## 393. `describeRecommendationPlan` merges entities, so a field's label cannot always be resolved — OPEN
+
+**Status:** OPEN as a DESIGN QUESTION with a measured cost, not a defect. Filed 2026-09-06. Last
+executed verification 2026-09-06 — `grep -c "merged.links.push" src/app/insights/recommend-plan.ts` (returns 3, one per merge site) and read of `recommend-plan.ts` (three merge sites pushing
+`p.updates`/`p.links` from a DIFFERENT descriptor per proposed call) and of `FieldDiff`, which
+carries no entity.
+
+One `EditPlan` can therefore hold two entities' field names in one array, and the label map is
+entity-qualified because it must be: `impact` is a 1-5 scale on a RAID item and free text on a
+change. `recommendationPlanEntity(calls)` answers only when exactly one register is updated and
+returns `undefined` otherwise, falling back to raw property names — worse to read, never wrong.
+
+The complete fix is a per-diff entity on `FieldDiff`/`LinkDiff`. It was measured and deferred: about
+twelve exact `toEqual([{field, before, after, raw}])` assertions in `plan.test.ts` redden on the
+extra property.
+
+## 394. The parity sweep cannot exercise the silent-RESET half of the rejects direction — OPEN
+
+**Status:** OPEN. Filed 2026-09-06. Last executed verification 2026-09-06 — `grep -n "sanitizerReader(" src/app/inline-ai-edit/plan.sanitizer-parity.test.ts` (naming `stakeholder` and `resource` as the two entities still on the raw reader) and printed `base[f]`
+beside `read(f, 42)` for each `enumFields` key from inside
+`src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`.
+
+Every REQUIRED enum's fixture value coincides with its own sanitizer's hardcoded fallback
+(`task.status` "To Do", `raid.category` "R", `change.type` "Other", and six more), so a refused value
+reads back as the value already held and the sweep records agreement. A row whose enum is NOT the
+default is silently RESET by a replay with the card showing nothing.
+
+★★ Do NOT "fix" this by editing a fixture — that manufactures reds outside the direction under test,
+and the file's own header says so. It needs its own slice, with the fixtures moved off their
+fallbacks deliberately and the resulting reds triaged.
+
+★★★ THE `stakeholder` HALF WAS A LIVE PRODUCTION DEFECT, NOT A TEST LIMITATION, and filing it here
+as one understated it. A gate audit moved `STK_BASE` off its defaults and measured **27 mismatch
+pairs**: `sanitizeStakeholder` RESETS an unrecognised `category`/`influence`/`interest` to a
+hardcoded fallback, and `updateStakeholder` had no merge-site guard — so a stakeholder stored as
+"Sponsor" was silently demoted to "Other" by a card that shows nothing about category, on the two
+REPLAYING consumers. **FIXED 2026-09-06** by `dropUnacceptedStakeholderFields` plus a composed
+reader; pinned by `sanitize-stakeholder-patch.test.ts` on a NON-default row and by a
+`plan.write-path.test.ts` case that reds when the call site is deleted. The remainder of this entry —
+the sweep's inability to exercise the silent-reset half at all — stays OPEN.
+
+★ Still not done: the `resource` reader is the last bare `sanitizerReader(...)`. It is faithful
+TODAY only because `updateResource` has no merge-site guard; add one and the sweep repeats the raid
+failure verbatim, going on excusing closed defects while fully green. A merge-site guard is
+structurally invisible to a raw-sanitizer reader — measured on raid, where the fix left the gate
+green and four stale exceptions kept covering defects that no longer existed.
+
+## 395. `update_raid_item({probability: true})` stores a fabricated risk score of 1 — OPEN
+
+**Status:** OPEN, and deliberately NOT closed by the guard that closed its siblings. Filed
+2026-09-06. Last executed verification 2026-09-06 — `grep -n "probability:" src/app/sanitize-records.ts` (the guard is `acceptsRiskScale`, the sanitizer's own predicate) and mutation run swapping the guard's `toNumber` for
+`typeof v === "number"`, which turned the raid sweep in `plan.sanitizer-parity.test.ts` RED.
+
+`toNumber(true)` is `1`, which is inside the [1,5] range, so a boolean stores a plausible-looking
+score that feeds `riskSeverityFromMatrix`. It is not a CLEAR, which is why it never appeared in the
+list of preview/apply divergences: the PREVIEW coerces identically and shows it as accepted.
+
+★★ The obvious writer-side tightening is measured to be worse: a stricter guard than the preview's
+own normalisation invents a NEW disagreement pointing the other way. Closing this needs a
+COORDINATED change to both sides — the preview stops accepting a boolean AND the writer stops
+coercing one — which is why it is filed rather than patched. `toNumber(false)` is `0`, out of range,
+so `false` is already refused.
+
+## 396. `update_task({lastUpdateDate: ""})` previews a clear the writer does not make — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 while adding `lastUpdateDate` to the previewable set. Last
+executed verification 2026-09-06 — `grep -n "lastUpdateDate" src/app/chat-task-patch.ts` (four hits: the guard, its comment and the drop) and read of `buildTaskCleanPatch`, which drops the key when
+`sanitizeIsoDate` returns "", against a PATCH merged over the stored task.
+
+The two task dates are asymmetric on a blank and neither is wrong in isolation: `dueDate` THROWS
+(and `requiredNonEmpty` catches the blank first), while `lastUpdateDate` merely drops the key — and a
+dropped key on a patch merged over the stored row leaves the field UNCHANGED, where the full-record
+sanitizers behind raid/change/milestone clear theirs.
+
+★ It needs a "blank is a no-op" mechanism the descriptor does not have. `requiredNonEmpty` is the
+WRONG one: it means "the writer throws". ★★ The parity sweep cannot see this because `TASK_BASE`
+carries no `lastUpdateDate`; adding one manufactures a red outside the direction under test.
+
+## 397. The `emails` preview cannot see the row's own primary address — OPEN
+
+**Status:** OPEN as a KNOWN NARROWING of the §383 fix, recorded at the moment it was introduced.
+Filed 2026-09-06. Last executed verification 2026-09-06 — `npx vitest run src/app/inline-ai-edit/plan.test.ts -t "KNOWN DIVERGENCE"` and measured against the real
+`sanitizeResource` under vite-node, and pinned by a test named "KNOWN DIVERGENCE" in
+`src/app/inline-ai-edit/plan.test.ts`.
+
+A `fieldSanitizers` entry receives only the field's VALUE, so the preview calls
+`sanitizeEmailList(v, undefined)` where `sanitizeResource` calls it with the merged row's primary.
+Two consequences: an incoming extra EQUAL to the primary is kept by the preview and dropped by the
+write; and at the 10-address cap the asymmetry shifts WHICH address lands tenth. The first is
+pinned, naming the expectation to flip if the entry ever learns the row; the second is unpinned for
+want of a fixture that large.
+
+★ Fixing either means threading the row into EVERY `fieldSanitizers` entry — a signature change
+across the map, deliberately out of the slice that found it.
+
+## 398. `Milestone.description` is cleared by a non-string, and the preview projects one instead of refusing it — OPEN
+
+**Status:** OPEN, and deliberately left out of the milestone merge-site guard. Filed 2026-09-06. Last
+executed verification 2026-09-06 — `npx vitest run src/app/sanitize-milestone-patch.test.ts` (17 passed) and `sanitizeMilestone({...base, description: true})` under
+vite-node returns a record with NO `description` key; pinned in
+`src/app/sanitize-milestone-patch.test.ts`.
+
+It is the same drop-key shape the guard closes for `achievedDate`: `sanitizeRichText` returns "" for
+a non-string, `if (description)` omits the key, and the rebuilt record loses the stored rich text.
+
+★★ It is NOT guarded, and the reason is the trap that governs this whole class: `description` is a
+RICH field and the preview PROJECTS a non-string rather than refusing it. Guarding the writer alone
+would make the write keep a value the card says is changing — this slice's own defect pointing the
+other way. Closing it needs a coordinated change on both sides, like §395.
+
+## 399. The change amount sanitizer accepts a fraction the preview rejects — OPEN
+
+**Status:** OPEN. Filed 2026-09-06. Last executed verification 2026-09-06 — `grep -n "Number.isFinite(days)" src/app/sanitize-records.ts` and read of
+`sanitizeChangeItem`'s `Number.isFinite(days) && days >= 0` against the descriptor's
+`intRangeFields: { scheduleImpactDays: [0, Infinity], costImpact: [0, Infinity] }`, whose preview
+guard demands `Number.isInteger`.
+
+So `scheduleImpactDays: 1.5` previews as REJECTED and applies anyway. It is the §384 direction on a
+number field, and no probe in the parity sweep sends a fraction, so nothing goes red either way.
+
+★ Closing it by tightening the sanitizer would abandon the writer's own predicate, which is the rule
+the merge-site guards follow; closing it by loosening the preview admits fractions into a field
+whose UI is an integer stepper. It is a real decision, not a typo.
+
+## 400. `str` is defined twice, in `plan.ts` and `entity-descriptor.ts` — OPEN
+
+**Status:** OPEN. Filed 2026-09-06. Last executed verification 2026-09-06 —
+`grep -n "^function str" src/app/inline-ai-edit/*.ts` returns both.
+
+`plan.ts` imports `entity-descriptor.ts`, so importing the helper back would close a cycle. The
+second copy was made verbatim rather than approximated, and carries a comment saying why it is not
+an import — but two functions with one name and no shared source is a drift risk, and this register
+records several defects that began exactly there.
+
+★ The fix is a shared leaf module both import. It was out of scope for the task that hit it.
+
+## 401. `update_task` accepts an undeclared `notes` input that no schema-driven gate can see — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 by the task that built the tool-input coverage gate, which
+established this limit while proving its own reach. Last executed verification 2026-09-06 —
+`grep -n "input.notes" src/app/chat-tools-updates.ts` (two hits, both in `buildPatch`) and `taskFields` in `chat-tool-defs.ts` declares no `notes`, while `buildPatch` resolves
+`input.description ?? input.notes` into `patch.description`.
+
+The alias is deliberate — it kept a pre-0.196.0 spelling working — and it is HARMLESS in itself,
+because it lands in `description`, which IS previewed.
+
+★★★ The point of the entry is the GATE'S REACH, not the alias: `tool-input-coverage.test.ts`
+enumerates DECLARED schema properties, so an input the dispatcher accepts and the schema never
+advertises is invisible to it forever. A green run means "every declared input is covered", never
+"every accepted input is covered". That limit is written into the gate's own header so a reader does
+not over-read it.
+
+## 402. `update_resource`'s `roleId` description tells the model it assigns rates — OPEN
+
+**Status:** OPEN. Filed 2026-09-06. Last executed verification 2026-09-06 — `grep -n "assigns the resource" src/app/chat-tool-defs.ts` (one hit, the `roleId` description) and read of the tool
+description against `Role` in `types.ts` and the read-time resolution in `resource-foundation.ts`.
+
+The schema tells the model that `roleId` "assigns the resource's discipline + grade + rates". It
+sets ONE foreign key; those values live on `Role` and resolve at read time. A model reading the
+description may believe it is writing rate data onto the resource.
+
+★ Cheap to fix and worth doing when that file is next open — the risk is a model choosing `roleId`
+to achieve something it cannot achieve.
+
+## 403. `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways — OPEN
+
+**Status:** OPEN as a RECORD of a deliberate asymmetry, pinned rather than resolved. Filed
+2026-09-06. Last executed verification 2026-09-06 — `npx vitest run src/app/sanitize-records.test.ts -t "unlike sanitizeIdList"` and pinned by
+`src/app/sanitize-records.test.ts`'s "yields [] for a delimited string, unlike sanitizeIdList".
+
+The milestone rule is array-ONLY (a delimited string yields `[]`, where raid and change parse one)
+and does NOT dedupe (which inflates the digest's `linkedTasks: N`). So `linkedTaskIds: "1;2"` links
+two tasks on a raid item and links nothing on a milestone.
+
+★ The preview now calls the milestone's OWN rule, so the card and the write agree — this entry is
+about the two rules disagreeing with EACH OTHER, which is a data-model question, not a preview one.
+Changing either one moves stored data on a path this register would want to see argued first.
+
+## 404. A dependency proposal whose links are all refused shows no change and no reason — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 by the task that gave `set_task_dependencies` its describer, as a
+stated limit of that describer rather than a defect it introduced. Last executed verification
+2026-09-06 — `npx vitest run src/app/chat-proposal-describe.test.ts -t "shows no change when every proposed link is refused"`.
+
+The describer previews what the write would STORE, by calling the write path's own
+`resolveDependencyWrite`, so self-links, unknown ids, duplicates, over-cap entries and cycles are
+correctly NOT shown as landing. When EVERY proposed link is refused that way, the card correctly
+shows no change — and says nothing about why.
+
+★ It is the §392 shape on another surface: a refusal that is computed and not surfaced. Closing it
+means per-entry dependency rejections on the row, which the `Rejected` bucket can carry but the
+describer does not currently populate.
+
+★★ One line of the dispatcher's wholly-destructive refusal is MIRRORED in the describer rather than
+shared, because that branch lives in the hook and not in the pure resolver. The docstring says so.
+That duplication is the thing to watch: this register records several defects that began as one
+rule spelled in two places.
+
+## 405. The merge-site guard tables restate their sanitizers' predicates instead of sharing them — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 by the cold review of the four merge-site guards. Last executed
+verification 2026-09-06 — `grep -n "FIELD_GUARDS" src/app/sanitize-records.ts` (four tables), read
+against the sanitizer bodies in the same file.
+
+Each `dropUnaccepted*Fields` table hand-copies the acceptance rule from its sanitizer, 40-190 lines
+away in the same file. The docstrings say "hoist the sanitizer's OWN acceptance predicate", but no
+code is shared, so a divergence would be silent — and the tests cannot catch it either, because the
+`it.each` rows are hand-picked values rather than a property over the sanitizer.
+
+★★ This is the drift class the whole slice was written to fix, one layer down: two spellings of one
+rule, with nothing tying them together. The branch already shows the better shape —
+`sanitizeMilestoneTaskIds` was EXTRACTED and is called by the writer and the preview both.
+
+★ The mechanical fix is to invert the dependency: have the sanitizer call the predicate
+(`if (acceptsRiskScale(o.probability)) …`), which makes delegate-never-restate structural rather
+than aspirational. Not done here because it edits the load-path sanitizers, whose behaviour is pinned
+by ~8 tests this slice deliberately left untouched.
+
+## 406. The `set_task_dependencies` card label is hardcoded English — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 by the cold review of the preview surfaces. Last executed
+verification 2026-09-06 — `grep -n "dependencies\`" src/app/chat-proposal-describe.ts` returns SIX
+lines, of which exactly one (the template literal building the `LinkDiff` field name) is the label
+under discussion; the rest are prose in comments.
+
+★★ That parenthetical originally said "one hit", and the command beside it returned six — a reproduce
+refuting its own summary, which is the failure this register documents under "a reproduce beside a
+number can refute it". The CLAIM was true; the count was not. Corrected rather than dropped, because
+the number is what a reader checks first.
+
+The describer builds its label as `` `${title} dependencies` ``, which reaches the card through
+`fieldLabel(lang, undefined, field)` verbatim — so a German user sees "Kickoff vorbereiten
+dependencies". Every other label on that surface is translated, and `i18n.ts` already carries a
+`dependencies` key.
+
+★ The fix is not a one-liner: `chat-proposal-describe.ts` is i18n-free by construction and takes no
+`lang`, so either the label must become structured data the renderer translates, or the describer
+must start receiving a language. The second would put `t()` into a module whose purity is deliberate.

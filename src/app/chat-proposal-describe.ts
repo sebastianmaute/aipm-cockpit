@@ -25,9 +25,13 @@ import {
   INLINE_DESCRIPTORS,
   type EntityDescriptor,
   type InlineEntity,
+  type LinkField,
 } from "./inline-ai-edit/entity-descriptor";
+import { resolveLinkTitles, UNKNOWN_ID_MARKER } from "./inline-ai-edit/link-titles";
 import { stampCall } from "./insights/recommend-tokens";
 import type { PlanRow, ProposedCall } from "./chat-proposal";
+import { resolveDependencyWrite } from "./task-dependency-write";
+import type { Task, TaskDependency } from "./types";
 
 // The `item` shape describeEntityCalls expects, without exporting a new type
 // from plan.ts (which stays untouched — only read here).
@@ -91,7 +95,7 @@ export interface DescribedRow {
 }
 
 function emptyPlan(): EditPlan {
-  return { updates: [], creates: [], deletes: [], rejected: [] };
+  return { updates: [], creates: [], deletes: [], rejected: [], links: [] };
 }
 
 /** `plan.ts`'s own `str`, for the one rejection this file has to raise itself.
@@ -133,6 +137,111 @@ function seedItem(
   if (op === "delete") return { id } as unknown as RowItem;
   const rows = ws[d.wsKey] as ReadonlyArray<{ id: number }>;
   return (rows.find((r) => r.id === id) ?? { id: Number.NaN }) as unknown as RowItem;
+}
+
+const DEPENDENCY_TOOL = "set_task_dependencies";
+
+/** A task's `dependencies` seen as a link field, so the ids in it resolve
+ *  through the SAME renderer every other relationship on this card uses.
+ *
+ *  ★★ IT IS NOT AND MUST NOT BECOME AN `INLINE_DESCRIPTORS` ENTRY. The task
+ *   descriptor's `linkFields` is deliberately `{}` — `update_task` cannot write
+ *   `dependencies`, and `TOOL_ENTITY`/`toolOp` are DERIVED from the descriptors'
+ *   create/update/delete triples, which this tool has none of. Adding one would
+ *   change `liveRowTitle`, `mintKindFor`, `PlanDetail`'s `entity` and the
+ *   `TOOL_ENTITY` reconciliation test all at once, to describe a single tool.
+ *
+ *  ★ `sanitize` is never called on this path: `resolveLinkTitles` reads `wsKey`
+ *   and `titleOf` only. It is the field's real id rule (a dependency's id is its
+ *   `taskId`) rather than a stub, so a future caller that DOES read it gets an
+ *   answer that matches what is rendered. */
+const DEPENDENCY_LINK: LinkField = {
+  wsKey: "tasks",
+  kind: "list",
+  titleOf: (row) => String(row.taskName ?? ""),
+  sanitize: (v) =>
+    Array.isArray(v)
+      ? v
+          .map((e) => Number((e as { taskId?: unknown } | null)?.taskId))
+          .filter((n) => Number.isFinite(n))
+      : [],
+};
+
+/** One dependency as `"<task title> (<type>)"`.
+ *
+ *  ★★★ THE TYPE IS PART OF THE LABEL BECAUSE IT IS PART OF THE LINK'S IDENTITY.
+ *   The writer keys a link on the (`taskId`, `type`) PAIR — `use-chat-dispatcher`
+ *   computes `removed`/`added` with `a.taskId === d.taskId && a.type === d.type`
+ *   — so switching a predecessor from FS to SS drops one link and adds another.
+ *   Rendering titles alone would show `"A" → "A"` for that write: a change the
+ *   user cannot see on the surface whose whole purpose is that they can, which
+ *   is the same-titled-swap hazard `LinkDiff`'s own docstring records. */
+function dependencyLabel(dep: TaskDependency, ws: Workspace): string {
+  return `${resolveLinkTitles([dep.taskId], DEPENDENCY_LINK, ws)} (${dep.type})`;
+}
+
+function renderDependencies(deps: readonly TaskDependency[], ws: Workspace): string {
+  return deps.map((dep) => dependencyLabel(dep, ws)).join(", ");
+}
+
+/** The one tool described here by hand.
+ *
+ *  ★★★ IT REPLACES A TASK'S WHOLE PREDECESSOR LIST, and before this it produced
+ *   an EMPTY plan under a row titled `set_task_dependencies` — the user approved
+ *   a wholesale graph rewrite having been shown a tool name. The dispatcher does
+ *   compute the dropped links, but only into the tool RESULT, i.e. to the model,
+ *   after the write.
+ *
+ *  ★★ `after` IS WHAT WOULD BE STORED, NOT WHAT THE MODEL PROPOSED, and the two
+ *   differ often: `resolveDependencyWrite` (the write path's own resolver, pure,
+ *   imported rather than re-implemented) drops self-links, unknown ids,
+ *   duplicates, over-cap entries and cycles. Previewing the raw proposal would
+ *   promise links the write silently refuses.
+ *   ★★ The one branch MIRRORED rather than imported is `use-chat-dispatcher`'s
+ *   wholly-destructive refusal: nothing applied, something rejected, and the
+ *   task currently HAS links ⇒ the task is left untouched. That branch lives in
+ *   the hook, so this preview drifts if it moves — pinned by "shows no change
+ *   when every proposed link is refused".
+ *
+ *  ★★ THE TASK'S NAME RIDES THE `field` LABEL because the ROW TITLE cannot carry
+ *   it: `liveRowTitle` resolves a title only for a tool `TOOL_ENTITY` knows, and
+ *   this tool is deliberately absent from that map (see `DEPENDENCY_LINK`). The
+ *   label is the only slot on the rendered line that survives to the card, and
+ *   `fieldLabel` passes it through verbatim for an entity-less row.
+ *
+ *  ★ `rawIds` is populated for shape consistency ONLY. This row is applied by
+ *   REPLAYING the original tool input, so nothing reads it back — it must never
+ *   be wired into an apply path, which would write bare ids over typed links. */
+function describeDependencyCall(call: ProposedCall, ws: Workspace): EditPlan {
+  const plan = emptyPlan();
+  const input = call.input as { id?: unknown; dependencies?: unknown };
+  const id = Number(input.id);
+  const tasks = ws.tasks as readonly Task[];
+  const target = Number.isFinite(id) ? tasks.find((row) => row.id === id) : undefined;
+  // Both of these make the TOOL throw, so the call really will not be applied —
+  // which is what `rejected` means here, and why a missing target is reported
+  // the same way the id-less delete above reports one.
+  if (target === undefined) {
+    plan.rejected.push({ toolName: call.name, reason: "unknown-id", detail: detailOf(input.id) });
+    return plan;
+  }
+  if (!Array.isArray(input.dependencies)) {
+    plan.rejected.push({ toolName: call.name, reason: "bad-input", detail: detailOf(input.dependencies) });
+    return plan;
+  }
+
+  const prior: readonly TaskDependency[] = target.dependencies ?? [];
+  const { applied, rejected } = resolveDependencyWrite(id, input.dependencies, tasks);
+  const after =
+    applied.length === 0 && rejected.length > 0 && prior.length > 0 ? prior : applied;
+  const title = String(target.taskName ?? "").trim();
+  plan.links.push({
+    field: `${title !== "" ? title : `${UNKNOWN_ID_MARKER}${id}`} dependencies`,
+    before: renderDependencies(prior, ws),
+    after: renderDependencies(after, ws),
+    rawIds: after.map((dep) => dep.taskId),
+  });
+  return plan;
 }
 
 /** One `DescribedRow` per proposed call, IN THE INPUT'S ORDER — position is the
@@ -220,6 +329,15 @@ export function describeProposal(
 
     if (pendingOn !== undefined) {
       rows.push({ call, stamped, plan: emptyPlan(), mintedId, pendingOn });
+      continue;
+    }
+
+    // ★ AFTER the pending branch, so a call whose target task is minted earlier
+    //  in this same turn still reports `pendingOn` rather than "unknown-id" —
+    //  `set_task_dependencies` is a key of `TARGET_MINTED_BY`, so that is a real
+    //  shape. BEFORE the `TOOL_ENTITY` lookup, which misses this tool by design.
+    if (call.name === DEPENDENCY_TOOL) {
+      rows.push({ call, stamped, plan: describeDependencyCall(call, ws), mintedId });
       continue;
     }
 
