@@ -140,7 +140,7 @@ it("renders a link change with its resolved titles", () => {
     creates: [],
     deletes: [],
     rejected: [],
-    links: [{ entity: "raid", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
+    links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
   };
   render(
     <RecommendationReviewModal
@@ -173,7 +173,7 @@ it("renders a cleared link list as an em dash rather than as nothing", () => {
         creates: [],
         deletes: [],
         rejected: [],
-        links: [{ entity: "raid", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
+        links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
       }}
       onConfirm={vi.fn()}
       onCancel={vi.fn()}

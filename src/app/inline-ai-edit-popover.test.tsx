@@ -58,6 +58,34 @@ it("closes via the header ✕, so the focus-trapped dialog stays escapable by po
   expect(onCancel).toHaveBeenCalled();
 });
 
+// A merged plan can hold TWO `update_*` blocks touching the same field, so a
+// bare `key={d.field}` collides. React drops one of the two <li>s and warns —
+// so the user reads a preview that is missing a line the write will make, on the
+// one surface whose Apply writes exactly what it renders.
+// ★ Asserted on React's own warning rather than on a rendered count: with a
+//   duplicate key React renders ONE row, and a count assertion would pin the
+//   render behaviour rather than the key. The `getAllByText` below is the
+//   positive control that both rows really do reach the DOM.
+it("gives each update row a key of its own when two touch the same field", () => {
+  const warn = vi.spyOn(console, "error").mockImplementation(() => {});
+  render(
+    <InlineAiEditPopover
+      {...base}
+      phase="preview"
+      plan={{
+        updates: [
+          { entity: "raid", field: "title", before: "Old", after: "Mid", raw: "Mid" },
+          { entity: "raid", field: "title", before: "Mid", after: "New", raw: "New" },
+        ],
+        creates: [], deletes: [], rejected: [], links: [],
+      }}
+    />,
+  );
+  expect(screen.getAllByText("Title")).toHaveLength(2);
+  expect(warn.mock.calls.some((c) => String(c[0]).includes("same key"))).toBe(false);
+  warn.mockRestore();
+});
+
 // ★★★ The inline path APPLIES `plan.links` (it rebuilds the write patch from
 // them), so a link change this popover does not render is a silent destructive
 // write, not merely an undisclosed one: relationship writes REPLACE.
@@ -71,7 +99,7 @@ it("renders a link change in preview", () => {
         creates: [],
         deletes: [],
         rejected: [],
-        links: [{ entity: "raid", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
+        links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
       }}
     />,
   );
@@ -186,7 +214,7 @@ it("renders a cleared link list as an em dash rather than as nothing", () => {
         creates: [],
         deletes: [],
         rejected: [],
-        links: [{ entity: "raid", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
+        links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
       }}
     />,
   );

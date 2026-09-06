@@ -144,8 +144,11 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
           <div className="mt-1">
             <p className="mb-2 text-xs font-medium text-foreground">{t(lang, "inlineAiEditPreview")}</p>
             <ul className="mb-3 space-y-1 text-xs text-foreground">
-              {plan.updates.map((d) => (
-                <li key={d.field}><span className="font-medium">{fieldLabel(lang, d.entity, d.field)}</span>: {d.before || "—"} → {d.after || "—"}</li>
+              {/* ★ Keyed by INDEX + field, matching the links row below: a
+                  merged plan can hold two `update_*` blocks touching the SAME
+                  field, and a bare `key={d.field}` is then a duplicate key. */}
+              {plan.updates.map((d, i) => (
+                <li key={`u${i}-${d.field}`}><span className="font-medium">{fieldLabel(lang, d.entity, d.field)}</span>: {d.before || "—"} → {d.after || "—"}</li>
               ))}
               {/* ★★ This popover's Apply REBUILDS its write patch from `links`,
                   and a relationship write REPLACES — so an unrendered link

@@ -106,6 +106,24 @@ export interface LinkDiff {
    *  member, same reason: `linkedTaskIds` is declared on raid AND on change,
    *  and a merged plan can hold both. */
   entity: InlineEntity;
+  /** ★★★ WHERE THIS LINK CAME FROM, and the ONLY thing that may decide whether
+   *  it is written to the open row. `"row"` = a real update to the row the
+   *  popover was opened on; `"create"` = DISCLOSURE ONLY, projected off a
+   *  `create_*` call so the card says which links the create will write. The
+   *  create writes them itself, by replaying its own `input` — so applying a
+   *  `"create"` diff to the open row REPLACES that row's links with the new
+   *  item's (a RAID row on `[1, 3]` plus `create_raid_item({linkedTaskIds:[7]})`
+   *  left the open row on `[7]`, silently, with the card never saying so).
+   *
+   *  ★★★ `entity` CANNOT SUBSTITUTE FOR THIS, and "simplifying" it to
+   *  `l.entity === d.entity` reinstates the data loss verbatim: that exact
+   *  counter-example is SAME entity (`raid` open, `create_raid_item`) and a
+   *  DIFFERENT ROW. `entity` answers "which register's label do I render";
+   *  `target` answers "whose row is this". They are orthogonal.
+   *
+   *  ★ REQUIRED, not optional-with-a-default: a future push site must fail
+   *  `tsc` rather than silently defaulting into the destructive branch. */
+  target: "row" | "create";
   field: string;
   subject?: string;
   before: string;
@@ -313,6 +331,10 @@ function pushLinkDiffs(
   input: Record<string, unknown>,
   prior: Record<string, unknown>,
   ws: Workspace,
+  /** See `LinkDiff.target` — `"row"` is a write to the open row, `"create"` is
+   *  disclosure only. Passed rather than derived from `prior === {}`: an empty
+   *  prior is a coincidence of the create branch, not a contract. */
+  target: LinkDiff["target"],
 ): void {
   for (const [f, link] of Object.entries(d.linkFields)) {
     if (!(f in input)) continue;
@@ -321,7 +343,7 @@ function pushLinkDiffs(
     const before = resolveLinkTitles(beforeIds, link, ws);
     const after = resolveLinkTitles(afterIds, link, ws);
     if (before === after) continue;
-    plan.links.push({ entity: d.entity, field: f, before, after, rawIds: afterIds });
+    plan.links.push({ entity: d.entity, target, field: f, before, after, rawIds: afterIds });
   }
 }
 
@@ -535,7 +557,7 @@ export function describeEntityCalls(
       // that comparison costs — lives on `pushLinkDiffs`, which the create
       // branch below calls too. Do not restate it here; one spelling is the
       // point (§405).
-      pushLinkDiffs(plan, d, input, item, ws);
+      pushLinkDiffs(plan, d, input, item, ws, "row");
       // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)
       // changed, whose current value is no longer valid for the item as patched,
       // is silently reset by the sanitizer to the field's default (RAID status
@@ -578,7 +600,11 @@ export function describeEntityCalls(
       //  a DIFFERENT entity (a task popover creating a RAID item). Projecting a
       //  create's links through the open row's descriptor would read the wrong
       //  entity's `linkFields`, which is worse than not projecting them.
-      pushLinkDiffs(plan, INLINE_DESCRIPTORS[entity], input, {}, ws);
+      //  ★★★ `"create"`, and it is what keeps this disclosure from becoming a
+      //  WRITE. `apply()` rebuilds the open row's patch from `plan.links`, so
+      //  before `target` existed these ids replaced the open row's own — see
+      //  `LinkDiff.target`, and do not narrow that check to `entity`.
+      pushLinkDiffs(plan, INLINE_DESCRIPTORS[entity], input, {}, ws, "create");
       plan.creates.push({ entity, title: titleOf(entity, input), toolName: name, input });
       continue;
     }

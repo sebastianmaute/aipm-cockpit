@@ -273,6 +273,10 @@ function describeDependencyCall(call: ProposedCall, ws: Workspace): EditPlan {
     //  would translate it — a separate change with the consequences that
     //  docstring lists, not a side effect of carrying the data.
     entity: "task" satisfies InlineEntity,
+    // ★ `set_task_dependencies` rewrites an EXISTING task's predecessor list,
+    //  so this is a real row write, not a create's disclosure — see
+    //  `LinkDiff.target`.
+    target: "row",
     field: "dependencies",
     subject: title !== "" ? title : `${UNKNOWN_ID_MARKER}${id}`,
     before: renderDependencies(prior, ws),

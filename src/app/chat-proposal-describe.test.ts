@@ -263,7 +263,7 @@ describe("describeProposal", () => {
       expect(rows[0].plan.links).toEqual([
         // The task's name is `subject`, not part of the label — §406, and the
         // test two blocks down pins why.
-        { entity: "task", field: "dependencies", subject: "C", before: "A (FS), B (FS)", after: "A (FS)", rawIds: [1] },
+        { entity: "task", target: "row", field: "dependencies", subject: "C", before: "A (FS), B (FS)", after: "A (FS)", rawIds: [1] },
       ]);
     });
 
@@ -575,7 +575,7 @@ describe("TOOL_ENTITY", () => {
     expect(allTasks.plan).toEqual(empty);
     expect(inquiry.plan).toEqual(empty);
     expect(deps.plan.links).toEqual([
-      { entity: "task", field: "dependencies", subject: "A", before: "", after: "B (FS)", rawIds: [2] },
+      { entity: "task", target: "row", field: "dependencies", subject: "A", before: "", after: "B (FS)", rawIds: [2] },
     ]);
   });
 });

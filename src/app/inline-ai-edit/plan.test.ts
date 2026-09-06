@@ -46,7 +46,11 @@ describe("describeToolCalls", () => {
     );
     expect(plan.creates).toHaveLength(1);
     // `before` is always "" on a create: there is no prior row to drop links from.
-    expect(plan.links).toEqual([{ entity: "raid", field: "linkedTaskIds", before: "", after: "Kickoff", rawIds: [7] }]);
+    // ★★ `target: "create"` — DISCLOSURE, not a write to the open row. `apply()`
+    //  filters on exactly this, and `entity` cannot stand in for it: had the open
+    //  row been a RAID item, `entity` would read "raid" here too. See
+    //  `LinkDiff.target`.
+    expect(plan.links).toEqual([{ entity: "raid", target: "create", field: "linkedTaskIds", before: "", after: "Kickoff", rawIds: [7] }]);
   });
 
   it("rejects an update whose id is not the target task and not in the workspace", () => {
@@ -740,6 +744,26 @@ describe("resource extra emails (383)", () => {
       { entity: "resource", field: "emails", before: "b@x.com", after: "m@x.com", raw: "m@x.com" },
     ]);
   });
+
+  // ★★★ THE PRIMARY IS SANITIZED BEFORE IT IS COMPARED, exactly as
+  //  `sanitizeResource` does it (`sanitizeEmail(input.email) || undefined`).
+  //  `sanitizeEmail` trims and clips to EMAIL_MAX while `sanitizeEmailList`
+  //  de-dupes on an EXACT `primary.toLowerCase()`, so a primary arriving with
+  //  surrounding whitespace matched nothing: the writer stored `emails: []` and
+  //  the card promised `bob@x.com` was kept. Same divergence for an
+  //  over-EMAIL_MAX primary, where the writer compares the CLIPPED form.
+  //  ★ The `email` diff below is the positive control — without it a green run
+  //  could mean the whole call was rejected rather than the extra de-duped.
+  it("de-dupes against the SANITIZED primary, not the raw one", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, email: "  Bob@X.com  ", emails: ["bob@x.com"] } }],
+      { descriptor: d, item, ws: emailWs },
+    );
+    expect(plan.updates).toEqual([
+      { entity: "resource", field: "email", before: "m@x.com", after: "Bob@X.com", raw: "Bob@X.com" },
+      { entity: "resource", field: "emails", before: "b@x.com", after: "", raw: "" },
+    ]);
+  });
 });
 
 describe("task lastUpdateDate", () => {
@@ -1136,7 +1160,7 @@ describe("link fields", () => {
       [{ type: "tool_use", name: "update_raid_item", input: { id: 10, linkedTaskIds: [2] } }],
       { descriptor: INLINE_DESCRIPTORS.raid, item: vendorRisk, ws: linkWs },
     );
-    expect(plan.links).toEqual([{ entity: "raid", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }]);
+    expect(plan.links).toEqual([{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }]);
     expect(plan.updates).toEqual([]);
   });
 
@@ -1174,7 +1198,7 @@ describe("link fields", () => {
       { descriptor: INLINE_DESCRIPTORS.milestone, item: ga, ws: mws },
     );
     expect(plan.links).toEqual([
-      { entity: "milestone", field: "linkedTaskIds", before: "Draft brief", after: "Draft brief, Ship", rawIds: [1, 2] },
+      { entity: "milestone", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "Draft brief, Ship", rawIds: [1, 2] },
     ]);
   });
 
@@ -1210,7 +1234,7 @@ describe("link fields", () => {
         [{ type: "tool_use", name: "update_resource", input: { id: 3, roleId: 12 } }],
         { descriptor: INLINE_DESCRIPTORS.resource, item: ada, ws: roleWs },
       );
-      expect(plan.links).toEqual([{ entity: "resource", field: "roleId", before: "Engineering L3", after: "Design L3", rawIds: [12] }]);
+      expect(plan.links).toEqual([{ entity: "resource", target: "row", field: "roleId", before: "Engineering L3", after: "Design L3", rawIds: [12] }]);
     });
 
     it("shows a cleared FK as an empty after with no ids", () => {
@@ -1218,7 +1242,7 @@ describe("link fields", () => {
         [{ type: "tool_use", name: "update_resource", input: { id: 3, roleId: null } }],
         { descriptor: INLINE_DESCRIPTORS.resource, item: ada, ws: roleWs },
       );
-      expect(plan.links).toEqual([{ entity: "resource", field: "roleId", before: "Engineering L3", after: "", rawIds: [] }]);
+      expect(plan.links).toEqual([{ entity: "resource", target: "row", field: "roleId", before: "Engineering L3", after: "", rawIds: [] }]);
     });
   });
 });
@@ -1228,7 +1252,7 @@ describe("EditPlan.links", () => {
     // A plan that ONLY changes relationships must still render. Treating it as
     // empty would hide the most destructive write class behind a blank card.
     const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [
-      { entity: "raid", field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] },
+      { entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] },
     ] };
     expect(isEmptyPlan(plan)).toBe(false);
   });

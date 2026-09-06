@@ -577,7 +577,15 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       //  a primary changed in the same call" (plan.test.ts).
       // ★ Joined with ", " like every other list this module renders (`str`,
       //  `resolveLinkTitles`); the writer's `[;,]` split accepts it back.
-      emails: (v, row) => sanitizeEmailList(v, typeof row.email === "string" ? row.email : undefined).join(", "),
+      // ★★ THE PRIMARY GOES THROUGH `sanitizeEmail` FIRST, exactly as
+      //  `sanitizeResource` does it — the raw `row.email` is NOT the value the
+      //  writer de-dupes against. `sanitizeEmail` trims and clips to
+      //  `EMAIL_MAX`, and `sanitizeEmailList` compares on an EXACT
+      //  `primary.toLowerCase()`, so `{ email: "  Bob@X.com  ", emails:
+      //  ["bob@x.com"] }` dropped the extra in the write and KEPT it in the
+      //  preview. Same divergence for an over-`EMAIL_MAX` primary.
+      emails: (v, row) =>
+        sanitizeEmailList(v, typeof row.email === "string" ? sanitizeEmail(row.email) || undefined : undefined).join(", "),
     },
     // ★★★ `roleId` IS writable — it is listed as absent from `diffFields` above
     //  under "an FK, excluded by the same rule as Task.resourceId", and that

@@ -298,7 +298,7 @@ describe("ChatProposalBlock", () => {
         plan: {
           ...emptyPlan(),
           links: [
-            { entity: "raid", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] },
+            { entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] },
           ],
           rejected: [
             { toolName: "update_raid_item", reason: "bad-input", detail: "targetDate=nope" },
@@ -335,7 +335,7 @@ describe("ChatProposalBlock", () => {
           plan: {
             ...emptyPlan(),
             links: [
-              { entity: "task", field: "dependencies", subject: "C", before: "A (FS)", after: "B (SS)", rawIds: [2] },
+              { entity: "task", target: "row", field: "dependencies", subject: "C", before: "A (FS)", after: "B (SS)", rawIds: [2] },
             ],
           },
         }),
@@ -358,7 +358,7 @@ describe("ChatProposalBlock", () => {
         call: { name: "update_raid_item", input: { id: 7 } },
         plan: {
           ...emptyPlan(),
-          links: [{ entity: "raid", field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] }],
+          links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] }],
         },
       }),
     ]);
@@ -394,7 +394,7 @@ describe("ChatProposalBlock", () => {
         title: "Migrate database",
         plan: {
           ...emptyPlan(),
-          links: [{ entity: "raid", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
+          links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
         },
       }),
     ]);

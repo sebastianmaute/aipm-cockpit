@@ -235,6 +235,17 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     // a total failure with a stranded write.
     let applied = 0;
     try {
+      // ★★★ DERIVED ONCE AND USED BY BOTH THE GUARD AND THE LOOP — fixing only
+      // the loop leaves a create-with-links plan firing a POINTLESS
+      // `update_*` that carries `expectedToken`: it bumps `localModifiedAt`,
+      // logs a no-op `actor:"ai"` activity row, and can abort the whole apply
+      // with a ConcurrencyTokenError before the create ever runs.
+      // A `"create"` link is DISCLOSURE ONLY (the create writes its own links by
+      // replaying `c.input`); writing it here REPLACED the open row's links with
+      // the new item's. `LinkDiff.target` carries the reason and the
+      // counter-example — do NOT narrow this to `l.entity === d.entity`, which
+      // the open-RAID-row-plus-`create_raid_item` case passes.
+      const rowLinks = plan.links.filter((l) => l.target === "row");
       // ★★★ "IS THERE ANYTHING TO WRITE", NOT "ARE THERE FIELD UPDATES".
       // `links` is a peer write bucket and a links-only plan is the COMMON
       // shape for a relationship edit ("link this risk to task 12" sends
@@ -242,7 +253,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       // `plan.updates.length > 0` guard previews a relationship change and
       // writes nothing — a preview that is not a promise about the write,
       // which is the one property this whole surface exists to have.
-      if (plan.updates.length > 0 || plan.links.length > 0) {
+      if (plan.updates.length > 0 || rowLinks.length > 0) {
         // `expectedToken` is the control value `requireToken` consumes, not a
         // field of the entity — `buildPatch`/`patchWithoutId` strip it before
         // anything is persisted. It cannot be overwritten by the loops below:
@@ -267,7 +278,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         // `[]`, dropping every link the row had. The ids and the titles come
         // from one sanitize per side in `describeEntityCalls`, so the patch
         // carries precisely what the card promised.
-        for (const l of plan.links) patch[l.field] = linkPatchValue(d, l);
+        for (const l of rowLinks) patch[l.field] = linkPatchValue(d, l);
         await runTool(deps.dispatcher, d.updateTool, patch);
         applied++;
       }
