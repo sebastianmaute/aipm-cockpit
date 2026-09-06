@@ -29008,10 +29008,10 @@ second interpolation argument bolted onto the existing key.
 
 ## 408. No Turso connection test exists anywhere in the repo — OPEN
 
-**Status:** OPEN. Verified 2026-09-05 by grep:
+**Status:** OPEN. Verified 2026-09-06 by grep:
 `grep -rniE "test.?connection|verify.?connection|checkConnection|connectionTest|pingTurso|tursoTest" src/app --include=*.ts --include=*.tsx`
-returns only `jiraTest`/`timelogTest` i18n keys and `jira-api.ts`'s/`jira-settings.tsx`'s
-`testConnection` — nothing under any of the 20 `turso-*.ts(x)` files
+returns hits in four files only — the `jiraTest`/`timelogTest` i18n keys, and `testConnection` in
+`jira-api.ts`, `jira-settings.tsx` and its test — nothing under any of the 20 `turso-*.ts(x)` files
 (`ls src/app | grep -i "^turso"`). ★ The `^` anchor is what makes the count reproduce: the
 unanchored `ls src/app | grep -i turso` returns 26, because it also picks up
 `learning-store-turso.ts`, `use-storage-turso-ops.ts`, `use-turso-projects.ts` and their tests —
@@ -29032,10 +29032,12 @@ Consequence: `canMoveToTurso` in `src/app/settings-sections/integrations-section
 a live probe (reproduce: `grep -n 'canMoveToTurso\|tursoConfigured =' src/app/settings-sections/integrations-section.tsx`).
 The Move-to-Turso control can therefore only gate on Turso configuration being **present**,
 never on it being **confirmed working** — which is what was originally wanted for parity with
-Jira/Timelog. ★ The same ceiling WOULD apply to the `src/app/projects-panel.tsx` buttons that a
-PLANNED task in this batch would render visible-but-disabled — but **that task is deferred and
-is NOT in this branch**, so read the clause as a consequence for work not yet done, never as a
-description of shipped code. An earlier revision of this entry stated it as done.
+Jira/Timelog. ★ The same ceiling applies to the Turso buttons this branch ships
+visible-but-disabled in `src/app/projects-panel.tsx` and `src/app/project-empty-state.tsx`: both
+gate on a local `tursoConfigured`, which is the identical `!!getTursoConfig(url, token)` shape
+check (reproduce: `grep -n "tursoConfigured" src/app/projects-panel.tsx src/app/project-empty-state.tsx`).
+So a user whose URL/token pair is present but WRONG gets an enabled control that cannot work —
+the disabled state teaches that the capability exists, never that the credentials are good.
 
 ★ Design consequence, recorded so a future fix does not reach for the wrong shape by default: a
 *persisted* "connection confirmed" flag would be a new `Workspace`/`Settings` field and therefore
@@ -29059,20 +29061,25 @@ The open question is a product one, not a correctness one: should a gesture pres
 
 ## 410. `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line — OPEN
 
-**Status:** OPEN. Measured 2026-09-06 (not read): comment- and blank-stripped, the region from `const listId` to `return (` is 53 lines in EACH file and differs on exactly ONE line, the Enter commit call; the search-box block is 28 stripped lines in each and differs on NONE. Spot-check with `grep -n "cur + 1 >= options.length" src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx` (one hit in each file); full reproduce below.
+**Status:** OPEN. Re-measured 2026-09-06 by running the reproduce below (not read): comment- and blank-stripped, the region from `const listId` to `return (` is the SAME length in both files and differs only in the commit call and the armed-highlight identity accessor; the search-box block diffs clean (exit 0). ★ No line tallies are quoted here on purpose — the first cut of this entry gave two, and `f68afc9c` (the very next commit) falsified both by adding armed-identity state to both files. Spot-check with `grep -n "cur + 1 >= options.length" src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx` (one hit in each file); full reproduce below.
 
 `src/app/single-entity-picker.tsx` is the single-select sibling of `src/app/entity-link-picker.tsx`.
 The `prevQuery` render-time reconcile, the `active` clamp, the whole of `move()` and the whole of
 `onKeyDown` are near-identical between them, as is the `ClearableSearchInput` + `Input` search-box
-markup and the `role="listbox"` option list. Only the commit call differs (`onSelect` taking a
-`value` string versus `onAdd` taking the whole entry) and, in the list, the React `key`.
+markup and the `role="listbox"` option list. The commit call differs (`onSelect` taking a `value`
+string versus `onAdd` taking the whole entry), and so does the armed-highlight identity:
+`EntityLinkPicker` routes it through an `entryKey` helper the sibling does not have, so its state
+and every read of it are spelled against that key where `SingleEntityPicker` uses a bare `value`.
+The React `key` in the list differs too.
 
 Reproduce — both blocks, stripped of comments and indentation:
 
 ```bash
 strip() { grep -v '^[[:space:]]*//' "$1" | sed -n '/const listId/,/return (/p' | sed 's/^[[:space:]]*//;/^$/d'; }
 diff <(strip src/app/single-entity-picker.tsx) <(strip src/app/entity-link-picker.tsx)
-# -> a single 1-line hunk: onSelect(options[active].value) vs onAdd(options[active])
+# -> hunks on the commit call (onSelect(options[active].value) vs onAdd(options[active]))
+#    and on the armed-highlight identity (a bare .value vs entryKey(...)). Read the hunks;
+#    do not record a count here — the last one rotted one commit after it was written.
 
 strip2() { sed -n '/<div className="relative">/,/^        {open && (/p' "$1" | grep -v '^[[:space:]]*//' | grep -v '^[[:space:]]*{\?/\*' | grep -v '^[[:space:]]*\*' | sed 's/^[[:space:]]*//;/^$/d'; }
 diff <(strip2 src/app/single-entity-picker.tsx) <(strip2 src/app/entity-link-picker.tsx)
@@ -29133,12 +29140,13 @@ Remedy is cheap: `entity-link-picker.test.tsx` already carries a working templat
 two-branch padding assertion), so each is a port rather than a new test. ★ If §410 is taken first,
 these three come for free — pin them on the extracted hook once instead of in two suites.
 
-## 412. `TaskLinkPicker` has no direct test suite — coverage is real but indirect
+## 412. `TaskLinkPicker` has no direct test suite — coverage is real but indirect — OPEN
 
 **Status:** OPEN. Verified 2026-09-06: `ls src/app/task-link-picker.test.tsx` fails (no such
 file); `grep -rn "TaskLinkPicker" src --include=*.tsx --include=*.ts` finds it referenced only in
-`task-link-picker.tsx` itself (the definition), its four importers, two unrelated comments
-(`dependencies-editor.tsx`, `single-entity-picker.tsx`), and `label-binding.guard.test.ts` — the
+`task-link-picker.tsx` itself (the definition), its four importers, THREE comments that only name
+it in prose (`dependencies-editor.tsx`, `entity-link-picker.tsx` — which names it as the component
+it was extracted FROM — and `single-entity-picker.tsx`), and `label-binding.guard.test.ts` — the
 one and only test file that names it. That guard test does not render the component; it matches
 `<TaskLinkPicker\b` as a source-text pattern (a chip-first widget whose unlink ✕ renders above the
 search box) and its one live use of the string is a synthetic self-test literal, not an import.
@@ -29168,3 +29176,42 @@ count against the number of paths it had named, and the counts did not match. Th
 shape is already recorded as a landmine for this project (a batch invocation naming a
 non-existent path reports success); this is a fresh instance of it. Remedy for future batches:
 always compare the reported file count against the number of paths named, every time.
+
+## 413. The RAID badge's R/A/I/D breakdown is mouse-hover-only for sighted users — ACCEPTED COST
+
+**Status:** OPEN as a recorded decision, not as work. 2026-09-06, never machine-verified — nothing
+can test "a keyboard user cannot reach a `title`", and the two halves that ARE testable already
+have owners (`task-raid-badge.test.tsx` pins the accessible name's containment property;
+`grep -n "title=" src/app/task-raid-badge.tsx` shows the one attribute this entry is about).
+
+`178b2aa9` moved the per-category R/A/I/D split off the badge's visible text — which now carries a
+total — and onto `title`. `title` is the accessible DESCRIPTION, so a screen-reader user still gets
+the split, announced after the name. A sighted user does not: `title` surfaces on MOUSE HOVER
+ALONE, so a keyboard or touch user gets the count and the sentence and never the breakdown. The
+source comment on the attribute already states this trade; what it does not record is the decision
+below, which is the reason nobody should re-open it as a bug.
+
+**The obvious fix was considered and DECLINED.** The repo already ships a keyboard-reachable
+`InfoTooltip` primitive, and putting one beside the badge would restore the split for everyone.
+It cannot go INSIDE the badge: `InfoTooltip` renders its own focusable `role="button"`
+`tabIndex={0}` trigger (`src/app/info-tooltip.tsx`), and interactive content may not descend from a
+`<button>`, which is what the badge is. Beside it, then — and that is what was weighed and refused:
+
+- **One extra tab stop per task row.** The badge is per-row, so the cost scales with the list. A
+  keyboard user tabbing the Open Points table would take two stops per RAID-linked task to reach
+  what is, for them, a shorthand of information the row already conveys.
+- **A second control needing a row-unique accessible name.** Every per-row control does (WCAG
+  2.4.6 — see AGENTS.md's a11y constraint and the `src/test/row-unique-names.ts` helper), so it
+  would need the row token threaded in and a collision test of its own. ★★ No gate would catch a
+  miss: axe flags nothing for two controls sharing an accessible name, measured — so this is net
+  new hand-written test surface, not a free adoption of an existing primitive.
+- **It lands in the ID column, which was just NARROWED.** `f168a927` added `whitespace-nowrap` to
+  stop the four ID-column badges wrapping in that column; `178b2aa9` shortened the badge text to a
+  count for the same pressure. Adding a second glyph there spends the space both commits just
+  bought.
+
+So the cost is ACCEPTED: the split stays hover-only for sighted users, and the count plus the
+spelled-out sentence in the accessible name are what everyone else gets. ★ If this is ever
+revisited, the cheap direction is making the split part of what the badge already announces (or
+rendering it in the RAID panel the badge jumps to), NOT adding a second per-row control — the
+three costs above are properties of the extra control, not of the tooltip primitive.
