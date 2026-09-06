@@ -166,11 +166,13 @@ function keyedFieldLabel(lang: Lang, entity: InlineEntity, field: string): strin
  *   field label is what varies down the list beneath it.
  *
  *  ★★ A diff with no `subject` renders EXACTLY `fieldLabel`, byte for byte —
- *   which is every diff the descriptor engine produces — `describeEntityCalls`
- *   builds them all through its `pushLinkDiffs` helper, and `describeToolCalls`
- *   and `describeRecommendationPlan` only delegate to it. Only the hand-written
- *   `set_task_dependencies` describer sets one today (§406), because that tool
- *   is the one whose row title cannot name its own task. */
+ *   which is every `target: "row"` diff the descriptor engine produces, and it
+ *   is the surrounding card's OWN row title that qualifies those.
+ *   ★★ TWO producers set one, both for a row the surface does not name, and the
+ *   list used to say ONE: the hand-written `set_task_dependencies` describer in
+ *   `chat-proposal-describe.ts` (§406), whose tool's row title cannot carry its
+ *   own task's name, and `pushLinkDiffs` in `plan.ts` on a `target: "create"`
+ *   diff (§407), whose row does not exist yet. */
 export function linkLabel(
   lang: Lang,
   entity: InlineEntity | undefined,

@@ -1,6 +1,9 @@
 import { it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { InlineAiEditPopover } from "./inline-ai-edit-popover";
+import { describeEntityCalls } from "./inline-ai-edit/plan";
+import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
+import { type Workspace } from "./workspace";
 
 const base = {
   lang: "en-US" as const,
@@ -110,6 +113,48 @@ it("renders a link change in preview", () => {
   expect(screen.getByText("Linked tasks")).toBeInTheDocument();
   expect(screen.queryByText("linkedTaskIds")).not.toBeInTheDocument();
   expect(screen.getByText(/Draft brief, Review → Ship/)).toBeInTheDocument();
+});
+
+// §407. `plan.links` is ONE flat bucket and this list renders it as flat <li>s
+// in ONE <ul>, with nothing — no nesting, no separator — between a line
+// projected off a `create_*` call (DISCLOSURE only; the create replays its own
+// input) and one that rewrites the OPEN row. Unqualified, the create's line is
+// read as a statement about the open row, and in this mixed shape both lines
+// carry the byte-identical label with different values, so the reader cannot
+// tell which is which. `target` cannot fix that: it is invisible on the card.
+//
+// ★★★ THE PLAN IS BUILT BY THE ENGINE, not hand-written, because the fix lives
+//  in `pushLinkDiffs`. A hand-written plan carrying `subject` would keep
+//  passing with the producer no longer setting one — a seam test that cannot
+//  see the break above it.
+it("tells a create's link line apart from the open row's", () => {
+  const openRow = { id: 4, category: "R", title: "Risk A", status: "Open", linkedTaskIds: [1, 3] };
+  const ws = {
+    tasks: [
+      { id: 1, taskName: "Draft brief" }, { id: 3, taskName: "Review" },
+      { id: 7, taskName: "Task Seven" }, { id: 9, taskName: "Task Nine" },
+    ],
+    raid: [openRow], changes: [], milestones: [], stakeholders: [], resources: [],
+  } as unknown as Workspace;
+  const plan = describeEntityCalls(
+    [
+      { type: "tool_use", name: "update_raid_item", input: { id: 4, linkedTaskIds: [7] } },
+      { type: "tool_use", name: "create_raid_item", input: { category: "R", title: "Risk B", linkedTaskIds: [9] } },
+    ],
+    { descriptor: INLINE_DESCRIPTORS.raid, item: openRow, ws },
+  );
+  render(<InlineAiEditPopover {...base} phase="preview" plan={plan} />);
+  // ★★ An exact-STRING `getByText` throws on a second match, so this line is
+  //  also the assertion that the create's label is NOT bare: with the subject
+  //  dropped, both labels read "Linked tasks" and this fails on "found multiple
+  //  elements" rather than on the qualified assertion below.
+  expect(screen.getByText("Linked tasks")).toBeInTheDocument();
+  expect(screen.getByText("Risk B – Linked tasks")).toBeInTheDocument();
+  // Which values belong to which row — the half a label check alone cannot say,
+  // and the half that makes the unqualified render actively false rather than
+  // merely vague ("— → Task Seven" claims the open row is losing both links).
+  expect(screen.getByText(/Draft brief, Review → Task Seven/)).toBeInTheDocument();
+  expect(screen.getByText(/— → Task Nine/)).toBeInTheDocument();
 });
 
 // ★★★ THE PARTS THAT WILL NOT LAND WERE RENDERED BY NOTHING HERE, on the

@@ -70,8 +70,18 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *     property checking on a fresh object literal rejects `rawIds` against
  *     `FieldDiff` — `TS2353`. Mutating the populator below from
  *     `plan.links.push({…rawIds})` to `plan.updates.push({…rawIds})` gives
- *     `tsc` exit 2 AND reddens 10 tests across two files. That mutation is the
- *     realistic defect, and it is caught twice.
+ *     `tsc` exit 2 AND reddens tests in BOTH `plan.test.ts` and
+ *     `use-inline-entity-edit.test.tsx`. That mutation is the realistic defect,
+ *     and it is caught twice.
+ *     ★ RE-MEASURED after §407 added a conditional `subject` spread to that
+ *      literal, because a spread is precisely the shape that could have
+ *      silenced excess-property checking. It does not: `rawIds` is written
+ *      explicitly, so it is still checked, and the mutation still exits 2.
+ *     ★★ NO TALLY IS QUOTED HERE AND RESTORING ONE IS A REGRESSION. This line
+ *      read "10 tests across two files" and the mutation measured FIFTEEN on
+ *      2026-09-06, of which only two were new that day — so it was already
+ *      stale before §407 touched it. Every test added anywhere that asserts on
+ *      `links` moves the number; run the mutation for today's.
  *
  *   So the compiler covers the inline shape and the CALL GRAPH plus the tests
  *   cover the aliased one: the populator writes only to `links`, the rebuild
@@ -90,21 +100,27 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *   sneak past the preview), so what the preview shows and what the patch
  *   carries come from one computation.
  *
- *  ★★ `subject` NAMES THE ROW A FIELD BELONGS TO, for the one case where the
- *   field label alone is ambiguous: `set_task_dependencies` rewrites one task's
- *   whole predecessor list, and its ROW TITLE cannot carry the task's name
- *   (`liveRowTitle` resolves a title only for a tool `TOOL_ENTITY` knows, and
- *   that tool is absent from the map by design). It is DATA rather than a built
- *   string because `chat-proposal-describe.ts` is i18n-free by construction, so
- *   a label composed there reaches the card in English whatever the user's
- *   language — the renderer composes and translates instead (§406).
- *   ★ Leave it undefined on any surface whose row already names the row, or the
- *   card reads "Migrate database – Migrate database". Nothing the descriptor
- *   engine produces sets it: every link diff on that path is built by
- *   `pushLinkDiffs` below on behalf of `describeEntityCalls`, and the other two
- *   `EditPlan` producers only delegate to it (`describeToolCalls` wraps it;
- *   `describeRecommendationPlan` merges its results). `describeDependencyCall`
- *   in `chat-proposal-describe.ts` is the sole producer that sets one. */
+ *  ★★ `subject` NAMES THE ROW A FIELD BELONGS TO, for the cases where the field
+ *   label alone is ambiguous. There are TWO of them and they are ambiguous for
+ *   OPPOSITE reasons, so neither generalises to the other:
+ *   - `set_task_dependencies` rewrites one task's whole predecessor list, and
+ *     its ROW TITLE cannot carry the task's name (`liveRowTitle` resolves a
+ *     title only for a tool `TOOL_ENTITY` knows, and that tool is absent from
+ *     the map by design). `describeDependencyCall` in
+ *     `chat-proposal-describe.ts` sets it (§406).
+ *   - A `target: "create"` diff belongs to a row that DOES NOT EXIST YET, so no
+ *     row title anywhere can name it — and it renders as a flat `<li>` in the
+ *     same list as the open row's own link lines, with nothing between them, so
+ *     unqualified it is READ as one of them. `pushLinkDiffs` sets it from the
+ *     created item's own title (§407).
+ *   It is DATA rather than a built string because `chat-proposal-describe.ts`
+ *   is i18n-free by construction, so a label composed there reaches the card in
+ *   English whatever the user's language — the renderer composes and translates
+ *   instead (§406).
+ *   ★★ LEAVE IT UNDEFINED ON A `"row"` DIFF, whose row the surrounding card
+ *   already names, or the card reads "Migrate database – Migrate database". The
+ *   discriminator is whether THE SURFACE NAMES THIS DIFF'S ROW — never which
+ *   producer built the diff. */
 export interface LinkDiff {
   /** The register this link belongs to — see `FieldDiff.entity` (§393). Same
    *  member, same reason: `linkedTaskIds` is declared on raid AND on change,
@@ -339,6 +355,17 @@ function pushLinkDiffs(
    *  disclosure only. Passed rather than derived from `prior === {}`: an empty
    *  prior is a coincidence of the create branch, not a contract. */
   target: LinkDiff["target"],
+  /** See `LinkDiff.subject` — the row this link belongs to, rendered as a
+   *  `"<subject> – <field>"` prefix. Left undefined on a `"row"` push, whose
+   *  links ARE the open row's and which the card already names; set on a
+   *  `"create"` to the created item's own title, because that line otherwise
+   *  reads as a statement about the open row (§407).
+   *
+   *  ★ A BLANK title must arrive here as `undefined`, not `""`: the key is
+   *   omitted rather than set, so `linkLabel` cannot render a dangling " – ".
+   *   The conditional spread below is what holds that even if a caller passes
+   *   `""` anyway. */
+  subject?: string,
 ): void {
   for (const [f, link] of Object.entries(d.linkFields)) {
     if (!(f in input)) continue;
@@ -347,7 +374,7 @@ function pushLinkDiffs(
     const before = resolveLinkTitles(beforeIds, link, ws);
     const after = resolveLinkTitles(afterIds, link, ws);
     if (before === after) continue;
-    plan.links.push({ entity: d.entity, target, field: f, before, after, rawIds: afterIds });
+    plan.links.push({ entity: d.entity, target, field: f, ...(subject ? { subject } : {}), before, after, rawIds: afterIds });
   }
 }
 
@@ -608,8 +635,23 @@ export function describeEntityCalls(
       //  WRITE. `apply()` rebuilds the open row's patch from `plan.links`, so
       //  before `target` existed these ids replaced the open row's own — see
       //  `LinkDiff.target`, and do not narrow that check to `entity`.
-      pushLinkDiffs(plan, INLINE_DESCRIPTORS[entity], input, {}, ws, "create");
-      plan.creates.push({ entity, title: titleOf(entity, input), toolName: name, input });
+      //  ★★★ AND THE CREATED ITEM'S OWN TITLE RIDES `subject` (§407). The card
+      //  renders `plan.links` as flat `<li>`s in the SAME list as the open
+      //  row's, with nothing between them, so an unqualified create link line
+      //  is indistinguishable from a statement about the OPEN ROW: a RAID row
+      //  on `[1, 3]` plus `create_raid_item({linkedTaskIds:[7]})` rendered
+      //  "Linked tasks: — → Task Seven", of which BOTH halves are false about
+      //  that row. `target` fixed the WRITE; this fixes the DISCLOSURE, and
+      //  they are separate defects — a filtered write behind a card that still
+      //  misreads is still a card the user cannot check.
+      //  ★ ONE `titleOf` call feeds both this and `plan.creates`, so a create's
+      //  two lines cannot name the row differently. A blank title (an
+      //  explicitly `""` input title — `??` does not fall through it) is
+      //  dropped by `pushLinkDiffs`' own spread rather than rendered as a
+      //  dangling " – ".
+      const title = titleOf(entity, input);
+      pushLinkDiffs(plan, INLINE_DESCRIPTORS[entity], input, {}, ws, "create", title);
+      plan.creates.push({ entity, title, toolName: name, input });
       continue;
     }
 

@@ -50,7 +50,12 @@ describe("describeToolCalls", () => {
     //  filters on exactly this, and `entity` cannot stand in for it: had the open
     //  row been a RAID item, `entity` would read "raid" here too. See
     //  `LinkDiff.target`.
-    expect(plan.links).toEqual([{ entity: "raid", target: "create", field: "linkedTaskIds", before: "", after: "Kickoff", rawIds: [7] }]);
+    // ★★ `subject` is the CREATED item's title (§407), and it is what stops this
+    //  line reading as a statement about the OPEN row — `target` is invisible to
+    //  the reader of the card. It is the same string `plan.creates` carries, so
+    //  a create's two rendered lines cannot name the row differently.
+    expect(plan.links).toEqual([{ entity: "raid", target: "create", subject: "New risk", field: "linkedTaskIds", before: "", after: "Kickoff", rawIds: [7] }]);
+    expect(plan.links[0]?.subject).toBe(plan.creates[0]?.title);
   });
 
   it("rejects an update whose id is not the target task and not in the workspace", () => {
@@ -1259,5 +1264,61 @@ describe("EditPlan.links", () => {
 
   it("is empty only when every bucket is empty", () => {
     expect(isEmptyPlan({ updates: [], creates: [], deletes: [], rejected: [], links: [] })).toBe(true);
+  });
+});
+
+// §407. `plan.links` is ONE flat bucket, and all three preview surfaces render
+// it as flat rows in the SAME list — nothing separates a line projected off a
+// `create_*` call from one that really does rewrite the open row. `target`
+// closed the WRITE half of that (the rebuild path filters on it); it cannot
+// close the DISCLOSURE half, because the reader of the card never sees `target`.
+describe("a create's link line names the row it belongs to (§407)", () => {
+  const openRow = { id: 4, category: "R", title: "Risk A", status: "Open", linkedTaskIds: [1, 3] };
+  const linkWs = wsWith({
+    raid: [openRow] as never,
+    tasks: [
+      { id: 1, taskName: "Draft brief" }, { id: 3, taskName: "Review" },
+      { id: 7, taskName: "Task Seven" }, { id: 9, taskName: "Task Nine" },
+    ] as never,
+  });
+
+  /** The open row rewrites its own links AND a create writes different ones —
+   *  the mixed shape. `createInput` is the only variable. */
+  function mixedLinks(createInput: Record<string, unknown>): EditPlan["links"] {
+    return describeEntityCalls(
+      [
+        { type: "tool_use", name: "update_raid_item", input: { id: 4, linkedTaskIds: [7] } },
+        { type: "tool_use", name: "create_raid_item", input: createInput },
+      ],
+      { descriptor: INLINE_DESCRIPTORS.raid, item: openRow, ws: linkWs },
+    ).links;
+  }
+
+  // ★★★ THE MIXED CASE IS THE SHAPE THE DEFECT TAKES, and a create-ONLY fixture
+  //  cannot discriminate: qualifying EVERY link line satisfies that one while
+  //  making the open row's own line read "Risk A – Linked tasks", the
+  //  "Migrate database – Migrate database" render `LinkDiff.subject` forbids.
+  //  Here both lines carry the byte-identical field label and different values,
+  //  which is exactly what left a reader unable to tell which was the row's.
+  it("qualifies the create's diff and leaves the open row's bare", () => {
+    const all = mixedLinks({ category: "R", title: "Risk B", linkedTaskIds: [9] });
+    expect(all).toHaveLength(2);
+    const [rowLink, createLink] = all;
+    expect(rowLink).toEqual({ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief, Review", after: "Task Seven", rawIds: [7] });
+    // ★★ `toEqual` IGNORES an undefined-valued key, so the assertion above
+    //  cannot tell an ABSENT `subject` from one set to `undefined` — and it
+    //  cannot tell either from a "" one, which is the render this fix must not
+    //  produce. The membership check is what pins the absence.
+    expect("subject" in rowLink).toBe(false);
+    expect(createLink).toEqual({ entity: "raid", target: "create", subject: "Risk B", field: "linkedTaskIds", before: "", after: "Task Nine", rawIds: [9] });
+  });
+
+  // ★ The no-dangling-prefix half. `titleOf`'s `??` chain falls through only on
+  //  null/undefined, so an explicitly empty `title` survives it and returns "".
+  //  Emitting that would render " – Linked tasks" on all three surfaces.
+  it("omits the subject entirely when the create carries no usable title", () => {
+    const [, createLink] = mixedLinks({ category: "R", title: "", linkedTaskIds: [9] });
+    expect(createLink.target).toBe("create");
+    expect("subject" in createLink).toBe(false);
   });
 });
