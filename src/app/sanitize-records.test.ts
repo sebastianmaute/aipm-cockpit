@@ -6,7 +6,15 @@ import {
   sanitizeMilestoneTaskIds,
   sanitizeChangeItem,
   acceptsRiskScale,
+  acceptsScheduleDays,
+  acceptsCostAmount,
 } from "./sanitize";
+
+/** Distinguishable test-case labels. `JSON.stringify` maps null, NaN and
+ *  Infinity all to "null", so three probes would otherwise share a name and a
+ *  failure could not be attributed to the value that caused it. */
+const probeLabel = (v: unknown): string =>
+  typeof v === "number" ? String(v) : (JSON.stringify(v) ?? String(v));
 
 const baseRaid = {
   id: 1,
@@ -152,12 +160,34 @@ describe("delegate-never-restate: the raid sanitizer and its merge-site guard", 
     1, 3, 5, 0, 6, -1, 2.5, "3", "abc", "", true, false, null, undefined, [], {}, NaN, Infinity,
   ];
 
-  it.each(PROBES.map((v) => [JSON.stringify(v) ?? String(v), v] as const))(
+  it.each(PROBES.map((v) => [probeLabel(v), v] as const))(
     "stores probability %s exactly when acceptsRiskScale admits it",
     (_label, probe) => {
       const item = sanitizeRaidItem({ id: 1, title: "t", category: "R", probability: probe });
       expect(item).not.toBeNull();
       expect("probability" in item!).toBe(acceptsRiskScale(probe, "R"));
+    },
+  );
+});
+
+describe("delegate-never-restate: the change sanitizer and its merge-site guard", () => {
+  const PROBES: unknown[] = [0, 1, 1.5, -1, "2", "abc", "", true, false, null, undefined, [], NaN, Infinity];
+
+  it.each(PROBES.map((v) => [probeLabel(v), v] as const))(
+    "stores scheduleImpactDays %s exactly when acceptsScheduleDays admits it",
+    (_label, probe) => {
+      const item = sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: probe });
+      expect(item).not.toBeNull();
+      expect("scheduleImpactDays" in item!).toBe(acceptsScheduleDays(probe));
+    },
+  );
+
+  it.each(PROBES.map((v) => [probeLabel(v), v] as const))(
+    "stores costImpact %s exactly when acceptsCostAmount admits it",
+    (_label, probe) => {
+      const item = sanitizeChangeItem({ id: 1, title: "t", costImpact: probe });
+      expect(item).not.toBeNull();
+      expect("costImpact" in item!).toBe(acceptsCostAmount(probe));
     },
   );
 });

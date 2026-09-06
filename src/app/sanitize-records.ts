@@ -232,8 +232,8 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   };
   if (typeof o.impact === "string" && CHANGE_IMPACT_SET.has(o.impact)) item.impact = o.impact as ChangeItem["impact"];
   const impactDesc = sanitizeRichText(o.impactDescription, TEXTAREA_MAX, RICH_SINK); if (impactDesc) item.impactDescription = impactDesc;
-  const days = toNumber(o.scheduleImpactDays); if (Number.isFinite(days) && days >= 0) item.scheduleImpactDays = days;
-  const cost = toNumber(o.costImpact); if (Number.isFinite(cost) && cost >= 0) item.costImpact = cost;
+  if (acceptsScheduleDays(o.scheduleImpactDays)) item.scheduleImpactDays = toNumber(o.scheduleImpactDays);
+  if (acceptsCostAmount(o.costImpact)) item.costImpact = toNumber(o.costImpact);
   const reqBy = sanitizeText(o.requestedBy, BUDGET_NAME_MAX); if (reqBy) item.requestedBy = reqBy;
   const decBy = sanitizeText(o.decisionBy, BUDGET_NAME_MAX); if (decBy) item.decisionBy = decBy;
   const decDate = sanitizeIsoDate(o.decisionDate); if (decDate) item.decisionDate = decDate;
@@ -265,8 +265,23 @@ const acceptsChangeDate: ChangeFieldGuard = acceptsPatchDate;
  *  `Number.isFinite`, where the preview's `intRangeFields` guard demands
  *  `Number.isInteger` — so `1.5` previews as rejected and still applies. Closing
  *  that would mean abandoning the sanitizer's own predicate, which is the
- *  property that makes every row of this table checkable against it. */
-const acceptsChangeAmount: ChangeFieldGuard = (v) => {
+ *  property that makes every row of this table checkable against it.
+ *
+ *  ★★ Split into `acceptsScheduleDays` and `acceptsCostAmount` below because the
+ *  two fields do NOT share a precision rule: `change-edit-modal.tsx` clamps
+ *  `scheduleImpactDays` with `describeClamp(..., { round: 0 })` and `costImpact`
+ *  with `{ round: 2 }`. One shared predicate could not express that divergence.
+ *
+ *  The schedule-impact rule. Today it is the historical predicate verbatim;
+ *  tightened to integers in the commit that closes §399. */
+export const acceptsScheduleDays: ChangeFieldGuard = (v) => {
+  const n = toNumber(v);
+  return Number.isFinite(n) && n >= 0;
+};
+
+/** The cost-impact rule. Today it is the historical predicate verbatim;
+ *  bounded in the commit that closes §399. */
+export const acceptsCostAmount: ChangeFieldGuard = (v) => {
   const n = toNumber(v);
   return Number.isFinite(n) && n >= 0;
 };
@@ -283,8 +298,8 @@ const CHANGE_FIELD_GUARDS: Readonly<Record<string, ChangeFieldGuard>> = {
   impact: (v) => typeof v === "string" && CHANGE_IMPACT_SET.has(v),
   raisedDate: acceptsChangeDate,
   decisionDate: acceptsChangeDate,
-  scheduleImpactDays: acceptsChangeAmount,
-  costImpact: acceptsChangeAmount,
+  scheduleImpactDays: acceptsScheduleDays,
+  costImpact: acceptsCostAmount,
 };
 
 /**
