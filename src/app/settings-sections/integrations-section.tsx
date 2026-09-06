@@ -22,7 +22,7 @@ import type { SnapshotCadence } from "../snapshot";
 import { useMsAuth } from "../use-ms-auth";
 import { InfoTooltip } from "../info-tooltip";
 import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
-import { getTursoConfig } from "../turso-config";
+import { getTursoConfig, isUsableTursoUrl } from "../turso-config";
 import { writeSettings } from "../use-settings";
 import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
@@ -179,6 +179,16 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const envClientIdSet = !!process.env.NEXT_PUBLIC_MSAL_CLIENT_ID;
   const envTenantIdSet = !!process.env.NEXT_PUBLIC_MSAL_TENANT_ID;
   const envTursoUrlSet = !!process.env.NEXT_PUBLIC_TURSO_DATABASE_URL;
+  // ★★ PRESENCE AND USABILITY ARE DIFFERENT QUESTIONS, and asking only the
+  // first is §337: a typo'd env var hid this field while `getTursoConfig`
+  // rejected the value, so Turso could not be configured from the UI at all.
+  // The predicate is imported rather than re-implemented so the two sites
+  // cannot drift apart again.
+  const envTursoUrlUsable =
+    envTursoUrlSet && isUsableTursoUrl(process.env.NEXT_PUBLIC_TURSO_DATABASE_URL ?? "");
+  // ★ The TOKEN gets no equivalent: any non-empty string is a plausible token,
+  // so there is nothing to test locally. The "Test connection" button below is
+  // what tells a user an env token is wrong.
   const envTursoTokenSet = !!process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
 
   function updateTurso(patch: Partial<TursoIntegrationsSettings>) {
@@ -502,7 +512,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
       {turso.enabled && (
         <div className="mt-2 space-y-2 border-l-2 border-line pl-3">
-          {envTursoUrlSet && (
+          {envTursoUrlUsable && (
             <div className="block text-xs">
               <span className="inline-flex items-center gap-1 text-muted-foreground">
                 {t(lang, "integrationsTursoUrl")}
@@ -511,7 +521,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               <FieldHint className="mt-1">{t(lang, "integrationsTursoUrlFromEnv")}</FieldHint>
             </div>
           )}
-          {!envTursoUrlSet && (
+          {!envTursoUrlUsable && (
             <label className="block text-xs">
               <span className="inline-flex items-center gap-1 text-muted-foreground">
                 {t(lang, "integrationsTursoUrl")}
@@ -525,6 +535,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
                 className="mt-1 w-full"
               />
+              {envTursoUrlSet && (
+                <FieldNotice>{t(lang, "integrationsTursoUrlEnvUnusable")}</FieldNotice>
+              )}
             </label>
           )}
           {envTursoTokenSet && (

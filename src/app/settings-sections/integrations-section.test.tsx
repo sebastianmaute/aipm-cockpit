@@ -238,13 +238,19 @@ describe("IntegrationsSection weekly digest control", () => {
 });
 
 describe("IntegrationsSection Turso credentials supplied by the environment", () => {
-  // ★★★ THE URL AND TOKEN INPUTS ARE HIDDEN WHENEVER THE MATCHING
-  // `NEXT_PUBLIC_TURSO_*` VAR IS SET, and that is deliberate: `getTursoConfig`
-  // lets a non-empty env value WIN over anything typed here, so an editable
-  // field would be inert. Nothing SAID so, and an env-configured deployment
-  // therefore rendered an empty bordered box that reads as a broken settings
-  // panel — reported 2026-09-02 against a working Turso backend. These pin the
-  // disclosure, which is the only thing standing between the two readings.
+  // ★★★ THE TOKEN INPUT IS HIDDEN WHENEVER ITS `NEXT_PUBLIC_TURSO_*` VAR IS
+  // SET, and that is deliberate: `getTursoConfig` lets a non-empty env token
+  // WIN over anything typed here, so an editable field would be inert.
+  // Nothing SAID so, and an env-configured deployment therefore rendered an
+  // empty bordered box that reads as a broken settings panel — reported
+  // 2026-09-02 against a working Turso backend. These pin the disclosure,
+  // which is the only thing standing between the two readings.
+  // ★★ THE URL INPUT IS DIFFERENT (§337): env PRESENCE and env USABILITY are
+  // separate questions, and `getTursoConfig` only lets a USABLE env URL win.
+  // A typo'd env value used to hide this field while resolving to no config
+  // at all — unconfigurable from the UI with no route back. The URL input
+  // hides only when the env value is usable; an unusable one keeps the input
+  // AND adds a disclosure naming the var. See the "§337" describe below.
   afterEach(() => {
     vi.unstubAllEnvs();
   });
@@ -278,6 +284,48 @@ describe("IntegrationsSection Turso credentials supplied by the environment", ()
       screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")),
     ).toBeInTheDocument();
     expect(screen.queryByText(/NEXT_PUBLIC_TURSO_/)).toBeNull();
+  });
+});
+
+describe("§337 — an unusable env URL still lets the user configure Turso", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("renders the URL input AND the disclosure when the env var is set but unusable", () => {
+    vi.stubEnv("NEXT_PUBLIC_TURSO_DATABASE_URL", "postgres://nope");
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(screen.getByText(t("en-US", "integrationsTursoUrlEnvUnusable"))).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")),
+    ).toBeInTheDocument();
+  });
+
+  // ★ THE MUTATION-RELEVANT CASE. A suite that only covers the unusable
+  // branch passes whether or not the usable branch still hides the field.
+  it("keeps the from-env hint and NO input when the env var is usable", () => {
+    vi.stubEnv("NEXT_PUBLIC_TURSO_DATABASE_URL", "libsql://db.turso.io");
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(screen.getByText(t("en-US", "integrationsTursoUrlFromEnv"))).toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(t("en-US", "integrationsTursoUrlEnvUnusable")),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows neither hint nor disclosure when no env var is set", () => {
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(
+      screen.queryByText(t("en-US", "integrationsTursoUrlFromEnv")),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(t("en-US", "integrationsTursoUrlEnvUnusable")),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")),
+    ).toBeInTheDocument();
   });
 });
 
