@@ -105,6 +105,60 @@ function wsWith(part: Partial<Workspace>): Workspace {
   return { tasks: [], raid: [], changes: [], milestones: [], stakeholders: [], resources: [], ...part } as unknown as Workspace;
 }
 
+// A model-supplied tool name is matched against CREATE_TOOLS / DELETE_TOOLS.
+// Both lookups used `in`, which WALKS THE PROTOTYPE CHAIN, so every key on
+// `Object.prototype` matched a branch and yielded a FUNCTION as the entity.
+//
+// ★★★ THESE CASES ARE PINNED EXPLICITLY BECAUSE `plan.property.test.ts` CANNOT
+//  BE RELIED ON TO FIND THEM AGAIN. It generates `fc.string()` names and did hit
+//  `toString` — but fast-check is UNSEEDED in this repo, so a green property run
+//  is not reproducible evidence and a red one is not re-runnable. An explicit
+//  case is both.
+//
+// ★★ `__proto__` is in the list and is NOT redundant with the other three: it is
+//  the one name that is an accessor on `Object.prototype` rather than a plain
+//  method, so a guard written as a truthiness or `typeof` check on the looked-up
+//  value would treat it differently from `toString`. `hasOwnProperty.call`
+//  rejects all four identically, which is the property being pinned.
+describe("a prototype-named tool matches no tool map", () => {
+  const protoNames = ["toString", "constructor", "hasOwnProperty", "__proto__", "valueOf"];
+
+  it("contributes nothing to the plan, exactly like any unrecognised tool", () => {
+    for (const name of protoNames) {
+      const plan = describeToolCalls([block(name, { id: 42, title: "x", linkedTaskIds: [42] })], { task, ws });
+      // The same empty plan `list_tasks` and `bogus` produce — an unrecognised
+      // tool is IGNORED here, it is not rejected.
+      expect({ name, plan }).toEqual({ name, plan: { updates: [], creates: [], deletes: [], rejected: [], links: [] } });
+    }
+  });
+
+  it("does not fabricate an unknown-id rejection on the delete branch", () => {
+    // The pre-fix behaviour: `toString` destructured {entity, wsKey} off a
+    // function, `ws[undefined]` was not an array, and the block was reported to
+    // the user as a rejected delete of a row nobody named.
+    const plan = describeToolCalls([block("toString", { id: 999 })], { task, ws });
+    expect(plan.rejected).toEqual([]);
+    expect(plan.deletes).toEqual([]);
+  });
+
+  it("does not stringify a prototype member into a create's title", () => {
+    // The create branch's pre-fix behaviour, before the descriptor lookup turned
+    // it into a throw: `titleOf` fell through to the "entity" and rendered
+    // "function toString() { [native code] }" as the new row's name.
+    const plan = describeToolCalls([block("toString", { category: "R" })], { task, ws });
+    expect(plan.creates).toEqual([]);
+  });
+
+  it("still matches the real tool names it is meant to", () => {
+    // ★ The anti-vacuity half. A guard that rejected EVERYTHING would pass all
+    //  three assertions above; this is what proves the maps still resolve.
+    const created = describeToolCalls([block("create_raid_item", { title: "Real" })], { task, ws });
+    expect(created.creates).toHaveLength(1);
+    const deleted = describeToolCalls([block("delete_task", { id: 42 })], { task, ws });
+    expect(deleted.deletes).toHaveLength(1);
+  });
+});
+
 describe("describeEntityCalls — raid", () => {
   const raidItem = { id: 7, category: "R", title: "Old", status: "Open" };
   const ws2 = wsWith({ raid: [raidItem] as never });

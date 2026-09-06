@@ -533,7 +533,16 @@ export function describeEntityCalls(
       continue;
     }
 
-    if (name in DELETE_TOOLS) {
+    // ★★★ `hasOwnProperty`, NOT `in` — the CREATE_TOOLS guard above records the
+    //  mechanism; this branch is the same defect with a quieter symptom, which
+    //  is why it outlived the other. `toString` destructured `{entity, wsKey}`
+    //  off `Object.prototype.toString`, both `undefined`, so `ws[undefined]` was
+    //  not an array and the block landed in `plan.rejected` as `unknown-id`: a
+    //  FABRICATED rejection naming a row nobody asked to delete, on the one card
+    //  whose whole job is to say truthfully what will happen. It now falls
+    //  through and is ignored, exactly like any other unrecognised tool
+    //  (`list_tasks`, `bogus`) — see the "prototype-named tools" tests.
+    if (Object.prototype.hasOwnProperty.call(DELETE_TOOLS, name)) {
       const { entity, wsKey } = DELETE_TOOLS[name];
       const id = Number(input.id);
       // The row's OWN entity may only delete the row it was opened on; other
