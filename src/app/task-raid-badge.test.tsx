@@ -30,9 +30,13 @@ describe("RaidBadge", () => {
   // MIX instead ("2R · 1A · 0I · 0D – Referenced by 3 RAID item(s) – Alpha"),
   // this test still PASSES — the visible "3 RAID" is a substring of the
   // spelled-out "Referenced by 3 RAID item(s)" sitting in the middle, so
-  // containment survives by coincidence in EN, and in DE too ("… mit 3
-  // RAID-Eintrag/-Einträgen"). That mutant is caught by the exact-name pin
-  // below, which is what holds the ordering. Both assertions are load-bearing.
+  // containment survives by coincidence. That is an EN result and NOTHING MORE:
+  // every render in this file passes `lang="en-US"`, so nothing here has ever
+  // executed a DE string. BY INSPECTION, not measured: the same coincidence
+  // holds in DE, whose `raidReferencedBy` also renders `{0}` immediately before
+  // a literal `RAID`, so the visible "3 RAID" is a substring there too. That
+  // mutant is caught by the exact-name pin below, which is what holds the
+  // ordering. Both assertions are load-bearing.
   //
   // ★★ NO GATE CAN CATCH THIS. axe ships `label-content-name-mismatch` and it
   // DOES carry `wcag21a`, one of the four tags `e2e/a11y.spec.ts` requests —

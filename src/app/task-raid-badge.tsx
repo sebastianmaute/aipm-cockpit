@@ -39,9 +39,9 @@ function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadge
   // The badge's VISIBLE content — the short total. It is also the HEAD of the
   // accessible name below, so the two cannot drift.
   const countText = t(lang, "raidReferencedByCount", refs.length);
-  // The per-category breakdown. Sighted shorthand, so it rides `title` rather
-  // than the name: read aloud it is "2R 1A 0I 0D", which is worse than the
-  // sentence the name carries.
+  // The per-category breakdown. Sighted shorthand, so it rides `title`, where
+  // it FOLLOWS the name rather than fronting it — `title` is the accessible
+  // description, so this changes WHEN it is read, not WHETHER.
   const mix = t(lang, "raidReferencedByMix", counts.R, counts.A, counts.I, counts.D);
   return (
     <button
@@ -55,12 +55,16 @@ function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadge
       // the only place a sighted mouse user can still get the R/A/I/D split now
       // that the visible text is a total. Do not put the row identity here; it
       // would only lengthen a tooltip shown on the row already under the pointer.
+      // ★★ DISCLOSED TRADE, deliberately kept: the R/A/I/D split moved from
+      // always-visible text to `title`, so for SIGHTED users it is now reachable
+      // by MOUSE HOVER ALONE — a keyboard or touch user gets the count and the
+      // sentence but never the split. Screen-reader users are unaffected, since
+      // `title` is the accessible description and is announced.
       title={mix}
       // ★★★ WCAG 2.5.3 (label in name): the accessible name must CONTAIN the
       // control's visible text. The visible text is `countText`, so the name
       // LEADS with it, then the spelled-out count, then the row token that
-      // closes 2.4.6. Nesting `rowLabel` twice reuses the existing separator and
-      // the two existing i18n keys — no new key, no untranslated literal.
+      // closes 2.4.6. Nesting `rowLabel` twice reuses the existing separator.
       // ★★ CONTAINMENT, NOT PREFIX — 2.5.3 is case-insensitive and
       // position-independent; front position here is the Understanding note's
       // best practice, not the criterion. Do not "enforce" prefixing elsewhere
@@ -68,7 +72,9 @@ function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadge
       // ★★ No gate can see a regression here: axe's `label-content-name-mismatch`
       // carries `wcag21a` but is also `experimental`, which axe's default
       // tagExclude drops, so the a11y gate never runs it. `task-raid-badge.test.tsx`
-      // is the only detector.
+      // is the only detector of the CONTAINMENT property specifically. The exact
+      // name, leading count included, is ALSO pinned in `task-row.test.tsx` and
+      // `task-kanban-card.test.tsx`, so an ORDER mutant reddens three files.
       aria-label={rowLabel(rowLabel(countText, t(lang, "raidReferencedBy", refs.length)), rowToken)}
       className={`ml-1 inline-flex items-center whitespace-nowrap rounded bg-ui-purple px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-ui-purple/90 ${INTERACTIVE}`}
     >
