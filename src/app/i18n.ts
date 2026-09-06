@@ -2111,6 +2111,15 @@ const enUS = {
   integrationsTursoUrlPlaceholder: "libsql://your-db.turso.io",
   integrationsTursoUrlFromEnv:
     "Set by NEXT_PUBLIC_TURSO_DATABASE_URL in this deployment. An environment value overrides this setting, so the field is hidden.",
+  // ★ Shown when NEXT_PUBLIC_TURSO_DATABASE_URL is set but is not a usable
+  // Turso URL. Before this existed the field was hidden on env-var PRESENCE
+  // while the resolver rejected the value on USABILITY, so a typo locked the
+  // user out of configuring Turso at all (open-followups §337).
+  integrationsTursoUrlEnvUnusable:
+    "NEXT_PUBLIC_TURSO_DATABASE_URL is set but is not a usable Turso URL, so the value below is used instead.",
+  integrationsTursoTest: "Test connection",
+  integrationsTursoTestOk: "Connected.",
+  integrationsTursoTestFail: "Connection failed: {0}",
   integrationsTursoToken: "Auth token",
   integrationsTursoTokenPlaceholder: "Turso database token",
   integrationsTursoTokenFromEnv:
@@ -3479,6 +3488,12 @@ const enUS = {
   dashboardChangesHeading: "Changes",
   dashboardChangesPending: "{0} pending",
   taskRowChangesBadge: "{0} changes",
+  // ★ Singular sibling. The house idiom is a `*One` key plus a `count === 1 ?`
+  // ternary at the call site (nine such keys today) — NOT a pluralize() helper.
+  // German breaks on noun AND adjective AND verb agreement at once, so a
+  // singular is a re-worded sentence, not a suffix swap on a fragment. That is
+  // why this key hardcodes the numeral and takes no placeholder.
+  taskRowChangesBadgeOne: "1 change",
   versionHighlightChangeLog: "Change-control log — a RAID-sibling register for tracking change requests",
 
   navStakeholders: "Stakeholders",
