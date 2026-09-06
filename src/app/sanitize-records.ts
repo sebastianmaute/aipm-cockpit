@@ -271,11 +271,18 @@ const acceptsChangeDate: ChangeFieldGuard = acceptsPatchDate;
  *  `toNumber` and so does the preview's `numberPreview`, so a stricter rule here
  *  would refuse a value the card shows as accepted. Two consequences this
  *  deliberately does NOT change: `toNumber(true)` is `1` and `toNumber(false)`
- *  is `0`, both of which the `[0, ∞)` range admits; and the sanitizer gates on
- *  `Number.isFinite`, where the preview's `intRangeFields` guard demands
- *  `Number.isInteger` — so `1.5` previews as rejected and still applies. Closing
- *  that would mean abandoning the sanitizer's own predicate, which is the
- *  property that makes every row of this table checkable against it.
+ *  is `0`, both of which the `>= 0` rule admits — unlike `acceptsRiskScale`,
+ *  which now refuses a boolean outright (§395), because a fabricated 1 there
+ *  feeds `riskSeverityFromMatrix` where here it is a plain day count.
+ *
+ *  ★★ THE NON-INTEGER DIVERGENCE THIS USED TO RECORD IS CLOSED, and the old
+ *  wording is now false: it said "the preview's `intRangeFields` guard demands
+ *  `Number.isInteger` — so `1.5` previews as rejected and still applies". That
+ *  held while the preview carried its own `[min, max]` tuple. §395 replaced the
+ *  tuple with `numericFields`, whose `change` entries ARE this function and
+ *  `acceptsCostAmount` — so the preview now accepts `1.5` exactly as the write
+ *  does. Closing it cost nothing precisely because it was done by ADOPTING the
+ *  sanitizer's own predicate rather than by restating a stricter one.
  *
  *  ★★ Split into `acceptsScheduleDays` and `acceptsCostAmount` below because the
  *  two fields do NOT share a precision rule: `change-edit-modal.tsx` clamps
@@ -466,6 +473,13 @@ const acceptsRaidDate: RaidFieldGuard = acceptsPatchDate;
  *  coerces with `toNumber`, so a stricter rule here refuses a value the card
  *  shows as accepted. */
 export const acceptsRiskScale: RaidFieldGuard = (v) => {
+  // ★★★ THE BOOLEAN LEG IS THE DEFECT (open-followups §395). `toNumber(true)`
+  //  is 1 — inside [1,5] — so a boolean stored a plausible-looking score that
+  //  feeds `riskSeverityFromMatrix`, and the PREVIEW coerced identically and
+  //  showed it as accepted, which is why it never appeared as a divergence.
+  //  `toNumber(false)` is 0 and was already out of range, so only one half of
+  //  the boolean pair was ever reachable.
+  if (typeof v === "boolean") return false;
   const n = toNumber(v);
   return Number.isInteger(n) && n >= 1 && n <= 5;
 };

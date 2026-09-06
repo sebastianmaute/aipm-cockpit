@@ -172,6 +172,16 @@ describe("delegate-never-restate: the raid sanitizer and its merge-site guard", 
       expect("probability" in item!).toBe(acceptsRiskScale(probe, "R"));
     },
   );
+
+  it("refuses a boolean probability rather than storing a fabricated 1", () => {
+    // toNumber(true) is 1, which is inside [1,5] — so the old rule stored a
+    // plausible score that feeds riskSeverityFromMatrix. toNumber(false) is 0
+    // and was already out of range, so only one half of the pair was reachable.
+    expect(acceptsRiskScale(true, "R")).toBe(false);
+    expect(acceptsRiskScale(false, "R")).toBe(false);
+    expect(acceptsRiskScale(3, "R")).toBe(true);
+    expect(acceptsRiskScale("3", "R")).toBe(true);
+  });
 });
 
 describe("delegate-never-restate: the change sanitizer and its merge-site guard", () => {

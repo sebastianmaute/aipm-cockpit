@@ -30,6 +30,7 @@
 // below rather than left to a comment.
 import { describe, expect, it } from "vitest";
 import { applyModelChangeStatus } from "./change-log";
+import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 import { dropUnacceptedChangeFields, sanitizeChangeItem } from "./sanitize";
 import { type ChangeItem } from "./types";
 
@@ -238,15 +239,16 @@ describe("numeric coercion matches the sanitizer's own", () => {
     expect(mergeGuarded(storedChange(), { costImpact: false }).costImpact).toBe(0);
   });
 
-  it("accepts a NON-INTEGER, as the sanitizer does — the preview is the stricter one", () => {
-    // ★★ PRE-EXISTING AND DELIBERATELY UNCHANGED. `sanitizeChangeItem` gates on
-    // `Number.isFinite(days) && days >= 0`, while the preview's `intRangeFields`
-    // guard demands `Number.isInteger`. So `1.5` previews as REJECTED and
-    // applies as 1.5 — the same class this guard closes, in a value no probe
-    // sends. Tightening the rule here to `Number.isInteger` would close it, but
-    // it would also stop being the sanitizer's OWN predicate, which is the
-    // property that makes every other row of the table checkable. Left as a
-    // pinned observation rather than silently altered.
+  it("accepts a NON-INTEGER, and the preview now agrees", () => {
+    // ★★★ THE DIVERGENCE THIS RECORDED IS CLOSED, and the old comment is the
+    // half that had to go: it read "the preview's `intRangeFields` guard demands
+    // `Number.isInteger`. So `1.5` previews as REJECTED and applies as 1.5", and
+    // called tightening the rule here the only fix — one that "would stop being
+    // the sanitizer's OWN predicate". §395 closed it from the other end instead:
+    // the preview's tuple became `numericFields`, whose `change` entries ARE
+    // `acceptsScheduleDays`/`acceptsCostAmount`. Adopting the predicate cost the
+    // strictness nothing, because there was no second rule left to disagree.
     expect(mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 }).scheduleImpactDays).toBe(1.5);
+    expect(INLINE_DESCRIPTORS.change.numericFields.scheduleImpactDays(1.5)).toBe(true);
   });
 });

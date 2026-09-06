@@ -141,9 +141,16 @@ function personName(o: Record<string, unknown>): string {
  *  ★★★ IT LIVES HERE RATHER THAN IN `fieldSanitizers`, AND THAT PLACEMENT IS
  *  THE POINT. `entity-descriptor.test.ts` asserts "keeps numberFields out of
  *  fieldSanitizers" because every entry in that map is a TEXT sanitizer, and a
- *  text sanitizer blanks a non-string to `""` — which `Number("")` then turns
- *  into `0`, slipping the int-range rejection below. Giving these fields a
- *  descriptor entry would close this divergence by reopening that one.
+ *  text sanitizer blanks a non-string to `""`. Giving these fields a descriptor
+ *  entry would close this divergence by reopening that one.
+ *
+ *  ★★ WHAT THAT COSTS CHANGED WITH §395, and the old wording is now wrong: it
+ *  said the blanking would slip "the int-range rejection below, because
+ *  `Number("")` is `0`". That held while the guard read the RENDERED `after`.
+ *  The guard now consults `numericFields` against the RAW `input[f]`, so a
+ *  blanked preview can no longer defeat it. The damage is on the WRITE side
+ *  instead — `raw` is what `use-inline-entity-edit.ts` puts back in the patch,
+ *  so a blanked number is stored as `""`. Narrower reach, same verdict.
  *
  *  ★★ IT MIRRORS `toNumber` BECAUSE THE APPLY PATH IS `toNumber`.
  *  `sanitizeChangeItem` stores `toNumber(o.scheduleImpactDays)` when the result
@@ -154,9 +161,9 @@ function personName(o: Record<string, unknown>): string {
  *  probe in `plan.sanitizer-parity.test.ts`.
  *
  *  ★ A NON-NUMERIC value falls back to the VERBATIM string rather than to
- *  `"NaN"`: the int-range guard rejects it either way (`Number("abc")` is NaN),
- *  and the rejection `detail` is more use to a reader carrying what the model
- *  actually sent. */
+ *  `"NaN"`: the numeric guard rejects it either way — it reads the RAW value,
+ *  and `toNumber("abc")` is NaN — and the rejection `detail` is more use to a
+ *  reader carrying what the model actually sent. */
 function numberPreview(v: unknown): string {
   const n = toNumber(v);
   return Number.isFinite(n) ? String(n) : str(v);
@@ -299,8 +306,9 @@ export function describeEntityCalls(
         // through a text sanitizer that blanks a non-string to `""`; since
         // `raw` feeds the write patch in `use-inline-entity-edit.ts`, that
         // DROPPED the flag on apply, not merely in the card. The same blanking
-        // would silently defeat the int-range rejection below for a number
-        // field, because `Number("")` is `0`. An entry, where one exists, CALLS
+        // on a NUMBER field would store `""` for the same reason — it can no
+        // longer defeat the numeric guard below, which reads the raw value, but
+        // `raw` is still the patch. An entry, where one exists, CALLS
         // the apply path's own sanitizer — never a copy of its cap, and never a
         // copy of its clipping algorithm. ★ A `numberFields` member gets its
         // coercion from `previewNormalizerFor` instead, for the reason that
@@ -376,11 +384,16 @@ export function describeEntityCalls(
         // rest apply. Blank is exempt because the sanitizer's own guard is
         // `if (e && !isValidEmail(e))` — clearing an address is legal.
         if (d.emailFormatFields.has(f) && after !== "" && !isValidEmail(after)) { bad(`${f}=${after}`); continue; }
-        const range = d.intRangeFields[f];
-        if (range) {
-          const n = Number(after);
-          if (!Number.isInteger(n) || n < range[0] || n > range[1]) { bad(`${f}=${after}`); continue; }
-        }
+        // ★★★ THE RAW VALUE, NEVER `after`. `after` has been through
+        //  `numberPreview`, which renders `true` as "1" — so checking the
+        //  rendered string cannot see a boolean, and the card showed a
+        //  fabricated risk score of 1 as an accepted change (§395). The
+        //  predicate is the WRITER's own, imported rather than restated (§405),
+        //  so the two cannot disagree about what lands.
+        //  ★ `bad()` still receives the RENDERED `after`: the rejection detail
+        //  is for a human, and it is the value the card would have shown.
+        const accepts = d.numericFields[f];
+        if (accepts && !accepts(input[f])) { bad(`${f}=${after}`); continue; }
         if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
         plan.updates.push({ field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after });
         applied[f] = after;

@@ -198,16 +198,21 @@ describe("numeric coercion matches the sanitizer's own", () => {
     expect(mergeGuarded(storedRaid(), { probability: "5" }).probability).toBe(5);
   });
 
-  it("still accepts the boolean true as 1 — toNumber(true) is 1", () => {
-    // ★★ NOT A REGRESSION AND NOT A FIX: the guard reuses `toNumber`, which is
-    // what the sanitizer AND the preview's numeric coercion both use, so
-    // `probability: true` goes on storing a fabricated score of 1 exactly as
-    // before. A stricter `typeof === "number"` rule here would refuse a value
-    // the preview accepts and shows as "1" — the SAME disagreement this file
-    // exists to close, pointing the other way. Pinned so the trade is a
-    // decision rather than an accident.
-    expect(mergeGuarded(storedRaid(), { probability: true }).probability).toBe(1);
-    expect(mergeUnguarded(storedRaid(), { probability: true }).probability).toBe(1);
+  it("refuses the boolean true rather than storing a fabricated 1 (§395)", () => {
+    // ★★★ THIS TEST USED TO PIN THE DEFECT, asserting 1 on BOTH merges, and the
+    // justification is the half that had to go: it said a stricter rule here
+    // "would refuse a value the preview accepts and shows as 1". The preview
+    // refuses it now too — the plan builder consults `acceptsRiskScale` on the
+    // RAW model value instead of range-checking the RENDERED string, where
+    // `numberPreview` had already turned `true` into "1". So the trade this
+    // pinned no longer exists in either direction, and a fabricated score is
+    // what fed `riskSeverityFromMatrix`.
+    // ★ The two merges diverge in SHAPE, not in verdict: the guard drops the key
+    // and the stored 3 survives, while the unguarded merge reaches
+    // `sanitizeRaidItem` — which calls the same predicate and simply never sets
+    // the field. One rule, two call sites, per §405.
+    expect(mergeGuarded(storedRaid(), { probability: true }).probability).toBe(3);
+    expect(mergeUnguarded(storedRaid(), { probability: true }).probability).toBeUndefined();
   });
 
   it("refuses the boolean false — toNumber(false) is 0, out of the [1,5] range", () => {

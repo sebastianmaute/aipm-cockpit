@@ -129,15 +129,24 @@ const PROBES: ReadonlyArray<{ label: string; value: unknown }> = [
   { label: "the boolean true", value: true },
   { label: "the boolean false", value: false },
   { label: "the number 42", value: 42 },
+  // ★★★ THE ONLY PROBE ANY RISK-SCALE FIELD ACCEPTS, and it had to be added
+  // when §395 landed. Until then `raid.probability`/`impact` reached a
+  // COMPARISON on exactly one probe — the boolean `true`, which both sides
+  // coerced to a fabricated 1. Refusing the boolean therefore left both fields
+  // rejecting all nine probes, and the per-field silence check below caught it
+  // BY NAME: the differential's entire coverage of those two fields had been
+  // resting on the defect it exists to detect. 3 is inside [1,5] and >= 0, so
+  // it is a comparison on all four number fields rather than a raid-only patch.
+  { label: "the number 3", value: 3 },
   // ★★ THE "CLEAR THIS FIELD" VALUE, and the probe that found the number path's
-  // divergence. `Number("")` is `0`, so an int-range guard starting at 0 ACCEPTS
-  // it — the change fields previewed `""` where the sanitizer stores `0`. It is
+  // divergence. `toNumber("")` is `0`, which a guard admitting 0 ACCEPTS — the
+  // change fields previewed `""` where the sanitizer stores `0`. It is
   // also the one value `emailFormatFields` carves out explicitly (`after !== ""`),
   // so it exercises that exemption rather than the guard beside it.
-  // ★ It splits the four number fields on their RANGE, which is why it is worth
-  // keeping on both: `change.scheduleImpactDays`/`costImpact` range `[0, ∞)`, so
-  // 0 is in range and the pair is COMPARED (`"0"` on both sides). `raid.
-  // probability`/`impact` range `[1, 5]`, so 0 falls out and the preview
+  // ★ It splits the four number fields on their FLOOR, which is why it is worth
+  // keeping on both: `acceptsScheduleDays`/`acceptsCostAmount` admit any finite
+  // value >= 0, so 0 is accepted and the pair is COMPARED (`"0"` on both
+  // sides). `acceptsRiskScale` demands [1,5], so 0 falls out and the preview
   // REJECTS — while `sanitizeRaidItem` would have dropped the key, i.e. cleared
   // the field. Preview refusing where apply would clear is the safe direction,
   // so it is counted as a preview-only rejection rather than a mismatch.
@@ -664,8 +673,12 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     expect(silent).toEqual([]);
 
     // (3) AGGREGATE, as a fraction of what the comparable fields could yield.
-    // MEASURED 2026-09-05: 244 comparisons over 32 comparable fields × 9 probes
-    // = 288 possible, i.e. 85%. (It was 234/279/84% until §383 added
+    // MEASURED 2026-09-06: 269 comparisons over 32 comparable fields × 10
+    // probes = 320 possible, i.e. 84%. (It was 244/288/85% until §395 refused a
+    // boolean risk scale and added the `3` probe — the probe is why the
+    // denominator moved by 32, and the two raid fields it rescued from total
+    // silence are why the numerator moved by more than the four number fields
+    // alone would explain.) (It was 234/279/84% until §383 added
     // `resource.emails` — a 32nd comparable field, +9 — and `task.lastUpdateDate`,
     // a DATE field that is NOT comparable yet still contributes its one
     // empty-string comparison, +1: which is why the numerator moved by 10 and
@@ -689,7 +702,7 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     // return NOTHING left `silent` empty and `possible` zero, so both floors
     // above passed with the whole differential switched off (measured: 7 passed,
     // EXIT=0). Pinning the comparable pairs to a majority of the ENUMERATED ones
-    // — 288 of 468, i.e. 62%, on 2026-09-05 — means the denominator cannot be
+    // — 320 of 520, i.e. 62%, on 2026-09-06 — means the denominator cannot be
     // shrunk to make the numerator look good.
     expect(possible).toBeGreaterThan(enumerated / 2);
     expect(compared).toBeGreaterThan(possible / 2);

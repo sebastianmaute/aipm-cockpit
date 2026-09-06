@@ -34,7 +34,12 @@ import {
   sanitizeText,
   toNumber,
 } from "../sanitize-core";
-import { sanitizeMilestoneTaskIds } from "../sanitize-records";
+import {
+  acceptsCostAmount,
+  acceptsRiskScale,
+  acceptsScheduleDays,
+  sanitizeMilestoneTaskIds,
+} from "../sanitize-records";
 import { roleLabel } from "../resource-foundation";
 import { str } from "./str";
 
@@ -102,8 +107,19 @@ export interface EntityDescriptor {
   requiredNonEmptyGroups: ReadonlyArray<ReadonlySet<string>>;
   /** Fields validated as YYYY-MM-DD when non-empty (invalid → sanitizer drops/blanks). */
   dateFields: ReadonlySet<string>;
-  /** Integer-range fields [min, max]; use Infinity for an open upper bound. */
-  intRangeFields: Record<string, [number, number]>;
+  /** Numeric fields → the WRITER's own acceptance predicate, applied to the RAW
+   *  model value.
+   *
+   *  ★★★ RAW, NOT THE RENDERED STRING, AND THAT IS THE WHOLE CHANGE. The old
+   *  `intRangeFields` tuple was checked against `Number(after)`, and `after` has
+   *  already been through `numberPreview` — so `true` arrived as `"1"` and the
+   *  boolean-ness the writer needed to refuse was gone (§395). A predicate over
+   *  the raw value is the only shape that can see it.
+   *
+   *  ★★ The predicate is IMPORTED from `sanitize-records.ts`, never re-spelled
+   *  here. That is §405's rule reaching the preview: one function, consulted by
+   *  the card and by the write. */
+  numericFields: Record<string, (v: unknown) => boolean>;
   /** Enum fields → the valid-set resolver (constant for most; category-scoped for RAID status). */
   enumFields: Record<string, EnumResolver>;
   /** For an enum field whose valid-set depends on ANOTHER field (RAID status
@@ -173,7 +189,7 @@ export interface EntityDescriptor {
    *   their apply-path sanitizer is `sanitizeAiRichText`, which needs a DOM,
    *   and their preview is a plain-text PROJECTION of the value rather than the
    *   value itself. `descriptor-drift.test.ts` owns that pair. Enum, date,
-   *   int-range and array fields are absent too — `describeEntityCalls` guards
+   *   numeric and array fields are absent too — `describeEntityCalls` guards
    *   each of those with a rule of its own, against the same sanitizer.
    *
    *  ★ `plan.sanitizer-parity.test.ts` is the differential gate on all of it:
@@ -258,7 +274,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  mechanism this descriptor does not have, and `requiredNonEmpty` is the
     //  wrong one (it means "the writer throws", which is not what happens).
     dateFields: new Set(["dueDate", "lastUpdateDate"]),
-    intRangeFields: {},
+    numericFields: {},
     enumFields: { status: constSet(TASK_STATUSES), priority: constSet(PRIORITIES) },
     // ★ The ONLY member across all six entities: `buildTaskCleanPatch` throws
     //   on a malformed address, and the throw fails the whole patch.
@@ -290,7 +306,9 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmpty: new Set(["title"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(["raisedDate", "targetDate", "closedDate"]),
-    intRangeFields: { probability: [1, 5], impact: [1, 5] },
+    // ★ `acceptsRiskScale` ignores its `category` argument — the [1,5] scale is
+    //  the same for every RAID category — so any member closes the signature.
+    numericFields: { probability: (v) => acceptsRiskScale(v, "R"), impact: (v) => acceptsRiskScale(v, "R") },
     enumFields: { category: constSet(RAID_CATEGORIES), severity: constSet(RAID_SEVERITIES), status: raidStatusResolver },
     enumDefaultFor: (field, item) => (field === "status" ? raidStatusDefault(raidCategoryOf(item)) : undefined),
     emailFormatFields: new Set(),
@@ -318,7 +336,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmpty: new Set(["title"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(["raisedDate", "decisionDate"]),
-    intRangeFields: { scheduleImpactDays: [0, Infinity], costImpact: [0, Infinity] },
+    numericFields: { scheduleImpactDays: acceptsScheduleDays, costImpact: acceptsCostAmount },
     enumFields: { type: constSet(CHANGE_TYPES), status: constSet(CHANGE_STATUSES), impact: constSet(CHANGE_IMPACT_LEVELS) },
     emailFormatFields: new Set(),
     arrayFields: new Set(),
@@ -344,7 +362,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmpty: new Set(["name", "date"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(["date", "achievedDate"]),
-    intRangeFields: {},
+    numericFields: {},
     enumFields: {},
     emailFormatFields: new Set(),
     arrayFields: new Set(),
@@ -367,7 +385,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmpty: new Set(["name"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(),
-    intRangeFields: {},
+    numericFields: {},
     enumFields: { category: constSet(STAKEHOLDER_CATEGORIES), influence: constSet(INFLUENCE_INTEREST_LEVELS), interest: constSet(INFLUENCE_INTEREST_LEVELS) },
     emailFormatFields: new Set(),
     arrayFields: new Set(),
@@ -430,7 +448,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // `birthday` is the only date-shaped Resource field and it is NOT writable
     // (see above) — and it is "MM-DD", which sanitizeIsoDate would reject anyway.
     dateFields: new Set(),
-    intRangeFields: {},
+    numericFields: {},
     enumFields: {},
     emailFormatFields: new Set(),
     arrayFields: new Set(),

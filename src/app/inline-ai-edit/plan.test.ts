@@ -125,6 +125,23 @@ describe("describeEntityCalls — raid", () => {
     expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
   });
 
+  it("rejects a boolean probability in the preview, not merely in the writer", () => {
+    // ★★★ THE RENDERED STRING CANNOT SEE THIS. `numberPreview` coerces `true`
+    //  to "1" before any rule runs, so a range check over `after` reads a
+    //  plausible in-range score and the card showed the fabrication as an
+    //  accepted change (§395). The detail string still carries the RENDERED
+    //  value — it is what the reader would otherwise have been shown.
+    const item = { id: 7, category: "R", title: "Old", status: "Open", probability: 4 };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 7, probability: true } }],
+      { descriptor: d, item, ws: wsWith({ raid: [item] as never }) },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([
+      { toolName: "update_raid_item", reason: "bad-input", detail: "probability=1" },
+    ]);
+  });
+
   it("surfaces the sanitizer-induced status reset when a category change invalidates the status", () => {
     // category R + status "Mitigated" (Risk-only). Model changes category to I
     // WITHOUT naming status → the sanitizer resets status to the Issue default

@@ -38,20 +38,36 @@ describe("INLINE_DESCRIPTORS", () => {
     expect(issue.has("Mitigated")).toBe(false);
   });
 
-  it("marks required-non-empty, date, int-range, enum, array fields", () => {
+  it("marks required-non-empty, date, numeric, enum, array fields", () => {
     expect(INLINE_DESCRIPTORS.milestone.requiredNonEmpty.has("name")).toBe(true);
     expect(INLINE_DESCRIPTORS.milestone.dateFields.has("date")).toBe(true);
-    expect(INLINE_DESCRIPTORS.raid.intRangeFields.probability).toEqual([1, 5]);
-    expect(INLINE_DESCRIPTORS.change.intRangeFields.scheduleImpactDays[0]).toBe(0);
+    // ★ A numeric member is a PREDICATE now, not a `[min, max]` tuple, so it is
+    //  asserted by BEHAVIOUR — there are no bounds left to compare. The boolean
+    //  leg is the one the tuple form could not express at all (§395): it was
+    //  checked against the RENDERED string, where `true` had already become
+    //  "1".
+    expect(INLINE_DESCRIPTORS.raid.numericFields.probability(3)).toBe(true);
+    expect(INLINE_DESCRIPTORS.raid.numericFields.probability(9)).toBe(false);
+    expect(INLINE_DESCRIPTORS.raid.numericFields.probability(true)).toBe(false);
+    expect(INLINE_DESCRIPTORS.change.numericFields.scheduleImpactDays(0)).toBe(true);
+    expect(INLINE_DESCRIPTORS.change.numericFields.scheduleImpactDays(-1)).toBe(false);
     expect(INLINE_DESCRIPTORS.task.arrayFields.has("labels")).toBe(true);
     expect(Object.keys(INLINE_DESCRIPTORS.stakeholder.enumFields)).toContain("influence");
   });
 
-  // ★★★ EVERY INT-RANGE FIELD MUST ALSO BE A NUMBER FIELD, and nothing else
-  //  checks it. `numberFields` is what makes `describeEntityCalls` run the
-  //  int-range guard on that field at all, so a range declared for a field
-  //  outside the set is never enforced: the value is previewed and accepted
-  //  whatever it is. Silent in both directions — no throw, no rejected row.
+  // ★★★ EVERY NUMERIC FIELD MUST ALSO BE A NUMBER FIELD, and nothing else
+  //  checks it.
+  //  ★★★ THE REASON CHANGED WITH §395 AND THE OLD ONE IS NOW FALSE — it read
+  //  "`numberFields` is what makes `describeEntityCalls` run the int-range
+  //  guard on that field at all, so a range declared for a field outside the
+  //  set is never enforced". That was true while the guard read the RENDERED
+  //  `after`, which only became a number because `numberFields` routed it
+  //  through `numberPreview`. The guard now reads `input[f]` RAW, so it fires
+  //  for a numeric field whether or not the set contains it. What the
+  //  containment buys today is the CARD: outside `numberFields` the value is
+  //  previewed verbatim by `str`, so an accepted `"3"` renders as the model's
+  //  spelling rather than the `3` the writer stores — a disclosure defect
+  //  rather than an unenforced guard, and still worth pinning.
   //  ★★ The containment holds today by COINCIDENCE, not by construction — the
   //  two members are declared independently a few lines apart — which is why it
   //  is pinned here rather than left to be re-derived.
@@ -67,17 +83,17 @@ describe("INLINE_DESCRIPTORS", () => {
   //  still worth having; only its stated reason had rotted. `docs:symbols:check`
   //  cannot see a `src/` comment — `npm run src:symbols:check` is what reported
   //  the dangling `normalizePreviewValue`.
-  it("keeps every int-range field inside numberFields", () => {
-    const ranged = entities.flatMap((e) =>
-      Object.keys(INLINE_DESCRIPTORS[e].intRangeFields).map((f) => `${e}.${f}`),
+  it("keeps every numeric field inside numberFields", () => {
+    const guarded = entities.flatMap((e) =>
+      Object.keys(INLINE_DESCRIPTORS[e].numericFields).map((f) => `${e}.${f}`),
     );
-    const gaps = ranged.filter((k) => {
+    const gaps = guarded.filter((k) => {
       const [e, f] = k.split(".") as [InlineEntity, string];
       return !INLINE_DESCRIPTORS[e].numberFields.has(f);
     });
     // ★ The population is asserted separately so a descriptor set that declared
-    //  NO int-range field at all could not read as a pass.
-    expect(ranged.length).toBeGreaterThan(0);
+    //  NO numeric field at all could not read as a pass.
+    expect(guarded.length).toBeGreaterThan(0);
     expect(gaps).toEqual([]);
   });
 
@@ -123,8 +139,8 @@ describe("INLINE_DESCRIPTORS", () => {
   // ★★ A NUMBER FIELD MUST NOT CARRY A TEXT SANITIZER. Every text sanitizer in
   //  play blanks a non-string to `""`, and `Number("")` is `0` — which
   //  satisfies any range starting at 0 and silently skips the out-of-range
-  //  rejection in `describeEntityCalls`. Same failure the int-range test above
-  //  guards from the other direction, so both are needed.
+  //  rejection in `describeEntityCalls`. Same failure the numeric-field test
+  //  above guards from the other direction, so both are needed.
   it("keeps numberFields out of fieldSanitizers", () => {
     const overlaps = entities.flatMap((e) =>
       [...INLINE_DESCRIPTORS[e].numberFields]
