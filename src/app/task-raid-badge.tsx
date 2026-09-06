@@ -39,9 +39,7 @@ function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadge
   // The badge's VISIBLE content — the short total. It is also the HEAD of the
   // accessible name below, so the two cannot drift.
   const countText = t(lang, "raidReferencedByCount", refs.length);
-  // The per-category breakdown. Sighted shorthand, so it rides `title`, where
-  // it FOLLOWS the name rather than fronting it — `title` is the accessible
-  // description, so this changes WHEN it is read, not WHETHER.
+  // The per-category breakdown. Sighted shorthand, so it rides `title`.
   const mix = t(lang, "raidReferencedByMix", counts.R, counts.A, counts.I, counts.D);
   return (
     <button

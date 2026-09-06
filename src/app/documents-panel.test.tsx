@@ -2596,11 +2596,10 @@ describe("documents pane — collapsing the open document's body", () => {
   // defect: that one arrives by switching views, so this conditionally-mounted
   // tabpanel remounts and resets the state on its own — reachable, but weaker.
   //
-  // ★★ The ENTITY-FILTER route is NOT weaker, and grouping it with the deep
-  // link was wrong. The banner's clear button runs `clearEntityFilter()` IN
-  // PLACE, which flips `selectionPool` from `visibleRows` back to `documents`
-  // so `selectionPool[0]` can re-point with no remount — exactly the shape this
-  // delete route pins.
+  // ★★ The ENTITY-FILTER route is NOT weaker. The banner's clear button runs
+  // `clearEntityFilter()` IN PLACE, which flips `selectionPool` from
+  // `visibleRows` back to `documents` so `selectionPool[0]` can re-point with
+  // no remount — exactly the shape this delete route pins.
   it("expands the successor when the collapsed open document is deleted", async () => {
     const user = userEvent.setup();
     renderLive([doc(1, "Alpha"), doc(2, "Beta")]);

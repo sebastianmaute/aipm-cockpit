@@ -410,10 +410,6 @@ describe("ProjectsPanel — Load from Turso", () => {
     );
   });
 
-  // ★★ `title` is mouse-hover-only, and a disabled button is not focusable —
-  // so there is NO keyboard route to that wrapper title and it is unreachable
-  // on touch. `aria-describedby` is exposed on a disabled control and outranks
-  // `title` as the accessible description, so it is what actually reaches AT.
   it("describes both disabled Turso buttons with the not-configured hint", () => {
     setup();
     const hint = "Configure a Turso database in Settings → Integrations first.";
@@ -453,11 +449,7 @@ describe("ProjectsPanel — Load from Turso", () => {
   // ★★★ THIS PINS THE CLASSES ONLY — IT CANNOT PIN THE BEHAVIOUR THEY BUY.
   // jsdom has no layout and renders no native tooltips, so nothing in this
   // suite can observe whether a hover actually reaches the wrapper's `title`.
-  // The wrapper has zero uncovered hit area, so `disabled:pointer-events-none`
-  // is what drops the button out of hit-testing and makes the fall-through
-  // deterministic across browsers; `cursor-not-allowed` moves to the wrapper
-  // because a pointer-events-none element cannot style a cursor at all. Real
-  // reachability is owed a browser eye-verify — do not read this test as
+  // Real reachability is owed a browser eye-verify — do not read this test as
   // covering it.
   it("takes the disabled Turso buttons out of hit-testing and moves the cursor to the wrapper", () => {
     setup();

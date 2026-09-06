@@ -29078,8 +29078,7 @@ Reproduce — both blocks, stripped of comments and indentation:
 strip() { grep -v '^[[:space:]]*//' "$1" | sed -n '/const listId/,/return (/p' | sed 's/^[[:space:]]*//;/^$/d'; }
 diff <(strip src/app/single-entity-picker.tsx) <(strip src/app/entity-link-picker.tsx)
 # -> hunks on the commit call (onSelect(options[active].value) vs onAdd(options[active]))
-#    and on the armed-highlight identity (a bare .value vs entryKey(...)). Read the hunks;
-#    do not record a count here — the last one rotted one commit after it was written.
+#    and on the armed-highlight identity (a bare .value vs entryKey(...)).
 
 strip2() { sed -n '/<div className="relative">/,/^        {open && (/p' "$1" | grep -v '^[[:space:]]*//' | grep -v '^[[:space:]]*{\?/\*' | grep -v '^[[:space:]]*\*' | sed 's/^[[:space:]]*//;/^$/d'; }
 diff <(strip2 src/app/single-entity-picker.tsx) <(strip2 src/app/entity-link-picker.tsx)

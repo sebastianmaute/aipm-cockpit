@@ -286,13 +286,10 @@ describe("KnowledgePanel", () => {
     expect(options.length).toBeGreaterThanOrEqual(2);
   });
 
-  // ★★ The attach-to call site passes `MAX_TARGET_OPTIONS` (200) EXPLICITLY;
-  // `filterPickerOptions` would otherwise default to 20 and silently drop most
-  // of a real project's targets, with no "showing 20 of N" affordance and a
-  // placeholder promising `* for all`. Both assertions earn their place: the
-  // first is the regression itself (250 seeded tasks plus the standalone row is
-  // 251 candidates, of which the default returns 20), the second pins WHERE
-  // truncation lands, so the cap cannot quietly become unbounded either.
+  // ★★ Both assertions earn their place: the first is the regression itself
+  // (250 seeded tasks plus the standalone row is 251 candidates, of which the
+  // default returns 20), the second pins WHERE truncation lands, so the cap
+  // cannot quietly become unbounded either.
   // ★ The 200 is written as a LITERAL rather than imported from the panel: an
   // imported bound compares the constant against itself and would go on passing
   // if someone lowered it back to 20.

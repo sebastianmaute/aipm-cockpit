@@ -224,7 +224,7 @@ export function DocumentsPanel({
   //
   // ★★ TWO WRITERS, AND ONLY ONE OF THEM RESETS UNCONDITIONALLY:
   // `handleSelect`'s branch is `setBodyCollapsed((v) => !v)`, a TOGGLE, so it
-  // does clear whenever the body is already collapsed — it is just not a reset.
+  // does clear whenever the body is already collapsed.
   // The render-time reconcile beside `selected` (below) is the sole
   // UNCONDITIONAL reset. Do NOT add a second `setBodyCollapsed(false)` on a click path —
   // the whole point of keying the reset on `selected?.id` is that the open
