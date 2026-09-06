@@ -1,7 +1,27 @@
 /**
  * The shared arrangement layout engine — pure, i18n-free, DOM-free, and
  * generic over the block id. The Dashboard and Reports each bind it to their
- * own catalogue; nothing in here knows which surface it is serving.
+ * own catalogue; no FUNCTION in here knows which surface it is serving.
+ *
+ * ★★ THE SHAPE STILL CARRIES TWO DASHBOARD ASSUMPTIONS, AND EVERY BINDING MUST
+ * ACCEPT THEM. An earlier revision of this line claimed outright that "nothing
+ * in here knows which surface it is serving", which is true of the code and
+ * false of the types:
+ *   1. `BlockSpan` is `1|2|3|4` — a FOUR-COLUMN grid, baked in as a closed
+ *      union. It is the Dashboard's `xl:grid-cols-4` (`dashboard-grid.tsx`)
+ *      hardened into a type. A surface wanting 6 columns cannot express it
+ *      here; widening the union is a change to every binding at once, so cost
+ *      it as one rather than treating it as local.
+ *   2. `defaultLayout` places EVERY catalogue member on the board, and
+ *      `reconcile` step 2 re-inserts every absent one. So a block cannot be
+ *      declared hidden-by-default in the CATALOGUE. ★ It CAN still be hidden by
+ *      default — the `fallback` is a plain parameter, so a surface seeds its
+ *      own default with ids already in `hidden` and `reconcile` honours them
+ *      thereafter (pinned by "a surface may seed a block hidden by default").
+ *      What is NOT reachable is hiding a NEWLY ADDED catalogue block for users
+ *      who already have a stored layout: step 2 puts it on their board by
+ *      design (see its own ★★ below). A migration that wants otherwise must
+ *      write the `hidden` list itself.
  *
  * ★★ THE CATALOGUE IS A PARAMETER, NEVER A FREE VARIABLE. This file was
  * extracted from `dashboard-layout.ts`, where `reconcile` read `DASHBOARD_TILES`
@@ -59,8 +79,17 @@ export type BlockSpan = 1 | 2 | 3 | 4;
  */
 export interface BlockSpec<Id extends string> {
   id: Id;
-  /** i18n KEY, never a string — a typo is then a build error, and this file
-   *  stays importable from a bare node process (the import is type-only). */
+  /**
+   * i18n KEY, never a string — a typo is then a build error, and this file
+   * stays importable from a bare node process (the import is type-only).
+   *
+   * ★ THIS ENGINE NEVER READS IT, and that is not a reason to drop it. It is
+   * part of the CATALOGUE contract the generic RENDER layer consumes: the
+   * shared block menu and the hidden-block shelf both title a block from its
+   * catalogue entry, for whichever surface. Removing it here would only move
+   * the field to a second parallel type those layers would then have to join
+   * against.
+   */
   labelKey: TranslationKey;
   w: BlockSpan;
   h: BlockSpan;
@@ -99,11 +128,20 @@ export function defaultLayout<Id extends string>(
   };
 }
 
-/** The catalogue entry for `id`, or undefined when the catalogue has dropped it. */
-export function specById<Id extends string>(
-  catalogue: readonly BlockSpec<Id>[],
+/**
+ * The catalogue entry for `id`, or undefined when the catalogue has dropped it.
+ *
+ * ★ GENERIC OVER THE SPEC TYPE, not just the id, so it hands back the CALLER'S
+ * spec rather than narrowing it to `BlockSpec`. A surface's catalogue routinely
+ * carries more than the engine needs — the Dashboard's `TileSpec` adds `gate`,
+ * which `tileById`'s callers read — and returning `BlockSpec<Id>` would strip
+ * exactly that on the way out, making this un-adoptable by the very catalogues
+ * it exists for.
+ */
+export function specById<Id extends string, S extends BlockSpec<Id>>(
+  catalogue: readonly S[],
   id: Id,
-): BlockSpec<Id> | undefined {
+): S | undefined {
   return catalogue.find((s) => s.id === id);
 }
 
@@ -181,17 +219,34 @@ export function resizeBlock<Id extends string>(
 /**
  * Bring a stored layout up to date with the current catalogue.
  *
+ * ★★★ PRECONDITION: `stored` MUST ALREADY HAVE PASSED A SHAPE-AND-VERSION
+ * CHECK. The `ArrangementLayout<Id> | null` parameter type is a promise the
+ * CALLER makes, and a blob off localStorage cannot keep it. This function does
+ * no validation of its own, so a malformed blob is not degraded — it is acted
+ * on: `board: null` / `hidden: null` / `board: [null]` / `{}` all THROW out of
+ * here, and because the Dashboard calls this from a lazy `useState` initialiser
+ * and a render-phase reconcile, that throw surfaces as a panel that fails to
+ * RENDER rather than one that degrades. Quieter and worse, a non-numeric `w`
+ * clamps to NaN, serialises as `null`, and is rejected on the NEXT load —
+ * silently resetting the user's whole arrangement.
+ * ★ The Dashboard's guard is `isLayout` in `dashboard-layout-store.ts`, which
+ * this extraction deliberately left behind (Task 5 extracts the store, and the
+ * guard belongs with it). A NEW SURFACE BINDING THIS ENGINE MUST PORT ONE —
+ * binding `reconcile` without a validated read is the whole defect above.
+ *
  * ★★ A GATED-OFF BLOCK IS KEPT, NOT DROPPED, AND THAT IS WHY THIS TAKES NO
- * GATE INPUT. A gate decides what RENDERS, never what is STORED — otherwise
- * switching Budget off and on again would lose the burn tile's position
- * permanently. The render layer filters — `dashboard-panel.tsx` tests each
- * placed tile's own `spec.gate(gate)` — and this does not, nor can it with no
- * gate in scope. ★ That filter is INLINE in the panel and there is no shared
- * helper for it. A catalogue-order `liveTiles(gate)` export briefly existed in
- * the pre-extraction engine and was DELETED unused: the panel filters
- * PLACEMENTS in board order and also requires a rendered body, so a
- * catalogue-order list is not the same function and cannot be substituted for
- * it. Do NOT reintroduce one.
+ * GATE INPUT. The engine-level rule, which every binding owes: a gate decides
+ * what RENDERS, never what is STORED, so EVERY surface filters gated blocks in
+ * its own render layer and this function stores them regardless. Drop them here
+ * instead and switching a module off and on again loses those blocks' positions
+ * permanently.
+ * ★ The Dashboard is the worked example, not the rule: `dashboard-panel.tsx`
+ * tests each placed tile's own `spec.gate(gate)`, and that filter is INLINE in
+ * the panel — there is no shared helper for it. A catalogue-order
+ * `liveTiles(gate)` export briefly existed in the pre-extraction engine and was
+ * DELETED unused: the panel filters PLACEMENTS in board order and also requires
+ * a rendered body, so a catalogue-order list is not the same function and
+ * cannot be substituted for it. Do NOT reintroduce one.
  * The plan carried a `_gate` parameter to document that; eslint rejects it
  * (this repo has no `argsIgnorePattern`, and CI runs `--max-warnings=0`), so
  * the absence of the parameter carries the point instead.

@@ -28,12 +28,21 @@ export type DashboardLayout = ArrangementLayout<DashboardTileId>;
  *  reference identity that `reconcile(null)` and `reset()` both depend on. */
 export const DEFAULT_LAYOUT: DashboardLayout = defaultLayout(DASHBOARD_TILES);
 
-export const moveTile = (l: DashboardLayout, dragId: DashboardTileId, targetId: DashboardTileId) =>
-  moveBlock(l, dragId, targetId);
-export const hideTile = (l: DashboardLayout, id: DashboardTileId) => hideBlock(l, id);
-export const restoreTile = (l: DashboardLayout, id: DashboardTileId, index?: number) =>
-  restoreBlock(DASHBOARD_TILES, l, id, index);
-export const resizeTile = (l: DashboardLayout, id: DashboardTileId, axis: "w" | "h", value: number) =>
-  resizeBlock(DASHBOARD_TILES, l, id, axis, value);
-export const reconcile = (stored: DashboardLayout | null) =>
+/* ★ THE RETURN TYPES ARE ANNOTATED, NOT INFERRED, AND THAT IS THE POINT OF THE
+ * ADAPTER. These five are the Dashboard's whole public layout API. Left to
+ * inference, a change to an engine return type would propagate straight into
+ * the published type and typecheck all the way out to `dashboard-panel.tsx`;
+ * annotated, it errors HERE — at the seam that exists to absorb it. */
+export const moveTile = (
+  l: DashboardLayout, dragId: DashboardTileId, targetId: DashboardTileId,
+): DashboardLayout => moveBlock(l, dragId, targetId);
+export const hideTile = (l: DashboardLayout, id: DashboardTileId): DashboardLayout =>
+  hideBlock(l, id);
+export const restoreTile = (
+  l: DashboardLayout, id: DashboardTileId, index?: number,
+): DashboardLayout => restoreBlock(DASHBOARD_TILES, l, id, index);
+export const resizeTile = (
+  l: DashboardLayout, id: DashboardTileId, axis: "w" | "h", value: number,
+): DashboardLayout => resizeBlock(DASHBOARD_TILES, l, id, axis, value);
+export const reconcile = (stored: DashboardLayout | null): DashboardLayout =>
   reconcileWith(DASHBOARD_TILES, stored, DEFAULT_LAYOUT);

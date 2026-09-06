@@ -28,11 +28,17 @@ const opArb = fc.oneof(
   }),
 );
 
+// ★ `satisfies`, NOT `as`. The assertion bought nothing — tsc accepts the plain
+// record — and it MASKED drift: with `as` in place, changing `w: spanArb` to
+// `fc.integer({min:-9,max:99})` still compiled clean, even though the arbitrary
+// then produces `{w: number}`, which is not an `ArrangementLayout<TestId>`.
+// Measured, not assumed. `satisfies` keeps the type import referenced, so
+// `--max-warnings=0` stays happy where a bare deletion would orphan it.
 const layoutArb = fc.record({
   v: fc.constant(1 as const),
   board: fc.array(fc.record({ id: idArb, w: spanArb, h: spanArb }), { maxLength: 8 }),
   hidden: fc.array(idArb, { maxLength: 6 }),
-}) as fc.Arbitrary<ArrangementLayout<TestId>>;
+}) satisfies fc.Arbitrary<ArrangementLayout<TestId>>;
 
 describe("arrangement-layout properties", () => {
   // ★ THIS is the property that found a real defect on the Dashboard: `reconcile`
@@ -71,6 +77,14 @@ describe("arrangement-layout properties", () => {
     }));
   });
 
+  // ★★ NOTHING HERE ASSERTS THE ARBITRARY REACHES THE INTERESTING SHAPES — in
+  // particular that `hidden` ever holds a DUPLICATE, which is the only input
+  // that exercises the `hiddenSet` de-duplication. That is answered
+  // EMPIRICALLY rather than by a guard: reverting the de-duplication turns the
+  // property below red (measured, 2 failed / 10 passed with the unit test), so
+  // the generator demonstrably reaches the shape. ★ Do NOT "strengthen" this
+  // into a fraction-based anti-vacuity guard at a raised `numRuns` — raising
+  // runs at the same failure fraction makes such a guard WEAKER, not stronger.
   it("reconcile emits every catalogue block exactly once, inside its own limits", () => {
     fc.assert(fc.property(layoutArb, (l) => {
       const out = reconcile(CAT, l, DEF);

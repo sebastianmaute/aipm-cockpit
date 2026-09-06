@@ -42,7 +42,7 @@ describe("arrangement-layout", () => {
 
   it("de-duplicates the hidden list as well as the board", () => {
     const stored = {
-      v: 1 as const, board: [], hidden: ["a", "a", "zz"] as unknown as TestId[],
+      v: 1 as const, board: [], hidden: ["a", "a", "zz"] as TestId[],
     };
     expect(reconcile(CAT, stored, DEF).hidden).toEqual(["a"]);
   });
@@ -69,5 +69,37 @@ describe("arrangement-layout", () => {
 
   it("returns the same object when a resize changes nothing", () => {
     expect(resizeBlock(CAT, DEF, "c", "w", 4)).toBe(DEF);
+  });
+
+  // ★★ ALL FOUR MUTATORS NEED THEIR OWN NO-OP PIN, and the two below were the
+  // gap. The engine's header states the same-reference contract for all four;
+  // the two here were held ONLY by `dashboard-layout.test.ts`, i.e. through the
+  // Dashboard's binding. The engine is meant to outlive that binding, so a
+  // `return { ...layout }` in either function survived this file entirely.
+  it("returns the same object when hiding a block that is not on the board", () => {
+    const hiddenA = hideBlock(DEF, "a");
+    expect(hideBlock(hiddenA, "a")).toBe(hiddenA);
+  });
+
+  it("returns the same object when restoring a block that is not hidden", () => {
+    expect(restoreBlock(CAT, DEF, "a")).toBe(DEF);
+  });
+
+  // ★★ ANSWERS A DESIGN QUESTION, not just a behaviour: can a surface start a
+  // block hidden? YES — but only by seeding its OWN fallback, never by anything
+  // in the catalogue, because `defaultLayout` places every member. reconcile
+  // then honours the seeded `hidden` on every later load. The limit this does
+  // NOT reach is a NEWLY ADDED catalogue block for a user who already has a
+  // stored layout: step 2 puts that on the board by design.
+  it("lets a surface seed a block hidden by default, and keeps it hidden", () => {
+    const seeded: ArrangementLayout<TestId> = {
+      v: 1,
+      board: DEF.board.filter((p) => p.id !== "b"),
+      hidden: ["b"],
+    };
+    expect(reconcile(CAT, null, seeded)).toBe(seeded);
+    const out = reconcile(CAT, seeded, seeded);
+    expect(out.board.map((p) => p.id)).toEqual(["a", "c"]);
+    expect(out.hidden).toEqual(["b"]);
   });
 });
