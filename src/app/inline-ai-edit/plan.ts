@@ -80,7 +80,12 @@ export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: D
 
 // Any create_*/delete_* tool → its entity + workspace list key. Shared across
 // entities (an inline edit on any row may create/delete related items).
-const CREATE_TOOLS: Record<string, string> = {
+//
+// ★ The value is `InlineEntity`, not `string`, so the create branch can index
+//  `INLINE_DESCRIPTORS` with it. Widening it back makes that lookup `any` under
+//  a `Record<string, …>` index — the descriptor a create's links are projected
+//  through would then be unchecked.
+const CREATE_TOOLS: Record<string, InlineEntity> = {
   create_raid_item: "raid", create_change: "change",
   create_milestone: "milestone", create_stakeholder: "stakeholder", create_task: "task",
   create_resource: "resource",
@@ -222,6 +227,67 @@ function titleOf(entity: string, input: Record<string, unknown>): string {
 }
 
 interface EntityItem { id: number; [k: string]: unknown }
+
+/** Project a tool input's relationship and FK fields onto `plan.links`.
+ *
+ *  Deliberately a SEPARATE bucket from `updates` — see the `LinkDiff` docstring
+ *  for the wipe that prevents. ONE sanitize per side, reused for both the
+ *  rendered title and the applied value, so the card cannot promise something
+ *  the patch omits.
+ *
+ *  ★★★ ONE SPELLING, SHARED BY THE UPDATE AND CREATE BRANCHES. A second copy of
+ *   this projection is the §405 defect class — the two would then have to be
+ *   corrected in lockstep forever, and the whole subject of this module is
+ *   preview and apply drifting apart. `d` is the descriptor for the entity the
+ *   INPUT belongs to, which on a create is NOT the open row's: an inline edit on
+ *   a task may `create_raid_item`, and the task descriptor declares no link
+ *   fields at all.
+ *
+ *  ★★ A FIELD THE MODEL DID NOT SEND EMITS NOTHING, and the `in` guard is what
+ *   holds that. These writes REPLACE, and the patch is rebuilt from this bucket
+ *   — so emitting an untouched field would wipe it. RAID has three link fields;
+ *   a model that sends one must not lose the other two.
+ *
+ *  ★★★ THE SKIP COMPARES RENDERED TITLES, NOT IDS, AND THAT IS THE DELIBERATE
+ *   CHOICE. Two DIFFERENT id lists that render identically (two rows sharing a
+ *   title) emit nothing. Comparing `rawIds` instead would write the swap behind
+ *   a card reading "Review -> Review": a change the user cannot see, on a
+ *   disclosure surface whose whole purpose is that they can. One comparison
+ *   gates BOTH the card and the patch, which is the invariant; a same-titled
+ *   swap is the known, narrow price.
+ *
+ *  ★★ WHAT THAT PRICE ACTUALLY IS, corrected in cold review. An earlier wording
+ *   said "no write happens either — the edit is silently dropped rather than
+ *   silently destructive". That is true ONLY of the REBUILDING consumer, which
+ *   reconstructs its patch from this plan. The two REPLAYING consumers
+ *   (`chat-proposal-apply.ts`, `use-insight-recommendations.ts`) resend the
+ *   original tool input and never read the plan, so for them the swap IS
+ *   written, behind a card that showed no link line at all. The trade still
+ *   stands — but the cost is "undisclosed on two surfaces", not "dropped
+ *   everywhere", and the difference is the whole subject of this module.
+ *   ★ It is narrow because a DANGLING id renders as `#<id>`
+ *   (`UNKNOWN_ID_MARKER`), so an unresolvable row stays distinguishable, and a
+ *   REORDER changes the joined string — neither collapses here.
+ *
+ *  ★ `prior` is the row the links are replacing. On a CREATE it is `{}`, so
+ *   every `before` renders "" — there is no prior row and nothing to drop. */
+function pushLinkDiffs(
+  plan: EditPlan,
+  d: EntityDescriptor,
+  input: Record<string, unknown>,
+  prior: Record<string, unknown>,
+  ws: Workspace,
+): void {
+  for (const [f, link] of Object.entries(d.linkFields)) {
+    if (!(f in input)) continue;
+    const beforeIds = link.sanitize(prior[f]);
+    const afterIds = link.sanitize(input[f]);
+    const before = resolveLinkTitles(beforeIds, link, ws);
+    const after = resolveLinkTitles(afterIds, link, ws);
+    if (before === after) continue;
+    plan.links.push({ field: f, before, after, rawIds: afterIds });
+  }
+}
 
 /** Build the plan for one entity. `ctx.item` is the row the popover opened on;
  *  `ctx.ws` the live workspace (id grounding + delete labels); `ctx.descriptor`
@@ -414,45 +480,12 @@ export function describeEntityCalls(
         plan.updates.push({ field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after });
         applied[f] = after;
       }
-      // Relationship and FK inputs. Deliberately a SEPARATE bucket from
-      // `updates` — see the `LinkDiff` docstring for the wipe this prevents.
-      // ONE sanitize per side, reused for both the rendered title and the
-      // applied value, so the card cannot promise something the patch omits.
-      //
-      // ★★ A FIELD THE MODEL DID NOT SEND EMITS NOTHING, and the `in` guard is
-      // what holds that. These writes REPLACE, and the patch is rebuilt from
-      // this bucket — so emitting an untouched field would wipe it. RAID has
-      // three link fields; a model that sends one must not lose the other two.
-      //
-      // ★★★ THE SKIP COMPARES RENDERED TITLES, NOT IDS, AND THAT IS THE
-      // DELIBERATE CHOICE. Two DIFFERENT id lists that render identically (two
-      // rows sharing a title) emit nothing. Comparing `rawIds` instead would
-      // write the swap behind a card reading "Review -> Review": a change the
-      // user cannot see, on a disclosure surface whose whole purpose is that
-      // they can. One comparison gates BOTH the card and the patch, which is
-      // the invariant; a same-titled swap is the known, narrow price.
-      //
-      // ★★ WHAT THAT PRICE ACTUALLY IS, corrected in cold review. An earlier
-      // wording said "no write happens either — the edit is silently dropped
-      // rather than silently destructive". That is true ONLY of the REBUILDING
-      // consumer, which reconstructs its patch from this plan. The two
-      // REPLAYING consumers (`chat-proposal-apply.ts`,
-      // `use-insight-recommendations.ts`) resend the original tool input and
-      // never read the plan, so for them the swap IS written, behind a card
-      // that showed no link line at all. The trade still stands — but the cost
-      // is "undisclosed on two surfaces", not "dropped everywhere", and the
-      // difference is the whole subject of this module. ★ It is narrow because a DANGLING id renders as `#<id>`
-      // (`UNKNOWN_ID_MARKER`), so an unresolvable row stays distinguishable,
-      // and a REORDER changes the joined string — neither collapses here.
-      for (const [f, link] of Object.entries(d.linkFields)) {
-        if (!(f in input)) continue;
-        const beforeIds = link.sanitize(item[f]);
-        const afterIds = link.sanitize(input[f]);
-        const before = resolveLinkTitles(beforeIds, link, ws);
-        const after = resolveLinkTitles(afterIds, link, ws);
-        if (before === after) continue;
-        plan.links.push({ field: f, before, after, rawIds: afterIds });
-      }
+      // Relationship and FK inputs, projected against the row being updated.
+      // The rule set — separate bucket, `in` guard, title comparison, and what
+      // that comparison costs — lives on `pushLinkDiffs`, which the create
+      // branch below calls too. Do not restate it here; one spelling is the
+      // point (§405).
+      pushLinkDiffs(plan, d, input, item, ws);
       // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)
       // changed, whose current value is no longer valid for the item as patched,
       // is silently reset by the sanitizer to the field's default (RAID status
@@ -472,8 +505,30 @@ export function describeEntityCalls(
       continue;
     }
 
-    if (name in CREATE_TOOLS) {
+    // ★★★ `hasOwnProperty`, NOT `in` — `in` WALKS THE PROTOTYPE CHAIN, so a
+    //  model emitting `toString` (or `constructor`) matched this branch and
+    //  `CREATE_TOOLS[name]` yielded `Object.prototype.toString`, a FUNCTION.
+    //  It went unnoticed while the value only reached `titleOf`, which
+    //  stringified it into the card's title; the descriptor lookup below turns
+    //  the same input into a throw, and the property suite found it in one run.
+    //  Same guard, same reasoning as `activityMessageKey` (`activity-log.ts`).
+    if (Object.prototype.hasOwnProperty.call(CREATE_TOOLS, name)) {
       const entity = CREATE_TOOLS[name];
+      // ★★ A CREATE WRITES LINKS TOO (§390). `plan.creates` carries the model's
+      //  input VERBATIM to `runTool`, so these land whether or not the card
+      //  mentions them — an inline `create_raid_item({ linkedTaskIds })` used to
+      //  show the title alone.
+      //  ★ Lower severity than the update case, deliberately stated: a create
+      //  has no prior row, so it cannot DROP existing links. Undisclosed write,
+      //  not undisclosed destruction — hence `{}` as the prior, and `before` is
+      //  always "". (In the update case those writes REPLACE rather than merge,
+      //  which is what makes them severe there.)
+      //  ★★ THE CREATED ENTITY'S DESCRIPTOR, NEVER `d`. `describeEntityCalls`
+      //  is called with ONE descriptor — the open row's — and a create may name
+      //  a DIFFERENT entity (a task popover creating a RAID item). Projecting a
+      //  create's links through the open row's descriptor would read the wrong
+      //  entity's `linkFields`, which is worse than not projecting them.
+      pushLinkDiffs(plan, INLINE_DESCRIPTORS[entity], input, {}, ws);
       plan.creates.push({ entity, title: titleOf(entity, input), toolName: name, input });
       continue;
     }

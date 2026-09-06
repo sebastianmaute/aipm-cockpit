@@ -28,6 +28,27 @@ describe("describeToolCalls", () => {
     expect(plan.creates).toEqual([{ entity: "raid", title: "Payment timeout", toolName: "create_raid_item", input: { category: "Risk", title: "Payment timeout" } }]);
   });
 
+  it("discloses the links an inline create would write", () => {
+    // §390. `plan.creates` hands the model's input VERBATIM to `runTool`, so a
+    // create's link fields land whether or not the card names them. Resolved
+    // TITLES, exactly as the update path renders them — a raw id on the card is
+    // not a disclosure.
+    //
+    // ★★ The open row is a TASK and the create is a RAID item, which is the
+    //  case that matters: the projection must run through the CREATED entity's
+    //  descriptor, never the open row's. The task descriptor declares NO link
+    //  fields, so a projection reusing `d` emits nothing and this test reds.
+    const kickoff = { id: 7, taskName: "Kickoff" };
+    const linkWs = wsWith({ tasks: [task, kickoff] as never });
+    const plan = describeEntityCalls(
+      [block("create_raid_item", { title: "New risk", category: "R", linkedTaskIds: [7] })],
+      { descriptor: INLINE_DESCRIPTORS.task, item: task, ws: linkWs },
+    );
+    expect(plan.creates).toHaveLength(1);
+    // `before` is always "" on a create: there is no prior row to drop links from.
+    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "", after: "Kickoff", rawIds: [7] }]);
+  });
+
   it("rejects an update whose id is not the target task and not in the workspace", () => {
     const plan = describeToolCalls([block("update_task", { id: 999, status: "Done" })], { task, ws });
     expect(plan.updates).toEqual([]);
