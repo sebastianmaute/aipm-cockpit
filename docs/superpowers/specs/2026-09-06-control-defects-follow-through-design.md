@@ -188,7 +188,7 @@ commit. Record the mutant as `N failed / M passed` whose sum equals the file's r
 
 ---
 
-## 4. §407 — plural agreement (helper plus the named instance)
+## 4. §407 — plural agreement (the named instance, via the house idiom)
 
 ### The defect
 
@@ -200,35 +200,66 @@ singular is "1 Änderung".
 
 ### Scope decision: the instance, not the class
 
-★★★ **§407 names an instance of a class, and the class is large.** A scan of `i18n.ts` on
-2026-09-06 found **423 keys carrying a `{N}` placeholder, 68 of which use the `(s)` dodge, and 71
-matching "count followed by a plural noun with no dodge".** That 71 is an **upper bound with known
-false positives** — the pattern cannot distinguish a count from a name, so it caught
-`chatAttachmentTooLarge` (`"{0} is too large"`, a filename), `actionScheduleTitle` (a task title)
-and `dashboardTileHidden` (a tile name), among others. Separating them requires a call-site check
-per key. The genuine figure is somewhere near 45–55 and **must be re-derived at filing time, not
-quoted from this document.**
+★★★ **§407 names an instance of a 46-member class.** A call-site-verified survey of `i18n.ts` on
+2026-09-06 bucketed all 423 placeholder-bearing keys: **46 TIER 1** (outright wrong at count 1,
+live call site, count 1 reachable), 6 tier-1 by shape but count 1 unreachable, 12 dead, 63 dodged
+with `(s)`, 296 count-safe. **DE is also wrong in 45 of the 46** — the lone asymmetry is
+`timelogTestOk`, where DE "Benutzer" is invariant in the nominative plural, so only EN is wrong.
 
-This slice therefore:
+★★ **A regex scan alone over-reports this class in two directions, and both were measured.** A
+bare-identifier grep over-reports liveness (`activityCount` matches a local variable in
+`dashboard-panel.tsx` and a backticked comment mention; the key is dead). A **single-line**
+call-site grep under-reports guards: `documentsVersionBlocks` and `documentsCardRemoved` look like
+tier 1 because the `=== 1 ? "…One"` sits on the line **above** the matched line
+(`documents-history-modal.tsx:356-358`, `chat-tool-block.tsx:284-286`). That correction alone moved
+the count 48 → 46. Anyone briefed off a one-line grep will file those two as false defects.
 
-1. Builds `pluralize(lang, count, one, other)` as a small, tested helper. EN and DE both have
-   exactly two plural categories, so a two-branch helper is correct for both; the helper is the
-   reusable part and is the actual deliverable here.
-2. Fixes `taskRowChangesBadge` with it — a singular and a plural key in EN and DE, applied at all
-   four call sites.
-3. **Files a new register entry enumerating the rest of the class**, with the count derived by the
-   call-site check rather than by the regex above, and with the regex's false-positive shapes named
-   so the next reader does not re-derive them.
+### Mechanism: extend the house idiom, do NOT build a helper
 
-Fixing all ~50 keys across two languages is a slice of its own. Doing it here would swamp the
-Turso work under string volume and would touch `i18n.de.ts` heavily, which carries the umlaut and
-anchored-write traps.
+★★★ **An earlier draft of this spec called for a `pluralize(lang, count, one, other)` helper. That
+was wrong and is recorded here so it is not re-proposed.** Three reasons, in order of weight:
+
+1. **A two-fragment API is the wrong shape for German.** DE breaks on noun *and* adjective *and*
+   verb agreement at once: `{0} aktive Aufgaben sind…` needs "1 aktive Aufgabe ist…", and
+   `Seit {0} Tagen` needs "Seit 1 Tag". The singular is a differently-worded sentence, not a suffix
+   swap on a fragment. A whole second key expresses that; a `one`/`other` fragment fights it. The
+   existing singular keys hardcode the numeral for exactly this reason —
+   `bulkEditTitleOne: "Bulk edit (1 task)"`, `documentsVersionBlocksOne: "1 block"` — and take no
+   placeholder at all.
+2. **It would be a second competing mechanism.** The repo's idiom is a `*One` sibling key plus a
+   `count === 1 ?` ternary at the call site, live at nine `*One` keys today
+   (`bulkEditTitleOne` `:535`, `bulkApplyOne` `:537`, `bulkEditDoneOne` `:544`,
+   `chatAttachmentSummaryOne` `:748`, `trendsGapOne` `:2676`, `documentsVersionBlocksOne` `:2842`,
+   `documentsCardRemovedOne` `:2846`), two of them with dedicated singular/plural unit tests. There
+   is also a richer entity-noun form in `undo/use-undo-stack.ts:111-116`
+   (`ENTITY_SINGULAR`/`ENTITY_PLURAL` maps selected by `count === 1`).
+3. **The class is not uniform enough to mechanise.** Of the 46, roughly 15 read better *reworded*
+   than branched — `evmCoverage` → "estimates on {0} of {1} tasks", `chatProposalCount` →
+   "{0} × write" — and a helper pushes authors toward mechanically doubling every key instead.
+
+★ `Intl.PluralRules` would be the principled answer for a language with a non-binary plural system.
+EN and DE are both two-form, so it buys nothing here over `=== 1`. No `Intl.PluralRules` exists in
+the repo today, and the single `plural()` hit (`activity-recap.ts:32`) is not reusable: file-local,
+hardcodes the English `+"s"`, takes no `Lang`, and its two call sites build an **AI prompt string**
+rather than UI, so it sits outside the i18n system entirely.
+
+### This slice therefore
+
+1. Adds `taskRowChangesBadgeOne` in EN and DE and branches the four call sites on
+   `changeRefs.length === 1`, matching the nine existing sites.
+2. **Files a new register entry for the remaining 45 keys**, carrying the call-site-verified
+   EN/DE/call-site table, the `timelogTestOk` EN-only asymmetry, the 6 unreachable and 12 dead
+   exclusions, and both grep traps above. The mechanism question for the class — mass `*One` keys
+   versus rewording versus something else — is recorded there as open, with this section's argument
+   as the starting position.
+
+Fixing all 45 across two languages is a slice of its own. Doing it here would swamp the Turso work
+under string volume.
 
 ★ **`i18n.de.ts` must be patched by an anchored node/python utf8 write matching `\r\n`, with real
 umlauts** — the Edit tool corrupts umlauts and curls double quotes in that file, and the
-`i18n-encoding` test bans ASCII substitutions. EN/DE key parity is tsc-enforced.
-
----
+`i18n-encoding` test bans ASCII substitutions. EN/DE key parity is tsc-enforced, so a missing DE
+sibling fails `npx tsc --noEmit` rather than shipping.
 
 ## 5. §414 — the owed eye-verify, as a measuring spec
 
@@ -320,7 +351,15 @@ with a nonzero exit, and reading the tally alone calls that green.
 ## Open questions
 
 None. The five scope decisions (include §337; parity-half only for §408; `hidden` rather than
-unmount for §409; helper-plus-instance for §407; measure rather than look for §414) are settled.
+unmount for §409; the house `*One` idiom plus the named instance for §407; measure rather than look
+for §414) are settled.
 
-The one judgement worth re-reading before implementation is §337's precedence change, recorded
-above as deployment-visible and accepted.
+Two judgements worth re-reading before implementation, both recorded above as accepted rather than
+open:
+
+- **§337's precedence change is deployment-visible** and belongs in the CHANGELOG as a behaviour
+  change, not as a bug fix.
+- **§407's mechanism was reversed during design.** The first draft specified a
+  `pluralize(lang, count, one, other)` helper; a call-site-verified survey of the class showed that
+  shape cannot express the German singulars, which re-word noun, adjective and verb together. §4
+  carries the full argument so the helper is not re-proposed by the next reader.
