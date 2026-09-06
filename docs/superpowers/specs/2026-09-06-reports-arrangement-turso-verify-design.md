@@ -110,7 +110,11 @@ Deriving makes the stale-verified state unrepresentable.
 dispatches no mouse events, so a hint revealed by interacting with the button is unreachable
 (`memory/disabled-control-dispatches-no-events.md`). The `cursor-not-allowed` wrapper carries
 `title` for pointer users and an `sr-only` node satisfies `aria-describedby` — the same shape
-`projects-panel.tsx` already uses for its disabled Turso buttons.
+`projects-panel.tsx` already uses for its disabled Turso buttons. ★ What shipped narrows that to
+the GATED state: the sr-only node is rendered only while the button is disabled, and once it is
+enabled `aria-describedby` points at the VISIBLE hint instead. Referencing the hidden node in both
+states made a confirmed user hear `projectMigrateToTursoHint` twice, from the hidden copy and the
+visible one.
 
 **Deliberate asymmetry, disclosed.** The *Projects* tab's Move-to-Turso keeps its
 `tursoConfigured`-only gate. That surface has no Test-connection button, so a confirm-gate there
@@ -119,11 +123,16 @@ things on two surfaces; this is accepted, not overlooked.
 
 ### i18n
 
-Three new keys (EN + DE, real umlauts, added last because a peer session also writes the
-dictionaries):
+**ONE** new key (EN + DE, real umlauts, added last because a peer session also writes the
+dictionaries). This section called for two, and the count above it said three; what shipped is one:
 
 - `integrationsTursoMoveNeedsTest` — the hint when unconfirmed.
-- `integrationsTursoMoveReady` — the hint when confirmed.
+- The confirmed state REUSES the existing `projectMigrateToTursoHint`. An earlier draft of this
+  section called for a second key, `integrationsTursoMoveReady`; the approved plan dropped it and
+  it was never added (verify: `grep -rn "integrationsTursoMoveReady" src/` returns nothing).
+  **Do not re-add it.** The confirmed hint would have said exactly what `projectMigrateToTursoHint`
+  already says, and a dead i18n key is invisible to every gate in this repo — nothing goes red when
+  one stops being read, so a duplicate that drifted out of use would survive indefinitely.
 - No key is removed; `integrationsTursoTestOk` and the three failure keys keep their current use
   as the *message* half of the record.
 
