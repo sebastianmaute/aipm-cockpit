@@ -225,6 +225,26 @@ describe("describeEntityCalls — change amount precision (399)", () => {
     expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
   });
 
+  it("rejects a boolean on either amount, not merely in the writer", () => {
+    // ★★★ THE THIRD BEHAVIOUR CHANGE OF THE §399 COMMIT, AND THE ONLY ONE THAT
+    //  HAD NO PREVIEW-SIDE PIN — `sanitize-change-patch.test.ts` covered the
+    //  merge side alone. Exactly the §395 shape, one register over:
+    //  `numberPreview` coerces `true` to "1" before any rule runs, so a range
+    //  check over the RENDERED `after` reads a plausible cost of 1 and the card
+    //  shows the fabrication as an accepted change. The guard reads `input[f]`
+    //  RAW, so it can still see the boolean.
+    //  ★ The rejection `detail` deliberately carries the RENDERED value — it is
+    //  what the reader would otherwise have been shown.
+    for (const field of ["costImpact", "scheduleImpactDays"]) {
+      const plan = describeEntityCalls(
+        [{ type: "tool_use", name: "update_change", input: { id: 1, [field]: true } }],
+        { descriptor: dc, item: changeItem, ws: wsC },
+      );
+      expect(plan.updates).toHaveLength(0);
+      expect(plan.rejected[0]).toMatchObject({ reason: "bad-input", detail: `${field}=1` });
+    }
+  });
+
   it("rejects a fractional schedule-impact day, which the writer no longer stores", () => {
     // The WRITER is the side that tightens here — the opposite direction from
     // the cost rule above, which is why one shared "amounts are integers" rule

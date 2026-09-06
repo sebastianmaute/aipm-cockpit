@@ -330,7 +330,15 @@ describe("delegate-never-restate: the stakeholder sanitizer and its merge-site g
 //  derived from the predicates, so an always-accepts mutant cannot hide behind
 //  the it.each sweeps above, which compute both sides from the predicate.
 describe("change amount precision follows each field's own form control", () => {
-  it("refuses a fractional schedule-impact day, which round:0 cannot produce", () => {
+  // ★★★ THE NAME USED TO READ "which round:0 cannot produce" AND THAT WAS
+  //  FALSE. `describeClamp(value, { min: 0, round: 0 })` ran only in the
+  //  field's `onBlur`, and Enter inside a text input submits WITHOUT firing
+  //  blur — the modal's own comment says so — so the form produced `1.5`
+  //  routinely until the commit before this one added the same clamp to
+  //  `handleSubmit`. The predicate is right either way; the JUSTIFICATION was
+  //  the false half, and it is why `repairScheduleDays` exists for the data
+  //  already written.
+  it("refuses a fractional schedule-impact day, which the form no longer produces", () => {
     expect(acceptsScheduleDays(1.5)).toBe(false);
     expect(acceptsScheduleDays(2)).toBe(true);
     expect(acceptsScheduleDays(0)).toBe(true);

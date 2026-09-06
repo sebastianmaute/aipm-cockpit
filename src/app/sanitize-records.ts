@@ -274,8 +274,15 @@ const acceptsChangeDate: ChangeFieldGuard = acceptsPatchDate;
 
 /** Reject a boolean before coercing. Shared by every numeric predicate here.
  *  `toNumber(true)` is 1 and `toNumber(false)` is 0, both of which several
- *  ranges admit, so a boolean silently becomes a plausible number (§395). */
-const isCoercibleNumber = (v: unknown): v is number | string => typeof v !== "boolean";
+ *  ranges admit, so a boolean silently becomes a plausible number (§395).
+ *
+ *  ★ Deliberately a plain `boolean`, NOT a `v is number | string` type
+ *  predicate. It shipped as one and the narrowing was formally UNTRUE — `null`,
+ *  `undefined`, objects and arrays all pass this guard — which invites a later
+ *  caller to trust it. Harmless today only because every caller's next step is
+ *  `toNumber(v)`, which takes `unknown` and answers `NaN` for all of those. The
+ *  narrowing bought nothing, so it is gone rather than made honest. */
+const isCoercibleNumber = (v: unknown): boolean => typeof v !== "boolean";
 
 /** ★★ `toNumber`, NOT `typeof v === "number"`. The sanitizer coerces with
  *  `toNumber` and so does the preview's `numberPreview`, so a rule here that
@@ -297,9 +304,19 @@ const isCoercibleNumber = (v: unknown): v is number | string => typeof v !== "bo
  *  `change-edit-modal.tsx` refutes it.
  *
  *  Schedule impact, in DAYS. Integer because that modal clamps this field with
- *  `describeClamp(value, { min: 0, round: 0 })` — the form cannot produce a
- *  fraction, and the preview already demanded an integer before §395, so the
- *  writer was the side that disagreed (§399). */
+ *  `describeClamp(value, { min: 0, round: 0 })`, and the preview already
+ *  demanded an integer before §395, so the writer was the side that disagreed
+ *  (§399).
+ *
+ *  ★★★ "THE FORM CANNOT PRODUCE A FRACTION" IS A CLAIM ABOUT TODAY, NOT ABOUT
+ *  THE STORED DATA, and this docstring asserted it flatly for one commit. Until
+ *  the commit before this one it was FALSE, four lines from the code it cites:
+ *  that `describeClamp` ran ONLY in `onBlur`, and `change-edit-modal.tsx`'s own
+ *  comment says "Enter inside a text input submits WITHOUT firing blur" — so
+ *  typing `1.5` and pressing Enter saved `1.5`. The clamp now runs on blur AND
+ *  on submit, so the form no longer produces one; a database written before
+ *  that fix still can, which is exactly why `repairScheduleDays` below exists
+ *  rather than a bare drop. */
 export const acceptsScheduleDays: ChangeFieldGuard = (v) => {
   if (!isCoercibleNumber(v)) return false;
   const n = toNumber(v);
@@ -307,9 +324,18 @@ export const acceptsScheduleDays: ChangeFieldGuard = (v) => {
 };
 
 /** Cost impact, in CURRENCY. Two decimals and capped, because the same modal
- *  clamps this one with `{ min: 0, max: AMOUNT_MAX, round: 2 }` — so this half
- *  moves the OPPOSITE way from the days rule above: the preview loosens where
- *  the writer tightened.
+ *  clamps this one with `{ min: 0, max: AMOUNT_MAX, round: 2 }`.
+ *
+ *  ★★★ "THE TWO MOVE IN OPPOSITE DIRECTIONS" IS TRUE ONLY AGAINST §399 AS
+ *  FILED, AND NAMING THE BASELINE IS THE POINT. Against the register entry the
+ *  preview LOOSENS here while the writer TIGHTENS for days. Against the code
+ *  this commit actually edited — parent `3df2e4d0`, where both predicates were
+ *  `Number.isFinite(n) && n >= 0` on the writer side AND the preview side —
+ *  cost TIGHTENS too, gaining a cap and a precision rule days never had. The
+ *  "cost loosens" story is what steered a reader away from looking for a
+ *  cost-side LOAD risk, and a legacy over-cap cost was in fact being dropped
+ *  silently until `repairCostAmount` below. State the baseline or the framing
+ *  hides the exposure.
  *
  *  ★★ The CAP was not in §399 as filed. Neither side had an upper bound while
  *  the form clamps at AMOUNT_MAX, so a model could store a cost a thousand
@@ -326,9 +352,12 @@ export const acceptsCostAmount: ChangeFieldGuard = (v) => {
   //  The justification written into the plan for this change was that
   //  `1500.55 !== Math.round(1500.55 * 100) / 100` in binary floating point.
   //  That is FALSE — measured in node, they are exactly equal — and so is the
-  //  general form of it over every two-decimal value from 0.00 to 20000.00 and
-  //  over the 100_001 values below AMOUNT_MAX, where the exact comparison never
-  //  once rejects. The two forms are empirically indistinguishable here.
+  //  general form of it: over EVERY two-decimal value in [0, 20000] and every
+  //  one in [999999000, 1000000000] (both enumerated as `c/100` over the
+  //  integer `c`, so 2_000_001 and 100_001 values respectively), the exact
+  //  comparison rejects NONE. ★ Quote the ENUMERATION, not the count — "the
+  //  100_001 values below AMOUNT_MAX" stood here and named no step, so nobody
+  //  could reproduce it. The two forms are empirically indistinguishable here.
   //  What keeps the tolerance is the DIRECTION of the remaining risk, not a
   //  counterexample: `Math.abs(...) < tol` is strictly more permissive than
   //  `=== n`, so it can only ever admit a value the form produces, never refuse

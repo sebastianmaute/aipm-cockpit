@@ -261,10 +261,21 @@ describe("numeric coercion matches the sanitizer's own", () => {
     // it. §395 closed the days divergence at the LOOSE end — it made the
     // preview accept 1.5, matching a writer that already did. §399 closes it at
     // the TIGHT end instead: `change-edit-modal.tsx` clamps this field with
-    // `describeClamp(value, { min: 0, round: 0 })`, so the form cannot produce
-    // a fraction and the writer had no business storing one. Both sides still
-    // agree, because the preview calls `acceptsScheduleDays` rather than
-    // restating it — which is exactly why reversing the rule moved both at once.
+    // `describeClamp(value, { min: 0, round: 0 })`, so the writer had no
+    // business storing a fraction. Both sides still agree, because the preview
+    // calls `acceptsScheduleDays` rather than restating it — which is exactly
+    // why reversing the rule moved both at once.
+    //
+    // ★★★ "SO THE FORM CANNOT PRODUCE A FRACTION" STOOD HERE AND WAS FALSE. That
+    // `describeClamp` ran ONLY in the field's `onBlur`, and the same modal's own
+    // comment says "Enter inside a text input submits WITHOUT firing blur" — so
+    // typing 1.5 and pressing Enter stored 1.5 until the commit that added the
+    // clamp to `handleSubmit` as well. Three files restated the false version;
+    // the at-risk stored population was never empty, which is why
+    // `sanitizeChangeItem` now REPAIRS such a value on load rather than dropping
+    // it. That repair does NOT reach this path: the merge-site guard runs first,
+    // so a MODEL-supplied 1.5 is still refused and the stored value survives —
+    // which is what the two assertions below pin.
     expect("scheduleImpactDays" in mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 })).toBe(true);
     expect(mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 }).scheduleImpactDays)
       .toBe(storedChange().scheduleImpactDays);
