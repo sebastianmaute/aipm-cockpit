@@ -8,6 +8,7 @@ import {
   acceptsRiskScale,
   acceptsScheduleDays,
   acceptsCostAmount,
+  sanitizeIsoDate,
 } from "./sanitize";
 
 /** Distinguishable test-case labels. `JSON.stringify` maps null, NaN and
@@ -188,6 +189,22 @@ describe("delegate-never-restate: the change sanitizer and its merge-site guard"
       const item = sanitizeChangeItem({ id: 1, title: "t", costImpact: probe });
       expect(item).not.toBeNull();
       expect("costImpact" in item!).toBe(acceptsCostAmount(probe));
+    },
+  );
+});
+
+describe("delegate-never-restate: the milestone sanitizer and its merge-site guard", () => {
+  const PROBES: unknown[] = ["2026-01-01", "not-a-date", "", "1899-01-01", 42, true, null, undefined, [], {}];
+
+  it.each(PROBES.map((v) => [probeLabel(v), v] as const))(
+    "keeps achievedDate %s only when the stored value is a real date",
+    (_label, probe) => {
+      const m = sanitizeMilestone({ id: 1, name: "n", date: "2026-01-01", achievedDate: probe });
+      expect(m).not.toBeNull();
+      // The guard's clear-carve-out admits values the sanitizer stores nothing
+      // for, so the two are NOT equivalent here — assert the sanitizer's own
+      // rule and let acceptsPatchDate stay the guard's business.
+      expect("achievedDate" in m!).toBe(sanitizeIsoDate(probe) !== "");
     },
   );
 });

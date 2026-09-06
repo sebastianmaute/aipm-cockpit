@@ -157,6 +157,11 @@ const MILESTONE_FIELD_GUARDS: Readonly<Record<string, MilestoneFieldGuard>> = {
   //  longer makes. Read the predicate, not this summary: the first cut checked
   //  `v === ""` alone and missed `null`, which is the shape a model actually
   //  sends.
+  // ★ For everything the clear carve-out does NOT catch, `acceptsPatchDate`
+  //  consults `sanitizeIsoDate` — the SAME parser `sanitizeMilestone` itself
+  //  calls to fill `achievedDate`. So the guard and the sanitizer are not two
+  //  independent rules that happen to agree: they share one leg on purpose,
+  //  and the guard is wider only by the clear carve-out layered on top of it.
   achievedDate: acceptsPatchDate,
 };
 
@@ -186,6 +191,11 @@ export function sanitizeMilestone(input: unknown): Milestone | null {
     date,
     linkedTaskIds: sanitizeMilestoneTaskIds(o.linkedTaskIds),
   };
+  // ★ `acceptsPatchDate` is the GUARD's rule and is deliberately WIDER than this
+  //  one: it admits a rendered-clear (null/""/[]) because the card discloses
+  //  those as a clear. The sanitizer stores a date or nothing, so it consults
+  //  `sanitizeIsoDate` — the leg `acceptsPatchDate` itself delegates to. One
+  //  parser, two policies, and the policies differ on purpose.
   const achievedDate = sanitizeIsoDate(o.achievedDate);
   if (achievedDate) m.achievedDate = achievedDate;
   const description = sanitizeRichText(o.description, TEXTAREA_MAX, RICH_SINK);
@@ -273,14 +283,14 @@ const acceptsChangeDate: ChangeFieldGuard = acceptsPatchDate;
  *  with `{ round: 2 }`. One shared predicate could not express that divergence.
  *
  *  The schedule-impact rule. Today it is the historical predicate verbatim;
- *  tightened to integers in the commit that closes §399. */
+ *  To be tightened to integers by the commit that closes §399. */
 export const acceptsScheduleDays: ChangeFieldGuard = (v) => {
   const n = toNumber(v);
   return Number.isFinite(n) && n >= 0;
 };
 
 /** The cost-impact rule. Today it is the historical predicate verbatim;
- *  bounded in the commit that closes §399. */
+ *  To be bounded by the commit that closes §399. */
 export const acceptsCostAmount: ChangeFieldGuard = (v) => {
   const n = toNumber(v);
   return Number.isFinite(n) && n >= 0;
