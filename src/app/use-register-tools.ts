@@ -38,6 +38,10 @@ import {
 import { t } from "./i18n";
 import { mintId } from "./id-mint-session";
 import {
+  dropUnacceptedChangeFields,
+  dropUnacceptedMilestoneFields,
+  dropUnacceptedRaidFields,
+  dropUnacceptedStakeholderFields,
   sanitizeIsoDate,
   sanitizeRaidItem,
   sanitizeChangeItem,
@@ -207,9 +211,18 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = raidRef.current.find((r) => r.id === id);
         if (!existing) return null;
+        // ★★★ `dropUnacceptedRaidFields` FIRST — `sanitizeRaidItem` rebuilds a
+        // whole record, so a value it refuses CLEARS the merged field rather
+        // than leaving the stored one alone (or resets it to a hardcoded
+        // default, for `category`/`status`). The AI edit preview refuses those
+        // same values and shows the field as unchanged, so without this the
+        // card says "unchanged" while the write wipes a populated field. Guard
+        // here and never in the sanitizer: that runs on JSON load, CSV decode,
+        // template apply and AI proposal too, where there IS no prior value.
+        // Mirrors `applyModelChangeStatus`, applied one field over.
         const merged = sanitizeRaidItem({
           ...existing,
-          ...withAiRichFields(patch, AI_RICH_FIELDS.raid),
+          ...dropUnacceptedRaidFields(withAiRichFields(patch, AI_RICH_FIELDS.raid), existing),
           id,
           localModifiedAt: new Date().toISOString(),
         });
@@ -293,9 +306,23 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = changesRef.current.find((c) => c.id === id);
         if (!existing) return null;
+        // ★★★ `dropUnacceptedChangeFields` FIRST — `sanitizeChangeItem` rebuilds
+        // a whole record, so a value it refuses CLEARS the merged field rather
+        // than leaving the stored one alone (`impact`, `decisionDate`,
+        // `scheduleImpactDays` and `costImpact` lose their key, `raisedDate` is
+        // written as "", and `type` resets to the hardcoded "Other"). The AI
+        // edit preview refuses those same values and shows the field as
+        // unchanged, so without this the card says "unchanged" while the write
+        // wipes a populated field. Guard here and never in the sanitizer: that
+        // runs on JSON load, CSV decode, template apply and AI proposal too,
+        // where there IS no prior value.
+        // ★★ `status` is NOT in that table — `applyModelChangeStatus` below
+        // already keeps the stored one and owns the coupled `decisionDate`
+        // transition, and it gates on the model's RAW value, which dropping the
+        // key would take away.
         const merged = sanitizeChangeItem({
           ...existing,
-          ...withAiRichFields(patch, AI_RICH_FIELDS.change),
+          ...dropUnacceptedChangeFields(withAiRichFields(patch, AI_RICH_FIELDS.change)),
           id, localModifiedAt: new Date().toISOString(),
         });
         if (!merged) throw new Error("invalid change update");
@@ -367,9 +394,14 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = milestonesRef.current.find((m) => m.id === id);
         if (!existing) return null;
+        // ★★ `dropUnacceptedMilestoneFields` before the spread, for the reason
+        // its docstring gives: `sanitizeMilestone` rebuilds the whole record and
+        // assigns `achievedDate` conditionally, so a refused value CLEARS the
+        // stored date instead of failing. The guard turns "refused" back into
+        // "unchanged", which is what the preview already promises.
         const merged = sanitizeMilestone({
           ...existing,
-          ...withAiRichFields(patch, AI_RICH_FIELDS.milestone),
+          ...dropUnacceptedMilestoneFields(withAiRichFields(patch, AI_RICH_FIELDS.milestone)),
           id,
           localModifiedAt: new Date().toISOString(),
         });
@@ -443,9 +475,13 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = stakeholdersRef.current.find((s) => s.id === id);
         if (!existing) return null;
+        // ★★ Guarded like the other three registers: `sanitizeStakeholder`
+        // RESETS an unrecognised category/influence/interest to a hardcoded
+        // fallback, so a refused value silently demotes a "Sponsor" to "Other"
+        // on a card that shows nothing.
         const merged = sanitizeStakeholder({
           ...existing,
-          ...patch,
+          ...dropUnacceptedStakeholderFields(patch),
           id,
           localModifiedAt: new Date().toISOString(),
         });

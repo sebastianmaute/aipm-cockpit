@@ -823,6 +823,39 @@
   proposal/confirm if the popover is reopened with a new instruction before the in-flight call resolves. Logs
   a new `ai.inlineEdit` activity kind. Wired into `task-row.tsx` (`RowContextValue`) + `task-kanban-card.tsx`
   (props — the board renders outside `RowContextProvider`, see the Kanban board bullet above).
+  ★★★ **PREVIEW/APPLY PARITY — the invariant the whole preview exists to hold.** For every field a
+  chat write tool can affect, the preview must show either the value the writer will STORE, or a
+  rejection the writer will HONOUR and the user can SEE. Three asymmetries make that hard, and each
+  has shipped a defect:
+  (1) the preview judges fields ONE AT A TIME while a writer's gate can be JOINT over the merged row
+  (§384 — a mononym rename previewed `lastName` rejected while the write stored `""`), which is why
+  the descriptor carries `requiredNonEmptyGroups`;
+  (2) a write ALIAS rewrites fields that are not in `diffFields` at all (§372 — `resource.name` →
+  `splitName`), so the preview MIRRORS that projection before its diff loop, and a second copy of
+  that rule is how the two drift apart again;
+  (3) the full-record sanitizers REBUILD the row, so a value they refuse is not merely un-applied —
+  the key is omitted and a populated field is CLEARED, while the preview refuses the same value and
+  the card reads "unchanged". That last one is closed at the MERGE SITE, never in the sanitizer:
+  `dropUnacceptedRaidFields` / `dropUnacceptedChangeFields` / `dropUnacceptedMilestoneFields` hoist
+  each sanitizer's OWN predicate to the patch level, because those sanitizers also run on the load
+  paths where there is no prior value to preserve.
+  ★★ **WHICH CONSUMER LOSES DATA DEPENDS ON THE DIRECTION OF THE DIVERGENCE.** For a preview that
+  shows a value apply will not store, the REBUILDING consumer (`use-inline-entity-edit.ts`, which
+  reconstructs its patch from `plan.updates`) is the one that misfires; for a preview that REJECTS
+  what apply stores, it is the two REPLAYING consumers (`chat-proposal-apply.ts`,
+  `use-insight-recommendations.ts`), which resend the original `ProposedCall.input` and never read
+  the plan. Neither is "the" data-loss path, and assuming one is how §384 was mis-scoped.
+  ★★ `tool-input-coverage.test.ts` fails when a DECLARED tool input is neither previewable nor
+  excluded with a written reason — the property is enforced rather than maintained. ★★★ Read its
+  reach exactly: it enumerates the SCHEMA, so an input the dispatcher accepts and the schema never
+  advertises is invisible to it forever (§401, `update_task`'s `notes`). A green run means "every
+  declared input is covered", never "every accepted input is covered".
+  ★★ `plan.sanitizer-parity.test.ts` compares the preview against the SANITIZER;
+  `plan.write-path.test.ts` replays through the REAL dispatcher. The second exists because the first
+  structurally cannot see a dispatcher-level derivation — and because a reader built on a raw
+  sanitizer is blind to a merge-site guard, which once left four CLOSED defects being excused as
+  open gaps by a fully green gate.
+
   ★★★ **`callInlineEdit` STRIPS `viewDigest` from the snapshot and must keep doing so.** Inline edit does
   NOT build its own snapshot — `use-inline-entity-edit.ts` calls the SAME `dispatcher.getSnapshot()` the
   chat panel uses, so it inherits whatever that carries. Left in, the VIEW STATE block lists up to 15

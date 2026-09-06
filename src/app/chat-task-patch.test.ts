@@ -206,6 +206,49 @@ describe("buildTaskCleanPatch", () => {
     });
   });
 
+  // ★★★ THE CREATE/UPDATE ASYMMETRY THIS CLOSES. `createTask` has refused an
+  // empty name since it was written (`use-chat-dispatcher.ts`: `if (!taskName)
+  // throw new Error("taskName is required")`); UPDATE stored
+  // `sanitizeTaskName(x)` unguarded, so a blank or non-string name BLANKED a
+  // populated one. Not an exotic input either: `buildPatch`
+  // (chat-tools-updates.ts) gates on `input.taskName !== undefined` and then
+  // collapses ANY non-string to `""`, so a model emitting `taskName: null`
+  // inside a multi-field patch reached this function as a blank.
+  //
+  // ★★ It is also what the inline-edit preview already CLAIMED. `taskName` is
+  // in the task descriptor's `requiredNonEmpty`, whose stated contract is "the
+  // writer throws" — and both replaying consumers (`chat-proposal-apply.ts`,
+  // `use-insight-recommendations.ts`) resend the model's original tool input
+  // and never read the plan, so until this guard existed the card said
+  // "unchanged" while the write cleared the name.
+  describe("taskName", () => {
+    it("accepts and trims a non-empty name", () => {
+      expect(buildTaskCleanPatch({ taskName: "  Renamed  " }, task())).toEqual({
+        taskName: "Renamed",
+      });
+    });
+
+    it("throws on a blank name rather than blanking the stored one", () => {
+      expect(() => buildTaskCleanPatch({ taskName: "   " }, task())).toThrow(
+        /taskName is required/,
+      );
+    });
+
+    it("throws on a non-string name", () => {
+      expect(() =>
+        buildTaskCleanPatch({ taskName: null } as unknown as Partial<Task>, task()),
+      ).toThrow(/taskName is required/);
+    });
+
+    // ★★ THE `!== undefined` HALF, and the arm every ordinary AI edit takes —
+    //    the same shape as `assigneeEmail`'s `e &&` case below. A guard hoisted
+    //    out of the supplied-key branch would throw on every patch that does
+    //    not rename, and all three tests above would still pass.
+    it("does not fire when the model supplied no name at all", () => {
+      expect(() => buildTaskCleanPatch({ priority: "Low" }, task())).not.toThrow();
+    });
+  });
+
   describe("assigneeEmail", () => {
     it("accepts and normalises a valid address", () => {
       expect(buildTaskCleanPatch({ assigneeEmail: " grace@example.com " }, task())).toEqual({

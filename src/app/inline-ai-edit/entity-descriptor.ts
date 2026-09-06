@@ -20,6 +20,8 @@ import {
   isExternalFlag,
   optMultiline,
   optText,
+  sanitizeEmailList,
+  sanitizeIdList,
 } from "../sanitize-entities";
 import {
   TASK_NAME_MAX,
@@ -30,7 +32,10 @@ import {
   sanitizeGroup,
   sanitizeTaskName,
   sanitizeText,
+  toNumber,
 } from "../sanitize-core";
+import { sanitizeMilestoneTaskIds } from "../sanitize-records";
+import { roleLabel } from "../resource-foundation";
 
 /** `sanitizeText` bound to one cap, as the apply-path sanitizers call it.
  *  Written as a factory so a `fieldSanitizers` entry can never carry a cap
@@ -42,6 +47,13 @@ const text = (max: number) => (v: unknown): string => sanitizeText(v, max);
 const optionalText = (v: unknown): string => optText(v) ?? "";
 const optionalMultiline = (v: unknown): string => optMultiline(v) ?? "";
 
+/** A referenced row's display value as a string. ★ Deliberately a LOCAL copy of
+ *  `plan.ts`'s helper of the same name and the same behaviour, not an import:
+ *  `plan.ts` imports THIS module, so importing it back would close a cycle. The
+ *  array-joining branch is carried over verbatim so the two cannot drift into
+ *  meaning different things under one name. */
+const str = (v: unknown): string => (v == null ? "" : Array.isArray(v) ? v.join(", ") : String(v));
+
 export type InlineEntity = "task" | "raid" | "change" | "milestone" | "stakeholder" | "resource";
 
 // Change impact reuses RAID severities plus "Critical" (matches CHANGE_IMPACT_SET
@@ -52,6 +64,25 @@ const CHANGE_IMPACT_LEVELS = ["Low", "Medium", "High", "Critical"] as const;
  *  RAID status, which is category-scoped. Returns the set of strings the
  *  sanitizer would keep verbatim. */
 export type EnumResolver = (patchedItem: Record<string, unknown>) => ReadonlySet<string>;
+
+export interface LinkField {
+  /** The workspace array holding the referenced rows. */
+  readonly wsKey: keyof Workspace;
+  /** `"list"` for an id array, `"id"` for a single FK (`resource.roleId`). */
+  readonly kind: "list" | "id";
+  /** The referenced row's display name.
+   *
+   *  ★★★ IT TAKES THE WORKSPACE, and that is not ceremony — `Role` HAS NO
+   *   `name` FIELD. A role's label is `disciplineId` + `gradeId` resolved
+   *   against two OTHER workspace arrays (`roleLabel`), so a single-row
+   *   accessor renders `""` for every role, which on this card is
+   *   indistinguishable from the link having been dropped. `version-diff.ts`
+   *   widened its `roles` `nameOf` for exactly this reason. The caller pays
+   *   nothing: it must already hold the workspace to resolve `ws[wsKey]`. */
+  readonly titleOf: (row: Record<string, unknown>, ws: Workspace) => string;
+  /** The APPLY path's own id rule for this field. */
+  readonly sanitize: (v: unknown) => number[];
+}
 
 export interface EntityDescriptor {
   entity: InlineEntity;
@@ -65,6 +96,16 @@ export interface EntityDescriptor {
   /** Required fields whose value must stay non-empty (sanitizer returns null →
    *  dispatcher throws otherwise). */
   requiredNonEmpty: ReadonlySet<string>;
+  /** Groups of fields the WRITER requires only JOINTLY — at least one member
+   *  non-empty. `sanitizeResource`'s gate is `if (!firstName && !lastName)
+   *  return null`, a whole-row OR evaluated after the merge, where
+   *  `requiredNonEmpty` is a per-field partition. Judging a member alone is
+   *  §384: the preview called a mononym rename's `lastName` rejected while the
+   *  write accepted the row and stored "". A member of a group is EXEMPT from
+   *  `requiredNonEmpty` — `describeEntityCalls` checks group membership FIRST,
+   *  so the exemption holds by construction rather than by this entity's
+   *  `requiredNonEmpty` happening to be empty. */
+  requiredNonEmptyGroups: ReadonlyArray<ReadonlySet<string>>;
   /** Fields validated as YYYY-MM-DD when non-empty (invalid → sanitizer drops/blanks). */
   dateFields: ReadonlySet<string>;
   /** Integer-range fields [min, max]; use Infinity for an open upper bound. */
@@ -145,6 +186,29 @@ export interface EntityDescriptor {
    *   every entity × every `diffField` × a hostile probe set, preview against
    *   the real sanitizer. */
   fieldSanitizers: Record<string, (v: unknown) => string>;
+  /** Relationship and FK inputs the update tool accepts, which `diffFields`
+   *  deliberately excludes (its contract is scalar/enum/date/number only).
+   *
+   *  ★★★ SUPPLYING ONE REPLACES THE STORED LIST — every dispatcher merges by
+   *   object spread, so `linkedTaskIds: [7]` drops the other links. Nothing
+   *   reconstructs them: there is no reciprocal field on the referenced row, the
+   *   derived index is computed FROM this array, and the activity-log entry
+   *   carries no field diff. The undo stack's before-image is the only surviving
+   *   copy and it is session-scoped. Disclosure before approval is the whole
+   *   mitigation.
+   *
+   *  ★★★ THE TWO SETS MUST STAY DISJOINT FROM `diffFields`, and the reason is a
+   *   write, not a render: `use-inline-entity-edit.ts` puts every `diffFields`
+   *   member's rendered value BACK as the patch value, so a link field named in
+   *   both would write a title STRING into an id array and wipe it. Pinned by
+   *   "declares no link field that is also a diffField".
+   *
+   *  `sanitize` must be the WRITER'S OWN function, never a copy of its rule —
+   *  raid and change use `sanitizeIdList` (parses a delimited string, dedupes),
+   *  milestone uses `sanitizeMilestoneTaskIds` (array-only, no dedupe), and
+   *  `resource.roleId` coerces with `toNumber`, which rejects the array shapes
+   *  bare `Number` would accept. */
+  linkFields: Record<string, LinkField>;
   titleOf: (item: Record<string, unknown>) => string;
 }
 
@@ -181,9 +245,25 @@ function raidStatusDefault(cat: RaidCategory): string {
 export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   task: {
     entity: "task", updateTool: "update_task", deleteTool: "delete_task", createTool: "create_task", wsKey: "tasks",
-    diffFields: ["taskName", "assignee", "assigneeEmail", "dueDate", "status", "priority", "description", "blockers", "group", "labels"],
+    // ★★ `lastUpdateDate` is LAST because the loop emits diffs in this order and
+    //  the existing expectations read positionally. It is a real declared input
+    //  (`TaskInput.lastUpdateDate`, written by `buildTaskCleanPatch`) that NO
+    //  writer stamps implicitly on an inline edit, so an explicit change is
+    //  signal rather than noise.
+    diffFields: ["taskName", "assignee", "assigneeEmail", "dueDate", "status", "priority", "description", "blockers", "group", "labels", "lastUpdateDate"],
     requiredNonEmpty: new Set(["taskName", "dueDate"]),
-    dateFields: new Set(["dueDate"]),
+    requiredNonEmptyGroups: [],
+    // ★★ THE TWO TASK DATES ARE NOT SYMMETRIC ON A BLANK, and only `dueDate`'s
+    //  half is closed here. `buildTaskCleanPatch` THROWS on an unparseable
+    //  `dueDate` and `requiredNonEmpty` rejects the blank ahead of it; for
+    //  `lastUpdateDate` it merely DROPS the key (`if (d) cleanPatch.lastUpdateDate = d`), and
+    //  a dropped key on a PATCH merged over the stored task leaves the field
+    //  UNCHANGED — where the full-record sanitizers behind raid/change/milestone
+    //  clear theirs. So `lastUpdateDate: ""` still previews a clear the write
+    //  will not make. Recorded, not fixed: closing it needs a "blank is a no-op"
+    //  mechanism this descriptor does not have, and `requiredNonEmpty` is the
+    //  wrong one (it means "the writer throws", which is not what happens).
+    dateFields: new Set(["dueDate", "lastUpdateDate"]),
     intRangeFields: {},
     enumFields: { status: constSet(TASK_STATUSES), priority: constSet(PRIORITIES) },
     // ★ The ONLY member across all six entities: `buildTaskCleanPatch` throws
@@ -201,6 +281,9 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       blockers: sanitizeBlockers,
       group: sanitizeGroup,
     },
+    // ★ `taskFields` declares no id-list input — a task's relationships
+    //  (`resourceId`, `dependencies`) are not writable by `update_task`.
+    linkFields: {},
     titleOf: (i) => String(i.taskName ?? ""),
   },
   raid: {
@@ -211,6 +294,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // checked. Pinned by the "co-changed category" test in plan.test.ts.
     diffFields: ["category", "title", "status", "description", "mitigation", "owner", "ownerEmail", "severity", "probability", "impact", "raisedDate", "targetDate", "closedDate"],
     requiredNonEmpty: new Set(["title"]),
+    requiredNonEmptyGroups: [],
     dateFields: new Set(["raisedDate", "targetDate", "closedDate"]),
     intRangeFields: { probability: [1, 5], impact: [1, 5] },
     enumFields: { category: constSet(RAID_CATEGORIES), severity: constSet(RAID_SEVERITIES), status: raidStatusResolver },
@@ -227,12 +311,18 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       owner: text(BUDGET_NAME_MAX),
       ownerEmail: sanitizeEmail,
     },
+    linkFields: {
+      linkedTaskIds: { wsKey: "tasks", kind: "list", titleOf: (r) => str(r.taskName), sanitize: sanitizeIdList },
+      causedByRaidIds: { wsKey: "raid", kind: "list", titleOf: (r) => str(r.title), sanitize: sanitizeIdList },
+      stakeholderIds: { wsKey: "stakeholders", kind: "list", titleOf: (r) => str(r.name), sanitize: sanitizeIdList },
+    },
     titleOf: (i) => String(i.title ?? ""),
   },
   change: {
     entity: "change", updateTool: "update_change", deleteTool: "delete_change", createTool: "create_change", wsKey: "changes",
     diffFields: ["title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays", "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes"],
     requiredNonEmpty: new Set(["title"]),
+    requiredNonEmptyGroups: [],
     dateFields: new Set(["raisedDate", "decisionDate"]),
     intRangeFields: { scheduleImpactDays: [0, Infinity], costImpact: [0, Infinity] },
     enumFields: { type: constSet(CHANGE_TYPES), status: constSet(CHANGE_STATUSES), impact: constSet(CHANGE_IMPACT_LEVELS) },
@@ -245,12 +335,20 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       requestedBy: text(BUDGET_NAME_MAX),
       decisionBy: text(BUDGET_NAME_MAX),
     },
+    // ★ `linkedRaidIds` here, `causedByRaidIds` on raid — the same referenced
+    //  array under two different input names. The tool's spelling wins.
+    linkFields: {
+      linkedTaskIds: { wsKey: "tasks", kind: "list", titleOf: (r) => str(r.taskName), sanitize: sanitizeIdList },
+      linkedRaidIds: { wsKey: "raid", kind: "list", titleOf: (r) => str(r.title), sanitize: sanitizeIdList },
+      stakeholderIds: { wsKey: "stakeholders", kind: "list", titleOf: (r) => str(r.name), sanitize: sanitizeIdList },
+    },
     titleOf: (i) => String(i.title ?? ""),
   },
   milestone: {
     entity: "milestone", updateTool: "update_milestone", deleteTool: "delete_milestone", createTool: "create_milestone", wsKey: "milestones",
     diffFields: ["name", "date", "description", "achievedDate"],
     requiredNonEmpty: new Set(["name", "date"]),
+    requiredNonEmptyGroups: [],
     dateFields: new Set(["date", "achievedDate"]),
     intRangeFields: {},
     enumFields: {},
@@ -260,12 +358,20 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // Mirrors `sanitizeMilestone` (sanitize-records.ts) — `name` is the only
     // non-date, non-rich field it has.
     fieldSanitizers: { name: text(BUDGET_NAME_MAX) },
+    // ★★ NOT `sanitizeIdList`. The milestone writer has its own rule: array
+    //  only (a delimited string yields `[]`, where raid/change parse one) and NO
+    //  dedupe. Substituting the raid/change function would preview links this
+    //  write drops — `sanitize-records.ts` exports it to prevent exactly that.
+    linkFields: {
+      linkedTaskIds: { wsKey: "tasks", kind: "list", titleOf: (r) => str(r.taskName), sanitize: sanitizeMilestoneTaskIds },
+    },
     titleOf: (i) => String(i.name ?? ""),
   },
   stakeholder: {
     entity: "stakeholder", updateTool: "update_stakeholder", deleteTool: "delete_stakeholder", createTool: "create_stakeholder", wsKey: "stakeholders",
     diffFields: ["name", "organization", "title", "email", "category", "influence", "interest", "notes"],
     requiredNonEmpty: new Set(["name"]),
+    requiredNonEmptyGroups: [],
     dateFields: new Set(),
     intRangeFields: {},
     enumFields: { category: constSet(STAKEHOLDER_CATEGORIES), influence: constSet(INFLUENCE_INTEREST_LEVELS), interest: constSet(INFLUENCE_INTEREST_LEVELS) },
@@ -284,6 +390,10 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       email: text(BUDGET_NAME_MAX),
       notes: text(TEXTAREA_MAX),
     },
+    // ★ `Stakeholder.raci` IS a relationship, but `stakeholderFields` does not
+    //  declare it — `update_stakeholder` cannot write it, so there is nothing
+    //  here to disclose.
+    linkFields: {},
     titleOf: (i) => String(i.name ?? ""),
   },
   resource: {
@@ -291,10 +401,6 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // Derived from `ResourceInput` (chat-tools.ts) ∩ what `sanitizeResource`
     // stores VERBATIM. Four writable inputs are deliberately absent:
     //   • `roleId` — an FK, excluded by the same rule as Task.resourceId.
-    //   • `emails` — sanitizeEmailList DEDUPES it against the primary `email`
-    //     and caps it, so a previewed list routinely diverges from the stored
-    //     one. `arrayFields` cannot express that (it means "comma-split on
-    //     Apply", which is the task-labels shape, not this one).
     //   • `name` — a WRITE ALIAS the dispatcher splits into first/last; it is
     //     not a stored field, so `before` would read empty for every resource.
     //     Diffing the parts is the honest form. ★ `describeEntityCalls` projects
@@ -303,14 +409,30 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //     see 372.
     //   • `birthday` — stored, but absent from `ResourceInput`: the tool cannot
     //     write it, so a diff here could never be applied.
-    diffFields: ["firstName", "lastName", "title", "email", "department", "company", "location", "businessPhone", "isExternal", "notes"],
-    // ★★ The sanitizer's REAL rule is "at least ONE of firstName/lastName
-    // non-empty" — blanking both returns null and the dispatcher throws
-    // "invalid resource update". `requiredNonEmpty` is per-field and cannot
-    // express a disjunction, so BOTH are marked. That over-rejects blanking one
-    // part while the other stands; over-rejecting is the safe direction here,
-    // since the alternative previews a diff whose Apply throws.
-    requiredNonEmpty: new Set(["firstName", "lastName"]),
+    // ★★★ `emails` IS THE ONE ARRAY-VALUED MEMBER HERE, and it is deliberately
+    //  NOT in `arrayFields`. Its entry below renders the list as the joined
+    //  string `FieldDiff.raw` carries, and `coerce` (use-inline-entity-edit.ts)
+    //  passes a non-`arrayFields` value through UNTOUCHED — so the string
+    //  reaches `sanitizeEmailList`'s OWN delimited-string branch (it splits on
+    //  `[;,]`), which is the writer parsing its own format. Adding it to
+    //  `arrayFields` would instead split it in `coerce` on "," alone: a SECOND
+    //  parser for a format the writer already owns, i.e. the restatement the
+    //  `fieldSanitizers` docstring forbids.
+    diffFields: ["firstName", "lastName", "title", "email", "department", "company", "location", "businessPhone", "isExternal", "notes", "emails"],
+    // ★★★ THE ONLY GROUP ACROSS THESE SIX DESCRIPTORS today (grep
+    // `requiredNonEmptyGroups: [` — every other entry is `[]`), and the reason
+    // `requiredNonEmptyGroups` exists. `sanitizeResource`'s gate is
+    // `if (!firstName && !lastName) return null` — an OR over the row the
+    // dispatcher has already MERGED, not a per-field rule. Marking both parts
+    // `requiredNonEmpty` was the previous shape and it over-rejected: a mononym
+    // rename ("Cher Bono" -> "Cher") previewed `lastName` as REJECTED while the
+    // write accepted the row and stored `""`. That is not the safe direction it
+    // was written as — the two REPLAYING consumers (`chat-proposal-apply.ts`,
+    // `use-insight-recommendations.ts`) resend the ORIGINAL tool input and never
+    // read the plan, so they perform the write the card said would not happen
+    // (§384). Blanking BOTH is still rejected, by the group rule.
+    requiredNonEmpty: new Set<string>([]),
+    requiredNonEmptyGroups: [new Set(["firstName", "lastName"])],
     // `birthday` is the only date-shaped Resource field and it is NOT writable
     // (see above) — and it is "MM-DD", which sanitizeIsoDate would reject anyway.
     dateFields: new Set(),
@@ -349,6 +471,42 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       businessPhone: optionalText,
       notes: optionalMultiline,
       isExternal: (v) => String(isExternalFlag(v)),
+      // ★★★ `undefined` FOR THE PRIMARY IS A NARROWING, NOT A CHOICE. A
+      //  `fieldSanitizers` entry is handed the FIELD's value and nothing else,
+      //  so it cannot see the row's `email` — while `sanitizeResource` calls
+      //  `sanitizeEmailList(input.emails, email)` with the MERGED row's primary
+      //  and drops an extra equal to it. The dedupe, the trim, the per-address
+      //  cap and the 10-address list cap are all the writer's own and agree; an
+      //  incoming extra that EQUALS the primary is the one case where the
+      //  preview shows an address the write will not store (and, at the list
+      //  cap, shifts which address is the tenth). Widening the signature to
+      //  take the row would touch every entry in every entity, so the
+      //  divergence is recorded here and in `sanitizeEmailList`'s docstring
+      //  rather than papered over with a local re-implementation.
+      // ★ Joined with ", " like every other list this module renders (`str`,
+      //  `resolveLinkTitles`); the writer's `[;,]` split accepts it back.
+      emails: (v) => sanitizeEmailList(v, undefined).join(", "),
+    },
+    // ★★★ `roleId` IS writable — it is listed as absent from `diffFields` above
+    //  under "an FK, excluded by the same rule as Task.resourceId", and that
+    //  exclusion is right: an FK must never round-trip through `FieldDiff.raw`.
+    //  It still has to be DISCLOSED, which is what this member is for.
+    //  ★★ `titleOf` reads NEITHER a `name` (Role has none) NOR `i.title` (that
+    //   is the JOB title on a Resource, a different entity entirely) — the label
+    //   is discipline + grade, resolved against the workspace.
+    //  ★★ `toNumber`, not `Number`: they disagree on `[5]`, which bare `Number`
+    //   coerces to 5 while `sanitizeResource` rejects it to a null FK.
+    linkFields: {
+      roleId: {
+        wsKey: "roles",
+        kind: "id",
+        titleOf: (r, ws) =>
+          roleLabel({ disciplineId: toNumber(r.disciplineId), gradeId: toNumber(r.gradeId) }, ws.disciplines, ws.grades),
+        sanitize: (v) => {
+          const n = toNumber(v);
+          return Number.isFinite(n) && n > 0 ? [n] : [];
+        },
+      },
     },
     // ★ NOT `i.title` — that is the JOB title. The two name parts are the row's
     // identity (`sanitizeResource` rejects a row with neither).

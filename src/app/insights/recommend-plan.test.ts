@@ -1,6 +1,6 @@
 // src/app/insights/recommend-plan.test.ts
 import { describe, test, expect } from "vitest";
-import { describeRecommendationPlan } from "./recommend-plan";
+import { describeRecommendationPlan, recommendationPlanEntity } from "./recommend-plan";
 import type { Workspace } from "../workspace";
 
 function ws(): Workspace {
@@ -56,5 +56,46 @@ describe("describeRecommendationPlan", () => {
       ]),
     );
     expect(plan.rejected).toHaveLength(0);
+  });
+});
+
+describe("recommendationPlanEntity", () => {
+  // ★★★ The review modal labels its previewed field names through this. It must
+  // answer `undefined` rather than guess, because `describeRecommendationPlan`
+  // MERGES across entities into one `EditPlan` with no per-diff entity — so
+  // naming a mixed plan after either half renames the other half's fields.
+  test("names the single entity every field-bearing call targets", () => {
+    expect(
+      recommendationPlanEntity([
+        { name: "update_task", input: { id: 12, dueDate: "2026-08-01" } },
+        { name: "update_task", input: { id: 13, status: "Done" } },
+      ]),
+    ).toBe("task");
+  });
+
+  test("returns undefined when two registers are updated in one recommendation", () => {
+    expect(
+      recommendationPlanEntity([
+        { name: "update_task", input: { id: 12 } },
+        { name: "update_raid_item", input: { id: 5 } },
+      ]),
+    ).toBeUndefined();
+  });
+
+  test("returns undefined when nothing is updated", () => {
+    expect(recommendationPlanEntity([{ name: "create_task", input: { taskName: "T" } }])).toBeUndefined();
+    expect(recommendationPlanEntity([])).toBeUndefined();
+  });
+
+  // ★ Deletes and creates cannot contribute `updates`/`links`, so they must not
+  // make an otherwise single-entity recommendation ambiguous.
+  test("ignores delete and create calls when deciding", () => {
+    expect(
+      recommendationPlanEntity([
+        { name: "update_raid_item", input: { id: 5 } },
+        { name: "delete_task", input: { id: 12 } },
+        { name: "create_milestone", input: { name: "M", date: "2026-09-01" } },
+      ]),
+    ).toBe("raid");
   });
 });

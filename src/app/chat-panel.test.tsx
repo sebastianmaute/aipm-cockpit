@@ -2217,7 +2217,22 @@ describe("staged tool calls (the review card)", () => {
     );
     // Exactly one row is flagged — the other genuinely wrote. The prefix regex
     // is the right matcher HERE: it counts failure labels of ANY kind.
-    expect(within(card).getAllByText(/^Not applied/)).toHaveLength(1);
+    //
+    // ★★★ SCOPED TO THE ROW'S FAILURE NOTICE (`<p>`), because "Not applied" is
+    //  NOT unique to it any more. `inlineAiEditRejected` is ALSO "Not applied:
+    //  {0}", and since the approval card started rendering `plan.rejected` every
+    //  described-but-ungrounded call adds an `<li>` carrying that prefix — here
+    //  both staged `delete_task` rows, whose ids the panel's workspace does not
+    //  hold, so the bare regex counted 3. Widening the expectation to 3 would
+    //  have hidden the very thing this test pins: that exactly ONE row is
+    //  flagged as not applied. The tag is the discriminator — the notice is a
+    //  `<p>`, a plan rejection is an `<li>` — and it keeps the "labels of ANY
+    //  kind" property the comment above depends on.
+    expect(
+      within(card)
+        .getAllByText(/^Not applied/)
+        .filter((el) => el.tagName === "P"),
+    ).toHaveLength(1);
     const boxes = within(card).getAllByRole("checkbox");
     expect(boxes[0]).not.toBeChecked(); // landed → cannot be re-applied
     expect(boxes[1]).toBeChecked(); // refused → still offered for retry

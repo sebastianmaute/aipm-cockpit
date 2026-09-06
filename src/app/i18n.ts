@@ -2212,6 +2212,7 @@ const enUS = {
   inlineAiEditPreview: "Claude will make these changes:",
   inlineAiEditCreate: "New {0}: {1}",
   inlineAiEditDelete: "Delete {0}: {1}",
+  inlineAiEditRejected: "Not applied: {0}",
   inlineAiEditApply: "Apply",
   inlineAiEditNoChanges: "No changes to apply.",
   inlineAiEditApplyFailed: "Could not apply the change.",
@@ -3453,6 +3454,12 @@ const enUS = {
   changeFieldLinkedTasks: "Linked tasks",
   changeFieldLinkedRaid: "Linked RAID items",
   fieldStakeholders: "Stakeholders",
+  // Field names an AI edit preview renders (src/app/inline-ai-edit/field-labels.ts).
+  // ★ ONLY the three names no form labelled anywhere — every other previewable
+  // field reuses the key its own entity form already ships in EN and DE.
+  fieldAssigneeEmail: "Assignee email",
+  fieldOwnerEmail: "Owner email",
+  fieldClosedDate: "Closed date",
   changeFilterSearch: "Search changes...",
   changeFilterTypeAll: "All types",
   changeFilterStatusAll: "All statuses",
@@ -4247,7 +4254,7 @@ const enUS = {
   insightRecommendationApplyFailed: "Some changes in this recommendation couldn't be applied.",
   insightRecommendationStale: "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.",
   insightRecommendationStalePartial: "Some changes weren't applied — the project data changed since this recommendation was generated. Generate a new one for the rest.",
-  insightRecommendationSkipped: "{0} proposed change(s) no longer apply and will be skipped.",
+  insightRecommendationSkippedFields: "Skipped: {0}",
   insightRecommendationGenerating: "Generating…",
   insightRecommendationSuggests: "AI suggests: {0}",
   insightRecommendationRejected: "Recommendation dismissed.",

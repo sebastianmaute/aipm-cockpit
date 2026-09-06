@@ -1,6 +1,6 @@
 // src/app/inline-ai-edit/plan.test.ts
 import { describe, it, expect } from "vitest";
-import { describeToolCalls, describeEntityCalls, type ToolUseLike } from "./plan";
+import { describeToolCalls, describeEntityCalls, isEmptyPlan, type EditPlan, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { type Workspace } from "../workspace";
 
@@ -35,12 +35,12 @@ describe("describeToolCalls", () => {
   });
 
   it("returns an empty plan for no blocks", () => {
-    expect(describeToolCalls([], { task, ws })).toEqual({ updates: [], creates: [], deletes: [], rejected: [] });
+    expect(describeToolCalls([], { task, ws })).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
   });
 
   it("ignores read-only tool calls (list_tasks/get_task)", () => {
     const plan = describeToolCalls([block("list_tasks", {})], { task, ws });
-    expect(plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [] });
+    expect(plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
   });
 
   it("rejects an out-of-enum status/priority instead of previewing an undroppable diff", () => {
@@ -401,29 +401,40 @@ describe("describeEntityCalls — resource", () => {
     expect(plan.rejected).toEqual([]);
   });
 
-  it("ignores roleId and emails — neither round-trips verbatim through sanitizeResource", () => {
-    // roleId is an FK (excluded like Task.resourceId); `emails` is deduped
-    // against the primary and capped by sanitizeEmailList, so a previewed value
-    // would diverge from the stored one.
+  it("keeps roleId out of updates — an FK is disclosed as a link, never as a field diff", () => {
+    // ★★ THIS TEST USED TO PIN `emails` AS IGNORED TOO, on the recorded ground
+    //  that "sanitizeEmailList dedupes against the primary and caps it, so a
+    //  previewed value would diverge". That rationale predates `fieldSanitizers`,
+    //  which exists so a preview can CALL the writer's rule instead of
+    //  approximating it — see the "resource extra emails" describe below, which
+    //  is the assertion that replaced this half (§383).
+    // ★ `roleId` stays excluded for a different reason that still holds:
+    //  `FieldDiff.raw` becomes the write patch, and a rendered role LABEL
+    //  arriving at `toNumber` nulls the FK. It is disclosed via `linkFields`.
     const plan = describeEntityCalls(
-      [{ type: "tool_use", name: "update_resource", input: { id: 5, roleId: 3, emails: ["a@b.co"] } }],
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, roleId: 3 } }],
       { descriptor: d, item: resource, ws: resWs },
     );
     expect(plan.updates).toEqual([]);
     expect(plan.rejected).toEqual([]);
+    expect(plan.links.map((l) => l.field)).toEqual(["roleId"]);
   });
 
-  it("rejects blanking a name part (sanitizeResource returns null for a nameless row)", () => {
-    // ★ The sanitizer's real rule is "at least ONE part non-empty"; the
-    // descriptor can only express a per-field requirement, so BOTH parts are
-    // marked required. Over-rejecting is the safe direction — the alternative
-    // previews a diff whose Apply throws "invalid resource update".
+  it("previews blanking ONE name part as the clearing the writer performs", () => {
+    // ★★★ 384, and the symmetric half of the mononym case below — this test
+    //  used to assert the opposite. The sanitizer's rule is "at least ONE part
+    //  non-empty" (`if (!firstName && !lastName) return null`), an OR over the
+    //  MERGED row, so blanking `firstName` while `lastName` stands is a legal
+    //  write that stores `firstName: ""`. Calling it rejected was not the "safe
+    //  direction" the old comment claimed: the two REPLAYING consumers resend
+    //  the original tool call and perform the write regardless, so the card
+    //  promised a refusal that never happened.
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_resource", input: { id: 5, firstName: "" } }],
       { descriptor: d, item: resource, ws: resWs },
     );
-    expect(plan.updates).toEqual([]);
-    expect(plan.rejected).toEqual([{ toolName: "update_resource", reason: "bad-input", detail: "firstName=empty" }]);
+    expect(plan.updates).toEqual([{ field: "firstName", before: "M.", after: "", raw: "" }]);
+    expect(plan.rejected).toEqual([]);
   });
 
   it("rejects an update aimed at another row, by whether that row exists", () => {
@@ -443,6 +454,111 @@ describe("describeEntityCalls — resource", () => {
       { descriptor: d, item: resource, ws: resWs },
     );
     expect(absent.rejected).toEqual([{ toolName: "update_resource", reason: "unknown-id", detail: "999999" }]);
+  });
+});
+
+describe("resource extra emails (383)", () => {
+  const d = INLINE_DESCRIPTORS.resource;
+  // ★ A stored row's extras are ALREADY sanitized, so the descriptor entry is
+  //  idempotent on `before` and the whole diff below comes from `after`.
+  const item = { id: 5, firstName: "M.", lastName: "Jordan", email: "m@x.com", emails: ["b@x.com"] };
+  const emailWs = wsWith({ resources: [item] as never });
+
+  it("previews the writer's own dedupe of the extra address list", () => {
+    // ★★★ MEASURED AGAINST `sanitizeResource`, NOT ASSUMED, and the measurement
+    //  overturned the expectation this test was drafted with. The draft asserted
+    //  an EMPTY plan on the ground that the repeat collapses AND the primary is
+    //  dropped, leaving what is stored — but "m@x.com" is not IN this list, so
+    //  only the dedupe fires: `["b@x.com","b@x.com","a@x.com"]` sanitizes to
+    //  `["b@x.com","a@x.com"]` against a stored `["b@x.com"]`. That is a real
+    //  change and the preview must show it. Reproduce:
+    //  `sanitizeResource({id:5,firstName:"M.",lastName:"Jordan",email:"m@x.com",
+    //   emails:["b@x.com","b@x.com","a@x.com"]}).emails` -> ["b@x.com","a@x.com"].
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: ["b@x.com", "b@x.com", "a@x.com"] } }],
+      { descriptor: d, item, ws: emailWs },
+    );
+    expect(plan.updates).toEqual([
+      { field: "emails", before: "b@x.com", after: "b@x.com, a@x.com", raw: "b@x.com, a@x.com" },
+    ]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("emits nothing when the sanitized list already equals the stored one", () => {
+    // The other side of the same entry: a repeat that collapses BACK to what is
+    // stored is a no-op, and normalising `before` through the same function is
+    // what makes it compare equal. Without that, every send would render a diff.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: ["b@x.com", "  b@x.com  "] } }],
+      { descriptor: d, item, ws: emailWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("previews clearing the extras", () => {
+    // `sanitizeEmailList` yields `[]`, `sanitizeResource` then omits the key
+    // entirely — the field is genuinely cleared, so `""` is the honest preview.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: [] } }],
+      { descriptor: d, item, ws: emailWs },
+    );
+    expect(plan.updates).toEqual([{ field: "emails", before: "b@x.com", after: "", raw: "" }]);
+  });
+
+  it("KNOWN DIVERGENCE: keeps an extra equal to the primary, which the write drops", () => {
+    // ★★★ NOT THE BEHAVIOUR THE WRITER HAS, and pinned deliberately so the gap
+    //  is visible rather than discovered again. `sanitizeResource` calls
+    //  `sanitizeEmailList(input.emails, email)` with the MERGED row's primary and
+    //  drops "m@x.com" from the extras; a `fieldSanitizers` entry is handed the
+    //  FIELD's value alone and cannot know the primary, so it keeps it. The card
+    //  therefore promises one address the write will not store. Widening the
+    //  signature to take the row would change every entry in every entity, so
+    //  this is recorded, not fixed. If the entry ever DOES learn the primary,
+    //  this expectation is the one to flip.
+    //  Reproduce the writer's half: `sanitizeResource({...item,
+    //   emails:["m@x.com","a@x.com"]}).emails` -> ["a@x.com"].
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: ["m@x.com", "a@x.com"] } }],
+      { descriptor: d, item, ws: emailWs },
+    );
+    expect(plan.updates).toEqual([
+      { field: "emails", before: "b@x.com", after: "m@x.com, a@x.com", raw: "m@x.com, a@x.com" },
+    ]);
+  });
+});
+
+describe("task lastUpdateDate", () => {
+  const d = INLINE_DESCRIPTORS.task;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const item = { id: 1, taskName: "T", dueDate: "2026-01-01", lastUpdateDate: "2026-01-01" } as any;
+  const lupWs = wsWith({ tasks: [item] as never });
+
+  it("previews an explicit lastUpdateDate change", () => {
+    // Never stamped implicitly by any writer on this path, so an explicit change
+    // is signal rather than noise. `buildTaskCleanPatch` persists it verbatim
+    // once `sanitizeIsoDate` accepts it.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, lastUpdateDate: "2026-02-02" } }],
+      { descriptor: d, item, ws: lupWs },
+    );
+    expect(plan.updates).toEqual([
+      { field: "lastUpdateDate", before: "2026-01-01", after: "2026-02-02", raw: "2026-02-02" },
+    ]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("rejects a malformed lastUpdateDate the writer would silently drop", () => {
+    // `dateFields` membership is what buys this: `buildTaskCleanPatch` runs
+    // `sanitizeIsoDate` and keeps the key only when it parses, so an unparseable
+    // value leaves the field untouched. Previewing it as a change would promise
+    // a write that does not happen.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 1, lastUpdateDate: "02/02/2026" } }],
+      { descriptor: d, item, ws: lupWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([{ toolName: "update_task", reason: "bad-input", detail: "lastUpdateDate=02/02/2026" }]);
   });
 });
 
@@ -657,9 +773,14 @@ describe("resource rename sent as the name alias", () => {
   //  to `""` — the rename dropped and the first name WIPED, the surviving last
   //  name keeping the record valid enough to save. That is a real divergence,
   //  not a stylistic one: under the narrowed predicate the PREVIEW shows a
-  //  `firstName=empty` rejection (the `requiredNonEmpty` guard fires on the
-  //  blanked part) while the DISPATCHER performs the rename, so the card
-  //  contradicts the write.
+  //  `firstName` CLEARING — the joint rule accepts it, because the surviving
+  //  `lastName` keeps the row valid — while the DISPATCHER performs the
+  //  RENAME, so the card contradicts the write. ★ That sentence used to say the
+  //  preview showed a `firstName=empty` REJECTION, which was true only while
+  //  both parts sat in `requiredNonEmpty`; §384 moved them into a
+  //  `requiredNonEmptyGroups` entry, so the mutant's symptom changed shape
+  //  without becoming any less of a contradiction. Measured under the mutant,
+  //  not reasoned.
   it("splits a rename whose part is an explicit JSON null", () => {
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_resource", input: { id: 1, name: "Ada Lovelace", firstName: null } }],
@@ -678,5 +799,221 @@ describe("resource rename sent as the name alias", () => {
       { descriptor: INLINE_DESCRIPTORS.resource, item, ws: resWs },
     );
     expect(plan.updates).toEqual([]);
+  });
+});
+
+describe("the writer's JOINT name rule (384)", () => {
+  // ★★★ The preview judges each field alone; `sanitizeResource`'s gate is a
+  //  whole-row OR evaluated AFTER the merge. That mismatch is 384: a mononym
+  //  rename previewed `lastName` as REJECTED while the write accepted the row
+  //  and stored `lastName: ""`. The two REPLAYING consumers
+  //  (`chat-proposal-apply.ts`, `use-insight-recommendations.ts`) resend the
+  //  ORIGINAL tool input and never read the plan, so the refusal the card
+  //  promised was one nothing performed.
+  const cher = { id: 4, firstName: "Cher", lastName: "Bono" };
+  const cherWs = wsWith({ resources: [cher] as never });
+  const d = INLINE_DESCRIPTORS.resource;
+
+  it("previews a mononym rename as the surname being cleared, not rejected", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 4, name: "Cher" } }],
+      { descriptor: d, item: cher, ws: cherWs },
+    );
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates).toEqual([{ field: "lastName", before: "Bono", after: "", raw: "" }]);
+  });
+
+  it("still rejects emptying BOTH halves of the name", () => {
+    // The joint rule is "at least one non-empty" — the writer returns null and
+    // the dispatcher throws "invalid resource update", so rejecting is truthful.
+    // Both members are judged, so both report the GROUP's detail.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 4, firstName: "", lastName: "" } }],
+      { descriptor: d, item: cher, ws: cherWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected.map((r) => r.detail)).toContain("firstName+lastName=empty");
+  });
+
+  it("does not reject a rename the `name` fallback rescues", () => {
+    // ★★★ FOUND IN COLD REVIEW, MEASURED AGAINST THE REAL WRITER. The joint
+    //  guard modelled two of `sanitizeResource`'s three legs: it checks the two
+    //  parts and missed the fallback that splits `input.name` when BOTH are
+    //  empty. The projection above cannot cover this, because it declines to
+    //  split whenever an explicit part is a string — mirroring the dispatcher,
+    //  whose `renamed` is null then and lets `name` reach the sanitizer raw.
+    //  So this input previewed `firstName+lastName=empty` while the write
+    //  renamed the row to "Cher Something". On the two REPLAYING consumers the
+    //  card stated positively that a change would not land, and it landed —
+    //  strictly worse than the silence this slice set out to replace.
+    const noFirst = { id: 9, firstName: "", lastName: "Bono" };
+    const ws = wsWith({ resources: [noFirst] as never });
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 9, lastName: "", name: "Cher Something" } }],
+      { descriptor: d, item: noFirst, ws },
+    );
+    expect(plan.rejected).toEqual([]);
+    // ★★★ ASSERTING ONLY `rejected` IS WHY THE HALF-FIX SHIPPED GREEN. The
+    //  first cut suppressed the rejection without projecting the split, so this
+    //  test passed while the card said `lastName: Bono → ""` — a clear the write
+    //  does not make — and omitted the firstName change altogether. A preview is
+    //  a promise about the WRITE, so assert what the card SHOWS, not merely what
+    //  it declines to refuse.
+    expect(plan.updates).toEqual([
+      { field: "firstName", before: "", after: "Cher", raw: "Cher" },
+      { field: "lastName", before: "Bono", after: "Something", raw: "Something" },
+    ]);
+  });
+
+  it("still rejects when the `name` fallback cannot rescue it either", () => {
+    // The fallback only survives if the split yields a non-empty part, so a
+    // blank alias must NOT turn a truthful rejection into a false acceptance.
+    const noFirst = { id: 9, firstName: "", lastName: "Bono" };
+    const ws = wsWith({ resources: [noFirst] as never });
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 9, lastName: "", name: "   " } }],
+      { descriptor: d, item: noFirst, ws },
+    );
+    expect(plan.rejected.map((r) => r.detail)).toContain("firstName+lastName=empty");
+  });
+
+  it("judges the surviving member through ITS OWN sanitizer, not verbatim", () => {
+    // ★★★ THE CRUX, and the one shape a `str(input[m])` survivor check gets
+    //  wrong in the DANGEROUS direction. `sanitizeAssignee` is
+    //  `sanitizeText(_, ASSIGNEE_MAX)`, whose `clipText` returns "" for any
+    //  NON-STRING — so `lastName: 42` reaches `sanitizeResource` as an empty
+    //  part, both halves are empty, and the write THROWS. Read verbatim, `42`
+    //  reads as a surviving surname and the preview would accept a diff whose
+    //  Apply fails, losing every other field in the same patch with it.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 4, firstName: "", lastName: 42 } }],
+      { descriptor: d, item: cher, ws: cherWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected.map((r) => r.detail)).toContain("firstName+lastName=empty");
+  });
+
+  it("reads an unsupplied member from the STORED row, as the writer's spread does", () => {
+    // `updateResource` merges `{...existing, ...patch}`, so a member the model
+    // did not send keeps its stored value — which is what lets the mononym
+    // rename above survive on a `firstName` that is not in the input at all.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 4, lastName: "" } }],
+      { descriptor: d, item: cher, ws: cherWs },
+    );
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates).toEqual([{ field: "lastName", before: "Bono", after: "", raw: "" }]);
+  });
+});
+
+describe("link fields", () => {
+  const linkTasks = [
+    { id: 1, taskName: "Draft brief" },
+    { id: 2, taskName: "Ship" },
+    { id: 3, taskName: "Review" },
+  ];
+  const vendorRisk = { id: 10, title: "Vendor risk", linkedTaskIds: [1, 3] };
+  const linkWs = wsWith({ tasks: linkTasks as never, raid: [vendorRisk] as never });
+
+  it("shows a replaced link list as before -> after", () => {
+    // The write REPLACES: supplying [2] drops tasks 1 and 3. The card must show
+    // the removal, because nothing can reconstruct the dropped links afterwards.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 10, linkedTaskIds: [2] } }],
+      { descriptor: INLINE_DESCRIPTORS.raid, item: vendorRisk, ws: linkWs },
+    );
+    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }]);
+    expect(plan.updates).toEqual([]);
+  });
+
+  it("emits nothing when the resolved lists match", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 10, linkedTaskIds: [1, 3] } }],
+      { descriptor: INLINE_DESCRIPTORS.raid, item: vendorRisk, ws: linkWs },
+    );
+    expect(plan.links).toEqual([]);
+  });
+
+  it("leaves an untouched link field alone", () => {
+    // ★ `causedByRaidIds`/`stakeholderIds` are link fields too. A field the
+    // model did not send must not be previewed — and, since the patch is built
+    // from `links`, must not be WRITTEN either: an emitted empty diff here
+    // would wipe two more relationship arrays per edit.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 10, title: "Vendor risk 2" } }],
+      { descriptor: INLINE_DESCRIPTORS.raid, item: vendorRisk, ws: linkWs },
+    );
+    expect(plan.links).toEqual([]);
+  });
+
+  it("uses the milestone's OWN id rule, which drops a delimited string", () => {
+    // raid/change would parse "1;2" into two links; a milestone stores []. The
+    // preview must show what THIS writer does, not what the sibling does.
+    const ga = { id: 5, name: "GA", linkedTaskIds: [1] };
+    const mws = wsWith({ tasks: linkTasks as never, milestones: [ga] as never });
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_milestone", input: { id: 5, linkedTaskIds: "1;2" } }],
+      { descriptor: INLINE_DESCRIPTORS.milestone, item: ga, ws: mws },
+    );
+    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }]);
+  });
+
+  it("carries the sanitized ids the writer will store, not the titles", () => {
+    // ★★★ THE WHOLE POINT OF `rawIds`. The card renders titles; the rebuild
+    //  path applies THIS array. If the two ever came from different
+    //  computations the preview would stop being a promise about the write.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 10, linkedTaskIds: [2, 3] } }],
+      { descriptor: INLINE_DESCRIPTORS.raid, item: vendorRisk, ws: linkWs },
+    );
+    expect(plan.links[0].rawIds).toEqual([2, 3]);
+  });
+
+  // ★★★ A SINGLE FK IS A LINK FIELD TOO, and `rawIds` carries it as a ONE-
+  //  ELEMENT ARRAY because `LinkField.sanitize` returns `number[]` for both
+  //  kinds. The apply path has to unwrap it — `sanitizeResource` runs
+  //  `toNumber(input.roleId)`, and `toNumber([12])` is NaN, so writing the
+  //  array verbatim would NULL the role while the card promised a new one.
+  //  Pinned on the apply side by "unwraps a single-FK link" in
+  //  `use-inline-entity-edit.test.tsx`.
+  describe("a single FK (resource.roleId)", () => {
+    const ada = { id: 3, firstName: "Ada", lastName: "Lovelace", roleId: 11 };
+    const roleWs = wsWith({
+      resources: [ada] as never,
+      roles: [{ id: 11, disciplineId: 1, gradeId: 1 }, { id: 12, disciplineId: 2, gradeId: 1 }] as never,
+      disciplines: [{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }] as never,
+      grades: [{ id: 1, name: "L3" }] as never,
+    });
+
+    it("renders the role's derived label on both sides", () => {
+      const plan = describeEntityCalls(
+        [{ type: "tool_use", name: "update_resource", input: { id: 3, roleId: 12 } }],
+        { descriptor: INLINE_DESCRIPTORS.resource, item: ada, ws: roleWs },
+      );
+      expect(plan.links).toEqual([{ field: "roleId", before: "Engineering L3", after: "Design L3", rawIds: [12] }]);
+    });
+
+    it("shows a cleared FK as an empty after with no ids", () => {
+      const plan = describeEntityCalls(
+        [{ type: "tool_use", name: "update_resource", input: { id: 3, roleId: null } }],
+        { descriptor: INLINE_DESCRIPTORS.resource, item: ada, ws: roleWs },
+      );
+      expect(plan.links).toEqual([{ field: "roleId", before: "Engineering L3", after: "", rawIds: [] }]);
+    });
+  });
+});
+
+describe("EditPlan.links", () => {
+  it("counts a links-only plan as non-empty", () => {
+    // A plan that ONLY changes relationships must still render. Treating it as
+    // empty would hide the most destructive write class behind a blank card.
+    const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [
+      { field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] },
+    ] };
+    expect(isEmptyPlan(plan)).toBe(false);
+  });
+
+  it("is empty only when every bucket is empty", () => {
+    expect(isEmptyPlan({ updates: [], creates: [], deletes: [], rejected: [], links: [] })).toBe(true);
   });
 });

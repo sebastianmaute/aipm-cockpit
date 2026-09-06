@@ -68,8 +68,20 @@ export function buildTaskCleanPatch(
   existing: Task,
 ): Partial<Task> {
   const cleanPatch: Partial<Task> = {};
-  if (patch.taskName !== undefined)
-    cleanPatch.taskName = sanitizeTaskName(patch.taskName);
+  // ★★ SAME REFUSAL AS CREATE, same wording: `createTask` has always thrown
+  //    "taskName is required" on a blank name and UPDATE stored it, so a model
+  //    emitting `taskName: null` in a multi-field patch BLANKED a populated
+  //    name — `buildPatch` (chat-tools-updates.ts) collapses any non-string to
+  //    "" before this runs. The inline-edit descriptor already listed
+  //    `taskName` under `requiredNonEmpty` ("the writer throws"); this is what
+  //    makes that true. Shaped like the `dueDate` guard below, not like
+  //    `lastUpdateDate`'s drop: a name is user intent, so it must surface as an
+  //    error the model can act on rather than be silently ignored.
+  if (patch.taskName !== undefined) {
+    const n = sanitizeTaskName(patch.taskName);
+    if (!n) throw new Error("taskName is required");
+    cleanPatch.taskName = n;
+  }
   if (patch.assignee !== undefined)
     cleanPatch.assignee = sanitizeAssignee(patch.assignee);
   if (patch.assigneeEmail !== undefined) {

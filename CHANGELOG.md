@@ -8,6 +8,54 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.286.0] - 2026-09-06 "Sladek"
+
+### Added
+
+- **The change preview now shows the relationship edits it was blind to.** A
+  staged plan card promises "here is every row and what it would change", and
+  could not see ten of the fields the assistant is allowed to write. Eight of
+  them are relationship lists — a risk's linked tasks, a change's stakeholders,
+  a resource's role — and those REPLACE rather than merge: naming one link drops
+  the rest, nothing reconstructs them, and the undo entry that holds the only
+  surviving copy lasts one session. They are now shown as readable titles,
+  before and after, with an unresolvable id marked rather than quietly omitted.
+- **Every previewable field is named in your language.** The card said
+  `linkedTaskIds` and `assigneeEmail`; it now says "Linked tasks" and
+  "Assignee email", in English and German, reusing the labels the forms already
+  ship.
+- **Refused changes are shown.** The preview always worked out which fields it
+  would not apply and then rendered none of them, so a plan could be approved
+  with no indication that part of it would not land. Those rows now appear on
+  the chat card, the inline editor and the insight review dialog.
+- **A dependency change is described instead of named.** `set_task_dependencies`
+  rewrites a task's whole predecessor list and its review row showed only the
+  tool's name. It now names the task and lists the dependencies that would be
+  added or dropped, resolved through the same write path the apply uses.
+
+### Fixed
+
+- **A refused value no longer clears the field it was refused for.** The
+  register writers rebuild a whole record, so a value they would not accept did
+  not merely fail to apply — the field was emptied, or reset to a default, while
+  the card said nothing had changed. That affected a risk's severity,
+  probability, impact and three of its dates; a change's type, impact, decision
+  date and two amounts; a milestone's sign-off date; and a stakeholder's
+  category, influence and interest, where an unrecognised value quietly demoted
+  a Sponsor to Other. Each writer now leaves a value it cannot accept alone.
+- **Renaming someone to a single name no longer previews a refusal it then
+  performs.** Changing "Cher Bono" to "Cher" was shown as a rejected surname
+  while the write cleared it. The preview now shows the surname being cleared,
+  which is what happens, and still refuses to empty both halves — which the
+  writer also refuses.
+- **An empty task name is refused on update, as it already was on create.** The
+  two paths disagreed, and the update path stored a task with no name.
+- **A preview that cannot be applied no longer reports success.** An approved
+  plan whose rows all turned out to be unwritable closed with a confirmation
+  message and no write.
+- **The extra-emails list and an explicit last-updated date are shown.** Both
+  were fields the assistant could change with nothing on the card.
+
 ## [0.285.0] - 2026-09-05 "Barnhill"
 
 ### Added

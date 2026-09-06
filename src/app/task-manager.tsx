@@ -1981,6 +1981,7 @@ function TaskManagerInner() {
     confirmInsightRecommendation,
     reviewInsight,
     reviewPlan,
+    reviewPlanEntity,
     setReviewInsightId,
   } = useInsightRecommendations({
     isPopout, settings, lang, today, project,
@@ -2813,6 +2814,7 @@ function TaskManagerInner() {
           lang={lang}
           summary={reviewInsight.recommendation.summary}
           plan={reviewPlan}
+          entity={reviewPlanEntity}
           onConfirm={() => { void confirmInsightRecommendation(); }}
           onCancel={() => setReviewInsightId(null)}
         />

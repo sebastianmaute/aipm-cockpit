@@ -9,16 +9,30 @@ import { type Lang, t } from "../i18n";
 import { Modal } from "../modal";
 import { Button } from "../button";
 import { isEmptyPlan, type EditPlan } from "../inline-ai-edit/plan";
+import { type InlineEntity } from "../inline-ai-edit/entity-descriptor";
+import { fieldLabel } from "../inline-ai-edit/field-labels";
 
 export interface RecommendationReviewModalProps {
   lang: Lang;
   summary: string;
   plan: EditPlan;
+  /** Which entity the previewed field names belong to.
+   *
+   *  ★★★ OPTIONAL, AND THAT IS NOT A CONVENIENCE. `describeRecommendationPlan`
+   *   MERGES every proposed call's diffs into one `EditPlan`, so a
+   *   recommendation touching a task AND a raid item produces a plan with no
+   *   single entity — and `FieldDiff` carries none per row. `recommendationPlanEntity`
+   *   supplies it only when exactly one entity is targeted; otherwise this is
+   *   `undefined` and `fieldLabel` falls back to the raw property name, which is
+   *   worse to read but cannot be WRONG. Labelling a mixed plan with one of its
+   *   entities would rename the other half's fields (`impact` is a rating on a
+   *   change and a 1-5 scale on a RAID item). */
+  entity?: InlineEntity;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function RecommendationReviewModal({ lang, summary, plan, onConfirm, onCancel }: RecommendationReviewModalProps) {
+export function RecommendationReviewModal({ lang, summary, plan, entity, onConfirm, onCancel }: RecommendationReviewModalProps) {
   const empty = isEmptyPlan(plan);
 
   return (
@@ -37,7 +51,18 @@ export function RecommendationReviewModal({ lang, summary, plan, onConfirm, onCa
             <ul className="mb-3 space-y-1 text-xs text-foreground">
               {plan.updates.map((d, i) => (
                 <li key={`u${i}-${d.field}`}>
-                  <span className="font-medium">{d.field}</span>: {d.before || "—"} → {d.after || "—"}
+                  <span className="font-medium">{fieldLabel(lang, entity, d.field)}</span>: {d.before || "—"} → {d.after || "—"}
+                </li>
+              ))}
+              {/* ★★ This consumer REPLAYS the original tool calls through the
+                  dispatcher, so it really does write these links — and a
+                  relationship write REPLACES. `before`/`after` are the resolved
+                  titles, never `rawIds`; the `|| "—"` is load-bearing because
+                  `after` is legitimately "" when every link is removed. */}
+              {plan.links.map((l, i) => (
+                <li key={`l${i}-${l.field}`}>
+                  <span className="font-medium">{fieldLabel(lang, entity, l.field)}</span>: {l.before || "—"} →{" "}
+                  {l.after || "—"}
                 </li>
               ))}
               {plan.creates.map((c, i) => (
@@ -50,9 +75,16 @@ export function RecommendationReviewModal({ lang, summary, plan, onConfirm, onCa
           </>
         )}
 
+        {/* ★★ The FIELDS, not a tally. A bare count told the user how many
+            proposed changes would not land but never WHICH, which is the half
+            they need in order to decide whether to confirm the rest. */}
         {plan.rejected.length > 0 && (
           <p className="mb-3 text-xs text-muted-foreground">
-            {t(lang, "insightRecommendationSkipped", plan.rejected.length)}
+            {t(
+              lang,
+              "insightRecommendationSkippedFields",
+              plan.rejected.map((r) => r.detail).join(", "),
+            )}
           </p>
         )}
 
