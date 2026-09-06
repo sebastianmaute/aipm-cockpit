@@ -806,13 +806,25 @@ MSG
 
 **The two halves move in opposite directions**, which is the correction recorded in the spec. `change-edit-modal.tsx` clamps days with `round: 0` and cost with `round: 2, max: AMOUNT_MAX`. So the writer tightens for days, and the preview loosens for cost — and the cost predicate also gains the upper bound neither side had.
 
+> **★★★ CORRECTED DURING EXECUTION — do not restore the original wording.** This
+> task shipped saying "the form cannot produce a fraction", and that was FALSE:
+> `describeClamp` ran only in `onBlur`, Enter submits without firing blur, and
+> `handleSubmit` re-capped the three text fields while both number fields came
+> off the `...draft` spread unclamped. The form was minting fractional days and
+> over-cap costs until commit `555ee966` fixed it. Two consequences: the "opposite
+> directions" framing is true only against §399 **as filed** — against the code
+> this task actually edits, cost tightens exactly as days do — and because the
+> at-risk population of stored values was real rather than empty, the loader now
+> REPAIRS an out-of-precision or over-cap amount instead of dropping it
+> (`867fbe13`). Acceptance and repair are deliberately different questions.
+
 - [ ] **Step 1: Write the failing tests**
 
 In `src/app/sanitize-records.test.ts`:
 
 ```ts
 describe("change amount precision follows each field's own form control", () => {
-  it("refuses a fractional schedule-impact day, which round:0 cannot produce", () => {
+  it("refuses a fractional schedule-impact day, which the form no longer produces", () => {
     expect(acceptsScheduleDays(1.5)).toBe(false);
     expect(acceptsScheduleDays(2)).toBe(true);
     expect(acceptsScheduleDays(0)).toBe(true);
