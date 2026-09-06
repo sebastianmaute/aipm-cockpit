@@ -100,8 +100,13 @@ export function sanitizeMilestoneTaskIds(v: unknown): number[] {
  *
  *  ★ Anything else non-empty still has to satisfy the writer's own
  *  `sanitizeIsoDate`, which returns its input verbatim or "" — so this is that
- *  rule delegated, not a second parser. */
-const rendersAsClear = (v: unknown): boolean =>
+ *  rule delegated, not a second parser.
+ *
+ *  ★★ EXPORTED so the TASK writer can call the same predicate. `chat-task-patch.
+ *  ts` needs exactly this rule for `lastUpdateDate` (§396) and re-spelling it
+ *  there would be a second copy of the very thing this helper was consolidated
+ *  from — one spelling per rule, or the next fix has two places to land. */
+export const rendersAsClear = (v: unknown): boolean =>
   v == null || v === "" || (Array.isArray(v) && v.length === 0);
 
 const acceptsPatchDate = (v: unknown): boolean => rendersAsClear(v) || sanitizeIsoDate(v) !== "";
