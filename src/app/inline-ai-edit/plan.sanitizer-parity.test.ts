@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import { describeEntityCalls, previewNormalizerFor, RICH_FIELDS, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
@@ -115,7 +116,18 @@ import type { Workspace } from "../workspace";
 //      and this file reds naming `task.lastUpdateDate on the empty string`.
 //      ★ It moves no count — the other nine probes are preview-only rejections
 //      either way, and `unchanged` simply becomes the stored date instead of "".
+//  (6) IT CANNOT SEE A MERGE-SITE GUARD IT DOES NOT COMPOSE, which is (1) narrowed
+//      to the shape that has actually shipped twice. Every reader but `resource`
+//      composes one because one exists; `resource` has none to compose, so its
+//      reader is faithful TODAY and would go silently stale the day that changes
+//      — exactly how the raid guard left four stale `PREVIEW_REJECTS_APPLY_WRITES`
+//      entries excusing closed defects, and the change guard two. Closed for
+//      `resource` by the source assertion at the BOTTOM of this file, which reds
+//      when anything is inserted between the model's patch and `sanitizeResource`.
+//      ★★ That arms the RECURRENCE, not the blindness: the sweep still could not
+//      evaluate such a guard, it can only no longer fail to hear about one.
 //
+
 // ★★ NO CROSS-TEST STATE. The totals check below recomputes the whole sweep
 // inside its own body rather than reading counters the per-entity tests
 // incremented — `npm run test:shuffle` shuffles test order WITHIN a file, so an
@@ -347,6 +359,35 @@ const changeReader: StoredReader = (field, value) => {
   return readStored(stamped as unknown as Record<string, unknown>, field);
 };
 
+/** The RESOURCE apply path — the ONE reader here that wraps its sanitizer in
+ *  nothing, deliberately, and now pinned so it cannot STAY that way by accident.
+ *
+ *  ★★★ EVERY SIBLING ABOVE COMPOSES A MERGE-SITE STEP BECAUSE ONE EXISTS.
+ *  `updateResource` (`use-chat-dispatcher.ts`) has no guard to compose: it
+ *  spreads the model's patch RAW over the stored row and hands the result
+ *  straight to `sanitizeResource`. So this reader IS the real write path for
+ *  every swept field, not a cheaper stand-in for it — and adding a `dropUnaccepted…`
+ *  call here to match the siblings would be a MIRROR of a guard production does
+ *  not have, which is the drift this file exists to catch.
+ *
+ *  ★★ THE ONE STEP THE WRITER DOES HAVE CANNOT FIRE HERE, which is why its
+ *  absence is not a gap: the dispatcher re-derives the name parts via
+ *  `splitName`, and that branch needs `patch.name` — absent from this
+ *  descriptor's `diffFields`, reached by no probe, and gated on BOTH parts being
+ *  non-strings, which `previewOf`'s one-key override can never produce. Blind
+ *  spots (2) and (3) at the top of this file say the same thing from the probe
+ *  side; `plan.write-path.test.ts` owns it against the real dispatcher.
+ *
+ *  ★★★ SO THE HOLE IS THE FUTURE, NOT TODAY, and that is what the source
+ *  assertion at the bottom of this file closes. A raw-sanitizer reader is
+ *  structurally BLIND to a merge-site guard: measured on `raid`, where the fix
+ *  landed, this sweep stayed green throughout, and four stale
+ *  `PREVIEW_REJECTS_APPLY_WRITES` entries went on excusing defects that no
+ *  longer existed. `change` repeated it with two. `resource` cannot repeat it
+ *  silently — the moment anything filters the patch before `sanitizeResource`,
+ *  that assertion reds and composing this reader is the fix. */
+const resourceReader: StoredReader = sanitizerReader(RES_BASE, sanitizeResource as never);
+
 const CASES: ReadonlyArray<{
   entity: InlineEntity;
   base: Record<string, unknown>;
@@ -357,7 +398,7 @@ const CASES: ReadonlyArray<{
   { entity: "change", base: CHANGE_BASE, read: changeReader },
   { entity: "milestone", base: MILE_BASE, read: milestoneReader },
   { entity: "stakeholder", base: STK_BASE, read: stakeholderReader },
-  { entity: "resource", base: RES_BASE, read: sanitizerReader(RES_BASE, sanitizeResource as never) },
+  { entity: "resource", base: RES_BASE, read: resourceReader },
 ];
 
 // --- explicit exclusions ---------------------------------------------------
@@ -751,5 +792,53 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     // arms itself the moment somebody adds the first entry.
     const firedApplyOnly = [...new Set(sweeps.flatMap(({ s }) => s.excusedApplyRejects))].sort();
     expect(firedApplyOnly).toEqual([...APPLY_ONLY_REJECTS].sort());
+  });
+
+  /** ★★★ THE TRIPWIRE UNDER `resourceReader`, and the reason that reader is
+   *  allowed to stay a bare sanitizer call.
+   *
+   *  A raw-sanitizer reader cannot SEE a merge-site guard, so the entity it
+   *  reads goes quietly stale the moment one lands: `raid` proved it (the guard
+   *  shipped, this sweep stayed green, four stale exception entries went on
+   *  excusing defects that no longer existed) and `change` proved it again with
+   *  two. Both were caught by a person looking, which is not a gate.
+   *
+   *  This closes the RECURRENCE rather than the blindness — the distinction
+   *  matters and the difference is what a reader must not paraphrase away. The
+   *  sweep still cannot evaluate a resource merge-site guard; it can now only
+   *  fail to be TOLD one exists. Adding anything between the model's patch and
+   *  `sanitizeResource` breaks the shape below, and the fix at that point is to
+   *  compose `resourceReader` the way `raidReader` and `changeReader` are
+   *  composed — not to re-anchor this assertion.
+   *
+   *  ★★ SLICED TO ONE WRITER, never matched over the whole file: `createResource`
+   *  a few lines up calls `sanitizeResource` too, and a whole-file regex would
+   *  pass on ITS unguarded spread while `updateResource` grew a guard — a
+   *  tripwire that reports success is worse than none. */
+  describe("the resource merge site stays unguarded, or this reader must be composed", () => {
+    it("hands sanitizeResource the model's patch with nothing in between", () => {
+      const src = readFileSync("src/app/use-chat-dispatcher.ts", "utf8");
+      const start = src.indexOf("updateResource: (id: number, patch: Partial<ResourceInput>) => {");
+      const end = src.indexOf("deleteResource: (id: number) => {", start);
+      // ★ ANTI-VACUITY FIRST. Both `indexOf` calls return -1 on a rename, and a
+      //  -1/-1 slice is `""` — against which every "no guard here" assertion
+      //  below passes for the wrong reason. Assert the slice was really found,
+      //  really bounded, and really contains the writer's own landmark.
+      expect(start).toBeGreaterThan(-1);
+      expect(end).toBeGreaterThan(start);
+      const body = src.slice(start, end);
+      expect(body).toContain("splitName(patch.name)");
+
+      // The POSITIVE shape: the stored row and the RAW patch spread straight
+      // into the sanitizer. Any filter — wrapping the spread, or pre-computing a
+      // guarded patch under another name — removes this and reds.
+      const raw = body.match(/sanitizeResource\(\{\s*\.\.\.existing,\s*\.\.\.patch,/g) ?? [];
+      expect(raw).toHaveLength(1);
+      // And the NEGATIVE, naming the thing: no `dropUnaccepted*Fields` sibling
+      // has reached this writer. Redundant with the line above today, on purpose
+      // — it is the half that still fires if the spread shape is refactored for
+      // an unrelated reason.
+      expect(body).not.toMatch(/dropUnaccepted\w*Fields/);
+    });
   });
 });
