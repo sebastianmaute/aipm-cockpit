@@ -22,8 +22,9 @@ export const APP_BUILD_DATE = "2026-09-06"; // 0.289.0: the assistant's inline e
  *  `emshwiller` 1 — and whose NEGATIVE control `zzznotaname` returned 0, so a
  *  zero is a real absence rather than a broken pattern.
  *  (2) The dash-agnostic header pattern below: no hit for `mirrlees`, against
- *  a pattern proved non-vacuous in the same run — it sees 382 named headers
- *  and its positive control `duchamp` returns the 0.288.0 line.
+ *  a pattern proved non-vacuous in the same run — its positive control
+ *  `duchamp` returned the 0.288.0 line, and its named-header count was read
+ *  from that run rather than quoted here, since every release moves it.
  *  ★★ THE POOL IS VISIBLY EXHAUSTED AT THIS DEPTH. A 10-candidate batch swept
  *  for this bump cleared only THREE: `mirrlees`, `mchugh`, `gentle`. Names as
  *  established as `cherryh`, `willis`, `vinge`, `peake` and `kiernan` were all

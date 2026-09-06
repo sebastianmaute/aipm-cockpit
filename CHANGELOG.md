@@ -45,8 +45,6 @@ card was drawn from.
   clear and the write kept the old value.
 - **An email list previews exactly as it will be saved**, including how it
   merges with the address already on the record.
-- **A resource's role now sets the link it says it sets**, without writing rate
-  data the card never mentioned.
 - **A milestone's linked-task ids follow the same rule as every other
   register** — a delimited string links tasks rather than silently linking none,
   and duplicates no longer inflate linked-task counts.

@@ -639,6 +639,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§420](#420-a-creates-link-line-rendered-with-a-bare-field-label-indistinguishable-from-the-open-rows--closed-2026-09-06) | A create's link line rendered with a bare field label, indistinguishable from the open row's | found 2026-09-06 in cold review of the preview/apply-parity branch | S | **CLOSED** 2026-09-06 |
 | [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--open) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | open |
 | [§422](#422-an-email-address-containing-a-comma-is-destroyed-by-a-no-op-round-trip-through-the-inline-editor--open) | An email address containing a comma is destroyed by a no-op round-trip through the inline editor | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
+| [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--open) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -30447,9 +30448,10 @@ not know that tool; `pushLinkDiffs` sets it for a row that does not exist yet. T
 ★★★ **Filed and cited on this branch as §407 for nine commits, and §407 was already taken** — by
 "Task-row changes badge renders '1 changes' for a single linked change", an unrelated still-OPEN
 entry inherited from `origin/main` and legitimately cited by `task-row.tsx` and
-`task-row.test.tsx`. One number meant two things. Renumbered to §420 on 2026-09-06 across TEN source
-citations in four files (`plan.ts` ×5, `plan.test.ts` ×3, `field-labels.ts` ×1,
-`inline-ai-edit-popover.test.tsx` ×1); the three `task-row` citations were left alone. The slip's
+`task-row.test.tsx`. One number meant two things. Renumbered to §420 on 2026-09-06 across the
+inline-ai-edit files; the three `task-row` citations were left alone. ★ No tally is given, because
+the obvious check refutes any: the same commit ALSO added new §420 citations, so a `grep -rn "§420" src`
+today returns more than were renumbered, and a reader would read the difference as an error. The slip's
 cause is worth more than the fix: §407–414 are headings with NO index-table rows, so an index grep
 misses them entirely. Mint a number from the HEADING scan, against BOTH trees, because a number is
 reserved only once it is on `origin/main`:
@@ -30487,7 +30489,7 @@ The obvious way to find the next free number is to read the index table, which i
 artifact that cannot see these eight. §420's entry carries the heading-scan commands that work.
 
 ★ A rebuild script lives in this file (near line 209). Running it repairs all nine discrepancies but
-rewrites all 402 rows and fills `— | —` for the eight, whose summary and provenance cells nobody has
+rewrites every row and fills `— | —` for the eight, whose summary and provenance cells nobody has
 written. That is a real edit to entries other slices own, so it wants its own commit and its own
 review, not a drive-by during someone else's release. Deliberately NOT done here.
 
@@ -30519,3 +30521,46 @@ and does NO format validation, so nothing rejects a comma-bearing address at wri
 Whether the fix is validation at the boundary, or an array-preserving transport for `emails` that
 never joins, is the open decision — they are different fixes with different blast radii, and picking
 one is not obvious enough to prescribe here.
+
+## 423. The codename ledger in `version.ts` is duplicated data that has rotted three times — OPEN
+
+**Status:** OPEN. Filed 2026-09-07 from a deletion-biased review of the 0.289.0 release commit. Last
+executed verification 2026-09-07 —
+`grep -c "0\.275" src/app/version.ts` and `grep -c "0\.279" src/app/version.ts` both → **0**, against
+`grep -n '^## \[0\.279' CHANGELOG.md` → `## [0.279.0] - 2026-09-03 "Sriduangkaew"`, so both releases
+happened and neither reached the ledger. Positive control in the same run:
+`grep -cE '^ \*  0\.[0-9]+\.x was' src/app/version.ts` → **53** ledger lines, so a 0 is a real
+absence and not a broken pattern. **No gate was run** — there is none that could be.
+
+`APP_MILESTONE`'s docstring carries a hand-maintained ledger of past minor-line codenames with a
+one-line biography each. It is not read by anything: the uniqueness check the same docstring
+prescribes greps `CHANGELOG.md`, which is the authoritative record and carries every codename in its
+headers already. So the ledger is a second copy of data that already has a home, plus embellishment
+no gate can check, in a file compiled into every build.
+
+★★★ **IT HAS ROTTED THREE TIMES, AND THE THIRD TIME WAS INSIDE THE COMMIT THAT DOCUMENTS THE FIRST.**
+The docstring's own `★★★` note records 0.278.x shipping with the lead sentence still naming 0.277.x.
+0.275.x and 0.279.x then went missing entirely. And the 0.289.0 bump found the lead sentence still
+reading "The 0.284.x line is" four releases after 0.285–0.288 had shipped — i.e. the note warning
+about this failure sat directly above four fresh instances of it.
+
+★★ **THE BIOGRAPHIES ARE WHAT MAKE A LINE EXPENSIVE ENOUGH TO SKIP**, which is the argument for
+cutting them rather than for catching up. A bare `0.NNN.x was "Name"` costs nothing to add and makes
+a gap visible at a glance; a line that must also assert an author's nationality and a representative
+work invites the bumper to skip it, and invites an assertion nothing in the repo can verify. The
+0.289.0 bump added five such attributions from memory alone; a reviewer confirmed all five, which is
+luck rather than process.
+
+★ AGENTS.md's doc-set rule already covers this: a fact belongs in ONE file, and the second copy links
+rather than restates. `CHANGELOG.md` is that one file for codenames.
+
+★★ ONE PRECEDENT ARGUES THE OTHER WAY and should not be lost if the ledger is cut — find it with
+`grep -n '0\.236\.x was' src/app/version.ts`, which
+records 0.236.x as "Sheldon" while 0.287.x is "Tiptree" — the same person under two names. The ledger
+is where that observation lives, and it deliberately declines to assert a biography for "Sheldon"
+rather than guess one. Whatever replaces the ledger should keep the reuse and near-collision notes,
+which ARE genuinely repo knowledge, and drop only the biographies, which are not.
+
+**Not doing it here.** Cutting ~53 lines of prose other releases wrote is a refactor, and folding it
+into a release commit would ship it unreviewed — the precise failure this branch spent a whole round
+correcting.

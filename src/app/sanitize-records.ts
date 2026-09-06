@@ -305,9 +305,9 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   //  serves CSV, Markdown and both Turso layouts; `jsonToWorkspace` the sixth
   //  slot's JSON) — and a loader must not rewrite a number a person saved. A
   //  cut of this branch ran `repairCostAmount` here and silently moved stored
-  //  data on every load: 2_000_000_000 -> 1_000_000_000, 1234.567 -> 1234.57,
-  //  0.5 -> 1. AMOUNT_MAX is 1e9, an ordinary project figure in JPY/KRW/IDR, so
-  //  the clamp was not theoretical.
+  //  data on every load: 2_000_000_000 -> 1_000_000_000 and 1234.567 -> 1234.57.
+  //  AMOUNT_MAX is 1e9, an ordinary project figure in JPY/KRW/IDR, so the clamp
+  //  was not theoretical.
   // ★★★ REMOVING ONLY THE REPAIR IS WORSE THAN EITHER, which is the trap to
   //  understand before "restoring" half of this. The accept-gate would survive
   //  and turn the clamp into a DROP: a stored 1.5 or 2e9 would lose its key

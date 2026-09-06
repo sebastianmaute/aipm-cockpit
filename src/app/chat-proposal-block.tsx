@@ -149,7 +149,7 @@ function PlanDetail({
    *   member, so `keyedFieldLabel` falls straight back to the RAW property
    *   name. Reproduce with `linkLabel` directly:
    *     linkLabel("en-US", undefined, {field:"dependencies",subject:"Draft brief"})
-   *       → "Draft brief – Dependencies"   (today, and the same in DE)
+   *       → "Draft brief – Dependencies"   (today)
    *     linkLabel("en-US", "task",      {field:"dependencies",subject:"Draft brief"})
    *       → "Draft brief – dependencies"   (after the "alignment")
    *   An untranslated lowercase property name on an approval card, in every
