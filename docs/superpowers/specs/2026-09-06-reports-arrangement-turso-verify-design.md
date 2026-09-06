@@ -69,35 +69,60 @@ string-comparing against a localized literal.
 
 Replace the bare string with a fingerprinted record:
 
+★ **The two blocks below are AS SHIPPED**, re-synced after implementation. The draft they replace
+had one `message: string` field instead of the discriminated union, derived confirmation through a
+`?.`, and gave the button a single hint id with an unconditionally rendered `sr-only` node. Each of
+those was changed for a reason recorded at the code, and a reader who takes the sketch as current
+gets exactly the shape that was removed.
+
 ```ts
 const [tursoTest, setTursoTest] = useState<
-  { kind: "ok" | "fail"; message: string; url: string; token: string } | null
+  | { kind: "ok"; url: string | undefined; token: string | undefined }
+  | { kind: "fail"; reason: "auth" | "unreachable" | "generic";
+      url: string | undefined; token: string | undefined }
+  | null
 >(null);
 
-const testConfirmed =
-  tursoTest?.kind === "ok" &&
+const tursoTestFresh =
+  tursoTest !== null &&
   tursoTest.url === turso.databaseUrl &&
   tursoTest.token === turso.authToken;
+const tursoTestConfirmed = tursoTestFresh && tursoTest.kind === "ok";
 ```
 
-`runTursoTest` writes `{ kind, message, url: turso.databaseUrl, token: turso.authToken }`. The
-result paragraph renders `tursoTest.message` **only while the fingerprint matches**, so a stale
-"Connected." cannot sit under an edited URL.
+`runTursoTest` writes an i18n KEY's discriminator, never a rendered string — a verdict outlives the
+probe, so a message frozen at probe time leaves an English sentence in a German panel. `reason`
+lives on the fail arm alone; the result paragraph translates at RENDER time and only while the
+fingerprint matches, so a stale "Connected." cannot sit under an edited URL. Note there is no `?.`
+in `tursoTestConfirmed`: `tursoTestFresh` opens with `tursoTest !== null` and TS narrows through the
+aliased const, so an optional chain would only paper over a broken invariant by rendering the gate
+closed instead of failing.
 
 The button becomes:
 
 ```tsx
-<span className={`inline-flex${testConfirmed ? "" : " cursor-not-allowed"}`} title={moveHint}>
-  <Button size="sm" disabled={!testConfirmed} onClick={onMigrateToTurso}
-          aria-describedby={moveHintId} className="disabled:pointer-events-none">
+<span className={`inline-flex${tursoTestConfirmed ? "" : " cursor-not-allowed"}`}
+      title={tursoTestConfirmed ? undefined : t(lang, "integrationsTursoMoveNeedsTest")}>
+  <Button size="sm" disabled={!tursoTestConfirmed} onClick={onMigrateToTurso}
+          aria-describedby={tursoTestConfirmed ? tursoMoveHintId : tursoMoveNeedsTestId}
+          className="disabled:pointer-events-none">
     {t(lang, "projectMigrateToTurso")}
   </Button>
-  <span id={moveHintId} className="sr-only">{moveHint}</span>
+  {!tursoTestConfirmed && (
+    <span id={tursoMoveNeedsTestId} className="sr-only">
+      {t(lang, "integrationsTursoMoveNeedsTest")}
+    </span>
+  )}
 </span>
+<FieldHint id={tursoMoveHintId} className="mt-1">{t(lang, "projectMigrateToTursoHint")}</FieldHint>
 ```
 
 `canMoveToTurso` stays the render gate (nothing to migrate when already on Turso); `disabled`
-carries the new condition. `moveHint` swaps to a new key explaining *why* when unconfirmed.
+carries the new condition. **Every channel is gated-state-only**, which is the correction the draft
+missed: the confirmed state already has the visible `FieldHint`, so pointing `aria-describedby` at
+a hidden copy, rendering that copy at all, or leaving a `title` on the wrapper each announce the
+same sentence twice — `title` included, because it is INHERITED for tooltip purposes and therefore
+still fires on the enabled button.
 
 ### Two decisions worth stating
 
@@ -110,11 +135,10 @@ Deriving makes the stale-verified state unrepresentable.
 dispatches no mouse events, so a hint revealed by interacting with the button is unreachable
 (`memory/disabled-control-dispatches-no-events.md`). The `cursor-not-allowed` wrapper carries
 `title` for pointer users and an `sr-only` node satisfies `aria-describedby` — the same shape
-`projects-panel.tsx` already uses for its disabled Turso buttons. ★ What shipped narrows that to
-the GATED state: the sr-only node is rendered only while the button is disabled, and once it is
-enabled `aria-describedby` points at the VISIBLE hint instead. Referencing the hidden node in both
-states made a confirmed user hear `projectMigrateToTursoHint` twice, from the hidden copy and the
-visible one.
+`projects-panel.tsx` already uses for its disabled Turso buttons. ★ What shipped narrows all three
+channels to the GATED state — see the code block above. `projects-panel.tsx` needs no such
+narrowing because its wrapper hint has no VISIBLE twin; here it does, so anything left on in the
+confirmed state is a second copy of the `FieldHint` rather than the only route to it.
 
 **Deliberate asymmetry, disclosed.** The *Projects* tab's Move-to-Turso keeps its
 `tursoConfigured`-only gate. That surface has no Test-connection button, so a confirm-gate there
@@ -124,7 +148,8 @@ things on two surfaces; this is accepted, not overlooked.
 ### i18n
 
 **ONE** new key (EN + DE, real umlauts, added last because a peer session also writes the
-dictionaries). This section called for two, and the count above it said three; what shipped is one:
+dictionaries). An earlier revision of this heading said three while the list below it named two;
+what shipped is one:
 
 - `integrationsTursoMoveNeedsTest` — the hint when unconfirmed.
 - The confirmed state REUSES the existing `projectMigrateToTursoHint`. An earlier draft of this
