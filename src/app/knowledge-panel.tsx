@@ -13,6 +13,8 @@ import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { INTERACTIVE } from "./interaction-styles";
 import { TaskLinkPicker } from "./task-link-picker";
+import { SingleEntityPicker, type SingleEntityOption } from "./single-entity-picker";
+import { filterPickerOptions } from "./picker-filter";
 import { FieldGroup, Input, Select } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { AddButton } from "./pane-toolbar";
@@ -64,6 +66,10 @@ const SORT_OPTIONS: DocSort[] = ["added", "name", "source", "type"];
 const SOURCE_ORDER: DocSourceKind[] = ["project", "milestone", "task", "raid", "change", "stakeholder"];
 
 const STANDALONE_KEY = "__standalone__";
+
+/** `filterPickerOptions` requires an exclusion set; this picker excludes
+ *  nothing, so one frozen empty set is shared rather than minted per render. */
+const NO_EXCLUDED_TARGETS: ReadonlySet<number> = new Set();
 
 export interface KnowledgePanelProps {
   /** ★★ Arms the one-shot destructive-save bypass (see `use-storage-backend.ts`)
@@ -142,6 +148,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
 
   const [addOpen, setAddOpen] = useState(false);
   const [targetKey, setTargetKey] = useState(STANDALONE_KEY);
+  const [targetQuery, setTargetQuery] = useState("");
   const [manualName, setManualName] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualKind, setManualKind] = useState<KnowledgeLinkKind>("url");
@@ -167,6 +174,42 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
     [tasks, raid, changes, milestones, stakeholders, project],
   );
   const target = targets.find((s) => `${s.kind}:${s.id}` === targetKey);
+
+  // ★ Standalone LEADS the option list rather than riding the picker's
+  //   `emptyLabel`: it is a real selectable value here (the default one), and
+  //   the native <select> it replaces carried it as an option — without a row
+  //   of its own there would be no way back to it once a target was picked.
+  //   It is filtered like every other row, so it appears only when the query
+  //   matches its own text.
+  const targetOptions: SingleEntityOption[] = useMemo(
+    () => [
+      { value: STANDALONE_KEY, code: "—", label: t(lang, "knowledgeStandaloneOption") },
+      ...targets.map((s) => ({
+        value: `${s.kind}:${s.id}`,
+        code: t(lang, SOURCE_LABEL[s.kind]),
+        label: s.name,
+      })),
+    ],
+    [targets, lang],
+  );
+
+  // `filterPickerOptions` already layers `wildcardMatcher` (the `*` wildcard)
+  // over an `#id` exact match and a 20-item cap. Nothing is reimplemented.
+  // ★ Its `getId` returns a NUMBER, while a value here is the composite
+  //   `"<kind>:<id>"` string, so the `#id` branch is deliberately inert:
+  //   `filterPickerOptions` compares `String(getId(item))` — "NaN" — against a
+  //   query it has already lowercased, and no lowercased query equals "NaN".
+  //   Matching happens on the text alone.
+  const visibleTargets = useMemo(
+    () =>
+      filterPickerOptions(targetOptions, {
+        query: targetQuery,
+        excludeIds: NO_EXCLUDED_TARGETS,
+        getId: () => Number.NaN,
+        getText: (o) => `${o.code} ${o.label}`,
+      }),
+    [targetOptions, targetQuery],
+  );
 
   function addManualLink(s: DocSource) {
     if (!manualValid) return;
@@ -372,28 +415,49 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
               the add panel opens — including an empty project where no target
               has been chosen yet (the manual-link row below is target-gated). */}
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <label className="text-sm text-foreground">
-              {t(lang, "documentsTarget")}
-              <Select
+            {/* ★ `FieldGroup`, not `<label>`, for the same reason the
+                linked-tasks field below is one: the picker renders its current
+                value ABOVE the search box, and the caption's accessible name
+                already arrives on the input via `searchLabel` — a second
+                binding would only duplicate it. */}
+            <FieldGroup
+              name={t(lang, "documentsTarget")}
+              className="flex min-w-[16rem] flex-1 flex-col gap-1 text-sm text-foreground"
+              caption={<span>{t(lang, "documentsTarget")}</span>}
+            >
+              <SingleEntityPicker
                 value={targetKey}
-                aria-label={t(lang, "documentsTarget")}
-                onChange={(e) => setTargetKey(e.target.value)}
-                size="xs"
-                className="ml-2"
-              >
-                <option value="">—</option>
-                <option value={STANDALONE_KEY}>{t(lang, "knowledgeStandaloneOption")}</option>
-                {targets.map((s) => (
-                  <option key={`${s.kind}:${s.id}`} value={`${s.kind}:${s.id}`}>
-                    {t(lang, SOURCE_LABEL[s.kind])}: {s.name}
-                  </option>
-                ))}
-              </Select>
-            </label>
+                selectedLabel={
+                  isStandalone
+                    ? t(lang, "knowledgeStandaloneOption")
+                    : target
+                      ? `${t(lang, SOURCE_LABEL[target.kind])}: ${target.name}`
+                      : undefined
+                }
+                options={visibleTargets}
+                query={targetQuery}
+                onQueryChange={setTargetQuery}
+                // ★ Clearing the query is what keeps this caller inside
+                //   SingleEntityPicker's `options` contract — `options` may
+                //   only change as a result of `query` changing.
+                onSelect={(v) => {
+                  setTargetKey(v);
+                  setTargetQuery("");
+                }}
+                searchLabel={t(lang, "documentsTarget")}
+                placeholder={t(lang, "knowledgeTargetSearchPlaceholder")}
+                clearLabel={`${t(lang, "clear")} – ${t(lang, "documentsTarget")}`}
+                // ★ "—" rather than the Standalone caption: this renders when
+                //   `targetKey` resolves to NOTHING (a target deleted while the
+                //   add panel was open), which is not the same as Standalone.
+                //   It is the same glyph the removed placeholder <option> used.
+                emptyLabel="—"
+              />
+            </FieldGroup>
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => { setManualName(""); setManualUrl(""); setTargetKey(STANDALONE_KEY); setAddOpen(false); }}
+              onClick={() => { setManualName(""); setManualUrl(""); setTargetKey(STANDALONE_KEY); setTargetQuery(""); setAddOpen(false); }}
             >
               {t(lang, "cancel")}
             </Button>

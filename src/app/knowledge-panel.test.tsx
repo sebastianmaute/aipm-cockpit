@@ -51,6 +51,12 @@ function seededTask(knowledgeLinks: KnowledgeLink[]): Task {
   };
 }
 
+/** A seeded task with no knowledge links, renamed and re-numbered — the
+ *  attach-to picker filters on the NAME, so its fixtures need distinct ones. */
+function namedTask(id: number, taskName: string): Task {
+  return { ...seededTask([]), id, taskName };
+}
+
 function SeedTasks({ tasks }: { tasks: Task[] }) {
   const { setTasks } = useWorkspace();
   useEffect(() => {
@@ -98,6 +104,26 @@ function renderWithTasks(tasks: Task[]) {
 }
 
 describe("KnowledgePanel", () => {
+  function openAdd() {
+    fireEvent.click(screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0]);
+  }
+  function targetSearch() {
+    return screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }) as HTMLInputElement;
+  }
+  // ★ The linked-tasks picker below the attach-to field is the OTHER combobox
+  // on this surface, but its own dropdown opens only while ITS query is
+  // non-blank — so with only the attach-to query typed, `getByRole("listbox")`
+  // is unambiguous. Both are addressed by their distinct accessible names.
+  function searchTargets(query: string) {
+    const box = targetSearch();
+    fireEvent.change(box, { target: { value: query } });
+    return box;
+  }
+  function chooseTarget(query: string, name: RegExp) {
+    searchTargets(query);
+    fireEvent.click(within(screen.getByRole("listbox")).getByRole("option", { name }));
+  }
+
   it("renders a card with the document name and a source button labeled by the task", () => {
     renderWithTasks([seededTask([LINK])]);
     expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
@@ -233,15 +259,59 @@ describe("KnowledgePanel", () => {
     renderWithTasks([seededTask([LINK])]);
     const addBtn = await screen.findByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) });
     fireEvent.click(addBtn);
-    const select = screen.getByRole("combobox", { name: t("en-US", "documentsTarget") });
-    expect(within(select).getByText(`${t("en-US", "documentsSourceTask")}: Write spec`)).toBeInTheDocument();
+    // The candidate list is search-driven, so a query is what surfaces a
+    // target. Scoped to the listbox: the seeded card's own source button
+    // carries the task name too.
+    searchTargets("write");
+    const option = within(screen.getByRole("listbox")).getByRole("option", { name: /Write spec/ });
+    expect(option).toHaveTextContent(t("en-US", "documentsSourceTask"));
+  });
+
+  it("filters attach-to candidates by a typed query", () => {
+    renderWithTasks([namedTask(1, "Ship the release"), namedTask(2, "Draft the plan")]);
+    openAdd();
+    searchTargets("ship");
+    const list = within(screen.getByRole("listbox"));
+    expect(list.getAllByRole("option")).toHaveLength(1);
+    expect(list.getByRole("option", { name: /Ship the release/ })).toBeInTheDocument();
+  });
+
+  // The wildcard comes free from filterPickerOptions/wildcardMatcher; this pins
+  // that the panel actually routes through them rather than doing its own match.
+  it("treats * as a wildcard in the attach-to search", () => {
+    renderWithTasks([namedTask(1, "Ship the release"), namedTask(2, "Draft the plan")]);
+    openAdd();
+    searchTargets("*");
+    const options = within(screen.getByRole("listbox")).getAllByRole("option");
+    expect(options.length).toBeGreaterThanOrEqual(2);
+  });
+
+  // ★ Asserted through the ADD, not through the picker's own selected caption:
+  // the caption would render for any string the picker echoes back, while a
+  // card whose source button names the task proves `targetKey` still resolves
+  // through `targets.find((s) => `${s.kind}:${s.id}` === targetKey)`.
+  it("selecting an option sets the composite kind:id target the manual add writes to", () => {
+    renderWithTasks([namedTask(7, "Ship the release")]);
+    openAdd();
+    const box = targetSearch();
+    chooseTarget("ship", /Ship the release/);
+    // The query is cleared on select, which is what keeps this caller inside
+    // SingleEntityPicker's `options` contract.
+    expect(box.value).toBe("");
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualName")), { target: { value: "Plan" } });
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualUrl")), {
+      target: { value: "https://example.com/plan.pdf" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "documentsManualAdd") }));
+    expect(
+      screen.getByRole("button", { name: `${t("en-US", "documentsSourceTask")}: Ship the release` }),
+    ).toBeInTheDocument();
   });
 
   it("adds a manual link (stamped with an added date) without SharePoint", () => {
     renderWithTasks([seededTask([])]);
-    const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
-    fireEvent.click(addBtn);
-    fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }), { target: { value: "task:7" } });
+    openAdd();
+    chooseTarget("write", /Write spec/);
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualName")), { target: { value: "Plan" } });
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualUrl")), {
       target: { value: "https://example.com/plan.pdf" },
@@ -254,9 +324,8 @@ describe("KnowledgePanel", () => {
 
   it("adds a Confluence-kind link and renders its Confluence type", () => {
     renderWithTasks([seededTask([])]);
-    const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
-    fireEvent.click(addBtn);
-    fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }), { target: { value: "task:7" } });
+    openAdd();
+    chooseTarget("write", /Write spec/);
     fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "documentsManualKind") }), {
       target: { value: "confluence" },
     });
@@ -274,9 +343,8 @@ describe("KnowledgePanel", () => {
 
   it("closes the add panel when Cancel is clicked next to Add link", () => {
     renderWithTasks([seededTask([])]);
-    const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
-    fireEvent.click(addBtn);
-    fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }), { target: { value: "task:7" } });
+    openAdd();
+    chooseTarget("write", /Write spec/);
     // The manual add-link row is visible; Cancel closes the whole add panel.
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
     expect(screen.queryByRole("combobox", { name: t("en-US", "documentsTarget") })).toBeNull();
@@ -284,10 +352,13 @@ describe("KnowledgePanel", () => {
 
   it("defaults the target to Standalone so the manual-add row is immediately available", () => {
     renderWithTasks([seededTask([])]);
-    const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
-    fireEvent.click(addBtn);
-    const target = screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }) as HTMLSelectElement;
-    expect(target.value).toBe("__standalone__");
+    openAdd();
+    // The picker renders its CURRENT VALUE above the search box, and the box
+    // itself holds the query — so the default reads off the caption, not off
+    // the combobox's value. The dropdown is closed while the query is blank,
+    // so the Standalone row cannot be what this matches.
+    expect(targetSearch().value).toBe("");
+    expect(screen.getByText(t("en-US", "knowledgeStandaloneOption"))).toBeInTheDocument();
     expect(screen.getByLabelText(t("en-US", "documentsManualName"))).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
     expect(screen.queryByRole("combobox", { name: t("en-US", "documentsTarget") })).toBeNull();
@@ -329,12 +400,13 @@ describe("KnowledgePanel", () => {
 
   it("does not bind the standalone add-form's linked-tasks caption to a chip's unlink button", () => {
     renderWithTasks([seededTask([])]);
-    fireEvent.click(screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0]);
+    openAdd();
     // Target defaults to Standalone, so the linked-tasks picker is present.
     const search = screen.getByRole("combobox", { name: t("en-US", "knowledgeLinkedTasks") });
     fireEvent.change(search, { target: { value: "Write spec" } });
-    // Scoped to the picker's listbox: the target `<select>` also holds an
-    // `<option>` named "Write spec" (a native option has role="option" too).
+    // Scoped to the picker's listbox. The attach-to control is a combobox over
+    // the same tasks, but its list opens only while ITS query is non-blank and
+    // nothing has typed into it here — so exactly one listbox is on screen.
     fireEvent.click(within(screen.getByRole("listbox")).getByRole("option", { name: /Write spec/ }));
     expect(
       screen.getByRole("button", { name: new RegExp(`${t("en-US", "taskUnlink")} #7`) }),
@@ -368,12 +440,14 @@ describe("KnowledgePanel", () => {
 
   it("keeps the Standalone default after Cancel and reopen", () => {
     renderWithTasks([seededTask([])]);
-    const openAdd = () => fireEvent.click(screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0]);
     openAdd();
+    // ★ Move OFF the default first. Without this the reset has nothing to
+    //   undo and the test passes with Cancel's `setTargetKey` deleted.
+    chooseTarget("write", /Write spec/);
+    expect(screen.getByText(`${t("en-US", "documentsSourceTask")}: Write spec`)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
     openAdd();
-    const target = screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }) as HTMLSelectElement;
-    expect(target.value).toBe("__standalone__");
+    expect(screen.getByText(t("en-US", "knowledgeStandaloneOption"))).toBeInTheDocument();
   });
 
   describe("toolbar", () => {
