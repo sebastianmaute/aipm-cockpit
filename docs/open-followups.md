@@ -635,8 +635,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§416](#416-the-kanban-cards-changes-badge-had-no-test-at-all--closed-2026-09-06) | The Kanban card's changes badge had no test at all | found 2026-09-06 while closing §407 on this branch | S | **CLOSED** 2026-09-06 |
 | [§417](#417-three-test-connection-buttons-shared-one-accessible-name-and-none-announced-its-result--closed-2026-09-06) | Three "Test connection" buttons shared one accessible name, and none announced its result | found 2026-09-06 adding the Turso connection probe | S–M | **CLOSED** 2026-09-06 |
 | [§418](#418-only-update_task-has-a-source-enumerable-input-surface-so-the-coverage-gate-can-cover-one-tool-of-six--open) | Only `update_task` has a source-enumerable input surface, so the coverage gate can cover one tool of six | found 2026-09-06 by the preview/apply-parity round-2 slice | M | open |
-| [§419](#419-a-legacy-over-cap-costimpact-is-silently-clamped-to-amount_max-on-load--open) | A legacy over-cap `costImpact` is silently clamped to `AMOUNT_MAX` on LOAD | found 2026-09-06 by the preview/apply-parity round-2 register sweep | S | open |
+| [§419](#419-a-legacy-over-cap-costimpact-is-silently-clamped-to-amount_max-on-load--closed-2026-09-06) | A legacy over-cap `costImpact` is silently clamped to `AMOUNT_MAX` on LOAD | found 2026-09-06 by the preview/apply-parity round-2 register sweep | S | **CLOSED** 2026-09-06 |
 | [§420](#420-a-creates-link-line-rendered-with-a-bare-field-label-indistinguishable-from-the-open-rows--closed-2026-09-06) | A create's link line rendered with a bare field label, indistinguishable from the open row's | found 2026-09-06 in cold review of the preview/apply-parity branch | S | **CLOSED** 2026-09-06 |
+| [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--open) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | open |
+| [§422](#422-an-email-address-containing-a-comma-is-destroyed-by-a-no-op-round-trip-through-the-inline-editor--open) | An email address containing a comma is destroyed by a no-op round-trip through the inline editor | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -30315,11 +30317,46 @@ and reads back the live workspace, and it is where per-tool accepted-surface cov
 `ai-entity-token.test.ts` drives the token strip per tool. What is new is only that the gate beside
 it now makes a claim precise enough to have a boundary worth recording.
 
-## 419. A legacy over-cap `costImpact` is silently clamped to `AMOUNT_MAX` on LOAD — OPEN
+## 419. A legacy over-cap `costImpact` is silently clamped to `AMOUNT_MAX` on LOAD — CLOSED 2026-09-06
 
-**Status:** OPEN. Filed 2026-09-06 by the register sweep of the preview/apply-parity round-2 branch,
-as a FRAMING defect and a missing entry — the behaviour is deliberate and the code is not the thing
-to change. Last executed verification 2026-09-06 —
+**Status:** resolved 2026-09-06 on this branch, by changing the CODE — which is the opposite of what
+this entry prescribed when it was filed hours earlier (see "How this entry was wrong" below). Last
+executed verification 2026-09-06 —
+`npx vitest run src/app/sanitize-records.test.ts src/app/sanitize-change-patch.test.ts src/app/sanitize-model-change-wiring.test.ts`
+→ all three files pass, including "keeps a STORED number exactly as saved, repairing and capping
+nothing". **No runtime probe against a real backend was run**; the six write paths are covered by
+`golden-workspace` and `entity-persistence-registry`, which passed in the same round.
+
+**What shipped.** The policy is now three-way. `sanitizeChangeItem` stores a person's saved number
+VERBATIM behind `isCoercibleNumber && Number.isFinite && >= 0` — so the five write paths' read side
+(JSON via `workspace.ts`, and CSV + Markdown + both Turso layouts via `buildChangeFromObj`) no longer
+rewrite anything. A new `sanitizeModelChangeItem` pre-repairs and is wired to the two MODEL entry
+points, `createChange` and `proposalToSeed`. `updateChange` is unchanged and still runs
+`dropUnacceptedChangeFields`, because the preview refuses a non-integer day count through that same
+imported predicate (§405) and repairing there would open a fresh preview/apply divergence.
+
+★★★ **REMOVING THE REPAIR ALONE WOULD HAVE SHIPPED A WORSE DEFECT THAN THIS ENTRY DESCRIBES**, and
+that was the first prescription attempted. The accept-gate (`acceptsCostAmount` / `acceptsScheduleDays`)
+sits AFTER the repair, so deleting only the repair leaves the gate to REFUSE the legacy value and the
+field is then DROPPED rather than clamped — silent total loss where there had been silent narrowing,
+on a path with no diagnostic that could report either. The repair and the gate had to go together.
+Caught before any code was written; recorded because the same trap is one edit away for anyone
+revisiting this.
+
+★★ The two sanitizers take the same argument and return the same type, so the whole change is
+revertible at ONE identifier with a green suite: measured, 483 behavioural tests across four files
+all passed with the `createChange` call site reverted. `sanitize-model-change-wiring.test.ts` is a
+source assertion that closes that seam, and it also pins that `csv-codecs-core.ts`, `workspace.ts`
+and `templates.ts` stay on the verbatim sanitizer.
+
+**How this entry was wrong.** It was filed asserting "the behaviour is deliberate and the code is not
+the thing to change", and recommended a docstring reframing. That judgement did not survive contact
+with the blast radius: `csv-codecs-core.ts` is not the CSV decoder alone but the decoder for CSV,
+Markdown AND both Turso layouts, so the rewrite reached five of six write paths' read side rather
+than the two the entry implied. A defect's own filing is not evidence about its severity.
+
+**The original filing follows, unedited except for this line.** Last executed verification at filing,
+2026-09-06 —
 `grep -n "Math.min(AMOUNT_MAX, Math.round(n \* 100) / 100)" src/app/sanitize-records.ts` → the one
 `repairCostAmount` return, read against the branch base:
 `git show 9699f0a5:src/app/sanitize-records.ts | grep -n "costImpact\|scheduleImpactDays"` shows
@@ -30419,3 +30456,66 @@ reserved only once it is on `origin/main`:
 `grep -oE "^## [0-9]+\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1` and
 `git show origin/main:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1`
 → 419 and 417 on 2026-09-06, so 420.
+
+## 421. The register's own index table cannot see eight of its entries — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 after it caused a real defect (§420 was minted as §407, a number
+already taken, and shipped in nine commits before anyone noticed). Last executed verification
+2026-09-06 —
+`grep -cE "^\| \[§(40[7-9]|41[0-4])\]\(#" docs/open-followups.md` → **0** index rows, against
+`grep -cE "^## (40[7-9]|41[0-4])\." docs/open-followups.md` → **8** headings. The second count is the
+non-vacuity control: a 0 from the first alone would also be what a broken pattern returns.
+**No gate was run to confirm this is ungated** — the claim below is reasoned from the three gates'
+own scopes rather than probed.
+
+★ NO TOTAL IS QUOTED HERE, DELIBERATELY. A first draft of this Status line gave the heading and row
+counts as absolute numbers; both moved by two the moment §421 and §422 were appended — this entry is
+INSIDE the population it counts, so any total it states is stale before the commit lands. The GAP is
+the stable claim, and the per-number loop above is the only form that cannot rot. Today's totals:
+`grep -c "^## [0-9]\+\." docs/open-followups.md` against `grep -c "^| \[§[0-9]\+\](#" docs/open-followups.md`.
+
+§407–414 exist as headings with no index-table row. They arrived on `origin/main`, so this is not a
+merge loss on any one branch; a `§321` ordering discrepancy sits in the same table.
+
+★★★ **NO GATE CAN SEE THIS, AND THAT IS THE WHOLE COST.** `followups:status:check` reads `**Status:**`
+lines, `docs:claims:check` reads `path:LINE` citations and `docs:symbols:check` reads backticked
+names — none of the three compares the heading set against the index set. So the table can drift
+arbitrarily far from the entries while every pipeline stays green.
+
+★★ **THE FAILURE MODE IS MINTING A TAKEN NUMBER**, not a broken link, and it has now happened.
+The obvious way to find the next free number is to read the index table, which is exactly the
+artifact that cannot see these eight. §420's entry carries the heading-scan commands that work.
+
+★ A rebuild script lives in this file (near line 209). Running it repairs all nine discrepancies but
+rewrites all 402 rows and fills `— | —` for the eight, whose summary and provenance cells nobody has
+written. That is a real edit to entries other slices own, so it wants its own commit and its own
+review, not a drive-by during someone else's release. Deliberately NOT done here.
+
+## 422. An email address containing a comma is destroyed by a no-op round-trip through the inline editor — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 from a cold-review finding that was MEASURED and partly refuted —
+the parity half is fine and only the round-trip half survives. Last executed verification 2026-09-06 —
+`grep -n "input.split(/\[;,\]/)" src/app/sanitize-entities.ts` → the one split inside
+`sanitizeEmailList`, which is the rule BOTH the preview and the writer run, and
+`grep -n "emails:" src/app/inline-ai-edit/entity-descriptor.ts` → the `", "` join the preview
+projects through. A node probe over those two functions on the same date: a stored `["a,b@x.com"]`
+previews as `"a,b@x.com"`, is re-read as that string, and splits into `["a", "b@x.com"]` — two
+addresses where the record held one. **No test pins this**; it is a probe, not a suite.
+
+`resource.emails` round-trips through a joined string: the descriptor joins the list with `", "` for
+the preview, `coerce` passes that string through untouched (correct — `emails` is deliberately not in
+`arrayFields`), and the writer re-splits it. So opening the inline editor on a resource whose stored
+address contains a comma and applying ANY unrelated edit silently turns one address into two.
+
+★★ **THIS IS NOT A PREVIEW/APPLY PARITY DEFECT, and the first framing of it said it was.** Measured:
+the preview calls the same `sanitizeEmailList` with the same `[;,]` rule, so preview and writer agree
+on the value that will be stored — `PREVIEW == WRITER` for the applied value is TRUE. The single-address
+rendering a reviewer flagged is the diff's `before` side, which is correct, because the row really
+does hold one address at that moment. The user is shown what will be stored. Round-2 of the
+preview/apply-parity work is therefore NOT incomplete on this field.
+
+★ The underlying reason such an address exists at all is that `sanitizeEmail` is `sanitizeText(s, EMAIL_MAX)`
+and does NO format validation, so nothing rejects a comma-bearing address at write time either.
+Whether the fix is validation at the boundary, or an array-preserving transport for `emails` that
+never joins, is the open decision — they are different fixes with different blast radii, and picking
+one is not obvious enough to prescribe here.
