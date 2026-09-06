@@ -140,10 +140,9 @@ describe("SingleEntityPicker", () => {
   // fires. On the multi-select sibling this was a shipped defect — every caller
   // derives `options` by excluding its selected set, `filterPickerOptions`
   // preserves source order, so unlinking a chip put the entity back at its
-  // source position and Enter re-added the entity just removed. This control
-  // has no callers yet, which is exactly when an unwritten contract is freest
-  // to be violated, so the identical mechanism is pinned here too. The grow is
-  // driven by `rerender` rather than by a chip, matching the two tests above.
+  // source position and Enter re-added the entity just removed. The identical
+  // mechanism is pinned here too. The grow is driven by `rerender` rather than
+  // by a chip, matching the two tests above.
   const GROWN: SingleEntityOption[] = [
     { value: "task:0", code: "Task", label: "Earlier arrival" },
     ...OPTIONS,

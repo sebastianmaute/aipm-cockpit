@@ -97,10 +97,7 @@ interface SingleEntityPickerProps {
    *  Enumerate the callers before repeating any of this, and follow each
    *  `onAdd` into its handler:
    *    grep -rn "<EntityLinkPicker$" src/app --include=*.tsx | grep -v "\.test\."
-   *
-   *  This component still has no callers at all — which is when an unwritten
-   *  contract is freest to be violated, and why the guard is here rather than
-   *  only in prose. */
+   */
   options: readonly SingleEntityOption[];
   query: string;
   onQueryChange: (value: string) => void;
