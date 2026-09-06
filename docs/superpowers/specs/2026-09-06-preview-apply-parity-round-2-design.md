@@ -2,8 +2,21 @@
 
 **Date:** 2026-09-06
 **Branch:** `feat/preview-apply-parity-round-2`, off `origin/main` at `9699f0a5`
-**Closes:** `docs/open-followups.md` §390-406 (seventeen entries)
-**Target release:** 0.287.0
+**Scope at filing:** `docs/open-followups.md` §390-406 (seventeen entries)
+**Closed:** FOURTEEN — §390, §392, §393, §395, §396, §397, §398, §399, §400, §401, §402, §403, §404,
+§406. ★★ THIS LINE READ "Closes … (seventeen entries)" AND THAT WAS NEVER TRUE OF WHAT SHIPPED.
+Three stayed OPEN, each for a different reason, and all three are recorded as such in the register:
+**§391** — kept OPEN deliberately, as a RECORD rather than a defect (the plan called for closing it
+as a documented decision; the register keeps it open so the per-site reasoning stays live, and its
+own Status says "OPEN as a RECORD, not as a defect to fix").
+**§394** — its own prescription was REFUTED by measurement on this branch, so the composition it
+asked for was not made; see the Out-of-scope bullet below and commit `f739bd75`.
+**§405** — NARROWED, not closed: the dependency inversion landed for every numeric, date and
+stakeholder-enum predicate, leaving three RAID enum fields.
+**Target release:** not yet assigned. ★★ THIS LINE READ "0.287.0", WHICH IS UNREACHABLE — 0.287.0
+"Tiptree" and 0.288.0 "Duchamp" have both already shipped, and this branch has bumped nothing
+(`git diff --stat origin/main..HEAD -- CHANGELOG.md src/app/version.ts` is empty). The number is
+assigned at release time; do not restore one here.
 
 ## Goal
 
@@ -259,8 +272,18 @@ with the sum equal to the file's runtime test count.
 ## Out of scope
 
 - §219's OOXML manual byte-verify and §375's eye-verify. Both are owed, neither is this slice.
-- The `resource` merge-site guard itself. §394 composes the reader so one can be added safely; adding
-  one is a separate decision about `updateResource`'s behaviour.
+- The `resource` merge-site guard itself. Adding one is a separate decision about `updateResource`'s
+  behaviour. ★★ AND THE READER WAS NOT COMPOSED — this bullet planned for §394 to compose it "so one
+  can be added safely", and that is NOT what shipped. `resourceReader` in
+  `plan.sanitizer-parity.test.ts` is still a bare `sanitizerReader(RES_BASE, sanitizeResource as
+  never)`; §394 stays OPEN. What shipped instead is narrower and differently shaped: a SOURCE
+  ASSERTION over `use-chat-dispatcher.ts`, sliced to the `updateResource` writer alone, that reds
+  the moment anything is inserted between the model's patch and `sanitizeResource` — at which point
+  the fix is to compose the reader, not to re-anchor the assertion. That arms the RECURRENCE, not
+  the blindness: the sweep still cannot EVALUATE such a guard, it can only no longer fail to hear
+  about one. §394's own Status records the measurement that refuted the composition prescription
+  (moving every BASE fixture off its fallback AND deleting the stakeholder merge-site guard both
+  left the sweep green at `Tests 8 passed (8)`); commit `f739bd75` carries it.
 - Any change to `dueDate`'s throw-on-blank rule (§396 covers `lastUpdateDate` alone).
 
 ## Risks
