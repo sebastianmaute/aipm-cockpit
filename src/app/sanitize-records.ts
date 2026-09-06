@@ -543,6 +543,45 @@ function coerceRaciMap(input: unknown): Record<string, RaciRole> {
 }
 
 /** Accept only well-formed stakeholders from untrusted JSON. id>0 + name required. */
+type StakeholderFieldGuard = (value: unknown) => boolean;
+
+/** ★★★ THE MERGE-SITE GUARD FOR STAKEHOLDER — the fourth, and the one the
+ *  parity sweep could not see. Its three enums RESET to a hardcoded fallback
+ *  rather than dropping a key, and `STK_BASE` in
+ *  `plan.sanitizer-parity.test.ts` happens to hold exactly those fallbacks, so a
+ *  refused value read back as the value already there and the sweep recorded
+ *  agreement. A review probe that moved the fixture off its defaults measured
+ *  **27 mismatch pairs**.
+ *
+ *  The user-visible defect: a stakeholder stored as "Sponsor" whose patch
+ *  carries an unrecognised `category` is silently demoted to "Other" — and
+ *  because `influence`/`interest` reset the same way, one refused value can move
+ *  a field the model never named. The card shows nothing, since the preview
+ *  refuses the value and the two REPLAYING consumers resend it anyway.
+ *
+ *  ★ Only the three enums are guarded. `name` is required, so an unaccepted
+ *  value makes the sanitizer return null and `updateStakeholder` throws — a
+ *  refusal the user sees. `organization`/`title`/`email`/`notes` are drop-key
+ *  text fields whose preview ALSO renders the clear (`sanitizeText` blanks a
+ *  non-string and the preview shows ""), so those two already agree and
+ *  guarding them would make the card promise a clear the write stops making. */
+const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> = {
+  category: (v) => typeof v === "string" && STAKEHOLDER_CATEGORY_SET.has(v),
+  influence: (v) => typeof v === "string" && INFLUENCE_INTEREST_SET.has(v),
+  interest: (v) => typeof v === "string" && INFLUENCE_INTEREST_SET.has(v),
+};
+
+export function dropUnacceptedStakeholderFields<T extends object>(patch: T): T {
+  const raw = patch as Record<string, unknown>;
+  let out: Record<string, unknown> | null = null;
+  for (const [field, accepts] of Object.entries(STAKEHOLDER_FIELD_GUARDS)) {
+    if (!(field in raw) || accepts(raw[field])) continue;
+    out ??= { ...raw };
+    delete out[field];
+  }
+  return (out ?? patch) as T;
+}
+
 export function sanitizeStakeholder(input: unknown): Stakeholder | null {
   if (!isPlainObject(input)) return null;
   const o = input;

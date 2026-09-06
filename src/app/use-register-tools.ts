@@ -41,6 +41,7 @@ import {
   dropUnacceptedChangeFields,
   dropUnacceptedMilestoneFields,
   dropUnacceptedRaidFields,
+  dropUnacceptedStakeholderFields,
   sanitizeIsoDate,
   sanitizeRaidItem,
   sanitizeChangeItem,
@@ -474,9 +475,13 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const existing = stakeholdersRef.current.find((s) => s.id === id);
         if (!existing) return null;
+        // ★★ Guarded like the other three registers: `sanitizeStakeholder`
+        // RESETS an unrecognised category/influence/interest to a hardcoded
+        // fallback, so a refused value silently demotes a "Sponsor" to "Other"
+        // on a card that shows nothing.
         const merged = sanitizeStakeholder({
           ...existing,
-          ...patch,
+          ...dropUnacceptedStakeholderFields(patch),
           id,
           localModifiedAt: new Date().toISOString(),
         });

@@ -63,7 +63,7 @@ import { entityToken, type TokenEntity } from "../ai-entity-token";
 import { runTool } from "../chat-tools";
 import { resetMintState } from "../id-mint-session";
 import { type TestSeed } from "../test-providers";
-import { type ChangeItem, DEFAULT_TASK_STATUS, type Milestone, type RaidItem, type Resource, type Task } from "../types";
+import { type ChangeItem, DEFAULT_TASK_STATUS, type Milestone, type RaidItem, type Resource, type Stakeholder, type Task } from "../types";
 import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
 import { emptyWorkspace, type Workspace } from "../workspace";
@@ -162,6 +162,23 @@ function seedGuardedMilestone(over: Partial<Milestone> = {}): Milestone {
   };
 }
 
+/** ★★★ EVERY ENUM OFF ITS FALLBACK, and that is the entire point. This entity's
+ *  defect survived four earlier tasks because the parity sweep's `STK_BASE`
+ *  holds exactly the values `sanitizeStakeholder` resets to — so a refused value
+ *  read back as the value already stored and the sweep saw agreement. "Sponsor"
+ *  is not the "Other" fallback and "High"/"Low" are not "Medium". */
+function seedGuardedStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
+  return {
+    id: 40,
+    name: "Ada Lovelace",
+    category: "Sponsor",
+    influence: "High",
+    interest: "Low",
+    raci: {},
+    ...over,
+  };
+}
+
 function seedResource(over: Partial<Resource> = {}): Resource {
   return {
     id: 4,
@@ -177,7 +194,7 @@ function seedResource(over: Partial<Resource> = {}): Resource {
 /** The workspace slices this file writes to, and the key each case reads back
  *  through. Deliberately narrow — a case needing another slice adds it here so
  *  the read-back stays a lookup rather than a per-case cast. */
-type WsKey = "raid" | "resources" | "changes" | "milestones";
+type WsKey = "raid" | "resources" | "changes" | "milestones" | "stakeholders";
 
 interface WriteCase {
   name: string;
@@ -335,6 +352,25 @@ const CASES: WriteCase[] = [
     seed: { milestones: [seedGuardedMilestone()] },
     input: { id: 30, achievedDate: "20/05/2026" },
     expectStored: { achievedDate: "2026-05-20" },
+  },
+  {
+    // ★★★ THE WIRING for the fourth guard -- the one no gate reported.
+    // sanitizeStakeholder RESETS an unrecognised category to "Other" rather
+    // than dropping the key, so a stored "Sponsor" is silently demoted behind
+    // a card that shows nothing about category. Invisible to the parity sweep,
+    // whose STK_BASE fixture already holds the fallback it resets to.
+    // ★ sanitize-stakeholder-patch.test.ts calls the helper directly, so it
+    // stays green if the call site in updateStakeholder is deleted; only a
+    // replay through the real dispatcher catches that.
+    name: "a refused stakeholder category leaves the stored one alone",
+    tool: "update_stakeholder",
+    entity: "stakeholder",
+    kind: "stakeholder",
+    wsKey: "stakeholders",
+    id: 40,
+    seed: { stakeholders: [seedGuardedStakeholder()] },
+    input: { id: 40, category: "Kategorie", influence: "Sehr hoch" },
+    expectStored: { category: "Sponsor", influence: "High" },
   },
   {
     // `raisedDate` is written UNCONDITIONALLY by the sanitizer

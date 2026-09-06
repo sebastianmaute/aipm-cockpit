@@ -5,6 +5,7 @@ import {
   dropUnacceptedChangeFields,
   dropUnacceptedMilestoneFields,
   dropUnacceptedRaidFields,
+  dropUnacceptedStakeholderFields,
   sanitizeChangeItem,
   sanitizeMilestone,
   sanitizeRaidItem,
@@ -256,6 +257,22 @@ const taskReader: StoredReader = (field, value) => {
  *  is the point: a raw-sanitizer reader would leave milestone permanently blind
  *  to any future merge-site guard, and the absence of a failing test is exactly
  *  what makes that blindness cheap to ship. */
+/** The STAKEHOLDER apply path. ★★★ This entity's guard was added LAST and only
+ *  because a review probe went looking: its three enums RESET to a hardcoded
+ *  fallback, and `STK_BASE` holds exactly those fallbacks, so every refused
+ *  value read back as the value already there and this sweep recorded
+ *  agreement. Moving the fixture off its defaults measured 27 mismatch pairs —
+ *  a stored "Sponsor" silently demoted to "Other" by a card showing nothing.
+ *  ★ Do NOT move `STK_BASE` off its defaults to "prove" that here: blind spot
+ *  (4) above is about fixtures, and manufacturing a red inside this file is the
+ *  thing it tells you not to do. `sanitize-stakeholder-patch.test.ts` pins it on
+ *  a non-default row, which is where such a fixture belongs. */
+const stakeholderReader: StoredReader = (field, value) => {
+  const patch = dropUnacceptedStakeholderFields({ [field]: value });
+  const out = sanitizeStakeholder({ ...STK_BASE, ...patch });
+  return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
+};
+
 const milestoneReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedMilestoneFields({ [field]: value });
   const out = sanitizeMilestone({ ...MILE_BASE, ...patch });
@@ -315,7 +332,7 @@ const CASES: ReadonlyArray<{
   { entity: "raid", base: RAID_BASE, read: raidReader },
   { entity: "change", base: CHANGE_BASE, read: changeReader },
   { entity: "milestone", base: MILE_BASE, read: milestoneReader },
-  { entity: "stakeholder", base: STK_BASE, read: sanitizerReader(STK_BASE, sanitizeStakeholder as never) },
+  { entity: "stakeholder", base: STK_BASE, read: stakeholderReader },
   { entity: "resource", base: RES_BASE, read: sanitizerReader(RES_BASE, sanitizeResource as never) },
 ];
 
