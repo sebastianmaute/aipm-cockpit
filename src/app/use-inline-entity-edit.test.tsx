@@ -38,7 +38,7 @@ it("goes thinking -> preview and builds a diff", async () => {
   act(() => result.current.openFor(task));
   await act(async () => { await result.current.submit("mark done"); });
   expect(result.current.phase).toBe("preview");
-  expect(result.current.plan?.updates).toEqual([{ field: "status", before: "To Do", after: "Done", raw: "Done" }]);
+  expect(result.current.plan?.updates).toEqual([{ entity: "task", field: "status", before: "To Do", after: "Done", raw: "Done" }]);
 });
 
 // ★★★ THIS USED TO PIN THE OPPOSITE, AND THE REVERSAL IS THE POINT — a reader
@@ -350,7 +350,7 @@ describe("useInlineEntityEdit — raid", () => {
     act(() => result.current.openFor(raidItem));
     await act(async () => { await result.current.submit("rename it"); });
     expect(result.current.phase).toBe("preview");
-    expect(result.current.plan?.updates).toEqual([{ field: "title", before: "Old", after: "New", raw: "New" }]);
+    expect(result.current.plan?.updates).toEqual([{ entity: "raid", field: "title", before: "Old", after: "New", raw: "New" }]);
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
       id: 7, title: "New", expectedToken: entityToken("raid", raidItem),
@@ -388,7 +388,7 @@ describe("useInlineEntityEdit — raid", () => {
     await act(async () => { await result.current.submit("describe it"); });
     // The PREVIEW is projected — that half must not regress.
     expect(result.current.plan?.updates).toEqual([
-      { field: "description", before: "", after: "one two", raw: "<p>one</p><p>two</p>" },
+      { entity: "raid", field: "description", before: "", after: "one two", raw: "<p>one</p><p>two</p>" },
     ]);
     await act(async () => { await result.current.apply(); });
     // The APPLIED value keeps its markup.
@@ -418,7 +418,7 @@ describe("useInlineEntityEdit — raid", () => {
     act(() => result.current.openFor(item));
     await act(async () => { await result.current.submit("make it an issue"); });
     expect(result.current.plan?.updates).toContainEqual({
-      field: "status", before: "Mitigated", after: "Open",
+      entity: "raid", field: "status", before: "Mitigated", after: "Open",
     });
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
@@ -496,7 +496,7 @@ describe("useInlineEntityEdit — raid", () => {
     expect(result.current.phase).toBe("preview");
     expect(result.current.plan?.updates).toEqual([]);
     expect(result.current.plan?.links).toEqual([
-      { field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] },
+      { entity: "raid", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] },
     ]);
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {

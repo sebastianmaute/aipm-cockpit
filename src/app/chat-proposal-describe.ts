@@ -261,6 +261,18 @@ function describeDependencyCall(call: ProposedCall, ws: Workspace): EditPlan {
     applied.length === 0 && rejected.length > 0 && prior.length > 0 ? prior : applied;
   const title = String(target.taskName ?? "").trim();
   plan.links.push({
+    // ★★ THE ONE PRODUCER WITH NO DESCRIPTOR IN SCOPE, and `"task"` here is
+    //  structural rather than a default: this describer is hand-written for
+    //  `set_task_dependencies` alone, reads `ws.tasks`, renders `taskName` and
+    //  emits a field that exists on `Task` and nowhere else. Every other
+    //  producer passes `d.entity` (§393).
+    //  ★ It does NOT change what this surface renders. `PlanDetail` resolves
+    //  its label from the ROW's own tool name, and this tool is deliberately
+    //  absent from `TOOL_ENTITY` (see `DEPENDENCY_LINK`), so the card still
+    //  falls back to the raw property name. Wiring the renderer to `l.entity`
+    //  would translate it — a separate change with the consequences that
+    //  docstring lists, not a side effect of carrying the data.
+    entity: "task" satisfies InlineEntity,
     field: "dependencies",
     subject: title !== "" ? title : `${UNKNOWN_ID_MARKER}${id}`,
     before: renderDependencies(prior, ws),

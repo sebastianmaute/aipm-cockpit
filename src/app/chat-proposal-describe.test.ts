@@ -60,10 +60,10 @@ describe("describeProposal", () => {
     expect(rows).toHaveLength(2);
     expect(rows.flatMap((r) => r.plan.rejected)).toEqual([]);
     expect(rows[0].plan.updates).toEqual([
-      { field: "taskName", before: "A", after: "A2", raw: "A2" },
+      { entity: "task", field: "taskName", before: "A", after: "A2", raw: "A2" },
     ]);
     expect(rows[1].plan.updates).toEqual([
-      { field: "name", before: "Go live", after: "Go live (revised)", raw: "Go live (revised)" },
+      { entity: "milestone", field: "name", before: "Go live", after: "Go live (revised)", raw: "Go live (revised)" },
     ]);
   });
 
@@ -221,7 +221,7 @@ describe("describeProposal", () => {
     const rows = describeProposal([call("update_resource", { id: 4, title: "Architect" })], ws);
     expect(rows[0].plan.rejected).toEqual([]);
     expect(rows[0].plan.updates).toEqual([
-      { field: "title", before: "Engineer", after: "Architect", raw: "Architect" },
+      { entity: "resource", field: "title", before: "Engineer", after: "Architect", raw: "Architect" },
     ]);
   });
 
@@ -263,7 +263,7 @@ describe("describeProposal", () => {
       expect(rows[0].plan.links).toEqual([
         // The task's name is `subject`, not part of the label — §406, and the
         // test two blocks down pins why.
-        { field: "dependencies", subject: "C", before: "A (FS), B (FS)", after: "A (FS)", rawIds: [1] },
+        { entity: "task", field: "dependencies", subject: "C", before: "A (FS), B (FS)", after: "A (FS)", rawIds: [1] },
       ]);
     });
 
@@ -575,7 +575,7 @@ describe("TOOL_ENTITY", () => {
     expect(allTasks.plan).toEqual(empty);
     expect(inquiry.plan).toEqual(empty);
     expect(deps.plan.links).toEqual([
-      { field: "dependencies", subject: "A", before: "", after: "B (FS)", rawIds: [2] },
+      { entity: "task", field: "dependencies", subject: "A", before: "", after: "B (FS)", rawIds: [2] },
     ]);
   });
 });

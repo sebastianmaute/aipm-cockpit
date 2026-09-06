@@ -24,8 +24,20 @@ export type ToolUseLike = { type: string; id?: string; name?: string; input?: un
  *  test proved nothing in the suite caught its removal.
  *
  *  ★ A sanitizer-INDUCED enum reset carries no `raw`: its `after` is a default
- *  enum value that was never projected in the first place. */
-export interface FieldDiff { field: string; before: string; after: string; raw?: string }
+ *  enum value that was never projected in the first place.
+ *
+ *  ★★ `entity` NAMES THE ROW'S REGISTER, so a plan holding two of them can
+ *   resolve a label per ROW rather than per PLAN. `describeRecommendationPlan`
+ *   grounds each proposed call against its OWN descriptor and merges every
+ *   result into one `EditPlan`, and the label map is entity-qualified because
+ *   it must be — `impact` is a 1-5 scale on a RAID item and a
+ *   Low/Medium/High/Critical enum on a change. Before this member the only
+ *   answer available was plan-level, and it existed only when exactly one
+ *   register was updated; a mixed plan fell back to raw property names (§393).
+ *   ★ It is REQUIRED: every producer has the descriptor for the entity the
+ *   INPUT belongs to already in scope, so an optional member would only buy a
+ *   silent hole for a future producer that forgot. */
+export interface FieldDiff { entity: InlineEntity; field: string; before: string; after: string; raw?: string }
 export interface NewItem { entity: string; title: string; toolName: string; input: Record<string, unknown> }
 export interface Deletion { entity: string; label: string; toolName: string; id: number }
 export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input" | "unsupported"; detail: string }
@@ -90,6 +102,10 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *   card reads "Migrate database – Migrate database". Nothing in
  *   `buildEditPlan` sets it; only the hand-written dependency describer does. */
 export interface LinkDiff {
+  /** The register this link belongs to — see `FieldDiff.entity` (§393). Same
+   *  member, same reason: `linkedTaskIds` is declared on raid AND on change,
+   *  and a merged plan can hold both. */
+  entity: InlineEntity;
   field: string;
   subject?: string;
   before: string;
@@ -305,7 +321,7 @@ function pushLinkDiffs(
     const before = resolveLinkTitles(beforeIds, link, ws);
     const after = resolveLinkTitles(afterIds, link, ws);
     if (before === after) continue;
-    plan.links.push({ field: f, before, after, rawIds: afterIds });
+    plan.links.push({ entity: d.entity, field: f, before, after, rawIds: afterIds });
   }
 }
 
@@ -511,7 +527,7 @@ export function describeEntityCalls(
         const accepts = d.numericFields[f];
         if (accepts && !accepts(input[f])) { bad(`${f}=${after}`); continue; }
         if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
-        plan.updates.push({ field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after });
+        plan.updates.push({ entity: d.entity, field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after });
         applied[f] = after;
       }
       // Relationship and FK inputs, projected against the row being updated.
@@ -534,7 +550,7 @@ export function describeEntityCalls(
         if (valid.size === 0 || valid.has(cur)) continue;
         const def = defaultEnumFor(d.entity, f, effective);
         if (def === undefined || def === cur) continue;
-        plan.updates.push({ field: f, before: cur, after: def });
+        plan.updates.push({ entity: d.entity, field: f, before: cur, after: def });
       }
       continue;
     }

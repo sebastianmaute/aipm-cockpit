@@ -4,7 +4,7 @@ import { RecommendationReviewModal } from "./recommendation-review-modal";
 import type { EditPlan } from "../inline-ai-edit/plan";
 
 const planWithChanges: EditPlan = {
-  updates: [{ field: "status", before: "To Do", after: "Done" }],
+  updates: [{ entity: "task", field: "status", before: "To Do", after: "Done" }],
   creates: [{ entity: "raid", title: "New risk", toolName: "create_raid_item", input: {} }],
   deletes: [{ entity: "task", label: "Old task", toolName: "delete_task", id: 3 }],
   rejected: [],
@@ -23,33 +23,50 @@ it("renders the summary and the plan's updates/creates/deletes", () => {
     />,
   );
   expect(screen.getByText("Mark the overdue task done")).toBeInTheDocument();
-  // ★★ No `entity` here, deliberately — this is the MIXED-PLAN fallback.
-  // `describeRecommendationPlan` merges every proposed call's diffs into one
-  // plan, so a recommendation touching two registers has no single entity and
-  // `recommendationPlanEntity` returns `undefined`. The raw property name is
-  // then the honest answer: harder to read, but it cannot be WRONG.
-  expect(screen.getByText(/status/)).toBeInTheDocument();
+  // ★★ The label comes from the DIFF's own entity — this modal takes no
+  // plan-level one any more (§393). A row with no readable label renders the
+  // raw property name, so asserting the readable one is what pins the wiring.
+  expect(screen.getByText("Status")).toBeInTheDocument();
+  expect(screen.queryByText("status")).not.toBeInTheDocument();
   expect(screen.getByText(/To Do/)).toBeInTheDocument();
   expect(screen.getByText(/Done/)).toBeInTheDocument();
   expect(screen.getByText(/New risk/)).toBeInTheDocument();
   expect(screen.getByText(/Old task/)).toBeInTheDocument();
 });
 
-// ★ The other half of the pair above: given an unambiguous entity, the same
-// plan renders the register's own field label instead of the property name.
-it("names the fields readably when the plan targets one entity", () => {
+// ★★★ THE CASE §393 EXISTED FOR, and it was previously UNRENDERABLE: a
+// recommendation touching two registers merges into ONE plan, and the only
+// answer available was plan-level, so BOTH rows fell back to raw property
+// names. Each row now carries its own entity and each label resolves on its own.
+//
+// ★★ `raisedDate` is the discriminating pair ON PURPOSE. It is declared on raid
+// AND on change, and it is one of the few whose EN labels actually DIFFER
+// ("Raised date" vs "Raised") — `impact`, the field this defect is usually
+// explained with, resolves to "Impact" through BOTH entities' keys, so an EN
+// assertion on it passes with the entity wired to a constant. Do not "simplify"
+// this fixture to `impact`; that makes the test vacuous in this language.
+it("labels each row from its own entity when one plan spans two registers", () => {
   render(
     <RecommendationReviewModal
       lang="en-US"
       summary="s"
-      plan={planWithChanges}
-      entity="task"
+      plan={{
+        updates: [
+          { entity: "raid", field: "raisedDate", before: "2026-01-01", after: "2026-02-01" },
+          { entity: "change", field: "raisedDate", before: "2026-03-01", after: "2026-04-01" },
+        ],
+        creates: [],
+        deletes: [],
+        rejected: [],
+        links: [],
+      }}
       onConfirm={vi.fn()}
       onCancel={vi.fn()}
     />,
   );
-  expect(screen.getByText("Status")).toBeInTheDocument();
-  expect(screen.queryByText("status")).not.toBeInTheDocument();
+  expect(screen.getByText("Raised date")).toBeInTheDocument();
+  expect(screen.getByText("Raised")).toBeInTheDocument();
+  expect(screen.queryByText("raisedDate")).not.toBeInTheDocument();
 });
 
 it("calls onConfirm when Confirm is clicked", () => {
@@ -88,7 +105,7 @@ it("calls onCancel when Cancel is clicked", () => {
 // gone; the fields are named.
 it("names the fields that will not land when the plan has rejected calls", () => {
   const planWithRejected: EditPlan = {
-    updates: [{ field: "status", before: "To Do", after: "Done" }],
+    updates: [{ entity: "task", field: "status", before: "To Do", after: "Done" }],
     creates: [],
     deletes: [],
     rejected: [
@@ -123,14 +140,13 @@ it("renders a link change with its resolved titles", () => {
     creates: [],
     deletes: [],
     rejected: [],
-    links: [{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
+    links: [{ entity: "raid", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
   };
   render(
     <RecommendationReviewModal
       lang="en-US"
       summary="s"
       plan={planWithLinks}
-      entity="raid"
       onConfirm={vi.fn()}
       onCancel={vi.fn()}
     />,
@@ -157,7 +173,7 @@ it("renders a cleared link list as an em dash rather than as nothing", () => {
         creates: [],
         deletes: [],
         rejected: [],
-        links: [{ field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
+        links: [{ entity: "raid", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
       }}
       onConfirm={vi.fn()}
       onCancel={vi.fn()}

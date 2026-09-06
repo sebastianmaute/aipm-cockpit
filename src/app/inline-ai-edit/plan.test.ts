@@ -16,8 +16,8 @@ describe("describeToolCalls", () => {
   it("diffs an update_task on the target task", () => {
     const plan = describeToolCalls([block("update_task", { id: 42, dueDate: "2026-08-15", status: "In Progress" })], { task, ws });
     expect(plan.updates).toEqual([
-      { field: "dueDate", before: "2026-08-12", after: "2026-08-15", raw: "2026-08-15" },
-      { field: "status", before: "To Do", after: "In Progress", raw: "In Progress" },
+      { entity: "task", field: "dueDate", before: "2026-08-12", after: "2026-08-15", raw: "2026-08-15" },
+      { entity: "task", field: "status", before: "To Do", after: "In Progress", raw: "In Progress" },
     ]);
     expect(plan.creates).toEqual([]);
     expect(plan.rejected).toEqual([]);
@@ -46,7 +46,7 @@ describe("describeToolCalls", () => {
     );
     expect(plan.creates).toHaveLength(1);
     // `before` is always "" on a create: there is no prior row to drop links from.
-    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "", after: "Kickoff", rawIds: [7] }]);
+    expect(plan.links).toEqual([{ entity: "raid", field: "linkedTaskIds", before: "", after: "Kickoff", rawIds: [7] }]);
   });
 
   it("rejects an update whose id is not the target task and not in the workspace", () => {
@@ -169,7 +169,7 @@ describe("describeEntityCalls — raid", () => {
       [{ type: "tool_use", name: "update_raid_item", input: { id: 7, title: "New" } }],
       { descriptor: d, item: raidItem, ws: ws2 },
     );
-    expect(plan.updates).toEqual([{ field: "title", before: "Old", after: "New", raw: "New" }]);
+    expect(plan.updates).toEqual([{ entity: "raid", field: "title", before: "Old", after: "New", raw: "New" }]);
   });
 
   it("rejects a status invalid for the item's category", () => {
@@ -230,8 +230,8 @@ describe("describeEntityCalls — raid", () => {
     );
     // ★ The category diff is model-supplied, so it carries `raw`; the induced
     // status reset is the sanitizer's own default and carries none.
-    expect(plan.updates).toContainEqual({ field: "category", before: "R", after: "I", raw: "I" });
-    expect(plan.updates).toContainEqual({ field: "status", before: "Mitigated", after: "Open" });
+    expect(plan.updates).toContainEqual({ entity: "raid", field: "category", before: "R", after: "I", raw: "I" });
+    expect(plan.updates).toContainEqual({ entity: "raid", field: "status", before: "Mitigated", after: "Open" });
     expect(plan.rejected).toHaveLength(0);
   });
 
@@ -241,7 +241,7 @@ describe("describeEntityCalls — raid", () => {
       [{ type: "tool_use", name: "update_raid_item", input: { id: 7, category: "I" } }],
       { descriptor: d, item: raidItem, ws: ws2 },
     );
-    expect(plan.updates).toEqual([{ field: "category", before: "R", after: "I", raw: "I" }]);
+    expect(plan.updates).toEqual([{ entity: "raid", field: "category", before: "R", after: "I", raw: "I" }]);
   });
 
   it("rejects an out-of-range date year (guard matches sanitizeIsoDate)", () => {
@@ -294,7 +294,7 @@ describe("describeEntityCalls — change amount precision (399)", () => {
       { descriptor: dc, item: changeItem, ws: wsC },
     );
     expect(plan.rejected).toEqual([]);
-    expect(plan.updates).toEqual([{ field: "costImpact", before: "100", after: "1500.5", raw: "1500.5" }]);
+    expect(plan.updates).toEqual([{ entity: "change", field: "costImpact", before: "100", after: "1500.5", raw: "1500.5" }]);
   });
 
   it("rejects a cost above the cap the form clamps to", () => {
@@ -383,7 +383,7 @@ describe("rich fields preview as text (slice B)", () => {
       { descriptor: INLINE_DESCRIPTORS.stakeholder, item: stk, ws: wsWith({ stakeholders: [stk] as never }) },
     );
     // The newline SURVIVES. Projected, it would collapse to "line one line two".
-    expect(plan.updates).toContainEqual({ field: "notes", before: "old", after: "line one\nline two", raw: "line one\nline two" });
+    expect(plan.updates).toContainEqual({ entity: "stakeholder", field: "notes", before: "old", after: "line one\nline two", raw: "line one\nline two" });
   });
 
   it("still projects the task's rich description", () => {
@@ -400,7 +400,7 @@ describe("rich fields preview as text (slice B)", () => {
       [{ type: "tool_use", name: "update_task", input: { id: 9, description: "<p>new note</p>" } }],
       { descriptor: INLINE_DESCRIPTORS.task, item: t2, ws: wsWith({ tasks: [t2] as never }) },
     );
-    expect(plan.updates).toContainEqual({ field: "description", before: "old note", after: "new note", raw: "<p>new note</p>" });
+    expect(plan.updates).toContainEqual({ entity: "task", field: "description", before: "old note", after: "new note", raw: "<p>new note</p>" });
   });
 
   it("leaves a non-rich field's diff verbatim", () => {
@@ -412,7 +412,7 @@ describe("rich fields preview as text (slice B)", () => {
       { descriptor: d, item: richItem, ws: richWs },
     );
     expect(plan.updates).toEqual([
-      { field: "title", before: "<p>Old <strong>title</strong></p>", after: "<p>New <strong>title</strong></p>", raw: "<p>New <strong>title</strong></p>" },
+      { entity: "raid", field: "title", before: "<p>Old <strong>title</strong></p>", after: "<p>New <strong>title</strong></p>", raw: "<p>New <strong>title</strong></p>" },
     ]);
   });
 
@@ -434,9 +434,9 @@ describe("rich fields preview as text (slice B)", () => {
     // "Resolved" is Issue-only: it validates only because the co-changed
     // category landed in `applied` first, alongside the rich field.
     expect(plan.rejected).toEqual([]);
-    expect(plan.updates).toContainEqual({ field: "category", before: "R", after: "I", raw: "I" });
-    expect(plan.updates).toContainEqual({ field: "status", before: "Open", after: "Resolved", raw: "Resolved" });
-    expect(plan.updates).toContainEqual({ field: "mitigation", before: "old plan", after: "new plan", raw: "<p>new plan</p>" });
+    expect(plan.updates).toContainEqual({ entity: "raid", field: "category", before: "R", after: "I", raw: "I" });
+    expect(plan.updates).toContainEqual({ entity: "raid", field: "status", before: "Open", after: "Resolved", raw: "Resolved" });
+    expect(plan.updates).toContainEqual({ entity: "raid", field: "mitigation", before: "old plan", after: "new plan", raw: "<p>new plan</p>" });
   });
 });
 
@@ -580,7 +580,7 @@ describe("describeEntityCalls — resource", () => {
       [{ type: "tool_use", name: "update_resource", input: { id: 5, department: "Advisory" } }],
       { descriptor: d, item: resource, ws: resWs },
     );
-    expect(plan.updates).toEqual([{ field: "department", before: "Delivery", after: "Advisory", raw: "Advisory" }]);
+    expect(plan.updates).toEqual([{ entity: "resource", field: "department", before: "Delivery", after: "Advisory", raw: "Advisory" }]);
     expect(plan.rejected).toEqual([]);
   });
 
@@ -616,7 +616,7 @@ describe("describeEntityCalls — resource", () => {
       [{ type: "tool_use", name: "update_resource", input: { id: 5, firstName: "" } }],
       { descriptor: d, item: resource, ws: resWs },
     );
-    expect(plan.updates).toEqual([{ field: "firstName", before: "M.", after: "", raw: "" }]);
+    expect(plan.updates).toEqual([{ entity: "resource", field: "firstName", before: "M.", after: "", raw: "" }]);
     expect(plan.rejected).toEqual([]);
   });
 
@@ -662,7 +662,7 @@ describe("resource extra emails (383)", () => {
       { descriptor: d, item, ws: emailWs },
     );
     expect(plan.updates).toEqual([
-      { field: "emails", before: "b@x.com", after: "b@x.com, a@x.com", raw: "b@x.com, a@x.com" },
+      { entity: "resource", field: "emails", before: "b@x.com", after: "b@x.com, a@x.com", raw: "b@x.com, a@x.com" },
     ]);
     expect(plan.rejected).toEqual([]);
   });
@@ -686,7 +686,7 @@ describe("resource extra emails (383)", () => {
       [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: [] } }],
       { descriptor: d, item, ws: emailWs },
     );
-    expect(plan.updates).toEqual([{ field: "emails", before: "b@x.com", after: "", raw: "" }]);
+    expect(plan.updates).toEqual([{ entity: "resource", field: "emails", before: "b@x.com", after: "", raw: "" }]);
   });
 
   it("drops an extra equal to the row's primary, as the write does", () => {
@@ -704,7 +704,7 @@ describe("resource extra emails (383)", () => {
       { descriptor: d, item, ws: emailWs },
     );
     expect(plan.updates).toEqual([
-      { field: "emails", before: "b@x.com", after: "a@x.com", raw: "a@x.com" },
+      { entity: "resource", field: "emails", before: "b@x.com", after: "a@x.com", raw: "a@x.com" },
     ]);
   });
 
@@ -721,7 +721,7 @@ describe("resource extra emails (383)", () => {
       { descriptor: d, item, ws: emailWs },
     );
     expect(plan.updates).toEqual([
-      { field: "emails", before: "b@x.com", after: extras.join(", "), raw: extras.join(", ") },
+      { entity: "resource", field: "emails", before: "b@x.com", after: extras.join(", "), raw: extras.join(", ") },
     ]);
   });
 
@@ -736,8 +736,8 @@ describe("resource extra emails (383)", () => {
       { descriptor: d, item, ws: emailWs },
     );
     expect(plan.updates).toEqual([
-      { field: "email", before: "m@x.com", after: "a@x.com", raw: "a@x.com" },
-      { field: "emails", before: "b@x.com", after: "m@x.com", raw: "m@x.com" },
+      { entity: "resource", field: "email", before: "m@x.com", after: "a@x.com", raw: "a@x.com" },
+      { entity: "resource", field: "emails", before: "b@x.com", after: "m@x.com", raw: "m@x.com" },
     ]);
   });
 });
@@ -757,7 +757,7 @@ describe("task lastUpdateDate", () => {
       { descriptor: d, item, ws: lupWs },
     );
     expect(plan.updates).toEqual([
-      { field: "lastUpdateDate", before: "2026-01-01", after: "2026-02-02", raw: "2026-02-02" },
+      { entity: "task", field: "lastUpdateDate", before: "2026-01-01", after: "2026-02-02", raw: "2026-02-02" },
     ]);
     expect(plan.rejected).toEqual([]);
   });
@@ -1034,7 +1034,7 @@ describe("the writer's JOINT name rule (384)", () => {
       { descriptor: d, item: cher, ws: cherWs },
     );
     expect(plan.rejected).toEqual([]);
-    expect(plan.updates).toEqual([{ field: "lastName", before: "Bono", after: "", raw: "" }]);
+    expect(plan.updates).toEqual([{ entity: "resource", field: "lastName", before: "Bono", after: "", raw: "" }]);
   });
 
   it("still rejects emptying BOTH halves of the name", () => {
@@ -1074,8 +1074,8 @@ describe("the writer's JOINT name rule (384)", () => {
     //  a promise about the WRITE, so assert what the card SHOWS, not merely what
     //  it declines to refuse.
     expect(plan.updates).toEqual([
-      { field: "firstName", before: "", after: "Cher", raw: "Cher" },
-      { field: "lastName", before: "Bono", after: "Something", raw: "Something" },
+      { entity: "resource", field: "firstName", before: "", after: "Cher", raw: "Cher" },
+      { entity: "resource", field: "lastName", before: "Bono", after: "Something", raw: "Something" },
     ]);
   });
 
@@ -1116,7 +1116,7 @@ describe("the writer's JOINT name rule (384)", () => {
       { descriptor: d, item: cher, ws: cherWs },
     );
     expect(plan.rejected).toEqual([]);
-    expect(plan.updates).toEqual([{ field: "lastName", before: "Bono", after: "", raw: "" }]);
+    expect(plan.updates).toEqual([{ entity: "resource", field: "lastName", before: "Bono", after: "", raw: "" }]);
   });
 });
 
@@ -1136,7 +1136,7 @@ describe("link fields", () => {
       [{ type: "tool_use", name: "update_raid_item", input: { id: 10, linkedTaskIds: [2] } }],
       { descriptor: INLINE_DESCRIPTORS.raid, item: vendorRisk, ws: linkWs },
     );
-    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }]);
+    expect(plan.links).toEqual([{ entity: "raid", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }]);
     expect(plan.updates).toEqual([]);
   });
 
@@ -1174,7 +1174,7 @@ describe("link fields", () => {
       { descriptor: INLINE_DESCRIPTORS.milestone, item: ga, ws: mws },
     );
     expect(plan.links).toEqual([
-      { field: "linkedTaskIds", before: "Draft brief", after: "Draft brief, Ship", rawIds: [1, 2] },
+      { entity: "milestone", field: "linkedTaskIds", before: "Draft brief", after: "Draft brief, Ship", rawIds: [1, 2] },
     ]);
   });
 
@@ -1210,7 +1210,7 @@ describe("link fields", () => {
         [{ type: "tool_use", name: "update_resource", input: { id: 3, roleId: 12 } }],
         { descriptor: INLINE_DESCRIPTORS.resource, item: ada, ws: roleWs },
       );
-      expect(plan.links).toEqual([{ field: "roleId", before: "Engineering L3", after: "Design L3", rawIds: [12] }]);
+      expect(plan.links).toEqual([{ entity: "resource", field: "roleId", before: "Engineering L3", after: "Design L3", rawIds: [12] }]);
     });
 
     it("shows a cleared FK as an empty after with no ids", () => {
@@ -1218,7 +1218,7 @@ describe("link fields", () => {
         [{ type: "tool_use", name: "update_resource", input: { id: 3, roleId: null } }],
         { descriptor: INLINE_DESCRIPTORS.resource, item: ada, ws: roleWs },
       );
-      expect(plan.links).toEqual([{ field: "roleId", before: "Engineering L3", after: "", rawIds: [] }]);
+      expect(plan.links).toEqual([{ entity: "resource", field: "roleId", before: "Engineering L3", after: "", rawIds: [] }]);
     });
   });
 });
@@ -1228,7 +1228,7 @@ describe("EditPlan.links", () => {
     // A plan that ONLY changes relationships must still render. Treating it as
     // empty would hide the most destructive write class behind a blank card.
     const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [
-      { field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] },
+      { entity: "raid", field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] },
     ] };
     expect(isEmptyPlan(plan)).toBe(false);
   });

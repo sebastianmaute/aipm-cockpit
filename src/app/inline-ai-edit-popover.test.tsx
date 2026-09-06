@@ -6,10 +6,6 @@ const base = {
   lang: "en-US" as const,
   itemTitle: "Fix login bug",
   entityLabel: "RAID item",
-  // ★ Must agree with `entityLabel` — the field labels below are resolved as
-  // `raid.<field>`, and a mismatched pair would silently label a RAID preview
-  // with another register's strings.
-  entity: "raid" as const,
   phase: "idle" as const, plan: null, clarifyText: "", errorText: "",
   onSubmit: vi.fn(), onApply: vi.fn(), onCancel: vi.fn(),
 };
@@ -75,7 +71,7 @@ it("renders a link change in preview", () => {
         creates: [],
         deletes: [],
         rejected: [],
-        links: [{ field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
+        links: [{ entity: "raid", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
       }}
     />,
   );
@@ -98,7 +94,7 @@ it("renders a rejected field in preview", () => {
       {...base}
       phase="preview"
       plan={{
-        updates: [{ field: "status", before: "Open", after: "Closed" }],
+        updates: [{ entity: "raid", field: "status", before: "Open", after: "Closed" }],
         creates: [],
         deletes: [],
         rejected: [{ toolName: "update_raid_item", reason: "bad-input", detail: "targetDate=nope" }],
@@ -158,15 +154,22 @@ it("names the refused field and offers no Apply in the rejected phase", () => {
 // ★★ The label is keyed `${entity}.${field}`, so the SAME property name must
 // read differently per register. `title` is a RAID item's summary and a
 // stakeholder's role — a bare field-name map would collapse them.
-it("labels a field through its own entity", () => {
+//
+// ★★★ BOTH IN ONE PLAN, which is what the per-diff `entity` bought (§393).
+// This used to render the same one-row plan TWICE under two different
+// plan-level `entity` props — a shape that could not distinguish "labels each
+// row from its own register" from "labels the whole plan from one prop". A
+// single render holding both is only satisfiable by the former.
+it("labels each field through its own entity", () => {
   const plan = {
-    updates: [{ field: "title", before: "Old", after: "New" }],
+    updates: [
+      { entity: "raid" as const, field: "title", before: "Old", after: "New" },
+      { entity: "stakeholder" as const, field: "title", before: "Engineer", after: "Architect" },
+    ],
     creates: [], deletes: [], rejected: [], links: [],
   };
-  const { unmount } = render(<InlineAiEditPopover {...base} phase="preview" plan={plan} />);
+  render(<InlineAiEditPopover {...base} phase="preview" plan={plan} />);
   expect(screen.getByText("Title")).toBeInTheDocument();
-  unmount();
-  render(<InlineAiEditPopover {...base} entity="stakeholder" phase="preview" plan={plan} />);
   expect(screen.getByText("Title / role")).toBeInTheDocument();
 });
 
@@ -183,7 +186,7 @@ it("renders a cleared link list as an em dash rather than as nothing", () => {
         creates: [],
         deletes: [],
         rejected: [],
-        links: [{ field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
+        links: [{ entity: "raid", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
       }}
     />,
   );
@@ -191,7 +194,7 @@ it("renders a cleared link list as an em dash rather than as nothing", () => {
 });
 
 it("shows the diff and an Apply button in preview", () => {
-  render(<InlineAiEditPopover {...base} phase="preview" plan={{ updates: [{ field: "status", before: "To Do", after: "Done" }], creates: [], deletes: [], rejected: [], links: [] }} />);
+  render(<InlineAiEditPopover {...base} phase="preview" plan={{ updates: [{ entity: "raid", field: "status", before: "To Do", after: "Done" }], creates: [], deletes: [], rejected: [], links: [] }} />);
   expect(screen.getByText(/status/i)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
   expect(base.onApply).toHaveBeenCalled();

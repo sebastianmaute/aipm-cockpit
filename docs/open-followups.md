@@ -617,7 +617,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§390](#390-the-inline-create-path-writes-link-fields-with-no-preview-at-all--open) | The inline CREATE path writes link fields with no preview at all | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§391](#391-chat-proposal-describetss-emptyplan-is-safe-at-two-of-its-three-call-sites-and-the-reason-is-per-site--open) | `chat-proposal-describe.ts`'s `emptyPlan()` is safe at two of its three call sites, and the reason is per-site | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§392](#392-a-rejection-only-inline-plan-never-reaches-the-preview-so-the-user-is-told-no-changes--open) | A rejection-only inline plan never reaches the preview, so the user is told "no changes" | found 2026-09-06 by the preview/apply-parity slice | S | open |
-| [§393](#393-describerecommendationplan-merges-entities-so-a-fields-label-cannot-always-be-resolved--open) | `describeRecommendationPlan` merges entities, so a field's label cannot always be resolved | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§393](#393-describerecommendationplan-merges-entities-so-a-fields-label-cannot-always-be-resolved--closed-2026-09-06) | `describeRecommendationPlan` merges entities, so a field's label cannot always be resolved | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§394](#394-the-parity-sweep-cannot-exercise-the-silent-reset-half-of-the-rejects-direction--open) | The parity sweep cannot exercise the silent-RESET half of the rejects direction | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§395](#395-update_raid_itemprobability-true-stores-a-fabricated-risk-score-of-1--open) | `update_raid_item({probability: true})` stores a fabricated risk score of 1 | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§396](#396-update_tasklastupdatedate--previews-a-clear-the-writer-does-not-make--open) | `update_task({lastUpdateDate: ""})` previews a clear the writer does not make | found 2026-09-06 by the preview/apply-parity slice | S | open |
@@ -29069,21 +29069,54 @@ renderer is fine — this slice added one — and the drop happens a layer above
 so the user would get a live Apply button that no-ops. It needs a third phase, or a
 rejection-specific message on the clarify path.
 
-## 393. `describeRecommendationPlan` merges entities, so a field's label cannot always be resolved — OPEN
+## 393. `describeRecommendationPlan` merges entities, so a field's label cannot always be resolved — CLOSED 2026-09-06
 
-**Status:** OPEN as a DESIGN QUESTION with a measured cost, not a defect. Filed 2026-09-06. Last
-executed verification 2026-09-06 — `grep -c "merged.links.push" src/app/insights/recommend-plan.ts` (returns 3, one per merge site) and read of `recommend-plan.ts` (three merge sites pushing
-`p.updates`/`p.links` from a DIFFERENT descriptor per proposed call) and of `FieldDiff`, which
-carries no entity.
+**Status:** CLOSED 2026-09-06 by a REQUIRED `entity` on `FieldDiff` and `LinkDiff`. Last executed
+verification 2026-09-06 — `npx vitest run src/app/inline-ai-edit src/app/insights
+src/app/chat-proposal-describe.test.ts src/app/chat-proposal-block.test.tsx
+src/app/inline-ai-edit-popover.test.tsx src/app/use-inline-entity-edit.test.tsx` → EXIT=0,
+`Tests 635 passed (635)`; `npx tsc --noEmit` → 0; `npx eslint --max-warnings=0 src` → 0. Pinned by
+"resolves both entities' labels in a merged recommendation plan"
+(`src/app/insights/recommend-plan.test.ts`), which is MUTATION-PROVED: pinning the update push
+site's entity to a constant `"task"` reds 2 of that file's 7 tests.
 
-One `EditPlan` can therefore hold two entities' field names in one array, and the label map is
-entity-qualified because it must be: `impact` is a 1-5 scale on a RAID item and free text on a
-change. `recommendationPlanEntity(calls)` answers only when exactly one register is updated and
-returns `undefined` otherwise, falling back to raw property names — worse to read, never wrong.
+One `EditPlan` could hold two entities' field names in one array, and the label map is
+entity-qualified because it must be: `impact` is a 1-5 scale on a RAID item and a
+Low/Medium/High/Critical enum on a change. `recommendationPlanEntity(calls)` answered only when
+exactly one register was updated and returned `undefined` otherwise, falling back to raw property
+names — worse to read, never wrong.
 
-The complete fix is a per-diff entity on `FieldDiff`/`LinkDiff`. It was measured and deferred: about
-twelve exact `toEqual([{field, before, after, raw}])` assertions in `plan.test.ts` redden on the
-extra property.
+Every producer already had the descriptor for the entity the INPUT belongs to in scope, so all three
+`plan.updates.push`/`plan.links.push` sites in `plan.ts` now pass `d.entity`. `recommendationPlanEntity`
+and its four tests were REMOVED with the fallback they served.
+
+★★ THE DEFERRAL'S COST ESTIMATE WAS RIGHT ABOUT THE FILE AND LOW ABOUT THE TOTAL: twelve exact
+`toEqual([{ field: …}])` assertions in `plan.test.ts` was the measured count, but 35 tests across
+FOUR files reddened, because most exact assertions are on `plan.updates`/`plan.links` in other
+shapes (`toContainEqual`, `arrayContaining`, multi-line literals) that no `toEqual([{ field:` grep
+finds. None was loosened to `expect.objectContaining` — each names the entity it belongs to.
+
+★★ IT CLOSED A SECOND MISLABEL THE ENTRY NEVER NAMED, on a surface the entry does not mention.
+`InlineAiEditPopover` took a plan-level `entity` prop too, and its plan is NOT single-entity either:
+an inline edit on a task may `create_raid_item`, and `pushLinkDiffs` projects that create's links
+through the CREATE's descriptor — so a raid link line was labelled through the task's map. The prop
+is gone; both renderers read the diff. `use-entity-inline-ai-edit.tsx` and
+`use-tasks-inline-ai-edit.tsx` have no test files, so `tsc` is the only thing that saw those two
+call sites change.
+
+★ ONE PRODUCER HAS NO DESCRIPTOR IN SCOPE and does not need one: `describeDependencyCall`
+(`chat-proposal-describe.ts`) is hand-written for `set_task_dependencies` alone, reads `ws.tasks` and
+emits a field that exists on `Task` and nowhere else, so its `"task"` is structural rather than a
+default. It does NOT change what that card renders — `PlanDetail` still labels from the ROW's own
+tool name, and this tool is deliberately absent from `TOOL_ENTITY` (see `DEPENDENCY_LINK`), so the
+raw property name still shows there. Wiring that renderer to `l.entity` would translate it, which is
+a separate change with the consequences that docstring lists.
+
+★★ A FIXTURE FOR A DOCUMENT TOOL CANNOT NAME A TRUTHFUL ENTITY. `chat-proposal-block.test.tsx`'s
+descriptor-less-tool case needs a `FieldDiff`, and there is no `document` member of `InlineEntity`.
+It is inert there (that test is about the ROW's tool having no entity) but it is the one place the
+required member has to be filled with a placeholder — a real, if narrow, cost of REQUIRED over
+optional. Optional was rejected because it buys a silent hole for every future producer.
 
 ## 394. The parity sweep cannot exercise the silent-RESET half of the rejects direction — OPEN
 

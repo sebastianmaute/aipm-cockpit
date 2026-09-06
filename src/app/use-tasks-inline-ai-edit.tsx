@@ -57,7 +57,6 @@ export function useTasksInlineAiEdit(deps: TasksInlineAiEditDeps): TasksInlineAi
       lang={deps.lang}
       itemTitle={inlineEdit.activeTask.taskName}
       entityLabel={t(deps.lang, "inlineAiEditEntityTask")}
-      entity="task"
       phase={inlineEdit.phase}
       plan={inlineEdit.plan}
       clarifyText={inlineEdit.clarifyText}

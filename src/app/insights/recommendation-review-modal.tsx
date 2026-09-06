@@ -9,30 +9,26 @@ import { type Lang, t } from "../i18n";
 import { Modal } from "../modal";
 import { Button } from "../button";
 import { isEmptyPlan, type EditPlan } from "../inline-ai-edit/plan";
-import { type InlineEntity } from "../inline-ai-edit/entity-descriptor";
 import { fieldLabel, linkLabel } from "../inline-ai-edit/field-labels";
 
 export interface RecommendationReviewModalProps {
   lang: Lang;
   summary: string;
+  /** ★★★ EVERY ROW CARRIES ITS OWN ENTITY, so this modal takes no plan-level
+   *   one. `describeRecommendationPlan` MERGES every proposed call's diffs into
+   *   one `EditPlan`, so a recommendation touching a task AND a raid item has no
+   *   single entity — this used to arrive as an optional prop that
+   *   `recommendationPlanEntity` could only fill when exactly one register was
+   *   updated, and a mixed plan then rendered raw property names throughout
+   *   (§393). `FieldDiff.entity`/`LinkDiff.entity` answer per ROW instead, so a
+   *   mixed plan labels both halves correctly and neither can be mislabelled
+   *   (`impact` is a rating on a change and a 1-5 scale on a RAID item). */
   plan: EditPlan;
-  /** Which entity the previewed field names belong to.
-   *
-   *  ★★★ OPTIONAL, AND THAT IS NOT A CONVENIENCE. `describeRecommendationPlan`
-   *   MERGES every proposed call's diffs into one `EditPlan`, so a
-   *   recommendation touching a task AND a raid item produces a plan with no
-   *   single entity — and `FieldDiff` carries none per row. `recommendationPlanEntity`
-   *   supplies it only when exactly one entity is targeted; otherwise this is
-   *   `undefined` and `fieldLabel` falls back to the raw property name, which is
-   *   worse to read but cannot be WRONG. Labelling a mixed plan with one of its
-   *   entities would rename the other half's fields (`impact` is a rating on a
-   *   change and a 1-5 scale on a RAID item). */
-  entity?: InlineEntity;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function RecommendationReviewModal({ lang, summary, plan, entity, onConfirm, onCancel }: RecommendationReviewModalProps) {
+export function RecommendationReviewModal({ lang, summary, plan, onConfirm, onCancel }: RecommendationReviewModalProps) {
   const empty = isEmptyPlan(plan);
 
   return (
@@ -51,7 +47,7 @@ export function RecommendationReviewModal({ lang, summary, plan, entity, onConfi
             <ul className="mb-3 space-y-1 text-xs text-foreground">
               {plan.updates.map((d, i) => (
                 <li key={`u${i}-${d.field}`}>
-                  <span className="font-medium">{fieldLabel(lang, entity, d.field)}</span>: {d.before || "—"} → {d.after || "—"}
+                  <span className="font-medium">{fieldLabel(lang, d.entity, d.field)}</span>: {d.before || "—"} → {d.after || "—"}
                 </li>
               ))}
               {/* ★★ This consumer REPLAYS the original tool calls through the
@@ -61,7 +57,7 @@ export function RecommendationReviewModal({ lang, summary, plan, entity, onConfi
                   `after` is legitimately "" when every link is removed. */}
               {plan.links.map((l, i) => (
                 <li key={`l${i}-${l.field}`}>
-                  <span className="font-medium">{linkLabel(lang, entity, l)}</span>: {l.before || "—"} →{" "}
+                  <span className="font-medium">{linkLabel(lang, l.entity, l)}</span>: {l.before || "—"} →{" "}
                   {l.after || "—"}
                 </li>
               ))}

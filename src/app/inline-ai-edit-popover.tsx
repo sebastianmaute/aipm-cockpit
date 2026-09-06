@@ -3,7 +3,6 @@ import { useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type EditPlan } from "./inline-ai-edit/plan";
-import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { type InlinePhase } from "./use-inline-ai-edit";
 import { usePopoverDismiss } from "./use-popover-dismiss";
@@ -19,13 +18,15 @@ export interface InlineAiEditPopoverProps {
   lang: Lang;
   itemTitle: string;
   entityLabel: string;
-  /** Which entity the open row belongs to — NOT derivable from `entityLabel`,
-   *  which is an already-translated display string. It names the descriptor the
-   *  plan was diffed against, so `fieldLabel` can resolve `${entity}.${field}`:
-   *  `title` is a job title on a resource and a person's role on a stakeholder,
-   *  so an unqualified label would be wrong for one of them. Both call sites
-   *  (`use-entity-inline-ai-edit`, `use-tasks-inline-ai-edit`) already hold it. */
-  entity: InlineEntity;
+  /** ★★ NO `entity` PROP. It used to name the open row's descriptor so
+   *  `fieldLabel` could resolve `${entity}.${field}` — `title` is a job title on
+   *  a resource and a person's role on a stakeholder. Every `FieldDiff`/
+   *  `LinkDiff` now carries that itself (§393), which is not merely equivalent:
+   *  a plan is NOT single-entity here either. An inline edit on a task may
+   *  `create_raid_item`, and `pushLinkDiffs` projects that create's links
+   *  through the CREATE's descriptor — so a raid link line was being labelled
+   *  through the task's map. Per-diff is the only spelling that cannot be
+   *  wrong. `entityLabel` (a translated display string) is unrelated and stays. */
   phase: InlinePhase;
   plan: EditPlan | null;
   clarifyText: string;
@@ -36,7 +37,7 @@ export interface InlineAiEditPopoverProps {
 }
 
 export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
-  const { lang, itemTitle, entityLabel, entity, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
+  const { lang, itemTitle, entityLabel, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
   const [value, setValue] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -144,14 +145,14 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
             <p className="mb-2 text-xs font-medium text-foreground">{t(lang, "inlineAiEditPreview")}</p>
             <ul className="mb-3 space-y-1 text-xs text-foreground">
               {plan.updates.map((d) => (
-                <li key={d.field}><span className="font-medium">{fieldLabel(lang, entity, d.field)}</span>: {d.before || "—"} → {d.after || "—"}</li>
+                <li key={d.field}><span className="font-medium">{fieldLabel(lang, d.entity, d.field)}</span>: {d.before || "—"} → {d.after || "—"}</li>
               ))}
               {/* ★★ This popover's Apply REBUILDS its write patch from `links`,
                   and a relationship write REPLACES — so an unrendered link
                   change is a silent destructive write. `before`/`after` are the
                   resolved TITLES, never `rawIds`; the `|| "—"` is load-bearing
                   because `after` is legitimately "" when every link is removed. */}
-              {plan.links.map((l, i) => (<li key={`l${i}-${l.field}`}><span className="font-medium">{linkLabel(lang, entity, l)}</span>: {l.before || "—"} → {l.after || "—"}</li>))}
+              {plan.links.map((l, i) => (<li key={`l${i}-${l.field}`}><span className="font-medium">{linkLabel(lang, l.entity, l)}</span>: {l.before || "—"} → {l.after || "—"}</li>))}
               {plan.creates.map((c, i) => (<li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}</li>))}
               {plan.deletes.map((del, i) => (<li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>))}
               {/* ★★★ THE PARTS THAT WILL NOT LAND, and this surface is the one
