@@ -132,13 +132,23 @@ function wsWith(part: Partial<Workspace>): Workspace {
 describe("a prototype-named tool matches no tool map", () => {
   const protoNames = ["toString", "constructor", "hasOwnProperty", "__proto__", "valueOf"];
 
-  it("contributes nothing to the plan, exactly like any unrecognised tool", () => {
-    for (const name of protoNames) {
-      const plan = describeToolCalls([block(name, { id: 42, title: "x", linkedTaskIds: [42] })], { task, ws });
-      // The same empty plan `list_tasks` and `bogus` produce — an unrecognised
-      // tool is IGNORED here, it is not rejected.
-      expect({ name, plan }).toEqual({ name, plan: { updates: [], creates: [], deletes: [], rejected: [], links: [] } });
-    }
+  // ★★★ `it.each`, NEVER a loop inside ONE `it`. A hard `expect` ABORTS the
+  //  test, so under any mutant that trips on `toString` — element 1 — elements
+  //  2 to 5 went UNEXECUTED, `__proto__` among them. That is the one name the
+  //  comment above argues at length is not redundant, and it was the ONLY case
+  //  reaching it: the three sibling tests below all probe `toString` alone. Five
+  //  names in one `it` is one certified leg and four decorative ones.
+  //  ★ Measured, not reasoned: reverting the `hasOwnProperty` guard above to
+  //   `name in CREATE_TOOLS` reddens FIVE tests here, one per name. The same
+  //   mutant against the loop form reddened ONE.
+  //  ★ The assertion no longer wraps the plan in `{ name, plan }` — that shape
+  //   existed only to name the failing element in the diff, which the generated
+  //   test name now carries.
+  it.each(protoNames)("contributes nothing to the plan for %s, exactly like any unrecognised tool", (name) => {
+    const plan = describeToolCalls([block(name, { id: 42, title: "x", linkedTaskIds: [42] })], { task, ws });
+    // The same empty plan `list_tasks` and `bogus` produce — an unrecognised
+    // tool is IGNORED here, it is not rejected.
+    expect(plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
   });
 
   it("does not fabricate an unknown-id rejection on the delete branch", () => {
