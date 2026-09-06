@@ -29133,7 +29133,7 @@ Remedy is cheap: `entity-link-picker.test.tsx` already carries a working templat
 two-branch padding assertion), so each is a port rather than a new test. ★ If §399 is taken first,
 these three come for free — pin them on the extracted hook once instead of in two suites.
 
-## 401. `TaskLinkPicker` has no direct test suite — coverage is real but indirect
+## 412. `TaskLinkPicker` has no direct test suite — coverage is real but indirect
 
 **Status:** OPEN. Verified 2026-09-06: `ls src/app/task-link-picker.test.tsx` fails (no such
 file); `grep -rn "TaskLinkPicker" src --include=*.tsx --include=*.ts` finds it referenced only in
