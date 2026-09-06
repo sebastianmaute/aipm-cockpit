@@ -625,7 +625,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§398](#398-milestonedescription-is-cleared-by-a-non-string-and-the-preview-projects-one-instead-of-refusing-it--closed-2026-09-06) | `Milestone.description` is cleared by a non-string, and the preview projects one instead of refusing it | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§399](#399-the-change-amount-sanitizer-accepts-a-fraction-the-preview-rejects--closed-2026-09-06) | The change amount sanitizer accepts a fraction the preview rejects | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§400](#400-str-was-defined-twice-in-plants-and-entity-descriptorts--closed-2026-09-06) | `str` WAS defined twice, in `plan.ts` and `entity-descriptor.ts` | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
-| [§401](#401-update_task-accepts-an-undeclared-notes-input-that-no-schema-driven-gate-can-see--closed-2026-09-06) | `update_task` accepts an undeclared `notes` input that no schema-driven gate can see | found 2026-09-06 by the preview/apply-parity slice | S | closed |
+| [§401](#401-update_task-accepts-an-undeclared-notes-input-that-no-schema-driven-gate-can-see--closed-2026-09-06) | `update_task` accepts an undeclared `notes` input that no schema-driven gate can see | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§402](#402-update_resources-roleid-description-tells-the-model-it-assigns-rates--closed-2026-09-06) | `update_resource`'s `roleId` description tells the model it assigns rates | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§403](#403-sanitizemilestonetaskids-and-sanitizeidlist-disagree-two-ways--closed-2026-09-06) | `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§404](#404-a-dependency-proposal-whose-links-are-all-refused-shows-no-change-and-no-reason--closed-2026-09-06) | A dependency proposal whose links are all refused shows no change and no reason | found 2026-09-06 in cold review of the preview/apply-parity branch | S | CLOSED 2026-09-06 |
@@ -29476,7 +29476,7 @@ with positive assertions beside it so the absence check is not vacuous.
 
 ## 403. `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways — CLOSED 2026-09-06
 
-**Status:** CLOSED 2026-09-06 by the preview/apply-parity slice (0.289.0) — `sanitizeMilestoneTaskIds`
+**Status:** CLOSED 2026-09-06 by the preview/apply-parity slice — `sanitizeMilestoneTaskIds`
 now DELEGATES to `sanitizeIdList` rather than restating a narrower rule. Last executed verification
 2026-09-06 — `npx vitest run src/app/sanitize-records.test.ts src/app/sanitize-milestone-patch.test.ts src/app/inline-ai-edit src/app/golden-workspace.test.ts src/app/sanitize-branches.test.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/templates.test.ts`
 (EXIT=0, 19 files / 607 tests), plus a mutation proof: restoring the old array-only non-deduping body
@@ -30354,9 +30354,11 @@ a unit, a clamp can move it by any amount.
 blob straight to this sanitizer with NO field guard, so a model-created over-cap cost is clamped
 rather than refused. That is not a preview/apply divergence — `describeEntityCalls` pushes a create
 into `plan.creates` verbatim and runs no `numericFields` check on one, so the card makes no per-field
-claim there to contradict (§390 is the same gap, seen from the link side). UPDATES are unaffected:
-they run `dropUnacceptedChangeFields` first, so a refused model value never reaches this function
-wearing the model's spelling.
+claim there to contradict (§390 WAS the same gap seen from the LINK side, and was CLOSED 2026-09-06
+on that side — the create branch of `describeEntityCalls` now calls `pushLinkDiffs` before pushing
+the create, so a create's links ARE disclosed. This is the FIELD side, and it is still open).
+UPDATES are unaffected: they run `dropUnacceptedChangeFields` first, so a refused model value never
+reaches this function wearing the model's spelling.
 
 ★ Not a request to change the code. The clamp is defensible — the form clamps at `AMOUNT_MAX`, so a
 value above it could only have arrived from a model or a hand-edited file, and dropping it is worse
