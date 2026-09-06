@@ -541,6 +541,13 @@ describe.each(CASES)("write-path differential — $name", (c) => {
     expect(stored).not.toBe(before);
 
     for (const [field, value] of Object.entries(c.expectStored)) {
+      // ★★ ANTI-VACUITY: the field must EXIST on the seeded row. Without this a
+      //  case expecting `undefined` (the cleared-FK and dropped-key shapes)
+      //  degrades silently under a rename or a typo — `stored[typo]` is
+      //  `undefined`, `same(before[typo], stored[typo])` is true, and the whole
+      //  case collapses to the identity guard above while still reporting green.
+      //  Raised by a gate audit against exactly the two `undefined` cases here.
+      expect(field in before, `${field} is not on the seeded row — the case is vacuous`).toBe(true);
       expect(stored[field], `${field} was not stored as expected`).toEqual(value);
       const shown =
         plan.updates.some((d) => d.field === field) || plan.links.some((d) => d.field === field);

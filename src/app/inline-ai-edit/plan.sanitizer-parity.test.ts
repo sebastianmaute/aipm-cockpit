@@ -550,6 +550,13 @@ interface Sweep {
   previewOnlyRejects: number;
   applyRejects: number;
   comparedByField: Record<string, number>;
+  /** The `APPLY_ONLY_REJECTS` keys that actually fired. ★★ Added after a gate
+   *  audit pointed out that of the three exception containers here, only ONE
+   *  had a stale-entry check — and granting permanent silent cover to a closed
+   *  defect is precisely the failure this file was rewritten to end. Both sets
+   *  are empty today, so this is latent; the first entry added to either is the
+   *  one that would otherwise rot. */
+  excusedApplyRejects: string[];
   /** The `PREVIEW_REJECTS_APPLY_WRITES` keys that actually fired, so the totals
    *  test can red on a stale entry as well as on a new divergence. */
   excusedRejectWrites: string[];
@@ -560,7 +567,7 @@ interface Sweep {
 function sweep(entity: InlineEntity, base: Record<string, unknown>, read: StoredReader): Sweep {
   const out: Sweep = {
     mismatches: [], compared: 0, previewOnlyRejects: 0, applyRejects: 0,
-    comparedByField: {}, excusedRejectWrites: [],
+    comparedByField: {}, excusedRejectWrites: [], excusedApplyRejects: [],
   };
   for (const field of fieldsUnderTest(entity)) {
     const key = `${entity}.${field}`;
@@ -580,7 +587,7 @@ function sweep(entity: InlineEntity, base: Record<string, unknown>, read: Stored
         out.applyRejects += 1;
         // Apply would reject outright. The preview must reject too, unless the
         // pair is one of the enumerated known gaps.
-        if (APPLY_ONLY_REJECTS.has(key)) continue;
+        if (APPLY_ONLY_REJECTS.has(key)) { out.excusedApplyRejects.push(key); continue; }
         if (!preview.rejected) out.mismatches.push(`${key} on ${label}: apply REJECTS, preview accepts "${preview.shown}"`);
         continue;
       }
@@ -694,5 +701,14 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     // an unlisted divergence lands in `mismatches`.
     const fired = [...new Set(sweeps.flatMap(({ s }) => s.excusedRejectWrites))].sort();
     expect(fired).toEqual(Object.keys(PREVIEW_REJECTS_APPLY_WRITES).sort());
+
+    // ★★ THE SAME CHECK FOR THE OTHER EXCEPTION SET. A gate audit found that of
+    // the three containers here only `PREVIEW_REJECTS_APPLY_WRITES` had one, and
+    // an exception that outlives its defect is the exact rot this file exists to
+    // stop — four raid and two change entries were doing precisely that a few
+    // commits ago. Both sets are empty today, so this is latent by design: it
+    // arms itself the moment somebody adds the first entry.
+    const firedApplyOnly = [...new Set(sweeps.flatMap(({ s }) => s.excusedApplyRejects))].sort();
+    expect(firedApplyOnly).toEqual([...APPLY_ONLY_REJECTS].sort());
   });
 });

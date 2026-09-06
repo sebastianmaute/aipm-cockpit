@@ -624,6 +624,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§401](#401-update_task-accepts-an-undeclared-notes-input-that-no-schema-driven-gate-can-see-open) | `update_task` accepts an undeclared `notes` input that no schema-driven gate can see | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§402](#402-update_resources-roleid-description-tells-the-model-it-assigns-rates-open) | `update_resource`'s `roleId` description tells the model it assigns rates | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§403](#403-sanitizemilestonetaskids-and-sanitizeidlist-disagree-two-ways-open) | `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§404](#404-a-dependency-proposal-whose-links-are-all-refused-shows-no-change-and-no-reason-open) | A dependency proposal whose links are all refused shows no change and no reason | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
+| [§405](#405-the-merge-site-guard-tables-restate-their-sanitizers-predicates-instead-of-sharing-them-open) | The merge-site guard tables restate their sanitizers' predicates instead of sharing them | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
+| [§406](#406-the-set_task_dependencies-card-label-is-hardcoded-english-open) | The `set_task_dependencies` card label is hardcoded English | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -28944,10 +28947,21 @@ default is silently RESET by a replay with the card showing nothing.
 and the file's own header says so. It needs its own slice, with the fixtures moved off their
 fallbacks deliberately and the resulting reds triaged.
 
-★ Related and NOT yet done: the `stakeholder` and `resource` readers in that file are still bare
-`sanitizerReader(...)`. A merge-site guard is structurally invisible to a raw-sanitizer reader —
-measured on the raid entity, where the fix left the gate fully green and four stale exceptions went
-on excusing closed defects. Those two entities are one guard away from the same blindness.
+★★★ THE `stakeholder` HALF WAS A LIVE PRODUCTION DEFECT, NOT A TEST LIMITATION, and filing it here
+as one understated it. A gate audit moved `STK_BASE` off its defaults and measured **27 mismatch
+pairs**: `sanitizeStakeholder` RESETS an unrecognised `category`/`influence`/`interest` to a
+hardcoded fallback, and `updateStakeholder` had no merge-site guard — so a stakeholder stored as
+"Sponsor" was silently demoted to "Other" by a card that shows nothing about category, on the two
+REPLAYING consumers. **FIXED 2026-09-06** by `dropUnacceptedStakeholderFields` plus a composed
+reader; pinned by `sanitize-stakeholder-patch.test.ts` on a NON-default row and by a
+`plan.write-path.test.ts` case that reds when the call site is deleted. The remainder of this entry —
+the sweep's inability to exercise the silent-reset half at all — stays OPEN.
+
+★ Still not done: the `resource` reader is the last bare `sanitizerReader(...)`. It is faithful
+TODAY only because `updateResource` has no merge-site guard; add one and the sweep repeats the raid
+failure verbatim, going on excusing closed defects while fully green. A merge-site guard is
+structurally invisible to a raw-sanitizer reader — measured on raid, where the fix left the gate
+green and four stale exceptions kept covering defects that no longer existed.
 
 ## 395. `update_raid_item({probability: true})` stores a fabricated risk score of 1 — OPEN
 
@@ -29099,3 +29113,38 @@ describer does not currently populate.
 shared, because that branch lives in the hook and not in the pure resolver. The docstring says so.
 That duplication is the thing to watch: this register records several defects that began as one
 rule spelled in two places.
+
+## 405. The merge-site guard tables restate their sanitizers' predicates instead of sharing them — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 by the cold review of the four merge-site guards. Last executed
+verification 2026-09-06 — `grep -n "FIELD_GUARDS" src/app/sanitize-records.ts` (four tables), read
+against the sanitizer bodies in the same file.
+
+Each `dropUnaccepted*Fields` table hand-copies the acceptance rule from its sanitizer, 40-190 lines
+away in the same file. The docstrings say "hoist the sanitizer's OWN acceptance predicate", but no
+code is shared, so a divergence would be silent — and the tests cannot catch it either, because the
+`it.each` rows are hand-picked values rather than a property over the sanitizer.
+
+★★ This is the drift class the whole slice was written to fix, one layer down: two spellings of one
+rule, with nothing tying them together. The branch already shows the better shape —
+`sanitizeMilestoneTaskIds` was EXTRACTED and is called by the writer and the preview both.
+
+★ The mechanical fix is to invert the dependency: have the sanitizer call the predicate
+(`if (acceptsRiskScale(o.probability)) …`), which makes delegate-never-restate structural rather
+than aspirational. Not done here because it edits the load-path sanitizers, whose behaviour is pinned
+by ~8 tests this slice deliberately left untouched.
+
+## 406. The `set_task_dependencies` card label is hardcoded English — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 by the cold review of the preview surfaces. Last executed
+verification 2026-09-06 — `grep -n "dependencies\`" src/app/chat-proposal-describe.ts` (one hit, the
+template literal building the `LinkDiff` field name).
+
+The describer builds its label as `` `${title} dependencies` ``, which reaches the card through
+`fieldLabel(lang, undefined, field)` verbatim — so a German user sees "Kickoff vorbereiten
+dependencies". Every other label on that surface is translated, and `i18n.ts` already carries a
+`dependencies` key.
+
+★ The fix is not a one-liner: `chat-proposal-describe.ts` is i18n-free by construction and takes no
+`lang`, so either the label must become structured data the renderer translates, or the describer
+must start receiving a language. The second would put `t()` into a module whose purity is deliberate.
