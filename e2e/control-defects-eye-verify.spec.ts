@@ -60,22 +60,46 @@ test.describe("control-defects eye-verify (§414)", () => {
       const cx = box!.x + box!.width / 2;
       const cy = box!.y + box!.height / 2;
 
-      // The real mechanism under test: does a pointer HOVERING the button's
-      // own center actually resolve (via elementFromPoint, which follows the
-      // same hit-testing path a real hover does) to an element carrying a
-      // non-empty `title` — the button itself (if pointer-events reached it,
-      // which would mean the fallthrough failed) or an ancestor wrapper?
-      const titleCarrierReached = await page.evaluate(
-        ([x, y]) => {
-          let el = document.elementFromPoint(x, y) as HTMLElement | null;
+      // ★★★ HOP 0 IS THE WHOLE ASSERTION. The first cut of this test walked up
+      //     to six ancestors looking for a `title` and asserted only that one
+      //     was found — which is TRUE IN BOTH DIRECTIONS and therefore measured
+      //     nothing: when `disabled:pointer-events-none` WORKS, elementFromPoint
+      //     resolves straight through to the wrapper `<span title=…>`; when it
+      //     FAILS, elementFromPoint returns the button and the very first
+      //     `parentElement` hop lands on that SAME span, because the span is the
+      //     button's direct parent (`projects-panel.tsx` — grep
+      //     `title={loadFromTursoHint}`). That walk could only ever detect an
+      //     occluding overlay OUTSIDE the button's subtree, which is a real but
+      //     different claim from the one the test's name makes.
+      //     What discriminates the fallthrough is whether the pointer reaches
+      //     the BUTTON at all, so assert that first and separately.
+      const hit = await btn.evaluate(
+        (node, [x, y]) => {
+          const top = document.elementFromPoint(x, y) as HTMLElement | null;
+          let el = top;
+          let titleCarrierReached = false;
           for (let hops = 0; el && hops < 6; hops++, el = el.parentElement) {
-            if (el.getAttribute("title")) return true;
+            if (el.getAttribute("title")) {
+              titleCarrierReached = true;
+              break;
+            }
           }
-          return false;
+          return {
+            // `contains` covers a hit landing on a child of the button rather
+            // than the button element itself.
+            pointerReachedButton: !!top && (top === node || node.contains(top)),
+            titleCarrierReached,
+          };
         },
         [cx, cy] as const,
       );
-      expect(titleCarrierReached).toBe(true);
+
+      // The fallthrough itself: a pointer over the disabled button's centre
+      // must NOT land on the button. Delete `disabled:pointer-events-none` and
+      // this goes red — which the old single assertion did not.
+      expect(hit.pointerReachedButton).toBe(false);
+      // And what it DOES land on must carry the tooltip text.
+      expect(hit.titleCarrierReached).toBe(true);
     }
   });
 
@@ -135,9 +159,16 @@ test.describe("control-defects eye-verify (§414)", () => {
   //
   // The ID cell (`<Td className="font-mono …">` in task-row.tsx) renders
   // `#<id>` plus zero or more of the Jira/RAID/document/changes badges, each
-  // carrying `whitespace-nowrap`. `font-mono` is unique to that cell (the
-  // Start Date cell also carries `whitespace-nowrap`, but not `font-mono`),
-  // so scoping on it avoids picking up an unrelated column.
+  // carrying `whitespace-nowrap`.
+  //
+  // ★★ `font-mono` is NOT unique to that cell, and an earlier revision of this
+  //    comment claimed it was. `grep -n "font-mono" src/app/task-row.tsx`
+  //    returns THREE `<Td>` — the ID cell plus the right-aligned estimate and
+  //    spent-hours cells. The selector therefore matches ~3x what the old
+  //    comment implied. It is still CORRECT, but for a different reason: the
+  //    other two hold plain text and no `.whitespace-nowrap` descendant, so
+  //    `badgeCount === 0` skips them. Do not "tighten" this to the ID cell on
+  //    the strength of the old claim without re-running that grep.
   test("item 3: the ID-column badge run stays on one line", async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ tourSeen: true }));
@@ -168,8 +199,22 @@ test.describe("control-defects eye-verify (§414)", () => {
       expect(new Set(tops).size).toBe(1);
     }
 
-    // Non-vacuity guard: at least one row in the seeded fixture must actually
-    // carry a badge, or the loop above asserted nothing.
+    // ★★★ READ THIS BEFORE TRUSTING THIS TEST. `sawAnyBadge` proves the loop
+    //     RAN; it does NOT prove the loop asserted the property under test.
+    //     Measured against `sample-workspace-small.json` + `e2e/seed.ts`: the
+    //     maximum number of `.whitespace-nowrap` badges in ANY task's ID cell
+    //     under this seed is ONE — `RaidBadge` and `DocumentBadge` each render
+    //     a single AGGREGATE badge rather than one per ref, and the Jira badge
+    //     needs `settings.jira.siteUrl`, which no seed writes. So
+    //     `new Set(tops).size` is a one-element Set on every iteration and the
+    //     wrap assertion above CANNOT go red under this fixture.
+    //     An earlier revision of this comment called `sawAnyBadge` a
+    //     "non-vacuity guard", which is a false-coverage claim: seven
+    //     single-badge rows satisfy it. It is kept because it still catches a
+    //     seed that stops rendering badges at all.
+    //     Closing this for real needs a fixture that puts TWO badges in one ID
+    //     cell; until then the geometry here is a smoke test, and
+    //     `docs/open-followups.md` §414 records the same limitation.
     expect(sawAnyBadge).toBe(true);
   });
 
@@ -177,10 +222,15 @@ test.describe("control-defects eye-verify (§414)", () => {
   //
   // `documents-panel.tsx` wraps the rendered document in
   // `<div hidden={bodyCollapsed}>` (Task 5, commit 16237df9); clicking the
-  // OPEN document's own name toggles `bodyCollapsed` (`handleSelect`). The
-  // seeded fixture carries exactly one document ("Steering update"), so it is
-  // selected on load and its disclosure button is the only one on the page
-  // carrying `aria-expanded` — a more robust anchor than the plan's
+  // OPEN document's own name toggles `bodyCollapsed` (`handleSelect`).
+  // ★ The fixture carries TWO documents, not one — `e2e/seed.ts` spreads
+  // `SAMPLE_WORKSPACE.documents` and appends "Kickoff pack" (an earlier
+  // revision of this comment said "exactly one document", which is false).
+  // The anchor below is unaffected, and for a reason that does not depend on
+  // the count at all: only the OPEN row carries `aria-expanded` (it is
+  // `undefined` on every other row, per documents-list.tsx), so the
+  // `toHaveCount(1)` holds at any number of seeded documents — a more robust
+  // anchor than the plan's
   // `[hidden] >> nth=0`, and than matching on the title text (the accessible
   // name is a disambiguated row token, not the raw title, per
   // documents-list.tsx). Real preview content ("Delivery is on track for the

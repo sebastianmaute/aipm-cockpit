@@ -2063,11 +2063,14 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoUrlFromEnv:
     "Wird in dieser Installation über NEXT_PUBLIC_TURSO_DATABASE_URL gesetzt. Ein Wert aus der Umgebung hat Vorrang vor dieser Einstellung, daher ist das Feld ausgeblendet.",
   integrationsTursoUrlEnvUnusable:
-    "NEXT_PUBLIC_TURSO_DATABASE_URL ist gesetzt, ist aber keine verwendbare Turso-URL. Stattdessen wird der Wert unten verwendet.",
+    "NEXT_PUBLIC_TURSO_DATABASE_URL ist gesetzt, ist aber keine verwendbare Turso-URL. Stattdessen wird der Wert in diesem Feld verwendet.",
   integrationsTursoTest: "Verbindung testen",
   integrationsTursoTestLabel: "Verbindung testen – Turso",
   integrationsTursoTestOk: "Verbunden.",
-  integrationsTursoTestFail: "Verbindung fehlgeschlagen: {0}",
+  integrationsTursoTestUnreachable:
+    "Datenbank nicht erreichbar. Bitte URL und Netzwerkverbindung prüfen.",
+  integrationsTursoTestAuth: "Das Auth-Token wurde abgelehnt. Bitte Token prüfen.",
+  integrationsTursoTestFailGeneric: "Verbindung fehlgeschlagen.",
   integrationsTursoToken: "Auth-Token",
   integrationsTursoTokenPlaceholder: "Turso-Datenbank-Token",
   integrationsTursoTokenFromEnv:

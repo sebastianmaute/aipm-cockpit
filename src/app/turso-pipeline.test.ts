@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_PIPELINE_TIMEOUT_MS, runTursoPipeline, testTursoConnection } from "./turso-pipeline";
+import {
+  DEFAULT_PIPELINE_TIMEOUT_MS,
+  TEST_CONNECTION_TIMEOUT_MS,
+  runTursoPipeline,
+  testTursoConnection,
+} from "./turso-pipeline";
 import { StorageNotReadyError } from "./storage";
 import type { TursoConfig } from "./turso-config";
 
@@ -243,5 +248,24 @@ describe("testTursoConnection", () => {
 
   it("rejects when the config is null", async () => {
     await expect(testTursoConnection(null)).rejects.toBeInstanceOf(StorageNotReadyError);
+  });
+
+  // ★★ PINS THE THIRD ARGUMENT. Without this, deleting `TEST_CONNECTION_TIMEOUT_MS`
+  // from the `runTursoPipeline` call passes the whole suite — the default
+  // (15 s) would silently take over and nothing would notice. The assertion
+  // discriminates because the probe timeout is SHORTER than the default: at
+  // TEST_CONNECTION_TIMEOUT_MS the signal must already be aborted, which it
+  // would not be if the default were in force.
+  it("aborts at TEST_CONNECTION_TIMEOUT_MS, not the pipeline default", async () => {
+    expect(TEST_CONNECTION_TIMEOUT_MS).toBeLessThan(DEFAULT_PIPELINE_TIMEOUT_MS);
+    vi.useFakeTimers();
+    const fetchMock = stubHangingFetch();
+    const pending = testTursoConnection(cfg);
+    const expectation = expect(pending).rejects.toMatchObject({ hint: "storage-unreachable" });
+    await vi.advanceTimersByTimeAsync(TEST_CONNECTION_TIMEOUT_MS - 1);
+    expect((fetchMock.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect((fetchMock.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);
+    await expectation;
   });
 });

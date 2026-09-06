@@ -2123,12 +2123,28 @@ const enUS = {
   // while the resolver rejected the value on USABILITY, so a typo locked the
   // user out of configuring Turso at all (open-followups §337).
   integrationsTursoUrlEnvUnusable:
-    "NEXT_PUBLIC_TURSO_DATABASE_URL is set but is not a usable Turso URL, so the value below is used instead.",
+    // ★ "in this field", never "below" — the notice RENDERS BELOW THE INPUT it
+    // is talking about, so "below" pointed the reader past the one field they
+    // have to fill in. That is the §337 lockout reproduced in the copy.
+    "NEXT_PUBLIC_TURSO_DATABASE_URL is set but is not a usable Turso URL, so the value in this field is used instead.",
   integrationsTursoTest: "Test connection",
   // ★ Qualified accessible name — see jiraTestLabel.
   integrationsTursoTestLabel: "Test connection – Turso",
   integrationsTursoTestOk: "Connected.",
-  integrationsTursoTestFail: "Connection failed: {0}",
+  // ★★★ FOUR OUTCOME KEYS, NOT ONE PASS-THROUGH. An earlier cut had a single
+  // `integrationsTursoTestFail: "Connection failed: {0}"` filled with the
+  // thrown `e.message`. Every message reaching it is UNTRANSLATED ENGLISH, and
+  // `StorageNotReadyError` prefixes its own hint, so a German user saw
+  // "Verbindung fehlgeschlagen: Storage not ready: storage-unreachable" — an
+  // internal prefix and an internal code, in an otherwise fully localised
+  // control. Route the throw through `tursoErrorKind` (storage-error.ts) and
+  // pick a key instead; never interpolate a thrown message into UI copy here.
+  // ★ There is deliberately NO "enter a URL first" key: the button is disabled
+  // whenever the config is unresolvable, so such a message would be unreachable
+  // — a dead key, which is the exact class §415 exists to track.
+  integrationsTursoTestUnreachable: "Could not reach the database. Check the URL and your network.",
+  integrationsTursoTestAuth: "The auth token was rejected. Check the token.",
+  integrationsTursoTestFailGeneric: "Connection failed.",
   integrationsTursoToken: "Auth token",
   integrationsTursoTokenPlaceholder: "Turso database token",
   integrationsTursoTokenFromEnv:

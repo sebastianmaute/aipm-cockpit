@@ -29860,10 +29860,14 @@ invisible to CI.
 
 **WCAG 2.4.6 — three identically-named controls in one view.** `jiraTest`, `timelogTest` and
 `integrationsTursoTest` were all literally "Test connection". `settings-sections/integrations-section.tsx`
-renders `<TimelogSettings>` UNCONDITIONALLY (`:783`) and `<JiraSettingsSection>` behind `!hideJira`
-(`:793`) ALONGSIDE its own Turso probe button in the same section — so Settings → Integrations could
+renders `<TimelogSettings>` UNCONDITIONALLY and `<JiraSettingsSection>` behind `!hideJira`
+ALONGSIDE its own Turso probe button in the same section — so Settings → Integrations could
 show three identically-labelled buttons in one view at once. Two of the three already collided before
 this branch; the third arrived with the Turso connection probe added on this same branch.
+Reproduce the mounting relationship (cite the SYMBOLS, never line numbers — an earlier revision of
+this entry carried two bare `:NNN` cites that were BOTH off by one, and `docs:claims:check` could not
+see either, because a bare cite is resolved only from a file named earlier on the SAME line):
+`grep -n '<TimelogSettings\|<JiraSettingsSection\|!hideJira' src/app/settings-sections/integrations-section.tsx`
 
 **No live region — a passing or failing test result was never announced.** None of the three results
 was wired to assistive tech; each rendered as a plain `{result && <p>…}`, present in the DOM the
