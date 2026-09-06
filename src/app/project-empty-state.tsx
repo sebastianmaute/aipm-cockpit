@@ -225,39 +225,15 @@ export function ProjectEmptyState({
                     file mode only (Turso mode already lists archived projects
                     and has its own picker via the mode selector). */}
                 {mode === "file" && (
-                  // ★★ The hint rides this WRAPPER, not the Button. A `disabled`
-                  // button dispatches no mouse events, so a `title` on it never
-                  // surfaces — the explanation of why it is disabled would be
-                  // unreachable on the control it explains. Rendering disabled
-                  // rather than hiding is deliberate: a hidden button never
-                  // teaches the user the capability exists. `aria-disabled` is
-                  // NOT a substitute — it still fires onClick.
-                  //
-                  // ★★★ THE WRAPPER ONLY WORKS BECAUSE OF
-                  // `disabled:pointer-events-none` ON THE BUTTON. The span has
-                  // ZERO uncovered hit area (its only child is the button), and
-                  // a disabled button is still hit-testable by default — so
-                  // whether the pointer ever reaches the title-bearing span is
-                  // left to each browser's own title lookup. Dropping the button
-                  // out of hit-testing makes it fall through deterministically.
-                  // ★ CONSEQUENCE: an element with no pointer events cannot
-                  // style a cursor either, so `button.tsx`'s
-                  // `disabled:cursor-not-allowed` goes INERT here — the wrapper
-                  // carries the cursor instead, gated on the same condition.
-                  // Both changes are made HERE, never in the shared primitive,
-                  // which every other disabled button rides.
-                  // ★ Nothing in the unit suite can verify the reachability
-                  // itself: jsdom has no layout and renders no native tooltips.
-                  // The tests pin the CLASSES and the `aria-describedby` wiring
-                  // only; the hover behaviour is owed a browser eye-verify.
-                  //
-                  // ★★ And `title` is mouse-hover-only — a disabled button is
-                  // not focusable, so there is no keyboard route to it at all,
-                  // and it is unreachable on touch. `aria-describedby` IS
-                  // exposed on a disabled control and OUTRANKS `title` as the
-                  // accessible description, so the sr-only node below is what
-                  // actually reaches AT. The `title` stays for the sighted
-                  // mouse user.
+                  // ★★ The hint rides this WRAPPER, not the Button, and that
+                  // is DELIBERATE, not an oversight: a `disabled` button
+                  // dispatches no mouse events, so a `title` tidied onto the
+                  // Button would silently never appear. Three things are
+                  // coupled and must stay in step — the Button's
+                  // `disabled:pointer-events-none`, this wrapper's conditional
+                  // `cursor-not-allowed`, and `aria-describedby` pointing at
+                  // the `sr-only` node below. `projects-panel.tsx` carries the
+                  // reasoning for all three above its Load-from-Turso button.
                   <span
                     className={`inline-flex${tursoConfigured ? "" : " cursor-not-allowed"}`}
                     title={loadFromTursoHint}
