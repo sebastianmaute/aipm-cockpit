@@ -229,10 +229,11 @@ export function resizeBlock<Id extends string>(
  * RENDER rather than one that degrades. Quieter and worse, a non-numeric `w`
  * clamps to NaN, serialises as `null`, and is rejected on the NEXT load —
  * silently resetting the user's whole arrangement.
- * ★ The Dashboard's guard is `isLayout` in `dashboard-layout-store.ts`, which
- * this extraction deliberately left behind (Task 5 extracts the store, and the
- * guard belongs with it). A NEW SURFACE BINDING THIS ENGINE MUST PORT ONE —
- * binding `reconcile` without a validated read is the whole defect above.
+ * ★ THE GUARD IS `isArrangementLayout` IN `arrangement-store.ts` — one
+ * implementation, generic over the id, narrowing to `ArrangementLayout<string>`.
+ * A new surface does NOT port a copy: read through `loadArrangement`, which
+ * applies it, or call it directly if the blob comes from somewhere else.
+ * Binding `reconcile` to an unvalidated read is the whole defect above.
  *
  * ★★ A GATED-OFF BLOCK IS KEPT, NOT DROPPED, AND THAT IS WHY THIS TAKES NO
  * GATE INPUT. The engine-level rule, which every binding owes: a gate decides
