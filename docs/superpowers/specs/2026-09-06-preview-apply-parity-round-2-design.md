@@ -31,6 +31,7 @@ Four were the user's, made during brainstorming:
 | §396 | A blank `lastUpdateDate` CLEARS the field | Blank is a no-op and the preview stops promising a clear |
 | §403 | Milestone links align to `sanitizeIdList` | Keep the asymmetry, leave it pinned |
 | §397 | Thread the merged row into `fieldSanitizers` | Keep the narrowing, leave it pinned |
+| §393 | Committed scope — the per-diff entity lands | Hold it as the slice's cut line |
 
 Two were taken without asking, and both follow the field's own UI: a boolean is refused as a risk
 score, and a change amount must be an integer. In each case the alternative admits a value the form
@@ -197,8 +198,17 @@ back to raw property names: worse to read, never wrong.
 Add a per-diff entity to `FieldDiff` and `LinkDiff`. About twelve exact `toEqual` assertions in
 `plan.test.ts` redden on the extra property and get it.
 
-**This is the item to cut if the slice runs long.** It is a design improvement, not a defect: the
-current behaviour is degraded readability, never a wrong label.
+**Committed scope, not a stretch goal.** It was offered as the slice's cut line and the user
+promoted it. Read that as a decision about the SHAPE: `FieldDiff` and `LinkDiff` carrying no entity
+is what forces `recommendationPlanEntity` to answer "one register or nothing", and every future
+consumer of a merged plan inherits that. Fixing the shape now is cheaper than fixing it after the
+next consumer builds on the fallback.
+
+It remains a design improvement rather than a defect — today's behaviour is degraded readability,
+never a wrong label — so it is the one item here whose tests pin READABILITY, and the twelve
+`toEqual` edits are mechanical. A reviewer should check that none of the twelve was loosened
+(`objectContaining`) instead of extended; loosening them would silently unpin the field values the
+assertions exist for.
 
 **§391 — `emptyPlan()` is safe at two of its three call sites, and the reason is per-site.** A
 record, not a defect. Two call sites are correct forever (the `pendingOn` create-to-update remap,
@@ -238,5 +248,8 @@ deliberately left untouched, and those tests are the control: they must pass une
 **Layer 5's §403 moves stored data.** Duplicate milestone task ids collapse on the next write. That
 is the intent, and it is the reason the entry asked to be argued before being changed.
 
-**The slice is large.** Seventeen entries across five layers, three of which change user-visible
-behaviour. §393 is the declared cut line.
+**The slice is large, and there is no declared cut line.** Seventeen entries across five layers,
+three of which change user-visible behaviour. §393 was offered as the cut and was promoted into
+committed scope, so nothing here is pre-authorised to be dropped. If the slice has to be trimmed,
+that is a decision to bring back rather than one already made — and Layer 1 is the wrong place to
+trim, because Layers 2 and 5 depend on it having landed.
