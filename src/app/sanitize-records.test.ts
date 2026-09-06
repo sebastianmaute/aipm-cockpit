@@ -269,8 +269,13 @@ describe("delegate-never-restate: the change sanitizer and its merge-site guard"
     expect(Object.is(nearZero.scheduleImpactDays, -0)).toBe(true);
     const halfDown = sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.5 })!;
     expect(Object.is(halfDown.scheduleImpactDays, -0)).toBe(true);
-    // ★ The interval really is closed at BOTH ends — one step further out
-    //  rounds to -1 and the floor rejects it, so the acceptance is bounded.
+    // ★ The interval really is closed at BOTH ends, so the acceptance is
+    //  bounded rather than open-ended: anything below -0.5 rounds to -1 or less
+    //  and the floor rejects it. ★★ `-0.6` is a COMFORTABLE probe, not the
+    //  boundary — an earlier wording called it "one step further out", which
+    //  overstates how tightly this pins the edge. The true first rejected value
+    //  is the next double below -0.5, `-0.5000000000000001`; probing at the
+    //  representable edge would pin float behaviour rather than this rule.
     expect("scheduleImpactDays" in sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.6 })!).toBe(false);
   });
 });

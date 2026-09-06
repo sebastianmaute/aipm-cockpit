@@ -133,12 +133,24 @@ export interface EntityDescriptor {
    *  date rule's carve-out here — it would put the card back to promising a
    *  clear the milestone guard declines.
    *
-   *  ★ Scoped to `milestone.description` today because that is what §398 filed.
-   *  The other six rich fields (`RICH_FIELDS` in plan.ts) live on raid and
-   *  change, whose writers use `dropUnacceptedRaidFields` /
-   *  `dropUnacceptedChangeFields`; whether they share this shape is a separate
-   *  question and a separate register entry. Do not widen this set on the
-   *  strength of the field being rich. */
+   *  ★★ Scoped to `milestone.description` today because that is what §398
+   *  filed — NOT because the other six are safe. They are not: every one of
+   *  them loses the stored value on a non-string, by THREE different
+   *  mechanisms, which is why widening this set is not a one-line change.
+   *    • `raid.description` / `raid.mitigation` /
+   *      `change.impactDescription` / `change.resolutionNotes` — the same
+   *      drop-key shape as milestone (`if (x) item.x = x`). A merge-site guard
+   *      entry in `RAID_FIELD_GUARDS` / `CHANGE_FIELD_GUARDS` would fit.
+   *    • `change.description` — assigned UNCONDITIONALLY in the `ChangeItem`
+   *      literal, so a non-string stores `""` rather than omitting the key.
+   *      Same loss, different shape, and invisible to an `if (x)` grep.
+   *    • `task.description` — no guard table exists at all. Its writer is
+   *      `buildTaskCleanPatch` (`chat-task-patch.ts`), which assigns whenever
+   *      the key is present, so it needs a different fix from the other two.
+   *  ★ Whichever is done, the guard must nest OUTSIDE `withAiRichFields` at the
+   *  call site or it cannot fire — see `use-register-tools.ts`. A separate
+   *  register entry; do not widen this set on the strength of the field merely
+   *  being rich. */
   stringOnlyFields: Set<string>;
   /** Enum fields → the valid-set resolver (constant for most; category-scoped for RAID status). */
   enumFields: Record<string, EnumResolver>;

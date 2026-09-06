@@ -176,8 +176,18 @@ const MILESTONE_FIELD_GUARDS: Readonly<Record<string, MilestoneFieldGuard>> = {
   //  both sides and nothing is promised. `""` is the one clear that survives:
   //  it IS a string, so it passes here and reaches `if (description)`, which
   //  omits the key — and the card renders `str("")` as "" and discloses the
-  //  same clear. Every input therefore lands the same way on both sides; adding
-  //  a carve-out for null/[] would BREAK that, not extend it.
+  //  same clear. Adding a carve-out for null/[] would BREAK that, not extend it.
+  // ★★★ THE "BOTH SIDES AGREE" CLAIM IS ONLY TRUE WITH THIS GUARD NESTED
+  //  OUTSIDE `withAiRichFields` AT THE CALL SITE, and the first cut of this
+  //  comment asserted the agreement while the code could not deliver it.
+  //  Nested inside, `sanitizeAiRichText` had already turned every non-string
+  //  into "" before this predicate ran, so `typeof v === "string"` was
+  //  unconditionally true, the key survived, and `if (description)` then
+  //  dropped it — the card refused the value while the write CLEARED the stored
+  //  text. Do not read the parity off this predicate alone; it is a property of
+  //  the composition. Measured over {true, null, [], 42, "<p>new</p>", "",
+  //  key-absent} in `sanitize-milestone-patch.test.ts`'s "preview and write
+  //  agree on every shape", which runs the real preview and the real write.
   description: (v) => typeof v === "string",
 };
 

@@ -384,6 +384,22 @@ export function describeEntityCalls(
         // rest apply. Blank is exempt because the sanitizer's own guard is
         // `if (e && !isValidEmail(e))` — clearing an address is legal.
         if (d.emailFormatFields.has(f) && after !== "" && !isValidEmail(after)) { bad(`${f}=${after}`); continue; }
+        // ★★ THE RAW VALUE, for the same reason the numeric guard below reads
+        //  it — this check and that one are the same shape, one register apart.
+        //  A rich field has no `fieldSanitizers` entry (its apply-path sanitizer
+        //  needs a DOM), so `after` is the verbatim `str(input[f])` and a
+        //  boolean has ALREADY become "true" by the time it gets here: a string
+        //  test over `after` would pass every value. The writer's
+        //  `sanitizeRichText` returns "" for a non-string, `if (description)`
+        //  then omits the key, and the merge-site guard
+        //  (`MILESTONE_FIELD_GUARDS.description`) DROPS it so the stored rich
+        //  text survives — so projecting one would promise a change that does
+        //  not happen (§398). The guard and its writer half must move together:
+        //  either one alone is this slice's defect in one direction or the
+        //  other. ★★★ And the writer half only fires while it nests OUTSIDE
+        //  `withAiRichFields` at the call site; nested inside, it is dead code
+        //  and this refusal becomes the divergence rather than the fix.
+        if (d.stringOnlyFields.has(f) && typeof input[f] !== "string") { bad(`${f}=${after}`); continue; }
         // ★★★ THE RAW VALUE, NEVER `after`. `after` has been through
         //  `numberPreview`, which renders `true` as "1" — so checking the
         //  rendered string cannot see a boolean, and the card showed a
@@ -392,19 +408,6 @@ export function describeEntityCalls(
         //  so the two cannot disagree about what lands.
         //  ★ `bad()` still receives the RENDERED `after`: the rejection detail
         //  is for a human, and it is the value the card would have shown.
-        // ★★ THE RAW VALUE AGAIN, for the same reason as the numeric guard
-        //  below and one register later. A rich field has no `fieldSanitizers`
-        //  entry (its apply-path sanitizer needs a DOM), so `after` is the
-        //  verbatim `str(input[f])` and a boolean has ALREADY become "true" by
-        //  the time it gets here — a string test over `after` would pass every
-        //  value. The writer's `sanitizeRichText` returns "" for a non-string,
-        //  `if (description)` then omits the key, and the merge-site guard
-        //  (`MILESTONE_FIELD_GUARDS.description`) now DROPS it so the stored
-        //  rich text survives — so projecting one would promise a change that
-        //  does not happen (§398). The guard and its writer half must move
-        //  together: either one alone is this slice's defect in one direction
-        //  or the other.
-        if (d.stringOnlyFields.has(f) && typeof input[f] !== "string") { bad(`${f}=${after}`); continue; }
         const accepts = d.numericFields[f];
         if (accepts && !accepts(input[f])) { bad(`${f}=${after}`); continue; }
         if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }

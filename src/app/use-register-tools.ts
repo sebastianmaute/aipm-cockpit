@@ -222,7 +222,14 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // Mirrors `applyModelChangeStatus`, applied one field over.
         const merged = sanitizeRaidItem({
           ...existing,
-          ...dropUnacceptedRaidFields(withAiRichFields(patch, AI_RICH_FIELDS.raid), existing),
+          // ★ Guard OUTSIDE, matching milestone — see the note at that call
+          // site for why the order is load-bearing. It is behaviour-NEUTRAL
+          // here today: `RAID_FIELD_GUARDS`' keys (category, status, severity,
+          // probability, impact, and the three dates) are disjoint from
+          // `AI_RICH_FIELDS.raid` (description, mitigation), so neither pass
+          // can see what the other writes. Nested this way the trap is disarmed
+          // for whoever adds a rich field to the guard table.
+          ...withAiRichFields(dropUnacceptedRaidFields(patch, existing), AI_RICH_FIELDS.raid),
           id,
           localModifiedAt: new Date().toISOString(),
         });
@@ -322,7 +329,14 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // key would take away.
         const merged = sanitizeChangeItem({
           ...existing,
-          ...dropUnacceptedChangeFields(withAiRichFields(patch, AI_RICH_FIELDS.change)),
+          // ★ Guard OUTSIDE, matching milestone. Behaviour-NEUTRAL here today:
+          // `CHANGE_FIELD_GUARDS`' keys (type, impact, the two dates,
+          // scheduleImpactDays, costImpact) are disjoint from
+          // `AI_RICH_FIELDS.change` (description, impactDescription,
+          // resolutionNotes). ★★ `impact` and `impactDescription` are DIFFERENT
+          // keys — the near-collision is the reason to state the disjointness
+          // rather than eyeball it.
+          ...withAiRichFields(dropUnacceptedChangeFields(patch), AI_RICH_FIELDS.change),
           id, localModifiedAt: new Date().toISOString(),
         });
         if (!merged) throw new Error("invalid change update");
@@ -401,7 +415,17 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // "unchanged", which is what the preview already promises.
         const merged = sanitizeMilestone({
           ...existing,
-          ...dropUnacceptedMilestoneFields(withAiRichFields(patch, AI_RICH_FIELDS.milestone)),
+          // ★★★ THE GUARD NESTS OUTSIDE, AND THE ORDER IS THE WHOLE GUARD.
+          // `withAiRichFields` runs `sanitizeAiRichText`, which returns "" for
+          // any non-string — so run INSIDE, it hands the guard an already-
+          // stringified value and `MILESTONE_FIELD_GUARDS.description`'s
+          // `typeof v === "string"` is unconditionally true. That shipped once:
+          // the guard was dead code, the preview refused the value, and the
+          // write cleared the stored rich text anyway. The guard must see the
+          // RAW model value. Pinned by a source assertion in
+          // `sanitize-milestone-patch.test.ts` — no behavioural test can see a
+          // re-nesting here, because any such test composes its own copy.
+          ...withAiRichFields(dropUnacceptedMilestoneFields(patch), AI_RICH_FIELDS.milestone),
           id,
           localModifiedAt: new Date().toISOString(),
         });
