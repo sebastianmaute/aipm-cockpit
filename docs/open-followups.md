@@ -627,7 +627,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§400](#400-str-is-defined-twice-in-plants-and-entity-descriptorts-open) | `str` is defined twice, in `plan.ts` and `entity-descriptor.ts` | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§401](#401-update_task-accepts-an-undeclared-notes-input-that-no-schema-driven-gate-can-see-closed-2026-09-06) | `update_task` accepts an undeclared `notes` input that no schema-driven gate can see | found 2026-09-06 by the preview/apply-parity slice | S | closed |
 | [§402](#402-update_resources-roleid-description-tells-the-model-it-assigns-rates-closed-2026-09-06) | `update_resource`'s `roleId` description tells the model it assigns rates | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
-| [§403](#403-sanitizemilestonetaskids-and-sanitizeidlist-disagree-two-ways-open) | `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§403](#403-sanitizemilestonetaskids-and-sanitizeidlist-disagree-two-ways-closed-2026-09-06) | `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§404](#404-a-dependency-proposal-whose-links-are-all-refused-shows-no-change-and-no-reason-open) | A dependency proposal whose links are all refused shows no change and no reason | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§405](#405-the-merge-site-guard-tables-restate-their-sanitizers-predicates-instead-of-sharing-them-open) | The merge-site guard tables restate their sanitizers' predicates instead of sharing them | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§406](#406-the-set_task_dependencies-card-label-is-hardcoded-english-open) | The `set_task_dependencies` card label is hardcoded English | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
@@ -29301,19 +29301,41 @@ discipline, grade and rates in order to DENY writing them; forbidding the word w
 wording than the one being guarded. It pins the retired CLAIM (`/assigns the resource/i`) instead,
 with positive assertions beside it so the absence check is not vacuous.
 
-## 403. `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways — OPEN
+## 403. `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways — CLOSED 2026-09-06
 
-**Status:** OPEN as a RECORD of a deliberate asymmetry, pinned rather than resolved. Filed
-2026-09-06. Last executed verification 2026-09-06 — `npx vitest run src/app/sanitize-records.test.ts -t "unlike sanitizeIdList"` and pinned by
-`src/app/sanitize-records.test.ts`'s "yields [] for a delimited string, unlike sanitizeIdList".
+**Status:** CLOSED 2026-09-06 by the preview/apply-parity slice (0.289.0) — `sanitizeMilestoneTaskIds`
+now DELEGATES to `sanitizeIdList` rather than restating a narrower rule. Last executed verification
+2026-09-06 — `npx vitest run src/app/sanitize-records.test.ts src/app/sanitize-milestone-patch.test.ts src/app/inline-ai-edit src/app/golden-workspace.test.ts src/app/sanitize-branches.test.ts src/app/chat-proposal.test.ts src/app/chat-proposal-describe.test.ts src/app/templates.test.ts`
+(EXIT=0, 19 files / 607 tests), plus a mutation proof: restoring the old array-only non-deduping body
+reds 4 assertions across the three files that pinned the divergence (4 failed / 193 passed).
 
-The milestone rule is array-ONLY (a delimited string yields `[]`, where raid and change parse one)
-and does NOT dedupe (which inflates the digest's `linkedTasks: N`). So `linkedTaskIds: "1;2"` links
-two tasks on a raid item and links nothing on a milestone.
+**Original filing:** 2026-09-06, as a RECORD of a deliberate asymmetry, pinned rather than resolved.
+The milestone rule was array-ONLY (a delimited string yielded `[]`, where raid and change parse one)
+and did NOT dedupe (which inflated the digest's `linkedTasks: N` at `use-insight-recommendations.ts`,
+a plain `m.linkedTaskIds.length`). So `linkedTaskIds: "1;2"` linked two tasks on a raid item and
+linked nothing on a milestone.
 
-★ The preview now calls the milestone's OWN rule, so the card and the write agree — this entry is
-about the two rules disagreeing with EACH OTHER, which is a data-model question, not a preview one.
-Changing either one moves stored data on a path this register would want to see argued first.
+★★★ **CLOSING THIS MOVED STORED DATA, which is why the entry asked to be argued first.** Duplicate
+ids already persisted collapse on the next write of that milestone. Nothing migrates them eagerly —
+the sanitizer runs on load and on every write path, so a milestone that is never written again keeps
+its duplicates in storage and renders deduped. Accepted: the two shapes are equivalent for every
+consumer (each reads the array as a SET of links), and the only observable that ever distinguished
+them was the inflated count this entry filed.
+
+★ The preview already called the milestone's OWN rule, so the card and the write agreed throughout —
+this entry was about the two rules disagreeing with EACH OTHER, a data-model question rather than a
+preview one. The fix keeps the named export and the descriptor's by-name reference: the invariant
+worth protecting is that the preview follows the WRITER, not that the two rules happen to coincide.
+
+★★ THREE tests pinned the divergence, not one, and two of them were outside the file the fix touched
+— `inline-ai-edit/entity-descriptor.test.ts`'s "carries each writer's own id rule" and
+`inline-ai-edit/plan.test.ts`'s "uses the milestone's OWN id rule". Each now records what it used to
+pin. ★★ The first is a DISCLOSED COVERAGE LOSS: with the rules aligned, no id value can tell a real
+delegation from a shared approximation, so the surviving discriminator in that file is
+`resource.roleId` (`toNumber`) and its test must not be folded into the id one.
+
+★ `golden-workspace.test.ts` was run explicitly and stayed GREEN (5 tests) — the curated sample holds
+no milestone whose links change shape under the new rule, so no fixture was regenerated.
 
 ## 404. A dependency proposal whose links are all refused shows no change and no reason — OPEN
 

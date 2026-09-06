@@ -70,13 +70,14 @@ import {
 import { sanitizeRichText } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 
-/** The milestone's OWN linked-task rule. ★★ It is deliberately NOT
- *  `sanitizeIdList`: it accepts an array only (a delimited string yields `[]`,
- *  where raid/change parse one) and it does NOT dedupe. Exported so the preview
- *  can call the real rule instead of approximating it with the raid/change one,
- *  which would show links a milestone write drops. */
+/** The milestone's linked-task rule. ★★ It USED to be deliberately different
+ *  from `sanitizeIdList` — array-only and non-deduping — which meant
+ *  `linkedTaskIds: "1;2"` linked two tasks on a raid item and nothing on a
+ *  milestone, and duplicates inflated the digest's `linkedTasks` count. Aligned
+ *  in 0.289.0 (§403). Kept as a named export because the preview calls it by
+ *  name and because a future milestone-specific rule has somewhere to live. */
 export function sanitizeMilestoneTaskIds(v: unknown): number[] {
-  return Array.isArray(v) ? v.map((n) => toNumber(n)).filter((n) => Number.isFinite(n) && n > 0) : [];
+  return sanitizeIdList(v);
 }
 
 /** ★★★ THE ONE DATE PREDICATE FOR EVERY MERGE-SITE GUARD — raid, change and

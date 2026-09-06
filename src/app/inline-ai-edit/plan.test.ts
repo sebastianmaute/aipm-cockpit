@@ -1160,16 +1160,22 @@ describe("link fields", () => {
     expect(plan.links).toEqual([]);
   });
 
-  it("uses the milestone's OWN id rule, which drops a delimited string", () => {
-    // raid/change would parse "1;2" into two links; a milestone stores []. The
-    // preview must show what THIS writer does, not what the sibling does.
+  it("uses the milestone's OWN id rule, which parses a delimited string", () => {
+    // WAS "…which drops a delimited string", asserting after "" / rawIds [] —
+    // the milestone rule was array-only, so raid/change parsed "1;2" into two
+    // links and a milestone stored []. §403 aligned it in 0.289.0. What this
+    // still pins is the invariant that outlived the divergence: the preview
+    // shows what THIS writer does, reached through the milestone's own
+    // function, so a later re-divergence moves the card with the write.
     const ga = { id: 5, name: "GA", linkedTaskIds: [1] };
     const mws = wsWith({ tasks: linkTasks as never, milestones: [ga] as never });
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_milestone", input: { id: 5, linkedTaskIds: "1;2" } }],
       { descriptor: INLINE_DESCRIPTORS.milestone, item: ga, ws: mws },
     );
-    expect(plan.links).toEqual([{ field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }]);
+    expect(plan.links).toEqual([
+      { field: "linkedTaskIds", before: "Draft brief", after: "Draft brief, Ship", rawIds: [1, 2] },
+    ]);
   });
 
   it("carries the sanitized ids the writer will store, not the titles", () => {

@@ -273,9 +273,14 @@ export interface EntityDescriptor {
    *
    *  `sanitize` must be the WRITER'S OWN function, never a copy of its rule —
    *  raid and change use `sanitizeIdList` (parses a delimited string, dedupes),
-   *  milestone uses `sanitizeMilestoneTaskIds` (array-only, no dedupe), and
-   *  `resource.roleId` coerces with `toNumber`, which rejects the array shapes
-   *  bare `Number` would accept. */
+   *  milestone uses `sanitizeMilestoneTaskIds`, and `resource.roleId` coerces
+   *  with `toNumber`, which rejects the array shapes bare `Number` would accept.
+   *  ★★ `sanitizeMilestoneTaskIds` now DELEGATES to `sanitizeIdList` (§403,
+   *  0.289.0); it was array-only and non-deduping, which is why it is named here
+   *  at all. Keep calling it by name rather than collapsing the entry onto
+   *  `sanitizeIdList` — a future milestone-specific rule has to land somewhere,
+   *  and the whole point of this field is that the descriptor follows the writer
+   *  rather than restating what the writer happens to do today. */
   linkFields: Record<string, LinkField>;
   titleOf: (item: Record<string, unknown>) => string;
 }

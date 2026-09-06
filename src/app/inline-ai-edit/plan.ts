@@ -73,8 +73,10 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *   be confused: the rebuild path applies `rawIds`, the card renders the
  *   titles. `rawIds` is already sanitized by THAT FIELD'S OWN writer rule
  *   (`sanitizeIdList` for raid/change, `sanitizeMilestoneTaskIds` for
- *   milestone — they differ on dedupe and on delimited strings), so what the
- *   preview shows and what the patch carries come from one computation.
+ *   milestone — the same rule since §403 aligned them in 0.289.0, but still
+ *   reached through each field's own function so a later divergence cannot
+ *   sneak past the preview), so what the preview shows and what the patch
+ *   carries come from one computation.
  *
  *  ★★ `subject` NAMES THE ROW A FIELD BELONGS TO, for the one case where the
  *   field label alone is ambiguous: `set_task_dependencies` rewrites one task's

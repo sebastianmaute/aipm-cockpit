@@ -233,19 +233,24 @@ describe("linkFields", () => {
     expect(link.sanitize(undefined)).toEqual([]);
   });
 
-  // ★★ The milestone rule is NOT the raid/change one, and the descriptor must
-  //  carry each writer's OWN function: `sanitizeIdList` parses a delimited
-  //  string and dedupes; `sanitizeMilestoneTaskIds` accepts an array only and
-  //  keeps duplicates. Approximating one with the other previews links a
-  //  milestone write silently drops.
+  // ★★ The descriptor must carry each writer's OWN function, never a copy of
+  //  its rule. ★★★ THIS TEST NO LONGER DISCRIMINATES ON THE ID FIELDS, and that
+  //  is a disclosed coverage loss, not an oversight: it used to assert
+  //  `milestone("1;2")` was `[]` where raid was `[1, 2]`, and
+  //  `milestone([3, 1, 3])` was `[3, 1, 3]` where raid deduped — the milestone
+  //  rule was array-only and non-deduping. §403 aligned it onto `sanitizeIdList`
+  //  in 0.289.0, so the two now agree on every probe and no id value can tell a
+  //  real delegation from a shared approximation. The discriminator that
+  //  SURVIVES is `resource.roleId`, pinned by the test above this one, which is
+  //  the only reason that test must not be folded into this one.
   it("carries each writer's own id rule, not a shared approximation", () => {
     const raid = INLINE_DESCRIPTORS.raid.linkFields.linkedTaskIds.sanitize;
     const milestone = INLINE_DESCRIPTORS.milestone.linkFields.linkedTaskIds.sanitize;
-    // A delimited string: raid/change parse it, milestone does not.
+    // A delimited string: both parse it.
     expect(raid("1;2")).toEqual([1, 2]);
-    expect(milestone("1;2")).toEqual([]);
-    // Duplicates: raid/change dedupe, milestone does not.
+    expect(milestone("1;2")).toEqual([1, 2]);
+    // Duplicates: both dedupe, keeping first-occurrence order.
     expect(raid([3, 1, 3])).toEqual([3, 1]);
-    expect(milestone([3, 1, 3])).toEqual([3, 1, 3]);
+    expect(milestone([3, 1, 3])).toEqual([3, 1]);
   });
 });

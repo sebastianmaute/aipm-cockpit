@@ -141,14 +141,20 @@ describe("entity rich-field sink regression (open-followups §143)", () => {
 });
 
 describe("sanitizeMilestoneTaskIds", () => {
-  it("keeps positive integers in order and does NOT dedupe", () => {
-    expect(sanitizeMilestoneTaskIds([3, 1, 3])).toEqual([3, 1, 3]);
+  it("keeps positive integers in first-occurrence order and dedupes", () => {
+    // WAS "keeps positive integers in order and does NOT dedupe" — it expected
+    // [3, 1, 3]. The order half is unchanged and still pinned here.
+    expect(sanitizeMilestoneTaskIds([3, 1, 3])).toEqual([3, 1]);
   });
 
-  it("yields [] for a delimited string, unlike sanitizeIdList", () => {
-    // The asymmetry is deliberate to PRESERVE, not to fix here: this pins it so
-    // the preview can mirror it exactly. Filed separately in open-followups.
-    expect(sanitizeMilestoneTaskIds("1;2")).toEqual([]);
+  it("parses a delimited string and dedupes, like sanitizeIdList", () => {
+    // WAS "yields [] for a delimited string, unlike sanitizeIdList" — the
+    // milestone rule was array-only and did not dedupe, so `linkedTaskIds: "1;2"`
+    // linked two tasks on a raid item and NOTHING on a milestone, and duplicates
+    // inflated the digest's linkedTasks count (§403).
+    expect(sanitizeMilestoneTaskIds("1;2")).toEqual([1, 2]);
+    expect(sanitizeMilestoneTaskIds([1, 1, 2])).toEqual([1, 2]);
+    expect(sanitizeMilestoneTaskIds([3, 0, -1, "x"])).toEqual([3]);
   });
 
   it("drops zero, negatives and non-numbers", () => {
