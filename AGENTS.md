@@ -1074,7 +1074,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `globals.css` rule on `.lucide`; that file is unlayered, so overriding it needs `stroke-[2]!`.
   ★★ **A stale `.next` makes `/icon-gallery` 404 in dev, and it is the only route that can show
   this.** The page is the repo's sole `if (process.env.NODE_ENV === "production") notFound();`
-  guard (`grep -rn NODE_ENV src --include=*.ts --include=*.tsx` — the other two hits are `!==`), so
+  guard (`grep -rn NODE_ENV src --include=*.ts --include=*.tsx` — read the hits; ★★ do NOT count
+  them, and do NOT read "sole" as "the only `=== "production"` test". `use-arrangement.ts` has one
+  too, as an early return guarding a dev-only `console.warn`; what is unique here is the pairing with
+  `notFound()`, which is what makes the ROUTE disappear. An earlier revision said "the other two hits
+  are `!==`", which was already loose — one of them is a `vi.stubEnv` in a test, not a comparison —
+  and went stale the moment a fourth site landed), so
   a dev server serving anything stale for that route 404s while every sibling route is fine. It
   reaches the gallery/visual e2e specs as `toHaveCount` "Received: 0", which reads like a broken
   selector. Remedy is the one this file already gives for a corrupted dev cache: stop the server,

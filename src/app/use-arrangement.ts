@@ -145,11 +145,16 @@ export interface ArrangementOptions<Id extends string> {
  * TEST STAYS GREEN — the Dashboard binding uses module constants, so no existing
  * suite can see a second binding's mistake, and the engine's own no-op tests
  * pass their own object in. The `console.warn` follows the existing precedent in
- * `use-resource-directory.ts` (same `process.env.NODE_ENV !== "production"`
- * guard, same purpose: a developer error a type cannot express). It fires from
+ * `use-resource-directory.ts` (same `NODE_ENV` guard, same purpose: a developer
+ * error a type cannot express — see the ★ on its spelling below). It fires from
  * an EFFECT, not the render body — `react-hooks/refs` makes writing a ref during
  * render fatal, and that ref is what makes the warning fire once per change
  * rather than once per render.
+ * ★ The env guard is spelled as an EARLY RETURN (`=== "production"` then
+ * `return`) where the precedent nests under `!== "production"`. Same condition,
+ * and the repo prefers early returns to nesting — but note it is a SECOND
+ * `=== "production"` test in `src`, which `AGENTS.md`'s icon-gallery bullet used
+ * to imply did not exist.
  *
  * ★★ THE INITIAL READ IS A LAZY `useState`, not an effect. A `useEffect` that
  * called `setState` would violate the repo's banned `react-hooks/
