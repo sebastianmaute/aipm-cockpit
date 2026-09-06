@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
-import { getTursoConfig } from "./turso-config";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { getTursoConfig, isUsableTursoUrl } from "./turso-config";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -77,5 +77,49 @@ describe("getTursoConfig", () => {
   it("still requires a token for remote https / libsql endpoints", () => {
     expect(getTursoConfig("https://x.turso.io")).toBeNull();
     expect(getTursoConfig("libsql://x.turso.io")).toBeNull();
+  });
+});
+
+describe("§337 — env precedence is conditional on usability", () => {
+  const ENV_URL = "NEXT_PUBLIC_TURSO_DATABASE_URL";
+  let saved: string | undefined;
+
+  beforeEach(() => {
+    saved = process.env[ENV_URL];
+  });
+  afterEach(() => {
+    if (saved === undefined) delete process.env[ENV_URL];
+    else process.env[ENV_URL] = saved;
+  });
+
+  it("a USABLE env url still outranks the settings url", () => {
+    process.env[ENV_URL] = "libsql://env-db.turso.io";
+    const cfg = getTursoConfig("https://settings-db.turso.io", "tok");
+    expect(cfg?.httpUrl).toBe("https://env-db.turso.io");
+  });
+
+  it("an UNUSABLE env url falls through to the settings url", () => {
+    process.env[ENV_URL] = "postgres://nope";
+    const cfg = getTursoConfig("https://settings-db.turso.io", "tok");
+    expect(cfg?.httpUrl).toBe("https://settings-db.turso.io");
+  });
+
+  it("an UNUSABLE env url with no settings url is still null", () => {
+    process.env[ENV_URL] = "postgres://nope";
+    expect(getTursoConfig(undefined, "tok")).toBeNull();
+  });
+
+  it("an UNUSABLE env url with an equally unusable settings url is null", () => {
+    process.env[ENV_URL] = "postgres://nope";
+    expect(getTursoConfig("not a url", "tok")).toBeNull();
+  });
+
+  it("isUsableTursoUrl agrees with the resolver on both sides", () => {
+    expect(isUsableTursoUrl("libsql://db.turso.io")).toBe(true);
+    expect(isUsableTursoUrl("https://db.turso.io")).toBe(true);
+    expect(isUsableTursoUrl("http://localhost:8080")).toBe(true);
+    expect(isUsableTursoUrl("postgres://nope")).toBe(false);
+    expect(isUsableTursoUrl("http://example.com")).toBe(false);
+    expect(isUsableTursoUrl("")).toBe(false);
   });
 });
