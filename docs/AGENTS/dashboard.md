@@ -226,6 +226,15 @@ primitive's own arrow keys are off here, `keyboard: false`). Three cases, each m
   BEFORE the reorder, and focusing a stale node is a silent no-op, i.e. the same defect one level down.
   ★★★ jsdom CANNOT TELL THE TWO APART: the synchronous version passes the unit test. Measured, so do not
   "simplify" it back on the strength of a green suite.
+★★ **THE ⋮ MENU AND THE SHELF ARE GENERIC NOW, and the names below are the Dashboard's ADAPTERS.**
+`ArrangementBlockMenu` / `AxisGroup` (`arrangement-block-menu.tsx`) and `ArrangementShelf`
+(`arrangement-shelf.tsx`) hold the behaviour; `dashboard-tile-menu.tsx` and `dashboard-shelf.tsx` keep
+`DashboardTileMenu` / `TileAxisGroup` / `DashboardShelf` as thin bindings, so every claim below is still
+true of the Dashboard — read it in the generic file before changing it. ★★★ The one real design change:
+the menu takes its four span BOUNDS as props and no longer calls `tileById` itself. That lookup and its
+`return null` moved to the Dashboard adapter, so the shared component can no longer render NOTHING —
+a state indistinguishable from a menu that failed to open.
+
 ★★ **RESIZE IS NOT IN THAT LIST AND MUST NOT BE ADDED TO IT.** `TileAxisGroup`'s `onPick` calls
 `onResize` and nothing else, so the size radios do NOT close the popover; the pressed control stays
 mounted and keeps focus by itself, and the panel is portaled so the tile re-rendering at its new span

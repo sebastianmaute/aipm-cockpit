@@ -189,6 +189,8 @@ The rejected alternatives, for the record:
 | `use-arrangement.ts` | `use-dashboard-layout.ts` | `ArrangementOptions<Id>` = `{catalogue, storageKey, fallback, projectId, readOnly?, seed?}` |
 | `arrangement-tile.tsx` | `dashboard-tile.tsx` | `id: string`, `testIdPrefix` |
 | `arrangement-grid.tsx` | `dashboard-grid.tsx` | `rowClass` / `gapClass` / `testId` injected; owns `W_CLASS` / `H_CLASS` |
+| `arrangement-block-menu.tsx` | `dashboard-tile-menu.tsx` | the four span BOUNDS are props, not a `tileById` lookup |
+| `arrangement-shelf.tsx` | `dashboard-shelf.tsx` | `id: string`; `trayId` injected so two boards cannot mint one DOM id |
 | `report-blocks.ts` | *new* | the Reports catalogue |
 | `reports-blocks.tsx` | split out of `reports.tsx` | presentational block bodies |
 
@@ -199,6 +201,8 @@ The rejected alternatives, for the record:
 | `use-dashboard-layout.ts` | `useDashboardLayout({projectId, isPopout})` and `DashboardLayoutApi`, unchanged |
 | `dashboard-tile.tsx` | `DashboardTile` with today's props and today's `data-testid` |
 | `dashboard-grid.tsx` | `DashboardGrid({dc, children})`, unchanged |
+| `dashboard-tile-menu.tsx` | `DashboardTileMenu` with today's props; owns the `tileById` lookup and its null branch. `TileAxisGroup` is a WRAPPER, not a re-export — the generic prop is `blockTitle` and this file's has always been `tileTitle` |
+| `dashboard-shelf.tsx` | `DashboardShelf` with today's props, the `DashboardTileId` narrowing, and the Dashboard's `dashboard-shelf-tray` id |
 
 **`dashboard-panel.tsx` is not edited.** Every adapter above preserves its current export
 signature, so the Dashboard's own call sites, tests and `data-testid`s are untouched. That is the

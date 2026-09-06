@@ -1,45 +1,40 @@
 "use client";
-import { useState, type RefObject } from "react";
-import { Button } from "./button";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
-import { t, type Lang } from "./i18n";
+/**
+ * The Dashboard's binding of the shared arrangement shelf.
+ *
+ * ★★ THIS FILE IS AN ADAPTER, NOT A SHELF. Every landmine that used to live here
+ * now lives in `arrangement-shelf.tsx` — the restore-button-is-the-keyboard-path
+ * rule, the always-mounted `hidden`-toggled tray behind `aria-controls`, the
+ * `isDragging` guard on the drag-to-open, why the disclosure renders at zero
+ * hidden blocks, the absent `onHide`, and the `toggleRef` focus-landing
+ * contract. Read them there before changing anything here.
+ *
+ * ★ The exported name and props are UNCHANGED on purpose — `dashboard-panel.tsx`
+ * and the Dashboard's own tests keep compiling and passing untouched. If a
+ * Dashboard test needs editing to accommodate a change here, the change is
+ * wrong.
+ */
+import type { RefObject } from "react";
+import { ArrangementShelf } from "./arrangement-shelf";
+import type { Lang } from "./i18n";
 import type { TileDragProps } from "./dashboard-tile";
 import type { DashboardTileId } from "./dashboard-tiles";
 
-/**
- * Where hidden tiles live: a collapsed "N hidden" disclosure over a tray of
- * chips, and the drop target that hiding a tile by drag aims at.
- *
- * ★★ THE RESTORE BUTTON IS THE KEYBOARD PATH. Dragging a chip back out is the
- * mouse shortcut, not the only route — without a button a keyboard user who hid
- * a tile could never retrieve it.
- *
- * ★★ THE TRAY IS ALWAYS MOUNTED AND `hidden`-TOGGLED, never conditionally
- * rendered: `aria-controls` must point at a node that exists. Same shape as
- * `action-reasons.tsx`, which is the repo's disclosure precedent — there is no
- * shared Disclosure primitive to reach for (`aria-expanded` is hand-rolled in
- * a dozen surfaces), so this follows the existing family rather than inventing
- * a thirteenth shape.
- *
- * ★ Dragging over the COLLAPSED button opens the tray, so the user never has to
- * open it before picking a tile up — a sequence that cannot be discovered
- * mid-drag. It is guarded on `isDragging` so a stray `dragEnter` (a file
- * dragged over the window, say) cannot pop the tray open.
- *
- * ★ The disclosure renders even at zero hidden tiles, because that is exactly
- * when the drop target has to exist: hiding the FIRST tile by drag needs
- * somewhere to drop it.
- *
- * ★★ THE SHELF TAKES NO `onHide`. The plan had one, unused, to be wired later —
- * but a destructured prop nothing reads is FATAL at `--max-warnings=0` (no
- * `argsIgnorePattern` in this repo). The grid owns the drop instead and passes
- * its handlers as `dropProps`, mirroring the drop-target prop bag declared as
- * `BlockDragProps` in `arrangement-tile.tsx` — `dashboard-tile.tsx`, which this
- * comment used to name, now only re-exports it under the `TileDragProps` alias
- * this file imports; the shelf never decodes a drag itself.
- */
+/** ★ UNCHANGED VALUE, now passed in rather than read from module scope. The
+ *  generic shelf takes its tray id as a prop so two surfaces cannot mint the
+ *  same DOM id; this literal is what keeps the Dashboard's rendered
+ *  `aria-controls` byte-identical. */
 const TRAY_ID = "dashboard-shelf-tray";
 
+/* ★★ THE `onRestore` LAMBDA IS THE ADAPTER'S JOB AND IS DELIBERATELY VISIBLE.
+ * The generic shelf hands back a `string`, because it cannot know a surface's id
+ * union; the Dashboard's handler wants a `DashboardTileId`, and under
+ * `strictFunctionTypes` a `(id: DashboardTileId) => void` is NOT assignable to a
+ * `(id: string) => void` parameter. The cast is safe for the reason the store's
+ * equivalent one is: every id the shelf can hand back came out of the `hidden`
+ * array THIS component was given, so it is a `DashboardTileId` by construction.
+ * Do not push the narrowing into the generic component as an id parameter — it
+ * would then be invisible at every call site instead of stated once here. */
 export function DashboardShelf({
   lang, hidden, onRestore, dropProps, isDragging, toggleRef,
 }: {
@@ -49,65 +44,19 @@ export function DashboardShelf({
   /** The grid's own drop handlers — the shelf never decodes the drag itself. */
   dropProps: TileDragProps;
   isDragging: boolean;
-  /** ★★ THE ONE NODE IN THIS SUBTREE THAT NEVER UNMOUNTS, exposed so the panel
-   *  can land focus on it after hide/restore. Both of those actions destroy the
-   *  control the user just pressed — the ⋮ menu's Hide button goes with the tile,
-   *  a chip's Restore button goes with the chip — and with nothing focused the
-   *  browser drops to `<body>`, stranding the keyboard user mid-task. The chip
-   *  list is the wrong target because its length changes underneath them; the
-   *  disclosure is stable in both directions. Optional, so the component still
-   *  renders standalone in its own tests. */
+  /** The stable focus target after a hide or restore — see the generic
+   *  component's own docstring for why the chip list is the wrong one. */
   toggleRef?: RefObject<HTMLButtonElement | null>;
 }) {
-  const [open, setOpen] = useState(false);
-  const restore = t(lang, "dashboardTileRestore");
   return (
-    <div className="mt-2 flex flex-col items-end print:hidden">
-      <button
-        ref={toggleRef}
-        type="button"
-        aria-expanded={open}
-        aria-controls={TRAY_ID}
-        onClick={() => setOpen((o) => !o)}
-        onDragEnter={() => { if (isDragging) setOpen(true); }}
-        {...dropProps}
-        className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
-      >
-        <span aria-hidden>{open ? "▾" : "▸"}</span> {t(lang, "dashboardShelfCount", hidden.length)}
-      </button>
-      <div
-        id={TRAY_ID}
-        hidden={!open}
-        {...dropProps}
-        className="mt-1 w-full rounded-md border border-dashed border-line bg-surface-muted p-2"
-      >
-        {hidden.length === 0 ? (
-          <p className="text-xs italic text-muted-foreground">{t(lang, "dashboardShelfEmpty")}</p>
-        ) : (
-          <ul className="flex flex-wrap gap-2">
-            {hidden.map((h) => (
-              <li key={h.id} className="flex items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-xs">
-                <span>{h.title}</span>
-                {/* ★★ The tile title is in the accessible name because N chips
-                    render at once and N identical "Restore" buttons is a WCAG
-                    2.4.6 failure the axe gate cannot see, in any view, at any
-                    seed size.
-                    ★ WCAG 2.5.3 holds by CONTAINMENT: the visible label
-                    "Restore" is contained in "Restore – <tile>". */}
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  aria-label={`${restore} – ${h.title}`}
-                  onClick={() => onRestore(h.id)}
-                  className="rounded-full border border-line"
-                >
-                  {restore}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+    <ArrangementShelf
+      lang={lang}
+      hidden={hidden}
+      onRestore={(id) => onRestore(id as DashboardTileId)}
+      dropProps={dropProps}
+      isDragging={isDragging}
+      toggleRef={toggleRef}
+      trayId={TRAY_ID}
+    />
   );
 }
