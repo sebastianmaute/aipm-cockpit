@@ -144,8 +144,9 @@ const PROBES: ReadonlyArray<{ label: string; value: unknown }> = [
   // also the one value `emailFormatFields` carves out explicitly (`after !== ""`),
   // so it exercises that exemption rather than the guard beside it.
   // ★ It splits the four number fields on their FLOOR, which is why it is worth
-  // keeping on both: `acceptsScheduleDays`/`acceptsCostAmount` admit any finite
-  // value >= 0, so 0 is accepted and the pair is COMPARED (`"0"` on both
+  // keeping on both: both change amounts admit 0 — §399 tightened them in other
+  // respects (days to an integer, cost to two decimals under AMOUNT_MAX) but
+  // left the floor where it was — so 0 is accepted and the pair is COMPARED (`"0"` on both
   // sides). `acceptsRiskScale` demands [1,5], so 0 falls out and the preview
   // REJECTS — while `sanitizeRaidItem` would have dropped the key, i.e. cleared
   // the field. Preview refusing where apply would clear is the safe direction,

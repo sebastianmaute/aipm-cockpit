@@ -64,6 +64,7 @@ import {
 } from "./sanitize-core";
 import {
   BUDGET_NAME_MAX,
+  AMOUNT_MAX,
   sanitizeIdList,
 } from "./sanitize-entities";
 import { sanitizeRichText } from "./rich-text-plain";
@@ -267,40 +268,72 @@ type ChangeFieldGuard = (value: unknown) => boolean;
  *  disagreement this guard exists to close, pointing the other way. */
 const acceptsChangeDate: ChangeFieldGuard = acceptsPatchDate;
 
+/** Reject a boolean before coercing. Shared by every numeric predicate here.
+ *  `toNumber(true)` is 1 and `toNumber(false)` is 0, both of which several
+ *  ranges admit, so a boolean silently becomes a plausible number (§395). */
+const isCoercibleNumber = (v: unknown): v is number | string => typeof v !== "boolean";
+
 /** ★★ `toNumber`, NOT `typeof v === "number"`. The sanitizer coerces with
- *  `toNumber` and so does the preview's `numberPreview`, so a stricter rule here
- *  would refuse a value the card shows as accepted. Two consequences this
- *  deliberately does NOT change: `toNumber(true)` is `1` and `toNumber(false)`
- *  is `0`, both of which the `>= 0` rule admits — unlike `acceptsRiskScale`,
- *  which now refuses a boolean outright (§395), because a fabricated 1 there
- *  feeds `riskSeverityFromMatrix` where here it is a plain day count.
+ *  `toNumber` and so does the preview's `numberPreview`, so a rule here that
+ *  refused a numeric STRING would refuse a value the card shows as accepted.
  *
- *  ★★ THE NON-INTEGER DIVERGENCE THIS USED TO RECORD IS CLOSED, and the old
- *  wording is now false: it said "the preview's `intRangeFields` guard demands
- *  `Number.isInteger` — so `1.5` previews as rejected and still applies". That
- *  held while the preview carried its own `[min, max]` tuple. §395 replaced the
- *  tuple with `numericFields`, whose `change` entries ARE this function and
- *  `acceptsCostAmount` — so the preview now accepts `1.5` exactly as the write
- *  does. Closing it cost nothing precisely because it was done by ADOPTING the
- *  sanitizer's own predicate rather than by restating a stricter one.
+ *  ★★ THE NON-INTEGER DIVERGENCE THIS USED TO RECORD IS STILL CLOSED, BUT NOT
+ *  BY THE MECHANISM RECORDED HERE UNTIL NOW. The old wording said the preview
+ *  "now accepts `1.5` exactly as the write does" — true when §395 replaced the
+ *  preview's own `[min, max]` tuple with `numericFields`, whose `change`
+ *  entries ARE these two functions, but it closed the gap at the LOOSE end.
+ *  §399 closes it at the tight end instead: `acceptsScheduleDays` now REFUSES
+ *  `1.5`, and the preview follows for free because it still calls this
+ *  predicate. Both statements describe agreement; only one describes today's.
  *
- *  ★★ Split into `acceptsScheduleDays` and `acceptsCostAmount` below because the
- *  two fields do NOT share a precision rule: `change-edit-modal.tsx` clamps
- *  `scheduleImpactDays` with `describeClamp(..., { round: 0 })` and `costImpact`
- *  with `{ round: 2 }`. One shared predicate could not express that divergence.
+ *  ★★★ THE TWO AMOUNT FIELDS DO NOT SHARE A RULE, and reading them as a pair is
+ *  the mistake this docstring exists to stop. They were one
+ *  `acceptsChangeAmount` and the plan that split them originally said "a change
+ *  amount must be an integer" — true of days, false of money, and
+ *  `change-edit-modal.tsx` refutes it.
  *
- *  The schedule-impact rule. Today it is the historical predicate verbatim.
- *  To be tightened to integers by the commit that closes §399. */
+ *  Schedule impact, in DAYS. Integer because that modal clamps this field with
+ *  `describeClamp(value, { min: 0, round: 0 })` — the form cannot produce a
+ *  fraction, and the preview already demanded an integer before §395, so the
+ *  writer was the side that disagreed (§399). */
 export const acceptsScheduleDays: ChangeFieldGuard = (v) => {
+  if (!isCoercibleNumber(v)) return false;
   const n = toNumber(v);
-  return Number.isFinite(n) && n >= 0;
+  return Number.isInteger(n) && n >= 0;
 };
 
-/** The cost-impact rule. Today it is the historical predicate verbatim.
- *  To be bounded by the commit that closes §399. */
+/** Cost impact, in CURRENCY. Two decimals and capped, because the same modal
+ *  clamps this one with `{ min: 0, max: AMOUNT_MAX, round: 2 }` — so this half
+ *  moves the OPPOSITE way from the days rule above: the preview loosens where
+ *  the writer tightened.
+ *
+ *  ★★ The CAP was not in §399 as filed. Neither side had an upper bound while
+ *  the form clamps at AMOUNT_MAX, so a model could store a cost a thousand
+ *  times larger than a person can type. Same predicate, same edit, same field. */
 export const acceptsCostAmount: ChangeFieldGuard = (v) => {
+  if (!isCoercibleNumber(v)) return false;
   const n = toNumber(v);
-  return Number.isFinite(n) && n >= 0;
+  if (!Number.isFinite(n) || n < 0 || n > AMOUNT_MAX) return false;
+  // Two decimals, compared with a magnitude-scaled tolerance rather than with
+  // `Math.round(n * 100) / 100 === n`.
+  //
+  // ★★ DO NOT "SIMPLIFY" THIS TO THE EXACT COMPARISON ON THE STRENGTH OF A
+  //  SPOT CHECK, and do not restore the reason that used to be given for it.
+  //  The justification written into the plan for this change was that
+  //  `1500.55 !== Math.round(1500.55 * 100) / 100` in binary floating point.
+  //  That is FALSE — measured in node, they are exactly equal — and so is the
+  //  general form of it over every two-decimal value from 0.00 to 20000.00 and
+  //  over the 100_001 values below AMOUNT_MAX, where the exact comparison never
+  //  once rejects. The two forms are empirically indistinguishable here.
+  //  What keeps the tolerance is the DIRECTION of the remaining risk, not a
+  //  counterexample: `Math.abs(...) < tol` is strictly more permissive than
+  //  `=== n`, so it can only ever admit a value the form produces, never refuse
+  //  one — and refusing one would be silent data loss on the writer's side. The
+  //  scan is evidence about a range; the inequality is a property. Measured
+  //  from the other end too: across 20_000_000 three-decimal values, the
+  //  tolerance never admits one the exact comparison would have refused, so
+  //  the extra permissiveness costs the rule nothing.
+  return Math.abs(Math.round(n * 100) / 100 - n) < Number.EPSILON * Math.max(1, Math.abs(n));
 };
 
 /** ★★★ `status` IS ABSENT ON PURPOSE, and adding it would be a REGRESSION, not
@@ -479,7 +512,11 @@ export const acceptsRiskScale: RaidFieldGuard = (v) => {
   //  showed it as accepted, which is why it never appeared as a divergence.
   //  `toNumber(false)` is 0 and was already out of range, so only one half of
   //  the boolean pair was ever reachable.
-  if (typeof v === "boolean") return false;
+  //  ★ Routed through the SHARED `isCoercibleNumber` rather than restating
+  //  `typeof v === "boolean"`, so the boolean rule has one spelling across
+  //  every numeric predicate in this file — the same §405 principle that made
+  //  the sanitizer call these guards instead of duplicating them.
+  if (!isCoercibleNumber(v)) return false;
   const n = toNumber(v);
   return Number.isInteger(n) && n >= 1 && n <= 5;
 };

@@ -225,30 +225,52 @@ describe("numeric coercion matches the sanitizer's own", () => {
     expect(mergeGuarded(storedChange(), { costImpact: "250" }).costImpact).toBe(250);
   });
 
-  it("still accepts the booleans, because toNumber(true) is 1 and toNumber(false) is 0", () => {
-    // ★★ NOT A REGRESSION AND NOT A FIX: the guard reuses `toNumber`, which is
-    // what the sanitizer AND the preview's `numberPreview` both use, so
-    // `scheduleImpactDays: true` goes on storing a fabricated 1 exactly as
-    // before — and `false` a 0, which the `[0, ∞)` range admits. A stricter
-    // `typeof === "number"` rule here would refuse a value the preview accepts
-    // and shows as "1" — the SAME disagreement this file exists to close,
-    // pointing the other way. Pinned so the trade is a decision, not an
-    // accident.
-    expect(mergeGuarded(storedChange(), { scheduleImpactDays: true }).scheduleImpactDays).toBe(1);
-    expect(mergeUnguarded(storedChange(), { scheduleImpactDays: true }).scheduleImpactDays).toBe(1);
-    expect(mergeGuarded(storedChange(), { costImpact: false }).costImpact).toBe(0);
+  it("refuses the booleans rather than storing a fabricated 1 or 0", () => {
+    // ★★★ THIS PINNED THE OPPOSITE VERDICT AND CALLED IT A DELIBERATE TRADE.
+    // The old comment read "NOT A REGRESSION AND NOT A FIX: the guard reuses
+    // `toNumber` … so `scheduleImpactDays: true` goes on storing a fabricated 1
+    // exactly as before — and `false` a 0, which the `[0, ∞)` range admits",
+    // and argued a stricter rule would refuse a value the preview accepts. It
+    // was the TWIN of the justification `acceptsRiskScale` carried, which §395
+    // overturned two files away; only the raid half was closed, so this one was
+    // left reading as a settled decision when it was an unclosed half. §399
+    // closes it: both change amounts now reject a boolean through the SHARED
+    // `isCoercibleNumber`, and the preview follows because it calls the same
+    // predicate — so there is no disagreement to trade against.
+    //
+    // ★ The range wording had rotted too: there is no `[0, ∞)` range any more.
+    // §395 replaced the preview's `[min, max]` tuple with `numericFields`, so
+    // the rule lives inside `acceptsScheduleDays`/`acceptsCostAmount` and
+    // nothing states a range at all.
+    //
+    // A refused key leaves the STORED value alone — that is what the merge-site
+    // guard buys, and it is why the assertions below read the stored numbers.
+    expect(mergeGuarded(storedChange(), { scheduleImpactDays: true }).scheduleImpactDays)
+      .toBe(storedChange().scheduleImpactDays);
+    expect(mergeGuarded(storedChange(), { costImpact: false }).costImpact)
+      .toBe(storedChange().costImpact);
+    // ★ The UNGUARDED merge is the control: without the guard the sanitizer
+    // rebuilds the record from the raw blob and the boolean is simply dropped,
+    // which is a different outcome from "the stored value survives".
+    expect("scheduleImpactDays" in mergeUnguarded(storedChange(), { scheduleImpactDays: true })).toBe(false);
   });
 
-  it("accepts a NON-INTEGER, and the preview now agrees", () => {
-    // ★★★ THE DIVERGENCE THIS RECORDED IS CLOSED, and the old comment is the
-    // half that had to go: it read "the preview's `intRangeFields` guard demands
-    // `Number.isInteger`. So `1.5` previews as REJECTED and applies as 1.5", and
-    // called tightening the rule here the only fix — one that "would stop being
-    // the sanitizer's OWN predicate". §395 closed it from the other end instead:
-    // the preview's tuple became `numericFields`, whose `change` entries ARE
-    // `acceptsScheduleDays`/`acceptsCostAmount`. Adopting the predicate cost the
-    // strictness nothing, because there was no second rule left to disagree.
-    expect(mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 }).scheduleImpactDays).toBe(1.5);
-    expect(INLINE_DESCRIPTORS.change.numericFields.scheduleImpactDays(1.5)).toBe(true);
+  it("refuses a NON-INTEGER day count, and the preview agrees", () => {
+    // ★★★ THE VERDICT HERE IS INVERTED FROM WHAT THIS TEST USED TO PIN, and the
+    // old name ("accepts a NON-INTEGER, and the preview now agrees") went with
+    // it. §395 closed the days divergence at the LOOSE end — it made the
+    // preview accept 1.5, matching a writer that already did. §399 closes it at
+    // the TIGHT end instead: `change-edit-modal.tsx` clamps this field with
+    // `describeClamp(value, { min: 0, round: 0 })`, so the form cannot produce
+    // a fraction and the writer had no business storing one. Both sides still
+    // agree, because the preview calls `acceptsScheduleDays` rather than
+    // restating it — which is exactly why reversing the rule moved both at once.
+    expect("scheduleImpactDays" in mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 })).toBe(true);
+    expect(mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 }).scheduleImpactDays)
+      .toBe(storedChange().scheduleImpactDays);
+    expect(INLINE_DESCRIPTORS.change.numericFields.scheduleImpactDays(1.5)).toBe(false);
+    // ★ `costImpact` moves the OTHER way in the same commit: two decimals are
+    // what `{ round: 2 }` produces, so money keeps a precision days lose.
+    expect(INLINE_DESCRIPTORS.change.numericFields.costImpact(1500.55)).toBe(true);
   });
 });

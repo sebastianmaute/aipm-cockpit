@@ -199,6 +199,45 @@ describe("describeEntityCalls — raid", () => {
   });
 });
 
+describe("describeEntityCalls — change amount precision (399)", () => {
+  const changeItem = { id: 1, title: "C", costImpact: 100, scheduleImpactDays: 2 };
+  const wsC = wsWith({ changes: [changeItem] as never });
+  const dc = INLINE_DESCRIPTORS.change;
+
+  it("previews a two-decimal cost as an accepted change, matching the write", () => {
+    // The PREVIEW is the side that loosens here: `costImpact` is clamped by
+    // `describeClamp(..., { round: 2 })` in `change-edit-modal.tsx`, so two
+    // decimals are exactly what a person can type and what the writer stores.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_change", input: { id: 1, costImpact: 1500.5 } }],
+      { descriptor: dc, item: changeItem, ws: wsC },
+    );
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates).toEqual([{ field: "costImpact", before: "100", after: "1500.5", raw: "1500.5" }]);
+  });
+
+  it("rejects a cost above the cap the form clamps to", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_change", input: { id: 1, costImpact: 2_000_000_000 } }],
+      { descriptor: dc, item: changeItem, ws: wsC },
+    );
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
+  });
+
+  it("rejects a fractional schedule-impact day, which the writer no longer stores", () => {
+    // The WRITER is the side that tightens here — the opposite direction from
+    // the cost rule above, which is why one shared "amounts are integers" rule
+    // could not express both.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_change", input: { id: 1, scheduleImpactDays: 1.5 } }],
+      { descriptor: dc, item: changeItem, ws: wsC },
+    );
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
+  });
+});
+
 describe("rich fields preview as text (slice B)", () => {
   // Slice B stores RAID description+mitigation, Change description+
   // impactDescription+resolutionNotes and Milestone description as rich HTML.

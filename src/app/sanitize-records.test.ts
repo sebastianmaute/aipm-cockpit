@@ -12,6 +12,7 @@ import {
   acceptsStakeholderCategory,
   acceptsInfluenceInterest,
   sanitizeIsoDate,
+  AMOUNT_MAX,
 } from "./sanitize";
 
 /** Distinguishable test-case labels. `JSON.stringify` maps null, NaN and
@@ -268,5 +269,42 @@ describe("delegate-never-restate: the stakeholder sanitizer and its merge-site g
     expect(acceptsStakeholderCategory("Nonsense")).toBe(false);
     expect(acceptsInfluenceInterest("Medium")).toBe(true);
     expect(acceptsInfluenceInterest("Nonsense")).toBe(false);
+  });
+});
+
+// ★★★ THE TWO AMOUNT FIELDS DO NOT SHARE A PRECISION RULE, which is the whole
+//  reason one `acceptsChangeAmount` had to become two. `change-edit-modal.tsx`
+//  clamps `scheduleImpactDays` with `describeClamp(value, { min: 0, round: 0 })`
+//  and `costImpact` with `{ min: 0, max: AMOUNT_MAX, round: 2 }` — so the two
+//  move in OPPOSITE directions here (§399): the writer TIGHTENS for days, the
+//  preview LOOSENS for money. These expectations are hardcoded rather than
+//  derived from the predicates, so an always-accepts mutant cannot hide behind
+//  the it.each sweeps above, which compute both sides from the predicate.
+describe("change amount precision follows each field's own form control", () => {
+  it("refuses a fractional schedule-impact day, which round:0 cannot produce", () => {
+    expect(acceptsScheduleDays(1.5)).toBe(false);
+    expect(acceptsScheduleDays(2)).toBe(true);
+    expect(acceptsScheduleDays(0)).toBe(true);
+  });
+
+  it("accepts a two-decimal cost, which round:2 does produce", () => {
+    expect(acceptsCostAmount(1500.5)).toBe(true);
+    expect(acceptsCostAmount(1500.55)).toBe(true);
+  });
+
+  it("refuses a cost with more precision than the form can express", () => {
+    expect(acceptsCostAmount(1500.555)).toBe(false);
+  });
+
+  it("refuses a cost above the cap the form clamps to", () => {
+    // Neither the sanitizer nor the preview had an upper bound, so a model
+    // could store a cost a thousand times larger than the form permits.
+    expect(acceptsCostAmount(AMOUNT_MAX)).toBe(true);
+    expect(acceptsCostAmount(AMOUNT_MAX + 1)).toBe(false);
+  });
+
+  it("refuses a boolean on both, for the same reason as the risk scale", () => {
+    expect(acceptsScheduleDays(true)).toBe(false);
+    expect(acceptsCostAmount(true)).toBe(false);
   });
 });

@@ -65,9 +65,13 @@ describe("INLINE_DESCRIPTORS", () => {
   //  through `numberPreview`. The guard now reads `input[f]` RAW, so it fires
   //  for a numeric field whether or not the set contains it. What the
   //  containment buys today is the CARD: outside `numberFields` the value is
-  //  previewed verbatim by `str`, so an accepted `"3"` renders as the model's
+  //  previewed verbatim by `str`, so an accepted `"3.0"` renders as the model's
   //  spelling rather than the `3` the writer stores — a disclosure defect
   //  rather than an unenforced guard, and still worth pinning.
+  //  ★ The example used to be `"3"`, which cannot illustrate the point:
+  //  `str("3")` and `numberPreview("3")` both return `"3"`, so the two sides
+  //  are indistinguishable at that value. It takes a spelling the coercion
+  //  normalises — `"3.0"`, `" 3"`, `"3e0"` — for the divergence to be visible.
   //  ★★ The containment holds today by COINCIDENCE, not by construction — the
   //  two members are declared independently a few lines apart — which is why it
   //  is pinned here rather than left to be re-derived.
