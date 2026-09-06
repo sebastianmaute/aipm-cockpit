@@ -29132,3 +29132,39 @@ Remedy is cheap: `entity-link-picker.test.tsx` already carries a working templat
 ((a) as its click-reopen and tab-away pair, (b) as its three-option ArrowUp case, (c) as its
 two-branch padding assertion), so each is a port rather than a new test. ★ If §399 is taken first,
 these three come for free — pin them on the extracted hook once instead of in two suites.
+
+## 401. `TaskLinkPicker` has no direct test suite — coverage is real but indirect
+
+**Status:** OPEN. Verified 2026-09-06: `ls src/app/task-link-picker.test.tsx` fails (no such
+file); `grep -rn "TaskLinkPicker" src --include=*.tsx --include=*.ts` finds it referenced only in
+`task-link-picker.tsx` itself (the definition), its four importers, two unrelated comments
+(`dependencies-editor.tsx`, `single-entity-picker.tsx`), and `label-binding.guard.test.ts` — the
+one and only test file that names it. That guard test does not render the component; it matches
+`<TaskLinkPicker\b` as a source-text pattern (a chip-first widget whose unlink ✕ renders above the
+search box) and its one live use of the string is a synthetic self-test literal, not an import.
+So the earlier claim that "no test file anywhere references TaskLinkPicker" is not quite right —
+one does reference it, just never by rendering it.
+
+`TaskLinkPicker` (`src/app/task-link-picker.tsx`) is used by four importers, each with its own
+green suite: `budget-bucket-modal.tsx` (`budget-bucket-modal.test.tsx`), `change-edit-modal.tsx`
+(`change-edit-modal.test.tsx`), `knowledge-panel.tsx` — twice — (`knowledge-panel.test.tsx`), and
+`raid-edit-fields.tsx` (`raid-edit-fields.test.tsx`). That is coverage, but it is indirect: a
+defect inside `TaskLinkPicker` itself surfaces only as a failure in someone else's suite, or not
+at all if none of the four importer fixtures happens to exercise the broken path. It wraps
+`entity-link-picker.tsx`'s shared mechanics (see §399/§400 above for that component's own unpinned
+mechanisms), so a regression specific to `TaskLinkPicker`'s own wiring — not the shared hook — has
+no owner.
+
+This is a coverage-directness gap, not a live defect. Nothing is known to be broken here: all four
+importer suites are green, and `entity-link-picker.tsx` was changed on this branch (the armed-
+identity fix) with its own suite and all four importers' suites passing, so the indirect coverage
+held for that change.
+
+**The more generally useful half of this entry is how it surfaced.** A subagent ran a batch of ten
+consumer-suite paths in one `npx vitest run` invocation; nine files ran and vitest exited 0,
+because vitest exits 0 on a path that does not exist — the missing tenth path was invisible in the
+reported result. It was caught only because the agent compared the reported "Test Files N passed"
+count against the number of paths it had named, and the counts did not match. That silent-pass
+shape is already recorded as a landmine for this project (a batch invocation naming a
+non-existent path reports success); this is a fresh instance of it. Remedy for future batches:
+always compare the reported file count against the number of paths named, every time.
