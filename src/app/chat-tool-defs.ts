@@ -166,7 +166,8 @@ const resourceFields = {
   },
   roleId: {
     type: "number" as const,
-    description: "Rate-card role id (assigns the resource's discipline + grade + rates)",
+    description:
+      "Rate-card role id — LINKS the resource to that role. The role's discipline, grade and rates belong to the ROLE and are resolved when read; setting this writes none of them onto the resource.",
   },
   notes: { type: "string" as const, description: "Free-text notes" },
 };

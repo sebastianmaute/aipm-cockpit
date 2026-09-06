@@ -626,7 +626,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§399](#399-the-change-amount-sanitizer-accepts-a-fraction-the-preview-rejects-open) | The change amount sanitizer accepts a fraction the preview rejects | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§400](#400-str-is-defined-twice-in-plants-and-entity-descriptorts-open) | `str` is defined twice, in `plan.ts` and `entity-descriptor.ts` | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§401](#401-update_task-accepts-an-undeclared-notes-input-that-no-schema-driven-gate-can-see-closed-2026-09-06) | `update_task` accepts an undeclared `notes` input that no schema-driven gate can see | found 2026-09-06 by the preview/apply-parity slice | S | closed |
-| [§402](#402-update_resources-roleid-description-tells-the-model-it-assigns-rates-open) | `update_resource`'s `roleId` description tells the model it assigns rates | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§402](#402-update_resources-roleid-description-tells-the-model-it-assigns-rates-closed-2026-09-06) | `update_resource`'s `roleId` description tells the model it assigns rates | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§403](#403-sanitizemilestonetaskids-and-sanitizeidlist-disagree-two-ways-open) | `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§404](#404-a-dependency-proposal-whose-links-are-all-refused-shows-no-change-and-no-reason-open) | A dependency proposal whose links are all refused shows no change and no reason | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§405](#405-the-merge-site-guard-tables-restate-their-sanitizers-predicates-instead-of-sharing-them-open) | The merge-site guard tables restate their sanitizers' predicates instead of sharing them | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
@@ -29275,17 +29275,31 @@ accepted surface is bounded by the downstream sanitizers, not by any set of `inp
 regex could find. A green run now means "every declared input is covered, and every input the TASK
 write path reads"; it still means nothing about the other five.
 
-## 402. `update_resource`'s `roleId` description tells the model it assigns rates — OPEN
+## 402. `update_resource`'s `roleId` description tells the model it assigns rates — CLOSED 2026-09-06
 
-**Status:** OPEN. Filed 2026-09-06. Last executed verification 2026-09-06 — `grep -n "assigns the resource" src/app/chat-tool-defs.ts` (one hit, the `roleId` description) and read of the tool
-description against `Role` in `types.ts` and the read-time resolution in `resource-foundation.ts`.
+**Status:** CLOSED 2026-09-06 by the preview/apply-parity slice — the description now says the field
+LINKS the resource to a role and writes none of the role's data. Last executed verification
+2026-09-06 — `npx vitest run src/app/chat-tool-defs.test.ts src/app/inline-ai-edit/tool-input-coverage.test.ts`
+(EXIT=0, 2 files / 7 tests), plus a mutation proof: restoring the old one-line description reds both
+new assertions (2 failed / 5 passed over the same two files).
 
-The schema tells the model that `roleId` "assigns the resource's discipline + grade + rates". It
-sets ONE foreign key; those values live on `Role` and resolve at read time. A model reading the
-description may believe it is writing rate data onto the resource.
+**Original filing:** 2026-09-06. The schema told the model that `roleId` "assigns the resource's
+discipline + grade + rates". It sets ONE foreign key; those values live on `Role` and resolve at
+read time. A model reading the description may believe it is writing rate data onto the resource.
 
-★ Cheap to fix and worth doing when that file is next open — the risk is a model choosing `roleId`
-to achieve something it cannot achieve.
+★ The risk was never a broken writer — it is a model choosing `roleId` to achieve something it
+cannot achieve, and then reporting the rates as changed.
+
+★★ `resourceFields` is a PRIVATE helper spread into BOTH `create_resource` and `update_resource`, so
+the wrong text reached two tools while the entry title named one. `src/app/chat-tool-defs.test.ts`
+pins the description on both, reached through the shipped `TOOL_DEFS` rather than the un-exported
+helper — so a later split that stops routing one tool through it cannot leave the test green against
+a description no model receives.
+
+★ The test deliberately does NOT assert `not.toMatch(/rates/i)`. A correct description has to name
+discipline, grade and rates in order to DENY writing them; forbidding the word would force a vaguer
+wording than the one being guarded. It pins the retired CLAIM (`/assigns the resource/i`) instead,
+with positive assertions beside it so the absence check is not vacuous.
 
 ## 403. `sanitizeMilestoneTaskIds` and `sanitizeIdList` disagree two ways — OPEN
 
