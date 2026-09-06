@@ -13,6 +13,7 @@ import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { buildRowTokens } from "./row-tokens";
+import { loadI18n } from "./i18n";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -799,6 +800,79 @@ describe("TaskRow changes badge", () => {
     );
     // taskRowChangesBadge EN value is "{0} changes" → "2 changes".
     expect(getByText("2 changes")).toBeTruthy();
+  });
+
+  test("uses the singular taskRowChangesBadgeOne key for exactly one linked change", () => {
+    const ctx = makeContext();
+    const { getByText, queryByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 11 })}
+            rowToken="Sample task"
+            isSelected={false}
+            isEditing={false}            isPushing={false}
+            raidRefs={undefined}
+            changeRefs={[makeChange({ id: 1 })]}
+          />
+        ),
+      }),
+    );
+    // taskRowChangesBadgeOne EN value is the fixed "1 change" (no placeholder,
+    // no plural stem) — open-followups §407. getByText does an exact
+    // whole-string match by default (no `exact: false`), so "1 change" cannot
+    // be satisfied by a node whose text is "1 changes" — the two are asserted
+    // as mutually exclusive by pairing this with the negative queryByText.
+    expect(getByText("1 change")).toBeTruthy();
+    expect(queryByText("1 changes")).toBeNull();
+  });
+
+  test("still uses the plural taskRowChangesBadge key for two linked changes", () => {
+    const ctx = makeContext();
+    const { getByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 12 })}
+            rowToken="Sample task"
+            isSelected={false}
+            isEditing={false}            isPushing={false}
+            raidRefs={undefined}
+            changeRefs={[makeChange({ id: 1 }), makeChange({ id: 2 })]}
+          />
+        ),
+      }),
+    );
+    expect(getByText("2 changes")).toBeTruthy();
+  });
+
+  test("uses the German singular stem (not a suffix drop) for exactly one linked change", async () => {
+    // The DE dict is LAZY. Without this, t("de", …) silently falls back to
+    // the EN string and this assertion would pass against ENGLISH text —
+    // green, and proving nothing about the DE key.
+    await loadI18n("de");
+    const ctx = makeContext({ lang: "de" });
+    const { getByText, queryByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 13 })}
+            rowToken="Beispielaufgabe"
+            isSelected={false}
+            isEditing={false}            isPushing={false}
+            raidRefs={undefined}
+            changeRefs={[makeChange({ id: 1 })]}
+          />
+        ),
+      }),
+    );
+    // taskRowChangesBadgeOne DE value is "1 Änderung" — a different stem from
+    // the plural "1 Änderungen", not a suffix drop (open-followups §407).
+    expect(getByText("1 Änderung")).toBeTruthy();
+    expect(queryByText("1 Änderungen")).toBeNull();
   });
 
   test("renders no changes badge when changeRefs is empty", () => {
