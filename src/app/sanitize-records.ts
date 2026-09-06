@@ -243,8 +243,12 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   };
   if (typeof o.impact === "string" && CHANGE_IMPACT_SET.has(o.impact)) item.impact = o.impact as ChangeItem["impact"];
   const impactDesc = sanitizeRichText(o.impactDescription, TEXTAREA_MAX, RICH_SINK); if (impactDesc) item.impactDescription = impactDesc;
-  if (acceptsScheduleDays(o.scheduleImpactDays)) item.scheduleImpactDays = toNumber(o.scheduleImpactDays);
-  if (acceptsCostAmount(o.costImpact)) item.costImpact = toNumber(o.costImpact);
+  // REPAIR, then accept. See the two `repair*` helpers below for why the loader
+  // repairs where the merge-site guard refuses — they are different questions.
+  const days = repairScheduleDays(o.scheduleImpactDays);
+  if (days !== undefined && acceptsScheduleDays(days)) item.scheduleImpactDays = days;
+  const cost = repairCostAmount(o.costImpact);
+  if (cost !== undefined && acceptsCostAmount(cost)) item.costImpact = cost;
   const reqBy = sanitizeText(o.requestedBy, BUDGET_NAME_MAX); if (reqBy) item.requestedBy = reqBy;
   const decBy = sanitizeText(o.decisionBy, BUDGET_NAME_MAX); if (decBy) item.decisionBy = decBy;
   const decDate = sanitizeIsoDate(o.decisionDate); if (decDate) item.decisionDate = decDate;
@@ -334,6 +338,63 @@ export const acceptsCostAmount: ChangeFieldGuard = (v) => {
   //  tolerance never admits one the exact comparison would have refused, so
   //  the extra permissiveness costs the rule nothing.
   return Math.abs(Math.round(n * 100) / 100 - n) < Number.EPSILON * Math.max(1, Math.abs(n));
+};
+
+/** ★★★ ACCEPTANCE AND REPAIR ARE DIFFERENT QUESTIONS, AND THESE ARE NOT A
+ *  SECOND SPELLING OF THE TWO PREDICATES ABOVE. The instinct on reading the
+ *  four together is to "unify" them. Do not — they answer different questions
+ *  about different data:
+ *
+ *  - A MODEL WRITE must be REFUSED, so `dropUnacceptedChangeFields` drops the
+ *    key and the STORED value survives. The preview shows that same refusal
+ *    because it calls the same predicate (§405), which is the whole slice.
+ *  - EXISTING DATA must be REPAIRED, so a legacy `scheduleImpactDays: 1.5` —
+ *    written by the pre-fix modal, whose `{ round: 0 }` clamp ran only on blur
+ *    while Enter-submit skipped it — loads as 2 rather than vanishing. Dropping
+ *    it is silent data loss on a path that cannot even report one: the JSON
+ *    loader takes no diag at all, and the CSV/MD `ImportDiag` is ROW-level, so
+ *    a dropped FIELD is invisible to it. That is the "field cleared while
+ *    nothing says so" shape this slice exists to close, arriving through load.
+ *
+ *  The predicate stays the SINGLE acceptance rule: a repaired value is handed
+ *  back to it and a value it still refuses is still dropped, so repair can only
+ *  move a value INTO the accepted set, never widen the set.
+ *
+ *  ★★ A BOOLEAN IS NOT REPAIRED, and that is the one case with no correct
+ *  repair: `toNumber(true)` is 1, the exact fabrication §395 refuses. Every
+ *  repair is gated on `isCoercibleNumber` before it runs.
+ *
+ *  ★★ IT REACHES CREATES AS WELL AS LOADS, which is worth knowing before
+ *  reading it as load-only. `createChange` (`use-register-tools.ts`) hands a raw
+ *  model blob straight to this sanitizer with NO field guard, so a
+ *  model-created `1.5` now stores 2 instead of dropping the key. That is not a
+ *  preview/apply divergence: `describeEntityCalls` pushes a create into
+ *  `plan.creates` verbatim and runs no `numericFields` check on one, so the
+ *  card makes no per-field claim there to contradict. UPDATES are unaffected —
+ *  they run `dropUnacceptedChangeFields` FIRST, so a refused model value never
+ *  reaches this function wearing the model's spelling. */
+const repairScheduleDays = (v: unknown): number | undefined => {
+  if (!isCoercibleNumber(v)) return undefined;
+  const n = toNumber(v);
+  return Number.isFinite(n) ? Math.round(n) : undefined;
+};
+
+/** ★★ MIRRORS THE ARITHMETIC IN `sanitizeAmount` (`sanitize-entities.ts`) —
+ *  `Math.min(AMOUNT_MAX, Math.round(num * 100) / 100)` — rather than calling it,
+ *  and the choice is deliberate rather than an oversight. That function is
+ *  private, but exporting it would import its EMPTY-STRING leg with it
+ *  (`"" -> undefined`, "an empty CSV/MD cell is absent, not 0"), which this
+ *  field does not have: `toNumber("")` is 0, `acceptsCostAmount` admits it, and
+ *  the change loader stores 0 — a behaviour `plan.sanitizer-parity.test.ts`
+ *  pins with an explicit `""` probe. Adopting the whole function would silently
+ *  turn a stored 0 into a dropped key, i.e. a repair commit causing exactly the
+ *  loss it exists to prevent. Only the one arithmetic expression is shared, and
+ *  a negative stays DROPPED here as it is there. */
+const repairCostAmount = (v: unknown): number | undefined => {
+  if (!isCoercibleNumber(v)) return undefined;
+  const n = toNumber(v);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return Math.min(AMOUNT_MAX, Math.round(n * 100) / 100);
 };
 
 /** ★★★ `status` IS ABSENT ON PURPOSE, and adding it would be a REGRESSION, not

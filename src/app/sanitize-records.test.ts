@@ -13,6 +13,7 @@ import {
   acceptsInfluenceInterest,
   sanitizeIsoDate,
   AMOUNT_MAX,
+  toNumber,
 } from "./sanitize";
 
 /** Distinguishable test-case labels. `JSON.stringify` maps null, NaN and
@@ -188,23 +189,71 @@ describe("delegate-never-restate: the raid sanitizer and its merge-site guard", 
 describe("delegate-never-restate: the change sanitizer and its merge-site guard", () => {
   const PROBES: unknown[] = [0, 1, 1.5, -1, "2", "abc", "", true, false, null, undefined, [], NaN, Infinity];
 
+  // ★★★ THE PROPERTY THESE TWO SWEEPS ASSERT CHANGED SHAPE WITH THE §399
+  //  REPAIR, and the old one is now FALSE. It read
+  //  `"scheduleImpactDays" in item === acceptsScheduleDays(probe)`, which held
+  //  while a refused value was simply DROPPED. The loader now REPAIRS a
+  //  coercible one first, so a stored 1.5 loads as 2 — present, while the
+  //  predicate refuses 1.5. Two weaker-looking but jointly STRONGER properties
+  //  survive, and together they are what "delegate, never restate" now means
+  //  here: the predicate still BOUNDS the loader's output, and it still governs
+  //  every value that needs no repair.
   it.each(PROBES.map((v) => [probeLabel(v), v] as const))(
-    "stores scheduleImpactDays %s exactly when acceptsScheduleDays admits it",
+    "never stores a scheduleImpactDays acceptsScheduleDays would refuse (%s)",
     (_label, probe) => {
       const item = sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: probe });
       expect(item).not.toBeNull();
-      expect("scheduleImpactDays" in item!).toBe(acceptsScheduleDays(probe));
+      const stored = item!.scheduleImpactDays;
+      expect(stored === undefined || acceptsScheduleDays(stored)).toBe(true);
+      // ★ Repair never touches a value the predicate ALREADY accepts, so where
+      //  there is nothing to repair the loader and the merge-site guard agree
+      //  exactly — which is what this sweep was originally for.
+      if (acceptsScheduleDays(probe)) expect(stored).toBe(toNumber(probe));
     },
   );
 
   it.each(PROBES.map((v) => [probeLabel(v), v] as const))(
-    "stores costImpact %s exactly when acceptsCostAmount admits it",
+    "never stores a costImpact acceptsCostAmount would refuse (%s)",
     (_label, probe) => {
       const item = sanitizeChangeItem({ id: 1, title: "t", costImpact: probe });
       expect(item).not.toBeNull();
-      expect("costImpact" in item!).toBe(acceptsCostAmount(probe));
+      const stored = item!.costImpact;
+      expect(stored === undefined || acceptsCostAmount(stored)).toBe(true);
+      if (acceptsCostAmount(probe)) expect(stored).toBe(toNumber(probe));
     },
   );
+
+  // ★★ THE SWEEPS ABOVE ARE VACUOUS IF NOTHING IS EVER STORED — a loader that
+  //  dropped every value would satisfy both. These name the repaired values, so
+  //  they are the only thing pinning that the repair HAPPENS.
+  it("repairs a legacy out-of-precision value instead of destroying it", () => {
+    // ★★★ THE DEFECT THIS CLOSES IS A SILENT LOAD-PATH CLEAR. Before the
+    //  repair, tightening the predicate meant a `1.5` written by the pre-fix
+    //  modal — whose `{ round: 0 }` clamp ran only on blur while Enter-submit
+    //  skipped it — simply vanished on the next load, and nothing could report
+    //  it: the JSON loader takes no diag, and the CSV/MD `ImportDiag` is
+    //  ROW-level, so a dropped FIELD is invisible to it.
+    expect(sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: 1.5 })!.scheduleImpactDays).toBe(2);
+    expect(sanitizeChangeItem({ id: 1, title: "t", costImpact: 1500.555 })!.costImpact).toBe(1500.56);
+    expect(sanitizeChangeItem({ id: 1, title: "t", costImpact: 5_000_000_000 })!.costImpact).toBe(AMOUNT_MAX);
+  });
+
+  it("leaves an already-valid value untouched", () => {
+    expect(sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: 12 })!.scheduleImpactDays).toBe(12);
+    expect(sanitizeChangeItem({ id: 1, title: "t", costImpact: 4500.25 })!.costImpact).toBe(4500.25);
+  });
+
+  it("still DROPS a boolean rather than repairing it into a fabricated number", () => {
+    // ★★★ THE ONE VALUE WITH NO CORRECT REPAIR. `toNumber(true)` is 1, which is
+    //  a plausible day count and a plausible cost — the §395 fabrication — so
+    //  `isCoercibleNumber` gates the repair as well as the acceptance. Rounding
+    //  it would be worse than dropping it: the number would look authored.
+    expect("scheduleImpactDays" in sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: true })!).toBe(false);
+    expect("costImpact" in sanitizeChangeItem({ id: 1, title: "t", costImpact: true })!).toBe(false);
+    // ★ A NEGATIVE is dropped too, not clamped to 0 — repair covers precision
+    //  and the cap, never the floor, which is where `sanitizeAmount` puts it.
+    expect("costImpact" in sanitizeChangeItem({ id: 1, title: "t", costImpact: -5 })!).toBe(false);
+  });
 });
 
 describe("delegate-never-restate: the milestone sanitizer and its merge-site guard", () => {
