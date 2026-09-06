@@ -33,7 +33,18 @@ describe("IntegrationsSection snapshot controls", () => {
     expect(checkbox.disabled).toBe(true);
   });
 
-  it("shows 'Move to Turso' and fires it when configured + callback provided (file mode)", () => {
+  // ★★ THIS TEST COVERS THE **RENDER** GATE (`canMoveToTurso`: a callback, Turso
+  // configured, portfolio still on File) AND NOTHING ELSE, which is why it does
+  // not drive a probe. It used to click the button and assert one call; §408's
+  // confirmed-connection gate then made the button `disabled` until a passing
+  // Test connection, React suppresses `onClick` on a disabled form control, and
+  // the assertion went to 0 calls. Asserting DISABLED keeps exactly the
+  // coverage this file uniquely provides — nothing else here exercises the
+  // render gate — without duplicating the enable/re-disable matrix, which lives
+  // in `settings-sections/integrations-section.test.tsx` (seven tests, with the
+  // probe mocked). Driving a probe here would mean mocking `turso-pipeline` in
+  // this file to re-test what that file already pins.
+  it("shows 'Move to Turso' when configured + callback provided (file mode), disabled until the connection is confirmed", () => {
     const onMigrateToTurso = vi.fn();
     const settings = {
       ...defaultSettings,
@@ -45,8 +56,9 @@ describe("IntegrationsSection snapshot controls", () => {
     const { getByText } = render(
       <IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} onMigrateToTurso={onMigrateToTurso} />,
     );
-    fireEvent.click(getByText("Move to Turso"));
-    expect(onMigrateToTurso).toHaveBeenCalledTimes(1);
+    // Rendered at all ⇒ the render gate opened; disabled ⇒ the confirmed-test
+    // gate is closed, which is correct with no probe run.
+    expect(getByText("Move to Turso").closest("button")).toBeDisabled();
   });
 
   it("switching the portfolio to Turso persists storageConfig.kind 'turso' (regression: workspace stayed on the local file)", () => {

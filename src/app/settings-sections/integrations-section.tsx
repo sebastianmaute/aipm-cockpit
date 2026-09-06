@@ -807,10 +807,24 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   reaches AT; the `title` stays for the sighted mouse user, and
                   it only lands reliably because `disabled:pointer-events-none`
                   drops the button out of hit-testing so the pointer falls
-                  through to this span — which is also why the cursor is set
-                  HERE, never in the shared primitive. Both of those are
-                  disabled-state mechanisms: once the button is enabled it
-                  covers the span and takes its own pointer events back.
+                  through to this span. `button.tsx`'s BASE_CLASS does set
+                  `disabled:cursor-not-allowed`, but a subtree with no pointer
+                  events cannot style a cursor either, so that rule goes INERT
+                  here and the wrapper must carry the cursor itself — the change
+                  belongs HERE, never in the shared primitive that every other
+                  disabled button rides.
+                  ★★★ THE `title` IS GATED-STATE ONLY, and NOT because the
+                  enabled button stops the pointer reaching the span. `title` is
+                  INHERITED for tooltip purposes (HTML Living Standard: an
+                  element with no `title` of its own takes the nearest
+                  ancestor's), so a `title` left on this span would still fire a
+                  tooltip on the ENABLED button — reading out the very sentence
+                  the visible `FieldHint` renders directly below it. That is the
+                  double announcement fixed on the describedby channel, one
+                  channel over. `undefined` when confirmed is what closes it.
+                  ★ Spec-derived, NOT measured: jsdom renders no native
+                  tooltips, so `integrations-section.test.tsx` can only pin the
+                  ATTRIBUTE's presence and absence, never the tooltip itself.
                   ★★★ The hint cannot be gated on interacting with the button:
                   a disabled element dispatches no events, so "click it and find
                   out why" is an unreachable path.
@@ -825,11 +839,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   and once from the visible one. */}
               <span
                 className={`inline-flex${tursoTestConfirmed ? "" : " cursor-not-allowed"}`}
-                title={
-                  tursoTestConfirmed
-                    ? t(lang, "projectMigrateToTursoHint")
-                    : t(lang, "integrationsTursoMoveNeedsTest")
-                }
+                title={tursoTestConfirmed ? undefined : t(lang, "integrationsTursoMoveNeedsTest")}
               >
                 <Button
                   size="sm"

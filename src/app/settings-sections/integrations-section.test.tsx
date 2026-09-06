@@ -696,11 +696,14 @@ describe("§408 — Move to Turso is gated on a confirmed connection", () => {
     return user;
   }
 
+  // ★ NO TEST HERE ASSERTS "disabled ⇒ onMigrateToTurso was not called", and
+  // that is deliberate rather than an omission: nothing can click a disabled
+  // control, so such an assertion cannot fail and would read as coverage of a
+  // property it never exercises. The `disabled` attribute IS the assertable
+  // proxy — the browser's own suppression of the click is not ours to test.
   it("is disabled before any test has run", () => {
-    const migrate = vi.fn();
-    render(<ControlledMove onMigrateToTurso={migrate} />);
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
     expect(moveButton()).toBeDisabled();
-    expect(migrate).not.toHaveBeenCalled();
   });
 
   it("is enabled once the probe confirms the connection", async () => {
@@ -711,11 +714,10 @@ describe("§408 — Move to Turso is gated on a confirmed connection", () => {
 
   it("stays disabled when the probe fails", async () => {
     const user = userEvent.setup();
-    const migrate = vi.fn();
     vi.mocked(testTursoConnection).mockRejectedValueOnce(
       new StorageNotReadyError("storage-unreachable"),
     );
-    render(<ControlledMove onMigrateToTurso={migrate} />);
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
     expect(
@@ -726,7 +728,6 @@ describe("§408 — Move to Turso is gated on a confirmed connection", () => {
     // indirectly, through the rendered message: a `fail` verdict mis-tagged
     // "ok" is FRESH either way, so only this assertion separates the two.
     expect(moveButton()).toBeDisabled();
-    expect(migrate).not.toHaveBeenCalled();
   });
 
   // ★★ THE FINGERPRINT NEEDS BOTH HALVES PINNED. Freshness is a conjunction
@@ -768,15 +769,27 @@ describe("§408 — Move to Turso is gated on a confirmed connection", () => {
     const btn = moveButton();
     expect(btn).toHaveAccessibleDescription(t("en-US", "integrationsTursoMoveNeedsTest"));
     expect(btn.className).toContain("disabled:pointer-events-none");
-    expect(btn.closest("[title]")!.className).toContain("cursor-not-allowed");
+    expect(btn.parentElement!.className).toContain("cursor-not-allowed");
+    expect(btn.parentElement).toHaveAttribute("title", t("en-US", "integrationsTursoMoveNeedsTest"));
   });
 
+  // ★★ `title` MUST BE GONE WHEN CONFIRMED, and the reason is not hit-testing.
+  // `title` is INHERITED for tooltip purposes, so one left on the wrapper still
+  // fires a tooltip on the ENABLED button — reading out the same sentence the
+  // visible `FieldHint` renders below it, which is the double announcement
+  // fixed on the describedby channel repeated on the pointer channel.
+  // ★ SPEC-DERIVED, NOT MEASURED: jsdom renders no native tooltips, so this
+  // pins the ATTRIBUTE's absence and can never observe the tooltip itself.
+  // ★ `parentElement`, not `closest("[title]")` — with the attribute correctly
+  // gone there is no `[title]` ancestor to find, so the old locator would
+  // return null and this test would throw instead of asserting.
   it("swaps the description for the action's own hint once confirmed", async () => {
     render(<ControlledMove onMigrateToTurso={vi.fn()} />);
     await passingProbe();
     const btn = moveButton();
     expect(btn).toHaveAccessibleDescription(t("en-US", "projectMigrateToTursoHint"));
-    expect(btn.closest("[title]")!.className).not.toContain("cursor-not-allowed");
+    expect(btn.parentElement!.className).not.toContain("cursor-not-allowed");
+    expect(btn.parentElement).not.toHaveAttribute("title");
   });
 
   // ★★ ONE DESCRIPTION PER STATE, AND `toHaveAccessibleDescription` ALONE DOES
@@ -818,6 +831,13 @@ describe("§408 — Move to Turso is gated on a confirmed connection", () => {
     // the document — a hidden copy would make this two.
     expect(confirmed[0]!.className).not.toContain("sr-only");
     expect(screen.getAllByText(t("en-US", "projectMigrateToTursoHint"))).toHaveLength(1);
+    // ★★ THE RENDER GUARD, NOT JUST THE REFERENCE. Dropping `!tursoTestConfirmed
+    // &&` from the sr-only node leaves every assertion above green — the
+    // description still resolves to the visible hint — while a confirmed
+    // screen-reader user meets a stranded "Run Test connection first…" beside
+    // an ENABLED button. Mutation-proved: without this line that mutant
+    // survives 44/44.
+    expect(screen.queryAllByText(t("en-US", "integrationsTursoMoveNeedsTest"))).toHaveLength(0);
   });
 });
 
