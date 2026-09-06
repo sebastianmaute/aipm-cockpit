@@ -78,9 +78,11 @@ was extracted for Reports; and "NO UNIT TEST CAN SEE A VIOLATION" was false even
 SOURCE SCAN can see exactly this — `arrangement-grid.test.tsx`'s "span class tables (source form)"
 describe reads the file back, strips comments and scans the two table bodies. It is the unit-layer
 detector, and it moved with the tables for a measured reason: under a
-`` 2: `col-span-1 lg:col-span-${2}` `` mutant it reports **1 failed / 9 passed**, while
-`dashboard-grid.test.tsx` reports **24 passed at exit 0** — a scan left pointed at the adapter would
-pass forever regardless of what the real tables did, while still reading as coverage.
+`` 2: `col-span-1 lg:col-span-${2}` `` mutant in `arrangement-grid.tsx`, **the relocated scan goes RED
+while `dashboard-grid.test.tsx` stays GREEN** — so a scan left pointed at the adapter would pass forever
+regardless of what the real tables did, while still reading as coverage. ★ Direction, not totals, is
+deliberate here: both files' test counts move the moment either gains a test. Re-run the mutant if you
+need numbers.
 ★ `e2e/dashboard-grid.spec.ts` remains the only detector of the *emitted CSS* — it reads computed
 geometry (`getComputedStyle` on the container, `getBoundingClientRect` on real tiles) and deliberately
 makes no class-string assertion at all. The two layers catch the same defect by different means; neither

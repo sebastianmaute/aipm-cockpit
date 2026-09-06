@@ -24,20 +24,23 @@ describe("ArrangementTile — accessible names", () => {
     // ★★★ THE ONLY POSSIBLE DETECTOR, IN EITHER LAYER. axe has no rule under the
     // four tags `e2e/a11y.spec.ts` requests that flags two controls sharing an
     // accessible name, at any seed size — so a green axe run says nothing here.
-    // TWO tiles minimum: a one-tile fixture cannot express the collision at any
-    // assertion count.
+    // TWO blocks minimum: a one-block fixture cannot express a NAME CLASH
+    // BETWEEN TWO BLOCKS at any assertion count.
     //
-    // ★★ `requireCollisionSeed` IS DELIBERATELY OFF, and this is the reasoned
-    // call rather than an oversight. That guard requires two rendered names to
-    // collide once the "(N)" suffix is stripped — i.e. a fixture where two tiles
-    // share a TITLE. `ArrangementTile` cannot disambiguate that: it has no
-    // sibling visibility, so it composes its names from the one title it is
-    // handed, and a shared-title fixture would be asserting a property this
-    // component structurally cannot have. Title uniqueness belongs to whoever
-    // renders the LIST — `dashboard-panel.tsx` today, `reports.tsx` next — and
-    // the collision-seeded test belongs there. This is a distinct-name
-    // regression pin, which the helper's own docstring names as the legitimate
-    // `requireCollisionSeed: false` case.
+    // ★★ `requireCollisionSeed` IS DELIBERATELY OFF, and the decisive reason is
+    // the helper's OWN docstring: it names distinct-name regression pins as the
+    // legitimate `false` case and warns that the guard would THROW at fixtures
+    // seeding exactly what they mean to seed. This is such a pin — two blocks
+    // with DIFFERENT titles, asserting the qualifier keeps their control names
+    // apart.
+    // ★ A second reason, true but secondary: the guard wants two rendered names
+    // that collide once the "(N)" suffix is stripped, i.e. two blocks sharing a
+    // TITLE — and `ArrangementTile` cannot disambiguate that, having no sibling
+    // visibility to compose an occurrence index from. Title uniqueness belongs
+    // to whoever renders the LIST (`dashboard-panel.tsx` today, `reports.tsx`
+    // next), and the collision-seeded test belongs there.
+    // ★★ So do NOT read the wording above as a collision claim and switch the
+    // guard on: it would throw against correct code.
     const { container } = twoTiles();
     expectRowUniqueNames({
       // MEASURED, not guessed: two tiles x (one grip + one ⋮) = 4. Kept at the

@@ -16,7 +16,15 @@
 import { ArrangementTile, type ArrangementTileProps } from "./arrangement-tile";
 import type { DashboardTileId } from "./dashboard-tiles";
 
-export type { TileDragProps, TileHandleProps } from "./arrangement-tile";
+/* ★ ALIASED, NOT RENAMED AT THE CALL SITES. The generic module speaks the
+ * ENGINE's vocabulary — `BlockSpec`, `PlacedBlock`, `BlockSpan`, `moveBlock` —
+ * so its prop types are `Block*` too. `dashboard-panel.tsx` and
+ * `dashboard-shelf.tsx` import the `Tile*` spellings, and the Phase F rule keeps
+ * this file's exported NAMES fixed, so the translation happens here. */
+export type {
+  BlockDragProps as TileDragProps,
+  BlockHandleProps as TileHandleProps,
+} from "./arrangement-tile";
 
 /* ★ `testIdPrefix="tile"` IS THE COMPATIBILITY POINT OF THIS WHOLE FILE. The
  * generic component builds `data-testid={`${testIdPrefix}-${id}`}`, so this one

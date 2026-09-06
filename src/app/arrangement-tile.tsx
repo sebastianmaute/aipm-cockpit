@@ -7,12 +7,12 @@ import { t, type Lang } from "./i18n";
 import type { BlockSpan } from "./arrangement-layout";
 
 /** Spread onto the DROP TARGET — `useListReorderDnd(...).itemProps(id)`. */
-export interface TileDragProps {
+export interface BlockDragProps {
   onDragOver?: (e: DragEvent<HTMLElement>) => void;
   onDrop?: (e: DragEvent<HTMLElement>) => void;
 }
 /** Spread onto the DRAG GRIP — `useListReorderDnd(...).handleProps(id)`. */
-export interface TileHandleProps {
+export interface BlockHandleProps {
   draggable?: boolean;
   onDragStart?: (e: DragEvent<HTMLElement>) => void;
   onDragEnd?: () => void;
@@ -26,10 +26,10 @@ export interface ArrangementTileProps {
   h: BlockSpan;
   lang: Lang;
   readOnly: boolean;
-  dragProps: TileDragProps;
-  handleProps: TileHandleProps;
+  dragProps: BlockDragProps;
+  handleProps: BlockHandleProps;
   /**
-   * Prefixes this tile's `data-testid`, as `` `${testIdPrefix}-${id}` ``.
+   * Prefixes this block's `data-testid`, as `` `${testIdPrefix}-${id}` ``.
    *
    * ★ A PREFIX RATHER THAN A WHOLE TEST ID, so a surface cannot accidentally
    * give two blocks the same handle: the id half is always the block's own.
@@ -39,7 +39,7 @@ export interface ArrangementTileProps {
   testIdPrefix: string;
   /** Receives the trigger itself, so the caller can anchor its popover on it. */
   onOpenMenu: (anchor: HTMLElement) => void;
-  /** ★★ Registers the ⋮ trigger against this tile's ID, so the caller can find
+  /** ★★ Registers the ⋮ trigger against this block's ID, so the caller can find
    *  it again LATER — after a move has closed the popover and re-rendered the
    *  board. `onOpenMenu` cannot serve that: it hands over a node captured
    *  before the reorder, and focusing a node the commit has replaced or
@@ -53,14 +53,14 @@ export interface ArrangementTileProps {
  * Chrome around one arrangeable block: the drag grip, the title, and the ⋮
  * button. Shared by every surface that binds the arrangement engine.
  *
- * ★★ EVERY CONTROL'S NAME IS QUALIFIED WITH THE TILE TITLE. N identically named
+ * ★★ EVERY CONTROL'S NAME IS QUALIFIED WITH THE BLOCK TITLE. N identically named
  * "Drag or use arrow keys to reorder" buttons is a WCAG 2.4.6 failure, and the
  * axe gate cannot see it at any seed size — no rule under the four tags
  * `e2e/a11y.spec.ts` requests flags duplicate accessible names, and the only
  * adjacent rule (`identical-links-same-purpose`) is links-only and `wcag2aaa`.
- * The qualifier has to be written HERE, and the unit test rendering TWO tiles
- * is the only possible detector, in either layer — a one-tile fixture cannot
- * express a collision at any assertion count.
+ * The qualifier has to be written HERE, and the unit test rendering TWO blocks
+ * is the only possible detector, in either layer — a one-block fixture cannot
+ * express a name clash at any assertion count.
  * ★★★ THAT NOW COVERS EVERY SURFACE AT ONCE, which cuts both ways. One
  * qualifier serves the Dashboard and Reports, so neither can regress
  * independently — but a surface passing a NON-UNIQUE `title` defeats it from
@@ -70,7 +70,7 @@ export interface ArrangementTileProps {
  *
  * ★ WCAG 2.5.3 (label-in-name) does not apply to either control: both are
  * glyph-only, so neither has a VISIBLE label for the accessible name to
- * contain. Containing the tile title is a 2.4.6 disambiguator, not 2.5.3
+ * contain. Containing the block title is a 2.4.6 disambiguator, not 2.5.3
  * conformance. (The plan's docstring claimed 2.5.3; it does not bind here.)
  *
  * ★★ THE GRIP IS THE SHARED `DragHandle` PRIMITIVE, and this paragraph used to

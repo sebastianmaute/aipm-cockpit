@@ -1654,19 +1654,49 @@ git commit --only docs/open-followups.md -m "docs(followups): file the Reports a
 - [ ] `npx tsc --noEmit` exits 0; `npx eslint --max-warnings=0 src/app` exits 0.
 - [ ] `size:check`, `dup:check`, `docs:symbols:check`, `docs:claims:check`, `followups:status:check` all exit 0.
 - [ ] **`git diff origin/main --stat -- src/app/dashboard-panel.tsx` is EMPTY.** This plan never edits it.
-- [ ] Every Dashboard test file is unmodified **except the one sanctioned exception below**. ★★★ DO NOT
-  USE THE QUOTED-GLOB FORM THIS LINE USED TO CARRY — `git diff origin/main --stat --
-  'src/app/dashboard-*.test.*' 'src/app/use-dashboard-layout.test.tsx'` is VACUOUS: measured,
-  `git ls-tree -r --name-only origin/main -- 'src/app/dashboard-*.test.*'` matches **0** files, so that
-  diff compares two empty sets and exits 0 whatever anyone did. The check that was supposed to catch the
-  exception below could never have caught anything. Use a DERIVED list:
+- [ ] Every Dashboard test file is unmodified **except the two sanctioned exceptions below**. Use a
+  DERIVED list, and assert its size rather than eyeballing it:
   ```
   FILES=$(git ls-tree -r --name-only origin/main | grep dashboard | grep -E '\.(test|spec)\.(ts|tsx)$')
-  echo "$FILES" | wc -l                                   # 27 — state it
-  git diff origin/main --stat -- $FILES                    # expect ONLY dashboard-grid.test.tsx
+  [ "$(echo "$FILES" | wc -l)" = 27 ] || { echo "derivation drifted"; exit 1; }
+  git diff origin/main --stat -- $FILES     # expect ONLY the two exceptions below
   ```
-  Pair it with a POSITIVE CONTROL (the same command over a file the branch did change must report a
-  non-empty diff); an absence check with no positive observable proves nothing.
+  ★ Assert the count, never `echo`-and-read it: `echo "" | wc -l` is **1**, so an empty derivation
+  reports 1 and the reader's own sanity check mis-reports. It fails safe (an unquoted empty `$FILES`
+  degrades to diffing everything, which is loudly non-empty), but a check that lies about its own
+  input is not worth keeping. Pair it with a POSITIVE CONTROL — the same command over a file the branch
+  DID change must report a non-empty diff; an absence check with no positive observable proves nothing.
+
+  ★★★ **WHY THE DERIVED LIST, AND A CORRECTION TO WHAT THIS LINE SAID ON 2026-09-06.** It previously
+  carried `git diff origin/main --stat -- 'src/app/dashboard-*.test.*'
+  'src/app/use-dashboard-layout.test.tsx'`, and the revision that replaced it called that form
+  **VACUOUS** and said it "could never have caught anything". **That was false, and the commit message
+  of `a37b429b` repeats it — the record there is wrong and cannot be amended, so this is the
+  correction.** Measured: that exact glob diff reports `src/app/dashboard-grid.test.tsx | 71 ++++-----`,
+  4994 bytes, 19 insertions / 52 deletions. **It catches the very exception it was accused of being
+  blind to.**
+
+  ★★★ **THE TRANSFERABLE LESSON — `git ls-tree` AND `git diff` DO NOT SHARE A PATHSPEC ENGINE.** The
+  false claim came from measuring one command and inferring the other's behaviour. Reproduce all four:
+  ```
+  git ls-tree -r --name-only origin/main -- 'src/app/dashboard-*.test.*'        # 0   ← glob NOT honoured
+  git ls-tree -r --name-only origin/main -- 'src/app/dashboard-grid.test.tsx'   # 1   ← exact path works
+  git ls-tree -r --name-only origin/main -- ':(glob)src/app/dashboard-*.test.*' # fatal: pathspec magic
+                                                                               #   not supported by this command
+  git ls-files -- 'src/app/dashboard-*.test.*' 'src/app/use-dashboard-layout.test.tsx'   # 24
+  ```
+  `ls-tree` does not do glob pathspecs at all and rejects `:(glob)` outright; `ls-files` and `diff` do.
+  ★★ The observation that misled was an EMPTY diff, taken at a moment when no test file had been edited
+  yet — consistent with "the glob matches nothing" AND with "nothing has changed", and read as the
+  first. That is the absence-needs-a-positive-observable rule, and a positive control would have
+  settled it in one command.
+
+  ★ **The replacement is still the right call, for the REAL reason:** the old glob matches **24** paths
+  against the derived **27** — a strict subset, missing `e2e/dashboard-grid.spec.ts`,
+  `src/app/ai-dashboard-snapshot.test.ts` and `src/app/dashboard.test.ts` — and it carried no positive
+  control. ★ It reaches 24 rather than the ~20 a flat reading suggests because `*` crosses `/`, so it
+  also covers `dashboard-sections/*.test.tsx`. Derive the gap rather than trusting this line:
+  `comm -23 <(derived list, sorted) <(glob list, sorted)`.
 - [ ] **THE ONE SANCTIONED EXCEPTION, authorised in Task 7 and scoped to exactly this:** the
   `describe("span class tables (source form)")` block — three assertions — was **MOVED, not deleted**,
   from `src/app/dashboard-grid.test.tsx` to `src/app/arrangement-grid.test.tsx`, with its `readFileSync`
@@ -1686,6 +1716,26 @@ git commit --only docs/open-followups.md -m "docs(followups): file the Reports a
   **The rule itself is unchanged — "fix the adapter, never the test."** This is the single recorded case
   where the test was coupled to a path rather than to an API, and it is not a precedent for editing a
   Dashboard test that fails on BEHAVIOUR.
+- [ ] **THE SECOND SANCTIONED EXCEPTION, and it is NARROWER — COMMENT TEXT ONLY.**
+  `e2e/dashboard-grid.spec.ts` carried a reproduce recipe reading "delete `xl:grid-cols-4` from
+  `dashboard-grid.tsx`". After Task 7 that class is only in `arrangement-grid.tsx` — measured,
+  `grep -c "xl:grid-cols-4" src/app/dashboard-grid.tsx` → **0** — so the recipe could not be followed
+  as written, and a knowingly-false reproduce recipe is the exact rot this branch keeps paying for.
+  One comment line was repointed. **HARD CONDITION, met: the diff contains NO executable change** — no
+  assertion, no import, no selector, no behaviour; `git diff` on that file shows comment lines only.
+  ★ The file's four OTHER references were re-checked and all still hold, so only the one line moved.
+  ★★ Distinguish the two exceptions when citing them: the first MOVED A TEST (three assertions plus two
+  imports) because it was coupled to a path; this one touches no code at all. Neither licenses editing a
+  Dashboard test that fails on BEHAVIOUR.
+- [ ] ★ **Plan defect, recorded rather than fixed silently:** Task 7's Step 5 says to run
+  `src/app/dashboard-tile.test.tsx`. **That file has never existed** — not at `origin/main`
+  (`git ls-tree -r --name-only origin/main -- src/app/dashboard-tile.test.tsx` → 0) and not now. It is
+  NOT a silent-vacuity case: `npx vitest run` on a missing path exits **1** with `No test files found`,
+  so it fails loudly. The substantive point: `dashboard-tile.tsx` has no unit test of its own and never
+  did — its whole Dashboard-side coverage is the `DashboardTile` describe inside
+  `dashboard-grid.test.tsx`, which is fortunate, because that describe is what still catches an a11y
+  regression through the adapter (Task 7's M2: dropping the title qualifier reddens two tests there as
+  well as two in `arrangement-tile.test.tsx`).
 - [ ] Axe green on Reports and Dashboard at `--workers=1` on a fresh `PORT=3100` server.
 - [ ] `git ls-files --eol` reports `i/lf w/crlf` for every touched `src/app` file and `i/lf w/lf` for `docs/open-followups.md`.
 - [ ] `git status --short` shows only `M sample-workspace-huge.json` and `?? not-in-use.env.local.bak` — neither ever staged.

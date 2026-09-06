@@ -33,8 +33,10 @@ import type { DashboardTileId } from "./dashboard-tiles";
  * ★★ THE SHELF TAKES NO `onHide`. The plan had one, unused, to be wired later —
  * but a destructured prop nothing reads is FATAL at `--max-warnings=0` (no
  * `argsIgnorePattern` in this repo). The grid owns the drop instead and passes
- * its handlers as `dropProps`, mirroring `TileDragProps` on `dashboard-tile.tsx`;
- * the shelf never decodes a drag itself.
+ * its handlers as `dropProps`, mirroring the drop-target prop bag declared as
+ * `BlockDragProps` in `arrangement-tile.tsx` — `dashboard-tile.tsx`, which this
+ * comment used to name, now only re-exports it under the `TileDragProps` alias
+ * this file imports; the shelf never decodes a drag itself.
  */
 const TRAY_ID = "dashboard-shelf-tray";
 
