@@ -29382,7 +29382,71 @@ rather than added inline to this batch.
 
 ## 409. Collapsing an open document's body can commit a pending unblurred edit and mint a version — OPEN
 
-**Status:** OPEN. 2026-09-05, never machine-verified — this is a code-reading claim (the mechanism it describes has no automated reproduce; see the closing paragraph for the nearest existing test). `documents-panel.tsx`'s `bodyCollapsed` state (added in `ede67ddd`, "collapse the body by re-clicking the open document's name") wraps `DocumentEditModeBody` in `{!bodyCollapsed && (...)}`, so toggling it unmounts the whole editor subtree. Its own comment calls the state transient — "collapsing is a momentary 'give me room' gesture, not a preference. Nothing persists it."
+**Status:** OPEN. 2026-09-06. The re-runnable half is
+`npx vitest run --maxWorkers=1 src/app/documents-panel.test.tsx` (108 passed), which pins the MOUNT
+SHAPE only — it goes red on a revert to the conditional render and is structurally incapable of
+seeing the browser behaviour below, because jsdom implements neither layout nor the focus-fixup
+rule. ★★ The browser findings in this entry were MEASURED in Chromium on 2026-09-06 (event-order
+log interleaved with a MutationObserver, plus IndexedDB `documentVersions` counts before/after and a
+positive control proving the detector fires on a real commit) but are NOT re-runnable from this
+repo: the probe used a throwaway Playwright spec against an isolated `PORT=3100` server and deleted
+it, so treat every number below as a dated observation, not as something a command will reproduce.
+Re-measuring needs a new probe. The measurement CONTRADICTED the fix attempted for this entry — read
+"What the browser actually showed" before acting on any part of it. The original text is kept as
+written, because it is the claim that was falsified.
+
+★★★ **WHAT THE BROWSER ACTUALLY SHOWED (2026-09-06), AND IT REFUTES TWO CLAIMS MADE WHILE
+"FIXING" THIS.** A change on `feat/control-defects-follow-through` replaced the conditional render
+with an always-mounted `<div hidden={bodyCollapsed}>`, and its commit message said that stopped the
+collapse from writing history. It does not.
+
+1. **The write still happens.** The block editors also commit on `onBlur`, and React's `onBlur` is a
+   delegated `focusout`, which bubbles; `commit()` carries no visibility guard. Hiding an ancestor
+   of a focused input DOES fire `blur`+`focusout` in Chromium (asynchronously, unlike DOM removal
+   which fires them synchronously) and moves `activeElement` to BODY. Measured in-app with a dirty,
+   still-focused heading draft and the collapse driven through real React state: the order was
+   `click` → `hidden` attribute set → `blur` → `focusout`, and `documentVersions` went 1 → 2 with
+   the block's text rewritten. So the change moved the write from the unmount-cleanup path to the
+   focusout path. It did not remove it. A unit test cannot see this: jsdom has no layout and no
+   focus-fixup rule, which is exactly why the test added alongside that change is green.
+2. **The defect is not reachable by an ordinary gesture anyway.** The only writer that SETS
+   `bodyCollapsed` true is the open document's own name button. Measured on both routes — real mouse
+   (`pointerdown, mousedown, blur, focusout, focus, focusin, mouseup, click`) and keyboard (`blur,
+   focusout, focus, focusin, keydown, click`) — `focusout` precedes the click handler, so the
+   ordinary blur-commit has already run and `dirtyRef` is clear by the time the collapse flips. The
+   old unmount flush would have returned early at its own dirty check. A commit does land on those
+   gestures, but it is the ordinary commit any click-away produces, not one the collapse caused.
+
+Not measured: Firefox and WebKit focus-fixup behaviour, and the pre-fix tree itself (the "before"
+was a `display:contents` structural proxy, since the probe could not modify tracked files).
+
+★★ **THE ATTEMPTED FIX ALSO SHIPPED A LAYOUT REGRESSION, since corrected — keep the lesson.** The
+wrapper was written with NO className on the stated grounds that a display utility would override
+`[hidden]{display:none}`. That premise is false (preflight's rule is `display: none !important`, and
+an important declaration beats a normal one from any layer), and the omission had a real cost: the
+bare wrapper became the flex item of the `overflow-auto` pane, and a plain block's content-based
+automatic minimum meant it could not shrink, so the preview section's own `overflow-auto` stopped
+bounding anything and the scrollbar moved out to the pane. Measured at 1200x500: section 2508/2508
+(no internal scroll), pane 2875/302. With `flex min-h-0 flex-1 flex-col` on the wrapper the section
+returns to 2508/32 and scrolls, and the pane drops to 399/302 — the fix lands on exactly the numbers
+a `display:contents` proxy for the pre-wrapper structure predicted, not merely near them. `min-h-0`
+alone does NOT fix it — the child is only a flex item if the wrapper is itself a flex container.
+Re-measured after applying it: computed display is `none` while collapsed (preflight's `!important`
+does beat the `flex` utility), the collapsed wrapper has zero client rects and a null `offsetParent`,
+and two collapse/expand cycles are bit-identical.
+
+★ One observation from that re-measurement, NOT a regression and NOT introduced by the className:
+at a 500px-tall viewport the preview ends up a ~32px-tall internal scroller (the list and metadata
+sections above it consume the column), which the pane-level scrollbar previously hid. The
+`display:contents` proxy produces the same squeeze, so this is the restored pre-wrapper behaviour.
+At 1200x900 nothing is squeezed — the section is 2508/335 and the pane does not scroll at all.
+Recorded because a future reader measuring only at a short viewport will find it and wonder.
+
+★ **What would actually close this entry** is a visibility guard on `commit()` (or an explicit
+"collapse discards nothing but writes nothing either" decision), NOT a mount-shape change. Given
+finding 2, the priority is low: no ordinary gesture reaches the state.
+
+The original code-reading claim, as written on 2026-09-05, follows. `documents-panel.tsx`'s `bodyCollapsed` state (added in `ede67ddd`, "collapse the body by re-clicking the open document's name") wraps `DocumentEditModeBody` in `{!bodyCollapsed && (...)}`, so toggling it unmounts the whole editor subtree. Its own comment calls the state transient — "collapsing is a momentary 'give me room' gesture, not a preference. Nothing persists it."
 
 `useBlockDraft` (`document-block-editors.tsx`) holds a mount-only effect whose cleanup runs on any unmount, blur or not: if the draft is dirty, not a no-op against its baseline, and not superseded by a concurrent write, it normalises the draft and calls `onCommit` — i.e. it flushes a dirty draft on unmount. That `onCommit` is `commitBlock` (`use-document-editor.ts`), which calls `mutateDocuments({kind: "ops", ...})` and — per the coalescing/`lastMintedRef`/`MAX_VERSIONS_PER_DOC` machinery around it — routes through `applyDocMutation`, the single document-mutation path that mints `DocVersion` before-images (see `docs/AGENTS/documents.md`).
 

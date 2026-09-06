@@ -754,7 +754,29 @@ export function DocumentsPanel({
             `workspace-section.tsx`, and it inherits that shape's inverted
             hazard: a fresh mount can no longer be relied on to clear anything,
             so `bodyCollapsed`'s reset above must keep firing on its own. */}
-        <div hidden={bodyCollapsed}>
+        {/* ★★★ THE CLASSES ARE LOAD-BEARING AND AN EARLIER CUT OMITTED THEM ON
+            A WRONG PREMISE. That cut said a display utility would override
+            `[hidden]{display:none}`. It cannot: preflight's rule is
+            `display: none !important` (node_modules/tailwindcss/preflight.css,
+            "Make elements with the HTML hidden attribute stay hidden"), and an
+            !important declaration beats a normal one from any layer — verified
+            in Chromium, computed display stays `none` while collapsed.
+            ★★ Omitting them DID cost a real regression: this wrapper is the
+            flex item of the `overflow-auto` pane above, and a plain block has a
+            content-based automatic minimum, so it could not shrink and the
+            preview `<section>`'s own `overflow-auto` stopped bounding anything
+            — the scrollbar moved out to the pane. MEASURED at 1200x500:
+            section scrollHeight/clientHeight was 2508/2508 (no internal
+            scroll) with the pane at 2875/302; with these classes the section
+            is 2508/32 and scrolls, and the pane drops to 399/302.
+            ★ `min-h-0` ALONE DOES NOT FIX IT (measured: the section stays
+            2508/2508 and the wrapper's clientHeight collapses to 0) — the
+            child is only a flex item if this wrapper is itself a flex
+            container, so all four classes are required together.
+            ★ Consequence if this regresses: `document-preview.tsx`'s section
+            carries `tabIndex={0}` precisely because it scrolls, so it becomes a
+            focus stop on a region that no longer scrolls. */}
+        <div hidden={bodyCollapsed} className="flex min-h-0 flex-1 flex-col">
           <DocumentEditModeBody lang={lang} doc={selected} ws={ws} editing={editing} narrow={narrowPane} isReadOnly={isReadOnly} onCommitBlock={commitBlock} structural={structural}
             assetsTursoConfig={assetPane?.tursoConfig ?? null} assetsProjectId={assetPane?.projectId} />
         </div>

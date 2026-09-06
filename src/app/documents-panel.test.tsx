@@ -2279,6 +2279,25 @@ describe("DocumentsPanel — document-switch commit guard", () => {
   // removes the subtree from the accessibility tree exactly like unmounting
   // does, so a `queryByRole` visibility check cannot tell `hidden` from the
   // old conditional render — only whether `mutateDocuments` fired can.
+  //
+  // ★★★ READ THIS BEFORE CITING THIS TEST AS PROOF THE DEFECT IS FIXED. IT IS
+  //     NOT, AND THIS TEST CANNOT SEE WHY. Measured in Chromium 2026-09-06
+  //     (see open-followups §409): the block editors ALSO commit on `onBlur`,
+  //     React's `onBlur` is a delegated `focusout` which bubbles, and hiding an
+  //     ancestor of a focused input fires `blur`+`focusout` in a real browser.
+  //     So in Chromium this same gesture still commits and still mints a
+  //     version — the write moved from the unmount path to the focusout path.
+  //     jsdom implements neither layout nor the focus-fixup rule, so nothing
+  //     here can observe that; this test is green for a reason that does not
+  //     hold outside jsdom.
+  //     What this test DOES legitimately pin is the mount shape: reverting to
+  //     `{!bodyCollapsed && …}` makes the unmount flush fire and turns it red.
+  //     Keep it for that, and do not upgrade the claim.
+  // ★ Also measured: the state below is not reachable by a real gesture at all
+  //   — on both mouse and keyboard, `focusout` precedes the click handler, so
+  //   the draft is already committed by the ordinary blur before the collapse
+  //   flips. That is why `fireEvent` is required here, and it is a sign this
+  //   test describes a synthetic state rather than a user-visible one.
   it("does not commit a pending unblurred edit when the open document is collapsed", async () => {
     const { mutateDocuments } = renderWithSpy();
     // docA is ALREADY open (the selectionPool[0] fallback) — see the sibling
@@ -2296,11 +2315,16 @@ describe("DocumentsPanel — document-switch commit guard", () => {
     expect(mutateDocuments).not.toHaveBeenCalled();
   });
 
-  // ★★★ THE ROUND TRIP THAT PROVES THE SUBTREE STAYED MOUNTED, NOT MERELY
-  // THAT NOTHING COMMITTED. A commit could be suppressed some other way (e.g.
-  // dropping the flush-on-unmount effect entirely) while still losing the
-  // draft on collapse — this catches that: the typed text must survive a
-  // collapse/expand round trip.
+  // ★★ THE ROUND TRIP. It catches a commit suppressed some OTHER way (e.g.
+  // dropping the flush-on-unmount effect entirely) while still losing the draft
+  // on collapse: the typed text must survive a collapse/expand round trip.
+  // ★ Scope it honestly — an earlier comment here said it "PROVES THE SUBTREE
+  // STAYED MOUNTED, not merely that nothing committed". The value assertion
+  // alone does not prove that: `renderWithSpy` passes a `docs` array captured
+  // once, so under a plain revert a remounted editor re-seeds from the
+  // unchanged stored text and the assertion fails for the UNMOUNT reason
+  // rather than the state-loss one. It does kill the mutant it names; it is
+  // just not the stronger claim.
   it("keeps a dirty draft after collapsing and re-expanding the document", async () => {
     const { mutateDocuments } = renderWithSpy();
     await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
