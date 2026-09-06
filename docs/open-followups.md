@@ -29012,7 +29012,10 @@ second interpolation argument bolted onto the existing key.
 `grep -rniE "test.?connection|verify.?connection|checkConnection|connectionTest|pingTurso|tursoTest" src/app --include=*.ts --include=*.tsx`
 returns only `jiraTest`/`timelogTest` i18n keys and `jira-api.ts`'s/`jira-settings.tsx`'s
 `testConnection` — nothing under any of the 20 `turso-*.ts(x)` files
-(`ls src/app | grep -i turso`).
+(`ls src/app | grep -i "^turso"`). ★ The `^` anchor is what makes the count reproduce: the
+unanchored `ls src/app | grep -i turso` returns 26, because it also picks up
+`learning-store-turso.ts`, `use-storage-turso-ops.ts`, `use-turso-projects.ts` and their tests —
+files that are Turso-related but are not the `turso-*` module family this sentence is about.
 
 Jira and Timelog both ship a real test-connection round trip: `jira-settings.tsx` calls
 `testConnection(creds)` (the function itself, `jira-api.ts`, hits the real API and returns the
@@ -29027,10 +29030,12 @@ Consequence: `canMoveToTurso` in `src/app/settings-sections/integrations-section
 `!!onMigrateToTurso && !onTurso && tursoConfigured`, and `tursoConfigured` is
 `!!getTursoConfig(turso.databaseUrl, turso.authToken)` — a shape check on the two fields, never
 a live probe (reproduce: `grep -n 'canMoveToTurso\|tursoConfigured =' src/app/settings-sections/integrations-section.tsx`).
-The Move-to-Turso control, and the buttons in
-`src/app/projects-panel.tsx` that a later task in this batch makes visible-but-disabled, can
-therefore only gate on Turso configuration being **present**, never on it being **confirmed
-working** — which is what was originally wanted for parity with Jira/Timelog.
+The Move-to-Turso control can therefore only gate on Turso configuration being **present**,
+never on it being **confirmed working** — which is what was originally wanted for parity with
+Jira/Timelog. ★ The same ceiling WOULD apply to the `src/app/projects-panel.tsx` buttons that a
+PLANNED task in this batch would render visible-but-disabled — but **that task is deferred and
+is NOT in this branch**, so read the clause as a consequence for work not yet done, never as a
+description of shipped code. An earlier revision of this entry stated it as done.
 
 ★ Design consequence, recorded so a future fix does not reach for the wrong shape by default: a
 *persisted* "connection confirmed" flag would be a new `Workspace`/`Settings` field and therefore
@@ -29051,3 +29056,79 @@ So collapsing the body while a block editor holds an uncommitted, unblurred edit
 **This is the safe direction, not data loss** — the edit is written, never discarded, and must not be filed as a loss. It is also not a new failure shape: `useBlockDraft`'s unmount-cleanup comment already anticipates non-blur unmounts, naming a narrow-pane collapse of a non-selected row and a pane resize as existing cases with the identical commit-on-unmount behavior; the new collapse toggle is a third path of the same shape, and `documents-panel.test.tsx`'s "flushes a pending unblurred edit to the OLD document on a switch, never the new one" test already pins the document-switch instance of it.
 
 The open question is a product one, not a correctness one: should a gesture presented as momentary ("give me room") be allowed to write persistent history? Nothing pins the collapse-specific case today — a `documents-panel.test.tsx` analogue mirroring the existing switch-flush test would be the cheap way to characterize (and, if the product answer changes, to pin a fix for) this specific trigger.
+
+## 399. `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line — OPEN
+
+**Status:** OPEN. Measured 2026-09-06 (not read): comment- and blank-stripped, the region from `const listId` to `return (` is 53 lines in EACH file and differs on exactly ONE line, the Enter commit call; the search-box block is 28 stripped lines in each and differs on NONE. Spot-check with `grep -n "cur + 1 >= options.length" src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx` (one hit in each file); full reproduce below.
+
+`src/app/single-entity-picker.tsx` is the single-select sibling of `src/app/entity-link-picker.tsx`.
+The `prevQuery` render-time reconcile, the `active` clamp, the whole of `move()` and the whole of
+`onKeyDown` are near-identical between them, as is the `ClearableSearchInput` + `Input` search-box
+markup and the `role="listbox"` option list. Only the commit call differs (`onSelect` taking a
+`value` string versus `onAdd` taking the whole entry) and, in the list, the React `key`.
+
+Reproduce — both blocks, stripped of comments and indentation:
+
+```bash
+strip() { grep -v '^[[:space:]]*//' "$1" | sed -n '/const listId/,/return (/p' | sed 's/^[[:space:]]*//;/^$/d'; }
+diff <(strip src/app/single-entity-picker.tsx) <(strip src/app/entity-link-picker.tsx)
+# -> a single 1-line hunk: onSelect(options[active].value) vs onAdd(options[active])
+
+strip2() { sed -n '/<div className="relative">/,/^        {open && (/p' "$1" | grep -v '^[[:space:]]*//' | grep -v '^[[:space:]]*{\?/\*' | grep -v '^[[:space:]]*\*' | sed 's/^[[:space:]]*//;/^$/d'; }
+diff <(strip2 src/app/single-entity-picker.tsx) <(strip2 src/app/entity-link-picker.tsx)
+# -> no output, exit 0
+```
+
+The cost is not the lines, it is the PROSE. Both files carry multi-paragraph comment blocks stating
+the same `options` invariant, the same purity argument for computing `next` outside the setState
+updater, the same `aria-activedescendant`-does-not-auto-scroll justification for the `rAF`, and the
+same `preventDefault`-versus-`stopPropagation` analysis of the Escape path. They must now be kept in
+step by hand, they already differ in wording, and the 2026-09-06 round that scoped the `options`
+contract to the add path had to edit BOTH — which is exactly the failure mode a shared module
+prevents.
+
+★ No gate will ever report this. `dup:check` compares a repo-wide TOTAL duplicated-LINE percentage
+across ~136k lines; ~80 duplicated lines cannot move that number (it passes today well under its
+threshold — read the live figure off `npm run dup:check`, do not quote one from here).
+
+★★ The file header's argument against reusing `combobox-shared` is SOUND and must not be read as an
+argument against this entry. `useCombobox` owns `open` as its own state where both pickers DERIVE
+it; its `moveHighlight` uses a function updater and schedules no `scrollIntoView`; `ComboboxChevron`
+takes a `lang` and calls `t()`, which would break both files' i18n-free contract. None of that bears
+on extracting a THIRD hook from what are now two near-identical implementations — one that derives
+`open`, computes `next` outside the updater, and takes no `lang`. The obvious shape is a
+`useEntityPickerCombobox({ query, optionCount })` returning `{ open, active, onKeyDown, listRef }`
+with the commit handed in as a callback, leaving each component only its own chrome.
+
+★★ Doing this would also collapse §400: the three mechanisms unpinned in `SingleEntityPicker` are
+already pinned in `entity-link-picker.test.tsx`, so one suite over the shared hook would cover both
+components instead of two suites that have to be kept in step the same way the comments do.
+
+## 400. Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test — OPEN
+
+**Status:** OPEN. Verified 2026-09-06 by grep: `grep -cE "ArrowUp|pr-8|reopens" src/app/single-entity-picker.test.tsx src/app/entity-link-picker.test.tsx` returns 0 for the SingleEntityPicker suite against 9 for the sibling's. The sibling count is the positive control — without it a zero cannot be told from a mistyped pattern.
+
+An earlier round pinned the component's Escape handling, its render-time reconcile and its
+out-of-range clamp. Three mechanisms are still unpinned, and each one's source comment states a
+reason it is written the way it is — which is the dangerous combination: a "simplification" that
+contradicts the stated reason ships with the suite green, and the comment then reads as protection
+nothing provides.
+
+**(a) The reopen rides `onClick`, deliberately not `onFocus`** — the comment's reason is that Escape
+must STICK across a blur and a refocus, so that tabbing away to fix something and coming back does
+not pop the list back over the rest of the form. Nothing exercises it. Swapping the handler for
+`onFocus` breaks the guarantee silently. This is the one worth writing first.
+
+**(b) `ArrowUp` wrap-around.** The suite arrows DOWN and commits with Enter; `move(-1)`'s
+`cur <= 0 ? options.length - 1` branch is never taken. ★ The sibling's version of this test uses
+THREE options on purpose — with two, ArrowUp-from-index-0 lands on the same index whether the
+wrap-around is right or not, so a two-option fixture is vacuous here.
+
+**(c) The conditional `pr-8`.** It rides the same condition the overlaid clear button does, because
+unconditionally it would shave ~2rem off the visible placeholder in the common empty state. Neither
+branch is asserted.
+
+Remedy is cheap: `entity-link-picker.test.tsx` already carries a working template for all three
+((a) as its click-reopen and tab-away pair, (b) as its three-option ArrowUp case, (c) as its
+two-branch padding assertion), so each is a port rather than a new test. ★ If §399 is taken first,
+these three come for free — pin them on the extracted hook once instead of in two suites.
