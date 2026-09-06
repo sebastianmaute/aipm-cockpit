@@ -19,12 +19,19 @@
  *      into a quarter of the width, where it is unusable. `minW` is the only
  *      thing preventing it. `report-blocks.test.ts` pins the NUMBERS; nothing
  *      pins the rendered result.
- *   2. THE ROW UNIT IS 120px, NOT THE DASHBOARD'S 80px. `BlockSpan` caps at 4,
- *      so at the Dashboard's unit the tallest a block could ever be is 320px —
- *      too short for an embedded report. The class itself is injected where the
- *      grid is bound (`ArrangementGrid`'s `rowClass`), not here, because this
- *      file is i18n- and DOM-free; the REASON lives here because it is a
- *      property of these blocks' content, not of the grid.
+ *   2. REPORTS MUST BIND A 120px ROW UNIT, NOT THE DASHBOARD'S 80px. ★★★ THIS
+ *      IS AN OBLIGATION ON WHOEVER BINDS THE GRID, NOT A DESCRIPTION OF TODAY —
+ *      no `auto-rows-[120px]` exists anywhere in `src/` or `e2e/` yet; the only
+ *      row units in the repo are the Dashboard's `auto-rows-[80px]` and
+ *      `auto-rows-[72px]`. Reproduce with
+ *      `grep -rn "auto-rows-" src e2e --include=*.ts --include=*.tsx`.
+ *      The reason: `BlockSpan` caps at 4, so at the Dashboard's unit the tallest
+ *      a block could ever be is 320px — too short for an embedded report. The
+ *      class is injected as `ArrangementGrid`'s `rowClass` rather than declared
+ *      here, because this file is i18n- and DOM-free; the REASON lives here
+ *      because it is a property of these blocks' CONTENT, not of the grid. It is
+ *      assertable once bound — `arrangement-grid.test.tsx` already pins injected
+ *      row and gap classes the same way.
  *
  * ★★ A CATALOGUE CANNOT DECLARE A BLOCK HIDDEN BY DEFAULT. `defaultLayout`
  * places every member and `reconcile` re-inserts every absent one, by design —

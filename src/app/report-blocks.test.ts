@@ -1,12 +1,37 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   REPORT_BLOCKS, REPORTS_DEFAULT_LAYOUT, REPORTS_LAYOUT_KEY, reportBlockById,
   type ReportBlockId,
 } from "./report-blocks";
 import { ADDABLE_REPORTS } from "./addable-reports";
 import { DASHBOARD_LAYOUT_KEY } from "./dashboard-layout-store";
-import { defaultLayout, reconcile } from "./arrangement-layout";
-import { t } from "./i18n";
+import { defaultLayout, reconcile, type BlockSpan } from "./arrangement-layout";
+import { loadI18n, t } from "./i18n";
+
+/**
+ * Every block's intended `minW`, spelled out.
+ *
+ * ★★★ TYPED `Record<ReportBlockId, BlockSpan>` ON PURPOSE. A new catalogue id
+ * is then a COMPILE error until someone states its minimum width — which is the
+ * one decision in this file that no test, and no gate, and no amount of axe can
+ * check once it is wrong, because jsdom has no layout. The type does the
+ * enumeration a hand-copied list kept getting wrong.
+ */
+const EXPECTED_MIN_W: Record<ReportBlockId, BlockSpan> = {
+  stats: 2,
+  groupHealth: 2,
+  openByStatus: 2,
+  completionOutcomes: 2,
+  inquiries: 2,
+  byAssignee: 4,
+  byPriority: 1,
+  byGroup: 4,
+  byLabel: 4,
+  "raid-report": 4,
+  "budget-report": 4,
+  "resource-report": 4,
+  "stakeholder-report": 4,
+};
 
 describe("report-blocks — the catalogue", () => {
   it("declares every addable report as a block", () => {
@@ -29,22 +54,51 @@ describe("report-blocks — the catalogue", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("pins the table-bearing blocks to full width", () => {
+  it("pins EVERY block's minW, not just the full-width ones", () => {
     // ★★★ THE LOAD-BEARING ONE. jsdom has no layout, so nothing else in the
-    // suite can tell a squeezed table from a readable one. These seven carry
-    // column-resizable tables or a whole embedded report panel; at minW 1 they
-    // are a quarter of a four-column grid and unusable. This test is the only
-    // guard that exists, and the VISUAL result is still owed a browser
-    // eye-verify — a green run here does not mean anyone has looked at it.
-    const FULL: ReportBlockId[] = [
-      "byAssignee", "byGroup", "byLabel",
-      "raid-report", "budget-report", "resource-report", "stakeholder-report",
-    ];
-    for (const id of FULL) {
-      const b = REPORT_BLOCKS.find((x) => x.id === id)!;
-      expect(b, `${id} is not in the catalogue`).toBeDefined();
-      expect(b.minW, `${id} must not be narrowable`).toBe(4);
+    // suite can tell a squeezed table from a readable one. `minW` is the only
+    // thing standing between a user and an unreadable report, and the VISUAL
+    // result is still owed a browser eye-verify — a green run here does not mean
+    // anyone has looked at it.
+    //
+    // ★★★ EVERY BLOCK, NOT A SUBSET, and that is a correction. This test used to
+    // iterate a hardcoded list of the seven full-width ids, which left the other
+    // six unguarded: narrowing `inquiries` from 2 to 1 — a block that renders its
+    // own table with a column header and an `InfoTooltip` — passed all twelve
+    // tests at exit 0. A `minW` nobody pins is a `minW` that moves.
+    for (const b of REPORT_BLOCKS) {
+      expect(b.minW, `${b.id} minW`).toBe(EXPECTED_MIN_W[b.id]);
     }
+  });
+
+  it("keeps the minW table in step with the catalogue, in both directions", () => {
+    // ★★ `Record<ReportBlockId, BlockSpan>` already makes a NEW block a COMPILE
+    // error — the table cannot omit a key. This catches the other direction: a
+    // STALE entry for a block that has been removed, which the type cannot see.
+    expect([...Object.keys(EXPECTED_MIN_W)].sort())
+      .toEqual(REPORT_BLOCKS.map((b) => b.id).sort());
+  });
+
+  it("makes every addable report full width, derived rather than retyped", () => {
+    // ★★★ THIS IS THE DRIFT GUARD, and its DERIVATION is the point. The source
+    // builds these four rows from `ADDABLE_REPORTS` so a fifth report cannot go
+    // missing; an earlier version of this test then re-typed the same four ids
+    // into a literal, reintroducing exactly that failure one layer up — a fifth
+    // addable would get `minW: 4` correctly and silently fall outside the test.
+    for (const r of ADDABLE_REPORTS) {
+      expect(reportBlockById(r.id)?.minW, `${r.id} embeds a whole report panel`).toBe(4);
+    }
+  });
+
+  it("has exactly the expected full-width census — no block wrongly widened either", () => {
+    // ★ The census direction the per-block loop above states but does not
+    // advertise: a block wrongly WIDENED to 4 is as much a regression as one
+    // wrongly narrowed, and this names the seven that are meant to be there.
+    const expectedFull = REPORT_BLOCKS
+      .filter((b) => EXPECTED_MIN_W[b.id] === 4)
+      .map((b) => b.id);
+    expect(REPORT_BLOCKS.filter((b) => b.minW === 4).map((b) => b.id)).toEqual(expectedFull);
+    expect(expectedFull).toHaveLength(7);
   });
 
   it("keeps every span within its own bounds", () => {
@@ -56,7 +110,7 @@ describe("report-blocks — the catalogue", () => {
     }
   });
 
-  it("gives every block a label key that resolves to a real string", () => {
+  it("gives every block a label key that resolves to a real string in EN", () => {
     // ★ `TranslationKey` already makes a TYPO a build error. What it cannot
     // catch is a key that exists and resolves to an empty string, which would
     // render a title-less block and an accessible name of just " – ".
@@ -68,6 +122,31 @@ describe("report-blocks — the catalogue", () => {
   it("resolves a known id and returns undefined for an unknown one", () => {
     expect(reportBlockById("stats")?.id).toBe("stats");
     expect(reportBlockById("nope" as ReportBlockId)).toBeUndefined();
+  });
+});
+
+describe("report-blocks — label keys in DE", () => {
+  // ★★ THE DE DICTIONARY IS LAZY, so a DE assertion without this `beforeAll`
+  // silently falls back to the EN value and passes for the wrong reason.
+  beforeAll(async () => { await loadI18n("de"); });
+
+  it("resolves every label key to a non-empty DE string too", () => {
+    // ★★★ tsc enforces KEY PARITY, never VALUE non-emptiness — so a DE value of
+    // "" typechecks, and the EN pass above cannot see it. That is the exact
+    // failure this pair of tests exists for (a title-less block, and an
+    // accessible name of just " – "), in the one language nothing else checked.
+    for (const b of REPORT_BLOCKS) {
+      expect(t("de", b.labelKey), `${b.id} labelKey (de)`).not.toBe("");
+    }
+  });
+
+  it("actually loaded the DE dictionary, rather than falling back to EN", () => {
+    // ★ The positive control for the test above. Without it, a broken
+    // `loadI18n` would make every DE assertion an EN assertion in disguise —
+    // green, and covering nothing. `reportsHeadline` is the key this slice
+    // added, and its two values differ.
+    expect(t("de", "reportsHeadline")).toBe("Überblick");
+    expect(t("de", "reportsHeadline")).not.toBe(t("en-US", "reportsHeadline"));
   });
 });
 
