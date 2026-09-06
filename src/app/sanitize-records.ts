@@ -102,10 +102,23 @@ export function sanitizeMilestoneTaskIds(v: unknown): number[] {
  *  `sanitizeIsoDate`, which returns its input verbatim or "" — so this is that
  *  rule delegated, not a second parser.
  *
- *  ★★ EXPORTED so the TASK writer can call the same predicate. `chat-task-patch.
- *  ts` needs exactly this rule for `lastUpdateDate` (§396) and re-spelling it
- *  there would be a second copy of the very thing this helper was consolidated
- *  from — one spelling per rule, or the next fix has two places to land. */
+ *  ★★ EXPORTED so the TASK writer can ask the same QUESTION. `chat-task-patch.
+ *  ts` needs exactly this classification for `lastUpdateDate` (§396), and
+ *  re-spelling it there would be a second copy of the very thing this helper was
+ *  consolidated from — the `v === ""`-alone bug would then have two places to
+ *  live again.
+ *
+ *  ★★★ WHAT IS SHARED IS THE PREDICATE, NEVER THE POLICY, and reading it the
+ *  other way would undo work that cost a commit to explain. This answers ONE
+ *  question — "does the card disclose this input as a clear?" — and each caller
+ *  then does its own, different thing with the answer. `acceptsPatchDate` uses
+ *  it to ACCEPT the key so the full-record sanitizer can clear the field, which
+ *  is why it is deliberately WIDER than the sanitizer's own rule (the milestone
+ *  guard below spells that out); `buildTaskCleanPatch` uses it to WRITE "" into
+ *  a patch that is merged over the stored row, because a dropped key there means
+ *  "unchanged" rather than "cleared". Same answer, opposite mechanisms. Do NOT
+ *  "unify" the two call sites, and do NOT widen or narrow this predicate to suit
+ *  one of them — a change here moves task, raid, change and milestone at once. */
 export const rendersAsClear = (v: unknown): boolean =>
   v == null || v === "" || (Array.isArray(v) && v.length === 0);
 

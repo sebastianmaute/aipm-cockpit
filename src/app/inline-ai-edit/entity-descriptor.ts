@@ -309,16 +309,22 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     diffFields: ["taskName", "assignee", "assigneeEmail", "dueDate", "status", "priority", "description", "blockers", "group", "labels", "lastUpdateDate"],
     requiredNonEmpty: new Set(["taskName", "dueDate"]),
     requiredNonEmptyGroups: [],
-    // ★★ THE TWO TASK DATES ARE NOT SYMMETRIC ON A BLANK, and only `dueDate`'s
-    //  half is closed here. `buildTaskCleanPatch` THROWS on an unparseable
-    //  `dueDate` and `requiredNonEmpty` rejects the blank ahead of it; for
-    //  `lastUpdateDate` it merely DROPS the key (`if (d) cleanPatch.lastUpdateDate = d`), and
-    //  a dropped key on a PATCH merged over the stored task leaves the field
-    //  UNCHANGED — where the full-record sanitizers behind raid/change/milestone
-    //  clear theirs. So `lastUpdateDate: ""` still previews a clear the write
-    //  will not make. Recorded, not fixed: closing it needs a "blank is a no-op"
-    //  mechanism this descriptor does not have, and `requiredNonEmpty` is the
-    //  wrong one (it means "the writer throws", which is not what happens).
+    // ★★ THE TWO TASK DATES ARE STILL NOT SYMMETRIC ON A BLANK, but both halves
+    //  are closed now and the asymmetry is deliberate. `dueDate` is user intent:
+    //  `buildTaskCleanPatch` THROWS on an unparseable one and `requiredNonEmpty`
+    //  rejects the blank ahead of it, so the card refuses what the writer
+    //  refuses. `lastUpdateDate` has THREE outcomes instead — a BLANK is an
+    //  intended CLEAR and is stored as "", a MALFORMED value is dropped (the
+    //  stored value survives the merge), a VALID date is stored.
+    //  ★★ THE FIX WENT WRITER-SIDE, NOT HERE, and that direction is the point.
+    //  This comment used to record the divergence as "not fixed": the writer
+    //  merely dropped the key, and a dropped key on a PATCH merged over the
+    //  stored task leaves the field UNCHANGED — where the full-record sanitizers
+    //  behind raid/change/milestone clear theirs. Rather than teach this
+    //  descriptor a "blank is a no-op" mechanism so the card could stop
+    //  promising a clear, `buildTaskCleanPatch` was aligned with the registers
+    //  so the card's promise became true (§396). `requiredNonEmpty` was and
+    //  remains the wrong lever for it — it means "the writer throws".
     dateFields: new Set(["dueDate", "lastUpdateDate"]),
     numericFields: {},
     stringOnlyFields: new Set(),

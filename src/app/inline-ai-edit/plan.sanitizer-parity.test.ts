@@ -102,9 +102,19 @@ import type { Workspace } from "../workspace";
 //      ★ `change.status` is the one guarded by neither table: `updateChange`
 //      hands it to `applyModelChangeStatus` after the sanitizer, which is why
 //      `changeReader` composes that too.
-//  (5) `TASK_BASE` carries no `lastUpdateDate`, so `update_task({lastUpdateDate:
-//      ""})` — a clear the preview shows and the writer may not make — compares
-//      "" against "" and says nothing. Same rule as (4): do not add one here.
+//  (5) WAS a blind spot and is now the sweep's proof for §396, so do NOT strip
+//      `lastUpdateDate` back out of `TASK_BASE`. While the fixture carried none,
+//      `taskReader`'s `?? ""` fallback rendered "" for a dropped key and the
+//      preview rendered "" for the clear, so `update_task({lastUpdateDate: ""})`
+//      compared "" against "" and said nothing — green before AND after the
+//      writer changed, for the same non-reason. This is (4)'s shape only in
+//      form: (4) forbids editing a fixture to manufacture a red OUTSIDE the
+//      direction under test, whereas a populated `lastUpdateDate` puts a real
+//      stored value on the other side of the one probe that IS the direction
+//      under test. Mutation-proved: revert `buildTaskCleanPatch`'s clear branch
+//      and this file reds naming `task.lastUpdateDate on the empty string`.
+//      ★ It moves no count — the other nine probes are preview-only rejections
+//      either way, and `unchanged` simply becomes the stored date instead of "".
 //
 // ★★ NO CROSS-TEST STATE. The totals check below recomputes the whole sweep
 // inside its own body rather than reading counters the per-entity tests
@@ -162,8 +172,12 @@ const PROBES: ReadonlyArray<{ label: string; value: unknown }> = [
 // fields as it can, so `before` is a real value and a preview that dropped the
 // field entirely could not read as agreement.
 
+// ★★ `lastUpdateDate` is NOT decoration — see limitation (5) at the top. Without
+// a stored value here the empty-string probe compares "" against "" and the
+// sweep is silent on the one field whose clear it is meant to police.
 const TASK_BASE = {
   id: 1, taskName: "T", assignee: "Ann", assigneeEmail: "a@b.co", dueDate: "2026-01-01",
+  lastUpdateDate: "2026-01-02",
   status: "To Do", priority: "Medium", description: "", blockers: "b", group: "G", labels: [],
 } as unknown as Task;
 const RAID_BASE = {
@@ -458,7 +472,10 @@ const APPLY_ONLY_REJECTS: ReadonlySet<string> = new Set<string>([
  *  possible 288, enumerated 468) — a figure elsewhere in this file that changed
  *  with this work would be a bug.
  *  Re-print, never re-derive: `console.log` the reduce results in the totals
- *  test and run this file alone. */
+ *  test and run this file alone — ★★ WITH `--disable-console-intercept`, or the
+ *  line never appears and the recipe reads as "the numbers did not print"
+ *  rather than "vitest swallowed them". Measured: a bare
+ *  `npx vitest run <this file>` shows nothing at all. */
 const PREVIEW_REJECTS_APPLY_WRITES: Readonly<Record<string, string>> = {
 };
 
@@ -674,8 +691,16 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     expect(silent).toEqual([]);
 
     // (3) AGGREGATE, as a fraction of what the comparable fields could yield.
-    // MEASURED 2026-09-06: 269 comparisons over 32 comparable fields × 10
-    // probes = 320 possible, i.e. 84%. (It was 244/288/85% until §395 refused a
+    // MEASURED 2026-09-06: 265 comparisons over 32 comparable fields × 10
+    // probes = 320 possible, i.e. 83%.
+    // ★★ THIS LINE SAID 269/84% AND WAS ALREADY STALE WHEN §396 ARRIVED — the
+    // numerator had drifted under a sibling commit and no gate could see it,
+    // which is the failure the paragraph below describes happening again.
+    // Attributed by measurement, not by reading the log: printed with and
+    // without §396's `TASK_BASE.lastUpdateDate` and it is 265 BOTH WAYS, so
+    // neither that fixture value nor the writer change moved it. The other
+    // three figures here (32 / 320 / 520) re-printed unchanged.
+    // (It was 244/288/85% until §395 refused a
     // boolean risk scale and added the `3` probe — the probe is why the
     // denominator moved by 32, and the two raid fields it rescued from total
     // silence are why the numerator moved by more than the four number fields
@@ -696,7 +721,9 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     // them from inside this test rather than re-deriving them. The floors are
     // computed, so nothing went red — a wrong denominator in a COMMENT is
     // invisible to every gate. Print them, do not reason them:
-    // `console.log` the reduce results here and run this file alone.
+    // `console.log` the reduce results here and run this file alone — ★★ WITH
+    // `--disable-console-intercept`, or nothing prints and the run looks green
+    // and silent (measured 2026-09-06; the flag is what recovered 265).
     const possible = CASES.reduce((n, c) => n + comparableFields(c.entity).length * PROBES.length, 0);
     // ★★★ THE DENOMINATOR NEEDS ITS OWN FLOOR, and this line was added after a
     // mutant proved the first cut vacuous: narrowing `comparableFields` to
