@@ -34,8 +34,16 @@ Four were the user's, made during brainstorming:
 | §393 | Committed scope — the per-diff entity lands | Hold it as the slice's cut line |
 
 Two were taken without asking, and both follow the field's own UI: a boolean is refused as a risk
-score, and a change amount must be an integer. In each case the alternative admits a value the form
-that owns the field cannot produce.
+score, and each change amount is held to the precision its own form control produces.
+
+★★ **The second one was stated wrong when this spec was first written, and the code refutes it.**
+It read "a change amount must be an integer", which is true of `scheduleImpactDays` and false of
+`costImpact`. `change-edit-modal.tsx` clamps the two differently on blur —
+`describeClamp(value, { min: 0, round: 0 })` for days, and
+`describeClamp(value, { min: 0, max: AMOUNT_MAX, round: 2 })` for cost — so the form itself produces
+`1500.5` for a cost and can never produce a fractional day. Applying "follow the field's own UI"
+correctly therefore splits the pair rather than uniting it. Recorded rather than silently amended,
+because the wrong version was the one presented for approval.
 
 ## Layer 1 — one spelling per rule
 
@@ -74,8 +82,23 @@ coerces identically and shows it as accepted. `acceptsRiskScale` refuses a boole
 
 **§399 — a fraction the preview rejects applies anyway.** `sanitizeChangeItem` asks
 `Number.isFinite(days) && days >= 0`; the descriptor's `intRangeFields` guard demands
-`Number.isInteger`. So `scheduleImpactDays: 1.5` previews as REJECTED and applies. The shared
-predicate demands an integer, matching the stepper the field renders.
+`Number.isInteger`. So `scheduleImpactDays: 1.5` previews as REJECTED and applies.
+
+The fix is asymmetric, per the correction above, and the two halves move in OPPOSITE directions:
+
+- `scheduleImpactDays` — the WRITER tightens to an integer, matching the preview and `round: 0`.
+- `costImpact` — the PREVIEW loosens to two decimals, matching the writer and `round: 2`. Demanding
+  an integer here is the preview's own defect: it rejects `1500.5`, which is what the form stores.
+
+Both then run through one shared predicate per field rather than through a shared
+`Number.isInteger`, which is why `intRangeFields` becomes a per-field predicate rather than a
+`[min, max]` tuple.
+
+★★ A THIRD divergence in the same pair, found while measuring this one and not previously filed:
+the form clamps a cost to `AMOUNT_MAX` (1_000_000_000) and neither the sanitizer nor the preview has
+any upper bound, so a model can store a cost a thousand times larger than the form permits. The
+shared cost predicate carries the cap. This widens §399 by one condition rather than opening a new
+entry, because it is the same predicate, in the same edit, on the same field.
 
 **§398 — a non-string clears a milestone's rich text.** `sanitizeRichText` returns `""` for a
 non-string, `if (description)` omits the key, and the rebuilt record loses the stored value. It was
