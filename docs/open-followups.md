@@ -631,6 +631,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§404](#404-a-dependency-proposal-whose-links-are-all-refused-shows-no-change-and-no-reason-open) | A dependency proposal whose links are all refused shows no change and no reason | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§405](#405-the-merge-site-guard-tables-restate-their-sanitizers-predicates-instead-of-sharing-them-open) | The merge-site guard tables restate their sanitizers' predicates instead of sharing them | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§406](#406-the-set_task_dependencies-card-label-is-hardcoded-english-open) | The `set_task_dependencies` card label is hardcoded English | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
+| [§418](#418-only-update_task-has-a-source-enumerable-input-surface-so-the-coverage-gate-can-cover-one-tool-of-six-open) | Only `update_task` has a source-enumerable input surface, so the coverage gate can cover one tool of six | found 2026-09-06 by the preview/apply-parity round-2 slice | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -29360,3 +29361,38 @@ dependencies". Every other label on that surface is translated, and `i18n.ts` al
 ★ The fix is not a one-liner: `chat-proposal-describe.ts` is i18n-free by construction and takes no
 `lang`, so either the label must become structured data the renderer translates, or the describer
 must start receiving a language. The second would put `t()` into a module whose purity is deliberate.
+
+## 418. Only `update_task` has a source-enumerable input surface, so the coverage gate can cover one tool of six — OPEN
+
+**Status:** OPEN. Filed 2026-09-06 by the preview/apply-parity round-2 slice, as a finding from
+§401's fix rather than as a defect it left behind. Last executed verification 2026-09-06 —
+`grep -n "function patchWithoutId" -A 10 src/app/chat-tools-updates.ts` (its whole body is
+`{ ...input }` minus `id`, `expectedToken` and `TOKEN_EXCLUDED[kind]`, with no whitelist) and
+`grep -c 'case "update_' src/app/chat-tools.ts` → 7.
+
+§401 closed by giving `tool-input-coverage.test.ts` a source scan for `input.<name>` reads that no
+schema declares, which is what caught `update_task`'s `notes` alias. That scan works for exactly one
+tool, and the reason is structural, not an omission.
+
+**`update_task` is the only update tool whose accepted surface exists in source at all.** It alone
+routes through `buildPatch`, a whitelist — 13 distinct `input.<name>` reads, 12 declared, `notes` the
+one that was not. The other five (`update_raid_item`, `update_change`, `update_milestone`,
+`update_resource`, `update_stakeholder`) route through `patchWithoutId(input, kind)`, which forwards
+whatever the model emitted minus three keys. There is no set of reads for a regex to find, because
+the code never names the fields. Their accepted surface is bounded downstream, by the sanitizers and
+the merge-site guard tables.
+
+★★ SO A GREEN `tool-input-coverage.test.ts` MEANS "every input `update_task` accepts is previewed or
+excused", NEVER "every input the six accept". That limit is now stated in the gate's own header, in
+§401's closure and in `docs/AGENTS/ai-assistant.md` — three places, because a gate whose reach is
+overstated stops the next audit, which is this register's most-repeated failure.
+
+★ Widening the scan was considered and deliberately NOT done. A regex over `chat-tools.ts` cannot
+attribute a read to a tool — it is one switch covering create, delete and list as well — and for the
+five pass-through tools it would find nothing to attribute anyway. The honest mechanism for those
+five is not a source scan but a replay: `plan.write-path.test.ts` already drives the real dispatcher
+and reads back the live workspace, and it is where per-tool accepted-surface coverage belongs.
+
+★★ NOT A BEHAVIOUR CHANGE AND NOT NEW. The pass-through has always been the design, and
+`ai-entity-token.test.ts` drives the token strip per tool. What is new is only that the gate beside
+it now makes a claim precise enough to have a boundary worth recording.
