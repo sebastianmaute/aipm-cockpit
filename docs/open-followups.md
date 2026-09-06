@@ -634,6 +634,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§415](#415-the-plural-agreement-defect-407-named-once-is-a-repeated-class-across-at-least-31-keys-and-the-count-itself-is-disputed--open) | The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed | found 2026-09-06 generalising §407 | L — 31+ keys, three grep traps, a disputed count | open |
 | [§416](#416-the-kanban-cards-changes-badge-had-no-test-at-all--closed-2026-09-06) | The Kanban card's changes badge had no test at all | found 2026-09-06 while closing §407 on this branch | S | **CLOSED** 2026-09-06 |
 | [§417](#417-three-test-connection-buttons-shared-one-accessible-name-and-none-announced-its-result--closed-2026-09-06) | Three "Test connection" buttons shared one accessible name, and none announced its result | found 2026-09-06 adding the Turso connection probe | S–M | **CLOSED** 2026-09-06 |
+| [§418](#418-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -29957,3 +29958,69 @@ hard-constraint section). `label-content-name-mismatch`, axe's WCAG 2.5.3 rule, 
 `experimental`, and axe's default `tagExclude` is `experimental,deprecated` — so a rule LISTING for
 the gate's four requested tags reads as coverage while the rule never actually runs. Unit tests are
 the only detector for either defect, here and in general.
+
+## 418. No window or modal offers a help icon, though the deep-link channel already exists — OPEN
+
+**Status:** open, recorded 2026-09-06 from a read of the tree at 3aef0e01. Nothing was fixed —
+this entry records a measured gap deliberately deferred out of the Reports-arrangement slice.
+Verified 2026-09-06 by two commands actually run:
+`grep -rn "QuestionMarkCircleIcon" src/app --include=*.ts --include=*.tsx | grep -v test`
+(5 hits across 3 files — exactly one help-opener BUTTON app-wide) and
+`grep -rn "requestHelpConcept" src/app --include=*.ts --include=*.tsx | grep -v test | wc -l`
+(26 — the deep-link channel exists, and every caller is a view callout).
+★ THOSE TWO COMMANDS DO NOT COVER THE MODAL/WINDOW COUNTS below (34 files / 36 sites / 20
+`ModalHeader`): those came from a separate multiline scan and are NOT re-derivable from the two
+greps above. Re-measure them as their own paragraph instructs before relying on them.
+
+**The ask.** Every window and modal should carry a question-mark icon opening its own Help entry,
+deep-linked — the Calendar window's icon opening the Calendar entry, the Edit Task modal's
+opening the Edit Task entry.
+
+**What already exists, and it is more than half the work.** The deep-link CHANNEL is built and in
+production use: `requestHelpConcept` → `pendingHelpConcept` → `HelpView`, which scrolls to
+`helpSectionId(id)` behind a sentinel-seeded remount-swallow guard of the shape AGENTS.md
+mandates. `HELP_ENTRIES` holds 66 entries addressed by a free-string `id`.
+Reproduce the caller set:
+`grep -rn "requestHelpConcept" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+→ 26 hits on 2026-09-06, every one feeding a `<ViewCallout onLearnMore={...}>`.
+
+**What does not exist.**
+
+1. **No modal or window renders a help opener.** The app has exactly ONE — the top-bar `HelpMenu`
+   trigger — plus the sidebar nav glyph, which is an icon on a nav row and not a button.
+   `grep -rn "QuestionMarkCircleIcon" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+   → 5 hits in 3 files: the `icons.ts` re-export, `help-menu.tsx` (import + render), `nav-icons.tsx`
+   (import + map row). ★ `InfoTooltip` is a HOVER HINT and opens nothing — do not count its ~50
+   call sites as prior art for this.
+2. **No surface→entry map for anything that is not a view.** `VIEW_CALLOUTS` is keyed by `AppView`,
+   which cannot name a modal, so a `MODAL_HELP` table has to be minted.
+3. **Nothing typechecks that a requested id exists.** `HelpEntry.id` is `string`, not a union, and
+   `HelpContentPane` resolves it with a `.find(...)` returning null on a miss. A typo in a new map
+   is silent at build time and at runtime.
+4. **The floating `HelpMenu` has no deep-link input at all** — it takes `{ lang }` and owns its
+   query locally, and `HelpContentPane`'s `scrollToSection` is private to that component. So
+   "open Help at entry X" is today possible ONLY via the in-pane Help VIEW.
+
+**The design fork that deferred it, and it is not a detail.** `requestHelpConcept` sets
+`activeTab = "help"`. Fired from a modal, the view switches BEHIND the still-open dialog. So a
+modal's help icon must either close the modal first, or the floating `HelpMenu` must gain the
+deep-link input it does not have. Neither is a small choice, and either wrong answer makes every
+modal's icon read as broken. Settle this BEFORE writing any icon.
+
+**Blast radius.** 34 non-test files render `Modal` across 36 sites, but only 20 use `ModalHeader`
+— so roughly 14 need bespoke placement, plus two non-modal floating windows (`help-menu`,
+`notes-window`) that hand-roll their own title bars via `useDraggableWindow`.
+★★ THE OBVIOUS GREP UNDERCOUNTS: several call sites break the `<Modal` tag across lines, so
+`grep -rl "<Modal"` misses them. The 34/36 figures came from a multiline scan of every non-test
+`.tsx` under `src/app`. Re-measure with a multiline scan rather than trusting either number here.
+`ModalHeader` already has a trailing-action slot — `headerExtra`, rendered before the voice mic,
+the reset-layout button and the ✕, and occupied at 5 call sites today. Composing into
+`headerExtra` per site works; a dedicated `helpConceptId?: string` prop is the only shape that
+reaches all 20 headers at once.
+
+**The a11y constraint it inherits.** `ModalHeader` already carries `closeLabel` and
+`hideVoiceCommand` precisely because stacked dialogs otherwise put two identically-named controls
+in one tree. An unqualified "Help" icon on a stacked modal is that same WCAG 2.4.6 class, and the
+axe gate cannot see it in any view at any seed size — no rule under the four tags
+`e2e/a11y.spec.ts` requests flags two controls sharing an accessible name. Qualify the name at
+write time and pin it with a unit test; nothing else can catch it.
