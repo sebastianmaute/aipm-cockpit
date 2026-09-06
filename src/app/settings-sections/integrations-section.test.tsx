@@ -632,18 +632,19 @@ describe("§408 — Turso test connection", () => {
     expect(screen.queryByText(t("en-US", "integrationsTursoTestOk"))).toBeNull();
   });
 
-  // ★ Coverage for the discriminator Task 2 will gate the Move button on, so it
-  // does not arrive with none. What is observable TODAY is only the rendered
-  // message: with the union, a `kind` of "ok" selects the success key, so a
-  // catch branch mis-tagged "ok" would surface here. That is a real pin on the
-  // discriminator, but it is an INDIRECT one — when the confirmed reading gets
-  // a consumer, assert on THAT too rather than treating this as sufficient.
-  // ★★ AND IT IS REDUNDANT TODAY — do not read it as independent coverage.
+  // ★ An INDIRECT pin on the discriminator, and no longer the only one. All
+  // this test can observe is the rendered message: with the union, a `kind` of
+  // "ok" selects the success key, so a catch branch mis-tagged "ok" surfaces
+  // here as a success sentence. The DIRECT assertion an earlier version of this
+  // comment asked a future author to add now exists — "stays disabled when the
+  // probe fails", in the Move-to-Turso block below, reads the confirmed state
+  // through the gated button itself rather than through a string.
+  // ★★ AND THIS ONE IS REDUNDANT — do not read it as independent coverage.
   // A catch branch mis-tagged "ok" fails "reports a localized unreachable
   // message when the probe rejects" (above) FIRST, and review could not
-  // construct a mutant that kills this test ALONE. Its value is documentary
-  // and forward-looking: it states the property Task 2's gate depends on, in
-  // the place someone will look for it. Deleting it loses no detection today.
+  // construct a mutant that kills this test ALONE. Its value is documentary:
+  // it states, in the place someone will look for it, the property the
+  // Move-to-Turso gate depends on. Deleting it loses no detection today.
   it("never reports a confirmed connection when the probe failed", async () => {
     const user = userEvent.setup();
     vi.mocked(testTursoConnection).mockRejectedValueOnce(
@@ -776,6 +777,47 @@ describe("§408 — Move to Turso is gated on a confirmed connection", () => {
     const btn = moveButton();
     expect(btn).toHaveAccessibleDescription(t("en-US", "projectMigrateToTursoHint"));
     expect(btn.closest("[title]")!.className).not.toContain("cursor-not-allowed");
+  });
+
+  // ★★ ONE DESCRIPTION PER STATE, AND `toHaveAccessibleDescription` ALONE DOES
+  // NOT PIN IT — the matcher compares the COMPUTED description, so it says
+  // nothing about how many nodes produced it or whether the same sentence also
+  // sits on screen. This test reads the reference itself. The shape it rules
+  // out shipped in the first cut of this block: `aria-describedby` pointed at
+  // the sr-only node in BOTH states, and in the confirmed state that node and
+  // the visible `FieldHint` below it carried the SAME string, so a screen
+  // reader announced the hint twice. The sr-only node is not the problem and
+  // must not be deleted — it is the only thing that reaches AT while the button
+  // is disabled and therefore unfocusable. It is simply not needed once the
+  // button is enabled and the visible hint can be reached on its own.
+  it("announces exactly one description in each state", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+
+    const describedNodes = (btn: HTMLElement) =>
+      (btn.getAttribute("aria-describedby") ?? "")
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((id) => document.getElementById(id));
+
+    const gated = describedNodes(moveButton());
+    expect(gated).toHaveLength(1);
+    expect(gated[0]).not.toBeNull();
+    expect(gated[0]!.textContent).toBe(t("en-US", "integrationsTursoMoveNeedsTest"));
+    // Disabled ⇒ unfocusable, so the hidden node is the only route AT has.
+    expect(gated[0]!.className).toContain("sr-only");
+    expect(screen.getAllByText(t("en-US", "projectMigrateToTursoHint"))).toHaveLength(1);
+
+    await passingProbe();
+
+    const confirmed = describedNodes(moveButton());
+    expect(confirmed).toHaveLength(1);
+    expect(confirmed[0]).not.toBeNull();
+    expect(confirmed[0]!.textContent).toBe(t("en-US", "projectMigrateToTursoHint"));
+    // ★ The two assertions that actually kill the duplicate: the description
+    // now comes from the VISIBLE hint, and that sentence exists exactly once in
+    // the document — a hidden copy would make this two.
+    expect(confirmed[0]!.className).not.toContain("sr-only");
+    expect(screen.getAllByText(t("en-US", "projectMigrateToTursoHint"))).toHaveLength(1);
   });
 });
 

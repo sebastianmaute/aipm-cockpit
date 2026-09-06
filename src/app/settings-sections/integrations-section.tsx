@@ -232,9 +232,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // ★ The env-unusable notice is a DESCRIPTION, not part of the field's name —
   // see the render site for why it sits outside the <label>.
   const tursoUrlEnvNoticeId = `${useId()}-turso-url-env`;
-  // ★ The Move-to-Turso gate's explanation. It is a DESCRIPTION on a DISABLED
-  // control, which is the only route AT has to it — see the render site.
+  // ★★ TWO ids, because the two states have DIFFERENT descriptions and each
+  // must be announced exactly once — see the render site. `tursoMoveHintId`
+  // labels the VISIBLE hint, which is reachable on its own; the sr-only node
+  // exists ONLY for the gated state, where the control is not focusable.
   const tursoMoveHintId = `${useId()}-turso-move`;
+  const tursoMoveNeedsTestId = `${useId()}-turso-move-needs-test`;
   const [tursoTesting, setTursoTesting] = useState(false);
   // ★★ FINGERPRINTED, and the fingerprint is the whole point. This holds the
   // URL and token the verdict was obtained FOR, so "is the test still valid?"
@@ -800,15 +803,26 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   a disabled control is NOT focusable, so `title` is unreachable
                   by keyboard and on touch, while `aria-describedby` IS exposed
                   on a disabled control AND OUTRANKS `title` as the accessible
-                  description. The sr-only node is what actually reaches AT; the
-                  `title` stays for the sighted mouse user, and it only lands
-                  reliably because `disabled:pointer-events-none` drops the
-                  button out of hit-testing so the pointer falls through to this
-                  span — which is also why the cursor is set HERE, never in the
-                  shared primitive.
+                  description. WHILE DISABLED the sr-only node is what actually
+                  reaches AT; the `title` stays for the sighted mouse user, and
+                  it only lands reliably because `disabled:pointer-events-none`
+                  drops the button out of hit-testing so the pointer falls
+                  through to this span — which is also why the cursor is set
+                  HERE, never in the shared primitive. Both of those are
+                  disabled-state mechanisms: once the button is enabled it
+                  covers the span and takes its own pointer events back.
                   ★★★ The hint cannot be gated on interacting with the button:
                   a disabled element dispatches no events, so "click it and find
-                  out why" is an unreachable path. */}
+                  out why" is an unreachable path.
+                  ★★ THE sr-only NODE IS FOR THE GATED STATE ALONE, and that is
+                  what keeps each state to ONE description. The invented node is
+                  only needed while the button is unfocusable; once it is
+                  ENABLED the VISIBLE hint below is reachable on its own, so
+                  `aria-describedby` points THERE and the sr-only node is not
+                  rendered at all. Pointing at the sr-only node in both states —
+                  the shape this replaced — made a confirmed user hear
+                  `projectMigrateToTursoHint` twice, once from the hidden node
+                  and once from the visible one. */}
               <span
                 className={`inline-flex${tursoTestConfirmed ? "" : " cursor-not-allowed"}`}
                 title={
@@ -821,18 +835,20 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   size="sm"
                   disabled={!tursoTestConfirmed}
                   onClick={onMigrateToTurso}
-                  aria-describedby={tursoMoveHintId}
+                  aria-describedby={tursoTestConfirmed ? tursoMoveHintId : tursoMoveNeedsTestId}
                   className="disabled:pointer-events-none"
                 >
                   {t(lang, "projectMigrateToTurso")}
                 </Button>
-                <span id={tursoMoveHintId} className="sr-only">
-                  {tursoTestConfirmed
-                    ? t(lang, "projectMigrateToTursoHint")
-                    : t(lang, "integrationsTursoMoveNeedsTest")}
-                </span>
+                {!tursoTestConfirmed && (
+                  <span id={tursoMoveNeedsTestId} className="sr-only">
+                    {t(lang, "integrationsTursoMoveNeedsTest")}
+                  </span>
+                )}
               </span>
-              <FieldHint className="mt-1">{t(lang, "projectMigrateToTursoHint")}</FieldHint>
+              <FieldHint id={tursoMoveHintId} className="mt-1">
+                {t(lang, "projectMigrateToTursoHint")}
+              </FieldHint>
             </div>
           )}
           <div className="mt-2 border-t border-line pt-2">
