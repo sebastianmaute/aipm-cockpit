@@ -129,8 +129,10 @@ export function EntityLinkPicker({
   // guards would be licence to delete this clamp as moot, so keep the
   // condition. Only the surviving in-range case rests on the contract below.
   //
-  // ★★ CONTRACT, relied on and NOT enforced. Measured 2026-09-05: every call
-  // site clears the query on add, so none defeats it today. Enumerate them —
+  // ★★ CONTRACT, relied on and NOT enforced. Measured 2026-09-05, ON THE ADD
+  // PATH ONLY: every call site clears the query on add, so no ADD defeats it
+  // today. That scope is load-bearing and an earlier revision of this line
+  // dropped it, concluding flatly that "none defeats it". Enumerate them —
   // the `$` anchor is what keeps this comment out of its own result, and the
   // `-v` drops the test file (measured after writing this: 4 hits, 0 of them
   // a comment):
@@ -145,6 +147,24 @@ export function EntityLinkPicker({
   // Pinned by "the query clear is load-bearing" in `raid-edit-modal.test.tsx`,
   // which the clamp below cannot substitute for: it reproduces at index 0 of
   // >= 2 matches, where the surviving index is still in RANGE.
+  //
+  // ★★★ THE REMOVE PATH IS OUTSIDE THAT MEASUREMENT AND DOES NOT HONOUR THE
+  // CONTRACT. All four `onRemove` arrows change the caller's selected set with
+  // the query untouched, and each caller's option list is derived by EXCLUDING
+  // that set (`useTaskPickerOptions` for `task-link-picker.tsx` and
+  // `dependencies-editor.tsx`, the `linked` set in `document-links-field.tsx`,
+  // `availableCauses` in `raid-edit-modal.tsx`), so unlinking an entity that
+  // still matches the standing query puts it BACK into the list and shifts
+  // every index after it.
+  //
+  // ★★★ AND THE EXEMPTION THAT SUGGESTS ITSELF DOES NOT HOLD — checked, not
+  // assumed. "Clicking a chip's remove button moves focus off the search box,
+  // so Enter never reaches `onKeyDown`" covers only the very next keystroke:
+  // `IconButton` sets no `onMouseDown` preventDefault, so the click really does
+  // take focus — but the search box's reopen handler is `onClick` calling
+  // `setDismissed(false)` and it resets nothing else, so clicking back into the
+  // field restores the open list with the stale highlight intact. Read removes
+  // as UNCOVERED by the measurement, never as exempt from the contract.
   const active = highlight >= 0 && highlight < options.length ? highlight : -1;
 
   function move(delta: 1 | -1) {

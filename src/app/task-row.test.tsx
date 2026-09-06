@@ -327,7 +327,13 @@ describe("TaskRow", () => {
       }),
     );
     // The leading Ask-Claude cell is the FIRST <td> in the row — it renders
-    // ahead of the checkbox cell (task-row.tsx:314).
+    // ahead of the checkbox cell. Cited by SYMBOL, not by line: it is the `Td`
+    // in `task-row.tsx` that wraps the `inlineAiEdit` trigger, and it is the
+    // only cell in that file carrying `w-7` (the two other `padding="tight"`
+    // cells do not). A line number here would rot on the next insertion above
+    // it, and nothing would report that — `docs:claims:check` scans prose docs,
+    // never `src`. Locate it with
+    //   grep -n 'className="w-7"' src/app/task-row.tsx
     const leading = container.querySelectorAll("td")[0];
     expect(leading.className).toContain("w-7");
     expect(leading.className).toContain("px-1");

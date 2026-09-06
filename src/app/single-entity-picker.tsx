@@ -64,8 +64,29 @@ interface SingleEntityPickerProps {
    *  clamped against the list LENGTH, so a caller that swaps `options` while
    *  `query` stands still can leave an index armed that is still in range but
    *  now names a DIFFERENT entity — Enter would then commit something the user
-   *  never picked. EntityLinkPicker rests on the same contract; measured
-   *  2026-09-05, all four of its call sites honour it.
+   *  never picked. EntityLinkPicker rests on the same contract.
+   *
+   *  ★★★ THE 2026-09-05 MEASUREMENT BEHIND THAT COVERED THE ADD PATH ALONE,
+   *  and an earlier revision of this line stated its conclusion unscoped —
+   *  "all four of its call sites honour it". On ADD they do: each clears the
+   *  query. On REMOVE none of them does. Every `onRemove` arrow at the four
+   *  sites changes the caller's selected set with the query untouched, and
+   *  each caller's option list is derived by EXCLUDING that set
+   *  (`useTaskPickerOptions` for `task-link-picker.tsx` and
+   *  `dependencies-editor.tsx`, the `linked` set in `document-links-field.tsx`,
+   *  `availableCauses` in `raid-edit-modal.tsx`), so unlinking an entity that
+   *  still matches the standing query puts it BACK into the list and shifts
+   *  every index after it.
+   *
+   *  ★★★ AND THE EXEMPTION THAT SUGGESTS ITSELF DOES NOT HOLD — checked, not
+   *  assumed. "Clicking a chip's remove button moves focus off the search box,
+   *  so Enter never reaches the key handler" covers only the very next
+   *  keystroke: `IconButton` sets no `onMouseDown` preventDefault, so the click
+   *  really does take focus — but the search box's reopen handler is `onClick`
+   *  calling `setDismissed(false)` and it resets nothing else, so clicking back
+   *  into the field restores the open list with the stale highlight intact.
+   *  Read removes as UNCOVERED by the measurement, never as exempt from the
+   *  contract.
    *
    *  ★★★ AN EARLIER REVISION OF THIS COMMENT SAID `RaidCausedByField`
    *  (`raid-edit-fields.tsx`) DID NOT, and called the contract already broken.
