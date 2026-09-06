@@ -34,14 +34,20 @@ and there are no coordinates to store — every operation in `dashboard-layout.t
 `hideTile` · `restoreTile` · `resizeTile` · `reconcile`) is an array operation. ★★ THE FIRST FOUR
 return the SAME object reference on a no-op, so a caller can skip a persist cheaply; **`reconcile` DOES
 NOT** and never did — it allocates a fresh `{v, board, hidden}` on every non-null input, identical
-content or not. Harmless today, because its ONE production call site is a load — `readLayout` in
-`use-dashboard-layout.ts` — but a persist-skip written against `next !== stored` would fire on every
-load. This sentence used to lump all five together, which is exactly the claim someone would build that
-skip on. ★ It then said "both of its call sites are loads": the TWO call sites are `readLayout`'s (the
-lazy `useState` initialiser and the project-switch render reconcile), not `reconcile`'s, and a reader
-goes hunting for a second caller that does not exist —
-`grep -rn "reconcile(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'` returns the
-declaration plus one call (measured 2026-08-15). ★★ A user therefore CANNOT
+content or not. Harmless today, because its ONE production call site is a load — `readLayout`, which
+now lives in the generic `use-arrangement.ts` and is reached from the Dashboard through the
+`use-dashboard-layout.ts` adapter — but a persist-skip written against `next !== stored` would fire on
+every load. This sentence used to lump all five together, which is exactly the claim someone would
+build that skip on. ★ It then said "both of its call sites are loads": the TWO call sites are
+`readLayout`'s (the lazy `useState` initialiser and the project-switch render reconcile), not
+`reconcile`'s, and a reader goes hunting for a second caller that does not exist.
+★★ MEASURE IT, AND MATCH BOTH SPELLINGS — the Dashboard adapter imports the engine under a local
+alias, so a bare `reconcile(` grep misses that call, and it misses the declaration too
+(`reconcile<Id extends string>(`), which is why the "declaration plus one call" reading this line used
+to carry cannot be reproduced:
+`grep -rn "reconcile(\|reconcileWith(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'`
+— read the hits rather than counting them; it matches prose in several files as well. ★★ A user
+therefore CANNOT
 leave a deliberate hole: `dense` backfills it with the next tile that fits. ★★ That is also why the
 panel renders the reorder hook's `previewOrder` rather than the stored board and draws NO edge drop
 indicator — dense re-places everything after a move, so an edge marker would routinely point at a slot
