@@ -282,14 +282,17 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       // and the `ai.inlineEdit` ban beside it would be scanning nothing.
       // ★★★ GATED ON `applied`, BECAUSE A NON-EMPTY PLAN IS NOT A WRITTEN ONE.
       // The guard at the top of apply() rejects an EMPTY plan, and `isEmptyPlan`
-      // counts EVERY bucket of `EditPlan` — but only three of them (`updates`,
-      // `creates`, `deletes`) have a branch above that writes anything. A plan
-      // whose only content is in some other bucket therefore passes the guard,
-      // skips all three branches, and used to reach an UNCONDITIONAL success
-      // toast: "applied" for a write that never happened. `links` is the live
-      // instance (nothing populates it yet — the next slice does), so this is
-      // written against `applied`, not against any one bucket: every future
-      // bucket added to `EditPlan` is covered without touching this line.
+      // counts EVERY bucket of `EditPlan` — but not every bucket has a branch
+      // above that writes anything. A plan whose only content is in such a
+      // bucket passes the guard, skips every branch, and used to reach an
+      // UNCONDITIONAL success toast: "applied" for a write that never happened.
+      // ★★ `links` WAS that instance and no longer is — it is populated by
+      // `describeEntityCalls` and written 30 lines above, in the same commit
+      // that made it reachable. `rejected` is the live one today: it is
+      // previewable, has no write branch by design, and `isEmptyPlan` does not
+      // count it, so a rejection-only plan never even reaches `preview`. This
+      // stays written against `applied` rather than against any one bucket, so
+      // the next bucket is covered without touching this line.
       // ★ `cancel()` stays OUTSIDE the guard — closing the popover is correct
       //   either way; only the success CLAIM is conditional.
       if (applied > 0) {

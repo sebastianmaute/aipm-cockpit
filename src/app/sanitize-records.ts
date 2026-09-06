@@ -78,6 +78,33 @@ export function sanitizeMilestoneTaskIds(v: unknown): number[] {
   return Array.isArray(v) ? v.map((n) => toNumber(n)).filter((n) => Number.isFinite(n) && n > 0) : [];
 }
 
+/** ★★★ THE ONE DATE PREDICATE FOR EVERY MERGE-SITE GUARD — raid, change and
+ *  milestone. It was three copies until a cold review pointed out that the
+ *  defect below would then have to be fixed in three places.
+ *
+ *  ★★★ THE `rendersAsClear` LEG IS THE DEFECT ITSELF, and the first cut got it
+ *  wrong by writing `v === ""` alone. The PREVIEW renders a diff's `after` with
+ *  `str(v)` (`inline-ai-edit/plan.ts`), which yields "" for `null`, `undefined`
+ *  and `[]` as well as for `""`. All four therefore appear on the card as a
+ *  DISCLOSED CLEAR — and `null` is the shape a model actually reaches for when
+ *  it means "clear this date", arriving raw because `patchWithoutId` does no
+ *  coercion. Refusing them here made the write silently KEEP the stored value
+ *  against a card promising a clear: the same class this guard exists to close,
+ *  pointing the other way.
+ *
+ *  ★★ Worse, it made ONE approved card behave differently per apply path. The
+ *  inline consumer rebuilds its patch from `FieldDiff.raw`, which is the
+ *  rendered `""`, so it cleared; the two REPLAYING consumers resend the raw
+ *  `null` and did not. Measured end-to-end in review, not reasoned.
+ *
+ *  ★ Anything else non-empty still has to satisfy the writer's own
+ *  `sanitizeIsoDate`, which returns its input verbatim or "" — so this is that
+ *  rule delegated, not a second parser. */
+const rendersAsClear = (v: unknown): boolean =>
+  v == null || v === "" || (Array.isArray(v) && v.length === 0);
+
+const acceptsPatchDate = (v: unknown): boolean => rendersAsClear(v) || sanitizeIsoDate(v) !== "";
+
 /** Accept only well-formed milestones from untrusted JSON. id>0, name+date
  *  required; linkedTaskIds reduced to positive finite ints. */
 type MilestoneFieldGuard = (value: unknown) => boolean;
@@ -111,15 +138,26 @@ type MilestoneFieldGuard = (value: unknown) => boolean;
  *    so guarding it here would create this slice's own defect pointing the other
  *    way. Closing it needs a coordinated change on both sides; filed, not
  *    patched. Pinned in `sanitize-milestone-patch.test.ts`.
- *  • `localModifiedAt` / `outlookEventId` / `knowledgeLinks` — not model-writable
- *    (absent from `milestoneFields` in `chat-tool-defs.ts`), so no AI patch can
- *    reach them; the merge carries the stored values through. */
+ *  • `localModifiedAt` / `outlookEventId` — unreachable because `patchWithoutId`
+ *    STRIPS them (`TOKEN_EXCLUDED.milestone`), NOT because they are absent from
+ *    `milestoneFields`. ★★ Corrected in cold review: `patchWithoutId` has no
+ *    whitelist, so absence from the tool schema protects nothing by itself.
+ *  • `knowledgeLinks` — REACHABLE, and deliberately still unguarded. It is
+ *    neither stripped nor declared, so a patch carrying it wipes the stored
+ *    links, and the preview cannot show that (it is neither a `diffField` nor a
+ *    `linkField`). Pre-existing rather than introduced here, and outside this
+ *    guard's scope — recorded because this list previously claimed "no AI patch
+ *    can reach them", which is the kind of false assurance that stops the next
+ *    audit. Same shape on raid's `ownerResourceId`. */
 const MILESTONE_FIELD_GUARDS: Readonly<Record<string, MilestoneFieldGuard>> = {
-  // ★ The `v === ""` carve-out is load-bearing: the preview's date rule is
-  //  `after !== "" && sanitizeIsoDate(after) !== after`, so an explicit empty
-  //  string is DISCLOSED to the user as a clear. Refusing it here would invert
-  //  the defect — the card would promise a clear the write no longer makes.
-  achievedDate: (v) => v === "" || sanitizeIsoDate(v) !== "",
+  // ★ The clear carve-out inside `acceptsPatchDate` is load-bearing: the
+  //  preview's date rule is `after !== "" && sanitizeIsoDate(after) !== after`,
+  //  so anything it RENDERS as "" is disclosed to the user as a clear. Refusing
+  //  those here inverts the defect — the card promises a clear the write no
+  //  longer makes. Read the predicate, not this summary: the first cut checked
+  //  `v === ""` alone and missed `null`, which is the shape a model actually
+  //  sends.
+  achievedDate: acceptsPatchDate,
 };
 
 export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
@@ -217,7 +255,7 @@ type ChangeFieldGuard = (value: unknown) => boolean;
  *  DISCLOSED to the user as a clear. Refusing it here would make the card
  *  promise a clear the write silently declined — the same preview/apply
  *  disagreement this guard exists to close, pointing the other way. */
-const acceptsChangeDate: ChangeFieldGuard = (v) => v === "" || sanitizeIsoDate(v) !== "";
+const acceptsChangeDate: ChangeFieldGuard = acceptsPatchDate;
 
 /** ★★ `toNumber`, NOT `typeof v === "number"`. The sanitizer coerces with
  *  `toNumber` and so does the preview's `numberPreview`, so a stricter rule here
@@ -391,7 +429,7 @@ type RaidFieldGuard = (value: unknown, category: RaidCategory) => boolean;
  *  DISCLOSED to the user as a clear. Refusing it here would make the card
  *  promise a clear the write silently declined — the same preview/apply
  *  disagreement this guard exists to close, pointing the other way. */
-const acceptsRaidDate: RaidFieldGuard = (v) => v === "" || sanitizeIsoDate(v) !== "";
+const acceptsRaidDate: RaidFieldGuard = acceptsPatchDate;
 
 /** ★★ `toNumber`, NOT `typeof v === "number"`. The sanitizer coerces with
  *  `toNumber` and so does the preview's numeric normalisation, so a stricter

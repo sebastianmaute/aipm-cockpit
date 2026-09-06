@@ -323,7 +323,28 @@ export function describeEntityCalls(
               const norm = previewNormalizerFor(d, m);
               return (norm ? norm(raw) : str(raw)) !== "";
             });
-            if (!survives) { bad(`${members.join("+")}=empty`); continue; }
+            // ★★★ THE WRITER HAS A THIRD LEG, AND OMITTING IT MADE THIS GUARD
+            //  LIE — found in cold review, measured against the real functions.
+            //  `sanitizeResource` does NOT stop at the two parts: when both are
+            //  empty it falls back to `splitName(input.name)` BEFORE its
+            //  `if (!firstName && !lastName) return null`. The projection above
+            //  cannot cover this case, because it deliberately declines to
+            //  split when an explicit part is a string — mirroring the
+            //  dispatcher, whose `renamed` is null then and lets `name` reach
+            //  the sanitizer raw.
+            //  So `{lastName: "", name: "Cher Something"}` on a row with no
+            //  first name previewed `firstName+lastName=empty` while the write
+            //  RENAMED the row. On the two REPLAYING consumers that card is an
+            //  affirmatively false statement, not merely a silence — which is
+            //  strictly worse than the gap this slice set out to close.
+            //  ★ `splitName` is the writer's own function; the entity check
+            //  matches the projection above rather than introducing a new one.
+            const aliasRaw = "name" in input ? input.name : item.name;
+            const aliasSurvives =
+              d.entity === "resource" && typeof aliasRaw === "string"
+                ? Object.values(splitName(aliasRaw)).some((part) => part !== "")
+                : false;
+            if (!survives && !aliasSurvives) { bad(`${members.join("+")}=empty`); continue; }
           } else if (d.requiredNonEmpty.has(f)) { bad(`${f}=empty`); continue; }
         }
         // Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range
@@ -359,13 +380,22 @@ export function describeEntityCalls(
       //
       // ★★★ THE SKIP COMPARES RENDERED TITLES, NOT IDS, AND THAT IS THE
       // DELIBERATE CHOICE. Two DIFFERENT id lists that render identically (two
-      // rows sharing a title) emit nothing, so no write happens either — the
-      // edit is silently dropped rather than silently destructive. Comparing
-      // `rawIds` instead would write it, behind a card reading "Review ->
-      // Review": a change the user cannot see, on a disclosure surface whose
-      // whole purpose is that they can. One comparison gates BOTH the card and
-      // the patch, which is the invariant; a same-titled swap is the known,
-      // narrow price. ★ It is narrow because a DANGLING id renders as `#<id>`
+      // rows sharing a title) emit nothing. Comparing `rawIds` instead would
+      // write the swap behind a card reading "Review -> Review": a change the
+      // user cannot see, on a disclosure surface whose whole purpose is that
+      // they can. One comparison gates BOTH the card and the patch, which is
+      // the invariant; a same-titled swap is the known, narrow price.
+      //
+      // ★★ WHAT THAT PRICE ACTUALLY IS, corrected in cold review. An earlier
+      // wording said "no write happens either — the edit is silently dropped
+      // rather than silently destructive". That is true ONLY of the REBUILDING
+      // consumer, which reconstructs its patch from this plan. The two
+      // REPLAYING consumers (`chat-proposal-apply.ts`,
+      // `use-insight-recommendations.ts`) resend the original tool input and
+      // never read the plan, so for them the swap IS written, behind a card
+      // that showed no link line at all. The trade still stands — but the cost
+      // is "undisclosed on two surfaces", not "dropped everywhere", and the
+      // difference is the whole subject of this module. ★ It is narrow because a DANGLING id renders as `#<id>`
       // (`UNKNOWN_ID_MARKER`), so an unresolvable row stays distinguishable,
       // and a REORDER changes the joined string — neither collapses here.
       for (const [f, link] of Object.entries(d.linkFields)) {

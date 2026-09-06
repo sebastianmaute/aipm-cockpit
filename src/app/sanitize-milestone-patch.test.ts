@@ -60,6 +60,29 @@ describe("dropUnacceptedMilestoneFields", () => {
       expect(guarded.achievedDate).toBe("");
     });
 
+    for (const { label, value } of [
+      { label: "null", value: null },
+      { label: "undefined", value: undefined },
+      { label: "an empty array", value: [] },
+    ]) {
+      it(`keeps ${label}, which the preview also renders as a clear`, () => {
+        // ★★★ FOUND IN COLD REVIEW, AND THE FIRST CUT OF THIS GUARD GOT IT
+        //  WRONG. The preview renders a diff's `after` with `str(v)`, which
+        //  yields "" for null, undefined and [] as well as for "" — so all four
+        //  appear on the card as a DISCLOSED CLEAR. Refusing them here made the
+        //  write silently KEEP the stored date against a card promising a clear:
+        //  this guard's own defect, pointing the other way.
+        //  ★★ `null` is not academic — it is what a model reaches for when it
+        //  means "clear this", and `patchWithoutId` forwards it uncoerced.
+        //  ★ It also split the apply paths: the inline consumer rebuilds from
+        //  `FieldDiff.raw` (the rendered "") and cleared, while the two
+        //  replaying consumers resend the raw value and did not — one approved
+        //  card, two outcomes.
+        const guarded = dropUnacceptedMilestoneFields({ achievedDate: value });
+        expect("achievedDate" in guarded).toBe(true);
+      });
+    }
+
     it("leaves an untouched patch identical, not merely equal", () => {
       // Copy-on-write, matching the raid and change helpers.
       const patch = { name: "GA 2" };

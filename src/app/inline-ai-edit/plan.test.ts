@@ -835,6 +835,38 @@ describe("the writer's JOINT name rule (384)", () => {
     expect(plan.rejected.map((r) => r.detail)).toContain("firstName+lastName=empty");
   });
 
+  it("does not reject a rename the `name` fallback rescues", () => {
+    // ★★★ FOUND IN COLD REVIEW, MEASURED AGAINST THE REAL WRITER. The joint
+    //  guard modelled two of `sanitizeResource`'s three legs: it checks the two
+    //  parts and missed the fallback that splits `input.name` when BOTH are
+    //  empty. The projection above cannot cover this, because it declines to
+    //  split whenever an explicit part is a string — mirroring the dispatcher,
+    //  whose `renamed` is null then and lets `name` reach the sanitizer raw.
+    //  So this input previewed `firstName+lastName=empty` while the write
+    //  renamed the row to "Cher Something". On the two REPLAYING consumers the
+    //  card stated positively that a change would not land, and it landed —
+    //  strictly worse than the silence this slice set out to replace.
+    const noFirst = { id: 9, firstName: "", lastName: "Bono" };
+    const ws = wsWith({ resources: [noFirst] as never });
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 9, lastName: "", name: "Cher Something" } }],
+      { descriptor: d, item: noFirst, ws },
+    );
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("still rejects when the `name` fallback cannot rescue it either", () => {
+    // The fallback only survives if the split yields a non-empty part, so a
+    // blank alias must NOT turn a truthful rejection into a false acceptance.
+    const noFirst = { id: 9, firstName: "", lastName: "Bono" };
+    const ws = wsWith({ resources: [noFirst] as never });
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 9, lastName: "", name: "   " } }],
+      { descriptor: d, item: noFirst, ws },
+    );
+    expect(plan.rejected.map((r) => r.detail)).toContain("firstName+lastName=empty");
+  });
+
   it("judges the surviving member through ITS OWN sanitizer, not verbatim", () => {
     // ★★★ THE CRUX, and the one shape a `str(input[m])` survivor check gets
     //  wrong in the DANGEROUS direction. `sanitizeAssignee` is
