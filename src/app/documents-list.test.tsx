@@ -14,7 +14,7 @@ function renderList(overrides: Partial<Parameters<typeof DocumentsList>[0]> = {}
     <DocumentsList
       lang="en-US"
       documents={[]}
-      selectedId={null}
+      openDocumentId={null}
       onSelect={vi.fn()}
       sortKey="title"
       sortDir="off"
@@ -71,5 +71,54 @@ describe("DocumentsList — the empty-state create box", () => {
     expect(
       screen.queryByRole("button", { name: t("en-US", "documentsCreateFirst") }),
     ).toBeNull();
+  });
+});
+
+describe("DocumentsList — the open row's disclosure state", () => {
+  it("marks the open document's title button expanded, and only that one", () => {
+    renderList({ documents: [doc(1, "Alpha"), doc(2, "Beta")], openDocumentId: 1, collapsed: false });
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "true");
+    // A row that is not open is not a disclosure at all — it must carry no
+    // aria-expanded, rather than aria-expanded="false", which would announce
+    // every closed row as a collapsed section.
+    expect(screen.getByRole("button", { name: "Beta" })).not.toHaveAttribute("aria-expanded");
+  });
+
+  it("marks the open document's title button collapsed when the body is collapsed", () => {
+    renderList({ documents: [doc(1, "Alpha")], openDocumentId: 1, collapsed: true });
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  // ★★ THE ONLY COVERAGE THE VISIBLE CUE WILL EVER HAVE. aria-expanded is
+  // invisible to a sighted mouse user, so without the glyph the collapse
+  // gesture is undiscoverable; and axe has no rule that would notice either
+  // its absence or a chevron drawn on a row that is not a disclosure.
+  it("draws the expanded glyph on the open row alone", () => {
+    renderList({ documents: [doc(1, "Alpha"), doc(2, "Beta")], openDocumentId: 1, collapsed: false });
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveTextContent("▾");
+    // Exact, not a "no glyph" substring check: a chevron on every row would
+    // tell a sighted user that every row is a disclosure, which is the
+    // semantics the omitted aria-expanded above takes care to avoid.
+    expect(screen.getByRole("button", { name: "Beta" }).textContent).toBe("Beta");
+  });
+
+  it("swaps to the collapsed glyph when the open document's body is collapsed", () => {
+    renderList({ documents: [doc(1, "Alpha")], openDocumentId: 1, collapsed: true });
+    const open = screen.getByRole("button", { name: "Alpha" });
+    expect(open).toHaveTextContent("▸");
+    // Asserting the OTHER glyph is gone is what makes the line above evidence
+    // about the branch rather than about a glyph that is always drawn.
+    expect(open.textContent).not.toContain("▾");
+  });
+
+  // ★ The 2.4.6 / 2.5.3 guard: `aria-label` wins over content, so the glyph
+  // cannot reach the accessible name. The axe gate is provably blind to
+  // duplicate accessible names in every view, so nothing else checks this.
+  it("keeps the title button's accessible name free of the glyph", () => {
+    renderList({ documents: [doc(1, "Alpha")], openDocumentId: 1, collapsed: false });
+    // A whole-string RTL `name` match, so a glyph leaking into the name would
+    // make this query fail outright.
+    const open = screen.getByRole("button", { name: "Alpha" });
+    expect(open.textContent).toContain("▾");
   });
 });

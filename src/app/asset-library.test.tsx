@@ -404,7 +404,10 @@ describe("AssetLibrary — image preview", () => {
     const { container } = render(
       <AssetLibrary {...base} onInsert={vi.fn()} loadImage={vi.fn(async () => TINY_GIF)} />,
     );
-    expectRowUniqueNames({ scope: container, minControls: 11, requireCollisionSeed: true });
+    // 11 → 13 when the asset name itself became a preview control: the floor
+    // is kept at its EXACT measured value, because a loose one is what lets a
+    // silently narrowed scope back in.
+    expectRowUniqueNames({ scope: container, minControls: 13, requireCollisionSeed: true });
   });
 
   // ★★★ THE ONLY DETECTOR THIS DEFECT WILL EVER HAVE, AND AN EN-ONLY TEST
@@ -472,6 +475,55 @@ describe("AssetLibrary — image preview", () => {
     await screen.findByRole("dialog");
     await userEvent.keyboard("{Escape}");
     expect(opener).toHaveFocus();
+  });
+
+  // ★ Clicking the name is the obvious gesture, and it did nothing — the name
+  //   was a bare <span> while Preview sat behind a button one cell over.
+  //   Located by the ROW TOKEN, which is a full-string `name` match: both
+  //   fixture rows render the display name "image.png", so only the token can
+  //   say which of the two this is.
+  it("opens the preview when the asset name is clicked", async () => {
+    const user = userEvent.setup();
+    render(<AssetLibrary {...base} loadImage={vi.fn(async () => TINY_GIF)} />);
+    await user.click(screen.getByRole("button", { name: "image.png (1)" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  // ★★ The name is interactive ONLY when a loader exists — without one there
+  //     is nothing to open, and a control that does nothing is worse than
+  //     plain text. The second assertion is the anti-vacuity half: the name
+  //     must still RENDER, so a regression that dropped the cell entirely
+  //     could not pass this as "correctly inert".
+  it("leaves the asset name inert when no image loader is available", () => {
+    render(<AssetLibrary {...base} />);
+    expect(screen.queryByRole("button", { name: "image.png (1)" })).toBeNull();
+    expect(screen.getAllByText("image.png").length).toBe(base.assets.length);
+  });
+
+  // ★★★ THE NAME MUST NOT BE SPELLED `rowLabel(t(lang, "documentsPreview"),
+  //     token)`. That reads correctly and is byte-identical to the Preview
+  //     button's own accessible name one cell over — a real WCAG 2.4.6
+  //     collision between two controls in the SAME row, and axe cannot see it
+  //     in any view at any seed size. The bare token avoids it and still
+  //     satisfies 2.5.3, because it CONTAINS the visible text.
+  // ★★ The explicit pair assertion is what names the defect; the sweep below
+  //     would catch it too, but only as an anonymous "two names collide".
+  it("keeps the name control distinct from the Preview control", () => {
+    const { container } = render(
+      <AssetLibrary {...base} onInsert={vi.fn()} loadImage={vi.fn(async () => TINY_GIF)} />,
+    );
+    const nameControl = screen.getByRole("button", { name: "image.png (1)" });
+    const previewControl = screen.getAllByRole("button", { name: /^Preview – / })[0];
+    expect(nameControl).not.toBe(previewControl);
+    expect(nameControl.getAttribute("aria-label")).not.toBe(
+      previewControl.getAttribute("aria-label"),
+    );
+    // Both rows share a display name, so this fixture can actually express the
+    // collision the assertion is about.
+    // 13 is MEASURED, not estimated: Upload + the two sort headers + five
+    // controls in each of the two rows (name · Preview · Insert · Rename ·
+    // Delete). A loose floor lets a silently narrowed `roles` back in.
+    expectRowUniqueNames({ minControls: 13, scope: container, requireCollisionSeed: true });
   });
 });
 

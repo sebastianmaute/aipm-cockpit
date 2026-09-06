@@ -339,6 +339,89 @@ describe("EntityLinkPicker", () => {
       expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "false");
     });
 
+    // ★★ The case NEITHER of the other two guards can see: the list GROWS under
+    // a standing query, so the stale index is in range and the reconcile never
+    // fires. Every caller derives `options` by excluding its selected set and
+    // `filterPickerOptions` preserves source order, so an unlink puts the
+    // entity back at its SOURCE position and shifts every later index. Only the
+    // armed entity's identity catches it.
+    it("does not re-add the entity that was just unlinked", async () => {
+      const user = userEvent.setup();
+      const onAdd = vi.fn();
+      const onRemove = vi.fn();
+      // Source order as every caller produces it (filterPickerOptions preserves
+      // the source array order and merely drops the selected ids).
+      const alpha = entry(1, "#1", "Alpha stone");
+      const beta = entry(2, "#2", "Beta stone");
+      const gamma = entry(3, "#3", "Gamma stone");
+      const { rerender, props } = renderPicker({
+        selected: [beta],
+        options: [alpha, gamma],
+        query: "stone",
+        onAdd,
+        onRemove,
+      });
+      const input = screen.getByRole("combobox");
+      await user.click(input);
+      await user.keyboard("{ArrowDown}{ArrowDown}");
+      // Armed: index 1 of [alpha, gamma] == Gamma stone. These two assertions are
+      // load-bearing anti-vacuity — without them a fixture whose armed index
+      // happened not to shift would pass for the wrong reason.
+      expect(screen.getAllByRole("option")[1]).toHaveAttribute("aria-selected", "true");
+      expect(screen.getAllByRole("option")[1]).toHaveTextContent("Gamma stone");
+
+      await user.click(screen.getByRole("button", { name: "Unlink #2 Beta stone" }));
+      expect(onRemove).toHaveBeenCalledWith(beta);
+      rerender(
+        <EntityLinkPicker {...props} selected={[]} options={[alpha, beta, gamma]} query="stone" />,
+      );
+      // Index 1 now names the entity that was just REMOVED.
+      expect(screen.getAllByRole("option")[1]).toHaveTextContent("Beta stone");
+
+      await user.click(input);
+      await user.keyboard("{Enter}");
+      // Before the identity check this fired `onAdd(beta)` — the picker re-added
+      // the entity the user had just unlinked. The highlight is now disarmed
+      // instead, so Enter falls through to the enclosing form exactly as it does
+      // when no option was ever armed ("leaves Enter alone when no option is
+      // active"). ★ It does NOT follow Gamma to its new index 2: re-tracking
+      // would make the ring jump rows on someone else's edit, and the test below
+      // pins the same disarm on the VISIBLE channel.
+      expect(onAdd).not.toHaveBeenCalled();
+    });
+
+    it("drops the highlight the moment a removal shifts the option list", async () => {
+      // The half that needs no further keystroke, and the reason this is not
+      // merely a keyboard bug: `aria-selected` and `aria-activedescendant` named
+      // the wrong row as soon as the list re-rendered, so a mouse user clicking
+      // the ringed row was misled too.
+      const user = userEvent.setup();
+      const alpha = entry(1, "#1", "Alpha stone");
+      const beta = entry(2, "#2", "Beta stone");
+      const gamma = entry(3, "#3", "Gamma stone");
+      const { rerender, props } = renderPicker({
+        selected: [beta],
+        options: [alpha, gamma],
+        query: "stone",
+      });
+      const input = screen.getByRole("combobox");
+      await user.click(input);
+      await user.keyboard("{ArrowDown}{ArrowDown}");
+      expect(input).toHaveAttribute("aria-activedescendant", screen.getAllByRole("option")[1].id);
+
+      rerender(
+        <EntityLinkPicker {...props} selected={[]} options={[alpha, beta, gamma]} query="stone" />,
+      );
+      // Anti-vacuity: the list really did grow, and index 1 really did change
+      // hands — without these a fixture that never shifted would pass.
+      expect(screen.getAllByRole("option")).toHaveLength(3);
+      expect(screen.getAllByRole("option")[1]).toHaveTextContent("Beta stone");
+      expect(input).not.toHaveAttribute("aria-activedescendant");
+      for (const option of screen.getAllByRole("option")) {
+        expect(option).toHaveAttribute("aria-selected", "false");
+      }
+    });
+
     it("marks the active option without relying on a text colour", () => {
       // ★ The active row used to be `bg-surface-muted text-ui-dark-blue`. That
       // navy sits on a dark --surface-muted at ~1.0-1.2:1 in every dark scheme,

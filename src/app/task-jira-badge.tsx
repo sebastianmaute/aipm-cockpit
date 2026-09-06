@@ -24,7 +24,7 @@ interface JiraBadgeProps {
 }
 
 const BADGE_CLASS =
-  "inline-block rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:text-ui-blue";
+  "inline-block whitespace-nowrap rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:text-ui-blue";
 
 // Decorative closed-padlock glyph. `fill="currentColor"` so it inherits the
 // chip's brand-token text color (palette-safe — no hardcoded color); aria-hidden

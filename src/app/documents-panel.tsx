@@ -219,6 +219,17 @@ export function DocumentsPanel({
   }, []);
   const [sort, setSort] = useState<{ key: DocumentSortKey; dir: SortDir }>({ key: "title", dir: "off" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Transient: collapsing is a momentary "give me room" gesture, not a
+  // preference. Nothing persists it.
+  //
+  // ★★ TWO WRITERS, AND ONLY ONE OF THEM RESETS UNCONDITIONALLY:
+  // `handleSelect`'s branch is `setBodyCollapsed((v) => !v)`, a TOGGLE, so it
+  // does clear whenever the body is already collapsed.
+  // The render-time reconcile beside `selected` (below) is the sole
+  // UNCONDITIONAL reset. Do NOT add a second `setBodyCollapsed(false)` on a click path —
+  // the whole point of keying the reset on `selected?.id` is that the open
+  // document also changes by routes no click handler sees.
+  const [bodyCollapsed, setBodyCollapsed] = useState(false);
   const [renaming, setRenaming] = useState<{ id: number; draft: string } | null>(null);
   const [historyFor, setHistoryFor] = useState<number | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
@@ -367,6 +378,34 @@ export function DocumentsPanel({
   // and with no undo on document writes.
   const selectionPool = entityFilter && visibleRows.length > 0 ? visibleRows : documents;
   const selected = selectionPool.find((d) => d.id === selectedId) ?? selectionPool[0] ?? null;
+
+  // ★★★ THE SOLE RESET FOR `bodyCollapsed`, and it keys on `selected?.id`
+  // rather than on any click. `handleSelect` is NOT the only way the open
+  // document changes: the deep-link effect below writes `selectedId` directly,
+  // the `?? selectionPool[0]` fallback above re-points when the open document
+  // is DELETED, and toggling the entity filter flips `selectionPool` between
+  // `visibleRows` and `documents`. None of those has a call site to patch, so
+  // a reset hung off the click handler let a DIFFERENT document render with
+  // its body already collapsed and no gesture from the user.
+  //
+  // ★★ A RENDER-TIME RECONCILE, NOT A `useEffect` —
+  // `react-hooks/set-state-in-effect` is fatal here.
+  //
+  // ★ SEEDED FROM THE LIVE `selected?.id`, NOT `null`. A `null` seed makes the
+  // reconcile fire on the FIRST render (where `selected` is already
+  // `selectionPool[0]`) — harmless only while `bodyCollapsed` happens to start
+  // `false`.
+  //
+  // ★ It cannot fire on a COLLAPSE TOGGLE: `handleSelect`'s toggle branch
+  // returns without touching `selectedId`, so `selected?.id` is unchanged and
+  // the collapse would otherwise undo itself on the very next render. Pinned by
+  // the toggle cases in `documents-panel.test.tsx`.
+  const [expandedFor, setExpandedFor] = useState<number | null>(selected?.id ?? null);
+  if ((selected?.id ?? null) !== expandedFor) {
+    setExpandedFor(selected?.id ?? null);
+    setBodyCollapsed(false);
+  }
+
   const { editing, narrowPane, paneRef, commitBlock, structural, editToolbar } = useDocumentEditMode({ documentId: selected?.id ?? -1, versions: documentVersions, mutateDocuments: mutate });
 
   // ★★★ DEEP LINK. The chat transcript's document card calls
@@ -468,6 +507,19 @@ export function DocumentsPanel({
 
   function handleSelect(id: number) {
     clearRestoreRejected();
+    // ★★★ COMPARE AGAINST `selected?.id`, NEVER `selectedId`. `selected` falls
+    // back to `selectionPool[0]`, so on first load a document IS open while
+    // `selectedId` is still null — a `selectedId` comparison would leave that
+    // first document's name permanently un-collapsible, which is the single
+    // most likely click on this panel.
+    if (id === selected?.id) {
+      setBodyCollapsed((v) => !v);
+      return;
+    }
+    // ★ NO `setBodyCollapsed(false)` HERE. The reconcile beside `selected`
+    // owns the reset and fires on this change too — adding it back would
+    // restore the two-writer arrangement that let the other three routes
+    // (deep link, delete-fallback, entity-filter flip) keep a stale collapse.
     setSelectedId(id);
   }
 
@@ -627,7 +679,8 @@ export function DocumentsPanel({
         <DocumentsList
           lang={lang}
           documents={visibleRows}
-          selectedId={selected?.id ?? null}
+          openDocumentId={selected?.id ?? null}
+          collapsed={bodyCollapsed}
           onSelect={handleSelect}
           sortKey={sort.key}
           sortDir={sort.dir}
@@ -688,8 +741,13 @@ export function DocumentsPanel({
         />
         <DocumentsAssetSection lang={lang} assetPane={assetPane}
           documents={documents} structural={structural} selected={selected} isReadOnly={isReadOnly} />
-        <DocumentEditModeBody lang={lang} doc={selected} ws={ws} editing={editing} narrow={narrowPane} isReadOnly={isReadOnly} onCommitBlock={commitBlock} structural={structural}
-          assetsTursoConfig={assetPane?.tursoConfig ?? null} assetsProjectId={assetPane?.projectId} />
+        {/* ★ Only the BODY collapses. The links and asset sections above stay
+            mounted, so the metadata controls remain usable while the rendered
+            document is out of the way. */}
+        {!bodyCollapsed && (
+          <DocumentEditModeBody lang={lang} doc={selected} ws={ws} editing={editing} narrow={narrowPane} isReadOnly={isReadOnly} onCommitBlock={commitBlock} structural={structural}
+            assetsTursoConfig={assetPane?.tursoConfig ?? null} assetsProjectId={assetPane?.projectId} />
+        )}
       </div>
 
       <DocumentsHistoryModal

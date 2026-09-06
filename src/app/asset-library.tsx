@@ -33,6 +33,7 @@ import { FilePickerButton } from "./file-picker-button";
 import { type SortDir, SortResizeTh, useSortHeaderProps, compareStrOrNum, nextSortDir } from "./report-table";
 import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { INTERACTIVE } from "./interaction-styles";
 import { AssetPreviewModal } from "./asset-preview-modal";
 import type { AssetByteLoader } from "./document-asset-images";
 
@@ -362,6 +363,30 @@ export function AssetLibrary({
                           aria-label={rowLabel(t(lang, "rename"), token)}
                           autoFocus
                         />
+                      ) : loadImage ? (
+                        // ★ Interactive ONLY when a loader exists — without one
+                        // there is no preview to open, and a control that does
+                        // nothing is worse than plain text. Same gating as the
+                        // Preview button below, for the same reason.
+                        // ★★★ NAMED BY THE ROW TOKEN ALONE, never by
+                        // `rowLabel(t(lang, "documentsPreview"), token)`. That
+                        // spelling reads correctly and is BYTE-IDENTICAL to the
+                        // Preview button's own accessible name one cell over —
+                        // two controls in the SAME row claiming one name, a real
+                        // WCAG 2.4.6 failure that axe cannot see in any view at
+                        // any seed size. The token contains the visible text, so
+                        // 2.5.3 containment holds anyway. `documents-list.tsx`
+                        // names its title button the same way for the same
+                        // reason. Pinned by "keeps the name control distinct
+                        // from the Preview control" in `asset-library.test.tsx`.
+                        <button
+                          type="button"
+                          onClick={() => setPreviewIndex(index)}
+                          aria-label={token}
+                          className={`text-left underline-offset-2 hover:underline ${INTERACTIVE}`}
+                        >
+                          {asset.name}
+                        </button>
                       ) : (
                         <span>{asset.name}</span>
                       )}

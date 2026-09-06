@@ -29020,6 +29020,7 @@ the channel this defect rides.
 ★ Same family as the `addTask`/`addTaskButton` collision found in the same review round — that one
 was live in a single view and carried a data-loss path (both openers call `handleCancelEdit()`),
 so it was fixed rather than filed.
+
 ## 390. The inline CREATE path writes link fields with no preview at all — OPEN
 
 **Status:** OPEN. Filed 2026-09-06 by the preview/apply-parity slice, which fixed the UPDATE half of
@@ -29305,3 +29306,313 @@ dependencies". Every other label on that surface is translated, and `i18n.ts` al
 ★ The fix is not a one-liner: `chat-proposal-describe.ts` is i18n-free by construction and takes no
 `lang`, so either the label must become structured data the renderer translates, or the describer
 must start receiving a language. The second would put `t()` into a module whose purity is deliberate.
+
+## 407. Task-row changes badge renders "1 changes" for a single linked change — OPEN
+
+**Status:** never machine-verified. Filed 2026-09-05 while scoping the control-defects batch —
+a wording defect visible by inspection; no gate can see plural agreement in an interpolated
+string.
+
+`taskRowChangesBadge` in `src/app/i18n.ts` is `"{0} changes"` (DE: `"{0} Änderungen"`,
+`src/app/i18n.de.ts`), called with `changeRefs.length` at both render sites — the
+`title`/`aria-label`/visible-text badge in `task-row.tsx` and the Kanban card badge in
+`task-kanban-card.tsx`. A task carrying exactly one linked change therefore reads "1 changes"
+everywhere the badge renders. Reproduce:
+`grep -n 'taskRowChangesBadge' src/app/task-row.tsx src/app/task-kanban-card.tsx`
+(four call sites — three in `task-row.tsx`, one in `task-kanban-card.tsx`, all passing
+`changeRefs.length`).
+
+★ This badge WAS touched by the control-defects batch — commit `f168a927` added
+`whitespace-nowrap` to stop it (and the RAID/Jira/Document ID-column badges) wrapping inside the
+narrow ID column — but the wording was deliberately left alone; that commit only ever adds a
+class.
+
+Fixing it is more than a string edit: EN needs only a singular/plural branch, but DE plural
+rules are not a suffix-drop the way EN's is, so a proper fix needs a per-language pluralisation
+rule (likely a small `pluralize(lang, count, one, other)` helper used at both call sites), not a
+second interpolation argument bolted onto the existing key.
+
+## 408. No Turso connection test exists anywhere in the repo — OPEN
+
+**Status:** OPEN. Verified 2026-09-06 by grep:
+`grep -rniE "test.?connection|verify.?connection|checkConnection|connectionTest|pingTurso|tursoTest" src/app --include=*.ts --include=*.tsx`
+returns hits in four files only — the `jiraTest`/`timelogTest` i18n keys, and `testConnection` in
+`jira-api.ts`, `jira-settings.tsx` and its test — nothing under any of the 20 `turso-*.ts(x)` files
+(`ls src/app | grep -i "^turso"`). ★ The `^` anchor is what makes the count reproduce: the
+unanchored `ls src/app | grep -i turso` returns 26, because it also picks up
+`learning-store-turso.ts`, `use-storage-turso-ops.ts`, `use-turso-projects.ts` and their tests —
+files that are Turso-related but are not the `turso-*` module family this sentence is about.
+
+Jira and Timelog both ship a real test-connection round trip: `jira-settings.tsx` calls
+`testConnection(creds)` (the function itself, `jira-api.ts`, hits the real API and returns the
+authenticated user — reproduce with
+`grep -n testConnection src/app/jira-settings.tsx src/app/jira-api.ts`); `timelog-settings.tsx`'s
+`test()` (wired to the `timelogTest` "Test connection" button) calls
+`listUsers`/`getPrivileges` (`timelog-api.ts`) and reports the result via
+`timelogTestOk`/`timelogTestFail`. Turso has no analogue — nothing calls the database to confirm
+a URL/token pair actually connects.
+
+Consequence: `canMoveToTurso` in `src/app/settings-sections/integrations-section.tsx` is
+`!!onMigrateToTurso && !onTurso && tursoConfigured`, and `tursoConfigured` is
+`!!getTursoConfig(turso.databaseUrl, turso.authToken)` — a shape check on the two fields, never
+a live probe (reproduce: `grep -n 'canMoveToTurso\|tursoConfigured =' src/app/settings-sections/integrations-section.tsx`).
+The Move-to-Turso control can therefore only gate on Turso configuration being **present**,
+never on it being **confirmed working** — which is what was originally wanted for parity with
+Jira/Timelog. ★ The same ceiling applies to the Turso buttons this branch ships
+visible-but-disabled in `src/app/projects-panel.tsx` and `src/app/project-empty-state.tsx`: both
+gate on a local `tursoConfigured`, which is the identical `!!getTursoConfig(url, token)` shape
+check (reproduce: `grep -n "tursoConfigured" src/app/projects-panel.tsx src/app/project-empty-state.tsx`).
+So a user whose URL/token pair is present but WRONG gets an enabled control that cannot work —
+the disabled state teaches that the capability exists, never that the credentials are good.
+
+★ Design consequence, recorded so a future fix does not reach for the wrong shape by default: a
+*persisted* "connection confirmed" flag would be a new `Workspace`/`Settings` field and therefore
+the six-write-paths case (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB — see AGENTS.md's "New
+persisted `Workspace` field" hard constraint). A *transient*, in-session-only result (state that
+resets on reload, the way Jira's and Timelog's test results already behave) would not. That
+difference — not the absence of a Turso client call — is the whole reason this was deferred
+rather than added inline to this batch.
+
+## 409. Collapsing an open document's body can commit a pending unblurred edit and mint a version — OPEN
+
+**Status:** OPEN. 2026-09-05, never machine-verified — this is a code-reading claim (the mechanism it describes has no automated reproduce; see the closing paragraph for the nearest existing test). `documents-panel.tsx`'s `bodyCollapsed` state (added in `ede67ddd`, "collapse the body by re-clicking the open document's name") wraps `DocumentEditModeBody` in `{!bodyCollapsed && (...)}`, so toggling it unmounts the whole editor subtree. Its own comment calls the state transient — "collapsing is a momentary 'give me room' gesture, not a preference. Nothing persists it."
+
+`useBlockDraft` (`document-block-editors.tsx`) holds a mount-only effect whose cleanup runs on any unmount, blur or not: if the draft is dirty, not a no-op against its baseline, and not superseded by a concurrent write, it normalises the draft and calls `onCommit` — i.e. it flushes a dirty draft on unmount. That `onCommit` is `commitBlock` (`use-document-editor.ts`), which calls `mutateDocuments({kind: "ops", ...})` and — per the coalescing/`lastMintedRef`/`MAX_VERSIONS_PER_DOC` machinery around it — routes through `applyDocMutation`, the single document-mutation path that mints `DocVersion` before-images (see `docs/AGENTS/documents.md`).
+
+So collapsing the body while a block editor holds an uncommitted, unblurred edit commits that edit and can mint a document version, from a gesture whose own comment says nothing should persist from it.
+
+**This is the safe direction, not data loss** — the edit is written, never discarded, and must not be filed as a loss. It is also not a new failure shape: `useBlockDraft`'s unmount-cleanup comment already anticipates non-blur unmounts, naming a narrow-pane collapse of a non-selected row and a pane resize as existing cases with the identical commit-on-unmount behavior; the new collapse toggle is a third path of the same shape, and `documents-panel.test.tsx`'s "flushes a pending unblurred edit to the OLD document on a switch, never the new one" test already pins the document-switch instance of it.
+
+The open question is a product one, not a correctness one: should a gesture presented as momentary ("give me room") be allowed to write persistent history? Nothing pins the collapse-specific case today — a `documents-panel.test.tsx` analogue mirroring the existing switch-flush test would be the cheap way to characterize (and, if the product answer changes, to pin a fix for) this specific trigger.
+
+## 410. `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line — OPEN
+
+**Status:** OPEN. Re-measured 2026-09-06 by running the reproduce below (not read): comment- and blank-stripped, the region from `const listId` to `return (` is the SAME length in both files and differs only in the commit call and the armed-highlight identity accessor; the search-box block diffs clean (exit 0). ★ No line tallies are quoted here on purpose — the first cut of this entry gave two, and `f68afc9c` (the very next commit) falsified both by adding armed-identity state to both files. Spot-check with `grep -n "cur + 1 >= options.length" src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx` (one hit in each file); full reproduce below.
+
+`src/app/single-entity-picker.tsx` is the single-select sibling of `src/app/entity-link-picker.tsx`.
+The `prevQuery` render-time reconcile, the `active` clamp, the whole of `move()` and the whole of
+`onKeyDown` are near-identical between them, as is the `ClearableSearchInput` + `Input` search-box
+markup and the `role="listbox"` option list. The commit call differs (`onSelect` taking a `value`
+string versus `onAdd` taking the whole entry), and so does the armed-highlight identity:
+`EntityLinkPicker` routes it through an `entryKey` helper the sibling does not have, so its state
+and every read of it are spelled against that key where `SingleEntityPicker` uses a bare `value`.
+The React `key` in the list differs too.
+
+Reproduce — both blocks, stripped of comments and indentation:
+
+```bash
+strip() { grep -v '^[[:space:]]*//' "$1" | sed -n '/const listId/,/return (/p' | sed 's/^[[:space:]]*//;/^$/d'; }
+diff <(strip src/app/single-entity-picker.tsx) <(strip src/app/entity-link-picker.tsx)
+# -> hunks on the commit call (onSelect(options[active].value) vs onAdd(options[active]))
+#    and on the armed-highlight identity (a bare .value vs entryKey(...)).
+
+strip2() { sed -n '/<div className="relative">/,/^        {open && (/p' "$1" | grep -v '^[[:space:]]*//' | grep -v '^[[:space:]]*{\?/\*' | grep -v '^[[:space:]]*\*' | sed 's/^[[:space:]]*//;/^$/d'; }
+diff <(strip2 src/app/single-entity-picker.tsx) <(strip2 src/app/entity-link-picker.tsx)
+# -> no output, exit 0
+```
+
+The cost is not the lines, it is the PROSE. Both files carry multi-paragraph comment blocks stating
+the same `options` invariant, the same purity argument for computing `next` outside the setState
+updater, the same `aria-activedescendant`-does-not-auto-scroll justification for the `rAF`, and the
+same `preventDefault`-versus-`stopPropagation` analysis of the Escape path. They must now be kept in
+step by hand, they already differ in wording, and the 2026-09-06 round that scoped the `options`
+contract to the add path had to edit BOTH — which is exactly the failure mode a shared module
+prevents.
+
+★ No gate will ever report this. `dup:check` compares a repo-wide TOTAL duplicated-LINE percentage
+across ~136k lines; ~80 duplicated lines cannot move that number (it passes today well under its
+threshold — read the live figure off `npm run dup:check`, do not quote one from here).
+
+★★ The file header's argument against reusing `combobox-shared` is SOUND and must not be read as an
+argument against this entry. `useCombobox` owns `open` as its own state where both pickers DERIVE
+it; its `moveHighlight` uses a function updater and schedules no `scrollIntoView`; `ComboboxChevron`
+takes a `lang` and calls `t()`, which would break both files' i18n-free contract. None of that bears
+on extracting a THIRD hook from what are now two near-identical implementations — one that derives
+`open`, computes `next` outside the updater, and takes no `lang`. The obvious shape is a
+`useEntityPickerCombobox({ query, optionCount })` returning `{ open, active, onKeyDown, listRef }`
+with the commit handed in as a callback, leaving each component only its own chrome.
+
+★★ Doing this would also collapse §411: the three mechanisms unpinned in `SingleEntityPicker` are
+already pinned in `entity-link-picker.test.tsx`, so one suite over the shared hook would cover both
+components instead of two suites that have to be kept in step the same way the comments do.
+
+## 411. Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test — OPEN
+
+**Status:** OPEN. Verified 2026-09-06 by grep: `grep -cE "ArrowUp|pr-8|reopens" src/app/single-entity-picker.test.tsx src/app/entity-link-picker.test.tsx` returns 0 for the SingleEntityPicker suite against 9 for the sibling's. The sibling count is the positive control — without it a zero cannot be told from a mistyped pattern.
+
+An earlier round pinned the component's Escape handling, its render-time reconcile and its
+out-of-range clamp. Three mechanisms are still unpinned, and each one's source comment states a
+reason it is written the way it is — which is the dangerous combination: a "simplification" that
+contradicts the stated reason ships with the suite green, and the comment then reads as protection
+nothing provides.
+
+**(a) The reopen rides `onClick`, deliberately not `onFocus`** — the comment's reason is that Escape
+must STICK across a blur and a refocus, so that tabbing away to fix something and coming back does
+not pop the list back over the rest of the form. Nothing exercises it. Swapping the handler for
+`onFocus` breaks the guarantee silently. This is the one worth writing first.
+
+**(b) `ArrowUp` wrap-around.** The suite arrows DOWN and commits with Enter; `move(-1)`'s
+`cur <= 0 ? options.length - 1` branch is never taken. ★ The sibling's version of this test uses
+THREE options on purpose — with two, ArrowUp-from-index-0 lands on the same index whether the
+wrap-around is right or not, so a two-option fixture is vacuous here.
+
+**(c) The conditional `pr-8`.** It rides the same condition the overlaid clear button does, because
+unconditionally it would shave ~2rem off the visible placeholder in the common empty state. Neither
+branch is asserted.
+
+Remedy is cheap: `entity-link-picker.test.tsx` already carries a working template for all three
+((a) as its click-reopen and tab-away pair, (b) as its three-option ArrowUp case, (c) as its
+two-branch padding assertion), so each is a port rather than a new test. ★ If §410 is taken first,
+these three come for free — pin them on the extracted hook once instead of in two suites.
+
+## 412. `TaskLinkPicker` has no direct test suite — coverage is real but indirect — OPEN
+
+**Status:** OPEN. Verified 2026-09-06: `ls src/app/task-link-picker.test.tsx` fails (no such
+file); `grep -rn "TaskLinkPicker" src --include=*.tsx --include=*.ts` finds it referenced only in
+`task-link-picker.tsx` itself (the definition), its four importers, THREE comments that only name
+it in prose (`dependencies-editor.tsx`, `entity-link-picker.tsx` — which names it as the component
+it was extracted FROM — and `single-entity-picker.tsx`), and `label-binding.guard.test.ts` — the
+one and only test file that names it. That guard test does not render the component; it matches
+`<TaskLinkPicker\b` as a source-text pattern (a chip-first widget whose unlink ✕ renders above the
+search box) and its one live use of the string is a synthetic self-test literal, not an import.
+So the earlier claim that "no test file anywhere references TaskLinkPicker" is not quite right —
+one does reference it, just never by rendering it.
+
+`TaskLinkPicker` (`src/app/task-link-picker.tsx`) is used by four importers, each with its own
+green suite: `budget-bucket-modal.tsx` (`budget-bucket-modal.test.tsx`), `change-edit-modal.tsx`
+(`change-edit-modal.test.tsx`), `knowledge-panel.tsx` — twice — (`knowledge-panel.test.tsx`), and
+`raid-edit-fields.tsx` (`raid-edit-fields.test.tsx`). That is coverage, but it is indirect: a
+defect inside `TaskLinkPicker` itself surfaces only as a failure in someone else's suite, or not
+at all if none of the four importer fixtures happens to exercise the broken path. It wraps
+`entity-link-picker.tsx`'s shared mechanics (see §410/§411 above for that component's own unpinned
+mechanisms), so a regression specific to `TaskLinkPicker`'s own wiring — not the shared hook — has
+no owner.
+
+This is a coverage-directness gap, not a live defect. Nothing is known to be broken here: all four
+importer suites are green, and `entity-link-picker.tsx` was changed on this branch (the armed-
+identity fix) with its own suite and all four importers' suites passing, so the indirect coverage
+held for that change.
+
+**The more generally useful half of this entry is how it surfaced.** A subagent ran a batch of ten
+consumer-suite paths in one `npx vitest run` invocation; nine files ran and vitest exited 0,
+because vitest exits 0 on a path that does not exist — the missing tenth path was invisible in the
+reported result. It was caught only because the agent compared the reported "Test Files N passed"
+count against the number of paths it had named, and the counts did not match. That silent-pass
+shape is already recorded as a landmine for this project (a batch invocation naming a
+non-existent path reports success); this is a fresh instance of it. Remedy for future batches:
+always compare the reported file count against the number of paths named, every time.
+
+## 413. The RAID badge's R/A/I/D breakdown is mouse-hover-only for sighted users — ACCEPTED COST
+
+**Status:** OPEN as a recorded decision, not as work. 2026-09-06, never machine-verified — nothing
+can test "a keyboard user cannot reach a `title`", and the two halves that ARE testable already
+have owners (`task-raid-badge.test.tsx` pins the accessible name's containment property;
+`grep -n "title=" src/app/task-raid-badge.tsx` shows the one attribute this entry is about).
+
+`178b2aa9` moved the per-category R/A/I/D split off the badge's visible text — which now carries a
+total — and onto `title`. `title` is the accessible DESCRIPTION, so a screen-reader user still gets
+the split, announced after the name. A sighted user does not: `title` surfaces on MOUSE HOVER
+ALONE, so a keyboard or touch user gets the count and the sentence and never the breakdown. The
+source comment on the attribute already states this trade; what it does not record is the decision
+below, which is the reason nobody should re-open it as a bug.
+
+**The obvious fix was considered and DECLINED.** The repo already ships a keyboard-reachable
+`InfoTooltip` primitive, and putting one beside the badge would restore the split for everyone.
+It cannot go INSIDE the badge: `InfoTooltip` renders its own focusable `role="button"`
+`tabIndex={0}` trigger (`src/app/info-tooltip.tsx`), and interactive content may not descend from a
+`<button>`, which is what the badge is. Beside it, then — and that is what was weighed and refused:
+
+- **One extra tab stop per task row.** The badge is per-row, so the cost scales with the list. A
+  keyboard user tabbing the Open Points table would take two stops per RAID-linked task to reach
+  what is, for them, a shorthand of information the row already conveys.
+- **A second control needing a row-unique accessible name.** Every per-row control does (WCAG
+  2.4.6 — see AGENTS.md's a11y constraint and the `src/test/row-unique-names.ts` helper), so it
+  would need the row token threaded in and a collision test of its own. ★★ No gate would catch a
+  miss: axe flags nothing for two controls sharing an accessible name, measured — so this is net
+  new hand-written test surface, not a free adoption of an existing primitive.
+- **It lands in the ID column, which was just NARROWED.** `f168a927` added `whitespace-nowrap` to
+  stop the four ID-column badges wrapping in that column; `178b2aa9` shortened the badge text to a
+  count for the same pressure. Adding a second glyph there spends the space both commits just
+  bought.
+
+So the cost is ACCEPTED: the split stays hover-only for sighted users, and the count plus the
+spelled-out sentence in the accessible name are what everyone else gets. ★ If this is ever
+revisited, the cheap direction is making the split part of what the badge already announces (or
+rendering it in the RAID panel the badge jumps to), NOT adding a second per-row control — the
+three costs above are properties of the extra control, not of the tooltip primitive.
+
+## 414. The browser eye-verify owed by the control-defects batch — OPEN
+
+**Status:** OPEN, work owed (a deferral recorded, not a defect). 2026-09-06, never machine-verified — every item below is a layout, hover or native-tooltip observation, and nothing in this repo can observe one.
+
+The control-defects batch shipped fourteen commits whose visible result nobody has looked at in a
+browser. The user DEFERRED that pass rather than skipping it; this entry is what is owed, so the
+work is recoverable by someone who was not in the session.
+
+**Why no test can stand in for it.** jsdom has no layout — no box, no overflow, no wrapping — and
+it renders no native `title` tooltip, so clipping, wrapping, reflow and hover-hint questions are
+all outside the unit suite by construction. The tests these commits DID add assert CLASSES and
+ARIA wiring, which is the most a unit test can reach here; each says so in its own comment.
+
+**And the axe gate does not close the gap either, for two different reasons — do not merge them.**
+`A11Y_VIEWS` in `e2e/a11y.spec.ts` omits **Projects** and **Knowledge** outright, so items 1 and 5
+render in no scan at any scheme (reproduce: `grep -n "A11Y_VIEWS = " e2e/a11y.spec.ts`). Items 2,
+3, 4 and 6 are the OPPOSITE case and reading them as unscanned is the easy mistake: Open Points and
+Documents are both IN that list, so those surfaces are scanned — axe simply has no rule for any of
+the properties below, and for item 6 the asset library is Turso-gated while `e2e/seed.ts` seeds
+FILE mode, so the control never mounts for the gate regardless.
+
+### What is owed, item by item
+
+1. **The Turso disabled-button hint actually appearing on hover.** `78313fb4` / `49953128` /
+   `122d5b1d` render the Turso buttons visible-but-disabled and hang the explanatory hint on a
+   wrapping `<span title=…>`, relying on `disabled:pointer-events-none` on the button so the hit
+   test falls through to the wrapper. **Whether a browser then shows that tooltip is unverified**,
+   and it is the highest-value item here: if it does not, those three commits deliver materially
+   less than they claim while their tests stay green. Two surfaces, three buttons — Load from Turso
+   and Move to Turso in `projects-panel.tsx`, Load from Turso in `project-empty-state.tsx`
+   (`grep -n "disabled:pointer-events-none" src/app/projects-panel.tsx src/app/project-empty-state.tsx`).
+   ★ The `aria-describedby` → `sr-only` half is NOT what is owed: it is pinned by
+   `toHaveAccessibleDescription` in both `projects-panel.test.tsx` and `project-empty-state.test.tsx`.
+   Only the POINTER path is unverified. Check it in Firefox as well as Chromium — this depends on
+   each browser's own `title` lookup walking up from the disabled child.
+2. **The Ask-Claude icon no longer clipping.** `97ded2c2` gave the leading `<Td>` in `task-row.tsx`
+   `padding="tight"` because the default `padding="normal"` is `px-4` (32px) inside a `w-7` (28px)
+   cell. Owed: confirm the sparkles glyph sits inside its cell and no longer rides over the
+   checkbox, and that the row's leading alignment did not regress for rows where the trigger does
+   not mount.
+3. **The ID-column badge run not wrapping.** `f168a927` added `whitespace-nowrap` to four badges
+   and `178b2aa9` shortened the RAID badge's visible text to a count. Owed: confirm the run fits
+   the ID column at a realistic column width and at the narrowest the user can drag it to.
+   ★★ **TABLE ROW ONLY — the Kanban half of this was misstated when the item was assembled.** Three
+   of the four badges are shared components (`task-jira-badge.tsx`, `task-raid-badge.tsx`,
+   `document-badge.tsx`) so the Kanban card inherits their nowrap for free; the FOURTH, the changes
+   badge, is a duplicated inline `<span>` and only `task-row.tsx`'s copy was touched —
+   `grep -c whitespace-nowrap src/app/task-kanban-card.tsx` returns 0. That is not a defect to
+   fix: the card has no ID column, and its badge row is a `flex flex-wrap` container where wrapping
+   is the intended behaviour. Verify the card only for the SHORTENED RAID text reading sensibly in
+   a narrow column.
+4. **Documents body collapse reflow.** `9a703ead` put a disclosure chevron on the open document's
+   row, `ede67ddd` made the body collapse by re-clicking the name, and — omitted when this item was
+   assembled — `3f59c5a2` resets the collapse on every selection change rather than only on clicks.
+   Owed: confirm the panel reflows sensibly when the body collapses, and that the collapse really
+   does reset when the selection changes by a route other than a click.
+   ★ The chevron-underline half needs no browser and is already settled: the `aria-hidden` chevron
+   `<span>` is a CHILD of the title button carrying `hover:underline`, and `text-decoration`
+   propagates to in-flow descendants, so it IS underlined on hover
+   (`grep -n -A 4 'hover:underline' src/app/documents-list.tsx`). The open question is only whether
+   that reads acceptably — a taste call, not a fact-finding one.
+5. **Keyboard-only operation of the Knowledge attach-to picker.** `955fbe5b` replaced a native
+   `<select>` over every task, RAID item, change, milestone, stakeholder and the project with
+   `SingleEntityPicker`; `216581cc` then lifted the option cap off `filterPickerOptions`' default.
+   Owed: open, arrow, Enter, Escape end to end in a real browser, and specifically that Escape
+   closes the picker WITHOUT also dismissing the surface around it — the Escape/Tab protocol in
+   `docs/AGENTS/ui-shell.md` is what that has to satisfy.
+6. **An asset's name reading as interactive.** `57a6d8c7` made the name a preview trigger, but only
+   when `loadImage` is passed. Owed: confirm it reads as a control rather than as plain text, and
+   that the non-interactive branch (no loader) still reads as plain text. ★ Needs a REAL Turso
+   project: `documents-asset-section.tsx` passes `loadImage` only when `tursoConfig !== null`, so a
+   file-mode session renders the inert branch and cannot answer this at all.
+
+★ None of the six is a reported defect. Each is a claim the tests could not reach, so a clean
+eye-verify closes this entry and anything it turns up gets its own.

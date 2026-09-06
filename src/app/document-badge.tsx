@@ -36,7 +36,7 @@ function DocumentBadgeImpl({ count, entityTitle, lang, onOpen }: DocumentBadgePr
       }}
       title={t(lang, "documentsLinkedBadge", count)}
       aria-label={name}
-      className={`ml-1 inline-flex items-center gap-0.5 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground ${INTERACTIVE}`}
+      className={`ml-1 inline-flex items-center gap-0.5 whitespace-nowrap rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground ${INTERACTIVE}`}
     >
       <DocumentTextIcon aria-hidden="true" className="h-3 w-3" />
       {count}
