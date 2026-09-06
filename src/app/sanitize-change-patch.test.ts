@@ -31,7 +31,7 @@
 import { describe, expect, it } from "vitest";
 import { applyModelChangeStatus } from "./change-log";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
-import { dropUnacceptedChangeFields, sanitizeChangeItem } from "./sanitize";
+import { acceptsScheduleDays, dropUnacceptedChangeFields, sanitizeChangeItem } from "./sanitize";
 import { type ChangeItem } from "./types";
 
 /** A fully populated stored row: every guarded field carries a NON-DEFAULT
@@ -223,6 +223,30 @@ describe("status stays with applyModelChangeStatus", () => {
 describe("numeric coercion matches the sanitizer's own", () => {
   it("accepts a numeric STRING, as toNumber does", () => {
     expect(mergeGuarded(storedChange(), { costImpact: "250" }).costImpact).toBe(250);
+  });
+
+  it("still DROPS a refused amount on an UPDATE, now that the sanitizer would store it", () => {
+    // ★★★ THE GUARD'S JOB ON THESE TWO FIELDS CHANGED SHAPE WITHOUT THE GUARD
+    // CHANGING. `sanitizeChangeItem` used to REFUSE a fractional day count and a
+    // cost over AMOUNT_MAX, so an unguarded merge CLEARED the field; it now
+    // stores both VERBATIM, so an unguarded merge WRITES the model's value over
+    // the stored one. The card refuses the value either way, so both are
+    // preview/apply divergences — but only the second is silent in the data, and
+    // this guard is the only thing standing in front of it.
+    expect(mergeUnguarded(storedChange(), { scheduleImpactDays: 1.5 }).scheduleImpactDays).toBe(1.5);
+    expect(mergeUnguarded(storedChange(), { costImpact: 2_000_000_000 }).costImpact).toBe(2_000_000_000);
+    // ★★ The positive control for the pair above: WITH the guard the stored
+    // values survive untouched. A test asserting only the guarded half would
+    // pass against a sanitizer that had gone back to refusing these, which is
+    // the state this pins the exit from.
+    expect(mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 }).scheduleImpactDays).toBe(12);
+    expect(mergeGuarded(storedChange(), { costImpact: 2_000_000_000 }).costImpact).toBe(4500);
+    // ★ REPAIR IS NOT AN OPTION HERE, and this is the third leg of the split.
+    // A model CREATE repairs 1.5 to 2 (`sanitizeModelChangeItem`); an UPDATE
+    // must not, because the AI edit preview refuses 1.5 through this very
+    // predicate (§405) — repairing would write 2 under a card saying
+    // "unchanged". Three write paths, three answers, on purpose.
+    expect(acceptsScheduleDays(1.5)).toBe(false);
   });
 
   it("refuses the booleans rather than storing a fabricated 1 or 0", () => {

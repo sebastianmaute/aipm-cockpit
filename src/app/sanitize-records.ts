@@ -299,12 +299,32 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   };
   if (typeof o.impact === "string" && CHANGE_IMPACT_SET.has(o.impact)) item.impact = o.impact as ChangeItem["impact"];
   const impactDesc = sanitizeRichText(o.impactDescription, TEXTAREA_MAX, RICH_SINK); if (impactDesc) item.impactDescription = impactDesc;
-  // REPAIR, then accept. See the two `repair*` helpers below for why the loader
-  // repairs where the merge-site guard refuses — they are different questions.
-  const days = repairScheduleDays(o.scheduleImpactDays);
-  if (days !== undefined && acceptsScheduleDays(days)) item.scheduleImpactDays = days;
-  const cost = repairCostAmount(o.costImpact);
-  if (cost !== undefined && acceptsCostAmount(cost)) item.costImpact = cost;
+  // ★★★ VERBATIM, AND THE ABSENCE OF BOTH A REPAIR AND AN ACCEPT-GATE HERE IS
+  //  THE POINT. This function's dominant population is ALREADY-STORED USER DATA
+  //  — five of the six write paths' read side reach it (`buildChangeFromObj`
+  //  serves CSV, Markdown and both Turso layouts; `jsonToWorkspace` the sixth
+  //  slot's JSON) — and a loader must not rewrite a number a person saved. A
+  //  cut of this branch ran `repairCostAmount` here and silently moved stored
+  //  data on every load: 2_000_000_000 -> 1_000_000_000, 1234.567 -> 1234.57,
+  //  0.5 -> 1. AMOUNT_MAX is 1e9, an ordinary project figure in JPY/KRW/IDR, so
+  //  the clamp was not theoretical.
+  // ★★★ REMOVING ONLY THE REPAIR IS WORSE THAN EITHER, which is the trap to
+  //  understand before "restoring" half of this. The accept-gate would survive
+  //  and turn the clamp into a DROP: a stored 1.5 or 2e9 would lose its key
+  //  outright, on a path that cannot report it — the JSON loader takes no diag
+  //  at all, and the CSV/MD `ImportDiag` is ROW-level, so a dropped FIELD is
+  //  invisible to it. The repair and the gate come out together or not at all.
+  // ★★ `isCoercibleNumber` STAYS, and it is the one thing not restored from the
+  //  pre-branch loader. That one used a bare `toNumber`, so `true` stored as a
+  //  fabricated 1 (§395). Verbatim means "do not rewrite a NUMBER", never "take
+  //  a boolean's coercion".
+  // ★ MODEL input is repaired instead, by `sanitizeModelChangeItem` below —
+  //  acceptance, repair and refusal are three different questions asked by three
+  //  different callers. The map is on that wrapper's docstring.
+  const days = isCoercibleNumber(o.scheduleImpactDays) ? toNumber(o.scheduleImpactDays) : NaN;
+  if (Number.isFinite(days) && days >= 0) item.scheduleImpactDays = days;
+  const cost = isCoercibleNumber(o.costImpact) ? toNumber(o.costImpact) : NaN;
+  if (Number.isFinite(cost) && cost >= 0) item.costImpact = cost;
   const reqBy = sanitizeText(o.requestedBy, BUDGET_NAME_MAX); if (reqBy) item.requestedBy = reqBy;
   const decBy = sanitizeText(o.decisionBy, BUDGET_NAME_MAX); if (decBy) item.decisionBy = decBy;
   const decDate = sanitizeIsoDate(o.decisionDate); if (decDate) item.decisionDate = decDate;
@@ -316,9 +336,15 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   return item;
 }
 
-/** One guarded field's acceptance rule, read from `sanitizeChangeItem` above.
+/** One guarded field's acceptance rule for a MODEL PATCH.
  *  Unlike the RAID table's, these take the value ALONE: no change field is
- *  validated against another, so there is no stored context to thread. */
+ *  validated against another, so there is no stored context to thread.
+ *  ★★ THESE ARE NO LONGER "READ FROM `sanitizeChangeItem` ABOVE", which is what
+ *  this docstring said while that function shared their rules. It now stores the
+ *  two numeric fields VERBATIM, so for `scheduleImpactDays` and `costImpact`
+ *  these predicates are strictly TIGHTER than the loader: they are the rule for
+ *  a model WRITE and for the preview that discloses it (§405), not a restatement
+ *  of what load accepts. The enum and date rows still match the sanitizer. */
 type ChangeFieldGuard = (value: unknown) => boolean;
 
 /** ★ `""` is ACCEPTED. The AI edit preview's date guard is `after !== "" &&
@@ -353,6 +379,15 @@ const isCoercibleNumber = (v: unknown): boolean => typeof v !== "boolean";
  *  `1.5`, and the preview follows for free because it still calls this
  *  predicate. Both statements describe agreement; only one describes today's.
  *
+ *  ★★★ "THE WRITE" IN THAT PARAGRAPH MEANS THE MODEL **UPDATE** AND NOTHING
+ *  ELSE, and the three change writes now answer `1.5` three different ways.
+ *  UPDATE refuses it (this predicate, via `dropUnacceptedChangeFields`, with the
+ *  preview refusing in step). CREATE repairs it to 2 (`sanitizeModelChangeItem`,
+ *  which the card cannot contradict because it makes no per-field claim on a
+ *  create). LOAD stores it as 1.5, verbatim, because rewriting a stored number
+ *  is not this predicate's business. Reading the agreement above as a property
+ *  of every write path is the mistake to avoid here.
+ *
  *  ★★★ THE TWO AMOUNT FIELDS DO NOT SHARE A RULE, and reading them as a pair is
  *  the mistake this docstring exists to stop. They were one
  *  `acceptsChangeAmount` and the plan that split them originally said "a change
@@ -371,8 +406,13 @@ const isCoercibleNumber = (v: unknown): boolean => typeof v !== "boolean";
  *  comment says "Enter inside a text input submits WITHOUT firing blur" — so
  *  typing `1.5` and pressing Enter saved `1.5`. The clamp now runs on blur AND
  *  on submit, so the form no longer produces one; a database written before
- *  that fix still can, which is exactly why `repairScheduleDays` below exists
- *  rather than a bare drop. */
+ *  that fix still can.
+ *  ★★ THAT USED TO END "…which is exactly why `repairScheduleDays` below exists
+ *  rather than a bare drop", and it is no longer the reason for anything on the
+ *  load path: a legacy `1.5` is now neither repaired nor dropped there, it is
+ *  STORED AS 1.5. The legacy database is still the reason this predicate must
+ *  not be mistaken for the loader's rule — it is why the loader has none — but
+ *  `repairScheduleDays` now serves model CREATES alone. */
 export const acceptsScheduleDays: ChangeFieldGuard = (v) => {
   if (!isCoercibleNumber(v)) return false;
   const n = toNumber(v);
@@ -430,34 +470,41 @@ export const acceptsCostAmount: ChangeFieldGuard = (v) => {
  *  four together is to "unify" them. Do not — they answer different questions
  *  about different data:
  *
- *  - A MODEL WRITE must be REFUSED, so `dropUnacceptedChangeFields` drops the
+ *  - A MODEL UPDATE must be REFUSED, so `dropUnacceptedChangeFields` drops the
  *    key and the STORED value survives. The preview shows that same refusal
  *    because it calls the same predicate (§405), which is the whole slice.
- *  - EXISTING DATA must be REPAIRED, so a legacy `scheduleImpactDays: 1.5` —
- *    written by the pre-fix modal, whose `{ round: 0 }` clamp ran only on blur
- *    while Enter-submit skipped it — loads as 2 rather than vanishing. Dropping
- *    it is silent data loss on a path that cannot even report one: the JSON
- *    loader takes no diag at all, and the CSV/MD `ImportDiag` is ROW-level, so
- *    a dropped FIELD is invisible to it. That is the "field cleared while
- *    nothing says so" shape this slice exists to close, arriving through load.
+ *  - A MODEL CREATE has no stored value to protect, so it is REPAIRED instead:
+ *    `sanitizeModelChangeItem` below rounds a model's `1.5` to 2 rather than
+ *    losing the field. The create card promises nothing per-field to contradict
+ *    — `describeEntityCalls` pushes a create into `plan.creates` verbatim and
+ *    runs no `numericFields` check on one, and `chat-proposal-block.tsx` renders
+ *    it as entity + title alone — so neither repair nor drop is a divergence
+ *    there, and repair keeps the value the model actually asked for.
+ *  - EXISTING DATA is left VERBATIM. `sanitizeChangeItem` stores the number a
+ *    person saved and neither rounds nor caps it. Rewriting stored data on load
+ *    is the defect this trio was reorganised to stop; the reasoning is on that
+ *    function, at the two numeric lines.
  *
- *  The predicate stays the SINGLE acceptance rule: a repaired value is handed
- *  back to it and a value it still refuses is still dropped, so repair can only
- *  move a value INTO the accepted set, never widen the set.
+ *  ★★★ THESE HELPERS ARE NO LONGER REACHED FROM `sanitizeChangeItem`, AND AN
+ *  EARLIER SHAPE OF THIS FILE RAN THEM ON EVERY LOAD. Do not wire them back in
+ *  "to complete the pattern": five of the six write paths' read side funnel
+ *  through that sanitizer, so a repair there is a silent rewrite of five
+ *  backends at once. Repair belongs to the wrapper, which only model callers
+ *  use.
  *
  *  ★★ A BOOLEAN IS NOT REPAIRED, and that is the one case with no correct
  *  repair: `toNumber(true)` is 1, the exact fabrication §395 refuses. Every
- *  repair is gated on `isCoercibleNumber` before it runs.
+ *  repair is gated on `isCoercibleNumber` before it runs — and so is the
+ *  verbatim store, so the fabrication is refused on BOTH paths.
  *
- *  ★★ IT REACHES CREATES AS WELL AS LOADS, which is worth knowing before
- *  reading it as load-only. `createChange` (`use-register-tools.ts`) hands a raw
- *  model blob straight to this sanitizer with NO field guard, so a
- *  model-created `1.5` now stores 2 instead of dropping the key. That is not a
- *  preview/apply divergence: `describeEntityCalls` pushes a create into
- *  `plan.creates` verbatim and runs no `numericFields` check on one, so the
- *  card makes no per-field claim there to contradict. UPDATES are unaffected —
- *  they run `dropUnacceptedChangeFields` FIRST, so a refused model value never
- *  reaches this function wearing the model's spelling. */
+ *  ★★ REPAIR CANNOT WIDEN WHAT LANDS, even though nothing re-gates it any more.
+ *  `repairCostAmount` returns a non-negative two-decimal value at or below
+ *  AMOUNT_MAX and `repairScheduleDays` returns an integer, so every output is
+ *  one the predicates already admit — with the single documented exception of
+ *  `-0` from the `[-0.5, 0)` window, whose measurement and justification live in
+ *  `sanitize-records.test.ts`. Read that before "fixing" it by symmetry with
+ *  `repairCostAmount`'s floor: that reasoning was raised, measured and rejected,
+ *  and the leg would not even stop a stored `-0` (`-0 < 0` is false). */
 const repairScheduleDays = (v: unknown): number | undefined => {
   if (!isCoercibleNumber(v)) return undefined;
   const n = toNumber(v);
@@ -469,9 +516,11 @@ const repairScheduleDays = (v: unknown): number | undefined => {
  *  and the choice is deliberate rather than an oversight. That function is
  *  private, but exporting it would import its EMPTY-STRING leg with it
  *  (`"" -> undefined`, "an empty CSV/MD cell is absent, not 0"), which this
- *  field does not have: `toNumber("")` is 0, `acceptsCostAmount` admits it, and
- *  the change loader stores 0 — a behaviour `plan.sanitizer-parity.test.ts`
- *  pins with an explicit `""` probe. Adopting the whole function would silently
+ *  field does not have: `toNumber("")` is 0, and the change loader stores that
+ *  0 — under its OWN verbatim rule now, NOT via `acceptsCostAmount`, which no
+ *  longer runs on the load path at all. The predicate admits 0 as well, so the
+ *  preview still agrees with the write; `plan.sanitizer-parity.test.ts` pins
+ *  that pair with an explicit `""` probe. Adopting the whole function would silently
  *  turn a stored 0 into a dropped key, i.e. a repair commit causing exactly the
  *  loss it exists to prevent. Only the one arithmetic expression is shared, and
  *  a negative stays DROPPED here as it is there. */
@@ -481,6 +530,51 @@ const repairCostAmount = (v: unknown): number | undefined => {
   if (!Number.isFinite(n) || n < 0) return undefined;
   return Math.min(AMOUNT_MAX, Math.round(n * 100) / 100);
 };
+
+/**
+ * Sanitize a MODEL-authored change, REPAIRING the two numeric fields first.
+ *
+ * ★★★ THE ONLY DIFFERENCE FROM `sanitizeChangeItem` IS THAT REPAIR, and the
+ * split exists because the two functions serve populations with opposite needs.
+ * The plain sanitizer's dominant callers are LOADS — five of the six write
+ * paths' read side funnel through it — where a number is a person's saved data
+ * and must survive untouched. This wrapper's callers are `createChange`
+ * (`use-register-tools.ts`) and `proposalToSeed` (`ai-project-proposal.ts`),
+ * where the number is a model's suggestion with no stored value behind it, so
+ * rounding a `1.5` to 2 keeps the field the model asked for instead of losing it.
+ *
+ * ★★★ NOT FOR AN UPDATE, and wiring it into one would re-open the defect this
+ * branch exists to close. `updateChange` runs `dropUnacceptedChangeFields` and
+ * must go on doing so: the AI edit preview refuses a fractional day count
+ * through the very same predicate (§405), so repairing there would show the user
+ * a refusal and then write a repaired value. A CREATE is safe to repair only
+ * because its card promises nothing per-field — `describeEntityCalls` pushes a
+ * create into `plan.creates` verbatim with no `numericFields` check, and
+ * `chat-proposal-block.tsx` renders it as entity + title alone.
+ *
+ * ★ A shape with no correct repair has its key REMOVED rather than passed
+ * through, so the contract is self-contained: every field this touches is either
+ * a repaired number or absent. `sanitizeChangeItem` would refuse those same
+ * shapes anyway (`isCoercibleNumber`, finite, `>= 0`), so the two agree on every
+ * refusal and differ only on what is repairable.
+ */
+export function sanitizeModelChangeItem(input: unknown): ChangeItem | null {
+  if (!isPlainObject(input)) return sanitizeChangeItem(input);
+  const repaired: Record<string, unknown> = { ...input };
+  const days = repairScheduleDays(input.scheduleImpactDays);
+  if (days === undefined) {
+    delete repaired.scheduleImpactDays;
+  } else {
+    repaired.scheduleImpactDays = days;
+  }
+  const cost = repairCostAmount(input.costImpact);
+  if (cost === undefined) {
+    delete repaired.costImpact;
+  } else {
+    repaired.costImpact = cost;
+  }
+  return sanitizeChangeItem(repaired);
+}
 
 /** ★★★ `status` IS ABSENT ON PURPOSE, and adding it would be a REGRESSION, not
  *  a completion. `updateChange` runs `applyModelChangeStatus` (`change-log.ts`)

@@ -5,6 +5,7 @@ import {
   sanitizeMilestone,
   sanitizeMilestoneTaskIds,
   sanitizeChangeItem,
+  sanitizeModelChangeItem,
   sanitizeStakeholder,
   acceptsRiskScale,
   acceptsScheduleDays,
@@ -195,33 +196,41 @@ describe("delegate-never-restate: the raid sanitizer and its merge-site guard", 
 describe("delegate-never-restate: the change sanitizer and its merge-site guard", () => {
   const PROBES: unknown[] = [0, 1, 1.5, -1, "2", "abc", "", true, false, null, undefined, [], NaN, Infinity];
 
-  // ★★★ THE PROPERTY THESE TWO SWEEPS ASSERT CHANGED SHAPE WITH THE §399
-  //  REPAIR, and the old one is now FALSE. It read
-  //  `"scheduleImpactDays" in item === acceptsScheduleDays(probe)`, which held
-  //  while a refused value was simply DROPPED. The loader now REPAIRS a
-  //  coercible one first, so a stored 1.5 loads as 2 — present, while the
-  //  predicate refuses 1.5. Two weaker-looking but jointly STRONGER properties
-  //  survive, and together they are what "delegate, never restate" now means
-  //  here: the predicate still BOUNDS the loader's output, and it still governs
-  //  every value that needs no repair.
+  // ★★★ THESE TWO SWEEPS NOW TARGET `sanitizeModelChangeItem`, NOT THE PLAIN
+  //  SANITIZER, and the move is the whole point of this block rather than a
+  //  detail of it. The property they assert — "the predicate BOUNDS what lands"
+  //  — was written when the loader repaired, and it is FALSE of the loader
+  //  today ON PURPOSE: `sanitizeChangeItem` stores a person's saved number
+  //  VERBATIM, so a stored 1.5 stays 1.5 while `acceptsScheduleDays` refuses
+  //  1.5. A loader that rewrites stored data is the defect; a loader bounded by
+  //  a model-write predicate was the symptom. The bound is a real property of
+  //  the MODEL path, so it moved there with the repair.
+  // ★★ THE PREVIOUS WORDING HERE IS STILL WORTH KNOWING, because it records a
+  //  property that has now been FALSE TWICE FOR DIFFERENT REASONS. The original
+  //  sweep read `"scheduleImpactDays" in item === acceptsScheduleDays(probe)`
+  //  and held while a refused value was simply DROPPED; the §399 repair broke
+  //  it at the loose end (1.5 became 2, present where the predicate refuses);
+  //  verbatim storage now breaks it at the other end (1.5 stays 1.5). Do not
+  //  restore either earlier form against `sanitizeChangeItem`.
+  // ★ The STORED path gets its own pins below, asserting the opposite property.
   it.each(PROBES.map((v) => [probeLabel(v), v] as const))(
-    "never stores a scheduleImpactDays acceptsScheduleDays would refuse (%s)",
+    "never stores a scheduleImpactDays acceptsScheduleDays would refuse, on the MODEL path (%s)",
     (_label, probe) => {
-      const item = sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: probe });
+      const item = sanitizeModelChangeItem({ id: 1, title: "t", scheduleImpactDays: probe });
       expect(item).not.toBeNull();
       const stored = item!.scheduleImpactDays;
       expect(stored === undefined || acceptsScheduleDays(stored)).toBe(true);
       // ★ Repair never touches a value the predicate ALREADY accepts, so where
-      //  there is nothing to repair the loader and the merge-site guard agree
-      //  exactly — which is what this sweep was originally for.
+      //  there is nothing to repair the model path and the merge-site guard
+      //  agree exactly — which is what this sweep was originally for.
       if (acceptsScheduleDays(probe)) expect(stored).toBe(toNumber(probe));
     },
   );
 
   it.each(PROBES.map((v) => [probeLabel(v), v] as const))(
-    "never stores a costImpact acceptsCostAmount would refuse (%s)",
+    "never stores a costImpact acceptsCostAmount would refuse, on the MODEL path (%s)",
     (_label, probe) => {
-      const item = sanitizeChangeItem({ id: 1, title: "t", costImpact: probe });
+      const item = sanitizeModelChangeItem({ id: 1, title: "t", costImpact: probe });
       expect(item).not.toBeNull();
       const stored = item!.costImpact;
       expect(stored === undefined || acceptsCostAmount(stored)).toBe(true);
@@ -232,34 +241,76 @@ describe("delegate-never-restate: the change sanitizer and its merge-site guard"
   // ★★ THE SWEEPS ABOVE ARE VACUOUS IF NOTHING IS EVER STORED — a loader that
   //  dropped every value would satisfy both. These name the repaired values, so
   //  they are the only thing pinning that the repair HAPPENS.
-  it("repairs a legacy out-of-precision value instead of destroying it", () => {
-    // ★★★ THE DEFECT THIS CLOSES IS A SILENT LOAD-PATH CLEAR. Before the
-    //  repair, tightening the predicate meant a `1.5` written by the pre-fix
-    //  modal — whose `{ round: 0 }` clamp ran only on blur while Enter-submit
-    //  skipped it — simply vanished on the next load, and nothing could report
-    //  it: the JSON loader takes no diag, and the CSV/MD `ImportDiag` is
-    //  ROW-level, so a dropped FIELD is invisible to it.
-    expect(sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: 1.5 })!.scheduleImpactDays).toBe(2);
-    expect(sanitizeChangeItem({ id: 1, title: "t", costImpact: 1500.555 })!.costImpact).toBe(1500.56);
-    expect(sanitizeChangeItem({ id: 1, title: "t", costImpact: 5_000_000_000 })!.costImpact).toBe(AMOUNT_MAX);
+  it("repairs a legacy out-of-precision value instead of destroying it, on the MODEL path", () => {
+    // ★★★ THE DEFECT THIS CLOSES IS A SILENT CLEAR. Tightening the predicate
+    //  without a repair means a `1.5` — the shape the pre-fix modal could write,
+    //  its `{ round: 0 }` clamp running only on blur while Enter-submit skipped
+    //  it — simply vanishes, and on a write path that cannot report it.
+    // ★★ THIS TEST USED TO TARGET `sanitizeChangeItem` AND ITS THREE VALUES ARE
+    //  UNCHANGED. Only the subject moved: repair is a MODEL-input policy now,
+    //  because the load path must not rewrite stored data. The load path's own
+    //  behaviour on these very values is pinned by the sibling test below, so
+    //  the pair is a differential rather than two independent claims.
+    expect(sanitizeModelChangeItem({ id: 1, title: "t", scheduleImpactDays: 1.5 })!.scheduleImpactDays).toBe(2);
+    expect(sanitizeModelChangeItem({ id: 1, title: "t", costImpact: 1500.555 })!.costImpact).toBe(1500.56);
+    expect(sanitizeModelChangeItem({ id: 1, title: "t", costImpact: 5_000_000_000 })!.costImpact).toBe(AMOUNT_MAX);
+    // The three values the load path is pinned to keep, repaired here.
+    expect(sanitizeModelChangeItem({ id: 1, title: "t", costImpact: 2_000_000_000 })!.costImpact).toBe(AMOUNT_MAX);
+    expect(sanitizeModelChangeItem({ id: 1, title: "t", costImpact: 1234.567 })!.costImpact).toBe(1234.57);
+    expect(sanitizeModelChangeItem({ id: 1, title: "t", scheduleImpactDays: 0.5 })!.scheduleImpactDays).toBe(1);
   });
 
-  it("leaves an already-valid value untouched", () => {
-    expect(sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: 12 })!.scheduleImpactDays).toBe(12);
-    expect(sanitizeChangeItem({ id: 1, title: "t", costImpact: 4500.25 })!.costImpact).toBe(4500.25);
+  it("keeps a STORED number exactly as saved, repairing and capping nothing", () => {
+    // ★★★ THE MIRROR DEFECT, AND THE ONE THIS SPLIT EXISTS FOR. A cut of this
+    //  branch ran the repair inside `sanitizeChangeItem`, which five of the six
+    //  write paths' read side funnel through — `buildChangeFromObj` serves CSV,
+    //  Markdown and both Turso layouts, `jsonToWorkspace` the JSON slot — so
+    //  every load silently rewrote data a person had saved. AMOUNT_MAX is 1e9,
+    //  an ordinary project figure in JPY, KRW or IDR, so the clamp was not
+    //  theoretical.
+    expect(sanitizeChangeItem({ id: 1, title: "t", costImpact: 2_000_000_000 })!.costImpact).toBe(2_000_000_000);
+    expect(sanitizeChangeItem({ id: 1, title: "t", costImpact: 1234.567 })!.costImpact).toBe(1234.567);
+    expect(sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: 0.5 })!.scheduleImpactDays).toBe(0.5);
+    // ★★★ THE POSITIVE CONTROL, WITHOUT WHICH THE THREE ABOVE ARE WORTHLESS.
+    //  "Stored unchanged" only means something once the values are known to be
+    //  ones the predicate REFUSES — otherwise a sanitizer that had simply
+    //  stopped guarding anything, or a test bound to the wrong function, would
+    //  pass all three. These four lines are what make this an assertion about
+    //  policy rather than about arithmetic.
+    expect(acceptsCostAmount(2_000_000_000)).toBe(false);
+    expect(acceptsCostAmount(1234.567)).toBe(false);
+    expect(acceptsScheduleDays(0.5)).toBe(false);
+    expect(sanitizeModelChangeItem({ id: 1, title: "t", costImpact: 2_000_000_000 })!.costImpact).toBe(AMOUNT_MAX);
   });
 
-  it("still DROPS a boolean rather than repairing it into a fabricated number", () => {
+  it("leaves an already-valid value untouched on BOTH paths", () => {
+    // ★ Where nothing needs repair the two functions are indistinguishable,
+    //  which is what bounds the blast radius of the split: it changes only what
+    //  happens to a value the predicate refuses.
+    for (const sanitize of [sanitizeChangeItem, sanitizeModelChangeItem]) {
+      expect(sanitize({ id: 1, title: "t", scheduleImpactDays: 12 })!.scheduleImpactDays).toBe(12);
+      expect(sanitize({ id: 1, title: "t", costImpact: 4500.25 })!.costImpact).toBe(4500.25);
+    }
+  });
+
+  it("still DROPS a boolean rather than repairing it into a fabricated number, on BOTH paths", () => {
     // ★★★ THE ONE VALUE WITH NO CORRECT REPAIR. `toNumber(true)` is 1, which is
     //  a plausible day count and a plausible cost — the §395 fabrication — so
     //  `isCoercibleNumber` gates the repair as well as the acceptance. Rounding
     //  it would be worse than dropping it: the number would look authored.
-    expect("scheduleImpactDays" in sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: true })!).toBe(false);
-    expect("costImpact" in sanitizeChangeItem({ id: 1, title: "t", costImpact: true })!).toBe(false);
-    // ★ A NEGATIVE COST is dropped too, not clamped to 0 — `repairCostAmount`
-    //  covers precision and the cap, never the floor, which is where
-    //  `sanitizeAmount` puts it.
-    expect("costImpact" in sanitizeChangeItem({ id: 1, title: "t", costImpact: -5 })!).toBe(false);
+    // ★★★ ASSERTED ON BOTH FUNCTIONS BECAUSE "VERBATIM" IS THE EASIEST PLACE TO
+    //  LOSE THIS. Storing a person's number unchanged is one step from storing
+    //  whatever arrives unchanged, and the pre-branch loader — which this split
+    //  otherwise restores — used a bare `toNumber` and DID save `true` as 1.
+    //  The load path is verbatim about NUMBERS only; §395 stays fixed on it.
+    for (const sanitize of [sanitizeChangeItem, sanitizeModelChangeItem]) {
+      expect("scheduleImpactDays" in sanitize({ id: 1, title: "t", scheduleImpactDays: true })!).toBe(false);
+      expect("costImpact" in sanitize({ id: 1, title: "t", costImpact: true })!).toBe(false);
+      // ★ A NEGATIVE COST is dropped too, not clamped to 0 — `repairCostAmount`
+      //  covers precision and the cap, never the floor, which is where
+      //  `sanitizeAmount` puts it. The load path drops it on its own `>= 0` leg.
+      expect("costImpact" in sanitize({ id: 1, title: "t", costImpact: -5 })!).toBe(false);
+    }
     // ★★★ THAT IS NOT A SYMMETRY ACROSS THE TWO AMOUNTS, and an earlier wording
     //  of this comment asserted one ("A NEGATIVE is dropped too", unqualified).
     //  It holds for `costImpact`, whose predicate has an explicit `n < 0`. It is
@@ -271,10 +322,23 @@ describe("delegate-never-restate: the change sanitizer and its merge-site guard"
     //  repair. The defect was the JUSTIFICATION, which claimed a floor rule the
     //  two fields do not share. Measured, not reasoned — these two probes are
     //  the measurement.
-    const nearZero = sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.4 })!;
+    // ★★ THE SUBJECT MOVED WITH THE REPAIR AND THE ASSERTIONS ARE OTHERWISE
+    //  UNTOUCHED: `Math.round` is what produces the `-0`, and `Math.round` now
+    //  runs only on the MODEL path. The reasoning above is unchanged and still
+    //  governs — a review round proposed giving `repairScheduleDays` the `n < 0`
+    //  leg its sibling has, which is exactly the symmetry this comment records
+    //  as already considered and rejected. It would also not achieve its stated
+    //  aim: `-0 < 0` is false, so the leg removes the [-0.5, 0) window and
+    //  leaves an explicit `-0` stored regardless.
+    const nearZero = sanitizeModelChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.4 })!;
     expect(Object.is(nearZero.scheduleImpactDays, -0)).toBe(true);
-    const halfDown = sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.5 })!;
+    const halfDown = sanitizeModelChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.5 })!;
     expect(Object.is(halfDown.scheduleImpactDays, -0)).toBe(true);
+    // ★★ THE LOAD PATH DOES NOT SHARE IT, and that asymmetry is now a THIRD
+    //  thing this test pins. With no `Math.round` to pull it up to `-0`, a
+    //  stored `-0.4` fails the loader's own `>= 0` leg and the key is dropped.
+    //  So the `-0` is an artefact of REPAIR, never of storage.
+    expect("scheduleImpactDays" in sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.4 })!).toBe(false);
     // ★ The interval really is closed at BOTH ends, so the acceptance is
     //  bounded rather than open-ended: anything below -0.5 rounds to -1 or less
     //  and the floor rejects it. ★★ `-0.6` is a COMFORTABLE probe, not the
@@ -282,7 +346,9 @@ describe("delegate-never-restate: the change sanitizer and its merge-site guard"
     //  overstates how tightly this pins the edge. The true first rejected value
     //  is the next double below -0.5, `-0.5000000000000001`; probing at the
     //  representable edge would pin float behaviour rather than this rule.
-    expect("scheduleImpactDays" in sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.6 })!).toBe(false);
+    // ★ On the MODEL path, matching the two probes above: this closes the
+    //  REPAIR interval, and only the repair path has one to close.
+    expect("scheduleImpactDays" in sanitizeModelChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.6 })!).toBe(false);
   });
 });
 
