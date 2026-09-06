@@ -744,10 +744,20 @@ export function DocumentsPanel({
         {/* ★ Only the BODY collapses. The links and asset sections above stay
             mounted, so the metadata controls remain usable while the rendered
             document is out of the way. */}
-        {!bodyCollapsed && (
+        {/* ★★★ `hidden`, NEVER a conditional render. `useBlockDraft` flushes a
+            dirty draft on ANY unmount, and that commit routes through
+            `applyDocMutation` and can mint a DocVersion — so unmounting here
+            made a gesture whose own comment says "nothing persists it" write
+            persistent history (open-followups §409). Keeping the subtree
+            mounted is what makes the gesture actually transient.
+            ★★ Same shape as `panel-chat` / `panel-raid` in
+            `workspace-section.tsx`, and it inherits that shape's inverted
+            hazard: a fresh mount can no longer be relied on to clear anything,
+            so `bodyCollapsed`'s reset above must keep firing on its own. */}
+        <div hidden={bodyCollapsed}>
           <DocumentEditModeBody lang={lang} doc={selected} ws={ws} editing={editing} narrow={narrowPane} isReadOnly={isReadOnly} onCommitBlock={commitBlock} structural={structural}
             assetsTursoConfig={assetPane?.tursoConfig ?? null} assetsProjectId={assetPane?.projectId} />
-        )}
+        </div>
       </div>
 
       <DocumentsHistoryModal
