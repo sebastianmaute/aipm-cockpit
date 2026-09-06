@@ -1657,7 +1657,15 @@ npx vitest run src/app/sanitize-raid-patch.test.ts src/app/sanitize-change-patch
 
 Every red is a QUESTION, not a bug to paper over. For each: does the guard keep the stored value (correct — fix the assertion) or does the sanitizer reset it (a real defect — stop and report it, because Layers 1-2 should have closed all of these). Record the triage in the commit message.
 
-- [ ] **Step 3: Compose the `resource` reader**
+- [ ] **Step 3: Compose the `resource` reader** — ★★★ SUPERSEDED 2026-09-06, NOT EXECUTED
+
+**Do not execute Step 3 or Step 4 as written.** Commit `f739bd75` ("docs(followups): 394's own prescription is refuted by measurement") superseded them, and §394 stays OPEN.
+
+The refutation, kept because it is the valuable part: this task's premise was that moving the fixtures off their fallbacks would produce reds to triage and that composing `resourceReader` would let the sweep see a merge-site guard. Both halves were probed. All four BASE fixtures were moved off their defaults together (`task.status`→"In Progress", `priority`→"High", `raid.category`→"A", `change.type`→"Scope", `status`→"Approved", `stakeholder.category`→"Sponsor", `influence`→"High", `interest`→"Low") and the sweep stayed GREEN — `Tests 8 passed (8)`, EXIT=0. Then, with those same non-default fixtures in place, the stakeholder merge-site guard was DELETED at its call site in `use-chat-dispatcher.ts` — the exact silent-reset §394 exists to catch, on a row stored as "Sponsor" — and the sweep was STILL GREEN, `Tests 8 passed (8)`. Both probes reverted; `git diff --stat` empty. So the "resulting reds" Step 2 tells you to triage do not exist, and composing the reader closes nothing on its own.
+
+**What shipped instead**, and it is deliberately narrower: `resourceReader` stays a bare `sanitizerReader(RES_BASE, sanitizeResource as never)`, and a SOURCE ASSERTION was added beside it — sliced to the `updateResource` writer alone (a whole-file regex would pass on `createResource`'s unguarded spread while `updateResource` grew a guard, which is a tripwire that reports success). It reds the moment anything is inserted between the model's patch and `sanitizeResource`, and the fix AT THAT POINT is to compose the reader. That arms the RECURRENCE, not the blindness: the sweep still cannot EVALUATE a resource merge-site guard, it can only no longer fail to hear that one exists. Read the tripwire's own docstring in `plan.sanitizer-parity.test.ts` before touching it; do not paraphrase that distinction away.
+
+The original prescription, kept verbatim below as the record of what was tried:
 
 In `src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`, replace the bare `sanitizerReader(RESOURCE_BASE, sanitizeResource)` with one that composes the real write path, mirroring how `taskReader` composes `buildTaskCleanPatch` + `applyStatusChange`:
 
@@ -1683,7 +1691,9 @@ npx vitest run src/app/inline-ai-edit/plan.sanitizer-parity.test.ts src/app/inli
 
 Then prove the reader can see a merge-site fix: add a throwaway `dropUnacceptedResourceFields` that drops one field, confirm the sweep NOTICES (its exception list changes or a probe reds), then revert it with an inverse anchored edit and prove `git diff --stat` shows only the intended files.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit** — ★★★ SUPERSEDED with Steps 3-4; kept verbatim, DO NOT PASTE
+
+Two of this template's claims are false about what shipped: `resource` was NOT "Composed now", and nothing here "Closes the remaining half of open-followups 394" — §394 stays OPEN in full. A commit for the work that actually landed says **Part of** open-followups 394, not Closes.
 
 ```bash
 git commit --only src/app/inline-ai-edit/plan.sanitizer-parity.test.ts src/app/sanitize-raid-patch.test.ts src/app/sanitize-change-patch.test.ts src/app/sanitize-stakeholder-patch.test.ts src/app/sanitize-milestone-patch.test.ts -F - <<'MSG'
@@ -2016,7 +2026,7 @@ Expected: FAIL — `[]` for the delimited string, `[1,1,2]` for the duplicates.
  *  from `sanitizeIdList` — array-only and non-deduping — which meant
  *  `linkedTaskIds: "1;2"` linked two tasks on a raid item and nothing on a
  *  milestone, and duplicates inflated the digest's `linkedTasks` count. Aligned
- *  in 0.287.0 (§403). Kept as a named export because the preview calls it by
+ *  by §403. Kept as a named export because the preview calls it by
  *  name and because a future milestone-specific rule has somewhere to live. */
 export function sanitizeMilestoneTaskIds(v: unknown): number[] {
   return sanitizeIdList(v);
@@ -2155,7 +2165,21 @@ MSG
 
 ---
 
-## Task 20: Close the register, changelog, release 0.287.0
+## Task 20: Close the register, changelog, release (version assigned at release time)
+
+★★★ **ITS VERSION NUMBERS WERE DEAD ON ARRIVAL.** This task was written naming 0.287.0, which has
+since shipped as "Tiptree" — as has 0.288.0 "Duchamp", which is where `origin/main` sits. Corrected
+2026-09-06 to name no number at all: the release number is assigned when the release is cut, by
+reading `src/app/version.ts` and `CHANGELOG.md` at that moment, never from this plan.
+
+★★ **THE TASK IS HALF EXECUTED, WHICH IS NOT WHAT ITS CHECKBOXES SAY.** Steps 1-2 (close the
+register, verify it) DID run — fourteen of §390-406 carry `CLOSED 2026-09-06` headings today.
+Steps 3-6 (changelog, version bump, gate sweep, release commit) did NOT. ★ Do NOT reach that verdict
+from the checkboxes: **NOT ONE checkbox in this whole file is ticked**, including tasks that plainly
+did ship, so an unticked box here carries no information at all. Reproduce both halves —
+`grep -c '^- \[x\]'` on this file returns 0 — and read the state off the tree instead:
+`git diff --stat origin/main..HEAD -- CHANGELOG.md src/app/version.ts` is EMPTY, while
+`grep -c "CLOSED 2026-09-06" docs/open-followups.md` is not.
 
 **Files:**
 - Modify: `docs/open-followups.md` (§390-406)
@@ -2170,9 +2194,13 @@ For each of §390-406, change the heading to `— CLOSED 2026-09-06` and add a c
 grep -n "§39[0-9]\|§40[0-6]" docs/open-followups.md
 ```
 
-§391 closes as a RECORD with no code — say so explicitly rather than implying a fix.
+Entries that do NOT fully close: any part this slice did not reach stays open with an updated Status line. §382, §385, §386, §387, §388, §389 are untouched by this slice and must keep their `**Status:**` lines — `followups-status-check` is blocking.
 
-Entries that do NOT fully close: §394's sweep half closes, and any part this slice did not reach stays open with an updated Status line. §382, §385, §386, §387, §388, §389 are untouched by this slice and must keep their `**Status:**` lines — `followups-status-check` is blocking.
+★★★ **WHAT ACTUALLY HAPPENED, recorded 2026-09-06 — FOURTEEN closed, not seventeen, and this step's own prescriptions for two of the three survivors were overtaken.** Closed: §390, §392, §393, §395, §396, §397, §398, §399, §400, §401, §402, §403, §404, §406.
+
+- **§391** — this step said "closes as a RECORD with no code". It did NOT close. The register keeps it OPEN so the per-site reasoning stays live; its Status reads "OPEN as a RECORD, not as a defect to fix", which is the same intent expressed the other way round.
+- **§394** — this step said "§394's sweep half closes". It did not: Task 14's composition prescription was refuted by measurement (see Task 14) and the entry stays OPEN in full.
+- **§405** — NARROWED rather than closed. The dependency inversion landed for every numeric, date and stakeholder-enum predicate; three RAID enum fields remain.
 
 - [ ] **Step 2: Verify the register**
 
@@ -2186,7 +2214,7 @@ Expected: EXIT=0, and the entry count equals the TOC row count. `docs/open-follo
 
 - [ ] **Step 3: Write the changelog**
 
-`CHANGELOG.md` is LF-only. Write the section with a `.mjs` script in `$SCRATCH` that aborts on any CR byte and asserts the `## [0.286.0]` anchor is unique, following the pattern from the previous release.
+`CHANGELOG.md` is LF-only. Write the section with a `.mjs` script in `$SCRATCH` that aborts on any CR byte and asserts the anchor it inserts above is unique, following the pattern from the previous release. ★★ The anchor is **whatever the CURRENT top section is**, read at release time — `grep -n "^## \[0\." CHANGELOG.md | head -1`. This step named `## [0.286.0]`, which stopped being the top section two releases ago; hardcoding a stale one makes the uniqueness assertion pass against the wrong row.
 
 ★★ **No `[session link removed]...` URL in `CHANGELOG.md`.** Commit trailers are exempt; this file is not.
 
@@ -2202,7 +2230,7 @@ npm run version:check; echo "EXIT=$?"
 
 Expected: EXIT=0. **Exit 1 is drift** (run `version:sync`); **exit 2 is the gate unable to scan** — a different problem needing a different fix.
 
-The codename must be unique per MINOR LINE, not across all history. A bare `CHANGELOG` grep misleads in both directions — check the 0.287.x line specifically.
+The codename must be unique per MINOR LINE, not across all history. A bare `CHANGELOG` grep misleads in both directions — check the minor line you are actually bumping into, whichever that turns out to be. (This step named `0.287.x`; that line shipped as "Tiptree" long before this plan could reach here.)
 
 - [ ] **Step 5: Run the gates this slice actually needs**
 
@@ -2223,9 +2251,10 @@ All must be 0. `npm run lint` exits 1 from gitignored leftovers in `.worktrees/`
 
 ```bash
 git commit --only docs/open-followups.md CHANGELOG.md src/app/version.ts package.json package-lock.json README.md docs/CODEMAPS -F - <<'MSG'
-chore(release): 0.287.0
+chore(release): <VERSION>
 
-Closes open-followups 390-406.
+Closes open-followups 390, 392, 393, 395, 396, 397, 398, 399, 400, 401,
+402, 403, 404, 406. 391, 394 and 405 stay open.
 
 Claude-Session: https://[session link removed]
 MSG
