@@ -5,6 +5,7 @@ import {
   sanitizeMilestone,
   sanitizeMilestoneTaskIds,
   sanitizeChangeItem,
+  acceptsRiskScale,
 } from "./sanitize";
 
 const baseRaid = {
@@ -139,4 +140,24 @@ describe("sanitizeMilestoneTaskIds", () => {
   it("drops zero, negatives and non-numbers", () => {
     expect(sanitizeMilestoneTaskIds([0, -1, "x", 2])).toEqual([2]);
   });
+});
+
+describe("delegate-never-restate: the raid sanitizer and its merge-site guard", () => {
+  // ★★ This is a PROPERTY over the two, not a hand-picked row. The it.each
+  //  tables in sanitize-raid-patch.test.ts cannot catch a divergence, because
+  //  they assert chosen values against BOTH sides at once; a rule that drifted
+  //  in the same direction on both would pass. Enumerating over a value set
+  //  that straddles every boundary is what makes the delegation checkable.
+  const PROBES: unknown[] = [
+    1, 3, 5, 0, 6, -1, 2.5, "3", "abc", "", true, false, null, undefined, [], {}, NaN, Infinity,
+  ];
+
+  it.each(PROBES.map((v) => [JSON.stringify(v) ?? String(v), v] as const))(
+    "stores probability %s exactly when acceptsRiskScale admits it",
+    (_label, probe) => {
+      const item = sanitizeRaidItem({ id: 1, title: "t", category: "R", probability: probe });
+      expect(item).not.toBeNull();
+      expect("probability" in item!).toBe(acceptsRiskScale(probe, "R"));
+    },
+  );
 });

@@ -392,10 +392,8 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
     item.severity = o.severity as RaidSeverity;
   }
 
-  const prob = toNumber(o.probability);
-  if (Number.isInteger(prob) && prob >= 1 && prob <= 5) item.probability = prob as RiskScale;
-  const imp = toNumber(o.impact);
-  if (Number.isInteger(imp) && imp >= 1 && imp <= 5) item.impact = imp as RiskScale;
+  if (acceptsRiskScale(o.probability, category)) item.probability = toNumber(o.probability) as RiskScale;
+  if (acceptsRiskScale(o.impact, category)) item.impact = toNumber(o.impact) as RiskScale;
 
   const targetDate = sanitizeIsoDate(o.targetDate);
   if (targetDate) item.targetDate = targetDate;
@@ -431,12 +429,18 @@ type RaidFieldGuard = (value: unknown, category: RaidCategory) => boolean;
  *  disagreement this guard exists to close, pointing the other way. */
 const acceptsRaidDate: RaidFieldGuard = acceptsPatchDate;
 
-/** ★★ `toNumber`, NOT `typeof v === "number"`. The sanitizer coerces with
- *  `toNumber` and so does the preview's numeric normalisation, so a stricter
- *  rule here would refuse a value the card shows as accepted. Note the
- *  consequence, which this does NOT change: `toNumber(true)` is `1`, so
- *  `probability: true` still stores a fabricated score of 1. */
-const acceptsRiskScale: RaidFieldGuard = (v) => {
+/** The [1,5] risk-scale rule, and the ONE spelling of it.
+ *
+ *  ★★★ THE SANITIZER CALLS THIS; THIS DOES NOT RESTATE THE SANITIZER. That
+ *  direction is the whole point (open-followups §405): the merge-site guard and
+ *  `sanitizeRaidItem` used to hold two copies of one rule 50 lines apart, with
+ *  nothing tying them together and no test able to see a drift, because every
+ *  it.each row asserts a chosen value against both sides at once.
+ *
+ *  ★★ `toNumber`, NOT `typeof v === "number"` — the preview's `numberPreview`
+ *  coerces with `toNumber`, so a stricter rule here refuses a value the card
+ *  shows as accepted. */
+export const acceptsRiskScale: RaidFieldGuard = (v) => {
   const n = toNumber(v);
   return Number.isInteger(n) && n >= 1 && n <= 5;
 };
