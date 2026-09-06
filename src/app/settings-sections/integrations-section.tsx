@@ -232,6 +232,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // ★ The env-unusable notice is a DESCRIPTION, not part of the field's name —
   // see the render site for why it sits outside the <label>.
   const tursoUrlEnvNoticeId = `${useId()}-turso-url-env`;
+  // ★ The Move-to-Turso gate's explanation. It is a DESCRIPTION on a DISABLED
+  // control, which is the only route AT has to it — see the render site.
+  const tursoMoveHintId = `${useId()}-turso-move`;
   const [tursoTesting, setTursoTesting] = useState(false);
   // ★★ FINGERPRINTED, and the fingerprint is the whole point. This holds the
   // URL and token the verdict was obtained FOR, so "is the test still valid?"
@@ -272,13 +275,16 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
   // ★★ DERIVED, never written. An edit to either field moves the comparison,
   // so no edit path — including one added later — has to remember to clear a
-  // flag. The "confirmed" reading (fresh AND kind === "ok") is deliberately
-  // NOT declared here yet: it has no consumer until the Move-to-Turso button
-  // is gated on it, and an unused const is fatal under --max-warnings=0.
+  // flag.
   const tursoTestFresh =
     tursoTest !== null &&
     tursoTest.url === turso.databaseUrl &&
     tursoTest.token === turso.authToken;
+  // ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null` and TS narrows
+  // through the aliased const, so an optional chain would only paper over a
+  // broken invariant: it would render the gate CLOSED (safe-looking) instead of
+  // failing, hiding the bug. Same reasoning as the verdict's render site below.
+  const tursoTestConfirmed = tursoTestFresh && tursoTest.kind === "ok";
 
   async function runTursoTest() {
     // ★★★ CLASSIFY, NEVER INTERPOLATE THE THROWN MESSAGE. The first cut of this
@@ -781,12 +787,51 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 )
               : null}
           </p>
-          {/* Primary action: carry the current project into Turso. */}
+          {/* Primary action: carry the current project into Turso.
+              ★ `canMoveToTurso` stays a RENDER gate — with the portfolio already
+              on Turso, or no project to move, there is nothing to migrate and a
+              permanently disabled control is noise. The CONFIRMED-connection
+              condition rides `disabled` instead, because it is a state the user
+              can act on. */}
           {canMoveToTurso && (
             <div className="mt-2 border-t border-line pt-2">
-              <Button size="sm" onClick={onMigrateToTurso}>
-                {t(lang, "projectMigrateToTurso")}
-              </Button>
+              {/* ★★ Same wrapper contract as `projects-panel.tsx`'s disabled
+                  Turso buttons — read the block comment there. The short of it:
+                  a disabled control is NOT focusable, so `title` is unreachable
+                  by keyboard and on touch, while `aria-describedby` IS exposed
+                  on a disabled control AND OUTRANKS `title` as the accessible
+                  description. The sr-only node is what actually reaches AT; the
+                  `title` stays for the sighted mouse user, and it only lands
+                  reliably because `disabled:pointer-events-none` drops the
+                  button out of hit-testing so the pointer falls through to this
+                  span — which is also why the cursor is set HERE, never in the
+                  shared primitive.
+                  ★★★ The hint cannot be gated on interacting with the button:
+                  a disabled element dispatches no events, so "click it and find
+                  out why" is an unreachable path. */}
+              <span
+                className={`inline-flex${tursoTestConfirmed ? "" : " cursor-not-allowed"}`}
+                title={
+                  tursoTestConfirmed
+                    ? t(lang, "projectMigrateToTursoHint")
+                    : t(lang, "integrationsTursoMoveNeedsTest")
+                }
+              >
+                <Button
+                  size="sm"
+                  disabled={!tursoTestConfirmed}
+                  onClick={onMigrateToTurso}
+                  aria-describedby={tursoMoveHintId}
+                  className="disabled:pointer-events-none"
+                >
+                  {t(lang, "projectMigrateToTurso")}
+                </Button>
+                <span id={tursoMoveHintId} className="sr-only">
+                  {tursoTestConfirmed
+                    ? t(lang, "projectMigrateToTursoHint")
+                    : t(lang, "integrationsTursoMoveNeedsTest")}
+                </span>
+              </span>
               <FieldHint className="mt-1">{t(lang, "projectMigrateToTursoHint")}</FieldHint>
             </div>
           )}

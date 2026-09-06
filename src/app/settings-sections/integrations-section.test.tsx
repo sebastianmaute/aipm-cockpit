@@ -659,6 +659,126 @@ describe("§408 — Turso test connection", () => {
   });
 });
 
+describe("§408 — Move to Turso is gated on a confirmed connection", () => {
+  // ★★★ ASSERT THE DISABLED STATE, NEVER A CLICK. A `disabled` element
+  // dispatches no events, so "click Move and assert nothing happened" does not
+  // fail — it TIMES OUT at 15 s (`vitest.setup.ts` `asyncUtilTimeout`), which
+  // reads like a broken suite rather than a red test. The same fact is why a
+  // handler guard duplicating this predicate would be dead code.
+  //
+  // ★★ CONTROLLED, for the same reason the wrapper above the previous block
+  // exists — read that comment for why an uncontrolled render makes an editing
+  // test UNSATISFIABLE rather than vacuous. This one additionally supplies
+  // `onMigrateToTurso`, without which `canMoveToTurso` renders no button at
+  // all and every assertion here would fail on a missing element instead of on
+  // the gate.
+  function ControlledMove({ onMigrateToTurso }: { onMigrateToTurso: () => void }) {
+    const [settings, setSettings] = useState<Settings>(tursoSettings("fake"));
+    return (
+      <IntegrationsSection
+        lang="en-US"
+        settings={settings}
+        onChange={setSettings}
+        onMigrateToTurso={onMigrateToTurso}
+      />
+    );
+  }
+
+  const moveButton = () =>
+    screen.getByRole("button", { name: t("en-US", "projectMigrateToTurso") });
+
+  async function passingProbe() {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
+    return user;
+  }
+
+  it("is disabled before any test has run", () => {
+    const migrate = vi.fn();
+    render(<ControlledMove onMigrateToTurso={migrate} />);
+    expect(moveButton()).toBeDisabled();
+    expect(migrate).not.toHaveBeenCalled();
+  });
+
+  it("is enabled once the probe confirms the connection", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    await passingProbe();
+    expect(moveButton()).toBeEnabled();
+  });
+
+  it("stays disabled when the probe fails", async () => {
+    const user = userEvent.setup();
+    const migrate = vi.fn();
+    vi.mocked(testTursoConnection).mockRejectedValueOnce(
+      new StorageNotReadyError("storage-unreachable"),
+    );
+    render(<ControlledMove onMigrateToTurso={migrate} />);
+
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(
+      await screen.findByText(t("en-US", "integrationsTursoTestUnreachable")),
+    ).toBeInTheDocument();
+
+    // ★ The DIRECT pin on the discriminator the block above could only reach
+    // indirectly, through the rendered message: a `fail` verdict mis-tagged
+    // "ok" is FRESH either way, so only this assertion separates the two.
+    expect(moveButton()).toBeDisabled();
+    expect(migrate).not.toHaveBeenCalled();
+  });
+
+  // ★★ THE FINGERPRINT NEEDS BOTH HALVES PINNED. Freshness is a conjunction
+  // over the URL and the token, so a test that only ever edits one leaves the
+  // other comparison unpinned — see the equivalent pair in the block above.
+  it("re-disables when the URL is edited after a pass", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    const user = await passingProbe();
+    expect(moveButton()).toBeEnabled();
+
+    await user.type(screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")), "x");
+
+    expect(moveButton()).toBeDisabled();
+  });
+
+  it("re-disables when the auth token is edited after a pass", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    const user = await passingProbe();
+    expect(moveButton()).toBeEnabled();
+
+    await user.type(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")),
+      "2",
+    );
+
+    expect(moveButton()).toBeDisabled();
+  });
+
+  // ★★ WHY THE HINT CANNOT RIDE THE BUTTON'S `title` ALONE: a disabled control
+  // is not focusable, so `title` has no keyboard route and none on touch,
+  // while `aria-describedby` IS exposed on a disabled control and OUTRANKS
+  // `title` as the accessible description. The sr-only node is what reaches
+  // AT; the wrapper's `title` serves the sighted mouse user. Same contract as
+  // `projects-panel.tsx` — jsdom has no layout, so these assertions pin the
+  // wiring and the classes only; the hover behaviour is owed a browser
+  // eye-verify there and here alike.
+  it("describes why it is disabled, where AT can reach it", () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    const btn = moveButton();
+    expect(btn).toHaveAccessibleDescription(t("en-US", "integrationsTursoMoveNeedsTest"));
+    expect(btn.className).toContain("disabled:pointer-events-none");
+    expect(btn.closest("[title]")!.className).toContain("cursor-not-allowed");
+  });
+
+  it("swaps the description for the action's own hint once confirmed", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    await passingProbe();
+    const btn = moveButton();
+    expect(btn).toHaveAccessibleDescription(t("en-US", "projectMigrateToTursoHint"));
+    expect(btn.closest("[title]")!.className).not.toContain("cursor-not-allowed");
+  });
+});
+
 describe("IntegrationsSection — Test-connection button names (WCAG 2.4.6)", () => {
   // Turso, Timelog and Jira each render their own "Test connection" button
   // (jiraTest/timelogTest/integrationsTursoTest are the SAME EN string), and
