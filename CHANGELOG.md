@@ -8,6 +8,43 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.288.0] - 2026-09-06 "Duchamp"
+
+### Added
+
+- **A "Test connection" button for Turso**, at parity with the Jira and Timelog
+  ones beside it. It round-trips the smallest possible statement through the
+  existing pipeline, so it proves the URL and token actually answer before you
+  commit a project to that database. The result is transient by design — it
+  resets on reload rather than being stored, exactly as the other two behave.
+- **Each Test-connection button now says which service it tests.** All three
+  were literally named "Test connection", and the Integrations section renders
+  the Timelog and Jira blocks inside itself, so a screen-reader user could meet
+  three identically-named buttons in one view with no way to tell them apart.
+  Each now carries a service-qualified accessible name while the visible label
+  is unchanged.
+- **A connection result is announced.** All three results now live in a
+  permanently present status region rather than appearing only once there is
+  something to say, so assistive technology reports the outcome instead of
+  silently gaining an element.
+
+### Fixed
+
+- **A typo in a deployment variable could make Turso impossible to configure.**
+  `NEXT_PUBLIC_TURSO_DATABASE_URL` being merely *present* hid the Settings
+  field, while the resolver only used the value if it parsed as a usable URL —
+  so an unusable value was present enough to hide the input and broken enough
+  to yield no configuration, with no way to type a correction. The field now
+  appears whenever the variable is unusable, explaining why, and the resolver
+  falls through to the typed value. A usable variable still wins, as before.
+- **A failed Turso connection was reported in English, with an internal
+  prefix.** Every failure interpolated a thrown error's message, so a German
+  user saw "Verbindung fehlgeschlagen: Storage not ready: …". Failures are now
+  classified and described in the active language, and no internal text or
+  configuration value reaches the screen.
+- **A task with one linked change read "1 changes."** The badge now reads
+  "1 change" in both languages, in the table and on the Kanban card.
+
 ## [0.287.0] - 2026-09-06 "Tiptree"
 
 ### Added
