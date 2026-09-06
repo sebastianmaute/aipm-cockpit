@@ -28981,7 +28981,7 @@ the channel this defect rides.
 was live in a single view and carried a data-loss path (both openers call `handleCancelEdit()`),
 so it was fixed rather than filed.
 
-## 396. Task-row changes badge renders "1 changes" for a single linked change — OPEN
+## 407. Task-row changes badge renders "1 changes" for a single linked change — OPEN
 
 **Status:** never machine-verified. Filed 2026-09-05 while scoping the control-defects batch —
 a wording defect visible by inspection; no gate can see plural agreement in an interpolated
@@ -29006,7 +29006,7 @@ rules are not a suffix-drop the way EN's is, so a proper fix needs a per-languag
 rule (likely a small `pluralize(lang, count, one, other)` helper used at both call sites), not a
 second interpolation argument bolted onto the existing key.
 
-## 397. No Turso connection test exists anywhere in the repo — OPEN
+## 408. No Turso connection test exists anywhere in the repo — OPEN
 
 **Status:** OPEN. Verified 2026-09-05 by grep:
 `grep -rniE "test.?connection|verify.?connection|checkConnection|connectionTest|pingTurso|tursoTest" src/app --include=*.ts --include=*.tsx`
@@ -29045,7 +29045,7 @@ resets on reload, the way Jira's and Timelog's test results already behave) woul
 difference — not the absence of a Turso client call — is the whole reason this was deferred
 rather than added inline to this batch.
 
-## 398. Collapsing an open document's body can commit a pending unblurred edit and mint a version — OPEN
+## 409. Collapsing an open document's body can commit a pending unblurred edit and mint a version — OPEN
 
 **Status:** OPEN. 2026-09-05, never machine-verified — this is a code-reading claim (the mechanism it describes has no automated reproduce; see the closing paragraph for the nearest existing test). `documents-panel.tsx`'s `bodyCollapsed` state (added in `ede67ddd`, "collapse the body by re-clicking the open document's name") wraps `DocumentEditModeBody` in `{!bodyCollapsed && (...)}`, so toggling it unmounts the whole editor subtree. Its own comment calls the state transient — "collapsing is a momentary 'give me room' gesture, not a preference. Nothing persists it."
 
@@ -29057,7 +29057,7 @@ So collapsing the body while a block editor holds an uncommitted, unblurred edit
 
 The open question is a product one, not a correctness one: should a gesture presented as momentary ("give me room") be allowed to write persistent history? Nothing pins the collapse-specific case today — a `documents-panel.test.tsx` analogue mirroring the existing switch-flush test would be the cheap way to characterize (and, if the product answer changes, to pin a fix for) this specific trigger.
 
-## 399. `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line — OPEN
+## 410. `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line — OPEN
 
 **Status:** OPEN. Measured 2026-09-06 (not read): comment- and blank-stripped, the region from `const listId` to `return (` is 53 lines in EACH file and differs on exactly ONE line, the Enter commit call; the search-box block is 28 stripped lines in each and differs on NONE. Spot-check with `grep -n "cur + 1 >= options.length" src/app/single-entity-picker.tsx src/app/entity-link-picker.tsx` (one hit in each file); full reproduce below.
 
@@ -29100,11 +29100,11 @@ on extracting a THIRD hook from what are now two near-identical implementations 
 `useEntityPickerCombobox({ query, optionCount })` returning `{ open, active, onKeyDown, listRef }`
 with the commit handed in as a callback, leaving each component only its own chrome.
 
-★★ Doing this would also collapse §400: the three mechanisms unpinned in `SingleEntityPicker` are
+★★ Doing this would also collapse §411: the three mechanisms unpinned in `SingleEntityPicker` are
 already pinned in `entity-link-picker.test.tsx`, so one suite over the shared hook would cover both
 components instead of two suites that have to be kept in step the same way the comments do.
 
-## 400. Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test — OPEN
+## 411. Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test — OPEN
 
 **Status:** OPEN. Verified 2026-09-06 by grep: `grep -cE "ArrowUp|pr-8|reopens" src/app/single-entity-picker.test.tsx src/app/entity-link-picker.test.tsx` returns 0 for the SingleEntityPicker suite against 9 for the sibling's. The sibling count is the positive control — without it a zero cannot be told from a mistyped pattern.
 
@@ -29130,7 +29130,7 @@ branch is asserted.
 
 Remedy is cheap: `entity-link-picker.test.tsx` already carries a working template for all three
 ((a) as its click-reopen and tab-away pair, (b) as its three-option ArrowUp case, (c) as its
-two-branch padding assertion), so each is a port rather than a new test. ★ If §399 is taken first,
+two-branch padding assertion), so each is a port rather than a new test. ★ If §410 is taken first,
 these three come for free — pin them on the extracted hook once instead of in two suites.
 
 ## 412. `TaskLinkPicker` has no direct test suite — coverage is real but indirect
@@ -29151,7 +29151,7 @@ green suite: `budget-bucket-modal.tsx` (`budget-bucket-modal.test.tsx`), `change
 `raid-edit-fields.tsx` (`raid-edit-fields.test.tsx`). That is coverage, but it is indirect: a
 defect inside `TaskLinkPicker` itself surfaces only as a failure in someone else's suite, or not
 at all if none of the four importer fixtures happens to exercise the broken path. It wraps
-`entity-link-picker.tsx`'s shared mechanics (see §399/§400 above for that component's own unpinned
+`entity-link-picker.tsx`'s shared mechanics (see §410/§411 above for that component's own unpinned
 mechanisms), so a regression specific to `TaskLinkPicker`'s own wiring — not the shared hook — has
 no owner.
 
