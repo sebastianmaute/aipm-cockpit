@@ -423,8 +423,18 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
           // the guard was dead code, the preview refused the value, and the
           // write cleared the stored rich text anyway. The guard must see the
           // RAW model value. Pinned by a source assertion in
-          // `sanitize-milestone-patch.test.ts` — no behavioural test can see a
-          // re-nesting here, because any such test composes its own copy.
+          // `sanitize-milestone-patch.test.ts`.
+          // ★★ THAT ASSERTION IS A SOURCE SCAN BECAUSE NOTHING BEHAVIOURAL
+          // COVERS THIS TODAY — not because nothing could, and an earlier
+          // wording here claimed the stronger thing ("no behavioural test can
+          // see a re-nesting, because any such test composes its own copy").
+          // That holds for a MIRROR of this composition, which is what that
+          // file has; it is not a property of this code. `useRegisterTools`
+          // takes six plain flags/refs and reads the rest from `useWorkspace`,
+          // so a `renderHook` driving the real `updateMilestone` under a
+          // `WorkspaceProvider` would compose nothing and WOULD catch a
+          // re-nesting. No such test exists — a follow-up, not an impossibility.
+          // Arguing a gap shut is how it stays open.
           ...withAiRichFields(dropUnacceptedMilestoneFields(patch), AI_RICH_FIELDS.milestone),
           id,
           localModifiedAt: new Date().toISOString(),

@@ -222,9 +222,11 @@ describe("dropUnacceptedMilestoneFields", () => {
     });
   });
 
-  describe("preview and write agree on every shape (§398's actual invariant)", () => {
+  describe("preview and write agree on every NON-STRING shape (§398's actual invariant)", () => {
     // ★★★ THE CLAIM THIS PINS is the one `MILESTONE_FIELD_GUARDS.description`'s
-    //  comment makes — "every input lands the same way on both sides" — and it
+    //  comment USED TO make — "every input lands the same way on both sides",
+    //  a sentence deleted in the same commit that added these rows, so do not
+    //  go looking for it in `sanitize-records.ts`. It
     //  was written BEFORE it was true: with the guard nested inside
     //  `withAiRichFields` the preview refused `true`/`null`/`[]` while the write
     //  cleared the field, which is the divergence, not the agreement. A comment
@@ -274,6 +276,39 @@ describe("dropUnacceptedMilestoneFields", () => {
         else expect(written(value)).toBe(preview === "" ? "" : preview);
       });
     }
+
+    it("DIVERGES on a string the allow-list reduces to empty — known, open, pre-existing", () => {
+      // ★★★ THE EIGHTH SHAPE, AND THE REASON THE HEADING SAYS "NON-STRING".
+      //  `stringOnlyFields` asks `typeof v === "string"` and this IS one, so
+      //  the card previews it verbatim (milestone's `fieldSanitizers` has no
+      //  `description` entry, so `after` is the raw `str(input[f])`). The write
+      //  then runs `sanitizeAiRichText`, whose own docstring notes the
+      //  allow-list pass can empty a value whose only content was a disallowed
+      //  element — so `if (description)` omits the key and the STORED text is
+      //  cleared. The card promises the new markup; the write deletes what was
+      //  there. That is §398's shape, one input class over.
+      //
+      //  ★★ PRE-EXISTING AND DELIBERATELY NOT FIXED HERE. Both nestings treat a
+      //  string identically, so neither this commit nor its parent caused or
+      //  worsened it, and a fix needs the preview to model the allow-list —
+      //  which needs a DOM, the reason rich fields have no `fieldSanitizers`
+      //  entry in the first place. Filed as a register entry by the lead.
+      //  ★★ It is NOT milestone-only: all SEVEN `RICH_FIELDS` members share it,
+      //  by the three writer mechanisms listed in `entity-descriptor.ts`.
+      //  Characterized rather than asserted, so the claim above is measured and
+      //  so a future fix turns this red instead of passing silently.
+      // ★★★ THE PROBE MUST OPEN WITH AN ALLOWED TAG, and the obvious one does
+      //  NOT work — measured, not reasoned. A bare `"<script>x</script>"` is
+      //  classified as PLAIN TEXT by the per-sink `isHtmlStart` rule and comes
+      //  out ESCAPED as `<p>&lt;script&gt;x&lt;/script&gt;</p>`, i.e. stored
+      //  rather than emptied. That is a divergence too (the card previews the
+      //  raw string, the write stores escaped markup) but it is NOT this one.
+      //  `sanitizeAiRichText`'s own docstring names the shape that empties:
+      //  a value "whose only content was a disallowed element".
+      const probe = "<p><script>x</script></p>";
+      expect(previewed(probe)).toBe(probe);
+      expect(written(probe)).toBe("");
+    });
   });
 
   describe("the merge site's own nesting", () => {

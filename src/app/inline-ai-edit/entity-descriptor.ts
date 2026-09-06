@@ -150,7 +150,21 @@ export interface EntityDescriptor {
    *  ★ Whichever is done, the guard must nest OUTSIDE `withAiRichFields` at the
    *  call site or it cannot fire — see `use-register-tools.ts`. A separate
    *  register entry; do not widen this set on the strength of the field merely
-   *  being rich. */
+   *  being rich.
+   *
+   *  ★★★ AND A SET LIKE THIS CANNOT CLOSE THE WHOLE CLASS, which is the part to
+   *  read before treating `stringOnlyFields` as the pattern to copy. It asks
+   *  `typeof v === "string"`, so it is blind to a STRING the allow-list reduces
+   *  to empty (`"<p><script>x</script></p>"`): the card previews it verbatim
+   *  and the write clears the stored text. Measured over all seven
+   *  `RICH_FIELDS` members — `sanitizeAiRichText` returns "" for that input, and
+   *  raid's two plus change's `impactDescription`/`resolutionNotes` then drop
+   *  the key, `change.description` stores "", and `task.description` reaches
+   *  the merge as "". Every one promises a change the write does not make.
+   *  Pre-existing, filed separately, and NOT closable here: the preview would
+   *  have to model the allow-list, which needs a DOM — the very reason a rich
+   *  field has no `fieldSanitizers` entry. Characterized in
+   *  `sanitize-milestone-patch.test.ts`. */
   stringOnlyFields: Set<string>;
   /** Enum fields → the valid-set resolver (constant for most; category-scoped for RAID status). */
   enumFields: Record<string, EnumResolver>;
