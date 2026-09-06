@@ -29085,7 +29085,13 @@ extra property.
 
 ## 394. The parity sweep cannot exercise the silent-RESET half of the rejects direction — OPEN
 
-**Status:** OPEN. Filed 2026-09-06. Last executed verification 2026-09-06 — `grep -n "sanitizerReader(" src/app/inline-ai-edit/plan.sanitizer-parity.test.ts` (naming `stakeholder` and `resource` as the two entities still on the raw reader) and printed `base[f]`
+**Status:** OPEN. Filed 2026-09-06. Last executed verification 2026-09-06 — moved all four BASE
+fixtures off their sanitizers' fallbacks AND deleted the stakeholder merge-site guard at its call
+site, then ran
+`npx vitest run src/app/inline-ai-edit/plan.sanitizer-parity.test.ts` → EXIT=0, `Tests 8 passed (8)`
+in BOTH probes, which refutes this entry's own prescription (see the ★★★ below). Earlier the same
+day: `grep -n "sanitizerReader(" src/app/inline-ai-edit/plan.sanitizer-parity.test.ts` (naming
+`stakeholder` and `resource` as the two entities still on the raw reader) and printed `base[f]`
 beside `read(f, 42)` for each `enumFields` key from inside
 `src/app/inline-ai-edit/plan.sanitizer-parity.test.ts`.
 
@@ -29113,6 +29119,33 @@ TODAY only because `updateResource` has no merge-site guard; add one and the swe
 failure verbatim, going on excusing closed defects while fully green. A merge-site guard is
 structurally invisible to a raw-sanitizer reader — measured on raid, where the fix left the gate
 green and four stale exceptions kept covering defects that no longer existed.
+★ PARTLY ADDRESSED 2026-09-06: `resourceReader` is named and carries a SOURCE ASSERTION that reds
+the moment anything is inserted between the model's patch and `sanitizeResource`. That arms the
+RECURRENCE, not the blindness — the sweep still cannot EVALUATE such a guard, it can only no longer
+fail to hear about one. Recorded as this file's blind spot (6).
+
+★★★ THIS ENTRY'S OWN PRESCRIPTION IS REFUTED BY MEASUREMENT, 2026-09-06 — moving the fixtures off
+their fallbacks closes NOTHING, and the "resulting reds" it tells you to triage do not exist. All
+four BASE fixtures were moved together (`task.status`→"In Progress", `priority`→"High",
+`raid.category`→"A", `change.type`→"Scope", `status`→"Approved", `stakeholder.category`→"Sponsor",
+`influence`→"High", `interest`→"Low") and the sweep stayed GREEN: `Tests 8 passed (8)`, EXIT=0.
+Then, with those same non-default fixtures in place, the stakeholder merge-site guard was DELETED at
+its call site (`use-register-tools.ts`, `...dropUnacceptedStakeholderFields(patch)` → `...patch`) —
+the exact silent-reset this entry exists to catch, on a row stored as "Sponsor" — and the sweep was
+STILL GREEN, `Tests 8 passed (8)`. Both probes reverted; `git diff --stat` empty.
+
+★★★ THE CAUSE, and it is not the fixtures: every "composed" reader in this file calls the guard
+ITSELF (`changeReader` calls `dropUnacceptedChangeFields` in the test body), so each reader is a
+MIRROR of the call site, never the call site. Deleting production's call leaves the mirror intact.
+No fixture value can make a mirror observe the thing it is a copy of, so the silent-reset half is
+unreachable from this file BY CONSTRUCTION — not by fixture choice. What the fixtures buy is
+therefore zero, and the file header's blind spot (4) prohibition on moving them costs nothing.
+
+★ CONSEQUENCE — the remaining half needs a different mechanism, not a bigger fixture: real-path
+coverage belongs to `plan.write-path.test.ts` (which replays through the REAL dispatcher and reads
+the LIVE workspace), and mirror staleness is detectable only by a source assertion, of which the
+`resource` one is now the first. Whoever closes this should extend the write-path replay to the
+enum-reset case per entity, and should NOT edit a fixture in this file expecting a signal.
 
 ## 395. `update_raid_item({probability: true})` stores a fabricated risk score of 1 — OPEN
 
