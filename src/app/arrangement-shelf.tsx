@@ -93,6 +93,16 @@ export function ArrangementShelf({
    * ★★ NO DASHBOARD OUTPUT CHANGES: a name unique within the map is used BARE,
    * and `rowLabel` renders the same `${verb} – ${token}` shape this file already
    * spelled by hand, so with distinct titles the emitted string is identical.
+   *
+   * ★★★ PRECONDITION — `hidden` MUST HOLD UNIQUE IDS. The map is keyed on
+   * `h.id`, so two entries sharing an id collapse to ONE token and the second
+   * chip reads the first's name: the exact collision this block exists to close,
+   * reintroduced silently. The guard test cannot see it (its fixture uses
+   * distinct ids), and neither can `requireCollisionSeed`. The same assumption
+   * already rides the `key={h.id}` on the list item below, and neither the
+   * Dashboard's nor Reports' catalogue can produce a duplicate — but `hidden` is
+   * CALLER-supplied, and "the caller might hand us anything" is this block's own
+   * argument for existing, so it is stated rather than assumed.
    */
   const tokens = useMemo(
     () => buildRowTokens(hidden.map((h) => ({ id: h.id, name: h.title }))),
@@ -135,10 +145,13 @@ export function ArrangementShelf({
                     chips sharing a title.
                     ★ WCAG 2.5.3 holds by CONTAINMENT: the visible label
                     "Restore" is contained in "Restore – <block>".
-                    ★ The `?? h.title` fallback cannot actually fire — the map is
-                    built from this very list one hook call above — but it keeps
-                    the name defined rather than "undefined" if that ever stops
-                    being true. */}
+                    ★★ The `?? h.title` fallback is UNREACHABLE and therefore
+                    UNPINNED — do not read it as covered behaviour. The map is
+                    built from this very list one hook call above, so every id
+                    here is in it; no test exercises the right-hand side and none
+                    can without breaking that invariant deliberately. It is kept
+                    so the name degrades to the raw title rather than the string
+                    "undefined" if a future change ever separates the two. */}
                 <Button
                   variant="ghost"
                   size="xs"

@@ -208,7 +208,11 @@ The rejected alternatives, for the record:
 signature, so the Dashboard's own call sites, tests and `data-testid`s are untouched. That is the
 primary regression control for this refactor.
 
-★★★ **ONE SANCTIONED EXCEPTION, and it is the only one.** `src/app/dashboard-grid.test.tsx`'s
+★★★ **ONE SANCTIONED EXCEPTION THAT CHANGES A TEST, and it is the only one of that kind. There is a
+SECOND, narrower exception that changes no code at all** — `e2e/dashboard-grid.spec.ts`, one comment
+line repointing a reproduce recipe, with zero non-comment changed lines. Both are recorded in full in
+the plan's Definition of Done; read that before running the derived-list check, or you will find TWO
+files touched while this paragraph appears to say there can only be one. `src/app/dashboard-grid.test.tsx`'s
 `describe("span class tables (source form)")` block — three assertions — was **MOVED, not deleted**, to
 `arrangement-grid.test.tsx` in Task 7, with its `readFileSync` repointed and its behaviour unchanged
 (the two now-unused `node:fs` / `node:path` imports went with it, or `--max-warnings=0` fails). It is
