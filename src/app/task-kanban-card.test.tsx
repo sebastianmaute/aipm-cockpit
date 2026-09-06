@@ -81,12 +81,12 @@ describe("TaskKanbanCard", () => {
     );
     // The badge's name now carries the card's row token — a bare count has no
     // row identity, so two cards with equal ref counts used to collide — and it
-    // LEADS with the visible glyph string, so the name contains the visible
-    // text (WCAG 2.5.3). The exact string is pinned in task-raid-badge.test.tsx;
+    // LEADS with the visible count text, so the name contains the visible text
+    // (WCAG 2.5.3). The exact string is pinned in task-raid-badge.test.tsx;
     // here the point is only that the badge renders and is clickable outside
     // RowContextProvider, so the name is composed the way the component does.
     const badge = screen.getByRole("button", {
-      name: rowLabel(rowLabel(t("en-US", "raidReferencedByMix", 1, 0, 1, 0), t("en-US", "raidReferencedBy", 2)), "Alpha"),
+      name: rowLabel(rowLabel(t("en-US", "raidReferencedByCount", 2), t("en-US", "raidReferencedBy", 2)), "Alpha"),
     });
     fireEvent.click(badge);
     expect(onJumpToRaid).toHaveBeenCalledWith(1);

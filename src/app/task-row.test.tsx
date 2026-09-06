@@ -1464,7 +1464,8 @@ describe("TaskRow linked-documents badge", () => {
 describe("TaskRow ID-column badges", () => {
   // Four badges share the task table's narrow, user-resizable ID column: Jira,
   // RAID, Document and the inline changes span. None carried `whitespace-nowrap`,
-  // so the RAID glyph string broke across four lines and the changes badge
+  // so the RAID badge — then a four-part glyph string, now a short count that
+  // still carries a space — broke across several lines and the changes badge
   // across two, inflating the whole row's height.
   //
   // ★ All four (and ONLY them, among the column's controls) carry `text-[10px]`
@@ -1637,13 +1638,14 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
     // report the SAME count — so the pre-fix name was identical on both.
     const badges = within(container).getAllByRole("button", { name: /RAID item/i });
     expect(badges).toHaveLength(2);
-    // ★ The name LEADS with the badge's visible glyph string, so the accessible
+    // ★ The name LEADS with the badge's visible count text, so the accessible
     // name contains the visible text (WCAG 2.5.3, pinned in
-    // task-raid-badge.test.tsx). Both fixture items are category "R", hence
-    // "2R · 0A · 0I · 0D"; the spelled-out count and the row token follow.
+    // task-raid-badge.test.tsx). Two refs per row, hence "2 RAID"; the
+    // spelled-out count and the row token follow. The per-category breakdown
+    // is on `title`, which is the DESCRIPTION and not part of the name.
     expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
-      "2R · 0A · 0I · 0D – Referenced by 2 RAID item(s) – Alpha",
-      "2R · 0A · 0I · 0D – Referenced by 2 RAID item(s) – Beta",
+      "2 RAID – Referenced by 2 RAID item(s) – Alpha",
+      "2 RAID – Referenced by 2 RAID item(s) – Beta",
     ]);
 
     expectRowUniqueNames({

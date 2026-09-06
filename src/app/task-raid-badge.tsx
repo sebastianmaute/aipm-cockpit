@@ -16,13 +16,14 @@ interface RaidBadgeProps {
   refs: RaidItem[];
   lang: Lang;
   /**
-   * ★★ REQUIRED, NOT OPTIONAL. The badge's name used to be the bare count
-   * (`raidReferencedBy` = "Referenced by {0} RAID item(s)"), which carries NO
-   * row identity — so any two rows whose REFERENCE COUNTS match rendered two
-   * identically-named buttons (WCAG 2.4.6). That does NOT need two tasks to
-   * share a name: "Alpha" and "Beta" each linked to two RAID items is enough,
-   * and equal counts are the common case. A required prop turns a missed
-   * caller into a tsc error rather than a silent collision.
+   * ★★ REQUIRED, NOT OPTIONAL. Everything the name carries ahead of this token
+   * is derived from the REFERENCE COUNT alone (`raidReferencedByCount` and
+   * `raidReferencedBy`), so it holds no row identity — without this token any
+   * two rows whose counts match render two identically-named buttons (WCAG
+   * 2.4.6). That does NOT need two tasks to share a name: "Alpha" and "Beta"
+   * each linked to two RAID items is enough, and equal counts are the common
+   * case. A required prop turns a missed caller into a tsc error rather than a
+   * silent collision.
    *
    * ★ Built by the LIST owner (`buildRowTokens`, `src/app/row-tokens.ts`) — a
    * per-item component has no sibling visibility and cannot disambiguate
@@ -35,8 +36,12 @@ interface RaidBadgeProps {
 
 function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadgeProps) {
   const counts = countByCategory(refs);
-  // The badge's VISIBLE content — the compact per-category glyph string. It is
-  // also the head of the accessible name below, so the two cannot drift.
+  // The badge's VISIBLE content — the short total. It is also the HEAD of the
+  // accessible name below, so the two cannot drift.
+  const countText = t(lang, "raidReferencedByCount", refs.length);
+  // The per-category breakdown. Sighted shorthand, so it rides `title` rather
+  // than the name: read aloud it is "2R 1A 0I 0D", which is worse than the
+  // sentence the name carries.
   const mix = t(lang, "raidReferencedByMix", counts.R, counts.A, counts.I, counts.D);
   return (
     <button
@@ -45,22 +50,17 @@ function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadge
         e.stopPropagation();
         onJumpToRaid(taskId);
       }}
-      // ★ `title` stays the bare count: it is the hover tooltip (and, since
-      // `aria-label` wins the NAME, the accessible DESCRIPTION), not a name,
-      // so 2.4.6 does not reach it and repeating the row identity there would
-      // only lengthen a tooltip shown on the row the user is already pointing at.
-      // ★ ACCEPTED COST: the two were byte-identical before the row token landed,
-      // so AT that suppresses a description equal to the name announced it once
-      // and now announces the bare count separately as a redundant prefix of the
-      // name. Kept because the visible content is a compact glyph string, so the
-      // tooltip is the only count a sighted mouse user gets.
-      title={t(lang, "raidReferencedBy", refs.length)}
+      // ★ `title` carries the per-category BREAKDOWN: `aria-label` wins the
+      // NAME, so this is the accessible DESCRIPTION plus the hover tooltip —
+      // the only place a sighted mouse user can still get the R/A/I/D split now
+      // that the visible text is a total. Do not put the row identity here; it
+      // would only lengthen a tooltip shown on the row already under the pointer.
+      title={mix}
       // ★★★ WCAG 2.5.3 (label in name): the accessible name must CONTAIN the
-      // control's visible text. The visible text is the glyph string `mix`,
-      // so the name LEADS with it, then the spelled-out count, then the row
-      // token that closes 2.4.6. Nesting `rowLabel` twice reuses the existing
-      // separator and the two existing i18n keys — no new key, no untranslated
-      // literal.
+      // control's visible text. The visible text is `countText`, so the name
+      // LEADS with it, then the spelled-out count, then the row token that
+      // closes 2.4.6. Nesting `rowLabel` twice reuses the existing separator and
+      // the two existing i18n keys — no new key, no untranslated literal.
       // ★★ CONTAINMENT, NOT PREFIX — 2.5.3 is case-insensitive and
       // position-independent; front position here is the Understanding note's
       // best practice, not the criterion. Do not "enforce" prefixing elsewhere
@@ -69,10 +69,10 @@ function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadge
       // carries `wcag21a` but is also `experimental`, which axe's default
       // tagExclude drops, so the a11y gate never runs it. `task-raid-badge.test.tsx`
       // is the only detector.
-      aria-label={rowLabel(rowLabel(mix, t(lang, "raidReferencedBy", refs.length)), rowToken)}
+      aria-label={rowLabel(rowLabel(countText, t(lang, "raidReferencedBy", refs.length)), rowToken)}
       className={`ml-1 inline-flex items-center whitespace-nowrap rounded bg-ui-purple px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-ui-purple/90 ${INTERACTIVE}`}
     >
-      {mix}
+      {countText}
     </button>
   );
 }
