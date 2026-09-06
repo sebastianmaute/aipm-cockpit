@@ -621,7 +621,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§394](#394-the-parity-sweep-cannot-exercise-the-silent-reset-half-of-the-rejects-direction-open) | The parity sweep cannot exercise the silent-RESET half of the rejects direction | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§395](#395-update_raid_itemprobability-true-stores-a-fabricated-risk-score-of-1-open) | `update_raid_item({probability: true})` stores a fabricated risk score of 1 | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§396](#396-update_tasklastupdatedate-previews-a-clear-the-writer-does-not-make-open) | `update_task({lastUpdateDate: ""})` previews a clear the writer does not make | found 2026-09-06 by the preview/apply-parity slice | S | open |
-| [§397](#397-the-emails-preview-cannot-see-the-rows-own-primary-address-open) | The `emails` preview cannot see the row's own primary address | found 2026-09-06 by the preview/apply-parity slice | S | open |
+| [§397](#397-the-emails-preview-cannot-see-the-rows-own-primary-address-closed-2026-09-06) | The `emails` preview cannot see the row's own primary address | found 2026-09-06 by the preview/apply-parity slice | S | CLOSED 2026-09-06 |
 | [§398](#398-milestonedescription-is-cleared-by-a-non-string-and-the-preview-projects-one-instead-of-refusing-it-open) | `Milestone.description` is cleared by a non-string, and the preview projects one instead of refusing it | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§399](#399-the-change-amount-sanitizer-accepts-a-fraction-the-preview-rejects-open) | The change amount sanitizer accepts a fraction the preview rejects | found 2026-09-06 by the preview/apply-parity slice | S | open |
 | [§400](#400-str-is-defined-twice-in-plants-and-entity-descriptorts-open) | `str` is defined twice, in `plan.ts` and `entity-descriptor.ts` | found 2026-09-06 by the preview/apply-parity slice | S | open |
@@ -28718,11 +28718,12 @@ rows, do not read the exit code, which is 0 either way.
 
 **Status:** CLOSED 2026-09-06 by the preview/apply-parity slice — `emails` joined the resource
 descriptor's `diffFields` with a `fieldSanitizers` entry calling the writer's own
-`sanitizeEmailList`, so the card now shows what the write stores. Verified 2026-09-06 by four tests
-in `src/app/inline-ai-edit/plan.test.ts` (dedupe, no-op, clear, and the known divergence below) plus
-the sanitizer-parity sweep, which now covers the field. ★★ ONE NARROWING SURVIVES AND IS FILED AS
-§397: the entry cannot see the row's own primary address, so an incoming extra equal to it is kept by
-the preview and dropped by the write. ★ The original rationale below — that deduping and capping
+`sanitizeEmailList`, so the card now shows what the write stores. Verified 2026-09-06 by six tests
+in `src/app/inline-ai-edit/plan.test.ts` (dedupe, no-op, clear, and the three that closed §397) plus
+the sanitizer-parity sweep, which now covers the field. ★★ THE ONE NARROWING THAT SURVIVED THIS FIX
+was filed as §397 — the entry could not see the row's own primary address, so an incoming extra equal
+to it was kept by the preview and dropped by the write. §397 is CLOSED as of 2026-09-06: entries now
+take the merged row as a second argument. ★ The original rationale below — that deduping and capping
 "cannot be expressed" — predated `fieldSanitizers`, which is exactly the mechanism that expressed it.
 
 **Original filing:** 2026-09-05 by the AI bulk-write-safety slice, while closing §373 (an
@@ -29178,22 +29179,39 @@ sanitizers behind raid/change/milestone clear theirs.
 WRONG one: it means "the writer throws". ★★ The parity sweep cannot see this because `TASK_BASE`
 carries no `lastUpdateDate`; adding one manufactures a red outside the direction under test.
 
-## 397. The `emails` preview cannot see the row's own primary address — OPEN
+## 397. The `emails` preview cannot see the row's own primary address — CLOSED 2026-09-06
 
-**Status:** OPEN as a KNOWN NARROWING of the §383 fix, recorded at the moment it was introduced.
-Filed 2026-09-06. Last executed verification 2026-09-06 — `npx vitest run src/app/inline-ai-edit/plan.test.ts -t "KNOWN DIVERGENCE"` and measured against the real
-`sanitizeResource` under vite-node, and pinned by a test named "KNOWN DIVERGENCE" in
-`src/app/inline-ai-edit/plan.test.ts`.
+**Status:** CLOSED 2026-09-06 by the preview/apply-parity slice — a `fieldSanitizers` entry now
+receives the MERGED row as a second argument, and `resource.emails` reads the row's `email` from it.
+Last executed verification 2026-09-06 — `npx vitest run src/app/inline-ai-edit src/app/sanitize-records.test.ts`
+(EXIT=0, 13 files / 327 tests), plus a mutation proof: reverting the entry to pass `undefined` again
+reds exactly the two tests that name the behaviour (2 failed / 225 passed over
+`src/app/inline-ai-edit`).
 
-A `fieldSanitizers` entry receives only the field's VALUE, so the preview calls
+**Original filing:** 2026-09-06, as a KNOWN NARROWING of the §383 fix recorded at the moment it was
+introduced. A `fieldSanitizers` entry received only the field's VALUE, so the preview called
 `sanitizeEmailList(v, undefined)` where `sanitizeResource` calls it with the merged row's primary.
-Two consequences: an incoming extra EQUAL to the primary is kept by the preview and dropped by the
-write; and at the 10-address cap the asymmetry shifts WHICH address lands tenth. The first is
-pinned, naming the expectation to flip if the entry ever learns the row; the second is unpinned for
-want of a fixture that large.
+Two consequences: an incoming extra EQUAL to the primary was kept by the preview and dropped by the
+write; and at the 10-address cap the asymmetry shifted WHICH address landed tenth. The first was
+pinned by a test named "KNOWN DIVERGENCE"; the second was unpinned "for want of a fixture that large".
 
-★ Fixing either means threading the row into EVERY `fieldSanitizers` entry — a signature change
-across the map, deliberately out of the slice that found it.
+★★ BOTH ARE PINNED NOW, and the "KNOWN DIVERGENCE" test no longer exists under that name — it was
+rewritten to the agreeing expectation it nominated ("drops an extra equal to the row's primary, as
+the write does", `src/app/inline-ai-edit/plan.test.ts`). The cap half got the large fixture it was
+missing ("agrees with the write about which address lands tenth"), and a third test pins that the row
+is MERGED rather than STORED ("sanitizes the extras against a primary changed in the same call") —
+the model may send a new `email` alongside `emails`, and the writer sanitizes against the row its
+dispatcher has already merged.
+
+★★ THE FILING'S COST ESTIMATE WAS WRONG, and cheaply so: it said fixing either half "means threading
+the row into EVERY `fieldSanitizers` entry — a signature change across the map". TypeScript accepts a
+shorter function where a longer signature is declared, so only the ONE entry that reads the row spells
+the second parameter; every other entry is untouched. What the widening did cost was the three CALL
+sites (two in `plan.ts`, one in the parity sweep's fallback), which tsc names.
+
+★ The parity sweep is SILENT on this class — under the mutation above it stayed green. Its probes set
+one key at a time, so it never varies a row field an entry reads. The three tests above are the only
+detector.
 
 ## 398. `Milestone.description` is cleared by a non-string, and the preview projects one instead of refusing it — OPEN
 

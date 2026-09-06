@@ -689,16 +689,14 @@ describe("resource extra emails (383)", () => {
     expect(plan.updates).toEqual([{ field: "emails", before: "b@x.com", after: "", raw: "" }]);
   });
 
-  it("KNOWN DIVERGENCE: keeps an extra equal to the primary, which the write drops", () => {
-    // ★★★ NOT THE BEHAVIOUR THE WRITER HAS, and pinned deliberately so the gap
-    //  is visible rather than discovered again. `sanitizeResource` calls
-    //  `sanitizeEmailList(input.emails, email)` with the MERGED row's primary and
-    //  drops "m@x.com" from the extras; a `fieldSanitizers` entry is handed the
-    //  FIELD's value alone and cannot know the primary, so it keeps it. The card
-    //  therefore promises one address the write will not store. Widening the
-    //  signature to take the row would change every entry in every entity, so
-    //  this is recorded, not fixed. If the entry ever DOES learn the primary,
-    //  this expectation is the one to flip.
+  it("drops an extra equal to the row's primary, as the write does", () => {
+    // ★★★ WAS A KNOWN DIVERGENCE, CLOSED BY §397 — and this is the expectation
+    //  that comment named as the one to flip. A `fieldSanitizers` entry used to
+    //  be handed the FIELD's value alone, so the preview ran
+    //  `sanitizeEmailList(v, undefined)` where `sanitizeResource` calls it with
+    //  the MERGED row's primary: the card KEPT "m@x.com" and the write dropped
+    //  it (and, at the 10-address cap, the two disagreed about which address
+    //  landed tenth). Entries now take the merged row as a second argument.
     //  Reproduce the writer's half: `sanitizeResource({...item,
     //   emails:["m@x.com","a@x.com"]}).emails` -> ["a@x.com"].
     const plan = describeEntityCalls(
@@ -706,7 +704,40 @@ describe("resource extra emails (383)", () => {
       { descriptor: d, item, ws: emailWs },
     );
     expect(plan.updates).toEqual([
-      { field: "emails", before: "b@x.com", after: "m@x.com, a@x.com", raw: "m@x.com, a@x.com" },
+      { field: "emails", before: "b@x.com", after: "a@x.com", raw: "a@x.com" },
+    ]);
+  });
+
+  // ★★ THE SECOND HALF OF §397, which that entry filed as UNPINNED "for want of
+  //  a fixture that large". `RESOURCE_EMAILS_MAX` is 10, and the primary is
+  //  dropped BEFORE the cap applies — so an extra equal to the primary used to
+  //  consume a slot in the preview and not in the write, shifting WHICH address
+  //  landed tenth. Here "a10@x.com" is the tenth stored address and was the one
+  //  the old preview silently dropped.
+  it("agrees with the write about which address lands tenth", () => {
+    const extras = Array.from({ length: 10 }, (_, i) => `a${i + 1}@x.com`);
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, emails: ["m@x.com", ...extras] } }],
+      { descriptor: d, item, ws: emailWs },
+    );
+    expect(plan.updates).toEqual([
+      { field: "emails", before: "b@x.com", after: extras.join(", "), raw: extras.join(", ") },
+    ]);
+  });
+
+  // ★★ MERGED, NOT STORED — the model may change the primary in the SAME call,
+  //  and `sanitizeResource` sanitizes the extras against the merged row's
+  //  `email`. Passing the STORED primary would drop the wrong address here: the
+  //  incoming extra "m@x.com" is no longer the primary and must survive, while
+  //  the new primary "a@x.com" must be dropped from the extras.
+  it("sanitizes the extras against a primary changed in the same call", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_resource", input: { id: 5, email: "a@x.com", emails: ["m@x.com", "a@x.com"] } }],
+      { descriptor: d, item, ws: emailWs },
+    );
+    expect(plan.updates).toEqual([
+      { field: "email", before: "m@x.com", after: "a@x.com", raw: "a@x.com" },
+      { field: "emails", before: "b@x.com", after: "m@x.com", raw: "m@x.com" },
     ]);
   });
 });

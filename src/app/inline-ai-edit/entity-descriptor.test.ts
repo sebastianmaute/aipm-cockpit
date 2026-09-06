@@ -110,8 +110,10 @@ describe("INLINE_DESCRIPTORS", () => {
   //  the preview actually shows.
   it("does not share one email cap across entities", () => {
     const long = "a".repeat(1000);
-    const task = INLINE_DESCRIPTORS.task.fieldSanitizers.assigneeEmail(long);
-    const stakeholder = INLINE_DESCRIPTORS.stakeholder.fieldSanitizers.email(long);
+    // ★ The row is the entry's second argument since §397; neither of these two
+    //  reads it, so an empty one is the honest probe.
+    const task = INLINE_DESCRIPTORS.task.fieldSanitizers.assigneeEmail(long, {});
+    const stakeholder = INLINE_DESCRIPTORS.stakeholder.fieldSanitizers.email(long, {});
     expect(task.length).toBeGreaterThan(0);
     expect(stakeholder.length).toBeGreaterThan(0);
     expect(stakeholder.length).not.toBe(task.length);
@@ -128,7 +130,8 @@ describe("INLINE_DESCRIPTORS", () => {
   //  `str(v)` verbatim) is right for `true` and still wrong for `false`, which
   //  would read as a change against an absent key. Both directions are pinned.
   it("normalises the one non-string diffField through the sanitizer's predicate", () => {
-    const f = INLINE_DESCRIPTORS.resource.fieldSanitizers.isExternal;
+    const e = INLINE_DESCRIPTORS.resource.fieldSanitizers.isExternal;
+    const f = (v: unknown): string => e(v, {});
     expect(INLINE_DESCRIPTORS.resource.diffFields).toContain("isExternal");
     expect(f(true)).toBe("true");
     expect(f("true")).toBe("true");

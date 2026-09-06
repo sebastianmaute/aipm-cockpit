@@ -213,7 +213,7 @@ function numberPreview(v: unknown): string {
 export function previewNormalizerFor(
   d: EntityDescriptor,
   field: string,
-): ((v: unknown) => string) | undefined {
+): ((v: unknown, row: Record<string, unknown>) => string) | undefined {
   return d.fieldSanitizers[field] ?? (d.numberFields.has(field) ? numberPreview : undefined);
 }
 
@@ -372,7 +372,10 @@ export function describeEntityCalls(
         const partOf = (m: string): string => {
           const raw = m in input ? input[m] : item[m];
           const norm = previewNormalizerFor(d, m);
-          return norm ? norm(raw) : str(raw);
+          // The merged row is rebuilt here rather than shared with the loop
+          // below: `input` is REASSIGNED a few lines down, so a row hoisted
+          // above this leg would be the pre-projection one.
+          return norm ? norm(raw, { ...(item as Record<string, unknown>), ...input }) : str(raw);
         };
         if (partOf("firstName") === "" && partOf("lastName") === "") {
           input = { ...input, ...splitName(input.name) };
@@ -382,6 +385,13 @@ export function describeEntityCalls(
       // (RAID status) against a CO-CHANGED category and to compute the effective
       // item for the induced-reset pass below. Only VALID values land here.
       const applied: Record<string, string> = {};
+      // ★★ THE ROW EVERY NORMALISER BELOW SEES, and it is MERGED rather than
+      // STORED because the model may be changing the very field an entry reads
+      // in the SAME call — `update_resource` can send a new `email` alongside
+      // `emails`, and `sanitizeResource` sanitizes the extras against the row
+      // its dispatcher has already merged (§397). Built AFTER the alias
+      // projection above, which reassigns `input`.
+      const merged = { ...(item as Record<string, unknown>), ...input };
       for (const f of d.diffFields) {
         if (!(f in input)) continue;
         // ★★★ WHICH NORMALISATION A FIELD GETS IS THE DESCRIPTOR'S CALL, and a
@@ -405,9 +415,13 @@ export function describeEntityCalls(
         // render a diff. The sanitizers are idempotent on an already-stored
         // value, so normalising `before` costs nothing where the spellings
         // already agree.
+        //
+        // ★★ BOTH SIDES ALSO TAKE THE SAME (MERGED) ROW, for the same reason:
+        // normalising `before` against the OLD row and `after` against the new
+        // one would report a change the write does not make.
         const normalize = previewNormalizerFor(d, f);
-        const before = normalize ? normalize(item[f]) : str(item[f]);
-        const after = normalize ? normalize(input[f]) : str(input[f]);
+        const before = normalize ? normalize(item[f], merged) : str(item[f]);
+        const after = normalize ? normalize(input[f], merged) : str(input[f]);
         if (before === after) continue;
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
         // ★★★ A JOINT REQUIREMENT IS JUDGED ON THE MERGED ROW, NEVER ON THIS
@@ -443,7 +457,7 @@ export function describeEntityCalls(
               if (m === f) return after !== "";
               const raw = m in input ? input[m] : item[m];
               const norm = previewNormalizerFor(d, m);
-              return (norm ? norm(raw) : str(raw)) !== "";
+              return (norm ? norm(raw, merged) : str(raw)) !== "";
             });
             // ★★ The sanitizer has a THIRD leg — a fallback that splits `name` when
             //  both parts are empty — and it is modelled as a PROJECTION above,

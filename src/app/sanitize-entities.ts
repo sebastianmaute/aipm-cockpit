@@ -359,12 +359,13 @@ const RESOURCE_EMAILS_MAX = 10;
  *
  *  ★★ EXPORTED FOR THE AI EDIT PREVIEW, which must call this rather than
  *   approximate it (`INLINE_DESCRIPTORS.resource.fieldSanitizers.emails`) —
- *   the descriptor's standing rule is delegate, never restate. ★★★ THAT CALLER
- *   PASSES `undefined` FOR `primary` AND CANNOT DO OTHERWISE: a `fieldSanitizers`
- *   entry receives the FIELD's value alone, never the row, so it cannot know the
- *   resource's primary address. The preview therefore keeps an extra equal to the
- *   primary where this function, called with the merged row's `email`, drops it —
- *   a residual preview/apply divergence recorded rather than hidden. */
+ *   the descriptor's standing rule is delegate, never restate. ★★ THAT CALLER
+ *   PASSES THE MERGED ROW'S `email` SINCE §397 and no longer `undefined`: a
+ *   `fieldSanitizers` entry used to receive the FIELD's value alone, so the
+ *   preview kept an extra equal to the primary that this function drops, and at
+ *   RESOURCE_EMAILS_MAX the two disagreed about which address landed tenth.
+ *   Entries now take the row as a second argument. MERGED, not stored — an
+ *   `update_resource` may change the primary in the same call. */
 export function sanitizeEmailList(input: unknown, primary: string | undefined): string[] {
   let raw: unknown[];
   if (Array.isArray(input)) raw = input;

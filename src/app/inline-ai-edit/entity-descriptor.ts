@@ -240,8 +240,20 @@ export interface EntityDescriptor {
    *
    *  ★ `plan.sanitizer-parity.test.ts` is the differential gate on all of it:
    *   every entity × every `diffField` × a hostile probe set, preview against
-   *   the real sanitizer. */
-  fieldSanitizers: Record<string, (v: unknown) => string>;
+   *   the real sanitizer.
+   *
+   *  ★★ THE ROW IS THE SECOND ARGUMENT, AND IT IS THE MERGED ONE. An entry used
+   *   to receive only the field's VALUE, so `sanitizeEmailList(v, undefined)`
+   *   ran where `sanitizeResource` calls it with the row's primary address —
+   *   the preview kept an extra equal to the primary that the write dropped,
+   *   and at the 10-address list cap the two disagreed about WHICH address
+   *   landed tenth (§397). MERGED, not stored: the model may be changing the
+   *   primary in the same call, and the writer sanitizes against the row its
+   *   dispatcher has already merged.
+   *  ★ An entry that does not need the row simply declares one parameter —
+   *   TypeScript accepts a shorter function here, so only `resource.emails`
+   *   spells the second one today. */
+  fieldSanitizers: Record<string, (v: unknown, row: Record<string, unknown>) => string>;
   /** Relationship and FK inputs the update tool accepts, which `diffFields`
    *  deliberately excludes (its contract is scalar/enum/date/number only).
    *
@@ -544,21 +556,23 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       businessPhone: optionalText,
       notes: optionalMultiline,
       isExternal: (v) => String(isExternalFlag(v)),
-      // ★★★ `undefined` FOR THE PRIMARY IS A NARROWING, NOT A CHOICE. A
-      //  `fieldSanitizers` entry is handed the FIELD's value and nothing else,
-      //  so it cannot see the row's `email` — while `sanitizeResource` calls
+      // ★★★ THE ONLY ENTRY IN ANY ENTITY THAT READS THE ROW, and it is why the
+      //  second parameter exists (§397). It used to pass `undefined` for the
+      //  primary and could not do otherwise — the entry saw the FIELD's value
+      //  alone — while `sanitizeResource` calls
       //  `sanitizeEmailList(input.emails, email)` with the MERGED row's primary
       //  and drops an extra equal to it. The dedupe, the trim, the per-address
-      //  cap and the 10-address list cap are all the writer's own and agree; an
-      //  incoming extra that EQUALS the primary is the one case where the
-      //  preview shows an address the write will not store (and, at the list
-      //  cap, shifts which address is the tenth). Widening the signature to
-      //  take the row would touch every entry in every entity, so the
-      //  divergence is recorded here and in `sanitizeEmailList`'s docstring
-      //  rather than papered over with a local re-implementation.
+      //  cap and the 10-address list cap were always the writer's own and
+      //  agreed; an extra EQUAL to the primary was the one case where the card
+      //  promised an address the write would not store, and at the list cap it
+      //  shifted which address landed tenth.
+      // ★★ `row`, NOT the stored resource: `update_resource` may change `email`
+      //  in the same call, and the writer sanitizes against the row its
+      //  dispatcher has already merged. Pinned by "sanitizes the extras against
+      //  a primary changed in the same call" (plan.test.ts).
       // ★ Joined with ", " like every other list this module renders (`str`,
       //  `resolveLinkTitles`); the writer's `[;,]` split accepts it back.
-      emails: (v) => sanitizeEmailList(v, undefined).join(", "),
+      emails: (v, row) => sanitizeEmailList(v, typeof row.email === "string" ? row.email : undefined).join(", "),
     },
     // ★★★ `roleId` IS writable — it is listed as absent from `diffFields` above
     //  under "an FK, excluded by the same rule as Task.resourceId", and that

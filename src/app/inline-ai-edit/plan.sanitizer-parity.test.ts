@@ -566,10 +566,13 @@ function previewOf(
   // ★ DELEGATED, not restated: `previewNormalizerFor` is the production
   // resolution order (descriptor entry → numeric coercion → verbatim), so a
   // field moving between those three cannot leave this branch behind.
+  // ★ The row an entry reads is the MERGED one, exactly as the production loop
+  // builds it — `resource.emails` sanitizes against the row's primary, which a
+  // probe may be changing in the same call.
   const normalize = previewNormalizerFor(d, field);
   return {
     rejected: false,
-    shown: normalize ? normalize(base[field]) : String(base[field] ?? ""),
+    shown: normalize ? normalize(base[field], { ...base, [field]: value }) : String(base[field] ?? ""),
   };
 }
 
