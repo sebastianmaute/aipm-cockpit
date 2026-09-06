@@ -420,9 +420,35 @@ describe("start-window logo", () => {
 });
 
 describe("ProjectEmptyState — Load from Turso", () => {
-  it("hides the button when Turso is not configured", () => {
+  it("shows the button disabled when Turso is not configured", () => {
     setup();
-    expect(screen.queryByRole("button", { name: "Load from Turso" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toBeDisabled();
+  });
+
+  // ★★ A disabled button dispatches NO mouse events, so a `title` on the button
+  // itself never surfaces — the explanation would be unreachable on the very
+  // control it explains. It lives on a wrapper instead.
+  it("puts the not-configured hint on the wrapper, not on the disabled button", () => {
+    setup();
+    const btn = screen.getByRole("button", { name: "Load from Turso" });
+    expect(btn).not.toHaveAttribute("title");
+    expect(btn.closest("[title]")).toHaveAttribute(
+      "title",
+      "Configure a Turso database in Settings → Integrations first.",
+    );
+  });
+
+  it("enables the button once Turso is configured", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultIntegrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    expect(screen.getByRole("button", { name: "Load from Turso" })).toBeEnabled();
   });
 
   it("hides the button when the portfolio is already on Turso", () => {

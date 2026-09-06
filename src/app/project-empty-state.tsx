@@ -213,14 +213,30 @@ export function ProjectEmptyState({
                 {/* Load an existing project from a configured Turso database —
                     file mode only (Turso mode already lists archived projects
                     and has its own picker via the mode selector). */}
-                {mode === "file" && tursoConfigured && (
-                  <Button
-                    variant="secondary"
-                    onClick={() => setTursoPickerOpen(true)}
-                    title={t(lang, "projectLoadFromTursoHint")}
+                {mode === "file" && (
+                  // ★★ The hint rides this WRAPPER, not the Button. A `disabled`
+                  // button dispatches no mouse events, so a `title` on it never
+                  // surfaces — the explanation of why it is disabled would be
+                  // unreachable on the control it explains. Rendering disabled
+                  // rather than hiding is deliberate: a hidden button never
+                  // teaches the user the capability exists. `aria-disabled` is
+                  // NOT a substitute — it still fires onClick.
+                  <span
+                    className="inline-flex"
+                    title={
+                      tursoConfigured
+                        ? t(lang, "projectLoadFromTursoHint")
+                        : t(lang, "projectTursoNotConfigured")
+                    }
                   >
-                    {t(lang, "projectLoadFromTurso")}
-                  </Button>
+                    <Button
+                      variant="secondary"
+                      disabled={!tursoConfigured}
+                      onClick={() => setTursoPickerOpen(true)}
+                    >
+                      {t(lang, "projectLoadFromTurso")}
+                    </Button>
+                  </span>
                 )}
                 {/* Explore a demo project — guided-tour entry point. Rendered
                     only when a demo-load handler is wired (empty-state only). */}
