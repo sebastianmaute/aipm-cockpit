@@ -1218,6 +1218,7 @@ const enUS = {
   healthDriverCancelled: "cancelled",
   healthDriverOnTrack: "on track",
   healthTooltip: "{0}: {1}",
+  reportsHeadline: "Headline",
   reportsGroupHealth: "Group health",
   reportsUngrouped: "Ungrouped",
   reportsGroupCounts: "{0} red · {1} amber · {2} green",

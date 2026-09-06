@@ -1181,6 +1181,7 @@ export const de: Record<TranslationKey, string> = {
   healthDriverCancelled: "abgebrochen",
   healthDriverOnTrack: "im Plan",
   healthTooltip: "{0}: {1}",
+  reportsHeadline: "Überblick",
   reportsGroupHealth: "Status nach Gruppe",
   reportsUngrouped: "Ohne Gruppe",
   reportsGroupCounts: "{0} rot · {1} gelb · {2} grün",
