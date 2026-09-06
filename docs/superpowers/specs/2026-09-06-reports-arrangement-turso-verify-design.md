@@ -188,7 +188,7 @@ The rejected alternatives, for the record:
 | `arrangement-store.ts` | `dashboard-layout-store.ts` | storage key injected |
 | `use-arrangement.ts` | `use-dashboard-layout.ts` | `ArrangementOptions<Id>` = `{catalogue, storageKey, fallback, projectId, readOnly?, seed?}` |
 | `arrangement-tile.tsx` | `dashboard-tile.tsx` | `id: string`, `testIdPrefix` |
-| `arrangement-grid.tsx` | `dashboard-grid.tsx` | `rowClass` / `gapClass` injected |
+| `arrangement-grid.tsx` | `dashboard-grid.tsx` | `rowClass` / `gapClass` / `testId` injected; owns `W_CLASS` / `H_CLASS` |
 | `report-blocks.ts` | *new* | the Reports catalogue |
 | `reports-blocks.tsx` | split out of `reports.tsx` | presentational block bodies |
 
@@ -203,6 +203,20 @@ The rejected alternatives, for the record:
 **`dashboard-panel.tsx` is not edited.** Every adapter above preserves its current export
 signature, so the Dashboard's own call sites, tests and `data-testid`s are untouched. That is the
 primary regression control for this refactor.
+
+★★★ **ONE SANCTIONED EXCEPTION, and it is the only one.** `src/app/dashboard-grid.test.tsx`'s
+`describe("span class tables (source form)")` block — three assertions — was **MOVED, not deleted**, to
+`arrangement-grid.test.tsx` in Task 7, with its `readFileSync` repointed and its behaviour unchanged
+(the two now-unused `node:fs` / `node:path` imports went with it, or `--max-warnings=0` fails). It is
+the only test in the extraction that asserts on the **bytes of a file at a path** rather than on
+behaviour through an API: it needs the literal `export const W_CLASS` and a matching object literal
+inside the file it reads, and no re-export form provides either — so an adapter could not keep it
+green. Leaving it aimed at the adapter would have been worse than deleting it, since the property it
+guards (Tailwind sees whole literal strings in SOURCE) now lives in `arrangement-grid.tsx`; the scan
+would pass forever regardless of the real tables while still reading as coverage. Measured under a
+`` 2: `col-span-1 lg:col-span-${2}` `` mutant: relocated scan 1 failed / 9 passed;
+`dashboard-grid.test.tsx` 24 passed at exit 0. The rule is unchanged — *fix the adapter, never the
+test* — and this is not a precedent for editing a Dashboard test that fails on BEHAVIOUR.
 
 ### The five welded points, each verified in source
 

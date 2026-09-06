@@ -1,113 +1,35 @@
 "use client";
-import type { DragEvent, KeyboardEvent, ReactNode } from "react";
-import { W_CLASS, H_CLASS } from "./dashboard-grid";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
-import { DragHandle } from "./drag-handle";
-import { t, type Lang } from "./i18n";
-import type { DashboardTileId, TileSpan } from "./dashboard-tiles";
-
-/** Spread onto the DROP TARGET — `useListReorderDnd(...).itemProps(id)`. */
-export interface TileDragProps {
-  onDragOver?: (e: DragEvent<HTMLElement>) => void;
-  onDrop?: (e: DragEvent<HTMLElement>) => void;
-}
-/** Spread onto the DRAG GRIP — `useListReorderDnd(...).handleProps(id)`. */
-export interface TileHandleProps {
-  draggable?: boolean;
-  onDragStart?: (e: DragEvent<HTMLElement>) => void;
-  onDragEnd?: () => void;
-  onKeyDown?: (e: KeyboardEvent<HTMLElement>) => void;
-}
-
 /**
- * Chrome around one dashboard card: the drag grip, the title, and the ⋮ button.
+ * The Dashboard's binding of the shared arrangement tile chrome.
  *
- * ★★ EVERY CONTROL'S NAME IS QUALIFIED WITH THE TILE TITLE. N identically named
- * "Drag or use arrow keys to reorder" buttons is a WCAG 2.4.6 failure, and the
- * axe gate cannot see it at any seed size — no rule under the four tags
- * `e2e/a11y.spec.ts` requests flags duplicate accessible names, and the only
- * adjacent rule (`identical-links-same-purpose`) is links-only and `wcag2aaa`.
- * The qualifier has to be written HERE, and the unit test rendering TWO tiles
- * is the only possible detector, in either layer — a one-tile fixture cannot
- * express a collision at any assertion count.
+ * ★★ THIS FILE IS AN ADAPTER, NOT A COMPONENT. Every landmine that used to live
+ * here now lives in `arrangement-tile.tsx` — the ★★ every-control's-name-is-
+ * qualified-with-the-title block (axe cannot see a regression, so a two-tile
+ * unit test is the only detector), the note that WCAG 2.5.3 does NOT bind on
+ * two glyph-only controls, and the `DragHandle` primitive's four-prop forwarding
+ * contract. Read them there before changing anything here.
  *
- * ★ WCAG 2.5.3 (label-in-name) does not apply to either control: both are
- * glyph-only, so neither has a VISIBLE label for the accessible name to
- * contain. Containing the tile title is a 2.4.6 disambiguator, not 2.5.3
- * conformance. (The plan's docstring claimed 2.5.3; it does not bind here.)
- *
- * ★★ THE GRIP IS THE SHARED `DragHandle` PRIMITIVE, and this paragraph used to
- * say the opposite: it recorded that `DragHandle` forwarded `draggable`/
- * `onDragStart`/`onMouseDown` ONLY, so it could carry neither `onDragEnd` nor
- * `onKeyDown` — both supplied by `useListReorderDnd` and both load-bearing (drag
- * cleanup; the arrow-key reorder path, the ONLY one that works without a mouse).
- * The primitive forwards all four now, so the grip spreads `handleProps` straight
- * onto it. ★ The visible glyph therefore changed from `⠿` to the primitive's ⋮,
- * and the element from a `<button>` to a `div role="button"` — the accessible
- * name, the tab stop and the focus-visible ring are unchanged.
+ * ★ The exported names are UNCHANGED on purpose — `dashboard-panel.tsx` and the
+ * Dashboard's own tests keep compiling and passing untouched. If a Dashboard
+ * test needs editing to accommodate a change here, the change is wrong.
  */
-export function DashboardTile({
-  id, title, w, h, lang, readOnly, dragProps, handleProps, onOpenMenu, menuButtonRef, children,
-}: {
-  id: DashboardTileId;
-  title: string;
-  w: TileSpan;
-  h: TileSpan;
-  lang: Lang;
-  readOnly: boolean;
-  dragProps: TileDragProps;
-  handleProps: TileHandleProps;
-  /** Receives the trigger itself, so the caller can anchor its popover on it. */
-  onOpenMenu: (anchor: HTMLElement) => void;
-  /** ★★ Registers the ⋮ trigger against this tile's ID, so the caller can find
-   *  it again LATER — after a move has closed the popover and re-rendered the
-   *  board. `onOpenMenu` cannot serve that: it hands over a node captured
-   *  before the reorder, and focusing a node the commit has replaced or
-   *  detached is a silent no-op. Called with `null` on unmount, so the caller's
-   *  map cannot accumulate detached nodes. */
-  menuButtonRef?: (el: HTMLButtonElement | null) => void;
-  children: ReactNode;
-}) {
-  const moveLabel = `${t(lang, "reorderHandle")} – ${title}`;
-  const menuLabel = `${t(lang, "actionMoreActions")} – ${title}`;
-  return (
-    <section
-      data-testid={`tile-${id}`}
-      aria-label={title}
-      className={`flex min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-surface ${W_CLASS[w]} ${H_CLASS[h]}`}
-      {...(readOnly ? {} : dragProps)}
-    >
-      <div className="flex items-center gap-1 border-b border-line px-1 py-1">
-        {!readOnly && (
-          <DragHandle
-            {...handleProps}
-            ariaLabel={moveLabel}
-            title={t(lang, "reorderHandle")}
-            // The tab stop, `select-none`, `print:hidden` and the focus-visible
-            // ring (deliberately not `FOCUS_RING` — a grip is held for the whole
-            // gesture, so a `focus:` ring would paint throughout it) are all the
-            // primitive's base. Only size/colour/cursor stay here.
-            className="cursor-grab touch-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground"
-          />
-        )}
-        <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-          {title}
-        </h3>
-        {!readOnly && (
-          <button
-            ref={menuButtonRef}
-            type="button"
-            aria-haspopup="menu"
-            aria-label={menuLabel}
-            title={t(lang, "actionMoreActions")}
-            onClick={(e) => onOpenMenu(e.currentTarget)}
-            className={`rounded px-1 py-0.5 text-xs text-muted-foreground hover:text-foreground print:hidden ${FOCUS_RING} ${TRANSITION}`}
-          >
-            ⋮
-          </button>
-        )}
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto p-2">{children}</div>
-    </section>
-  );
+import { ArrangementTile, type ArrangementTileProps } from "./arrangement-tile";
+import type { DashboardTileId } from "./dashboard-tiles";
+
+export type { TileDragProps, TileHandleProps } from "./arrangement-tile";
+
+/* ★ `testIdPrefix="tile"` IS THE COMPATIBILITY POINT OF THIS WHOLE FILE. The
+ * generic component builds `data-testid={`${testIdPrefix}-${id}`}`, so this one
+ * literal is what keeps every existing `data-testid="tile-raid"` query in
+ * `dashboard-grid.test.tsx`, `dashboard-panel.test.tsx` and the e2e specs
+ * resolving. Changing it is a breaking change wearing a rename's clothes.
+ *
+ * ★ The `id` intersection NARROWS rather than widens: `ArrangementTileProps.id`
+ * is `string` (the generic component cannot know a surface's union), and
+ * `& { id: DashboardTileId }` puts the Dashboard's own union back on the public
+ * signature, so a typo'd tile id is still a build error at the call site. */
+export function DashboardTile(
+  props: Omit<ArrangementTileProps, "testIdPrefix"> & { id: DashboardTileId },
+) {
+  return <ArrangementTile {...props} testIdPrefix="tile" />;
 }

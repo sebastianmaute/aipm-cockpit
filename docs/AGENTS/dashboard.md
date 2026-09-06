@@ -66,13 +66,25 @@ the tile does not land in. Drag comes from the shared `useListReorderDnd` primit
 commands are this surface's keyboard path (the primitive's own arrow-key option is off — `keyboard:
 false`).
 
-★★★ **`W_CLASS`/`H_CLASS` (`dashboard-grid.tsx`) MUST STAY WHOLE LITERAL STRINGS, AND NO UNIT TEST CAN
-SEE A VIOLATION.** Tailwind v4 builds its stylesheet by scanning source for class-name candidates, so an
+★★★ **`W_CLASS`/`H_CLASS` MUST STAY WHOLE LITERAL STRINGS, AND NO *RENDERED* ASSERTION CAN SEE A
+VIOLATION.** Tailwind v4 builds its stylesheet by scanning source for class-name candidates, so an
 interpolated `col-span-${w}` emits NO CSS and every tile silently renders one column wide. jsdom has no
-layout engine, so `dashboard-grid.test.tsx` can only assert that a class STRING was rendered, never that
-Tailwind emitted a rule for it. `e2e/dashboard-grid.spec.ts` is the ONLY detector in the repo — it reads
-computed geometry (`getComputedStyle` on the container, `getBoundingClientRect` on real tiles) and
-deliberately makes no class-string assertion at all.
+layout engine, so a rendered assertion can only say that a class STRING was produced, never that
+Tailwind emitted a rule for it — and the interpolated form produces a byte-identical string.
+
+★★★ **THEY LIVE IN `arrangement-grid.tsx` NOW, NOT `dashboard-grid.tsx`**, which is a thin adapter
+re-exporting them. Two claims here were wrong and are corrected together. The tables moved when the grid
+was extracted for Reports; and "NO UNIT TEST CAN SEE A VIOLATION" was false even before that, because a
+SOURCE SCAN can see exactly this — `arrangement-grid.test.tsx`'s "span class tables (source form)"
+describe reads the file back, strips comments and scans the two table bodies. It is the unit-layer
+detector, and it moved with the tables for a measured reason: under a
+`` 2: `col-span-1 lg:col-span-${2}` `` mutant it reports **1 failed / 9 passed**, while
+`dashboard-grid.test.tsx` reports **24 passed at exit 0** — a scan left pointed at the adapter would
+pass forever regardless of what the real tables did, while still reading as coverage.
+★ `e2e/dashboard-grid.spec.ts` remains the only detector of the *emitted CSS* — it reads computed
+geometry (`getComputedStyle` on the container, `getBoundingClientRect` on real tiles) and deliberately
+makes no class-string assertion at all. The two layers catch the same defect by different means; neither
+is redundant, and calling either one "the ONLY detector" is what went stale here.
 
 ★ **The responsive clamp lives ENTIRELY in the width table** — `W_CLASS`'s literal `lg:`/`xl:` variants
 plus the container's own `lg:grid-cols-2 xl:grid-cols-4`. No width measurement, no `ResizeObserver`, no
@@ -89,7 +101,8 @@ measurement of every tile at 64/72/80/88. `dashboard-density.ts`'s own test carr
 the two rejected alternatives — read it before moving either value.
 
 ★★★ **DO NOT READ A SCROLLBAR ON A COMPACT TILE AS A ROW-UNIT DEFECT.** The tile body is
-`min-h-0 flex-1 overflow-auto p-2` (`dashboard-tile.tsx`), so nothing ever clips or spills — over-tall
+`min-h-0 flex-1 overflow-auto p-2` (`arrangement-tile.tsx` since the chrome was extracted;
+`dashboard-tile.tsx` is a thin adapter), so nothing ever clips or spills — over-tall
 content becomes an inner scroll container. And **6 of 9 rendering tiles already overflow at the
 shipped comfortable/80** (measured, default catalogue board, 1600px, e2e seed: `burn` 507px over,
 `insights` 239, `upcoming` 133). Inner scrolling is this design's normal mode, not something compact
@@ -159,8 +172,9 @@ returns 10 against 11 keys (measured 2026-08-15). It is KEPT as the other half o
 — a body that turns conditional without its gate following would otherwise render empty tile chrome —
 but NOTHING enforces the redundancy, so a new tile still has to get its gate right.
 
-★★ **THE TILE CHROME OWNS THE FRAME AND THE TITLE** — `dashboard-tile.tsx` draws the bordered
-`<section>` and renders the `<h3>` — so a body in `dashboard-tile-bodies.tsx` must be UNBOXED and
+★★ **THE TILE CHROME OWNS THE FRAME AND THE TITLE** — `arrangement-tile.tsx` draws the bordered
+`<section>` and renders the `<h3>` (`dashboard-tile.tsx` is now a thin adapter that only binds
+`testIdPrefix="tile"` and the Dashboard's id union) — so a body in `dashboard-tile-bodies.tsx` must be UNBOXED and
 UN-TITLED, or it stacks two borders and two identical headings. The catalogue's `labelKey`s were chosen
 to match the headings these cards used to carry themselves. ★★ THE TEST IS THE TEXT, NOT THE COMPONENT:
 `RaidRegisterCard` keeps its `Section` heading because "Top open RAID" DIFFERS from its chrome title

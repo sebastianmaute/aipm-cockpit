@@ -8,9 +8,13 @@
  * in here knows which surface it is serving", which is true of the code and
  * false of the types:
  *   1. `BlockSpan` is `1|2|3|4` — a FOUR-COLUMN grid, baked in as a closed
- *      union. It is the Dashboard's `xl:grid-cols-4` (`dashboard-grid.tsx`)
- *      hardened into a type. A surface wanting 6 columns cannot express it
- *      here; widening the union is a change to every binding at once, so cost
+ *      union. It is `xl:grid-cols-4` hardened into a type. ★ That class used to
+ *      be the DASHBOARD's, in `dashboard-grid.tsx`; it is now the shared
+ *      `ArrangementGrid`'s (`arrangement-grid.tsx`), so this is no longer one
+ *      surface's assumption leaking into the engine — the grid, this union and
+ *      `W_CLASS`'s clamp are three spellings of the same four columns and move
+ *      together. A surface wanting 6 columns cannot express it here; widening
+ *      the union is a change to all three and to every binding at once, so cost
  *      it as one rather than treating it as local.
  *   2. `defaultLayout` places EVERY catalogue member on the board, and
  *      `reconcile` step 2 re-inserts every absent one. So a block cannot be

@@ -13,10 +13,13 @@ import { useEffect, useState } from "react";
  *  pane. The docstring on `document-editor.tsx` claimed pane width for a
  *  viewport query for the whole of the S3b slice.
  *
- * ★★★ THIS IS THE REPO'S FIRST ResizeObserver. `dashboard-grid.tsx` mentions
- *  one only to say it deliberately has none (its responsive clamp is pure
- *  Tailwind), so there is no in-repo shape to copy and both guards below had
- *  to be reasoned rather than inherited:
+ * ★★★ THIS IS THE REPO'S FIRST ResizeObserver. The only other mention is
+ *  `arrangement-grid.tsx`'s, which exists only to say that grid deliberately
+ *  has none (its responsive clamp is pure Tailwind) — so there is no in-repo
+ *  shape to copy and both guards below had to be reasoned rather than
+ *  inherited. ★ That mention was in `dashboard-grid.tsx` until the grid was
+ *  extracted for Reports; re-derive rather than trusting the file name here:
+ *  `grep -rn "ResizeObserver" src/app --include=*.ts --include=*.tsx | grep -v test`
  *
  *  1. FEATURE GUARD. jsdom provides no `ResizeObserver` and `vitest.setup.ts`
  *     installs no polyfill, so an unguarded `new ResizeObserver(...)` throws in

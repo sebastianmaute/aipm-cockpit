@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+// ★ `node:fs` / `node:path` were imported ONLY by the source-form scan that moved
+// to `arrangement-grid.test.tsx`. Dropping them is part of that one move, not a
+// second edit: `@typescript-eslint/no-unused-vars` is severity 1 and CI runs
+// `--max-warnings=0`, so leaving them behind would fail the lint gate outright.
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { H_CLASS, W_CLASS } from "./dashboard-grid";
 import { DashboardTile } from "./dashboard-tile";
@@ -32,59 +34,24 @@ describe("span class tables", () => {
 });
 
 /**
- * The SOURCE FORM of the two span tables — the one property no runtime
- * assertion can reach.
+ * ★★★ THE SOURCE-FORM SCAN MOVED TO `arrangement-grid.test.tsx`. It is the ONE
+ * sanctioned exception to Phase F's "every Dashboard test passes unmodified"
+ * rule — moved, not deleted, and it is the only block in this file that changed.
  *
- * ★★★ TAILWIND v4 SCANS SOURCE, NOT VALUES. An interpolated `col-span-${w}`
- * emits no CSS, so every tile falls back to one implicit column — and because
- * the resulting STRING is identical, every runtime assertion above stays green
- * and jsdom has no layout to notice. Reading the file back and scanning the
- * table bodies is the only unit-layer detector; `e2e/dashboard-grid.spec.ts`
- * catches the same defect one layer down, by measuring the geometry.
+ * It was the only test here asserting on the BYTES OF A FILE AT A PATH rather
+ * than on behaviour through an API: it required the literal text
+ * `export const W_CLASS` and a matching object literal inside the file it read.
+ * When the two span tables moved to `arrangement-grid.tsx`, no re-export form
+ * could satisfy that, so the usual "fix the adapter, never the test" remedy was
+ * unreachable by construction. Leaving it pointed at `dashboard-grid.tsx` would
+ * have been worse than deleting it: the property it guards is that TAILWIND SEES
+ * WHOLE LITERAL STRINGS IN SOURCE, and a scan of the adapter would pass forever
+ * regardless of what the real tables did, while still reading as coverage.
  *
- * Same pattern as the DOM-free guards in `rich-text-plain.test.ts` and
- * `document-model.test.ts`: strip comments first, then scan CODE. ★ The strip
- * is needed because of the file being SCANNED, not this one: the scan reads
- * `dashboard-grid.tsx`, whose own header warns against `col-span-${w}` — once,
- * in prose (`grep -c 'col-span-\${w}' src/app/dashboard-grid.tsx`). An
- * unstripped scan would fail against perfectly correct source. An earlier
- * revision of this docstring blamed "this file's own docstring", which is a
- * different file and a different count, and would leave anyone verifying the
- * claim measuring the wrong thing.
+ * The runtime assertions above STAY here — they exercise the re-exported tables
+ * through this module's public surface, which is exactly what an adapter test
+ * should do. Everything else in this file is untouched.
  */
-describe("span class tables (source form)", () => {
-  const code = readFileSync(join(import.meta.dirname, "dashboard-grid.tsx"), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/.*$/gm, "");
-
-  it("strips comments before scanning", () => {
-    // ★ Not ceremony: `dashboard-grid.tsx`'s own header warns against
-    // `col-span-${w}` in prose. Without the strip every assertion below would
-    // fail on correct code — and a scan tuned to pass ANYWAY would be blind.
-    expect(code).not.toContain("col-span-${w}");
-    expect(code).toMatch(/export const W_CLASS/);
-    expect(code).toMatch(/export const H_CLASS/);
-  });
-
-  /** The `{...}` body of one exported table, from the stripped source. */
-  const tableBody = (name: string): string => {
-    const m = code.match(new RegExp(`export const ${name}[^=]*=\\s*\\{([^}]*)\\}`));
-    expect(m, `${name} is not an object literal in the source`).not.toBeNull();
-    return m![1];
-  };
-
-  for (const name of ["W_CLASS", "H_CLASS"]) {
-    it(`holds ${name} as whole double-quoted literals, never a template`, () => {
-      const body = tableBody(name);
-      expect(body).not.toContain("${");
-      expect(body).not.toContain("`");
-      const values = [...body.matchAll(/^\s*\d\s*:\s*(.+?),\s*$/gm)].map((m) => m[1]);
-      expect(values).toHaveLength(4);          // one per TileSpan; a miss means the regex drifted
-      // Only class characters between the quotes — an interpolation cannot pass.
-      for (const v of values) expect(v).toMatch(/^"[a-z0-9:\- ]+"$/);
-    });
-  }
-});
 
 function twoTiles(readOnly = false) {
   return render(

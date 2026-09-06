@@ -1654,7 +1654,38 @@ git commit --only docs/open-followups.md -m "docs(followups): file the Reports a
 - [ ] `npx tsc --noEmit` exits 0; `npx eslint --max-warnings=0 src/app` exits 0.
 - [ ] `size:check`, `dup:check`, `docs:symbols:check`, `docs:claims:check`, `followups:status:check` all exit 0.
 - [ ] **`git diff origin/main --stat -- src/app/dashboard-panel.tsx` is EMPTY.** This plan never edits it.
-- [ ] Every Dashboard test file is unmodified: `git diff origin/main --stat -- 'src/app/dashboard-*.test.*' 'src/app/use-dashboard-layout.test.tsx'` is empty.
+- [ ] Every Dashboard test file is unmodified **except the one sanctioned exception below**. ★★★ DO NOT
+  USE THE QUOTED-GLOB FORM THIS LINE USED TO CARRY — `git diff origin/main --stat --
+  'src/app/dashboard-*.test.*' 'src/app/use-dashboard-layout.test.tsx'` is VACUOUS: measured,
+  `git ls-tree -r --name-only origin/main -- 'src/app/dashboard-*.test.*'` matches **0** files, so that
+  diff compares two empty sets and exits 0 whatever anyone did. The check that was supposed to catch the
+  exception below could never have caught anything. Use a DERIVED list:
+  ```
+  FILES=$(git ls-tree -r --name-only origin/main | grep dashboard | grep -E '\.(test|spec)\.(ts|tsx)$')
+  echo "$FILES" | wc -l                                   # 27 — state it
+  git diff origin/main --stat -- $FILES                    # expect ONLY dashboard-grid.test.tsx
+  ```
+  Pair it with a POSITIVE CONTROL (the same command over a file the branch did change must report a
+  non-empty diff); an absence check with no positive observable proves nothing.
+- [ ] **THE ONE SANCTIONED EXCEPTION, authorised in Task 7 and scoped to exactly this:** the
+  `describe("span class tables (source form)")` block — three assertions — was **MOVED, not deleted**,
+  from `src/app/dashboard-grid.test.tsx` to `src/app/arrangement-grid.test.tsx`, with its `readFileSync`
+  repointed at `arrangement-grid.tsx` and its behaviour otherwise unchanged. The two now-unused
+  `node:fs` / `node:path` imports were dropped with it, because `@typescript-eslint/no-unused-vars` under
+  `--max-warnings=0` would otherwise fail the lint gate. No other Dashboard test file is edited, and the
+  other 24 assertions in that file are untouched.
+  **Why the rule did not apply:** it is the only test in the extraction that asserts on the BYTES OF A
+  FILE AT A PATH rather than on behaviour through an API — it requires the literal text
+  `export const W_CLASS` and a matching object literal inside the file it reads, which no re-export form
+  can provide. So "fix the adapter, never the test" was unreachable by construction. Leaving it pointed
+  at the adapter would have been worse than deleting it: the property it guards is that Tailwind sees
+  whole literal strings in SOURCE, and those strings are now in `arrangement-grid.tsx`, so a scan of
+  `dashboard-grid.tsx` would pass forever regardless of what the real tables did while still reading as
+  coverage. Measured under a `` 2: `col-span-1 lg:col-span-${2}` `` mutant: the relocated scan reports
+  1 failed / 9 passed, and `dashboard-grid.test.tsx` reports 24 passed at exit 0.
+  **The rule itself is unchanged — "fix the adapter, never the test."** This is the single recorded case
+  where the test was coupled to a path rather than to an API, and it is not a precedent for editing a
+  Dashboard test that fails on BEHAVIOUR.
 - [ ] Axe green on Reports and Dashboard at `--workers=1` on a fresh `PORT=3100` server.
 - [ ] `git ls-files --eol` reports `i/lf w/crlf` for every touched `src/app` file and `i/lf w/lf` for `docs/open-followups.md`.
 - [ ] `git status --short` shows only `M sample-workspace-huge.json` and `?? not-in-use.env.local.bak` — neither ever staged.
