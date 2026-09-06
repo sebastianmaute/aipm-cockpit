@@ -110,26 +110,31 @@ describe("dropUnacceptedMilestoneFields", () => {
     }
   });
 
-  describe("description — measured, deliberately NOT guarded", () => {
-    it("is cleared by a non-string, exactly like achievedDate", () => {
-      // ★★ This is the same drop-key shape: `sanitizeRichText` returns "" for a
-      //  boolean, so `if (description)` omits the key and the stored rich text
-      //  is lost. It is NOT in the guard table, and that is a decision, not an
-      //  oversight — see the sibling assertion below.
+  describe("description — guarded, with its preview half (§398)", () => {
+    it("is cleared by a non-string when the guard does not run", () => {
+      // ★★ The defect itself, pinned so the guard's value stays OBSERVABLE
+      //  rather than merely asserted. Same drop-key shape as `achievedDate`:
+      //  `sanitizeRichText` returns "" for a boolean, so `if (description)`
+      //  omits the key and the rebuilt record loses the stored rich text. This
+      //  calls the sanitizer DIRECTLY — which is what the merge site would do
+      //  if the guard below were removed.
       const merged = sanitizeMilestone({ ...BASE, description: "<p>hi</p>", id: BASE.id });
       expect(merged?.description).toBe("<p>hi</p>");
       const wiped = sanitizeMilestone({ ...BASE, description: true, id: BASE.id });
       expect(wiped?.description).toBeUndefined();
     });
 
-    it("is left alone by the guard, so the preview and the write cannot disagree", () => {
-      // ★★★ WHY NOT GUARDED: `description` is a RICH field, and the preview
-      //  does not refuse a non-string for it — it projects one. Guarding here
-      //  would make the write keep a value the card says is changing, which is
-      //  this slice's own defect pointing the other way. Closing it needs a
-      //  coordinated change on BOTH sides and is filed, not patched.
-      const guarded = dropUnacceptedMilestoneFields({ description: true });
-      expect("description" in guarded).toBe(true);
+    it("leaves a stored description alone when the patch value is not a string", () => {
+      // ★★★ THIS LANDED WITH ITS PREVIEW HALF, NEVER ALONE. Guarding here while
+      //  the card still PROJECTED a non-string would make the write keep a value
+      //  the card said was changing — this slice's own defect, pointing the other
+      //  way. `plan.test.ts`'s "refuses a non-string description instead of
+      //  projecting one" is the other half; deleting either re-opens §398.
+      const stored = { id: 1, name: "M", date: "2026-01-01", description: "<p>kept</p>" };
+      const patch = dropUnacceptedMilestoneFields({ description: true });
+      expect("description" in patch).toBe(false);
+      const merged = sanitizeMilestone({ ...stored, ...patch });
+      expect(merged!.description).toBe("<p>kept</p>");
     });
   });
 });

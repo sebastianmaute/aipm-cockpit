@@ -250,9 +250,28 @@ describe("delegate-never-restate: the change sanitizer and its merge-site guard"
     //  it would be worse than dropping it: the number would look authored.
     expect("scheduleImpactDays" in sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: true })!).toBe(false);
     expect("costImpact" in sanitizeChangeItem({ id: 1, title: "t", costImpact: true })!).toBe(false);
-    // ★ A NEGATIVE is dropped too, not clamped to 0 — repair covers precision
-    //  and the cap, never the floor, which is where `sanitizeAmount` puts it.
+    // ★ A NEGATIVE COST is dropped too, not clamped to 0 — `repairCostAmount`
+    //  covers precision and the cap, never the floor, which is where
+    //  `sanitizeAmount` puts it.
     expect("costImpact" in sanitizeChangeItem({ id: 1, title: "t", costImpact: -5 })!).toBe(false);
+    // ★★★ THAT IS NOT A SYMMETRY ACROSS THE TWO AMOUNTS, and an earlier wording
+    //  of this comment asserted one ("A NEGATIVE is dropped too", unqualified).
+    //  It holds for `costImpact`, whose predicate has an explicit `n < 0`. It is
+    //  FALSE for `scheduleImpactDays` over [-0.5, 0]: `repairScheduleDays` is
+    //  `Math.round`, which returns `-0` there (JS rounds .5 toward +∞), and
+    //  `Number.isInteger(-0)` and `-0 >= 0` are both true — so it is ACCEPTED
+    //  and stored. The stored `-0` is harmless (it normalises to 0 on the next
+    //  save) and rounding a near-zero negative to zero is arguably the right
+    //  repair. The defect was the JUSTIFICATION, which claimed a floor rule the
+    //  two fields do not share. Measured, not reasoned — these two probes are
+    //  the measurement.
+    const nearZero = sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.4 })!;
+    expect(Object.is(nearZero.scheduleImpactDays, -0)).toBe(true);
+    const halfDown = sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.5 })!;
+    expect(Object.is(halfDown.scheduleImpactDays, -0)).toBe(true);
+    // ★ The interval really is closed at BOTH ends — one step further out
+    //  rounds to -1 and the floor rejects it, so the acceptance is bounded.
+    expect("scheduleImpactDays" in sanitizeChangeItem({ id: 1, title: "t", scheduleImpactDays: -0.6 })!).toBe(false);
   });
 });
 

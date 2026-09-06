@@ -120,6 +120,26 @@ export interface EntityDescriptor {
    *  here. That is §405's rule reaching the preview: one function, consulted by
    *  the card and by the write. */
   numericFields: Record<string, (v: unknown) => boolean>;
+  /** Fields whose model value must be a STRING to be previewable at all. A
+   *  non-string is REFUSED rather than projected, because the writer's
+   *  `sanitizeRichText` drops the key and the merge-site guard now keeps the
+   *  stored value — so projecting one would promise a change that will not
+   *  happen (§398).
+   *
+   *  ★★ IT REFUSES THE RENDERED-CLEAR SHAPES TOO (`null`, `[]`), and that is
+   *  the opposite of `dateFields`, where the preview discloses those AS a clear
+   *  and `acceptsPatchDate` carves them out on the writer side to match. The
+   *  two sides agree either way; what differs is WHICH way. Do not import the
+   *  date rule's carve-out here — it would put the card back to promising a
+   *  clear the milestone guard declines.
+   *
+   *  ★ Scoped to `milestone.description` today because that is what §398 filed.
+   *  The other six rich fields (`RICH_FIELDS` in plan.ts) live on raid and
+   *  change, whose writers use `dropUnacceptedRaidFields` /
+   *  `dropUnacceptedChangeFields`; whether they share this shape is a separate
+   *  question and a separate register entry. Do not widen this set on the
+   *  strength of the field being rich. */
+  stringOnlyFields: Set<string>;
   /** Enum fields → the valid-set resolver (constant for most; category-scoped for RAID status). */
   enumFields: Record<string, EnumResolver>;
   /** For an enum field whose valid-set depends on ANOTHER field (RAID status
@@ -275,6 +295,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  wrong one (it means "the writer throws", which is not what happens).
     dateFields: new Set(["dueDate", "lastUpdateDate"]),
     numericFields: {},
+    stringOnlyFields: new Set(),
     enumFields: { status: constSet(TASK_STATUSES), priority: constSet(PRIORITIES) },
     // ★ The ONLY member across all six entities: `buildTaskCleanPatch` throws
     //   on a malformed address, and the throw fails the whole patch.
@@ -309,6 +330,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // ★ `acceptsRiskScale` ignores its `category` argument — the [1,5] scale is
     //  the same for every RAID category — so any member closes the signature.
     numericFields: { probability: (v) => acceptsRiskScale(v, "R"), impact: (v) => acceptsRiskScale(v, "R") },
+    stringOnlyFields: new Set(),
     enumFields: { category: constSet(RAID_CATEGORIES), severity: constSet(RAID_SEVERITIES), status: raidStatusResolver },
     enumDefaultFor: (field, item) => (field === "status" ? raidStatusDefault(raidCategoryOf(item)) : undefined),
     emailFormatFields: new Set(),
@@ -337,6 +359,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmptyGroups: [],
     dateFields: new Set(["raisedDate", "decisionDate"]),
     numericFields: { scheduleImpactDays: acceptsScheduleDays, costImpact: acceptsCostAmount },
+    stringOnlyFields: new Set(),
     enumFields: { type: constSet(CHANGE_TYPES), status: constSet(CHANGE_STATUSES), impact: constSet(CHANGE_IMPACT_LEVELS) },
     emailFormatFields: new Set(),
     arrayFields: new Set(),
@@ -363,6 +386,10 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmptyGroups: [],
     dateFields: new Set(["date", "achievedDate"]),
     numericFields: {},
+    // ★★ THE ONLY POPULATED SET ACROSS THESE SIX, and it is half of a pair —
+    //  `MILESTONE_FIELD_GUARDS.description` (sanitize-records.ts) is the other.
+    //  Removing either re-opens §398 in the direction the surviving half points.
+    stringOnlyFields: new Set(["description"]),
     enumFields: {},
     emailFormatFields: new Set(),
     arrayFields: new Set(),
@@ -386,6 +413,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmptyGroups: [],
     dateFields: new Set(),
     numericFields: {},
+    stringOnlyFields: new Set(),
     enumFields: { category: constSet(STAKEHOLDER_CATEGORIES), influence: constSet(INFLUENCE_INTEREST_LEVELS), interest: constSet(INFLUENCE_INTEREST_LEVELS) },
     emailFormatFields: new Set(),
     arrayFields: new Set(),
@@ -449,6 +477,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // (see above) — and it is "MM-DD", which sanitizeIsoDate would reject anyway.
     dateFields: new Set(),
     numericFields: {},
+    stringOnlyFields: new Set(),
     enumFields: {},
     emailFormatFields: new Set(),
     arrayFields: new Set(),

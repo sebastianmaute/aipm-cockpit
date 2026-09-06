@@ -205,9 +205,15 @@ describe("describeEntityCalls — change amount precision (399)", () => {
   const dc = INLINE_DESCRIPTORS.change;
 
   it("previews a two-decimal cost as an accepted change, matching the write", () => {
-    // The PREVIEW is the side that loosens here: `costImpact` is clamped by
-    // `describeClamp(..., { round: 2 })` in `change-edit-modal.tsx`, so two
-    // decimals are exactly what a person can type and what the writer stores.
+    // The PREVIEW is the side that loosens here — AGAINST §399 AS FILED, which
+    // is the only baseline that framing is true against. Against the code the
+    // §399 commit actually edited (parent `3df2e4d0`, where both predicates were
+    // `Number.isFinite(n) && n >= 0` on BOTH sides) cost TIGHTENED, gaining a cap
+    // and a precision rule days never had. `acceptsCostAmount`'s docstring in
+    // `sanitize-records.ts` carries the full correction and why the unbaselined
+    // wording hid a real load-side exposure. What is true either way: `costImpact`
+    // is clamped by `describeClamp(..., { round: 2 })` in `change-edit-modal.tsx`,
+    // so two decimals are exactly what a person can type and what the writer stores.
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_change", input: { id: 1, costImpact: 1500.5 } }],
       { descriptor: dc, item: changeItem, ws: wsC },
@@ -247,8 +253,13 @@ describe("describeEntityCalls — change amount precision (399)", () => {
 
   it("rejects a fractional schedule-impact day, which the writer no longer stores", () => {
     // The WRITER is the side that tightens here — the opposite direction from
-    // the cost rule above, which is why one shared "amounts are integers" rule
-    // could not express both.
+    // the cost rule above ONLY against §399 AS FILED (see the baseline note on
+    // that test). Against the code the §399 commit edited, cost tightened
+    // exactly as days did, so "the two move in opposite directions" is a
+    // property of the register entry, not of the change. What survives either
+    // baseline, and is the point of this test: the two amounts do not share a
+    // rule, so one "amounts are integers" predicate could never express both —
+    // days are integral, money is two-decimal and capped.
     const plan = describeEntityCalls(
       [{ type: "tool_use", name: "update_change", input: { id: 1, scheduleImpactDays: 1.5 } }],
       { descriptor: dc, item: changeItem, ws: wsC },
@@ -371,6 +382,27 @@ describe("describeEntityCalls — milestone required field", () => {
       { descriptor: INLINE_DESCRIPTORS.milestone, item: m, ws: ws2 },
     );
     expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
+  });
+
+  it("refuses a non-string description instead of projecting one", () => {
+    // ★★★ THE PREVIEW HALF OF §398, AND IT LANDED WITH THE WRITER'S GUARD.
+    //  `milestone.description` is RICH, so it has no `fieldSanitizers` entry
+    //  (its apply-path sanitizer needs a DOM) and no `numberFields` membership —
+    //  `after` is therefore the verbatim `str(true)`, "true", which `forPreview`
+    //  would have projected as the new text. The write now DROPS the key
+    //  (`dropUnacceptedMilestoneFields`) and keeps the stored rich text, so
+    //  projecting one would promise a change that never happens.
+    //  ★ The `detail` carries the RENDERED value, like every other rejection
+    //  here — it is what the reader would otherwise have been shown.
+    const withDesc = { ...m, description: "<p>kept</p>" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_milestone", input: { id: 3, description: true } }],
+      { descriptor: INLINE_DESCRIPTORS.milestone, item: withDesc, ws: wsWith({ milestones: [withDesc] as never }) },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([
+      { toolName: "update_milestone", reason: "bad-input", detail: "description=true" },
+    ]);
   });
 });
 

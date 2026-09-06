@@ -134,11 +134,6 @@ type MilestoneFieldGuard = (value: unknown) => boolean;
  *    so a garbage value stores `[]`. The preview models that exact function and
  *    shows the emptying, so the two already agree; guarding it would make the
  *    card promise a clear the write no longer performs.
- *  • `description` — a RICH field. It has the same drop-key shape (a non-string
- *    clears it), but the preview PROJECTS a non-string rather than refusing it,
- *    so guarding it here would create this slice's own defect pointing the other
- *    way. Closing it needs a coordinated change on both sides; filed, not
- *    patched. Pinned in `sanitize-milestone-patch.test.ts`.
  *  • `localModifiedAt` / `outlookEventId` — unreachable because `patchWithoutId`
  *    STRIPS them (`TOKEN_EXCLUDED.milestone`), NOT because they are absent from
  *    `milestoneFields`. ★★ Corrected in cold review: `patchWithoutId` has no
@@ -164,6 +159,26 @@ const MILESTONE_FIELD_GUARDS: Readonly<Record<string, MilestoneFieldGuard>> = {
   //  independent rules that happen to agree: they share one leg on purpose,
   //  and the guard is wider only by the clear carve-out layered on top of it.
   achievedDate: acceptsPatchDate,
+  // ★★ ADDED WITH ITS PREVIEW HALF, NEVER ALONE. `sanitizeRichText` returns ""
+  //  for a non-string and `if (description)` then omits the key, so the rebuilt
+  //  record LOSES the stored rich text. This was deliberately left out of the
+  //  first cut of this table because the preview PROJECTED a non-string rather
+  //  than refusing it, and guarding only here would have made the write keep a
+  //  value the card said was changing — this slice's own defect, pointing the
+  //  other way (§398). The preview refusal lands in the same commit:
+  //  `stringOnlyFields` on the milestone descriptor, checked in `plan.ts`.
+  // ★★ NO CLEAR CARVE-OUT, unlike `acceptsPatchDate` above, and that asymmetry
+  //  is what keeps the two sides in step rather than a gap in this predicate.
+  //  `acceptsPatchDate` needs one because the preview shows null/""/[] as a
+  //  DISCLOSED CLEAR for a date, so refusing them there would leave the card
+  //  promising a clear the write declines. Here the preview refuses every
+  //  non-string outright (`stringOnlyFields`), so null and [] are REFUSED on
+  //  both sides and nothing is promised. `""` is the one clear that survives:
+  //  it IS a string, so it passes here and reaches `if (description)`, which
+  //  omits the key — and the card renders `str("")` as "" and discloses the
+  //  same clear. Every input therefore lands the same way on both sides; adding
+  //  a carve-out for null/[] would BREAK that, not extend it.
+  description: (v) => typeof v === "string",
 };
 
 export function dropUnacceptedMilestoneFields<T extends object>(patch: T): T {
