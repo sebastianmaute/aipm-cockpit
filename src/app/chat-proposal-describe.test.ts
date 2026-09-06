@@ -261,8 +261,40 @@ describe("describeProposal", () => {
       expect(rows).toHaveLength(1);
       expect(rows[0].plan.rejected).toEqual([]);
       expect(rows[0].plan.links).toEqual([
-        { field: "C dependencies", before: "A (FS), B (FS)", after: "A (FS)", rawIds: [1] },
+        // The task's name is `subject`, not part of the label — §406, and the
+        // test two blocks down pins why.
+        { field: "dependencies", subject: "C", before: "A (FS), B (FS)", after: "A (FS)", rawIds: [1] },
       ]);
+    });
+
+    // §406 — the label used to be the built string `${title} dependencies`, and
+    // `fieldLabel(lang, undefined, field)` passes an entity-less row's field
+    // through VERBATIM, so a German user read "C dependencies" while every
+    // other label on that surface was translated. This module is i18n-free by
+    // construction and takes no `lang`, so it emits the PARTS and the renderer
+    // composes and translates them. The DE half is pinned where the composition
+    // happens — `chat-proposal-block.test.tsx`.
+    test("emits a structured dependency label rather than an English string", () => {
+      const rows = describeProposal(
+        [call("set_task_dependencies", { id: 3, dependencies: [{ taskId: 1, type: "FS" }] })],
+        depWs,
+      );
+      expect(rows[0].plan.links[0].field).toBe("dependencies");
+      expect(rows[0].plan.links[0].subject).toBe("C");
+    });
+
+    // The untitled fallback moved WITH the name: it identifies the row, so it
+    // belongs to `subject`. Folding it into `field` instead would send `#3` to
+    // `fieldLabel`, which would miss both maps and render the marker as the
+    // field's own name.
+    test("puts the id marker in the subject when the task has no name", () => {
+      const untitled = { ...task3, taskName: "  ", dependencies: [] };
+      const rows = describeProposal(
+        [call("set_task_dependencies", { id: 3, dependencies: [{ taskId: 1, type: "FS" }] })],
+        { ...ws, tasks: [task1, task2, untitled] } as unknown as Workspace,
+      );
+      expect(rows[0].plan.links[0].subject).toBe("#3");
+      expect(rows[0].plan.links[0].field).toBe("dependencies");
     });
 
     // The writer keys a link on the (taskId, type) PAIR, so this IS a drop plus
@@ -543,7 +575,7 @@ describe("TOOL_ENTITY", () => {
     expect(allTasks.plan).toEqual(empty);
     expect(inquiry.plan).toEqual(empty);
     expect(deps.plan.links).toEqual([
-      { field: "A dependencies", before: "", after: "B (FS)", rawIds: [2] },
+      { field: "dependencies", subject: "A", before: "", after: "B (FS)", rawIds: [2] },
     ]);
   });
 });

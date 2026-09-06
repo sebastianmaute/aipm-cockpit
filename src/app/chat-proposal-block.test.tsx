@@ -5,6 +5,7 @@ import { ChatProposalBlock, proposalRowTitle, type ProposalCardRow } from "./cha
 import type { EditPlan } from "./inline-ai-edit/plan";
 import type { ProposedCall } from "./chat-proposal";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { loadI18n, t } from "./i18n";
 
 const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
 
@@ -300,6 +301,58 @@ describe("ChatProposalBlock", () => {
     expect(screen.getByText(/Draft brief, Review/)).toBeInTheDocument();
     expect(screen.getByText(/Ship/)).toBeInTheDocument();
     expect(screen.getByText("Not applied: targetDate=nope")).toBeInTheDocument();
+  });
+
+  // §406 — the describer built `${title} dependencies` and it reached this card
+  // verbatim, because `set_task_dependencies` is absent from `TOOL_ENTITY` by
+  // design and `fieldLabel` passes an entity-less row's field through unchanged.
+  // A German user read "C dependencies". The subject is DATA on the diff now and
+  // the card composes it around a TRANSLATED field label.
+  it("composes a link subject around a translated field label", async () => {
+    // The DE dictionary is lazy — a DE assertion without this reads the EN
+    // fallback and passes for the wrong reason.
+    await loadI18n("de");
+    const de = t("de", "dependencies");
+    // Proves the load above really happened: without it this key falls back to
+    // the EN string, which is the raw field name the fix is removing.
+    expect(de).not.toBe("dependencies");
+    renderCard(
+      [
+        row({
+          index: 0,
+          title: "set_task_dependencies",
+          call: { name: "set_task_dependencies", input: { id: 3 } },
+          plan: {
+            ...emptyPlan(),
+            links: [
+              { field: "dependencies", subject: "C", before: "A (FS)", after: "B (SS)", rawIds: [2] },
+            ],
+          },
+        }),
+      ],
+      { lang: "de" },
+    );
+    expect(screen.getByText(`C – ${de}`)).toBeInTheDocument();
+    expect(screen.queryByText("C dependencies")).not.toBeInTheDocument();
+  });
+
+  // A diff with no subject keeps the bare label — the subject exists for the one
+  // tool whose ROW TITLE cannot carry the task's name, and qualifying every link
+  // on a card that already names its row would read "Migrate database – Migrate
+  // database".
+  it("leaves a subject-less link label bare", () => {
+    renderCard([
+      row({
+        index: 0,
+        title: "Migrate database",
+        call: { name: "update_raid_item", input: { id: 7 } },
+        plan: {
+          ...emptyPlan(),
+          links: [{ field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] }],
+        },
+      }),
+    ]);
+    expect(screen.getByText("Linked tasks")).toBeInTheDocument();
   });
 
   // ★★ `isEmptyPlan` deliberately EXCLUDES `rejected` — a rejected call writes

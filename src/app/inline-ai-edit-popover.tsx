@@ -4,7 +4,7 @@ import { type Lang, t } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type EditPlan } from "./inline-ai-edit/plan";
 import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
-import { fieldLabel } from "./inline-ai-edit/field-labels";
+import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { type InlinePhase } from "./use-inline-ai-edit";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { useFocusTrap } from "./use-focus-trap";
@@ -151,7 +151,7 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
                   change is a silent destructive write. `before`/`after` are the
                   resolved TITLES, never `rawIds`; the `|| "—"` is load-bearing
                   because `after` is legitimately "" when every link is removed. */}
-              {plan.links.map((l, i) => (<li key={`l${i}-${l.field}`}><span className="font-medium">{fieldLabel(lang, entity, l.field)}</span>: {l.before || "—"} → {l.after || "—"}</li>))}
+              {plan.links.map((l, i) => (<li key={`l${i}-${l.field}`}><span className="font-medium">{linkLabel(lang, entity, l)}</span>: {l.before || "—"} → {l.after || "—"}</li>))}
               {plan.creates.map((c, i) => (<li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}</li>))}
               {plan.deletes.map((del, i) => (<li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>))}
               {/* ★★★ THE PARTS THAT WILL NOT LAND, and this surface is the one

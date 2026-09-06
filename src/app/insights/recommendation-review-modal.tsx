@@ -10,7 +10,7 @@ import { Modal } from "../modal";
 import { Button } from "../button";
 import { isEmptyPlan, type EditPlan } from "../inline-ai-edit/plan";
 import { type InlineEntity } from "../inline-ai-edit/entity-descriptor";
-import { fieldLabel } from "../inline-ai-edit/field-labels";
+import { fieldLabel, linkLabel } from "../inline-ai-edit/field-labels";
 
 export interface RecommendationReviewModalProps {
   lang: Lang;
@@ -61,7 +61,7 @@ export function RecommendationReviewModal({ lang, summary, plan, entity, onConfi
                   `after` is legitimately "" when every link is removed. */}
               {plan.links.map((l, i) => (
                 <li key={`l${i}-${l.field}`}>
-                  <span className="font-medium">{fieldLabel(lang, entity, l.field)}</span>: {l.before || "—"} →{" "}
+                  <span className="font-medium">{linkLabel(lang, entity, l)}</span>: {l.before || "—"} →{" "}
                   {l.after || "—"}
                 </li>
               ))}

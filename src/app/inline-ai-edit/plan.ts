@@ -74,8 +74,26 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *   titles. `rawIds` is already sanitized by THAT FIELD'S OWN writer rule
  *   (`sanitizeIdList` for raid/change, `sanitizeMilestoneTaskIds` for
  *   milestone — they differ on dedupe and on delimited strings), so what the
- *   preview shows and what the patch carries come from one computation. */
-export interface LinkDiff { field: string; before: string; after: string; rawIds: number[] }
+ *   preview shows and what the patch carries come from one computation.
+ *
+ *  ★★ `subject` NAMES THE ROW A FIELD BELONGS TO, for the one case where the
+ *   field label alone is ambiguous: `set_task_dependencies` rewrites one task's
+ *   whole predecessor list, and its ROW TITLE cannot carry the task's name
+ *   (`liveRowTitle` resolves a title only for a tool `TOOL_ENTITY` knows, and
+ *   that tool is absent from the map by design). It is DATA rather than a built
+ *   string because `chat-proposal-describe.ts` is i18n-free by construction, so
+ *   a label composed there reaches the card in English whatever the user's
+ *   language — the renderer composes and translates instead (§406).
+ *   ★ Leave it undefined on any surface whose row already names the row, or the
+ *   card reads "Migrate database – Migrate database". Nothing in
+ *   `buildEditPlan` sets it; only the hand-written dependency describer does. */
+export interface LinkDiff {
+  field: string;
+  subject?: string;
+  before: string;
+  after: string;
+  rawIds: number[];
+}
 export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: Deletion[]; rejected: Rejected[]; links: LinkDiff[] }
 
 // Any create_*/delete_* tool → its entity + workspace list key. Shared across

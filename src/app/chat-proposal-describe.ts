@@ -203,11 +203,18 @@ function renderDependencies(deps: readonly TaskDependency[], ws: Workspace): str
  *   the hook, so this preview drifts if it moves — pinned by "shows no change
  *   when every proposed link is refused".
  *
- *  ★★ THE TASK'S NAME RIDES THE `field` LABEL because the ROW TITLE cannot carry
- *   it: `liveRowTitle` resolves a title only for a tool `TOOL_ENTITY` knows, and
- *   this tool is deliberately absent from that map (see `DEPENDENCY_LINK`). The
- *   label is the only slot on the rendered line that survives to the card, and
- *   `fieldLabel` passes it through verbatim for an entity-less row.
+ *  ★★ THE TASK'S NAME RIDES THE DIFF'S `subject` because the ROW TITLE cannot
+ *   carry it: `liveRowTitle` resolves a title only for a tool `TOOL_ENTITY`
+ *   knows, and this tool is deliberately absent from that map (see
+ *   `DEPENDENCY_LINK`). The rendered line is the only slot that survives to the
+ *   card.
+ *   ★★★ IT IS A SEPARATE MEMBER RATHER THAN A BUILT `${title} dependencies`
+ *   LABEL, AND THAT IS THE WHOLE POINT (§406). This module is i18n-free by
+ *   construction and takes no `lang`, while `fieldLabel` passes an entity-less
+ *   row's field through VERBATIM — so a label assembled here reached the card
+ *   in English and a German user read "Kickoff vorbereiten dependencies" beside
+ *   translated labels. Emitting the PARTS lets the renderer compose and
+ *   translate. Do not fold them back together to save a member.
  *
  *  ★ `rawIds` is populated for shape consistency ONLY. This row is applied by
  *   REPLAYING the original tool input, so nothing reads it back — it must never
@@ -254,7 +261,8 @@ function describeDependencyCall(call: ProposedCall, ws: Workspace): EditPlan {
     applied.length === 0 && rejected.length > 0 && prior.length > 0 ? prior : applied;
   const title = String(target.taskName ?? "").trim();
   plan.links.push({
-    field: `${title !== "" ? title : `${UNKNOWN_ID_MARKER}${id}`} dependencies`,
+    field: "dependencies",
+    subject: title !== "" ? title : `${UNKNOWN_ID_MARKER}${id}`,
     before: renderDependencies(prior, ws),
     after: renderDependencies(after, ws),
     rawIds: after.map((dep) => dep.taskId),

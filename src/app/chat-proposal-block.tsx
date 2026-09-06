@@ -42,7 +42,7 @@ import type { ProposedCall } from "./chat-proposal";
 import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type EditPlan } from "./inline-ai-edit/plan";
 import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
-import { fieldLabel } from "./inline-ai-edit/field-labels";
+import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { TOOL_ENTITY } from "./chat-proposal-describe";
 
 /** Rows shown before the disclosure collapses the rest. */
@@ -154,7 +154,7 @@ function PlanDetail({
           nothing, which is the most destructive line this card can show. */}
       {plan.links.map((l, i) => (
         <li key={`l${i}-${l.field}`}>
-          <span className="font-medium text-foreground">{fieldLabel(lang, entity, l.field)}</span>:{" "}
+          <span className="font-medium text-foreground">{linkLabel(lang, entity, l)}</span>:{" "}
           {l.before || "—"} → {l.after || "—"}
         </li>
       ))}
