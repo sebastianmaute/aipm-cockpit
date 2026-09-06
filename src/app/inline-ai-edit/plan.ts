@@ -38,15 +38,21 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *   `[]` — wiping every link the row had.
  *
  *  ★★ WHAT THE TYPE SYSTEM DOES AND DOES NOT CATCH — measured with tsc, and
- *   BOTH earlier wordings of this paragraph were wrong in opposite directions.
- *   The first claimed the wipe was "unreachable by construction"; its
- *   correction over-swung to "the type system does not enforce this". Neither
- *   is right, because it depends on the SHAPE of the mistake:
+ *   THREE earlier wordings of this paragraph were wrong. The first claimed the
+ *   wipe was "unreachable by construction"; the second over-swung to "the type
+ *   system does not enforce this"; the third said the two types were MUTUALLY
+ *   assignable. None is right, because it depends on the SHAPE and the
+ *   DIRECTION of the mistake:
  *
- *   - Pushing an already-typed value into the wrong bucket COMPILES.
- *     `LinkDiff` and `FieldDiff` are mutually assignable (`raw` is optional),
- *     so `plan.updates.push(someLinkDiff)` and `plan.links.push(someFieldDiff)`
- *     are both accepted. A merge site copying the wrong array is this shape.
+ *   - Pushing an already-typed `LinkDiff` into `updates` COMPILES — `raw` is
+ *     optional, so a `LinkDiff` satisfies `FieldDiff`. A merge site copying
+ *     `links` into `updates` is this shape, and nothing stops it.
+ *   - The REVERSE does not: `plan.links.push(someFieldDiff)` is `TS2345`,
+ *     because `rawIds` is required. Measured with a standalone `--strict`
+ *     probe carrying a deliberate control error, so the run could not be
+ *     vacuous. The two types are ONE-directionally assignable, and stating it
+ *     as symmetric overstated the exposure in the safe direction while leaving
+ *     the real one sounding equally hypothetical.
  *   - Building a link diff INLINE into `updates` does NOT compile. Excess
  *     property checking on a fresh object literal rejects `rawIds` against
  *     `FieldDiff` — `TS2353`. Mutating the populator below from
@@ -257,6 +263,35 @@ export function describeEntityCalls(
       ) {
         input = { ...input, ...splitName(input.name) };
       }
+      // ★★★ THE SANITIZER'S OWN FALLBACK — a SECOND leg, and modelling it as a
+      //  suppression rather than a PROJECTION was a half-fix that shipped a
+      //  worse card than the bug it replaced.
+      //  `sanitizeResource` does not stop at the block above: after reading both
+      //  parts it runs `if (!firstName && !lastName && typeof input.name ===
+      //  "string") { …splitName… }` on the MERGED row. That fires precisely when
+      //  the block above does NOT — an explicit part was supplied as a string,
+      //  so the dispatcher's `renamed` is null and `name` reaches the sanitizer
+      //  raw.
+      //  Suppressing the rejection alone left the card saying `lastName: Bono →
+      //  ""` while the write stored "Something", with the `firstName` change
+      //  absent from the card entirely; and the inline consumer rebuilt
+      //  `{lastName: ""}`, which makes the sanitizer return null and the writer
+      //  THROW, costing the whole patch. Projecting instead puts both parts in
+      //  the diff, so all three consumers see what the writer will store.
+      //  ★ The parts are read through their own normalisers for the reason the
+      //  group guard below gives: `sanitizeAssignee` blanks a NON-STRING, so a
+      //  verbatim read would call `{firstName: 42}` populated and skip the leg
+      //  the writer is about to take.
+      if (d.entity === "resource" && typeof input.name === "string" && input.name.trim() !== "") {
+        const partOf = (m: string): string => {
+          const raw = m in input ? input[m] : item[m];
+          const norm = previewNormalizerFor(d, m);
+          return norm ? norm(raw) : str(raw);
+        };
+        if (partOf("firstName") === "" && partOf("lastName") === "") {
+          input = { ...input, ...splitName(input.name) };
+        }
+      }
       // Accepted diffs so far — used both to validate a category-scoped enum
       // (RAID status) against a CO-CHANGED category and to compute the effective
       // item for the induced-reset pass below. Only VALID values land here.
@@ -323,28 +358,15 @@ export function describeEntityCalls(
               const norm = previewNormalizerFor(d, m);
               return (norm ? norm(raw) : str(raw)) !== "";
             });
-            // ★★★ THE WRITER HAS A THIRD LEG, AND OMITTING IT MADE THIS GUARD
-            //  LIE — found in cold review, measured against the real functions.
-            //  `sanitizeResource` does NOT stop at the two parts: when both are
-            //  empty it falls back to `splitName(input.name)` BEFORE its
-            //  `if (!firstName && !lastName) return null`. The projection above
-            //  cannot cover this case, because it deliberately declines to
-            //  split when an explicit part is a string — mirroring the
-            //  dispatcher, whose `renamed` is null then and lets `name` reach
-            //  the sanitizer raw.
-            //  So `{lastName: "", name: "Cher Something"}` on a row with no
-            //  first name previewed `firstName+lastName=empty` while the write
-            //  RENAMED the row. On the two REPLAYING consumers that card is an
-            //  affirmatively false statement, not merely a silence — which is
-            //  strictly worse than the gap this slice set out to close.
-            //  ★ `splitName` is the writer's own function; the entity check
-            //  matches the projection above rather than introducing a new one.
-            const aliasRaw = "name" in input ? input.name : item.name;
-            const aliasSurvives =
-              d.entity === "resource" && typeof aliasRaw === "string"
-                ? Object.values(splitName(aliasRaw)).some((part) => part !== "")
-                : false;
-            if (!survives && !aliasSurvives) { bad(`${members.join("+")}=empty`); continue; }
+            // ★★ The sanitizer has a THIRD leg — a fallback that splits `name` when
+            //  both parts are empty — and it is modelled as a PROJECTION above,
+            //  not here. Suppressing the rejection at this point was the first
+            //  attempt and it was worse than the defect: the card then showed a
+            //  clear for a field the write repopulated, and hid the other half
+            //  of the rename entirely. Projecting means that by the time this
+            //  guard runs, a rescued rename has already put both parts in
+            //  `input`, so `survives` sees them and no special case is needed.
+            if (!survives) { bad(`${members.join("+")}=empty`); continue; }
           } else if (d.requiredNonEmpty.has(f)) { bad(`${f}=empty`); continue; }
         }
         // Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range

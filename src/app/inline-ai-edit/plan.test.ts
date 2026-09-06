@@ -853,6 +853,16 @@ describe("the writer's JOINT name rule (384)", () => {
       { descriptor: d, item: noFirst, ws },
     );
     expect(plan.rejected).toEqual([]);
+    // ★★★ ASSERTING ONLY `rejected` IS WHY THE HALF-FIX SHIPPED GREEN. The
+    //  first cut suppressed the rejection without projecting the split, so this
+    //  test passed while the card said `lastName: Bono → ""` — a clear the write
+    //  does not make — and omitted the firstName change altogether. A preview is
+    //  a promise about the WRITE, so assert what the card SHOWS, not merely what
+    //  it declines to refuse.
+    expect(plan.updates).toEqual([
+      { field: "firstName", before: "", after: "Cher", raw: "Cher" },
+      { field: "lastName", before: "Bono", after: "Something", raw: "Something" },
+    ]);
   });
 
   it("still rejects when the `name` fallback cannot rescue it either", () => {

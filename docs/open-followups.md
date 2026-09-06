@@ -29137,8 +29137,14 @@ by ~8 tests this slice deliberately left untouched.
 ## 406. The `set_task_dependencies` card label is hardcoded English — OPEN
 
 **Status:** OPEN. Filed 2026-09-06 by the cold review of the preview surfaces. Last executed
-verification 2026-09-06 — `grep -n "dependencies\`" src/app/chat-proposal-describe.ts` (one hit, the
-template literal building the `LinkDiff` field name).
+verification 2026-09-06 — `grep -n "dependencies\`" src/app/chat-proposal-describe.ts` returns SIX
+lines, of which exactly one (the template literal building the `LinkDiff` field name) is the label
+under discussion; the rest are prose in comments.
+
+★★ That parenthetical originally said "one hit", and the command beside it returned six — a reproduce
+refuting its own summary, which is the failure this register documents under "a reproduce beside a
+number can refute it". The CLAIM was true; the count was not. Corrected rather than dropped, because
+the number is what a reader checks first.
 
 The describer builds its label as `` `${title} dependencies` ``, which reaches the card through
 `fieldLabel(lang, undefined, field)` verbatim — so a German user sees "Kickoff vorbereiten

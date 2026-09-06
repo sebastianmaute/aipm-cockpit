@@ -373,6 +373,26 @@ const CASES: WriteCase[] = [
     expectStored: { category: "Sponsor", influence: "High" },
   },
   {
+    // ★★★ THE SANITIZER'S FALLBACK LEG — the case a fix-round review built to
+    // prove the first attempt at it was only half done. sanitizeResource
+    // splits `name` when BOTH parts are empty, which happens exactly when the
+    // dispatcher does NOT split, because an explicit part was supplied as a
+    // string. Suppressing the preview's rejection without PROJECTING the split
+    // left the card showing `lastName: Bono -> ""` while the write stored
+    // "Something", with the firstName change absent from the card entirely.
+    // Against that shape this case reds on "firstName changed with no preview
+    // line" — the branch's own differential catching its own half-fix.
+    name: "a name alias rescues a rename the parts alone would refuse",
+    tool: "update_resource",
+    entity: "resource",
+    kind: "resource",
+    wsKey: "resources",
+    id: 4,
+    seed: { resources: [seedResource({ firstName: "", lastName: "Bono" })] },
+    input: { id: 4, lastName: "", name: "Cher Something" },
+    expectStored: { firstName: "Cher", lastName: "Something" },
+  },
+  {
     // `raisedDate` is written UNCONDITIONALLY by the sanitizer
     // (`raisedDate: sanitizeIsoDate(o.raisedDate)`), so an unparseable value
     // blanked it to ""; `decisionDate` lost its key instead. ★★ The second half

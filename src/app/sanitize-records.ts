@@ -559,12 +559,26 @@ type StakeholderFieldGuard = (value: unknown) => boolean;
  *  a field the model never named. The card shows nothing, since the preview
  *  refuses the value and the two REPLAYING consumers resend it anyway.
  *
- *  ★ Only the three enums are guarded. `name` is required, so an unaccepted
- *  value makes the sanitizer return null and `updateStakeholder` throws — a
- *  refusal the user sees. `organization`/`title`/`email`/`notes` are drop-key
- *  text fields whose preview ALSO renders the clear (`sanitizeText` blanks a
- *  non-string and the preview shows ""), so those two already agree and
- *  guarding them would make the card promise a clear the write stops making. */
+ *  ★ Only the three enums are guarded, and they are the only fields this
+ *  sanitizer RESETS to a fallback; everything else drops or throws. `name` is
+ *  required, so an unaccepted value makes the sanitizer return null and
+ *  `updateStakeholder` throws — a refusal the user sees.
+ *  `organization`/`title`/`email`/`notes` are drop-key text fields whose preview
+ *  ALSO renders the clear (`sanitizeText` blanks a non-string and the preview
+ *  shows ""), so those two already agree and guarding them would make the card
+ *  promise a clear the write stops making.
+ *
+ *  ★★ THAT LIST COVERS THE TOOL-DECLARED FIELDS ONLY, and saying so is the
+ *  point: `raci`, `resourceId` and `knowledgeLinks` are REACHABLE and unguarded.
+ *  `patchWithoutId` has no whitelist — it strips `id`, `expectedToken` and
+ *  `TOKEN_EXCLUDED.stakeholder` (`localModifiedAt`) and forwards the rest — so a
+ *  patch carrying them lands, `raci` is overwritten unconditionally by
+ *  `coerceRaciMap` (junk wipes the map) and the other two drop on a refused
+ *  value. None is a `diffField` or a `linkField`, so the preview shows nothing
+ *  either way. Pre-existing and out of this guard's scope, recorded because the
+ *  milestone list one entity over made exactly this omission and had to be
+ *  corrected for it — an exclusion list that reads as exhaustive and is not is
+ *  the false assurance that stops the next audit. */
 const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> = {
   category: (v) => typeof v === "string" && STAKEHOLDER_CATEGORY_SET.has(v),
   influence: (v) => typeof v === "string" && INFLUENCE_INTEREST_SET.has(v),
