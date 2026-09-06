@@ -42,6 +42,15 @@ import { useToastContext } from "../toast-context";
 import { reportSilentFailure } from "../guard-feedback";
 import { useConfirm } from "../confirm-dialog";
 
+/** Turso probe failure reason → the i18n key its message is rendered from.
+ *  ★ Keys, not strings: the verdict outlives the probe, so it must be
+ *  translated at RENDER time or it freezes the language it was obtained in. */
+const TURSO_TEST_FAIL_KEYS = {
+  auth: "integrationsTursoTestAuth",
+  unreachable: "integrationsTursoTestUnreachable",
+  generic: "integrationsTursoTestFailGeneric",
+} as const;
+
 interface IntegrationsSectionProps {
   lang: Lang;
   settings: Settings;
@@ -239,9 +248,25 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // and they are stored RAW — the very expressions handed to `getTursoConfig`.
   // Normalising them (`?? ""`) here would put a second transformation between
   // the write and the comparison below, which is exactly the kind of drift the
-  // derived shape exists to rule out.
+  // derived shape exists to rule out. They are also NON-OPTIONAL on both arms:
+  // a third write site added later that forgets the fingerprint is then a
+  // COMPILE error rather than a silently stale "still confirmed".
+  // ★★ A KEY, NEVER A RENDERED STRING. An earlier cut stored `t(lang, …)` at
+  // probe time, which froze the verdict's language: this section and
+  // `LocalizationSection` mount in the same panel, so switching to Deutsch left
+  // an English "Connected." inside a German panel. That is the very defect the
+  // CLASSIFY-NEVER-INTERPOLATE block on `runTursoTest` exists to prevent, one
+  // layer up. `reason` lives on the fail arm ALONE because a success has none —
+  // which is also what makes `kind` load-bearing at the render site rather than
+  // written-and-never-read.
   const [tursoTest, setTursoTest] = useState<
-    { kind: "ok" | "fail"; message: string; url: string | undefined; token: string | undefined }
+    | { kind: "ok"; url: string | undefined; token: string | undefined }
+    | {
+        kind: "fail";
+        reason: "auth" | "unreachable" | "generic";
+        url: string | undefined;
+        token: string | undefined;
+      }
     | null
   >(null);
 
@@ -276,26 +301,14 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     setTursoTest(null);
     try {
       await testTursoConnection(getTursoConfig(turso.databaseUrl, turso.authToken));
-      setTursoTest({
-        kind: "ok",
-        message: t(lang, "integrationsTursoTestOk"),
-        url: turso.databaseUrl,
-        token: turso.authToken,
-      });
+      setTursoTest({ kind: "ok", url: turso.databaseUrl, token: turso.authToken });
     } catch (e) {
       // ★ A kind, never the config and never a raw message — nothing thrown
       // here may carry the URL or token into the DOM.
       const kind = tursoErrorKind(e);
       setTursoTest({
         kind: "fail",
-        message: t(
-          lang,
-          kind === "auth"
-            ? "integrationsTursoTestAuth"
-            : kind === "unreachable"
-              ? "integrationsTursoTestUnreachable"
-              : "integrationsTursoTestFailGeneric",
-        ),
+        reason: kind === "auth" ? "auth" : kind === "unreachable" ? "unreachable" : "generic",
         url: turso.databaseUrl,
         token: turso.authToken,
       });
@@ -748,7 +761,17 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             {t(lang, "integrationsTursoTest")}
           </button>
           <p role="status" className="text-xs text-muted-foreground">
-            {tursoTestFresh ? tursoTest?.message : null}
+            {/* ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null`, and
+                TS narrows through the aliased const, so the optional chain would
+                only paper over a broken invariant by rendering nothing. */}
+            {tursoTestFresh
+              ? t(
+                  lang,
+                  tursoTest.kind === "ok"
+                    ? "integrationsTursoTestOk"
+                    : TURSO_TEST_FAIL_KEYS[tursoTest.reason],
+                )
+              : null}
           </p>
           {/* Primary action: carry the current project into Turso. */}
           {canMoveToTurso && (

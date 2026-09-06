@@ -5,7 +5,7 @@ import { render, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IntegrationsSection } from "./integrations-section";
 import { ConfirmProvider } from "../confirm-dialog";
-import { t, loadI18n } from "../i18n";
+import { t, loadI18n, type Lang } from "../i18n";
 import { StorageNotReadyError } from "../storage";
 import {
   defaultSettings,
@@ -537,19 +537,28 @@ describe("§408 — Turso test connection", () => {
 
   // ★★ THIS SECTION IS FULLY CONTROLLED — `turso` is derived from the
   // `settings` prop — so the rest of this file's `onChange={() => {}}` renders
-  // CANNOT move the URL. A typing test against one of those is UNSATISFIABLE,
-  // NOT vacuous, and the difference is the whole reason this comment exists: a
-  // vacuous test would silently PASS and mislead you, whereas this one FAILS
-  // against a CORRECT implementation. The field's value never changes, so the
-  // fingerprint still matches, so nothing can invalidate the verdict and the
-  // message stays in the document. Measured against the shipped (correct)
-  // component, swapping this render for an uncontrolled one: 1 failed / 32
-  // passed. Read a red here as "the harness cannot express the behaviour",
-  // never as "the invalidation is broken". This wrapper feeds the edit back
-  // in, so the URL the fingerprint is compared against really moves.
-  function ControlledIntegrations() {
+  // CANNOT move the URL or the token. Every test below therefore needs this
+  // wrapper, which feeds the edit back in so the fields the fingerprint is
+  // compared against really move.
+  // ★★ A typing test written against an UNCONTROLLED render is UNSATISFIABLE,
+  // not vacuous, and the difference decides what a red means. Vacuous would
+  // mean it silently PASSES; in fact it FAILS even against a correct
+  // implementation, because the field's value never changes, so the
+  // fingerprint still matches, so nothing invalidates the verdict and the
+  // message stays on screen. Measured against the shipped component by
+  // swapping this wrapper for `<IntegrationsSection … onChange={() => {}} />`
+  // in one test: THAT test alone went red, every other test in the file stayed
+  // green. (The pass TOTAL is deliberately not quoted — it moves with every
+  // test added to this file, and a rotted number invites re-measuring the
+  // wrong thing.)
+  // ★★ SO THE TWO REDS MEAN OPPOSITE THINGS, and only the first is a harness
+  // artefact. A red from THAT SWAP (an uncontrolled render) means the harness
+  // cannot express the behaviour — do not go looking for a bug. A red from any
+  // test BELOW, all of which use this wrapper, is a genuine regression: the
+  // invalidation really is broken. Nothing here licenses dismissing those.
+  function ControlledIntegrations({ lang = "en-US" }: { lang?: Lang }) {
     const [settings, setSettings] = useState<Settings>(tursoSettings("fake"));
-    return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+    return <IntegrationsSection lang={lang} settings={settings} onChange={setSettings} />;
   }
 
   it("drops the confirmed result when the URL is edited after a passing test", async () => {
@@ -565,6 +574,70 @@ describe("§408 — Turso test connection", () => {
       "x",
     );
 
+    expect(screen.queryByText(t("en-US", "integrationsTursoTestOk"))).toBeNull();
+  });
+
+  // ★★ THE TOKEN HALF NEEDS ITS OWN TEST — the URL one above cannot cover it.
+  // The freshness derivation is a conjunction, so a test that only ever moves
+  // the URL leaves the `token` comparison unpinned: deleting it keeps the
+  // suite green while a pasted-over token silently inherits the old verdict.
+  // Mutation-proved by deleting that comparison — this test alone goes red.
+  it("drops the confirmed result when the auth token is edited after a passing test", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+    render(<ControlledIntegrations />);
+
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
+
+    await user.type(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")),
+      "2",
+    );
+
+    expect(screen.queryByText(t("en-US", "integrationsTursoTestOk"))).toBeNull();
+  });
+
+  // ★★ THE VERDICT MUST FOLLOW `lang`, WHICH IS WHY THE RECORD HOLDS AN I18N
+  // KEY AND NOT A RENDERED STRING. `LocalizationSection` and this section mount
+  // in the SAME panel, so the language can change with a verdict on screen; a
+  // message frozen at probe time leaves an English sentence inside a German
+  // panel — the exact defect the CLASSIFY-NEVER-INTERPOLATE comment on
+  // `runTursoTest` exists to prevent, reintroduced one layer up.
+  it("re-renders the verdict in the new language when lang changes", async () => {
+    await loadI18n("de");
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+    const { rerender } = render(<ControlledIntegrations lang="en-US" />);
+
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
+
+    // Same component type, so the verdict state survives the re-render — this
+    // is a language switch under a live verdict, not a fresh probe.
+    rerender(<ControlledIntegrations lang="de" />);
+
+    expect(screen.getByText(t("de", "integrationsTursoTestOk"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "integrationsTursoTestOk"))).toBeNull();
+  });
+
+  // ★ Coverage for the discriminator Task 2 will gate the Move button on, so it
+  // does not arrive with none. What is observable TODAY is only the rendered
+  // message: with the union, a `kind` of "ok" selects the success key, so a
+  // catch branch mis-tagged "ok" would surface here. That is a real pin on the
+  // discriminator, but it is an INDIRECT one — when the confirmed reading gets
+  // a consumer, assert on THAT too rather than treating this as sufficient.
+  it("never reports a confirmed connection when the probe failed", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockRejectedValueOnce(
+      new StorageNotReadyError("storage-unreachable"),
+    );
+    render(<ControlledIntegrations />);
+
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(
+      await screen.findByText(t("en-US", "integrationsTursoTestUnreachable")),
+    ).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "integrationsTursoTestOk"))).toBeNull();
   });
 });
