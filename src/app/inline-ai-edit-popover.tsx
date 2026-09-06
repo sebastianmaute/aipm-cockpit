@@ -115,6 +115,30 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
 
         {phase === "error" && errorText && <FieldError>{errorText}</FieldError>}
 
+        {/* ★★★ A REFUSAL, NOT "NO CHANGES" (§392). The model understood and the
+            writer refused a named field — a different thing from "clarify",
+            which means the model needs more from the user. There is deliberately
+            NO Apply button: `apply()` guards on `isEmptyPlan`, which does not
+            count `rejected`, so an Apply offered here would be live and would
+            no-op on every click. The instruction form above still renders (this
+            phase is not `preview`), so retrying with a different value is the
+            recourse and this footer is only the way out.
+            ★ `close`, not `cancel`: the header ✕ is already named "Cancel", and
+            a second control with that name inside one `aria-modal` dialog is a
+            WCAG 2.4.6 collision — the one the preview footer below already
+            has. */}
+        {phase === "rejected" && plan && (
+          <div className="mt-3">
+            <p className="mb-2 text-xs font-medium text-foreground">{t(lang, "inlineAiEditRejectedOnly")}</p>
+            <ul className="mb-3 space-y-1 text-xs">
+              {plan.rejected.map((r, i) => (<li key={`r${i}`} className="text-ui-pink-strong">{t(lang, "inlineAiEditRejected", r.detail)}</li>))}
+            </ul>
+            <div className="flex justify-end">
+              <Button variant="secondary" size="sm" onClick={onCancel}>{t(lang, "close")}</Button>
+            </div>
+          </div>
+        )}
+
         {phase === "preview" && plan && (
           <div className="mt-1">
             <p className="mb-2 text-xs font-medium text-foreground">{t(lang, "inlineAiEditPreview")}</p>
@@ -136,14 +160,17 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
                   sanitizer refused simply vanished from a preview the user then
                   approved, and they read the remaining lines as the whole change.
                   Last, and in the same failure colour the card uses.
-                  ★★ IN THE LIVE APP THIS IS ONLY REACHABLE ON A PLAN THAT ALSO
-                  WRITES SOMETHING: `use-inline-entity-edit.ts` routes an
-                  `isEmptyPlan` result to the "clarify" phase, and `isEmptyPlan`
-                  does not count `rejected` — so a rejection-ONLY plan never
-                  reaches `phase === "preview"` and the user is told "no changes"
-                  instead of which field was refused. That is a defect one layer
-                  up, not here; this renderer is correct for both shapes and is
-                  tested against both. */}
+                  ★★ IN THE LIVE APP THIS BLOCK IS ONLY REACHABLE ON A PLAN THAT
+                  ALSO WRITES SOMETHING, and that is now the whole story rather
+                  than a defect: `use-inline-entity-edit.ts` routes an
+                  `isEmptyPlan` result whose `rejected` is non-empty to the
+                  "rejected" phase below (§392, closed by the commit that added
+                  that phase). It used to route there to "clarify" — telling the
+                  user "no changes" instead of which field was refused — because
+                  `isEmptyPlan` does not count `rejected`. Do NOT "simplify" the
+                  two renderings into one by routing a rejection-only plan here:
+                  `apply()` guards on `isEmptyPlan` too, so the Apply button
+                  below would be live and would no-op. */}
               {plan.rejected.map((r, i) => (<li key={`r${i}`} className="text-ui-pink-strong">{t(lang, "inlineAiEditRejected", r.detail)}</li>))}
             </ul>
             <div className="flex justify-end gap-2">

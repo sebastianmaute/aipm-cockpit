@@ -208,6 +208,49 @@ it("no tool_use -> clarify phase", async () => {
   expect(result.current.clarifyText).toBe("Which task?");
 });
 
+// ★★★ A REFUSAL IS NOT "NO CHANGES" (§392). `isEmptyPlan` counts what a plan
+// would WRITE and deliberately does not count `rejected`, so a plan whose only
+// content is a refusal is empty by that predicate and used to route to
+// "clarify" — telling the user the model needed more from them, when in fact it
+// understood and the writer refused a named field.
+// ★★ A REAL plan, not a stubbed one: an `update_task` naming an id this row is
+//  not produces exactly one `rejected` entry and nothing else, so the route is
+//  exercised through the real `describeEntityCalls`/`isEmptyPlan` pair rather
+//  than around them.
+it("routes a rejection-only plan to the rejected phase, not to clarify", async () => {
+  vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+    blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 999, status: "Done" } }],
+    text: "", usage: { input_tokens: 1, output_tokens: 1 },
+  } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+  const { result } = renderHook(() => useInlineAiEdit(mkDeps()));
+  act(() => result.current.openFor(task));
+  await act(async () => { await result.current.submit("mark task 999 done"); });
+  expect(result.current.phase).toBe("rejected");
+  expect(result.current.plan?.rejected).toEqual([{ toolName: "update_task", reason: "unknown-id", detail: "999" }]);
+  // The plan must reach the popover — the phase alone renders no reason.
+  expect(result.current.plan).not.toBeNull();
+});
+
+// ★★ THE PAIRED CONTROL, and deliberately NOT a copy of "no tool_use ->
+// clarify phase" above: this one DOES return a tool_use block, addressed to the
+// right row, whose value already matches what is stored — so the plan is empty
+// with an empty `rejected`. That is the only difference from the case above, so
+// a route keyed on anything coarser than `rejected.length` turns it red.
+it("still routes an empty plan carrying no rejection to clarify", async () => {
+  vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+    blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 42, status: "To Do" } }],
+    text: "Nothing to change.", usage: { input_tokens: 1, output_tokens: 1 },
+  } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+  const { result } = renderHook(() => useInlineAiEdit(mkDeps()));
+  act(() => result.current.openFor(task));
+  await act(async () => { await result.current.submit("set the status to To Do"); });
+  expect(result.current.phase).toBe("clarify");
+  expect(result.current.clarifyText).toBe("Nothing to change.");
+  // The clarify route commits no plan — so the assertion above cannot be
+  // passing on a plan that merely failed to render.
+  expect(result.current.plan).toBeNull();
+});
+
 it("error path: callInlineEdit throws -> error phase", async () => {
   vi.spyOn(call, "callInlineEdit").mockRejectedValue(new Error("500"));
   const { result } = renderHook(() => useInlineAiEdit(mkDeps()));

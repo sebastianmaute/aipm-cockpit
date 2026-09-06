@@ -19,7 +19,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { describeEntityCalls, isEmptyPlan, type EditPlan, type LinkDiff } from "./inline-ai-edit/plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 
-export type InlinePhase = "idle" | "thinking" | "preview" | "clarify" | "applying" | "error";
+export type InlinePhase = "idle" | "thinking" | "preview" | "clarify" | "rejected" | "applying" | "error";
 type EntityItem = { id: number; [k: string]: unknown };
 
 export interface InlineEntityEditDeps {
@@ -197,7 +197,23 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       if (reqId !== reqIdRef.current) return; // superseded — discard
       deps.recordUsage?.(usage);
       const next = describeEntityCalls(blocks, { descriptor: d, item: target, ws: deps.ws });
-      if (isEmptyPlan(next)) { setClarifyText(text || t(deps.lang, "inlineAiEditNoChanges")); setPhase("clarify"); return; }
+      // ★★★ A REFUSAL IS NOT "NO CHANGES" (§392). `isEmptyPlan` counts what the
+      //  plan would WRITE and deliberately does not count `rejected`, so a plan
+      //  whose only content is a refusal is empty by that predicate and used to
+      //  route here — telling the user nothing changed, when in fact the model
+      //  understood and the writer refused a named field.
+      //  ★★ Routing it to "preview" instead is NOT the fix and is measurably
+      //  worse: `apply()`'s own first guard is `isEmptyPlan(plan)`, which does
+      //  not count `rejected` either, so the user would get a live Apply button
+      //  that no-ops on every click. "rejected" renders the reasons and offers
+      //  no Apply at all.
+      //  ★ No token is committed on this route, deliberately — `tokenRef` is
+      //  adopted beside `setPlan` below only for a plan that can be written,
+      //  and nothing in the "rejected" phase can reach `apply()`.
+      if (isEmptyPlan(next)) {
+        if (next.rejected.length > 0) { setPlan(next); setPhase("rejected"); return; }
+        setClarifyText(text || t(deps.lang, "inlineAiEditNoChanges")); setPhase("clarify"); return;
+      }
       // Committed only for the response that WON the reqId check above, so a
       // superseded submit can never leave its item's token behind for another
       // item's apply. Written beside setPlan for that reason: the token and the
@@ -288,11 +304,15 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       // UNCONDITIONAL success toast: "applied" for a write that never happened.
       // ★★ `links` WAS that instance and no longer is — it is populated by
       // `describeEntityCalls` and written 30 lines above, in the same commit
-      // that made it reachable. `rejected` is the live one today: it is
-      // previewable, has no write branch by design, and `isEmptyPlan` does not
-      // count it, so a rejection-only plan never even reaches `preview`. This
-      // stays written against `applied` rather than against any one bucket, so
-      // the next bucket is covered without touching this line.
+      // that made it reachable. `rejected` is NOT a second instance and never
+      // was: it is previewable and has no write branch by design, but
+      // `isEmptyPlan` does not count it either, so a rejection-only plan is
+      // EMPTY by the guard at the top of apply() and cannot get this far. It
+      // now routes to the "rejected" phase instead of to "clarify" (§392, see
+      // the comment in `submit`), which is a phase apply() refuses outright.
+      // So there is no live instance of the gap today — this stays written
+      // against `applied` rather than against any one bucket, so the next
+      // bucket is covered without touching this line.
       // ★ `cancel()` stays OUTSIDE the guard — closing the popover is correct
       //   either way; only the success CLAIM is conditional.
       if (applied > 0) {

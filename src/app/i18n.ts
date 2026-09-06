@@ -2211,6 +2211,7 @@ const enUS = {
   inlineAiEditPreview: "Claude will make these changes:",
   inlineAiEditCreate: "New {0}: {1}",
   inlineAiEditDelete: "Delete {0}: {1}",
+  inlineAiEditRejectedOnly: "Nothing was applied — these values were refused:",
   inlineAiEditRejected: "Not applied: {0}",
   inlineAiEditApply: "Apply",
   inlineAiEditNoChanges: "No changes to apply.",

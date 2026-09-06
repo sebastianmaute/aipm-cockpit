@@ -109,13 +109,18 @@ it("renders a rejected field in preview", () => {
   expect(screen.getByText("Not applied: targetDate=nope")).toBeInTheDocument();
 });
 
-// ★★ A plan whose ONLY outcome is a rejection. This popover has no
-// `isEmptyPlan` guard of its own — it gates on `phase === "preview"` — so the
-// renderer is correct for this shape. It is `use-inline-entity-edit.ts` that
-// routes such a plan to the "clarify" phase instead (`isEmptyPlan` does not
-// count `rejected`), so in the live app the user is told "no changes" rather
-// than which field was refused. That is a defect one layer up; this pins that
-// the component itself is not the one dropping it.
+// ★★ A plan whose ONLY outcome is a rejection, rendered through the PREVIEW
+// block. This popover has no `isEmptyPlan` guard of its own — it gates on
+// `phase === "preview"` — so the renderer is correct for this shape too.
+// ★ It used to be unreachable in the live app: `use-inline-entity-edit.ts`
+// routed such a plan to "clarify" (`isEmptyPlan` does not count `rejected`), so
+// the user was told "no changes" rather than which field was refused. That
+// defect one layer up is CLOSED — the hook now routes it to the "rejected"
+// phase, pinned by the test immediately below and by "routes a rejection-only
+// plan to the rejected phase, not to clarify" in
+// `use-inline-entity-edit.test.tsx`. This case stays, because the preview block
+// still renders `rejected` alongside real writes and must keep doing so when
+// every write in the plan is later removed.
 it("renders a rejection on a plan that writes nothing", () => {
   render(
     <InlineAiEditPopover
@@ -125,6 +130,29 @@ it("renders a rejection on a plan that writes nothing", () => {
     />,
   );
   expect(screen.getByText("Not applied: 99")).toBeInTheDocument();
+});
+
+// ★★★ THE PHASE A REFUSAL-ONLY PLAN NOW LANDS IN (§392), and the ABSENCE of an
+// Apply button is the half that makes the phase worth having. Routing such a
+// plan to "preview" instead was measured as WORSE, not equivalent: `apply()`
+// guards on `isEmptyPlan(plan)`, which does not count `rejected`, so the button
+// would be live and would silently no-op on every click.
+it("names the refused field and offers no Apply in the rejected phase", () => {
+  render(
+    <InlineAiEditPopover
+      {...base}
+      phase="rejected"
+      plan={{
+        updates: [], creates: [], deletes: [], links: [],
+        rejected: [{ toolName: "update_raid_item", reason: "bad-input", detail: "probability=9" }],
+      }}
+    />,
+  );
+  expect(screen.getByText("Not applied: probability=9")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^apply$/i })).not.toBeInTheDocument();
+  // Positive control for the negative above: the phase really did render its
+  // own block, so the missing Apply is an absence and not an unrendered branch.
+  expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
 });
 
 // ★★ The label is keyed `${entity}.${field}`, so the SAME property name must
