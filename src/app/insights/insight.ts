@@ -157,6 +157,46 @@ export interface DetectedInsight {
 }
 
 export const MAX_INSIGHTS = 200;
+
+/** The four TimeLog guardrail members of `INSIGHT_TYPES`, as one named set so
+ *  the family has a single definition rather than a literal list at each reader.
+ *  ★★ These four are also `TimelogRuleId` — `timelog-policy.test.ts` pins that
+ *  identity with a type-level assertion — so this set must never gain a member
+ *  that is not a rule. */
+export const GUARDRAIL_INSIGHT_TYPES: ReadonlySet<InsightType> = new Set<InsightType>([
+  "timelogCapPerEntry",
+  "timelogCapPerDay",
+  "timelogNonWorkingDay",
+  "timelogWorkingHours",
+]);
+
+/** Slots at `MAX_INSIGHTS` that guardrail rows may never occupy.
+ *  ★★★ WHY IT EXISTS. Guardrail cardinality is 4 × (TimeLog users seen in a
+ *  fetch) with no cap in `detect.ts`, and every guardrail is `medium` while
+ *  `overdueTrend` is the app's ONLY `low` detector. Under the comparator that
+ *  singleton therefore loses to every guardrail before ties are even reached, so
+ *  an org-scope fetch of ~50 people pushes it out of the cap entirely — and once
+ *  sliced away it is gone from `stored` and never returns. 60 covers a large
+ *  project's `milestoneSlip` and `raidAging` sets plus the three singletons; the
+ *  resulting guardrail budget of 140 is 35 people across 4 rules.
+ *  ★★ IT IS A FLOOR ON NON-GUARDRAIL CAPACITY, NOT A GUARDRAIL QUOTA. Reserved
+ *  slots nobody claims are handed straight back, so a device with 300 guardrails
+ *  and one core insight emits 199 guardrails, not 140. Reading it as a quota is
+ *  how a test ends up asserting the shortened list `reconcileInsights`' second
+ *  admission pass exists to prevent.
+ *  ★★★ THE RESERVATION LIVES IN `reconcile.ts`, NOT IN `detect.ts`, AND THAT IS
+ *  A SAFETY PROPERTY RATHER THAN A PREFERENCE. Capping the detector drops rows
+ *  from `detected`, and `reconcileInsights` reads absence as "the condition
+ *  cleared" unless `isEvaluated` says otherwise — a predicate built at the
+ *  `task-manager.tsx` call site from the daily roll, which cannot see a cap
+ *  applied inside `detect.ts`. A capped-out row whose days the roll covers would
+ *  resolve through `computeClearedOutcome`, which always writes `"improved"`,
+ *  into shared and exported data. Reserving at the cap drops nothing from the
+ *  detection set, so no row can be re-read as cleared.
+ *  ★★ It does NOT make the cap lossless. A frozen row can still be evicted here;
+ *  open-followups §363 keeps that residue open deliberately, because losing a
+ *  row is strictly better than fabricating an outcome for it. */
+export const RESERVED_NON_GUARDRAIL = 60;
 export const INSIGHT_DISMISS_REASON_MAX = 500;
 export const INSIGHT_DATA_VALUE_MAX = 200;
 export const INSIGHT_SEVERITY_RANK: Record<InsightSeverity, number> = {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { insightsMateriallyEqual, reconcileInsights } from "./reconcile";
 import type { DetectedInsight, Insight, InsightType } from "./insight";
-import { MAX_INSIGHTS } from "./insight";
+import { INSIGHT_SEVERITY_RANK, MAX_INSIGHTS, RESERVED_NON_GUARDRAIL } from "./insight";
 
 // Every pre-existing test in this file is about the ALWAYS-EVALUATED behaviour,
 // so each of its calls certifies every insight. A DISCRIMINATING predicate
@@ -652,3 +652,95 @@ describe("widening a guardrail data record", () => {
 // @ts-expect-error - the evaluated-scope argument is REQUIRED, never defaulted
 const _requiredArgumentPin = () => reconcileInsights([], [], "2026-09-04");
 void _requiredArgumentPin;
+
+describe("reconcileInsights — reserved non-guardrail capacity", () => {
+  const guardrails = (n: number, severity: "high" | "medium" = "medium"): DetectedInsight[] =>
+    Array.from({ length: n }, (_, i) =>
+      detected(`timelog:timelogCapPerDay:${i}`, { type: "timelogCapPerDay", severity }),
+    );
+
+  /** ★★★ THE FIXTURE IS THE TEST. `overdueTrend` is the app's ONLY `low`
+   *  detector and every guardrail is `medium`, so under the comparator it loses
+   *  to every guardrail before ties are even reached. The flood must exceed
+   *  MAX_INSIGHTS on its own — with fewer guardrails than the cap the singleton
+   *  survives whether or not a reservation exists, and the test proves nothing. */
+  it("keeps a low-severity singleton alive against a flood of guardrails", () => {
+    const out = reconcileInsights(
+      [],
+      [...guardrails(MAX_INSIGHTS + 50), detected("overdueTrend", { type: "overdueTrend", severity: "low" })],
+      "2026-02-01",
+      ALL_EVALUATED,
+    );
+    expect(out).toHaveLength(MAX_INSIGHTS);
+    expect(out.some((i) => i.key === "overdueTrend")).toBe(true);
+    // ★★★ `MAX_INSIGHTS - 1`, NOT `MAX_INSIGHTS - RESERVED_NON_GUARDRAIL`, and
+    // the difference is the whole point of the two-pass admission. The
+    // reservation is not a guardrail QUOTA — it is capacity guardrails may not
+    // TAKE FIRST. Here exactly ONE non-guardrail row exists to claim it, so the
+    // other 59 reserved slots are handed straight back and guardrails end up at
+    // 199. A `- RESERVED_NON_GUARDRAIL` assertion here would be asserting the
+    // shortened-list defect the next test exists to forbid. The budget itself is
+    // pinned by "caps guardrails at the budget" below, where the reserved family
+    // really does fill its slots.
+    expect(out.filter((i) => i.type === "timelogCapPerDay")).toHaveLength(MAX_INSIGHTS - 1);
+  });
+
+  /** ★★★ THE FAILURE MODE A RESERVATION INTRODUCES, and the test the previous
+   *  one cannot cover: a reservation that nobody claims must not shorten the
+   *  list. With no core insights at all the output must still be MAX_INSIGHTS,
+   *  not the 140 the guardrail budget alone would admit. */
+  it("still fills the cap when the reserved family has nothing to put in it", () => {
+    const out = reconcileInsights([], guardrails(MAX_INSIGHTS + 50), "2026-02-01", ALL_EVALUATED);
+    expect(out).toHaveLength(MAX_INSIGHTS);
+  });
+
+  /** ★★★ THE BUDGET ITSELF. The two tests above are both satisfied by an
+   *  implementation that reserves ONE slot, because neither fixture has enough
+   *  non-guardrail rows to over-subscribe the reserve — every reserved slot is
+   *  handed back there. Here the core family brings twice the reservation, so
+   *  nothing is handed back and the guardrail budget is observable on its own.
+   *  ★★★ IT IS BLIND TO THE CONSTANT'S VALUE, AND DELIBERATELY SO — BOTH sides
+   *  of both assertions derive from `RESERVED_NON_GUARDRAIL`, so it passes at
+   *  any value INCLUDING 0. Measured, not reasoned: it passed under a `= 0`
+   *  mutant. The reservation being non-zero is pinned BEHAVIOURALLY by the
+   *  singleton test above, which is the only thing that can pin it; this one
+   *  pins the SHAPE (a family budget, not a one-row exemption). ★★ The 120 is a
+   *  LITERAL for that reason too — deriving the fixture size from the constant
+   *  shrank it to an empty array under that mutant, so the test degenerated
+   *  silently instead of merely passing. */
+  it("caps guardrails at the budget when the reserved family over-subscribes it", () => {
+    const core = Array.from({ length: 120 }, (_, i) =>
+      detected(`raidAging:${i}`, { type: "raidAging", severity: "low" }),
+    );
+    const out = reconcileInsights(
+      [],
+      [...guardrails(MAX_INSIGHTS + 50), ...core],
+      "2026-02-01",
+      ALL_EVALUATED,
+    );
+    expect(out).toHaveLength(MAX_INSIGHTS);
+    expect(out.filter((i) => i.type === "timelogCapPerDay")).toHaveLength(
+      MAX_INSIGHTS - RESERVED_NON_GUARDRAIL,
+    );
+    expect(out.filter((i) => i.type === "raidAging")).toHaveLength(RESERVED_NON_GUARDRAIL);
+  });
+
+  /** ★★ ORDER SURVIVES THE SELECTION. The two-pass admission visits deferred
+   *  rows after the rest, so an implementation that concatenates its two passes
+   *  emits them out of comparator order. The fixture makes that visible by
+   *  giving the DEFERRED family the HIGHER severity: 200 high guardrails against
+   *  40 low core rows means pass one admits 140 high + 40 low = 180, and pass two
+   *  tops up with 20 more high — which a concatenating implementation appends
+   *  AFTER the low rows. (Guardrails are always `medium` in production; the type
+   *  permits any severity, and using `high` here is what makes the defect
+   *  observable at all.) */
+  it("emits in comparator order even when the reservation defers a higher-severity row", () => {
+    const core = Array.from({ length: 40 }, (_, i) =>
+      detected(`raidAging:${i}`, { type: "raidAging", severity: "low" }),
+    );
+    const out = reconcileInsights([], [...guardrails(MAX_INSIGHTS, "high"), ...core], "2026-02-01", ALL_EVALUATED);
+    expect(out).toHaveLength(MAX_INSIGHTS);
+    const ranks = out.map((i) => INSIGHT_SEVERITY_RANK[i.severity]);
+    expect([...ranks].sort((a, b) => a - b)).toEqual(ranks);
+  });
+});

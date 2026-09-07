@@ -2,8 +2,10 @@
 // stored insight list, driving the lifecycle (upsert / re-fire / clear). `today`
 // is passed IN — there is no clock in this module.
 import {
+  GUARDRAIL_INSIGHT_TYPES,
   INSIGHT_SEVERITY_RANK,
   MAX_INSIGHTS,
+  RESERVED_NON_GUARDRAIL,
   type DetectedInsight,
   type Insight,
 } from "./insight";
@@ -236,7 +238,40 @@ export function reconcileInsights(
     return 0;
   });
 
-  return result.slice(0, MAX_INSIGHTS);
+  // ★★★ RESERVE AT THE CAP; DO NOT CAP THE DETECTOR. Everything in `result`
+  // remains a candidate — this only decides which candidates survive. The
+  // reasoning for why a `detect.ts` cap would fabricate an "improved" outcome
+  // lives on `RESERVED_NON_GUARDRAIL`; read it before changing this.
+  // ★★ TWO PASSES, and the second is what stops the list getting SHORTER than
+  // the plain slice it replaces: pass one admits every non-guardrail row and
+  // admits guardrails only while their own budget holds; pass two hands any slot
+  // still free back to the rows pass one deferred. Without it a device with 300
+  // guardrails and no core insights would return 140 rows where the old slice
+  // returned 200.
+  // ★★ ADMISSION IS RECORDED BY INDEX AND THE OUTPUT IS FILTERED FROM `result`,
+  // never concatenated from the two passes — concatenating emits pass two's rows
+  // after everything else, which is out of comparator order and reorders the
+  // panel. An index is used rather than a key because two stored rows CAN carry
+  // the same key (the stored array is iterated directly, not de-duplicated).
+  if (result.length <= MAX_INSIGHTS) return result;
+  const guardrailBudget = MAX_INSIGHTS - RESERVED_NON_GUARDRAIL;
+  const admit = new Array<boolean>(result.length).fill(false);
+  let admitted = 0;
+  let guardrails = 0;
+  for (let i = 0; i < result.length && admitted < MAX_INSIGHTS; i += 1) {
+    if (GUARDRAIL_INSIGHT_TYPES.has(result[i].type)) {
+      if (guardrails >= guardrailBudget) continue;
+      guardrails += 1;
+    }
+    admit[i] = true;
+    admitted += 1;
+  }
+  for (let i = 0; i < result.length && admitted < MAX_INSIGHTS; i += 1) {
+    if (admit[i]) continue;
+    admit[i] = true;
+    admitted += 1;
+  }
+  return result.filter((_, i) => admit[i]);
 }
 
 /** Same keys, same primitive values (both may be undefined). */
