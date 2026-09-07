@@ -89,7 +89,8 @@ export interface EntityCombobox {
   open: boolean;
   /** The armed option index, or -1. See the three conditions in the body. */
   active: number;
-  /** Move the highlight one row, wrapping at both ends. */
+  /** Move the highlight one row, wrapping at both ends. A no-op on an empty
+   *  `options` list — without that guard both arms dereference `undefined`. */
   move: (delta: 1 | -1) => void;
   /** Wire to the search input's `onKeyDown`. */
   onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
@@ -181,6 +182,18 @@ export function useEntityCombobox<T>({
       : -1;
 
   function move(delta: 1 | -1) {
+    // ★★★ THE EMPTY-LIST GUARD IS LOAD-BEARING FOR THE API, NOT FOR TODAY'S
+    // CALLERS. `onKeyDown` returns early on an empty list, so no shipped path
+    // reaches the throw — but `move` is a RETURNED member, and both arms crash
+    // without this line: `cur` is -1, so `delta === 1` gives `next = 0` and
+    // `delta === -1` gives `next = options.length - 1 = -1`, and either way
+    // `identity(options[next])` dereferences `undefined`. `combobox-shared.tsx`
+    // — the sibling core this file's header catalogues four differences from —
+    // guards exactly this in `moveHighlight` (`totalItems === 0 ? -1 : …`), and
+    // that is a fifth difference the header did not list. The obvious next
+    // consumer is a chevron affordance, clickable precisely when the list is
+    // empty. Found by cold review, 2026-09-07.
+    if (options.length === 0) return;
     // ★ `next` is computed OUTSIDE the updater and the scroll scheduled beside
     // it: a setState updater must be PURE, and React StrictMode double-invokes
     // it, which would schedule the rAF twice. Safe to read `active` here rather

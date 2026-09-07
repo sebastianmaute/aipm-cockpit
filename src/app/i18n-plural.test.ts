@@ -22,6 +22,23 @@ describe("tPlural", () => {
     expect(tPlural("de", "activityEntriesLogged", 0, 0)).toBe("0 Einträge protokolliert");
   });
 
+  // ★★★ NEGATIVE ONE IS THE OTHER DISCRIMINATOR, AND THE HELPER SHIPPED
+  // GETTING IT WRONG. CLDR's plural operands use the ABSOLUTE integer part, so
+  // `new Intl.PluralRules(l).select(-1)` is "one" in all three locales while
+  // the `count === 1` ternary this replaced gave the plural. The singular
+  // forms hardcode the digit, so the minus sign was silently DELETED: an
+  // overdue steering info-reminder at daysLeft === -1 rendered identically to
+  // one due tomorrow. Found by cold review, 2026-09-07.
+  // ★★ Assert -1 AND -2. Only -1 is affected (-2 is already "other"), so a
+  // test written at -3 — the value a reader reaches for when checking
+  // "negatives" — passes against the unfixed helper. -2 is the control that
+  // proves this test is testing the boundary and not negatives in general.
+  it("treats a negative count as the plural form, at the -1 boundary", () => {
+    expect(tPlural("en-US", "activityEntriesLogged", -1, -1)).toBe("-1 entries logged");
+    expect(tPlural("de", "activityEntriesLogged", -1, -1)).toBe("-1 Einträge protokolliert");
+    expect(tPlural("en-US", "activityEntriesLogged", -2, -2)).toBe("-2 entries logged");
+  });
+
   it("selects the German singular, which is a different stem, not a suffix drop", () => {
     expect(tPlural("de", "activityEntriesLogged", 1, 1)).toBe("1 Eintrag protokolliert");
     expect(tPlural("de", "activityEntriesLogged", 2, 2)).toBe("2 Einträge protokolliert");

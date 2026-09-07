@@ -301,16 +301,21 @@ describe("SingleEntityPicker", () => {
   // something else and coming back is not a request to reopen, and if it were,
   // a dismissed list would pop back over the rest of the form with no way to
   // shut it but clearing the query.
-  // ★ Both spellings are fired, and NEITHER is load-bearing on its own —
-  // measured, because the obvious reason to fire both is a false one. React
-  // 17+ maps `onFocus` onto the bubbling `focusin`, which reads as "a lone
-  // non-bubbling `focus` can never reach the handler, so this test would
-  // survive the mutant for a reason unrelated to the mechanism". That is NOT
-  // what happens here: with `onClick` swapped to `onFocus`, deleting EITHER
-  // line still turned this test red (2026-09-07), so RTL's `fireEvent.focus`
-  // does reach the handler in this React/RTL pair. They stay as a pair because
-  // the claim being pinned is that no focus round-trip of ANY spelling
-  // reopens — not because one of them is the working one.
+  // ★★ Both spellings are fired and NEITHER is load-bearing on its own — the
+  // OBSERVATION is measured (with `onClick` swapped to `onFocus`, deleting
+  // either line still turned this red, 2026-09-07), but the reason is NOT the
+  // one an earlier revision of this comment gave. It concluded "so RTL's
+  // `fireEvent.focus` does reach the handler in this React/RTL pair", which is
+  // false and would produce a DEAD focus test wherever someone reused it.
+  // ★★★ `fireEvent.focus` NEVER DISPATCHES A LONE `focus`. RTL overrides it to
+  // fire the bubbling event first (`@testing-library/react/dist/fire-event.js`,
+  // the `fireEvent.focus = (...args) => { fireEvent.focusIn(...args); … }`
+  // shim, added for React PR 19186). So React 17+'s `onFocus`-rides-`focusin`
+  // premise is intact; both deletions survive because EITHER line alone still
+  // delivers a `focusin`. Consequently `fireEvent.focusIn` below is strictly
+  // redundant, not belt-and-braces. It stays because the claim being pinned is
+  // that no focus round-trip of ANY spelling reopens — read it as two spellings
+  // of one event, never as evidence that React catches a bare `focus`.
   it("keeps Escape sticky across a focus round-trip", () => {
     const { rerender, props } = renderPicker({ query: "a" });
     const box = screen.getByRole("combobox");

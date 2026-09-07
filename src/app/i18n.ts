@@ -4585,18 +4585,51 @@ export type PluralBaseKey = {
  *
  * ★ Written against Intl's CATEGORIES rather than `count === 1` so a future
  * language with a `few`/`many` category is a dictionary change rather than a
- * code change. en-US, en-GB and de all resolve to `one`/`other` today, so the
- * behaviour is identical to the ternary it replaced — including for ZERO,
- * which is `other` in all three and was the case a `count > 1` spelling would
- * have got wrong.
+ * code change. en-US, en-GB and de all resolve to `one`/`other` today, so for
+ * NON-NEGATIVE counts the behaviour is identical to the ternary it replaced —
+ * including for ZERO, which is `other` in all three and was the case a
+ * `count > 1` spelling would have got wrong.
+ *
+ * ★★★ NEGATIVE COUNTS ARE FORCED TO `other`, AND WITHOUT THAT LINE THIS HELPER
+ * IS NOT EQUIVALENT TO THE TERNARY IT REPLACED. CLDR's plural operands use the
+ * ABSOLUTE integer part, so `-1` selects `one` in all three locales while
+ * `count === 1` gave the plural. Measured 2026-09-07, not reasoned:
+ *   node -e "console.log(['en-US','en-GB','de-DE'].map(l => new Intl.PluralRules(l).select(-1)).join(' '))"
+ * prints `one one one`, and `-2` prints `other other other` — so the bug is
+ * -1 ALONE, which is exactly the value a reader testing -3 would miss.
+ * ★★ It was a live defect for one release, not a hypothetical: the singular
+ * forms hardcode the digit ("(1 day)" / "(1 Tag)"), so an OVERDUE steering
+ * info-reminder at `daysLeft === -1` rendered identically to one due tomorrow
+ * — the minus sign deleted, the overdue state invisible. `steering-reminders.ts`
+ * skips only PAST MEETINGS, so a future meeting whose info due-date has passed
+ * reaches the "now" tier (`daysLeft <= 0`) with a negative count.
+ * ★ Fixed here rather than clamped at that one call site because every other
+ * count in the app is a `.length`/`.size` tally: a clamp fixes the instance and
+ * leaves the next negative caller to rediscover this.
+ *
+ * ★ The `Intl.PluralRules` instances are cached per locale (three, max).
+ * Constructing one per call measured ~12.4µs against ~0.25µs cached, and
+ * `task-row.tsx` calls this UNCONDITIONALLY per row.
  */
+const PLURAL_RULES = new Map<string, Intl.PluralRules>();
+
+function pluralRulesFor(lang: Lang): Intl.PluralRules {
+  const locale = localeFor(lang);
+  let rules = PLURAL_RULES.get(locale);
+  if (!rules) {
+    rules = new Intl.PluralRules(locale);
+    PLURAL_RULES.set(locale, rules);
+  }
+  return rules;
+}
+
 export function tPlural(
   lang: Lang,
   baseKey: PluralBaseKey,
   count: number,
   ...args: (string | number)[]
 ): string {
-  const category = new Intl.PluralRules(localeFor(lang)).select(count);
+  const category = count < 0 ? "other" : pluralRulesFor(lang).select(count);
   const key = (category === "one" ? `${baseKey}One` : baseKey) as TranslationKey;
   return t(lang, key, ...args);
 }

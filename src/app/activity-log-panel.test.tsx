@@ -896,4 +896,27 @@ describe("ActivityLogPanel sortable column headers", () => {
       }
     }
   });
+
+  // ★★★ THIS IS THE REGRESSION PIN FOR THE DEFECT THE tPlural SLICE EXISTS TO
+  // FIX, and it shipped without one — caught by cold review, 2026-09-07. At
+  // 9219cbda this footer read `t(lang, "activityEntriesLogged", entries.length)`
+  // against "{0} entries logged", so a one-entry log announced "1 entries
+  // logged". The fix is invisible to every other test in this file.
+  // ★★ The NEGATIVE control is the load-bearing half. A bare `findByText(/1/)`
+  // — the shape the sibling `timelog-settings.test.tsx` had — matches "1
+  // entries logged" exactly as well as "1 entry logged", so it passes with the
+  // fix reverted. Assert the plural spelling is ABSENT.
+  it("renders the singular footer for a one-entry log, never the plural", () => {
+    renderPanel(
+      <ActivityLogPanel lang="en-US" entries={[entry({ id: "1" })]} onClear={() => {}} />,
+    );
+    expect(screen.getByText("1 entry logged")).toBeInTheDocument();
+    expect(screen.queryByText("1 entries logged")).toBeNull();
+  });
+
+  // ★ The other branch, so a "fix" that hardcoded the singular is also red.
+  it("renders the plural footer for a two-entry log", () => {
+    renderPanel(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
+    expect(screen.getByText("2 entries logged")).toBeInTheDocument();
+  });
 });
