@@ -75,4 +75,24 @@ describe("recurrenceText", () => {
   it("clamps 53 (one past the valid range) to 1", () => {
     expect(recurrenceText({ freq: "weekly", interval: 53 })).toBe("Every week");
   });
+
+  // ★★★ OMIT, DON'T GUESS. Out of range, the write stores a day derived from
+  // the event's startDate (`intInRange(r.byMonthDay, 1, 31, fallbackDom)` in
+  // calendar-event.ts's sanitizeRecurrence) — a value this module has no way
+  // to see (`forPreview` hands a field projection only the value, never the
+  // entity). Printing a guessed day would be a false claim about the write;
+  // omitting the clause is a true but incomplete one, and that is the safe
+  // direction. The "recurrence" field itself still shows on the card either
+  // way — only the day-of-month clause is dropped.
+  it("omits the day clause for a byMonthDay over the valid range", () => {
+    expect(recurrenceText({ freq: "monthly", interval: 1, byMonthDay: 99 })).toBe("Every month");
+  });
+
+  it("omits the day clause for a byMonthDay of 0", () => {
+    expect(recurrenceText({ freq: "monthly", interval: 1, byMonthDay: 0 })).toBe("Every month");
+  });
+
+  it("omits the day clause for a non-integer byMonthDay", () => {
+    expect(recurrenceText({ freq: "monthly", interval: 1, byMonthDay: 15.5 })).toBe("Every month");
+  });
 });

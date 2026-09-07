@@ -55,7 +55,19 @@ export function recurrenceText(rule: unknown): string {
   }
   if (r.freq === "monthly") {
     if (typeof r.byMonthDay === "number") {
-      out += ` on day ${r.byMonthDay}`;
+      // An out-of-range byMonthDay writes a day DERIVED FROM THE EVENT'S
+      // startDate (`intInRange(r.byMonthDay, 1, 31, fallbackDom)` in
+      // calendar-event.ts's `sanitizeRecurrence`), which this module cannot
+      // see — the descriptor engine's `forPreview(entity, field, value)`
+      // (inline-ai-edit/plan.ts) hands a field projection only the VALUE,
+      // never the entity. Printing a guessed day would be a false statement
+      // about the write; omitting the clause is a true but incomplete one —
+      // and between overstating and understating a write the user is being
+      // asked to approve, understating is the only safe direction. DO NOT
+      // "complete" this by printing a guessed fallback day.
+      if (Number.isInteger(r.byMonthDay) && r.byMonthDay >= 1 && r.byMonthDay <= 31) {
+        out += ` on day ${r.byMonthDay}`;
+      }
     } else if (typeof r.byDay === "object" && r.byDay !== null) {
       const { ordinal, day } = r.byDay as { ordinal?: unknown; day?: unknown };
       if (typeof day === "string" && typeof ordinal === "number") {
