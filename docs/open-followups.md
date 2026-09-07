@@ -30013,12 +30013,142 @@ eye-verify closes this entry and anything it turns up gets its own.
 
 ## 415. The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed — OPEN
 
-**Status:** never machine-verified. Filed 2026-09-06, generalising §407 (fixed on this branch for
-`taskRowChangesBadge` only) into the class it belongs to. **At least 31 keys are call-site-verified
+**Status:** 2026-09-07 — the 31-key TIER 1 membership below has now been converted at the DICTIONARY
+level on this branch and the list is RETAINED; the 45-vs-31 count dispute is untouched and this entry
+stays OPEN for it and for the four exception-B/D keys whose authored singular no call site selects.
+Verified with
+`npx tsc --noEmit` (exit 0 — `PluralBaseKey` makes a missing singular a type error, so the
+DICTIONARY side cannot be half-done; nothing checks the CALL sites, which is how D was found),
+`grep -rnoE '"[A-Za-z]+One"' src/app/next-actions/providers/ --include=*.ts --exclude=*.test.ts`
+(the four engine-side exceptions), `grep -rn 't(lang, "activityEntriesLogged"\|t(lang,
+"timelogTestOk"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'` (the two exception-D
+call sites, 2 hits), and `npm run docs:claims:check` (exit 0). Filed 2026-09-06, generalising §407 (fixed on
+this branch for `taskRowChangesBadge` only) into the class it belongs to. **At least 31 keys are call-site-verified
 TIER 1** — named in full below. An earlier, independent pass reported 46 (45 once §407's own key is
 subtracted for a fair comparison); that figure is recorded here as an UNRECONCILED earlier count, not
 averaged with, split against, or quietly preferred over the 31. Reproduce commands are inlined per
 claim below; none of them was run with `--update` or otherwise made to agree with a prior number.
+
+### What this branch converted — and what "converted" does not cover (2026-09-07)
+
+The 31-key TIER 1 list below is the first time either pass's MEMBERSHIP survived the work it
+motivated; it is retained below precisely so a future pass has something to diff key by key rather
+than number against number. 30 of the 31 now carry an authored `…One` sibling in BOTH dictionaries;
+the 31st, `dashboardGreetingSummary`, was SPLIT rather than converted (see finding 2).
+
+★★★ **"Carries a singular" is NOT the same claim as "renders the singular", and the gap between
+them is four keys wide.** `PluralBaseKey` gates the dictionary and `npx tsc --noEmit` proves the
+pairing; NOTHING proves a call site actually selects the sibling. Of the 30 paired keys, 22 select
+it through `tPlural` at every render site, one (`actionCommitteeInfoWhy`) does so at its panel site
+and by an engine ternary at its other, three more are engine-ternary only (exception A), and the
+remaining **four never render their singular at all** — two because nothing reaches them at all
+(exception B) and two because their live call site still calls plain `t()` (exception D). Derive
+this split rather than trusting these numbers; the per-key command is under exception D.
+
+★★★ **The 45-vs-31 gap is NOT closed by this work, and nothing here should be read as narrowing
+it.** The conversion took the fresh pass's membership and used the fresh pass's own methodology,
+which is the one approach that cannot reconcile the two counts — re-running a methodology against
+its own output is not an independent pass. "What would close the gap" below stands unchanged.
+
+★ No total for converted keys is quoted anywhere in this entry. The keys live in `src/app/i18n.ts`,
+this entry is a claim ABOUT that file, and any number written here restales on the next commit that
+touches it — inside its own fix round, which is the failure this register records most often. The
+live measurement is the pairing test in `src/app/i18n-plural.test.ts`, which scans the dictionary
+for `…One` keys itself and fails on a stranded singular.
+
+**Three things the table's own framing did not anticipate, all found during conversion, none
+predicted by the plan:**
+
+1. **The count is not always slot `{0}`.** `actionCommitteeInfoWhy` (`"Due {0} — {1} ({2} days)"`)
+   carries it at `{2}`, and `chatAttachmentSummarySkipped` (`"{0} — {1} attachments, {2} skipped"`)
+   at `{1}`. `tPlural` therefore takes `count` as a SELECTOR only and never injects it into the
+   args — the caller passes the number in whatever position the string uses. Injecting it would
+   have worked for most of this table, which is what makes it the dangerous design.
+2. **`dashboardGreetingSummary` carried TWO independent counts** (`"{0} items need you · {1}
+   milestones soon"`), and one selection cannot agree two counts at once. It was SPLIT into
+   `dashboardGreetingNeedsYou` + `dashboardGreetingMilestonesSoon`, each pluralised on its own count
+   in `dashboard-delta-strip.tsx`. The "Not uniformly mechanical" section below did anticipate a
+   rewording for this key; it did not anticipate that the key would cease to exist, so its row in
+   the table below now names a key that no longer resolves — `grep -n dashboardGreetingSummary
+   src/app/i18n.ts` returns nothing. Left in place as the record of what was surveyed.
+3. **The ten pre-existing pairs used TWO naming conventions, not one.** Seven were `…One`/`…Many`
+   with NO bare base key — `diagnosticsUnitError`, `diagnosticsUnitWarn`, `bulkEditTitle`,
+   `bulkApply`, `bulkEditDone`, `chatAttachmentSummary`, `trendsGap` (post-rename names) — which
+   `PluralBaseKey` cannot accept, since it requires `<base>One` plus a bare `<base>`. The other
+   three (`taskRowChangesBadge`, `documentsVersionBlocks`, `documentsCardRemoved`) were already on
+   base/`…One` but still hand-wrote their call-site ternaries. All ten are now on one convention.
+
+**Four exceptions — the honest scope of the word "converted" here.** A, B and C were found during
+implementation and were not predicted by the plan; D was found while writing THIS entry, by
+checking a sentence that asserted all 30 render through `tPlural`. That sentence would have passed
+every gate in this repo.
+
+**A — four keys have an engine call site that is NOT routed through `tPlural`, and cannot be.**
+★ Read that as scoped to the ENGINE site: `actionCommitteeInfoWhy` also has a SECOND, panel-side
+call site (`steering-committee-panel.tsx`) that does go through `tPlural`, so "not routed through
+`tPlural`" is false of the key as a whole and true of its provider. `actionWorkloadWhyOverload`,
+`actionRaidWhyReviewStale`, `actionChangeAggTitle` and `actionCommitteeInfoWhy` are set inside
+`src/app/next-actions/providers/`, which are deliberately i18n-free engines: no `Lang` is in scope,
+and they emit `{key, params}` objects (`I18nText` in `next-actions/types.ts`) that a surface renders
+much later through one generic `t(lang, x.key, ...(x.params ?? []))`. `tPlural` cannot be called
+there, so each provider picks the singular or plural KEY with a `count === 1` ternary, commented at
+each site. That is correct for en-US/en-GB/de — all three resolve `one`/`other` — but it is NOT
+locale-general the way `tPlural` is: a language with a `few`/`many` category needs all four
+revisited, and nothing flags them.
+★★ Enumerate on the QUOTED KEY, never on the cast: only three of the four carry `as const`, so
+`grep -rn 'One" as const' src/app/next-actions/providers/` returns THREE and reads as complete —
+it silently misses `change-pending.ts`. Use instead:
+
+```bash
+grep -rnoE '"[A-Za-z]+One"' src/app/next-actions/providers/ --include=*.ts --exclude=*.test.ts
+```
+
+**B — two singulars are dictionary-only, and nothing renders them.**
+`activityAiAllocationPlanOne` and `activityAiRaciSuggestOne` exist in both dictionaries and are
+unreachable. Their base keys are referenced only by `activity-log.ts`'s `ACTIVITY_KEY` map, and
+every activity kind is rendered through a generic `t()` on a looked-up key — in
+`activity-log-panel.tsx` (the user-visible surface, `t(lang, key, ...args)`) and in
+`activity-prompt.ts`'s `renderActivityEntry` (the AI-prompt surface, on a hardcoded `"en-US"`).
+There are TWO such renderers, not one; special-casing either for two keys was out of scope. So the
+activity log still reads "AI planned 1 allocation cells".
+★★★ **Nothing catches this class automatically, and no gate can be added cheaply.** The pairing
+test finds a singular with no BASE sibling; it cannot find a singular that no code path reaches,
+because reachability here runs through a `Record` map and a generic call rather than a literal key.
+Verify by hand:
+
+```bash
+grep -rn "activityAiAllocationPlan\|activityAiRaciSuggest" src/app --include=*.ts --include=*.tsx | grep -v "i18n.ts:\|i18n.de.ts:"
+```
+
+**C — one converted key's SECOND count stays un-agreed.** `chatAttachmentSummarySkipped` is
+`"{0} — {1} attachments, {2} skipped"` — two independent counts, exactly finding 2's shape, but
+resolved the other way: converted for the `{1}` half rather than split.
+`chatAttachmentSummarySkippedOne` reads `"{0} — 1 attachment, {2} skipped"` in EN and
+`"{0} — 1 Anhang, {2} übersprungen"` in DE, so at a skipped-count of one the sentence still says
+"1 skipped". That half is a known, unfixed instance of this same class, recorded rather than
+smoothed over.
+
+**D — two keys are fully paired and their live call site still calls `t()`.** `activityEntriesLogged`
+(`activity-log-panel.tsx`, `t(lang, "activityEntriesLogged", entries.length)`) and `timelogTestOk`
+(`timelog-settings.tsx`, `t(lang, "timelogTestOk", String(users.length), scope)`) have
+`activityEntriesLoggedOne` and `timelogTestOkOne` authored in EN and DE, and neither is ever
+selected. The activity log still reads "1 entries logged" and the Timelog connection test still
+reads "Connected — 1 users, scope: …". Unlike B this is not a structural obstacle — it is a
+one-call change at each site — but it is outside the file list of the task that recorded it, so it
+is filed here rather than fixed. ★★ Both files were last touched BEFORE this slice's conversion
+commits, so this is the committed state and not work in flight; re-check that before acting, since
+other branches may be converting them.
+★★★ **This is the failure mode the whole entry is about, arriving inside its own fix round.** Both
+keys appear in `i18n-plural.test.ts` as FIXTURES for `tPlural`'s own behaviour, so the suite renders
+`"1 entry logged"` and `"Connected — 1 user, scope: read"` and is green — while no application code
+path produces either string. A test that USES a key is not a test that PINS its call site, and the
+pairing test cannot see the difference: it scans the dictionary, never the callers. Derive the real
+per-key split with the call sites, not with the dictionary:
+
+```bash
+grep -rn "tPlural(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+grep -rn 't(lang, "activityEntriesLogged"\|t(lang, "timelogTestOk"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+```
 
 ### The count is a floor, not a total, and here is why it cannot be closed today
 
@@ -30163,7 +30293,16 @@ grep -rn 't(\s*lang\s*,\s*"KEYNAME"' src/app --include=*.ts --include=*.tsx | gr
 grep -rn '"KEYNAME"' src/app --include=*.ts --include=*.tsx | grep -v i18n | grep -v '\.test\.'
 ```
 
-### Mechanism — settled, and record it so it is not re-proposed
+### Mechanism — SUPERSEDED 2026-09-07 as to WHERE the count test lives; the reasoning below still holds
+
+★★★ **Read the paragraph below as the record of what was believed on 2026-09-06, not as current
+guidance.** A helper now exists — `tPlural(lang, baseKey, count, ...args)` in `src/app/i18n.ts` —
+and the call-site ternary it forbids has been removed from every converted site bar the four engine
+exceptions in A above. What was RIGHT and is unchanged is the substance: the two forms stay
+independently authored complete strings, never a stem plus a suffix. `tPlural` selects between two
+whole authored strings by `Intl.PluralRules` category; it is NOT the `pluralize(lang, count, one,
+other)` two-fragment API the paragraph below rejects, and that API is still rejected on exactly the
+evidence given. Only the LOCATION of the count test moved.
 
 The fix idiom is the house `*One` sibling plus a `count === 1 ?` ternary at the call site — NOT a
 `pluralize(lang, count, one, other)` two-fragment helper. A two-fragment API cannot express the

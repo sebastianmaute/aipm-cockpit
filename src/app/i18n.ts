@@ -3577,11 +3577,43 @@ const enUS = {
   dashboardChangesHeading: "Changes",
   dashboardChangesPending: "{0} pending",
   taskRowChangesBadge: "{0} changes",
-  // ★ Singular sibling. The house idiom is a `*One` key plus a `count === 1 ?`
-  // ternary at the call site (nine such keys today) — NOT a pluralize() helper.
+  // ★ Singular sibling, selected by `tPlural` — its docblock carries the
+  // contract and the type gate; this comment does not restate them.
   // German breaks on noun AND adjective AND verb agreement at once, so a
-  // singular is a re-worded sentence, not a suffix swap on a fragment. That is
-  // why this key hardcodes the numeral and takes no placeholder.
+  // singular is a re-worded sentence, not a suffix swap on a fragment: both
+  // forms stay independently authored complete strings, never a stem plus a
+  // suffix. THAT RULE IS UNCHANGED — only the location of the count test
+  // moved, from a ternary at each call site into one helper. It is also why
+  // this key hardcodes the numeral and takes no placeholder.
+  // ★★ THE HELPER IS NOT UNIVERSAL. `src/app/next-actions/providers/*.ts` are
+  // deliberately i18n-free engines: no `Lang` is in scope, and they emit
+  // `{key, params}` objects (`next-actions/types.ts` `I18nText`) that a surface
+  // renders much later through a generic `t()`. `tPlural` cannot be called
+  // there, so four keys still pick the singular KEY with a `count === 1`
+  // ternary, commented at each site. Correct for en-US/en-GB/de, which all
+  // resolve `one`/`other` — but NOT locale-general the way `tPlural` is: a
+  // language with a `few`/`many` category needs those four revisited, and
+  // nothing flags them. Enumerate them, do not trust this count:
+  //   grep -rnoE '"[A-Za-z]+One"' src/app/next-actions/providers/ \
+  //     --include=*.ts --exclude=*.test.ts
+  // ★★ Those four are not the whole exception set, and reading them as such is
+  // the over-read this note exists to stop. A `…One` key can also be authored
+  // in both dictionaries and reached by NOTHING — the type gate proves the
+  // PAIRING, never that a call site selects the sibling, and some keys are in
+  // that state today — some reached only through a generic renderer that
+  // looks up a key and never selects a sibling, some with a live call site
+  // still on plain `t()`. No count is given here because it moves as those
+  // are fixed: `docs/open-followups.md` §415 enumerates every exception by
+  // name with a reproduce command each. Go there before concluding that a
+  // singular actually renders.
+  // ★★ An earlier revision of this comment mandated the call-site ternary and
+  // forbade a helper outright ("NOT a pluralize() helper"), and quoted "nine
+  // such keys today" — a figure that was already stale when it was written.
+  // Kept as the record of what was believed. No total for converted keys is
+  // quoted here either: this file is inside the population any such number
+  // counts, so it would restale on the next commit. The live measurement is
+  // the pairing test in `i18n-plural.test.ts`, which counts the `…One` keys
+  // from source itself.
   taskRowChangesBadgeOne: "1 change",
   versionHighlightChangeLog: "Change-control log — a RAID-sibling register for tracking change requests",
 
