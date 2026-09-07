@@ -2759,6 +2759,42 @@ describe("useChatDispatcher — the register delete tools arm the destructive-sa
     act(() => { result.current.deleteStakeholder(id); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
+
+  it("deleteAbsence arms only when an absence was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteAbsence(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createAbsence({
+        assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05",
+      }).id;
+    });
+    act(() => { result.current.deleteAbsence(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    // Positive observable: the delete really ran, so the arming is not being
+    // counted on a no-op path.
+    expect(result.current.listAbsences()).toEqual([]);
+  });
+
+  it("deleteCalendarEvent arms only when a meeting was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    // ★ The miss runs against the ABSENT slice (`calendarEvents` is seeded
+    // `undefined`), which is the stronger fixture: it pins BOTH that a miss
+    // does not arm AND that the `?? []` read reaches the `!doomed` guard
+    // instead of throwing on undefined.
+    act(() => { result.current.deleteCalendarEvent(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createCalendarEvent({
+        title: "Kickoff", startDate: "2026-06-01",
+      }).id;
+    });
+    act(() => { result.current.deleteCalendarEvent(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    expect(result.current.listCalendarEvents()).toEqual([]);
+  });
 });
 
 // ★★ The `ai.documentWrite` activity row. The kind was registered everywhere
