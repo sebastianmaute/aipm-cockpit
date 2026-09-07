@@ -60,10 +60,10 @@ describe("describeProposal", () => {
     expect(rows).toHaveLength(2);
     expect(rows.flatMap((r) => r.plan.rejected)).toEqual([]);
     expect(rows[0].plan.updates).toEqual([
-      { field: "taskName", before: "A", after: "A2", raw: "A2" },
+      { entity: "task", field: "taskName", before: "A", after: "A2", raw: "A2" },
     ]);
     expect(rows[1].plan.updates).toEqual([
-      { field: "name", before: "Go live", after: "Go live (revised)", raw: "Go live (revised)" },
+      { entity: "milestone", field: "name", before: "Go live", after: "Go live (revised)", raw: "Go live (revised)" },
     ]);
   });
 
@@ -221,7 +221,7 @@ describe("describeProposal", () => {
     const rows = describeProposal([call("update_resource", { id: 4, title: "Architect" })], ws);
     expect(rows[0].plan.rejected).toEqual([]);
     expect(rows[0].plan.updates).toEqual([
-      { field: "title", before: "Engineer", after: "Architect", raw: "Architect" },
+      { entity: "resource", field: "title", before: "Engineer", after: "Architect", raw: "Architect" },
     ]);
   });
 
@@ -261,8 +261,40 @@ describe("describeProposal", () => {
       expect(rows).toHaveLength(1);
       expect(rows[0].plan.rejected).toEqual([]);
       expect(rows[0].plan.links).toEqual([
-        { field: "C dependencies", before: "A (FS), B (FS)", after: "A (FS)", rawIds: [1] },
+        // The task's name is `subject`, not part of the label — §406, and the
+        // test two blocks down pins why.
+        { entity: "task", target: "row", field: "dependencies", subject: "C", before: "A (FS), B (FS)", after: "A (FS)", rawIds: [1] },
       ]);
+    });
+
+    // §406 — the label used to be the built string `${title} dependencies`, and
+    // `fieldLabel(lang, undefined, field)` passes an entity-less row's field
+    // through VERBATIM, so a German user read "C dependencies" while every
+    // other label on that surface was translated. This module is i18n-free by
+    // construction and takes no `lang`, so it emits the PARTS and the renderer
+    // composes and translates them. The DE half is pinned where the composition
+    // happens — `chat-proposal-block.test.tsx`.
+    test("emits a structured dependency label rather than an English string", () => {
+      const rows = describeProposal(
+        [call("set_task_dependencies", { id: 3, dependencies: [{ taskId: 1, type: "FS" }] })],
+        depWs,
+      );
+      expect(rows[0].plan.links[0].field).toBe("dependencies");
+      expect(rows[0].plan.links[0].subject).toBe("C");
+    });
+
+    // The untitled fallback moved WITH the name: it identifies the row, so it
+    // belongs to `subject`. Folding it into `field` instead would send `#3` to
+    // `fieldLabel`, which would miss both maps and render the marker as the
+    // field's own name.
+    test("puts the id marker in the subject when the task has no name", () => {
+      const untitled = { ...task3, taskName: "  ", dependencies: [] };
+      const rows = describeProposal(
+        [call("set_task_dependencies", { id: 3, dependencies: [{ taskId: 1, type: "FS" }] })],
+        { ...ws, tasks: [task1, task2, untitled] } as unknown as Workspace,
+      );
+      expect(rows[0].plan.links[0].subject).toBe("#3");
+      expect(rows[0].plan.links[0].field).toBe("dependencies");
     });
 
     // The writer keys a link on the (taskId, type) PAIR, so this IS a drop plus
@@ -296,12 +328,42 @@ describe("describeProposal", () => {
 
     // Mirrors the dispatcher: a write whose links were ALL refused, against a
     // task that already has links, leaves the task untouched.
+    //
+    // ★ FLIPPED FROM PINNING THE GAP (§404): this used to assert only the
+    //  no-op link and stop there — the row's `rejected` was `[]`, so the card
+    //  rendered an unchanged link line with no reason the write refused it.
+    //  Now it also asserts the resolver's own refusal reached the plan.
     test("shows no change when every proposed link is refused", () => {
       const rows = describeProposal(
         [call("set_task_dependencies", { id: 3, dependencies: [{ taskId: 99, type: "FS" }] })],
         depWs,
       );
       expect(rows[0].plan.links[0].after).toBe(rows[0].plan.links[0].before);
+      expect(rows[0].plan.rejected).toEqual([
+        { toolName: "set_task_dependencies", reason: "unknown-id", detail: "99:FS=unknown-id" },
+      ]);
+    });
+
+    // A proposal refused for TWO DIFFERENT reasons at once (a self-link and an
+    // unknown id) must name both — not just the fact that nothing changed.
+    test("names every refused dependency instead of showing an empty card", () => {
+      const rows = describeProposal(
+        [
+          call("set_task_dependencies", {
+            id: 3,
+            dependencies: [
+              { taskId: 3, type: "FS" }, // self-link
+              { taskId: 99, type: "FS" }, // unknown id
+            ],
+          }),
+        ],
+        depWs,
+      );
+      expect(rows[0].plan.links[0].after).toBe(rows[0].plan.links[0].before);
+      expect(rows[0].plan.rejected).toEqual([
+        { toolName: "set_task_dependencies", reason: "bad-input", detail: "3:FS=self" },
+        { toolName: "set_task_dependencies", reason: "unknown-id", detail: "99:FS=unknown-id" },
+      ]);
     });
 
     test("rejects a call whose target task does not exist", () => {
@@ -513,7 +575,7 @@ describe("TOOL_ENTITY", () => {
     expect(allTasks.plan).toEqual(empty);
     expect(inquiry.plan).toEqual(empty);
     expect(deps.plan.links).toEqual([
-      { field: "A dependencies", before: "", after: "B (FS)", rawIds: [2] },
+      { entity: "task", target: "row", field: "dependencies", subject: "A", before: "", after: "B (FS)", rawIds: [2] },
     ]);
   });
 });

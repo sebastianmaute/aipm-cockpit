@@ -3,17 +3,27 @@
 // field. The sibling of `sanitize-raid-patch.test.ts`, one register over.
 //
 // ★★★ THE DEFECT THIS PINS. `sanitizeChangeItem` REBUILDS a whole record, so a
-// value it refuses is not "left alone": the key is DROPPED (`impact`,
-// `decisionDate`, `scheduleImpactDays`, `costImpact`), written as `""`
-// (`raisedDate`), or reset to a HARDCODED DEFAULT (`type` -> "Other").
+// value the PREVIEW refused is not "left alone" once it reaches the merge. It
+// lands one of two ways, and this header used to name only the first:
+//   CLEARED — the key is DROPPED (`impact`, `decisionDate`), written as `""`
+//     (`raisedDate`), or reset to a HARDCODED DEFAULT (`type` -> "Other").
+//   WRITTEN THROUGH — `scheduleImpactDays` and `costImpact`, which the sanitizer
+//     now stores VERBATIM (any coercible, finite, non-negative number) so that a
+//     LOAD cannot rewrite a person's saved figure. Those two were listed under
+//     "DROPPED" while the sanitizer still gated them; it no longer does, which
+//     makes this guard the only thing keeping them in step with the card.
 // `updateChange` (`use-register-tools.ts`) hands it a merged
 // `{...stored, ...patch}`, so a refused patch value wipes the STORED one —
 // while the AI edit preview refuses that same value and shows the field as
 // unchanged. The card says "unchanged"; the write wipes it.
 //
 // ★★ FIXED AT THE MERGE SITE, NEVER IN THE SANITIZER. That sanitizer also runs
-// on JSON load, CSV decode, template apply and AI proposal, where there is no
-// prior value to preserve and a hardcoded fallback is the right answer.
+// on JSON load, CSV decode and template apply, where there is no prior value to
+// preserve and a hardcoded fallback is the right answer. ★ The AI proposal was
+// in that list and has left it: `proposalToSeed` now calls
+// `sanitizeModelChangeItem`, which REPAIRS the two numeric fields instead. Its
+// exemption from this guard is unchanged and rests on the same fact — no prior
+// value behind it — so only the sanitizer it reaches for has moved.
 // `sanitize-change.test.ts` pins that behaviour and is deliberately untouched —
 // every "before" assertion below is the sanitizer's UNGUARDED output, so this
 // file also documents what the guard is protecting against rather than merely
@@ -30,7 +40,8 @@
 // below rather than left to a comment.
 import { describe, expect, it } from "vitest";
 import { applyModelChangeStatus } from "./change-log";
-import { dropUnacceptedChangeFields, sanitizeChangeItem } from "./sanitize";
+import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
+import { acceptsScheduleDays, dropUnacceptedChangeFields, sanitizeChangeItem } from "./sanitize";
 import { type ChangeItem } from "./types";
 
 /** A fully populated stored row: every guarded field carries a NON-DEFAULT
@@ -224,29 +235,95 @@ describe("numeric coercion matches the sanitizer's own", () => {
     expect(mergeGuarded(storedChange(), { costImpact: "250" }).costImpact).toBe(250);
   });
 
-  it("still accepts the booleans, because toNumber(true) is 1 and toNumber(false) is 0", () => {
-    // ★★ NOT A REGRESSION AND NOT A FIX: the guard reuses `toNumber`, which is
-    // what the sanitizer AND the preview's `numberPreview` both use, so
-    // `scheduleImpactDays: true` goes on storing a fabricated 1 exactly as
-    // before — and `false` a 0, which the `[0, ∞)` range admits. A stricter
-    // `typeof === "number"` rule here would refuse a value the preview accepts
-    // and shows as "1" — the SAME disagreement this file exists to close,
-    // pointing the other way. Pinned so the trade is a decision, not an
-    // accident.
-    expect(mergeGuarded(storedChange(), { scheduleImpactDays: true }).scheduleImpactDays).toBe(1);
-    expect(mergeUnguarded(storedChange(), { scheduleImpactDays: true }).scheduleImpactDays).toBe(1);
-    expect(mergeGuarded(storedChange(), { costImpact: false }).costImpact).toBe(0);
+  it("still DROPS a refused amount on an UPDATE, now that the sanitizer would store it", () => {
+    // ★★★ THE GUARD'S JOB ON THESE TWO FIELDS CHANGED SHAPE WITHOUT THE GUARD
+    // CHANGING. `sanitizeChangeItem` used to REFUSE a fractional day count and a
+    // cost over AMOUNT_MAX, so an unguarded merge CLEARED the field; it now
+    // stores both VERBATIM, so an unguarded merge WRITES the model's value over
+    // the stored one. The card refuses the value either way, so both are
+    // preview/apply divergences — but only the second is silent in the data, and
+    // this guard is the only thing standing in front of it.
+    expect(mergeUnguarded(storedChange(), { scheduleImpactDays: 1.5 }).scheduleImpactDays).toBe(1.5);
+    expect(mergeUnguarded(storedChange(), { costImpact: 2_000_000_000 }).costImpact).toBe(2_000_000_000);
+    // ★★ The positive control for the pair above: WITH the guard the stored
+    // values survive untouched. A test asserting only the guarded half would
+    // pass against a sanitizer that had gone back to refusing these, which is
+    // the state this pins the exit from.
+    expect(mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 }).scheduleImpactDays).toBe(12);
+    expect(mergeGuarded(storedChange(), { costImpact: 2_000_000_000 }).costImpact).toBe(4500);
+    // ★ REPAIR IS NOT AN OPTION HERE, and this is the third leg of the split.
+    // A model CREATE repairs 1.5 to 2 (`sanitizeModelChangeItem`); an UPDATE
+    // must not, because the AI edit preview refuses 1.5 through this very
+    // predicate (§405) — repairing would write 2 under a card saying
+    // "unchanged". Three write paths, three answers, on purpose.
+    expect(acceptsScheduleDays(1.5)).toBe(false);
   });
 
-  it("accepts a NON-INTEGER, as the sanitizer does — the preview is the stricter one", () => {
-    // ★★ PRE-EXISTING AND DELIBERATELY UNCHANGED. `sanitizeChangeItem` gates on
-    // `Number.isFinite(days) && days >= 0`, while the preview's `intRangeFields`
-    // guard demands `Number.isInteger`. So `1.5` previews as REJECTED and
-    // applies as 1.5 — the same class this guard closes, in a value no probe
-    // sends. Tightening the rule here to `Number.isInteger` would close it, but
-    // it would also stop being the sanitizer's OWN predicate, which is the
-    // property that makes every other row of the table checkable. Left as a
-    // pinned observation rather than silently altered.
-    expect(mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 }).scheduleImpactDays).toBe(1.5);
+  it("refuses the booleans rather than storing a fabricated 1 or 0", () => {
+    // ★★★ THIS PINNED THE OPPOSITE VERDICT AND CALLED IT A DELIBERATE TRADE.
+    // The old comment read "NOT A REGRESSION AND NOT A FIX: the guard reuses
+    // `toNumber` … so `scheduleImpactDays: true` goes on storing a fabricated 1
+    // exactly as before — and `false` a 0, which the `[0, ∞)` range admits",
+    // and argued a stricter rule would refuse a value the preview accepts. It
+    // was the TWIN of the justification `acceptsRiskScale` carried, which §395
+    // overturned two files away; only the raid half was closed, so this one was
+    // left reading as a settled decision when it was an unclosed half. §399
+    // closes it: both change amounts now reject a boolean through the SHARED
+    // `isCoercibleNumber`, and the preview follows because it calls the same
+    // predicate — so there is no disagreement to trade against.
+    //
+    // ★ The range wording had rotted too: there is no `[0, ∞)` range any more.
+    // §395 replaced the preview's `[min, max]` tuple with `numericFields`, so
+    // the rule lives inside `acceptsScheduleDays`/`acceptsCostAmount` and
+    // nothing states a range at all.
+    //
+    // A refused key leaves the STORED value alone — that is what the merge-site
+    // guard buys, and it is why the assertions below read the stored numbers.
+    expect(mergeGuarded(storedChange(), { scheduleImpactDays: true }).scheduleImpactDays)
+      .toBe(storedChange().scheduleImpactDays);
+    expect(mergeGuarded(storedChange(), { costImpact: false }).costImpact)
+      .toBe(storedChange().costImpact);
+    // ★ The UNGUARDED merge is the control: without the guard the sanitizer
+    // rebuilds the record from the raw blob and the boolean is simply dropped,
+    // which is a different outcome from "the stored value survives".
+    expect("scheduleImpactDays" in mergeUnguarded(storedChange(), { scheduleImpactDays: true })).toBe(false);
+  });
+
+  it("refuses a NON-INTEGER day count, and the preview agrees", () => {
+    // ★★★ THE VERDICT HERE IS INVERTED FROM WHAT THIS TEST USED TO PIN, and the
+    // old name ("accepts a NON-INTEGER, and the preview now agrees") went with
+    // it. §395 closed the days divergence at the LOOSE end — it made the
+    // preview accept 1.5, matching a writer that already did. §399 closes it at
+    // the TIGHT end instead: `change-edit-modal.tsx` clamps this field with
+    // `describeClamp(value, { min: 0, round: 0 })`, so the writer had no
+    // business storing a fraction. Both sides still agree, because the preview
+    // calls `acceptsScheduleDays` rather than restating it — which is exactly
+    // why reversing the rule moved both at once.
+    //
+    // ★★★ "SO THE FORM CANNOT PRODUCE A FRACTION" STOOD HERE AND WAS FALSE. That
+    // `describeClamp` ran ONLY in the field's `onBlur`, and the same modal's own
+    // comment says "Enter inside a text input submits WITHOUT firing blur" — so
+    // typing 1.5 and pressing Enter stored 1.5 until the commit that added the
+    // clamp to `handleSubmit` as well. Three files restated the false version;
+    // the at-risk stored population was never empty.
+    // ★★★ THAT PARAGRAPH USED TO END "…which is why `sanitizeChangeItem` now
+    // REPAIRS such a value on load rather than dropping it. That repair does NOT
+    // reach this path". Both halves are stale, and the second is stale in the
+    // DANGEROUS direction. The loader neither repairs nor drops a stored 1.5 any
+    // more — it stores it VERBATIM, because rewriting a person's saved number was
+    // the worse defect — and repair moved to `sanitizeModelChangeItem`, which
+    // serves creates and the proposal seed. So what this path is protected from
+    // changed shape: without the guard the sanitizer would now WRITE the model's
+    // 1.5 over the stored 12, where it once cleared the field. Still a
+    // preview/apply divergence, but a silent one in the data. The two assertions
+    // below pin the guarded half; the unguarded half is pinned by "still DROPS a
+    // refused amount on an UPDATE, now that the sanitizer would store it".
+    expect("scheduleImpactDays" in mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 })).toBe(true);
+    expect(mergeGuarded(storedChange(), { scheduleImpactDays: 1.5 }).scheduleImpactDays)
+      .toBe(storedChange().scheduleImpactDays);
+    expect(INLINE_DESCRIPTORS.change.numericFields.scheduleImpactDays(1.5)).toBe(false);
+    // ★ `costImpact` moves the OTHER way in the same commit: two decimals are
+    // what `{ round: 2 }` produces, so money keeps a precision days lose.
+    expect(INLINE_DESCRIPTORS.change.numericFields.costImpact(1500.55)).toBe(true);
   });
 });

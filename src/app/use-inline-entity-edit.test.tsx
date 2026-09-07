@@ -38,7 +38,7 @@ it("goes thinking -> preview and builds a diff", async () => {
   act(() => result.current.openFor(task));
   await act(async () => { await result.current.submit("mark done"); });
   expect(result.current.phase).toBe("preview");
-  expect(result.current.plan?.updates).toEqual([{ field: "status", before: "To Do", after: "Done", raw: "Done" }]);
+  expect(result.current.plan?.updates).toEqual([{ entity: "task", field: "status", before: "To Do", after: "Done", raw: "Done" }]);
 });
 
 // ★★★ THIS USED TO PIN THE OPPOSITE, AND THE REVERSAL IS THE POINT — a reader
@@ -208,6 +208,49 @@ it("no tool_use -> clarify phase", async () => {
   expect(result.current.clarifyText).toBe("Which task?");
 });
 
+// ★★★ A REFUSAL IS NOT "NO CHANGES" (§392). `isEmptyPlan` counts what a plan
+// would WRITE and deliberately does not count `rejected`, so a plan whose only
+// content is a refusal is empty by that predicate and used to route to
+// "clarify" — telling the user the model needed more from them, when in fact it
+// understood and the writer refused a named field.
+// ★★ A REAL plan, not a stubbed one: an `update_task` naming an id this row is
+//  not produces exactly one `rejected` entry and nothing else, so the route is
+//  exercised through the real `describeEntityCalls`/`isEmptyPlan` pair rather
+//  than around them.
+it("routes a rejection-only plan to the rejected phase, not to clarify", async () => {
+  vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+    blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 999, status: "Done" } }],
+    text: "", usage: { input_tokens: 1, output_tokens: 1 },
+  } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+  const { result } = renderHook(() => useInlineAiEdit(mkDeps()));
+  act(() => result.current.openFor(task));
+  await act(async () => { await result.current.submit("mark task 999 done"); });
+  expect(result.current.phase).toBe("rejected");
+  expect(result.current.plan?.rejected).toEqual([{ toolName: "update_task", reason: "unknown-id", detail: "999" }]);
+  // The plan must reach the popover — the phase alone renders no reason.
+  expect(result.current.plan).not.toBeNull();
+});
+
+// ★★ THE PAIRED CONTROL, and deliberately NOT a copy of "no tool_use ->
+// clarify phase" above: this one DOES return a tool_use block, addressed to the
+// right row, whose value already matches what is stored — so the plan is empty
+// with an empty `rejected`. That is the only difference from the case above, so
+// a route keyed on anything coarser than `rejected.length` turns it red.
+it("still routes an empty plan carrying no rejection to clarify", async () => {
+  vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+    blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 42, status: "To Do" } }],
+    text: "Nothing to change.", usage: { input_tokens: 1, output_tokens: 1 },
+  } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+  const { result } = renderHook(() => useInlineAiEdit(mkDeps()));
+  act(() => result.current.openFor(task));
+  await act(async () => { await result.current.submit("set the status to To Do"); });
+  expect(result.current.phase).toBe("clarify");
+  expect(result.current.clarifyText).toBe("Nothing to change.");
+  // The clarify route commits no plan — so the assertion above cannot be
+  // passing on a plan that merely failed to render.
+  expect(result.current.plan).toBeNull();
+});
+
 it("error path: callInlineEdit throws -> error phase", async () => {
   vi.spyOn(call, "callInlineEdit").mockRejectedValue(new Error("500"));
   const { result } = renderHook(() => useInlineAiEdit(mkDeps()));
@@ -307,7 +350,7 @@ describe("useInlineEntityEdit — raid", () => {
     act(() => result.current.openFor(raidItem));
     await act(async () => { await result.current.submit("rename it"); });
     expect(result.current.phase).toBe("preview");
-    expect(result.current.plan?.updates).toEqual([{ field: "title", before: "Old", after: "New", raw: "New" }]);
+    expect(result.current.plan?.updates).toEqual([{ entity: "raid", field: "title", before: "Old", after: "New", raw: "New" }]);
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
       id: 7, title: "New", expectedToken: entityToken("raid", raidItem),
@@ -345,7 +388,7 @@ describe("useInlineEntityEdit — raid", () => {
     await act(async () => { await result.current.submit("describe it"); });
     // The PREVIEW is projected — that half must not regress.
     expect(result.current.plan?.updates).toEqual([
-      { field: "description", before: "", after: "one two", raw: "<p>one</p><p>two</p>" },
+      { entity: "raid", field: "description", before: "", after: "one two", raw: "<p>one</p><p>two</p>" },
     ]);
     await act(async () => { await result.current.apply(); });
     // The APPLIED value keeps its markup.
@@ -375,7 +418,7 @@ describe("useInlineEntityEdit — raid", () => {
     act(() => result.current.openFor(item));
     await act(async () => { await result.current.submit("make it an issue"); });
     expect(result.current.plan?.updates).toContainEqual({
-      field: "status", before: "Mitigated", after: "Open",
+      entity: "raid", field: "status", before: "Mitigated", after: "Open",
     });
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
@@ -453,7 +496,7 @@ describe("useInlineEntityEdit — raid", () => {
     expect(result.current.phase).toBe("preview");
     expect(result.current.plan?.updates).toEqual([]);
     expect(result.current.plan?.links).toEqual([
-      { field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] },
+      { entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] },
     ]);
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
@@ -507,6 +550,90 @@ describe("useInlineEntityEdit — raid", () => {
     // The scalar update in the same plan still lands, so the patch really was
     // built — the link assertion is not passing over an unbuilt one.
     expect(input?.title).toBe("New");
+  });
+
+  it("never writes a CREATE's links onto the open row", async () => {
+    // ★★★ DATA LOSS. `plan.links` is ONE flat bucket and both branches of
+    //  `describeEntityCalls` push into it — the update branch for the OPEN row,
+    //  the create branch for DISCLOSURE only (the create writes its own links by
+    //  replaying `c.input`). Rebuilding the update patch from the whole bucket
+    //  therefore stamped a create's links onto the row the popover was opened
+    //  on, REPLACING them: Risk A loses tasks 1 and 3 and gains task 7, and the
+    //  card never said so.
+    //  ★★ FILTERING ON `l.entity` DOES NOT FIX IT and must not be "simplified"
+    //  back to that: an open RAID row plus `create_raid_item` is the SAME
+    //  entity and a DIFFERENT row. The discriminator is `target`, i.e. ORIGIN.
+    //  ★ Asserting on the tool names runTool RECEIVES, not on the plan: a
+    //  create's links belong in the plan (that is the disclosure §390 added);
+    //  what must never happen is the WRITE.
+    const linked = { id: 9, category: "R", title: "Risk A", status: "Open", linkedTaskIds: [1, 3] };
+    const linkedWs = {
+      tasks: [{ id: 1, taskName: "Draft brief" }, { id: 3, taskName: "Review" }, { id: 7, taskName: "Kickoff" }],
+      raid: [linked], milestones: [], changes: [], stakeholders: [],
+    } as unknown as InlineEntityEditDeps["ws"];
+    vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+      blocks: [{
+        type: "tool_use", id: "b1", name: "create_raid_item",
+        input: { category: "R", title: "Risk B", linkedTaskIds: [7] },
+      }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    const runToolSpy = vi.spyOn(tools, "runTool").mockResolvedValue({ id: 11 });
+    const deps = mkEntityDeps({ ws: linkedWs });
+    const { result } = renderHook(() => useInlineEntityEdit(deps));
+    act(() => result.current.openFor(linked));
+    await act(async () => { await result.current.submit("raise a second risk linked to Kickoff"); });
+    // Positive control: the plan really did reach preview AND really does carry
+    // the create's link as disclosure — so the assertions below cannot pass
+    // because nothing was described.
+    expect(result.current.phase).toBe("preview");
+    expect(result.current.plan?.links).toHaveLength(1);
+    await act(async () => { await result.current.apply(); });
+    // The open row is never touched: no `update_raid_item` at all. A pointless
+    // update would also carry `expectedToken`, bumping `localModifiedAt` and
+    // logging a no-op `actor:"ai"` row — and could abort the apply with a
+    // ConcurrencyTokenError before the create ever runs.
+    expect(runToolSpy.mock.calls.map((c) => c[1])).toEqual(["create_raid_item"]);
+    expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "create_raid_item", {
+      category: "R", title: "Risk B", linkedTaskIds: [7],
+    });
+  });
+
+  it("keeps a create's links out of a patch the open row is getting anyway", async () => {
+    // ★★★ THE OTHER HALF, AND IT NEEDS ITS OWN TEST. The guard and the rebuild
+    //  loop each cover a case the other cannot: the test above has an EMPTY
+    //  `updates`, so the guard alone already stops it and reverting the LOOP
+    //  filter leaves it green. Here the open row has a real scalar update, so
+    //  the guard passes on `updates` and the loop is the only thing standing
+    //  between the create's `linkedTaskIds` and the open row's patch. Measured:
+    //  each mutant reds exactly one of these two.
+    const linked = { id: 9, category: "R", title: "Risk A", status: "Open", linkedTaskIds: [1, 3] };
+    const linkedWs = {
+      tasks: [{ id: 1, taskName: "Draft brief" }, { id: 3, taskName: "Review" }, { id: 7, taskName: "Kickoff" }],
+      raid: [linked], milestones: [], changes: [], stakeholders: [],
+    } as unknown as InlineEntityEditDeps["ws"];
+    vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+      blocks: [
+        { type: "tool_use", id: "b1", name: "update_raid_item", input: { id: 9, title: "Renamed" } },
+        { type: "tool_use", id: "b2", name: "create_raid_item", input: { category: "R", title: "Risk B", linkedTaskIds: [7] } },
+      ],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    const runToolSpy = vi.spyOn(tools, "runTool").mockResolvedValue({ id: 11 });
+    const deps = mkEntityDeps({ ws: linkedWs });
+    const { result } = renderHook(() => useInlineEntityEdit(deps));
+    act(() => result.current.openFor(linked));
+    await act(async () => { await result.current.submit("rename this and raise a second risk on Kickoff"); });
+    expect(result.current.phase).toBe("preview");
+    await act(async () => { await result.current.apply(); });
+    // The row's OWN patch: the rename lands (so the patch really was built) and
+    // `linkedTaskIds` is ABSENT — not `[7]`, and not `[]` either. The row keeps
+    // the [1, 3] it had, because nothing writes that key at all.
+    expect(runToolSpy.mock.calls[0]?.[1]).toBe("update_raid_item");
+    expect(runToolSpy.mock.calls[0]?.[2]).toEqual({
+      id: 9, title: "Renamed", expectedToken: entityToken("raid", linked),
+    });
+    expect(runToolSpy.mock.calls[1]?.[1]).toBe("create_raid_item");
   });
 
   it("auto-closes a left-open edit when the pane goes inactive (active -> false)", () => {

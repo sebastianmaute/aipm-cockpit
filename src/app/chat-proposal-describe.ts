@@ -203,11 +203,18 @@ function renderDependencies(deps: readonly TaskDependency[], ws: Workspace): str
  *   the hook, so this preview drifts if it moves — pinned by "shows no change
  *   when every proposed link is refused".
  *
- *  ★★ THE TASK'S NAME RIDES THE `field` LABEL because the ROW TITLE cannot carry
- *   it: `liveRowTitle` resolves a title only for a tool `TOOL_ENTITY` knows, and
- *   this tool is deliberately absent from that map (see `DEPENDENCY_LINK`). The
- *   label is the only slot on the rendered line that survives to the card, and
- *   `fieldLabel` passes it through verbatim for an entity-less row.
+ *  ★★ THE TASK'S NAME RIDES THE DIFF'S `subject` because the ROW TITLE cannot
+ *   carry it: `liveRowTitle` resolves a title only for a tool `TOOL_ENTITY`
+ *   knows, and this tool is deliberately absent from that map (see
+ *   `DEPENDENCY_LINK`). The rendered line is the only slot that survives to the
+ *   card.
+ *   ★★★ IT IS A SEPARATE MEMBER RATHER THAN A BUILT `${title} dependencies`
+ *   LABEL, AND THAT IS THE WHOLE POINT (§406). This module is i18n-free by
+ *   construction and takes no `lang`, while `fieldLabel` passes an entity-less
+ *   row's field through VERBATIM — so a label assembled here reached the card
+ *   in English and a German user read "Kickoff vorbereiten dependencies" beside
+ *   translated labels. Emitting the PARTS lets the renderer compose and
+ *   translate. Do not fold them back together to save a member.
  *
  *  ★ `rawIds` is populated for shape consistency ONLY. This row is applied by
  *   REPLAYING the original tool input, so nothing reads it back — it must never
@@ -232,11 +239,52 @@ function describeDependencyCall(call: ProposedCall, ws: Workspace): EditPlan {
 
   const prior: readonly TaskDependency[] = target.dependencies ?? [];
   const { applied, rejected } = resolveDependencyWrite(id, input.dependencies, tasks);
+  // ★★ THE RESOLVER ALREADY COMPUTED THESE and they were dropped on the floor
+  //  (§404). Previewing only what WOULD land is correct — that is why a
+  //  self-link or a cycle is not shown as a change — but a proposal whose links
+  //  are ALL refused then rendered an empty card with no reason, which is
+  //  §392's shape on this surface.
+  //  ★ `detail` is `${taskId}:${type}=${reason}` rather than prose: this module
+  //  is i18n-free by construction, and the renderer is what translates.
+  //  ★ Only the resolver's OWN "unknown-id" maps to the shared reason of the
+  //  same name; the other five (self/cycle/duplicate/cap/bad-type) have no
+  //  counterpart in `Rejected["reason"]` and fold into "bad-input" — `detail`
+  //  still carries the specific reason, so nothing is lost, only re-classified.
+  for (const r of rejected) {
+    plan.rejected.push({
+      toolName: call.name,
+      reason: r.reason === "unknown-id" ? "unknown-id" : "bad-input",
+      detail: `${r.taskId}:${r.type}=${r.reason}`,
+    });
+  }
   const after =
     applied.length === 0 && rejected.length > 0 && prior.length > 0 ? prior : applied;
   const title = String(target.taskName ?? "").trim();
   plan.links.push({
-    field: `${title !== "" ? title : `${UNKNOWN_ID_MARKER}${id}`} dependencies`,
+    // ★★ THE ONE PRODUCER WITH NO DESCRIPTOR IN SCOPE, and `"task"` here is
+    //  structural rather than a default: this describer is hand-written for
+    //  `set_task_dependencies` alone, reads `ws.tasks`, renders `taskName` and
+    //  emits a field that exists on `Task` and nowhere else. Every other
+    //  producer passes `d.entity` (§393).
+    //  ★ It does NOT change what this surface renders, and cannot: `PlanDetail`
+    //  resolves its label from the ROW's own tool name, and this tool is
+    //  deliberately absent from `TOOL_ENTITY` (see `DEPENDENCY_LINK`), so the
+    //  entity the renderer passes is `undefined` whatever is set here. The card
+    //  is translated all the same — `fieldLabel` resolves an undefined entity
+    //  through `ENTITYLESS_FIELD_LABEL_KEY`, the narrow exception written for
+    //  this very tool — so the row reads "<task title> – Dependencies" in the
+    //  user's language, not a raw property name.
+    //  ★★ Wiring the renderer to `l.entity` would make it WORSE, not better:
+    //  `FIELD_LABEL_KEY` declares no `task.dependencies` member, so
+    //  `keyedFieldLabel` would fall straight back to the raw name. Carrying
+    //  the data here is what keeps a future producer honest, nothing more.
+    entity: "task" satisfies InlineEntity,
+    // ★ `set_task_dependencies` rewrites an EXISTING task's predecessor list,
+    //  so this is a real row write, not a create's disclosure — see
+    //  `LinkDiff.target`.
+    target: "row",
+    field: "dependencies",
+    subject: title !== "" ? title : `${UNKNOWN_ID_MARKER}${id}`,
     before: renderDependencies(prior, ws),
     after: renderDependencies(after, ws),
     rawIds: after.map((dep) => dep.taskId),

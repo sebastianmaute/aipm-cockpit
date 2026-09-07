@@ -34,8 +34,14 @@ import {
   sanitizeText,
   toNumber,
 } from "../sanitize-core";
-import { sanitizeMilestoneTaskIds } from "../sanitize-records";
+import {
+  acceptsCostAmount,
+  acceptsRiskScale,
+  acceptsScheduleDays,
+  sanitizeMilestoneTaskIds,
+} from "../sanitize-records";
 import { roleLabel } from "../resource-foundation";
+import { str } from "./str";
 
 /** `sanitizeText` bound to one cap, as the apply-path sanitizers call it.
  *  Written as a factory so a `fieldSanitizers` entry can never carry a cap
@@ -46,13 +52,6 @@ const text = (max: number) => (v: unknown): string => sanitizeText(v, max);
  *  outcome `""` denotes everywhere else in a preview. */
 const optionalText = (v: unknown): string => optText(v) ?? "";
 const optionalMultiline = (v: unknown): string => optMultiline(v) ?? "";
-
-/** A referenced row's display value as a string. ★ Deliberately a LOCAL copy of
- *  `plan.ts`'s helper of the same name and the same behaviour, not an import:
- *  `plan.ts` imports THIS module, so importing it back would close a cycle. The
- *  array-joining branch is carried over verbatim so the two cannot drift into
- *  meaning different things under one name. */
-const str = (v: unknown): string => (v == null ? "" : Array.isArray(v) ? v.join(", ") : String(v));
 
 export type InlineEntity = "task" | "raid" | "change" | "milestone" | "stakeholder" | "resource";
 
@@ -108,8 +107,65 @@ export interface EntityDescriptor {
   requiredNonEmptyGroups: ReadonlyArray<ReadonlySet<string>>;
   /** Fields validated as YYYY-MM-DD when non-empty (invalid → sanitizer drops/blanks). */
   dateFields: ReadonlySet<string>;
-  /** Integer-range fields [min, max]; use Infinity for an open upper bound. */
-  intRangeFields: Record<string, [number, number]>;
+  /** Numeric fields → the WRITER's own acceptance predicate, applied to the RAW
+   *  model value.
+   *
+   *  ★★★ RAW, NOT THE RENDERED STRING, AND THAT IS THE WHOLE CHANGE. The old
+   *  `intRangeFields` tuple was checked against `Number(after)`, and `after` has
+   *  already been through `numberPreview` — so `true` arrived as `"1"` and the
+   *  boolean-ness the writer needed to refuse was gone (§395). A predicate over
+   *  the raw value is the only shape that can see it.
+   *
+   *  ★★ The predicate is IMPORTED from `sanitize-records.ts`, never re-spelled
+   *  here. That is §405's rule reaching the preview: one function, consulted by
+   *  the card and by the write. */
+  numericFields: Record<string, (v: unknown) => boolean>;
+  /** Fields whose model value must be a STRING to be previewable at all. A
+   *  non-string is REFUSED rather than projected, because the writer's
+   *  `sanitizeRichText` drops the key and the merge-site guard now keeps the
+   *  stored value — so projecting one would promise a change that will not
+   *  happen (§398).
+   *
+   *  ★★ IT REFUSES THE RENDERED-CLEAR SHAPES TOO (`null`, `[]`), and that is
+   *  the opposite of `dateFields`, where the preview discloses those AS a clear
+   *  and `acceptsPatchDate` carves them out on the writer side to match. The
+   *  two sides agree either way; what differs is WHICH way. Do not import the
+   *  date rule's carve-out here — it would put the card back to promising a
+   *  clear the milestone guard declines.
+   *
+   *  ★★ Scoped to `milestone.description` today because that is what §398
+   *  filed — NOT because the other six are safe. They are not: every one of
+   *  them loses the stored value on a non-string, by THREE different
+   *  mechanisms, which is why widening this set is not a one-line change.
+   *    • `raid.description` / `raid.mitigation` /
+   *      `change.impactDescription` / `change.resolutionNotes` — the same
+   *      drop-key shape as milestone (`if (x) item.x = x`). A merge-site guard
+   *      entry in `RAID_FIELD_GUARDS` / `CHANGE_FIELD_GUARDS` would fit.
+   *    • `change.description` — assigned UNCONDITIONALLY in the `ChangeItem`
+   *      literal, so a non-string stores `""` rather than omitting the key.
+   *      Same loss, different shape, and invisible to an `if (x)` grep.
+   *    • `task.description` — no guard table exists at all. Its writer is
+   *      `buildTaskCleanPatch` (`chat-task-patch.ts`), which assigns whenever
+   *      the key is present, so it needs a different fix from the other two.
+   *  ★ Whichever is done, the guard must nest OUTSIDE `withAiRichFields` at the
+   *  call site or it cannot fire — see `use-register-tools.ts`. A separate
+   *  register entry; do not widen this set on the strength of the field merely
+   *  being rich.
+   *
+   *  ★★★ AND A SET LIKE THIS CANNOT CLOSE THE WHOLE CLASS, which is the part to
+   *  read before treating `stringOnlyFields` as the pattern to copy. It asks
+   *  `typeof v === "string"`, so it is blind to a STRING the allow-list reduces
+   *  to empty (`"<p><script>x</script></p>"`): the card previews it verbatim
+   *  and the write clears the stored text. Measured over all seven
+   *  `RICH_FIELDS` members — `sanitizeAiRichText` returns "" for that input, and
+   *  raid's two plus change's `impactDescription`/`resolutionNotes` then drop
+   *  the key, `change.description` stores "", and `task.description` reaches
+   *  the merge as "". Every one promises a change the write does not make.
+   *  Pre-existing, filed separately, and NOT closable here: the preview would
+   *  have to model the allow-list, which needs a DOM — the very reason a rich
+   *  field has no `fieldSanitizers` entry. Characterized in
+   *  `sanitize-milestone-patch.test.ts`. */
+  stringOnlyFields: Set<string>;
   /** Enum fields → the valid-set resolver (constant for most; category-scoped for RAID status). */
   enumFields: Record<string, EnumResolver>;
   /** For an enum field whose valid-set depends on ANOTHER field (RAID status
@@ -179,13 +235,25 @@ export interface EntityDescriptor {
    *   their apply-path sanitizer is `sanitizeAiRichText`, which needs a DOM,
    *   and their preview is a plain-text PROJECTION of the value rather than the
    *   value itself. `descriptor-drift.test.ts` owns that pair. Enum, date,
-   *   int-range and array fields are absent too — `describeEntityCalls` guards
+   *   numeric and array fields are absent too — `describeEntityCalls` guards
    *   each of those with a rule of its own, against the same sanitizer.
    *
    *  ★ `plan.sanitizer-parity.test.ts` is the differential gate on all of it:
    *   every entity × every `diffField` × a hostile probe set, preview against
-   *   the real sanitizer. */
-  fieldSanitizers: Record<string, (v: unknown) => string>;
+   *   the real sanitizer.
+   *
+   *  ★★ THE ROW IS THE SECOND ARGUMENT, AND IT IS THE MERGED ONE. An entry used
+   *   to receive only the field's VALUE, so `sanitizeEmailList(v, undefined)`
+   *   ran where `sanitizeResource` calls it with the row's primary address —
+   *   the preview kept an extra equal to the primary that the write dropped,
+   *   and at the 10-address list cap the two disagreed about WHICH address
+   *   landed tenth (§397). MERGED, not stored: the model may be changing the
+   *   primary in the same call, and the writer sanitizes against the row its
+   *   dispatcher has already merged.
+   *  ★ An entry that does not need the row simply declares one parameter —
+   *   TypeScript accepts a shorter function here, so only `resource.emails`
+   *   spells the second one today. */
+  fieldSanitizers: Record<string, (v: unknown, row: Record<string, unknown>) => string>;
   /** Relationship and FK inputs the update tool accepts, which `diffFields`
    *  deliberately excludes (its contract is scalar/enum/date/number only).
    *
@@ -205,9 +273,14 @@ export interface EntityDescriptor {
    *
    *  `sanitize` must be the WRITER'S OWN function, never a copy of its rule —
    *  raid and change use `sanitizeIdList` (parses a delimited string, dedupes),
-   *  milestone uses `sanitizeMilestoneTaskIds` (array-only, no dedupe), and
-   *  `resource.roleId` coerces with `toNumber`, which rejects the array shapes
-   *  bare `Number` would accept. */
+   *  milestone uses `sanitizeMilestoneTaskIds`, and `resource.roleId` coerces
+   *  with `toNumber`, which rejects the array shapes bare `Number` would accept.
+   *  ★★ `sanitizeMilestoneTaskIds` now DELEGATES to `sanitizeIdList` (§403);
+   *  it was array-only and non-deduping, which is why it is named here
+   *  at all. Keep calling it by name rather than collapsing the entry onto
+   *  `sanitizeIdList` — a future milestone-specific rule has to land somewhere,
+   *  and the whole point of this field is that the descriptor follows the writer
+   *  rather than restating what the writer happens to do today. */
   linkFields: Record<string, LinkField>;
   titleOf: (item: Record<string, unknown>) => string;
 }
@@ -253,18 +326,25 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     diffFields: ["taskName", "assignee", "assigneeEmail", "dueDate", "status", "priority", "description", "blockers", "group", "labels", "lastUpdateDate"],
     requiredNonEmpty: new Set(["taskName", "dueDate"]),
     requiredNonEmptyGroups: [],
-    // ★★ THE TWO TASK DATES ARE NOT SYMMETRIC ON A BLANK, and only `dueDate`'s
-    //  half is closed here. `buildTaskCleanPatch` THROWS on an unparseable
-    //  `dueDate` and `requiredNonEmpty` rejects the blank ahead of it; for
-    //  `lastUpdateDate` it merely DROPS the key (`if (d) cleanPatch.lastUpdateDate = d`), and
-    //  a dropped key on a PATCH merged over the stored task leaves the field
-    //  UNCHANGED — where the full-record sanitizers behind raid/change/milestone
-    //  clear theirs. So `lastUpdateDate: ""` still previews a clear the write
-    //  will not make. Recorded, not fixed: closing it needs a "blank is a no-op"
-    //  mechanism this descriptor does not have, and `requiredNonEmpty` is the
-    //  wrong one (it means "the writer throws", which is not what happens).
+    // ★★ THE TWO TASK DATES ARE STILL NOT SYMMETRIC ON A BLANK, but both halves
+    //  are closed now and the asymmetry is deliberate. `dueDate` is user intent:
+    //  `buildTaskCleanPatch` THROWS on an unparseable one and `requiredNonEmpty`
+    //  rejects the blank ahead of it, so the card refuses what the writer
+    //  refuses. `lastUpdateDate` has THREE outcomes instead — a BLANK is an
+    //  intended CLEAR and is stored as "", a MALFORMED value is dropped (the
+    //  stored value survives the merge), a VALID date is stored.
+    //  ★★ THE FIX WENT WRITER-SIDE, NOT HERE, and that direction is the point.
+    //  This comment used to record the divergence as "not fixed": the writer
+    //  merely dropped the key, and a dropped key on a PATCH merged over the
+    //  stored task leaves the field UNCHANGED — where the full-record sanitizers
+    //  behind raid/change/milestone clear theirs. Rather than teach this
+    //  descriptor a "blank is a no-op" mechanism so the card could stop
+    //  promising a clear, `buildTaskCleanPatch` was aligned with the registers
+    //  so the card's promise became true (§396). `requiredNonEmpty` was and
+    //  remains the wrong lever for it — it means "the writer throws".
     dateFields: new Set(["dueDate", "lastUpdateDate"]),
-    intRangeFields: {},
+    numericFields: {},
+    stringOnlyFields: new Set(),
     enumFields: { status: constSet(TASK_STATUSES), priority: constSet(PRIORITIES) },
     // ★ The ONLY member across all six entities: `buildTaskCleanPatch` throws
     //   on a malformed address, and the throw fails the whole patch.
@@ -296,7 +376,10 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmpty: new Set(["title"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(["raisedDate", "targetDate", "closedDate"]),
-    intRangeFields: { probability: [1, 5], impact: [1, 5] },
+    // ★ `acceptsRiskScale` ignores its `category` argument — the [1,5] scale is
+    //  the same for every RAID category — so any member closes the signature.
+    numericFields: { probability: (v) => acceptsRiskScale(v, "R"), impact: (v) => acceptsRiskScale(v, "R") },
+    stringOnlyFields: new Set(),
     enumFields: { category: constSet(RAID_CATEGORIES), severity: constSet(RAID_SEVERITIES), status: raidStatusResolver },
     enumDefaultFor: (field, item) => (field === "status" ? raidStatusDefault(raidCategoryOf(item)) : undefined),
     emailFormatFields: new Set(),
@@ -324,7 +407,8 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmpty: new Set(["title"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(["raisedDate", "decisionDate"]),
-    intRangeFields: { scheduleImpactDays: [0, Infinity], costImpact: [0, Infinity] },
+    numericFields: { scheduleImpactDays: acceptsScheduleDays, costImpact: acceptsCostAmount },
+    stringOnlyFields: new Set(),
     enumFields: { type: constSet(CHANGE_TYPES), status: constSet(CHANGE_STATUSES), impact: constSet(CHANGE_IMPACT_LEVELS) },
     emailFormatFields: new Set(),
     arrayFields: new Set(),
@@ -350,7 +434,11 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmpty: new Set(["name", "date"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(["date", "achievedDate"]),
-    intRangeFields: {},
+    numericFields: {},
+    // ★★ THE ONLY POPULATED SET ACROSS THESE SIX, and it is half of a pair —
+    //  `MILESTONE_FIELD_GUARDS.description` (sanitize-records.ts) is the other.
+    //  Removing either re-opens §398 in the direction the surviving half points.
+    stringOnlyFields: new Set(["description"]),
     enumFields: {},
     emailFormatFields: new Set(),
     arrayFields: new Set(),
@@ -358,10 +446,17 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // Mirrors `sanitizeMilestone` (sanitize-records.ts) — `name` is the only
     // non-date, non-rich field it has.
     fieldSanitizers: { name: text(BUDGET_NAME_MAX) },
-    // ★★ NOT `sanitizeIdList`. The milestone writer has its own rule: array
-    //  only (a delimited string yields `[]`, where raid/change parse one) and NO
-    //  dedupe. Substituting the raid/change function would preview links this
-    //  write drops — `sanitize-records.ts` exports it to prevent exactly that.
+    // ★★ `sanitizeMilestoneTaskIds` DELEGATES to `sanitizeIdList` — the two
+    //  agreed since §403 aligned them (`sanitize-records.ts`: the body is
+    //  `return sanitizeIdList(v);`). Before that the milestone rule was
+    //  array-only and non-deduping, so a delimited `"1;2"` linked two tasks on
+    //  a raid item and NOTHING on a milestone.
+    //  ★★ Reached through the milestone's OWN function anyway, never through
+    //  `sanitizeIdList` directly: the preview's job is to show what THIS
+    //  field's writer stores, so a later milestone-specific rule lands here
+    //  automatically instead of silently diverging from the card. That is also
+    //  why `sanitize-records.ts` keeps it as a named export rather than
+    //  collapsing the call sites.
     linkFields: {
       linkedTaskIds: { wsKey: "tasks", kind: "list", titleOf: (r) => str(r.taskName), sanitize: sanitizeMilestoneTaskIds },
     },
@@ -373,7 +468,8 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmpty: new Set(["name"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(),
-    intRangeFields: {},
+    numericFields: {},
+    stringOnlyFields: new Set(),
     enumFields: { category: constSet(STAKEHOLDER_CATEGORIES), influence: constSet(INFLUENCE_INTEREST_LEVELS), interest: constSet(INFLUENCE_INTEREST_LEVELS) },
     emailFormatFields: new Set(),
     arrayFields: new Set(),
@@ -436,7 +532,8 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // `birthday` is the only date-shaped Resource field and it is NOT writable
     // (see above) — and it is "MM-DD", which sanitizeIsoDate would reject anyway.
     dateFields: new Set(),
-    intRangeFields: {},
+    numericFields: {},
+    stringOnlyFields: new Set(),
     enumFields: {},
     emailFormatFields: new Set(),
     arrayFields: new Set(),
@@ -471,21 +568,31 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       businessPhone: optionalText,
       notes: optionalMultiline,
       isExternal: (v) => String(isExternalFlag(v)),
-      // ★★★ `undefined` FOR THE PRIMARY IS A NARROWING, NOT A CHOICE. A
-      //  `fieldSanitizers` entry is handed the FIELD's value and nothing else,
-      //  so it cannot see the row's `email` — while `sanitizeResource` calls
+      // ★★★ THE ONLY ENTRY IN ANY ENTITY THAT READS THE ROW, and it is why the
+      //  second parameter exists (§397). It used to pass `undefined` for the
+      //  primary and could not do otherwise — the entry saw the FIELD's value
+      //  alone — while `sanitizeResource` calls
       //  `sanitizeEmailList(input.emails, email)` with the MERGED row's primary
       //  and drops an extra equal to it. The dedupe, the trim, the per-address
-      //  cap and the 10-address list cap are all the writer's own and agree; an
-      //  incoming extra that EQUALS the primary is the one case where the
-      //  preview shows an address the write will not store (and, at the list
-      //  cap, shifts which address is the tenth). Widening the signature to
-      //  take the row would touch every entry in every entity, so the
-      //  divergence is recorded here and in `sanitizeEmailList`'s docstring
-      //  rather than papered over with a local re-implementation.
+      //  cap and the 10-address list cap were always the writer's own and
+      //  agreed; an extra EQUAL to the primary was the one case where the card
+      //  promised an address the write would not store, and at the list cap it
+      //  shifted which address landed tenth.
+      // ★★ `row`, NOT the stored resource: `update_resource` may change `email`
+      //  in the same call, and the writer sanitizes against the row its
+      //  dispatcher has already merged. Pinned by "sanitizes the extras against
+      //  a primary changed in the same call" (plan.test.ts).
       // ★ Joined with ", " like every other list this module renders (`str`,
       //  `resolveLinkTitles`); the writer's `[;,]` split accepts it back.
-      emails: (v) => sanitizeEmailList(v, undefined).join(", "),
+      // ★★ THE PRIMARY GOES THROUGH `sanitizeEmail` FIRST, exactly as
+      //  `sanitizeResource` does it — the raw `row.email` is NOT the value the
+      //  writer de-dupes against. `sanitizeEmail` trims and clips to
+      //  `EMAIL_MAX`, and `sanitizeEmailList` compares on an EXACT
+      //  `primary.toLowerCase()`, so `{ email: "  Bob@X.com  ", emails:
+      //  ["bob@x.com"] }` dropped the extra in the write and KEPT it in the
+      //  preview. Same divergence for an over-`EMAIL_MAX` primary.
+      emails: (v, row) =>
+        sanitizeEmailList(v, typeof row.email === "string" ? sanitizeEmail(row.email) || undefined : undefined).join(", "),
     },
     // ★★★ `roleId` IS writable — it is listed as absent from `diffFields` above
     //  under "an FK, excluded by the same rule as Task.resourceId", and that

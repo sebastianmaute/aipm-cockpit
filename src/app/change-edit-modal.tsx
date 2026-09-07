@@ -188,8 +188,27 @@ export function ChangeEditModal({
     adj.track(cappedTitle);
     adj.track(cappedRequestedBy);
     adj.track(cappedDecisionBy);
+    // ★★★ THE SAME DEFECT, IN THE TWO FIELDS THE FIX ABOVE NEVER INCLUDED.
+    // `scheduleImpactDays` and `costImpact` came straight off the `...draft`
+    // spread, so Enter-submit stored a fraction their own `{ round: 0 }` forbids
+    // and a cost past the `max: AMOUNT_MAX` they clamp to. The options here are
+    // the SAME LITERALS each field's `onBlur` passes, deliberately not hoisted
+    // into a shared const: a reader checking one path against the other should
+    // see both spellings, and there are only two.
+    //
+    // ★★ TRACKED, and the counted set matches the blur path exactly.
+    // `describeClamp` reports an `adjustment` for a min/max clamp ONLY — a pure
+    // ROUNDING is `adjustment: null` — which is the same condition each `onBlur`
+    // tests before showing its `FieldNotice`. So a rounding is silent on both
+    // paths and a bound clamp is announced on both.
+    const clampedDays = describeClamp(numberText(draft.scheduleImpactDays), { min: 0, round: 0 });
+    const clampedCost = describeClamp(numberText(draft.costImpact), { min: 0, max: AMOUNT_MAX, round: 2 });
+    adj.track(clampedDays);
+    adj.track(clampedCost);
     const saved: ChangeItem = {
       ...draft,
+      scheduleImpactDays: clampedDays.value,
+      costImpact: clampedCost.value,
       title: cappedTitle.value.trim(),
       // `requestedBy`/`decisionBy` are optional — an empty one collapses to
       // undefined, mirroring their own onBlur handlers.
@@ -262,6 +281,20 @@ export function ChangeEditModal({
     if (value.trim() === "") return undefined;
     const n = Number(value);
     return Number.isFinite(n) ? n : undefined;
+  }
+
+  /** Render a stored number for `describeClamp`, which takes the field's RAW
+   *  STRING because it normally reads `e.target.value`.
+   *
+   *  ★★★ `String(v)` ALONE IS A DATA DEFECT: `String(undefined)` is
+   *  `"undefined"`, `Number("undefined")` is NaN, and `describeClamp`'s
+   *  non-finite branch clamps NaN to `opts.min` — so an EMPTY number field
+   *  would be stored as 0 on every save. A blank has to arrive as `""`, which
+   *  the helper returns as `undefined` with no adjustment. Pinned by the
+   *  "leaves a blank number field undefined" test, which passes with or without
+   *  the submit-path clamp and exists only to keep that trap closed. */
+  function numberText(v: number | undefined): string {
+    return v == null ? "" : String(v);
   }
 
   const title = isNew

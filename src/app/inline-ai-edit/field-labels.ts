@@ -115,6 +115,23 @@ export const FIELD_LABEL_KEY: Record<string, TranslationKey> = {
   "resource.roleId": "role",
 };
 
+/** Field names that are translatable WITHOUT an entity to qualify them.
+ *
+ *  ★★★ THIS IS A NARROW EXCEPTION TO THE ENTITY-QUALIFICATION RULE ABOVE, NOT
+ *   A SECOND WAY TO LABEL A FIELD. A member belongs here only when the field
+ *   reaches a preview surface on a row the descriptor engine has NO entity for,
+ *   so `FIELD_LABEL_KEY` can never be consulted for it — today that is
+ *   `set_task_dependencies`, whose describer is hand-written precisely because
+ *   the tool has no create/update/delete triple (§406). Anything an entity CAN
+ *   qualify must stay in `FIELD_LABEL_KEY`, or the qualification the ★★ above
+ *   argues for is quietly bypassed.
+ *
+ *  ★ It changes nothing about the fallback: a field absent from BOTH maps still
+ *   renders as its raw property name. */
+const ENTITYLESS_FIELD_LABEL_KEY: Readonly<Record<string, TranslationKey>> = {
+  dependencies: "dependencies",
+};
+
 /** The user-facing name of one previewed field.
  *
  *  ★★★ THE FALLBACK IS THE RAW FIELD NAME, NEVER "" AND NEVER THE i18n KEY.
@@ -124,8 +141,43 @@ export const FIELD_LABEL_KEY: Record<string, TranslationKey> = {
  *   resolves it from the tool name, and a staged call with no
  *   `INLINE_DESCRIPTORS` entity (every `*_document` tool) has none. */
 export function fieldLabel(lang: Lang, entity: InlineEntity | undefined, field: string): string {
-  if (entity === undefined) return field;
+  if (entity === undefined) {
+    const entityless = ENTITYLESS_FIELD_LABEL_KEY[field];
+    return entityless === undefined ? field : t(lang, entityless) || field;
+  }
+  return keyedFieldLabel(lang, entity, field);
+}
+
+function keyedFieldLabel(lang: Lang, entity: InlineEntity, field: string): string {
   const key = FIELD_LABEL_KEY[`${entity}.${field}`];
   if (key === undefined) return field;
   return t(lang, key) || field;
+}
+
+/** One link diff's rendered label, for all three preview surfaces.
+ *
+ *  ★★ THE COMPOSITION LIVES HERE RATHER THAN AT THE THREE CALL SITES so the
+ *   translated half cannot drift from the subject half, and so a `subject` that
+ *   a future producer sets cannot be silently dropped by whichever surface
+ *   forgot to compose it — the seam a per-site ternary leaves open.
+ *
+ *  ★ The separator is an EN DASH (U+2013), the repo's row-label idiom
+ *   (`rowLabel` in `row-tokens.ts`). Subject FIRST: it names the row, and the
+ *   field label is what varies down the list beneath it.
+ *
+ *  ★★ A diff with no `subject` renders EXACTLY `fieldLabel`, byte for byte —
+ *   which is every `target: "row"` diff the descriptor engine produces, and it
+ *   is the surrounding card's OWN row title that qualifies those.
+ *   ★★ TWO producers set one, both for a row the surface does not name, and the
+ *   list used to say ONE: the hand-written `set_task_dependencies` describer in
+ *   `chat-proposal-describe.ts` (§406), whose tool's row title cannot carry its
+ *   own task's name, and `pushLinkDiffs` in `plan.ts` on a `target: "create"`
+ *   diff (§420), whose row does not exist yet. */
+export function linkLabel(
+  lang: Lang,
+  entity: InlineEntity | undefined,
+  link: { field: string; subject?: string },
+): string {
+  const label = fieldLabel(lang, entity, link.field);
+  return link.subject === undefined ? label : `${link.subject} – ${label}`;
 }

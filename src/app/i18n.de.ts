@@ -2171,6 +2171,7 @@ export const de: Record<TranslationKey, string> = {
   inlineAiEditPreview: "Claude nimmt diese Änderungen vor:",
   inlineAiEditCreate: "Neu {0}: {1}",
   inlineAiEditDelete: "{0} löschen: {1}",
+  inlineAiEditRejectedOnly: "Nichts wurde übernommen — diese Werte wurden abgelehnt:",
   inlineAiEditRejected: "Nicht übernommen: {0}",
   inlineAiEditApply: "Anwenden",
   inlineAiEditApplyFailed: "Änderung konnte nicht angewendet werden.",

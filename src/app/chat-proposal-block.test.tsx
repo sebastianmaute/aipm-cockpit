@@ -3,14 +3,20 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ChatProposalBlock, proposalRowTitle, type ProposalCardRow } from "./chat-proposal-block";
 import type { EditPlan } from "./inline-ai-edit/plan";
+import type { InlineEntity } from "./inline-ai-edit/entity-descriptor";
 import type { ProposedCall } from "./chat-proposal";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { loadI18n, t } from "./i18n";
 
 const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
 
-const updatePlan = (field: string, before: string, after: string): EditPlan => ({
+// ★★ `entity` is REQUIRED on a `FieldDiff` (§393) but INERT on this surface:
+// `PlanDetail` labels each line from the ROW's own tool name, not from the
+// diff. It is spelled per call site anyway rather than defaulted, so a fixture
+// can never quietly disagree with the tool its row names.
+const updatePlan = (entity: InlineEntity, field: string, before: string, after: string): EditPlan => ({
   ...emptyPlan(),
-  updates: [{ field, before, after }],
+  updates: [{ entity, field, before, after }],
 });
 
 function row(
@@ -30,13 +36,13 @@ const ROWS: readonly ProposalCardRow[] = [
     index: 0,
     title: "Migrate database",
     call: { name: "update_task", input: { id: 7 } },
-    plan: updatePlan("status", "To Do", "Done"),
+    plan: updatePlan("task", "status", "To Do", "Done"),
   }),
   row({
     index: 1,
     title: "Migrate database",
     call: { name: "update_raid_item", input: { id: 3 } },
-    plan: updatePlan("owner", "", "Ada"),
+    plan: updatePlan("raid", "owner", "", "Ada"),
   }),
   row({
     index: 2,
@@ -241,13 +247,13 @@ describe("ChatProposalBlock", () => {
         index: 0,
         title: "Scope change",
         call: { name: "update_change", input: { id: 1 } },
-        plan: updatePlan("title", "Old", "New"),
+        plan: updatePlan("change", "title", "Old", "New"),
       }),
       row({
         index: 1,
         title: "Ada Lovelace",
         call: { name: "update_stakeholder", input: { id: 2 } },
-        plan: updatePlan("title", "Engineer", "Architect"),
+        plan: updatePlan("stakeholder", "title", "Engineer", "Architect"),
       }),
     ]);
     expect(screen.getByText("Title")).toBeInTheDocument();
@@ -263,7 +269,12 @@ describe("ChatProposalBlock", () => {
         index: 0,
         title: "Q3 status report",
         call: { name: "update_document", input: { id: 1 } },
-        plan: updatePlan("someDocField", "a", "b"),
+        // ★★ The diff's entity is a placeholder here and CANNOT be otherwise:
+        // there is no `document` member of `InlineEntity`, and no producer emits
+        // a diff for one — the descriptor engine cannot diff a document at all.
+        // What is under test is the ROW's tool having no entity, which is what
+        // `PlanDetail` reads.
+        plan: updatePlan("task", "someDocField", "a", "b"),
       }),
     ]);
     expect(screen.getByText("someDocField")).toBeInTheDocument();
@@ -287,7 +298,7 @@ describe("ChatProposalBlock", () => {
         plan: {
           ...emptyPlan(),
           links: [
-            { field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] },
+            { entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] },
           ],
           rejected: [
             { toolName: "update_raid_item", reason: "bad-input", detail: "targetDate=nope" },
@@ -300,6 +311,63 @@ describe("ChatProposalBlock", () => {
     expect(screen.getByText(/Draft brief, Review/)).toBeInTheDocument();
     expect(screen.getByText(/Ship/)).toBeInTheDocument();
     expect(screen.getByText("Not applied: targetDate=nope")).toBeInTheDocument();
+  });
+
+  // §406 — the describer built `${title} dependencies` and it reached this card
+  // verbatim, because `set_task_dependencies` is absent from `TOOL_ENTITY` by
+  // design and `fieldLabel` passes an entity-less row's field through unchanged.
+  // A German user read "C dependencies". The subject is DATA on the diff now and
+  // the card composes it around a TRANSLATED field label.
+  it("composes a link subject around a translated field label", async () => {
+    // The DE dictionary is lazy — a DE assertion without this reads the EN
+    // fallback and passes for the wrong reason.
+    await loadI18n("de");
+    const de = t("de", "dependencies");
+    // Proves the load above really happened: without it this key falls back to
+    // the EN string, which is the raw field name the fix is removing.
+    expect(de).not.toBe("dependencies");
+    renderCard(
+      [
+        row({
+          index: 0,
+          title: "set_task_dependencies",
+          call: { name: "set_task_dependencies", input: { id: 3 } },
+          plan: {
+            ...emptyPlan(),
+            links: [
+              { entity: "task", target: "row", field: "dependencies", subject: "C", before: "A (FS)", after: "B (SS)", rawIds: [2] },
+            ],
+          },
+        }),
+      ],
+      { lang: "de" },
+    );
+    expect(screen.getByText(`C – ${de}`)).toBeInTheDocument();
+    expect(screen.queryByText("C dependencies")).not.toBeInTheDocument();
+  });
+
+  // A diff with no subject keeps the bare label: qualifying every link on a card
+  // that already names its row would read "Migrate database – Migrate database".
+  // ★★ THE SUBJECT IS NOT "for the one tool", which is what this comment said
+  //  until §420. There are TWO producers and they are ambiguous for OPPOSITE
+  //  reasons: `set_task_dependencies`, whose ROW TITLE cannot carry the task's
+  //  name (§406), and a `target: "create"` diff, whose row does not exist yet
+  //  for any title to name (§420). What the two share — and what this test
+  //  pins — is that neither shape is a `target: "row"` diff, so an ordinary
+  //  row rewrite still renders bare.
+  it("leaves a subject-less link label bare", () => {
+    renderCard([
+      row({
+        index: 0,
+        title: "Migrate database",
+        call: { name: "update_raid_item", input: { id: 7 } },
+        plan: {
+          ...emptyPlan(),
+          links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] }],
+        },
+      }),
+    ]);
+    expect(screen.getByText("Linked tasks")).toBeInTheDocument();
   });
 
   // ★★ `isEmptyPlan` deliberately EXCLUDES `rejected` — a rejected call writes
@@ -331,7 +399,7 @@ describe("ChatProposalBlock", () => {
         title: "Migrate database",
         plan: {
           ...emptyPlan(),
-          links: [{ field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
+          links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
         },
       }),
     ]);

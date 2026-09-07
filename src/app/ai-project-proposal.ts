@@ -9,7 +9,7 @@ import type { Resource, Task } from "./types";
 import { isSafeHttpUrl } from "./document-link";
 import {
   sanitizeRaidItem,
-  sanitizeChangeItem,
+  sanitizeModelChangeItem,
   sanitizeMilestone,
   sanitizeStakeholder,
   sanitizeTaskName,
@@ -285,7 +285,10 @@ export function proposalToSeed(p: ProjectProposal, today: string): TemplateSeed 
   const s = p.seed;
   if (!s) return undefined;
   const raid = buildList(s.raid, sanitizeRaidItem);
-  const changes = buildList(s.changes, sanitizeChangeItem);
+  // ★ The MODEL-input sanitizer, not the plain one: this seed is model-authored,
+  //  so a `1.5` day count is repaired to 2 rather than stored verbatim (which is
+  //  what the plain sanitizer now does, correctly, for a LOAD).
+  const changes = buildList(s.changes, sanitizeModelChangeItem);
   const milestones = buildList(s.milestones, sanitizeMilestone);
   const stakeholders = buildList(s.stakeholders, sanitizeStakeholder);
   const resources: Resource[] = Array.isArray(s.resources)

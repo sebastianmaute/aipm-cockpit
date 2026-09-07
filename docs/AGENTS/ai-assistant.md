@@ -847,9 +847,14 @@
   the plan. Neither is "the" data-loss path, and assuming one is how §384 was mis-scoped.
   ★★ `tool-input-coverage.test.ts` fails when a DECLARED tool input is neither previewable nor
   excluded with a written reason — the property is enforced rather than maintained. ★★★ Read its
-  reach exactly: it enumerates the SCHEMA, so an input the dispatcher accepts and the schema never
-  advertises is invisible to it forever (§401, `update_task`'s `notes`). A green run means "every
-  declared input is covered", never "every accepted input is covered".
+  reach exactly, because it is WIDER than it was and still bounded (§401, CLOSED 2026-09-06). It now
+  carries a SECOND scan that reads the task write path's SOURCE for `input.<name>`, so an input
+  `buildPatch` accepts that no schema advertises — `update_task`'s legacy `notes` — is caught as
+  well. That scan reads ONE file, and `update_task` is the only update tool whose accepted surface is
+  enumerable from source at all, because it alone is built by a whitelist; the other five go through
+  `patchWithoutId`, which forwards whatever the model emits minus `id`, `expectedToken` and the
+  token-excluded fields. So a green run means "every declared input is covered, and every input the
+  TASK write path reads" — never "every accepted input on all six tools is covered".
   ★★ `plan.sanitizer-parity.test.ts` compares the preview against the SANITIZER;
   `plan.write-path.test.ts` replays through the REAL dispatcher. The second exists because the first
   structurally cannot see a dispatcher-level derivation — and because a reader built on a raw

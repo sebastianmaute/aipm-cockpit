@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fieldLabel, FIELD_LABEL_KEY } from "./field-labels";
+import { fieldLabel, linkLabel, FIELD_LABEL_KEY } from "./field-labels";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { loadI18n, t } from "../i18n";
 
@@ -81,5 +81,50 @@ describe("fieldLabel", () => {
     expect(fieldLabel("de", "raid", "closedDate")).toBe(t("de", "fieldClosedDate"));
     // …and the fallback is the raw name in DE too, never a blank.
     expect(fieldLabel("de", "task", "somethingNew")).toBe("somethingNew");
+  });
+
+  // §406 — `set_task_dependencies` has no create/update/delete triple, so it is
+  // absent from `TOOL_ENTITY` and the card renders its rows with `entity`
+  // undefined. That branch used to return the raw name unconditionally, so the
+  // one field that reaches a preview ONLY on such a row could never translate.
+  it("translates an entity-less field that no descriptor can qualify", async () => {
+    await loadI18n("de");
+    // Both directions: the EN value is not the raw property name either, so a
+    // fix that only reached DE (or only EN) fails here.
+    expect(fieldLabel("en-US", undefined, "dependencies")).toBe(t("en-US", "dependencies"));
+    expect(fieldLabel("de", undefined, "dependencies")).toBe(t("de", "dependencies"));
+    expect(fieldLabel("de", undefined, "dependencies")).not.toBe("dependencies");
+    // The narrowness IS the design: an unlisted entity-less field still falls
+    // back to its raw name, and the entity-qualified path is untouched.
+    expect(fieldLabel("de", undefined, "someDocField")).toBe("someDocField");
+  });
+});
+
+describe("linkLabel", () => {
+  // Composed here rather than at the three preview surfaces so the subject and
+  // the translated field name cannot drift apart, and so a subject cannot be
+  // silently dropped by whichever surface forgot to render it.
+  it("prefixes the subject with an en dash and translates the field", async () => {
+    await loadI18n("de");
+    expect(linkLabel("de", undefined, { field: "dependencies", subject: "Kickoff" })).toBe(
+      `Kickoff – ${t("de", "dependencies")}`,
+    );
+  });
+
+  // Every `target: "row"` diff is this shape, so the no-subject render must stay
+  // byte-identical to `fieldLabel`, not merely similar.
+  // ★★ TWO PRODUCERS SET A SUBJECT, not one, and this comment said "only the
+  //  hand-written dependency describer does" until §420 landed a second: the
+  //  `target: "create"` branch of `pushLinkDiffs` (`plan.ts`) sets it from the
+  //  created item's own title, because that row does not exist yet. So
+  //  "`describeEntityCalls` never sets a subject" is now FALSE — it is false
+  //  only on the create branch, and true for every `"row"` diff, which is the
+  //  half this test needs. Stating it the old way made a reader who found the
+  //  create branch distrust the test rather than the comment.
+  it("renders exactly the field label when there is no subject", () => {
+    expect(linkLabel("en-US", "raid", { field: "linkedTaskIds" })).toBe(
+      fieldLabel("en-US", "raid", "linkedTaskIds"),
+    );
+    expect(linkLabel("en-US", "raid", { field: "linkedTaskIds" })).toBe("Linked tasks");
   });
 });

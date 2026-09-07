@@ -8,6 +8,51 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.289.0] - 2026-09-06 "Mirrlees"
+
+Second pass over preview/apply parity: for every field the assistant can write,
+the preview you approve now shows either the value that will actually be stored
+or the refusal that will be honoured. The gap existed because two of the three
+apply paths replay the model's original input and never consult the plan the
+card was drawn from.
+
+### Added
+
+- **A refused edit now says which field was refused.** An inline AI edit whose
+  every change was rejected reported "no changes" — indistinguishable from the
+  assistant having nothing to do. It now names the refused fields and offers
+  only a close action, since there is nothing to apply.
+- **A newly created item's links are shown, and named to the row they belong
+  to.** The create path wrote link fields with no preview at all. They are now
+  disclosed — and because the preview lists them in one flat list alongside the
+  open row's own changes, each create's line carries the created item's title,
+  so "Linked tasks" on a create can no longer be read as a statement about the
+  row you have open.
+
+### Fixed
+
+- **A change's cost and schedule figures you saved yourself are no longer
+  rewritten when the project loads.** Loading clamped a cost to one billion and
+  rounded a day count to a whole number, silently, on every backend — values
+  that had been stored verbatim before. Loading now stores what you saved;
+  figures the *assistant* supplies are still repaired before they are written.
+- **A refused value no longer overwrites the stored one.** On milestones a
+  non-string description, on stakeholders an unrecognised influence or interest,
+  and on RAID items a boolean sent where a risk score belongs each replaced or
+  fabricated stored data instead of being declined. Each is now refused, and the
+  refusal is shown on the card.
+- **Clearing a task's last-update date now clears it.** The card offered the
+  clear and the write kept the old value.
+- **An email list previews exactly as it will be saved**, including how it
+  merges with the address already on the record.
+- **A milestone's linked-task ids follow the same rule as every other
+  register** — a delimited string links tasks rather than silently linking none,
+  and duplicates no longer inflate linked-task counts.
+- **A dependency proposal that is refused in full now says why**, and its card
+  label is translated rather than showing a raw property name.
+- **The change dialog's number fields are clamped when you submit with Enter**,
+  matching what leaving the field already did.
+
 ## [0.288.0] - 2026-09-06 "Duchamp"
 
 ### Added

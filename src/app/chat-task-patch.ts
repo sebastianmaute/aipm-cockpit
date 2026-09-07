@@ -18,6 +18,7 @@ import {
   sanitizeNonNegInt,
   sanitizePriority,
   sanitizeTaskName,
+  rendersAsClear,
 } from "./sanitize";
 import { sanitizeAiRichText } from "./ai-rich-text";
 import { type Task } from "./types";
@@ -95,8 +96,23 @@ export function buildTaskCleanPatch(
     cleanPatch.dueDate = d;
   }
   if (patch.lastUpdateDate !== undefined) {
-    const d = sanitizeIsoDate(patch.lastUpdateDate);
-    if (d) cleanPatch.lastUpdateDate = d;
+    // ★★ THREE OUTCOMES, NOT TWO (§396). A BLANK is an intended CLEAR and is
+    //  written as "": the preview renders `str(null)`/`str("")` as "" and
+    //  discloses it to the user as a clear, and every register's full-record
+    //  sanitizer clears theirs — the task path was the one that merely dropped
+    //  the key, leaving the stored value against a card promising otherwise.
+    //  A MALFORMED value is still refused (key dropped, stored value kept),
+    //  which is the merge-site guards' rule. A VALID date is stored.
+    //  ★ `dueDate` above THROWS on a blank instead; that is a different rule,
+    //  it is what `requiredNonEmpty` means for that field, and it stays.
+    //  ★ `rendersAsClear` is the SHARED predicate the raid/change/milestone
+    //  merge-site guards use (`sanitize-records.ts`), imported rather than
+    //  re-spelled so the four cannot drift on which inputs read as a clear.
+    if (rendersAsClear(patch.lastUpdateDate)) cleanPatch.lastUpdateDate = "";
+    else {
+      const d = sanitizeIsoDate(patch.lastUpdateDate);
+      if (d) cleanPatch.lastUpdateDate = d;
+    }
   }
   if (patch.priority !== undefined)
     cleanPatch.priority = sanitizePriority(patch.priority, existing.priority);
