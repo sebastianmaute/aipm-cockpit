@@ -288,9 +288,12 @@ function TaskRowImpl({
   // ★ Hoisted because the badge below uses it three times (title, aria-label,
   // visible text) and all three must agree — WCAG 2.5.3 needs the accessible
   // name to CONTAIN the visible text, which one shared string guarantees by
-  // construction. The `*One` sibling is the house idiom, not a helper: German
-  // re-words noun, adjective and verb together, so a singular is a different
-  // sentence rather than a suffix swap (open-followups §407).
+  // construction. The `*One` sibling is selected by `tPlural`, never by a
+  // ternary here: German re-words noun, adjective and verb together, so a
+  // singular is a different authored sentence rather than a suffix swap
+  // (open-followups §407). An earlier revision of this comment called the
+  // call-site ternary the house idiom and forbade a helper — that rule moved
+  // into `tPlural`'s docblock; only the count test's LOCATION changed.
   const changesBadgeLabel = tPlural(lang, "taskRowChangesBadge", changeRefs?.length ?? 0, changeRefs?.length ?? 0);
 
   // Precedence: editing > selected > completed > zebra stripe. The selected
