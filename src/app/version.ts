@@ -40,178 +40,87 @@ export const APP_BUILD_DATE = "2026-09-07"; // 0.290.0: the Reports view can be 
  *  only free in the run you are looking at. ★★ `emshwiller` is the trap this
  *  bump nearly fell into: it reads as an obvious unused candidate and is in
  *  fact TAKEN, which is why it serves as a positive control here.
- *  0.289.x was "Mirrlees" (Hope Mirrlees, British author of "Lud-in-the-Mist",
- *  1926, a founding text of modern fantasy).
- *  0.288.x was "Duchamp" (L. Timmel Duchamp, American SF author, the
- *  "Marq'ssan Cycle").
- *  0.287.x was "Tiptree" (James Tiptree Jr., pen name of Alice Sheldon,
- *  American SF author).
- *  0.286.x was "Sladek" (John Sladek, American SF satirist, "Tik-Tok").
- *  0.285.x was "Barnhill" (Kelly Barnhill, American fantasy author, "The Girl
- *  Who Drank the Moon").
- *  0.284.x was "Kornbluth" (C. M. Kornbluth, American SF author of "The
- *  Marching Morons" and, with Pohl, "The Space Merchants").
- *  0.283.x was "Lessing" (Doris Lessing, British-Zimbabwean Nobel laureate,
- *  whose "Canopus in Argos" sequence is her science fiction).
- *  0.282.x was "Zamyatin" (Yevgeny Zamyatin, Russian author of "We", the
- *  novel that founded the dystopian line Orwell and Huxley followed).
- *  0.281.x was "Womack" (Jack Womack, American SF author, "Random Acts of
- *  Senseless Violence").
- *  0.280.x was "Sinisalo" (Johanna Sinisalo, Finnish SF author, "Troll: A
- *  Love Story").
- *  ★★★ IT WAS THE SECOND CANDIDATE. "Banks" was written into this constant,
- *  the CHANGELOG heading and all six satellites first, and it is TAKEN — 0.7.2
- *  ran under it. The check that cleared it was `grep -oE '"[A-Za-z]+"$'`,
- *  anchored to END OF LINE, and 0.7.2's header puts the codename BEFORE the
- *  date (`## [0.7.2] "Banks" — 2026-05-19`), so the anchor could not see it.
- *  That is the SECOND axis the dash note below already warned about, and the
- *  warning was sitting in this docstring the whole time. Use the command this
- *  file gives you; do not invent an anchor.
- *  ★★ Strictly, 0.7.2 is a different MINOR LINE, so "Banks" would have been a
- *  PERMITTED reuse under the rule at the end of this comment. It was rejected
- *  anyway because this repo keeps codenames unique across the whole history —
- *  legality and desirability are different questions, as the 0.270.x note says.
- *  0.278.x was "Gilman" (Charlotte Perkins Gilman, American author,
- *  "The Yellow Wall-Paper" and the utopian "Herland"). ★★ Checked
- *  dash-agnostically but AFTER the bump, which is the weaker order this
- *  docstring's own note warns about: the command matched the two headers
- *  the release itself wrote, so the evidence is that BOTH hits are on the
- *  0.278 line and none is on any other. Nothing on a second minor line, so the
- *  name was fresh rather than a permitted reuse:
- *  `grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md | grep -i gilman`
- *  → `[0.278.1]` and `[0.278.0]` only, against a pattern proved to see all 372
- *  named headers.
- *  ★★★ THE 0.278.x ENTRY AND ITS LEAD SENTENCE WERE BOTH MISSING FOR A WHOLE LINE.
- *  0.278.0 shipped with `APP_MILESTONE` already "Gilman" while this docstring
- *  still opened "The 0.277.x line is 'Ozeki'" and the ledger jumped 0.277.x
- *  straight to 0.276.x — so the file that IS the source of truth for the
- *  codename described the previous line as current. `version:check` cannot see
- *  it: it compares the satellites against `APP_MILESTONE`, never against the
- *  prose beside it. Bumping the constants is not the whole edit — move the old
- *  line into the "was" list below in the same commit.
- *  0.277.x was "Ozeki" (Ruth Ozeki, American-Canadian novelist, "A Tale
- *  for the Time Being"). Checked dash-agnostically BEFORE the bump with the
- *  command below: zero hits, against a pattern proved to see all 368 named
- *  headers (and returning 2 for "Cadigan" as a positive control), so this one
- *  is genuinely fresh rather than a permitted reuse.
- *  0.276.x was "Cadigan" (Pat Cadigan, American-British SF author,
- *  "Synners"). ★★ THIS ONE IS A PERMITTED REUSE, NOT A FRESH NAME, and it is
- *  recorded as such deliberately — the rule is uniqueness per MINOR LINE, not
- *  across history, and 0.93.0 (2026-06-16) already ran under it. Verified
- *  before the bump: `grep -nE '^## \[0\.[0-9]+\.[0-9]+\].*"Cadigan"'
- *  CHANGELOG.md` returns that one header and nothing on the 0.276 line.
- *  Writing "genuinely fresh" here would have been false.
- *  0.274.x was "Varley" (John Varley, American SF author, the Gaea
- *  trilogy). Checked dash-agnostically BEFORE the bump with the command
- *  below: zero hits, against a pattern proved to see all 365 named headers,
- *  so this one is genuinely fresh rather than a permitted reuse.
- *  0.273.x was "Goonan" (Kathleen Ann Goonan, American SF author, the
- *  Nanotech Quartet). Checked dash-agnostically BEFORE the bump with the
- *  command below: zero hits, against a pattern proved to see all 363 named
- *  headers, so this one is genuinely fresh rather than a permitted reuse.
- *  0.272.x was "Zoline" (Pamela Zoline, American SF author and painter,
- *  "The Heat Death of the Universe"). Checked dash-agnostically BEFORE the
- *  bump with the command below: zero hits across all 398 version headers, so
- *  this one is genuinely fresh rather than a permitted reuse.
- *  ★★★ 0.271.x ("Gibson") WAS a reuse: 0.59.0 (2026-06-10) ran under the
- *  same name. Permitted — the rule at the end of this comment is uniqueness
- *  per MINOR LINE, not across all history — and recorded so that a bare
- *  `grep -rn "Gibson" CHANGELOG.md` hit is not read as the name being taken.
- *  ★★★ THAT LINE FIRST SHIPPED CLAIMING THE NAME WAS FRESH, on the evidence
- *  of a grep anchored to `] - `, in the very sentence that pointed at the
- *  dash note below warning against exactly that. 0.59.0's header uses an EM
- *  DASH and was invisible to it — as are 100 of the 398 version headers, and
- *  not only through the dash: 23 of those put the codename BEFORE the date,
- *  so the `] - ` anchor misses them on a second axis. Check a candidate
- *  dash-agnostically, and BEFORE the bump — run it after and the pattern
- *  matches the header you just wrote, which reads as a collision with
- *  yourself:
+ *  ★★★ CHANGELOG.md IS THE LEDGER OF PAST CODENAMES; THIS DOCSTRING IS NOT.
+ *  Every codename ever shipped is in a CHANGELOG version header, so the 53
+ *  hand-maintained "0.NNN.x was <name> (biography)" lines that used to sit here
+ *  are gone. Nothing read them — `version:check` reads only the
+ *  `APP_MILESTONE` declaration, never this prose — and they rotted repeatedly:
+ *  a whole line's entry went missing, a note pointed at a spare-name list that
+ *  no longer existed in the entry it named, and one bump added five biographies
+ *  from memory alone. Per AGENTS.md's doc-set rule the second copy links rather
+ *  than restates, so what follows is only what CHANGELOG.md cannot hold.
+ *  ★★★ UNIQUENESS IS PER MINOR LINE, NOT ACROSS HISTORY, so a bare
+ *  `grep -rn "<name>" CHANGELOG.md` misleads in BOTH directions. A HIT is not
+ *  proof a name is taken: reuse across minor lines is permitted and is common.
+ *  Enumerate today's reuses — it dedups WITHIN a minor line, so 0.278.0 and
+ *  0.278.1 sharing a name is correctly not reported:
+ *  grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md \
+ *    | sed -E 's/^## \[(0\.[0-9]+)\.[0-9]+\][^"]*"([^"]+)"$/\2|\1/' \
+ *    | sort -u | cut -d'|' -f1 | uniq -d
+ *  ★★ Run it rather than trusting any list, this sentence included: measured
+ *  2026-09-07 it returned names the deleted ledger never flagged as reuses at
+ *  all — "Tiptree", the 0.287.x codename, among them. A ZERO is no proof
+ *  either; see the two anchor axes below.
+ *  ★★ Legality and desirability are different questions. The rule permits a
+ *  reuse, but this repo prefers a name unused anywhere in the history and has
+ *  rejected a legal one ("Banks") on that ground alone.
+ *  ★★★ ONE PERSON ALREADY HOLDS TWO CODENAMES, AND NO GREP CAN FIND THAT.
+ *  0.287.x is "Tiptree" and 0.236.x is "Sheldon" — James Tiptree Jr. was the
+ *  pen name of Alice Sheldon. That is a relationship between two entries rather
+ *  than a property of either, which is why CHANGELOG.md cannot express it and
+ *  why it survived the cut. ★ 0.236.x deliberately records no biography: for a
+ *  slice whose name nobody wrote down, assert nothing rather than guess one.
+ *  ★★★ CHECK A CANDIDATE BEFORE THE BUMP, AND DASH-AGNOSTICALLY. Run it after
+ *  and the pattern matches the header you just wrote, which reads as a
+ *  collision with yourself. Both commands, not one:
+ *  `grep -ic <name> CHANGELOG.md`
  *  `grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md | grep -i <name>`
- *  ★★★ THE NAME CLASS IS `[^"]+`, NOT `[A-Za-z]+`, AND THE FIRST CUT OF THIS
- *  VERY CORRECTION SHIPPED `[A-Za-z]+` — one character class away from the
- *  defect it was written to end. That class silently drops every codename
- *  that is not a single ASCII word: "Le Guin" (space), "Nevala-Lee"
- *  (hyphen), "García" (non-ASCII) — 4 of 362 named headers today. A
- *  candidate of any of those shapes returns zero hits and reads as free.
- *  A replacement is only proved by showing it sees ALL 362 named headers,
- *  never by showing it finds the one name you happened to be checking:
+ *  ★★★ AN ANCHORED GREP MISSES HEADERS ON TWO SEPARATE AXES, and each has
+ *  already reported a taken name as free. (1) THE DASH — older headers use an
+ *  em dash and newer ones a hyphen, so a `] - ` anchor is blind to a large
+ *  minority of them; that is how two consecutive lines shipped asserting a
+ *  freshness that was false. (2) THE ORDER — some headers put the codename
+ *  BEFORE the date (`## [0.7.2] "Banks" — 2026-05-19`), so an END-OF-LINE
+ *  anchor cannot see them; that is how "Banks" reached this constant, the
+ *  CHANGELOG heading and all six satellites before it was caught. Measure both
+ *  populations rather than trusting a figure written here:
+ *  `grep -coE '^## \[0\.[0-9]+\.[0-9]+\]' CHANGELOG.md` (all version headers)
+ *  `grep -coE '^## \[0\.[0-9]+\.[0-9]+\] *"' CHANGELOG.md` (codename first)
+ *  ★★★ THE NAME CLASS IS `[^"]+`, NOT `[A-Za-z]+`, and the first cut of that
+ *  correction shipped `[A-Za-z]+` — one character class from the defect it was
+ *  written to end. It silently drops every codename that is not a single ASCII
+ *  word: "Le Guin" (space), "Nevala-Lee" (hyphen), "García" (non-ASCII). A
+ *  candidate of any of those shapes returns zero hits and reads as free. Prove
+ *  a replacement pattern by showing it sees ALL named headers, never by showing
+ *  it finds the one name you happened to check:
  *  `grep -coE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md`
- *  0.270.x was "Tchaikovsky" (Adrian Tchaikovsky, British SF/fantasy
- *  author). ★★ REUSED: 0.39.0 (2026-06-01) also ran under this name —
- *  permitted, same per-MINOR-LINE rule. ★★ It shipped asserting "Not
- *  previously used at any minor line", which was FALSE, for the same
- *  dash-anchored-grep reason as the 0.271.x note above; corrected
- *  2026-08-31, one release late. The rest of the original note stands and is
- *  a separate judgement: the name WAS chosen over one that 0.265.x had taken
- *  the day before, since a reader grepping CHANGELOG would then get two hits
- *  a day apart. Legality and recency are different questions.
- *  0.269.x was "Due" (Tananarive Due, American horror/SF author).
- *  0.268.x was "Ogawa" (Yoko Ogawa, Japanese author of speculative fiction),
- *  developed concurrently with this line on a separate branch and merged
- *  first.
- *  0.267.x was "Nagamatsu" (Sequoia Nagamatsu, American SF author).
- *  0.266.x was "VanderMeer" (Jeff VanderMeer, American SF/weird-fiction
- *  author). ★★ REUSED: 0.96.0 also ran under this name — permitted by the same
- *  uniqueness-per-MINOR-LINE rule spelled out below, and recorded here so that a
- *  bare `grep -rn "VanderMeer" CHANGELOG.md` hit is not read as the name being
- *  taken. Read WHICH minor line the hit belongs to before concluding anything.
- *  0.265.x was "Nagata" (Linda Nagata, American SF author). ★★ REUSED:
- *  0.75.0 also ran under this name. That is permitted — the rule below is
- *  uniqueness per MINOR LINE, not across all history, and "Okorafor" carries
- *  the same note — but it means a bare `grep -rn "Nagata" CHANGELOG.md`
- *  returns a hit for a name that was nonetheless free to take. Read WHICH
- *  minor line the hit belongs to before concluding a name is taken.
- *  0.264.x was "Russell" (that slice's codename — no bio recorded for it here;
- *  not asserting one now rather than guessing, per the 0.236.x note below).
- *  0.263.x was "Okorafor" (Nnedi Okorafor, Nigerian-American SF/fantasy
- *  author). Reused: 0.223.x and 0.25.x also ran under this name.
- *  0.262.x was "Swainston" (Steph Swainston, British fantasy author).
- *  0.261.x was "Leckie" (Ann Leckie, SF author).
- *  0.260.x was "Cho" (Zen Cho, Malaysian fantasy author).
- *  0.259.x was "Tsutsui" (Yasutaka Tsutsui, Japanese SF author).
- *  0.258.x was "Mandelo" (that slice's codename — no bio recorded for it
- *  here; not asserting one now rather than guessing, per the 0.236.x note
- *  below).
- *  0.257.x was "Shepard" (Lucius Shepard, SF/fantasy author).
- *  0.256.x was "Khaw" (Cassandra Khaw, SF/horror author).
- *  0.255.x was "Bisson" (Terry Bisson, SF author).
- *  0.254.x was "Yoshinaga" (Fumi Yoshinaga, SF/fantasy manga author).
- *  0.253.x was "Schroeder" (Karl Schroeder, SF author).
- *  0.252.x was "Brust" (Steven Brust, fantasy author).
- *  0.251.x was "Larson" (Rich Larson, SF author).
- *  0.250.x was "McAuley" (Paul McAuley, SF author).
- *  0.249.x was "Modesitt" (L.E. Modesitt Jr., SF/fantasy author).
- *  0.248.x was "Bujold" (Lois McMaster Bujold, SF/fantasy author).
- *  0.247.x was "Butcher" (Jim Butcher, fantasy author).
- *  0.246.x was "Bodard" (Aliette de Bodard, SF/fantasy author).
- *  0.245.x was "Buckell" (Tobias S. Buckell, SF author).
- *  0.244.x was "Waldrop" (Howard Waldrop, SF/fantasy short-fiction author).
- *  0.243.x was "Aaronovitch" (Ben Aaronovitch, urban-fantasy author).
- *  0.242.x was "Ashby" (Madeline Ashby, SF author).
- *  0.241.x was "Tuttle" (Lisa Tuttle, SF/fantasy author).
- *  0.240.x was "Elliott" (Kate Elliott, prolific SF/fantasy author).
- *  0.239.x was "Rusch" (Kristine Kathryn Rusch, prolific SF/fantasy author).
- *  0.238.x was "Attanasio" (A.A. Attanasio, SF/fantasy author).
- *  0.237.x was "Roberson" (Chris Roberson, SF/fantasy author).
- *  0.236.x was "Sheldon" (the rich-text toolbar's keyboard contract slice —
- *  no bio recorded for it here; not asserting one now rather than guessing).
- *  0.235.x was "Lackey" (Mercedes Lackey, prolific fantasy author).
- *  0.234.x was "Anders" (Charlie Jane Anders, contemporary SF/fantasy author).
- *  0.233.x was "Reed" (Robert Reed, prolific SF short-fiction author).
+ *  ★★ AND PROVE THE ZERO. A candidate cleared by a run whose positive controls
+ *  never fired is not cleared at all. 0.289.x was swept with three known-taken
+ *  positives and a "zzznotaname" negative control before it was written here.
+ *  ★★ THE POOL IS VISIBLY EXHAUSTED AT THIS DEPTH. A 10-candidate batch swept
+ *  for 0.289.0 cleared only three; names as established as Cherryh, Willis,
+ *  Vinge, Peake and Kiernan were all already taken. Sweep a BATCH, not a
+ *  favourite. ★★★ AND DO NOT TRUST A PRIOR BUMP'S "cleared but not needed"
+ *  LIST — it goes stale silently: one banked three spare names and TWO were
+ *  spent within two releases while the note went on offering them. Re-sweep
+ *  every time; a name is only free in the run you are looking at.
+ *  ★★ THE LEAD SENTENCE ABOVE IS UNGATED PROSE. `version:check` compares the
+ *  satellites against `APP_MILESTONE` and never against the prose beside it,
+ *  and 0.278.0 shipped with the constant already "Gilman" while this docstring
+ *  still opened "The 0.277.x line is Ozeki" — the file that IS the source of
+ *  truth for the codename described the previous line as current. Bumping the
+ *  constants is not the whole edit; update that sentence in the same commit.
  *  ★★ 0.224.0 IS A PERMANENTLY DEAD NUMBER — do not reuse it. The 0.226.0 line
  *  was built and numbered 0.224.0 while unpushed; main could not wait for it,
  *  deliberately skipped 0.224.0 and shipped 0.225.0 "Walton" first, so keeping
  *  0.224.0 would have meant a release commit naming a version no build ever
  *  reported. The gap is the record of why.
  *  ★ Fetch before bumping. 0.221.0 "Kavan" shipped on main while the 0.222.0
- *  branch was in review and forced a renumber at merge time — and it happened
- *  AGAIN here: this branch's own bump (0.237.0 "Attanasio") collided with
- *  0.236.0 "Sheldon" AND 0.237.0 "Roberson" both landing on main first while
- *  it sat unpushed, forcing a renumber to 0.238.0 at merge time. A codename
- *  is unique per minor line and no gate here checks either the number or the
- *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
- *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
- *  so a dash-anchored grep reports used names as free. */
+ *  branch was in review, forcing a renumber at merge time — and it happened
+ *  again when a branch's own 0.237.0 bump collided with 0.236.0 and 0.237.0
+ *  both landing on main first, forcing a renumber to 0.238.0. No gate checks
+ *  either the number or the name; the only defence is reading CHANGELOG.md
+ *  first. */
 // ★★★ A NINTH VERSION SITE, AND THE ONLY ONE USERS SEE. 0.248.0 shipped with
 // APP_VERSION "0.248.0" beside APP_MILESTONE "Butcher" — the 0.247.x name — so
 // `APP_VERSION_LABEL` rendered `0.248.0 "Butcher"` in Settings, the top bar and the
