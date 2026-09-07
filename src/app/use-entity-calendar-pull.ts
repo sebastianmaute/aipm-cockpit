@@ -2,7 +2,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
-import { t, type Lang } from "./i18n";
+import { t, tPlural, type Lang } from "./i18n";
 import { CALENDAR_READWRITE_SCOPE, updateEvent, type GraphEvent } from "./outlook-calendar-write";
 import { fetchProjectEventDates } from "./outlook-calendar-read";
 import { planCalendarPull, type PullPlan } from "./calendar-pull";
@@ -134,7 +134,7 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
           const sig = plan.conflicts.map((c) => c.eventId).sort().join(",");
           if (sig !== lastConflictSigRef.current) {
             lastConflictSigRef.current = sig;
-            showToast("info", t(lang, "calendarPullConflictsPending", plan.conflicts.length));
+            showToast("info", tPlural(lang, "calendarPullConflictsPending", plan.conflicts.length, plan.conflicts.length));
           }
         } else {
           lastConflictSigRef.current = null; // conflicts cleared → re-announce a future one

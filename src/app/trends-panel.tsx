@@ -216,7 +216,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                 type="button"
                 disabled={selected.size === 0 || busy}
                 onClick={async () => {
-                  if (!(await confirm({ message: t(lang, "snapshotDeleteSelectedConfirm", selected.size) }))) return;
+                  if (!(await confirm({ message: tPlural(lang, "snapshotDeleteSelectedConfirm", selected.size, selected.size) }))) return;
                   void deleteSnapshots([...selected]);
                   setSelected(new Set());
                 }}

@@ -725,6 +725,7 @@ export const de: Record<TranslationKey, string> = {
   chatAttachmentSummaryOne: "{0} — 1 Anhang",
   chatAttachmentSummary: "{0} — {1} Anhänge",
   chatAttachmentSummarySkipped: "{0} — {1} Anhänge, {2} übersprungen",
+  chatAttachmentSummarySkippedOne: "{0} — 1 Anhang, {2} übersprungen",
   chatAttachmentHint: "PDF-, Bild- (PNG/JPG/GIF/WebP) oder Text-Dateien (TXT/MD/CSV) anhängen — je bis zu 20 MB.",
   chatToolCall: "Werkzeug verwendet: {0}",
   chatToolError: "Werkzeugfehler",
@@ -961,7 +962,10 @@ export const de: Record<TranslationKey, string> = {
   dashboardGreetingMorning: "Guten Morgen",
   dashboardGreetingAfternoon: "Guten Tag",
   dashboardGreetingEvening: "Guten Abend",
-  dashboardGreetingSummary: "{0} Einträge brauchen dich · {1} Meilensteine bald",
+  dashboardGreetingNeedsYou: "{0} Einträge brauchen dich",
+  dashboardGreetingNeedsYouOne: "1 Eintrag braucht dich",
+  dashboardGreetingMilestonesSoon: "{0} Meilensteine bald",
+  dashboardGreetingMilestonesSoonOne: "1 Meilenstein bald",
   dashboardDeltaSinceTitle: "Seit deinem letzten Besuch",
   dashboardDeltaWelcome: "Willkommen – hier ist dein Projekt auf einen Blick.",
   dashboardDeltaAllCaught: "Alles aktuell seit {0}",
@@ -1617,6 +1621,7 @@ export const de: Record<TranslationKey, string> = {
     "Die Stunden einer Ressource werden nur als gebucht angezeigt, wenn ihr Timelog-Benutzer mit dieser Ressource verknüpft ist und das Projekt der Buchung mit einem Budget-Bucket verknüpft ist.",
   timelogApply: "Auf Budget anwenden",
   timelogApplyConfirm: "{0} Bucket-Änderungen auf die Ist-Stunden des Budgets anwenden?",
+  timelogApplyConfirmOne: "1 Bucket-Änderung auf die Ist-Stunden des Budgets anwenden?",
   timelogApplyPartial:
     "Einige Projekte konnten nicht geladen werden, daher sind diese Buchungen unvollständig. Ein Übernehmen würde die Stunden der fehlenden Projekte auf null setzen — deshalb ist das Übernehmen deaktiviert. Laden Sie die Buchungen erneut.",
   timelogApplyNoAllocation:
@@ -2120,6 +2125,7 @@ export const de: Record<TranslationKey, string> = {
   outlookCalImportType: "Typ",
   outlookCalImportButton: "Aus Outlook importieren",
   outlookCalImportedN: "{0} Abwesenheiten importiert",
+  outlookCalImportedNOne: "1 Abwesenheit importiert",
   outlookCalendarPermissionDenied: "Kalenderzugriff wurde verweigert. Bitte Microsoft-Berechtigungen prüfen.",
   outlookCalendarFetchFailed: "Kalendertermine konnten nicht abgerufen werden. Bitte erneut versuchen.",
 
@@ -2127,6 +2133,7 @@ export const de: Record<TranslationKey, string> = {
   storageTursoNeedsToggle: "Turso unter Einstellungen → Integrationen aktivieren.",
   storageTursoNeedsConfig: "Turso-URL und -Token in den Einstellungen eingeben.",
   storageConvertConfirm: "Aktuellen Workspace ({0} Aufgaben) nach {1} konvertieren und in diesen Speicher schreiben? Vorhandene Daten dort werden überschrieben.",
+  storageConvertConfirmOne: "Aktuellen Workspace (1 Aufgabe) nach {1} konvertieren und in diesen Speicher schreiben? Vorhandene Daten dort werden überschrieben.",
   storageConvertedToast: "Konvertiert und zu {0} gewechselt.",
 
   languageTooltip: "Anzeigesprache der App-Oberfläche.",
@@ -2622,6 +2629,7 @@ export const de: Record<TranslationKey, string> = {
   snapshotDeleteSelected: "Auswahl löschen ({0})",
   snapshotDeleteConfirm: "Diesen Snapshot löschen?",
   snapshotDeleteSelectedConfirm: "{0} Snapshots löschen?",
+  snapshotDeleteSelectedConfirmOne: "1 Snapshot löschen?",
   trendsVarianceHeading: "Baseline vs. aktuell",
   trendsSnapshotsHeading: "Snapshots",
   trendsBaselineLabel: "Baseline",
@@ -2937,6 +2945,7 @@ export const de: Record<TranslationKey, string> = {
   errorInvalidDate: "Gültiges Datum eingeben (JJJJ-MM-TT).",
   versionHighlightRebaseline: "Abweichende Meilensteine sowie Termin/Budget direkt im Aktionscenter neu ausrichten.",
   notifySummaryTitle: "{0} neue dringende Aktionen",
+  notifySummaryTitleOne: "1 neue dringende Aktion",
   notifySummaryBody: "Öffnen Sie die App, um sie zu prüfen.",
   settingsDesktopNotify: "Desktop-Benachrichtigungen für dringende Aktionen",
   settingsDesktopNotifyHint:
@@ -2986,6 +2995,7 @@ export const de: Record<TranslationKey, string> = {
   calendarPullTakeOutlook: "Outlook-Termin übernehmen",
   calendarPullInSync: "Bereits mit Outlook synchron",
   calendarPullConflictsPending: "{0} Kalenderkonflikte — im Pull auflösen",
+  calendarPullConflictsPendingOne: "1 Kalenderkonflikt — im Pull auflösen",
   calendarPullEventRemoved: "Der Outlook-Termin wurde entfernt",
   settingsOutlookCalendarPush:
     "Meilensteine in meinen Outlook-Kalender übertragen",
@@ -3343,6 +3353,7 @@ export const de: Record<TranslationKey, string> = {
   errorBoundaryReset: "Konfiguration zurücksetzen & neu laden",
   snapshotConfigIncomplete: "Aufzeichnung ist aktiv, aber es ist noch keine Turso-Datenbank-URL gesetzt - es werden keine Snapshots erfasst, bis sie konfiguriert ist.",
   storageTursoLeaveWarn: "Die Snapshot-Trendaufzeichnung funktioniert nur mit dem Turso-Backend. Der Wechsel zu {1} stoppt die Aufzeichnung (Ihre {0} Einträge werden weiterhin konvertiert). Ihre aufgezeichneten Snapshots bleiben in Turso erhalten und die Aufzeichnung wird beim Zurückwechseln fortgesetzt. Fortfahren?",
+  storageTursoLeaveWarnOne: "Die Snapshot-Trendaufzeichnung funktioniert nur mit dem Turso-Backend. Der Wechsel zu {1} stoppt die Aufzeichnung (Ihr 1 Eintrag wird weiterhin konvertiert). Ihre aufgezeichneten Snapshots bleiben in Turso erhalten und die Aufzeichnung wird beim Zurückwechseln fortgesetzt. Fortfahren?",
   versionHighlightTrends: "Baseline + Varianz / Burn-down-Trends — periodische Turso-Snapshots zeigen Verzug über die Zeit",
 
   navChanges: "Änderungen",

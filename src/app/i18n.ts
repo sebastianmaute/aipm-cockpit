@@ -765,6 +765,7 @@ const enUS = {
   chatAttachmentEncrypted: "{0} is password-protected — save it without protection and try again",
   chatAttachmentSummaryOne: "{0} — 1 attachment",
   chatAttachmentSummary: "{0} — {1} attachments",
+  chatAttachmentSummarySkippedOne: "{0} — 1 attachment, {2} skipped",
   chatAttachmentSummarySkipped: "{0} — {1} attachments, {2} skipped",
   chatAttachmentHint: "Attach PDF, image (PNG/JPG/GIF/WebP), or text (TXT/MD/CSV) files — up to 20 MB each.",
   chatToolCall: "Used {0}",
@@ -1023,7 +1024,10 @@ const enUS = {
   dashboardGreetingMorning: "Good morning",
   dashboardGreetingAfternoon: "Good afternoon",
   dashboardGreetingEvening: "Good evening",
-  dashboardGreetingSummary: "{0} items need you · {1} milestones soon",
+  dashboardGreetingNeedsYou: "{0} items need you",
+  dashboardGreetingNeedsYouOne: "1 item needs you",
+  dashboardGreetingMilestonesSoon: "{0} milestones soon",
+  dashboardGreetingMilestonesSoonOne: "1 milestone soon",
   dashboardDeltaSinceTitle: "Since you last looked",
   dashboardDeltaWelcome: "Welcome — here's your project at a glance.",
   dashboardDeltaAllCaught: "All caught up since {0}",
@@ -1682,6 +1686,7 @@ const enUS = {
   timelogAttributionHint:
     "A resource's hours show as booked only when its Timelog user is linked to that resource and the booking's project is linked to a bucket.",
   timelogApply: "Apply to budget",
+  timelogApplyConfirmOne: "Apply 1 bucket change to budget actual hours?",
   timelogApplyConfirm: "Apply {0} bucket changes to budget actual hours?",
   timelogApplyPartial:
     "Some projects could not be fetched, so these bookings are incomplete. Applying them would overwrite the missing projects' hours with zero, so applying is disabled — refresh the bookings and try again.",
@@ -2214,6 +2219,7 @@ const enUS = {
   outlookCalImportCancel: "Cancel",
   outlookCalImportType: "Type",
   outlookCalImportButton: "Import from Outlook",
+  outlookCalImportedNOne: "Imported 1 absence",
   outlookCalImportedN: "Imported {0} absences",
   outlookCalendarPermissionDenied: "Calendar access was denied. Please check your Microsoft permissions.",
   outlookCalendarFetchFailed: "Failed to fetch calendar events. Please try again.",
@@ -2221,6 +2227,7 @@ const enUS = {
   storageTurso: "Turso database",
   storageTursoNeedsToggle: "Enable Turso in Settings → Integrations.",
   storageTursoNeedsConfig: "Enter the Turso URL and token in Settings.",
+  storageConvertConfirmOne: "Convert your current workspace (1 task) to {1} and write it to this storage, overwriting any data already there?",
   storageConvertConfirm: "Convert your current workspace ({0} tasks) to {1} and write it to this storage, overwriting any data already there?",
   storageConvertedToast: "Converted and switched to {0}.",
 
@@ -2757,6 +2764,7 @@ const enUS = {
   snapshotDelete: "Delete",
   snapshotDeleteSelected: "Delete selected ({0})",
   snapshotDeleteConfirm: "Delete this snapshot?",
+  snapshotDeleteSelectedConfirmOne: "Delete 1 snapshot?",
   snapshotDeleteSelectedConfirm: "Delete {0} snapshots?",
   trendsVarianceHeading: "Baseline vs current",
   trendsSnapshotsHeading: "Snapshots",
@@ -3028,6 +3036,7 @@ const enUS = {
   versionHighlightCommTemplatesSend: "Send communication templates as real HTML email via Microsoft 365 — as an Outlook draft to review, or preview-and-send in the app (plain-text email app remains the fallback).",
   versionHighlightEscalate: "Escalate at-risk RAID items: raise severity and notify in one step",
   versionHighlightRebaseline: "Re-baseline drifting milestones and schedule/budget from the Action Center.",
+  notifySummaryTitleOne: "1 new urgent action",
   notifySummaryTitle: "{0} new urgent actions",
   notifySummaryBody: "Open the app to review them.",
   settingsDesktopNotify: "Desktop notifications for urgent actions",
@@ -3076,6 +3085,7 @@ const enUS = {
   calendarPullKeepApp: "Keep app date",
   calendarPullTakeOutlook: "Take Outlook date",
   calendarPullInSync: "Already in sync with Outlook",
+  calendarPullConflictsPendingOne: "1 calendar conflict — open Pull to resolve",
   calendarPullConflictsPending: "{0} calendar conflicts — open Pull to resolve",
   calendarPullEventRemoved: "Its Outlook event was removed",
   settingsOutlookCalendarPush: "Push milestones to my Outlook calendar",
@@ -3508,6 +3518,7 @@ const enUS = {
   errorBoundaryRecover: "Recover",
   errorBoundaryReset: "Reset config & reload",
   snapshotConfigIncomplete: "Recording is on, but no Turso database URL is set yet - no snapshots will be captured until it is configured.",
+  storageTursoLeaveWarnOne: "Snapshot trend recording only works on the Turso backend. Switching to {1} stops recording (your 1 item is still converted). Your recorded snapshots are kept in Turso and recording resumes when you switch back. Continue?",
   storageTursoLeaveWarn: "Snapshot trend recording only works on the Turso backend. Switching to {1} stops recording (your {0} items are still converted). Your recorded snapshots are kept in Turso and recording resumes when you switch back. Continue?",
   versionHighlightTrends: "Baseline + variance / burn-down trends — periodic Turso snapshots show slippage over time",
 
@@ -4529,13 +4540,16 @@ export type PluralBaseKey = {
  *
  * ★★ `count` is NOT injected into the args. Two converted keys carry the
  * count in a slot other than `{0}` (`actionCommitteeInfoWhy` at `{2}`,
- * `chatAttachmentSummarySkipped` at `{1}`) — a third key, `dashboardGreetingSummary`,
- * carries two INDEPENDENT counts and is SPLIT into separate keys rather than
- * converted to `tPlural`, so it is not a member of the 31 either. The caller
+ * `chatAttachmentSummarySkipped` at `{1}`) — a third key that used to carry
+ * TWO independent counts (`{0} items need you · {1} milestones soon`) was
+ * REMOVED rather than converted to `tPlural`, because one selection cannot
+ * agree two independent counts at once. Do NOT reintroduce it as a single
+ * key: it is now `dashboardGreetingNeedsYou` + `dashboardGreetingMilestonesSoon`,
+ * each pluralised on its own count (`dashboard-delta-strip.tsx`). The caller
  * passes the number in whatever position the string uses and `count` is used
- * ONLY to select the form. Injecting it would have worked for 29 of the 31
- * keys, which is exactly the kind of convenience that reads as correct until
- * the 30th.
+ * ONLY to select the form. Injecting it would have worked for most of the
+ * converted keys, which is exactly the kind of convenience that reads as
+ * correct until the one that needs a different slot or a second count.
  *
  * ★ Written against Intl's CATEGORIES rather than `count === 1` so a future
  * language with a `few`/`many` category is a dictionary change rather than a

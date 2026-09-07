@@ -1,6 +1,6 @@
 "use client";
 
-import { t, type Lang } from "./i18n";
+import { t, tPlural, type Lang } from "./i18n";
 import { Card } from "./card";
 import { RagBadge } from "./rag-badge";
 import { INTERACTIVE } from "./interaction-styles";
@@ -63,7 +63,9 @@ export function DashboardDeltaStrip({ lang, delta, greeting, onOpenTask, onOpenR
         </span>
         {(greeting.summary.needsYou > 0 || greeting.summary.milestonesSoon > 0) && (
           <span className="text-sm text-muted-foreground">
-            {t(lang, "dashboardGreetingSummary", String(greeting.summary.needsYou), String(greeting.summary.milestonesSoon))}
+            {tPlural(lang, "dashboardGreetingNeedsYou", greeting.summary.needsYou, String(greeting.summary.needsYou))}
+            {" · "}
+            {tPlural(lang, "dashboardGreetingMilestonesSoon", greeting.summary.milestonesSoon, String(greeting.summary.milestonesSoon))}
           </span>
         )}
       </div>

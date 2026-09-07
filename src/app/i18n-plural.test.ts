@@ -54,10 +54,11 @@ describe("plural key pairing", () => {
   it("gives every singular key a plural sibling", () => {
     const singulars = keys.filter((k) => k.endsWith("One"));
     // Non-vacuity control: if this scan ever returns an empty set the test
-    // below passes over nothing, so assert the population first.
-    // FLOOR IS PROVISIONAL: raise to 30 in Task A7, once all 41 pairs exist.
-    // A floor below the real population is a weakened non-vacuity control.
-    expect(singulars.length).toBeGreaterThan(11);
+    // below passes over nothing, so assert the population first. Measured
+    // 42 singulars at the time this floor was raised (2026-09-07) — 30
+    // leaves headroom for the population to shrink somewhat without
+    // silently weakening this control back to vacuity.
+    expect(singulars.length).toBeGreaterThan(30);
     const stranded = singulars.filter((k) => !keys.includes(k.slice(0, -3)));
     expect(stranded).toEqual([]);
   });

@@ -10,7 +10,7 @@
 // state, refs, the load/save effects, and the shared helpers passed in via deps.
 import type React from "react";
 import type { Lang } from "./i18n";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import type { Settings } from "./settings-types";
 import {
   type LocalStorageFormat,
@@ -455,7 +455,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     const label = t(deps.langRef.current, STORAGE_LABEL_KEYS[newKind]);
     const leavingTurso = current.kind === "turso" && newKind !== "turso";
     const confirmKey = leavingTurso ? "storageTursoLeaveWarn" : "storageConvertConfirm";
-    if (!window.confirm(t(deps.langRef.current, confirmKey, deps.tasks.length, label))) return;
+    if (!window.confirm(tPlural(deps.langRef.current, confirmKey, deps.tasks.length, deps.tasks.length, label))) return;
     const target = createBackend(newConfig, {
       acquireToken: deps.acquireToken,
       tursoConfig: getTursoConfig(

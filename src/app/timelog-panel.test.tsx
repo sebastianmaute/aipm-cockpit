@@ -769,7 +769,7 @@ describe("TimelogPanel", () => {
       // The SAME confirm dialog the manual Apply opens — reused, not a second
       // write path — carrying the refetched figure.
       await waitFor(() =>
-        expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument(),
+        expect(screen.getByText(t("en-US", "timelogApplyConfirmOne"))).toBeInTheDocument(),
       );
       const rows = screen.getAllByRole("listitem").map((li) => li.textContent);
       expect(rows).toContain("Alpha Project · 2026-06: 0 → 20");
@@ -1756,7 +1756,7 @@ describe("TimelogPanel", () => {
       // Click Apply → confirm prompt
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogApply") }));
       // Confirm text should now be visible (contains the diff count "1")
-      expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument();
+      expect(screen.getByText(t("en-US", "timelogApplyConfirmOne"))).toBeInTheDocument();
 
       // Click the confirm Apply button
       const confirmBtns = screen.getAllByRole("button", { name: t("en-US", "timelogApply") });
@@ -1766,7 +1766,7 @@ describe("TimelogPanel", () => {
 
       // Confirm prompt should be gone
       expect(
-        screen.queryByText(t("en-US", "timelogApplyConfirm", "1")),
+        screen.queryByText(t("en-US", "timelogApplyConfirmOne")),
       ).not.toBeInTheDocument();
     });
 
@@ -1781,11 +1781,11 @@ describe("TimelogPanel", () => {
       );
 
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogApply") }));
-      expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument();
+      expect(screen.getByText(t("en-US", "timelogApplyConfirmOne"))).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
       expect(
-        screen.queryByText(t("en-US", "timelogApplyConfirm", "1")),
+        screen.queryByText(t("en-US", "timelogApplyConfirmOne")),
       ).not.toBeInTheDocument();
     });
   });
@@ -1803,7 +1803,7 @@ describe("TimelogPanel", () => {
 
       // Open the confirm dialog
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogApply") }));
-      expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument();
+      expect(screen.getByText(t("en-US", "timelogApplyConfirmOne"))).toBeInTheDocument();
 
       // The Fetch/Sync button must be disabled while confirming
       expect(screen.getByRole("button", { name: t("en-US", "timelogSync") })).toBeDisabled();
@@ -1828,7 +1828,7 @@ describe("TimelogPanel", () => {
 
       // Open confirm — snapshot captures the initial 8-hour overlay
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogApply") }));
-      expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument();
+      expect(screen.getByText(t("en-US", "timelogApplyConfirmOne"))).toBeInTheDocument();
 
       // Simulate aggregates changing (re-fetch while dialog is open)
       const changedSync = {
@@ -1850,7 +1850,7 @@ describe("TimelogPanel", () => {
       );
 
       // Confirm text should still show "1" diff row (the snapshot count, unchanged)
-      expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument();
+      expect(screen.getByText(t("en-US", "timelogApplyConfirmOne"))).toBeInTheDocument();
     });
 
     // The overlay was snapshotted but the BUDGET baseline was not, so the
@@ -1878,7 +1878,7 @@ describe("TimelogPanel", () => {
       );
 
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogApply") }));
-      expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument();
+      expect(screen.getByText(t("en-US", "timelogApplyConfirmOne"))).toBeInTheDocument();
 
       // A background load replaces the budgets array identity mid-confirm.
       fireEvent.click(screen.getByTestId("mutate-budget"));
@@ -1886,11 +1886,11 @@ describe("TimelogPanel", () => {
       fireEvent.click(confirmBtns[confirmBtns.length - 1]);
 
       // The confirm step closes without writing — the user must re-review.
-      expect(screen.queryByText(t("en-US", "timelogApplyConfirm", "1"))).not.toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "timelogApplyConfirmOne"))).not.toBeInTheDocument();
       expect(onApplied).toHaveBeenCalledTimes(1); // only the mutator ran
       // Re-opening still offers the same single pending row, i.e. nothing was written.
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogApply") }));
-      expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument();
+      expect(screen.getByText(t("en-US", "timelogApplyConfirmOne"))).toBeInTheDocument();
     });
   });
 

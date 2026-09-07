@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { t, type Lang } from "./i18n";
+import { t, tPlural, type Lang } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import { buildNotificationPlan, newUrgentActions, nextSeenIds } from "./action-notifications";
 
@@ -104,7 +104,7 @@ export function useActionNotifications({
               n.close();
             };
           } else {
-            const n = new Notification(t(l, "notifySummaryTitle", plan.count), {
+            const n = new Notification(tPlural(l, "notifySummaryTitle", plan.count, plan.count), {
               body: t(l, "notifySummaryBody"),
               tag: SUMMARY_TAG,
             });

@@ -5,7 +5,7 @@
 // inside its size ratchet.
 
 import type { IngestNode } from "./attachment-ingest";
-import { type Lang, t, tPlural } from "./i18n";
+import { type Lang, tPlural } from "./i18n";
 
 // Count the "skipped -" disclosures the ingest walk wrote into the Markdown,
 // surfacing to the USER what the orchestrator already discloses to the model.
@@ -38,6 +38,6 @@ export function buildAttachmentSummary(lang: Lang, fileName: string, node: Inges
   // `chatAttachmentSummarySkipped` reachable only when some SIBLING had
   // succeeded, i.e. never for the single-attachment case.
   if (kids === 0 && skipped === 0) return null;
-  if (skipped > 0) return t(lang, "chatAttachmentSummarySkipped", fileName, String(kids), String(skipped));
+  if (skipped > 0) return tPlural(lang, "chatAttachmentSummarySkipped", kids, fileName, String(kids), String(skipped));
   return tPlural(lang, "chatAttachmentSummary", kids, fileName, String(kids));
 }
