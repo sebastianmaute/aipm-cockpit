@@ -3353,7 +3353,7 @@ export const de: Record<TranslationKey, string> = {
   errorBoundaryReset: "Konfiguration zurücksetzen & neu laden",
   snapshotConfigIncomplete: "Aufzeichnung ist aktiv, aber es ist noch keine Turso-Datenbank-URL gesetzt - es werden keine Snapshots erfasst, bis sie konfiguriert ist.",
   storageTursoLeaveWarn: "Die Snapshot-Trendaufzeichnung funktioniert nur mit dem Turso-Backend. Der Wechsel zu {1} stoppt die Aufzeichnung (Ihre {0} Einträge werden weiterhin konvertiert). Ihre aufgezeichneten Snapshots bleiben in Turso erhalten und die Aufzeichnung wird beim Zurückwechseln fortgesetzt. Fortfahren?",
-  storageTursoLeaveWarnOne: "Die Snapshot-Trendaufzeichnung funktioniert nur mit dem Turso-Backend. Der Wechsel zu {1} stoppt die Aufzeichnung (Ihr 1 Eintrag wird weiterhin konvertiert). Ihre aufgezeichneten Snapshots bleiben in Turso erhalten und die Aufzeichnung wird beim Zurückwechseln fortgesetzt. Fortfahren?",
+  storageTursoLeaveWarnOne: "Die Snapshot-Trendaufzeichnung funktioniert nur mit dem Turso-Backend. Der Wechsel zu {1} stoppt die Aufzeichnung (Ihr Eintrag wird weiterhin konvertiert). Ihre aufgezeichneten Snapshots bleiben in Turso erhalten und die Aufzeichnung wird beim Zurückwechseln fortgesetzt. Fortfahren?",
   versionHighlightTrends: "Baseline + Varianz / Burn-down-Trends — periodische Turso-Snapshots zeigen Verzug über die Zeit",
 
   navChanges: "Änderungen",
