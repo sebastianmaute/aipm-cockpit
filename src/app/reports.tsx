@@ -3,17 +3,11 @@
 import { useMemo, useRef, useState } from "react";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { DragHandle } from "./drag-handle";
-import { EmptyState } from "./empty-state";
 import { Select } from "./form-controls";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
-import { ColumnResizeHandle } from "./task-manager-ui";
-import { InfoTooltip } from "./info-tooltip";
-import { RagDot } from "./rag-dot";
-import { DataTable } from "./data-table";
-import { ReportCard, Section, Tile } from "./report-table";
-import { Card } from "./card";
+import { ReportCard, Section } from "./report-table";
 import {
   computeGroupHealth,
   type GroupHealth,
@@ -22,8 +16,6 @@ import {
 } from "./health";
 import { computeStats } from "./reports-stats";
 import {
-  AssigneeTable,
-  GroupOrLabelTable,
   REPORTS_ASSIGNEE_COL_WIDTHS,
   REPORTS_BY_X_COL_WIDTHS,
   REPORTS_INQUIRY_COL_WIDTHS,
@@ -32,10 +24,24 @@ import {
   type ReportsAssigneeCol,
   type ReportsByXCol,
   type ReportsInquiryCol,
-  StackedBar,
 } from "./reports-tables";
+// ★ The nine built-in block BODIES. This file keeps the `<Section>` wrappers,
+// the state and every derivation; the bodies are presentational and take only
+// what they read. One-way dependency: reports.tsx → reports-blocks.tsx →
+// reports-tables.tsx → reports-stats.ts.
+import {
+  ByAssigneeBlock,
+  ByGroupBlock,
+  ByLabelBlock,
+  ByPriorityBlock,
+  CompletionOutcomesBlock,
+  GroupHealthBlock,
+  InquiriesBlock,
+  OpenByStatusBlock,
+  StatsBlock,
+} from "./reports-blocks";
 import { type Lang, t } from "./i18n";
-import { PRIORITIES, type Task } from "./types";
+import { type Task } from "./types";
 import { RaidReportPanel } from "./raid-report-panel";
 import { BudgetReportPanel } from "./budget-report-panel";
 import { ResourcesReportPanel } from "./resources-report";
@@ -190,8 +196,6 @@ export function ReportsPanel({
     );
   }
 
-  const completedTotal = stats.completedOnTime + stats.completedLate;
-
   // Stable mapping from internal driver token to i18n key so the steering
   // line ("3 overdue, 1 blocked") translates correctly. "manual" / "onTrack"
   // / "completed" aren't shown on the cards — the color itself communicates
@@ -277,193 +281,46 @@ export function ReportsPanel({
 
   return (
     <ReportCard lang={lang} sizeRef={reportsRef} contentRef={cardsScrollRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} leading={<>{addReportControl}{removeReportControl}</>} toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile
-          label={t(lang, "reportsTotal")}
-          value={stats.total}
-          sub={
-            stats.cancelled > 0
-              ? t(lang, "reportsCancelledCount", String(stats.cancelled))
-              : undefined
-          }
-          size="2xl"
-          flat
-        />
-        <Tile label={t(lang, "reportsOpen")} value={stats.open} size="2xl" flat />
-        <Tile
-          label={t(lang, "reportsCompleted")}
-          value={stats.completed}
-          size="2xl"
-          flat
-        />
-        <Tile
-          label={t(lang, "reportsOverdue")}
-          value={stats.overdue}
-          danger={stats.overdue > 0}
-          size="2xl"
-          flat
-        />
-      </div>
+      <StatsBlock
+        lang={lang}
+        total={stats.total}
+        cancelled={stats.cancelled}
+        open={stats.open}
+        completed={stats.completed}
+        overdue={stats.overdue}
+      />
 
       <Section title={t(lang, "reportsGroupHealth")}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {groupHealth.map((row) => (
-            <Card
-              key={row.name}
-              className="flex items-start gap-3 p-3"
-            >
-              <RagDot level={row.health.color} size="lg" className="mt-1" />
-              <div className="min-w-0 flex-1">
-                <div
-                  className={`truncate text-sm font-medium ${
-                    row.isUngrouped
-                      ? "italic text-muted-foreground"
-                      : "text-foreground"
-                  }`}
-                  title={row.name}
-                >
-                  {row.name}
-                </div>
-                <div className="mt-0.5 text-[11px] text-muted-foreground">
-                  {t(
-                    lang,
-                    "reportsGroupCounts",
-                    row.health.counts.R,
-                    row.health.counts.A,
-                    row.health.counts.G,
-                  )}
-                  {row.health.outOfScope > 0
-                    ? ` · ${t(lang, "reportsGroupOutOfScope", String(row.health.outOfScope))}`
-                    : null}
-                </div>
-                {row.health.drivers.length > 0 && (
-                  <div className="mt-1 text-[11px] text-foreground">
-                    {row.health.drivers
-                      .map((d) => t(lang, driverKey[d]))
-                      .join(", ")}
-                  </div>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
+        <GroupHealthBlock lang={lang} rows={groupHealth} driverKey={driverKey} />
       </Section>
 
       <Section title={t(lang, "reportsOpenByStatus")}>
-        <StackedBar
-          segments={[
-            {
-              value: stats.openByStatus.red,
-              color: "bg-[var(--rag-red)]",
-              label: t(lang, "alertCatOverdue"),
-            },
-            {
-              value: stats.openByStatus.yellow,
-              color: "bg-[var(--rag-amber)]",
-              label: t(lang, "reportsDueSoon"),
-            },
-            {
-              value: stats.openByStatus.green,
-              color: "bg-[var(--rag-green)]",
-              label: t(lang, "reportsOnTrack"),
-            },
-          ]}
-          total={stats.open}
-          emptyText={t(lang, "reportsNoOpen")}
-        />
+        <OpenByStatusBlock lang={lang} openByStatus={stats.openByStatus} open={stats.open} />
       </Section>
 
       <Section title={t(lang, "reportsCompletionOutcomes")}>
-        {completedTotal === 0 ? (
-          <EmptyState compact title={t(lang, "reportsNoCompletions")} />
-        ) : (
-          <StackedBar
-            segments={[
-              {
-                value: stats.completedOnTime,
-                color: "bg-[var(--rag-green)]",
-                label: t(lang, "reportsCompletedOnTime"),
-              },
-              {
-                value: stats.completedLate,
-                color: "bg-[var(--rag-red)]",
-                label: t(lang, "reportsCompletedLate"),
-              },
-            ]}
-            total={completedTotal}
-          />
-        )}
+        <CompletionOutcomesBlock
+          lang={lang}
+          completedOnTime={stats.completedOnTime}
+          completedLate={stats.completedLate}
+        />
       </Section>
 
       <Section title={t(lang, "reportsInquiries")}>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Tile
-            label={t(lang, "reportsInquiriesTotal")}
-            value={stats.inquiriesTotal}
-            size="2xl"
-            flat
-          />
-          <Tile
-            label={t(lang, "reportsInquiriesAvg")}
-            value={stats.inquiriesAvg.toFixed(1)}
-            size="2xl"
-            flat
-          />
-          <Tile
-            label={t(lang, "reportsInquiriesTasks")}
-            value={stats.topInquiries.length}
-            size="2xl"
-            flat
-          />
-        </div>
-        {stats.topInquiries.length > 0 && (
-          <div className="mt-3 overflow-x-auto rounded-md border border-line">
-            <DataTable
-              className="min-w-full text-left text-xs"
-              head={
-                <tr>
-                  <th className="relative px-3 py-2" style={{ width: inquiry.colWidths.id, minWidth: inquiry.colWidths.id }}>
-                    #
-                    <ColumnResizeHandle col="id" onMouseDown={inquiryStartResize} />
-                  </th>
-                  <th className="relative px-3 py-2" style={{ width: inquiry.colWidths.task, minWidth: inquiry.colWidths.task }}>
-                    {t(lang, "task")}
-                    <ColumnResizeHandle col="task" onMouseDown={inquiryStartResize} />
-                  </th>
-                  <th className="relative px-3 py-2 text-right" style={{ width: inquiry.colWidths.count, minWidth: inquiry.colWidths.count }}>
-                    {t(lang, "reportsInquiriesCol")}
-                    <InfoTooltip text={t(lang, "reportsInquiriesColHint")} />
-                    <ColumnResizeHandle col="count" onMouseDown={inquiryStartResize} />
-                  </th>
-                </tr>
-              }
-              tbodyClassName="divide-y divide-line"
-            >
-                {stats.topInquiries.map((row) => (
-                  <tr key={row.id}>
-                    <td className="px-3 py-2 font-mono text-muted-foreground">
-                      #{row.id}
-                    </td>
-                    <td className="px-3 py-2">{row.taskName}</td>
-                    <td className="px-3 py-2 text-right font-medium">
-                      {row.inquiriesSent}
-                    </td>
-                  </tr>
-                ))}
-            </DataTable>
-          </div>
-        )}
+        <InquiriesBlock
+          lang={lang}
+          inquiriesTotal={stats.inquiriesTotal}
+          inquiriesAvg={stats.inquiriesAvg}
+          topInquiries={stats.topInquiries}
+          colWidths={inquiry.colWidths}
+          onStartResize={inquiryStartResize}
+        />
       </Section>
 
       <Section title={t(lang, "reportsByAssignee")}>
-        <AssigneeTable
-          rows={stats.byAssignee}
+        <ByAssigneeBlock
           lang={lang}
-          // The SECTION HEADING, not `headerKey`/a column key: it is what a
-          // sighted user reads above the table, and it is the one vocabulary
-          // all three sibling tables can share (`AssigneeTable` has no
-          // `headerKey` at all).
-          nameContext={t(lang, "reportsByAssignee")}
+          rows={stats.byAssignee}
           colWidths={assignee.colWidths}
           onStartResize={assigneeStartResize}
           sort={assigneeSort}
@@ -474,44 +331,32 @@ export function ReportsPanel({
       </Section>
 
       <Section title={t(lang, "reportsByPriority")}>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {PRIORITIES.map((p) => (
-            <Tile key={p} label={p} value={stats.byPriority[p] ?? 0} size="2xl" flat />
-          ))}
-        </div>
+        <ByPriorityBlock byPriority={stats.byPriority} />
       </Section>
 
       <Section title={t(lang, "reportsByGroup")}>
-        <GroupOrLabelTable
-          rows={stats.byGroup}
+        <ByGroupBlock
           lang={lang}
-          nameContext={t(lang, "reportsByGroup")}
-          headerKey="group"
-          emptyKey="reportsNoGroups"
+          rows={stats.byGroup}
           colWidths={byX.colWidths}
           onStartResize={byXStartResize}
           sort={groupSort}
           setSort={setGroupSort}
           filter={groupFilter}
           setFilter={setGroupFilter}
-          filterPlaceholderKey="reportsFilterGroup"
         />
       </Section>
 
       <Section title={t(lang, "reportsByLabel")}>
-        <GroupOrLabelTable
-          rows={stats.byLabel}
+        <ByLabelBlock
           lang={lang}
-          nameContext={t(lang, "reportsByLabel")}
-          headerKey="labels"
-          emptyKey="reportsNoLabels"
+          rows={stats.byLabel}
           colWidths={byX.colWidths}
           onStartResize={byXStartResize}
           sort={labelSort}
           setSort={setLabelSort}
           filter={labelFilter}
           setFilter={setLabelFilter}
-          filterPlaceholderKey="reportsFilterLabel"
         />
       </Section>
 
