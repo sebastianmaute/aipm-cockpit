@@ -3635,6 +3635,7 @@ export const de: Record<TranslationKey, string> = {
   knowledgeLinkedTasks: "Verknüpfte Aufgaben",
   taskUnlink: "Entfernen",
   taskLinkSearchPlaceholder: "Aufgaben zum Verknüpfen suchen (* Platzhalter)…",
+  taskLinkDeletedTask: "gelöschte Aufgabe",
 
   settingsSectionInformationFlows: "Informationsflüsse",
   settingsExpertMode: "Expertenmodus",

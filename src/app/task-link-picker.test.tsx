@@ -166,10 +166,10 @@ describe("TaskLinkPicker", () => {
 
   it("keeps a chip for a linked task that no longer exists, and still unlinks it", () => {
     // The source states this and nothing pinned it: a selected id whose task is
-    // gone still renders (with an empty name) so the stale link stays visible
-    // and unlinkable. Dropping the chip would hide a dangling reference the
-    // user can no longer clear — the link would go on being persisted with no
-    // surface anywhere that admits it exists.
+    // gone still renders so the stale link stays visible and unlinkable.
+    // Dropping the chip would hide a dangling reference the user can no longer
+    // clear — the link would go on being persisted with no surface anywhere
+    // that admits it exists.
     const onRemove = vi.fn();
     const { container } = renderPicker({
       tasks: [task(41, "Ship the API")],
@@ -177,9 +177,17 @@ describe("TaskLinkPicker", () => {
       onRemove,
     });
 
-    // The name collapses to just the code, because the label is the empty
-    // string the missing task yields.
-    const stale = screen.getByRole("button", { name: "Unlink #99" });
+    // ★★★ THE DANGLING CHIP NAMES ITSELF. This asserted `"Unlink #99"` while
+    // the picker fell back to an EMPTY label — the accessible name was really
+    // "Unlink #99 " and passed only because accessible-name computation
+    // collapses trailing whitespace, so the assertion could not tell the
+    // bare-code state from a named one. That bare code is exactly what the
+    // shared picker's inert branch exists to avoid, since the unlink button is
+    // the chip's only focusable element. Corrected 2026-09-07 after cold review.
+    // ★★ The NEGATIVE control is what pins it: assert the bare-code name is
+    // GONE, or this test passes against the empty-label fallback again.
+    const stale = screen.getByRole("button", { name: "Unlink #99 deleted task" });
+    expect(screen.queryByRole("button", { name: "Unlink #99" })).toBeNull();
     // Both chips render — the live one and the dangling one.
     expect(screen.getAllByRole("button", { name: /^Unlink/ })).toHaveLength(2);
     expectRowUniqueNames({ minControls: 2, scope: container });

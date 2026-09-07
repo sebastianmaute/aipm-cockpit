@@ -24,8 +24,9 @@
 // Presentational and entity-agnostic. Every user-facing string arrives already
 // translated, so this file takes no `lang` and calls no `t()` — same contract as
 // EntityLinkPicker.
-import { entityOptionId, useEntityCombobox } from "./entity-combobox";
+import { useEntityCombobox } from "./entity-combobox";
 import { EntityComboboxSearch } from "./entity-combobox-search";
+import { EntityComboboxList } from "./entity-combobox-list";
 
 /** One selectable entity, flattened to what the picker renders. */
 export interface SingleEntityOption {
@@ -150,50 +151,15 @@ export function SingleEntityPicker({
           clearLabel={clearLabel}
           inputSize={inputSize}
         />
-        {open && (
-          <ul
-            id={listId}
-            ref={listRef}
-            role="listbox"
-            className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface"
-          >
-            {options.map((entry, i) => (
-              // ★ The row itself is the option — NOT a <button> inside one. An
-              // interactive child of role="option" is an axe nested-interactive
-              // violation, and the keyboard path is aria-activedescendant.
-              <li
-                key={entry.value}
-                id={entityOptionId(listId, i)}
-                role="option"
-                aria-selected={i === active}
-                // Keeps focus in the input so commit-on-blur hosts don't close
-                // the editor out from under the selection.
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onSelect(entry.value)}
-                // ★★ The active row keeps `text-foreground` and rings on
-                // `--foreground`, never an accent. The measurements behind that
-                // are the sibling's, on NAMED tokens: `ring-ui-green` is
-                // 6.0-7.9:1 on the dark row fills but only 1.7-2.1:1 on the
-                // light ones, under the 3:1 WCAG 1.4.11 asks of a non-text state
-                // indicator, while `--foreground` clears 3:1 in every shipped
-                // scheme because it is the text colour FOR that surface. The
-                // full block sits on EntityLinkPicker's own option row. Nothing
-                // here measured the rest of the palette, so read this as those
-                // tokens rather than as a claim about every brand accent.
-                className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-sm text-foreground ${
-                  i === active
-                    ? "bg-surface-muted font-medium ring-1 ring-inset ring-foreground"
-                    : "hover:bg-surface-muted"
-                }`}
-              >
-                <span className="font-mono text-xs text-muted-foreground">
-                  {entry.code}
-                </span>
-                <span className="truncate">{entry.label}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <EntityComboboxList
+          listId={listId}
+          listRef={listRef}
+          open={open}
+          active={active}
+          options={options}
+          optionKey={(entry) => entry.value}
+          onPick={(entry) => onSelect(entry.value)}
+        />
       </div>
     </div>
   );

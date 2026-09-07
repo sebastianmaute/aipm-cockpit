@@ -110,7 +110,20 @@ export function buildUndoLabel(
   if (!key) return t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", count);
   const singular = t(lang, ENTITY_SINGULAR[key]);
   const plural = t(lang, ENTITY_PLURAL[key] ?? ENTITY_SINGULAR[key]);
-  if (isBulk) return t(lang, "undoLabelBulkEdit", count, plural);
+  // ★★★ THE NOUN AGREES WITH `count`, AND THIS LINE SHIPPED WITHOUT IT — a
+  // one-row bulk edit read "Bulk edit 1 tasks" / "Sammelbearbeitung von 1
+  // Aufgaben". Found by cold review 2026-09-07; the delete branch three lines
+  // below had carried the same ternary all along, so this was an omission, not
+  // a decision. Both existing bulk-label tests seed TWO rows, which is why no
+  // suite could see it.
+  // ★★ `tPlural` is deliberately NOT used here and this is `docs/open-followups.md`
+  // §415's exception class, not a violation of it: the noun is ENTITY-DEPENDENT
+  // (tasks / RAID items / changes), so no complete singular string can be
+  // authored in the dictionary — the noun has to arrive as an argument whatever
+  // the mechanism, and `tPlural` would add a key that still needed it. The
+  // sentence carries no adjective or verb agreement in either language, which is
+  // the condition that makes a fragment safe here and unsafe in general.
+  if (isBulk) return t(lang, "undoLabelBulkEdit", count, count === 1 ? singular : plural);
   if (isDelete) {
     if (name && count <= 1) return t(lang, "undoLabelDeleteNamed", singular, name);
     return t(lang, "undoLabelDeleteCount", count, count === 1 ? singular : plural);

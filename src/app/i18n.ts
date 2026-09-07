@@ -3820,6 +3820,13 @@ const enUS = {
   knowledgeLinkedTasks: "Linked tasks",
   taskUnlink: "Unlink",
   taskLinkSearchPlaceholder: "Search tasks to link (* wildcard)…",
+  // Stands in for the name of a linked task that no longer exists. The chip is
+  // kept deliberately (a dangling link the user can still clear), and in the
+  // inert branch its unlink button is the chip's ONLY focusable element — so an
+  // empty name left a screen-reader user with "Unlink #99 " and a trailing
+  // space. Not a bare "(deleted)": the noun is what makes the announcement
+  // stand on its own.
+  taskLinkDeletedTask: "deleted task",
 
   settingsSectionInformationFlows: "Information flows",
   settingsExpertMode: "Expert mode",

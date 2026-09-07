@@ -12,9 +12,13 @@
 //
 // ★ MUST be rendered INSIDE the picker's own `relative` div, not around it: the
 // listbox is positioned against that same box, so wrapping outside would put
-// the overlaid ✕ over the option list instead of over the field. The listbox
-// itself stays at the call site — the two pickers key and commit their rows
-// differently.
+// the overlaid ✕ over the option list instead of over the field.
+// ★★ The listbox is `entity-combobox-list.tsx` and is no longer at the call
+// site. This spot used to say it stayed there "because the two pickers key and
+// commit their rows differently" — true, and it was the whole of the
+// difference: 27 of 29 comment-stripped lines were byte-identical, and keying
+// and committing are what `useEntityCombobox` already parameterises. Measured
+// by cold review 2026-09-07 and extracted the same day.
 //
 // Presentational and entity-agnostic. Every user-facing string arrives already
 // translated, so this file takes no `lang` and calls no `t()` — same contract as

@@ -23,8 +23,9 @@
 // the rAF `scrollIntoView` and the four-point record of why `combobox-shared`
 // is deliberately NOT the substrate here — read it before concluding the app
 // has two combobox cores by accident.
-import { entityOptionId, useEntityCombobox } from "./entity-combobox";
+import { useEntityCombobox } from "./entity-combobox";
 import { EntityComboboxSearch } from "./entity-combobox-search";
+import { EntityComboboxList } from "./entity-combobox-list";
 import { INTERACTIVE } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
@@ -214,58 +215,15 @@ export function EntityLinkPicker({
           clearLabel={clearLabel}
           inputSize={inputSize}
         />
-        {open && (
-          <ul
-            id={listId}
-            ref={listRef}
-            role="listbox"
-            className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface"
-          >
-            {options.map((entry, i) => (
-              // ★ The row itself is the option — NOT a <button> inside one. An
-              // interactive child of role="option" is an axe nested-interactive
-              // violation, and the keyboard path is aria-activedescendant, so
-              // the button bought nothing. Mirrors global-search-box.
-              <li
-                key={entryKey(entry)}
-                id={entityOptionId(listId, i)}
-                role="option"
-                aria-selected={i === active}
-                // Keeps focus in the input so commit-on-blur callers don't close
-                // the editor out from under the add (ResourcePicker precedent).
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onAdd(entry)}
-                // ★★ The active row keeps `text-foreground`. `text-ui-dark-blue`
-                // is the brand NAVY, which in every dark scheme sits on a dark
-                // `--surface-muted` at ~1.0-1.2:1 — the arrowed-to option would
-                // be marked by its text becoming INVISIBLE. The row background
-                // cannot carry the state alone either: `bg-surface-muted` is
-                // ~1.1:1 against the dropdown's own `bg-surface` AND is what
-                // inactive rows use on hover.
-                // ★★ The ring is `--foreground`, NOT an accent. Any brand accent
-                // is tuned for one mode: `ring-ui-green` measures 6.0-7.9:1 on
-                // the dark row fills but only 1.7-2.1:1 on the light ones, under
-                // the 3:1 WCAG 1.4.11 asks of a non-text state indicator — which
-                // would have left light schemes leaning on `font-medium` alone.
-                // `--foreground` clears 3:1 against that fill in every shipped
-                // scheme because it is the text colour FOR that surface — 12-15:1
-                // in the six built-ins, and 4.79:1 in AIPM/Mockup light, whose
-                // foreground is a mid grey rather than near-black. State cues
-                // here must be scheme-independent; pinned by scheme-contrast-cues.test.ts.
-                className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-sm text-foreground ${
-                  i === active
-                    ? "bg-surface-muted font-medium ring-1 ring-inset ring-foreground"
-                    : "hover:bg-surface-muted"
-                }`}
-              >
-                <span className="font-mono text-xs text-muted-foreground">
-                  {entry.code}
-                </span>
-                <span className="truncate">{entry.label}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <EntityComboboxList
+          listId={listId}
+          listRef={listRef}
+          open={open}
+          active={active}
+          options={options}
+          optionKey={entryKey}
+          onPick={onAdd}
+        />
       </div>
     </div>
   );

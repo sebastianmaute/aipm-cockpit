@@ -30343,11 +30343,48 @@ grep -rn 't(lang, "activityEntriesLogged"\|t(lang, "timelogTestOk"' src/app --in
 grep -rn 'tPlural(lang, "activityEntriesLogged"\|tPlural(lang, "timelogTestOk"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
 ```
 
-★★★ **THE DURABLE PART — a fully paired, fully translated key can still never render its singular,
-and NOTHING in this branch or in CI detects it.** The type gate and the stranded-singular scan both
-reason over the KEY SET (see the ★★★ block at the top of this section); a call site that never asks
-for the singular is outside what either can express. Assume the next conversion slice reintroduces
-this and check call sites as a separate step from keys.
+★★★ **THE DURABLE PART — a fully paired, fully translated key can still never render its singular.**
+The type gate and the stranded-singular scan both reason over the KEY SET (see the ★★★ block at the
+top of this section); a call site that never asks for the singular is outside what either can
+express. Check call sites as a separate step from keys.
+
+★★★ **THIS PARAGRAPH USED TO END "and NOTHING in this branch or in CI detects it … assume the next
+conversion slice reintroduces this", AND THAT WAS REFUTED BY A COLD REVIEWER ON 2026-09-07 — IN ONE
+COMMAND.** The detector now exists: `i18n-plural.test.ts`'s "routes every paired base key through
+tPlural, outside a documented exception" walks `src/app` (non-test), and for every base key with a
+`…One` sibling flags any line that mentions the quoted base key WITHOUT `tPlural`. Measured today:
+975 files, 42 pairs, **13 base keys across 17 lines**, every one of them a documented exception —
+the four provider ternaries (A), the two dead map entries (B), the `raciSuggestSkipped*` union+map,
+the `confirmKey` ternary, and the variable-base `seg(n, base)` helper in `diagnostics-panel.tsx`.
+★★ It WOULD have caught this instance: at `525313da~1`, `activityEntriesLoggedOne` and
+`timelogTestOkOne` already existed while both call sites still called plain `t()`.
+★★ THE ALLOWLIST IS THE RISK AND IS ASSERTED IN BOTH DIRECTIONS — an un-allowlisted violation fails,
+AND an allowlisted key that no longer violates fails too. Without the second half a stale exemption
+is a HOLE, not clutter: the next call site to use that key is exempt for a reason that stopped being
+true. Mutation-proved by deleting one entry: 1 failed / 7 passed, and the failure NAMES the offending
+key and its file — no line number is quoted here on purpose, because the test derives it at run
+time and any insertion above would rot a number written into this prose (§131).
+★ It is a unit test, not a new CI job — it rides the existing blocking `unit-tests` gate, so this
+needed no pipeline change.
+
+★★★ **THE ENUMERATION IS STILL BLIND ONE WAY, AND THAT BLIND SPOT HELD A LIVE DEFECT ONE FILE
+AWAY.** The same review found `undo/use-undo-stack.ts` rendering **"Bulk edit 1 tasks"** /
+"Sammelbearbeitung von 1 Aufgaben" for a one-row bulk edit — reachable by bulk-editing a single
+selected row, and missed by BOTH of this entry's enumeration passes. It is invisible to every scan
+above, including the new one, because the key carries no plural noun at all: `undoLabelBulkEdit` is
+`"Bulk edit {0} {1}"` and the defect is the CALL SITE passing the plural fragment unconditionally.
+The delete branch three lines below had carried the `count === 1 ? singular : plural` ternary all
+along, so it was an omission rather than a decision. FIXED 2026-09-07 with a one-row regression test
+— every existing bulk-label test seeded TWO rows, which is why no suite could see it.
+★★ `tPlural` is deliberately NOT the fix there and that is this entry's exception class, not a
+violation of it: the noun is ENTITY-dependent (tasks / RAID items / changes), so no complete
+singular can be authored and the noun must arrive as an argument whatever the mechanism. The
+sentence carries no adjective or verb agreement in either language, which is the condition that
+makes a fragment safe there and unsafe in general.
+★ **Methodology, and the reason this is recorded rather than just fixed: a key-shape scan cannot see
+a noun-as-argument call site.** Both passes here enumerated over KEYS. Any future sweep of this class
+has to include a pass over call sites that interpolate an entity NOUN, which no regex over the
+dictionary will ever surface.
 ★★ **A test that USES a key is not a test that PINS its call site, and the two are easy to mistake
 for each other.** Both keys appear in `i18n-plural.test.ts` as FIXTURES for `tPlural`'s own
 behaviour, so the suite rendered `"1 entry logged"` and `"Connected — 1 user, scope: read"` and was
