@@ -631,7 +631,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§404](#404-a-dependency-proposal-whose-links-are-all-refused-shows-no-change-and-no-reason--closed-2026-09-06) | A dependency proposal whose links are all refused shows no change and no reason | found 2026-09-06 in cold review of the preview/apply-parity branch | S | CLOSED 2026-09-06 |
 | [§405](#405-the-merge-site-guard-tables-restate-their-sanitizers-predicates-instead-of-sharing-them--open) | The merge-site guard tables restate their sanitizers' predicates instead of sharing them | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§406](#406-the-set_task_dependencies-card-label-is-hardcoded-english--closed-2026-09-06) | The `set_task_dependencies` card label is hardcoded English | found 2026-09-06 in cold review of the preview/apply-parity branch | S | CLOSED 2026-09-06 |
-| [§407](#407-task-row-changes-badge-renders-1-changes-for-a-single-linked-change--open) | Task-row changes badge renders "1 changes" for a single linked change | found 2026-09-05 by the control-defects batch | S–M — needs a per-language plural rule, not a string edit | open |
+| [§407](#407-task-row-changes-badge-renders-1-changes-for-a-single-linked-change--closed-2026-09-07) | Task-row changes badge renders "1 changes" for a single linked change | found 2026-09-05 by the control-defects batch | S–M — needs a per-language plural rule, not a string edit | **CLOSED** 2026-09-07 |
 | [§408](#408-no-turso-connection-test-exists-anywhere-in-the-repo--open) | No Turso connection test exists anywhere in the repo | found 2026-09-05 by the control-defects batch | M — a transient in-session result is cheap; a persisted "confirmed" flag would be the six-write-paths case | open |
 | [§409](#409-collapsing-an-open-documents-body-can-commit-a-pending-unblurred-edit-and-mint-a-version--open) | Collapsing an open document's body can commit a pending unblurred edit and mint a version | found 2026-09-05 by the control-defects batch; browser-measured 2026-09-06, which refuted the attempted fix | S — priority low; no ordinary gesture reaches the state | open |
 | [§410](#410-singleentitypicker-duplicates-entitylinkpickers-combobox-mechanics-almost-line-for-line--open) | `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line | found 2026-09-06 by the control-defects batch | M — extract a third shared hook; would collapse §411 with it | open |
@@ -29629,30 +29629,72 @@ dependencies". Every other label on that surface is translated, and `i18n.ts` al
 `lang`, so either the label must become structured data the renderer translates, or the describer
 must start receiving a language. The second would put `t()` into a module whose purity is deliberate.
 
-## 407. Task-row changes badge renders "1 changes" for a single linked change — OPEN
+## 407. Task-row changes badge renders "1 changes" for a single linked change — CLOSED 2026-09-07
 
-**Status:** never machine-verified. Filed 2026-09-05 while scoping the control-defects batch —
-a wording defect visible by inspection; no gate can see plural agreement in an interpolated
-string.
+**Status:** CLOSED 2026-09-07. Verified by reading the two render sites and their tests, not by
+running them (another agent held vitest on this branch, so the suite was NOT re-run here — the
+tests below are cited by name and by source, which is weaker evidence than a green run and is
+stated as such). Reproduce the fix itself with
+`grep -n 'tPlural(lang, "taskRowChangesBadge"' src/app/task-row.tsx src/app/task-kanban-card.tsx`
+(exactly two hits, one per surface) and the singular key's existence with
+`grep -n 'taskRowChangesBadgeOne' src/app/i18n.ts src/app/i18n.de.ts` (one hit each:
+EN `"1 change"`, DE `"1 Änderung"`).
 
-`taskRowChangesBadge` in `src/app/i18n.ts` is `"{0} changes"` (DE: `"{0} Änderungen"`,
-`src/app/i18n.de.ts`), called with `changeRefs.length` at both render sites — the
-`title`/`aria-label`/visible-text badge in `task-row.tsx` and the Kanban card badge in
-`task-kanban-card.tsx`. A task carrying exactly one linked change therefore reads "1 changes"
-everywhere the badge renders. Reproduce:
-`grep -n 'taskRowChangesBadge' src/app/task-row.tsx src/app/task-kanban-card.tsx`
-(four call sites — three in `task-row.tsx`, one in `task-kanban-card.tsx`, all passing
-`changeRefs.length`).
+**What was wrong.** `taskRowChangesBadge` in `src/app/i18n.ts` is `"{0} changes"` (DE:
+`"{0} Änderungen"`, `src/app/i18n.de.ts`) and was called with `changeRefs.length` at both render
+sites — the `title`/`aria-label`/visible-text badge in `task-row.tsx` and the Kanban card badge
+in `task-kanban-card.tsx` — so a task carrying exactly one linked change read "1 changes"
+everywhere the badge rendered.
+
+**What fixed it, and how it differs from what this entry predicted.** The paragraph below
+predicted "a small `pluralize(lang, count, one, other)` helper used at both call sites". The
+shipped shape is neither that signature nor a call-site ternary: `tPlural(lang, baseKey, count,
+…args)` (`src/app/i18n.ts`) selects between `baseKey` and a `${baseKey}One` sibling via
+`Intl.PluralRules(localeFor(lang)).select(count)`, so the singular is an AUTHORED sibling string
+rather than a suffix rule — which is what German needs, since it re-words noun, adjective and
+verb together. Its `PluralBaseKey` parameter type admits only keys whose `…One` sibling exists,
+so a call naming a base key with no singular fails `npx tsc --noEmit`. ★ The four `tPlural`
+occurrences in `task-row.tsx` and two in `task-kanban-card.tsx` (`grep -c tPlural` on each) are
+NOT all this badge — that file plurals other labels through the same helper; the anchored grep
+above is the one that isolates this key.
+
+★ Both surfaces call it with the count TWICE — once as `tPlural`'s selector and once as the
+`{0}` interpolation argument (`changeRefs?.length ?? 0` in `task-row.tsx`, `changeRefs.length`
+under a `length > 0` guard in `task-kanban-card.tsx`). That is not a redundancy to "simplify"
+away: the selector is positional-argument-free by design, so a helper that reused the selector
+as `{0}` could not express a plural whose interpolated value is not the count.
+
+★ Coverage, read from the sources rather than from a run: `task-row.test.tsx`'s
+"TaskRow changes badge" describe carries "uses the singular taskRowChangesBadgeOne key for
+exactly one linked change", "still uses the plural taskRowChangesBadge key for two linked
+changes" and "uses the German singular stem (not a suffix drop) for exactly one linked change".
+The DE one **does** `await loadI18n("de")` before rendering (the lazy-DE trap this repo records
+— without it the assertion would silently run against EN), and it asserts BOTH
+`getByText("1 Änderung")` and `queryByText("1 Änderungen")` being null, so a stem-preserving
+suffix drop cannot satisfy it. `task-kanban-card.test.tsx`'s "TaskKanbanCard changes badge"
+describe pins the EN singular and plural for that surface; it has no German case, and its own
+comment says so.
 
 ★ This badge WAS touched by the control-defects batch — commit `f168a927` added
 `whitespace-nowrap` to stop it (and the RAID/Jira/Document ID-column badges) wrapping inside the
 narrow ID column — but the wording was deliberately left alone; that commit only ever adds a
 class.
 
-Fixing it is more than a string edit: EN needs only a singular/plural branch, but DE plural
-rules are not a suffix-drop the way EN's is, so a proper fix needs a per-language pluralisation
-rule (likely a small `pluralize(lang, count, one, other)` helper used at both call sites), not a
-second interpolation argument bolted onto the existing key.
+**The prediction this entry filed, retained for comparison** (it was RIGHT about the constraint
+and WRONG about the shape, which is why it is kept rather than deleted): "Fixing it is more than
+a string edit: EN needs only a singular/plural branch, but DE plural rules are not a suffix-drop
+the way EN's is, so a proper fix needs a per-language pluralisation rule (likely a small
+`pluralize(lang, count, one, other)` helper used at both call sites), not a second interpolation
+argument bolted onto the existing key." A `pluralize` helper taking the two strings INLINE would
+have put authored DE prose at every call site; `tPlural` instead keeps both strings in the
+dictionaries as a base/`…One` pair, which is what makes the EN/DE key-parity check (`npx tsc
+--noEmit`) able to see a missing singular at all. (Deliberately un-backticked here: no
+`pluralize` symbol exists in this repo, and backticking a name that resolves nowhere is what
+`docs:symbols:check` exists to catch.)
+
+★ The class this was one instance of is NOT closed — §415 generalises it to at least 31
+call-site-verified keys, of which this branch converted a subset. Closing §407 says the
+`taskRowChangesBadge` badge is fixed on both its surfaces; it says nothing about the other keys.
 
 ## 408. No Turso connection test exists anywhere in the repo — OPEN
 
