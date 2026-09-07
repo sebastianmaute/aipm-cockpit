@@ -530,13 +530,15 @@ describe("evaluateTimelogPolicy", () => {
   // is how a test can express what the type forbids — that is the whole point.
   // ★★ The VALID cell beside the malformed one is load-bearing: without it a
   // guard that skipped the whole ROLL (or returned EMPTY) would pass too.
-  // ★★★ THIS TEST USED TO ASSERT `evaluated` HELD THE RULE, and that was the
-  // unsafe half: a skipped cell now costs the rule its authority to certify a
-  // clean, so the rule is WITHHELD from `evaluated` and its accumulated
-  // violations go with it. The cell-level skip itself is unchanged and is what
-  // this fixture still proves — user 9's ARRAY cell and user 7's `null` cell
-  // are rejected without throwing, which is why the loop reaches user 8 at all.
-  it("skips a malformed cell without throwing and withholds the rule", () => {
+  // ★★★ THE TWO AXES SPLIT HERE, AND BOTH HALVES ARE LOAD-BEARING. The valid
+  // cell's violation is still REPORTED — a partial read observed it, so it is
+  // right about it — while the rule is WITHHELD from `evaluated`, which is the
+  // authority to certify a clean and the only thing a partial read cannot have.
+  // This test used to assert the rule WAS evaluated, which was the unsafe half.
+  // ★★ Asserting only the `evaluated` half would let the suppress-everything
+  // shape pass; asserting only the violation half would let the pre-fix code
+  // pass. Keep both.
+  it("reports a valid cell's violation while withholding the rule beside a malformed one", () => {
     const daily = {
       [dailyKey(7, TUE)]: null,
       [dailyKey(9, TUE)]: [12, 12, 1],
@@ -549,7 +551,12 @@ describe("evaluateTimelogPolicy", () => {
       userLinks: [], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
-    expect(res.violations).toEqual([]);
+    // User 8 only: 7 is `null` and 9 is an ARRAY — `Array.isArray` rejects the
+    // latter even though its indices would not have thrown, which is the
+    // difference between a shape check and a null check.
+    expect(res.violations).toEqual([
+      { rule: "timelogCapPerDay", timelogUserId: 8, resourceId: null, count: 1, worstHours: 12, threshold: 8, firstViolationDate: TUE, lastViolationDate: TUE },
+    ]);
   });
 
   it("does not throw when every cell in the roll is malformed", () => {
@@ -566,6 +573,10 @@ describe("evaluateTimelogPolicy", () => {
     // rule that skipped every cell in the roll certified itself evaluated, and
     // `reconcileInsights` reads membership of `evaluated` as licence to CLEAR.
     expect(res.evaluated).toEqual([]);
+    // ★ Empty for a reason that has nothing to do with the withholding: the sole
+    // cell was skipped, so nothing was ever accumulated to report. This half
+    // therefore does NOT discriminate the two shapes — the fixtures above and
+    // below are what do.
     expect(res.violations).toEqual([]);
   });
 
@@ -577,22 +588,28 @@ describe("evaluateTimelogPolicy", () => {
   // downstream window comparison in the reconcile then fails against that bound
   // and the insight FREEZES — the safe direction, which is why this was filed
   // as a latent shape rather than a live defect.
-  // ★★ THE ASSERTION MOVED UP A LAYER. It used to check that the surviving
-  // violation's bounds excluded the malformed day; a rejected key now costs the
-  // whole rule its evaluation, so there is no surviving violation to inspect and
-  // the guarantee is strictly stronger — nothing about "tomorrow" reaches any
-  // consumer, and the rule freezes rather than certifying a clean.
+  // ★★ THE ORIGINAL §367 GUARANTEE NOW SITS BESIDE A WITHHELD `evaluated`, and
+  // the two are independent claims about the same run: the surviving violation
+  // is REPORTED with bounds that exclude the unreadable day (the engine is right
+  // about what it observed), and the rule is nonetheless barred from certifying
+  // a clean (it cannot be right that nothing else happened).
   // ★ The malformed cell books 99h, far above the 8h threshold, so if it were
   // still admitted it could only show up as a violation — never as an innocent
-  // day that happens not to breach.
-  it("withholds the rule when a malformed-date key is skipped", () => {
+  // day that happens not to breach. That is what makes every bound below a real
+  // assertion rather than a coincidence.
+  it("keeps a malformed-date cell out of the violation bounds and withholds the rule", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1], "7|tomorrow": [99, 99, 1] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [link(7, 1)], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
-    expect(res.violations).toEqual([]);
+    const v = res.violations.find((x) => x.rule === "timelogCapPerDay");
+    expect(v).toBeDefined();
+    expect(v!.firstViolationDate).toBe(TUE);
+    expect(v!.lastViolationDate).toBe(TUE);
+    expect(v!.worstHours).toBe(12);
+    expect(v!.count).toBe(1);
   });
 
   // ★★★ THE ANTI-VACUITY CONTROL FOR EVERY WITHHELD-RULE TEST ABOVE. Each of
@@ -600,6 +617,9 @@ describe("evaluateTimelogPolicy", () => {
   // `skipped` flag stuck permanently true would also produce — so without a
   // fixture that skips NOTHING, the whole group passes against a guard that
   // darkens every rule unconditionally and the feature is dead.
+  // ★★ IT MUST ASSERT BOTH AXES, because it is the only fixture where the two
+  // agree: the rule is in `evaluated` AND its violation is reported. Dropping
+  // either half leaves one of the two behaviours uncontrolled.
   // ★ Same 12h-over-8h breach as the fixtures above, so a green here is the
   // rule working, not the booking being innocent.
   it("evaluates the rule and reports its violation when no cell is skipped", () => {
@@ -620,7 +640,11 @@ describe("evaluateTimelogPolicy", () => {
   // that cell belonged to. Pinned with three rules enabled at once so a
   // per-rule `skipped` — which would leave the two rules the cell could not have
   // reached still certifying — turns this red.
-  it("withholds EVERY enabled rule when one cell is skipped", () => {
+  // ★★ THIS TEST OWNS THE `evaluated` AXIS ALONE. The violations are asserted
+  // non-empty only to keep the fixture honest: the roll really does breach, so
+  // an empty `evaluated` here can only be the withholding and never a rule that
+  // was never enabled.
+  it("withholds EVERY enabled rule from evaluated when one cell is skipped", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1], "no-pipe": [99, 99, 1] }),
       policy: {
@@ -631,7 +655,7 @@ describe("evaluateTimelogPolicy", () => {
       holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [link(7, 1)], shifts: [],
     });
     expect(res.evaluated).toEqual([]);
-    expect(res.violations).toEqual([]);
+    expect(res.violations.length).toBeGreaterThan(0);
   });
 });
 

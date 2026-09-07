@@ -245,16 +245,29 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   // floor, applied to the roll's own contents: a rule reports itself evaluated
   // only when it COULD have produced a true answer, and a partial read cannot
   // honestly answer "no violation".
-  // ★★ WHAT IT SUPPRESSES IS NOT THE POINT. The withheld rule's `violations` go
-  // unpushed too, but the LOAD-BEARING half is that the rule leaves `evaluated`,
-  // because `evaluated` is what `reconcileInsights` reads as licence to CLEAR a
-  // stored insight. Absent from it, the rule's stored insights FREEZE instead of
-  // resolving. So: we may still be wrong about "there IS a violation", and we
-  // refuse to certify "there is NO violation" from a roll we could not fully
-  // read. Freezing is recoverable on the next clean fetch; a fabricated
-  // "improved" written into shared, exported `Workspace.insights` is not.
+  // ★★★ IT COSTS THE RULE ITS `evaluated` MEMBERSHIP AND NOTHING ELSE — the
+  // violations it did accumulate are still REPORTED. `evaluated` means precisely
+  // one thing: "this rule may certify a clean", because it is what
+  // `reconcileInsights` reads as licence to CLEAR a stored insight. A partial
+  // read can still be RIGHT that a violation exists — it OBSERVED one — and can
+  // never be right that none does. So a positive finding needs no certification
+  // and goes out; only the authority to say "no violation" is withheld, and the
+  // rule's stored insights FREEZE rather than resolving as a fabricated
+  // "improved" in shared, exported `Workspace.insights`.
+  // ★★★ THE COST OF THIS DIRECTION, STATED SO IT IS NOT REDISCOVERED AS A BUG:
+  // a violation reported while the rule is NOT evaluated mints an insight that
+  // `reconcileInsights` cannot clear for as long as the unreadable cell persists.
+  // That is a FREEZE, which is this module's own recoverable direction, and it
+  // lifts the moment the roll becomes readable.
+  // ★★★ THE ALTERNATIVE WAS SUPPRESSING THE VIOLATIONS TOO, AND ITS COST IS WHAT
+  // DECIDED THIS. Under that shape ONE malformed key blinds every enabled
+  // guardrail for the whole fetch, so a genuine 12-hour-day breach on a
+  // perfectly good day never reaches the user at all. That is exactly what the
+  // "one bad day must not cost the other days" comment below existed to prevent:
+  // its INSTINCT was right and only its conclusion about `evaluated` was wrong.
+  // Both halves were weighed; do not re-derive one of them and flip this back.
   // ★★ PER-ROLL, NOT PER-RULE, deliberately: an unreadable cell might have
-  // violated ANY of the four, so none of them can answer for the person it
+  // violated ANY of the four, so none of them can certify for the person it
   // belonged to.
   let skipped = false;
   for (const [key, cell] of Object.entries(daily)) {
@@ -271,13 +284,15 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
     // inside a debounced effect with no try/catch, so a `null` cell here is an
     // uncaught throw that kills the whole insights reconcile. The cell is still
     // SKIPPED rather than thrown on, and that throw-safety argument is unchanged.
-    // ★★★ WHAT CHANGED IS THE COST. This used to read "one bad day must not cost
-    // the other days their evaluation", and that was a safety regression: the
-    // cell vanished silently while the rule went on certifying itself evaluated,
-    // so a real over-cap booking on an unreadable day let `reconcileInsights`
-    // resolve a stored guardrail insight as a fabricated "improved". A skipped
-    // cell now costs the RULE its authority to certify a clean — the other days
-    // are still MEASURED, they just cannot add up to "no violation".
+    // ★★★ WHAT CHANGED IS THE COST, AND ONLY HALF OF IT. This used to read "one
+    // bad day must not cost the other days their evaluation". The instinct was
+    // right — the other days are still measured, and any violation among them is
+    // still REPORTED — but the conclusion about `evaluated` was a safety
+    // regression: the cell vanished silently while the rule went on certifying
+    // itself evaluated, so a real over-cap booking on an unreadable day let
+    // `reconcileInsights` resolve a stored guardrail insight as a fabricated
+    // "improved". A skipped cell now costs the rule its authority to certify a
+    // clean, and nothing more.
     // ★★ This closes a PRE-EXISTING hole as well as the one the date-shape check
     // widened: an unparseable key and a non-cell value both fell into the same
     // silent skip before either guard existed.
@@ -325,9 +340,13 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   };
   for (const rule of TIMELOG_RULE_IDS) {
     const { on, acc } = byRule[rule];
-    // `skipped` is the roll-contents readiness floor — see its declaration.
-    if (!on || skipped) continue;
-    evaluated.push(rule);
+    if (!on) continue;
+    // ★★★ THE VIOLATIONS ARE REPORTED EITHER WAY; ONLY THE CERTIFICATION IS
+    // WITHHELD. `skipped` is the roll-contents readiness floor — see its
+    // declaration for what it costs and why. The asymmetry is the whole point: a
+    // partial read can still be RIGHT that a violation exists, because it
+    // OBSERVED one, and it can never be right that none does.
+    if (!skipped) evaluated.push(rule);
     violations.push(...drain(rule, acc));
   }
   return { violations, evaluated, linkedUsers: [...linked] };
