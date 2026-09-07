@@ -140,6 +140,39 @@ describe("report-blocks — label keys in DE", () => {
     }
   });
 
+  it("resolves all thirteen titles to DISTINCT strings in BOTH languages", () => {
+    // ★★★ THE ROUTE THE "no prop can make two titles equal" ARGUMENT DOES NOT
+    // COVER. `reports.test.tsx` leaves `requireCollisionSeed` OFF because no
+    // prop `ReportsPanel` accepts can make two block titles equal — every title
+    // is `t(lang, spec.labelKey)` off this module-level catalogue. That is true
+    // and it is NOT sufficient on its own: the KEYS are distinct by
+    // construction, the rendered STRINGS are not. Two different keys resolving
+    // to the same string would put two identically-named grips and two
+    // identically-named ⋮ buttons on the board — a live WCAG 2.4.6 failure that
+    // axe cannot see in any view at any seed size.
+    //
+    // ★★ BOTH LANGUAGES, and DE is the one that can drift alone: a translator
+    // shortening two labels to the same word is exactly the shape that survives
+    // an EN-only check. tsc enforces key parity, never value distinctness.
+    //
+    // ★ Same class as the shelf defect found in Task 8 — a collision nothing
+    // could produce from the catalogue in front of you, until it could.
+    for (const lang of ["en-US", "de"] as const) {
+      const titles = REPORT_BLOCKS.map((b) => t(lang, b.labelKey));
+      const seen = new Map<string, string[]>();
+      REPORT_BLOCKS.forEach((b, i) => {
+        seen.set(titles[i], [...(seen.get(titles[i]) ?? []), b.id]);
+      });
+      const clashes = [...seen.entries()].filter(([, ids]) => ids.length > 1);
+      expect(clashes, `${lang}: ${clashes.map(([s, ids]) => `"${s}" ← ${ids.join(", ")}`).join(" | ")}`)
+        .toEqual([]);
+      // Positive control: the fixture really did resolve thirteen titles, so an
+      // empty catalogue could not read as "no clashes".
+      expect(titles).toHaveLength(REPORT_BLOCKS.length);
+      expect(titles.every((s) => s.length > 0)).toBe(true);
+    }
+  });
+
   it("actually loaded the DE dictionary, rather than falling back to EN", () => {
     // ★ The positive control for the test above. Without it, a broken
     // `loadI18n` would make every DE assertion an EN assertion in disguise —
