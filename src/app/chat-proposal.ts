@@ -26,11 +26,15 @@ export interface ProposedCall {
  *   restorable version (`deleteDocument` returns `restorableVersionId`). The
  *   recovery path is the Documents tombstone list, not the undo stack, and
  *   nothing on the chat surface points at it — so from the chat user's seat the
- *   delete is as final as the other seven. */
+ *   delete is as final as the other seven.
+ *
+ *  ★ `delete_absence` and `delete_calendar_event` joined this set when those
+ *   tools were added — same reasoning as every other `delete_*` tool here,
+ *   nothing entity-specific about either. */
 const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
   "delete_task", "delete_all_tasks", "delete_raid_item", "delete_change",
   "delete_milestone", "delete_stakeholder", "delete_resource",
-  "delete_document",
+  "delete_document", "delete_absence", "delete_calendar_event",
 ]);
 
 /** Tools that write PROJECT ENTITY data.
@@ -60,7 +64,14 @@ const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
  *   rely on `documentVersions` instead. That argues for MORE staging, not less:
  *   the single-write exemption below is justified by undo, and documents have
  *   none, so the only thing standing between the model and an unreviewed
- *   multi-document rewrite is this gate. */
+ *   multi-document rewrite is this gate.
+ *
+ *  ★ `create_absence`/`update_absence` and `create_calendar_event`/
+ *   `update_calendar_event` are ordinary `Workspace` entity writes (absences and
+ *   calendar events, same as every other register here) and count the same way.
+ *   The calendar-event pair carries an ADDITIONAL escalation of its own — see
+ *   `sendsInvitations` below — but that is a payload check layered on top of
+ *   this name-level membership, not a reason to leave the name out of it. */
 const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_task", "update_task", "set_task_dependencies", "send_inquiry",
   "create_raid_item", "update_raid_item",
@@ -69,6 +80,8 @@ const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_stakeholder", "update_stakeholder",
   "create_resource", "update_resource",
   "create_document", "update_document",
+  "create_absence", "update_absence",
+  "create_calendar_event", "update_calendar_event",
   ...DESTRUCTIVE_TOOLS,
 ]);
 
@@ -184,6 +197,10 @@ export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
   update_document: "create_document",
   delete_document: "create_document",
   get_document: "create_document",
+  update_absence: "create_absence",
+  delete_absence: "create_absence",
+  update_calendar_event: "create_calendar_event",
+  delete_calendar_event: "create_calendar_event",
 };
 
 /** The THIRD table of the same family: a create tool → the `id-mint-session`
@@ -202,12 +219,13 @@ export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
  *
  *  ★★★ MEMBERSHIP IS NOT ENOUGH — A WRONG KIND IS A WRONG SEQUENCE, and that is
  *   the failure `TARGET_MINTED_BY`'s own drift test cannot see for its table.
- *   Six of the seven VALUES here are therefore pinned per row against an
+ *   Six of the nine VALUES here are therefore pinned per row against an
  *   INDEPENDENT source: `INLINE_DESCRIPTORS` already states each entity's
  *   `createTool` beside its `entity`, and the six `InlineEntity` spellings are
- *   exactly the six `MintKind` spellings the live minters use. `create_document`
- *   has no descriptor and is pinned against a literal alone — read that as the
- *   one unguarded row, not as covered. Re-derive the live minters with
+ *   exactly six of the `MintKind` spellings the live minters use. `create_document`,
+ *   `create_absence` and `create_calendar_event` have no descriptor and are each
+ *   pinned against a literal alone — read those as the three unguarded rows, not
+ *   as covered. Re-derive the live minters with
  *   `grep -rn 'mintId("' src/app --include=*.ts --include=*.tsx`. */
 export const CREATE_MINT_KIND: Readonly<Record<string, MintKind>> = {
   create_task: "task",
@@ -217,6 +235,8 @@ export const CREATE_MINT_KIND: Readonly<Record<string, MintKind>> = {
   create_stakeholder: "stakeholder",
   create_resource: "resource",
   create_document: "document",
+  create_absence: "absence",
+  create_calendar_event: "calendarEvent",
 };
 
 /** ★★ NAME-ONLY, AND THEREFORE NOT THE GATE'S OWN PREDICATE — `shouldStage`
@@ -250,6 +270,26 @@ export function isEntityWriteTool(name: string): boolean {
  *   the cost described on `isDestructiveCall`. */
 const DESTRUCTIVE_DOC_OPS: ReadonlySet<string> = new Set(["replaceAll"]);
 
+/** True when this call would email attendees.
+ *
+ *  ★★★ A PAYLOAD TEST, NOT A NAME TEST, and the precedent is `isDestructiveCall`
+ *   above: the tool NAME cannot answer it, because the same tool is harmless
+ *   without this one field. Sending an invitation is the only effect in the app
+ *   that leaves the building and that the undo engine cannot reverse, so it is
+ *   forced through the review card however few writes the turn carries.
+ *
+ *  ★★ NOT added to `DESTRUCTIVE_TOOLS`: that set drives the card's destructive
+ *   LABELLING, and an invitation is not a deletion. Conflating them would
+ *   mislabel the row.
+ *
+ *  ★ Malformed input must never throw and must never false-positive: `input` is
+ *   model output, so `sendInvitations` may be absent, a string, or anything
+ *   else — only a strict `=== true` counts. */
+function sendsInvitations(call: ProposedCall): boolean {
+  if (call.name !== "create_calendar_event" && call.name !== "update_calendar_event") return false;
+  return (call.input as { sendInvitations?: unknown }).sendInvitations === true;
+}
+
 /** True when this CALL removes data: the name-based set, plus the one case a
  *  name cannot answer.
  *
@@ -276,7 +316,7 @@ export function isDestructiveCall(call: ProposedCall): boolean {
 }
 
 /** True when this turn must be reviewed before anything is written: it removes
- *  something, or it writes more than one row.
+ *  something, it would email attendees, or it writes more than one row.
  *
  *  ★★ THE SINGLE-WRITE EXEMPTION IS NOT UNIVERSALLY BACKED BY UNDO, and the
  *   wording here used to say it was ("relies on undo"). TWO live exceptions: the
@@ -288,11 +328,18 @@ export function isDestructiveCall(call: ProposedCall): boolean {
  *   nothing in the app. It stays exempt as a SINGLE call deliberately: one
  *   inquiry is the user's own routine action, and two already stage as a bulk
  *   outbound. Reclassifying it is a product decision, not a correction to make
- *   while fixing a comment. */
+ *   while fixing a comment.
+ *
+ *  ★★★ A LONE CALENDAR-EVENT WRITE IS A THIRD EXCEPTION, and it is not merely
+ *   ungated by undo — it is not gated by ANYTHING else here. `sendsInvitations`
+ *   forces it through review regardless of `writes`, because unlike every other
+ *   single-write exemption above, its effect leaves the building (it mails the
+ *   attendees) and cannot be recalled once sent. */
 export function shouldStage(calls: readonly ProposedCall[]): boolean {
   let writes = 0;
   for (const c of calls) {
     if (isDestructiveCall(c)) return true;
+    if (sendsInvitations(c)) return true;
     if (isEntityWriteTool(c.name)) writes += 1;
   }
   return writes > 1;

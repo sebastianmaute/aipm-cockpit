@@ -50,8 +50,15 @@ describe("shouldStage", () => {
 const DESTRUCTIVE_NAMES = [
   "delete_task", "delete_all_tasks", "delete_resource", "delete_raid_item",
   "delete_change", "delete_milestone", "delete_stakeholder", "delete_document",
+  "delete_absence", "delete_calendar_event",
 ];
 
+// ★★ `create_calendar_event`/`update_calendar_event`'s "does not stage alone"
+//    row below is CONDITIONALLY true, not unconditionally: with
+//    `sendInvitations: true` they DO stage alone (see the "shouldStage —
+//    invitations" describe block). The row only keeps passing because `call()`
+//    with no third argument passes no payload — this list asserts a property of
+//    the NAME, and the payload-driven exception is tested separately.
 const NON_DESTRUCTIVE_WRITE_NAMES = [
   "create_task", "update_task", "set_task_dependencies", "send_inquiry",
   "create_resource", "update_resource",
@@ -60,6 +67,8 @@ const NON_DESTRUCTIVE_WRITE_NAMES = [
   "create_milestone", "update_milestone",
   "create_stakeholder", "update_stakeholder",
   "create_document", "update_document",
+  "create_absence", "update_absence",
+  "create_calendar_event", "update_calendar_event",
 ];
 
 const NON_WRITE_NAMES = [
@@ -68,7 +77,7 @@ const NON_WRITE_NAMES = [
   "list_stakeholders", "list_resources", "list_allocations",
   "list_knowledge_items", "list_calendar_events", "list_budget_buckets",
   "search_history", "search_chats", "get_resource", "update_settings",
-  "list_documents", "get_document",
+  "list_documents", "get_document", "list_absences",
 ];
 
 describe("the classification covers the live tool surface", () => {
@@ -98,6 +107,53 @@ describe("the classification covers the live tool surface", () => {
     const live = (TOOL_DEFS as ReadonlyArray<{ name: string }>).map((d) => d.name);
     const classified = [...DESTRUCTIVE_NAMES, ...NON_DESTRUCTIVE_WRITE_NAMES, ...NON_WRITE_NAMES];
     expect([...classified].sort()).toEqual([...live].sort());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A lone calendar-event write that would email attendees — the one write in
+// the app whose effect leaves the building and that undo cannot reverse.
+
+describe("shouldStage — invitations", () => {
+  // ★★★ A SINGLE EVENT WRITE IS NOT OTHERWISE STAGED. It is neither destructive
+  // nor a second write, so without this rule it applies unreviewed — and unlike
+  // every other write in the app its effect leaves the building: it mails the
+  // attendees, and the undo engine cannot recall a sent invitation.
+  test("stages a lone event write that would send invitations", () => {
+    expect(
+      shouldStage([call("create_calendar_event", { title: "X", sendInvitations: true })]),
+    ).toBe(true);
+  });
+
+  // ★★ THE OTHER HALF, and it is what stops a stage-everything mutant passing.
+  // A rule that staged every calendar write would satisfy the test above while
+  // making the review card routine — and a card the user clears reflexively
+  // stops being read, which is the reasoning `isDestructiveCall` already
+  // records for update_document.
+  test("does not stage the same write without invitations", () => {
+    expect(shouldStage([call("create_calendar_event", { title: "X" })])).toBe(false);
+    expect(
+      shouldStage([call("create_calendar_event", { title: "X", sendInvitations: false })]),
+    ).toBe(false);
+  });
+
+  test("also stages an UPDATE that would send invitations", () => {
+    expect(
+      shouldStage([call("update_calendar_event", { id: 1, sendInvitations: true })]),
+    ).toBe(true);
+  });
+
+  test("survives a malformed payload rather than throwing", () => {
+    expect(() =>
+      shouldStage([call("create_calendar_event", { sendInvitations: "yes" })]),
+    ).not.toThrow();
+    expect(shouldStage([call("create_calendar_event", { sendInvitations: "yes" })])).toBe(false);
+  });
+
+  // Name-only, not payload-driven: no other tool's `sendInvitations` field (if
+  // one existed) could trip this — the check is gated on the tool NAME first.
+  test("a non-calendar tool carrying the same field name never stages alone", () => {
+    expect(shouldStage([call("create_task", { sendInvitations: true })])).toBe(false);
   });
 });
 
@@ -214,6 +270,7 @@ describe("isCreateTool", () => {
   const CREATE_NAMES = [
     "create_task", "create_raid_item", "create_change", "create_milestone",
     "create_stakeholder", "create_resource", "create_document",
+    "create_absence", "create_calendar_event",
   ];
 
   test("matches exactly the live create tools", () => {
@@ -678,6 +735,18 @@ describe("CREATE_MINT_KIND", () => {
   //   live minter is `workspace-context.tsx`'s `mintDocId`.
   test("create_document mints from the document sequence", () => {
     expect(CREATE_MINT_KIND.create_document).toBe("document");
+  });
+
+  // ★ THE OTHER TWO UNGUARDED ROWS, same reasoning: absences and calendar
+  //   events have no `INLINE_DESCRIPTORS` entry either. Live minters are
+  //   `use-register-tools.ts`'s absence and calendar-event create handlers
+  //   (`mintId("absence", …)` / `mintId("calendarEvent", …)`).
+  test("create_absence mints from the absence sequence", () => {
+    expect(CREATE_MINT_KIND.create_absence).toBe("absence");
+  });
+
+  test("create_calendar_event mints from the calendarEvent sequence", () => {
+    expect(CREATE_MINT_KIND.create_calendar_event).toBe("calendarEvent");
   });
 });
 
