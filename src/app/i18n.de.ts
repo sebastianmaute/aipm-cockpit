@@ -2371,7 +2371,7 @@ export const de: Record<TranslationKey, string> = {
   arrangementTileRestore: "Wiederherstellen",
   arrangementShelfCount: "{0} ausgeblendet",
   arrangementShelfEmpty: "Nichts ausgeblendet",
-  dashboardResetLayout: "Anordnung zurücksetzen",
+  arrangementResetLayout: "Anordnung zurücksetzen",
   arrangementTileMoved: "{0} an Position {1} von {2} verschoben",
   arrangementTileHidden: "{0} ist jetzt ausgeblendet",
   arrangementTileResized: "{0} auf {1} mal {2} geändert",

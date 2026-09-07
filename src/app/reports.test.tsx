@@ -748,7 +748,7 @@ describe("ReportsPanel — toolbar order", () => {
     // PRESENT in a popout; only the popout test below can.
     renderReports([makeTask({ id: 1, assignee: "Ann" })]);
     expectButtonOrder(
-      ["printHint", "colResetWidthsHint", "dashboardResetLayout", "tableResetSizeHint"],
+      ["printHint", "colResetWidthsHint", "arrangementResetLayout", "tableResetSizeHint"],
       { contiguous: true },
     );
   });
@@ -760,7 +760,7 @@ describe("ReportsPanel — toolbar order", () => {
     // here. A popout has no grips, no ⋮ and no shelf by design; a working reset
     // on it is the defect `dashboard-panel.tsx` records as a ★★★.
     renderReports([makeTask({ id: 1, assignee: "Ann" })], { isPopout: true });
-    expect(screen.queryByRole("button", { name: t("en-US", "dashboardResetLayout") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "arrangementResetLayout") })).toBeNull();
     // …and the other three are still there, so this is not passing because the
     // whole toolbar vanished.
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], {

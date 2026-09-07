@@ -876,7 +876,7 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // assertion would read as coverage while pinning nothing. The accessible
     // name is the only observable that survives the icon-only form.
     expect(
-      screen.queryByRole("button", { name: t(EN, "dashboardResetLayout") }),
+      screen.queryByRole("button", { name: t(EN, "arrangementResetLayout") }),
     ).toBeNull();
     expect(screen.queryByRole("button", { name: t(EN, "arrangementShelfCount", 0) })).toBeNull();
   });
@@ -1069,7 +1069,7 @@ describe("DashboardPanel reset-layout control", () => {
   it("renders the reset button in the top control stack", () => {
     render(<DashboardPanel {...fullProps} projectId="p-reset-present" />, { wrapper });
     expect(
-      screen.getByRole("button", { name: t(EN, "dashboardResetLayout") }),
+      screen.getByRole("button", { name: t(EN, "arrangementResetLayout") }),
     ).toBeInTheDocument();
   });
 
@@ -1079,7 +1079,7 @@ describe("DashboardPanel reset-layout control", () => {
   // between them.
   it("orders the stack Print, Reset layout, Reset size", () => {
     render(<DashboardPanel {...fullProps} projectId="p-reset-order" />, { wrapper });
-    expectButtonOrder(["printHint", "dashboardResetLayout", "tableResetSizeHint"], {
+    expectButtonOrder(["printHint", "arrangementResetLayout", "tableResetSizeHint"], {
       contiguous: true,
     });
   });
@@ -1092,7 +1092,7 @@ describe("DashboardPanel reset-layout control", () => {
     await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
     expect(screen.queryByTestId("tile-progress")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: t(EN, "dashboardResetLayout") }));
+    await user.click(screen.getByRole("button", { name: t(EN, "arrangementResetLayout") }));
     expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
   });
 });

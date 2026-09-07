@@ -164,12 +164,13 @@ describe("useReportsArrangement — the marker and a rejected blob", () => {
     expect(readArrangement(REPORTS_LAYOUT_KEY, "p1")).toEqual({ status: "rejected" });
 
     const { result } = mount({ extraReports: ["raid-report"] });
-    // The seed would have hidden every addable report except raid-report. The
-    // fallback hides none of them, so this assertion is red under the old
-    // behaviour and green under the new one.
-    expect([...result.current.layout.hidden].sort())
-      .not.toEqual(ALL_ADDABLE.filter((id) => id !== "raid-report").sort());
-    expect(result.current.layout.hidden).not.toContain("budget-report");
+    // ★★ ASSERTED POSITIVELY, not as two exclusions. `REPORTS_DEFAULT_LAYOUT` is
+    // deliberately everything-visible (`defaultLayout` returns `hidden: []`), so
+    // the fallback hides NOTHING — that is the whole outcome, and pinning it
+    // beats excluding one wrong shape. An earlier cut used `.not.toEqual` plus
+    // `.not.toContain`, which would also have passed for a third, unrelated
+    // arrangement.
+    expect(result.current.layout.hidden).toEqual([]);
   });
 
   // ★ The other half of the discriminator: the migration must still happen for

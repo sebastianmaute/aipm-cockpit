@@ -627,7 +627,7 @@ describe("ReportCard — the trailing toolbar group", () => {
       t("en-US", "tableResetSizeHint"),
     ]);
     // ★ The reset-layout control is not merely last — it is not there at all.
-    expect(screen.queryByRole("button", { name: t("en-US", "dashboardResetLayout") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "arrangementResetLayout") })).toBeNull();
   });
 
   it("inserts reset-layout BETWEEN reset-columns and reset-size when passed", () => {
@@ -639,7 +639,7 @@ describe("ReportCard — the trailing toolbar group", () => {
     expect(names()).toEqual([
       t("en-US", "printHint"),
       t("en-US", "colResetWidthsHint"),
-      t("en-US", "dashboardResetLayout"),
+      t("en-US", "arrangementResetLayout"),
       t("en-US", "tableResetSizeHint"),
     ]);
   });

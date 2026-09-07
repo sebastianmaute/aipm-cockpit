@@ -159,7 +159,12 @@ export type ArrangementRead<Id extends string = string> =
  * all three are `missing` and a seed is the right thing to offer. `rejected` is
  * narrower and is the load-bearing half: an entry is PRESENT and this build
  * cannot use it — a future `v`, a truncated write, a hand-corrupted blob. A
- * JSON `null` entry is present too, and is what a NaN span serialises to.
+ * JSON `null` entry is present too — an entry whose whole value was
+ * `NaN`/`undefined`.
+ * ★★ NOT "what a NaN span serialises to", which is what this line said. A NaN
+ * SPAN yields a null FIELD inside a present object entry (measured with
+ * `JSON.stringify`), and that is rejected one layer down by
+ * `isArrangementLayout`'s finite check, not here.
  */
 export function readArrangement(key: string, projectId: string): ArrangementRead {
   const map = readMap(key);
@@ -171,8 +176,18 @@ export function readArrangement(key: string, projectId: string): ArrangementRead
 /**
  * ★ A THIN WRAPPER over `readArrangement`, deliberately — the "is this usable"
  * predicate lives in exactly one place, so the two entry points cannot drift
- * into disagreeing. Callers that do not care WHY a read failed (the public
- * `loadDashboardLayout`) keep this shape.
+ * into disagreeing. Callers that do not care WHY a read failed keep this shape —
+ * today that is `loadLayout` in `dashboard-layout-store.ts`.
+ *
+ * ★★ AN EARLIER REVISION OF THIS LINE NAMED A FUNCTION THAT DOES NOT EXIST
+ * (`loadDashboardLayout`), and it did damage before review caught it: it was
+ * copied into a review brief as "the public `loadDashboardLayout`", so a
+ * reviewer spent effort on a caller that was never there. Nothing gates this —
+ * `docs:symbols:check` reads only AGENTS.md and `docs/AGENTS/*.md`, so an
+ * invented identifier in a source comment is ungated forever. `npm run
+ * src:symbols:check` is the report that catches it (exit 0 — read the output).
+ * ★ "Public" was wrong too: `loadLayout`'s own file records that it has no
+ * production caller and exists for tests.
  */
 export function loadArrangement(key: string, projectId: string): ArrangementLayout<string> | null {
   const read = readArrangement(key, projectId);

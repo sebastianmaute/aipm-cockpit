@@ -152,10 +152,36 @@ describe("readArrangement — missing vs rejected", () => {
     }
   });
 
-  // ★ A JSON null is a present entry too, and it is what a NaN span serialises
-  // to — so it must be rejected rather than read as nothing stored.
+  // ★ A JSON null is a PRESENT entry — an entry whose whole value was
+  // `NaN`/`undefined` — so it must be rejected rather than read as nothing
+  // stored.
+  // ★★ IT IS NOT "what a NaN span serialises to", which is what this comment
+  // said and what the `readArrangement` docstring said with it. Measured:
+  // `JSON.stringify({p1:{v:1,board:[{id:"x",w:NaN,h:1}],hidden:[]}})` yields a
+  // null FIELD inside a present object entry, never a null entry. That case is
+  // rejected one layer down, by `isArrangementLayout`'s finite check — see the
+  // HOSTILE table above, which carries the NaN/±Infinity rows for exactly that.
   it("reports a null entry as rejected", () => {
     localStorage.setItem(KEY_A, JSON.stringify({ p1: null }));
     expect(readArrangement(KEY_A, "p1")).toEqual({ status: "rejected" });
+  });
+
+  // ★★★ THE `hasOwnProperty` GUARD, WHICH NOTHING ELSE PINS. Every project id
+  // used anywhere in these suites is `p1`/`pA`/`keep`/… — none is an
+  // `Object.prototype` member, so the mutant `projectId in map` survives the
+  // entire suite without this row. It matters in the safe direction: a
+  // prototype-named project with nothing stored must read MISSING (and so be
+  // offered its seed), not REJECTED.
+  // ★ `saveArrangement` still writes with a raw assignment, so the read and
+  // write halves disagree about such a key. Unreachable today — ids are
+  // `crypto.randomUUID()` or the literal `"default"` — but recorded rather than
+  // left to be rediscovered.
+  it("reports a prototype-named project with nothing stored as missing", () => {
+    saveArrangement(KEY_A, "p1", L);
+    expect(readArrangement(KEY_A, "toString")).toEqual({ status: "missing" });
+    expect(readArrangement(KEY_A, "constructor")).toEqual({ status: "missing" });
+    // Control: the same map still resolves a real entry, so this is not passing
+    // because the store is empty.
+    expect(readArrangement(KEY_A, "p1")).toEqual({ status: "ok", layout: L });
   });
 });

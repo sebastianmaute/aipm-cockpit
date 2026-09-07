@@ -6,7 +6,7 @@ import { join } from "node:path";
  * The shared arrangement engine must not name a surface in its i18n keys.
  *
  * ★★★ WHY THIS IS A TEST AND NOT A CONVENTION. `arrangement-*` renders BOTH the
- * Dashboard and Reports, and until 0.290.x every string it read was called
+ * Dashboard and Reports, and every string it read was called
  * `dashboardTile*` / `dashboardShelf*` — thirteen keys. Nothing was broken by
  * that, which is exactly the problem: someone reasonably editing a
  * "Dashboard-local" wording would have silently retitled Reports, in both
@@ -56,10 +56,26 @@ function sharedModules(): string[] {
     .sort();
 }
 
-/** Every `t(..., "someKey")` key literal in a source. */
+/**
+ * Every double-quoted camelCase string literal in a source — deliberately
+ * BROADER than `t()` call sites, so a key reached indirectly is still scanned.
+ *
+ * ★★ IT IS ALSO NARROWER THAN `t()` IN THE OTHER DIRECTION, and an earlier
+ * revision of this docstring claimed it was exactly `t(..., "someKey")`, which
+ * is wrong both ways. It matches className fragments, test ids and prop values
+ * too (harmless — they are not surface-prefixed), and it CANNOT see a key
+ * passed as a variable or built from a template. The over-match is the safe
+ * direction for a sweep; the under-match is the real limit.
+ */
 function keyLiterals(src: string): string[] {
   return [...src.matchAll(/"([a-z][A-Za-z0-9]*)"/g)].map((m) => m[1]);
 }
+
+/**
+ * The two surfaces that bind the shared engine. Named because they ARE the
+ * surfaces, not as a path list of modules — see the cross-surface test below.
+ */
+const SURFACE_FILES = ["reports.tsx", "dashboard-panel.tsx"];
 
 describe("the shared arrangement engine is surface-neutral in i18n", () => {
   // ★★★ THE ANTI-VACUITY FLOOR. Without it, a prefix rename or a move to a
@@ -98,6 +114,55 @@ describe("the shared arrangement engine is surface-neutral in i18n", () => {
       }
     }
     expect(offenders, "a shared module must not read a surface-named i18n key").toEqual([]);
+  });
+
+  /**
+   * ★★★ THE SCAN ABOVE IS NARROWER THAN THE DEFECT, WHICH A COLD REVIEW HAD TO
+   * TELL ME. `sharedModules()` sees only `arrangement-*`, and THREE of the
+   * thirteen keys renamed in this slice — `arrangementTileHidden`, `…Moved`,
+   * `…Resized` — are read by the SURFACES directly, not by the engine. Reverting
+   * exactly those three to `dashboardTile*` left the sweep above GREEN.
+   *
+   * This closes that: a key read by BOTH surfaces must not name either of them.
+   * The reader set is discovered per key rather than listed, so it needs no
+   * allowlist — measured 0 surface-prefixed keys among the 13 both surfaces
+   * share today.
+   *
+   * ★★ THE RESIDUAL GAP, STATED RATHER THAN LEFT TO BE REDISCOVERED: shared
+   * CHROME that neither surface file reads directly is still unscanned. That is
+   * exactly how a fourteenth key was missed — `ResetLayoutButton`
+   * (`task-manager-ui.tsx`) is rendered by `dashboard-panel.tsx` AND
+   * `report-table.tsx`, so neither this test nor the one above could see it, and
+   * it was found by review. It has been renamed, but the hole it came through is
+   * still open. A one-hop import scan does NOT close it either: `reports.tsx`
+   * imports `arrangement-*` five times and `dashboard-panel.tsx` imports it ZERO
+   * times, reaching the engine through the `dashboard-*` adapters.
+   */
+  it("lets no surface-named key be shared by both surfaces", () => {
+    const read = (f: string) =>
+      new Set(keyLiterals(readFileSync(join(DIR, f), "utf8")));
+    const [a, b] = SURFACE_FILES.map(read);
+
+    // Floor: if either surface stops being readable or stops holding keys, the
+    // intersection empties and the assertion below passes over nothing.
+    // ★★ A NAMED MEMBER, NOT A TALLY. The first cut of this floor guessed
+    // `> 20` and went red on the spot — `dashboard-panel.tsx` yields 19 key
+    // literals — which is the invented-threshold trap in miniature. This member
+    // is one of the three keys the test above cannot see, so it is exactly the
+    // thing whose disappearance should break the floor.
+    for (const [i, set] of [a, b].entries()) {
+      expect(set, `${SURFACE_FILES[i]} yielded no arrangement key literals`)
+        .toContain("arrangementTileMoved");
+    }
+
+    const shared = [...a].filter((k) => b.has(k));
+    expect(shared.length, "the two surfaces share no keys at all — scan is vacuous")
+      .toBeGreaterThan(5);
+
+    const offenders = shared.filter((k) =>
+      SURFACE_PREFIXES.some((p) => k.startsWith(p) && k.length > p.length),
+    );
+    expect(offenders, "a key both surfaces read must not name one of them").toEqual([]);
   });
 
   // ★★ THE DETECTOR ITSELF, pinned. An `toEqual([])` assertion passes just as

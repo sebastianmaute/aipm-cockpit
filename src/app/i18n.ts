@@ -2486,7 +2486,7 @@ const enUS = {
   arrangementTileRestore: "Restore",
   arrangementShelfCount: "{0} hidden",
   arrangementShelfEmpty: "Nothing hidden",
-  dashboardResetLayout: "Reset layout",
+  arrangementResetLayout: "Reset layout",
   arrangementTileMoved: "{0} moved to position {1} of {2}",
   arrangementTileHidden: "{0} is now hidden",
   arrangementTileResized: "{0} resized to {1} by {2}",
