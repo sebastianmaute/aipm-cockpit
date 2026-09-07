@@ -655,7 +655,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§428](#428-focusaftermove--triggerrefs-has-no-detector-at-any-layer-and-the-playwright-probe-that-was-owed-refuted-its-own-premise--open) | `focusAfterMove` / `triggerRefs` has no detector at any layer | found 2026-09-07 writing the probe the reports-arrangement slice owed | NONE — a decision, not a defect; do not re-owe the probe | open |
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
 | [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--open) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `70300a1d`, documented rather than fixed | S-M — bound `users` at write time; do NOT shed the saved entry | open |
-| [§431](#431-one-malformed-api-date-withholds-evaluation-from-the-whole-roll-not-just-its-own-cell--open) | One malformed API date withholds evaluation from the whole roll, not just its own cell | found 2026-09-07 in cold review of the guardrail-bounds branch; the first-party path §367 said had not been probed | S-M — an unpicked fork: drop the row, narrow the withholding, or reject at the mapper | open |
+| [§431](#431-one-malformed-api-date-is-unattributable-to-a-day-and-to-a-period-and-both-consumers-minted-a-phantom-key--closed-2026-09-07) | One malformed API date is unattributable to a day AND to a period, and both consumers minted a phantom key | found 2026-09-07 in cold review of the guardrail-bounds branch; the first-party path §367 said had not been probed | S-M — one local row rule, applied at both consumers | **CLOSED** 2026-09-07 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27941,7 +27941,8 @@ invisible from either file alone and will read as an oversight to whoever finds 
 introduced the budget. Verified by command, 2026-09-07:
 `grep -n "MAX_ACTUALS_TOTAL_CHARS\|shedOrder" src/app/timelog-actuals-store.ts` returns the exported
 constant, the `shedOrder` helper, and the THREE `shedOrder` loops in `saveActualsCache` — stages 2,
-3 and 4. ★ THIS LINE SAID "the two shedding loops" until 2026-09-07 and the command it prescribes
+3 and 4. ★ It returns NINE lines, not three: two docstring mentions and a comment are in there too,
+so count the `for (const k of shedOrder(` lines rather than the hits. ★ THIS LINE SAID "the two shedding loops" until 2026-09-07 and the command it prescribes
 refuted it: stage 3 (`users` + `projectRefs`) was added after the Status line was written and
 nothing re-ran the grep. Count the loops, do not count the stages — stage 1 is the pre-existing
 `MAX_PROJECTS` count eviction and uses no `shedOrder`.
@@ -28151,7 +28152,8 @@ nothing, because the rule went on certifying itself `evaluated`. With the `skipp
 row withholds `evaluated` from all four rules for EVERY person in that roll until the next clean
 fetch. That is still the safe direction (a FREEZE, never a fabricated `"improved"`), and it is a
 wider blast radius than "a hand-edited blob" prepares a reader for. The live residual is tracked as
-§431; this entry stays closed, because the parse bound it was named for is bound.
+§431, CLOSED the same day by `e87b7e46`; this entry stays closed too, because the parse bound it
+was named for is bound.
 
 ★★★ THIS ENTRY WAS WRONG ABOUT ITS OWN SCOPE, in four ways worth recording.
 
@@ -31727,55 +31729,94 @@ reading a stale copy of the other.
 
 ★★★ THE POINTER HALF OF THAT WAS FALSE WHEN WRITTEN AND IS TRUE ONLY NOW. This paragraph claimed
 both docstrings "point at this entry", which was chronologically impossible: §430 was minted in
-`2622e09c`, a docs-only commit, AFTER the `70300a1d` that scoped them, and `grep -rn "430" src/`
-returned nothing. The citations were added in the review round that caught it. Verify rather than
+`2622e09c`, a docs-only commit, AFTER the `70300a1d` that scoped them, and no source file referenced
+this entry at all. ★ Say that as "no reference to THIS ENTRY", never as "`grep -rn "430" src/`
+returned nothing" — which is what this paragraph first said, and it is false: that grep matches the
+bare number, and `change-edit-modal.test.tsx` carries two `"q".repeat(4300)` hits. Grep the `§`.
+The citations were added in the review round that caught it. Verify rather than
 trusting this sentence — the same grep is the check either way:
 `grep -n "§430" src/app/timelog-actuals-store.ts` → two hits, one per docstring. ★★ The failure
 inverts the audit it was meant to support: a reader checking the code for a §430 pointer, finding
 none, concludes the REGISTER is the stale copy. A cross-reference is a claim about ANOTHER file, so
 it is only ever verified by opening that file.
 
-## 431. One malformed API date withholds evaluation from the whole roll, not just its own cell — OPEN
+## 431. One malformed API date is unattributable to a day AND to a period, and both consumers minted a phantom key — CLOSED 2026-09-07
 
-**Status:** OPEN. Filed 2026-09-07. Verified by command, 2026-09-07:
-`grep -n "const s = \|dateOnly" src/app/timelog-api.ts` returns the two coercions, and
-`grep -n "userId <= 0" src/app/timelog-actuals.ts` returns the roll's ONLY row filter.
+**Status:** CLOSED 2026-09-07 by `e87b7e46`, which adds one local `ISO_DAY_RE` row rule to
+`timelog-actuals.ts` and applies it at BOTH consumers. Six tests were added; no single `-t` filter
+selects all six, so run the file: `npx vitest run src/app/timelog-actuals.test.ts` → 19 passed.
+Measured sub-filters, quoted as the gate prints them rather than as a tidy number:
+`-t "malformed"` → **3 passed | 16 skipped**, `-t "regionally formatted"` → **1 passed | 18 skipped**,
+`-t "blank"` → 1. ★ This line first said `-t "malformed"` was "four tests". It is three — the
+blank-date and control tests do not carry the word — and running it is what caught that. A Status
+line is the least gated line in the register (§429); the only defence is executing the command you
+are about to quote. Filed and closed the same day; the filing text is preserved below where it was
+wrong, because the way it was wrong is the point.
 
 `timelog-api.ts` coerces every API field through `const s = (v: unknown): string => (typeof v ===
 "string" ? v : "")`, and `dateOnly` is `s(v).slice(0, 10)`. So a time-registration row whose
-`Date` is absent, null or numeric arrives as `date: ""`. `buildDailyRoll` drops the
-unidentified-booker sentinel (`it.userId <= 0`) and applies no other filter, so that row mints the
-key `"7|"`, which `parseDailyKey` rejects.
+`Date` is absent, null or numeric arrives as `date: ""`, and a regionally formatted
+`"05/01/2026"` is exactly ten characters and survives the slice untouched. Neither is a calendar
+day. No hand-edited blob and no hostile input is required — this is the first-party path §367's
+reachability paragraph said had not been probed.
 
-Since the guardrail-bounds slice, a rejected key sets `evaluateTimelogPolicy`'s per-roll
-`skipped` flag, which withholds all four rules from `evaluated`. `reconcileInsights` then
-FREEZES every guardrail insight for **every user in that roll** — not just the booker whose row was
-malformed — until a fetch returns a clean roll.
+★★★ **THIS ENTRY WAS FILED AS A POLICY DEFECT AND WAS HALF THAT.** As filed it described only
+`buildDailyRoll`: the row mints the key `"7|"`, `parseDailyKey` rejects it,
+`evaluateTimelogPolicy`'s per-roll `skipped` flag withholds all four rules from `evaluated`, and
+every guardrail insight in the roll FREEZES for every user until a clean fetch. All true, and the
+safe direction — a freeze is recoverable, a fabricated `"improved"` is not.
 
-★★★ THIS IS THE SAFE DIRECTION AND IS NOT A REGRESSION. Before the slice the same row produced the
-same null parse (the pre-existing guard was `!Number.isInteger(userId) || !date`, and `""` is
-falsy) — but the rule went on certifying itself `evaluated`, so a stale violation resolved as a
-fabricated `"improved"` in shared, exported `Workspace.insights`. Freezing is recoverable and
-lifts by itself; a fabricated win is not and does not. What is new is the BLAST RADIUS, and that is
-what this entry records.
+**The half it missed is the one with no safe direction.** `aggregateActuals` reads the SAME
+`it.date` through `periodKeyForDate`, and the row's `resourceId` and `bucketId` resolve
+perfectly well — only the date is junk. Measured 2026-09-07, and reproducible from
+`resource-capacity.ts` alone:
 
-★★ REACHABILITY IS FIRST-PARTY, which is why this is filed rather than left as a latent shape. It
-needs no hand-edited blob and no hostile input — one API row with a missing `Date`. A
-regionally-formatted date (`"05/01/2026"`) is exactly ten characters, survives the slice intact and
-reaches `KEY_DATE_RE` as a well-formed non-ISO string, which is the same outcome by a second route.
-Neither route has been observed against the live TimeLog API; what IS measured is that nothing
-between the API and the key rejects them.
+| `it.date` | month key | week key |
+|---|---|---|
+| `""` | `""` | `NaN-WNaN` |
+| `"05/01/2026"` | `"05/01/2"` | `NaN-WNaN` |
+| `"2026-09-01"` | `"2026-09"` | `"2026-W36"` |
 
-★★★ THE FIX IS A FORK AND IS DELIBERATELY NOT PICKED HERE. Dropping the malformed row at
-`buildDailyRoll` keeps the roll evaluable but silently UNDER-COUNTS that person's hours, so a real
-cap breach can go unreported — a miss rather than a fabrication, but still a wrong answer delivered
-confidently. Narrowing the withholding to the affected user is constructible on the
-`!isDailyCell` branch (the person is identifiable there) and NOT on the `parseDailyKey` branch,
-which is why the current code withholds at one width rather than two — see the comment above
-`let skipped = false` in `timelog-policy.ts`. Rejecting the row at the API mapper moves the
-decision to where the shape is known, but discards data before any consumer sees it. Pick one
-deliberately; do not "complete the pattern" from whichever site you happen to be editing.
+Real hours were attributed into a phantom period bucket matching no rendered column, so they simply
+disappeared from the Budget view — no freeze, no diagnostic, money data quietly wrong. The guardrail
+freeze at least announces itself by insights going stiff.
+
+★★ **THE LESSON IS THE SHAPE, NOT THE DATE.** One malformed field, two consumers of the same
+`TimelogTimeItem[]`, and each mishandled it in its own idiom. Filing from the consumer you happen to
+be standing in front of records half a defect and closes it feeling finished. Enumerate the readers of
+a bad field — `grep -n "\.date" src/app/timelog-actuals.ts` returns both in one line each — before
+deciding what the defect IS.
+
+**What shipped.** Both consumers now reject the shape through the exit each already had:
+`buildDailyRoll` skips the row beside its existing `userId <= 0` sentinel, and
+`aggregateActuals` routes it to `unattributed`. A dateless booking is unattributable to a period
+by definition, which is exactly what `unattributed` already means and what
+`budget-unapplied-notice.tsx` already surfaces — so nothing is discarded silently and no new control
+was invented for it.
+
+★★★ **PLACEMENT IN `aggregateActuals` IS LOAD-BEARING, and the intuitive spot is the wrong one.**
+`byResource[resourceId] = add(...)` is written BEFORE `periodKeyForDate` is reached, so a guard
+placed beside the call whose output is junk sits BELOW that write and counts the same hours in
+`byResource` AND in `unattributed` — a silent inflation of every per-resource total. The clause is
+therefore FOLDED INTO the existing `resourceId`/`bucketId` condition rather than added after it,
+which makes the correct placement structural: there is no separate statement left to nudge downward.
+Pinned by "does not double-count a malformed-date row into byResource", and by that test ALONE — the
+MOVE mutant scored 1 failed / 19 passed while the DELETE mutant scored 3 failed / 17 passed to a
+disjoint set of tests. Two genuinely different mutants; deleting either test reopens one of them.
+
+★ `ISO_DAY_RE` is local and deliberately NOT `timelog-types.ts`'s `KEY_DATE_RE`. That one asks
+"is this KEY usable?"; this one asks "can this ROW be attributed to a day or a period at all?" — the
+several-constants split `KEY_DATE_RE`'s own docstring argues at length. One constant serves both
+consumers IN THIS FILE, so the two guards here cannot drift from each other, which is the only
+coupling worth having. SHAPE, never existence: `9999-99-99` is admitted, matching the sibling rule.
+
+★★ **THE FILING NAMED THREE FIXES AND THE CHOSEN ONE WAS NOT AMONG THEM.** It offered: drop the row
+at `buildDailyRoll` (leaves the budget half broken), narrow the withholding per user (impossible on
+this entry's own `parseDailyKey === null` branch, where nobody is identifiable), or reject at the API
+mapper (fixes both but discards the hours before any consumer sees them). What shipped rejects at both
+CONSUMERS instead, which keeps the hours visible in `unattributed`. Recorded because a fork list is a
+claim about the option space, and this one was short by the option that was taken.
 
 ★ Related, and not the same: §367 bound the PARSE (closed) and §430 records the single-oversized-entry
-residual in the store (open). This entry is about what a rejected key COSTS, which is a policy
-question rather than a parsing or a storage one.
+residual in the store (open). Neither is about what a rejected key COSTS its consumers, which is what
+this entry was.

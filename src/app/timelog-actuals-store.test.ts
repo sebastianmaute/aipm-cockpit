@@ -794,17 +794,26 @@ describe("timelog actuals cache — map-level size budget", () => {
    *  comparator returning 0 on the tie sheds `"zz"` first and this test goes
    *  red. Without the reversal the two orders coincide and the assertion is
    *  vacuous. */
-  /** ★★ THE MARGIN HERE IS 837 CHARACTERS AND THAT IS THE WHOLE FIXTURE, so read
+  /** ★★ THE MARGIN HERE IS 844 CHARACTERS AND THAT IS THE WHOLE FIXTURE, so read
    *  a red on this test as "the fixture moved" before reading it as "the shedder
    *  broke". Measured 2026-09-07: `bigRoll(20_000)` serialises to 1,200,001 and
-   *  `withBoundedDaily` trims it to 8,738 cells / 524,281 chars, so four such
-   *  entries come to 2,097,989 against `MAX_ACTUALS_TOTAL_CHARS` = 2,097,152 —
-   *  over by 837, i.e. 0.04%. Three come to 1,573,492, well under.
+   *  `withBoundedDaily` trims it to 8,738 cells / 524,281 chars, so THESE four
+   *  entries come to 2,097,996 against `MAX_ACTUALS_TOTAL_CHARS` = 2,097,152 —
+   *  over by 844, i.e. 0.04%. These three come to 1,573,496, well under.
+   *  ★★★ "THESE" IS LOAD-BEARING AND THIS COMMENT FIRST SHIPPED WITHOUT IT,
+   *  quoting 837 / 2,097,989 / 1,573,492 — which are the figures for the CAP
+   *  test's `p0..p4` ids, not this test's `zz`/`aa`/`newest`/`newer`. The whole
+   *  delta is map-key length: 15 characters of ids here against 8 there, and
+   *  2,097,989 + 7 = 2,097,996. So the margin is smaller than the ids are, and a
+   *  reader who renames these four entries moves it. That is the real warning,
+   *  and it is why the numbers are quoted per-fixture rather than once.
    *  ★ It is BRITTLE, not vacuous, and the direction is what makes that
-   *  acceptable: drift UNDER budget sheds nothing and line 1 goes red, drift far
-   *  enough OVER sheds a second entry and line 2 goes red. There is no silent
-   *  pass in either direction. Do not "give it headroom" by enlarging the rolls
-   *  without re-measuring — a fifth entry's worth of slack sheds twice. */
+   *  acceptable at the extremes: drift UNDER budget sheds nothing and line 1
+   *  goes red, drift far enough OVER sheds a second entry and line 2 goes red.
+   *  ★★ NOT "no silent pass in either direction", which is what this said and is
+   *  false for the band between: any overshoot short of roughly another trimmed
+   *  entry (~524 KiB) still sheds exactly one and still passes, at a margin
+   *  nobody re-measures. Do not "give it headroom" by enlarging the rolls. */
   it("breaks a fetchedAt tie by project id, not by insertion order", () => {
     saveActualsCache("zz", bigEntry("2026-09-02T00:00:00.000Z"));
     saveActualsCache("aa", bigEntry("2026-09-02T00:00:00.000Z"));

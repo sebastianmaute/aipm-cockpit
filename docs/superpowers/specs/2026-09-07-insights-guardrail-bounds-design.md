@@ -8,7 +8,9 @@ _2026-09-07. Scoped from the §360–§367 cluster in `docs/open-followups.md`, 
 > cold review falsified several of its claims, and the corrections are maintained in ONE place, in
 > `docs/superpowers/plans/2026-09-07-insights-guardrail-bounds.md`, rather than restated here where
 > the two copies would drift. The ones that bite hardest in THIS file: the shedding stages are FOUR,
-> not three, and the stage NUMBERS here are off by one from the shipped code (item 5); the map budget
+> not three, and the stage numbers here are off by one from the shipped code FROM STAGE 3 ONWARD —
+> this document's stages 1 and 2 match the shipped 1 and 2, and only its stage 3 is the shipped
+> stage 4, so "the numbers are off by one" unqualified is itself wrong (item 5); the map budget
 > admits THREE full-size rolls, not four (item 6); the UTF-16 "the two are equal" clause does not hold
 > for the map budget (item 7); and "the reconcile predicate returns false" is scoped to guardrail
 > insights (item 8). Read the stage list off `saveActualsCache` itself, never off this document.

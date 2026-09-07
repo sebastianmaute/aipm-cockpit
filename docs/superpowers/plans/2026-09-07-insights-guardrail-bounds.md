@@ -1197,7 +1197,9 @@ spec were never updated.
 true of a ROLL (ASCII keys, numeric values) and false of the map, which also carries
 `users[].firstName` / `lastName` / `email` free text — and in a German-locale product a `ü` is one
 UTF-16 unit and two UTF-8 bytes. The shipped docstring says so explicitly and tells the reader NOT to
-carry the clause over; the plan and spec still carry it.
+carry the clause over. ★ The SPEC carries the clause verbatim; the plan carries a PARAPHRASE of it
+("is the same number"), so a `grep` for the quoted wording finds the spec and misses the plan — which
+is how this survived a sweep that was looking for it.
 
 **8. "The reconcile predicate returns false" is stated unqualified and needs its scope.** It is
 qualified to guardrail insights — `70300a1d`'s own commit message says so. Unqualified, it reads as a
