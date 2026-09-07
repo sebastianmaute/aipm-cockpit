@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
+import { PopoverPanel } from "./popover-panel";
+import { ArrangementShelf } from "./arrangement-shelf";
+import { ArrangementBlockMenu } from "./arrangement-block-menu";
+import type { BlockDragProps } from "./arrangement-tile";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
@@ -223,7 +227,51 @@ export function ReportsPanel({
     onMove: arrangement.move,
     scrollRef: cardsScrollRef,
     disabled: arrangement.readOnly,
+    // ★★ The ⋮ menu is this surface's keyboard reorder path, exactly as on the
+    // Dashboard — a second keyboard path for one action is redundant, and the
+    // menu is the one that can also announce the result.
+    keyboard: false,
   });
+
+  // ★★★ HIDING AND RESTORING BOTH DESTROY THE CONTROL THE USER JUST PRESSED, so
+  // one of them has to say where focus goes or the browser drops it on `<body>`.
+  // Hide is pressed inside the ⋮ popover, which unmounts with the block it was
+  // anchored to; Restore is pressed on a chip that the same click removes. The
+  // shelf disclosure is the destination for both: it is the one node in that
+  // subtree that never unmounts, it is where the hidden block now lives, and it
+  // is the route back. Carried from `dashboard-panel.tsx`, including the reason
+  // `PopoverPanel`'s own focus restore does not cover it — calling this FIRST
+  // inside Hide moves focus outside the panel, which the panel's `focusout`
+  // records, so the primitive correctly declines.
+  const shelfToggleRef = useRef<HTMLButtonElement | null>(null);
+  const focusShelfToggle = () => shelfToggleRef.current?.focus();
+
+  // ★★★ A MOVE IS THE OTHER HALF OF THE SAME DEFECT AND NEEDS A DIFFERENT
+  // MECHANISM. The move commands close the popover but the BLOCK survives, so
+  // the destination is that block's own ⋮ trigger.
+  // ★★★ IT MUST FIRE AFTER THE COMMIT, NOT IN THE HANDLER: React reorders a
+  // keyed list by MOVING the existing DOM nodes, and moving a focused element
+  // blurs it — so focusing synchronously inside `moveByDelta` is undone by the
+  // very re-render the move causes. jsdom cannot tell the two apart, so a green
+  // test does not license the naive version.
+  // ★★ AND IT RESOLVES BY BLOCK IDENTITY, NOT A CAPTURED NODE: `menuAnchorRef`
+  // holds the element the menu was opened from, i.e. a node from BEFORE the
+  // reorder, and focusing a detached node is a silent no-op.
+  const triggerRefs = useRef(new Map<ReportBlockId, HTMLButtonElement>());
+  const [focusAfterMove, setFocusAfterMove] = useState<{ id: ReportBlockId } | null>(null);
+  useEffect(() => {
+    if (focusAfterMove === null) return;
+    triggerRefs.current.get(focusAfterMove.id)?.focus();
+  }, [focusAfterMove]);
+
+  const [menu, setMenu] = useState<{ id: ReportBlockId; index: number; count: number } | null>(null);
+  // `PopoverPanel` anchors off a ref; the tile hands us the trigger ELEMENT, so
+  // it is parked here on open — an event handler, never render.
+  const menuAnchorRef = useRef<HTMLElement | null>(null);
+  // ★ A `useCallback`: `PopoverPanel` re-subscribes its listeners on an unstable
+  // `onClose`.
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const [announcement, setAnnouncement] = useState("");
 
   const resetAllReports = () => {
     inquiry.resetColWidths();
@@ -462,6 +510,51 @@ export function ReportsPanel({
   const visible = reorder.previewOrder
     .map((id) => sizeById.get(id))
     .filter((b) => b !== undefined && isRenderable(b.id));
+  const visibleIds = visible.map((b) => b!.id);
+
+  // ★★ THE MENU SPEAKS IN DELTAS, THE ENGINE IN TARGET IDS — translated here.
+  // ★★ AND OVER THE **VISIBLE** ORDER, never `layout.board`: the menu disables
+  // its commands on the visible index, so indexing the stored board would let
+  // "Move earlier" swap with a block the user cannot see — no visible change at
+  // all. Carried from `dashboard-panel.tsx`, where that was a measured defect.
+  const moveByDelta = (id: ReportBlockId, delta: -1 | 1 | "first") => {
+    const i = visibleIds.indexOf(id);
+    if (i < 0) return;
+    const j = delta === "first" ? 0 : i + delta;
+    if (j === i || j < 0 || j >= visibleIds.length) return;
+    arrangement.move(id, visibleIds[j]);
+    setFocusAfterMove({ id });
+    const spec = reportBlockById(id);
+    if (!spec) return;
+    setAnnouncement(
+      t(lang, "dashboardTileMoved", t(lang, spec.labelKey), String(j + 1), String(visibleIds.length)),
+    );
+  };
+
+  // Dropping a block on the shelf hides it. The GRID owns decoding the drag —
+  // `ArrangementShelf` takes `dropProps` and never inspects a dataTransfer.
+  const shelfDropProps: BlockDragProps = arrangement.readOnly
+    ? {}
+    : {
+        onDragOver: (e) => e.preventDefault(),
+        onDrop: (e) => {
+          e.preventDefault();
+          const dragged = reorder.dragId;
+          if (dragged === null) return;
+          arrangement.hide(dragged);
+          // ★★★ HIDING UNMOUNTS THE BLOCK WHOSE GRIP OWNS `onDragEnd`, and a
+          // detached node's events never reach React's root container — so the
+          // hook's own reset would never run and `dragId` would stay set for the
+          // rest of the session. `endDrag` is the primitive's escape hatch for
+          // exactly this.
+          reorder.endDrag();
+          const spec = reportBlockById(dragged);
+          if (spec) setAnnouncement(t(lang, "dashboardTileHidden", t(lang, spec.labelKey)));
+        },
+      };
+
+  const menuSpec = menu ? reportBlockById(menu.id) : undefined;
+  const menuSize = menu ? sizeById.get(menu.id) : undefined;
 
   return (
     <ReportCard lang={lang} sizeRef={reportsRef} contentRef={cardsScrollRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} leading={addReportControl} toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}>
@@ -472,7 +565,7 @@ export function ReportsPanel({
           which would put an embedded report in a 320px box. The class assertion
           in `reports.test.tsx` is the only guard that exists for either. */}
       <ArrangementGrid rowClass="auto-rows-[120px]" gapClass="gap-4" testId="reports-grid">
-        {visible.map((b) => {
+        {visible.map((b, i) => {
           const spec = reportBlockById(b!.id)!;
           return (
             <ArrangementTile
@@ -486,17 +579,104 @@ export function ReportsPanel({
               testIdPrefix="report-block"
               dragProps={reorder.itemProps(b!.id)}
               handleProps={reorder.handleProps(b!.id)}
-              // ★★★ INERT UNTIL TASK 13, which wires the ⋮ menu and the shelf.
-              // It renders a control that does nothing, which is a false
-              // affordance and must not survive this branch — the next task
-              // replaces it with the real popover.
-              onOpenMenu={() => {}}
+              onOpenMenu={(anchor) => {
+                menuAnchorRef.current = anchor;
+                setMenu({ id: b!.id, index: i, count: visible.length });
+              }}
+              // ★★ Registers the trigger BY ID so a move can re-focus it after
+              // the commit; `onOpenMenu`'s node is captured before the reorder
+              // and would be detached. Cleared on unmount so the map cannot
+              // accumulate dead nodes.
+              menuButtonRef={(el) => {
+                if (el) triggerRefs.current.set(b!.id, el);
+                else triggerRefs.current.delete(b!.id);
+              }}
             >
               {renderBlock(b!.id)}
             </ArrangementTile>
           );
         })}
       </ArrangementGrid>
+
+      {/* Popout is READ-ONLY: no shelf, no menu — and the tile chrome drops its
+          own grip and ⋮ on the same flag. */}
+      {!arrangement.readOnly && (
+        <div className="print:hidden">
+          <ArrangementShelf
+            lang={lang}
+            // ★★ flatMap, not map + `!`: `reconcile` drops unknown ids from
+            // `hidden`, but a stale one would otherwise throw on the title.
+            // ★★ Filtered by `isRenderable`, the SAME predicate the board uses —
+            // the shelf must never offer a block that restoring cannot render.
+            hidden={arrangement.layout.hidden.flatMap((id) => {
+              const spec = reportBlockById(id);
+              return spec && isRenderable(id) ? [{ id, title: t(lang, spec.labelKey) }] : [];
+            })}
+            onRestore={(id) => { arrangement.restore(id as ReportBlockId); focusShelfToggle(); }}
+            dropProps={shelfDropProps}
+            isDragging={reorder.isDragging}
+            toggleRef={shelfToggleRef}
+            // ★ Its OWN tray id, never the Dashboard's — two surfaces sharing one
+            // would be a `duplicate-id-aria` defect the moment both mount.
+            trayId="reports-shelf-tray"
+          />
+        </div>
+      )}
+
+      {/* ★ `PopoverPanel` owns the shared dismissal protocol (Escape via
+          `useDismissable` → `dismissal-stack.ts`, outside-click across anchor and
+          portaled panel, close-on-scroll, focus-first-control). The menu content
+          improvises none of it, and adding a keydown listener there would dismiss
+          this menu AND its parent. */}
+      {menu && menuSpec && menuSize && !arrangement.readOnly && (
+        <PopoverPanel
+          open
+          anchorRef={menuAnchorRef}
+          onClose={closeMenu}
+          role="dialog"
+          ariaLabel={`${t(lang, "actionMoreActions")} – ${t(lang, menuSpec.labelKey)}`}
+          className="w-56 p-1"
+        >
+          <ArrangementBlockMenu
+            lang={lang}
+            title={t(lang, menuSpec.labelKey)}
+            w={menuSize.w}
+            h={menuSize.h}
+            // ★ Bounds straight off the spec: the menu takes them as props and
+            // does no catalogue lookup of its own — that was Task 8's change.
+            minW={menuSpec.minW}
+            maxW={menuSpec.maxW}
+            minH={menuSpec.minH}
+            maxH={menuSpec.maxH}
+            index={menu.index}
+            count={menu.count}
+            onResize={(axis, v) => {
+              arrangement.resize(menu.id, axis, v);
+              // `menuSize` is this render's value, so the axis NOT being set
+              // reads correctly as its current one.
+              setAnnouncement(t(lang, "dashboardTileResized",
+                t(lang, menuSpec.labelKey),
+                String(axis === "w" ? v : menuSize.w),
+                String(axis === "h" ? v : menuSize.h)));
+            }}
+            onMove={(delta) => moveByDelta(menu.id, delta)}
+            onHide={() => {
+              // ★★ Focus FIRST, then hide: this moves focus outside the popover
+              // before the block unmounts, which is what makes `PopoverPanel`'s
+              // own restore correctly decline.
+              focusShelfToggle();
+              arrangement.hide(menu.id);
+              setAnnouncement(t(lang, "dashboardTileHidden", t(lang, menuSpec.labelKey)));
+            }}
+            onClose={closeMenu}
+          />
+        </PopoverPanel>
+      )}
+
+      {/* ★ Not decoration: the ⋮ menu is this surface's keyboard reorder path,
+          and without an announcement a keyboard user gets no feedback that
+          anything moved, resized or was hidden. */}
+      <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
     </ReportCard>
   );
 }

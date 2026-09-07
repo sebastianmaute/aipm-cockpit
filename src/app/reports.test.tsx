@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { ReportsPanel } from "./reports";
 import type { BudgetBucket, ResourcePlan, Role, Task } from "./types";
 import type { AddableReportId } from "./addable-reports";
+import { REPORT_BLOCKS } from "./report-blocks";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -36,7 +37,10 @@ function makeTask(p: Partial<Task> & { id: number; assignee: string }): Task {
 
 /** ★ The second parameter is OPTIONAL so every pre-existing
  *  `renderReports(tasks)` call keeps working unchanged. */
-function renderReports(tasks: Task[], opts: { extraReports?: AddableReportId[] } = {}) {
+function renderReports(
+  tasks: Task[],
+  opts: { extraReports?: AddableReportId[]; isPopout?: boolean } = {},
+) {
   return render(
     <ReportsPanel
       tasks={tasks}
@@ -44,6 +48,7 @@ function renderReports(tasks: Task[], opts: { extraReports?: AddableReportId[] }
       today={TODAY}
       holidaySet={new Set()}
       extraReports={opts.extraReports}
+      isPopout={opts.isPopout}
     />,
   );
 }
@@ -520,7 +525,7 @@ describe("ReportsPanel — sortable headers are unique across the sibling tables
       // all thirteen ⋮ and five grips would still leave 27 uniquely-named
       // controls and this test would go GREEN. Re-measured by probe (set it to
       // 999 and read the helper's own error): the scope renders 45.
-      minControls: 45,
+      minControls: 46,
       scope: container,
       roles: ["button"],
     });
@@ -655,7 +660,7 @@ describe("ReportsPanel — the arrangement grid", () => {
       // under the true count cannot tell a silently-empty render from a full
       // one. Measured by the same probe: this fixture renders 47, two more than
       // the 45 above because it adds the RAID report block (one grip, one ⋮).
-      minControls: 47,
+      minControls: 48,
       scope: container,
     });
   });
@@ -698,5 +703,110 @@ describe("ReportsPanel — toolbar order", () => {
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], {
       contiguous: true,
     });
+  });
+});
+
+/**
+ * The shelf and the ⋮ block menu (Task 13). These retire the inert ⋮ that Task
+ * 12 shipped as a knowingly-temporary false affordance.
+ *
+ * ★★★ NO `requireCollisionSeed` HERE, AND THE REASON IS NOT `ArrangementTile`'s.
+ * The collision-seeded guard lives on the SHARED component, in
+ * `arrangement-shelf.test.tsx` — it seeds two chips with the same title and
+ * proves `buildRowTokens` numbers them. This binding INHERITS that. Adding a
+ * second guard here would need a fixture where two REPORTS block titles collide,
+ * and that cannot be built: all thirteen resolve distinctly in EN and DE, case-
+ * insensitively, measured three times (see `report-blocks.test.ts`). The guard
+ * would therefore throw against correct code.
+ * ★★ So read "the shelf is where the collision test belongs" as a statement
+ * about the COMPONENT, not about every binding of it. The next reader who
+ * re-derives it from the binding will add a test that throws.
+ */
+describe("ReportsPanel — the shelf and the block menu", () => {
+  const tasks = [makeTask({ id: 1, assignee: "Ann", group: "Alpha" })];
+
+  const openMenuFor = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
+    await user.click(screen.getByRole("button", { name: `${t("en-US", "actionMoreActions")} – ${title}` }));
+  };
+
+  it("opens a REAL menu from the ⋮, retiring the inert one Task 12 shipped", async () => {
+    // ★★★ Task 12 passed `onOpenMenu={() => {}}` and said in place that a control
+    // doing nothing is a false affordance that must not survive the branch. This
+    // is what retires it: the ⋮ now opens a dialog with the two size axes.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    const menu = screen.getByRole("dialog");
+    expect(within(menu).getByRole("radiogroup", { name: /width/i })).toBeInTheDocument();
+    expect(within(menu).getByRole("radiogroup", { name: /height/i })).toBeInTheDocument();
+  });
+
+  it("hides a block from its menu and offers it back on the shelf", async () => {
+    const user = userEvent.setup();
+    renderReports(tasks);
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+
+    expect(screen.queryByTestId("report-block-byPriority")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /hidden/i }));
+    expect(
+      screen.getByRole("button", {
+        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("restores a hidden block from the shelf back onto the board", async () => {
+    const user = userEvent.setup();
+    renderReports(tasks);
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: /hidden/i }));
+    await user.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+      }),
+    );
+    expect(screen.getByTestId("report-block-byPriority")).toBeInTheDocument();
+  });
+
+  it("moves a block through the menu, over the VISIBLE order", async () => {
+    // ★★ The menu speaks in deltas and the engine in target ids. Indexing the
+    // STORED board rather than the visible one would let "Move earlier" swap
+    // with a gated-off block — no visible change at all. That was a measured
+    // defect on the Dashboard.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    const ids = () => screen.getAllByTestId(/^report-block-/).map((n) => n.getAttribute("data-testid"));
+    const before = ids();
+    const target = before[2]!.replace("report-block-", "");
+    const spec = REPORT_BLOCKS.find((b) => b.id === target)!;
+
+    await openMenuFor(user, t("en-US", spec.labelKey));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveFirst") }));
+    expect(ids()[0]).toBe(`report-block-${target}`);
+  });
+
+  it("announces a hide to assistive technology", async () => {
+    // ★ The ⋮ IS the keyboard reorder path here (`keyboard: false` on the drag
+    // hook), so without a live region a keyboard user gets no feedback at all.
+    const user = userEvent.setup();
+    const { container } = renderReports(tasks);
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    const live = container.querySelector('[role="status"][aria-live="polite"]');
+    expect(live?.textContent).toContain(t("en-US", "reportsByPriority"));
+  });
+
+  it("offers NO arrangement controls in a popout", () => {
+    // ★★ A popout is read-only by design: no grips, no ⋮, no shelf. The tile
+    // chrome drops its own two on `readOnly`; the shelf is guarded at its site.
+    renderReports(tasks, { isPopout: true });
+    expect(screen.queryByRole("button", { name: /drag or use arrow keys to reorder/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: new RegExp(t("en-US", "actionMoreActions"), "i") })).toBeNull();
+    expect(screen.queryByRole("button", { name: /hidden/i })).toBeNull();
+    // …and the blocks themselves still render, or this would pass vacuously.
+    expect(screen.getByTestId("report-block-byPriority")).toBeInTheDocument();
   });
 });
