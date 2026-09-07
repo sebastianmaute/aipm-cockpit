@@ -597,6 +597,14 @@ export function ReportsPanel({
               testIdPrefix="report-block"
               dragProps={reorder.itemProps(b!.id)}
               handleProps={reorder.handleProps(b!.id)}
+              // ★★★ MUST TRACK THE `keyboard: false` ABOVE. With it off,
+              // `handleProps.onKeyDown` is `undefined`, so a grip named "Drag or
+              // use arrow keys to reorder" is a focus stop with no keyboard
+              // action — the user presses ArrowUp and nothing moves, nothing is
+              // announced, the live region stays empty (WCAG 4.1.2). This names
+              // it "Drag to reorder" instead; the ⋮ menu remains the keyboard
+              // path and the one that announces.
+              keyboardReorder={false}
               onOpenMenu={(anchor) => {
                 menuAnchorRef.current = anchor;
                 setMenu({ id: b!.id, index: i, count: visible.length });

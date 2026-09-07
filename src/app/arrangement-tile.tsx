@@ -37,6 +37,30 @@ export interface ArrangementTileProps {
    * `data-testid="tile-raid"` assertion still resolves after the extraction.
    */
   testIdPrefix: string;
+  /**
+   * Whether the grip's `handleProps` actually carry an arrow-key reorder, i.e.
+   * whether the surface left `useListReorderDnd`'s `keyboard` at its default.
+   * It selects the grip's NAME and nothing else — `false` names it
+   * `reorderHandleDragOnly` ("Drag to reorder") instead of `reorderHandle`
+   * ("Drag or use arrow keys to reorder").
+   *
+   * ★★★ THE NAME MUST MATCH THE CAPABILITY (WCAG 4.1.2). A surface passing
+   * `keyboard: false` gets `handleProps.onKeyDown === undefined`, so a keyboard
+   * user who tabs to a grip promising arrow keys presses one and gets nothing —
+   * no move, no announcement, an empty live region. HTML5 drag is not
+   * keyboard-operable, so that grip is then a focus stop with no keyboard action
+   * at all, wearing a name that says otherwise.
+   *
+   * ★★ DEFAULT `true` IS THE PRE-EXISTING BEHAVIOUR, NOT AN ENDORSEMENT. It is
+   * the wrong-way-round default — a caller that forgets it OVERSTATES what the
+   * grip does — and it is `true` only because `dashboard-panel.tsx` also passes
+   * `keyboard: false` and is under a branch rule forbidding edits to it and to
+   * its tests, five of which build the grip's expected name from `reorderHandle`.
+   * The Dashboard half is filed as `docs/open-followups.md` §425; closing it is
+   * a one-word call-site change here plus those five test names. A NEW surface
+   * must pass this explicitly rather than inherit the default.
+   */
+  keyboardReorder?: boolean;
   /** Receives the trigger itself, so the caller can anchor its popover on it. */
   onOpenMenu: (anchor: HTMLElement) => void;
   /** ★★ Registers the ⋮ trigger against this block's ID, so the caller can find
@@ -85,9 +109,10 @@ export interface ArrangementTileProps {
  */
 export function ArrangementTile({
   id, title, w, h, lang, readOnly, dragProps, handleProps,
-  testIdPrefix, onOpenMenu, menuButtonRef, children,
+  testIdPrefix, keyboardReorder = true, onOpenMenu, menuButtonRef, children,
 }: ArrangementTileProps) {
-  const moveLabel = `${t(lang, "reorderHandle")} – ${title}`;
+  const moveKey = keyboardReorder ? "reorderHandle" : "reorderHandleDragOnly";
+  const moveLabel = `${t(lang, moveKey)} – ${title}`;
   const menuLabel = `${t(lang, "actionMoreActions")} – ${title}`;
   return (
     <section
@@ -101,7 +126,7 @@ export function ArrangementTile({
           <DragHandle
             {...handleProps}
             ariaLabel={moveLabel}
-            title={t(lang, "reorderHandle")}
+            title={t(lang, moveKey)}
             // The tab stop, `select-none`, `print:hidden` and the focus-visible
             // ring (deliberately not `FOCUS_RING` — a grip is held for the whole
             // gesture, so a `focus:` ring would paint throughout it) are all the

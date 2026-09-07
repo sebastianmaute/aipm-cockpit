@@ -594,6 +594,12 @@ const enUS = {
   // Feature-NEUTRAL on purpose: shared by the Reports cards and both Settings
   // reference lists. Do not re-name it after any one surface.
   reorderHandle: "Drag or use arrow keys to reorder",
+  // ★★ THE DRAG-ONLY TWIN of the key above, for a grip whose consumer passed
+  // `keyboard: false` to `useListReorderDnd`. Naming a key path the surface has
+  // switched off is a WCAG 4.1.2 defect, not a cosmetic one: the user tabs to
+  // the grip, presses ArrowUp, and nothing moves and nothing is announced.
+  // Pick between the two by CAPABILITY, never by surface.
+  reorderHandleDragOnly: "Drag to reorder",
   snapshotSelectRow: "Select snapshot {0}",
   budgetEditBucket: "Edit bucket",
   budgetStartDate: "Start date",

@@ -574,6 +574,7 @@ export const de: Record<TranslationKey, string> = {
   budgetRemoveBucketConfirm: "Diesen Budget-Topf entfernen? Berechnungen, die darauf basieren, werden auf 0 zurückgesetzt.",
   budgetReorderHandle: "Topf umsortieren — ziehen oder mit den Pfeiltasten ↑/↓ verschieben",
   reorderHandle: "Ziehen oder mit den Pfeiltasten ↑/↓ verschieben",
+  reorderHandleDragOnly: "Zum Umsortieren ziehen",
   snapshotSelectRow: "Snapshot {0} auswählen",
   budgetEditBucket: "Budget-Topf bearbeiten",
   budgetStartDate: "Startdatum",

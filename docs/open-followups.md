@@ -641,6 +641,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§422](#422-an-email-address-containing-a-comma-is-destroyed-by-a-no-op-round-trip-through-the-inline-editor--open) | An email address containing a comma is destroyed by a no-op round-trip through the inline editor | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--open) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit | S | open |
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
+| [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--open) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -30630,3 +30631,67 @@ in one tree. An unqualified "Help" icon on a stacked modal is that same WCAG 2.4
 axe gate cannot see it in any view at any seed size — no rule under the four tags
 `e2e/a11y.spec.ts` requests flags two controls sharing an accessible name. Qualify the name at
 write time and pin it with a unit test; nothing else can catch it.
+
+## 425. The Dashboard's reorder grip still promises an arrow-key path its own call site switched off — OPEN
+
+
+**Status:** open, recorded 2026-09-07. Verified by a command actually run:
+`grep -n "keyboard: false" src/app/dashboard-panel.tsx`
+→ **2** hits, and only ONE of them is code — the `useListReorderDnd` option. The other is a
+comment elsewhere in the file explaining why the ⋮ menu is the keyboard path. ★ Read that number
+as the warning it is: every recipe in this entry matches PROSE as well as code, because the
+strings involved are exactly what the comments around them quote. Look at the hits; never take a
+`grep -c`. The Reports half of this defect is FIXED on this branch; this entry is the Dashboard
+half, deliberately left standing — see "Why it was not fixed here".
+
+**The defect.** `dashboard-panel.tsx` passes `keyboard: false` to `useListReorderDnd`, so the
+`handleProps` it spreads onto every tile grip carry no `onKeyDown`. `ArrangementTile` nevertheless
+names that grip from `reorderHandle` — EN "Drag or use arrow keys to reorder", DE "Ziehen oder mit
+den Pfeiltasten ↑/↓ verschieben". HTML5 drag is not keyboard-operable, so the grip is a focus stop
+with no keyboard action whatsoever, wearing a name that says otherwise: a keyboard user tabs to
+"Drag or use arrow keys to reorder – Progress", presses ArrowUp, and nothing moves, nothing is
+announced, and the live region stays empty. That is WCAG 4.1.2 (name/role/value), not a wording
+nit — the accessible name is the only thing telling that user the key exists.
+
+★ **The `keyboard: false` DECISION is right and is not what this entry asks to change.** The ⋮
+menu is the surface's keyboard reorder path and the only one that can also announce the result; a
+second keyboard path for one action is worse, not better. It is the LABEL that is false.
+
+★★ **No gate can see this, in either layer.** axe 4.12.1 has no rule that compares a control's
+accessible name against the handlers actually bound to it, and jsdom dispatches a `keydown` onto a
+grip with no listener without complaint — so a unit test cannot observe the missing reorder either.
+Only a test asserting the NAME against the known capability catches it, which is what
+`reports.test.tsx`'s "names the grip for what it can actually do, the drag alone" now does for the
+other surface.
+
+**Why it was not fixed here.** The Reports-arrangement branch carries a governing rule that
+`dashboard-panel.tsx` is never edited and every Dashboard test passes unmodified, with two
+already-sanctioned exceptions. Naming the Dashboard grip correctly is a one-word call-site change
+plus five expected names in `dashboard-panel.test.tsx`, all built from a local `grip()` helper over
+`reorderHandle`; that would be a third exception. The fix was therefore built as a shared,
+opt-out-able capability instead, and only Reports opted in.
+
+**The closure, and it is small.** `ArrangementTile` now takes `keyboardReorder?: boolean` and
+selects between `reorderHandle` and the new `reorderHandleDragOnly` (EN "Drag to reorder", DE "Zum
+Umsortieren ziehen"). Closing this is:
+
+1. pass `keyboardReorder={false}` at the `<ArrangementTile>` call site in `dashboard-panel.tsx`;
+2. repoint the `grip()` helper in `dashboard-panel.test.tsx` at `reorderHandleDragOnly` (its five
+   call sites all go through that one helper);
+3. flip the prop's default from `true` to `false`, or better, drop the default entirely and make
+   the prop required — no consumer would then be able to inherit a name it has not earned.
+
+★★ **Step 3 is the half worth doing and the half that will get skipped.** The default is `true`
+only because the Dashboard could not be edited on that branch; it is the wrong-way-round default,
+because a caller who forgets the prop OVERSTATES what the grip does. Once both consumers pass it
+explicitly, a required prop makes the whole class unreachable — which is the difference between
+fixing two surfaces and fixing the shape that produced them.
+
+★ **`roles-editor.tsx` is NOT affected and must not be "fixed" alongside it.** Its two grips leave
+`useListReorderDnd`'s `keyboard` at its default `true`, so `reorderHandle`'s arrow-key promise is
+true there and repointing it would be a regression. Re-derive the set that IS affected — every
+consumer that turns the option off — rather than trusting this paragraph:
+`grep -rn "keyboard: false" src/app --include=*.tsx`. ★★ READ the hits rather than counting them:
+that pattern matches this defect's own explanatory comments in `arrangement-tile.tsx`,
+`reports.tsx` and `reports.test.tsx` as well as the two real call sites, so the tally overstates
+the consumer set by roughly a factor of three.

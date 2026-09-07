@@ -368,7 +368,7 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
     expect(before[0]).not.toBe(last);
 
     // Drag the LAST block's grip onto the FIRST block.
-    const grips = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
+    const grips = screen.getAllByRole("button", { name: /drag to reorder/i });
     fireEvent.dragStart(grips[grips.length - 1]);
     fireEvent.dragOver(screen.getByTestId(before[0]!));
     fireEvent.drop(screen.getByTestId(before[0]!));
@@ -390,7 +390,7 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
   it("puts data on the dragstart transfer, without which Firefox never begins the drag", () => {
     const setData = vi.fn();
     render(<ReorderHarness onChange={vi.fn()} />);
-    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
+    const handles = screen.getAllByRole("button", { name: /drag to reorder/i });
     fireEvent.dragStart(handles[1], { dataTransfer: { setData, effectAllowed: "" } });
     expect(setData).toHaveBeenCalled();
   });
@@ -415,7 +415,7 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
   it("gives each reorder handle a row-unique accessible name", () => {
     render(<ReorderHarness onChange={vi.fn()} />);
     const names = screen
-      .getAllByRole("button", { name: /drag or use arrow keys to reorder/i })
+      .getAllByRole("button", { name: /drag to reorder/i })
       .map((b) => b.getAttribute("aria-label"));
     expect(names.length).toBeGreaterThan(1);
     expect(new Set(names).size).toBe(names.length);
@@ -551,7 +551,10 @@ describe("ReportsPanel — sortable headers are unique across the sibling tables
     expect(collides).toEqual([
       "Cancelled",
       "Completed",
-      "Drag or use arrow keys to reorder",
+      // ★ The GRIP's unqualified base name. It is the drag-only twin here, not
+      // `reorderHandle`: this surface passes `keyboard: false`, so its grips are
+      // named `reorderHandleDragOnly`.
+      "Drag to reorder",
       "Inquiries",
       "More actions",
       "Open",
@@ -672,10 +675,37 @@ describe("ReportsPanel — the arrangement grid", () => {
     for (const key of ["reportsByAssignee", "reportsByGroup"] as const) {
       expect(
         screen.getByRole("button", {
-          name: `${t("en-US", "reorderHandle")} – ${t("en-US", key)}`,
+          name: `${t("en-US", "reorderHandleDragOnly")} – ${t("en-US", key)}`,
         }),
       ).toBeInTheDocument();
     }
+  });
+
+  it("names the grip for what it can actually do, the drag alone", () => {
+    // ★★★ THE NAME MUST MATCH THE CAPABILITY (WCAG 4.1.2). This surface passes
+    // `keyboard: false` to `useListReorderDnd`, so `handleProps.onKeyDown` is
+    // `undefined` and HTML5 drag is not keyboard-operable — a grip named "Drag
+    // or use arrow keys to reorder" would be a focus stop whose promised key
+    // does nothing, announces nothing, and leaves the live region empty. The ⋮
+    // menu is the keyboard path.
+    //
+    // ★★ BOTH HALVES ARE LOAD-BEARING and neither alone is the assertion. The
+    // POSITIVE half pins the drag-only name; the NEGATIVE half pins that the
+    // arrow-key promise is gone, and on its own it would pass vacuously against
+    // a render with no grips at all — which is why the positive half runs first
+    // and asserts a real count.
+    //
+    // ★ It pins the LABEL against the label, not against the wiring: nothing
+    // here reads `handleProps`, so flipping `keyboard` back to true without
+    // touching `keyboardReorder` reds this test for the right reason but by
+    // coincidence of the two being edited together. jsdom dispatches the key
+    // either way, so no unit test can observe the missing reorder itself.
+    renderReports(tasks);
+    const grips = screen.getAllByRole("button", { name: /drag to reorder/i });
+    expect(grips.length).toBeGreaterThan(1);
+    expect(
+      screen.queryAllByRole("button", { name: /use arrow keys/i }),
+    ).toHaveLength(0);
   });
 });
 
@@ -832,7 +862,7 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     // ★★ A popout is read-only by design: no grips, no ⋮, no shelf. The tile
     // chrome drops its own two on `readOnly`; the shelf is guarded at its site.
     renderReports(tasks, { isPopout: true });
-    expect(screen.queryByRole("button", { name: /drag or use arrow keys to reorder/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /drag to reorder/i })).toBeNull();
     expect(screen.queryByRole("button", { name: new RegExp(t("en-US", "actionMoreActions"), "i") })).toBeNull();
     expect(screen.queryByRole("button", { name: /hidden/i })).toBeNull();
     // …and the blocks themselves still render, or this would pass vacuously.
