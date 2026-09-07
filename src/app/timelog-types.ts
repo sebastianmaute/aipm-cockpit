@@ -127,12 +127,29 @@ export function dailyKey(userId: number, date: string): string {
   return `${userId}|${date}`;
 }
 
+/** The date half of a daily-roll key. SHAPE, never existence — `9999-99-99` is
+ *  admitted deliberately.
+ *  ★★ The point is to make `<` and `>` comparisons on the date lexicographically
+ *  meaningful downstream, not to certify a date exists. `timelog-policy.ts`
+ *  tracks a running min/max into `firstViolationDate`/`lastViolationDate` and
+ *  the reconcile then compares those against a roll window with plain string
+ *  comparison; a key like `"7|tomorrow"` orders against ISO dates arbitrarily
+ *  and still reaches both bounds.
+ *  ★★★ THIS IS A KEY RULE AND IS DELIBERATELY NOT THE WINDOW RULE that
+ *  `timelog-actuals-store.ts` declares under the same shape, nor the one in
+ *  `sanitize-core.ts`. They answer different questions — "is this key usable?"
+ *  versus "is this stored window usable?" — and sharing one constant would
+ *  couple two independent decisions. The store's own docstring argues the same
+ *  split from the other side, explaining why validating keys is not its job.
+ *  See open-followups §367. */
+const KEY_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export function parseDailyKey(key: string): { userId: number; date: string } | null {
   const i = key.indexOf("|");
   if (i <= 0) return null;
   const userId = Number(key.slice(0, i));
   const date = key.slice(i + 1);
-  if (!Number.isInteger(userId) || !date) return null;
+  if (!Number.isInteger(userId) || !KEY_DATE_RE.test(date)) return null;
   return { userId, date };
 }
 

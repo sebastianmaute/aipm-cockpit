@@ -565,6 +565,31 @@ describe("evaluateTimelogPolicy", () => {
     expect(res.evaluated).toEqual(["timelogCapPerDay"]);
     expect(res.violations).toEqual([]);
   });
+
+  // ★★★ THE REACHABLE HALF OF open-followups §367. Before `parseDailyKey`
+  // checked the date shape, a malformed key reached this loop: `weekdayIndex`
+  // returns null for a non-ISO string so the working-hours and weekend arms
+  // skipped it, but the value still flowed into the running min/max, so
+  // `lastViolationDate` became "tomorrow" and `worstHours` became 99. The
+  // downstream window comparison in the reconcile then fails against that bound
+  // and the insight FREEZES — the safe direction, which is why this was filed
+  // as a latent shape rather than a live defect.
+  // ★ The malformed cell books 99h, far above the 8h threshold, so if it were
+  // still admitted it could only show up as a violation — never as an innocent
+  // day that happens not to breach.
+  it("keeps a malformed-date cell out of the violation bounds", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1], "7|tomorrow": [99, 99, 1] }),
+      policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [link(7, 1)], shifts: [],
+    });
+    const v = res.violations.find((x) => x.rule === "timelogCapPerDay");
+    expect(v).toBeDefined();
+    expect(v!.firstViolationDate).toBe(TUE);
+    expect(v!.lastViolationDate).toBe(TUE);
+    expect(v!.worstHours).toBe(12);
+    expect(v!.count).toBe(1);
+  });
 });
 
 describe("rule ids are insight types", () => {

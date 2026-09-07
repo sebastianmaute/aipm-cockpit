@@ -507,10 +507,15 @@ describe("ActualsCacheEntry.daily size bound", () => {
 
   // ★★ Reachable shape for "nothing survives": every key unusable — every key
   // here lacks the `|` separator, so `parseDailyKey` rejects all of them.
-  // ★ It is NOT true that a single oversized cell cannot be constructed, which
-  // is what this comment used to claim: `parseDailyKey` never checks the DATE
-  // beyond non-emptiness, so `"7|" + "x".repeat(600000)` parses and is exactly
-  // that. Many-unusable-keys is simply the shape this test chose.
+  // ★★ A single oversized cell is NO LONGER CONSTRUCTIBLE, and the history is
+  // worth keeping because this comment has now been wrong in both directions.
+  // It first claimed the shape was impossible on the strength of the userId
+  // half of the check — true only via `Number(...)` overflowing to Infinity at
+  // roughly 309 digits, a mechanism it never stated. It was then corrected to
+  // say `parseDailyKey` never checks the DATE, which was true when written.
+  // `KEY_DATE_RE` now rejects a non-ISO date half, so `"7|" + "x".repeat(N)`
+  // does not parse. Many-unusable-keys remains the shape this test chose, and
+  // it still exercises the same survivor-run path.
   // ★★ Losing the roll must never cost the rest of the entry — the aggregates
   // are what the network round trip bought.
   it("drops daily AND dailyWindow together when nothing survives, keeping the rest", () => {
