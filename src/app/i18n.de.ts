@@ -726,7 +726,8 @@ export const de: Record<TranslationKey, string> = {
   chatAttachmentSummary: "{0} — {1} Anhänge",
   chatAttachmentSummarySkipped: "{0} — {1} Anhänge, {2} übersprungen",
   chatAttachmentSummarySkippedOne: "{0} — 1 Anhang, {2} übersprungen",
-  chatAttachmentHint: "PDF-, Bild- (PNG/JPG/GIF/WebP) oder Text-Dateien (TXT/MD/CSV) anhängen — je bis zu 20 MB.",
+  chatAttachmentHint:
+    "PDF-, Bild- (PNG/JPG/GIF/WebP), Text- (TXT/MD/CSV/VTT), Webseiten- (HTML), Office- (DOCX/XLSX/PPTX) oder E-Mail-Dateien (EML/MSG/MHTML) anhängen — je bis zu 20 MB, E-Mails bis zu 64 MB.",
   chatToolCall: "Werkzeug verwendet: {0}",
   chatToolError: "Werkzeugfehler",
   dictationHold: "Zum Diktieren gedrückt halten",

@@ -767,7 +767,8 @@ const enUS = {
   chatAttachmentSummary: "{0} — {1} attachments",
   chatAttachmentSummarySkippedOne: "{0} — 1 attachment, {2} skipped",
   chatAttachmentSummarySkipped: "{0} — {1} attachments, {2} skipped",
-  chatAttachmentHint: "Attach PDF, image (PNG/JPG/GIF/WebP), or text (TXT/MD/CSV) files — up to 20 MB each.",
+  chatAttachmentHint:
+    "Attach PDF, image (PNG/JPG/GIF/WebP), text (TXT/MD/CSV/VTT), web page (HTML), Office (DOCX/XLSX/PPTX) or mail (EML/MSG/MHTML) files — up to 20 MB each, 64 MB for mail.",
   chatToolCall: "Used {0}",
   chatToolError: "Tool error",
   dictationHold: "Hold to dictate",
