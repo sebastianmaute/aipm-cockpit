@@ -15,10 +15,16 @@ export const workloadProvider: ActionProvider = {
         al.reason === "over-allocated"
           ? scoreAction({ risk: al.value >= allocCritical ? W.riskCritical : W.riskHigh, urgency: W.urgencySoon, clarity: input.semiClarityBonus ?? W.semiClarityBonus })
           : scoreAction({ urgency: al.value >= overdueUrgent ? W.urgencyOverdue : W.urgencyToday, risk: W.riskHigh, clarity: input.semiClarityBonus ?? W.semiClarityBonus });
+      // This engine is i18n-free (no Lang in scope — see `I18nText`'s docstring
+      // in ../types), so it cannot call `tPlural`; it picks the plural/singular
+      // KEY directly instead, for the surface's later `t(lang, key, ...params)`
+      // to render. `count === 1` matches `tPlural`'s own category selection for
+      // en-US/en-GB/de today (see its docstring) — this is the same equivalence,
+      // applied where no `Lang` is available to call it directly.
       const why =
         al.reason === "over-allocated"
           ? { key: "actionWorkloadWhyOverAllocated" as const, params: [al.value] }
-          : { key: "actionWorkloadWhyOverload" as const, params: [al.value] };
+          : { key: al.value === 1 ? "actionWorkloadWhyOverloadOne" as const : "actionWorkloadWhyOverload" as const, params: [al.value] };
       return {
         id: `workload:${al.resourceId}:${al.reason}`,
         source: "workload",

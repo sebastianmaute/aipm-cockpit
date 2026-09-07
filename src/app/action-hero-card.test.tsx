@@ -30,7 +30,8 @@ describe("ActionHeroCard", () => {
   it("renders extra reasons when present", () => {
     const extra = [{ ...noOwner, id: "raid:12:severity", why: { key: "actionRaidWhySeverity", params: ["High"] } }] as never;
     render(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner, extra)} onOpen={() => {}} />);
-    const toggle = screen.getByRole("button", { name: /1 more reasons/i });
+    // extra has 1 item -> the singular form ("+1 more reason", not "+1 more reasons").
+    const toggle = screen.getByRole("button", { name: /1 more reason\b/i });
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
   });

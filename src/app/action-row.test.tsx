@@ -376,7 +376,8 @@ describe("ActionRow extra reasons", () => {
         why: { key: "actionRaidWhyNoOwner" }, score: 40, tier: "now", cta: { kind: "open", view: "raid", id: 1 } },
     ] as never;
     render(<ActionRow rowToken="Row" lang="en-US" action={action} onOpen={() => {}} extraReasons={extra} />);
-    const toggle = screen.getByRole("button", { name: /^\+1 more reasons – Row$/ });
+    // extra has 1 item -> the singular form ("+1 more reason", not "+1 more reasons").
+    const toggle = screen.getByRole("button", { name: /^\+1 more reason – Row$/ });
     // The reasons container is always mounted (aria-controls target must stay in DOM);
     // expansion flips `hidden`, not presence.
     const list = document.getElementById("action-reasons-x"); // action.id is "x" in this test

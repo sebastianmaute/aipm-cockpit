@@ -48,10 +48,16 @@ export const raidProvider: ActionProvider = {
       const urgency = r.reason === "overdue" ? W.urgencyOverdue : 0;
       const staleness = stalenessScore(r.reason === "overdue" ? r.daysOverdue : r.daysSinceReview);
       const score = scoreAction({ urgency, staleness });
+      // This engine is i18n-free (no Lang in scope — see `I18nText`'s docstring
+      // in ../types), so it cannot call `tPlural`; it picks the plural/singular
+      // KEY directly instead, for the surface's later `t(lang, key, ...params)`
+      // to render. `count === 1` matches `tPlural`'s own category selection for
+      // en-US/en-GB/de today (see its docstring) — this is the same equivalence,
+      // applied where no `Lang` is available to call it directly.
       const why =
         r.reason === "overdue"
           ? { key: "actionRaidWhyReviewOverdue" as const, params: [r.daysOverdue] }
-          : { key: "actionRaidWhyReviewStale" as const, params: [r.daysSinceReview] };
+          : { key: r.daysSinceReview === 1 ? "actionRaidWhyReviewStaleOne" as const : "actionRaidWhyReviewStale" as const, params: [r.daysSinceReview] };
       out.push({
         id: `raid:${r.item.id}:${r.reason}`,
         source: "raid",

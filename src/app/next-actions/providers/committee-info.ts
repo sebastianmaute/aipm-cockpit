@@ -19,7 +19,16 @@ export const committeeInfoProvider: ActionProvider = {
         id: `committee:${r.meetingId}:${r.scheduleId}`,
         source: "committee",
         title: { key: "actionCommitteeInfoTitle" as const, params: [r.label, r.meetingTitle] },
-        why: { key: "actionCommitteeInfoWhy" as const, params: [r.dueDate, r.meetingTitle, r.daysLeft] },
+        // This engine is i18n-free (no Lang in scope — see `I18nText`'s
+        // docstring in ../types), so it cannot call `tPlural`; it picks the
+        // plural/singular KEY directly instead, for the surface's later
+        // `t(lang, key, ...params)` to render. `count === 1` matches
+        // `tPlural`'s own category selection for en-US/en-GB/de today (see its
+        // docstring) — this is the same equivalence, applied where no `Lang`
+        // is available to call it directly. The count is `r.daysLeft`, which
+        // fills `{2}` — the singular key keeps `{0}`/`{1}` and hardcodes only
+        // the day count, same as `actionCommitteeInfoWhyOne`'s dictionary value.
+        why: { key: r.daysLeft === 1 ? "actionCommitteeInfoWhyOne" as const : "actionCommitteeInfoWhy" as const, params: [r.dueDate, r.meetingTitle, r.daysLeft] },
         score,
         tier: bandTier(score),
         cta: { kind: "open", view: "steering-committee", id: r.meetingId },

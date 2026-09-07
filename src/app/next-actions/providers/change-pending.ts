@@ -19,7 +19,14 @@ export const changePendingProvider: ActionProvider = {
         id: "change-pending:all:aggregate",
         source: "change-pending",
         moduleId: "changes",
-        title: { key: "actionChangeAggTitle", params: [pending.length] },
+        // This engine is i18n-free (no Lang in scope — see `I18nText`'s
+        // docstring in ../types), so it cannot call `tPlural`; it picks the
+        // plural/singular KEY directly instead, for the surface's later
+        // `t(lang, key, ...params)` to render. `count === 1` matches
+        // `tPlural`'s own category selection for en-US/en-GB/de today (see its
+        // docstring) — this is the same equivalence, applied where no `Lang`
+        // is available to call it directly.
+        title: { key: pending.length === 1 ? "actionChangeAggTitleOne" : "actionChangeAggTitle", params: [pending.length] },
         why: { key: "actionChangeAggWhy" },
         score,
         tier: bandTier(score),

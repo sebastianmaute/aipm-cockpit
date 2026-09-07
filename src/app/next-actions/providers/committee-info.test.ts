@@ -94,6 +94,13 @@ describe("committeeInfoProvider — soon vs upcoming", () => {
     const acts = committeeInfoProvider.provide(input(committee("2026-09-30", 3)));
     expect(acts).toEqual([]);
   });
+
+  it("selects the singular why key when daysLeft is exactly 1", () => {
+    // Meeting 2026-06-21, leadDays 0 -> dueDate = meeting date -> daysLeft 1 -> soon.
+    const acts = committeeInfoProvider.provide(input(committee("2026-06-21", 0)));
+    expect(acts).toHaveLength(1);
+    expect(acts[0].why).toEqual({ key: "actionCommitteeInfoWhyOne", params: ["2026-06-21", "Q3 Review", 1] });
+  });
 });
 
 describe("committeeInfoProvider — provider metadata", () => {

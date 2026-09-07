@@ -1,7 +1,7 @@
 // src/app/action-reasons.tsx
 "use client";
 import { useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { rowLabel } from "./row-tokens";
@@ -29,12 +29,12 @@ export function ActionReasons({ lang, action, extraReasons, rowToken }: ActionRe
         type="button"
         aria-expanded={open}
         aria-controls={`action-reasons-${action.id}`}
-        aria-label={rowLabel(t(lang, "actionMoreReasons", extraReasons.length), rowToken)}
+        aria-label={rowLabel(tPlural(lang, "actionMoreReasons", extraReasons.length, extraReasons.length), rowToken)}
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
         className={`mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
       >
         <span aria-hidden>{open ? "▾" : "▸"}</span>
-        {t(lang, "actionMoreReasons", extraReasons.length)}
+        {tPlural(lang, "actionMoreReasons", extraReasons.length, extraReasons.length)}
       </button>
       <span id={`action-reasons-${action.id}`} hidden={!open} className="mt-0.5 block">
         {extraReasons.map((ex) => (
