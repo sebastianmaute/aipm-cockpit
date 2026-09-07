@@ -631,6 +631,14 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§404](#404-a-dependency-proposal-whose-links-are-all-refused-shows-no-change-and-no-reason--closed-2026-09-06) | A dependency proposal whose links are all refused shows no change and no reason | found 2026-09-06 in cold review of the preview/apply-parity branch | S | CLOSED 2026-09-06 |
 | [§405](#405-the-merge-site-guard-tables-restate-their-sanitizers-predicates-instead-of-sharing-them--open) | The merge-site guard tables restate their sanitizers' predicates instead of sharing them | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§406](#406-the-set_task_dependencies-card-label-is-hardcoded-english--closed-2026-09-06) | The `set_task_dependencies` card label is hardcoded English | found 2026-09-06 in cold review of the preview/apply-parity branch | S | CLOSED 2026-09-06 |
+| [§407](#407-task-row-changes-badge-renders-1-changes-for-a-single-linked-change--open) | Task-row changes badge renders "1 changes" for a single linked change | found 2026-09-05 by the control-defects batch | S–M — needs a per-language plural rule, not a string edit | open |
+| [§408](#408-no-turso-connection-test-exists-anywhere-in-the-repo--open) | No Turso connection test exists anywhere in the repo | found 2026-09-05 by the control-defects batch | M — a transient in-session result is cheap; a persisted "confirmed" flag would be the six-write-paths case | open |
+| [§409](#409-collapsing-an-open-documents-body-can-commit-a-pending-unblurred-edit-and-mint-a-version--open) | Collapsing an open document's body can commit a pending unblurred edit and mint a version | found 2026-09-05 by the control-defects batch; browser-measured 2026-09-06, which refuted the attempted fix | S — priority low; no ordinary gesture reaches the state | open |
+| [§410](#410-singleentitypicker-duplicates-entitylinkpickers-combobox-mechanics-almost-line-for-line--open) | `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line | found 2026-09-06 by the control-defects batch | M — extract a third shared hook; would collapse §411 with it | open |
+| [§411](#411-three-singleentitypicker-mechanisms-carry-a-stated-design-rationale-and-no-test--closed-2026-09-07) | Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test | found 2026-09-06 by the control-defects batch | S | **CLOSED** 2026-09-07 |
+| [§412](#412-tasklinkpicker-has-no-direct-test-suite--coverage-is-real-but-indirect--open) | `TaskLinkPicker` has no direct test suite — coverage is real but indirect | found 2026-09-06 by the control-defects batch, when a batch vitest run named ten paths and ran nine | S | open |
+| [§413](#413-the-raid-badges-raid-breakdown-is-mouse-hover-only-for-sighted-users--accepted-cost) | The RAID badge's R/A/I/D breakdown is mouse-hover-only for sighted users | decided 2026-09-06 by the control-defects batch | — a recorded decision, not a defect | open |
+| [§414](#414-the-browser-eye-verify-owed-by-the-control-defects-batch--open) | The browser eye-verify owed by the control-defects batch | deferred 2026-09-06 by the control-defects batch | M — six items; 1–4 now automated by a spec, 5–6 unmeasured | open |
 | [§415](#415-the-plural-agreement-defect-407-named-once-is-a-repeated-class-across-at-least-31-keys-and-the-count-itself-is-disputed--open) | The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed | found 2026-09-06 generalising §407 | L — 31+ keys, three grep traps, a disputed count | open |
 | [§416](#416-the-kanban-cards-changes-badge-had-no-test-at-all--closed-2026-09-06) | The Kanban card's changes badge had no test at all | found 2026-09-06 while closing §407 on this branch | S | **CLOSED** 2026-09-06 |
 | [§417](#417-three-test-connection-buttons-shared-one-accessible-name-and-none-announced-its-result--closed-2026-09-06) | Three "Test connection" buttons shared one accessible name, and none announced its result | found 2026-09-06 adding the Turso connection probe | S–M | **CLOSED** 2026-09-06 |
@@ -25741,6 +25749,35 @@ data is gone — plus the standalone stylesheet's own sink. ★ Note the cheaper
 sufficient: recording the mime alongside the bytes (the §225 closure) would stop mimes going stale,
 but a genuinely disallowed format would still be refused and would still be labelled missing.
 
+## 321. `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural
+
+**Status:** filed 2026-08-31, never machine-verified — split out of
+[§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720)
+when that closed. The read is reproducible:
+`grep -n "guidesPending) return;" src/app/chat-panel.tsx` shows the bail reads `busy` from the render
+closure, and `grep -n "abortRef.current === controller" src/app/chat-panel.tsx` shows the clear that
+made the CONSEQUENCE go away.
+
+§312 closed by making `retryLoad`'s guard correct whether or not `submitPrompt` is single-flight: the
+`finally` now clears `abortRef` only when the settling send still OWNS the slot. That removed the
+consequence. The PROPERTY is untouched — the bail reads `busy` from the render closure, so two
+dispatches in ONE tick would both pass it and mint two controllers streaming into one thread.
+
+★ **No path reaches it today, and that is call-site inspection, not a guarantee.** Every call site is a
+separate DOM event — by which point React has flushed `setBusy` and disabled the control — or the
+one-shot `chatSeed` effect. A new call site can falsify that silently, and nothing asserts otherwise.
+
+★★ **Severity is now BOUNDED by §312's fix, which is why this is filed rather than fixed.** Before that
+clear, a double dispatch cost `retryLoad` its liveness signal and could drop a live send's transcript
+from screen — silent loss on the load path. The worst case now is two concurrent streams into one
+thread: visibly wrong, and confined to the send path.
+
+★ **Do not close this with a test alone.** A test that dispatches twice in one tick and asserts exactly
+one controller pins TODAY's call sites; it does not make the property structural. The structural form is
+a ref-based bail read at dispatch (the ref is already there for aborts) rather than a `busy` read from
+the closure. Cheap — but it changes the send path, which is why it was not folded into a load-path
+slice.
+
 ## 322. The asset library offers Insert on a refused-format row, which can only ever render as blocked
 
 **Status:** OPEN. Filed 2026-08-31 from the §230 cold review — a gap the §230 disclosure work
@@ -25773,35 +25810,6 @@ a reason, (b) allow it but warn at insert time, (c) leave it and rely on the in-
 
 ★ Dangling rows have the same unguarded Insert. That half is milder — the retry path exists — but
 whatever is decided here should cover both, since the button is one call site.
-
-## 321. `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural
-
-**Status:** filed 2026-08-31, never machine-verified — split out of
-[§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720)
-when that closed. The read is reproducible:
-`grep -n "guidesPending) return;" src/app/chat-panel.tsx` shows the bail reads `busy` from the render
-closure, and `grep -n "abortRef.current === controller" src/app/chat-panel.tsx` shows the clear that
-made the CONSEQUENCE go away.
-
-§312 closed by making `retryLoad`'s guard correct whether or not `submitPrompt` is single-flight: the
-`finally` now clears `abortRef` only when the settling send still OWNS the slot. That removed the
-consequence. The PROPERTY is untouched — the bail reads `busy` from the render closure, so two
-dispatches in ONE tick would both pass it and mint two controllers streaming into one thread.
-
-★ **No path reaches it today, and that is call-site inspection, not a guarantee.** Every call site is a
-separate DOM event — by which point React has flushed `setBusy` and disabled the control — or the
-one-shot `chatSeed` effect. A new call site can falsify that silently, and nothing asserts otherwise.
-
-★★ **Severity is now BOUNDED by §312's fix, which is why this is filed rather than fixed.** Before that
-clear, a double dispatch cost `retryLoad` its liveness signal and could drop a live send's transcript
-from screen — silent loss on the load path. The worst case now is two concurrent streams into one
-thread: visibly wrong, and confined to the send path.
-
-★ **Do not close this with a test alone.** A test that dispatches twice in one tick and asserts exactly
-one controller pins TODAY's call sites; it does not make the property structural. The structural form is
-a ref-based bail read at dispatch (the ref is already there for aborts) rather than a `busy` read from
-the closure. Cheap — but it changes the send path, which is why it was not folded into a load-path
-slice.
 
 ## 323. The single-task delete is the one entity delete that never arms the destructive-save bypass
 
