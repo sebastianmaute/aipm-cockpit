@@ -1515,18 +1515,38 @@ across in particular:
 - the `triggerRefs` map so the ⋮ trigger can be re-focused **after** a move has re-rendered the board (a node captured before the reorder is detached, and focusing it is a silent no-op);
 - `shelfDropProps`, so dropping a block on the shelf hides it, with the **grid** decoding the drag — the shelf never inspects a `dataTransfer` itself.
 
-The reset button goes through `ReportCard`'s **`toolbarExtra`**, not into `ReportCard` itself — that toolbar is shared by every report panel, so adding a member there gives every consumer a reset it has no engine for.
+★★★ **REVISED AFTER IMPLEMENTATION — what shipped is NOT what the two paragraphs below originally
+said, and the code is what was ratified.** They read: "The reset button goes through `ReportCard`'s
+**`toolbarExtra`**, not into `ReportCard` itself — that toolbar is shared by every report panel, so
+adding a member there gives every consumer a reset it has no engine for", illustrated with a
+`toolbarExtra={<><ReportsViewsControl …/>{!arrangement.readOnly && <ResetLayoutButton …/>}</>}`
+snippet. That is recorded here rather than deleted, because a plan that quietly agrees with the code
+teaches nothing about why it changed.
 
-```tsx
-  toolbarExtra={
-    <>
-      <ReportsViewsControl … />
-      {!arrangement.readOnly && <ResetLayoutButton onClick={arrangement.reset} lang={lang} />}
-    </>
-  }
-```
+**Two things were wrong with it.** First, `toolbarExtra` **cannot express the required order**:
+`ReportCard` emits `{toolbarExtra}` BEFORE `<PrintButton>`, so anything passed through it lands
+ahead of the whole trailing group and can never sit between reset-columns and reset-size. Second,
+the ordering requirement as originally written was **internally inconsistent** — it asked for both
+"Print · reset-columns · reset-pane-size contiguous, with reset-layout immediately before it" AND
+"mirroring the Dashboard's Print · reset-layout · reset-size", which are different orders.
 
-★ Toolbar order: the trailing group stays **Print · reset-columns · reset-pane-size**, contiguous, with reset-layout immediately before it — mirroring the Dashboard's Print · reset-layout · reset-size. Pin it with `expectButtonOrder` from `src/test/toolbar-order.ts` using `contiguous: true`; never a hand-rolled `compareDocumentPosition` walk, which silently takes the first match when a key is ambiguous.
+**What shipped instead**, and it preserves the plan's real invariant: `ReportCard` gained an
+**optional** `onResetLayout?: () => void`, rendered only when passed. The concern behind
+"not into `ReportCard` itself" was that a consumer with no arrangement engine must not be handed a
+reset it cannot serve — optional-plus-conditional preserves that exactly, and 6 of its 7 non-test
+consumers pass nothing and render nothing new. Reports passes
+`onResetLayout={arrangement.readOnly ? undefined : arrangement.reset}`, so a read-only popout also
+gets no button. `toolbarExtra` keeps its existing job, the saved-views control.
+
+★ Toolbar order, as resolved: the trailing group is the **four-member** **Print · reset-columns ·
+reset-layout · reset-pane-size**. That order is not a third option — it CONTAINS both conventions as
+subsequences, so neither the report panels' Print · reset-columns · reset-size nor the Dashboard's
+Print · reset-layout · reset-size is broken, and it keeps the two CONTENT resets together ahead of
+the BOX reset. Pin it with `expectButtonOrder` from `src/test/toolbar-order.ts` using
+`contiguous: true`; never a hand-rolled `compareDocumentPosition` walk, which silently takes the
+first match when a key is ambiguous. ★★ `contiguous: true` catches a control inserted BETWEEN
+members but cannot adjudicate the ORDER itself — that is why the order is argued here in prose
+rather than inferred from a green test.
 
 - [ ] **Step 4: Run**
 
