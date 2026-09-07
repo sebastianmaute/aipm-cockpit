@@ -31,6 +31,30 @@ describe("SingleEntityPicker", () => {
     expect(screen.getByRole("combobox", { name: "Attach to" })).toBeInTheDocument();
   });
 
+  // ★★ THE THREE ATTRIBUTES NOTHING ELSE PINNED. `aria-autocomplete`, `type`
+  // and the `size` variant now live in the shared `EntityComboboxSearch`
+  // (`entity-combobox-search.tsx`), so ONE deletion there strips them from
+  // BOTH pickers at once, and nothing else would say so: no other unit test
+  // greps for them and the axe gate cannot help — neither picker is reachable
+  // from an `A11Y_VIEWS` scan.
+  //
+  // ★★ THE TWO `size` RENDERS ARE NOT REDUNDANT, and dropping either leaves a
+  // live mutant. `fieldClass` (`form-controls.tsx`) DEFAULTS to `md`, so a
+  // deleted `size={inputSize}` still renders `md` — invisible here and caught
+  // only by the `xs` render. Conversely a HARDCODED `size="xs"` is invisible
+  // to the `xs` render and caught only by the non-default `md` one, which is
+  // what proves the prop is threaded rather than merely present.
+  it("wires the search input's autocomplete, type and size variant", () => {
+    const { props, rerender } = renderPicker({ inputSize: "md" });
+    const box = screen.getByRole("combobox");
+    expect(box).toHaveAttribute("aria-autocomplete", "list");
+    expect(box).toHaveAttribute("type", "text");
+    // FIELD_SIZE: md is `px-3 py-2 text-sm`, xs is `px-2 py-1 text-xs`.
+    expect(box.className).toContain("text-sm");
+    rerender(<SingleEntityPicker {...props} inputSize="xs" />);
+    expect(screen.getByRole("combobox").className).toContain("text-xs");
+  });
+
   it("keeps the listbox closed while the query is blank", () => {
     renderPicker();
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
