@@ -31,7 +31,13 @@
 //      is blind to whether the WRITER actually calls the guard — that wiring is
 //      pinned here and nowhere else. ★ On CHANGE it is a guard PAIR: `status` is
 //      excluded from the patch table and handled after the sanitizer by
-//      `applyModelChangeStatus`, so both halves are cased below.
+//      `applyModelChangeStatus`, so both halves are cased below. ★★ The same
+//      guard shape reaches ABSENCE (`dropUnacceptedAbsenceFields`) and
+//      CALENDAR EVENT (`dropUnacceptedCalendarEventFields`), and on the latter
+//      it stands in front of `sendInvitations` — the one write here that mails
+//      people. Each register's `sanitize-*-patch.test.ts` calls its helper
+//      directly, so all of them stay green with the call site deleted; the
+//      wiring is pinned here.
 // Plus the relationship arrays, which replace rather than merge.
 //
 // THE CONTRACT, in two directions, both asserted per case:
@@ -63,7 +69,8 @@ import { entityToken, type TokenEntity } from "../ai-entity-token";
 import { runTool } from "../chat-tools";
 import { resetMintState } from "../id-mint-session";
 import { type TestSeed } from "../test-providers";
-import { type ChangeItem, DEFAULT_TASK_STATUS, type Milestone, type RaidItem, type Resource, type Stakeholder, type Task } from "../types";
+import { type Absence, type ChangeItem, DEFAULT_TASK_STATUS, type Milestone, type RaidItem, type Resource, type Stakeholder, type Task } from "../types";
+import { type CalendarEvent } from "../calendar-event";
 import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
 import { emptyWorkspace, type Workspace } from "../workspace";
@@ -179,6 +186,44 @@ function seedGuardedStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
   };
 }
 
+/** An ABSENCE whose merge-site-guarded fields carry NON-DEFAULT values, for the
+ *  reason `seedGuardedRaid` gives. `type: "vacation"` is not `sanitizeAbsence`'s
+ *  hardcoded `"other"` fallback and `note` is populated, so a reset and a
+ *  cleared key are both observable — against a row already holding `"other"` and
+ *  no note, a refused value reads back as the value already stored and the case
+ *  would pass for the wrong reason. */
+function seedGuardedAbsence(over: Partial<Absence> = {}): Absence {
+  return {
+    id: 50,
+    assignee: "M. Jordan",
+    startDate: "2026-07-06",
+    endDate: "2026-07-17",
+    type: "vacation",
+    note: "Booked with the team",
+    ...over,
+  };
+}
+
+/** A MEETING whose two guarded fields are both off their fallback:
+ *  `durationMinutes: 90` is not `sanitizeCalendarEvent`'s 60-minute
+ *  `intInRange` default, and `sendInvitations: true` is the PRESENT state of a
+ *  flag stored present-only-when-true. The flag matters most — it is the one
+ *  write in the app that leaves the building, and a row that did not already
+ *  invite could not show the clear. */
+function seedGuardedCalendarEvent(over: Partial<CalendarEvent> = {}): CalendarEvent {
+  return {
+    id: 60,
+    title: "Steering committee",
+    startDate: "2026-07-08",
+    startTime: "14:00",
+    durationMinutes: 90,
+    location: "Room 1",
+    notes: "Agenda in the shared drive",
+    sendInvitations: true,
+    ...over,
+  };
+}
+
 function seedResource(over: Partial<Resource> = {}): Resource {
   return {
     id: 4,
@@ -194,7 +239,7 @@ function seedResource(over: Partial<Resource> = {}): Resource {
 /** The workspace slices this file writes to, and the key each case reads back
  *  through. Deliberately narrow — a case needing another slice adds it here so
  *  the read-back stays a lookup rather than a per-case cast. */
-type WsKey = "raid" | "resources" | "changes" | "milestones" | "stakeholders";
+type WsKey = "raid" | "resources" | "changes" | "milestones" | "stakeholders" | "absences" | "calendarEvents";
 
 interface WriteCase {
   name: string;
@@ -457,6 +502,72 @@ const CASES: WriteCase[] = [
     expectStored: { status: "Approved", title: "Renamed in the same edit" },
   },
   {
+    // ★★★ THE SAME MERGE-SITE GUARD ON THE ABSENCE REGISTER —
+    // `updateAbsence` runs `dropUnacceptedAbsenceFields` before
+    // `sanitizeAbsence`. `type` is the RESET shape (`sanitizeAbsenceType`
+    // returns the hardcoded "other" for anything unrecognised, so a refused
+    // value DESTROYS a stored "vacation") and `note` the COERCE shape (a
+    // non-string becomes "" and the sparse `|| undefined` then drops the key
+    // outright). The preview refuses both and shows the row as unchanged, so
+    // without the guard the card promised "unchanged" while the replay demoted
+    // the type and erased the note.
+    // ★ `sanitize-absence-patch.test.ts` calls the helper DIRECTLY, so it stays
+    // green if the call site in `updateAbsence` is deleted; only a replay
+    // through the real dispatcher sees the wiring.
+    name: "a refused absence type and a non-string note leave the stored values alone",
+    tool: "update_absence",
+    entity: "absence",
+    kind: "absence",
+    wsKey: "absences",
+    id: 50,
+    seed: { absences: [seedGuardedAbsence()] },
+    // ★ `endDate` is the co-supplied field the write DOES store, and it is not
+    //  decoration: without one, every field in `expectStored` is unchanged, so
+    //  the `shown || unchanged` leg is carried by `unchanged` and only the
+    //  stored-value leg can ever fire. It is also the blast-radius assertion —
+    //  a guard that dropped the whole patch on meeting a refused key would take
+    //  this legitimate edit with it. Same pairing as the change-status case.
+    input: { id: 50, type: "Urlaub", note: 7, endDate: "2026-07-24" },
+    expectStored: { type: "vacation", note: "Booked with the team", endDate: "2026-07-24" },
+  },
+  {
+    // ★★★ THE FIELD WHOSE WRITE LEAVES THE BUILDING. `updateCalendarEvent` runs
+    // `dropUnacceptedCalendarEventFields`, and this case drives BOTH shapes that
+    // guard exists for at once:
+    //  • `durationMinutes: 3` — `sanitizeCalendarEvent` CLAMPS rather than
+    //    refuses (`intInRange` substitutes the 60-minute default), so an
+    //    out-of-range value silently demoted a stored 90-minute meeting to 60.
+    //    A bare `typeof number` guard could not have delivered that, which is
+    //    why the table holds the writer's own `acceptsEventDuration`.
+    //  • `sendInvitations: "yes"` — stored present-only-when-true, so a
+    //    non-boolean would have taken `isSendInvitationsFlag` to false and
+    //    dropped the key: invitations turned OFF by a value the card refused.
+    //    That is the one direction a user must never be misled in.
+    // The preview rejects both, so the row must come back untouched. Only a
+    // replay through the real dispatcher can see that — `sanitize-calendar-
+    // event-patch.test.ts` calls the helper directly and stays green with the
+    // call site deleted, and the parity sweep reads the SANITIZER, so neither
+    // can tell whether the WRITER invokes the guard at all.
+    name: "a clamped duration and a non-boolean invite flag leave the stored values alone",
+    tool: "update_calendar_event",
+    entity: "calendarEvent",
+    kind: "calendarEvent",
+    wsKey: "calendarEvents",
+    id: 60,
+    seed: { calendarEvents: [seedGuardedCalendarEvent()] },
+    // ★ `title` is the co-supplied field the write DOES store — see the absence
+    //  case above for why a case of pure refusals cannot reach the
+    //  `shown || unchanged` leg, and why the blast radius needs asserting.
+    // ★★ `startTime: "25:00"` is the THIRD shape and the one that makes the
+    //  `shown` leg load-bearing rather than carried by `unchanged`. The guard
+    //  admits it — `CALENDAR_EVENT_FIELD_GUARDS.startTime` is a bare
+    //  `typeof v === "string"` — and `normalizeEventStartTime` then RESETS it to
+    //  09:00, so the write stores neither the model's value nor the stored one.
+    //  A field the write changed to a third value MUST carry a preview line.
+    input: { id: 60, durationMinutes: 3, sendInvitations: "yes", startTime: "25:00", title: "Steering committee (moved)" },
+    expectStored: { durationMinutes: 90, sendInvitations: true, startTime: "09:00", title: "Steering committee (moved)" },
+  },
+  {
     name: "an id ARRAY on a single-FK link REMOVES the role",
     tool: "update_resource",
     entity: "resource",
@@ -486,14 +597,24 @@ function snapshot(ws: ReturnType<typeof useWorkspace>): Workspace {
     stakeholders: [...ws.stakeholders],
     milestones: [...ws.milestones],
     changes: [...ws.changes],
+    absences: [...ws.absences],
+    // ★★ THE ABSENT SLICE IS CARRIED THROUGH AS ABSENT. `calendarEvents` is
+    // `readonly CalendarEvent[] | undefined` and `undefined` means "the slice
+    // is not there", never "there are no meetings" — copying it as `[]` would
+    // hand `describeEntityCalls` a workspace claiming a presence the provider
+    // does not, which is the very distinction the calendar write path holds.
+    calendarEvents: ws.calendarEvents ? [...ws.calendarEvents] : undefined,
   };
 }
 
 type Row = Record<string, unknown> & { id: number };
 
 function rowOf(ws: Workspace, c: WriteCase): Row {
-  const rows = ws[c.wsKey] as ReadonlyArray<{ id: number }>;
-  const found = rows.find((r) => r.id === c.id);
+  // `| undefined` because `calendarEvents` is an OPTIONAL slice: an unseeded
+  // one is absent rather than empty, and `rows?.find` turns that into the same
+  // legible fixture error below instead of a bare property-of-undefined throw.
+  const rows = ws[c.wsKey] as ReadonlyArray<{ id: number }> | undefined;
+  const found = rows?.find((r) => r.id === c.id);
   // A missing row would make every assertion below vacuous in the passing
   // direction, so it is a hard error rather than a skipped case.
   if (!found) throw new Error(`fixture did not seed ${c.wsKey} #${c.id}`);

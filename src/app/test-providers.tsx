@@ -4,7 +4,9 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { TaskFormProvider } from "./task-form-context";
+import type { CalendarEvent } from "./calendar-event";
 import {
+  type Absence,
   type ChangeItem,
   type Milestone,
   type RaidItem,
@@ -25,11 +27,22 @@ export interface TestSeed {
   changes?: ChangeItem[];
   milestones?: Milestone[];
   stakeholders?: Stakeholder[];
+  absences?: Absence[];
+  /** ★★★ OPTIONAL FOR TWO REASONS, and the second one is load-bearing.
+   *  `Workspace.calendarEvents` is `readonly CalendarEvent[] | undefined` and
+   *  `undefined` means "the slice is ABSENT", which is not the same claim as
+   *  "this project has no meetings" — the context maintains that distinction
+   *  deliberately and the write path is pinned on it. So an unseeded slice must
+   *  stay `undefined`, which the `?.length` guard below already delivers; never
+   *  default it to `[]` here or in the `Seeder`. */
+  calendarEvents?: CalendarEvent[];
 }
 
 function Seeder({ seed }: { seed: TestSeed }) {
-  const { setTasks, setResources, setRaid, setChanges, setMilestones, setStakeholders } =
-    useWorkspace();
+  const {
+    setTasks, setResources, setRaid, setChanges, setMilestones, setStakeholders,
+    setAbsences, setCalendarEvents,
+  } = useWorkspace();
   const seededRef = useRef(false);
   useEffect(() => {
     if (seededRef.current) return;
@@ -43,6 +56,12 @@ function Seeder({ seed }: { seed: TestSeed }) {
     if (seed.changes?.length) setChanges(seed.changes);
     if (seed.milestones?.length) setMilestones(seed.milestones);
     if (seed.stakeholders?.length) setStakeholders(seed.stakeholders);
+    if (seed.absences?.length) setAbsences(seed.absences);
+    // ★ The guard is not merely tidiness on THIS line — see `calendarEvents` on
+    // `TestSeed`. Writing `[]` for an unseeded project would assert the slice is
+    // PRESENT AND EMPTY, a different fact from absent, and would defeat the one
+    // distinction the calendar write path is built around.
+    if (seed.calendarEvents?.length) setCalendarEvents(seed.calendarEvents);
     // Seed once on mount; subsequent `seed` prop changes are intentionally ignored.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
