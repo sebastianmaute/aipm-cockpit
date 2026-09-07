@@ -514,7 +514,13 @@ describe("ReportsPanel — sortable headers are unique across the sibling tables
       // this if the panel grows a control; never lower it. A floor below the
       // true count would let a silently-empty render — or a narrowed query —
       // read as a pass.
-      minControls: 27,
+      // ★★★ THIS INSTRUCTION WAS MISSED ONCE, BY ME, AND THE COST IS CONCRETE.
+      // The arrangement binding added ~26 controls while this floor stayed at
+      // its pre-restructure 27 — eighteen below the truth. A regression dropping
+      // all thirteen ⋮ and five grips would still leave 27 uniquely-named
+      // controls and this test would go GREEN. Re-measured by probe (set it to
+      // 999 and read the helper's own error): the scope renders 45.
+      minControls: 45,
       scope: container,
       roles: ["button"],
     });
@@ -644,10 +650,12 @@ describe("ReportsPanel — the arrangement grid", () => {
     // `requireCollisionSeed: true` against `buildRowTokens`.
     const { container } = renderReports(tasks, { extraReports: ["raid-report"] });
     expectRowUniqueNames({
-      // Measured floor, kept exact so a silently narrowed query cannot read as a
-      // pass. Well below the real count — the panel renders a grip and a ⋮ per
-      // visible block plus the table controls.
-      minControls: 12,
+      // ★★ EXACT, NOT "well below". An earlier revision of this line set 12 and
+      // said so openly — honest, but it forgoes the guard by choice: a floor
+      // under the true count cannot tell a silently-empty render from a full
+      // one. Measured by the same probe: this fixture renders 47, two more than
+      // the 45 above because it adds the RAID report block (one grip, one ⋮).
+      minControls: 47,
       scope: container,
     });
   });
