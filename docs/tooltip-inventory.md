@@ -580,7 +580,9 @@ grep -rn 'aria-label={`[A-Za-z]' src/app --include=*.tsx --exclude="*.test.tsx"
 `docs/handrolled-ui-inventory.md` a correction: a `<button>` inside a comment scans exactly like one
 in JSX. Each line below was opened and read.
 
-**13 comment prose** — `button.tsx:3` · `button.tsx:43` · `entity-link-picker.tsx:304` ·
+**13 comment prose** — `button.tsx:3` · `button.tsx:43` · `entity-link-picker.tsx` (the "NOT a
+`<button>` inside one" note on the option row — cited by line until 2026-09-07, when a refactor
+stranded the number; still comment prose, still a non-site) ·
 `file-picker-button.tsx:14` · `gantt-view-menu.tsx:12` · `info-tooltip.tsx:40` ·
 `milestone-edit-modal.tsx:149` · `popover-panel.tsx:120` · `raid-edit-modal.tsx:399` ·
 `resource-calendar-band.tsx:218` · `resource-calendar.tsx:222` · `stakeholder-edit-modal.tsx:177` ·

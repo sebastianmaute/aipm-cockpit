@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ingestBytes, type IngestNode } from "./attachment-ingest";
 import { buildAttachmentSummary } from "./chat-attachment-summary";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 
 // Real ingest walks, not hand-built IngestNodes: the summary reads the
 // diagnostics the walk writes into a mail's Markdown, so a hand-built fixture
@@ -98,7 +98,7 @@ describe("buildAttachmentSummary", () => {
     const rootMd = (node.block.source as { data: string }).data;
     expect(rootMd).not.toContain("skipped -");
     expect(buildAttachmentSummary("en-US", "outer.eml", node)).toBe(
-      t("en-US", "chatAttachmentSummarySkipped", "outer.eml", "1", "1"),
+      tPlural("en-US", "chatAttachmentSummarySkipped", 1, "outer.eml", "1", "1"),
     );
   });
 

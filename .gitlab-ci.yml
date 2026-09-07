@@ -302,6 +302,23 @@ followups-status-check:
   script:
     - npm run followups:status:check
 
+# Index contract — BLOCKING. docs/open-followups.md carries an index table AND a
+# body of `## <n>.` entry headings, and nothing compared the two sets until this
+# gate: on the day it was written the register held 413 headings against 405
+# rows, so eight entries were invisible to anyone reading the index.
+# TWO FAILURE MODES, TWO EXIT CODES: 1 is DRIFT — write the missing rows between
+# the markers, or delete a row whose entry is gone. NEVER satisfy it by
+# renumbering an entry: a follow-up number is a permanent handle that other docs
+# cite, so a renumber silently redirects every citation. 2 means the gate could
+# not scan at all — an unreadable or unparseable register, or fewer than 50 on
+# either axis (a scan that reads ALMOST nothing would otherwise pass ALMOST
+# everything). 2 is the load-bearing one.
+followups-index-check:
+  stage: quality
+  needs: []
+  script:
+    - npm run followups:index:check
+
 # Duplication gate — BLOCKING as of Phase 4 (ratchet, not absolute). jscpd exits
 # non-zero if any format's duplication % exceeds the `--threshold` set in the
 # `dup:check` script (post-TD-6 exit level: tsx 1.69% / typescript 1.71% [binding]

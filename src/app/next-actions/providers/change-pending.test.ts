@@ -61,6 +61,14 @@ describe("changePendingProvider", () => {
     expect(out.some((a) => a.id === "change-pending:all:aggregate")).toBe(true);
   });
 
+  it("selects the singular title key when exactly one change is pending", () => {
+    const one = [ci({ id: 1 })];
+    const out = changePendingProvider.provide({ ...input(one), scopePendingRed: 1 });
+    const agg = out.find((a) => a.id === "change-pending:all:aggregate");
+    expect(agg).toBeDefined();
+    expect(agg!.title).toEqual({ key: "actionChangeAggTitleOne", params: [1] });
+  });
+
   it("emits aggregate action when pending count >= SCOPE_PENDING_RED (5)", () => {
     const changes = Array.from({ length: SCOPE_PENDING_RED }, (_, i) =>
       ci({ id: i + 1, status: "Under Review" }),

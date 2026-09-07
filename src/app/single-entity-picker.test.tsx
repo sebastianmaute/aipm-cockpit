@@ -31,6 +31,48 @@ describe("SingleEntityPicker", () => {
     expect(screen.getByRole("combobox", { name: "Attach to" })).toBeInTheDocument();
   });
 
+  // ★★ THE THREE ATTRIBUTES NOTHING ELSE PINNED. `aria-autocomplete`, `type`
+  // and the `size` variant now live in the shared `EntityComboboxSearch`
+  // (`entity-combobox-search.tsx`), so ONE deletion there strips them from
+  // BOTH pickers at once, and nothing else would say so: no other unit test
+  // greps for them and the axe gate cannot help — neither picker is reachable
+  // from an `A11Y_VIEWS` scan.
+  //
+  // ★★ THE TWO `size` RENDERS ARE NOT REDUNDANT, and dropping either leaves a
+  // live mutant. `fieldClass` (`form-controls.tsx`) DEFAULTS to `md`, so a
+  // deleted `size={inputSize}` still renders `md` — invisible here and caught
+  // only by the `xs` render. Conversely a HARDCODED `size="xs"` is invisible
+  // to the `xs` render and caught only by the non-default `md` one, which is
+  // what proves the prop is threaded rather than merely present.
+  it("wires the search input's autocomplete, type and size variant", () => {
+    const { props, rerender } = renderPicker({ inputSize: "md" });
+    const box = screen.getByRole("combobox");
+    expect(box).toHaveAttribute("aria-autocomplete", "list");
+    expect(box).toHaveAttribute("type", "text");
+    // FIELD_SIZE: md is `px-3 py-2 text-sm`, xs is `px-2 py-1 text-xs`.
+    expect(box.className).toContain("text-sm");
+    rerender(<SingleEntityPicker {...props} inputSize="xs" />);
+    expect(screen.getByRole("combobox").className).toContain("text-xs");
+  });
+
+  // ★★ The other half of `EntityComboboxSearch` that carries a written reason
+  // and nothing enforcing it here. `pr-8` is ~2rem of padding reserving room
+  // for the overlaid ✕, so it rides the SAME condition the ✕ does — applied
+  // unconditionally it shaves that much off the visible placeholder in the
+  // EMPTY state, which is the common one (the TableFilter / PaneSearchInput
+  // precedent).
+  // ★ BOTH branches, deliberately: asserting only the presence passes against
+  // an unconditional class, which is the exact mutant.
+  it("reserves the clear gutter only while there is something to clear", () => {
+    const { unmount } = renderPicker({ query: "a" });
+    expect(screen.getByRole("combobox").className).toContain("pr-8");
+    unmount();
+
+    renderPicker({ query: "" });
+    expect(screen.getByRole("combobox").className).not.toContain("pr-8");
+    expect(screen.queryByRole("button", { name: /clear/i })).not.toBeInTheDocument();
+  });
+
   it("keeps the listbox closed while the query is blank", () => {
     renderPicker();
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
@@ -59,6 +101,24 @@ describe("SingleEntityPicker", () => {
     expect(box).toHaveAttribute("aria-activedescendant", screen.getAllByRole("option")[0].id);
     await user.keyboard("{Enter}");
     expect(props.onSelect).toHaveBeenCalledWith("task:1");
+  });
+
+  // ★★ THE WIRING ASSERTION. `entity-combobox.test.tsx` proves the shared hook
+  // is correct; it cannot prove THIS component calls it — a seam test cannot see
+  // a break above it. Without this, the hook call could be deleted and a local
+  // copy reinstated with every other test in this file still green.
+  // ★ TWO ArrowDowns, and the SECOND option is what must commit: a test that
+  // commits the FIRST passes against an implementation where ArrowDown does
+  // nothing at all.
+  it("routes the keyboard path through the shared combobox hook", async () => {
+    const user = userEvent.setup();
+    const { props } = renderPicker({ query: "a" });
+    const box = screen.getByRole("combobox");
+    box.focus();
+    await user.keyboard("{ArrowDown}{ArrowDown}");
+    expect(box).toHaveAttribute("aria-activedescendant", screen.getAllByRole("option")[1].id);
+    await user.keyboard("{Enter}");
+    expect(props.onSelect).toHaveBeenCalledWith("raid:2");
   });
 
   // ★ Enter must NOT be swallowed unless an option is actually armed. This
@@ -217,6 +277,59 @@ describe("SingleEntityPicker", () => {
     const whileClosed = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
     fireEvent(box, whileClosed);
     expect(whileClosed.defaultPrevented).toBe(false);
+  });
+
+  // ★ The POSITIVE half of the reopen: Escape used to leave the list
+  // unreachable until the query changed, so clicking back into a field with
+  // text in it showed no matches. `fireEvent.click` deliberately, not
+  // `userEvent.click` — the latter focuses first, which would satisfy an
+  // onFocus implementation too and stop this pair discriminating.
+  it("reopens a dismissed dropdown when the field is clicked again", () => {
+    const { rerender, props } = renderPicker({ query: "a" });
+    const box = screen.getByRole("combobox");
+    fireEvent.keyDown(box, { key: "Escape" });
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+    fireEvent.click(box);
+    rerender(<SingleEntityPicker {...props} query="a" />);
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+  });
+
+  // ★★ THE NEGATIVE HALF, and the reason the reopen rides onCLICK rather than
+  // onFocus — a mechanism `entity-combobox-search.tsx` states in a comment and
+  // that nothing in THIS file enforced. Escape must STICK: tabbing away to fix
+  // something else and coming back is not a request to reopen, and if it were,
+  // a dismissed list would pop back over the rest of the form with no way to
+  // shut it but clearing the query.
+  // ★★ Both spellings are fired and NEITHER is load-bearing on its own — the
+  // OBSERVATION is measured (with `onClick` swapped to `onFocus`, deleting
+  // either line still turned this red, 2026-09-07), but the reason is NOT the
+  // one an earlier revision of this comment gave. It concluded "so RTL's
+  // `fireEvent.focus` does reach the handler in this React/RTL pair", which is
+  // false and would produce a DEAD focus test wherever someone reused it.
+  // ★★★ `fireEvent.focus` NEVER DISPATCHES A LONE `focus`. RTL overrides it to
+  // fire the bubbling event first (`@testing-library/react/dist/fire-event.js`,
+  // the `fireEvent.focus = (...args) => { fireEvent.focusIn(...args); … }`
+  // shim, added for React PR 19186). So React 17+'s `onFocus`-rides-`focusin`
+  // premise is intact; both deletions survive because EITHER line alone still
+  // delivers a `focusin`. Consequently `fireEvent.focusIn` below is strictly
+  // redundant, not belt-and-braces. It stays because the claim being pinned is
+  // that no focus round-trip of ANY spelling reopens — read it as two spellings
+  // of one event, never as evidence that React catches a bare `focus`.
+  it("keeps Escape sticky across a focus round-trip", () => {
+    const { rerender, props } = renderPicker({ query: "a" });
+    const box = screen.getByRole("combobox");
+    fireEvent.keyDown(box, { key: "Escape" });
+
+    fireEvent.focus(box);
+    fireEvent.focusIn(box);
+    rerender(<SingleEntityPicker {...props} query="a" />);
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+    // ...but the keyboard is never stuck behind an Escape: ArrowDown reopens,
+    // which is the APG affordance.
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
   });
 
   it("renders the current selection's label when one is set", () => {

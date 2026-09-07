@@ -16,9 +16,16 @@
 // (which is where the two callers genuinely diverge — the task picker filters
 // by text alone, the RAID cause picker must also exclude self and any pick
 // that would close a cycle). Nothing here knows what a task or a RAID item is.
-import { useId, useRef, useState } from "react";
-import { Input } from "./form-controls";
-import { ClearableSearchInput } from "./clearable-search-input";
+//
+// The keyboard/highlight mechanics live in `useEntityCombobox`
+// (`entity-combobox.ts`), shared with SingleEntityPicker. That file's docblock
+// carries the three-condition `active` derivation, the render-time reconcile,
+// the rAF `scrollIntoView` and the four-point record of why `combobox-shared`
+// is deliberately NOT the substrate here — read it before concluding the app
+// has two combobox cores by accident.
+import { useEntityCombobox } from "./entity-combobox";
+import { EntityComboboxSearch } from "./entity-combobox-search";
+import { EntityComboboxList } from "./entity-combobox-list";
 import { INTERACTIVE } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
@@ -46,7 +53,27 @@ interface EntityLinkPickerProps {
   /** Currently-linked entities, rendered as chips. */
   selected: readonly LinkPickerEntry[];
   /** Candidates for the dropdown — ALREADY filtered by the caller (query and
-   *  any domain rules). Rendered only while the query is non-blank. */
+   *  any domain rules). Rendered only while the query is non-blank.
+   *
+   *  ★★ HISTORY worth keeping, because a correction here was itself the defect
+   *  twice over. A 2026-09-05 measurement of what the callers do to this array
+   *  covered the ADD path ALONE, and an earlier revision of it stated the
+   *  conclusion unscoped ("none defeats it"); an earlier one still named
+   *  `RaidCausedByField` (`raid-edit-fields.tsx`) as a violator because its
+   *  `onAdd` arrow does not clear the query — false, the `addCausedBy` it calls
+   *  clears the query one layer down in `raid-edit-modal.tsx`. Every backticked
+   *  name in that claim was real, so no symbol check could object. Enumerate
+   *  the callers before repeating any of it, and follow each `onAdd` into its
+   *  handler (the `$` anchor keeps this comment out of its own result, the `-v`
+   *  drops the test file):
+   *    grep -rn "<EntityLinkPicker$" src/app --include=*.tsx | grep -v "\.test\."
+   *
+   *  ★ The add-path clear is still asserted for its own sake by "clears the
+   *  search query when a cause is added" (`raid-edit-modal.test.tsx`) — it is
+   *  what empties the field and closes the list after an add. Its sibling "does
+   *  not add a second cause when Enter is pressed again on an unchanged query"
+   *  is now belt-and-braces: the hook's identity check catches that shrink
+   *  independently. */
   options: readonly LinkPickerEntry[];
   query: string;
   onQueryChange: (value: string) => void;
@@ -90,185 +117,23 @@ export function EntityLinkPicker({
   onOpen,
   inputSize = "xs",
 }: EntityLinkPickerProps) {
-  const listId = useId();
-  const listRef = useRef<HTMLUListElement>(null);
-  // Active option index for the combobox. VIEW state, so it lives here even
-  // though `query` stays controlled by the caller — the caller owns which
-  // entities are linkable, not which one the keyboard is currently on.
-  const [highlight, setHighlight] = useState(-1);
-  // The ENTITY the index was armed against, by the same identity `entryKey`
-  // gives the React keys — so a picker spanning several entity kinds, whose
-  // ids collide, compares on `key` here exactly as it does there. Read with
-  // `highlight` below: an index whose entry no longer matches is not armed.
-  const [armedKey, setArmedKey] = useState<string | null>(null);
-  // Escape closes the dropdown without touching the query. Reset whenever the
-  // query changes, so typing on reopens the list.
-  const [dismissed, setDismissed] = useState(false);
-  const [prevQuery, setPrevQuery] = useState(query);
-
-  // Render-time reconcile, NOT an effect (`set-state-in-effect` is fatal here).
-  // Keyed on the QUERY, not on the `options` identity: callers re-filter and
-  // hand us a fresh array every render, so reconciling on identity would reset
-  // the highlight on every keystroke-free re-render and the arrow keys would
-  // never stick.
-  if (prevQuery !== query) {
-    setPrevQuery(query);
-    setHighlight(-1);
-    setArmedKey(null);
-    setDismissed(false);
-  }
-
-  const hasQuery = query.trim() !== "";
-  const open = hasQuery && options.length > 0 && !dismissed;
-  // THREE conditions, and none of them subsumes another:
-  //   1. the RECONCILE above clears both pieces of state on a query change;
-  //   2. the RANGE clamp drops an index past the end of a shrunken list — it
-  //      stays load-bearing regardless of (3), because the identity read
-  //      itself indexes `options[highlight]`;
-  //   3. the IDENTITY check catches what neither can see — `options` GROWING
-  //      or being SWAPPED under a standing query, where the stale index is
-  //      still in range but now names a DIFFERENT entity.
+  // ★ The commit call stays at THIS call site, and it is the plain handler:
+  // this picker adds the WHOLE entry, which is why the hook hands the option
+  // back rather than unwrapping a field of it (the single-select sibling
+  // unwraps a `value` in its own `onCommit`).
   //
-  // ★★ Identity of the ENTRY, not identity of the `options` ARRAY. Callers
-  // re-filter and hand a fresh array every render, so reconciling on the array
-  // would reset the highlight on every keystroke-free re-render and the arrow
-  // keys would never stick. Comparing the entry's key is immune to that: it
-  // clears only when the entity actually under the index changed.
-  //
-  // ★★★ WHAT (3) NOW ENFORCES — a real defect until 2026-09-06, and the reason
-  // this is a data-correctness guard rather than a cosmetic one. All four
-  // `onRemove` arrows change the caller's selected set with the query
-  // untouched, each caller's option list is derived by EXCLUDING that set
-  // (`useTaskPickerOptions` for `task-link-picker.tsx` and
-  // `dependencies-editor.tsx`, the `linked` set in `document-links-field.tsx`,
-  // `availableCauses` in `raid-edit-modal.tsx`), and `filterPickerOptions`
-  // (`picker-filter.ts`) is an order-preserving `.filter()` chain with no sort.
-  // So unlinking an entity that still matched the standing query put it BACK
-  // at its SOURCE position and shifted every index at or after it: arm the
-  // third option, unlink the second chip, click back into the field, press
-  // Enter — and the picker RE-ADDED the entity just removed. The visible half
-  // needed no keystroke at all: `aria-selected` and `aria-activedescendant`
-  // named the wrong row the moment the list re-rendered, so a mouse user
-  // clicking the highlighted row was misled too. Pinned by "does not re-add
-  // the entity that was just unlinked" and "drops the highlight the moment a
-  // removal shifts the option list" in `entity-link-picker.test.tsx`.
-  //
-  // ★★ AND THE EXEMPTION THAT SUGGESTS ITSELF NEVER HELD — checked, not
-  // assumed. "Clicking a chip's remove button moves focus off the search box,
-  // so Enter never reaches `onKeyDown`" covers only the very next keystroke:
-  // `IconButton` sets no `onMouseDown` preventDefault, so the click really does
-  // take focus — but the search box's reopen handler is `onClick` calling
-  // `setDismissed(false)` and it resets nothing else, so clicking back into the
-  // field restored the open list with the stale highlight intact.
-  //
-  // ★★ WHAT REMAINS A CONTRACT, unenforced: entry keys must be UNIQUE within
-  // one `options` array. Two entries sharing a key are indistinguishable here,
-  // and the identity check would then accept the wrong one — which is what
-  // `LinkPickerEntry.key` exists for and documents itself as.
-  //
-  // ★★ HISTORY worth keeping, because a correction here was itself the defect
-  // twice over. A 2026-09-05 measurement covered the ADD path ALONE and an
-  // earlier revision of it stated the conclusion unscoped ("none defeats it");
-  // an earlier one still named `RaidCausedByField` (`raid-edit-fields.tsx`) as
-  // a violator because its `onAdd` arrow does not clear the query — false, the
-  // `addCausedBy` it calls clears the query one layer down in
-  // `raid-edit-modal.tsx`. Every backticked name in that claim was real, so no
-  // symbol check could object. Enumerate the callers before repeating any of
-  // it, and follow each `onAdd` into its handler (the `$` anchor keeps this
-  // comment out of its own result, the `-v` drops the test file):
-  //   grep -rn "<EntityLinkPicker$" src/app --include=*.tsx | grep -v "\.test\."
-  // ★ The add-path clear is still asserted for its own sake by "clears the
-  // search query when a cause is added" (`raid-edit-modal.test.tsx`) — it is
-  // what empties the field and closes the list after an add. Its sibling
-  // "does not add a second cause when Enter is pressed again on an unchanged
-  // query" is now belt-and-braces: (3) catches that shrink independently.
-  const active =
-    highlight >= 0 &&
-    highlight < options.length &&
-    entryKey(options[highlight]) === armedKey
-      ? highlight
-      : -1;
-
-  function move(delta: 1 | -1) {
-    // ★ `next` is computed OUTSIDE the updater and the scroll scheduled beside
-    // it: a setState updater must be PURE, and React StrictMode double-invokes
-    // it, which would schedule the rAF twice. Safe to read `active` here rather
-    // than the updater's `h` — `move` is only ever called from onKeyDown, where
-    // the clamped `active` is already current for this render.
-    const cur = active;
-    const next =
-      delta === 1
-        ? cur + 1 >= options.length
-          ? 0
-          : cur + 1
-        : cur <= 0
-          ? options.length - 1
-          : cur - 1;
-    setHighlight(next);
-    // ★ Armed against the ENTITY, so a later render whose `options` shifted
-    // under this index disarms it (see `active`). `move` is only reached from
-    // `onKeyDown`, which returns early on an empty list, so `options[next]`
-    // always exists.
-    setArmedKey(entryKey(options[next]));
-    // ★ The list is `max-h-60 overflow-auto` (~8 rows) and the keyboard path is
-    // aria-activedescendant, which browsers do NOT auto-scroll — focus never
-    // moves, so nothing brings the row into view. Past row 8 the ring, the
-    // weight and the fill all move below the fold, which would defeat the very
-    // contrast work this component just gained. Deferred a frame so the row
-    // carrying the new index has rendered.
-    requestAnimationFrame(() => {
-      listRef.current
-        ?.querySelector(`#${CSS.escape(`${listId}-opt-${next}`)}`)
-        ?.scrollIntoView({ block: "nearest" });
+  // ★★ `identity` is `entryKey`, NOT `String(entry.id)`: a picker spanning
+  // several entity kinds has colliding ids (a document's task#7 and raid#7 both
+  // resolve to `7`), so the highlight is armed against the same key that gives
+  // the rendered rows their React `key`. Pinned by "arms the highlight against
+  // the entry key, not the id it shares with another kind".
+  const { listId, listRef, open, active, onKeyDown, reopen } =
+    useEntityCombobox<LinkPickerEntry>({
+      query,
+      options,
+      identity: entryKey,
+      onCommit: onAdd,
     });
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!hasQuery || options.length === 0) return;
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.preventDefault();
-      setDismissed(false);
-      move(e.key === "ArrowDown" ? 1 : -1);
-      return;
-    }
-    if (e.key === "Enter") {
-      // ★ Only an ARMED option claims Enter. These pickers sit inside <form>
-      // edit modals where a bare Enter submits, so swallowing it merely because
-      // a dropdown happens to be open would silently break submitting from this
-      // field.
-      if (!open || active < 0) return;
-      e.preventDefault();
-      onAdd(options[active]);
-      return;
-    }
-    if (e.key === "Escape") {
-      // Only ours while the dropdown is actually open — otherwise Escape
-      // belongs to the enclosing modal.
-      if (!open) return;
-      // ★★ preventDefault is what actually contains this: the shared Modal's
-      // document-level Escape handler bails on `e.defaultPrevented`, which is
-      // the ONLY mechanism available. stopPropagation cannot do it — React 19
-      // delegates on `document` (Next hydrates the root there), the same node
-      // Modal listens on, and stopPropagation does not suppress a listener
-      // co-registered on the SAME node. It reads as though it works only
-      // because React Testing Library renders into a div under body, putting
-      // React's listener on a descendant — a topology the real app never has.
-      e.preventDefault();
-      // ★ Kept as defence-in-depth for a host listening on an ANCESTOR or on
-      // `window` rather than on `document` — propagation to those genuinely is
-      // cut by this, and `defaultPrevented` only helps a host that checks it.
-      // It has been load-bearing before: while the change edit modal still
-      // stacked a window-level Escape listener over `Modal`, this line was the
-      // only thing keeping Escape from discarding that draft. That listener has
-      // since been deleted, so today `preventDefault` above is the real
-      // mechanism — but "no host needs this right now" is not the same as
-      // "no host can", which is why it stays.
-      e.stopPropagation();
-      setDismissed(true);
-      setHighlight(-1);
-      setArmedKey(null);
-    }
-  }
 
   return (
     <div>
@@ -334,96 +199,31 @@ export function EntityLinkPicker({
         ))}
       </div>
       <div className="relative">
-        {/* Wrapped INSIDE this `relative` div, not around it: the listbox below
+        {/* Rendered INSIDE this `relative` div, not around it: the listbox below
             is positioned against this same box, so wrapping outside would put
             the ✕ over the option list instead of over the field. */}
-        <ClearableSearchInput
-          value={query}
-          onClear={() => onQueryChange("")}
+        <EntityComboboxSearch
+          listId={listId}
+          open={open}
+          active={active}
+          onKeyDown={onKeyDown}
+          reopen={reopen}
+          query={query}
+          onQueryChange={onQueryChange}
+          searchLabel={searchLabel}
+          placeholder={placeholder}
           clearLabel={clearLabel}
-        >
-          <Input
-            type="text"
-            role="combobox"
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            // ★ onCLICK, deliberately not onFocus. Escape must STICK: with an
-            // onFocus reopen, tabbing away to fix something and Shift+Tabbing back
-            // reopens the list over the rest of the form, and the only way to shut
-            // it again is deleting the query — the dead end this release exists to
-            // remove. A click is a deliberate return to the field; a focus event
-            // is not. ArrowDown/Up also reopen (the APG affordance), so a keyboard
-            // user is never stuck either.
-            onClick={() => setDismissed(false)}
-            onKeyDown={onKeyDown}
-            aria-label={searchLabel}
-            aria-expanded={open}
-            aria-controls={open ? listId : undefined}
-            aria-activedescendant={
-              open && active >= 0 ? `${listId}-opt-${active}` : undefined
-            }
-            aria-autocomplete="list"
-            placeholder={placeholder}
-            size={inputSize}
-            // ★ pr-8 reserves room for the overlaid ✕ and therefore rides the
-            //   same condition the ✕ does — unconditionally it would shave ~2rem
-            //   off the visible placeholder in the (common) empty state. Same
-            //   rule as TableFilter and PaneSearchInput.
-            className={`w-full${query ? " pr-8" : ""}`}
-          />
-        </ClearableSearchInput>
-        {open && (
-          <ul
-            id={listId}
-            ref={listRef}
-            role="listbox"
-            className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface"
-          >
-            {options.map((entry, i) => (
-              // ★ The row itself is the option — NOT a <button> inside one. An
-              // interactive child of role="option" is an axe nested-interactive
-              // violation, and the keyboard path is aria-activedescendant, so
-              // the button bought nothing. Mirrors global-search-box.
-              <li
-                key={entryKey(entry)}
-                id={`${listId}-opt-${i}`}
-                role="option"
-                aria-selected={i === active}
-                // Keeps focus in the input so commit-on-blur callers don't close
-                // the editor out from under the add (ResourcePicker precedent).
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onAdd(entry)}
-                // ★★ The active row keeps `text-foreground`. `text-ui-dark-blue`
-                // is the brand NAVY, which in every dark scheme sits on a dark
-                // `--surface-muted` at ~1.0-1.2:1 — the arrowed-to option would
-                // be marked by its text becoming INVISIBLE. The row background
-                // cannot carry the state alone either: `bg-surface-muted` is
-                // ~1.1:1 against the dropdown's own `bg-surface` AND is what
-                // inactive rows use on hover.
-                // ★★ The ring is `--foreground`, NOT an accent. Any brand accent
-                // is tuned for one mode: `ring-ui-green` measures 6.0-7.9:1 on
-                // the dark row fills but only 1.7-2.1:1 on the light ones, under
-                // the 3:1 WCAG 1.4.11 asks of a non-text state indicator — which
-                // would have left light schemes leaning on `font-medium` alone.
-                // `--foreground` clears 3:1 against that fill in every shipped
-                // scheme because it is the text colour FOR that surface — 12-15:1
-                // in the six built-ins, and 4.79:1 in AIPM/Mockup light, whose
-                // foreground is a mid grey rather than near-black. State cues
-                // here must be scheme-independent; pinned by scheme-contrast-cues.test.ts.
-                className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-sm text-foreground ${
-                  i === active
-                    ? "bg-surface-muted font-medium ring-1 ring-inset ring-foreground"
-                    : "hover:bg-surface-muted"
-                }`}
-              >
-                <span className="font-mono text-xs text-muted-foreground">
-                  {entry.code}
-                </span>
-                <span className="truncate">{entry.label}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+          inputSize={inputSize}
+        />
+        <EntityComboboxList
+          listId={listId}
+          listRef={listRef}
+          open={open}
+          active={active}
+          options={options}
+          optionKey={entryKey}
+          onPick={onAdd}
+        />
       </div>
     </div>
   );

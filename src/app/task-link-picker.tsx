@@ -40,12 +40,22 @@ export function TaskLinkPicker({
   const [query, setQuery] = useState("");
   const available = useTaskPickerOptions(tasks, selectedIds, query);
 
-  // A selected id whose task is gone still renders (with an empty name) so the
-  // stale link stays visible and unlinkable — dropping the chip would hide a
-  // dangling reference the user can no longer clear.
+  // A selected id whose task is gone still renders so the stale link stays
+  // visible and unlinkable — dropping the chip would hide a dangling reference
+  // the user can no longer clear.
+  // ★★★ IT NAMES ITSELF RATHER THAN RENDERING AN EMPTY LABEL. The empty string
+  // this used to fall back to reached the shared picker's INERT branch, where
+  // the unlink button is the chip's only focusable element and composes its
+  // accessible name as `${removeLabel} ${code} ${label}` — so a dangling chip
+  // announced "Unlink #99" with a trailing space, which is the bare-code state
+  // that branch exists to avoid. Found by cold review 2026-09-07.
+  // ★ The fallback is translated, not a literal: this string is announced.
   const selected = useMemo(
-    () => selectedIds.map((tid) => toEntry(tid, tasks.find((x) => x.id === tid)?.taskName ?? "")),
-    [selectedIds, tasks],
+    () =>
+      selectedIds.map((tid) =>
+        toEntry(tid, tasks.find((x) => x.id === tid)?.taskName ?? t(lang, "taskLinkDeletedTask")),
+      ),
+    [selectedIds, tasks, lang],
   );
   const options = useMemo(
     () => available.map((tk) => toEntry(tk.id, tk.taskName)),

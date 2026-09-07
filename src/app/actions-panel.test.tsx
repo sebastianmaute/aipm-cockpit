@@ -42,7 +42,8 @@ describe("ActionsPanel", () => {
     render(<ActionsPanel lang="en-US" actions={actions} onOpen={() => {}} />);
     expect(screen.getAllByText("Open")).toHaveLength(1); // one row
     // The reasons container is always mounted (just `hidden`); expansion flips aria-expanded.
-    const toggle = screen.getByRole("button", { name: /1 more reasons/i });
+    // r2 is the group's only extra reason -> the singular form ("+1 more reason").
+    const toggle = screen.getByRole("button", { name: /1 more reason\b/i });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");

@@ -17,7 +17,7 @@
 
 import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "./icons";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Absence, type Discipline, type Grade, type Resource, type ResourcePlan, type Role } from "./types";
 import { type LogActivityAsFn } from "./activity-log-context";
@@ -253,7 +253,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     // selection count (`chosen.length`) — the two diverge exactly when the
     // stale-cell guard above dropped one or more cells.
     logActivityAs?.("ai", "ai.allocationPlan", fresh.length);
-    showToast("info", t(lang, "allocPlanApplied", fresh.length));
+    showToast("info", tPlural(lang, "allocPlanApplied", fresh.length, fresh.length));
     reset();
   }, [phase, cells, selected, resources, setResources, capture, logActivityAs, showToast, lang, reset]);
 

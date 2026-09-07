@@ -63,6 +63,24 @@ describe("useUndoStack", () => {
     expect(result.current.stack[0].label).toBe("Bulk edit 2 RAID items");
   });
 
+  // ★★★ ONE ROW, BECAUSE EVERY OTHER BULK-LABEL TEST IN THIS FILE SEEDS TWO AND
+  // THAT IS WHY THE DEFECT SHIPPED. `buildUndoLabel` passed the PLURAL noun
+  // unconditionally, so a single-row bulk edit read "Bulk edit 1 RAID items" —
+  // and in German "Sammelbearbeitung von 1 Aufgaben". Reachable by bulk-editing
+  // one selected row. Found by cold review 2026-09-07, invisible to every
+  // key-shape scan because the noun is an ARGUMENT rather than part of the key.
+  it("agrees the noun with a one-row bulk edit, rather than always pluralising", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    act(() => {
+      result.current.capture({
+        setter: vi.fn(), kind: "bulk.edit", entityKey: "raid",
+        edited: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }],
+      });
+    });
+    expect(result.current.stack[0].label).toBe("Bulk edit 1 RAID item");
+  });
+
   it("undo restores via the setter, logs, toasts, and empties the stack", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useUndoStack(deps));

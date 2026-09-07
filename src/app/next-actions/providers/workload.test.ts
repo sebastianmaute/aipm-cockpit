@@ -25,6 +25,10 @@ describe("workloadProvider", () => {
     const a = workloadProvider.provide(input([{ resourceId: 2, resourceName: "Bo", reason: "overload", value: 4 }]));
     expect(a[0].why).toEqual({ key: "actionWorkloadWhyOverload", params: [4] });
   });
+  it("selects the singular why key for a single overdue item", () => {
+    const a = workloadProvider.provide(input([{ resourceId: 2, resourceName: "Bo", reason: "overload", value: 1 }]));
+    expect(a[0].why).toEqual({ key: "actionWorkloadWhyOverloadOne", params: [1] });
+  });
   it("routes an overload alert to the person's tasks, not the workload view", () => {
     const a = workloadProvider.provide(input([{ resourceId: 2, resourceName: "Bo", reason: "overload", value: 4 }]));
     expect(a[0].cta).toEqual({ kind: "open-tasks-for", resourceId: 2, resourceName: "Bo" });

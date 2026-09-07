@@ -6,7 +6,7 @@
 // both the modern and classic shells.
 
 import { useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { ViewCallout } from "./view-callout";
 import { ResourcePicker } from "./resource-picker";
 import { resourceDisplayName } from "./resource-foundation";
@@ -528,7 +528,7 @@ export function SteeringCommitteePanel({
                         >
                           {t(lang, "actionCommitteeInfoTitle", r.label, r.meetingTitle)}
                           {" — "}
-                          {t(lang, "actionCommitteeInfoWhy", r.dueDate, r.meetingTitle, r.daysLeft)}
+                          {tPlural(lang, "actionCommitteeInfoWhy", r.daysLeft, r.dueDate, r.meetingTitle, r.daysLeft)}
                         </li>
                       ))}
                     </ul>

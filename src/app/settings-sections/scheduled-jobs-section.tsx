@@ -8,7 +8,7 @@
 // this surface is presentation + a thin cadence/history editor.
 
 import { useState } from "react";
-import { type Lang, t, type TranslationKey } from "../i18n";
+import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
 import { FieldHint } from "../field-hint";
 import { isAiEnabled, type Settings } from "../settings-types";
 import type { TursoConfig } from "../turso-config";
@@ -157,7 +157,7 @@ function JobRow({
             {t(lang, "scheduledJobLastRun", lastRun.ranAt)}
             {" — "}
             {lastRun.ok
-              ? t(lang, "scheduledJobActionsN", String(lastRun.actionCount))
+              ? tPlural(lang, "scheduledJobActionsN", lastRun.actionCount, String(lastRun.actionCount))
               : lastRun.error === "limit"
                 ? t(lang, "aiUsageLimitReached")
                 : t(lang, "scheduledJobFailed", lastRun.error ?? "")}
@@ -184,7 +184,7 @@ function JobRow({
                   {t(lang, "scheduledJobLastRun", run.ranAt)}
                   {" — "}
                   {run.ok
-                    ? t(lang, "scheduledJobActionsN", String(run.actionCount))
+                    ? tPlural(lang, "scheduledJobActionsN", run.actionCount, String(run.actionCount))
                     : run.error === "limit"
                       ? t(lang, "aiUsageLimitReached")
                       : t(lang, "scheduledJobFailed", run.error ?? "")}

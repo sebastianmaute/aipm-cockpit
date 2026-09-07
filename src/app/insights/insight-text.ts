@@ -2,7 +2,7 @@
 // detail strings via positional i18n templates. This is the RENDER layer (not a
 // pure engine), so it may import `t`/`Lang` — the persisted Insight itself stays
 // language-neutral (no prose is ever stored, per insight.ts).
-import { type Lang, t, type TranslationKey } from "../i18n";
+import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
 import { buildRowTokens } from "../row-tokens";
 import type { Insight, InsightType } from "./insight";
 
@@ -55,9 +55,9 @@ export function insightDetail(insight: Insight, lang: Lang): string {
     case "milestoneSlip":
       return t(lang, "insightMilestoneSlipDetail", str(d, "name"), num(d, "daysOverdue"), str(d, "date"));
     case "overdueTrend":
-      return t(lang, "insightOverdueTrendDetail", num(d, "current"), num(d, "delta"), num(d, "prior"));
+      return tPlural(lang, "insightOverdueTrendDetail", num(d, "current"), num(d, "current"), num(d, "delta"), num(d, "prior"));
     case "stalledWork":
-      return t(lang, "insightStalledWorkDetail", num(d, "count"));
+      return tPlural(lang, "insightStalledWorkDetail", num(d, "count"), num(d, "count"));
     case "budgetVariance":
       return t(lang, "insightBudgetVarianceDetail", str(d, "name"), num(d, "variancePct"), num(d, "buckets"));
     case "raidAging":

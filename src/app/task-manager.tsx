@@ -6,7 +6,7 @@ import type { SettingsSectionId } from "./dashboard-coaching";
 import { computeBudgetReport, getBucketReminders, type ProjectReport } from "./budget-report";
 import { buildAllocationsSnapshot, type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import { PanelSkeleton } from "./skeleton";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
 import { ActivityLogProvider } from "./activity-log-context";
@@ -1532,7 +1532,7 @@ function TaskManagerInner() {
     (rows: { event: OutlookEvent; type: AbsenceType }[]) => {
       handleImportAbsences(rows, calendarTarget);
       setCalImportOpen(false);
-      showToast("info", t(lang, "outlookCalImportedN", rows.length));
+      showToast("info", tPlural(lang, "outlookCalImportedN", rows.length, rows.length));
     },
     [handleImportAbsences, calendarTarget, showToast, lang, setCalImportOpen],
   );

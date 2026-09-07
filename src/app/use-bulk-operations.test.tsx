@@ -729,7 +729,7 @@ describe("useBulkOperations", () => {
       // An apply that wrote nothing must not claim rows or log a row either.
       expect(logActivity).not.toHaveBeenCalledWith("bulk.edit", expect.anything());
       expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
-      expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneMany", 2));
+      expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDone", 2));
       // …but it MUST say that nothing needed changing: nothing was withheld here
       // (no hidden row, no Jira-synced row), so this is the only notice the user
       // gets for an apply that closed the modal and cleared the selection.
@@ -932,7 +932,7 @@ describe("useBulkOperations", () => {
       expect(result.current.undoStack).toHaveLength(1);
       expect(result.current.undoStack[0].count).toBe(2);
       expect(logActivity).toHaveBeenCalledWith("bulk.edit", 2);
-      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneMany", 2));
+      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "bulkEditDone", 2));
 
       // …and the undo reverts exactly those two, leaving row 3 as it was found.
       act(() => { result.current.undo(); });
@@ -1375,7 +1375,7 @@ describe("useBulkOperations", () => {
       // bucket apply must not report "2 tasks updated" or log a bulk.edit row.
       expect(r.args.logActivity).not.toHaveBeenCalled();
       expect(r.args.showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
-      expect(r.args.showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneMany", 2));
+      expect(r.args.showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDone", 2));
       // The second no-change path (bucket move that moves nothing) reaches the
       // same notice as the field path: nothing was withheld, so silence would be
       // indistinguishable from a swallowed error.

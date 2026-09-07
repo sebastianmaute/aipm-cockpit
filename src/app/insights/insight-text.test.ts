@@ -110,3 +110,62 @@ describe("guardrail insight text", () => {
     });
   }
 });
+
+// overdueTrend/stalledWork singular forms — pins the tPlural conversion.
+// `current`/`count` select the form; the other two overdueTrend numbers
+// (delta, prior) are NOT counts and stay at their own placeholders in both
+// forms (see i18n.ts's tPlural docstring).
+function overdueTrendIns(current: number): Insight {
+  return {
+    id: 2,
+    key: "overdueTrend",
+    type: "overdueTrend",
+    severity: "low",
+    data: { current, delta: 1, prior: 0 },
+    status: "active",
+    firstSeenAt: "2026-09-01",
+    lastSeenAt: "2026-09-04",
+    occurrences: 1,
+  };
+}
+
+function stalledWorkIns(count: number): Insight {
+  return {
+    id: 3,
+    key: "stalledWork",
+    type: "stalledWork",
+    severity: "medium",
+    data: { count },
+    status: "active",
+    firstSeenAt: "2026-09-01",
+    lastSeenAt: "2026-09-04",
+    occurrences: 1,
+  };
+}
+
+describe("overdueTrend/stalledWork plural forms", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("renders the singular overdueTrend detail in en-US", () => {
+    expect(insightDetail(overdueTrendIns(1), "en-US")).toBe(
+      "1 task overdue — up 1 since your last visit (0 before).",
+    );
+  });
+  it("renders the singular overdueTrend detail in de", () => {
+    expect(insightDetail(overdueTrendIns(1), "de")).toBe(
+      "1 Aufgabe überfällig — 1 mehr seit Ihrem letzten Besuch (0 zuvor).",
+    );
+  });
+  it("renders the singular stalledWork detail in en-US", () => {
+    expect(insightDetail(stalledWorkIns(1), "en-US")).toBe(
+      "1 active task is stale, blocked, or waiting on a dependency.",
+    );
+  });
+  it("renders the singular stalledWork detail in de", () => {
+    expect(insightDetail(stalledWorkIns(1), "de")).toBe(
+      "1 aktive Aufgabe ist veraltet, blockiert oder wartet auf eine Abhängigkeit.",
+    );
+  });
+});

@@ -12,7 +12,7 @@
 // used to disclose that as a bare count ("Apply 2 bucket changes?"). Showing
 // every row is what makes it an informed write instead of a silent overwrite;
 // do not reduce this back to a count.
-import { t, type Lang } from "./i18n";
+import { t, tPlural, type Lang } from "./i18n";
 import { Button } from "./button";
 import type { ApplyDiffLabel } from "./timelog-apply";
 
@@ -38,7 +38,7 @@ export function TimelogApplyConfirm({
     <div className="flex items-start gap-3 rounded-md border border-line bg-surface px-3 py-2 print:hidden">
       <div className="min-w-0">
         <p className="text-sm text-foreground">
-          {t(lang, "timelogApplyConfirm", String(rows.length))}
+          {tPlural(lang, "timelogApplyConfirm", rows.length, String(rows.length))}
         </p>
         {/* Grows to fit a short diff; only scrolls past MAX_VISIBLE_ROWS.
             Bounded on purpose: this card gates a FINANCIAL write into

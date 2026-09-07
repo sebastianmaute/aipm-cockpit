@@ -603,7 +603,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§376](#376-a-staged-document-row-cannot-be-named-in-the-review-card--closed-2026-09-05) | ~~A staged document row cannot be named in the review card~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`liveRowTitle` resolves an `update_document`/`delete_document` row's title from `ws.documents` by `input.id`; the plan beside it stays empty by design) |
 | [§377](#377-the-staging-gate-the-review-card-and-the-apply-path-have-no-production-caller--closed-2026-09-05) | ~~The staging gate, the review card and the apply path have no production caller~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`chat-panel.tsx` now consults `shouldStage`, mints, describes, mounts the card and applies inside `useUndoBatch`; the entry's own reproduce command returns real call sites) |
 | [§378](#378-a-staged-creates-provisional-id-is-not-reconciled-with-the-id-apply-mints--closed-2026-09-05) | ~~A staged create's provisional id is not reconciled with the id Apply mints~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`DescribedRow.mintedId` + `remapStagedCall`; landed BEFORE the wiring commit, so it was never reachable in a shipped product) |
-| [§379](#379-the-registers-index_matches-recipe-compares-two-sequences-while-its-prose-claims-membership--open) | The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership | found 2026-09-04, reproduced independently by two sessions across four tree states | S | open |
+| [§379](#379-the-registers-index_matches-recipe-compares-two-sequences-while-its-prose-claims-membership--closed-2026-09-07) | The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership | found 2026-09-04, reproduced independently by two sessions across four tree states | S | **CLOSED** 2026-09-07 |
 | [§380](#380-a-staged-plan-cannot-update-a-row-it-created-in-the-same-plan--closed-2026-09-05) | ~~A staged plan cannot update a row it created in the same plan~~ | found 2026-09-05 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`applyProposal` stamps a real concurrency token at apply time via `TOKEN_ROW_SOURCE`'s six full-row resolvers, already on `ToolDispatcher`) |
 | [§381](#381-a-row-refused-for-a-capability-gap-is-labelled-as-a-conflict--closed-2026-09-05) | ~~A row refused for a capability gap is labelled as a conflict~~ | found 2026-09-05 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (`failed` now carries a `failedKind` — conflict/dependency/unreadable/error — classified by `failureKindOf`, with four EN/DE strings) |
 | [§382](#382-the-registers-own-index-rebuild-is-lossy-and-calls-itself-idempotent--open) | The register's own index rebuild is lossy, and calls itself idempotent | found 2026-09-05 while closing 377 and 378 | S | open |
@@ -631,24 +631,44 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§404](#404-a-dependency-proposal-whose-links-are-all-refused-shows-no-change-and-no-reason--closed-2026-09-06) | A dependency proposal whose links are all refused shows no change and no reason | found 2026-09-06 in cold review of the preview/apply-parity branch | S | CLOSED 2026-09-06 |
 | [§405](#405-the-merge-site-guard-tables-restate-their-sanitizers-predicates-instead-of-sharing-them--open) | The merge-site guard tables restate their sanitizers' predicates instead of sharing them | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§406](#406-the-set_task_dependencies-card-label-is-hardcoded-english--closed-2026-09-06) | The `set_task_dependencies` card label is hardcoded English | found 2026-09-06 in cold review of the preview/apply-parity branch | S | CLOSED 2026-09-06 |
+| [§407](#407-task-row-changes-badge-renders-1-changes-for-a-single-linked-change--closed-2026-09-07) | Task-row changes badge renders "1 changes" for a single linked change | found 2026-09-05 by the control-defects batch | S–M — needs a per-language plural rule, not a string edit | **CLOSED** 2026-09-07 |
+| [§408](#408-no-turso-connection-test-exists-anywhere-in-the-repo--open) | No Turso connection test exists anywhere in the repo | found 2026-09-05 by the control-defects batch | M — a transient in-session result is cheap; a persisted "confirmed" flag would be the six-write-paths case | open |
+| [§409](#409-collapsing-an-open-documents-body-can-commit-a-pending-unblurred-edit-and-mint-a-version--open) | Collapsing an open document's body can commit a pending unblurred edit and mint a version | found 2026-09-05 by the control-defects batch; browser-measured 2026-09-06, which refuted the attempted fix | S — priority low; no ordinary gesture reaches the state | open |
+| [§410](#410-singleentitypicker-duplicates-entitylinkpickers-combobox-mechanics-almost-line-for-line--open) | `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line | found 2026-09-06 by the control-defects batch | M — extract a third shared hook; would collapse §411 with it | open |
+| [§411](#411-three-singleentitypicker-mechanisms-carry-a-stated-design-rationale-and-no-test--closed-2026-09-07) | Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test | found 2026-09-06 by the control-defects batch | S | **CLOSED** 2026-09-07 |
+| [§412](#412-tasklinkpicker-has-no-direct-test-suite--coverage-is-real-but-indirect--closed-2026-09-07) | `TaskLinkPicker` has no direct test suite — coverage is real but indirect | found 2026-09-06 by the control-defects batch, when a batch vitest run named ten paths and ran nine | S | **CLOSED** 2026-09-07 |
+| [§413](#413-the-raid-badges-raid-breakdown-is-mouse-hover-only-for-sighted-users--accepted-cost) | The RAID badge's R/A/I/D breakdown is mouse-hover-only for sighted users | decided 2026-09-06 by the control-defects batch | — a recorded decision, not a defect | open |
+| [§414](#414-the-browser-eye-verify-owed-by-the-control-defects-batch--open) | The browser eye-verify owed by the control-defects batch | deferred 2026-09-06 by the control-defects batch | M — six items; 1–4 now automated by a spec, 5–6 unmeasured | open |
 | [§415](#415-the-plural-agreement-defect-407-named-once-is-a-repeated-class-across-at-least-31-keys-and-the-count-itself-is-disputed--open) | The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed | found 2026-09-06 generalising §407 | L — 31+ keys, three grep traps, a disputed count | open |
 | [§416](#416-the-kanban-cards-changes-badge-had-no-test-at-all--closed-2026-09-06) | The Kanban card's changes badge had no test at all | found 2026-09-06 while closing §407 on this branch | S | **CLOSED** 2026-09-06 |
 | [§417](#417-three-test-connection-buttons-shared-one-accessible-name-and-none-announced-its-result--closed-2026-09-06) | Three "Test connection" buttons shared one accessible name, and none announced its result | found 2026-09-06 adding the Turso connection probe | S–M | **CLOSED** 2026-09-06 |
 | [§418](#418-only-update_task-has-a-source-enumerable-input-surface-so-the-coverage-gate-can-cover-one-tool-of-six--open) | Only `update_task` has a source-enumerable input surface, so the coverage gate can cover one tool of six | found 2026-09-06 by the preview/apply-parity round-2 slice | M | open |
 | [§419](#419-a-legacy-over-cap-costimpact-is-silently-clamped-to-amount_max-on-load--closed-2026-09-06) | A legacy over-cap `costImpact` is silently clamped to `AMOUNT_MAX` on LOAD | found 2026-09-06 by the preview/apply-parity round-2 register sweep | S | **CLOSED** 2026-09-06 |
 | [§420](#420-a-creates-link-line-rendered-with-a-bare-field-label-indistinguishable-from-the-open-rows--closed-2026-09-06) | A create's link line rendered with a bare field label, indistinguishable from the open row's | found 2026-09-06 in cold review of the preview/apply-parity branch | S | **CLOSED** 2026-09-06 |
-| [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--open) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | open |
-| [§422](#422-an-email-address-containing-a-comma-is-destroyed-by-a-no-op-round-trip-through-the-inline-editor--open) | An email address containing a comma is destroyed by a no-op round-trip through the inline editor | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
-| [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--open) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit | S | open |
+| [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--closed-2026-09-07) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | **CLOSED** 2026-09-07 |
+| [§422](#422-a-comma-bearing-email-address-is-destroyed-when-an-inline-edit-names-emails-with-a-changed-value--open) | A comma-bearing email address is destroyed when an inline edit names emails with a changed value | found 2026-09-06 in cold review of the preview/apply-parity branch; trigger claim refuted by probe 2026-09-07 | S | open |
+| [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--closed-2026-09-07) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit; it had rotted FOUR times and was incomplete besides | S | **CLOSED** 2026-09-07 |
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | closed 2026-09-07 |
 | [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
 | [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--open) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | open |
+| [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
 agree by construction, so this proves only that the rebuild was RUN — a heading added, retitled or
-closed without one leaves the table a row short or an anchor stale, and nothing else will say so:
+closed without one leaves the table a row short or an anchor stale.
+
+★★★ **MEMBERSHIP IS NOW GATED; THIS RECIPE'S SURVIVING JOB IS ORDER, AND SAYING OTHERWISE IS THE
+DEFECT §379 RECORDED.** `npm run followups:index:check` (`scripts/check-followup-index.mjs`, BLOCKING
+in CI as `followups-index-check`) compares the two sets — `Set` difference in
+`scripts/followup-index-lib.mjs`, so it is order-INSENSITIVE — and reports a heading with no row or
+a row with no heading. Run it for that question. The recipe below `diff`s two SEQUENCES, so it is
+order-SENSITIVE by construction: it is the only thing that checks the register's numeric-ordering
+property, and a pure misorder reports in it in the same shape a missing row would. Read a red here
+as "either ordering or membership" and let the gate tell you which. ★★ NEITHER checks that a row's
+ANCHOR still resolves to its heading — a retitle leaves both green with a dead link. That one is
+hand-run; derive every slug programmatically, never by typing it.
 
 ```bash
 TABLE=$(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md | grep -oE '^\| \[§[0-9]+' | grep -oE '[0-9]+')
@@ -662,8 +682,11 @@ RC=$?
 echo "INDEX_MATCHES=$RC  rows=$(echo "$TABLE" | grep -c .)  headings=$(echo "$BODY" | grep -c .)"
 ```
 
-★★★ **Nothing GATES this, and the paragraph that stood here is the argument for generating the table
-rather than warning about it.** That paragraph hand-transcribed the table's coverage — a range, a row
+★★★ **Something GATES the membership half now — see the paragraph above; everything else here is
+still ungated, and the paragraph that stood here is the argument for generating the table rather
+than warning about it.** (Written when nothing gated any of it, and left standing because its
+argument is about prose that restates a machine-checkable fact, which no gate has ever fixed.)
+That paragraph hand-transcribed the table's coverage — a range, a row
 count and a missing count — so every row added above it falsified all three at once. It happened
 three times, the last in a commit whose author had read the warning sitting directly beneath the row
 being added, and a cold review caught it each time rather than the instruction did. An instruction a
@@ -2684,8 +2707,13 @@ file every other consumer inherits from kept it, untested, until 0.211.0.
 ★ **The direction of copying is asserted in-file, not established, and the sources disagree.**
 `combobox-shared.tsx:125-127` names itself the origin — which is the file claiming its own primacy,
 not corroboration. `global-search-box.tsx:288` says the opposite: *"Same fix as entity-link-picker
-(which copied this pattern from here)"*, naming itself as origin. `entity-link-picker.tsx:316-332`
-names no source at all. Neither of the other two even imports `ComboboxOptions` from
+(which copied this pattern from here)"*, naming itself as origin. `entity-link-picker.tsx` names no
+source **for the highlight treatment** — ★ re-verified 2026-09-07, and the qualifier is now
+load-bearing: its option row does carry a "Mirrors global-search-box" note, but that is about the
+row being the `role="option"` element rather than wrapping a button, not about the highlight. Read
+the comment block on the option's `className` ternary, not the one above the `<li>`. (This was a
+`:316-332` range cite until 2026-09-07; the range had drifted onto the remove button and then out of
+the file entirely.) Neither of the other two even imports `ComboboxOptions` from
 `combobox-shared`, so nothing inherits the markup — these are three hand-copies, and an earlier
 version of this entry stated the provenance as fact in the wrong direction. Mtimes are merely
 *consistent* with combobox-shared being first (2026-05-29 < 06-22 < 07-26); treat that as weak.
@@ -7515,7 +7543,9 @@ must keep non-BMP characters out of the pattern.
 ★★★ **Six source sites have their glyph pinned by a test assertion, not the two the plan names.**
 `report-table.tsx:148` (`report-table.test.tsx`, and again via `SortResizeTh` in
 `calendar-series-list.test.tsx`) were known. The four that were not: `task-status-glyph.tsx` 54/56 ·
-`dashboard-panel.tsx:364` · `entity-link-picker.tsx:222` · `milestone-horizon-strip.tsx:46`.
+`dashboard-panel.tsx:364` · `entity-link-picker.tsx` (its `↩`, pinned by the test's "Label-bleed
+guard"; cited by line until 2026-09-07, when a refactor stranded the number) ·
+`milestone-horizon-strip.tsx:46`.
 Distinguish them from the ~10 test files that merely mention a glyph in an `it(...)` title — the
 inventory lists both sets so the distinction is not re-derived.
 
@@ -25734,6 +25764,35 @@ data is gone — plus the standalone stylesheet's own sink. ★ Note the cheaper
 sufficient: recording the mime alongside the bytes (the §225 closure) would stop mimes going stale,
 but a genuinely disallowed format would still be refused and would still be labelled missing.
 
+## 321. `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural
+
+**Status:** filed 2026-08-31, never machine-verified — split out of
+[§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720)
+when that closed. The read is reproducible:
+`grep -n "guidesPending) return;" src/app/chat-panel.tsx` shows the bail reads `busy` from the render
+closure, and `grep -n "abortRef.current === controller" src/app/chat-panel.tsx` shows the clear that
+made the CONSEQUENCE go away.
+
+§312 closed by making `retryLoad`'s guard correct whether or not `submitPrompt` is single-flight: the
+`finally` now clears `abortRef` only when the settling send still OWNS the slot. That removed the
+consequence. The PROPERTY is untouched — the bail reads `busy` from the render closure, so two
+dispatches in ONE tick would both pass it and mint two controllers streaming into one thread.
+
+★ **No path reaches it today, and that is call-site inspection, not a guarantee.** Every call site is a
+separate DOM event — by which point React has flushed `setBusy` and disabled the control — or the
+one-shot `chatSeed` effect. A new call site can falsify that silently, and nothing asserts otherwise.
+
+★★ **Severity is now BOUNDED by §312's fix, which is why this is filed rather than fixed.** Before that
+clear, a double dispatch cost `retryLoad` its liveness signal and could drop a live send's transcript
+from screen — silent loss on the load path. The worst case now is two concurrent streams into one
+thread: visibly wrong, and confined to the send path.
+
+★ **Do not close this with a test alone.** A test that dispatches twice in one tick and asserts exactly
+one controller pins TODAY's call sites; it does not make the property structural. The structural form is
+a ref-based bail read at dispatch (the ref is already there for aborts) rather than a `busy` read from
+the closure. Cheap — but it changes the send path, which is why it was not folded into a load-path
+slice.
+
 ## 322. The asset library offers Insert on a refused-format row, which can only ever render as blocked
 
 **Status:** OPEN. Filed 2026-08-31 from the §230 cold review — a gap the §230 disclosure work
@@ -25766,35 +25825,6 @@ a reason, (b) allow it but warn at insert time, (c) leave it and rely on the in-
 
 ★ Dangling rows have the same unguarded Insert. That half is milder — the retry path exists — but
 whatever is decided here should cover both, since the button is one call site.
-
-## 321. `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural
-
-**Status:** filed 2026-08-31, never machine-verified — split out of
-[§312](#312-retryloads-in-flight-guard-assumed-submitprompt-is-single-flight-and-nothing-pinned-it--closed-2026-08-31-02720)
-when that closed. The read is reproducible:
-`grep -n "guidesPending) return;" src/app/chat-panel.tsx` shows the bail reads `busy` from the render
-closure, and `grep -n "abortRef.current === controller" src/app/chat-panel.tsx` shows the clear that
-made the CONSEQUENCE go away.
-
-§312 closed by making `retryLoad`'s guard correct whether or not `submitPrompt` is single-flight: the
-`finally` now clears `abortRef` only when the settling send still OWNS the slot. That removed the
-consequence. The PROPERTY is untouched — the bail reads `busy` from the render closure, so two
-dispatches in ONE tick would both pass it and mint two controllers streaming into one thread.
-
-★ **No path reaches it today, and that is call-site inspection, not a guarantee.** Every call site is a
-separate DOM event — by which point React has flushed `setBusy` and disabled the control — or the
-one-shot `chatSeed` effect. A new call site can falsify that silently, and nothing asserts otherwise.
-
-★★ **Severity is now BOUNDED by §312's fix, which is why this is filed rather than fixed.** Before that
-clear, a double dispatch cost `retryLoad` its liveness signal and could drop a live send's transcript
-from screen — silent loss on the load path. The worst case now is two concurrent streams into one
-thread: visibly wrong, and confined to the send path.
-
-★ **Do not close this with a test alone.** A test that dispatches twice in one tick and asserts exactly
-one controller pins TODAY's call sites; it does not make the property structural. The structural form is
-a ref-based bail read at dispatch (the ref is already there for aborts) rather than a `busy` read from
-the closure. Cheap — but it changes the send path, which is why it was not folded into a load-path
-slice.
 
 ## 323. The single-task delete is the one entity delete that never arms the destructive-save bypass
 
@@ -28498,7 +28528,46 @@ create-then-update plan applies. The refusal survives only for a row that cannot
 AFTER §380 WAS CLOSED IN THE SAME BRANCH. §375 and §377 were swept for exactly this and §378 was
 missed — a closure falsifies sentences inside OTHER entries, and nothing gates that.
 
-## 379. The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership — OPEN
+## 379. The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership — CLOSED 2026-09-07
+
+**Status:** CLOSED 2026-09-07, both halves, and they closed by different means. Verified 2026-09-07:
+`grep -nE '^## (320|321|322|323)\.' docs/open-followups.md` now prints the four headings in numeric
+order (the 2026-09-04 reproduce above no longer reproduces), and the recipe itself run unpiped
+prints `INDEX_MATCHES=0  rows=413  headings=413` — the two populations beside the verdict being the
+vacuity control this entry added, since `RC=0` over two empty sets is a defeated check.
+
+**Half A — the standing red.** §322's section sat above §321's. Fixed by moving §321's 29-line
+section above §322's, byte-identical, which is the fix this entry's own ★ prescribed and prefers:
+it costs one edit and KEEPS the ordering property, where relaxing the recipe with `sort -n` would
+have made the red go away and silently dropped a property the command enforces.
+
+**Half B — the command/claim mismatch, which is what this entry is actually about.** The recipe
+still `diff`s two SEQUENCES; that has not changed and should not. What changed is the prose beside
+it, which now says so. `followups:index:check` (`scripts/check-followup-index.mjs`, BLOCKING in CI
+as `followups-index-check`) took over the MEMBERSHIP question with a `Set` difference, so the recipe
+no longer has to carry a claim it never implemented: the paragraph above it now names the gate for
+membership and the recipe for ORDER, and states that a pure misorder reports in the same shape a
+missing row would. That is the same remedy this entry prescribed for the opposite direction — "if
+the recipe is ever relaxed, the prose must say that ordering is no longer checked" — applied to the
+half that actually moved.
+
+★★ **THE GATE DOES NOT SUPERSEDE THE RECIPE, and closing this entry as "superseded" would have been
+wrong.** The gate is order-INSENSITIVE by construction, so the register's numeric-ordering property
+— the one §321's misorder violated — is checked by NOTHING except this recipe, run by hand. It
+survives as the ordering check, not as a redundant copy of the gate. ★ Both are still blind to a
+STALE ANCHOR: a retitle that leaves the row in place passes the gate and the recipe alike while the
+link is dead. That is not this entry's subject and is not filed as a defect here; it is stated so
+the next reader does not infer coverage from two green checks.
+
+★ **The ★★★ below — a standing red hides the next one — is the part worth carrying forward, and a
+blocking gate changes its calculus rather than retiring it.** Six entries were once filed with no
+index rows while this was red, and both defects landed in one `diff` with nothing to say which was
+which. A missing row can no longer hide that way: it now fails its own named job in CI, separately
+from anything the recipe reports. What CAN still hide behind a standing red here is another
+ORDERING fault, since the recipe reports every misorder in one undifferentiated `diff`. Fix an
+ordering red promptly for that reason, not for tidiness.
+
+_Original finding, as filed 2026-09-04. Preserved as the dated record of what was believed._
 
 **Status:** OPEN. Filed 2026-09-04, never previously recorded — the red was known to two sessions
 and written down by neither. Last executed verification 2026-09-04:
@@ -28722,9 +28791,13 @@ Had it obeyed, this slice's own §371 closure — landed the previous day — wo
 69. The instruction is followed by whoever closes the NEXT entry, which is the person least likely
 to notice that rows they never touched changed underneath them.
 
-★ Scope: this is about the REBUILD, not about the table's accuracy. The index is correct today —
-363 rows against 363 headings, every anchor regenerating from its heading with 0 mismatches. §379
-covers the separate, pre-existing ordering red.
+★ Scope: this is about the REBUILD, not about the table's accuracy.
+★★ A ROW/HEADING TOTAL THAT SAT HERE HAS BEEN REMOVED RATHER THAN CORRECTED. It read "363 rows
+against 363 headings", and it was already wrong at the merge base and wrong again after the
+register-hygiene slice — every entry filed or closed anywhere moves both numbers, so no total
+written into a body survives its next commit. `npm run followups:index:check` prints today's pair
+and FAILS on a mismatch, which is the form that cannot rot; read it there rather than here.
+§379 covered the separate, pre-existing ordering red, and is CLOSED.
 
 ★ Until it is fixed: hand-edit a closed row to match the shape §371 uses, and do NOT run the
 rebuild. Reproduce the loss with the fenced recipe above, run against a copy:
@@ -29614,30 +29687,79 @@ dependencies". Every other label on that surface is translated, and `i18n.ts` al
 `lang`, so either the label must become structured data the renderer translates, or the describer
 must start receiving a language. The second would put `t()` into a module whose purity is deliberate.
 
-## 407. Task-row changes badge renders "1 changes" for a single linked change — OPEN
+## 407. Task-row changes badge renders "1 changes" for a single linked change — CLOSED 2026-09-07
 
-**Status:** never machine-verified. Filed 2026-09-05 while scoping the control-defects batch —
-a wording defect visible by inspection; no gate can see plural agreement in an interpolated
-string.
+**Status:** CLOSED 2026-09-07. The two render sites and their tests were read, and the suite has
+since been RUN green — `npx vitest run --maxWorkers=1 src/app/task-row.test.tsx
+src/app/task-kanban-card.test.tsx` → exit 0, `Test Files 2 passed (2)`, `Tests 79 passed (79)`.
+★★ Assert `Test Files 2`, never the test tally: a mistyped path MIXED with a real one is DROPPED
+SILENTLY at exit 0, so only the file count proves both suites actually ran.
+★★ The German pin is real rather than vacuous, which is the thing worth checking about any DE
+assertion here: `task-row.test.tsx` awaits `loadI18n("de")` before rendering — the DE dictionary
+is lazy, so a DE assertion without it silently asserts against EN and passes — and it asserts
+`getByText("1 Änderung")` WITH `queryByText("1 Änderungen")` null. That negative control is what
+makes it a STEM test rather than a suffix test: a German plural formed by dropping a suffix from
+the plural would pass without it. Reproduce the fix itself with
+`grep -n 'tPlural(lang, "taskRowChangesBadge"' src/app/task-row.tsx src/app/task-kanban-card.tsx`
+(exactly two hits, one per surface) and the singular key's existence with
+`grep -n 'taskRowChangesBadgeOne' src/app/i18n.ts src/app/i18n.de.ts` (one hit each:
+EN `"1 change"`, DE `"1 Änderung"`).
 
-`taskRowChangesBadge` in `src/app/i18n.ts` is `"{0} changes"` (DE: `"{0} Änderungen"`,
-`src/app/i18n.de.ts`), called with `changeRefs.length` at both render sites — the
-`title`/`aria-label`/visible-text badge in `task-row.tsx` and the Kanban card badge in
-`task-kanban-card.tsx`. A task carrying exactly one linked change therefore reads "1 changes"
-everywhere the badge renders. Reproduce:
-`grep -n 'taskRowChangesBadge' src/app/task-row.tsx src/app/task-kanban-card.tsx`
-(four call sites — three in `task-row.tsx`, one in `task-kanban-card.tsx`, all passing
-`changeRefs.length`).
+**What was wrong.** `taskRowChangesBadge` in `src/app/i18n.ts` is `"{0} changes"` (DE:
+`"{0} Änderungen"`, `src/app/i18n.de.ts`) and was called with `changeRefs.length` at both render
+sites — the `title`/`aria-label`/visible-text badge in `task-row.tsx` and the Kanban card badge
+in `task-kanban-card.tsx` — so a task carrying exactly one linked change read "1 changes"
+everywhere the badge rendered.
+
+**What fixed it, and how it differs from what this entry predicted.** The paragraph below
+predicted "a small `pluralize(lang, count, one, other)` helper used at both call sites". The
+shipped shape is neither that signature nor a call-site ternary: `tPlural(lang, baseKey, count,
+…args)` (`src/app/i18n.ts`) selects between `baseKey` and a `${baseKey}One` sibling via
+`Intl.PluralRules(localeFor(lang)).select(count)`, so the singular is an AUTHORED sibling string
+rather than a suffix rule — which is what German needs, since it re-words noun, adjective and
+verb together. Its `PluralBaseKey` parameter type admits only keys whose `…One` sibling exists,
+so a call naming a base key with no singular fails `npx tsc --noEmit`. ★ The four `tPlural`
+occurrences in `task-row.tsx` and two in `task-kanban-card.tsx` (`grep -c tPlural` on each) are
+NOT all this badge — that file plurals other labels through the same helper; the anchored grep
+above is the one that isolates this key.
+
+★ Both surfaces call it with the count TWICE — once as `tPlural`'s selector and once as the
+`{0}` interpolation argument (`changeRefs?.length ?? 0` in `task-row.tsx`, `changeRefs.length`
+under a `length > 0` guard in `task-kanban-card.tsx`). That is not a redundancy to "simplify"
+away: the selector is positional-argument-free by design, so a helper that reused the selector
+as `{0}` could not express a plural whose interpolated value is not the count.
+
+★ Coverage, read from the sources rather than from a run: `task-row.test.tsx`'s
+"TaskRow changes badge" describe carries "uses the singular taskRowChangesBadgeOne key for
+exactly one linked change", "still uses the plural taskRowChangesBadge key for two linked
+changes" and "uses the German singular stem (not a suffix drop) for exactly one linked change".
+The DE one **does** `await loadI18n("de")` before rendering (the lazy-DE trap this repo records
+— without it the assertion would silently run against EN), and it asserts BOTH
+`getByText("1 Änderung")` and `queryByText("1 Änderungen")` being null, so a stem-preserving
+suffix drop cannot satisfy it. `task-kanban-card.test.tsx`'s "TaskKanbanCard changes badge"
+describe pins the EN singular and plural for that surface; it has no German case, and its own
+comment says so.
 
 ★ This badge WAS touched by the control-defects batch — commit `f168a927` added
 `whitespace-nowrap` to stop it (and the RAID/Jira/Document ID-column badges) wrapping inside the
 narrow ID column — but the wording was deliberately left alone; that commit only ever adds a
 class.
 
-Fixing it is more than a string edit: EN needs only a singular/plural branch, but DE plural
-rules are not a suffix-drop the way EN's is, so a proper fix needs a per-language pluralisation
-rule (likely a small `pluralize(lang, count, one, other)` helper used at both call sites), not a
-second interpolation argument bolted onto the existing key.
+**The prediction this entry filed, retained for comparison** (it was RIGHT about the constraint
+and WRONG about the shape, which is why it is kept rather than deleted): "Fixing it is more than
+a string edit: EN needs only a singular/plural branch, but DE plural rules are not a suffix-drop
+the way EN's is, so a proper fix needs a per-language pluralisation rule (likely a small
+`pluralize(lang, count, one, other)` helper used at both call sites), not a second interpolation
+argument bolted onto the existing key." A `pluralize` helper taking the two strings INLINE would
+have put authored DE prose at every call site; `tPlural` instead keeps both strings in the
+dictionaries as a base/`…One` pair, which is what makes the EN/DE key-parity check (`npx tsc
+--noEmit`) able to see a missing singular at all. (Deliberately un-backticked here: no
+`pluralize` symbol exists in this repo, and backticking a name that resolves nowhere is what
+`docs:symbols:check` exists to catch.)
+
+★ The class this was one instance of is NOT closed — §415 generalises it to at least 31
+call-site-verified keys, of which this branch converted a subset. Closing §407 says the
+`taskRowChangesBadge` badge is fixed on both its surfaces; it says nothing about the other keys.
 
 ## 408. No Turso connection test exists anywhere in the repo — OPEN
 
@@ -29803,40 +29925,96 @@ on extracting a THIRD hook from what are now two near-identical implementations 
 `useEntityPickerCombobox({ query, optionCount })` returning `{ open, active, onKeyDown, listRef }`
 with the commit handed in as a callback, leaving each component only its own chrome.
 
-★★ Doing this would also collapse §411: the three mechanisms unpinned in `SingleEntityPicker` are
-already pinned in `entity-link-picker.test.tsx`, so one suite over the shared hook would cover both
-components instead of two suites that have to be kept in step the same way the comments do.
+★★ Doing this would now MERGE two suites rather than close a gap, and the sentence that stood here
+said the opposite. It read: "the three mechanisms unpinned in `SingleEntityPicker` are already
+pinned in `entity-link-picker.test.tsx`, so one suite over the shared hook would cover both". That
+was true when filed and was falsified by §411's own closure on 2026-09-07 — §411 is CLOSED and those
+mechanisms are pinned in `single-entity-picker.test.tsx` too. The extraction landed as
+`useEntityCombobox` (`src/app/entity-combobox.ts`), so the remaining prize is smaller and
+different: one suite over the shared hook instead of the same mechanism asserted in two component
+suites that must be kept in step.
+★★★ THE SWEEP THAT SHOULD HAVE CAUGHT THIS IS THE ONE THIS REGISTER STATES IN ITS OWN PREAMBLE — a
+closure falsifies sentences inside OTHER entries, and nothing gates that. §412's and §421's
+cross-references were swept in the same slice; this one was not, and it was found by a cold reviewer
+rather than by the closing agent. A closure's blast radius includes every entry that cites the closed
+one as LEVERAGE, not only those that cite it as a duplicate.
 
-## 411. Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test — OPEN
+## 411. Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test — CLOSED 2026-09-07
 
-**Status:** OPEN. Verified 2026-09-06 by grep: `grep -cE "ArrowUp|pr-8|reopens" src/app/single-entity-picker.test.tsx src/app/entity-link-picker.test.tsx` returns 0 for the SingleEntityPicker suite against 9 for the sibling's. The sibling count is the positive control — without it a zero cannot be told from a mistyped pattern.
+**Status:** CLOSED 2026-09-07. (a) and (c) pinned by new tests in `src/app/single-entity-picker.test.tsx`; (b) was ALREADY covered, and this entry's reasoning about it was wrong. All three mutation-proved — see below. Verify with `npx vitest run --maxWorkers=1 src/app/single-entity-picker.test.tsx src/app/entity-combobox.test.tsx` (19 + 7 tests, exit 0).
 
-An earlier round pinned the component's Escape handling, its render-time reconcile and its
-out-of-range clamp. Three mechanisms are still unpinned, and each one's source comment states a
-reason it is written the way it is — which is the dangerous combination: a "simplification" that
-contradicts the stated reason ships with the suite green, and the comment then reads as protection
-nothing provides.
+★ Do NOT re-run this entry's old Status grep as the closure evidence. `grep -cE "ArrowUp|pr-8|reopens"` now returns 6 for `single-entity-picker.test.tsx` against the sibling's 9 — but **0** for `entity-combobox.test.tsx`, which is where (b) actually lives, because that suite spells the case "wraps the highlight at both ends" and arrows with `move(1)`/`move(-1)` rather than the string `ArrowUp`. A pattern that cannot see the covering test is not a coverage measure.
 
-**(a) The reopen rides `onClick`, deliberately not `onFocus`** — the comment's reason is that Escape
-must STICK across a blur and a refocus, so that tabbing away to fix something and coming back does
-not pop the list back over the rest of the form. Nothing exercises it. Swapping the handler for
-`onFocus` breaks the guarantee silently. This is the one worth writing first.
+**(a) The reopen rides `onClick`, deliberately not `onFocus`** — CLOSED as a PAIR, and the pair is
+the point: "reopens a dismissed dropdown when the field is clicked again" plus "keeps Escape sticky
+across a focus round-trip". Mutant `onClick={reopen}` → `onFocus={reopen}` turns BOTH red (2 failed
+/ 17 passed, sum 19 = the file's test count). ★ The click test uses `fireEvent.click`, never
+`userEvent.click`: the latter focuses first, which an `onFocus` implementation satisfies too, and
+the pair would stop discriminating. ★★ The focus test fires BOTH `fireEvent.focus` and
+`fireEvent.focusIn`, and NEITHER is load-bearing — measured 2026-09-07, because the obvious reason
+to fire both is false. React 17+ mapping `onFocus` onto the bubbling `focusin` reads as "a lone
+non-bubbling `focus` can never reach the handler", but under the mutant, deleting either line still
+turned the test red.
 
-**(b) `ArrowUp` wrap-around.** The suite arrows DOWN and commits with Enter; `move(-1)`'s
-`cur <= 0 ? options.length - 1` branch is never taken. ★ The sibling's version of this test uses
-THREE options on purpose — with two, ArrowUp-from-index-0 lands on the same index whether the
-wrap-around is right or not, so a two-option fixture is vacuous here.
+**(b) `ArrowUp` wrap-around** — NOT a gap, and this entry's argument for it was wrong on both
+counts. It said the branch "is never taken" and that "with two options, ArrowUp-from-index-0 lands
+on the same index whether the wrap-around is right or not". `entity-combobox.test.tsx`'s "wraps the
+highlight at both ends" takes the branch on a TWO-option fixture (`move(1)` then `move(-1)`), and
+with two options the wrap yields `next = 1` where the unwrapped arm yields `-1` — different, so the
+fixture is not vacuous. Mutation-proved: `: cur <= 0 ? options.length - 1 : cur - 1;` → `: cur - 1;`
+gives 1 failed / 6 passed, sum 7. ★★ READ THE MANNER OF THE KILL before reusing this as precedent:
+the test dies on `TypeError: Cannot read properties of undefined (reading 'value')`, because
+`setArmedKey(identity(options[-1]))` throws before `expect(active).toBe(1)` is reached. Detection is
+real but rides `options[next]` being unguarded — add a `next >= 0` guard there and this coverage
+needs re-establishing on the assertion itself.
 
-**(c) The conditional `pr-8`.** It rides the same condition the overlaid clear button does, because
-unconditionally it would shave ~2rem off the visible placeholder in the common empty state. Neither
-branch is asserted.
+**(c) The conditional `pr-8`** — CLOSED. Both branches asserted in "reserves the clear gutter only
+while there is something to clear"; mutant `className="w-full pr-8"` gives 1 failed / 18 passed, sum
+19. Asserting only the presence passes against the unconditional class, which is why both branches
+are there.
 
-Remedy is cheap: `entity-link-picker.test.tsx` already carries a working template for all three
-((a) as its click-reopen and tab-away pair, (b) as its three-option ArrowUp case, (c) as its
-two-branch padding assertion), so each is a port rather than a new test. ★ If §410 is taken first,
-these three come for free — pin them on the extracted hook once instead of in two suites.
+★ The three mechanisms `entity-combobox.ts` states in its own comments were pinned in the same
+commit and are NOT part of this entry: the render-time reconcile (pinned by COMMIT COUNT — the
+obvious "resets on a query change" test was MEASURED green against a `useEffect` implementation, so
+it never covered this), the single `requestAnimationFrame` per `move` under StrictMode, and the
+deferred `scrollIntoView` (two halves, two mutants — deleting the rAF wrapper and deleting the whole
+block fail on different assertions).
 
-## 412. `TaskLinkPicker` has no direct test suite — coverage is real but indirect — OPEN
+## 412. `TaskLinkPicker` has no direct test suite — coverage is real but indirect — CLOSED 2026-09-07
+
+**Status:** CLOSED 2026-09-07 by `src/app/task-link-picker.test.tsx` — six tests over the seam the
+component actually owns. Verified here by reading the file and its subject, not by running them
+(another agent held vitest on this branch, so the suite was NOT re-run in this session — that is
+weaker evidence than a green run and is stated as such, following §407's precedent). The commands
+that were run: `grep -cE "^  it\(" src/app/task-link-picker.test.tsx` → **6**, and
+`grep -n "useTaskPickerOptions\|clearLabel\|code:" src/app/task-link-picker.tsx` → the
+`useTaskPickerOptions` import and call, the `` code: `#${id}` `` mapping and the interpolated
+`clearLabel`, i.e. the three seams the tests name. Reproduce the suite with
+`npx vitest run --maxWorkers=1 src/app/task-link-picker.test.tsx`.
+
+**What the six tests pin**, each a property of `TaskLinkPicker`'s OWN wiring rather than of the
+shared picker beneath it: options come from `useTaskPickerOptions` rather than the raw `tasks`
+array; `onAdd`/`onRemove` receive the bare task id, not the `LinkPickerEntry` the shared picker
+hands back; the component clears its own query after a commit; two chips for same-named tasks keep
+row-unique accessible names; `clearLabel` stays qualified with the caller's `label` so two pickers
+on one surface do not both announce "Clear" (asserted with a two-picker fixture, which is the only
+shape that can see it); and a `selectedId` whose task is gone still renders an unlinkable chip —
+the dangling-link behaviour the source documented and nothing pinned. The implementing agent
+reports each behaviour mutation-proved against the minimal revert of the line it guards, with every
+scorecard summing to the file's six runtime tests; that scorecard is its measurement, not one
+re-taken here.
+
+★★ **`requireCollisionSeed: true` IS UNUSABLE ON THIS SURFACE AND THROWS AGAINST CORRECT CODE**,
+which is worth recording because the row-unique-names rule otherwise reads as "always turn it on"
+for a collision test. The helper strips only the ` (N)` occurrence suffix `buildRowTokens` mints,
+while `TaskLinkPicker` disambiguates the other way — a LEADING `#<id>` from `LinkPickerEntry.code`
+(`` code: `#${id}` `` in `task-link-picker.tsx`; `entity-link-picker.tsx` composes the unlink name as
+`` `${removeLabel} ${entry.code} ${entry.label}` ``), so two tasks named "Deploy" render
+`Unlink #41 Deploy` / `Unlink #42 Deploy`. Distinct names, and the guard reds anyway. The flag is
+OFF with that measurement recorded at the call site. Same class as
+`documents-deleted-section.tsx`'s ` · #id`, which is opted out for the same reason.
+
+_Original finding, as written 2026-09-06. Preserved as the dated record of what was believed._
 
 **Status:** OPEN. Verified 2026-09-06: `ls src/app/task-link-picker.test.tsx` fails (no such
 file); `grep -rn "TaskLinkPicker" src --include=*.tsx --include=*.ts` finds it referenced only in
@@ -30013,12 +30191,212 @@ eye-verify closes this entry and anything it turns up gets its own.
 
 ## 415. The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed — OPEN
 
-**Status:** never machine-verified. Filed 2026-09-06, generalising §407 (fixed on this branch for
-`taskRowChangesBadge` only) into the class it belongs to. **At least 31 keys are call-site-verified
+**Status:** 2026-09-07 — the 31-key TIER 1 membership below has now been converted at the DICTIONARY
+level on this branch and the list is RETAINED; the 45-vs-31 count dispute is untouched and this entry
+stays OPEN for it and for the two exception-B keys whose authored singular no call site selects.
+Verified with
+`npx tsc --noEmit` (exit 0 — `PluralBaseKey` makes a missing singular a type error, so the
+DICTIONARY side cannot be half-done; nothing checks the CALL sites, which is how exception D was
+found and then fixed),
+`grep -rnoE '"[A-Za-z]+One"' src/app/next-actions/providers/ --include=*.ts --exclude=*.test.ts`
+(the four engine-side exceptions, 4 hits), `grep -rn 't(lang, "activityEntriesLogged"\|t(lang,
+"timelogTestOk"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.' | grep -v tPlural`
+(exception D's regression check — must return NOTHING), and `npm run docs:claims:check` (exit 0).
+Filed 2026-09-06, generalising §407 (fixed on
+this branch for `taskRowChangesBadge` only) into the class it belongs to. **At least 31 keys are call-site-verified
 TIER 1** — named in full below. An earlier, independent pass reported 46 (45 once §407's own key is
 subtracted for a fair comparison); that figure is recorded here as an UNRECONCILED earlier count, not
 averaged with, split against, or quietly preferred over the 31. Reproduce commands are inlined per
 claim below; none of them was run with `--update` or otherwise made to agree with a prior number.
+
+### What this branch converted — and what "converted" does not cover (2026-09-07)
+
+The 31-key TIER 1 list below is the first time either pass's MEMBERSHIP survived the work it
+motivated; it is retained below precisely so a future pass has something to diff key by key rather
+than number against number. 30 of the 31 now carry an authored `…One` sibling in BOTH dictionaries;
+the 31st, `dashboardGreetingSummary`, was SPLIT rather than converted (see finding 2).
+
+★★★ **"CARRIES A SINGULAR" IS NOT THE SAME CLAIM AS "RENDERS THE SINGULAR", AND NOTHING IN THIS
+REPO CHECKS THE SECOND ONE.** Two mechanisms guard this class and BOTH are statements about the KEY
+SET, not about any call site: `PluralBaseKey` makes a missing `…One` sibling a type error (so `npx
+tsc --noEmit` proves the pairing), and the source scan in `i18n-plural.test.ts` proves no singular
+is stranded without a base. A key can therefore be correctly paired, fully translated in EN and DE,
+and still never render its singular — because the code that renders it never asks for one. Neither
+gate can see that, no CI job in `.gitlab-ci.yml` can see it, and it is invisible to review because
+the dictionary looks finished. **A future conversion slice should assume this WILL happen again and
+verify call sites separately from keys** — exception D below is the worked instance.
+
+★★ The per-class membership sits under exceptions A–D. No numeric split is quoted here, and that is
+not only the usual restaling rule: **no single grep reproduces one.** Five of the paired keys reach
+`tPlural` through a VARIABLE rather than a key literal — `use-storage-file-ops.ts` picks
+`storageTursoLeaveWarn`/`storageConvertConfirm` into a `confirmKey` const, and `raci-suggest-modal.tsx`
+looks its three `raciSuggestSkipped*` keys up through `SKIP_REASON_KEY` before calling
+`tPlural(lang, key, n, n)` — so a scan keyed on `tPlural(lang, "KEY"` classifies all five as
+unreached, which is the same grep-granularity trap the three numbered traps below record. Read the
+call site, do not tally the matches:
+
+```bash
+grep -rn "tPlural(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+```
+
+★★★ **The 45-vs-31 gap is NOT closed by this work, and nothing here should be read as narrowing
+it.** The conversion took the fresh pass's membership and used the fresh pass's own methodology,
+which is the one approach that cannot reconcile the two counts — re-running a methodology against
+its own output is not an independent pass. "What would close the gap" below stands unchanged.
+
+★ No total for converted keys is quoted anywhere in this entry. The keys live in `src/app/i18n.ts`,
+this entry is a claim ABOUT that file, and any number written here restales on the next commit that
+touches it — inside its own fix round, which is the failure this register records most often. The
+live measurement is the pairing test in `src/app/i18n-plural.test.ts`, which scans the dictionary
+for `…One` keys itself and fails on a stranded singular.
+
+**Three things the table's own framing did not anticipate, all found during conversion, none
+predicted by the plan:**
+
+1. **The count is not always slot `{0}`.** `actionCommitteeInfoWhy` (`"Due {0} — {1} ({2} days)"`)
+   carries it at `{2}`, and `chatAttachmentSummarySkipped` (`"{0} — {1} attachments, {2} skipped"`)
+   at `{1}`. `tPlural` therefore takes `count` as a SELECTOR only and never injects it into the
+   args — the caller passes the number in whatever position the string uses. Injecting it would
+   have worked for most of this table, which is what makes it the dangerous design.
+2. **`dashboardGreetingSummary` carried TWO independent counts** (`"{0} items need you · {1}
+   milestones soon"`), and one selection cannot agree two counts at once. It was SPLIT into
+   `dashboardGreetingNeedsYou` + `dashboardGreetingMilestonesSoon`, each pluralised on its own count
+   in `dashboard-delta-strip.tsx`. The "Not uniformly mechanical" section below did anticipate a
+   rewording for this key; it did not anticipate that the key would cease to exist, so its row in
+   the table below now names a key that no longer resolves — `grep -n dashboardGreetingSummary
+   src/app/i18n.ts` returns nothing. Left in place as the record of what was surveyed.
+3. **The ten pre-existing pairs used TWO naming conventions, not one.** Seven were `…One`/`…Many`
+   with NO bare base key — `diagnosticsUnitError`, `diagnosticsUnitWarn`, `bulkEditTitle`,
+   `bulkApply`, `bulkEditDone`, `chatAttachmentSummary`, `trendsGap` (post-rename names) — which
+   `PluralBaseKey` cannot accept, since it requires `<base>One` plus a bare `<base>`. The other
+   three (`taskRowChangesBadge`, `documentsVersionBlocks`, `documentsCardRemoved`) were already on
+   base/`…One` but still hand-wrote their call-site ternaries. All ten are now on one convention.
+
+**Four exceptions — the honest scope of the word "converted" here.** A, B and C were found during
+implementation and were not predicted by the plan; **D was found while writing THIS entry, by
+checking a sentence that asserted all 30 paired keys render through `tPlural`. They did not.** That
+sentence would have passed every gate in this repo. D has since been fixed (`activity-log-panel.tsx`
+and `timelog-settings.tsx`) and is retained below for its lesson, not as an open defect; A, B and C
+are open. ★★ Read the four as classes, not as a tally — the fix moved two keys between classes
+without changing what any class MEANS.
+
+**A — four keys have an engine call site that is NOT routed through `tPlural`, and cannot be.**
+★ Read that as scoped to the ENGINE site: `actionCommitteeInfoWhy` also has a SECOND, panel-side
+call site (`steering-committee-panel.tsx`) that does go through `tPlural`, so "not routed through
+`tPlural`" is false of the key as a whole and true of its provider. `actionWorkloadWhyOverload`,
+`actionRaidWhyReviewStale`, `actionChangeAggTitle` and `actionCommitteeInfoWhy` are set inside
+`src/app/next-actions/providers/`, which are deliberately i18n-free engines: no `Lang` is in scope,
+and they emit `{key, params}` objects (`I18nText` in `next-actions/types.ts`) that a surface renders
+much later through one generic `t(lang, x.key, ...(x.params ?? []))`. `tPlural` cannot be called
+there, so each provider picks the singular or plural KEY with a `count === 1` ternary, commented at
+each site. That is correct for en-US/en-GB/de — all three resolve `one`/`other` — but it is NOT
+locale-general the way `tPlural` is: a language with a `few`/`many` category needs all four
+revisited, and nothing flags them.
+★★ Enumerate on the QUOTED KEY, never on the cast: only three of the four carry `as const`, so
+`grep -rn 'One" as const' src/app/next-actions/providers/` returns THREE and reads as complete —
+it silently misses `change-pending.ts`. Use instead:
+
+```bash
+grep -rnoE '"[A-Za-z]+One"' src/app/next-actions/providers/ --include=*.ts --exclude=*.test.ts
+```
+
+**B — two singulars are dictionary-only, and nothing renders them.**
+`activityAiAllocationPlanOne` and `activityAiRaciSuggestOne` exist in both dictionaries and are
+unreachable. Their base keys are referenced only by `activity-log.ts`'s `ACTIVITY_KEY` map, and
+every activity kind is rendered through a generic `t()` on a looked-up key — in
+`activity-log-panel.tsx` (the user-visible surface, `t(lang, key, ...args)`) and in
+`activity-prompt.ts`'s `renderActivityEntry` (the AI-prompt surface, on a hardcoded `"en-US"`).
+There are TWO such renderers, not one; special-casing either for two keys was out of scope. So the
+activity log still reads "AI planned 1 allocation cells".
+★★ **Go to `activity-log-panel.tsx` for the user-visible string** — `renderActivityEntry` is the
+AI-prompt path and renders on a hardcoded `"en-US"`, so it cannot produce a German defect at all.
+An earlier brief for this work named `renderActivityEntry` as the user-visible renderer; a reader
+who follows that lands in the one file where the DE half of the class is unreachable by
+construction. Enumerate both before concluding anything — the two renderers are the two
+`const key = activityMessageKey(...)` lines, and this grep also returns the declaration plus four
+comment mentions (trap 2 below, in miniature):
+`grep -rn "activityMessageKey" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'`
+★★★ **Nothing catches this class automatically, and no gate can be added cheaply.** The pairing
+test finds a singular with no BASE sibling; it cannot find a singular that no code path reaches,
+because reachability here runs through a `Record` map and a generic call rather than a literal key.
+Verify by hand:
+
+```bash
+grep -rn "activityAiAllocationPlan\|activityAiRaciSuggest" src/app --include=*.ts --include=*.tsx | grep -v "i18n.ts:\|i18n.de.ts:"
+```
+
+**C — one converted key's SECOND count stays un-agreed.** `chatAttachmentSummarySkipped` is
+`"{0} — {1} attachments, {2} skipped"` — two independent counts, exactly finding 2's shape, but
+resolved the other way: converted for the `{1}` half rather than split.
+`chatAttachmentSummarySkippedOne` reads `"{0} — 1 attachment, {2} skipped"` in EN and
+`"{0} — 1 Anhang, {2} übersprungen"` in DE, so at a skipped-count of one the sentence still says
+"1 skipped". That half is a known, unfixed instance of this same class, recorded rather than
+smoothed over.
+
+**D — FIXED 2026-09-07, and kept here because the LESSON outlives the instance.**
+`activityEntriesLogged` and `timelogTestOk` were fully paired in EN and DE while their only call
+sites still called plain `t()` — `activity-log-panel.tsx` rendered "1 entries logged" and the
+Timelog connection test rendered "Connected — 1 users, scope: …". Both now call `tPlural`; verify
+with the two greps below, the first of which must return NOTHING and the second exactly two hits:
+
+```bash
+grep -rn 't(lang, "activityEntriesLogged"\|t(lang, "timelogTestOk"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.' | grep -v tPlural
+grep -rn 'tPlural(lang, "activityEntriesLogged"\|tPlural(lang, "timelogTestOk"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+```
+
+★★★ **THE DURABLE PART — a fully paired, fully translated key can still never render its singular.**
+The type gate and the stranded-singular scan both reason over the KEY SET (see the ★★★ block at the
+top of this section); a call site that never asks for the singular is outside what either can
+express. Check call sites as a separate step from keys.
+
+★★★ **THIS PARAGRAPH USED TO END "and NOTHING in this branch or in CI detects it … assume the next
+conversion slice reintroduces this", AND THAT WAS REFUTED BY A COLD REVIEWER ON 2026-09-07 — IN ONE
+COMMAND.** The detector now exists: `i18n-plural.test.ts`'s "routes every paired base key through
+tPlural, outside a documented exception" walks `src/app` (non-test), and for every base key with a
+`…One` sibling flags any line that mentions the quoted base key WITHOUT `tPlural`. Measured today:
+976 files, 42 pairs, **13 base keys across 17 lines**, all of them allowlisted —
+the four provider ternaries (A), the `raciSuggestSkipped*` union+map,
+the `confirmKey` ternary, and the variable-base `seg(n, base)` helper in `diagnostics-panel.tsx`.
+★★ It WOULD have caught this instance: at `525313da~1`, `activityEntriesLoggedOne` and
+`timelogTestOkOne` already existed while both call sites still called plain `t()`.
+★★ THE ALLOWLIST IS THE RISK AND IS ASSERTED IN BOTH DIRECTIONS — an un-allowlisted violation fails,
+AND an allowlisted key that no longer violates fails too. Without the second half a stale exemption
+is a HOLE, not clutter: the next call site to use that key is exempt for a reason that stopped being
+true. Mutation-proved by deleting one entry: 1 failed / 7 passed, and the failure NAMES the offending
+key and its file — no line number is quoted here on purpose, because the test derives it at run
+time and any insertion above would rot a number written into this prose (§131).
+★ It is a unit test, not a new CI job — it rides the existing blocking `unit-tests` gate, so this
+needed no pipeline change.
+
+★★★ **THE ENUMERATION IS STILL BLIND ONE WAY, AND THAT BLIND SPOT HELD A LIVE DEFECT ONE FILE
+AWAY.** The same review found `undo/use-undo-stack.ts` rendering **"Bulk edit 1 tasks"** /
+"Sammelbearbeitung von 1 Aufgaben" for a one-row bulk edit — reachable by bulk-editing a single
+selected row, and missed by BOTH of this entry's enumeration passes. It is invisible to every scan
+above, including the new one, because the key carries no plural noun at all: `undoLabelBulkEdit` is
+`"Bulk edit {0} {1}"` and the defect is the CALL SITE passing the plural fragment unconditionally.
+The delete branch three lines below had carried the `count === 1 ? singular : plural` ternary all
+along, so it was an omission rather than a decision. FIXED 2026-09-07 with a one-row regression test
+— every existing bulk-label test seeded TWO rows, which is why no suite could see it.
+★★ `tPlural` is deliberately NOT the fix there and that is this entry's exception class, not a
+violation of it: the noun is ENTITY-dependent (tasks / RAID items / changes), so no complete
+singular can be authored and the noun must arrive as an argument whatever the mechanism. The
+sentence carries no adjective or verb agreement in either language, which is the condition that
+makes a fragment safe there and unsafe in general.
+★ **Methodology, and the reason this is recorded rather than just fixed: a key-shape scan cannot see
+a noun-as-argument call site.** Both passes here enumerated over KEYS. Any future sweep of this class
+has to include a pass over call sites that interpolate an entity NOUN, which no regex over the
+dictionary will ever surface.
+★★ **A test that USES a key is not a test that PINS its call site, and the two are easy to mistake
+for each other.** Both keys appear in `i18n-plural.test.ts` as FIXTURES for `tPlural`'s own
+behaviour, so the suite rendered `"1 entry logged"` and `"Connected — 1 user, scope: read"` and was
+GREEN throughout, while no application path produced either string. Grepping the repo for the
+singular's rendered text would have found it — in a test file — and read as proof it worked.
+★★ **Root cause, worth recording because it is a scoping shape rather than a coding error:** the
+task that introduced `tPlural` added these two singulars so its own test had a pair to select
+between, and the conversion tasks after it were scoped BY CLUSTER (documents · RACI · next-actions ·
+insights · remainder). Neither key belonged to any cluster, so no task owned its call sites. A
+cluster-scoped conversion needs an explicit sweep for keys that fall between clusters; the
+membership list above is what makes that sweep possible.
 
 ### The count is a floor, not a total, and here is why it cannot be closed today
 
@@ -30163,7 +30541,16 @@ grep -rn 't(\s*lang\s*,\s*"KEYNAME"' src/app --include=*.ts --include=*.tsx | gr
 grep -rn '"KEYNAME"' src/app --include=*.ts --include=*.tsx | grep -v i18n | grep -v '\.test\.'
 ```
 
-### Mechanism — settled, and record it so it is not re-proposed
+### Mechanism — SUPERSEDED 2026-09-07 as to WHERE the count test lives; the reasoning below still holds
+
+★★★ **Read the paragraph below as the record of what was believed on 2026-09-06, not as current
+guidance.** A helper now exists — `tPlural(lang, baseKey, count, ...args)` in `src/app/i18n.ts` —
+and the call-site ternary it forbids has been removed from every converted site bar the four engine
+exceptions in A above. What was RIGHT and is unchanged is the substance: the two forms stay
+independently authored complete strings, never a stem plus a suffix. `tPlural` selects between two
+whole authored strings by `Intl.PluralRules` category; it is NOT the `pluralize(lang, count, one,
+other)` two-fragment API the paragraph below rejects, and that API is still rejected on exactly the
+evidence given. Only the LOCATION of the count test moved.
 
 The fix idiom is the house `*One` sibling plus a `count === 1 ?` ternary at the call site — NOT a
 `pluralize(lang, count, one, other)` two-fragment helper. A two-fragment API cannot express the
@@ -30450,20 +30837,44 @@ not know that tool; `pushLinkDiffs` sets it for a row that does not exist yet. T
 `LinkDiff.subject` carries the split.
 
 ★★★ **Filed and cited on this branch as §407 for nine commits, and §407 was already taken** — by
-"Task-row changes badge renders '1 changes' for a single linked change", an unrelated still-OPEN
-entry inherited from `origin/main` and legitimately cited by `task-row.tsx` and
-`task-row.test.tsx`. One number meant two things. Renumbered to §420 on 2026-09-06 across the
+"Task-row changes badge renders '1 changes' for a single linked change", an unrelated entry inherited from
+`origin/main` and legitimately cited by `task-row.tsx` and `task-row.test.tsx` — still-OPEN when
+this was written, CLOSED 2026-09-07. One number meant two things. Renumbered to §420 on 2026-09-06 across the
 inline-ai-edit files; the three `task-row` citations were left alone. ★ No tally is given, because
 the obvious check refutes any: the same commit ALSO added new §420 citations, so a `grep -rn "§420" src`
 today returns more than were renumbered, and a reader would read the difference as an error. The slip's
-cause is worth more than the fix: §407–414 are headings with NO index-table rows, so an index grep
-misses them entirely. Mint a number from the HEADING scan, against BOTH trees, because a number is
+cause is worth more than the fix: §407–414 were headings with NO index-table rows, so an index grep
+missed them entirely. ★★ THAT HOLE IS NOW CLOSED AND THE SENTENCE IS LEFT IN THE PAST TENSE
+DELIBERATELY — the rows were written on 2026-09-07 and `npm run followups:index:check` is a BLOCKING
+gate that fails when a heading has no row, so the specific trap that produced this renumber cannot
+recur silently. The minting recipe below is still right, and is still the one to use: the gate proves
+a row EXISTS, never that the number you are about to mint is free on both trees. Mint a number from the HEADING scan, against BOTH trees, because a number is
 reserved only once it is on `origin/main`:
 `grep -oE "^## [0-9]+\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1` and
 `git show origin/main:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1`
 → 419 and 417 on 2026-09-06, so 420.
 
-## 421. The register's own index table cannot see eight of its entries — OPEN
+## 421. The register's own index table cannot see eight of its entries — CLOSED 2026-09-07
+
+**Status:** CLOSED 2026-09-07 in two halves — the eight rows, and a gate so the gap cannot re-open
+silently. The rows for §407–§414 were written by hand (summary, provenance and size cells authored,
+not `— | —` placeholders), and §321's section was moved above §322's in the body, a byte-identical
+29-line move. The durable half is `scripts/check-followup-index.mjs` over the pure
+`scripts/followup-index-lib.mjs`, wired as `npm run followups:index:check` and as the BLOCKING
+GitLab job `followups-index-check` (stage `quality`, `needs: []`). Verified 2026-09-07:
+`node scripts/check-followup-index.mjs` → exit 0, printing
+`Follow-up index — 413 headings compared against 413 index rows`. The two counts are the
+non-vacuity control the gate prints for exactly the reason this entry's own Status line gave: a
+verdict with no populations beside it reads green over two empty sets.
+
+★★ **THE GATE COMPARES SETS, SO IT IS SILENT ON TWO THINGS THIS ENTRY MIGHT BE READ AS COVERING.**
+`missingRows`/`orphanRows` are computed by `Set` difference (`followup-index-lib.mjs`), so it says
+nothing about ORDER — §379 owns that — and nothing about whether a row's ANCHOR still resolves to
+its heading, which is a separate hand-run check and still ungated. A green run proves membership
+and only membership.
+
+_Original finding, as filed 2026-09-06. Preserved as the dated record, with the two claims the fix
+falsified corrected in place below and marked as corrections._
 
 **Status:** OPEN. Filed 2026-09-06 after it caused a real defect (§420 was minted as §407, a number
 already taken, and shipped in nine commits before anyone noticed). Last executed verification
@@ -30472,7 +30883,9 @@ already taken, and shipped in nine commits before anyone noticed). Last executed
 `grep -cE "^## (40[7-9]|41[0-4])\." docs/open-followups.md` → **8** headings. The second count is the
 non-vacuity control: a 0 from the first alone would also be what a broken pattern returns.
 **No gate was run to confirm this is ungated** — the claim below is reasoned from the three gates'
-own scopes rather than probed.
+own scopes rather than probed. ★ CORRECTION 2026-09-07: the reasoning was RIGHT. No gate compared
+the two sets on 2026-09-06, and the one that does now was written by the closure above; the
+unprobed hedge was warranted caution, not an error.
 
 ★ NO TOTAL IS QUOTED HERE, DELIBERATELY. A first draft of this Status line gave the heading and row
 counts as absolute numbers; both moved by two the moment §421 and §422 were appended — this entry is
@@ -30483,10 +30896,31 @@ the stable claim, and the per-number loop above is the only form that cannot rot
 §407–414 exist as headings with no index-table row. They arrived on `origin/main`, so this is not a
 merge loss on any one branch; a `§321` ordering discrepancy sits in the same table.
 
+★★★ **CORRECTION 2026-09-07 — THE `§321` DISCREPANCY WAS NEVER IN THE TABLE, AND SAYING SO SENT THIS
+SLICE'S COORDINATOR TO BRIEF THE WRONG FIX.** It was in the BODY: the sections ran 320, **322, 321**,
+323 while the table listed every number in correct numeric order. Measured at this branch's
+merge-base `9219cbda`, not reasoned — over that revision, the table held **405** rows with **zero**
+out-of-order pairs and **zero** duplicates, against **413** headings with exactly **one**
+out-of-order pair, `322 -> 321`. The zero-pairs result is the vacuity control for the other: a
+scanner that found no disorder anywhere would report the same thing over the body, and it did not.
+§379 was already the entry that owned the misorder and said so correctly; only this sentence
+misattributed it.
+
 ★★★ **NO GATE CAN SEE THIS, AND THAT IS THE WHOLE COST.** `followups:status:check` reads `**Status:**`
 lines, `docs:claims:check` reads `path:LINE` citations and `docs:symbols:check` reads backticked
 names — none of the three compares the heading set against the index set. So the table can drift
 arbitrarily far from the entries while every pipeline stays green.
+
+★★★ **CORRECTION 2026-09-07 — THAT PARAGRAPH WAS TRUE WHEN WRITTEN AND IS NOW FALSE, WHICH IS WHY IT
+IS CORRECTED HERE RATHER THAN DELETED.** Its enumeration of the three gates was accurate and its
+conclusion followed from it; what changed is the population, not the reasoning. There are now FOUR,
+and the fourth exists precisely to close this: `followups:index:check` compares the heading set
+against the index-row set and is BLOCKING in CI as `followups-index-check`. Drift no longer stays
+green. ★★ Do not read the correction wider than it goes — the new gate is a set comparison, so the
+sentence "the table can drift arbitrarily far" is now false for MEMBERSHIP and still true for
+ORDER and for a STALE ANCHOR, neither of which anything gates. A closed entry whose justification
+is left standing after the world moved is how a reader inherits a false enumeration as current;
+that is the failure this correction is avoiding, and it is the same class the entry itself is about.
 
 ★★ **THE FAILURE MODE IS MINTING A TAKEN NUMBER**, not a broken link, and it has now happened.
 The obvious way to find the next free number is to read the index table, which is exactly the
@@ -30497,7 +30931,72 @@ rewrites every row and fills `— | —` for the eight, whose summary and proven
 written. That is a real edit to entries other slices own, so it wants its own commit and its own
 review, not a drive-by during someone else's release. Deliberately NOT done here.
 
-## 422. An email address containing a comma is destroyed by a no-op round-trip through the inline editor — OPEN
+## 422. A comma-bearing email address is destroyed when an inline edit names emails with a changed value — OPEN
+
+**Status:** OPEN. Filed 2026-09-06; its trigger claim was measured and refuted 2026-09-07, and the
+entry was retitled and rewritten to the narrower claim that survives. Last executed verification
+2026-09-07 — the retained probe `src/app/inline-ai-edit/emails-roundtrip.probe.test.ts` (committed as
+66235c60), run with `npx vitest run src/app/inline-ai-edit/emails-roundtrip.probe.test.ts` →
+`Test Files 1 passed (1)` / `Tests 4 passed (4)`. The source claims below were re-checked the same day
+with `grep -n "f in input" src/app/inline-ai-edit/plan.ts`,
+`grep -n -A4 "function coerce" src/app/use-inline-entity-edit.ts` and
+`grep -rn "sanitizeEmail(" src --include=*.ts`.
+
+`resource.emails` round-trips through a joined string: the descriptor projects the stored list as a
+`", "`-joined string for the preview, `coerce` (`use-inline-entity-edit.ts`) passes a
+non-`arrayFields` value through untouched, and the writer's `sanitizeEmailList` re-splits it on
+`[;,]`. A stored address containing a comma is therefore UNREPRESENTABLE in that transport — whenever
+the `emails` field reaches the writer as a string, one address becomes two. The loss is real; only its
+trigger was misfiled.
+
+★★★ **THE ORIGINAL TRIGGER — "applying ANY unrelated edit" — WAS MEASURED AND REFUTED**, by the probe
+the Status line names. An edit whose tool input names only `firstName` yields `plan.updates` of
+exactly `["firstName"]`: `emails` is absent, and `plan.rejected` is empty (those last two assertions
+are the anti-vacuity control — they prove the diff loop actually ran for this entity rather than the
+block being refused wholesale). The mechanism is in `describeEntityCalls`
+(`src/app/inline-ai-edit/plan.ts`), whose `for (const f of d.diffFields)` loop opens with
+`if (!(f in input)) continue;` and, in the same loop, drops unchanged fields with
+`if (before === after) continue;`. `use-inline-entity-edit.ts` then builds its patch only from
+`plan.updates`. So a key the model OMITS reaches neither the plan nor the patch, and a fourth probe
+test measures that a key the model echoes back UNCHANGED is dropped exactly as harmlessly. ★ The
+`grep -n "f in input" src/app/inline-ai-edit/plan.ts` in the Status line returns TWO hits, not one —
+the other is the same guard inside `pushLinkDiffs`, a different loop over the link inputs. Read the
+one inside `describeEntityCalls`. The narrower trigger that IS real:
+`d.arrayFields.has("emails")` is `false`, so the joined string passes through, and
+`sanitizeEmailList("a,b@x.com, c@y.com", undefined)` returns `["a", "b@x.com", "c@y.com"]` — one
+address torn into two.
+
+★★★ **THE PROBE'S OWN BOUND, which its header states and which this entry must not smooth over.** It
+constructs the tool-use blocks directly, so it says NOTHING about MODEL behaviour. It covers the
+omitted case and the echoed-unchanged case only. A real model that volunteers a *changed* `emails` key
+unbidden while being asked to edit another field would reach the destructive path, and no unit test
+can rule that out. So the honest trigger is **"an edit that names `emails` with a changed value"** —
+not "any edit", and not "only a deliberate edit of the address" either.
+
+★★★ **DO NOT REACH FOR `arrayFields` — `entity-descriptor.ts` ALREADY REJECTS IT, and it would not
+work anyway.** Its comment beside the `resource` descriptor records the reasoning: `coerce` splits an
+`arrayFields` value on `","` ALONE, which is a SECOND parser for a format the writer already owns —
+the restatement the `fieldSanitizers` docstring forbids — and, since the delimiter it splits on is the
+very character at issue, it would destroy the comma just as surely as `sanitizeEmailList` does. Read
+that comment (`grep -n -B10 "diffFields: \[\"firstName\"" src/app/inline-ai-edit/entity-descriptor.ts`)
+before proposing it again.
+
+★ **What remains unfixed, and what closing it would cost.** The delimited string is the writer's OWN
+storage format — `sanitizeEmailList`'s docstring calls it "a JSON array or a delimited CSV/MD string"
+— so representing a comma inside an address needs either format validation at `sanitizeEmail`'s call
+sites or a transport for `emails` that never joins. `sanitizeEmail` is `sanitizeText(s, EMAIL_MAX)`
+and does NO format validation, so nothing rejects such an address at write time on ANY path today.
+Enumerate the sites with `grep -rn "sanitizeEmail(" src --include=*.ts | grep -v "\.test\."` — 20 hits
+on 2026-09-07 (21 before the filter), of which ONE is the `export function` in `sanitize-core.ts`;
+that line is the positive control, since a pattern that fails to return the definition is broken. So
+19 calls, across 13 files that call it. ★ The filter is load-bearing and quoting the number beside the
+UNFILTERED command would refute it — the first draft of this paragraph did exactly that. Two of the 13
+are external INGEST paths that today accept whatever the remote sends — `jira-api.ts` and
+`outlook-contacts.ts` — so validation is not a single-boundary change. Either fix is its own slice.
+
+_Original finding, as written 2026-09-06. Superseded by everything above: the "ANY unrelated edit"
+trigger is refuted, and the original Status line's `**No test pins this**` is no longer true — the
+probe named above pins it. Preserved unedited as the dated record of what was believed._
 
 **Status:** OPEN. Filed 2026-09-06 from a cold-review finding that was MEASURED and partly refuted —
 the parity half is fine and only the round-trip half survives. Last executed verification 2026-09-06 —
@@ -30526,7 +31025,48 @@ Whether the fix is validation at the boundary, or an array-preserving transport 
 never joins, is the open decision — they are different fixes with different blast radii, and picking
 one is not obvious enough to prescribe here.
 
-## 423. The codename ledger in `version.ts` is duplicated data that has rotted three times — OPEN
+## 423. The codename ledger in `version.ts` is duplicated data that has rotted three times — CLOSED 2026-09-07
+
+**Status:** CLOSED 2026-09-07. The ledger was cut from `APP_MILESTONE`'s docstring and
+`src/app/version.ts` went from 505 lines to 396. Verified 2026-09-07:
+`grep -cE '^ \*  0\.[0-9]+\.x was' src/app/version.ts` → **0**, against the same pattern over the
+merge-base copy (`git show 9219cbda:src/app/version.ts`) → **53**, which is the non-vacuity control
+— a 0 from the new file alone is also what a broken pattern returns.
+
+**What was KEPT, because it is repo knowledge `CHANGELOG.md` cannot hold**: the per-minor-line
+uniqueness rule and why a bare name grep misleads in BOTH directions; the enumerate-today's-reuses
+command; the two anchor axes (the em-dash/hyphen split, and headers putting the codename before the
+date) that have each reported a taken name as free; the prove-the-zero and sweep-a-BATCH notes; the
+stale-spare-list warning; the dead 0.224.0 number; and the near-collision note — 0.287.x "Tiptree"
+and 0.236.x "Sheldon" are one person, a relationship between two entries rather than a property of
+either, which is exactly why no grep over `CHANGELOG.md` can find it. What was DROPPED is the
+per-line biographies. ★ The docstring prescribes **TWO** uniqueness commands, not one — `grep -ic
+<name> CHANGELOG.md` and a dash-agnostic header pattern — and running only the second is one of the
+two ways a taken name has already read as free.
+
+★★ **THE ENTRY UNDERSTATED ITSELF THREE WAYS, and each strengthens its own case for the cut.**
+
+- **A FOURTH ROT, not three.** The docstring's own ★★★ warning against trusting a prior bump's
+  spare-name list read "The 0.284.x note below banked `barnhill`, `sladek` and `malzberg` as spare"
+  — and the 0.284.x entry it named contained no such list. Measured over the merge-base copy:
+  `grep -n -i "barnhill\|sladek\|malzberg"` returns the warning itself and the two ledger lines for
+  0.285.x/0.286.x, and `malzberg` appears NOWHERE else in the file. So a note about a list going
+  stale was pointing at a list that had been edited away underneath it.
+- **INCOMPLETE, not merely stale.** The ledger recorded SIX reuses — Cadigan, Gibson, Tchaikovsky,
+  VanderMeer, Nagata, Okorafor. The authoritative record holds **eleven**: the same six plus Bujold,
+  Hopkinson, Le Guin, Leckie and Tiptree. Reproduce with the command the surviving docstring now
+  prescribes:
+  `grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md | sed -E 's/^## \[(0\.[0-9]+)\.[0-9]+\][^"]*"([^"]+)"$/\2|\1/' | sort -u | cut -d'|' -f1 | uniq -d`
+  A hand-maintained second copy was not just behind the record; it disagreed with it on a property
+  the record can be asked for directly.
+- **"TIPTREE" IS ITSELF ONE OF THE ELEVEN**, and the ledger recorded it as a fresh name with a
+  biography: `grep -n 'Tiptree' CHANGELOG.md` returns `## [0.287.0] - 2026-09-06 "Tiptree"` AND
+  `## [0.20.0] — 2026-05-28 "Tiptree"` — note the two different dashes, which is the first anchor
+  axis above, live. 0.287.x is therefore BOTH a permitted cross-minor-line reuse the ledger missed
+  AND the same person as 0.236.x "Sheldon". The preserved near-collision note is the more
+  interesting for it, and the surviving docstring says so.
+
+_Original finding, as filed 2026-09-07. Preserved as the dated record of what was believed._
 
 **Status:** OPEN. Filed 2026-09-07 from a deletion-biased review of the 0.289.0 release commit. Last
 executed verification 2026-09-07 —
@@ -30845,3 +31385,81 @@ remembered option.
 the right thing with the input it is given. The defect is that a rejected blob is indistinguishable
 from an absent one, and any fix that leaves that conflation in place will be re-derived as a bug by
 the next person who reads `loadArrangement`.
+
+## 429. A closed entry's `**Status:**` line is the least-gated line in the register, and closing is when a fabricated verification is most tempting — OPEN
+
+**Status:** OPEN 2026-09-07 — measured, not reasoned. Reproduce with `node scripts/check-followup-status.mjs` (exit 0 today, "203 open entries scanned" — it never looks at the 211 closed ones), and read the filter itself with `grep -n "filter((e) => !isClosed" scripts/check-followup-status.mjs`. The 67/210 figure below came from applying the gate's own `statusViolations()` to the closed set.
+
+**The gate's universe excludes exactly the entries most likely to lie.** `check-followup-status.mjs`
+opens with `parseEntries(src).filter((e) => !isClosed(e.title))`. Every OPEN entry must carry a
+`**Status:**` line naming an executed command (or the honest `never machine-verified` escape); the
+moment an entry is CLOSED, that requirement stops applying to it — permanently, and silently.
+
+★★★ **CLOSING IS PRECISELY WHEN THE INCENTIVE TO INVENT A VERIFICATION PEAKS.** An open entry's
+Status is a running note nobody is graded on. A closure is a claim that work is DONE, written by
+whoever wants it done, at the moment they want to stop — and it is the one Status line the blocking
+gate cannot read. The register's own preamble already says a closure falsifies sentences elsewhere
+and nothing gates that; this is the same hole one level down, on the closure's own evidence line.
+
+**Measured 2026-09-07 on this branch:** of 211 closed entries, **124 name no executed
+verification** — 67 that carry a `**Status:**` line naming none (`NO_VERIFICATION`), plus 57 that
+carry no Status line AT ALL (`MISSING`). 1 carries no ISO date. Reproduce by importing
+`statusViolations` from `scripts/followup-status-lib.mjs` and running it over the entries
+`isClosed` filters out.
+
+★★★ **67 WAS THE FIRST NUMBER WRITTEN HERE AND IT UNDERCOUNTS THE FINDING BY ROUGHLY HALF.**
+`statusViolations` EARLY-RETURNS `["MISSING"]` when there is no Status block, so those 57 entries
+never reach the `NO_VERIFICATION` test at all — they are absent from that bucket because they are
+worse, not because they are better. Treating `MISSING` as an open-only CONTRACT rule is defensible;
+treating it as outside the FINDING is not, and it understates the remedy's cost by about 2x. Caught
+by cold review the same day this entry was written.
+
+★★★ **DO NOT READ THAT AS "192 OF 206 ARE BROKEN", AND THE CATEGORY ERROR IS THE POINT.**
+`statusViolations` emits four codes, and two of them — `SAYS_CLOSED` and `MISSING` — are contract
+rules written FOR OPEN ENTRIES. A closed entry whose Status line says CLOSED trips `SAYS_CLOSED`,
+which is correct there and forbidden in an open one. Counting every code gives 196 entries on this
+tree (258 code instances) and is noise dressed as a finding.
+★★ **"BY CONSTRUCTION" IS WHAT THIS SENTENCE USED TO SAY AND IT IS FALSE** — `SAYS_CLOSED` tests the
+Status BLOCK, not the heading, so it fires only where the author happened to repeat the word.
+Measured: `{"MISSING":57,"SAYS_CLOSED":133,"NO_VERIFICATION":67,"NO_DATE":1}` over 211 closed
+entries — 133 of 211, not all of them. Convention, not construction. The distinction matters because
+"by construction" was the justification for discarding the code entirely. Only `NO_VERIFICATION` and `NO_DATE` mean
+the same thing in both universes. ★★ A peer session hit this first, reported "192 of 206", and
+retracted it — worth recording because the wrong number is the one that looks alarming enough to act
+on.
+
+★★ **A CONTROL IS MANDATORY HERE AND MUST RUN BEFORE THE COUNT, NOT AFTER.** The same peer's control
+never executed: it built its fixture with `body` as a STRING when the parser yields an ARRAY of
+lines, so it threw — *after* the bad number had printed. A control that crashes is worse than no
+control, because the number above it still looks measured. Working pair, asserted before measuring:
+a Status citing only a backticked FILENAME returns `["SAYS_CLOSED","NO_VERIFICATION"]`; one citing a
+real command returns `["SAYS_CLOSED"]` alone. Predicate can both fail and pass.
+
+★★ **THE FIX IS NOT "SCAN CLOSED ENTRIES TOO".** Widening the filter lights up 124 historical
+entries at once, so it is a ratchet-and-baseline problem, not a one-line change — and a closure's Status
+legitimately READS differently from an open one's, so the contract itself would need restating per
+universe (`SAYS_CLOSED` inverts: required when closed, forbidden when open). Plausible shapes, none
+chosen: a baselined ratchet like `doc-claims-check`; or checking only entries closed AFTER a cutoff
+date, so new closures are gated and history is left alone.
+
+★ **This branch's own six closures were checked by hand and all six cite a real command** — §379,
+§407, §411, §412, §421, §423, none of them among the 67. That is the audit that found the gap, not
+evidence the gap is harmless: it was done deliberately BECAUSE the gate could not do it, and the
+next author has no reason to think of it.
+
+★★★ **THIS ENTRY'S OWN FIRST HEADING SPELLED THE WORD IN CAPITALS AND WAS THEREFORE CLASSIFIED AS
+CLOSED — the entry about closed entries escaping the gate escaped the gate.** `isClosed` is
+`/\bCLOSED\b/.test(title) || title.includes("~~")` (`scripts/followup-claims-lib.mjs`), it reads the
+TITLE, and it is case-SENSITIVE. So `## 429. A CLOSED entry's …— OPEN` parsed as closed: the status
+gate's universe dropped from 204 to 203 and this Status line became ungated, while the closed count
+it quotes went 210 → 211 and stopped reproducing from its own command. Fixed by lowercasing the
+word. ★ The anchor did NOT move and the index row needed no edit — slug derivation lowercases
+anyway, so the two slugs are byte-identical. That is asserted rather than assumed: the fix script's
+first version demanded they DIFFER and aborted, which is how it was settled. Found by cold review
+within the hour. ★★ The lesson is not "avoid the word" — it is that a register entry ABOUT a
+classifier is itself classified, and the demonstration costs nothing to run: `isClosed` on your own
+new title, before you commit it.
+
+★ Found by a peer's `followups-status-check` red on their own branch: a Status citing a backticked
+`e2e/…spec.ts` FILENAME was rejected with "names no executed verification". A backticked filename is
+not a verification — the gate reads for an INVOCATION. That distinction is what prompted this audit.

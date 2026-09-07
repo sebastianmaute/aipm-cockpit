@@ -144,6 +144,16 @@ describe("raidProvider — review actions", () => {
     expect((rev!.why.params as number[])[0]).toBeGreaterThanOrEqual(30);
   });
 
+  it("selects the singular why key when daysSinceReview is exactly 1", () => {
+    // raisedDate 1 day ago, no targetDate → "stale" with daysSinceReview === 1
+    // (interval overridden to 1 so a single day is already stale).
+    const item = criticalRisk({ id: 21, raisedDate: "2026-06-14" });
+    const acts = raidProvider.provide({ ...input([item]), raidReviewIntervalDays: 1 });
+    const rev = acts.find((a) => a.id === "raid:21:stale");
+    expect(rev).toBeDefined();
+    expect(rev!.why).toEqual({ key: "actionRaidWhyReviewStaleOne", params: [1] });
+  });
+
   it("emits both a severity action and a review action for the same item (distinct IDs)", () => {
     // Critical severity + past targetDate → two actions
     const item = criticalRisk({ id: 30, targetDate: "2026-05-01", raisedDate: "2026-05-14" });

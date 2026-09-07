@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { BudgetBucket, Task, Resource } from "./types";
 import { moveTasksToBucket } from "./budget-task-link";
@@ -359,9 +359,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     if (count > 0 && (taskFieldsEnabled || bucketsChanged)) {
       showToastRef.current(
         "info",
-        count === 1
-          ? t(lang, "bulkEditDoneOne")
-          : t(lang, "bulkEditDoneMany", count),
+        tPlural(lang, "bulkEditDone", count, count),
       );
       logActivityRef.current("bulk.edit", count);
     } else if (targetIds.length > 0 && skippedHidden === 0 && skippedSynced === 0) {

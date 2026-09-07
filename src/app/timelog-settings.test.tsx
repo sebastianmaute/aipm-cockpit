@@ -44,7 +44,31 @@ describe("TimelogSettings", () => {
 
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
 
-    await screen.findByText(/1/);
+    // ★★★ THE ASSERTION HERE USED TO BE `await screen.findByText(/1/)`, WHICH
+    // PASSED AGAINST THE DEFECT THIS SLICE FIXED. At 9219cbda this rendered
+    // "Connected — 1 users, scope: …" and `/1/` matched it exactly as well as
+    // the fixed string, so the test named after the key could not see the key's
+    // only bug. Caught by cold review, 2026-09-07.
+    // ★★ The negative control is the half that discriminates: assert the
+    // PLURAL spelling is absent, not merely that the singular is present.
+    expect(await screen.findByText(/Connected — 1 user,/)).toBeInTheDocument();
+    expect(screen.queryByText(/1 users/)).toBeNull();
+  });
+
+  // ★ The other branch, so a "fix" hardcoding the singular is red too.
+  it("test() SUCCESS renders the plural for two users", async () => {
+    vi.mocked(timelogApi.listUsers).mockResolvedValue([
+      { userId: 1, firstName: "Ada", lastName: "Lovelace", initials: "AL", email: "ada@example.com", isActive: true },
+      { userId: 2, firstName: "Grace", lastName: "Hopper", initials: "GH", email: "grace@example.com", isActive: true },
+    ]);
+    vi.mocked(timelogApi.getPrivileges).mockResolvedValue({ registrationAllTasks: false });
+
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "h", tenant: "t", apiToken: "tok" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
+
+    expect(await screen.findByText(/Connected — 2 users,/)).toBeInTheDocument();
   });
 
   it("test() FAILURE renders timelogTestFail", async () => {

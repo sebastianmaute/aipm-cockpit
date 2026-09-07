@@ -257,9 +257,9 @@ const enUS = {
   diagnosticsColCode: "Code",
   diagnosticsColDetails: "Details",
   diagnosticsUnitErrorOne: "error",
-  diagnosticsUnitErrorMany: "errors",
+  diagnosticsUnitError: "errors",
   diagnosticsUnitWarnOne: "warning",
-  diagnosticsUnitWarnMany: "warnings",
+  diagnosticsUnitWarn: "warnings",
   diagnosticsUnitInfo: "info",
   diagnosticsSplitPairs: "Tasks with inconsistent completion data: {0}",
   diagnosticsNewestError: "newest error {0}",
@@ -533,16 +533,16 @@ const enUS = {
   bulkSendInquiries: "Send inquiries",
   bulkEdit: "Bulk edit",
   bulkEditTitleOne: "Bulk edit (1 task)",
-  bulkEditTitleMany: "Bulk edit ({0} tasks)",
+  bulkEditTitle: "Bulk edit ({0} tasks)",
   bulkApplyOne: "Apply to 1 task",
-  bulkApplyMany: "Apply to {0} tasks",
+  bulkApply: "Apply to {0} tasks",
   selectItem: "Select {0}",
   selectAllVisibleRows: "Select all visible rows",
   bulkEditCount: "Bulk edit ({0})",
   bulkApplyCount: "Apply to {0}",
   bulkEditNoFields: "Tick at least one field to update.",
   bulkEditDoneOne: "Updated 1 task.",
-  bulkEditDoneMany: "Updated {0} tasks.",
+  bulkEditDone: "Updated {0} tasks.",
   // The apply wrote nothing because there was nothing to write. Same reasoning
   // as `bulkEditHiddenSkipped` below: the modal closes and the selection clears
   // either way, so an unannounced no-op reads as a swallowed error.
@@ -764,7 +764,8 @@ const enUS = {
   chatAttachmentReadFailed: "Could not read {0}",
   chatAttachmentEncrypted: "{0} is password-protected — save it without protection and try again",
   chatAttachmentSummaryOne: "{0} — 1 attachment",
-  chatAttachmentSummaryMany: "{0} — {1} attachments",
+  chatAttachmentSummary: "{0} — {1} attachments",
+  chatAttachmentSummarySkippedOne: "{0} — 1 attachment, {2} skipped",
   chatAttachmentSummarySkipped: "{0} — {1} attachments, {2} skipped",
   chatAttachmentHint: "Attach PDF, image (PNG/JPG/GIF/WebP), or text (TXT/MD/CSV) files — up to 20 MB each.",
   chatToolCall: "Used {0}",
@@ -1023,7 +1024,10 @@ const enUS = {
   dashboardGreetingMorning: "Good morning",
   dashboardGreetingAfternoon: "Good afternoon",
   dashboardGreetingEvening: "Good evening",
-  dashboardGreetingSummary: "{0} items need you · {1} milestones soon",
+  dashboardGreetingNeedsYou: "{0} items need you",
+  dashboardGreetingNeedsYouOne: "1 item needs you",
+  dashboardGreetingMilestonesSoon: "{0} milestones soon",
+  dashboardGreetingMilestonesSoonOne: "1 milestone soon",
   dashboardDeltaSinceTitle: "Since you last looked",
   dashboardDeltaWelcome: "Welcome — here's your project at a glance.",
   dashboardDeltaAllCaught: "All caught up since {0}",
@@ -1052,6 +1056,7 @@ const enUS = {
   scheduledJobLastRun: "Last run: {0}",
   scheduledJobNeverRun: "Never run",
   scheduledJobActionsN: "{0} suggestions",
+  scheduledJobActionsNOne: "1 suggestion",
   scheduledJobFailed: "Run failed ({0})",
   scheduledJobNotifyTitle: "Scheduled analysis: {0}",
   scheduledJobNotifyBody: "{0}",
@@ -1629,6 +1634,7 @@ const enUS = {
   // ★ Qualified accessible name — see jiraTestLabel.
   timelogTestLabel: "Test connection – Timelog",
   timelogTestOk: "Connected — {0} users, scope: {1}",
+  timelogTestOkOne: "Connected — 1 user, scope: {1}",
   timelogTestFail: "Connection failed (HTTP {0})",
   timelogTokenInvalid: "Token was rejected. Re-enter it.",
   timelogGuardrailsTitle: "Booking guardrails",
@@ -1680,6 +1686,7 @@ const enUS = {
   timelogAttributionHint:
     "A resource's hours show as booked only when its Timelog user is linked to that resource and the booking's project is linked to a bucket.",
   timelogApply: "Apply to budget",
+  timelogApplyConfirmOne: "Apply 1 bucket change to budget actual hours?",
   timelogApplyConfirm: "Apply {0} bucket changes to budget actual hours?",
   timelogApplyPartial:
     "Some projects could not be fetched, so these bookings are incomplete. Applying them would overwrite the missing projects' hours with zero, so applying is disabled — refresh the bookings and try again.",
@@ -1701,6 +1708,7 @@ const enUS = {
   activityClear: "Clear log",
   activityCount: "{0} entries",
   activityEntriesLogged: "{0} entries logged",
+  activityEntriesLoggedOne: "1 entry logged",
   activityTaskCreated: "Task #{0} created: {1}",
   activityTaskUpdated: "Task #{0} updated: {1}",
   activityTaskDeleted: "Task #{0} deleted: {1}",
@@ -2211,6 +2219,7 @@ const enUS = {
   outlookCalImportCancel: "Cancel",
   outlookCalImportType: "Type",
   outlookCalImportButton: "Import from Outlook",
+  outlookCalImportedNOne: "Imported 1 absence",
   outlookCalImportedN: "Imported {0} absences",
   outlookCalendarPermissionDenied: "Calendar access was denied. Please check your Microsoft permissions.",
   outlookCalendarFetchFailed: "Failed to fetch calendar events. Please try again.",
@@ -2218,6 +2227,7 @@ const enUS = {
   storageTurso: "Turso database",
   storageTursoNeedsToggle: "Enable Turso in Settings → Integrations.",
   storageTursoNeedsConfig: "Enter the Turso URL and token in Settings.",
+  storageConvertConfirmOne: "Convert your current workspace (1 task) to {1} and write it to this storage, overwriting any data already there?",
   storageConvertConfirm: "Convert your current workspace ({0} tasks) to {1} and write it to this storage, overwriting any data already there?",
   storageConvertedToast: "Converted and switched to {0}.",
 
@@ -2394,8 +2404,11 @@ const enUS = {
   raciSuggestNoProposal: "Claude proposed no assignments.",
   raciSuggestError: "Could not generate RACI suggestions.",
   raciSuggestSkipped: "{0} proposed assignments were refused because they did not match this project.",
+  raciSuggestSkippedOne: "1 proposed assignment was refused because it did not match this project.",
   raciSuggestSkippedAccountable:
     "{0} proposed assignments were refused because that milestone already has an Accountable.",
+  raciSuggestSkippedAccountableOne:
+    "1 proposed assignment was refused because that milestone already has an Accountable.",
   raciSuggestTruncated: "The proposal was capped; some assignments were not returned.",
   raciSuggestContextTruncated:
     "This project is large, so Claude was shown only some of its stakeholders and milestones. Anyone left out has no proposal here.",
@@ -2404,7 +2417,10 @@ const enUS = {
     "Every assignment Claude proposed is already in place. Nothing needs to change.",
   raciSuggestSkippedInvalidRole:
     "{0} proposed assignments were refused because the role letter was not one of R, A, C or I.",
+  raciSuggestSkippedInvalidRoleOne:
+    "1 proposed assignment was refused because the role letter was not one of R, A, C or I.",
   activityAiRaciSuggest: "Applied {0} AI-proposed RACI assignments",
+  activityAiRaciSuggestOne: "Applied 1 AI-proposed RACI assignment",
   integrationsTursoTooltip: "Store your workspace in a Turso (libSQL) database.",
   integrationsTursoUrlTooltip: "Cloud database: use the libsql:// URL (or https://) from `turso db show <db>`. Local/self-hosted server: http:// on localhost only (127.0.0.1/::1), which needs no token.",
   integrationsTursoTokenTooltip: "Auth token for the Turso database. Leave empty for a local token-less server.",
@@ -2741,13 +2757,14 @@ const enUS = {
   trendsNoSnapshots: "No snapshots yet. The first one is captured automatically, or use Capture snapshot now.",
   trendsNotEnough: "Not enough snapshots yet to draw a trend.",
   trendsGapOne: "{0} gap",
-  trendsGapMany: "{0} gaps",
+  trendsGap: "{0} gaps",
   trendsCaptureNow: "Capture snapshot now",
   trendsSetBaseline: "Set as baseline",
   trendsDeleteSnapshot: "Delete",
   snapshotDelete: "Delete",
   snapshotDeleteSelected: "Delete selected ({0})",
   snapshotDeleteConfirm: "Delete this snapshot?",
+  snapshotDeleteSelectedConfirmOne: "Delete 1 snapshot?",
   snapshotDeleteSelectedConfirm: "Delete {0} snapshots?",
   trendsVarianceHeading: "Baseline vs current",
   trendsSnapshotsHeading: "Snapshots",
@@ -2804,6 +2821,7 @@ const enUS = {
   actionWorkloadTitle: "{0}",
   actionWorkloadWhyOverAllocated: "Over-allocated — {0}% planned in the next period",
   actionWorkloadWhyOverload: "{0} overdue items assigned",
+  actionWorkloadWhyOverloadOne: "1 overdue item assigned",
   versionHighlightScheduleWorkload: "Two new suggested-action signals: a schedule/EVM warning when the project trends behind plan, and workload alerts for over-allocated or overloaded people",
   // --- RACI chip picker + UI batch (0.81.0) ---
   raciSetLabel: "Set RACI",
@@ -2914,9 +2932,13 @@ const enUS = {
   documentsCardNotApplied: "Not applied:",
   documentsCardMoreReasons: "…and {0} not shown",
   documentsTruncatedWarning: "{0} document entries could not be opened - this project is over the limit. Saving is paused so nothing is overwritten.",
+  documentsTruncatedWarningOne: "1 document entry could not be opened - this project is over the limit. Saving is paused so nothing is overwritten.",
   documentsUnreadableWarning: "{0} kinds of saved data could not be read. Saving is paused so nothing is overwritten.",
+  documentsUnreadableWarningOne: "1 kind of saved data could not be read. Saving is paused so nothing is overwritten.",
   documentsUnreadableCount: "{0} kinds of saved data could not be read.",
+  documentsUnreadableCountOne: "1 kind of saved data could not be read.",
   documentsTruncatedBlocksWarning: "{0} blocks in stored documents could not be opened. Saving is paused so nothing is overwritten.",
+  documentsTruncatedBlocksWarningOne: "1 block in stored documents could not be opened. Saving is paused so nothing is overwritten.",
   documentsTruncatedBanner: "Some of this project's document data could not be opened. Saving is paused to protect your saved project - it still holds everything.",
   documentsTruncatedSaveAnyway: "Save anyway",
   documentsTruncatedBannerAria: "Document data could not be opened",
@@ -2935,7 +2957,9 @@ const enUS = {
   documentsUnreadableBanner: "Some of this project's saved data could not be opened. Saving is paused to protect your saved project - it still holds everything.",
   documentsUnreadableBannerAria: "Saved data could not be opened",
   documentsTruncatedEntriesCount: "{0} document entries could not be opened.",
+  documentsTruncatedEntriesCountOne: "1 document entry could not be opened.",
   documentsTruncatedBlocksCount: "{0} blocks in stored documents could not be opened.",
+  documentsTruncatedBlocksCountOne: "1 block in stored documents could not be opened.",
   documentsTruncatedConfirmTitle: "Save anyway?",
   documentsTruncatedConfirmBody: "This overwrites your saved project with only the data the app could open. Whatever it could not open is not in the app, and saving loses it for good.",
   // ★★ NOT `documentsTruncatedSaveAnyway`, for the same reason as both destructive
@@ -3012,6 +3036,7 @@ const enUS = {
   versionHighlightCommTemplatesSend: "Send communication templates as real HTML email via Microsoft 365 — as an Outlook draft to review, or preview-and-send in the app (plain-text email app remains the fallback).",
   versionHighlightEscalate: "Escalate at-risk RAID items: raise severity and notify in one step",
   versionHighlightRebaseline: "Re-baseline drifting milestones and schedule/budget from the Action Center.",
+  notifySummaryTitleOne: "1 new urgent action",
   notifySummaryTitle: "{0} new urgent actions",
   notifySummaryBody: "Open the app to review them.",
   settingsDesktopNotify: "Desktop notifications for urgent actions",
@@ -3060,6 +3085,7 @@ const enUS = {
   calendarPullKeepApp: "Keep app date",
   calendarPullTakeOutlook: "Take Outlook date",
   calendarPullInSync: "Already in sync with Outlook",
+  calendarPullConflictsPendingOne: "1 calendar conflict — open Pull to resolve",
   calendarPullConflictsPending: "{0} calendar conflicts — open Pull to resolve",
   calendarPullEventRemoved: "Its Outlook event was removed",
   settingsOutlookCalendarPush: "Push milestones to my Outlook calendar",
@@ -3151,6 +3177,7 @@ const enUS = {
   actionMonitoredCount: "{0} monitored",
   actionHeroEyebrow: "Do this first",
   actionMoreReasons: "+{0} more reasons",
+  actionMoreReasonsOne: "+1 more reason",
   actionMoreActions: "More actions",
   actionMoreActionsHint: "More ways to act on this item",
   actionMarkDone: "Mark done",
@@ -3182,7 +3209,9 @@ const enUS = {
   actionRaidWhyNoOwner: "Severity {0} — no owner assigned",
   actionRaidWhyReviewOverdue: "Review {0} day(s) overdue",
   actionRaidWhyReviewStale: "Not reviewed in {0} days",
+  actionRaidWhyReviewStaleOne: "Not reviewed in 1 day",
   actionChangeAggTitle: "{0} changes awaiting decision",
+  actionChangeAggTitleOne: "1 change awaiting decision",
   actionChangeAggWhy: "Pending changes push Scope to Red",
   actionChangeItemTitle: "Change: {0}",
   actionChangeItemWhy: "{0} impact, awaiting decision",
@@ -3197,6 +3226,7 @@ const enUS = {
   actionCommsWhy: "{0} update due",
   actionCommitteeInfoTitle: "Circulate {0} for {1}",
   actionCommitteeInfoWhy: "Due {0} — {1} ({2} days)",
+  actionCommitteeInfoWhyOne: "Due {0} — {1} (1 day)",
   actionCreatedFromNote: "From: {0} — {1}",
 
   // --- Steering committee panel (SP-E) ---
@@ -3488,6 +3518,7 @@ const enUS = {
   errorBoundaryRecover: "Recover",
   errorBoundaryReset: "Reset config & reload",
   snapshotConfigIncomplete: "Recording is on, but no Turso database URL is set yet - no snapshots will be captured until it is configured.",
+  storageTursoLeaveWarnOne: "Snapshot trend recording only works on the Turso backend. Switching to {1} stops recording (your one item is still converted). Your recorded snapshots are kept in Turso and recording resumes when you switch back. Continue?",
   storageTursoLeaveWarn: "Snapshot trend recording only works on the Turso backend. Switching to {1} stops recording (your {0} items are still converted). Your recorded snapshots are kept in Turso and recording resumes when you switch back. Continue?",
   versionHighlightTrends: "Baseline + variance / burn-down trends — periodic Turso snapshots show slippage over time",
 
@@ -3546,11 +3577,43 @@ const enUS = {
   dashboardChangesHeading: "Changes",
   dashboardChangesPending: "{0} pending",
   taskRowChangesBadge: "{0} changes",
-  // ★ Singular sibling. The house idiom is a `*One` key plus a `count === 1 ?`
-  // ternary at the call site (nine such keys today) — NOT a pluralize() helper.
+  // ★ Singular sibling, selected by `tPlural` — its docblock carries the
+  // contract and the type gate; this comment does not restate them.
   // German breaks on noun AND adjective AND verb agreement at once, so a
-  // singular is a re-worded sentence, not a suffix swap on a fragment. That is
-  // why this key hardcodes the numeral and takes no placeholder.
+  // singular is a re-worded sentence, not a suffix swap on a fragment: both
+  // forms stay independently authored complete strings, never a stem plus a
+  // suffix. THAT RULE IS UNCHANGED — only the location of the count test
+  // moved, from a ternary at each call site into one helper. It is also why
+  // this key hardcodes the numeral and takes no placeholder.
+  // ★★ THE HELPER IS NOT UNIVERSAL. `src/app/next-actions/providers/*.ts` are
+  // deliberately i18n-free engines: no `Lang` is in scope, and they emit
+  // `{key, params}` objects (`next-actions/types.ts` `I18nText`) that a surface
+  // renders much later through a generic `t()`. `tPlural` cannot be called
+  // there, so four keys still pick the singular KEY with a `count === 1`
+  // ternary, commented at each site. Correct for en-US/en-GB/de, which all
+  // resolve `one`/`other` — but NOT locale-general the way `tPlural` is: a
+  // language with a `few`/`many` category needs those four revisited, and
+  // nothing flags them. Enumerate them, do not trust this count:
+  //   grep -rnoE '"[A-Za-z]+One"' src/app/next-actions/providers/ \
+  //     --include=*.ts --exclude=*.test.ts
+  // ★★ Those four are not the whole exception set, and reading them as such is
+  // the over-read this note exists to stop. A `…One` key can also be authored
+  // in both dictionaries and reached by NOTHING — the type gate proves the
+  // PAIRING, never that a call site selects the sibling, and some keys are in
+  // that state today — some reached only through a generic renderer that
+  // looks up a key and never selects a sibling, some with a live call site
+  // still on plain `t()`. No count is given here because it moves as those
+  // are fixed: `docs/open-followups.md` §415 enumerates every exception by
+  // name with a reproduce command each. Go there before concluding that a
+  // singular actually renders.
+  // ★★ An earlier revision of this comment mandated the call-site ternary and
+  // forbade a helper outright ("NOT a pluralize() helper"), and quoted "nine
+  // such keys today" — a figure that was already stale when it was written.
+  // Kept as the record of what was believed. No total for converted keys is
+  // quoted here either: this file is inside the population any such number
+  // counts, so it would restale on the next commit. The live measurement is
+  // the pairing test in `i18n-plural.test.ts`, which counts the `…One` keys
+  // from source itself.
   taskRowChangesBadgeOne: "1 change",
   versionHighlightChangeLog: "Change-control log — a RAID-sibling register for tracking change requests",
 
@@ -3757,6 +3820,13 @@ const enUS = {
   knowledgeLinkedTasks: "Linked tasks",
   taskUnlink: "Unlink",
   taskLinkSearchPlaceholder: "Search tasks to link (* wildcard)…",
+  // Stands in for the name of a linked task that no longer exists. The chip is
+  // kept deliberately (a dangling link the user can still clear), and in the
+  // inert branch its unlink button is the chip's ONLY focusable element — so an
+  // empty name left a screen-reader user with "Unlink #99 " and a trailing
+  // space. Not a bare "(deleted)": the noun is what makes the announcement
+  // stand on its own.
+  taskLinkDeletedTask: "deleted task",
 
   settingsSectionInformationFlows: "Information flows",
   settingsExpertMode: "Expert mode",
@@ -4272,8 +4342,10 @@ const enUS = {
   insightMilestoneSlipDetail: "{0} is {1} day(s) overdue (target {2}).",
   insightOverdueTrendTitle: "Overdue tasks rising",
   insightOverdueTrendDetail: "{0} tasks overdue — up {1} since your last visit ({2} before).",
+  insightOverdueTrendDetailOne: "1 task overdue — up {1} since your last visit ({2} before).",
   insightStalledWorkTitle: "Work is stalling",
   insightStalledWorkDetail: "{0} active tasks are stale, blocked, or waiting on a dependency.",
+  insightStalledWorkDetailOne: "1 active task is stale, blocked, or waiting on a dependency.",
   insightBudgetVarianceTitle: "Budget off plan",
   insightBudgetVarianceDetail: "{0} is off plan by {1}% ({2} bucket(s) breaching the threshold).",
   insightRaidAgingTitle: "RAID item ageing",
@@ -4348,6 +4420,7 @@ const enUS = {
   allocPlanNoChanges: "No allocation changes were proposed.",
   allocPlanError: "Could not plan allocations.",
   allocPlanApplied: "Applied {0} allocation changes.",
+  allocPlanAppliedOne: "Applied 1 allocation change.",
   allocPlanClamped: "trimmed to the maximum",
   allocPlanHoursOfCapacity: "{0}h of {1}h",
   allocPlanTruncated: "Some proposed changes were not shown — the plan was too large.",
@@ -4361,6 +4434,7 @@ const enUS = {
   allocPlanSkipBelowResolution: "no change to the stored value",
   allocPlanSkipAlreadySet: "already at that value",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
+  activityAiAllocationPlanOne: "AI planned 1 allocation cell",
   activityAiDocumentWrite: "Assistant edited a document",
 
   // Asset library (S3c-1 — document images)
@@ -4476,6 +4550,95 @@ export function t(
     s = s.replace(`{${i}}`, String(a));
   });
   return s;
+}
+
+/**
+ * The base keys `tPlural` accepts: every key whose `…One` sibling also exists.
+ *
+ * ★★★ THIS TYPE IS THE GATE. A `tPlural(lang, "foo", n)` whose `fooOne` key is
+ * missing is a TYPE ERROR, not a runtime fallback — which is stronger than any
+ * source-scanning test could be, and it is why no test in this repo asserts the
+ * forward direction. The REVERSE direction (a `…One` key with no plural
+ * sibling, i.e. a stranded singular) is invisible to the type system and IS
+ * covered by a source test in `i18n-plural.test.ts`.
+ */
+export type PluralBaseKey = {
+  [K in TranslationKey]: `${K}One` extends TranslationKey ? K : never;
+}[TranslationKey];
+
+/**
+ * Count-aware lookup: renders `<baseKey>One` when the language's plural rules
+ * put `count` in the `one` category, and `<baseKey>` otherwise.
+ *
+ * ★★★ THE TWO FORMS ARE INDEPENDENTLY AUTHORED COMPLETE STRINGS, never a stem
+ * plus a suffix. That is the substance of the house rule this helper replaced:
+ * German breaks on noun AND adjective AND verb agreement at once, so a singular
+ * is a re-worded sentence. What changed is only WHERE the count test lives —
+ * one helper instead of a ternary at each call site — so the rule is kept and
+ * the duplication is not.
+ *
+ * ★★ `count` is NOT injected into the args. Two converted keys carry the
+ * count in a slot other than `{0}` (`actionCommitteeInfoWhy` at `{2}`,
+ * `chatAttachmentSummarySkipped` at `{1}`) — a third key that used to carry
+ * TWO independent counts (`{0} items need you · {1} milestones soon`) was
+ * REMOVED rather than converted to `tPlural`, because one selection cannot
+ * agree two independent counts at once. Do NOT reintroduce it as a single
+ * key: it is now `dashboardGreetingNeedsYou` + `dashboardGreetingMilestonesSoon`,
+ * each pluralised on its own count (`dashboard-delta-strip.tsx`). The caller
+ * passes the number in whatever position the string uses and `count` is used
+ * ONLY to select the form. Injecting it would have worked for most of the
+ * converted keys, which is exactly the kind of convenience that reads as
+ * correct until the one that needs a different slot or a second count.
+ *
+ * ★ Written against Intl's CATEGORIES rather than `count === 1` so a future
+ * language with a `few`/`many` category is a dictionary change rather than a
+ * code change. en-US, en-GB and de all resolve to `one`/`other` today, so for
+ * NON-NEGATIVE counts the behaviour is identical to the ternary it replaced —
+ * including for ZERO, which is `other` in all three and was the case a
+ * `count > 1` spelling would have got wrong.
+ *
+ * ★★★ NEGATIVE COUNTS ARE FORCED TO `other`, AND WITHOUT THAT LINE THIS HELPER
+ * IS NOT EQUIVALENT TO THE TERNARY IT REPLACED. CLDR's plural operands use the
+ * ABSOLUTE integer part, so `-1` selects `one` in all three locales while
+ * `count === 1` gave the plural. Measured 2026-09-07, not reasoned:
+ *   node -e "console.log(['en-US','en-GB','de-DE'].map(l => new Intl.PluralRules(l).select(-1)).join(' '))"
+ * prints `one one one`, and `-2` prints `other other other` — so the bug is
+ * -1 ALONE, which is exactly the value a reader testing -3 would miss.
+ * ★★ It was a live defect for one release, not a hypothetical: the singular
+ * forms hardcode the digit ("(1 day)" / "(1 Tag)"), so an OVERDUE steering
+ * info-reminder at `daysLeft === -1` rendered identically to one due tomorrow
+ * — the minus sign deleted, the overdue state invisible. `steering-reminders.ts`
+ * skips only PAST MEETINGS, so a future meeting whose info due-date has passed
+ * reaches the "now" tier (`daysLeft <= 0`) with a negative count.
+ * ★ Fixed here rather than clamped at that one call site because every other
+ * count in the app is a `.length`/`.size` tally: a clamp fixes the instance and
+ * leaves the next negative caller to rediscover this.
+ *
+ * ★ The `Intl.PluralRules` instances are cached per locale (three, max).
+ * Constructing one per call measured ~12.4µs against ~0.25µs cached, and
+ * `task-row.tsx` calls this UNCONDITIONALLY per row.
+ */
+const PLURAL_RULES = new Map<string, Intl.PluralRules>();
+
+function pluralRulesFor(lang: Lang): Intl.PluralRules {
+  const locale = localeFor(lang);
+  let rules = PLURAL_RULES.get(locale);
+  if (!rules) {
+    rules = new Intl.PluralRules(locale);
+    PLURAL_RULES.set(locale, rules);
+  }
+  return rules;
+}
+
+export function tPlural(
+  lang: Lang,
+  baseKey: PluralBaseKey,
+  count: number,
+  ...args: (string | number)[]
+): string {
+  const category = count < 0 ? "other" : pluralRulesFor(lang).select(count);
+  const key = (category === "one" ? `${baseKey}One` : baseKey) as TranslationKey;
+  return t(lang, key, ...args);
 }
 
 export function migrateLang(value: unknown): Lang {

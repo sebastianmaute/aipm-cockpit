@@ -129,7 +129,7 @@ describe("useEntityCalendarPull background auto-pull mode", () => {
     await act(async () => {
       await result.current.pull();
     });
-    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "calendarPullConflictsPending", 1));
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "calendarPullConflictsPendingOne"));
     expect(result.current.result).toBeNull();
   });
 
@@ -144,7 +144,7 @@ describe("useEntityCalendarPull background auto-pull mode", () => {
     mockEvents([{ id: "evt", date: "2026-07-10" }]);
     await act(async () => { await result.current.pull(); });
     const conflictToasts = showToast.mock.calls.filter(
-      (c) => c[1] === t("en-US", "calendarPullConflictsPending", 1),
+      (c) => c[1] === t("en-US", "calendarPullConflictsPendingOne"),
     );
     expect(conflictToasts).toHaveLength(1);
   });
@@ -234,7 +234,7 @@ describe("useEntityCalendarPull background auto-pull mode", () => {
       { background: true },
     );
     const conflictToastCount = () =>
-      showToast.mock.calls.filter((c) => c[1] === t("en-US", "calendarPullConflictsPending", 1)).length;
+      showToast.mock.calls.filter((c) => c[1] === t("en-US", "calendarPullConflictsPendingOne")).length;
     // 1) conflict → toast fires, ref = sig
     mockEvents([{ id: "evt", date: "2026-07-10" }]);
     await act(async () => { await result.current.pull(); });

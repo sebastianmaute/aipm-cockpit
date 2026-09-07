@@ -8,6 +8,39 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.291.0] - 2026-09-07 "Hoban"
+
+### Fixed
+- Counted text now agrees with its number wherever the count can be one. A task
+  or reminder that reads "1 change" reads that way in English and German alike,
+  and in every surface that counts it — the activity log's "1 entry logged" and
+  the TimeLog connection test's "Connected — 1 user" were both still rendering
+  the plural.
+- An overdue steering-committee information reminder no longer reads as if it
+  were due tomorrow. A reminder one working day past its date rendered
+  "(1 day)" with the minus sign silently dropped, making an overdue item
+  indistinguishable from an upcoming one.
+- A bulk edit of a single row no longer calls it "1 tasks" (or, in German,
+  "1 Aufgaben").
+- A link to a task that has since been deleted now names itself as a deleted
+  task instead of announcing a bare number to a screen reader, so the control
+  that clears the stale link can be told apart from its neighbours.
+
+### Changed
+- The two entity pickers now share one search box and one option list rather
+  than two near-identical copies, so their keyboard behaviour, their ARIA
+  wiring and the contrast rationale behind the highlighted row cannot drift
+  apart.
+
+### Internal
+- `tPlural` replaces the hand-written `count === 1` ternaries across 42
+  key pairs, with the singular's absence made a type error.
+- A new blocking CI gate compares the follow-up register's headings against its
+  own index table, and reports a number used twice on either axis — a case the
+  set difference it is built on cannot see.
+- The register's codename ledger, which had rotted repeatedly, is replaced by a
+  pointer to this file plus the reuse rules this file cannot express.
+
 ## [0.290.0] - 2026-09-07 "Holdstock"
 
 The Reports view becomes arrangeable, on the same engine the Dashboard already
