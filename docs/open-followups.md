@@ -641,7 +641,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§422](#422-an-email-address-containing-a-comma-is-destroyed-by-a-no-op-round-trip-through-the-inline-editor--open) | An email address containing a comma is destroyed by a no-op round-trip through the inline editor | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--open) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit | S | open |
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
-| [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--open) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | open |
+| [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | closed 2026-09-07 |
 | [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
 | [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--open) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | open |
 <!-- INDEX:END -->
@@ -30634,17 +30634,24 @@ axe gate cannot see it in any view at any seed size — no rule under the four t
 `e2e/a11y.spec.ts` requests flags two controls sharing an accessible name. Qualify the name at
 write time and pin it with a unit test; nothing else can catch it.
 
-## 425. The Dashboard's reorder grip still promises an arrow-key path its own call site switched off — OPEN
+## 425. The Dashboard's reorder grip still promises an arrow-key path its own call site switched off — CLOSED 2026-09-07
 
 
-**Status:** open, recorded 2026-09-07. Verified by a command actually run:
-`grep -n "keyboard: false" src/app/dashboard-panel.tsx`
-→ **2** hits, and only ONE of them is code — the `useListReorderDnd` option. The other is a
-comment elsewhere in the file explaining why the ⋮ menu is the keyboard path. ★ Read that number
-as the warning it is: every recipe in this entry matches PROSE as well as code, because the
-strings involved are exactly what the comments around them quote. Look at the hits; never take a
-`grep -c`. The Reports half of this defect is FIXED on this branch; this entry is the Dashboard
-half, deliberately left standing — see "Why it was not fixed here".
+**Status:** CLOSED 2026-09-07. Verified by commands actually run:
+`grep -n "keyboardReorder=" src/app/dashboard-panel.tsx src/app/reports.tsx` → both consumers now
+pass `{false}` explicitly, and `keyboardReorder` is REQUIRED on `ArrangementTileProps`, so there is
+no default left to inherit. `npx tsc --noEmit` → exit 0, which is also what proves the call-site
+enumeration was complete: a missed site is now a compile error, not a silent overstatement.
+
+Mutation-proved, not asserted: flipping `keyboardReorder={false}` to `{true}` in
+`dashboard-panel.tsx` and running `npx vitest run --maxWorkers=1 src/app/dashboard-panel.test.tsx`
+gives **3 failed | 70 passed (73)**. ★ §425 predicted "five test names"; five is the count of
+`grip()` CALL SITES, and they land in THREE tests — call sites and tests are not the same tally,
+and this entry made that conflation itself.
+
+★ Read the original recipe's warning as still standing for anyone re-deriving this: every string
+here appears in the comments that discuss it as well as in code, so `grep -c` overstates
+everywhere. Look at the hits.
 
 **The defect.** `dashboard-panel.tsx` passes `keyboard: false` to `useListReorderDnd`, so the
 `handleProps` it spreads onto every tile grip carry no `onKeyDown`. `ArrangementTile` nevertheless
@@ -30666,37 +30673,51 @@ Only a test asserting the NAME against the known capability catches it, which is
 `reports.test.tsx`'s "names the grip for what it can actually do, the drag alone" now does for the
 other surface.
 
-**Why it was not fixed here.** The Reports-arrangement branch carries a governing rule that
-`dashboard-panel.tsx` is never edited and every Dashboard test passes unmodified, with two
-already-sanctioned exceptions. Naming the Dashboard grip correctly is a one-word call-site change
-plus five expected names in `dashboard-panel.test.tsx`, all built from a local `grip()` helper over
-`reorderHandle`; that would be a third exception. The fix was therefore built as a shared,
-opt-out-able capability instead, and only Reports opted in.
+**Why it was not fixed when first filed.** The Reports-arrangement branch carried a governing rule
+that `dashboard-panel.tsx` is never edited and every Dashboard test passes unmodified, with two
+already-sanctioned exceptions; this would have been a third. The fix was therefore built as a
+shared, opt-out-able capability, and only Reports opted in. ★ That rule was lifted deliberately to
+close this entry, making the Dashboard edit a third sanctioned exception — recorded here because
+the rule is stated in seven adapter docstrings and a reader meeting one of them needs to know it
+was retired on purpose rather than forgotten.
 
-**The closure, and it is small.** `ArrangementTile` now takes `keyboardReorder?: boolean` and
-selects between `reorderHandle` and the new `reorderHandleDragOnly` (EN "Drag to reorder", DE "Zum
-Umsortieren ziehen"). Closing this is:
+**What shipped.** All three steps, including step 3 — which this entry predicted would be skipped.
 
-1. pass `keyboardReorder={false}` at the `<ArrangementTile>` call site in `dashboard-panel.tsx`;
-2. repoint the `grip()` helper in `dashboard-panel.test.tsx` at `reorderHandleDragOnly` (its five
-   call sites all go through that one helper);
-3. flip the prop's default from `true` to `false`, or better, drop the default entirely and make
-   the prop required — no consumer would then be able to inherit a name it has not earned.
+1. `keyboardReorder={false}` at the `<DashboardTile>` call site in `dashboard-panel.tsx`, with a
+   comment tying it to the `keyboard: false` on the `useListReorderDnd` call in the SAME file. ★ The
+   co-location is the point: putting the label in `dashboard-tile.tsx` instead would have split the
+   capability from its name across two files, which is how this defect is built.
+2. The `grip()` helper in `dashboard-panel.test.tsx` repointed at `reorderHandleDragOnly`.
+3. **The default is GONE and `keyboardReorder` is REQUIRED.** Both consumers now pass it, so the
+   default had nobody left to protect. This is what takes the CLASS out of reach rather than the two
+   instances: a new surface cannot acquire an arrow-key promise by saying nothing, and the compiler
+   asks the one question that matters. It forced the prop onto nine call sites, six of them in
+   `arrangement-tile.test.tsx` and three in `dashboard-grid.test.tsx` — cheap, and each now states
+   which capability it is testing.
 
-★★ **Step 3 is the half worth doing and the half that will get skipped.** The default is `true`
-only because the Dashboard could not be edited on that branch; it is the wrong-way-round default,
-because a caller who forgets the prop OVERSTATES what the grip does. Once both consumers pass it
-explicitly, a required prop makes the whole class unreachable — which is the difference between
-fixing two surfaces and fixing the shape that produced them.
+Also closed a gap the primitive had all along: `arrangement-tile.test.tsx` covered only the
+arrow-key branch, so nothing unit-tested the `false` naming at the component that decides it.
+"names the grip for the drag alone when the surface has no keyboard reorder" now pins both halves —
+the drag-only name PRESENT and the arrow-key name ABSENT, since a grip carrying both would still
+mislead.
+
+★★ **`e2e/seed-content.spec.ts` asserted the old name and is the reason to grep `e2e/` on any
+label change** — two assertions, one of them `exact: true`. No unit run and no typecheck could have
+caught it; only the e2e job would have, after a push. ★ Playwright's `name` defaults to
+`exact: false` (a case-insensitive SUBSTRING) and here that cuts the right way: "Drag or use arrow
+keys to reorder" does not CONTAIN "Drag to reorder", so a tile left on the old name makes the
+`toHaveCount` come up short rather than passing.
 
 ★ **`roles-editor.tsx` is NOT affected and must not be "fixed" alongside it.** Its two grips leave
 `useListReorderDnd`'s `keyboard` at its default `true`, so `reorderHandle`'s arrow-key promise is
 true there and repointing it would be a regression. Re-derive the set that IS affected — every
 consumer that turns the option off — rather than trusting this paragraph:
-`grep -rn "keyboard: false" src/app --include=*.tsx`. ★★ READ the hits rather than counting them:
-that pattern matches this defect's own explanatory comments in `arrangement-tile.tsx`,
-`reports.tsx` and `reports.test.tsx` as well as the two real call sites, so the tally overstates
-the consumer set by roughly a factor of three.
+`grep -rn "keyboard: false" src/app --include=*.tsx`. ★★★ READ the hits; NO RATIO IS QUOTED HERE,
+and restoring one is a regression. This entry said "roughly a factor of three", a cold review
+measured 4.5, and closing it made the true figure 6 — because the pattern matches this defect's own
+explanatory comments, and every round of writing about it adds more. The number describes how much
+has been WRITTEN about the defect, not how many surfaces have it; only two hits are code
+(`dashboard-panel.tsx` and `reports.tsx`, each an option on a `useListReorderDnd` call).
 
 ## 426. Four Reports-arrangement checks that only an eye can make are unrun — OPEN
 

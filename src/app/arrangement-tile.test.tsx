@@ -7,11 +7,11 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 function twoTiles(readOnly = false, prefix = "block") {
   return render(
     <>
-      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={readOnly}
+      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={readOnly} keyboardReorder
         testIdPrefix={prefix} dragProps={{}} handleProps={{}} onOpenMenu={() => {}}>
         <p>alpha body</p>
       </ArrangementTile>
-      <ArrangementTile id="beta" title="Beta board" w={1} h={3} lang="en-US" readOnly={readOnly}
+      <ArrangementTile id="beta" title="Beta board" w={1} h={3} lang="en-US" readOnly={readOnly} keyboardReorder
         testIdPrefix={prefix} dragProps={{}} handleProps={{}} onOpenMenu={() => {}}>
         <p>beta body</p>
       </ArrangementTile>
@@ -67,6 +67,33 @@ describe("ArrangementTile — accessible names", () => {
     }
   });
 
+  // ★★★ §425 — THE OTHER BRANCH, AND THE PRIMITIVE HAD NO TEST FOR IT. The
+  // grip's name is the ONLY thing telling a keyboard user the arrow keys exist,
+  // so on a surface that passes `keyboard: false` to `useListReorderDnd` — where
+  // `handleProps.onKeyDown` is undefined — the arrow-key wording is a promise
+  // nothing keeps (WCAG 4.1.2). NOTHING ELSE CAN CATCH THAT: axe has no rule
+  // comparing an accessible name against the handlers actually bound, and jsdom
+  // dispatches a keydown onto a listener-less grip without complaint, so the
+  // missing reorder is unobservable from a test. Only the NAME is observable.
+  // ★ Literal expectations, not `t(...)`: re-deriving through the same key the
+  // component reads would assert it agrees with itself, which cannot fail. What
+  // must not regress is WHICH key it picks.
+  it("names the grip for the drag alone when the surface has no keyboard reorder", () => {
+    render(
+      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={false}
+        keyboardReorder={false}
+        testIdPrefix="block" dragProps={{}} handleProps={{}} onOpenMenu={() => {}}>
+        <p>body</p>
+      </ArrangementTile>,
+    );
+    expect(screen.getByRole("button", { name: "Drag to reorder – Alpha board" })).toBeInTheDocument();
+    // The arrow-key wording must be GONE, not merely supplemented — a grip
+    // carrying both names would still mislead.
+    expect(
+      screen.queryByRole("button", { name: "Drag or use arrow keys to reorder – Alpha board" }),
+    ).toBeNull();
+  });
+
   it("names the section itself with the title, so the region is identifiable", () => {
     twoTiles();
     expect(screen.getByRole("region", { name: "Alpha board" })).toBeInTheDocument();
@@ -96,7 +123,7 @@ describe("ArrangementTile — the surface bindings", () => {
   it("hands the ⋮ trigger itself to onOpenMenu, so a popover can anchor on it", () => {
     const onOpenMenu = vi.fn();
     render(
-      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={false}
+      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={false} keyboardReorder
         testIdPrefix="block" dragProps={{}} handleProps={{}} onOpenMenu={onOpenMenu}>
         <p>body</p>
       </ArrangementTile>,
@@ -111,7 +138,7 @@ describe("ArrangementTile — the surface bindings", () => {
     // accumulates detached nodes, and focusing one is a silent no-op.
     const seen: (HTMLButtonElement | null)[] = [];
     const { unmount } = render(
-      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={false}
+      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={false} keyboardReorder
         testIdPrefix="block" dragProps={{}} handleProps={{}} onOpenMenu={() => {}}
         menuButtonRef={(el) => seen.push(el)}>
         <p>body</p>
@@ -140,7 +167,7 @@ describe("ArrangementTile — readOnly", () => {
     // firing dragOver must not reach the handler.
     const onDragOver = vi.fn();
     render(
-      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly
+      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly keyboardReorder
         testIdPrefix="block" dragProps={{ onDragOver }} handleProps={{}} onOpenMenu={() => {}}>
         <p>body</p>
       </ArrangementTile>,
@@ -152,7 +179,7 @@ describe("ArrangementTile — readOnly", () => {
   it("DOES spread them when not readOnly — the positive control for the test above", () => {
     const onDragOver = vi.fn();
     render(
-      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={false}
+      <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={false} keyboardReorder
         testIdPrefix="block" dragProps={{ onDragOver }} handleProps={{}} onOpenMenu={() => {}}>
         <p>body</p>
       </ArrangementTile>,

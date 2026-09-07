@@ -810,7 +810,15 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
 // exactly so an unmount inside the debounce window is not discarded, and RTL
 // cleanup triggers it. Reusing an id WILL leak.
 const EN = "en-US" as const;
-const grip = (title: string) => `${t(EN, "reorderHandle")} – ${title}`;
+// ★★ §425: `reorderHandleDragOnly`, NOT `reorderHandle`. This panel passes
+// `keyboard: false` to `useListReorderDnd`, so its grips carry no `onKeyDown`
+// and the arrow-key half of `reorderHandle`'s name was a promise nothing kept.
+// Every expected grip name is built here, which is why closing §425 was a
+// one-line change in this file. ★ §425 predicted "five test names"; that is the
+// count of `grip()` CALL SITES, and they land in THREE tests — measured by
+// flipping `keyboardReorder` to `true` in `dashboard-panel.tsx`, which gives
+// `3 failed | 70 passed (73)`. Call sites and tests are not the same tally.
+const grip = (title: string) => `${t(EN, "reorderHandleDragOnly")} – ${title}`;
 const kebab = (title: string) => `${t(EN, "actionMoreActions")} – ${title}`;
 
 describe("DashboardPanel arrangeable tile grid", () => {

@@ -56,11 +56,11 @@ describe("span class tables", () => {
 function twoTiles(readOnly = false) {
   return render(
     <>
-      <DashboardTile id="raid" title="RAID register" w={2} h={2} lang="en-US" readOnly={readOnly}
+      <DashboardTile id="raid" title="RAID register" w={2} h={2} lang="en-US" readOnly={readOnly} keyboardReorder={false}
         dragProps={{}} handleProps={{}} onOpenMenu={() => {}}>
         <p>body</p>
       </DashboardTile>
-      <DashboardTile id="upcoming" title="Upcoming" w={2} h={2} lang="en-US" readOnly={readOnly}
+      <DashboardTile id="upcoming" title="Upcoming" w={2} h={2} lang="en-US" readOnly={readOnly} keyboardReorder={false}
         dragProps={{}} handleProps={{}} onOpenMenu={() => {}}>
         <p>body</p>
       </DashboardTile>
@@ -105,7 +105,7 @@ describe("DashboardTile", () => {
     // the wrong place, which jsdom cannot see — only this identity check can.
     const seen: HTMLElement[] = [];
     render(
-      <DashboardTile id="raid" title="RAID register" w={2} h={2} lang="en-US" readOnly={false}
+      <DashboardTile id="raid" title="RAID register" w={2} h={2} lang="en-US" readOnly={false} keyboardReorder={false}
         dragProps={{}} handleProps={{}} onOpenMenu={(el) => seen.push(el)}>
         <p>body</p>
       </DashboardTile>,

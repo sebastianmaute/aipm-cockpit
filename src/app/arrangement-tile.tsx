@@ -51,16 +51,25 @@ export interface ArrangementTileProps {
    * keyboard-operable, so that grip is then a focus stop with no keyboard action
    * at all, wearing a name that says otherwise.
    *
-   * ★★ DEFAULT `true` IS THE PRE-EXISTING BEHAVIOUR, NOT AN ENDORSEMENT. It is
-   * the wrong-way-round default — a caller that forgets it OVERSTATES what the
-   * grip does — and it is `true` only because `dashboard-panel.tsx` also passes
-   * `keyboard: false` and is under a branch rule forbidding edits to it and to
-   * its tests, five of which build the grip's expected name from `reorderHandle`.
-   * The Dashboard half is filed as `docs/open-followups.md` §425; closing it is
-   * a one-word call-site change here plus those five test names. A NEW surface
-   * must pass this explicitly rather than inherit the default.
+   * ★★★ REQUIRED, AND DELIBERATELY SO — THERE IS NO DEFAULT TO INHERIT. It
+   * briefly defaulted to `true`, which was the wrong way round: a caller who
+   * forgot it OVERSTATED what its grip does, which is precisely the defect this
+   * prop exists to prevent. That default was never an endorsement — it only
+   * preserved `dashboard-panel.tsx`, which was under a branch rule forbidding
+   * edits to it. §425 lifted that rule and closed the Dashboard half, and with
+   * both consumers now passing the prop explicitly the default had no consumer
+   * left to protect, so it is gone. Making it required is what takes the whole
+   * CLASS out of reach: a new surface cannot acquire an arrow-key promise by
+   * saying nothing, and the compiler asks the one question that matters.
+   *
+   * ★ Pass it from the SAME file that configures `useListReorderDnd`, so the
+   * capability and its label cannot drift apart. Both consumers do:
+   * `dashboard-panel.tsx` sets `keyboard: false` and passes
+   * `keyboardReorder={false}` a few hundred lines below it; `reports.tsx` does
+   * the same pair. Threading it from some third file would rebuild this defect
+   * with extra steps.
    */
-  keyboardReorder?: boolean;
+  keyboardReorder: boolean;
   /** Receives the trigger itself, so the caller can anchor its popover on it. */
   onOpenMenu: (anchor: HTMLElement) => void;
   /** ★★ Registers the ⋮ trigger against this block's ID, so the caller can find
@@ -109,7 +118,7 @@ export interface ArrangementTileProps {
  */
 export function ArrangementTile({
   id, title, w, h, lang, readOnly, dragProps, handleProps,
-  testIdPrefix, keyboardReorder = true, onOpenMenu, menuButtonRef, children,
+  testIdPrefix, keyboardReorder, onOpenMenu, menuButtonRef, children,
 }: ArrangementTileProps) {
   const moveKey = keyboardReorder ? "reorderHandle" : "reorderHandleDragOnly";
   const moveLabel = `${t(lang, moveKey)} – ${title}`;

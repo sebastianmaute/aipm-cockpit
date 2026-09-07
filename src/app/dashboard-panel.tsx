@@ -535,6 +535,18 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 h={p.h}
                 lang={lang}
                 readOnly={arrangement.readOnly}
+                // ★★★ §425: MUST MATCH `keyboard: false` ON THE
+                // `useListReorderDnd` CALL ABOVE. That option makes
+                // `handleProps.onKeyDown` undefined, so this grip has NO
+                // keyboard action; naming it `reorderHandle` ("Drag or use
+                // arrow keys to reorder") told a keyboard user to press a key
+                // that does nothing and announces nothing — WCAG 4.1.2, and
+                // invisible to axe and to jsdom alike. `false` names it
+                // `reorderHandleDragOnly` instead. If you ever turn `keyboard`
+                // back on, flip this in the same edit: the ⋮ menu remains this
+                // surface's keyboard reorder path, which is why the option is
+                // off rather than why the label was wrong.
+                keyboardReorder={false}
                 dragProps={reorder.itemProps(p.id)}
                 handleProps={reorder.handleProps(p.id)}
                 onOpenMenu={(anchor) => {

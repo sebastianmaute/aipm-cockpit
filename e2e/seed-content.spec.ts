@@ -202,10 +202,22 @@ test("the seeded dashboard renders a populated board, not an empty one", async (
 
   // Every rendered tile carries its own grip — so the count above is a count of
   // ARRANGEABLE tiles, not of sections that merely look like them.
-  // ★ Scoped to the grid on purpose: `reorderHandle` also labels grips in
-  // reports.tsx and roles-editor.tsx, neither of which is on this view today.
+  // ★★ §425: "Drag to reorder" (`reorderHandleDragOnly`), NOT "Drag or use
+  // arrow keys to reorder". This panel passes `keyboard: false` to
+  // `useListReorderDnd`, so its grips carry no `onKeyDown` and the arrow-key
+  // wording promised a key that does nothing.
+  // ★ Still scoped to the grid, and MORE necessary than before: Reports now
+  // names its grips with this same key, so the two surfaces share the string
+  // where they used to share `reorderHandle`. (`roles-editor.tsx` keeps
+  // `reorderHandle` — its grips really do take arrow keys.) Neither other
+  // surface is on this view today, but the scope is what keeps that true.
+  // ★★ Playwright's `name` defaults to `exact: false` — a case-insensitive
+  // SUBSTRING — and that cuts the RIGHT way here: "Drag or use arrow keys to
+  // reorder" does NOT contain "Drag to reorder", so a tile left on the old
+  // name is not matched and the count comes up SHORT rather than passing.
+  // The per-title assertions below pass `exact: true` and pin the whole string.
   await expect(
-    grid.getByRole("button", { name: "Drag or use arrow keys to reorder" }),
+    grid.getByRole("button", { name: "Drag to reorder" }),
   ).toHaveCount(tileCount);
 
   // Three UNGATED catalogue tiles — these render for every project, so naming
@@ -213,7 +225,7 @@ test("the seeded dashboard renders a populated board, not an empty one", async (
   for (const title of ["At a glance", "Progress", "Upcoming & overdue"]) {
     await expect(page.getByRole("region", { name: title, exact: true })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: `Drag or use arrow keys to reorder – ${title}`, exact: true }),
+      page.getByRole("button", { name: `Drag to reorder – ${title}`, exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: `More actions – ${title}`, exact: true }),
