@@ -658,7 +658,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§431](#431-one-malformed-api-date-reached-the-budget-aggregates-as-a-phantom-period-key--closed-2026-09-07) | One malformed API date reached the budget aggregates as a phantom period key | found 2026-09-07 in cold review of the guardrail-bounds branch; the first-party path §367 said had not been probed | S-M — one row rule at ONE consumer; the roll deliberately keeps its unparseable key | **CLOSED** 2026-09-07 |
 | [§432](#432-two-surfaces-tell-the-user-to-re-fetch-hours-that-a-re-fetch-cannot-repair--closed-2026-09-07) | Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S-M — an `undated` subset of `unattributed`, plus one string each | **CLOSED** 2026-09-07 |
 | [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
-| [§430](#430-adding-an-inlineentity-member-has-three-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--open) | Adding an `InlineEntity` member has three ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, two are silent | open |
+| [§434](#434-adding-an-inlineentity-member-has-three-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--open) | Adding an `InlineEntity` member has three ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, two are silent | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -31950,9 +31950,11 @@ is reachable — but a probe on the wrong backend will find nothing and conclude
 gone, the constraint from this entry stands: count what you remove and show it — a load path that
 silently deletes stored numbers is the shape §148 and the six-write-paths rule exist to prevent.
 
-## 430. Adding an `InlineEntity` member has three ripple sites, one a hard build break, and nothing enumerates them — OPEN
+## 434. Adding an `InlineEntity` member has three ripple sites, one a hard build break, and nothing enumerates them — OPEN
 
-**Status:** OPEN 2026-09-07 — never fixed. The three sites were located by grep on this branch, not inferred. Reproduce with `grep -rn "Record<InlineEntity" src/app` (two hits: the descriptor record itself and `ENTITY_LABEL_KEY`), `grep -n "only five with a surface" src/app/help-content.ts` (one hit, a count in prose), and `grep -n "^const CASES" -A 7 src/app/inline-ai-edit/descriptor-drift.test.ts` (five hardcoded rows, no enumeration over the descriptor record).
+**Status:** OPEN 2026-09-07 — never fixed.
+★ **Filed as §430 and renumbered to §434 on 2026-09-07.** A peer branch minted §430 for an unrelated cache-shedding defect and reached `origin/main` first, so that number is theirs under the reservation rule (a §number is reserved only once it is ON `origin/main`). The commit that filed this entry, `73971d52`, still says §430 in its subject and cannot be amended in a shared worktree — if you arrived from it, this is the entry it meant.
+ The three sites were located by grep on this branch, not inferred. Reproduce with `grep -rn "Record<InlineEntity" src/app` (two hits: the descriptor record itself and `ENTITY_LABEL_KEY`), `grep -n "only five with a surface" src/app/help-content.ts` (one hit, a count in prose), and `grep -n "^const CASES" -A 7 src/app/inline-ai-edit/descriptor-drift.test.ts` (five hardcoded rows, no enumeration over the descriptor record).
 
 `InlineEntity` (`inline-ai-edit/entity-descriptor.ts`) is a six-member union today. Adding a member
 — which is what any slice giving the model write tools for a new entity has to do, so the review
