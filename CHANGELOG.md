@@ -8,6 +8,22 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.291.1] - 2026-09-07 "Hoban"
+
+### Fixed
+- A Reports arrangement saved in a form the app can no longer read now falls
+  back to the standard set of blocks. Such a layout was previously
+  indistinguishable from having no saved arrangement at all, so the one-time
+  migration from the older Reports settings ran over it and restored an
+  arrangement the project had already moved past.
+
+### Changed
+- The translation keys shared by the Dashboard and Reports arrangement
+  surfaces no longer carry a dashboard-specific prefix. Every string shown on
+  screen is byte-identical in English and German; only the internal key names
+  moved, so that an edit aimed at the Dashboard can no longer silently retitle
+  a block in Reports.
+
 ## [0.291.0] - 2026-09-07 "Hoban"
 
 ### Fixed
