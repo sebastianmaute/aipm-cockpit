@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { aggregateActuals, buildDailyRoll } from "./timelog-actuals";
 import { periodKeyForDate, generatePeriods } from "./resource-capacity";
+import { parseDailyKey } from "./timelog-types";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
 // timeRegistrationId/taskId are ignored scaffolding — the engine keys only on userId/projectId/date/hours.
@@ -234,30 +235,40 @@ describe("buildDailyRoll", () => {
     expect(Object.keys(roll)).toEqual(["7|2026-09-01"]);
   });
 
-  // ★★ A blank date mints the key `"7|"`, which `parseDailyKey` rejects, which
-  // sets `evaluateTimelogPolicy`'s per-roll `skipped` flag and withholds all
-  // four guardrail rules from `evaluated` for EVERY user in that roll until a
-  // clean fetch. The real booker alongside is the anti-vacuity control — "no
-  // malformed key" is also true of an empty roll.
-  it("drops a row whose date is blank instead of minting an unparseable key", () => {
+  // ★★★ THESE TWO PIN A KEY THAT LOOKS LIKE A BUG AND IS THE SAFETY PROPERTY.
+  // A malformed date must reach the roll as an UNPARSEABLE KEY, because that key
+  // is the only production signal that the roll is not fully readable:
+  // `parseDailyKey` rejects it → `evaluateTimelogPolicy` sets its per-roll
+  // `skipped` flag → the guardrail rules are withheld from `evaluated` →
+  // `reconcileInsights` freezes instead of resolving. Filtering these rows out
+  // makes the rules certify a clean day for hours nobody could place, and the
+  // reconcile then writes a fabricated "improved" into exported data. That
+  // filter was written, shipped and reverted on 2026-09-07 (open-followups
+  // §431); these tests exist so it cannot come back quietly.
+  // ★ `parseDailyKey` is asserted directly rather than trusting the key's shape:
+  // the claim is "the policy engine cannot read this", and that predicate IS the
+  // policy engine's reader. Asserting only `roll["7|"]` would still pass if the
+  // parser were later loosened to accept it.
+  it("keeps a blank-date row as an unparseable key, so the roll reads as incomplete", () => {
     const roll = buildDailyRoll([
       item(7, "", 8),
       item(7, "2026-09-01", 6),
     ]);
-    expect(roll["7|"]).toBeUndefined();
-    expect(Object.keys(roll)).toEqual(["7|2026-09-01"]);
+    expect(roll["7|"]).toEqual({ hours: 8, maxEntryHours: 8, entryCount: 1 });
+    expect(parseDailyKey("7|")).toBeNull();
+    // The good row still rolls up normally — the bad key must not cost it.
     expect(roll["7|2026-09-01"]).toEqual({ hours: 6, maxEntryHours: 6, entryCount: 1 });
   });
 
   // The ten-character regional case: `dateOnly`'s `.slice(0, 10)` is a no-op on
   // it, so it reaches the roll looking like a date and is not one.
-  it("drops a row whose date is regionally formatted rather than ISO", () => {
+  it("keeps a regionally formatted date as an unparseable key", () => {
     const roll = buildDailyRoll([
       item(7, "05/01/2026", 8),
       item(7, "2026-09-01", 6),
     ]);
-    expect(roll["7|05/01/2026"]).toBeUndefined();
-    expect(Object.keys(roll)).toEqual(["7|2026-09-01"]);
+    expect(roll["7|05/01/2026"]).toEqual({ hours: 8, maxEntryHours: 8, entryCount: 1 });
+    expect(parseDailyKey("7|05/01/2026")).toBeNull();
     expect(roll["7|2026-09-01"]).toEqual({ hours: 6, maxEntryHours: 6, entryCount: 1 });
   });
 

@@ -26,17 +26,21 @@ export type ActualsAggregate = {
   unattributed: HourCell;
 };
 
-/** Can this ROW be attributed to a day or to a period at all?
+/** Can this row be attributed to a PERIOD? Used by `aggregateActuals` ALONE.
+ *
+ *  ★★★ ONE CONSUMER, DELIBERATELY, AND `buildDailyRoll` MUST NOT ADOPT IT — the
+ *  guard at its keying site says why at length. An earlier cut of this file
+ *  applied the constant at both consumers on the reasoning that one rule for one
+ *  file cannot drift; that reasoning was right about drift and wrong about what
+ *  the two consumers OWE, and it silently converted a freeze into a fabricated
+ *  clean. Symmetry between them is not a property worth having here.
  *
  *  ★★ DELIBERATELY LOCAL, and deliberately NOT `timelog-types.ts`'s
  *  `KEY_DATE_RE`. That one is a KEY rule — "is this daily-roll key usable?" —
  *  and its docstring argues at length why the identical `^\d{4}-\d{2}-\d{2}$`
  *  shape declared in several modules must stay several constants: each answers
  *  a different question and the answers are free to move apart. This one is a
- *  ROW rule, applied before a key or a period is minted at all. One constant
- *  serves BOTH consumers IN THIS FILE, so `buildDailyRoll` and
- *  `aggregateActuals` cannot drift from each other — which is the only coupling
- *  worth having here.
+ *  ROW rule, applied before a period key is minted at all.
  *
  *  ★ SHAPE, never existence — `9999-99-99` is admitted, matching the sibling
  *  rule. The point is to reject a date that is not a calendar day at all, not
@@ -128,15 +132,33 @@ export function buildDailyRoll(items: readonly TimelogTimeItem[]): TimelogDailyR
     // links-independent" comment at the buildDailyRoll call site. Only the
     // non-positive sentinel is excluded.
     if (it.userId <= 0) continue;
-    // Drop a row that carries no calendar day. The rules ask "did this person
-    // exceed a cap ON THIS DAY", and such a row has no day to test against —
-    // there is no correct cell for it, and the alternative to dropping it is
-    // not counting it correctly but counting it on a phantom one. A blank date
-    // mints `"7|"`, which `parseDailyKey` rejects, which sets
-    // `evaluateTimelogPolicy`'s per-roll `skipped` flag and withholds all four
-    // guardrail rules from `evaluated` for EVERY user in the roll until a clean
-    // fetch — one junk row freezing the whole surface.
-    if (!ISO_DAY_RE.test(it.date)) continue;
+    // ★★★ DO NOT ADD AN `ISO_DAY_RE` GUARD HERE. It is right there at the top of
+    // this file, it reads like an oversight that it is not applied to both
+    // consumers, and applying it converts a deliberate FREEZE into a fabricated
+    // CLEAN. This was written, reviewed, shipped and reverted on 2026-09-07;
+    // open-followups §431 carries the measurement.
+    //
+    // A malformed date mints the unparseable key `"7|"` ON PURPOSE. That key is
+    // the ONLY production signal that the roll is not fully readable:
+    // `parseDailyKey` rejects it → `evaluateTimelogPolicy` sets its per-roll
+    // `skipped` flag → all four guardrail rules are withheld from `evaluated` →
+    // `reconcileInsights` FREEZES the stored insights instead of resolving them.
+    // Drop the row and that chain never starts: the rules certify a clean day
+    // for hours nobody could place, and `computeClearedOutcome` writes a
+    // fabricated `"improved"` into shared, exported `Workspace.insights`.
+    //
+    // ★★ IT IS NOT SYMMETRICAL WITH `aggregateActuals`, and that asymmetry is the
+    // point. There, an unplaceable row has a truthful home (`unattributed`) that
+    // a surface already renders. Here it has none — a roll cell is a claim about
+    // a DAY — so the honest move is to keep the row unreadable and let the
+    // readiness floor see it. Over-withholding freezes rows and is recoverable;
+    // under-withholding fabricates a win and is not.
+    //
+    // ★ Scope, measured: on the PROJECT path this is moot either way, because
+    // `use-timelog-sync.ts` clamps to `inWindow` (a malformed date fails the
+    // lexical range) and hands `finish` an EMPTY `covered`, which freezes
+    // everyone regardless. It is the SELF and ORG paths that depend on this key,
+    // because there `covered` is derived date-blind from the fetched items.
     const k = dailyKey(it.userId, it.date);
     const cur = out[k];
     if (cur === undefined) {
