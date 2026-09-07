@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { isDailyCell, loadActualsCache, MAX_DAILY_ROLL_CHARS, saveActualsCache, TIMELOG_ACTUALS_KEY } from "./timelog-actuals-store";
+import { isDailyCell, loadActualsCache, MAX_ACTUALS_TOTAL_CHARS, MAX_DAILY_ROLL_CHARS, saveActualsCache, TIMELOG_ACTUALS_KEY } from "./timelog-actuals-store";
 import { writeDeviceJson } from "./device-store";
 
 afterEach(() => window.localStorage.clear());
@@ -588,5 +588,118 @@ describe("ActualsCacheEntry.daily size bound", () => {
     expect(keys).not.toContain("7|0000-00-00x");
     expect(e?.dailyWindow?.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(e?.dailyWindow?.from).toBe(datesOf(e?.daily)[0]);
+  });
+});
+
+describe("timelog actuals cache — map-level size budget", () => {
+  const DAY_MS = 86_400_000;
+  const isoDay = (i: number) => new Date(Date.UTC(2000, 0, 1) + i * DAY_MS).toISOString().slice(0, 10);
+  const CELL = { hours: 8, maxEntryHours: 8, entryCount: 1 };
+
+  /** `days` consecutive dated cells for one booker, oldest at index 0. */
+  const bigRoll = (days: number): Record<string, typeof CELL> => {
+    const out: Record<string, typeof CELL> = {};
+    for (let i = 0; i < days; i += 1) out[`7|${isoDay(i)}`] = { ...CELL };
+    return out;
+  };
+
+  // ★ 20k cells is ~1.2 MB against the 512 KiB PER-ENTRY bound, so
+  // `withBoundedDaily` trims each entry to just under that — which is a QUARTER
+  // of the 2 MiB map budget. Five such entries therefore exceed the map budget
+  // while NONE of them is individually over the per-entry one, which is the
+  // exact shape §361 describes and the only shape that can distinguish the two
+  // bounds.
+  const BIG_DAYS = 20_000;
+
+  const bigEntry = (fetchedAt: string) => ({
+    fetchedAt,
+    aggregates: agg(3),
+    daily: bigRoll(BIG_DAYS),
+    dailyWindow: { from: isoDay(0), to: isoDay(BIG_DAYS - 1) },
+    dailyUsers: [7],
+  });
+
+  const storedLength = () => (window.localStorage.getItem(TIMELOG_ACTUALS_KEY) ?? "").length;
+
+  /** ★★★ STAGE 2 IS THE POINT: the old entry loses its roll and KEEPS its
+   *  aggregates. `withBoundedDaily`'s own docstring states the rule — losing the
+   *  roll must never cost the aggregates beside it — and the count-based
+   *  eviction it replaces violated exactly that.
+   *  ★★ The three roll fields must go TOGETHER. A stripped entry with a window
+   *  but no roll is a coverage CLAIM about data that is gone: the reconcile
+   *  would read it as covered, find no violation in a roll that no longer
+   *  exists, and resolve the insight as a fabricated "improved". */
+  it("strips old rolls before dropping any entry, keeping their aggregates", () => {
+    for (let i = 0; i < 5; i += 1) {
+      saveActualsCache(`p${i}`, bigEntry(`2026-09-0${i + 1}T00:00:00.000Z`));
+    }
+    // ★ The `> 0` half is not decoration: a missing key reads as length 0 and
+    // would satisfy the budget assertion below without anything having been
+    // written at all.
+    expect(storedLength()).toBeGreaterThan(0);
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+
+    const oldest = loadActualsCache("p0");
+    expect(oldest).toBeDefined();
+    expect(oldest?.aggregates?.unattributed.hours).toBe(3);
+    expect(oldest?.daily).toBeUndefined();
+    expect(oldest?.dailyWindow).toBeUndefined();
+    expect(oldest?.dailyUsers).toBeUndefined();
+
+    expect(loadActualsCache("p4")?.daily).toBeDefined();
+  });
+
+  /** ★★★ THE ENTRY BEING SAVED IS NEVER A CANDIDATE, or a save silently does
+   *  nothing — a network round trip discarded with no error anywhere, since
+   *  `writeDeviceJson` swallows every failure.
+   *  ★★★ THE SAVED ENTRY HAS TO BE THE OLDEST HERE. Saving ONE big entry alone
+   *  and asserting it survived is VACUOUS: the per-entry roll cap is a quarter
+   *  of the map budget, so a lone entry can never exceed it and NEITHER stage
+   *  runs — the assertion passes with the `keep` exclusion deleted. Writing the
+   *  oldest `fetchedAt` LAST puts that entry first in the shed order, so only
+   *  the exclusion can save it. */
+  it("never sheds the entry being saved, even when it is the oldest", () => {
+    for (let i = 0; i < 4; i += 1) {
+      saveActualsCache(`n${i}`, bigEntry(`2026-09-0${i + 2}T00:00:00.000Z`));
+    }
+    saveActualsCache("oldest", bigEntry("2026-09-01T00:00:00.000Z"));
+    expect(storedLength()).toBeGreaterThan(0);
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+    const e = loadActualsCache("oldest");
+    expect(e).toBeDefined();
+    expect(e?.aggregates?.unattributed.hours).toBe(3);
+    expect(e?.daily).toBeDefined();
+    expect(e?.dailyWindow).toBeDefined();
+    expect(e?.dailyUsers).toEqual([7]);
+  });
+
+  /** ★★ Stage 3 only runs once stage 2 has nothing left to give — these entries
+   *  carry no roll at all, so the strip pass is a no-op and the drop pass is the
+   *  only thing that can bring the map under budget. */
+  it("drops whole entries once there are no rolls left to strip", () => {
+    const filler = "x".repeat(400_000);
+    for (let i = 0; i < 6; i += 1) {
+      saveActualsCache(`q${i}`, {
+        fetchedAt: `2026-09-0${i + 1}T00:00:00.000Z`,
+        aggregates: agg(1),
+        users: [{ userId: i, firstName: filler, lastName: "L", initials: "L", email: "a@b.c", isActive: true }],
+      });
+    }
+    expect(storedLength()).toBeGreaterThan(0);
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+    expect(loadActualsCache("q0")).toBeUndefined();
+    expect(loadActualsCache("q5")).toBeDefined();
+  });
+
+  /** ★★★ THE CONTROL, and without it every assertion above passes against a
+   *  shedder that fires unconditionally. */
+  it("leaves a map within budget completely untouched", () => {
+    const smallWindow = { from: isoDay(0), to: isoDay(9) };
+    saveActualsCache("s1", { fetchedAt: "2026-09-01T00:00:00.000Z", aggregates: agg(1), daily: bigRoll(10), dailyWindow: smallWindow, dailyUsers: [7] });
+    saveActualsCache("s2", { fetchedAt: "2026-09-02T00:00:00.000Z", aggregates: agg(2), daily: bigRoll(10), dailyWindow: smallWindow, dailyUsers: [7] });
+    expect(loadActualsCache("s1")?.daily).toEqual(bigRoll(10));
+    expect(loadActualsCache("s1")?.dailyWindow).toEqual(smallWindow);
+    expect(loadActualsCache("s1")?.dailyUsers).toEqual([7]);
+    expect(loadActualsCache("s2")?.daily).toEqual(bigRoll(10));
   });
 });
