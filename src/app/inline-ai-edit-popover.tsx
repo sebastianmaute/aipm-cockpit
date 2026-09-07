@@ -3,8 +3,7 @@ import { useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type EditPlan } from "./inline-ai-edit/plan";
-import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
-import { fieldLabel } from "./inline-ai-edit/field-labels";
+import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { type InlinePhase } from "./use-inline-ai-edit";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { useFocusTrap } from "./use-focus-trap";
@@ -19,13 +18,15 @@ export interface InlineAiEditPopoverProps {
   lang: Lang;
   itemTitle: string;
   entityLabel: string;
-  /** Which entity the open row belongs to — NOT derivable from `entityLabel`,
-   *  which is an already-translated display string. It names the descriptor the
-   *  plan was diffed against, so `fieldLabel` can resolve `${entity}.${field}`:
-   *  `title` is a job title on a resource and a person's role on a stakeholder,
-   *  so an unqualified label would be wrong for one of them. Both call sites
-   *  (`use-entity-inline-ai-edit`, `use-tasks-inline-ai-edit`) already hold it. */
-  entity: InlineEntity;
+  /** ★★ NO `entity` PROP. It used to name the open row's descriptor so
+   *  `fieldLabel` could resolve `${entity}.${field}` — `title` is a job title on
+   *  a resource and a person's role on a stakeholder. Every `FieldDiff`/
+   *  `LinkDiff` now carries that itself (§393), which is not merely equivalent:
+   *  a plan is NOT single-entity here either. An inline edit on a task may
+   *  `create_raid_item`, and `pushLinkDiffs` projects that create's links
+   *  through the CREATE's descriptor — so a raid link line was being labelled
+   *  through the task's map. Per-diff is the only spelling that cannot be
+   *  wrong. `entityLabel` (a translated display string) is unrelated and stays. */
   phase: InlinePhase;
   plan: EditPlan | null;
   clarifyText: string;
@@ -36,7 +37,7 @@ export interface InlineAiEditPopoverProps {
 }
 
 export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
-  const { lang, itemTitle, entityLabel, entity, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
+  const { lang, itemTitle, entityLabel, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
   const [value, setValue] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -115,19 +116,46 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
 
         {phase === "error" && errorText && <FieldError>{errorText}</FieldError>}
 
+        {/* ★★★ A REFUSAL, NOT "NO CHANGES" (§392). The model understood and the
+            writer refused a named field — a different thing from "clarify",
+            which means the model needs more from the user. There is deliberately
+            NO Apply button: `apply()` guards on `isEmptyPlan`, which does not
+            count `rejected`, so an Apply offered here would be live and would
+            no-op on every click. The instruction form above still renders (this
+            phase is not `preview`), so retrying with a different value is the
+            recourse and this footer is only the way out.
+            ★ `close`, not `cancel`: the header ✕ is already named "Cancel", and
+            a second control with that name inside one `aria-modal` dialog is a
+            WCAG 2.4.6 collision — the one the preview footer below already
+            has. */}
+        {phase === "rejected" && plan && (
+          <div className="mt-3">
+            <p className="mb-2 text-xs font-medium text-foreground">{t(lang, "inlineAiEditRejectedOnly")}</p>
+            <ul className="mb-3 space-y-1 text-xs">
+              {plan.rejected.map((r, i) => (<li key={`r${i}`} className="text-ui-pink-strong">{t(lang, "inlineAiEditRejected", r.detail)}</li>))}
+            </ul>
+            <div className="flex justify-end">
+              <Button variant="secondary" size="sm" onClick={onCancel}>{t(lang, "close")}</Button>
+            </div>
+          </div>
+        )}
+
         {phase === "preview" && plan && (
           <div className="mt-1">
             <p className="mb-2 text-xs font-medium text-foreground">{t(lang, "inlineAiEditPreview")}</p>
             <ul className="mb-3 space-y-1 text-xs text-foreground">
-              {plan.updates.map((d) => (
-                <li key={d.field}><span className="font-medium">{fieldLabel(lang, entity, d.field)}</span>: {d.before || "—"} → {d.after || "—"}</li>
+              {/* ★ Keyed by INDEX + field, matching the links row below: a
+                  merged plan can hold two `update_*` blocks touching the SAME
+                  field, and a bare `key={d.field}` is then a duplicate key. */}
+              {plan.updates.map((d, i) => (
+                <li key={`u${i}-${d.field}`}><span className="font-medium">{fieldLabel(lang, d.entity, d.field)}</span>: {d.before || "—"} → {d.after || "—"}</li>
               ))}
               {/* ★★ This popover's Apply REBUILDS its write patch from `links`,
                   and a relationship write REPLACES — so an unrendered link
                   change is a silent destructive write. `before`/`after` are the
                   resolved TITLES, never `rawIds`; the `|| "—"` is load-bearing
                   because `after` is legitimately "" when every link is removed. */}
-              {plan.links.map((l, i) => (<li key={`l${i}-${l.field}`}><span className="font-medium">{fieldLabel(lang, entity, l.field)}</span>: {l.before || "—"} → {l.after || "—"}</li>))}
+              {plan.links.map((l, i) => (<li key={`l${i}-${l.field}`}><span className="font-medium">{linkLabel(lang, l.entity, l)}</span>: {l.before || "—"} → {l.after || "—"}</li>))}
               {plan.creates.map((c, i) => (<li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}</li>))}
               {plan.deletes.map((del, i) => (<li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>))}
               {/* ★★★ THE PARTS THAT WILL NOT LAND, and this surface is the one
@@ -136,14 +164,17 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
                   sanitizer refused simply vanished from a preview the user then
                   approved, and they read the remaining lines as the whole change.
                   Last, and in the same failure colour the card uses.
-                  ★★ IN THE LIVE APP THIS IS ONLY REACHABLE ON A PLAN THAT ALSO
-                  WRITES SOMETHING: `use-inline-entity-edit.ts` routes an
-                  `isEmptyPlan` result to the "clarify" phase, and `isEmptyPlan`
-                  does not count `rejected` — so a rejection-ONLY plan never
-                  reaches `phase === "preview"` and the user is told "no changes"
-                  instead of which field was refused. That is a defect one layer
-                  up, not here; this renderer is correct for both shapes and is
-                  tested against both. */}
+                  ★★ IN THE LIVE APP THIS BLOCK IS ONLY REACHABLE ON A PLAN THAT
+                  ALSO WRITES SOMETHING, and that is now the whole story rather
+                  than a defect: `use-inline-entity-edit.ts` routes an
+                  `isEmptyPlan` result whose `rejected` is non-empty to the
+                  "rejected" phase below (§392, closed by the commit that added
+                  that phase). It used to route there to "clarify" — telling the
+                  user "no changes" instead of which field was refused — because
+                  `isEmptyPlan` does not count `rejected`. Do NOT "simplify" the
+                  two renderings into one by routing a rejection-only plan here:
+                  `apply()` guards on `isEmptyPlan` too, so the Apply button
+                  below would be live and would no-op. */}
               {plan.rejected.map((r, i) => (<li key={`r${i}`} className="text-ui-pink-strong">{t(lang, "inlineAiEditRejected", r.detail)}</li>))}
             </ul>
             <div className="flex justify-end gap-2">

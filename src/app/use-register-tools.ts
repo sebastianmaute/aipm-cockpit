@@ -45,6 +45,7 @@ import {
   sanitizeIsoDate,
   sanitizeRaidItem,
   sanitizeChangeItem,
+  sanitizeModelChangeItem,
   sanitizeMilestone,
   sanitizeStakeholder,
 } from "./sanitize";
@@ -222,7 +223,14 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // Mirrors `applyModelChangeStatus`, applied one field over.
         const merged = sanitizeRaidItem({
           ...existing,
-          ...dropUnacceptedRaidFields(withAiRichFields(patch, AI_RICH_FIELDS.raid), existing),
+          // ★ Guard OUTSIDE, matching milestone — see the note at that call
+          // site for why the order is load-bearing. It is behaviour-NEUTRAL
+          // here today: `RAID_FIELD_GUARDS`' keys (category, status, severity,
+          // probability, impact, and the three dates) are disjoint from
+          // `AI_RICH_FIELDS.raid` (description, mitigation), so neither pass
+          // can see what the other writes. Nested this way the trap is disarmed
+          // for whoever adds a rich field to the guard table.
+          ...withAiRichFields(dropUnacceptedRaidFields(patch, existing), AI_RICH_FIELDS.raid),
           id,
           localModifiedAt: new Date().toISOString(),
         });
@@ -284,7 +292,14 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
 
       createChange: (input) => {
         if (isReadOnly) throw readOnlyError();
-        const sanitized = sanitizeChangeItem({
+        // ★★ `sanitizeModelChangeItem`, NOT the plain sanitizer, and the two are
+        // not interchangeable here. A create has no stored value to protect, so
+        // the model's `scheduleImpactDays: 1.5` is REPAIRED to 2 rather than
+        // stored verbatim (the plain sanitizer's load-path behaviour) or dropped
+        // (the UPDATE path's, one handler below). Safe only because the create
+        // card makes no per-field promise to contradict — `plan.creates` carries
+        // no `numericFields` check and renders as entity + title alone.
+        const sanitized = sanitizeModelChangeItem({
           ...withAiRichFields(input, AI_RICH_FIELDS.change),
           id: mintId("change", changesRef.current),
           // Defaulted BEFORE the sanitizer, so an unparseable date lands on today rather than on the empty string the sanitizer stores for one.
@@ -307,22 +322,40 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const existing = changesRef.current.find((c) => c.id === id);
         if (!existing) return null;
         // ★★★ `dropUnacceptedChangeFields` FIRST — `sanitizeChangeItem` rebuilds
-        // a whole record, so a value it refuses CLEARS the merged field rather
-        // than leaving the stored one alone (`impact`, `decisionDate`,
-        // `scheduleImpactDays` and `costImpact` lose their key, `raisedDate` is
-        // written as "", and `type` resets to the hardcoded "Other"). The AI
-        // edit preview refuses those same values and shows the field as
-        // unchanged, so without this the card says "unchanged" while the write
-        // wipes a populated field. Guard here and never in the sanitizer: that
-        // runs on JSON load, CSV decode, template apply and AI proposal too,
-        // where there IS no prior value.
+        // a whole record from the merged blob, so without the guard a value the
+        // preview refused still reaches the stored row. It lands one of two
+        // ways, and BOTH are preview/apply divergences:
+        //   CLEARED — `impact` and `decisionDate` lose their key, `raisedDate`
+        //     is written as "", `type` resets to the hardcoded "Other".
+        //   WRITTEN ANYWAY — `scheduleImpactDays` and `costImpact`, since the
+        //     sanitizer now stores those two VERBATIM (any coercible, finite,
+        //     non-negative number). A model `1.5` would be saved as 1.5 while
+        //     the card showed the field unchanged.
+        // ★★ THAT SECOND BUCKET IS NEW, and this comment listed both amounts
+        // under "lose their key" while the sanitizer still gated them. It no
+        // longer does — repair and acceptance moved off the load path so stored
+        // data is not rewritten — which makes this guard the ONLY thing keeping
+        // the two amounts in step with the card. The AI edit preview refuses
+        // these values through the same imported predicates (§405).
+        // Guard here and never in the sanitizer: that runs on JSON load, CSV
+        // decode and template apply, where there IS no prior value to preserve.
+        // ★ The AI proposal used to belong in that list and no longer does — it
+        // calls `sanitizeModelChangeItem`, which repairs rather than refuses.
+        // Its exemption is still the same one: no prior value behind it.
         // ★★ `status` is NOT in that table — `applyModelChangeStatus` below
         // already keeps the stored one and owns the coupled `decisionDate`
         // transition, and it gates on the model's RAW value, which dropping the
         // key would take away.
         const merged = sanitizeChangeItem({
           ...existing,
-          ...dropUnacceptedChangeFields(withAiRichFields(patch, AI_RICH_FIELDS.change)),
+          // ★ Guard OUTSIDE, matching milestone. Behaviour-NEUTRAL here today:
+          // `CHANGE_FIELD_GUARDS`' keys (type, impact, the two dates,
+          // scheduleImpactDays, costImpact) are disjoint from
+          // `AI_RICH_FIELDS.change` (description, impactDescription,
+          // resolutionNotes). ★★ `impact` and `impactDescription` are DIFFERENT
+          // keys — the near-collision is the reason to state the disjointness
+          // rather than eyeball it.
+          ...withAiRichFields(dropUnacceptedChangeFields(patch), AI_RICH_FIELDS.change),
           id, localModifiedAt: new Date().toISOString(),
         });
         if (!merged) throw new Error("invalid change update");
@@ -401,7 +434,27 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // "unchanged", which is what the preview already promises.
         const merged = sanitizeMilestone({
           ...existing,
-          ...dropUnacceptedMilestoneFields(withAiRichFields(patch, AI_RICH_FIELDS.milestone)),
+          // ★★★ THE GUARD NESTS OUTSIDE, AND THE ORDER IS THE WHOLE GUARD.
+          // `withAiRichFields` runs `sanitizeAiRichText`, which returns "" for
+          // any non-string — so run INSIDE, it hands the guard an already-
+          // stringified value and `MILESTONE_FIELD_GUARDS.description`'s
+          // `typeof v === "string"` is unconditionally true. That shipped once:
+          // the guard was dead code, the preview refused the value, and the
+          // write cleared the stored rich text anyway. The guard must see the
+          // RAW model value. Pinned by a source assertion in
+          // `sanitize-milestone-patch.test.ts`.
+          // ★★ THAT ASSERTION IS A SOURCE SCAN BECAUSE NOTHING BEHAVIOURAL
+          // COVERS THIS TODAY — not because nothing could, and an earlier
+          // wording here claimed the stronger thing ("no behavioural test can
+          // see a re-nesting, because any such test composes its own copy").
+          // That holds for a MIRROR of this composition, which is what that
+          // file has; it is not a property of this code. `useRegisterTools`
+          // takes six plain flags/refs and reads the rest from `useWorkspace`,
+          // so a `renderHook` driving the real `updateMilestone` under a
+          // `WorkspaceProvider` would compose nothing and WOULD catch a
+          // re-nesting. No such test exists — a follow-up, not an impossibility.
+          // Arguing a gap shut is how it stays open.
+          ...withAiRichFields(dropUnacceptedMilestoneFields(patch), AI_RICH_FIELDS.milestone),
           id,
           localModifiedAt: new Date().toISOString(),
         });

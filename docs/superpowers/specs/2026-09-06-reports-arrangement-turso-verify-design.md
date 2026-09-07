@@ -31,7 +31,7 @@ Already done, verified by reading the tree and confirming each commit is an ance
 | Task modal: Budget bucket in Effort & Classification, between the rows | `[estimate\|tracking] [bucket\|—] [group\|labels]` |
 
 **Deferred, not in scope:** the per-window/per-modal help icon. Filed as
-`docs/open-followups.md` §418, because it is blocked on a UX decision (see that entry) rather
+`docs/open-followups.md` §424, because it is blocked on a UX decision (see that entry) rather
 than on effort.
 
 **Owed from the already-done set:** the Ask-Claude clipping fix asserts a class, not geometry —
@@ -342,7 +342,7 @@ has, and acceptable for the same reason: the state is re-adopted on restore.
 
 ## Non-goals
 
-- No per-window/per-modal help icon (§418).
+- No per-window/per-modal help icon (§424).
 - No removal of the `settings.reports.extra` field.
 - No change to the Projects tab's Move-to-Turso gate.
 - No new persisted `Workspace` field, and therefore no six-write-path work.

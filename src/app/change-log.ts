@@ -188,9 +188,7 @@ export function selectTopChanges(changes: readonly ChangeItem[], limit: number):
  *   rather than from a stored row — see the note below. It was in the
  *   "nothing to lose" group until §168, and moving it is the whole of that fix.
  *
- * ★★ At least one site passes the sanitizer BY REFERENCE — `buildList` in
- * `ai-project-proposal.ts` — so a call-shaped `sanitizeChangeItem(` grep
- * under-reports and reads as complete. Sweep the BARE name instead:
+ * ★ Sweep the BARE name, never a call-shaped `sanitizeChangeItem(`:
  *   grep -rn sanitizeChangeItem src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
  * It also returns the imports, the declaration and every comment mentioning the
  * name — this docblock's own included, which is the grep matching itself.

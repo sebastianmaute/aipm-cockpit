@@ -42,7 +42,7 @@ import type { ProposedCall } from "./chat-proposal";
 import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type EditPlan } from "./inline-ai-edit/plan";
 import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
-import { fieldLabel } from "./inline-ai-edit/field-labels";
+import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { TOOL_ENTITY } from "./chat-proposal-describe";
 
 /** Rows shown before the disclosure collapses the rest. */
@@ -131,10 +131,40 @@ function PlanDetail({
   plan: EditPlan;
   /** ★★ RESOLVED FROM THE ROW'S OWN TOOL NAME, not from the card. A staged
    *  proposal mixes entities freely, so one card-wide entity would mislabel
-   *  every row but the first — `impact` is a 1-5 rating on a RAID item and a
-   *  free-text rating on a change. `undefined` for a tool the descriptor engine
-   *  has no entity for (every `*_document` tool), and `fieldLabel` then falls
-   *  back to the raw property name rather than guessing. */
+   *  every row but the first — `impact` is a 1-5 `RiskScale` on a RAID item and
+   *  a Low/Medium/High/Critical `ChangeImpact` enum on a change. `undefined` for
+   *  a tool the descriptor engine has no entity for (every `*_document` tool,
+   *  and `set_task_dependencies`), and `fieldLabel` then falls back to the raw
+   *  property name rather than guessing — except for the fields
+   *  `ENTITYLESS_FIELD_LABEL_KEY` covers, which it translates instead.
+   *
+   *  ★★★ DO NOT "ALIGN" THIS TO THE PER-DIFF `d.entity` / `l.entity` THE OTHER
+   *   TWO SURFACES READ. `inline-ai-edit-popover.tsx` passes `d.entity` and
+   *   `l.entity`, and copying that here is a REGRESSION on the links line —
+   *   measured 2026-09-06, not reasoned. `set_task_dependencies` is
+   *   deliberately absent from `TOOL_ENTITY`, so this prop is `undefined` for
+   *   its row and `fieldLabel` routes through `ENTITYLESS_FIELD_LABEL_KEY`;
+   *   `describeDependencyCall` nonetheless sets the diff's own
+   *   `entity: "task"`, and `FIELD_LABEL_KEY` declares no `task.dependencies`
+   *   member, so `keyedFieldLabel` falls straight back to the RAW property
+   *   name. Reproduce with `linkLabel` directly:
+   *     linkLabel("en-US", undefined, {field:"dependencies",subject:"Draft brief"})
+   *       → "Draft brief – Dependencies"   (today)
+   *     linkLabel("en-US", "task",      {field:"dependencies",subject:"Draft brief"})
+   *       → "Draft brief – dependencies"   (after the "alignment")
+   *   An untranslated lowercase property name on an approval card, in every
+   *   language. The same trade is spelled out from the producer's side in
+   *   `chat-proposal-describe.ts`, above its `entity: "task"` push.
+   *
+   *  ★★ THE UPDATES LINE IS A DIFFERENT CASE AND IS NOT WORTH CHANGING EITHER:
+   *   there, this prop and `d.entity` are provably the SAME VALUE, so no test
+   *   can discriminate the two forms. `TOOL_ENTITY` is built by walking
+   *   `INLINE_DESCRIPTORS` and mapping each descriptor's create/update/delete
+   *   tool to that descriptor's `entity`; a `FieldDiff`'s `entity` comes from
+   *   the descriptor the engine resolved for the same tool. A row whose tool
+   *   has no descriptor gets an EMPTY plan, so `plan.updates` is never
+   *   non-empty while this prop is `undefined`. Switching only that line would
+   *   buy nothing and leave the file reading as a half-finished edit. */
   entity: InlineEntity | undefined;
 }) {
   if (isEmptyPlan(plan) && plan.rejected.length === 0) return null;
@@ -154,7 +184,7 @@ function PlanDetail({
           nothing, which is the most destructive line this card can show. */}
       {plan.links.map((l, i) => (
         <li key={`l${i}-${l.field}`}>
-          <span className="font-medium text-foreground">{fieldLabel(lang, entity, l.field)}</span>:{" "}
+          <span className="font-medium text-foreground">{linkLabel(lang, entity, l)}</span>:{" "}
           {l.before || "—"} → {l.after || "—"}
         </li>
       ))}

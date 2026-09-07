@@ -1,6 +1,6 @@
 // src/app/insights/recommend-plan.test.ts
 import { describe, test, expect } from "vitest";
-import { describeRecommendationPlan, recommendationPlanEntity } from "./recommend-plan";
+import { describeRecommendationPlan } from "./recommend-plan";
 import type { Workspace } from "../workspace";
 
 function ws(): Workspace {
@@ -51,51 +51,46 @@ describe("describeRecommendationPlan", () => {
     );
     expect(plan.updates).toEqual(
       expect.arrayContaining([
-        { field: "taskName", before: "T", after: "Renamed", raw: "Renamed" },
-        { field: "title", before: "Risk A", after: "Risk A renamed", raw: "Risk A renamed" },
+        { entity: "task", field: "taskName", before: "T", after: "Renamed", raw: "Renamed" },
+        { entity: "raid", field: "title", before: "Risk A", after: "Risk A renamed", raw: "Risk A renamed" },
       ]),
     );
     expect(plan.rejected).toHaveLength(0);
   });
-});
 
-describe("recommendationPlanEntity", () => {
-  // ★★★ The review modal labels its previewed field names through this. It must
-  // answer `undefined` rather than guess, because `describeRecommendationPlan`
-  // MERGES across entities into one `EditPlan` with no per-diff entity — so
-  // naming a mixed plan after either half renames the other half's fields.
-  test("names the single entity every field-bearing call targets", () => {
-    expect(
-      recommendationPlanEntity([
-        { name: "update_task", input: { id: 12, dueDate: "2026-08-01" } },
-        { name: "update_task", input: { id: 13, status: "Done" } },
-      ]),
-    ).toBe("task");
-  });
-
-  test("returns undefined when two registers are updated in one recommendation", () => {
-    expect(
-      recommendationPlanEntity([
-        { name: "update_task", input: { id: 12 } },
-        { name: "update_raid_item", input: { id: 5 } },
-      ]),
-    ).toBeUndefined();
-  });
-
-  test("returns undefined when nothing is updated", () => {
-    expect(recommendationPlanEntity([{ name: "create_task", input: { taskName: "T" } }])).toBeUndefined();
-    expect(recommendationPlanEntity([])).toBeUndefined();
-  });
-
-  // ★ Deletes and creates cannot contribute `updates`/`links`, so they must not
-  // make an otherwise single-entity recommendation ambiguous.
-  test("ignores delete and create calls when deciding", () => {
-    expect(
-      recommendationPlanEntity([
-        { name: "update_raid_item", input: { id: 5 } },
-        { name: "delete_task", input: { id: 12 } },
-        { name: "create_milestone", input: { name: "M", date: "2026-09-01" } },
-      ]),
-    ).toBe("raid");
+  // ★★★ THE MERGED-ENTITY CASE (§393). `describeRecommendationPlan` grounds each
+  // call against its OWN descriptor and pushes every result into ONE `EditPlan`,
+  // so `updates` can hold a raid diff and a change diff side by side — and the
+  // label map is entity-qualified BECAUSE IT MUST BE: `impact` is a 1-5 scale on
+  // a RAID item and a Low/Medium/High/Critical enum on a change. Before the
+  // per-diff `entity`, the only answer available was plan-level
+  // (`recommendationPlanEntity`), which returned `undefined` for exactly this
+  // shape and left both rows rendering their raw property name.
+  test("resolves both entities' labels in a merged recommendation plan", () => {
+    const mixed = {
+      tasks: [],
+      raid: [{ id: 5, category: "R", title: "Risk A", impact: 2 }],
+      changes: [{ id: 7, title: "CR", impact: "Low" }],
+      milestones: [],
+      stakeholders: [],
+    } as unknown as Workspace;
+    const plan = describeRecommendationPlan(
+      [
+        { name: "update_raid_item", input: { id: 5, impact: 4 } },
+        { name: "update_change", input: { id: 7, impact: "High" } },
+      ],
+      mixed,
+    );
+    expect(plan.updates.map((u) => [u.entity, u.field])).toEqual([
+      ["raid", "impact"],
+      ["change", "impact"],
+    ]);
+    expect(plan.rejected).toHaveLength(0);
   });
 });
+
+// ★★ The `recommendationPlanEntity` suite that stood here was REMOVED with the
+// helper (§393). Its four cases all pinned the plan-level answer — "one register
+// or nothing" — which the per-diff `entity` above replaces: the merged case it
+// asserted `undefined` for is exactly the one now labelled correctly on both
+// rows. Nothing it covered is lost; it covered a fallback that no longer exists.

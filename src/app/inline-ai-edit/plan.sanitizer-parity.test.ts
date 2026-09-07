@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { describeEntityCalls, previewNormalizerFor, RICH_FIELDS, type ToolUseLike } from "./plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
@@ -102,10 +104,31 @@ import type { Workspace } from "../workspace";
 //      ★ `change.status` is the one guarded by neither table: `updateChange`
 //      hands it to `applyModelChangeStatus` after the sanitizer, which is why
 //      `changeReader` composes that too.
-//  (5) `TASK_BASE` carries no `lastUpdateDate`, so `update_task({lastUpdateDate:
-//      ""})` — a clear the preview shows and the writer may not make — compares
-//      "" against "" and says nothing. Same rule as (4): do not add one here.
+//  (5) WAS a blind spot and is now the sweep's proof for §396, so do NOT strip
+//      `lastUpdateDate` back out of `TASK_BASE`. While the fixture carried none,
+//      `taskReader`'s `?? ""` fallback rendered "" for a dropped key and the
+//      preview rendered "" for the clear, so `update_task({lastUpdateDate: ""})`
+//      compared "" against "" and said nothing — green before AND after the
+//      writer changed, for the same non-reason. This is (4)'s shape only in
+//      form: (4) forbids editing a fixture to manufacture a red OUTSIDE the
+//      direction under test, whereas a populated `lastUpdateDate` puts a real
+//      stored value on the other side of the one probe that IS the direction
+//      under test. Mutation-proved: revert `buildTaskCleanPatch`'s clear branch
+//      and this file reds naming `task.lastUpdateDate on the empty string`.
+//      ★ It moves no count — the other nine probes are preview-only rejections
+//      either way, and `unchanged` simply becomes the stored date instead of "".
+//  (6) IT CANNOT SEE A MERGE-SITE GUARD IT DOES NOT COMPOSE, which is (1) narrowed
+//      to the shape that has actually shipped twice. Every reader but `resource`
+//      composes one because one exists; `resource` has none to compose, so its
+//      reader is faithful TODAY and would go silently stale the day that changes
+//      — exactly how the raid guard left four stale `PREVIEW_REJECTS_APPLY_WRITES`
+//      entries excusing closed defects, and the change guard two. Closed for
+//      `resource` by the source assertion at the BOTTOM of this file, which reds
+//      when anything is inserted between the model's patch and `sanitizeResource`.
+//      ★★ That arms the RECURRENCE, not the blindness: the sweep still could not
+//      evaluate such a guard, it can only no longer fail to hear about one.
 //
+
 // ★★ NO CROSS-TEST STATE. The totals check below recomputes the whole sweep
 // inside its own body rather than reading counters the per-entity tests
 // incremented — `npm run test:shuffle` shuffles test order WITHIN a file, so an
@@ -129,15 +152,25 @@ const PROBES: ReadonlyArray<{ label: string; value: unknown }> = [
   { label: "the boolean true", value: true },
   { label: "the boolean false", value: false },
   { label: "the number 42", value: 42 },
+  // ★★★ THE ONLY PROBE ANY RISK-SCALE FIELD ACCEPTS, and it had to be added
+  // when §395 landed. Until then `raid.probability`/`impact` reached a
+  // COMPARISON on exactly one probe — the boolean `true`, which both sides
+  // coerced to a fabricated 1. Refusing the boolean therefore left both fields
+  // rejecting all nine probes, and the per-field silence check below caught it
+  // BY NAME: the differential's entire coverage of those two fields had been
+  // resting on the defect it exists to detect. 3 is inside [1,5] and >= 0, so
+  // it is a comparison on all four number fields rather than a raid-only patch.
+  { label: "the number 3", value: 3 },
   // ★★ THE "CLEAR THIS FIELD" VALUE, and the probe that found the number path's
-  // divergence. `Number("")` is `0`, so an int-range guard starting at 0 ACCEPTS
-  // it — the change fields previewed `""` where the sanitizer stores `0`. It is
+  // divergence. `toNumber("")` is `0`, which a guard admitting 0 ACCEPTS — the
+  // change fields previewed `""` where the sanitizer stores `0`. It is
   // also the one value `emailFormatFields` carves out explicitly (`after !== ""`),
   // so it exercises that exemption rather than the guard beside it.
-  // ★ It splits the four number fields on their RANGE, which is why it is worth
-  // keeping on both: `change.scheduleImpactDays`/`costImpact` range `[0, ∞)`, so
-  // 0 is in range and the pair is COMPARED (`"0"` on both sides). `raid.
-  // probability`/`impact` range `[1, 5]`, so 0 falls out and the preview
+  // ★ It splits the four number fields on their FLOOR, which is why it is worth
+  // keeping on both: both change amounts admit 0 — §399 tightened them in other
+  // respects (days to an integer, cost to two decimals under AMOUNT_MAX) but
+  // left the floor where it was — so 0 is accepted and the pair is COMPARED (`"0"` on both
+  // sides). `acceptsRiskScale` demands [1,5], so 0 falls out and the preview
   // REJECTS — while `sanitizeRaidItem` would have dropped the key, i.e. cleared
   // the field. Preview refusing where apply would clear is the safe direction,
   // so it is counted as a preview-only rejection rather than a mismatch.
@@ -152,8 +185,12 @@ const PROBES: ReadonlyArray<{ label: string; value: unknown }> = [
 // fields as it can, so `before` is a real value and a preview that dropped the
 // field entirely could not read as agreement.
 
+// ★★ `lastUpdateDate` is NOT decoration — see limitation (5) at the top. Without
+// a stored value here the empty-string probe compares "" against "" and the
+// sweep is silent on the one field whose clear it is meant to police.
 const TASK_BASE = {
   id: 1, taskName: "T", assignee: "Ann", assigneeEmail: "a@b.co", dueDate: "2026-01-01",
+  lastUpdateDate: "2026-01-02",
   status: "To Do", priority: "Medium", description: "", blockers: "b", group: "G", labels: [],
 } as unknown as Task;
 const RAID_BASE = {
@@ -323,6 +360,35 @@ const changeReader: StoredReader = (field, value) => {
   return readStored(stamped as unknown as Record<string, unknown>, field);
 };
 
+/** The RESOURCE apply path — the ONE reader here that wraps its sanitizer in
+ *  nothing, deliberately, and now pinned so it cannot STAY that way by accident.
+ *
+ *  ★★★ EVERY SIBLING ABOVE COMPOSES A MERGE-SITE STEP BECAUSE ONE EXISTS.
+ *  `updateResource` (`use-chat-dispatcher.ts`) has no guard to compose: it
+ *  spreads the model's patch RAW over the stored row and hands the result
+ *  straight to `sanitizeResource`. So this reader IS the real write path for
+ *  every swept field, not a cheaper stand-in for it — and adding a `dropUnaccepted…`
+ *  call here to match the siblings would be a MIRROR of a guard production does
+ *  not have, which is the drift this file exists to catch.
+ *
+ *  ★★ THE ONE STEP THE WRITER DOES HAVE CANNOT FIRE HERE, which is why its
+ *  absence is not a gap: the dispatcher re-derives the name parts via
+ *  `splitName`, and that branch needs `patch.name` — absent from this
+ *  descriptor's `diffFields`, reached by no probe, and gated on BOTH parts being
+ *  non-strings, which `previewOf`'s one-key override can never produce. Blind
+ *  spots (2) and (3) at the top of this file say the same thing from the probe
+ *  side; `plan.write-path.test.ts` owns it against the real dispatcher.
+ *
+ *  ★★★ SO THE HOLE IS THE FUTURE, NOT TODAY, and that is what the source
+ *  assertion at the bottom of this file closes. A raw-sanitizer reader is
+ *  structurally BLIND to a merge-site guard: measured on `raid`, where the fix
+ *  landed, this sweep stayed green throughout, and four stale
+ *  `PREVIEW_REJECTS_APPLY_WRITES` entries went on excusing defects that no
+ *  longer existed. `change` repeated it with two. `resource` cannot repeat it
+ *  silently — the moment anything filters the patch before `sanitizeResource`,
+ *  that assertion reds and composing this reader is the fix. */
+const resourceReader: StoredReader = sanitizerReader(RES_BASE, sanitizeResource as never);
+
 const CASES: ReadonlyArray<{
   entity: InlineEntity;
   base: Record<string, unknown>;
@@ -333,7 +399,7 @@ const CASES: ReadonlyArray<{
   { entity: "change", base: CHANGE_BASE, read: changeReader },
   { entity: "milestone", base: MILE_BASE, read: milestoneReader },
   { entity: "stakeholder", base: STK_BASE, read: stakeholderReader },
-  { entity: "resource", base: RES_BASE, read: sanitizerReader(RES_BASE, sanitizeResource as never) },
+  { entity: "resource", base: RES_BASE, read: resourceReader },
 ];
 
 // --- explicit exclusions ---------------------------------------------------
@@ -448,7 +514,10 @@ const APPLY_ONLY_REJECTS: ReadonlySet<string> = new Set<string>([
  *  possible 288, enumerated 468) — a figure elsewhere in this file that changed
  *  with this work would be a bug.
  *  Re-print, never re-derive: `console.log` the reduce results in the totals
- *  test and run this file alone. */
+ *  test and run this file alone — ★★ WITH `--disable-console-intercept`, or the
+ *  line never appears and the recipe reads as "the numbers did not print"
+ *  rather than "vitest swallowed them". Measured: a bare
+ *  `npx vitest run <this file>` shows nothing at all. */
 const PREVIEW_REJECTS_APPLY_WRITES: Readonly<Record<string, string>> = {
 };
 
@@ -498,10 +567,13 @@ function previewOf(
   // ★ DELEGATED, not restated: `previewNormalizerFor` is the production
   // resolution order (descriptor entry → numeric coercion → verbatim), so a
   // field moving between those three cannot leave this branch behind.
+  // ★ The row an entry reads is the MERGED one, exactly as the production loop
+  // builds it — `resource.emails` sanitizes against the row's primary, which a
+  // probe may be changing in the same call.
   const normalize = previewNormalizerFor(d, field);
   return {
     rejected: false,
-    shown: normalize ? normalize(base[field]) : String(base[field] ?? ""),
+    shown: normalize ? normalize(base[field], { ...base, [field]: value }) : String(base[field] ?? ""),
   };
 }
 
@@ -664,8 +736,20 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     expect(silent).toEqual([]);
 
     // (3) AGGREGATE, as a fraction of what the comparable fields could yield.
-    // MEASURED 2026-09-05: 244 comparisons over 32 comparable fields × 9 probes
-    // = 288 possible, i.e. 85%. (It was 234/279/84% until §383 added
+    // MEASURED 2026-09-06: 265 comparisons over 32 comparable fields × 10
+    // probes = 320 possible, i.e. 83%.
+    // ★★ THIS LINE SAID 269/84% AND WAS ALREADY STALE WHEN §396 ARRIVED — the
+    // numerator had drifted under a sibling commit and no gate could see it,
+    // which is the failure the paragraph below describes happening again.
+    // Attributed by measurement, not by reading the log: printed with and
+    // without §396's `TASK_BASE.lastUpdateDate` and it is 265 BOTH WAYS, so
+    // neither that fixture value nor the writer change moved it. The other
+    // three figures here (32 / 320 / 520) re-printed unchanged.
+    // (It was 244/288/85% until §395 refused a
+    // boolean risk scale and added the `3` probe — the probe is why the
+    // denominator moved by 32, and the two raid fields it rescued from total
+    // silence are why the numerator moved by more than the four number fields
+    // alone would explain.) (It was 234/279/84% until §383 added
     // `resource.emails` — a 32nd comparable field, +9 — and `task.lastUpdateDate`,
     // a DATE field that is NOT comparable yet still contributes its one
     // empty-string comparison, +1: which is why the numerator moved by 10 and
@@ -682,14 +766,16 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     // them from inside this test rather than re-deriving them. The floors are
     // computed, so nothing went red — a wrong denominator in a COMMENT is
     // invisible to every gate. Print them, do not reason them:
-    // `console.log` the reduce results here and run this file alone.
+    // `console.log` the reduce results here and run this file alone — ★★ WITH
+    // `--disable-console-intercept`, or nothing prints and the run looks green
+    // and silent (measured 2026-09-06; the flag is what recovered 265).
     const possible = CASES.reduce((n, c) => n + comparableFields(c.entity).length * PROBES.length, 0);
     // ★★★ THE DENOMINATOR NEEDS ITS OWN FLOOR, and this line was added after a
     // mutant proved the first cut vacuous: narrowing `comparableFields` to
     // return NOTHING left `silent` empty and `possible` zero, so both floors
     // above passed with the whole differential switched off (measured: 7 passed,
     // EXIT=0). Pinning the comparable pairs to a majority of the ENUMERATED ones
-    // — 288 of 468, i.e. 62%, on 2026-09-05 — means the denominator cannot be
+    // — 320 of 520, i.e. 62%, on 2026-09-06 — means the denominator cannot be
     // shrunk to make the numerator look good.
     expect(possible).toBeGreaterThan(enumerated / 2);
     expect(compared).toBeGreaterThan(possible / 2);
@@ -710,5 +796,58 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     // arms itself the moment somebody adds the first entry.
     const firedApplyOnly = [...new Set(sweeps.flatMap(({ s }) => s.excusedApplyRejects))].sort();
     expect(firedApplyOnly).toEqual([...APPLY_ONLY_REJECTS].sort());
+  });
+
+  /** ★★★ THE TRIPWIRE UNDER `resourceReader`, and the reason that reader is
+   *  allowed to stay a bare sanitizer call.
+   *
+   *  A raw-sanitizer reader cannot SEE a merge-site guard, so the entity it
+   *  reads goes quietly stale the moment one lands: `raid` proved it (the guard
+   *  shipped, this sweep stayed green, four stale exception entries went on
+   *  excusing defects that no longer existed) and `change` proved it again with
+   *  two. Both were caught by a person looking, which is not a gate.
+   *
+   *  This closes the RECURRENCE rather than the blindness — the distinction
+   *  matters and the difference is what a reader must not paraphrase away. The
+   *  sweep still cannot evaluate a resource merge-site guard; it can now only
+   *  fail to be TOLD one exists. Adding anything between the model's patch and
+   *  `sanitizeResource` breaks the shape below, and the fix at that point is to
+   *  compose `resourceReader` the way `raidReader` and `changeReader` are
+   *  composed — not to re-anchor this assertion.
+   *
+   *  ★★ SLICED TO ONE WRITER, never matched over the whole file: `createResource`
+   *  a few lines up calls `sanitizeResource` too, and a whole-file regex would
+   *  pass on ITS unguarded spread while `updateResource` grew a guard — a
+   *  tripwire that reports success is worse than none. */
+  describe("the resource merge site stays unguarded, or this reader must be composed", () => {
+    it("hands sanitizeResource the model's patch with nothing in between", () => {
+      // ★ Anchored to THIS file rather than the cwd, matching
+      //  `tool-input-coverage.test.ts`. Use `join(import.meta.dirname, …)`, not
+      //  `new URL(…, import.meta.url)` — under this vitest config the latter
+      //  throws `The URL must be of scheme file`, which surfaces as "no tests"
+      //  at a non-zero exit rather than as a readable failure.
+      const src = readFileSync(join(import.meta.dirname, "..", "use-chat-dispatcher.ts"), "utf8");
+      const start = src.indexOf("updateResource: (id: number, patch: Partial<ResourceInput>) => {");
+      const end = src.indexOf("deleteResource: (id: number) => {", start);
+      // ★ ANTI-VACUITY FIRST. Both `indexOf` calls return -1 on a rename, and a
+      //  -1/-1 slice is `""` — against which every "no guard here" assertion
+      //  below passes for the wrong reason. Assert the slice was really found,
+      //  really bounded, and really contains the writer's own landmark.
+      expect(start).toBeGreaterThan(-1);
+      expect(end).toBeGreaterThan(start);
+      const body = src.slice(start, end);
+      expect(body).toContain("splitName(patch.name)");
+
+      // The POSITIVE shape: the stored row and the RAW patch spread straight
+      // into the sanitizer. Any filter — wrapping the spread, or pre-computing a
+      // guarded patch under another name — removes this and reds.
+      const raw = body.match(/sanitizeResource\(\{\s*\.\.\.existing,\s*\.\.\.patch,/g) ?? [];
+      expect(raw).toHaveLength(1);
+      // And the NEGATIVE, naming the thing: no `dropUnaccepted*Fields` sibling
+      // has reached this writer. Redundant with the line above today, on purpose
+      // — it is the half that still fires if the spread shape is refactored for
+      // an unrelated reason.
+      expect(body).not.toMatch(/dropUnaccepted\w*Fields/);
+    });
   });
 });

@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.288.0";
-export const APP_BUILD_DATE = "2026-09-06"; // 0.288.0: Turso can be set up from Settings again when a deployment variable holds an unusable URL, a "Test connection" button proves the database answers before you commit to it, each of the three Test-connection buttons now says which service it tests and announces its result to a screen reader, a failed connection is described in your own language instead of an internal message, and a task's changes badge reads "1 change" rather than "1 changes" (Duchamp)
+export const APP_VERSION = "0.289.0";
+export const APP_BUILD_DATE = "2026-09-06"; // 0.289.0: the assistant's inline edit preview now matches what it will actually store — a field the assistant refuses is named instead of the edit reporting "no changes", a newly created item's links are shown and labelled with the row they belong to, an email list previews exactly as it will be saved, and cost and schedule figures you saved yourself are no longer quietly rounded or capped when the project loads (Mirrlees)
+// 0.288.0: Turso can be set up from Settings again when a deployment variable holds an unusable URL, a "Test connection" button proves the database answers before you commit to it, each of the three Test-connection buttons now says which service it tests and announces its result to a screen reader, a failed connection is described in your own language instead of an internal message, and a task's changes badge reads "1 change" rather than "1 changes" (Duchamp)
 // 0.287.0: controls that cannot act now say so instead of vanishing — the Turso buttons stay visible but disabled with a hint you can reach by pointer and by screen reader, the RAID badge shows a count with the breakdown in its tooltip, an asset's name opens its preview, an open document's body collapses when you click its name again, and the Knowledge "Attach to" field becomes a searchable picker that no longer hides most of your project (Tiptree)
 // 0.286.0: the assistant’s change preview now shows every field it can actually write — including the relationship lists whose edits replace rather than merge — names each field readably, says which changes it will refuse, and no longer clears a stored value a refused edit was never meant to touch (Sladek)
 // 0.285.0: the edit-task dialog is reorganised — Status & Notes moves up, predecessors and successors share a row, group and labels share a row, the budget bucket joins Effort & Classification, and Time spent becomes a Jira-style Time tracking dialog opened from the progress bar, with a remaining-work override that is stored only when you pin it (Barnhill)
@@ -12,19 +13,36 @@ export const APP_BUILD_DATE = "2026-09-06"; // 0.288.0: Turso can be set up from
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.284.x line is "Kornbluth" (C. M. Kornbluth, American SF author of "The
+ *  0.289.x line is "Mirrlees" (Hope Mirrlees, British author of
+ *  "Lud-in-the-Mist", 1926, a founding text of modern fantasy).
+ *  Checked BEFORE the bump, by BOTH commands this docstring prescribes.
+ *  (1) The whole-file case-insensitive sweep: `grep -ic mirrlees CHANGELOG.md`
+ *  returns 0, in a run whose positive controls all fired — `lessing` 1,
+ *  `banks` 1 (the header shape an END-OF-LINE anchor cannot see) and
+ *  `emshwiller` 1 — and whose NEGATIVE control `zzznotaname` returned 0, so a
+ *  zero is a real absence rather than a broken pattern.
+ *  (2) The dash-agnostic header pattern below: no hit for `mirrlees`, against
+ *  a pattern proved non-vacuous in the same run — its positive control
+ *  `duchamp` returned the 0.288.0 line, and its named-header count was read
+ *  from that run rather than quoted here, since every release moves it.
+ *  ★★ THE POOL IS VISIBLY EXHAUSTED AT THIS DEPTH. A 10-candidate batch swept
+ *  for this bump cleared only THREE: `mirrlees`, `mchugh`, `gentle`. Names as
+ *  established as `cherryh`, `willis`, `vinge`, `peake` and `kiernan` were all
+ *  already taken. Sweep a BATCH, not a favourite.
+ *  ★★★ AND DO NOT TRUST A PRIOR BUMP'S "cleared but not needed" LIST — it goes
+ *  stale silently. The 0.284.x note below banked `barnhill`, `sladek` and
+ *  `malzberg` as spare; TWO of the three were spent within two releases
+ *  (0.285.x and 0.286.x) while the note went on offering them. Re-sweep every
+ *  time; a name is only free in the run you are looking at.
+ *  0.288.x was "Duchamp" (L. Timmel Duchamp, American SF author, the
+ *  "Marq'ssan Cycle").
+ *  0.287.x was "Tiptree" (James Tiptree Jr., pen name of Alice Sheldon,
+ *  American SF author).
+ *  0.286.x was "Sladek" (John Sladek, American SF satirist, "Tik-Tok").
+ *  0.285.x was "Barnhill" (Kelly Barnhill, American fantasy author, "The Girl
+ *  Who Drank the Moon").
+ *  0.284.x was "Kornbluth" (C. M. Kornbluth, American SF author of "The
  *  Marching Morons" and, with Pohl, "The Space Merchants").
- *  Checked BEFORE the bump, with the whole-file case-insensitive sweep this
- *  docstring prescribes rather than an anchored pattern:
- *  `grep -ic kornbluth CHANGELOG.md` returns 0, in a run whose positive
- *  controls all fired — `lessing` 1, `banks` 1 (the header shape an
- *  END-OF-LINE anchor cannot see) and `emshwiller` 1 — and whose NEGATIVE
- *  control `zzznotaname` returned 0, so a zero is a real absence rather than a
- *  broken pattern. ★★ THE POOL IS VISIBLY EXHAUSTED AT THIS DEPTH: of 55
- *  candidates swept for this bump, 51 were already taken, several of them
- *  names a reader would call obscure (`slonczewski`, `emshwiller`, `budrys`).
- *  Sweep a BATCH, not a favourite. Three further candidates cleared the same
- *  run and were not needed (`barnhill`, `sladek`, `malzberg`).
  *  0.283.x was "Lessing" (Doris Lessing, British-Zimbabwean Nobel laureate,
  *  whose "Canopus in Argos" sequence is her science fiction).
  *  0.282.x was "Zamyatin" (Yevgeny Zamyatin, Russian author of "We", the
@@ -196,7 +214,7 @@ export const APP_BUILD_DATE = "2026-09-06"; // 0.288.0: Turso can be set up from
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Duchamp";
+export const APP_MILESTONE = "Mirrlees";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

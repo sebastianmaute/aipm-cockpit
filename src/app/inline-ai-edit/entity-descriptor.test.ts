@@ -38,20 +38,51 @@ describe("INLINE_DESCRIPTORS", () => {
     expect(issue.has("Mitigated")).toBe(false);
   });
 
-  it("marks required-non-empty, date, int-range, enum, array fields", () => {
+  it("marks required-non-empty, date, numeric, enum, array fields", () => {
     expect(INLINE_DESCRIPTORS.milestone.requiredNonEmpty.has("name")).toBe(true);
     expect(INLINE_DESCRIPTORS.milestone.dateFields.has("date")).toBe(true);
-    expect(INLINE_DESCRIPTORS.raid.intRangeFields.probability).toEqual([1, 5]);
-    expect(INLINE_DESCRIPTORS.change.intRangeFields.scheduleImpactDays[0]).toBe(0);
+    // ★ A numeric member is a PREDICATE now, not a `[min, max]` tuple, so it is
+    //  asserted by BEHAVIOUR — there are no bounds left to compare. The boolean
+    //  leg is the one the tuple form could not express at all (§395): it was
+    //  checked against the RENDERED string, where `true` had already become
+    //  "1".
+    expect(INLINE_DESCRIPTORS.raid.numericFields.probability(3)).toBe(true);
+    expect(INLINE_DESCRIPTORS.raid.numericFields.probability(9)).toBe(false);
+    expect(INLINE_DESCRIPTORS.raid.numericFields.probability(true)).toBe(false);
+    expect(INLINE_DESCRIPTORS.change.numericFields.scheduleImpactDays(0)).toBe(true);
+    expect(INLINE_DESCRIPTORS.change.numericFields.scheduleImpactDays(-1)).toBe(false);
     expect(INLINE_DESCRIPTORS.task.arrayFields.has("labels")).toBe(true);
     expect(Object.keys(INLINE_DESCRIPTORS.stakeholder.enumFields)).toContain("influence");
   });
 
-  // ★★★ EVERY INT-RANGE FIELD MUST ALSO BE A NUMBER FIELD, and nothing else
-  //  checks it. `numberFields` is what makes `describeEntityCalls` run the
-  //  int-range guard on that field at all, so a range declared for a field
-  //  outside the set is never enforced: the value is previewed and accepted
-  //  whatever it is. Silent in both directions — no throw, no rejected row.
+  // ★★★ EVERY NUMERIC FIELD MUST ALSO BE A NUMBER FIELD, and nothing else
+  //  checks it.
+  //  ★★★ THE REASON CHANGED WITH §395 AND THE OLD ONE IS NOW FALSE — it read
+  //  "`numberFields` is what makes `describeEntityCalls` run the int-range
+  //  guard on that field at all, so a range declared for a field outside the
+  //  set is never enforced". That was true while the guard read the RENDERED
+  //  `after`, which only became a number because `numberFields` routed it
+  //  through `numberPreview`. The guard now reads `input[f]` RAW, so it fires
+  //  for a numeric field whether or not the set contains it. What the
+  //  containment buys today is the CARD: outside `numberFields` the value is
+  //  previewed verbatim by `str`, so an accepted `"3.0"` renders as the model's
+  //  spelling rather than the `3` the writer stores — a disclosure defect
+  //  rather than an unenforced guard, and still worth pinning.
+  //  ★★★ THAT CARD CLAIM IS STATED, NOT PINNED — by this test or by any other,
+  //  and saying so is the point. The `it` below asserts SET MEMBERSHIP only
+  //  (`numericFields` ⊆ `numberFields`); nothing anywhere renders a
+  //  non-`numberFields` numeric value and compares the two spellings, so a
+  //  change that made `str` and the coercion agree would leave this rationale
+  //  false and the suite green. It is left stated because it is the reason the
+  //  membership matters — but do not read the green run as covering it. What
+  //  would close it: a `describeEntityCalls` case feeding `"3.0"` to a numeric
+  //  field and asserting the rendered `after`, in `plan.test.ts` where the
+  //  engine and its private `numberPreview` are actually exercised —
+  //  `numberPreview` is not exported, so it cannot be compared from here.
+  //  ★ The example used to be `"3"`, which cannot illustrate the point:
+  //  `str("3")` and `numberPreview("3")` both return `"3"`, so the two sides
+  //  are indistinguishable at that value. It takes a spelling the coercion
+  //  normalises — `"3.0"`, `" 3"`, `"3e0"` — for the divergence to be visible.
   //  ★★ The containment holds today by COINCIDENCE, not by construction — the
   //  two members are declared independently a few lines apart — which is why it
   //  is pinned here rather than left to be re-derived.
@@ -67,17 +98,17 @@ describe("INLINE_DESCRIPTORS", () => {
   //  still worth having; only its stated reason had rotted. `docs:symbols:check`
   //  cannot see a `src/` comment — `npm run src:symbols:check` is what reported
   //  the dangling `normalizePreviewValue`.
-  it("keeps every int-range field inside numberFields", () => {
-    const ranged = entities.flatMap((e) =>
-      Object.keys(INLINE_DESCRIPTORS[e].intRangeFields).map((f) => `${e}.${f}`),
+  it("keeps every numeric field inside numberFields", () => {
+    const guarded = entities.flatMap((e) =>
+      Object.keys(INLINE_DESCRIPTORS[e].numericFields).map((f) => `${e}.${f}`),
     );
-    const gaps = ranged.filter((k) => {
+    const gaps = guarded.filter((k) => {
       const [e, f] = k.split(".") as [InlineEntity, string];
       return !INLINE_DESCRIPTORS[e].numberFields.has(f);
     });
     // ★ The population is asserted separately so a descriptor set that declared
-    //  NO int-range field at all could not read as a pass.
-    expect(ranged.length).toBeGreaterThan(0);
+    //  NO numeric field at all could not read as a pass.
+    expect(guarded.length).toBeGreaterThan(0);
     expect(gaps).toEqual([]);
   });
 
@@ -90,8 +121,10 @@ describe("INLINE_DESCRIPTORS", () => {
   //  the preview actually shows.
   it("does not share one email cap across entities", () => {
     const long = "a".repeat(1000);
-    const task = INLINE_DESCRIPTORS.task.fieldSanitizers.assigneeEmail(long);
-    const stakeholder = INLINE_DESCRIPTORS.stakeholder.fieldSanitizers.email(long);
+    // ★ The row is the entry's second argument since §397; neither of these two
+    //  reads it, so an empty one is the honest probe.
+    const task = INLINE_DESCRIPTORS.task.fieldSanitizers.assigneeEmail(long, {});
+    const stakeholder = INLINE_DESCRIPTORS.stakeholder.fieldSanitizers.email(long, {});
     expect(task.length).toBeGreaterThan(0);
     expect(stakeholder.length).toBeGreaterThan(0);
     expect(stakeholder.length).not.toBe(task.length);
@@ -108,7 +141,8 @@ describe("INLINE_DESCRIPTORS", () => {
   //  `str(v)` verbatim) is right for `true` and still wrong for `false`, which
   //  would read as a change against an absent key. Both directions are pinned.
   it("normalises the one non-string diffField through the sanitizer's predicate", () => {
-    const f = INLINE_DESCRIPTORS.resource.fieldSanitizers.isExternal;
+    const e = INLINE_DESCRIPTORS.resource.fieldSanitizers.isExternal;
+    const f = (v: unknown): string => e(v, {});
     expect(INLINE_DESCRIPTORS.resource.diffFields).toContain("isExternal");
     expect(f(true)).toBe("true");
     expect(f("true")).toBe("true");
@@ -123,8 +157,8 @@ describe("INLINE_DESCRIPTORS", () => {
   // ★★ A NUMBER FIELD MUST NOT CARRY A TEXT SANITIZER. Every text sanitizer in
   //  play blanks a non-string to `""`, and `Number("")` is `0` — which
   //  satisfies any range starting at 0 and silently skips the out-of-range
-  //  rejection in `describeEntityCalls`. Same failure the int-range test above
-  //  guards from the other direction, so both are needed.
+  //  rejection in `describeEntityCalls`. Same failure the numeric-field test
+  //  above guards from the other direction, so both are needed.
   it("keeps numberFields out of fieldSanitizers", () => {
     const overlaps = entities.flatMap((e) =>
       [...INLINE_DESCRIPTORS[e].numberFields]
@@ -210,19 +244,24 @@ describe("linkFields", () => {
     expect(link.sanitize(undefined)).toEqual([]);
   });
 
-  // ★★ The milestone rule is NOT the raid/change one, and the descriptor must
-  //  carry each writer's OWN function: `sanitizeIdList` parses a delimited
-  //  string and dedupes; `sanitizeMilestoneTaskIds` accepts an array only and
-  //  keeps duplicates. Approximating one with the other previews links a
-  //  milestone write silently drops.
+  // ★★ The descriptor must carry each writer's OWN function, never a copy of
+  //  its rule. ★★★ THIS TEST NO LONGER DISCRIMINATES ON THE ID FIELDS, and that
+  //  is a disclosed coverage loss, not an oversight: it used to assert
+  //  `milestone("1;2")` was `[]` where raid was `[1, 2]`, and
+  //  `milestone([3, 1, 3])` was `[3, 1, 3]` where raid deduped — the milestone
+  //  rule was array-only and non-deduping. §403 aligned it onto `sanitizeIdList`,
+  //  so the two now agree on every probe and no id value can tell a
+  //  real delegation from a shared approximation. The discriminator that
+  //  SURVIVES is `resource.roleId`, pinned by the test above this one, which is
+  //  the only reason that test must not be folded into this one.
   it("carries each writer's own id rule, not a shared approximation", () => {
     const raid = INLINE_DESCRIPTORS.raid.linkFields.linkedTaskIds.sanitize;
     const milestone = INLINE_DESCRIPTORS.milestone.linkFields.linkedTaskIds.sanitize;
-    // A delimited string: raid/change parse it, milestone does not.
+    // A delimited string: both parse it.
     expect(raid("1;2")).toEqual([1, 2]);
-    expect(milestone("1;2")).toEqual([]);
-    // Duplicates: raid/change dedupe, milestone does not.
+    expect(milestone("1;2")).toEqual([1, 2]);
+    // Duplicates: both dedupe, keeping first-occurrence order.
     expect(raid([3, 1, 3])).toEqual([3, 1]);
-    expect(milestone([3, 1, 3])).toEqual([3, 1, 3]);
+    expect(milestone([3, 1, 3])).toEqual([3, 1]);
   });
 });

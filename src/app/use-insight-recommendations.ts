@@ -35,7 +35,7 @@ import { metricAtActionPatch } from "./insights/outcome";
 import { useInsightRecommend } from "./use-insight-recommend";
 import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
 import { buildRecommendContext } from "./insights/recommend-context";
-import { describeRecommendationPlan, recommendationPlanEntity } from "./insights/recommend-plan";
+import { describeRecommendationPlan } from "./insights/recommend-plan";
 import { buildGroundingIndex } from "./action-ai";
 import { runTool, type ToolDispatcher } from "./chat-tools";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
@@ -266,13 +266,10 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         : null,
     [reviewInsight, tasks, raid, changes, milestones, stakeholders],
   );
-  // The entity behind the previewed field NAMES, when there is exactly one —
-  // `describeRecommendationPlan` merges across entities, so a mixed plan has no
-  // sound answer and the modal falls back to raw property names. See
-  // `recommendationPlanEntity`.
-  const reviewPlanEntity = reviewInsight?.recommendation
-    ? recommendationPlanEntity(reviewInsight.recommendation.proposedCalls)
-    : undefined;
+  // ★ No plan-level entity is derived any more: every `FieldDiff`/`LinkDiff`
+  // carries the register it belongs to, so the modal labels each row from the
+  // row itself and a plan merged across entities no longer degrades to raw
+  // property names (§393).
   const confirmInsightRecommendation = useCallback(async () => {
     const insight = (insights ?? []).find((i) => i.id === reviewInsightId);
     const rec = insight?.recommendation;
@@ -365,7 +362,6 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     confirmInsightRecommendation,
     reviewInsight,
     reviewPlan,
-    reviewPlanEntity,
     setReviewInsightId,
   };
 }

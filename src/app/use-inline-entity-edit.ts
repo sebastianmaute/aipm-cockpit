@@ -19,7 +19,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { describeEntityCalls, isEmptyPlan, type EditPlan, type LinkDiff } from "./inline-ai-edit/plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 
-export type InlinePhase = "idle" | "thinking" | "preview" | "clarify" | "applying" | "error";
+export type InlinePhase = "idle" | "thinking" | "preview" | "clarify" | "rejected" | "applying" | "error";
 type EntityItem = { id: number; [k: string]: unknown };
 
 export interface InlineEntityEditDeps {
@@ -197,7 +197,23 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       if (reqId !== reqIdRef.current) return; // superseded — discard
       deps.recordUsage?.(usage);
       const next = describeEntityCalls(blocks, { descriptor: d, item: target, ws: deps.ws });
-      if (isEmptyPlan(next)) { setClarifyText(text || t(deps.lang, "inlineAiEditNoChanges")); setPhase("clarify"); return; }
+      // ★★★ A REFUSAL IS NOT "NO CHANGES" (§392). `isEmptyPlan` counts what the
+      //  plan would WRITE and deliberately does not count `rejected`, so a plan
+      //  whose only content is a refusal is empty by that predicate and used to
+      //  route here — telling the user nothing changed, when in fact the model
+      //  understood and the writer refused a named field.
+      //  ★★ Routing it to "preview" instead is NOT the fix and is measurably
+      //  worse: `apply()`'s own first guard is `isEmptyPlan(plan)`, which does
+      //  not count `rejected` either, so the user would get a live Apply button
+      //  that no-ops on every click. "rejected" renders the reasons and offers
+      //  no Apply at all.
+      //  ★ No token is committed on this route, deliberately — `tokenRef` is
+      //  adopted beside `setPlan` below only for a plan that can be written,
+      //  and nothing in the "rejected" phase can reach `apply()`.
+      if (isEmptyPlan(next)) {
+        if (next.rejected.length > 0) { setPlan(next); setPhase("rejected"); return; }
+        setClarifyText(text || t(deps.lang, "inlineAiEditNoChanges")); setPhase("clarify"); return;
+      }
       // Committed only for the response that WON the reqId check above, so a
       // superseded submit can never leave its item's token behind for another
       // item's apply. Written beside setPlan for that reason: the token and the
@@ -219,6 +235,17 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     // a total failure with a stranded write.
     let applied = 0;
     try {
+      // ★★★ DERIVED ONCE AND USED BY BOTH THE GUARD AND THE LOOP — fixing only
+      // the loop leaves a create-with-links plan firing a POINTLESS
+      // `update_*` that carries `expectedToken`: it bumps `localModifiedAt`,
+      // logs a no-op `actor:"ai"` activity row, and can abort the whole apply
+      // with a ConcurrencyTokenError before the create ever runs.
+      // A `"create"` link is DISCLOSURE ONLY (the create writes its own links by
+      // replaying `c.input`); writing it here REPLACED the open row's links with
+      // the new item's. `LinkDiff.target` carries the reason and the
+      // counter-example — do NOT narrow this to `l.entity === d.entity`, which
+      // the open-RAID-row-plus-`create_raid_item` case passes.
+      const rowLinks = plan.links.filter((l) => l.target === "row");
       // ★★★ "IS THERE ANYTHING TO WRITE", NOT "ARE THERE FIELD UPDATES".
       // `links` is a peer write bucket and a links-only plan is the COMMON
       // shape for a relationship edit ("link this risk to task 12" sends
@@ -226,7 +253,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       // `plan.updates.length > 0` guard previews a relationship change and
       // writes nothing — a preview that is not a promise about the write,
       // which is the one property this whole surface exists to have.
-      if (plan.updates.length > 0 || plan.links.length > 0) {
+      if (plan.updates.length > 0 || rowLinks.length > 0) {
         // `expectedToken` is the control value `requireToken` consumes, not a
         // field of the entity — `buildPatch`/`patchWithoutId` strip it before
         // anything is persisted. It cannot be overwritten by the loops below:
@@ -251,7 +278,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         // `[]`, dropping every link the row had. The ids and the titles come
         // from one sanitize per side in `describeEntityCalls`, so the patch
         // carries precisely what the card promised.
-        for (const l of plan.links) patch[l.field] = linkPatchValue(d, l);
+        for (const l of rowLinks) patch[l.field] = linkPatchValue(d, l);
         await runTool(deps.dispatcher, d.updateTool, patch);
         applied++;
       }
@@ -288,11 +315,15 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       // UNCONDITIONAL success toast: "applied" for a write that never happened.
       // ★★ `links` WAS that instance and no longer is — it is populated by
       // `describeEntityCalls` and written 30 lines above, in the same commit
-      // that made it reachable. `rejected` is the live one today: it is
-      // previewable, has no write branch by design, and `isEmptyPlan` does not
-      // count it, so a rejection-only plan never even reaches `preview`. This
-      // stays written against `applied` rather than against any one bucket, so
-      // the next bucket is covered without touching this line.
+      // that made it reachable. `rejected` is NOT a second instance and never
+      // was: it is previewable and has no write branch by design, but
+      // `isEmptyPlan` does not count it either, so a rejection-only plan is
+      // EMPTY by the guard at the top of apply() and cannot get this far. It
+      // now routes to the "rejected" phase instead of to "clarify" (§392, see
+      // the comment in `submit`), which is a phase apply() refuses outright.
+      // So there is no live instance of the gap today — this stays written
+      // against `applied` rather than against any one bucket, so the next
+      // bucket is covered without touching this line.
       // ★ `cancel()` stays OUTSIDE the guard — closing the popover is correct
       //   either way; only the success CLAIM is conditional.
       if (applied > 0) {

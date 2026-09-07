@@ -279,6 +279,14 @@ describe("buildTaskCleanPatch", () => {
   // business failing an edit over, so an unparseable one is dropped and the
   // stored value survives the spread. Both directions are pinned so neither can
   // be aligned to the other silently.
+  //
+  // ★★ `lastUpdateDate` HAS THREE OUTCOMES, NOT TWO (§396), and the third is
+  // the one a reader collapses back into the drop. A BLANK is an intended
+  // CLEAR, so it is written as "" — the preview renders it as a clear and every
+  // register's full-record sanitizer clears theirs; dropping the key left the
+  // stored value in place against a card promising otherwise. Only a MALFORMED
+  // value is dropped. `dueDate` throws on a blank instead, which is a different
+  // rule — it is what `requiredNonEmpty` means for that field.
   describe("the date fields", () => {
     it("accepts a valid dueDate", () => {
       expect(buildTaskCleanPatch({ dueDate: "2026-12-24" }, task())).toEqual({
@@ -305,6 +313,42 @@ describe("buildTaskCleanPatch", () => {
       expect(buildTaskCleanPatch({ lastUpdateDate: "2026-08-14" }, task())).toEqual({
         lastUpdateDate: "2026-08-14",
       });
+    });
+
+    it("clears lastUpdateDate on a blank, matching what the preview already promises", () => {
+      // The patch is merged over the stored task, so DROPPING the key left the
+      // stored value in place while the card showed a clear (§396).
+      // ★★ THE FIXTURE IS NOT WHAT MAKES THIS ASSERTION SAFE, and this comment
+      //  used to say it was ("the fixture's own `lastUpdateDate` is populated,
+      //  so a reverted writer cannot pass this by accident"). That reasoning
+      //  belongs to a test asserting on the MERGED task; `buildTaskCleanPatch`
+      //  returns the PATCH. A reverted writer that omits the key yields
+      //  `patch.lastUpdateDate === undefined`, which reds against `""` whatever
+      //  the stored task holds — so the assertion is sound for a reason the
+      //  fixture has no part in. Left as a false rationale it invites the next
+      //  reader to "simplify" the fixture and believe they have kept the guard.
+      const patch = buildTaskCleanPatch({ lastUpdateDate: "" }, task());
+      expect(patch.lastUpdateDate).toBe("");
+    });
+
+    // ★ `null` and `[]` render as "" through the preview's `str` exactly as ""
+    //   does, so all three are DISCLOSED as a clear and all three must clear.
+    //   `null` is the shape a model actually reaches for, and it arrives raw on
+    //   the replaying apply paths.
+    it.each([
+      ["null", null],
+      ["an empty array", []],
+    ])("clears lastUpdateDate on %s, which the card renders as a clear too", (_label, value) => {
+      const patch = buildTaskCleanPatch(
+        { lastUpdateDate: value } as unknown as Partial<Task>,
+        task(),
+      );
+      expect(patch.lastUpdateDate).toBe("");
+    });
+
+    it("still refuses a malformed lastUpdateDate rather than clearing it", () => {
+      const patch = buildTaskCleanPatch({ lastUpdateDate: "not-a-date" }, task());
+      expect("lastUpdateDate" in patch).toBe(false);
     });
 
     it("drops an unparseable lastUpdateDate instead of throwing", () => {

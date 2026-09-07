@@ -10,6 +10,7 @@ import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
 import { splitName } from "../resource-foundation";
 import { resolveLinkTitles } from "./link-titles";
+import { str } from "./str";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -23,8 +24,20 @@ export type ToolUseLike = { type: string; id?: string; name?: string; input?: un
  *  test proved nothing in the suite caught its removal.
  *
  *  ★ A sanitizer-INDUCED enum reset carries no `raw`: its `after` is a default
- *  enum value that was never projected in the first place. */
-export interface FieldDiff { field: string; before: string; after: string; raw?: string }
+ *  enum value that was never projected in the first place.
+ *
+ *  ★★ `entity` NAMES THE ROW'S REGISTER, so a plan holding two of them can
+ *   resolve a label per ROW rather than per PLAN. `describeRecommendationPlan`
+ *   grounds each proposed call against its OWN descriptor and merges every
+ *   result into one `EditPlan`, and the label map is entity-qualified because
+ *   it must be — `impact` is a 1-5 scale on a RAID item and a
+ *   Low/Medium/High/Critical enum on a change. Before this member the only
+ *   answer available was plan-level, and it existed only when exactly one
+ *   register was updated; a mixed plan fell back to raw property names (§393).
+ *   ★ It is REQUIRED: every producer has the descriptor for the entity the
+ *   INPUT belongs to already in scope, so an optional member would only buy a
+ *   silent hole for a future producer that forgot. */
+export interface FieldDiff { entity: InlineEntity; field: string; before: string; after: string; raw?: string }
 export interface NewItem { entity: string; title: string; toolName: string; input: Record<string, unknown> }
 export interface Deletion { entity: string; label: string; toolName: string; id: number }
 export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input" | "unsupported"; detail: string }
@@ -57,8 +70,18 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *     property checking on a fresh object literal rejects `rawIds` against
  *     `FieldDiff` — `TS2353`. Mutating the populator below from
  *     `plan.links.push({…rawIds})` to `plan.updates.push({…rawIds})` gives
- *     `tsc` exit 2 AND reddens 10 tests across two files. That mutation is the
- *     realistic defect, and it is caught twice.
+ *     `tsc` exit 2 AND reddens tests in BOTH `plan.test.ts` and
+ *     `use-inline-entity-edit.test.tsx`. That mutation is the realistic defect,
+ *     and it is caught twice.
+ *     ★ RE-MEASURED after §420 added a conditional `subject` spread to that
+ *      literal, because a spread is precisely the shape that could have
+ *      silenced excess-property checking. It does not: `rawIds` is written
+ *      explicitly, so it is still checked, and the mutation still exits 2.
+ *     ★★ NO TALLY IS QUOTED HERE AND RESTORING ONE IS A REGRESSION. This line
+ *      read "10 tests across two files" and the mutation measured FIFTEEN on
+ *      2026-09-06, of which only two were new that day — so it was already
+ *      stale before §420 touched it. Every test added anywhere that asserts on
+ *      `links` moves the number; run the mutation for today's.
  *
  *   So the compiler covers the inline shape and the CALL GRAPH plus the tests
  *   cover the aliased one: the populator writes only to `links`, the rebuild
@@ -72,14 +95,71 @@ export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input"
  *   be confused: the rebuild path applies `rawIds`, the card renders the
  *   titles. `rawIds` is already sanitized by THAT FIELD'S OWN writer rule
  *   (`sanitizeIdList` for raid/change, `sanitizeMilestoneTaskIds` for
- *   milestone — they differ on dedupe and on delimited strings), so what the
- *   preview shows and what the patch carries come from one computation. */
-export interface LinkDiff { field: string; before: string; after: string; rawIds: number[] }
+ *   milestone — the same rule since §403 aligned them, but still
+ *   reached through each field's own function so a later divergence cannot
+ *   sneak past the preview), so what the preview shows and what the patch
+ *   carries come from one computation.
+ *
+ *  ★★ `subject` NAMES THE ROW A FIELD BELONGS TO, for the cases where the field
+ *   label alone is ambiguous. There are TWO of them and they are ambiguous for
+ *   OPPOSITE reasons, so neither generalises to the other:
+ *   - `set_task_dependencies` rewrites one task's whole predecessor list, and
+ *     its ROW TITLE cannot carry the task's name (`liveRowTitle` resolves a
+ *     title only for a tool `TOOL_ENTITY` knows, and that tool is absent from
+ *     the map by design). `describeDependencyCall` in
+ *     `chat-proposal-describe.ts` sets it (§406).
+ *   - A `target: "create"` diff belongs to a row that DOES NOT EXIST YET, so no
+ *     row title anywhere can name it — and it renders as a flat `<li>` in the
+ *     same list as the open row's own link lines, with nothing between them, so
+ *     unqualified it is READ as one of them. `pushLinkDiffs` sets it from the
+ *     created item's own title (§420).
+ *   It is DATA rather than a built string because `chat-proposal-describe.ts`
+ *   is i18n-free by construction, so a label composed there reaches the card in
+ *   English whatever the user's language — the renderer composes and translates
+ *   instead (§406).
+ *   ★★ LEAVE IT UNDEFINED ON A `"row"` DIFF, whose row the surrounding card
+ *   already names, or the card reads "Migrate database – Migrate database". The
+ *   discriminator is whether THE SURFACE NAMES THIS DIFF'S ROW — never which
+ *   producer built the diff. */
+export interface LinkDiff {
+  /** The register this link belongs to — see `FieldDiff.entity` (§393). Same
+   *  member, same reason: `linkedTaskIds` is declared on raid AND on change,
+   *  and a merged plan can hold both. */
+  entity: InlineEntity;
+  /** ★★★ WHERE THIS LINK CAME FROM, and the ONLY thing that may decide whether
+   *  it is written to the open row. `"row"` = a real update to the row the
+   *  popover was opened on; `"create"` = DISCLOSURE ONLY, projected off a
+   *  `create_*` call so the card says which links the create will write. The
+   *  create writes them itself, by replaying its own `input` — so applying a
+   *  `"create"` diff to the open row REPLACES that row's links with the new
+   *  item's (a RAID row on `[1, 3]` plus `create_raid_item({linkedTaskIds:[7]})`
+   *  left the open row on `[7]`, silently, with the card never saying so).
+   *
+   *  ★★★ `entity` CANNOT SUBSTITUTE FOR THIS, and "simplifying" it to
+   *  `l.entity === d.entity` reinstates the data loss verbatim: that exact
+   *  counter-example is SAME entity (`raid` open, `create_raid_item`) and a
+   *  DIFFERENT ROW. `entity` answers "which register's label do I render";
+   *  `target` answers "whose row is this". They are orthogonal.
+   *
+   *  ★ REQUIRED, not optional-with-a-default: a future push site must fail
+   *  `tsc` rather than silently defaulting into the destructive branch. */
+  target: "row" | "create";
+  field: string;
+  subject?: string;
+  before: string;
+  after: string;
+  rawIds: number[];
+}
 export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: Deletion[]; rejected: Rejected[]; links: LinkDiff[] }
 
 // Any create_*/delete_* tool → its entity + workspace list key. Shared across
 // entities (an inline edit on any row may create/delete related items).
-const CREATE_TOOLS: Record<string, string> = {
+//
+// ★ The value is `InlineEntity`, not `string`, so the create branch can index
+//  `INLINE_DESCRIPTORS` with it. Widening it back makes that lookup `any` under
+//  a `Record<string, …>` index — the descriptor a create's links are projected
+//  through would then be unchecked.
+const CREATE_TOOLS: Record<string, InlineEntity> = {
   create_raid_item: "raid", create_change: "change",
   create_milestone: "milestone", create_stakeholder: "stakeholder", create_task: "task",
   create_resource: "resource",
@@ -127,12 +207,6 @@ function forPreview(entity: InlineEntity, field: string, value: string): string 
   return RICH_FIELDS.has(`${entity}.${field}`) ? descriptionText(value) : value;
 }
 
-function str(v: unknown): string {
-  if (v == null) return "";
-  if (Array.isArray(v)) return v.join(", ");
-  return String(v);
-}
-
 /** A person's display name from either shape `create_resource` accepts:
  *  firstName/lastName, or the single `name` the dispatcher splits. Empty when
  *  the object carries neither. */
@@ -146,9 +220,16 @@ function personName(o: Record<string, unknown>): string {
  *  ★★★ IT LIVES HERE RATHER THAN IN `fieldSanitizers`, AND THAT PLACEMENT IS
  *  THE POINT. `entity-descriptor.test.ts` asserts "keeps numberFields out of
  *  fieldSanitizers" because every entry in that map is a TEXT sanitizer, and a
- *  text sanitizer blanks a non-string to `""` — which `Number("")` then turns
- *  into `0`, slipping the int-range rejection below. Giving these fields a
- *  descriptor entry would close this divergence by reopening that one.
+ *  text sanitizer blanks a non-string to `""`. Giving these fields a descriptor
+ *  entry would close this divergence by reopening that one.
+ *
+ *  ★★ WHAT THAT COSTS CHANGED WITH §395, and the old wording is now wrong: it
+ *  said the blanking would slip "the int-range rejection below, because
+ *  `Number("")` is `0`". That held while the guard read the RENDERED `after`.
+ *  The guard now consults `numericFields` against the RAW `input[f]`, so a
+ *  blanked preview can no longer defeat it. The damage is on the WRITE side
+ *  instead — `raw` is what `use-inline-entity-edit.ts` puts back in the patch,
+ *  so a blanked number is stored as `""`. Narrower reach, same verdict.
  *
  *  ★★ IT MIRRORS `toNumber` BECAUSE THE APPLY PATH IS `toNumber`.
  *  `sanitizeChangeItem` stores `toNumber(o.scheduleImpactDays)` when the result
@@ -159,9 +240,9 @@ function personName(o: Record<string, unknown>): string {
  *  probe in `plan.sanitizer-parity.test.ts`.
  *
  *  ★ A NON-NUMERIC value falls back to the VERBATIM string rather than to
- *  `"NaN"`: the int-range guard rejects it either way (`Number("abc")` is NaN),
- *  and the rejection `detail` is more use to a reader carrying what the model
- *  actually sent. */
+ *  `"NaN"`: the numeric guard rejects it either way — it reads the RAW value,
+ *  and `toNumber("abc")` is NaN — and the rejection `detail` is more use to a
+ *  reader carrying what the model actually sent. */
 function numberPreview(v: unknown): string {
   const n = toNumber(v);
   return Number.isFinite(n) ? String(n) : str(v);
@@ -188,7 +269,7 @@ function numberPreview(v: unknown): string {
 export function previewNormalizerFor(
   d: EntityDescriptor,
   field: string,
-): ((v: unknown) => string) | undefined {
+): ((v: unknown, row: Record<string, unknown>) => string) | undefined {
   return d.fieldSanitizers[field] ?? (d.numberFields.has(field) ? numberPreview : undefined);
 }
 
@@ -220,6 +301,82 @@ function titleOf(entity: string, input: Record<string, unknown>): string {
 }
 
 interface EntityItem { id: number; [k: string]: unknown }
+
+/** Project a tool input's relationship and FK fields onto `plan.links`.
+ *
+ *  Deliberately a SEPARATE bucket from `updates` — see the `LinkDiff` docstring
+ *  for the wipe that prevents. ONE sanitize per side, reused for both the
+ *  rendered title and the applied value, so the card cannot promise something
+ *  the patch omits.
+ *
+ *  ★★★ ONE SPELLING, SHARED BY THE UPDATE AND CREATE BRANCHES. A second copy of
+ *   this projection is the §405 defect class — the two would then have to be
+ *   corrected in lockstep forever, and the whole subject of this module is
+ *   preview and apply drifting apart. `d` is the descriptor for the entity the
+ *   INPUT belongs to, which on a create is NOT the open row's: an inline edit on
+ *   a task may `create_raid_item`, and the task descriptor declares no link
+ *   fields at all.
+ *
+ *  ★★ A FIELD THE MODEL DID NOT SEND EMITS NOTHING, and the `in` guard is what
+ *   holds that. These writes REPLACE, and the patch is rebuilt from this bucket
+ *   — so emitting an untouched field would wipe it. RAID has three link fields;
+ *   a model that sends one must not lose the other two.
+ *
+ *  ★★★ THE SKIP COMPARES RENDERED TITLES, NOT IDS, AND THAT IS THE DELIBERATE
+ *   CHOICE. Two DIFFERENT id lists that render identically (two rows sharing a
+ *   title) emit nothing. Comparing `rawIds` instead would write the swap behind
+ *   a card reading "Review -> Review": a change the user cannot see, on a
+ *   disclosure surface whose whole purpose is that they can. One comparison
+ *   gates BOTH the card and the patch, which is the invariant; a same-titled
+ *   swap is the known, narrow price.
+ *
+ *  ★★ WHAT THAT PRICE ACTUALLY IS, corrected in cold review. An earlier wording
+ *   said "no write happens either — the edit is silently dropped rather than
+ *   silently destructive". That is true ONLY of the REBUILDING consumer, which
+ *   reconstructs its patch from this plan. The two REPLAYING consumers
+ *   (`chat-proposal-apply.ts`, `use-insight-recommendations.ts`) resend the
+ *   original tool input and never read the plan, so for them the swap IS
+ *   written, behind a card that showed no link line at all. The trade still
+ *   stands — but the cost is "undisclosed on two surfaces", not "dropped
+ *   everywhere", and the difference is the whole subject of this module.
+ *   ★ It is narrow because a DANGLING id renders as `#<id>`
+ *   (`UNKNOWN_ID_MARKER`), so an unresolvable row stays distinguishable, and a
+ *   REORDER changes the joined string — neither collapses here.
+ *
+ *  ★ `prior` is the row the links are replacing. On a CREATE it is `{}`, so
+ *   every `before` renders "" — there is no prior row and nothing to drop. */
+function pushLinkDiffs(
+  plan: EditPlan,
+  d: EntityDescriptor,
+  input: Record<string, unknown>,
+  prior: Record<string, unknown>,
+  ws: Workspace,
+  /** See `LinkDiff.target` — `"row"` is a write to the open row, `"create"` is
+   *  disclosure only. Passed rather than derived from `prior === {}`: an empty
+   *  prior is a coincidence of the create branch, not a contract. */
+  target: LinkDiff["target"],
+  /** See `LinkDiff.subject` — the row this link belongs to, rendered as a
+   *  `"<subject> – <field>"` prefix. Left undefined on a `"row"` push, whose
+   *  links ARE the open row's and which the card already names; set on a
+   *  `"create"` to the created item's own title, because that line otherwise
+   *  reads as a statement about the open row (§420).
+   *
+   *  ★ A BLANK title must arrive here as `undefined`, not `""`: the key is
+   *   omitted rather than set, so `linkLabel` cannot render a dangling " – ".
+   *   The conditional spread below is what holds that even if a caller passes
+   *   `""` anyway. */
+  subject?: string,
+): void {
+  for (const [f, link] of Object.entries(d.linkFields)) {
+    if (!(f in input)) continue;
+    const beforeIds = link.sanitize(prior[f]);
+    const afterIds = link.sanitize(input[f]);
+    const before = resolveLinkTitles(beforeIds, link, ws);
+    const after = resolveLinkTitles(afterIds, link, ws);
+    if (before === after) continue;
+    plan.links.push({ entity: d.entity, target, field: f, ...(subject ? { subject } : {}), before, after, rawIds: afterIds });
+  }
+}
 
 /** Build the plan for one entity. `ctx.item` is the row the popover opened on;
  *  `ctx.ws` the live workspace (id grounding + delete labels); `ctx.descriptor`
@@ -286,7 +443,10 @@ export function describeEntityCalls(
         const partOf = (m: string): string => {
           const raw = m in input ? input[m] : item[m];
           const norm = previewNormalizerFor(d, m);
-          return norm ? norm(raw) : str(raw);
+          // The merged row is rebuilt here rather than shared with the loop
+          // below: `input` is REASSIGNED a few lines down, so a row hoisted
+          // above this leg would be the pre-projection one.
+          return norm ? norm(raw, { ...(item as Record<string, unknown>), ...input }) : str(raw);
         };
         if (partOf("firstName") === "" && partOf("lastName") === "") {
           input = { ...input, ...splitName(input.name) };
@@ -296,6 +456,13 @@ export function describeEntityCalls(
       // (RAID status) against a CO-CHANGED category and to compute the effective
       // item for the induced-reset pass below. Only VALID values land here.
       const applied: Record<string, string> = {};
+      // ★★ THE ROW EVERY NORMALISER BELOW SEES, and it is MERGED rather than
+      // STORED because the model may be changing the very field an entry reads
+      // in the SAME call — `update_resource` can send a new `email` alongside
+      // `emails`, and `sanitizeResource` sanitizes the extras against the row
+      // its dispatcher has already merged (§397). Built AFTER the alias
+      // projection above, which reassigns `input`.
+      const merged = { ...(item as Record<string, unknown>), ...input };
       for (const f of d.diffFields) {
         if (!(f in input)) continue;
         // ★★★ WHICH NORMALISATION A FIELD GETS IS THE DESCRIPTOR'S CALL, and a
@@ -304,8 +471,9 @@ export function describeEntityCalls(
         // through a text sanitizer that blanks a non-string to `""`; since
         // `raw` feeds the write patch in `use-inline-entity-edit.ts`, that
         // DROPPED the flag on apply, not merely in the card. The same blanking
-        // would silently defeat the int-range rejection below for a number
-        // field, because `Number("")` is `0`. An entry, where one exists, CALLS
+        // on a NUMBER field would store `""` for the same reason — it can no
+        // longer defeat the numeric guard below, which reads the raw value, but
+        // `raw` is still the patch. An entry, where one exists, CALLS
         // the apply path's own sanitizer — never a copy of its cap, and never a
         // copy of its clipping algorithm. ★ A `numberFields` member gets its
         // coercion from `previewNormalizerFor` instead, for the reason that
@@ -318,9 +486,13 @@ export function describeEntityCalls(
         // render a diff. The sanitizers are idempotent on an already-stored
         // value, so normalising `before` costs nothing where the spellings
         // already agree.
+        //
+        // ★★ BOTH SIDES ALSO TAKE THE SAME (MERGED) ROW, for the same reason:
+        // normalising `before` against the OLD row and `after` against the new
+        // one would report a change the write does not make.
         const normalize = previewNormalizerFor(d, f);
-        const before = normalize ? normalize(item[f]) : str(item[f]);
-        const after = normalize ? normalize(input[f]) : str(input[f]);
+        const before = normalize ? normalize(item[f], merged) : str(item[f]);
+        const after = normalize ? normalize(input[f], merged) : str(input[f]);
         if (before === after) continue;
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
         // ★★★ A JOINT REQUIREMENT IS JUDGED ON THE MERGED ROW, NEVER ON THIS
@@ -356,7 +528,7 @@ export function describeEntityCalls(
               if (m === f) return after !== "";
               const raw = m in input ? input[m] : item[m];
               const norm = previewNormalizerFor(d, m);
-              return (norm ? norm(raw) : str(raw)) !== "";
+              return (norm ? norm(raw, merged) : str(raw)) !== "";
             });
             // ★★ The sanitizer has a THIRD leg — a fallback that splits `name` when
             //  both parts are empty — and it is modelled as a PROJECTION above,
@@ -381,54 +553,42 @@ export function describeEntityCalls(
         // rest apply. Blank is exempt because the sanitizer's own guard is
         // `if (e && !isValidEmail(e))` — clearing an address is legal.
         if (d.emailFormatFields.has(f) && after !== "" && !isValidEmail(after)) { bad(`${f}=${after}`); continue; }
-        const range = d.intRangeFields[f];
-        if (range) {
-          const n = Number(after);
-          if (!Number.isInteger(n) || n < range[0] || n > range[1]) { bad(`${f}=${after}`); continue; }
-        }
+        // ★★ THE RAW VALUE, for the same reason the numeric guard below reads
+        //  it — this check and that one are the same shape, one register apart.
+        //  A rich field has no `fieldSanitizers` entry (its apply-path sanitizer
+        //  needs a DOM), so `after` is the verbatim `str(input[f])` and a
+        //  boolean has ALREADY become "true" by the time it gets here: a string
+        //  test over `after` would pass every value. The writer's
+        //  `sanitizeRichText` returns "" for a non-string, `if (description)`
+        //  then omits the key, and the merge-site guard
+        //  (`MILESTONE_FIELD_GUARDS.description`) DROPS it so the stored rich
+        //  text survives — so projecting one would promise a change that does
+        //  not happen (§398). The guard and its writer half must move together:
+        //  either one alone is this slice's defect in one direction or the
+        //  other. ★★★ And the writer half only fires while it nests OUTSIDE
+        //  `withAiRichFields` at the call site; nested inside, it is dead code
+        //  and this refusal becomes the divergence rather than the fix.
+        if (d.stringOnlyFields.has(f) && typeof input[f] !== "string") { bad(`${f}=${after}`); continue; }
+        // ★★★ THE RAW VALUE, NEVER `after`. `after` has been through
+        //  `numberPreview`, which renders `true` as "1" — so checking the
+        //  rendered string cannot see a boolean, and the card showed a
+        //  fabricated risk score of 1 as an accepted change (§395). The
+        //  predicate is the WRITER's own, imported rather than restated (§405),
+        //  so the two cannot disagree about what lands.
+        //  ★ `bad()` still receives the RENDERED `after`: the rejection detail
+        //  is for a human, and it is the value the card would have shown.
+        const accepts = d.numericFields[f];
+        if (accepts && !accepts(input[f])) { bad(`${f}=${after}`); continue; }
         if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
-        plan.updates.push({ field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after });
+        plan.updates.push({ entity: d.entity, field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after });
         applied[f] = after;
       }
-      // Relationship and FK inputs. Deliberately a SEPARATE bucket from
-      // `updates` — see the `LinkDiff` docstring for the wipe this prevents.
-      // ONE sanitize per side, reused for both the rendered title and the
-      // applied value, so the card cannot promise something the patch omits.
-      //
-      // ★★ A FIELD THE MODEL DID NOT SEND EMITS NOTHING, and the `in` guard is
-      // what holds that. These writes REPLACE, and the patch is rebuilt from
-      // this bucket — so emitting an untouched field would wipe it. RAID has
-      // three link fields; a model that sends one must not lose the other two.
-      //
-      // ★★★ THE SKIP COMPARES RENDERED TITLES, NOT IDS, AND THAT IS THE
-      // DELIBERATE CHOICE. Two DIFFERENT id lists that render identically (two
-      // rows sharing a title) emit nothing. Comparing `rawIds` instead would
-      // write the swap behind a card reading "Review -> Review": a change the
-      // user cannot see, on a disclosure surface whose whole purpose is that
-      // they can. One comparison gates BOTH the card and the patch, which is
-      // the invariant; a same-titled swap is the known, narrow price.
-      //
-      // ★★ WHAT THAT PRICE ACTUALLY IS, corrected in cold review. An earlier
-      // wording said "no write happens either — the edit is silently dropped
-      // rather than silently destructive". That is true ONLY of the REBUILDING
-      // consumer, which reconstructs its patch from this plan. The two
-      // REPLAYING consumers (`chat-proposal-apply.ts`,
-      // `use-insight-recommendations.ts`) resend the original tool input and
-      // never read the plan, so for them the swap IS written, behind a card
-      // that showed no link line at all. The trade still stands — but the cost
-      // is "undisclosed on two surfaces", not "dropped everywhere", and the
-      // difference is the whole subject of this module. ★ It is narrow because a DANGLING id renders as `#<id>`
-      // (`UNKNOWN_ID_MARKER`), so an unresolvable row stays distinguishable,
-      // and a REORDER changes the joined string — neither collapses here.
-      for (const [f, link] of Object.entries(d.linkFields)) {
-        if (!(f in input)) continue;
-        const beforeIds = link.sanitize(item[f]);
-        const afterIds = link.sanitize(input[f]);
-        const before = resolveLinkTitles(beforeIds, link, ws);
-        const after = resolveLinkTitles(afterIds, link, ws);
-        if (before === after) continue;
-        plan.links.push({ field: f, before, after, rawIds: afterIds });
-      }
+      // Relationship and FK inputs, projected against the row being updated.
+      // The rule set — separate bucket, `in` guard, title comparison, and what
+      // that comparison costs — lives on `pushLinkDiffs`, which the create
+      // branch below calls too. Do not restate it here; one spelling is the
+      // point (§405).
+      pushLinkDiffs(plan, d, input, item, ws, "row");
       // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)
       // changed, whose current value is no longer valid for the item as patched,
       // is silently reset by the sanitizer to the field's default (RAID status
@@ -443,18 +603,68 @@ export function describeEntityCalls(
         if (valid.size === 0 || valid.has(cur)) continue;
         const def = defaultEnumFor(d.entity, f, effective);
         if (def === undefined || def === cur) continue;
-        plan.updates.push({ field: f, before: cur, after: def });
+        plan.updates.push({ entity: d.entity, field: f, before: cur, after: def });
       }
       continue;
     }
 
-    if (name in CREATE_TOOLS) {
+    // ★★★ `hasOwnProperty`, NOT `in` — `in` WALKS THE PROTOTYPE CHAIN, so a
+    //  model emitting `toString` (or `constructor`) matched this branch and
+    //  `CREATE_TOOLS[name]` yielded `Object.prototype.toString`, a FUNCTION.
+    //  It went unnoticed while the value only reached `titleOf`, which
+    //  stringified it into the card's title; the descriptor lookup below turns
+    //  the same input into a throw, and the property suite found it in one run.
+    //  Same guard, same reasoning as `activityMessageKey` (`activity-log.ts`).
+    if (Object.prototype.hasOwnProperty.call(CREATE_TOOLS, name)) {
       const entity = CREATE_TOOLS[name];
-      plan.creates.push({ entity, title: titleOf(entity, input), toolName: name, input });
+      // ★★ A CREATE WRITES LINKS TOO (§390). `plan.creates` carries the model's
+      //  input VERBATIM to `runTool`, so these land whether or not the card
+      //  mentions them — an inline `create_raid_item({ linkedTaskIds })` used to
+      //  show the title alone.
+      //  ★ Lower severity than the update case, deliberately stated: a create
+      //  has no prior row, so it cannot DROP existing links. Undisclosed write,
+      //  not undisclosed destruction — hence `{}` as the prior, and `before` is
+      //  always "". (In the update case those writes REPLACE rather than merge,
+      //  which is what makes them severe there.)
+      //  ★★ THE CREATED ENTITY'S DESCRIPTOR, NEVER `d`. `describeEntityCalls`
+      //  is called with ONE descriptor — the open row's — and a create may name
+      //  a DIFFERENT entity (a task popover creating a RAID item). Projecting a
+      //  create's links through the open row's descriptor would read the wrong
+      //  entity's `linkFields`, which is worse than not projecting them.
+      //  ★★★ `"create"`, and it is what keeps this disclosure from becoming a
+      //  WRITE. `apply()` rebuilds the open row's patch from `plan.links`, so
+      //  before `target` existed these ids replaced the open row's own — see
+      //  `LinkDiff.target`, and do not narrow that check to `entity`.
+      //  ★★★ AND THE CREATED ITEM'S OWN TITLE RIDES `subject` (§420). The card
+      //  renders `plan.links` as flat `<li>`s in the SAME list as the open
+      //  row's, with nothing between them, so an unqualified create link line
+      //  is indistinguishable from a statement about the OPEN ROW: a RAID row
+      //  on `[1, 3]` plus `create_raid_item({linkedTaskIds:[7]})` rendered
+      //  "Linked tasks: — → Task Seven", of which BOTH halves are false about
+      //  that row. `target` fixed the WRITE; this fixes the DISCLOSURE, and
+      //  they are separate defects — a filtered write behind a card that still
+      //  misreads is still a card the user cannot check.
+      //  ★ ONE `titleOf` call feeds both this and `plan.creates`, so a create's
+      //  two lines cannot name the row differently. A blank title (an
+      //  explicitly `""` input title — `??` does not fall through it) is
+      //  dropped by `pushLinkDiffs`' own spread rather than rendered as a
+      //  dangling " – ".
+      const title = titleOf(entity, input);
+      pushLinkDiffs(plan, INLINE_DESCRIPTORS[entity], input, {}, ws, "create", title);
+      plan.creates.push({ entity, title, toolName: name, input });
       continue;
     }
 
-    if (name in DELETE_TOOLS) {
+    // ★★★ `hasOwnProperty`, NOT `in` — the CREATE_TOOLS guard above records the
+    //  mechanism; this branch is the same defect with a quieter symptom, which
+    //  is why it outlived the other. `toString` destructured `{entity, wsKey}`
+    //  off `Object.prototype.toString`, both `undefined`, so `ws[undefined]` was
+    //  not an array and the block landed in `plan.rejected` as `unknown-id`: a
+    //  FABRICATED rejection naming a row nobody asked to delete, on the one card
+    //  whose whole job is to say truthfully what will happen. It now falls
+    //  through and is ignored, exactly like any other unrecognised tool
+    //  (`list_tasks`, `bogus`) — see the "prototype-named tools" tests.
+    if (Object.prototype.hasOwnProperty.call(DELETE_TOOLS, name)) {
       const { entity, wsKey } = DELETE_TOOLS[name];
       const id = Number(input.id);
       // The row's OWN entity may only delete the row it was opened on; other

@@ -8,7 +8,7 @@ import { ChangeEditModal } from "./change-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
 import { selectFieldTier } from "../test/field-tier";
-import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
+import { AMOUNT_MAX, BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
 import type { ChangeItem, Stakeholder } from "./types";
@@ -554,6 +554,66 @@ describe("ChangeEditModal plain-field cap on Enter-submit", () => {
     const saved = onSave.mock.calls[0][0] as ChangeItem;
     expect(saved.decisionBy?.length).toBe(BUDGET_NAME_MAX);
     expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  // ★★★ THE SAME DEFECT, IN THE TWO FIELDS THE ORIGINAL FIX NEVER INCLUDED.
+  //  `describeClamp` runs only in each number field's `onBlur`, and `saved`
+  //  took `scheduleImpactDays`/`costImpact` straight off the `...draft` spread
+  //  — so Enter-submit stored a fraction the form's `{ round: 0 }` forbids, and
+  //  a cost past the `max: AMOUNT_MAX` it clamps to. Clicking Save blurs first
+  //  and passes either way, which is why every case here submits with Enter.
+  it("rounds a fractional scheduleImpactDays when the form is submitted with Enter", async () => {
+    const { onSave, showToast } = renderWithSpies({ title: "ok", scheduleImpactDays: 1.5 });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.scheduleImpactDays).toBe(2);
+    // ★★ NO TOAST, DELIBERATELY. `describeClamp` reports an `adjustment` for a
+    //  min/max clamp ONLY — a pure ROUNDING is `adjustment: null`. So the
+    //  counted set on this path is exactly the set the field's own `onBlur`
+    //  would have shown a `FieldNotice` for, and the two paths cannot drift.
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it("rounds a three-decimal costImpact to the two the form allows", async () => {
+    const { onSave, showToast } = renderWithSpies({ title: "ok", costImpact: 1500.555 });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.costImpact).toBe(1500.56);
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it("clamps an over-cap costImpact when the form is submitted with Enter", async () => {
+    const { onSave, showToast } = renderWithSpies({ title: "ok", costImpact: AMOUNT_MAX + 1 });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.costImpact).toBe(AMOUNT_MAX);
+    // A BOUND clamp does report an adjustment, so this one is counted — the
+    // same rule as above, seen from its other side.
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("leaves a blank number field undefined rather than clamping it to zero", async () => {
+    // ★★★ THIS PINS THE FIX'S OWN TRAP, NOT THE DEFECT — it passes before the
+    //  fix as well, because `...draft` forwards `undefined` untouched. Kept
+    //  because `describeClamp` takes a STRING: `String(undefined)` is
+    //  "undefined", `Number("undefined")` is NaN, and the helper's
+    //  non-finite branch clamps NaN to `opts.min` — so the obvious spelling of
+    //  the fix turns an EMPTY field into a stored 0 on every save. A blank has
+    //  to reach it as "".
+    const { onSave, showToast } = renderWithSpies({ title: "ok" });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.scheduleImpactDays).toBeUndefined();
+    expect(saved.costImpact).toBeUndefined();
+    expect(showToast).not.toHaveBeenCalled();
   });
 
   it("trims on Enter, and collapses whitespace-only optionals to undefined", async () => {
