@@ -27933,10 +27933,12 @@ threshold and worst hours, and an entity digest costs billed prompt tokens. The 
 invisible from either file alone and will read as an oversight to whoever finds it next; adding a
 `resources` arm is the closure if it ever earns its place.
 
-## 361. The daily-roll budget is per-entry, so nothing bounds total device storage — OPEN
+## 361. The daily-roll budget is per-entry, so nothing bounds total device storage — CLOSED 2026-09-07
 
-**Status:** OPEN. Filed 2026-09-04 with the fix that introduced the budget. Verified by reading,
-2026-09-04: `grep -n "MAX_DAILY_ROLL_CHARS\|MAX_PROJECTS" src/app/timelog-actuals-store.ts`.
+**Status:** Fixed by the guardrail-bounds slice, 2026-09-07. Filed 2026-09-04 with the fix that
+introduced the budget. Verified by command, 2026-09-07:
+`grep -n "MAX_ACTUALS_TOTAL_CHARS\|shedOrder" src/app/timelog-actuals-store.ts` returns the exported
+constant, the `shedOrder` helper, and the two shedding loops in `saveActualsCache`.
 
 `withBoundedDaily` bounds ONE entry's roll to `MAX_DAILY_ROLL_CHARS` (512 KiB). The map-level bound
 is still `MAX_PROJECTS` (50) eviction, which counts entries and never measures them — so 50 entries
@@ -27949,6 +27951,22 @@ trusts — narrowing it silently is worse than the headroom it buys. `MAX_PROJEC
 precisely because it drops entries WHOLE: an absent entry reads as unknown, which freezes insights.
 The natural closure is making that eviction size-based rather than count-based; it is safe for the
 same reason and was left undone deliberately.
+
+★★★ THE CLOSURE TAKEN IS NOT THE ONE THIS ENTRY NAMED. The natural closure proposed above — making
+`MAX_PROJECTS` eviction size-based — keeps whole-entry drops as the only lever. What shipped is
+`MAX_ACTUALS_TOTAL_CHARS` (2 MiB) measured over the serialised map, shed in three stages: stage 1 is
+the pre-existing count eviction, stage 2 STRIPS `daily` + `dailyWindow` + `dailyUsers` together from
+the oldest entries while keeping their `aggregates`, and only stage 3 drops entries whole. Stripping
+comes first because the `MAX_DAILY_ROLL_CHARS` docstring already forbids the cheaper option — losing
+the roll must never cost the `aggregates` beside it, and whole-entry eviction throws away exactly
+what the network round trip bought. Stripping is safe for the same reason this entry gives for
+whole-entry eviction: the three fields go together, so a stripped entry claims no coverage and the
+reconcile freezes rather than clears.
+
+★★★ IT IS A STRIP AND NEVER A TRIM. Narrowing another project's `dailyWindow` during this project's
+save stays forbidden, exactly as the paragraph above says — that falsifies a coverage claim and
+fabricates an `"improved"` outcome. The shedder removes the three fields outright or leaves them
+alone; it never rewrites the window's bounds.
 
 ## 362. A guardrail insight's deep link arms `pendingOpen` with no consumer — OPEN
 
@@ -27965,9 +27983,12 @@ not a leak.
 
 ## 363. The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row — OPEN
 
-**Status:** OPEN. Filed 2026-09-04 from the §347 review round. Verified by reading, 2026-09-04:
-`grep -n "MAX_INSIGHTS" src/app/insights/reconcile.ts` — the function ends `return
-result.slice(0, MAX_INSIGHTS);`.
+**Status:** OPEN, narrowed twice — 2026-09-04 and again 2026-09-07. Filed 2026-09-04 from the §347
+review round. Verified by reading, 2026-09-04: `grep -n "MAX_INSIGHTS" src/app/insights/reconcile.ts`
+— the function then ended `return result.slice(0, MAX_INSIGHTS);`. Second narrowing verified by
+command, 2026-09-07: `grep -n "RESERVED_NON_GUARDRAIL\|GUARDRAIL_INSIGHT_TYPES"
+src/app/insights/insight.ts src/app/insights/reconcile.ts` returns the two constants and the
+two-pass admission that replaced that slice. The remaining residue is `never machine-verified`.
 
 An insight the caller declined to certify is carried through byte-for-byte, but it still competes for
 the 200-row cap and can be dropped by that slice — after which it is absent from `stored` on the next
@@ -27986,10 +28007,31 @@ fall back to insertion order, where frozen rows are appended last.
 
 ★ WHAT REMAINS OPEN is the plain cap: with more than `MAX_INSIGHTS` rows of one severity, frozen
 rows can still be dropped — they are simply no longer SELECTED for it. Losing a row is strictly
-better than fabricating an `"improved"` outcome for it, so the residue is a
-NOTE, not a defect. It matters because guardrail cardinality is 4 x (TimeLog users seen in a fetch)
-at `"medium"` severity with no cap in `detect.ts`, so an org-scope fetch can push `"low"`-severity
-core insights — `overdueTrend` among them — out of the cap entirely.
+better than fabricating an `"improved"` outcome for it, so the residue is a NOTE, not a defect.
+
+★★ THE STARVATION HALF IS FIXED as of 2026-09-07. Guardrail cardinality is 4 x (TimeLog users seen
+in a fetch) at `"medium"` severity with no cap in `detect.ts`, so an org-scope fetch could push
+`"low"`-severity core insights — `overdueTrend` among them — out of the cap entirely.
+`RESERVED_NON_GUARDRAIL` now holds 60 of the 200 slots for non-guardrail rows, and a second
+admission pass hands any unclaimed reserved slot back to the guardrails it deferred, so the list is
+never SHORTER than the plain slice it replaced.
+
+★★★ DO NOT CLOSE THE RESIDUE BY CAPPING `detect.ts`. It is the obvious move and it fabricates data.
+Capping `timelogGuardrailInsights` drops rows from `detected`, and `reconcileInsights` reads absence
+as "the condition cleared" unless `isEvaluated` says otherwise — a predicate built at the
+`task-manager.tsx` call site from the daily roll, which cannot see a cap applied inside `detect.ts`.
+A capped-out row whose violating days the roll covers therefore passes the window check, finds no
+violation, and resolves through `computeClearedOutcome` — which always writes `"improved"` — into
+`Workspace.insights`, which is shared, exported and read on every AI turn. Any future bound on
+guardrail GENERATION must be visible to `isEvaluated`, so a capped-out row reads as NOT EVALUATED
+and freezes rather than clearing.
+
+★★ A KNOWN LIMIT OF THE FIX, measured during review and not a defect. `overdueTrend` is the app's
+only `"low"` row, so it sorts last; given a guardrail flood of at least the guardrail budget it
+survives IFF the number of OTHER non-guardrail rows is fewer than `RESERVED_NON_GUARDRAIL`.
+`milestoneSlip` and `raidAging` are one row per item and unbounded, so a project carrying 60 aging
+RAID items plus a large guardrail fetch still loses it. 60 is a judgement call about typical project
+size, not a guarantee. Below the guardrail budget the reservation does nothing at all.
 
 ## 364. An older build prunes the four guardrail insight types on load, and can write the pruned list back — OPEN
 
@@ -28045,11 +28087,15 @@ person. Closure options, none taken: surface "coverage unknown" in the panel so 
 legible; or fetch a person's whole day when the roll is being built even under project scope, which
 changes the request count and the rate-limit budget.
 
-## 367. `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible — OPEN
+## 367. `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible — CLOSED 2026-09-07
 
-**Status:** OPEN. Filed 2026-09-04 from a false claim a deletion-only review found. Verified by
-reading, 2026-09-04: `grep -n "!Number.isInteger(userId) || !date" src/app/timelog-types.ts` returns
-the only validation in the function — the date is checked for being non-EMPTY and for nothing else.
+**Status:** Fixed by the guardrail-bounds slice, 2026-09-07. Filed 2026-09-04 from a false claim a
+deletion-only review found. Verified by reading, 2026-09-04:
+`grep -n "!Number.isInteger(userId) || !date" src/app/timelog-types.ts` returned the only validation
+in the function — the date was checked for being non-EMPTY and for nothing else. Fix verified by
+command, 2026-09-07: `grep -n "KEY_DATE_RE\|KEY_USER_RE" src/app/timelog-types.ts` returns both
+regexes and the single guard that applies them, and `grep -n "skipped" src/app/timelog-policy.ts`
+returns the per-roll flag and the `if (!skipped) evaluated.push(rule);` it gates.
 
 Two consequences, one of which was previously documented as impossible.
 
@@ -28067,6 +28113,39 @@ insight FREEZES, which is the safe direction — this is recorded as a latent sh
 ★ Reachability is the open question and is deliberately not asserted here. Every key the app itself
 writes comes from `dailyKey(userId, it.date)` over API-supplied dates. The paths that could carry a
 hostile key are a hand-edited `localStorage` blob and a future writer; neither has been probed.
+
+★★★ THIS ENTRY WAS WRONG ABOUT ITS OWN SCOPE, in four ways worth recording.
+
+**1. Half of it was already closed when it was filed.** `withBoundedDaily` tests every key against
+its own `ISO_DATE_RE` before adding it to the retention list and `continue`s past any that fails, so
+a key whose date half is 600,000 characters never entered that list and never influenced the trim.
+The storage half of the headline was therefore never live by that route.
+
+**2. The date half is now rejected at the parse.** `KEY_DATE_RE` rejects any date that is not
+`\d{4}-\d{2}-\d{2}`, so a malformed date no longer reaches the rules at all.
+
+**3. The userId half was still open after that first fix, and the entry's own headline depended on
+it.** `Number()` STRIPS LEADING WHITESPACE, so `" ".repeat(600000) + "7|2026-09-01"` parsed cleanly
+to `{userId: 7, …}` — a single 600,012-character cell against a 524,288-character
+`MAX_DAILY_ROLL_CHARS`, which is exactly the oversized cell this entry is named for, still
+constructible after the date was locked down. `KEY_USER_RE` (`/^-?\d+$/`) closes it.
+★★★ `Number.isInteger` IS RETAINED BESIDE IT AND BOTH ARE LOAD-BEARING: the regex happily admits a
+600,000-DIGIT head, `Number()` of which is `Infinity`, and only the integer check rejects that. A
+future reader who sees a regex that "already validates" the head and deletes the integer check
+reopens this.
+
+**4. The fix had a consequence that needed its own fix**, recorded here rather than as a new entry
+because it exists only as a result of point 2. Rejecting malformed dates at the parse moved those
+cells into `evaluateTimelogPolicy`'s pre-existing silent `continue`, where the rule still certified
+itself `evaluated` — turning a recoverable FREEZE into a possible fabricated `"improved"`. A
+per-roll `skipped` flag now withholds a rule from `evaluated` whenever any cell was skipped, closing
+that for unparseable keys and for the non-conforming cells that predate this slice alike. A partial
+read still REPORTS the violations it observed — it can be right that a violation EXISTS, never that
+none does — so one malformed key does not blind the whole guardrail feature.
+
+★★ THE CHECK IS SHAPE, NEVER EXISTENCE. `9999-99-99` is still admitted, deliberately: the date's
+only job here is to make `<` and `>` comparisons lexicographically meaningful, which a well-shaped
+impossible date does perfectly well. Do not "complete" `KEY_DATE_RE` into a calendar validator.
 ## 370. Redo of an AI-captured delete is unproved — CLOSED 2026-09-05
 
 **Status:** CLOSED 2026-09-05 by `d96cf025`, which adds a redo leg to the pre-existing "undoing an

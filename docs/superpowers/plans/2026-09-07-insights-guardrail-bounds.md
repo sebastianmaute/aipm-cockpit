@@ -1130,3 +1130,43 @@ No version bump and no CHANGELOG entry are part of this plan — the release ste
 - `vitest` has no `--reporter=basic` and no `--minWorkers`. Both fail at startup in a way that reads like a broken suite. `--reporter=dot` and `--maxWorkers=N` exist.
 - A surviving mutant is a QUESTION, not a pass. "Equivalent mutant" and "missing test" look identical from the harness; separating them needs an input the suite does not have. Go find one.
 - When you revert a mutant, assert the anchor is unique in BOTH directions before and after the write, and finish on `git diff --stat` to prove the file is back. `git checkout -- <file>` is deny-blocked here.
+
+---
+
+## Corrections found during execution (2026-09-07)
+
+The plan body above is left exactly as written. Four of its claims were falsified while executing it;
+each is recorded here with what shipped instead. Read this section before treating any assertion,
+comment or fixture in the plan as a specification.
+
+**1. Task 2, test 1's third assertion was wrong, and it contradicted the plan's own test 2.** It
+asserted the surviving guardrail count as `MAX_INSIGHTS - RESERVED_NON_GUARDRAIL` (140). The true
+value for that fixture is 199: its single non-guardrail row (`overdueTrend`) claims one reserved
+slot, and the top-up pass hands the other 59 back to the guardrails pass one deferred. The plan's
+test 2 — "a reservation that nobody claims must not shorten the list" — REQUIRES that hand-back, so
+the two tests as written could not both pass. Shipped as `MAX_INSIGHTS - 1`, with a comment naming
+the arithmetic, plus a fourth test whose fixture supplies enough non-guardrail rows to actually
+claim the reservation, so `RESERVED_NON_GUARDRAIL` stays pinned to a value rather than dropping out
+of the suite.
+
+**2. Task 1's test comment cited the wrong file.** It said `timelog-policy.ts` compares violation
+bounds against a roll window. That comparison is in `task-manager.tsx`, where `isEvaluated` is built.
+The policy engine only TRACKS the bounds (`firstViolationDate` / `lastViolationDate`); it never
+compares them against a window.
+
+**3. Task 1 was scoped to half of §367.** Validating the date half left the entry's headline defect
+constructible through the userId half, because `Number()` strips leading whitespace — see §367's
+point 3 in `docs/open-followups.md` for the measurement. Closing it took a second commit adding
+`KEY_USER_RE`, and that fix in turn required withholding `evaluated` from a partial read in
+`timelog-policy.ts`, which the plan did not anticipate at all.
+
+**4. Task 3's test 2 was vacuous as written, and its fixture had two further defects.** The test
+saved ONE big entry and asserted it kept its roll, but the per-entry roll cap is a quarter of the map
+budget, so a lone entry can never exceed the map budget and NEITHER shedding stage ran — the
+assertion passed with the `keep` exclusion deleted, and the test's own docstring claim of "even alone
+over budget" is arithmetically impossible. Shipped as four big entries saved first, then the entry
+under test saved LAST carrying the OLDEST `fetchedAt`, which puts it first in the shed order so only
+the `keep` exclusion can save it. Separately: the plan's stage-1 restore grew the map to 51 entries,
+breaking the `MAX_PROJECTS` cap it sits inside (shipped swapping out the oldest survivor instead),
+and its hardcoded `to: "2054-09-08"` was wrong by roughly 25 days (shipped derived from the day
+constant rather than written by hand).
