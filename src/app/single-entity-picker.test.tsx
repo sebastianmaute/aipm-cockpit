@@ -55,6 +55,24 @@ describe("SingleEntityPicker", () => {
     expect(screen.getByRole("combobox").className).toContain("text-xs");
   });
 
+  // ★★ The other half of `EntityComboboxSearch` that carries a written reason
+  // and nothing enforcing it here. `pr-8` is ~2rem of padding reserving room
+  // for the overlaid ✕, so it rides the SAME condition the ✕ does — applied
+  // unconditionally it shaves that much off the visible placeholder in the
+  // EMPTY state, which is the common one (the TableFilter / PaneSearchInput
+  // precedent).
+  // ★ BOTH branches, deliberately: asserting only the presence passes against
+  // an unconditional class, which is the exact mutant.
+  it("reserves the clear gutter only while there is something to clear", () => {
+    const { unmount } = renderPicker({ query: "a" });
+    expect(screen.getByRole("combobox").className).toContain("pr-8");
+    unmount();
+
+    renderPicker({ query: "" });
+    expect(screen.getByRole("combobox").className).not.toContain("pr-8");
+    expect(screen.queryByRole("button", { name: /clear/i })).not.toBeInTheDocument();
+  });
+
   it("keeps the listbox closed while the query is blank", () => {
     renderPicker();
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
@@ -259,6 +277,54 @@ describe("SingleEntityPicker", () => {
     const whileClosed = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
     fireEvent(box, whileClosed);
     expect(whileClosed.defaultPrevented).toBe(false);
+  });
+
+  // ★ The POSITIVE half of the reopen: Escape used to leave the list
+  // unreachable until the query changed, so clicking back into a field with
+  // text in it showed no matches. `fireEvent.click` deliberately, not
+  // `userEvent.click` — the latter focuses first, which would satisfy an
+  // onFocus implementation too and stop this pair discriminating.
+  it("reopens a dismissed dropdown when the field is clicked again", () => {
+    const { rerender, props } = renderPicker({ query: "a" });
+    const box = screen.getByRole("combobox");
+    fireEvent.keyDown(box, { key: "Escape" });
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+    fireEvent.click(box);
+    rerender(<SingleEntityPicker {...props} query="a" />);
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+  });
+
+  // ★★ THE NEGATIVE HALF, and the reason the reopen rides onCLICK rather than
+  // onFocus — a mechanism `entity-combobox-search.tsx` states in a comment and
+  // that nothing in THIS file enforced. Escape must STICK: tabbing away to fix
+  // something else and coming back is not a request to reopen, and if it were,
+  // a dismissed list would pop back over the rest of the form with no way to
+  // shut it but clearing the query.
+  // ★ Both spellings are fired, and NEITHER is load-bearing on its own —
+  // measured, because the obvious reason to fire both is a false one. React
+  // 17+ maps `onFocus` onto the bubbling `focusin`, which reads as "a lone
+  // non-bubbling `focus` can never reach the handler, so this test would
+  // survive the mutant for a reason unrelated to the mechanism". That is NOT
+  // what happens here: with `onClick` swapped to `onFocus`, deleting EITHER
+  // line still turned this test red (2026-09-07), so RTL's `fireEvent.focus`
+  // does reach the handler in this React/RTL pair. They stay as a pair because
+  // the claim being pinned is that no focus round-trip of ANY spelling
+  // reopens — not because one of them is the working one.
+  it("keeps Escape sticky across a focus round-trip", () => {
+    const { rerender, props } = renderPicker({ query: "a" });
+    const box = screen.getByRole("combobox");
+    fireEvent.keyDown(box, { key: "Escape" });
+
+    fireEvent.focus(box);
+    fireEvent.focusIn(box);
+    rerender(<SingleEntityPicker {...props} query="a" />);
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+    // ...but the keyboard is never stuck behind an Escape: ArrowDown reopens,
+    // which is the APG affordance.
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
   });
 
   it("renders the current selection's label when one is set", () => {
