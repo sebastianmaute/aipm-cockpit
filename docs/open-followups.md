@@ -587,13 +587,13 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
 | [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--open) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | open |
-| [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--closed-2026-09-07) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | closed 2026-09-07 |
+| [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--closed-2026-09-07) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
 | [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--open) | A guardrail insight's deep link arms `pendingOpen` with no consumer | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--open) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
-| [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--closed-2026-09-07) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | closed 2026-09-07 |
+| [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--closed-2026-09-07) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | **CLOSED** 2026-09-07 |
 | [§370](#370-redo-of-an-ai-captured-delete-is-unproved--closed-2026-09-05) | ~~Redo of an AI-captured delete is unproved~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (a redo leg added to the existing AI `deleteTask` round trip in `use-chat-dispatcher.undo.test.tsx`, asserting the row is gone again after `redo()`) |
 | [§371](#371-a-stakeholder-deletion-offers-to-delete-their-job-title-not-the-person--closed-2026-09-04) | ~~A stakeholder deletion offers to delete their job title, not the person~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-04 (one shared `PERSON_ENTITIES` set now names both person entities by `personName`, at the create label AND the delete label; mutation-proved by reverting the set to `["resource"]` alone) |
 | [§372](#372-an-update_resource-rename-sent-as-the-name-alias-previews-an-empty-plan--closed-2026-09-05) | ~~An update_resource rename sent as the name alias previews an empty plan~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (`describeEntityCalls` projects an alias-only `update_resource({name})` onto `firstName`/`lastName` via the dispatcher's own `splitName` before diffing) |
@@ -649,13 +649,15 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§422](#422-a-comma-bearing-email-address-is-destroyed-when-an-inline-edit-names-emails-with-a-changed-value--open) | A comma-bearing email address is destroyed when an inline edit names emails with a changed value | found 2026-09-06 in cold review of the preview/apply-parity branch; trigger claim refuted by probe 2026-09-07 | S | open |
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--closed-2026-09-07) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit; it had rotted FOUR times and was incomplete besides | S | **CLOSED** 2026-09-07 |
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
-| [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | closed 2026-09-07 |
+| [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | **CLOSED** 2026-09-07 |
 | [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
-| [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | closed 2026-09-07 |
+| [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | **CLOSED** 2026-09-07 |
 | [§428](#428-focusaftermove--triggerrefs-has-no-detector-at-any-layer-and-the-playwright-probe-that-was-owed-refuted-its-own-premise--open) | `focusAfterMove` / `triggerRefs` has no detector at any layer | found 2026-09-07 writing the probe the reports-arrangement slice owed | NONE — a decision, not a defect; do not re-owe the probe | open |
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
-| [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--open) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `70300a1d`, documented rather than fixed | S-M — bound `users` at write time; do NOT shed the saved entry | open |
-| [§431](#431-one-malformed-api-date-is-unattributable-to-a-day-and-to-a-period-and-both-consumers-minted-a-phantom-key--closed-2026-09-07) | One malformed API date is unattributable to a day AND to a period, and both consumers minted a phantom key | found 2026-09-07 in cold review of the guardrail-bounds branch; the first-party path §367 said had not been probed | S-M — one local row rule, applied at both consumers | **CLOSED** 2026-09-07 |
+| [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--open) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `ebca2553`, documented rather than fixed | S-M — bound `users` at write time; do NOT shed the saved entry | open |
+| [§431](#431-one-malformed-api-date-reached-the-budget-aggregates-as-a-phantom-period-key--closed-2026-09-07) | One malformed API date reached the budget aggregates as a phantom period key | found 2026-09-07 in cold review of the guardrail-bounds branch; the first-party path §367 said had not been probed | S-M — one row rule at ONE consumer; the roll deliberately keeps its unparseable key | **CLOSED** 2026-09-07 |
+| [§432](#432-two-surfaces-tell-the-user-to-re-fetch-hours-that-a-re-fetch-cannot-repair--open) | Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S-M — an optional `undated` cell beside `unattributed`, or reword both strings | open |
+| [§433](#433-phantom-period-keys-already-written-into-workspaces-by-apply-are-not-cleaned-up--open) | Phantom period keys already written into workspaces by Apply are not cleaned up | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | M — a counted load-time drop, never a silent one | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27941,8 +27943,11 @@ invisible from either file alone and will read as an oversight to whoever finds 
 introduced the budget. Verified by command, 2026-09-07:
 `grep -n "MAX_ACTUALS_TOTAL_CHARS\|shedOrder" src/app/timelog-actuals-store.ts` returns the exported
 constant, the `shedOrder` helper, and the THREE `shedOrder` loops in `saveActualsCache` — stages 2,
-3 and 4. ★ It returns NINE lines, not three: two docstring mentions and a comment are in there too,
-so count the `for (const k of shedOrder(` lines rather than the hits. ★ THIS LINE SAID "the two shedding loops" until 2026-09-07 and the command it prescribes
+3 and 4. ★ It returns FOURTEEN lines, not three — docstring mentions and comments are in there too — so
+count the `for (const k of shedOrder(` lines rather than the hits. ★★ This line said NINE, and the
+commit that wrote it was itself a correction round: nine was the count BEFORE the third shedding
+stage landed, and the sentence was authored against a tree where it was already fourteen. Re-run a
+count you are quoting even when — especially when — you are in the middle of fixing someone else's. ★ THIS LINE SAID "the two shedding loops" until 2026-09-07 and the command it prescribes
 refuted it: stage 3 (`users` + `projectRefs`) was added after the Status line was written and
 nothing re-ran the grep. Count the loops, do not count the stages — stage 1 is the pre-existing
 `MAX_PROJECTS` count eviction and uses no `shedOrder`.
@@ -27972,7 +27977,7 @@ exactly what the network round trip bought. Shedding is safe for the same reason
 for whole-entry eviction: the three roll fields go together, so a shed entry claims no coverage and
 the reconcile freezes rather than clears.
 
-★★ STAGE 3 WAS ADDED IN REVIEW (`70300a1d`), because without it the rationale above was
+★★ STAGE 3 WAS ADDED IN REVIEW (`ebca2553`), because without it the rationale above was
 aspirational. A map whose bulk is `users` — a large directory with little or no roll — skipped the
 roll stage entirely and landed in the whole-entry drop, spending `aggregates` to reclaim space held
 by a display-only field, which is the exact priority the file header states in reverse. `users` and
@@ -28151,9 +28156,15 @@ was `if (!Number.isInteger(userId) || !date) return null` and `""` is falsy — 
 nothing, because the rule went on certifying itself `evaluated`. With the `skipped` flag, one such
 row withholds `evaluated` from all four rules for EVERY person in that roll until the next clean
 fetch. That is still the safe direction (a FREEZE, never a fabricated `"improved"`), and it is a
-wider blast radius than "a hand-edited blob" prepares a reader for. The live residual is tracked as
-§431, CLOSED the same day by `e87b7e46`; this entry stays closed too, because the parse bound it
-was named for is bound.
+wider blast radius than "a hand-edited blob" prepares a reader for. This entry stays closed, because
+the parse bound it was named for is bound.
+
+★★★ AND THAT BREADTH IS NOW LOAD-BEARING RATHER THAN REGRETTABLE — read it as the design, not as a
+cost still owed a fix. §431 tried filtering these rows out of `buildDailyRoll` and had to be reverted
+the same day (`3ccf8299`): without the unparseable key nothing sets `skipped`, so the rules certify a
+clean day for hours nobody could place and the reconcile writes a fabricated `"improved"`. The wide
+freeze IS the safety property. §431 carries the chain and the scope; what closed there was the
+BUDGET-AGGREGATE half of the same malformed row, which had no such saving grace.
 
 ★★★ THIS ENTRY WAS WRONG ABOUT ITS OWN SCOPE, in four ways worth recording.
 
@@ -31695,7 +31706,7 @@ not a verification — the gate reads for an INVOCATION. That distinction is wha
 ## 430. A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved — OPEN
 
 **Status:** OPEN 2026-09-07 — `never machine-verified`. A save large enough to trigger this has not
-been constructed, so the entry is reasoned from the source and from `70300a1d`'s own docstrings, not
+been constructed, so the entry is reasoned from the source and from `ebca2553`'s own docstrings, not
 from a probe. Nothing below should be read as measured.
 
 `MAX_ACTUALS_TOTAL_CHARS` (2 MiB) bounds the serialised cache map, but all four of
@@ -31723,13 +31734,13 @@ is the closure that does not cross that line.
 
 ★★ THE TWO DOCSTRINGS USED TO OVERSTATE THIS AND NO LONGER DO. `MAX_ACTUALS_TOTAL_CHARS`'s "bounds
 the whole serialised map" and `MAX_DAILY_ROLL_CHARS`'s "that hole is now closed" each claimed more
-than was true; `70300a1d` corrected both in the source, so each now scopes its claim to the
+than was true; `ebca2553` corrected both in the source, so each now scopes its claim to the
 MANY-ENTRIES case. Register and code state the same residual — a reader who finds only one of them is
 reading a stale copy of the other.
 
 ★★★ THE POINTER HALF OF THAT WAS FALSE WHEN WRITTEN AND IS TRUE ONLY NOW. This paragraph claimed
 both docstrings "point at this entry", which was chronologically impossible: §430 was minted in
-`2622e09c`, a docs-only commit, AFTER the `70300a1d` that scoped them, and no source file referenced
+`00c0ddaf`, a docs-only commit, AFTER the `ebca2553` that scoped them, and no source file referenced
 this entry at all. ★ Say that as "no reference to THIS ENTRY", never as "`grep -rn "430" src/`
 returned nothing" — which is what this paragraph first said, and it is false: that grep matches the
 bare number, and `change-edit-modal.test.tsx` carries two `"q".repeat(4300)` hits. Grep the `§`.
@@ -31740,18 +31751,13 @@ inverts the audit it was meant to support: a reader checking the code for a §43
 none, concludes the REGISTER is the stale copy. A cross-reference is a claim about ANOTHER file, so
 it is only ever verified by opening that file.
 
-## 431. One malformed API date is unattributable to a day AND to a period, and both consumers minted a phantom key — CLOSED 2026-09-07
+## 431. One malformed API date reached the budget aggregates as a phantom period key — CLOSED 2026-09-07
 
-**Status:** CLOSED 2026-09-07 by `e87b7e46`, which adds one local `ISO_DAY_RE` row rule to
-`timelog-actuals.ts` and applies it at BOTH consumers. Six tests were added; no single `-t` filter
-selects all six, so run the file: `npx vitest run src/app/timelog-actuals.test.ts` → 19 passed.
-Measured sub-filters, quoted as the gate prints them rather than as a tidy number:
-`-t "malformed"` → **3 passed | 16 skipped**, `-t "regionally formatted"` → **1 passed | 18 skipped**,
-`-t "blank"` → 1. ★ This line first said `-t "malformed"` was "four tests". It is three — the
-blank-date and control tests do not carry the word — and running it is what caught that. A Status
-line is the least gated line in the register (§429); the only defence is executing the command you
-are about to quote. Filed and closed the same day; the filing text is preserved below where it was
-wrong, because the way it was wrong is the point.
+**Status:** CLOSED 2026-09-07 by `6d62fe87` (the aggregates half) and `3ccf8299` (which reverted
+the roll half — see below; the revert is part of the closure, not a regression against it). Measured
+before quoting, as `npx vitest` prints them:
+`npx vitest run src/app/timelog-actuals.test.ts` → **19 passed**;
+`-t "malformed"` → **3 passed | 16 skipped**; `-t "unparseable"` → **2 passed | 17 skipped**.
 
 `timelog-api.ts` coerces every API field through `const s = (v: unknown): string => (typeof v ===
 "string" ? v : "")`, and `dateOnly` is `s(v).slice(0, 10)`. So a time-registration row whose
@@ -31760,16 +31766,8 @@ wrong, because the way it was wrong is the point.
 day. No hand-edited blob and no hostile input is required — this is the first-party path §367's
 reachability paragraph said had not been probed.
 
-★★★ **THIS ENTRY WAS FILED AS A POLICY DEFECT AND WAS HALF THAT.** As filed it described only
-`buildDailyRoll`: the row mints the key `"7|"`, `parseDailyKey` rejects it,
-`evaluateTimelogPolicy`'s per-roll `skipped` flag withholds all four rules from `evaluated`, and
-every guardrail insight in the roll FREEZES for every user until a clean fetch. All true, and the
-safe direction — a freeze is recoverable, a fabricated `"improved"` is not.
-
-**The half it missed is the one with no safe direction.** `aggregateActuals` reads the SAME
-`it.date` through `periodKeyForDate`, and the row's `resourceId` and `bucketId` resolve
-perfectly well — only the date is junk. Measured 2026-09-07, and reproducible from
-`resource-capacity.ts` alone:
+**The defect.** `aggregateActuals` resolved `resourceId` and `bucketId` perfectly well — only the
+date was junk — and then minted a period key from it:
 
 | `it.date` | month key | week key |
 |---|---|---|
@@ -31777,46 +31775,117 @@ perfectly well — only the date is junk. Measured 2026-09-07, and reproducible 
 | `"05/01/2026"` | `"05/01/2"` | `NaN-WNaN` |
 | `"2026-09-01"` | `"2026-09"` | `"2026-W36"` |
 
-Real hours were attributed into a phantom period bucket matching no rendered column, so they simply
-disappeared from the Budget view — no freeze, no diagnostic, money data quietly wrong. The guardrail
-freeze at least announces itself by insights going stiff.
+Real hours landed in a phantom bucket matching no rendered column and disappeared from the Budget
+view. ★★ WORSE THAN AN INVISIBLE OVERLAY, and the filing text understated this: `routeBucket`
+iterates `Object.entries(periods)` unconditionally and `writeAllocations` does
+`nextActual[period] = rec?.[period] ?? 0` for every routed period, so an **Apply persisted
+`actualHours[""]` / `["NaN-WNaN"]` into the workspace** on every allocation line of the bucket.
+That is data pollution, not a display bug. Already-written keys are §433.
 
-★★ **THE LESSON IS THE SHAPE, NOT THE DATE.** One malformed field, two consumers of the same
-`TimelogTimeItem[]`, and each mishandled it in its own idiom. Filing from the consumer you happen to
-be standing in front of records half a defect and closes it feeling finished. Enumerate the readers of
-a bad field — `grep -n "\.date" src/app/timelog-actuals.ts` returns both in one line each — before
-deciding what the defect IS.
+**What shipped.** `aggregateActuals` rejects the shape and routes the row to `unattributed`, which
+is what that field already means and what `budget-unapplied-notice.tsx` already renders.
 
-**What shipped.** Both consumers now reject the shape through the exit each already had:
-`buildDailyRoll` skips the row beside its existing `userId <= 0` sentinel, and
-`aggregateActuals` routes it to `unattributed`. A dateless booking is unattributable to a period
-by definition, which is exactly what `unattributed` already means and what
-`budget-unapplied-notice.tsx` already surfaces — so nothing is discarded silently and no new control
-was invented for it.
-
-★★★ **PLACEMENT IN `aggregateActuals` IS LOAD-BEARING, and the intuitive spot is the wrong one.**
+★★★ **PLACEMENT IS LOAD-BEARING AND THE INTUITIVE SPOT IS WRONG.**
 `byResource[resourceId] = add(...)` is written BEFORE `periodKeyForDate` is reached, so a guard
 placed beside the call whose output is junk sits BELOW that write and counts the same hours in
-`byResource` AND in `unattributed` — a silent inflation of every per-resource total. The clause is
-therefore FOLDED INTO the existing `resourceId`/`bucketId` condition rather than added after it,
-which makes the correct placement structural: there is no separate statement left to nudge downward.
-Pinned by "does not double-count a malformed-date row into byResource", and by that test ALONE — the
-MOVE mutant scored 1 failed / 19 passed while the DELETE mutant scored 3 failed / 17 passed to a
-disjoint set of tests. Two genuinely different mutants; deleting either test reopens one of them.
+`byResource` AND in `unattributed`. The clause is therefore FOLDED INTO the existing
+`resourceId`/`bucketId` condition, which makes correct placement structural — there is no separate
+statement left to nudge. Pinned by "does not double-count a malformed-date row into byResource" and
+by that test ALONE: the MOVE mutant scored 1 failed / 19 passed, the DELETE mutant 3 failed / 17
+passed to a disjoint set. Two different mutants; deleting either test reopens one.
 
-★ `ISO_DAY_RE` is local and deliberately NOT `timelog-types.ts`'s `KEY_DATE_RE`. That one asks
-"is this KEY usable?"; this one asks "can this ROW be attributed to a day or a period at all?" — the
-several-constants split `KEY_DATE_RE`'s own docstring argues at length. One constant serves both
-consumers IN THIS FILE, so the two guards here cannot drift from each other, which is the only
-coupling worth having. SHAPE, never existence: `9999-99-99` is admitted, matching the sibling rule.
+★★★ **THE SAME GUARD WAS APPLIED TO `buildDailyRoll`, SHIPPED, AND REVERTED THE SAME DAY. Do not
+re-apply it.** `ISO_DAY_RE` sits at the top of `timelog-actuals.ts` and it reads like an oversight
+that only one consumer uses it. It is not. A malformed date mints the unparseable key `"7|"` ON
+PURPOSE: that key is the only production signal that the roll is not fully readable.
+`parseDailyKey` rejects it → `evaluateTimelogPolicy` sets its per-roll `skipped` flag → the four
+guardrail rules are withheld from `evaluated` → `reconcileInsights` FREEZES. Filter the row out and
+that chain never starts: `skipped` stays false, all four rules are certified, and the reconcile
+resolves a stored guardrail insight as a fabricated `"improved"` into shared, exported
+`Workspace.insights`. Over-withholding freezes rows and is recoverable; under-withholding fabricates
+a win and is not.
 
-★★ **THE FILING NAMED THREE FIXES AND THE CHOSEN ONE WAS NOT AMONG THEM.** It offered: drop the row
-at `buildDailyRoll` (leaves the budget half broken), narrow the withholding per user (impossible on
-this entry's own `parseDailyKey === null` branch, where nobody is identifiable), or reject at the API
-mapper (fixes both but discards the hours before any consumer sees them). What shipped rejects at both
-CONSUMERS instead, which keeps the hours visible in `unattributed`. Recorded because a fork list is a
-claim about the option space, and this one was short by the option that was taken.
+★★ **THE OTHER `isEvaluated` TERMS DO NOT COMPENSATE, which is what makes it bite.** `rollPartial`
+comes solely from `failedEmployees > 0 || signal.aborted`, which a malformed date never sets; and on
+the self path `covered` is derived from `items.map((it) => it.userId)` BEFORE any date filter, so
+the person is still claimed as measured. Org scope uses the ticked ids, same outcome.
 
-★ Related, and not the same: §367 bound the PARSE (closed) and §430 records the single-oversized-entry
-residual in the store (open). Neither is about what a rejected key COSTS its consumers, which is what
-this entry was.
+★ **SCOPE, measured rather than assumed:** the PROJECT path is unaffected either way, because
+`use-timelog-sync.ts` clamps to `inWindow` (a malformed date fails the lexical range) and hands
+`finish` an EMPTY `covered`, which freezes everyone regardless. It is the SELF and ORG paths that
+depend on that key. A review that called the roll guard "the only production producer of the freeze"
+was right for those two paths and over-general across all three.
+
+★★ **THE ASYMMETRY IS THE WHOLE LESSON, and "one rule for one file cannot drift" is what talked me
+past it.** That reasoning is true about drift and says nothing about what the two consumers OWE. An
+unplaceable row HAS a truthful home in aggregation — `unattributed`, which a surface renders — and
+has NONE in the roll, because a roll cell is a claim about a DAY. Symmetry between the two was never
+a property worth having.
+
+★★ The filing named three candidate fixes and the one that shipped was not among them: it rejects at
+the CONSUMERS, not at the roll alone, per user, or at the mapper. It also named `mapV2TimeItem` as
+the mapper to reject at — wrong: v2 rows are already clamped out by `inWindow`, and the malformed
+rows reach the consumers from `mapTimeItem` (v1) via `listTimeItemsSelf` / `listEmployeeTimeItems`,
+which has no clamp. And `TimelogTimeItem[]` has FIVE consumers, not two; the third — the `covered`
+derivation — is what makes the freeze chain above bite.
+
+★ Related: §367 bound the PARSE (closed) · §430 the single-oversized-entry store residual (open) ·
+§432 the remedy text `unattributed` now carries (open) · §433 the already-persisted phantom keys
+(open).
+
+## 432. Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair — OPEN
+
+**Status:** OPEN. Filed 2026-09-07. Verified by reading, 2026-09-07:
+`grep -n "budgetUnattributedActuals\|timelogAttributionHint" src/app/i18n.ts` returns both strings,
+and `grep -n "unattributed" src/app/budget-unapplied-notice.tsx src/app/timelog-panel.tsx` returns
+the gates that render them.
+
+`budgetUnattributedActuals` tells the user the hours "could not be placed on any budget line when
+they were fetched. Attribution is decided at fetch time, so correcting a person or project link now
+will NOT recover them — the bookings have to be fetched again." `timelogAttributionHint` (gated on
+`unattributed.hours > 0`) explains link state only.
+
+Both were written for the population `unattributed` used to hold: rows whose person or project link
+was missing. §431 added a second population — rows whose DATE is unusable — whose links are healthy
+and for which a re-fetch returns the same junk, because the malformation is in the source data. The
+number is right and the prescribed remedy cannot work, so the user follows it in a circle.
+
+★★ THE BUCKET IS RIGHT AND THE LABEL IS WRONG. `unattributed` is the honest home for hours that
+cannot be placed; what it cannot do is say WHY, and the two populations have different remedies (fix
+the link vs fix the source). Proposed closure, from the review that found it: an optional
+`undated?: HourCell` beside `unattributed` in `ActualsAggregate`, routed from the same guard.
+Back-compat by the existing precedent — `BucketPeriodCell.byResource?` is optional for exactly this
+reason and the cache guard only shallow-checks `aggregates`, so an older entry deserializes fine.
+Both surfaces would then read `unattributed + undated` for the total and name the right remedy for
+each. ★ The minimum, if the cache shape is not to be touched, is to stop the notice prescribing a
+re-fetch it cannot back.
+
+★ NOT INTRODUCED BY §431 SO MUCH AS EXPOSED BY IT: the strings were already incomplete for any
+future population added to `unattributed`. §431 is simply the first one.
+
+## 433. Phantom period keys already written into workspaces by Apply are not cleaned up — OPEN
+
+**Status:** OPEN. Filed 2026-09-07. Verified by reading, 2026-09-07:
+`grep -n "routedPeriods\|nextActual\[period\]" src/app/timelog-apply.ts` returns the routing loop
+and the write, and `grep -n "actualHours).length" src/app/budget-bucket-modal.tsx` returns the
+has-data predicate that a junk key satisfies.
+
+Before §431, `aggregateActuals` could mint period keys of `""`, `"05/01/2"` or `"NaN-WNaN"`.
+`routeBucket` iterates `Object.entries(periods)` unconditionally, so such a key was routed and
+added to `routedPeriods`, and `writeAllocations` does `nextActual[period] = rec?.[period] ?? 0`
+for every routed period — so an Apply persisted the junk key into `actualHours` on every allocation
+line of that bucket.
+
+§431 stops NEW ones. It does nothing about workspaces that already ran an Apply against a fetch
+containing a malformed date, and nothing reports them.
+
+★★ THE VISIBLE CONSEQUENCE IS A FALSE POSITIVE, not a wrong total. `budget-bucket-modal.tsx` uses
+`Object.keys(a.actualHours).length > 0` as its has-data predicate, so a junk key makes an EMPTY
+allocation read as populated. The EVM and totals paths are unaffected — `budget-report.ts` and
+`budget-panel-totals.tsx` both sum over GENERATED period keys only, so a phantom key was never read
+into a number.
+
+★ Closure is a migration question, and the cheap honest version is a load-time drop of any
+`actualHours` key that is not a well-formed period key for the plan's granularity. ★★ Do NOT write
+that as a silent repair without counting what it removed — a load path that quietly deletes stored
+numbers is the shape §148 and the six-write-paths rule exist to make people think twice about.

@@ -802,7 +802,7 @@ describe("reconcileInsights — reserved non-guardrail capacity", () => {
    *  `TIMELOG_RULE_IDS.slice(0, 3)` in `GUARDRAIL_INSIGHT_TYPES`. Every other
    *  fixture in this file floods with `timelogCapPerDay` ALONE, so three of the
    *  four members were exercised by nothing in the repo and that truncation
-   *  survived the whole insights suite (measured against 0298dda9: 0 failed /
+   *  survived the whole insights suite (measured against 69dd3099: 0 failed /
    *  248 passed). The reservation's contract is that ALL FOUR members are held
    *  against the budget; this is the input that says so.
    *  ★★★ THE FLOOD IS BUILT FROM `TIMELOG_RULE_IDS`, NOT FROM

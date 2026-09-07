@@ -1140,7 +1140,7 @@ each is recorded here with what shipped instead. Read this section before treati
 comment or fixture in the plan as a specification.
 
 ★★★ THIS SECTION ONCE SAID "FOUR OF ITS CLAIMS", AND A COUNT WAS THE WRONG SHAPE FOR IT. It was
-written at `010f1b54`, which precedes `70300a1d` — the commit that added a whole shedding stage — so
+written at `6b68da2e`, which precedes `ebca2553` — the commit that added a whole shedding stage — so
 the list was closed before execution was. Four more clusters (items 5-8) were found by cold review
 afterwards. A checklist item that is a SET must not carry a number: the number tells a reader when to
 stop, and the only honest stopping rule for a set is an enumeration someone actually ran. Treat the
@@ -1184,7 +1184,7 @@ its own stage 3 onward. ★★★ THE WORST INSTANCE IS A CODE COMMENT: the plan
 `// Stage 3 — drop whole entries, oldest first.`, and in the shipped code that is Stage 4 — Stage 3
 sheds `users` + `projectRefs`. An engineer implementing the plan literally writes a map that spends
 `aggregates` on a `users`-heavy entry without ever trying the cheaper shed, which is exactly the
-inversion `70300a1d` exists to fix. The same off-by-one is in the spec. Read the stage list off
+inversion `ebca2553` exists to fix. The same off-by-one is in the spec. Read the stage list off
 `saveActualsCache` itself, never off either document.
 
 **6. "Admits four full-size rolls" is wrong; it admits three.** Four times `MAX_DAILY_ROLL_CHARS` is
@@ -1202,7 +1202,7 @@ carry the clause over. ★ The SPEC carries the clause verbatim; the plan carrie
 is how this survived a sweep that was looking for it.
 
 **8. "The reconcile predicate returns false" is stated unqualified and needs its scope.** It is
-qualified to guardrail insights — `70300a1d`'s own commit message says so. Unqualified, it reads as a
+qualified to guardrail insights — `ebca2553`'s own commit message says so. Unqualified, it reads as a
 claim about every insight type, which is not what the predicate does.
 
 ★ Items 5-8 were found by a cold reviewer reading the plan against the shipped tree on 2026-09-07,
