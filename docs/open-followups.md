@@ -28126,9 +28126,12 @@ The storage half of the headline was therefore never live by that route.
 
 **3. The userId half was still open after that first fix, and the entry's own headline depended on
 it.** `Number()` STRIPS LEADING WHITESPACE, so `" ".repeat(600000) + "7|2026-09-01"` parsed cleanly
-to `{userId: 7, …}` — a single 600,012-character cell against a 524,288-character
+to `{userId: 7, …}` — a single cell of 600,012 characters RAW against a 524,288-character
 `MAX_DAILY_ROLL_CHARS`, which is exactly the oversized cell this entry is named for, still
-constructible after the date was locked down. `KEY_USER_RE` (`/^-?\d+$/`) closes it.
+constructible after the date was locked down. ★ MIND THE MEASURE: `withBoundedDaily` applies that
+bound as `JSON.stringify(roll).length`, so what it actually sees is larger still — 600,014 for the
+quoted key, 600,028 for the one-cell roll — and the raw length quoted here is the conservative side
+of the comparison, not the one the code performs. `KEY_USER_RE` (`/^-?\d+$/`) closes it.
 ★★★ `Number.isInteger` IS RETAINED BESIDE IT AND BOTH ARE LOAD-BEARING: the regex happily admits a
 600,000-DIGIT head, `Number()` of which is `Infinity`, and only the integer check rejects that. A
 future reader who sees a regex that "already validates" the head and deletes the integer check
