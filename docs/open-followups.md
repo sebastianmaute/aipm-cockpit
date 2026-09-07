@@ -652,6 +652,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | closed 2026-09-07 |
 | [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
 | [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--open) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | open |
+| [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -31384,3 +31385,54 @@ remembered option.
 the right thing with the input it is given. The defect is that a rejected blob is indistinguishable
 from an absent one, and any fix that leaves that conflation in place will be re-derived as a bug by
 the next person who reads `loadArrangement`.
+
+## 429. A CLOSED entry's `**Status:**` line is the least-gated line in the register, and closing is when a fabricated verification is most tempting — OPEN
+
+**Status:** OPEN 2026-09-07 — measured, not reasoned. Reproduce with `node scripts/check-followup-status.mjs` (exit 0 today, "203 open entries scanned" — it never looks at the 210 closed ones), and read the filter itself with `grep -n "filter((e) => !isClosed" scripts/check-followup-status.mjs`. The 67/210 figure below came from applying the gate's own `statusViolations()` to the closed set.
+
+**The gate's universe excludes exactly the entries most likely to lie.** `check-followup-status.mjs`
+opens with `parseEntries(src).filter((e) => !isClosed(e.title))`. Every OPEN entry must carry a
+`**Status:**` line naming an executed command (or the honest `never machine-verified` escape); the
+moment an entry is CLOSED, that requirement stops applying to it — permanently, and silently.
+
+★★★ **CLOSING IS PRECISELY WHEN THE INCENTIVE TO INVENT A VERIFICATION PEAKS.** An open entry's
+Status is a running note nobody is graded on. A closure is a claim that work is DONE, written by
+whoever wants it done, at the moment they want to stop — and it is the one Status line the blocking
+gate cannot read. The register's own preamble already says a closure falsifies sentences elsewhere
+and nothing gates that; this is the same hole one level down, on the closure's own evidence line.
+
+**Measured 2026-09-07 on this branch:** of 210 closed entries, **67 name no executed verification**
+(`NO_VERIFICATION`), and 1 carries no ISO date. Reproduce by importing `statusViolations` from
+`scripts/followup-status-lib.mjs` and running it over the entries `isClosed` filters out.
+
+★★★ **DO NOT READ THAT AS "192 OF 206 ARE BROKEN", AND THE CATEGORY ERROR IS THE POINT.**
+`statusViolations` emits four codes, and two of them — `SAYS_CLOSED` and `MISSING` — are contract
+rules written FOR OPEN ENTRIES. A closed entry trips `SAYS_CLOSED` **by construction**, because its
+Status line says CLOSED, which is correct there and forbidden in an open one. Counting every code
+gives 196 on this tree and is noise dressed as a finding. Only `NO_VERIFICATION` and `NO_DATE` mean
+the same thing in both universes. ★★ A peer session hit this first, reported "192 of 206", and
+retracted it — worth recording because the wrong number is the one that looks alarming enough to act
+on.
+
+★★ **A CONTROL IS MANDATORY HERE AND MUST RUN BEFORE THE COUNT, NOT AFTER.** The same peer's control
+never executed: it built its fixture with `body` as a STRING when the parser yields an ARRAY of
+lines, so it threw — *after* the bad number had printed. A control that crashes is worse than no
+control, because the number above it still looks measured. Working pair, asserted before measuring:
+a Status citing only a backticked FILENAME returns `["SAYS_CLOSED","NO_VERIFICATION"]`; one citing a
+real command returns `["SAYS_CLOSED"]` alone. Predicate can both fail and pass.
+
+★★ **THE FIX IS NOT "SCAN CLOSED ENTRIES TOO".** Widening the filter lights up 67 historical entries
+at once, so it is a ratchet-and-baseline problem, not a one-line change — and a closure's Status
+legitimately READS differently from an open one's, so the contract itself would need restating per
+universe (`SAYS_CLOSED` inverts: required when closed, forbidden when open). Plausible shapes, none
+chosen: a baselined ratchet like `doc-claims-check`; or checking only entries closed AFTER a cutoff
+date, so new closures are gated and history is left alone.
+
+★ **This branch's own six closures were checked by hand and all six cite a real command** — §379,
+§407, §411, §412, §421, §423, none of them among the 67. That is the audit that found the gap, not
+evidence the gap is harmless: it was done deliberately BECAUSE the gate could not do it, and the
+next author has no reason to think of it.
+
+★ Found by a peer's `followups-status-check` red on their own branch: a Status citing a backticked
+`e2e/…spec.ts` FILENAME was rejected with "names no executed verification". A backticked filename is
+not a verification — the gate reads for an INVOCATION. That distinction is what prompted this audit.
