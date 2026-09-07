@@ -388,7 +388,20 @@ export function describeEntityCalls(
 ): EditPlan {
   const { descriptor: d, item, ws } = ctx;
   const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
-  const ownIds = new Set((ws[d.wsKey] as ReadonlyArray<{ id: number }>).map((r) => r.id));
+  // ★★★ `Array.isArray`, NOT a bare read — `Workspace.calendarEvents` is an
+  //  OPTIONAL slice (`calendarEvents?: readonly CalendarEvent[]`), absent on
+  //  every project that has never had a meeting, and `emptyWorkspace()` omits
+  //  it outright. This line runs BEFORE any branch, so an unguarded
+  //  `undefined.map` threw for `create_calendar_event` — i.e. for the FIRST
+  //  meeting a user ever asks the model to schedule, on the review card whose
+  //  whole job is to let them refuse it. `link-titles.ts` and
+  //  `chat-proposal-stage.ts` already guard their own `wsKey` reads the same
+  //  way; this one and `chat-proposal-describe.ts`'s `seedItem` did not.
+  //  An absent slice means "no rows", so an empty id set is the right answer.
+  const rows = ws[d.wsKey] as unknown;
+  const ownIds = new Set(
+    (Array.isArray(rows) ? (rows as ReadonlyArray<{ id: number }>) : []).map((r) => r.id),
+  );
 
   for (const b of blocks) {
     if (b.type !== "tool_use" || typeof b.name !== "string") continue;
@@ -569,6 +582,21 @@ export function describeEntityCalls(
         //  `withAiRichFields` at the call site; nested inside, it is dead code
         //  and this refusal becomes the divergence rather than the fix.
         if (d.stringOnlyFields.has(f) && typeof input[f] !== "string") { bad(`${f}=${after}`); continue; }
+        // ★★★ THE MERGE-SITE GUARD, for the entities whose merge site is an
+        //  ALLOW-LIST. `stringOnlyFields` above is the same idea hand-scoped to
+        //  one field and one type; this consults the WRITER'S OWN table, so it
+        //  covers every field of that entity and cannot drift from it. A
+        //  refused value never reaches the sanitizer, so the stored value
+        //  survives — projecting it would promise a change the write does not
+        //  make. Measured on `absence.note`, `calendarEvent.location` and, worst
+        //  of all, `calendarEvent.sendInvitations`, where the false diff read as
+        //  "invitations turned OFF" on a write that keeps them on.
+        //  ★ RAW, never `after`: by then a boolean is "true" and a number "1",
+        //   so a type predicate over the rendered string admits everything.
+        //  ★★ Read the member's own docstring before pointing a SEVENTH entity
+        //   at it — a deny-list merge site needs the opposite treatment.
+        const guard = d.rawTypeGuards?.[f];
+        if (guard && !guard(input[f])) { bad(`${f}=${after}`); continue; }
         // ★★★ THE RAW VALUE, NEVER `after`. `after` has been through
         //  `numberPreview`, which renders `true` as "1" — so checking the
         //  rendered string cannot see a boolean, and the card showed a

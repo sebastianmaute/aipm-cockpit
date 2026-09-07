@@ -714,39 +714,41 @@ describe("CREATE_MINT_KIND", () => {
   // ★★★ THE VALUE HALF — the one `TARGET_MINTED_BY`'s test cannot do for its own
   //     table. Membership alone is blind to a create mapped to the WRONG kind,
   //     which mints from a different entity's sequence and hands the plan an id
-  //     that collides with a live row of another type. Six of the seven rows are
-  //     therefore checked against an INDEPENDENT source: `INLINE_DESCRIPTORS`
-  //     already states each entity's `createTool` beside its `entity`, and those
-  //     six `InlineEntity` spellings are exactly the six `MintKind` spellings the
-  //     live minters pass (grep for the mintId call sites under src/app).
+  //     that collides with a live row of another type. Every row but
+  //     `create_document` is therefore checked against an INDEPENDENT source:
+  //     `INLINE_DESCRIPTORS` already states each entity's `createTool` beside its
+  //     `entity`, and those `InlineEntity` spellings are exactly the `MintKind`
+  //     spellings the live minters pass (grep for the mintId call sites under
+  //     src/app).
+  //     ★★ NO ROW COUNT IS QUOTED. This said "six of the seven rows" and
+  //     "those six `InlineEntity` spellings"; both went stale when `absence` and
+  //     `calendarEvent` gained descriptors, and neither was load-bearing — the
+  //     loop covers whatever the map holds.
   test("maps each descriptor's create tool to that descriptor's OWN entity", () => {
     const descriptors = Object.values(INLINE_DESCRIPTORS) as EntityDescriptor[];
     // Anti-vacuity: an empty descriptor map would make the loop below assert
-    // nothing at all, and this test would still be green.
-    expect(descriptors).toHaveLength(6);
+    // nothing at all, and this test would still be green. A FLOOR rather than an
+    // exact count, matching the sibling test above — the number is not the
+    // claim, and pinning it makes every union widening chase this file.
+    expect(descriptors.length).toBeGreaterThan(5);
     for (const d of descriptors) {
       expect(CREATE_MINT_KIND[d.createTool]).toBe(d.entity);
     }
   });
 
-  // ★ THE UNGUARDED ROW, stated rather than hidden. `create_document` has no
-  //   `INLINE_DESCRIPTORS` entry, so nothing independent can confirm its kind —
-  //   this pins the literal, which catches a typo and not a wrong decision. The
-  //   live minter is `workspace-context.tsx`'s `mintDocId`.
+  // ★ THE ONLY UNGUARDED ROW LEFT, stated rather than hidden. `create_document`
+  //   has no `INLINE_DESCRIPTORS` entry, so nothing independent can confirm its
+  //   kind — this pins the literal, which catches a typo and not a wrong
+  //   decision. The live minter is `workspace-context.tsx`'s `mintDocId`.
+  //   ★★ TWO SIBLINGS WERE REMOVED HERE, not lost: `create_absence` and
+  //   `create_calendar_event` had their own literal-pinning tests under the same
+  //   "no `INLINE_DESCRIPTORS` entry either" reasoning, and that reasoning
+  //   stopped being true the moment both entities gained descriptors. The loop
+  //   above now makes exactly those two assertions against an INDEPENDENT
+  //   source, which is strictly stronger than the literals were — keeping them
+  //   would have left two tests whose stated justification was false.
   test("create_document mints from the document sequence", () => {
     expect(CREATE_MINT_KIND.create_document).toBe("document");
-  });
-
-  // ★ THE OTHER TWO UNGUARDED ROWS, same reasoning: absences and calendar
-  //   events have no `INLINE_DESCRIPTORS` entry either. Live minters are
-  //   `use-register-tools.ts`'s absence and calendar-event create handlers
-  //   (`mintId("absence", …)` / `mintId("calendarEvent", …)`).
-  test("create_absence mints from the absence sequence", () => {
-    expect(CREATE_MINT_KIND.create_absence).toBe("absence");
-  });
-
-  test("create_calendar_event mints from the calendarEvent sequence", () => {
-    expect(CREATE_MINT_KIND.create_calendar_event).toBe("calendarEvent");
   });
 });
 

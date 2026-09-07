@@ -2301,6 +2301,8 @@ const enUS = {
   inlineAiEditEntityChange: "change request",
   inlineAiEditEntityMilestone: "milestone",
   inlineAiEditEntityStakeholder: "stakeholder",
+  inlineAiEditEntityAbsence: "absence",
+  inlineAiEditEntityMeeting: "meeting",
   activityAiInlineEdit: "AI inline edit",
   taskDedup: "Deduplicate & unify",
   taskDedupTitle: "Deduplicate & unify tasks",

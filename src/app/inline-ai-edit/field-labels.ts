@@ -125,6 +125,11 @@ export const FIELD_LABEL_KEY: Record<string, TranslationKey> = {
   "absence.endDate": "absenceEnd",
   "absence.type": "absenceType",
   "absence.note": "absenceNote",
+  // ★ The FK, disclosed through `linkFields` rather than diffed — reusing the
+  //  plain `resource` key ("Resource") the same way `resource.roleId` reuses
+  //  `role`. The absence modal has no field for it (the link is stamped by the
+  //  resource backfill), so there is no modal label to prefer.
+  "absence.resourceId": "resource",
 
   // calendarEvent — reuses the calendar-event edit modal's own labels. ★
   // `startDate` reuses `calendarEventFirstOccurrence` ("First occurrence"),

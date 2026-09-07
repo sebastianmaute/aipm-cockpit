@@ -2205,6 +2205,8 @@ export const de: Record<TranslationKey, string> = {
   inlineAiEditEntityChange: "Änderungsantrag",
   inlineAiEditEntityMilestone: "Meilenstein",
   inlineAiEditEntityStakeholder: "Stakeholder",
+  inlineAiEditEntityAbsence: "Abwesenheit",
+  inlineAiEditEntityMeeting: "Termin",
   activityAiInlineEdit: "KI-Inline-Bearbeitung",
   taskDedup: "Duplikate & vereinheitlichen",
   taskDedupTitle: "Aufgaben deduplizieren & vereinheitlichen",

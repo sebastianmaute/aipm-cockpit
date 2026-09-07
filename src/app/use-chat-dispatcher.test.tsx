@@ -1290,6 +1290,39 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     expect(result.current.listAbsences()).toHaveLength(1);
   });
 
+  // ★★★ THE MERGE-SITE GUARD AT ITS REAL CALL SITE, which nothing pinned before.
+  //  `sanitize-absence-patch.test.ts` exercises `dropUnacceptedAbsenceFields`
+  //  DIRECTLY, so it proves the helper's rule and says nothing about whether
+  //  `updateAbsence` still calls it — a helper test cannot pin its own wiring.
+  //  Deleting the call from `use-register-tools.ts` left the whole suite green.
+  //
+  //  The guard is what makes a refused value mean "leave the stored one alone".
+  //  Without it `sanitizeAbsence` RESETS an unrecognised `type` to its `"other"`
+  //  fallback — a silent demotion, invisible on the AI review card, which is
+  //  exactly what `INLINE_DESCRIPTORS.absence.rawTypeGuards` now previews as a
+  //  rejection. The two halves must move together: the preview promises this
+  //  write does not happen.
+  //
+  //  ★ `note` is asserted alongside so the test cannot pass by the patch being
+  //   dropped WHOLESALE — the guard filters per field, it does not refuse the
+  //   call.
+  it("updateAbsence drops a refused type at the merge site instead of demoting the row", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "vacation",
+    });
+    expect(created.type).toBe("vacation");
+
+    const updated = result.current.updateAbsence(created.id, {
+      // Not an `AbsenceType`; the cast is the point — this is what an unguarded
+      // model call looks like on the wire.
+      type: "sabbatical" as never,
+      note: "Approved",
+    });
+    expect(updated?.type).toBe("vacation");
+    expect(updated?.note).toBe("Approved");
+  });
+
   it("listCalendarEvents answers empty on an ABSENT slice without writing to it", () => {
     const { result } = renderDispatcher();
     // The workspace seeds `calendarEvents` as `undefined` ("absent"), which is

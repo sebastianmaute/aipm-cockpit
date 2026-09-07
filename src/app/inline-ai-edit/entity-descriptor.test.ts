@@ -8,7 +8,22 @@ describe("INLINE_DESCRIPTORS", () => {
   // TypeScript can enumerate a union at runtime, so widening the union does NOT
   // fail this file. A new member has to be added here by hand or every
   // per-entity check below silently skips it.
-  const entities: InlineEntity[] = ["task", "raid", "change", "milestone", "stakeholder", "resource"];
+  const entities: InlineEntity[] = [
+    "task", "raid", "change", "milestone", "stakeholder", "resource",
+    "absence", "calendarEvent",
+  ];
+
+  // ★★★ THE ANTI-VACUITY GUARD ON THE HAND-COPY ABOVE, added because the
+  //  comment alone did not hold: `absence` and `calendarEvent` were declared and
+  //  every per-entity check here went on skipping them, green. `Object.keys` of
+  //  the descriptor map IS derivable at runtime even though the union is not, so
+  //  the two can be compared — a widened union that reaches `INLINE_DESCRIPTORS`
+  //  now reds here by name instead of silently narrowing this whole file.
+  //  ★ It cannot catch a union member with NO descriptor entry; nothing runtime
+  //  can. That case is a hard tsc error on `Record<InlineEntity, …>` instead.
+  it("checks every entity the descriptor map declares", () => {
+    expect([...entities].sort()).toEqual(Object.keys(INLINE_DESCRIPTORS).sort());
+  });
 
   it("has a descriptor per entity with matching update/delete tools", () => {
     expect(INLINE_DESCRIPTORS.task.updateTool).toBe("update_task");
@@ -23,7 +38,10 @@ describe("INLINE_DESCRIPTORS", () => {
     for (const e of entities) {
       const f = INLINE_DESCRIPTORS[e].diffFields;
       // `roleId` is Resource's FK to Role — the same exclusion as Task.resourceId.
-      for (const banned of ["linkedTaskIds", "causedByRaidIds", "stakeholderIds", "linkedRaidIds", "ownerResourceId", "resourceId", "roleId", "raci"]) {
+      // ★ `attendeeResourceIds` is the calendar event's id LIST; `resourceId`
+      //  covers the absence's FK, which the model CAN write (and which is
+      //  disclosed through `linkFields`, not diffed here).
+      for (const banned of ["linkedTaskIds", "causedByRaidIds", "stakeholderIds", "linkedRaidIds", "ownerResourceId", "resourceId", "roleId", "raci", "attendeeResourceIds"]) {
         expect(f).not.toContain(banned);
       }
     }
@@ -197,8 +215,10 @@ describe("linkFields", () => {
         checked += 1;
       }
     }
-    // Guards against an empty map registering zero assertions and reporting green.
-    expect(checked).toBe(8);
+    // Guards against an empty map registering zero assertions and reporting
+    // green. ★ 8 → 10 with `absence.resourceId` and
+    // `calendarEvent.attendeeResourceIds`, both of which point at `resources`.
+    expect(checked).toBe(10);
   });
 
   it("declares no link field that is also a diffField", () => {

@@ -7,6 +7,7 @@
 // sanitizers, so we must reject them in the preview instead of showing a diff
 // Apply won't make). See docs plan for the pinned sanitizer behavior.
 import {
+  ABSENCE_TYPES,
   PRIORITIES, TASK_STATUSES,
   RAID_CATEGORIES, RAID_SEVERITIES,
   RISK_STATUSES, ASSUMPTION_STATUSES, ISSUE_STATUSES, DEPENDENCY_STATUSES,
@@ -20,12 +21,14 @@ import {
   isExternalFlag,
   optMultiline,
   optText,
+  sanitizeAbsenceNote,
   sanitizeEmailList,
   sanitizeIdList,
 } from "../sanitize-entities";
 import {
   TASK_NAME_MAX,
   TEXTAREA_MAX,
+  fkIdOrUndefined,
   sanitizeAssignee,
   sanitizeBlockers,
   sanitizeEmail,
@@ -35,6 +38,18 @@ import {
   toNumber,
 } from "../sanitize-core";
 import {
+  acceptsEventDuration,
+  isSendInvitationsFlag,
+  normalizeEventStartTime,
+  sanitizeAttendees,
+  sanitizeEventLocation,
+  sanitizeEventNotes,
+  sanitizeEventTitle,
+} from "../calendar-event";
+import { recurrenceText } from "../calendar-recurrence-text";
+import {
+  ABSENCE_FIELD_GUARDS,
+  CALENDAR_EVENT_FIELD_GUARDS,
   acceptsCostAmount,
   acceptsRiskScale,
   acceptsScheduleDays,
@@ -53,7 +68,9 @@ const text = (max: number) => (v: unknown): string => sanitizeText(v, max);
 const optionalText = (v: unknown): string => optText(v) ?? "";
 const optionalMultiline = (v: unknown): string => optMultiline(v) ?? "";
 
-export type InlineEntity = "task" | "raid" | "change" | "milestone" | "stakeholder" | "resource";
+export type InlineEntity =
+  | "task" | "raid" | "change" | "milestone" | "stakeholder" | "resource"
+  | "absence" | "calendarEvent";
 
 // Change impact reuses RAID severities plus "Critical" (matches CHANGE_IMPACT_SET
 // in sanitize-records.ts). No named const exists, so define it here.
@@ -166,6 +183,35 @@ export interface EntityDescriptor {
    *  field has no `fieldSanitizers` entry. Characterized in
    *  `sanitize-milestone-patch.test.ts`. */
   stringOnlyFields: Set<string>;
+  /** The MERGE-SITE guard table, verbatim: a field whose predicate refuses the
+   *  raw model value is REJECTED in the preview rather than projected, because
+   *  the write leaves the STORED value alone.
+   *
+   *  ★★★ ONLY FOR AN **ALLOW-LIST** MERGE SITE, AND THAT IS THE WHOLE
+   *   DISTINCTION. `dropUnacceptedAbsenceFields` /
+   *   `dropUnacceptedCalendarEventFields` iterate the PATCH and keep only what
+   *   their table accepts, so an unguarded or refused field never reaches the
+   *   sanitizer at all. `dropUnacceptedRaidFields` (and its change / milestone /
+   *   stakeholder siblings) do the opposite — they iterate the TABLE and delete
+   *   refused keys, so a field the table does not mention passes through RAW.
+   *   That is why `raid.owner` correctly previews the sanitizer's own blanking
+   *   of a non-string while `absence.note` must not: same field shape, opposite
+   *   merge sites. Pointing this at a deny-list table would make the preview
+   *   refuse values the write happily stores.
+   *
+   *  ★★ IT IS THE WRITER'S OWN TABLE, IMPORTED, never a re-spelling (§405) —
+   *   which also means a field ADDED to the writer's guards is modelled here
+   *   for free, and one removed stops being refused here in the same commit.
+   *
+   *  ★ Undefined for the six deny-list entities. Modelling those is a separate
+   *   change: `dropUnacceptedRaidFields` takes the stored category as a second
+   *   argument, so the shape is not uniform, and turning refusals into preview
+   *   rejections there would move their `PREVIEW_REJECTS_APPLY_WRITES` buckets.
+   *
+   *  ★★ CHECKED AGAINST THE RAW `input[f]`, like `numericFields` and
+   *   `stringOnlyFields` and for the same reason: `after` has already been
+   *   normalised, so a boolean has become "true" and a number "1" by then. */
+  rawTypeGuards?: Readonly<Record<string, (v: unknown) => boolean>>;
   /** Enum fields → the valid-set resolver (constant for most; category-scoped for RAID status). */
   enumFields: Record<string, EnumResolver>;
   /** For an enum field whose valid-set depends on ANOTHER field (RAID status
@@ -284,6 +330,14 @@ export interface EntityDescriptor {
   linkFields: Record<string, LinkField>;
   titleOf: (item: Record<string, unknown>) => string;
 }
+
+/** A `Resource` row's display name. ★ NOT `i.title` — that is the JOB title.
+ *  Hoisted so the resource descriptor's own `titleOf` and the two link fields
+ *  that POINT at a resource (`absence.resourceId`, `calendarEvent.
+ *  attendeeResourceIds`) render a person the same way; three spellings of
+ *  "first last" is three chances to drift. */
+const resourceRowTitle = (r: Record<string, unknown>): string =>
+  `${String(r.firstName ?? "")} ${String(r.lastName ?? "")}`.trim();
 
 const constSet = (values: readonly string[]): EnumResolver => {
   const set = new Set<string>(values);
@@ -617,7 +671,146 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     },
     // ★ NOT `i.title` — that is the JOB title. The two name parts are the row's
     // identity (`sanitizeResource` rejects a row with neither).
-    titleOf: (i) => `${String(i.firstName ?? "")} ${String(i.lastName ?? "")}`.trim(),
+    titleOf: resourceRowTitle,
+  },
+  absence: {
+    entity: "absence", updateTool: "update_absence", deleteTool: "delete_absence", createTool: "create_absence", wsKey: "absences",
+    // Derived from `ABSENCE_FIELD_GUARDS` (sanitize-records.ts) — the set the
+    // MERGE SITE lets through — minus `resourceId`, which is an FK and is
+    // disclosed through `linkFields` by the same rule as `resource.roleId`.
+    diffFields: ["assignee", "assigneeEmail", "startDate", "endDate", "type", "note"],
+    // All three make `sanitizeAbsence` return null, which `updateAbsence`
+    // surfaces as a thrown "invalid absence update" — so the throw costs the
+    // WHOLE patch, the same shape `task.dueDate` carries.
+    requiredNonEmpty: new Set(["assignee", "startDate", "endDate"]),
+    requiredNonEmptyGroups: [],
+    dateFields: new Set(["startDate", "endDate"]),
+    numericFields: {},
+    stringOnlyFields: new Set(),
+    // The writer's own allow-list, imported rather than modelled — see
+    // `rawTypeGuards`. It is what makes a refused `type` preview as a rejection
+    // instead of as the `"other"` demotion `sanitizeAbsence` would apply.
+    rawTypeGuards: ABSENCE_FIELD_GUARDS,
+    enumFields: { type: constSet(ABSENCE_TYPES) },
+    // ★ EMPTY, like `raid.ownerEmail` and unlike `task.assigneeEmail`.
+    //  `sanitizeAbsence` runs `sanitizeEmail(raw.assigneeEmail) || undefined`
+    //  with NO format guard and no throw, so rejecting a malformed address here
+    //  would be the preview inventing a rule apply does not have.
+    emailFormatFields: new Set(),
+    arrayFields: new Set(),
+    numberFields: new Set(),
+    // Mirrors `sanitizeAbsence` (sanitize-entities.ts) field for field.
+    // ★★ `note` is `sanitizeAbsenceNote` — `sanitizeMultiline(_, TEXTAREA_MAX)`,
+    //  which does NOT trim — while `stakeholder.notes` at the SAME cap is
+    //  `sanitizeText`, which does. Called by name rather than re-spelled as
+    //  `text(TEXTAREA_MAX)`, which would be the wrong family AND a restated cap.
+    fieldSanitizers: {
+      assignee: sanitizeAssignee,
+      assigneeEmail: sanitizeEmail,
+      note: sanitizeAbsenceNote,
+    },
+    // ★★★ KNOWN GAP, STATED RATHER THAN MODELLED: `sanitizeAbsence` SWAPS the
+    //  pair when `endDate < startDate` instead of rejecting it, so
+    //  `update_absence({startDate})` past the stored `endDate` previews the new
+    //  start and stores it as the new END. No per-field entry can express a
+    //  cross-field swap — `fieldSanitizers` sees one field at a time — and the
+    //  probe sweep cannot reach it either (its date probes are all malformed,
+    //  so the date guard refuses them before any swap could happen). Closing it
+    //  needs a whole-row rule; do not read the green differential as covering
+    //  it.
+    linkFields: {
+      // ★★ `resourceId: null` is the model's UNLINK and `fkIdOrUndefined`
+      //  normalises it to `undefined`, which renders here as the empty list —
+      //  the clear, disclosed. The `typeof` leg ahead of it is the MERGE-SITE
+      //  guard (`ABSENCE_FIELD_GUARDS.resourceId`), which is STRICTER than
+      //  `fkIdOrUndefined` alone: a STRING id is refused there even though
+      //  `toNumber("5")` is a real number.
+      //  ★ THE ONE SHAPE THIS MISRENDERS is that refusal — a string id previews
+      //  as "cleared" while the write leaves the link alone, because
+      //  `pushLinkDiffs` has no way to spell "unchanged". Overstating a clear
+      //  is the safe direction (the user refuses, or approves a no-op); the
+      //  alternative — omitting the field — makes every legitimate link and
+      //  unlink invisible on a card whose whole job is disclosure.
+      resourceId: {
+        wsKey: "resources",
+        kind: "id",
+        titleOf: resourceRowTitle,
+        sanitize: (v) => {
+          if (typeof v !== "number" && v !== null) return [];
+          const n = fkIdOrUndefined(v);
+          return n === undefined ? [] : [n];
+        },
+      },
+    },
+    titleOf: (i) => String(i.assignee ?? ""),
+  },
+  calendarEvent: {
+    entity: "calendarEvent", updateTool: "update_calendar_event", deleteTool: "delete_calendar_event", createTool: "create_calendar_event", wsKey: "calendarEvents",
+    // Derived from `CALENDAR_EVENT_FIELD_GUARDS` (sanitize-records.ts) minus
+    // `attendeeResourceIds`, an id LIST and therefore a `linkFields` member.
+    // ★ `exceptions` is absent from the guard table itself and so cannot be
+    //  written by the model at all — nothing to disclose.
+    diffFields: ["title", "startDate", "startTime", "durationMinutes", "location", "notes", "sendInvitations", "recurrence"],
+    // `sanitizeCalendarEvent` returns null without either, and
+    // `updateCalendarEvent` turns that into a throw that costs the whole patch.
+    requiredNonEmpty: new Set(["title", "startDate"]),
+    requiredNonEmptyGroups: [],
+    dateFields: new Set(["startDate"]),
+    // ★★ AN ACCEPTANCE PREDICATE OVER THE RAW VALUE, and the reason it is not
+    //  merely a range: the writer CLAMPS rather than refuses — `intInRange`
+    //  substitutes the 60-minute default for anything outside [5,1440] — so a
+    //  card that accepted `3` would show a duration the write silently replaces.
+    //  Imported from `calendar-event.ts`, which composes it from the real
+    //  `intInRange`, rather than re-spelled here (§405).
+    numericFields: { durationMinutes: acceptsEventDuration },
+    stringOnlyFields: new Set(),
+    // See `rawTypeGuards`. ★★ On this entity it is what keeps a non-boolean
+    // `sendInvitations` from previewing as "on → off" against a write that
+    // leaves the flag ON — the one misdirection this card must never make.
+    rawTypeGuards: CALENDAR_EVENT_FIELD_GUARDS,
+    enumFields: {},
+    emailFormatFields: new Set(),
+    arrayFields: new Set(),
+    numberFields: new Set(["durationMinutes"]),
+    // Mirrors `sanitizeCalendarEvent` (calendar-event.ts) field for field, by
+    // calling the very functions it calls — the caps (200 / 200 / 2000) and the
+    // HH:MM regex are private to that module precisely so there is one spelling.
+    fieldSanitizers: {
+      title: sanitizeEventTitle,
+      location: sanitizeEventLocation,
+      notes: sanitizeEventNotes,
+      // ★★ NOT a `dateFields`-style refusal: an unparseable time is RESET to
+      //  09:00 rather than dropped, so the honest preview is the reset itself.
+      startTime: normalizeEventStartTime,
+      // ★★★ THE `isExternal` SHAPE ON THE FIELD THAT MAILS PEOPLE. The flag is
+      //  stored present-or-absent (`sendInvitations: undefined` when not true),
+      //  so `str(undefined)` is "" and an incoming `false` would render as a
+      //  change on a row that already sends nothing. Both sides go through the
+      //  writer's own predicate, so a no-op compares equal.
+      sendInvitations: (v) => String(isSendInvitationsFlag(v)),
+      // ★★★ THE ROW IS WHAT MAKES THIS EXACT. `recurrenceText` resolves the
+      //  `until >= startDate` rejection and the `byMonthDay` fallback ONLY when
+      //  it is given the event's own start; without it, it deliberately OMITS
+      //  what it cannot know, so passing the rule alone silently degrades the
+      //  card to a shorter, vaguer line and nothing fails. The row here is the
+      //  MERGED one, which is what the writer sanitizes against — a model may
+      //  be moving `startDate` in the same call, and `sanitizeRecurrence` reads
+      //  the NEW start.
+      recurrence: (v, row) =>
+        recurrenceText(v, typeof row.startDate === "string" ? row.startDate : undefined),
+    },
+    linkFields: {
+      // ★ `sanitizeAttendees` is the writer's own — it dedupes, caps at 100 and
+      //  KEEPS dangling ids (which `resolveLinkTitles` renders as `#<id>`).
+      //  `?? []` only renders its "no attendees" answer as the empty list.
+      attendeeResourceIds: {
+        wsKey: "resources",
+        kind: "list",
+        titleOf: resourceRowTitle,
+        sanitize: (v) => sanitizeAttendees(v) ?? [],
+      },
+    },
+    titleOf: (i) => String(i.title ?? ""),
   },
 };
 

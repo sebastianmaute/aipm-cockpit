@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { describeProposal, TOOL_ENTITY } from "./chat-proposal-describe";
 import { buildPlanRows, isEntityWriteTool, type ProposedCall } from "./chat-proposal";
 import { TOOL_DEFS } from "./chat-tool-defs";
+import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 import { entityToken } from "./ai-entity-token";
 import type { Workspace } from "./workspace";
 
@@ -521,7 +522,13 @@ describe("TOOL_ENTITY", () => {
   // direction — a tool the gate stages with no descriptor passed both.)
   test("names only tools the staging gate treats as entity writes", () => {
     // Anti-vacuity: with no count, an empty TOOL_ENTITY passes the filter below.
-    expect(Object.keys(TOOL_ENTITY).length).toBe(18);
+    // ★★ DERIVED (entities × the create/update/delete triple) rather than the
+    //  literal 18 that stood here, which was already the sixth hardcoded count
+    //  this one union-widening had to chase. It is a STRICTER guard as well as a
+    //  self-maintaining one: two descriptors sharing a tool name would collapse
+    //  keys in the derivation loop and land BELOW 3×N, which a fixed number
+    //  could only catch by coincidence.
+    expect(Object.keys(TOOL_ENTITY).length).toBe(Object.keys(INLINE_DESCRIPTORS).length * 3);
     const notWrites = Object.keys(TOOL_ENTITY).filter((n) => !isEntityWriteTool(n));
     expect(notWrites).toEqual([]);
   });

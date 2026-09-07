@@ -15,6 +15,25 @@ describe("dropUnacceptedCalendarEventFields", () => {
     expect(dropUnacceptedCalendarEventFields({ ...patch })).toEqual(patch);
   });
 
+  // ★★★ THE GUARD CARRIES THE WRITER'S RANGE, NOT A BARE `typeof number`, and
+  //  the difference is a silent demotion. `sanitizeCalendarEvent` CLAMPS an
+  //  out-of-range duration to the 60-minute default instead of refusing it, so
+  //  while this guard admitted any finite number a model's `durationMinutes: 3`
+  //  turned a stored 90-minute meeting into a 60-minute one with the review
+  //  card showing nothing. Found by `plan.sanitizer-parity.test.ts` — "preview
+  //  REJECTS, apply moves 90 -> 60" — and fixed writer-side, which is the
+  //  direction that keeps the preview's refusal honest.
+  //  ★ Both bounds and a non-integer, because `acceptsEventDuration` composes
+  //   `intInRange`, which is integer-AND-range; a mutant relaxing either half
+  //   survives a single-probe test.
+  it("refuses a duration the sanitizer would silently clamp", () => {
+    expect(dropUnacceptedCalendarEventFields({ durationMinutes: 5 })).toEqual({ durationMinutes: 5 });
+    expect(dropUnacceptedCalendarEventFields({ durationMinutes: 1440 })).toEqual({ durationMinutes: 1440 });
+    expect(dropUnacceptedCalendarEventFields({ durationMinutes: 4 })).toEqual({});
+    expect(dropUnacceptedCalendarEventFields({ durationMinutes: 1441 })).toEqual({});
+    expect(dropUnacceptedCalendarEventFields({ durationMinutes: 30.5 })).toEqual({});
+  });
+
   it("drops the sync-owned fields", () => {
     const out = dropUnacceptedCalendarEventFields({
       title: "Kickoff",

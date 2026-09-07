@@ -70,6 +70,20 @@ import {
 } from "./sanitize-entities";
 import { sanitizeRichText } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
+// ★ Type-only would not do: `acceptsEventDuration` is consulted at runtime by
+//  `CALENDAR_EVENT_FIELD_GUARDS`. It composes `calendar-event.ts`'s own
+//  `intInRange` over that module's private bounds, which is why the range has
+//  one spelling across the guard, the sanitizer and the preview.
+// ★★★ THIS CLOSES AN IMPORT CYCLE — `calendar-event.ts` imports the `./sanitize`
+//  barrel, which re-exports THIS module — and it is safe for one specific
+//  reason: `acceptsEventDuration` is a hoisted FUNCTION DECLARATION, so its
+//  binding is initialised before either module body runs and
+//  `CALENDAR_EVENT_FIELD_GUARDS` (a module-level const) can read it whichever
+//  side of the cycle is evaluated first. Re-spelling it as a `const` arrow in
+//  `calendar-event.ts` would put that read in the TDZ and throw at import time,
+//  in one evaluation order only — i.e. intermittently, and never in a
+//  typecheck. Keep it a `function`.
+import { acceptsEventDuration } from "./calendar-event";
 
 /** The milestone's linked-task rule. ★★ It USED to be deliberately different
  *  from `sanitizeIdList` — array-only and non-deduping — which meant
@@ -962,7 +976,14 @@ export function dropUnacceptedStakeholderFields<T extends object>(patch: T): T {
  *   though `fkIdOrUndefined` itself would accept one (`toNumber("5")` is a
  *   real number): this guard is stricter so the review card cannot show a
  *   link the model spelled as text. */
-const ABSENCE_FIELD_GUARDS: Readonly<Record<string, (v: unknown) => boolean>> = {
+/** ★★★ EXPORTED so the AI review card can MODEL this table rather than restate
+ *  it (`INLINE_DESCRIPTORS.absence.rawTypeGuards`). It is an ALLOW-LIST — see
+ *  `dropUnacceptedAbsenceFields` below — so a field it refuses never reaches
+ *  `sanitizeAbsence` and the STORED value survives. A preview that ran the
+ *  refused value through the sanitizer instead would show a clear the write
+ *  does not make; measured, on `assigneeEmail` and `note`, by
+ *  `plan.sanitizer-parity.test.ts`. */
+export const ABSENCE_FIELD_GUARDS: Readonly<Record<string, (v: unknown) => boolean>> = {
   assignee: (v) => typeof v === "string",
   assigneeEmail: (v) => typeof v === "string",
   startDate: (v) => typeof v === "string",
@@ -998,11 +1019,28 @@ export function dropUnacceptedAbsenceFields<T extends object>(patch: T): T {
  *   array. `isPlainObject` (sanitize-core.ts) already excludes `Array.isArray`;
  *   re-deriving the check here would just be a second spelling to drift from
  *   the first. */
-const CALENDAR_EVENT_FIELD_GUARDS: Readonly<Record<string, (v: unknown) => boolean>> = {
+/** ★★★ EXPORTED for the review card, exactly as `ABSENCE_FIELD_GUARDS` above,
+ *  and it matters MORE here: `sendInvitations` is the one field in the app
+ *  whose write leaves the building. Refused (a non-boolean), the stored flag
+ *  survives — so a preview projecting the refusal renders "invitations: on →
+ *  off" for a write that keeps them ON, which is the one direction a user must
+ *  never be misled in. */
+export const CALENDAR_EVENT_FIELD_GUARDS: Readonly<Record<string, (v: unknown) => boolean>> = {
   title: (v) => typeof v === "string",
   startDate: (v) => typeof v === "string",
   startTime: (v) => typeof v === "string",
-  durationMinutes: (v) => typeof v === "number" && Number.isFinite(v),
+  // ★★★ THE WRITER'S OWN RANGE, NOT A BARE `typeof number`, and the tightening
+  //  is §384's shape closed writer-side — the direction §396 records as the
+  //  right one. `sanitizeCalendarEvent` CLAMPS an out-of-range duration to the
+  //  60-minute default rather than refusing it, so while this guard admitted
+  //  any finite number, `update_calendar_event({durationMinutes: 3})` silently
+  //  demoted a stored 90-minute meeting to 60. `dropUnaccepted*` exists so an
+  //  unaccepted value means "leave the stored value alone"; a type check alone
+  //  could not deliver that here. Same shape as `probability`/`impact` in
+  //  `RAID_FIELD_GUARDS`, which use `acceptsRiskScale` for the same reason.
+  //  Found by `plan.sanitizer-parity.test.ts` the day `calendarEvent` was added
+  //  to its sweep, reported as "preview REJECTS, apply moves 90 -> 60".
+  durationMinutes: acceptsEventDuration,
   location: (v) => typeof v === "string",
   notes: (v) => typeof v === "string",
   attendeeResourceIds: (v) => Array.isArray(v) && v.every((n) => typeof n === "number"),

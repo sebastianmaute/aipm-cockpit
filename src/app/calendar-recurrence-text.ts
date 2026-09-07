@@ -20,14 +20,21 @@
 // `sanitizeCalendarEvent` rather than against a second hand-copy that could
 // drift the same way this one already did once.
 //
-// ★★ `startDate` IS OPTIONAL, and it is a real degrade, not a stopgap. This
-// module has ZERO call sites today. Task 8 wires it into the review card via
-// `forPreview(entity, field, value)` in `inline-ai-edit/plan.ts`, whose call
-// site DOES have the row in scope (`item`, used two lines away by
-// `validSetFor`/`pushLinkDiffs`) — so `startDate` CAN be threaded through once
-// `forPreview`'s own signature forwards it. That wiring is Task 8's job, not
-// this one; taking the parameter now costs nothing (no call sites to break)
-// and avoids widening a signature after Task 8 has callers.
+// ★★ `startDate` IS OPTIONAL, and it is a real degrade, not a stopgap. It is
+// now wired — but NOT where this paragraph predicted, and the difference is
+// worth keeping. It said the review card would reach this through
+// `forPreview(entity, field, value)` in `inline-ai-edit/plan.ts`, "once
+// `forPreview`'s own signature forwards it". `forPreview` was the wrong hook:
+// it runs AFTER the field's normalisation and exists only to project the RICH
+// HTML fields, and it is handed a string. The right one already took a row —
+// `INLINE_DESCRIPTORS.calendarEvent.fieldSanitizers.recurrence`, whose entries
+// are typed `(v, row) => string` and which `describeEntityCalls` calls with the
+// MERGED row (the model may be moving `startDate` in the same call, and
+// `sanitizeRecurrence` reads the NEW start). No signature had to widen at all.
+// ★ The degrade still matters: pass the rule alone and the card silently loses
+// the `until >= startDate` resolution and the byMonthDay fallback, with nothing
+// failing — which is why the descriptor entry spells the row read out rather
+// than defaulting.
 //
 // Without `startDate` — or for any input where the caller omits it — a
 // byMonthDay fallback or an until/count precedence that the write path would
