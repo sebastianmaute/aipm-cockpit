@@ -28790,9 +28790,13 @@ Had it obeyed, this slice's own §371 closure — landed the previous day — wo
 69. The instruction is followed by whoever closes the NEXT entry, which is the person least likely
 to notice that rows they never touched changed underneath them.
 
-★ Scope: this is about the REBUILD, not about the table's accuracy. The index is correct today —
-363 rows against 363 headings, every anchor regenerating from its heading with 0 mismatches. §379
-covers the separate, pre-existing ordering red.
+★ Scope: this is about the REBUILD, not about the table's accuracy.
+★★ A ROW/HEADING TOTAL THAT SAT HERE HAS BEEN REMOVED RATHER THAN CORRECTED. It read "363 rows
+against 363 headings", and it was already wrong at the merge base and wrong again after the
+register-hygiene slice — every entry filed or closed anywhere moves both numbers, so no total
+written into a body survives its next commit. `npm run followups:index:check` prints today's pair
+and FAILS on a mismatch, which is the form that cannot rot; read it there rather than here.
+§379 covered the separate, pre-existing ordering red, and is CLOSED.
 
 ★ Until it is fixed: hand-edit a closed row to match the shape §371 uses, and do NOT run the
 rebuild. Reproduce the loss with the fenced recipe above, run against a copy:
@@ -29684,10 +29688,17 @@ must start receiving a language. The second would put `t()` into a module whose 
 
 ## 407. Task-row changes badge renders "1 changes" for a single linked change — CLOSED 2026-09-07
 
-**Status:** CLOSED 2026-09-07. Verified by reading the two render sites and their tests, not by
-running them (another agent held vitest on this branch, so the suite was NOT re-run here — the
-tests below are cited by name and by source, which is weaker evidence than a green run and is
-stated as such). Reproduce the fix itself with
+**Status:** CLOSED 2026-09-07. The two render sites and their tests were read, and the suite has
+since been RUN green — `npx vitest run --maxWorkers=1 src/app/task-row.test.tsx
+src/app/task-kanban-card.test.tsx` → exit 0, `Test Files 2 passed (2)`, `Tests 79 passed (79)`.
+★★ Assert `Test Files 2`, never the test tally: a mistyped path MIXED with a real one is DROPPED
+SILENTLY at exit 0, so only the file count proves both suites actually ran.
+★★ The German pin is real rather than vacuous, which is the thing worth checking about any DE
+assertion here: `task-row.test.tsx` awaits `loadI18n("de")` before rendering — the DE dictionary
+is lazy, so a DE assertion without it silently asserts against EN and passes — and it asserts
+`getByText("1 Änderung")` WITH `queryByText("1 Änderungen")` null. That negative control is what
+makes it a STEM test rather than a suffix test: a German plural formed by dropping a suffix from
+the plural would pass without it. Reproduce the fix itself with
 `grep -n 'tPlural(lang, "taskRowChangesBadge"' src/app/task-row.tsx src/app/task-kanban-card.tsx`
 (exactly two hits, one per surface) and the singular key's existence with
 `grep -n 'taskRowChangesBadgeOne' src/app/i18n.ts src/app/i18n.de.ts` (one hit each:
