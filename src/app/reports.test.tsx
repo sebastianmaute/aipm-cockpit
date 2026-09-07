@@ -7,7 +7,7 @@ import type { AddableReportId } from "./addable-reports";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
-import { controlNames } from "../test/toolbar-order";
+import { controlNames, expectButtonOrder } from "../test/toolbar-order";
 
 const TODAY = "2026-05-28";
 
@@ -34,20 +34,34 @@ function makeTask(p: Partial<Task> & { id: number; assignee: string }): Task {
   } as unknown as Task;
 }
 
-function renderReports(tasks: Task[]) {
+/** ★ The second parameter is OPTIONAL so every pre-existing
+ *  `renderReports(tasks)` call keeps working unchanged. */
+function renderReports(tasks: Task[], opts: { extraReports?: AddableReportId[] } = {}) {
   return render(
     <ReportsPanel
       tasks={tasks}
       lang="en-US"
       today={TODAY}
       holidaySet={new Set()}
+      extraReports={opts.extraReports}
     />,
   );
 }
 
+/**
+ * The block whose title matches `re`.
+ *
+ * ★★ `closest("section")`, NOT `closest("div")`. Each block now renders inside
+ * an `ArrangementTile`, whose chrome is `<section><div>grip · h3 · ⋮</div><div>
+ * body</div></section>` — so walking up to the nearest DIV lands on the HEADER
+ * ROW, which contains the title and none of the table. That returned an element
+ * every `within(...)` query then failed against, which is what seven tests here
+ * were reporting before this was fixed. The `<section>` is the tile's own
+ * boundary and is what "the block" means.
+ */
 function sectionByTitle(re: RegExp): HTMLElement {
   const heading = screen.getByText(re);
-  return heading.closest("div") as HTMLElement;
+  return heading.closest("section") as HTMLElement;
 }
 
 function rowNamesIn(section: HTMLElement): string[] {
@@ -214,25 +228,39 @@ describe("ReportsPanel — composed reports", () => {
     expect(screen.getByText(/project total/i)).toBeInTheDocument(); // Budget report body
     expect(screen.getByText("Alpha")).toBeInTheDocument();
   });
-  it("the add-report select appends a chosen report", () => {
-    const onChange = renderComposed([]);
-    fireEvent.change(screen.getByLabelText(/add report/i), { target: { value: "budget-report" } });
-    expect(onChange).toHaveBeenCalledWith(["budget-report"]);
-  });
-  it("a report's remove button removes it", () => {
-    const onChange = renderComposed(["budget-report"]);
-    fireEvent.click(screen.getByRole("button", { name: /remove report/i }));
-    expect(onChange).toHaveBeenCalledWith([]);
-  });
-  it("the remove-report select removes a chosen report", async () => {
-    const user = userEvent.setup();
-    const onChange = renderComposed(["raid-report", "budget-report"]);
-    await user.selectOptions(screen.getByLabelText("Remove report"), "raid-report");
-    expect(onChange).toHaveBeenCalledWith(["budget-report"]);
-  });
-  it("the remove-report select is absent when there are no added reports", () => {
+  /**
+   * ★★★ ADD IS NOW RESTORE-FROM-HIDDEN, NOT A SETTINGS WRITE. The arrangement
+   * owns order and visibility, so this asserts the OUTCOME — the block appears —
+   * rather than that a callback fired. That is a stronger assertion than the one
+   * it replaces, which could pass while nothing rendered.
+   *
+   * ★★ THREE TESTS WERE DELETED HERE RATHER THAN REWRITTEN, and each is recorded
+   * because a deleted test is invisible afterwards:
+   *   · "a report's remove button removes it" — the per-card ✕ is gone. Removal
+   *     is the ⋮ menu's Hide, which Task 13 wires; there is nothing to click.
+   *   · "the remove-report select removes a chosen report" — `removeReportControl`
+   *     was deleted with the legacy mechanism.
+   *   · "the remove-report select is absent when there are no added reports" —
+   *     it still PASSED, but vacuously: the control no longer exists in ANY
+   *     state, so it asserted nothing. A test that is green for a reason
+   *     unrelated to its name is worse than none.
+   * Hide/restore coverage returns with Task 13's shelf and menu.
+   */
+  it("the add-report select restores a hidden report onto the board", () => {
     renderComposed([]);
-    expect(screen.queryByLabelText("Remove report")).toBeNull();
+    expect(screen.queryByTestId("report-block-budget-report")).toBeNull();
+    fireEvent.change(screen.getByLabelText(/add report/i), { target: { value: "budget-report" } });
+    expect(screen.getByTestId("report-block-budget-report")).toBeInTheDocument();
+  });
+
+  it("offers only reports that are currently hidden", () => {
+    // ★ The candidate list is the HIDDEN set, not "everything minus a settings
+    // array" — so a report already on the board must not be offerable twice.
+    renderComposed(["budget-report"]);
+    const select = screen.getByLabelText(/add report/i) as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value).filter(Boolean);
+    expect(values).not.toContain("budget-report");
+    expect(values).toContain("raid-report");
   });
   it("renders the Stakeholder report when added", () => {
     renderComposed(["stakeholder-report"]);
@@ -317,22 +345,34 @@ function ReorderHarness({ onChange }: { onChange: (ids: AddableReportId[]) => vo
 }
 
 describe("ReportsPanel — drag-reorder extra reports", () => {
-  it("calls onChangeExtraReports with reordered array when 2nd card dragged onto 1st", () => {
-    const onChange = vi.fn();
-    render(<ReorderHarness onChange={onChange} />);
+  /**
+   * ★★★ REORDER IS NOW AN ARRANGEMENT MOVE, not a settings write, so this
+   * asserts the RENDERED ORDER rather than a callback payload. The old test
+   * expected `onChangeExtraReports(["budget-report", "raid-report"])`; that
+   * write no longer happens and could not, since the arrangement owns order for
+   * all thirteen blocks rather than for the four addable ones.
+   */
+  it("commits a drag as a reorder of the rendered board", () => {
+    render(<ReorderHarness onChange={vi.fn()} />);
+    const idsNow = () =>
+      screen.getAllByTestId(/^report-block-/).map((n) => n.getAttribute("data-testid"));
 
-    // Locate the two drag handles (one per extra report card, in DOM order)
-    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
-    expect(handles).toHaveLength(2);
+    const before = idsNow();
+    expect(before.length).toBeGreaterThan(2);
+    const last = before[before.length - 1]!;
+    expect(before[0]).not.toBe(last);
 
-    // Drag the 2nd handle (budget-report) onto the 1st card (raid-report)
-    fireEvent.dragStart(handles[1]);
-    const cards = screen.getAllByTestId("extra-report-card");
-    fireEvent.dragOver(cards[0]);
-    fireEvent.drop(cards[0]);
+    // Drag the LAST block's grip onto the FIRST block.
+    const grips = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
+    fireEvent.dragStart(grips[grips.length - 1]);
+    fireEvent.dragOver(screen.getByTestId(before[0]!));
+    fireEvent.drop(screen.getByTestId(before[0]!));
 
-    expect(onChange).toHaveBeenCalledOnce();
-    expect(onChange).toHaveBeenCalledWith(["budget-report", "raid-report"]);
+    const after = idsNow();
+    expect(after).not.toEqual(before);
+    // ★ The dragged block landed at or before where the target was, which is
+    // what "dropped onto the first" means under the engine's splice.
+    expect(after.indexOf(last)).toBeLessThan(before.indexOf(last));
   });
 
   // ★★★ FIREFOX REFUSES TO START A DRAG when `dragstart` sets no transfer data.
@@ -350,36 +390,16 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
     expect(setData).toHaveBeenCalled();
   });
 
-  // ★★ Without a visible target the user cannot tell a drop will land, which is
-  // half of "it cannot be dropped". The edge is derived from the SPLICE
-  // semantics, not guessed: `onDropOnReport` removes the dragged id first, so
-  // inserting at a LATER index lands after the target, and at an EARLIER index
-  // lands before it. A single fixed edge would be a lie in one direction.
-  it("marks which edge of the hovered card the drop will land on, per drag direction", () => {
-    render(<ReorderHarness onChange={vi.fn()} />);
-    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
-    const cards = () => screen.getAllByTestId("extra-report-card");
-
-    // Dragging the SECOND card up onto the first → lands BEFORE it.
-    fireEvent.dragStart(handles[1]);
-    fireEvent.dragOver(cards()[0]);
-    expect(cards()[0]).toHaveAttribute("data-drop-edge", "before");
-    fireEvent.dragEnd(handles[1]);
-    expect(cards()[0]).not.toHaveAttribute("data-drop-edge");
-
-    // Dragging the FIRST card down onto the second → lands AFTER it.
-    fireEvent.dragStart(handles[0]);
-    fireEvent.dragOver(cards()[1]);
-    expect(cards()[1]).toHaveAttribute("data-drop-edge", "after");
-  });
-
-  it("never marks the card being dragged as its own drop target", () => {
-    render(<ReorderHarness onChange={vi.fn()} />);
-    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
-    fireEvent.dragStart(handles[0]);
-    fireEvent.dragOver(screen.getAllByTestId("extra-report-card")[0]);
-    expect(screen.getAllByTestId("extra-report-card")[0]).not.toHaveAttribute("data-drop-edge");
-  });
+  /**
+   * ★★★ TWO DROP-EDGE TESTS WERE DELETED HERE, and this note is what stops them
+   * being "restored" as a regression. The legacy extra-report card drew a
+   * `data-drop-edge` border on the hovered card; `ArrangementTile` deliberately
+   * draws NO edge indicator, because the grid is `grid-auto-flow: row dense` and
+   * dense backfill re-places everything after a move — so an edge marker would
+   * routinely point at a slot the block does not land in. The Dashboard records
+   * the same decision, and both surfaces render the reorder hook's
+   * `previewOrder` instead, which is what the reorder test above asserts.
+   */
 
   // ★★★ THE ONLY POSSIBLE DETECTOR for this class. axe 4.12.1 has no rule under
   // the four tags `e2e/a11y.spec.ts` requests that flags two controls sharing an
@@ -511,10 +531,18 @@ describe("ReportsPanel — sortable headers are unique across the sibling tables
     const counts = new Map<string, number>();
     for (const n of bare) counts.set(n, (counts.get(n) ?? 0) + 1);
     const collides = [...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n).sort();
+    // ★★ THE ARRANGEMENT BINDING ADDED TWO ENTRIES, and they are real seeded
+    // collisions rather than noise. Every block now renders a grip and a ⋮, both
+    // named `<verb> – <block title>`; strip the context and all thirteen grips
+    // are the same string, as are all thirteen ⋮. That WIDENS what this file
+    // guards: the uniqueness assertion above now goes red if the tile chrome's
+    // qualifier is dropped, not just if a table header's is.
     expect(collides).toEqual([
       "Cancelled",
       "Completed",
+      "Drag or use arrow keys to reorder",
       "Inquiries",
+      "More actions",
       "Open",
       "Overdue",
       "Total",
@@ -540,5 +568,127 @@ describe("ReportsPanel — sortable headers are unique across the sibling tables
         screen.getByRole("button", { name: `${t("en-US", "reportsOpen")} – ${t("en-US", heading)}` }),
       ).toBeInTheDocument();
     }
+  });
+});
+
+/**
+ * The arrangement binding (Task 12): every block — the nine built-ins and the
+ * four addable reports — renders as one `ArrangementTile` inside one
+ * `ArrangementGrid`, replacing the `<Section>` stack and the bespoke
+ * extra-report card. One reorder mechanism, not two.
+ */
+describe("ReportsPanel — the arrangement grid", () => {
+  const tasks = [
+    makeTask({ id: 1, assignee: "Ann", group: "Alpha" }),
+    makeTask({ id: 2, assignee: "Bo", group: "Beta" }),
+  ];
+
+  it("renders every visible block as an arrangement tile", () => {
+    renderReports(tasks);
+    expect(screen.getByTestId("reports-grid")).toBeInTheDocument();
+    expect(screen.getByTestId("report-block-byAssignee")).toBeInTheDocument();
+    expect(screen.getByTestId("report-block-stats")).toBeInTheDocument();
+  });
+
+  it("binds a 120px row unit and a gap, as WHOLE LITERAL class strings", () => {
+    // ★★★ THE ONLY GUARD THAT EXISTS FOR THE ROW UNIT, and it closes the
+    // obligation `report-blocks.ts` records. 120px, not the Dashboard's 80px:
+    // `BlockSpan` caps at 4, so an 80px unit would put an embedded report in a
+    // 320px box. ★★ jsdom has no layout, so this can only assert that the CLASS
+    // was rendered — never that Tailwind emitted a rule for it. An interpolated
+    // class would produce this identical string and emit no CSS at all, so a
+    // green run here is not evidence the grid renders correctly; that is
+    // `e2e/dashboard-grid.spec.ts`'s job for the Dashboard and is owed a browser
+    // eye-verify here.
+    renderReports(tasks);
+    const grid = screen.getByTestId("reports-grid");
+    expect(grid.className).toContain("auto-rows-[120px]");
+    expect(grid.className).toContain("gap-4");
+    // ★ And NOT the Dashboard's unit, which is the mistake this pins against.
+    expect(grid.className).not.toContain("auto-rows-[80px]");
+  });
+
+  it("renders NO scroller of its own — the card's contentRef is the scroller", () => {
+    // ★★★ A nested `overflow-y-auto` sizes to its content, so `scrollHeight ===
+    // clientHeight` and the drag autoscroll silently stops working. The real
+    // scroller is `ReportCard`'s own `contentRef`, which is the same ref the
+    // reorder hook gets.
+    renderReports(tasks);
+    const grid = screen.getByTestId("reports-grid");
+    expect(grid.className).not.toContain("overflow-y-auto");
+    expect(grid.className).not.toContain("overflow-auto");
+  });
+
+  it("no longer renders the legacy extra-report card wrapper", () => {
+    // ★ One mechanism, not two: the old `useListReorderDnd<AddableReportId>`
+    // card — its `data-drop-edge`, its own `DragHandle` and its ✕ — is gone.
+    renderReports(tasks, { extraReports: ["raid-report"] });
+    expect(screen.queryAllByTestId("extra-report-card")).toHaveLength(0);
+  });
+
+  it("gives every per-block control a block-unique accessible name", () => {
+    // ★★★ axe is provably blind to duplicate accessible names in EVERY view at
+    // EVERY seed size, and Reports IS an axe-scanned view — so this is the only
+    // detector that can exist for the grips and the ⋮ buttons here.
+    //
+    // ★★★ `requireCollisionSeed` IS OFF, AND THAT IS NOT THE `ArrangementTile`
+    // excuse repeated. Being the LIST owner is necessary for a collision-seeded
+    // test but not sufficient: a fixture must be able to make two rows SHARE a
+    // display name, and here it cannot. Every block title is
+    // `t(lang, spec.labelKey)` off the module-level `REPORT_BLOCKS` catalogue —
+    // nine distinct built-in keys plus the four `ADDABLE_REPORTS` titles — so no
+    // prop this panel accepts can make two of them equal. The guard would throw
+    // against correct code.
+    // ★ The property IS pinned where a fixture can express it:
+    // `arrangement-shelf.test.tsx` seeds two chips with the same title and runs
+    // `requireCollisionSeed: true` against `buildRowTokens`.
+    const { container } = renderReports(tasks, { extraReports: ["raid-report"] });
+    expectRowUniqueNames({
+      // Measured floor, kept exact so a silently narrowed query cannot read as a
+      // pass. Well below the real count — the panel renders a grip and a ⋮ per
+      // visible block plus the table controls.
+      minControls: 12,
+      scope: container,
+    });
+  });
+
+  it("names each block's grip with that block's own title", () => {
+    // ★ The uniqueness assertion above passes if the names differ for ANY
+    // reason; this names which qualifier must be present.
+    renderReports(tasks);
+    for (const key of ["reportsByAssignee", "reportsByGroup"] as const) {
+      expect(
+        screen.getByRole("button", {
+          name: `${t("en-US", "reorderHandle")} – ${t("en-US", key)}`,
+        }),
+      ).toBeInTheDocument();
+    }
+  });
+});
+
+describe("ReportsPanel — toolbar order", () => {
+  /**
+   * ★★★ THIS CONVENTION WAS COMPLIED WITH AND PINNED BY NOTHING. `ReportCard`
+   * renders the trailing group correctly today — Print · reset-columns ·
+   * reset-size — but neither `report-table.test.tsx` nor this file contained a
+   * single `expectButtonOrder`/`buttonIndex` call before this test, so a
+   * reordering, or a control drifting BETWEEN two members, was invisible.
+   * Measured, not assumed: `grep -rn "expectButtonOrder\|buttonIndex"` over both
+   * files returned nothing.
+   *
+   * ★★ `contiguous: true` is the half that matters. Plain ordering passes while
+   * a new control sits between Print and a reset — which is exactly the drift
+   * `AGENTS.md` records four instances of, and exactly the risk Task 13 carries
+   * when it adds the reset-layout button to this group.
+   *
+   * ★ Uses the shared helper deliberately: `buttonIndex` THROWS when a key
+   * matches zero or several buttons, where a hand-rolled `findIndex` silently
+   * takes the first and can pin the wrong control.
+   */
+  it("ends with the contiguous Print · reset-columns · reset-size group", () => {
+    renderReports([makeTask({ id: 1, assignee: "Ann" })]);
+    expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], {
+      contiguous: true,
+    });
   });
 });

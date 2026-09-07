@@ -2,12 +2,14 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
-import { DragHandle } from "./drag-handle";
-import { Select } from "./form-controls";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
-import { ReportCard, Section } from "./report-table";
+import { ReportCard } from "./report-table";
+import { ArrangementGrid } from "./arrangement-grid";
+import { ArrangementTile } from "./arrangement-tile";
+import { useReportsArrangement } from "./use-reports-arrangement";
+import { reportBlockById, type ReportBlockId } from "./report-blocks";
 import {
   computeGroupHealth,
   type GroupHealth,
@@ -25,10 +27,13 @@ import {
   type ReportsByXCol,
   type ReportsInquiryCol,
 } from "./reports-tables";
-// ★ The nine built-in block BODIES. This file keeps the `<Section>` wrappers,
-// the state and every derivation; the bodies are presentational and take only
-// what they read. One-way dependency: reports.tsx → reports-blocks.tsx →
-// reports-tables.tsx → reports-stats.ts.
+// ★ The nine built-in block BODIES. This file keeps the state and every
+// derivation; the bodies are presentational and take only what they read.
+// ★★ THE `<Section>` WRAPPERS ARE GONE as of the arrangement binding — an
+// earlier revision of this comment said this file kept them, which Task 12
+// falsified. `ArrangementTile` draws the frame and the `<h3>` now.
+// One-way dependency: reports.tsx → reports-blocks.tsx → reports-tables.tsx →
+// reports-stats.ts.
 import {
   ByAssigneeBlock,
   ByGroupBlock,
@@ -60,14 +65,27 @@ import type {
 // Stats aggregation + its row/stat types live in the pure reports-stats.ts
 // engine; the panel and the table sub-components import from there.
 
+/** ★ Module-level so the default `extraReports` is ONE reference. An inline
+ *  `= []` in the destructuring mints a new array every render, which is exactly
+ *  the identity churn the prop's own docstring asks callers to avoid. */
+const EMPTY_EXTRA_REPORTS: AddableReportId[] = [];
+
+/** ★ Narrows a block id to one of the four embedded report panels. Those are
+ *  the only blocks a feature module can switch off; the nine built-ins read
+ *  from `tasks` and are always available. */
+const isAddableReportId = (id: ReportBlockId): id is AddableReportId =>
+  ADDABLE_REPORTS.some((r) => r.id === id);
+
 export function ReportsPanel({
   tasks, today, holidaySet, lang,
   raid = [], buckets = [], plan, roles = [], disciplines = [], grades = [],
   resources = [], absences = [], workdayHours = 8, fxRates = null,
-  extraReports = [], onChangeExtraReports,
+  extraReports = EMPTY_EXTRA_REPORTS,
   stakeholders = [], milestones = [],
   features = [...ALL_MODULE_IDS],
   nextActions = [], onOpenAction, onShowActions,
+  projectId = "default",
+  isPopout = false,
 }: {
   tasks: readonly Task[];
   today: string;
@@ -83,8 +101,39 @@ export function ReportsPanel({
   absences?: readonly Absence[];
   workdayHours?: number;
   fxRates?: FxRates | null;
+  /**
+   * The retiring `settings.reports.extra`, now read for ONE purpose only: it is
+   * the input to `useReportsArrangement`'s one-time migration seed. Order and
+   * visibility belong to the arrangement from here on.
+   *
+   * ★★ STABLE REFERENCE, PLEASE. The seed closes over this array. A fresh
+   * literal each render is harmless TODAY only because of `use-arrangement.ts`'s
+   * internals — the seed sits in no dependency array — and that is an internal
+   * fact, not a promise of this signature. The default is a module-level
+   * constant rather than an inline `[]` for the same reason.
+   */
   extraReports?: AddableReportId[];
+  /**
+   * ★★★ NO LONGER CALLED, AND THAT IS THE POINT OF THIS TASK — `reports.tsx`
+   * stopped writing `settings.reports.extra` here, which is what makes
+   * `use-reports-arrangement.ts`'s "the field retires" true rather than an
+   * obligation. Add is now `arrangement.restore`, remove is hide (Task 13's ⋮),
+   * and reorder is `arrangement.move`.
+   *
+   * ★★ DELIBERATELY LEFT ON THE TYPE, undestructured, so `workspace-section.tsx`
+   * keeps compiling while this commit touches it for the two NEW props only —
+   * the plan's ★ asks that its diff show nothing else. Removing this prop and
+   * its call site is owed, and is a change to Settings' own surface rather than
+   * to this one.
+   */
   onChangeExtraReports?: (next: AddableReportId[]) => void;
+  /** ★ `"default"` when absent, NEVER `""` or a number: `arrangement-store.ts`'s
+   *  recency rule relies on project keys not being integer-like, because
+   *  `Object.keys` lists integer-like keys first in ascending numeric order. */
+  projectId?: string;
+  /** ★ Must carry the REAL popout signal. Hardcoding `false` would let a popout
+   *  persist and cross-write the main window's arrangement. */
+  isPopout?: boolean;
   stakeholders?: readonly Stakeholder[];
   milestones?: readonly Milestone[];
   features?: FeatureModuleId[];
@@ -161,10 +210,19 @@ export function ReportsPanel({
   // browser will not do it for us here. The hook drives the autoscroll itself.
   const cardsScrollRef = useRef<HTMLDivElement>(null);
 
-  const reorder = useListReorderDnd<AddableReportId>({
-    ids: extraReports,
-    onReorder: (ids) => onChangeExtraReports?.(ids),
+  // ★★ THE ARRANGEMENT NOW OWNS ORDER AND VISIBILITY for all thirteen blocks,
+  // built-in and addable alike — one mechanism, not two. The old
+  // `useListReorderDnd<AddableReportId>` over `extraReports`, and the
+  // `onReorder → onChangeExtraReports` write it drove, are both gone.
+  const arrangement = useReportsArrangement({ projectId, extraReports, isPopout });
+  const reorder = useListReorderDnd<ReportBlockId>({
+    ids: arrangement.layout.board.map((b) => b.id),
+    // ★ `onMove`, not `onReorder`: the engine splices by (dragged, target) and
+    // owns the resulting order, so handing it a whole reordered id list would
+    // be a second source of truth for the same move.
+    onMove: arrangement.move,
     scrollRef: cardsScrollRef,
+    disabled: arrangement.readOnly,
   });
 
   const resetAllReports = () => {
@@ -221,10 +279,14 @@ export function ReportsPanel({
     onTrack: "healthDriverOnTrack",
   };
 
-  const visibleExtra = visibleReports(extraReports, features);
   const enabledReportIds = new Set(visibleReports(ADDABLE_REPORTS.map((r) => r.id), features));
+  // ★★ "Add report" is now RESTORE FROM THE SHELF, not a settings write. The
+  // candidates are the addable reports this project has HIDDEN — which after the
+  // one-time migration is exactly the set that was absent from
+  // `settings.reports.extra` — intersected with the modules that are switched on.
+  const hiddenIds = new Set<string>(arrangement.layout.hidden);
   const remainingReports = ADDABLE_REPORTS.filter(
-    (r) => !extraReports.includes(r.id) && enabledReportIds.has(r.id),
+    (r) => hiddenIds.has(r.id) && enabledReportIds.has(r.id),
   );
   const addReportControl = (
     <select
@@ -233,7 +295,7 @@ export function ReportsPanel({
       disabled={remainingReports.length === 0}
       onChange={(e) => {
         const id = e.target.value as AddableReportId;
-        if (id) onChangeExtraReports?.([...extraReports, id]);
+        if (id) arrangement.restore(id);
       }}
       className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
     >
@@ -245,24 +307,6 @@ export function ReportsPanel({
       ))}
     </select>
   );
-
-  const removeReportControl = extraReports.length > 0 ? (
-    <Select
-      aria-label={t(lang, "reportsRemoveReport")}
-      size="xs"
-      value=""
-      onChange={(e) => {
-        const id = e.target.value as AddableReportId;
-        if (id) onChangeExtraReports?.(extraReports.filter((x) => x !== id));
-      }}
-    >
-      <option value="">{`− ${t(lang, "reportsRemoveReport")}`}</option>
-      {extraReports.map((id) => {
-        const meta = ADDABLE_REPORTS.find((r) => r.id === id);
-        return meta ? <option key={id} value={id}>{t(lang, meta.titleKey)}</option> : null;
-      })}
-    </Select>
-  ) : null;
 
   const REPORT_SOURCE_VIEW: Partial<Record<AddableReportId, AppView>> = {
     "raid-report": "raid",
@@ -279,34 +323,42 @@ export function ReportsPanel({
     return null;
   };
 
-  return (
-    <ReportCard lang={lang} sizeRef={reportsRef} contentRef={cardsScrollRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} leading={<>{addReportControl}{removeReportControl}</>} toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}>
-      <StatsBlock
-        lang={lang}
-        total={stats.total}
-        cancelled={stats.cancelled}
-        open={stats.open}
-        completed={stats.completed}
-        overdue={stats.overdue}
-      />
-
-      <Section title={t(lang, "reportsGroupHealth")}>
-        <GroupHealthBlock lang={lang} rows={groupHealth} driverKey={driverKey} />
-      </Section>
-
-      <Section title={t(lang, "reportsOpenByStatus")}>
-        <OpenByStatusBlock lang={lang} openByStatus={stats.openByStatus} open={stats.open} />
-      </Section>
-
-      <Section title={t(lang, "reportsCompletionOutcomes")}>
+  /**
+   * One block's BODY. ★★ The `<Section>` wrappers are gone: `ArrangementTile`
+   * draws the bordered frame and the `<h3>` from the catalogue's `labelKey`, so a
+   * body that titled itself would stack two borders and two identical headings —
+   * the failure `docs/AGENTS/dashboard.md` records from the Dashboard.
+   *
+   * ★ Returns null for an addable report whose embedded panel cannot render (no
+   * `plan`, say). `isRenderable` below tests exactly that, so the tile chrome is
+   * never drawn over nothing.
+   */
+  const renderBlock = (id: ReportBlockId): React.ReactNode => {
+    if (id === "stats") {
+      return (
+        <StatsBlock
+          lang={lang}
+          total={stats.total}
+          cancelled={stats.cancelled}
+          open={stats.open}
+          completed={stats.completed}
+          overdue={stats.overdue}
+        />
+      );
+    }
+    if (id === "groupHealth") return <GroupHealthBlock lang={lang} rows={groupHealth} driverKey={driverKey} />;
+    if (id === "openByStatus") return <OpenByStatusBlock lang={lang} openByStatus={stats.openByStatus} open={stats.open} />;
+    if (id === "completionOutcomes") {
+      return (
         <CompletionOutcomesBlock
           lang={lang}
           completedOnTime={stats.completedOnTime}
           completedLate={stats.completedLate}
         />
-      </Section>
-
-      <Section title={t(lang, "reportsInquiries")}>
+      );
+    }
+    if (id === "inquiries") {
+      return (
         <InquiriesBlock
           lang={lang}
           inquiriesTotal={stats.inquiriesTotal}
@@ -315,9 +367,10 @@ export function ReportsPanel({
           colWidths={inquiry.colWidths}
           onStartResize={inquiryStartResize}
         />
-      </Section>
-
-      <Section title={t(lang, "reportsByAssignee")}>
+      );
+    }
+    if (id === "byAssignee") {
+      return (
         <ByAssigneeBlock
           lang={lang}
           rows={stats.byAssignee}
@@ -328,13 +381,11 @@ export function ReportsPanel({
           filter={assigneeFilter}
           setFilter={setAssigneeFilter}
         />
-      </Section>
-
-      <Section title={t(lang, "reportsByPriority")}>
-        <ByPriorityBlock byPriority={stats.byPriority} />
-      </Section>
-
-      <Section title={t(lang, "reportsByGroup")}>
+      );
+    }
+    if (id === "byPriority") return <ByPriorityBlock byPriority={stats.byPriority} />;
+    if (id === "byGroup") {
+      return (
         <ByGroupBlock
           lang={lang}
           rows={stats.byGroup}
@@ -345,9 +396,10 @@ export function ReportsPanel({
           filter={groupFilter}
           setFilter={setGroupFilter}
         />
-      </Section>
-
-      <Section title={t(lang, "reportsByLabel")}>
+      );
+    }
+    if (id === "byLabel") {
+      return (
         <ByLabelBlock
           lang={lang}
           rows={stats.byLabel}
@@ -358,105 +410,93 @@ export function ReportsPanel({
           filter={labelFilter}
           setFilter={setLabelFilter}
         />
-      </Section>
+      );
+    }
+    // The four addable reports embed a whole report panel. ★ The action chips
+    // ride ABOVE the panel, exactly as they did in the old extra-report card.
+    const body = renderEmbedded(id);
+    if (!body) return null;
+    const src = REPORT_SOURCE_VIEW[id];
+    const chips = src && onOpenAction && onShowActions ? (
+      <ActionChips
+        lang={lang}
+        actions={chipsForView(nextActions, src)}
+        onOpen={onOpenAction}
+        onShowMore={onShowActions}
+        className="mb-2"
+      />
+    ) : null;
+    return <>{chips}{body}</>;
+  };
 
-      {visibleExtra.map((id) => {
-        const meta = ADDABLE_REPORTS.find((r) => r.id === id);
-        const body = meta ? renderEmbedded(id) : null;
-        if (!meta || !body) return null;
-        const removeLabel = `${t(lang, "reportsRemoveReport")}: ${t(lang, meta.titleKey)}`;
-        const dropEdge = reorder.dropEdgeFor(id);
-        return (
-          <div
-            key={id}
-            data-testid="extra-report-card"
-            // ★ `data-drop-edge` is the assertable half of the indicator: the
-            // border classes below are what the user sees, but a test that read
-            // them would be pinning styling rather than the splice semantics.
-            data-drop-edge={dropEdge ?? undefined}
-            {...reorder.itemProps(id)}
-            className={[
-              // ★★ The 2px border is ALWAYS present and only changes COLOUR.
-              // Adding `border-t-2` on hover would grow the box and shift every
-              // card below it — during a drag, which is precisely when the hit
-              // target has to hold still.
-              "border-y-2",
-              reorder.isDragging && reorder.dragId !== id ? "opacity-70" : "",
-              // ★★ `-strong`, not `--ui-green`. As a 2px graphical object
-              // carrying state this owes WCAG 1.4.11's 3:1, and the raw green
-              // fails it in all three LIGHT schemes — 2.17:1 harbor, 1.97
-              // meridian, 2.48 umber — while passing in all three dark.
-              // ★★ `--ui-green-strong` is DERIVED PER SCHEME, not a fixed hex:
-              // `scheme-tokens.ts` runs `nudgeToAa(--ui-green, --surface-muted)`
-              // and no built-in scheme pins it, so base-wins fills all six. That
-              // makes the swap hue-preserving (umber stays amber, #805f25 — it
-              // does NOT paint teal into the amber scheme) and a literal no-op
-              // in dark, where the base already clears AA and `nudgeToAa`
-              // returns it unchanged. Measured 5.30 / 6.31 / 5.86 light and
-              // 7.49 / 6.74 / 8.80 dark.
-              // ★★★ EVERY BRANCH NAMES BOTH EDGES, so no two classes here ever
-              // target the same CSS property. The obvious spelling — a baseline
-              // `border-transparent` with `border-t-…` layered over it — pits
-              // the `border-color` SHORTHAND against `border-top-color`, and
-              // which one wins is decided by Tailwind's emit order, not by the
-              // order they are written in this array. Identical specificity, no
-              // source-order control, invisible to jsdom: the indicator would
-              // either work or render transparent depending on a detail of the
-              // generated stylesheet. Disjoint per-side colours cannot lose.
-              dropEdge === "before" ? "border-t-ui-green-strong border-b-transparent" : "",
-              dropEdge === "after" ? "border-b-ui-green-strong border-t-transparent" : "",
-              dropEdge === null ? "border-y-transparent" : "",
-            ].filter(Boolean).join(" ") || undefined}
-          >
-            <div className="mb-2 flex items-center justify-between gap-2 border-t border-line pt-4">
-              <div className="flex items-center gap-1">
-                <DragHandle
-                  {...reorder.handleProps(id)}
-                  // ★★ Row-UNIQUE name (WCAG 2.4.6). Every handle carried the
-                  // identical "Drag or use arrow keys to reorder", so a
-                  // screen-reader user listing the buttons heard the same label
-                  // N times with nothing to say which report each moved. Reports
-                  // IS an axe-scanned view, and axe cannot see this at any seed
-                  // size — no rule under the four tags the gate requests flags
-                  // duplicate accessible names — so the qualifier has to be
-                  // written at the source. Pre-existing; fixed here because this
-                  // change already owns the element.
-                  ariaLabel={`${t(lang, "reorderHandle")} – ${t(lang, meta.titleKey)}`}
-                  title={t(lang, "reorderHandle")}
-                  // `select-none`, `print:hidden`, the focus-visible ring and the tab
-                  // stop are the primitive's own base — only size/colour/cursor stay here.
-                  className="cursor-grab touch-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground"
-                />
-                <h3 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, meta.titleKey)}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => onChangeExtraReports?.(extraReports.filter((x) => x !== id))}
-                aria-label={removeLabel}
-                title={removeLabel}
-                className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted print:hidden ${INTERACTIVE}`}
-              >
-                ×
-              </button>
-            </div>
-            {(() => {
-              const src = REPORT_SOURCE_VIEW[id];
-              if (!src || !onOpenAction || !onShowActions) return null;
-              return (
-                <ActionChips
-                  lang={lang}
-                  actions={chipsForView(nextActions, src)}
-                  onOpen={onOpenAction}
-                  onShowMore={onShowActions}
-                  className="mb-2"
-                />
-              );
-            })()}
-            {body}
-          </div>
-        );
-      })}
+  /**
+   * ★★ ONE PREDICATE, shared by the board and (from Task 13) the shelf. Two
+   * copies drifted on the Dashboard: the shelf must never offer a block that
+   * restoring cannot render, and a gated-off block must reappear the moment its
+   * module returns. It tests the GATE and that a body actually exists — a body
+   * that becomes conditional without its gate following would otherwise render
+   * empty tile chrome, a frame and a heading over nothing.
+   */
+  const isRenderable = (id: ReportBlockId): boolean => {
+    const spec = reportBlockById(id);
+    if (!spec) return false;
+    // ★★★ MODULE GATING FOR THE ADDABLE REPORTS IS DONE HERE, NOT BY
+    // `spec.gate`, AND THAT IS A REAL TRAP THIS CAUGHT. `ReportBlockSpec.gate`
+    // is optional and NOT ONE catalogue entry declares it today
+    // (`grep -c "gate:" src/app/report-blocks.ts` → 0), so a `spec.gate &&`
+    // test gates NOTHING — the first cut of this predicate did exactly that and
+    // silently rendered the Stakeholder report with the Stakeholders module
+    // switched off. `visibleReports` is what the pre-arrangement code used and
+    // is still the authority for these four ids.
+    // ★ The built-ins are ungated by design: they read from `tasks`, which is
+    // always present.
+    if (isAddableReportId(id) && !enabledReportIds.has(id)) return false;
+    if (spec.gate && !spec.gate(features)) return false;
+    return renderBlock(id) !== null;
+  };
 
+  // ★★ `previewOrder`, not the stored board: `grid-auto-flow: row dense`
+  // re-places everything after a move, so rendering the committed order during
+  // a drag would show the tile snapping to a slot it does not end up in.
+  const sizeById = new Map(arrangement.layout.board.map((b) => [b.id, b]));
+  const visible = reorder.previewOrder
+    .map((id) => sizeById.get(id))
+    .filter((b) => b !== undefined && isRenderable(b.id));
+
+  return (
+    <ReportCard lang={lang} sizeRef={reportsRef} contentRef={cardsScrollRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} leading={addReportControl} toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}>
+      {/* ★★★ `auto-rows-[120px]` and `gap-4` are WHOLE LITERAL STRINGS. Tailwind
+          v4 scans source for class candidates, so an interpolated value emits no
+          CSS at all — and jsdom has no layout, so no unit test can see the
+          difference. ★★ 120px, not the Dashboard's 80px: `BlockSpan` caps at 4,
+          which would put an embedded report in a 320px box. The class assertion
+          in `reports.test.tsx` is the only guard that exists for either. */}
+      <ArrangementGrid rowClass="auto-rows-[120px]" gapClass="gap-4" testId="reports-grid">
+        {visible.map((b) => {
+          const spec = reportBlockById(b!.id)!;
+          return (
+            <ArrangementTile
+              key={b!.id}
+              id={b!.id}
+              title={t(lang, spec.labelKey)}
+              w={b!.w}
+              h={b!.h}
+              lang={lang}
+              readOnly={arrangement.readOnly}
+              testIdPrefix="report-block"
+              dragProps={reorder.itemProps(b!.id)}
+              handleProps={reorder.handleProps(b!.id)}
+              // ★★★ INERT UNTIL TASK 13, which wires the ⋮ menu and the shelf.
+              // It renders a control that does nothing, which is a false
+              // affordance and must not survive this branch — the next task
+              // replaces it with the real popover.
+              onOpenMenu={() => {}}
+            >
+              {renderBlock(b!.id)}
+            </ArrangementTile>
+          );
+        })}
+      </ArrangementGrid>
     </ReportCard>
   );
 }

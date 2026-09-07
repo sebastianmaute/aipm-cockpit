@@ -410,6 +410,8 @@ export function WorkspaceSection({
               fxRates={fxRates}
               extraReports={settings.reports?.extra ?? DEFAULT_EXTRA_REPORTS}
               onChangeExtraReports={(next) => setSettings((s) => ({ ...s, reports: { ...s.reports, extra: next } }))}
+              projectId={currentProjectId ?? "default"}
+              isPopout={isPopout}
               stakeholders={stakeholders}
               milestones={milestones}
               features={settings.features}
