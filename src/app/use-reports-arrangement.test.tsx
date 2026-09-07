@@ -26,6 +26,22 @@ function settle() {
   act(() => { vi.advanceTimersByTime(LAYOUT_PERSIST_MS + 100); });
 }
 
+/** ★ The legacy key a "one-time migration" would be tempted to clean up. Its
+ *  exact name does not matter — what matters is that SOMETHING unrelated is in
+ *  storage across the migrating mount, and comes out identical. */
+const DECOY_KEY = "aipm-cockpit:settings";
+const DECOY_VALUE = JSON.stringify({ reports: { extra: ["raid-report"] } });
+
+/** Every localStorage entry, as a plain object. */
+function snapshotStorage(): Record<string, string | null> {
+  const out: Record<string, string | null> = {};
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const k = localStorage.key(i)!;
+    out[k] = localStorage.getItem(k);
+  }
+  return out;
+}
+
 beforeEach(() => { localStorage.clear(); vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); });
 
@@ -83,14 +99,37 @@ describe("useReportsArrangement — the one-time migration", () => {
     expect(second.result.current.layout.hidden).not.toContain("raid-report");
   });
 
-  it("writes nothing at all on the migrating load itself", () => {
-    // ★★ Two things at once. The `dirty` guard means a mount that only MIGRATES
-    // persists nothing — so the marker is written by the user's first real
-    // change, not by the migration. And because `seed` runs during RENDER, this
-    // is also the observable for it having no write side effect of its own.
+  it("writes nothing under its own key on the migrating load itself", () => {
+    // ★★ The `dirty` guard: a mount that only MIGRATES persists nothing, so the
+    // marker is written by the user's first real change rather than by the
+    // migration. ★ This checks ONE key — see the whole-storage test below for
+    // the seed's own side effects.
     mount({ extraReports: ["raid-report"] });
     settle();
     expect(localStorage.getItem(REPORTS_LAYOUT_KEY)).toBeNull();
+  });
+
+  it("leaves the REST of localStorage untouched, legacy settings included", () => {
+    // ★★★ THE SEED RUNS DURING RENDER AND MUST BE PURE, and this is the
+    // observable for the specific risk its docstring names: a "one-time
+    // migration" that DELETES or REWRITES the legacy settings key as it goes.
+    // The single-key assertion above cannot see that — it only ever looks at
+    // REPORTS_LAYOUT_KEY.
+    //
+    // ★★ WHAT THIS DOES AND DOES NOT PROVE. It proves no localStorage entry was
+    // added, removed or changed across the migrating mount. It is NOT a purity
+    // proof: a seed could still call an API, mutate a module or write to
+    // IndexedDB and pass. Purity beyond storage rests on review.
+    localStorage.setItem(DECOY_KEY, DECOY_VALUE);
+    localStorage.setItem("aipm-cockpit:unrelated", "keep me");
+    const before = snapshotStorage();
+
+    mount({ extraReports: ["raid-report"] });
+    settle();
+
+    expect(localStorage.length).toBe(2);
+    expect(localStorage.getItem(DECOY_KEY)).toBe(DECOY_VALUE);
+    expect(snapshotStorage()).toEqual(before);
   });
 });
 

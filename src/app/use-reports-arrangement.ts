@@ -8,10 +8,25 @@
  * id-and-layout-as-one-state fix, the separate flush effect, and the full `seed`
  * contract. Read them there before changing anything here.
  *
- * ★★★ `settings.reports.extra` RETIRES AS THE OWNER OF ORDER AND VISIBILITY.
- * After this migration the field is read by nothing, and nothing writes it. It
+ * ★★★ `settings.reports.extra` RETIRES AS THE OWNER OF ORDER AND VISIBILITY —
+ * AS AN OBLIGATION ON TASK 12, NOT AS A DESCRIPTION OF TODAY. An earlier
+ * revision of this block stated it in the present tense ("the field is read by
+ * nothing, and nothing writes it"), which was measurably false: `reports.tsx`
+ * still reads the prop and still writes the field through
+ * `onChangeExtraReports` at four sites, and nothing calls this hook yet.
+ * Reproduce both halves:
+ *   `grep -n "onChangeExtraReports" src/app/reports.tsx`
+ *   `grep -rn "useReportsArrangement" src/`
+ * Task 12 must stop writing the field when it binds this hook. The field then
  * stays on the Settings type because removing it is a separate change with its
  * own storage surface.
+ *
+ * ★★ CALLER CONTRACT — `extraReports` MAY BE A FRESH ARRAY EACH RENDER. The
+ * seed closes over it and nothing memoises on its identity, so a literal is
+ * harmless. ★ But that safety is a property of `use-arrangement.ts`'s internals
+ * (the seed sits in no dependency array), not a promise of this signature —
+ * stated here so the caller does not have to derive it, and so a future change
+ * that DOES memoise on it knows it is changing a contract.
  */
 import { useArrangement, type ArrangementApi } from "./use-arrangement";
 import type { ArrangementLayout } from "./arrangement-layout";
@@ -46,15 +61,27 @@ export function useReportsArrangement({
    * this project, and it cannot distinguish a MISSING key from a REJECTED one —
    * `use-arrangement.ts` reads `stored ?? seed?.() ?? null`. So a blob written
    * by a future `v: 2` build, or a hand-corrupted one, re-runs this migration.
-   * ★★ THAT IS WORSE HERE THAN ON THE DASHBOARD, and the difference is worth
-   * knowing before anyone calls it the same accepted trade: the Dashboard
-   * reverts to a DEFAULT, while Reports reverts to a STALE SETTING frozen at its
-   * pre-migration value — so a user who has since restored reports from the
-   * shelf loses exactly those restorations. Pinned by "RE-RUNS the seed when the
-   * stored blob is REJECTED" so the behaviour is recorded rather than assumed.
-   * Closing it needs a second marker key, which is new storage surface for a
-   * case the store already accepts losing; that call is deliberately not made
-   * here.
+   * ★★ THAT WILL BE WORSE HERE THAN ON THE DASHBOARD ONCE TASK 12 LANDS, and
+   * the tense matters. The Dashboard reverts to a DEFAULT — a whole arrangement,
+   * which a user notices and can attribute. Reports will revert to a STALE
+   * SETTING frozen at its pre-migration value, losing exactly the reports the
+   * user had restored from the shelf, which reads as the app quietly forgetting
+   * a few choices. ★★★ TODAY THE GAP IS MILDER, because `reports.tsx` still
+   * WRITES `settings.reports.extra` (see the file header's reproduce), so a
+   * re-run seed restores from a CURRENT setting rather than a frozen one. It
+   * becomes the described failure at the moment Task 12 stops writing the field.
+   * Pinned either way by "RE-RUNS the seed when the stored blob is REJECTED", so
+   * the behaviour is recorded rather than assumed.
+   *
+   * ★★ TWO WAYS TO CLOSE IT, AND THE CHEAPER ONE IS NOT THE OBVIOUS ONE. A
+   * second marker key is new storage surface for a case `arrangement-store.ts`
+   * already accepts losing, and it would close this gap only. The cheaper fix is
+   * one layer down: `loadArrangement` collapses MISSING and REJECTED into a
+   * single `null`, and it KNOWS which case it is at that boundary. Distinguishing
+   * them there would let `use-arrangement.ts` offer the seed on MISSING alone —
+   * zero new storage surface, and it would close the Dashboard's accepted
+   * downgrade trade at the same time. Neither call is made here; recorded so the
+   * marker key does not become the only remembered option.
    *
    * ★ The result is reconciled like any stored blob, so a stale or malformed
    * setting cannot corrupt the board: this names only addable ids, so every
