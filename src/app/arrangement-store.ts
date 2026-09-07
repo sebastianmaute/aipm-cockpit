@@ -180,7 +180,8 @@ export function readArrangement(key: string, projectId: string): ArrangementRead
  * today that is `loadLayout` in `dashboard-layout-store.ts`.
  *
  * ★★ AN EARLIER REVISION OF THIS LINE NAMED A FUNCTION THAT does not exist
- * (`loadDashboardLayout`), and it did damage before review caught it: it was
+ * (`loadDashboardLayout`, a name that does not exist), and it did damage before
+ * review caught it: it was
  * copied into a review brief as "the public `loadDashboardLayout`", so a
  * reviewer spent effort on a caller that was never there. Nothing gates this —
  * `docs:symbols:check` reads only AGENTS.md and `docs/AGENTS/*.md`, so an

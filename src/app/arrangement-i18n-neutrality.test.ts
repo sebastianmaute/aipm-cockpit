@@ -124,7 +124,8 @@ describe("the shared arrangement engine is surface-neutral in i18n", () => {
    * thirteen keys renamed in this slice — `arrangementTileHidden`,
    * `arrangementTileMoved` and `arrangementTileResized` — are read by the
    * SURFACES directly, not by the engine. Reverting
-   * exactly those three to `dashboardTile*` left the sweep above GREEN.
+   * exactly those three to the `dashboardTile*` spellings that were renamed away
+   * left the sweep above GREEN.
    *
    * This closes that: a key read by BOTH surfaces must not name either of them.
    * The reader set is discovered per key rather than listed, so it needs no
