@@ -26,6 +26,29 @@ export type ActualsAggregate = {
   unattributed: HourCell;
 };
 
+/** Can this ROW be attributed to a day or to a period at all?
+ *
+ *  ★★ DELIBERATELY LOCAL, and deliberately NOT `timelog-types.ts`'s
+ *  `KEY_DATE_RE`. That one is a KEY rule — "is this daily-roll key usable?" —
+ *  and its docstring argues at length why the identical `^\d{4}-\d{2}-\d{2}$`
+ *  shape declared in several modules must stay several constants: each answers
+ *  a different question and the answers are free to move apart. This one is a
+ *  ROW rule, applied before a key or a period is minted at all. One constant
+ *  serves BOTH consumers IN THIS FILE, so `buildDailyRoll` and
+ *  `aggregateActuals` cannot drift from each other — which is the only coupling
+ *  worth having here.
+ *
+ *  ★ SHAPE, never existence — `9999-99-99` is admitted, matching the sibling
+ *  rule. The point is to reject a date that is not a calendar day at all, not
+ *  to certify that the day happened.
+ *
+ *  Why rows arrive malformed: `timelog-api.ts` coerces every API field through
+ *  `dateOnly = (v) => s(v).slice(0, 10)` where `s` yields "" for a non-string.
+ *  So an absent, null or numeric `Date` becomes `""`, and a regionally
+ *  formatted `"05/01/2026"` is exactly ten characters and survives the slice
+ *  untouched. Neither is a day. */
+const ISO_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 const add = (cell: HourCell | undefined, it: TimelogTimeItem): HourCell => ({
   hours: (cell?.hours ?? 0) + it.hours,
   billableHours: (cell?.billableHours ?? 0) + it.billableHours,
@@ -49,7 +72,17 @@ export function aggregateActuals(
   for (const it of items) {
     const resourceId = userToRes.get(it.userId);
     const bucketId = projToBucket.get(it.projectId);
-    if (resourceId === undefined || bucketId === undefined || bucketId === null) {
+    // ★★★ PLACEMENT IS LOAD-BEARING: this MUST stay above the `byResource`
+    // write. `periodKeyForDate` is only reached further down, so the intuitive
+    // spot — beside the call whose output is junk — is AFTER that write, and a
+    // guard there counts the same hours in `byResource` AND in `unattributed`.
+    // A row is unattributable to a PERIOD exactly as an unlinked row is
+    // unattributable to a BUCKET, so it takes the same exit, for the same
+    // reason, at the same point. Measured on the malformed dates this file's
+    // ISO_DAY_RE docstring lists: month keys "" and "05/01/2", week key
+    // "NaN-WNaN" for both — phantom buckets matching no rendered column, so the
+    // hours silently disappear from the Budget view rather than being surfaced.
+    if (resourceId === undefined || bucketId === undefined || bucketId === null || !ISO_DAY_RE.test(it.date)) {
       unattributed = add(unattributed, it);
       continue;
     }
@@ -95,6 +128,15 @@ export function buildDailyRoll(items: readonly TimelogTimeItem[]): TimelogDailyR
     // links-independent" comment at the buildDailyRoll call site. Only the
     // non-positive sentinel is excluded.
     if (it.userId <= 0) continue;
+    // Drop a row that carries no calendar day. The rules ask "did this person
+    // exceed a cap ON THIS DAY", and such a row has no day to test against —
+    // there is no correct cell for it, and the alternative to dropping it is
+    // not counting it correctly but counting it on a phantom one. A blank date
+    // mints `"7|"`, which `parseDailyKey` rejects, which sets
+    // `evaluateTimelogPolicy`'s per-roll `skipped` flag and withholds all four
+    // guardrail rules from `evaluated` for EVERY user in the roll until a clean
+    // fetch — one junk row freezing the whole surface.
+    if (!ISO_DAY_RE.test(it.date)) continue;
     const k = dailyKey(it.userId, it.date);
     const cur = out[k];
     if (cur === undefined) {

@@ -112,6 +112,64 @@ describe("aggregateActuals", () => {
     expect(out.byBucket[7]["2026-06"]).toBeUndefined();
   });
 
+  // `timelog-api.ts` coerces `Date` through `dateOnly = s(v).slice(0, 10)`, and
+  // `s` returns "" for anything non-string — so an absent, null or numeric Date
+  // arrives as `date: ""`, and a regionally formatted "05/01/2026" is exactly
+  // ten characters and survives the slice intact. `periodKeyForDate` then mints
+  // a key no rendered column matches (measured: month "" and "05/01/2", week
+  // "NaN-WNaN" for both), so real hours vanish from the Budget view with no
+  // diagnostic. Unattributable to a period ⇒ `unattributed`, like an unlinked row.
+  it("routes a malformed-date row to unattributed instead of a phantom month key", () => {
+    const out = aggregateActuals(
+      [item(5, 9, "2026-06-10", 4), item(5, 9, "", 3), item(5, 9, "05/01/2026", 2)],
+      links,
+      "month",
+    );
+    expect(out.unattributed).toEqual({ hours: 5, billableHours: 5 });
+    // The junk keys `periodKeyForDate` would have minted must not exist at all.
+    expect(Object.keys(out.byBucket[7])).toEqual(["2026-06"]);
+    expect(out.byBucket[7][""]).toBeUndefined();
+    expect(out.byBucket[7]["05/01/2"]).toBeUndefined();
+  });
+
+  // ★★ THE DOUBLE-COUNT GUARD. `byResource[resourceId] = add(...)` is written
+  // BEFORE `periodKeyForDate` is reached, so a date guard placed after that
+  // write counts the same hours in `byResource` AND in `unattributed` — a
+  // silent inflation of every per-resource total. The good row alongside is
+  // what makes the assertion say "only the good hours", not merely "non-zero".
+  it("does not double-count a malformed-date row into byResource", () => {
+    const out = aggregateActuals(
+      [item(5, 9, "2026-06-10", 4), item(5, 9, "", 3)],
+      links,
+      "month",
+    );
+    expect(out.unattributed).toEqual({ hours: 3, billableHours: 3 });
+    expect(out.byResource[2]).toEqual({ hours: 4, billableHours: 4 });
+  });
+
+  it("week granularity: a malformed date does not mint the NaN-WNaN key", () => {
+    const good = periodKeyForDate("2026-06-10", "week");
+    const out = aggregateActuals(
+      [item(5, 9, "2026-06-10", 4), item(5, 9, "", 3), item(5, 9, "05/01/2026", 2)],
+      links,
+      "week",
+    );
+    expect(Object.keys(out.byBucket[7])).toEqual([good]);
+    expect(out.byBucket[7]["NaN-WNaN"]).toBeUndefined();
+    expect(out.unattributed.hours).toBe(5);
+  });
+
+  // Anti-vacuity control: a guard that fired unconditionally would satisfy every
+  // assertion above. A wholly well-formed fixture must still attribute in full,
+  // with nothing diverted.
+  it("leaves a wholly well-formed fixture fully attributed", () => {
+    const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-07-01", 3)], links, "month");
+    expect(out.unattributed).toEqual({ hours: 0, billableHours: 0 });
+    expect(out.byBucket[7]["2026-06"].hours).toBe(4);
+    expect(out.byBucket[7]["2026-07"].hours).toBe(3);
+    expect(out.byResource[2]).toEqual({ hours: 7, billableHours: 7 });
+  });
+
   it("week granularity: items in different weeks get distinct keys", () => {
     // 2026-06-10 (Wed, W24) and 2026-06-15 (Mon, W25)
     const keyW24 = periodKeyForDate("2026-06-10", "week");
@@ -174,6 +232,33 @@ describe("buildDailyRoll", () => {
     // The identified booker is untouched — the filter must not widen past the sentinel.
     expect(roll["7|2026-09-01"]).toEqual({ hours: 6, maxEntryHours: 6, entryCount: 1 });
     expect(Object.keys(roll)).toEqual(["7|2026-09-01"]);
+  });
+
+  // ★★ A blank date mints the key `"7|"`, which `parseDailyKey` rejects, which
+  // sets `evaluateTimelogPolicy`'s per-roll `skipped` flag and withholds all
+  // four guardrail rules from `evaluated` for EVERY user in that roll until a
+  // clean fetch. The real booker alongside is the anti-vacuity control — "no
+  // malformed key" is also true of an empty roll.
+  it("drops a row whose date is blank instead of minting an unparseable key", () => {
+    const roll = buildDailyRoll([
+      item(7, "", 8),
+      item(7, "2026-09-01", 6),
+    ]);
+    expect(roll["7|"]).toBeUndefined();
+    expect(Object.keys(roll)).toEqual(["7|2026-09-01"]);
+    expect(roll["7|2026-09-01"]).toEqual({ hours: 6, maxEntryHours: 6, entryCount: 1 });
+  });
+
+  // The ten-character regional case: `dateOnly`'s `.slice(0, 10)` is a no-op on
+  // it, so it reaches the roll looking like a date and is not one.
+  it("drops a row whose date is regionally formatted rather than ISO", () => {
+    const roll = buildDailyRoll([
+      item(7, "05/01/2026", 8),
+      item(7, "2026-09-01", 6),
+    ]);
+    expect(roll["7|05/01/2026"]).toBeUndefined();
+    expect(Object.keys(roll)).toEqual(["7|2026-09-01"]);
+    expect(roll["7|2026-09-01"]).toEqual({ hours: 6, maxEntryHours: 6, entryCount: 1 });
   });
 
   it("returns an empty roll for no items", () => {
