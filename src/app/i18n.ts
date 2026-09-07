@@ -2447,7 +2447,14 @@ const enUS = {
   dashboardTileMoveEarlier: "Move earlier",
   dashboardTileMoveLater: "Move later",
   dashboardTileMoveFirst: "Move to start",
-  dashboardTileHide: "Hide tile",
+  // ★★ NOUN-FREE ON PURPOSE. The `dashboard*` key PREFIX is historical — this
+  // menu is shared by the Dashboard's tiles and the Reports board's blocks — and
+  // "Hide tile" was the only string in it that leaked the Dashboard's noun onto
+  // Reports, where it offered "Hide tile" on a report block. Every sibling
+  // (`dashboardTileRestore`, `dashboardShelfCount`, `dashboardShelfEmpty`,
+  // `dashboardTileHidden`, the two move commands) already reads without one.
+  // Nothing is lost: the block's title is in the enclosing dialog's own name.
+  dashboardTileHide: "Hide",
   dashboardTileRestore: "Restore",
   dashboardShelfCount: "{0} hidden",
   dashboardShelfEmpty: "Nothing hidden",

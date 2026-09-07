@@ -2353,7 +2353,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardTileMoveEarlier: "Nach vorne verschieben",
   dashboardTileMoveLater: "Nach hinten verschieben",
   dashboardTileMoveFirst: "An den Anfang verschieben",
-  dashboardTileHide: "Kachel ausblenden",
+  dashboardTileHide: "Ausblenden",
   dashboardTileRestore: "Wiederherstellen",
   dashboardShelfCount: "{0} ausgeblendet",
   dashboardShelfEmpty: "Nichts ausgeblendet",
