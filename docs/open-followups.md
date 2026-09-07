@@ -30015,14 +30015,16 @@ eye-verify closes this entry and anything it turns up gets its own.
 
 **Status:** 2026-09-07 — the 31-key TIER 1 membership below has now been converted at the DICTIONARY
 level on this branch and the list is RETAINED; the 45-vs-31 count dispute is untouched and this entry
-stays OPEN for it and for the four exception-B/D keys whose authored singular no call site selects.
+stays OPEN for it and for the two exception-B keys whose authored singular no call site selects.
 Verified with
 `npx tsc --noEmit` (exit 0 — `PluralBaseKey` makes a missing singular a type error, so the
-DICTIONARY side cannot be half-done; nothing checks the CALL sites, which is how D was found),
+DICTIONARY side cannot be half-done; nothing checks the CALL sites, which is how exception D was
+found and then fixed),
 `grep -rnoE '"[A-Za-z]+One"' src/app/next-actions/providers/ --include=*.ts --exclude=*.test.ts`
-(the four engine-side exceptions), `grep -rn 't(lang, "activityEntriesLogged"\|t(lang,
-"timelogTestOk"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'` (the two exception-D
-call sites, 2 hits), and `npm run docs:claims:check` (exit 0). Filed 2026-09-06, generalising §407 (fixed on
+(the four engine-side exceptions, 4 hits), `grep -rn 't(lang, "activityEntriesLogged"\|t(lang,
+"timelogTestOk"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.' | grep -v tPlural`
+(exception D's regression check — must return NOTHING), and `npm run docs:claims:check` (exit 0).
+Filed 2026-09-06, generalising §407 (fixed on
 this branch for `taskRowChangesBadge` only) into the class it belongs to. **At least 31 keys are call-site-verified
 TIER 1** — named in full below. An earlier, independent pass reported 46 (45 once §407's own key is
 subtracted for a fair comparison); that figure is recorded here as an UNRECONCILED earlier count, not
@@ -30036,14 +30038,28 @@ motivated; it is retained below precisely so a future pass has something to diff
 than number against number. 30 of the 31 now carry an authored `…One` sibling in BOTH dictionaries;
 the 31st, `dashboardGreetingSummary`, was SPLIT rather than converted (see finding 2).
 
-★★★ **"Carries a singular" is NOT the same claim as "renders the singular", and the gap between
-them is four keys wide.** `PluralBaseKey` gates the dictionary and `npx tsc --noEmit` proves the
-pairing; NOTHING proves a call site actually selects the sibling. Of the 30 paired keys, 22 select
-it through `tPlural` at every render site, one (`actionCommitteeInfoWhy`) does so at its panel site
-and by an engine ternary at its other, three more are engine-ternary only (exception A), and the
-remaining **four never render their singular at all** — two because nothing reaches them at all
-(exception B) and two because their live call site still calls plain `t()` (exception D). Derive
-this split rather than trusting these numbers; the per-key command is under exception D.
+★★★ **"CARRIES A SINGULAR" IS NOT THE SAME CLAIM AS "RENDERS THE SINGULAR", AND NOTHING IN THIS
+REPO CHECKS THE SECOND ONE.** Two mechanisms guard this class and BOTH are statements about the KEY
+SET, not about any call site: `PluralBaseKey` makes a missing `…One` sibling a type error (so `npx
+tsc --noEmit` proves the pairing), and the source scan in `i18n-plural.test.ts` proves no singular
+is stranded without a base. A key can therefore be correctly paired, fully translated in EN and DE,
+and still never render its singular — because the code that renders it never asks for one. Neither
+gate can see that, no CI job in `.gitlab-ci.yml` can see it, and it is invisible to review because
+the dictionary looks finished. **A future conversion slice should assume this WILL happen again and
+verify call sites separately from keys** — exception D below is the worked instance.
+
+★★ The per-class membership sits under exceptions A–D. No numeric split is quoted here, and that is
+not only the usual restaling rule: **no single grep reproduces one.** Five of the paired keys reach
+`tPlural` through a VARIABLE rather than a key literal — `use-storage-file-ops.ts` picks
+`storageTursoLeaveWarn`/`storageConvertConfirm` into a `confirmKey` const, and `raci-suggest-modal.tsx`
+looks its three `raciSuggestSkipped*` keys up through `SKIP_REASON_KEY` before calling
+`tPlural(lang, key, n, n)` — so a scan keyed on `tPlural(lang, "KEY"` classifies all five as
+unreached, which is the same grep-granularity trap the three numbered traps below record. Read the
+call site, do not tally the matches:
+
+```bash
+grep -rn "tPlural(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+```
 
 ★★★ **The 45-vs-31 gap is NOT closed by this work, and nothing here should be read as narrowing
 it.** The conversion took the fresh pass's membership and used the fresh pass's own methodology,
@@ -30079,9 +30095,12 @@ predicted by the plan:**
    base/`…One` but still hand-wrote their call-site ternaries. All ten are now on one convention.
 
 **Four exceptions — the honest scope of the word "converted" here.** A, B and C were found during
-implementation and were not predicted by the plan; D was found while writing THIS entry, by
-checking a sentence that asserted all 30 render through `tPlural`. That sentence would have passed
-every gate in this repo.
+implementation and were not predicted by the plan; **D was found while writing THIS entry, by
+checking a sentence that asserted all 30 paired keys render through `tPlural`. They did not.** That
+sentence would have passed every gate in this repo. D has since been fixed (`activity-log-panel.tsx`
+and `timelog-settings.tsx`) and is retained below for its lesson, not as an open defect; A, B and C
+are open. ★★ Read the four as classes, not as a tally — the fix moved two keys between classes
+without changing what any class MEANS.
 
 **A — four keys have an engine call site that is NOT routed through `tPlural`, and cannot be.**
 ★ Read that as scoped to the ENGINE site: `actionCommitteeInfoWhy` also has a SECOND, panel-side
@@ -30111,6 +30130,14 @@ every activity kind is rendered through a generic `t()` on a looked-up key — i
 `activity-prompt.ts`'s `renderActivityEntry` (the AI-prompt surface, on a hardcoded `"en-US"`).
 There are TWO such renderers, not one; special-casing either for two keys was out of scope. So the
 activity log still reads "AI planned 1 allocation cells".
+★★ **Go to `activity-log-panel.tsx` for the user-visible string** — `renderActivityEntry` is the
+AI-prompt path and renders on a hardcoded `"en-US"`, so it cannot produce a German defect at all.
+An earlier brief for this work named `renderActivityEntry` as the user-visible renderer; a reader
+who follows that lands in the one file where the DE half of the class is unreachable by
+construction. Enumerate both before concluding anything — the two renderers are the two
+`const key = activityMessageKey(...)` lines, and this grep also returns the declaration plus four
+comment mentions (trap 2 below, in miniature):
+`grep -rn "activityMessageKey" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'`
 ★★★ **Nothing catches this class automatically, and no gate can be added cheaply.** The pairing
 test finds a singular with no BASE sibling; it cannot find a singular that no code path reaches,
 because reachability here runs through a `Record` map and a generic call rather than a literal key.
@@ -30128,27 +30155,33 @@ resolved the other way: converted for the `{1}` half rather than split.
 "1 skipped". That half is a known, unfixed instance of this same class, recorded rather than
 smoothed over.
 
-**D — two keys are fully paired and their live call site still calls `t()`.** `activityEntriesLogged`
-(`activity-log-panel.tsx`, `t(lang, "activityEntriesLogged", entries.length)`) and `timelogTestOk`
-(`timelog-settings.tsx`, `t(lang, "timelogTestOk", String(users.length), scope)`) have
-`activityEntriesLoggedOne` and `timelogTestOkOne` authored in EN and DE, and neither is ever
-selected. The activity log still reads "1 entries logged" and the Timelog connection test still
-reads "Connected — 1 users, scope: …". Unlike B this is not a structural obstacle — it is a
-one-call change at each site — but it is outside the file list of the task that recorded it, so it
-is filed here rather than fixed. ★★ Both files were last touched BEFORE this slice's conversion
-commits, so this is the committed state and not work in flight; re-check that before acting, since
-other branches may be converting them.
-★★★ **This is the failure mode the whole entry is about, arriving inside its own fix round.** Both
-keys appear in `i18n-plural.test.ts` as FIXTURES for `tPlural`'s own behaviour, so the suite renders
-`"1 entry logged"` and `"Connected — 1 user, scope: read"` and is green — while no application code
-path produces either string. A test that USES a key is not a test that PINS its call site, and the
-pairing test cannot see the difference: it scans the dictionary, never the callers. Derive the real
-per-key split with the call sites, not with the dictionary:
+**D — FIXED 2026-09-07, and kept here because the LESSON outlives the instance.**
+`activityEntriesLogged` and `timelogTestOk` were fully paired in EN and DE while their only call
+sites still called plain `t()` — `activity-log-panel.tsx` rendered "1 entries logged" and the
+Timelog connection test rendered "Connected — 1 users, scope: …". Both now call `tPlural`; verify
+with the two greps below, the first of which must return NOTHING and the second exactly two hits:
 
 ```bash
-grep -rn "tPlural(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
-grep -rn 't(lang, "activityEntriesLogged"\|t(lang, "timelogTestOk"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+grep -rn 't(lang, "activityEntriesLogged"\|t(lang, "timelogTestOk"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.' | grep -v tPlural
+grep -rn 'tPlural(lang, "activityEntriesLogged"\|tPlural(lang, "timelogTestOk"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
 ```
+
+★★★ **THE DURABLE PART — a fully paired, fully translated key can still never render its singular,
+and NOTHING in this branch or in CI detects it.** The type gate and the stranded-singular scan both
+reason over the KEY SET (see the ★★★ block at the top of this section); a call site that never asks
+for the singular is outside what either can express. Assume the next conversion slice reintroduces
+this and check call sites as a separate step from keys.
+★★ **A test that USES a key is not a test that PINS its call site, and the two are easy to mistake
+for each other.** Both keys appear in `i18n-plural.test.ts` as FIXTURES for `tPlural`'s own
+behaviour, so the suite rendered `"1 entry logged"` and `"Connected — 1 user, scope: read"` and was
+GREEN throughout, while no application path produced either string. Grepping the repo for the
+singular's rendered text would have found it — in a test file — and read as proof it worked.
+★★ **Root cause, worth recording because it is a scoping shape rather than a coding error:** the
+task that introduced `tPlural` added these two singulars so its own test had a pair to select
+between, and the conversion tasks after it were scoped BY CLUSTER (documents · RACI · next-actions ·
+insights · remainder). Neither key belonged to any cluster, so no task owned its call sites. A
+cluster-scoped conversion needs an explicit sweep for keys that fall between clusters; the
+membership list above is what makes that sweep possible.
 
 ### The count is a floor, not a total, and here is why it cannot be closed today
 
