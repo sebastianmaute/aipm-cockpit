@@ -29814,34 +29814,46 @@ with the commit handed in as a callback, leaving each component only its own chr
 already pinned in `entity-link-picker.test.tsx`, so one suite over the shared hook would cover both
 components instead of two suites that have to be kept in step the same way the comments do.
 
-## 411. Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test — OPEN
+## 411. Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test — CLOSED 2026-09-07
 
-**Status:** OPEN. Verified 2026-09-06 by grep: `grep -cE "ArrowUp|pr-8|reopens" src/app/single-entity-picker.test.tsx src/app/entity-link-picker.test.tsx` returns 0 for the SingleEntityPicker suite against 9 for the sibling's. The sibling count is the positive control — without it a zero cannot be told from a mistyped pattern.
+**Status:** CLOSED 2026-09-07. (a) and (c) pinned by new tests in `src/app/single-entity-picker.test.tsx`; (b) was ALREADY covered, and this entry's reasoning about it was wrong. All three mutation-proved — see below. Verify with `npx vitest run --maxWorkers=1 src/app/single-entity-picker.test.tsx src/app/entity-combobox.test.tsx` (19 + 7 tests, exit 0).
 
-An earlier round pinned the component's Escape handling, its render-time reconcile and its
-out-of-range clamp. Three mechanisms are still unpinned, and each one's source comment states a
-reason it is written the way it is — which is the dangerous combination: a "simplification" that
-contradicts the stated reason ships with the suite green, and the comment then reads as protection
-nothing provides.
+★ Do NOT re-run this entry's old Status grep as the closure evidence. `grep -cE "ArrowUp|pr-8|reopens"` now returns 6 for `single-entity-picker.test.tsx` against the sibling's 9 — but **0** for `entity-combobox.test.tsx`, which is where (b) actually lives, because that suite spells the case "wraps the highlight at both ends" and arrows with `move(1)`/`move(-1)` rather than the string `ArrowUp`. A pattern that cannot see the covering test is not a coverage measure.
 
-**(a) The reopen rides `onClick`, deliberately not `onFocus`** — the comment's reason is that Escape
-must STICK across a blur and a refocus, so that tabbing away to fix something and coming back does
-not pop the list back over the rest of the form. Nothing exercises it. Swapping the handler for
-`onFocus` breaks the guarantee silently. This is the one worth writing first.
+**(a) The reopen rides `onClick`, deliberately not `onFocus`** — CLOSED as a PAIR, and the pair is
+the point: "reopens a dismissed dropdown when the field is clicked again" plus "keeps Escape sticky
+across a focus round-trip". Mutant `onClick={reopen}` → `onFocus={reopen}` turns BOTH red (2 failed
+/ 17 passed, sum 19 = the file's test count). ★ The click test uses `fireEvent.click`, never
+`userEvent.click`: the latter focuses first, which an `onFocus` implementation satisfies too, and
+the pair would stop discriminating. ★★ The focus test fires BOTH `fireEvent.focus` and
+`fireEvent.focusIn`, and NEITHER is load-bearing — measured 2026-09-07, because the obvious reason
+to fire both is false. React 17+ mapping `onFocus` onto the bubbling `focusin` reads as "a lone
+non-bubbling `focus` can never reach the handler", but under the mutant, deleting either line still
+turned the test red.
 
-**(b) `ArrowUp` wrap-around.** The suite arrows DOWN and commits with Enter; `move(-1)`'s
-`cur <= 0 ? options.length - 1` branch is never taken. ★ The sibling's version of this test uses
-THREE options on purpose — with two, ArrowUp-from-index-0 lands on the same index whether the
-wrap-around is right or not, so a two-option fixture is vacuous here.
+**(b) `ArrowUp` wrap-around** — NOT a gap, and this entry's argument for it was wrong on both
+counts. It said the branch "is never taken" and that "with two options, ArrowUp-from-index-0 lands
+on the same index whether the wrap-around is right or not". `entity-combobox.test.tsx`'s "wraps the
+highlight at both ends" takes the branch on a TWO-option fixture (`move(1)` then `move(-1)`), and
+with two options the wrap yields `next = 1` where the unwrapped arm yields `-1` — different, so the
+fixture is not vacuous. Mutation-proved: `: cur <= 0 ? options.length - 1 : cur - 1;` → `: cur - 1;`
+gives 1 failed / 6 passed, sum 7. ★★ READ THE MANNER OF THE KILL before reusing this as precedent:
+the test dies on `TypeError: Cannot read properties of undefined (reading 'value')`, because
+`setArmedKey(identity(options[-1]))` throws before `expect(active).toBe(1)` is reached. Detection is
+real but rides `options[next]` being unguarded — add a `next >= 0` guard there and this coverage
+needs re-establishing on the assertion itself.
 
-**(c) The conditional `pr-8`.** It rides the same condition the overlaid clear button does, because
-unconditionally it would shave ~2rem off the visible placeholder in the common empty state. Neither
-branch is asserted.
+**(c) The conditional `pr-8`** — CLOSED. Both branches asserted in "reserves the clear gutter only
+while there is something to clear"; mutant `className="w-full pr-8"` gives 1 failed / 18 passed, sum
+19. Asserting only the presence passes against the unconditional class, which is why both branches
+are there.
 
-Remedy is cheap: `entity-link-picker.test.tsx` already carries a working template for all three
-((a) as its click-reopen and tab-away pair, (b) as its three-option ArrowUp case, (c) as its
-two-branch padding assertion), so each is a port rather than a new test. ★ If §410 is taken first,
-these three come for free — pin them on the extracted hook once instead of in two suites.
+★ The three mechanisms `entity-combobox.ts` states in its own comments were pinned in the same
+commit and are NOT part of this entry: the render-time reconcile (pinned by COMMIT COUNT — the
+obvious "resets on a query change" test was MEASURED green against a `useEffect` implementation, so
+it never covered this), the single `requestAnimationFrame` per `move` under StrictMode, and the
+deferred `scrollIntoView` (two halves, two mutants — deleting the rAF wrapper and deleting the whole
+block fail on different assertions).
 
 ## 412. `TaskLinkPicker` has no direct test suite — coverage is real but indirect — OPEN
 
