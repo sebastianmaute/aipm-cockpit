@@ -1,7 +1,7 @@
 "use client";
 import type React from "react";
 import { useRef, useState } from "react";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, type TranslationKey, t, tPlural } from "./i18n";
 import { IMPORT_SECTION_KEYS, type ImportSectionKey } from "./csv-codecs-sections";
 import { logDiag } from "./diagnostics";
 import type { StorageBackend, Workspace } from "./storage";
@@ -457,8 +457,8 @@ export function useLoadTruncation(
    *  act on. The banner carries the generic message either way. */
   const truncationText = (entries: number, blocks: number): string =>
     entries > 0
-      ? t(langRef.current, "documentsTruncatedWarning", entries)
-      : t(langRef.current, "documentsTruncatedBlocksWarning", blocks);
+      ? tPlural(langRef.current, "documentsTruncatedWarning", entries, entries)
+      : tPlural(langRef.current, "documentsTruncatedBlocksWarning", blocks, blocks);
 
   const reportLoadTruncation = (truncation: LoadTruncation) => {
     const entries = truncation?.entries ?? 0;
@@ -512,7 +512,7 @@ export function useLoadTruncation(
     // is a translation surface nobody asked for. The user gets the magnitude.
     logDiag("error", "workspace.metaSlicesUnreadable", { slices: failed.join(","), count: failed.length });
     lastDecodeCountRef.current = failed.length;
-    showToast("error", t(langRef.current, "documentsUnreadableWarning", failed.length));
+    showToast("error", tPlural(langRef.current, "documentsUnreadableWarning", failed.length, failed.length));
     setDecodeFailures(failed);
     // ★ Bumped HERE, in the failing branch only, so it marks a load that
     // actually reported a loss. A clean load lowers the flag above and returns;
@@ -764,7 +764,7 @@ export function useLoadTruncation(
       // enumerate them. Adding a fourth cause means adding a fourth arm.
       const parts: string[] = [];
       if (last) parts.push(truncationText(last.entries, last.blocks));
-      if (decoded > 0) parts.push(t(langRef.current, "documentsUnreadableWarning", decoded));
+      if (decoded > 0) parts.push(tPlural(langRef.current, "documentsUnreadableWarning", decoded, decoded));
       // ★★ UNCONDITIONAL HERE, unlike in `reportImportDiagnostics`: this is the REFUSAL path — the user asked to write and was declined, so the pause is not a prediction but what just happened.
       if (malformed > 0) {
         parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { AriaRole, ReactNode } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { useConfirm } from "./confirm-dialog";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
@@ -163,9 +163,9 @@ function truncationCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "trunc
   // already fired.
   const truncationCount =
     truncation != null && truncation.entries > 0
-      ? t(lang, "documentsTruncatedEntriesCount", truncation.entries)
+      ? tPlural(lang, "documentsTruncatedEntriesCount", truncation.entries, truncation.entries)
       : truncation != null && truncation.blocks > 0
-        ? t(lang, "documentsTruncatedBlocksCount", truncation.blocks)
+        ? tPlural(lang, "documentsTruncatedBlocksCount", truncation.blocks, truncation.blocks)
         : null;
   // ★★★ A JOIN ACROSS THE TWO CAUSES, NEVER A THIRD TERNARY ARM. The decode
   // count used to sit below the two truncation arms under a comment calling the
@@ -187,7 +187,7 @@ function truncationCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "trunc
   // one sentence.
   const countParts = [
     truncationCount,
-    decodeFailureCount > 0 ? t(lang, "documentsUnreadableCount", decodeFailureCount) : null,
+    decodeFailureCount > 0 ? tPlural(lang, "documentsUnreadableCount", decodeFailureCount, decodeFailureCount) : null,
     malformedQuoteCount > 0 ? t(lang, "importMalformedQuotesCount", malformedQuoteCount) : null,
   ].filter((part): part is string => part !== null);
   const countText = countParts.length > 0 ? countParts.join(" ") : null;
