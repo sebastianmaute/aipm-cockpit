@@ -638,7 +638,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§419](#419-a-legacy-over-cap-costimpact-is-silently-clamped-to-amount_max-on-load--closed-2026-09-06) | A legacy over-cap `costImpact` is silently clamped to `AMOUNT_MAX` on LOAD | found 2026-09-06 by the preview/apply-parity round-2 register sweep | S | **CLOSED** 2026-09-06 |
 | [§420](#420-a-creates-link-line-rendered-with-a-bare-field-label-indistinguishable-from-the-open-rows--closed-2026-09-06) | A create's link line rendered with a bare field label, indistinguishable from the open row's | found 2026-09-06 in cold review of the preview/apply-parity branch | S | **CLOSED** 2026-09-06 |
 | [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--open) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | open |
-| [§422](#422-an-email-address-containing-a-comma-is-destroyed-by-a-no-op-round-trip-through-the-inline-editor--open) | An email address containing a comma is destroyed by a no-op round-trip through the inline editor | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
+| [§422](#422-a-comma-bearing-email-address-is-destroyed-when-an-inline-edit-names-emails-with-a-changed-value--open) | A comma-bearing email address is destroyed when an inline edit names emails with a changed value | found 2026-09-06 in cold review of the preview/apply-parity branch; trigger claim refuted by probe 2026-09-07 | S | open |
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--open) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit | S | open |
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | closed 2026-09-07 |
@@ -30669,7 +30669,72 @@ rewrites every row and fills `— | —` for the eight, whose summary and proven
 written. That is a real edit to entries other slices own, so it wants its own commit and its own
 review, not a drive-by during someone else's release. Deliberately NOT done here.
 
-## 422. An email address containing a comma is destroyed by a no-op round-trip through the inline editor — OPEN
+## 422. A comma-bearing email address is destroyed when an inline edit names emails with a changed value — OPEN
+
+**Status:** OPEN. Filed 2026-09-06; its trigger claim was measured and refuted 2026-09-07, and the
+entry was retitled and rewritten to the narrower claim that survives. Last executed verification
+2026-09-07 — the retained probe `src/app/inline-ai-edit/emails-roundtrip.probe.test.ts` (committed as
+66235c60), run with `npx vitest run src/app/inline-ai-edit/emails-roundtrip.probe.test.ts` →
+`Test Files 1 passed (1)` / `Tests 4 passed (4)`. The source claims below were re-checked the same day
+with `grep -n "f in input" src/app/inline-ai-edit/plan.ts`,
+`grep -n -A4 "function coerce" src/app/use-inline-entity-edit.ts` and
+`grep -rn "sanitizeEmail(" src --include=*.ts`.
+
+`resource.emails` round-trips through a joined string: the descriptor projects the stored list as a
+`", "`-joined string for the preview, `coerce` (`use-inline-entity-edit.ts`) passes a
+non-`arrayFields` value through untouched, and the writer's `sanitizeEmailList` re-splits it on
+`[;,]`. A stored address containing a comma is therefore UNREPRESENTABLE in that transport — whenever
+the `emails` field reaches the writer as a string, one address becomes two. The loss is real; only its
+trigger was misfiled.
+
+★★★ **THE ORIGINAL TRIGGER — "applying ANY unrelated edit" — WAS MEASURED AND REFUTED**, by the probe
+the Status line names. An edit whose tool input names only `firstName` yields `plan.updates` of
+exactly `["firstName"]`: `emails` is absent, and `plan.rejected` is empty (those last two assertions
+are the anti-vacuity control — they prove the diff loop actually ran for this entity rather than the
+block being refused wholesale). The mechanism is in `describeEntityCalls`
+(`src/app/inline-ai-edit/plan.ts`), whose `for (const f of d.diffFields)` loop opens with
+`if (!(f in input)) continue;` and, in the same loop, drops unchanged fields with
+`if (before === after) continue;`. `use-inline-entity-edit.ts` then builds its patch only from
+`plan.updates`. So a key the model OMITS reaches neither the plan nor the patch, and a fourth probe
+test measures that a key the model echoes back UNCHANGED is dropped exactly as harmlessly. ★ The
+`grep -n "f in input" src/app/inline-ai-edit/plan.ts` in the Status line returns TWO hits, not one —
+the other is the same guard inside `pushLinkDiffs`, a different loop over the link inputs. Read the
+one inside `describeEntityCalls`. The narrower trigger that IS real:
+`d.arrayFields.has("emails")` is `false`, so the joined string passes through, and
+`sanitizeEmailList("a,b@x.com, c@y.com", undefined)` returns `["a", "b@x.com", "c@y.com"]` — one
+address torn into two.
+
+★★★ **THE PROBE'S OWN BOUND, which its header states and which this entry must not smooth over.** It
+constructs the tool-use blocks directly, so it says NOTHING about MODEL behaviour. It covers the
+omitted case and the echoed-unchanged case only. A real model that volunteers a *changed* `emails` key
+unbidden while being asked to edit another field would reach the destructive path, and no unit test
+can rule that out. So the honest trigger is **"an edit that names `emails` with a changed value"** —
+not "any edit", and not "only a deliberate edit of the address" either.
+
+★★★ **DO NOT REACH FOR `arrayFields` — `entity-descriptor.ts` ALREADY REJECTS IT, and it would not
+work anyway.** Its comment beside the `resource` descriptor records the reasoning: `coerce` splits an
+`arrayFields` value on `","` ALONE, which is a SECOND parser for a format the writer already owns —
+the restatement the `fieldSanitizers` docstring forbids — and, since the delimiter it splits on is the
+very character at issue, it would destroy the comma just as surely as `sanitizeEmailList` does. Read
+that comment (`grep -n -B10 "diffFields: \[\"firstName\"" src/app/inline-ai-edit/entity-descriptor.ts`)
+before proposing it again.
+
+★ **What remains unfixed, and what closing it would cost.** The delimited string is the writer's OWN
+storage format — `sanitizeEmailList`'s docstring calls it "a JSON array or a delimited CSV/MD string"
+— so representing a comma inside an address needs either format validation at `sanitizeEmail`'s call
+sites or a transport for `emails` that never joins. `sanitizeEmail` is `sanitizeText(s, EMAIL_MAX)`
+and does NO format validation, so nothing rejects such an address at write time on ANY path today.
+Enumerate the sites with `grep -rn "sanitizeEmail(" src --include=*.ts | grep -v "\.test\."` — 20 hits
+on 2026-09-07 (21 before the filter), of which ONE is the `export function` in `sanitize-core.ts`;
+that line is the positive control, since a pattern that fails to return the definition is broken. So
+19 calls, across 13 files that call it. ★ The filter is load-bearing and quoting the number beside the
+UNFILTERED command would refute it — the first draft of this paragraph did exactly that. Two of the 13
+are external INGEST paths that today accept whatever the remote sends — `jira-api.ts` and
+`outlook-contacts.ts` — so validation is not a single-boundary change. Either fix is its own slice.
+
+_Original finding, as written 2026-09-06. Superseded by everything above: the "ANY unrelated edit"
+trigger is refuted, and the original Status line's `**No test pins this**` is no longer true — the
+probe named above pins it. Preserved unedited as the dated record of what was believed._
 
 **Status:** OPEN. Filed 2026-09-06 from a cold-review finding that was MEASURED and partly refuted —
 the parity half is fine and only the round-trip half survives. Last executed verification 2026-09-06 —
