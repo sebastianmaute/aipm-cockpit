@@ -283,10 +283,19 @@ export const MAX_DAILY_ROLL_CHARS = 512 * 1024;
  *  is deliberately not this store's job (`withCheckedDaily` says why). During a
  *  TRIM such a key is dropped instead — it cannot be ordered against the
  *  others, so there is no honest way to call it old or new, and it must not
- *  become the new `from`. The same goes for a key `parseDailyKey` accepts whose
- *  date is not ISO-shaped: `ISO_DATE_RE` is this file's own WINDOW rule, not a
- *  second key rule, and gating retention and `from` on one set keeps them from
- *  drifting apart. */
+ *  become the new `from`.
+ *  ★★★ THE SECOND CLAUSE OF THAT EXCLUSION (`!ISO_DATE_RE.test(parsed.date)`)
+ *  IS UNREACHABLE TODAY, and this docstring used to describe it in the present
+ *  tense as though a key could land in it. It cannot: `ISO_DATE_RE` here and
+ *  `KEY_DATE_RE` in `timelog-types.ts` are byte-identical, so any date half
+ *  `parseDailyKey` returns has already passed the same shape. It stays anyway,
+ *  and deliberately — this file calls `parseDailyKey` directly, `ISO_DATE_RE` is
+ *  this file's own WINDOW rule rather than a second key rule, and the day the
+ *  key rule loosens (a longer date form, a timestamp suffix) the clause is what
+ *  keeps retention and `from` gated on ONE set. Verify before relying on either
+ *  half — the `^const` anchor keeps this docstring out of its own output:
+ *  `grep -rn "^const .*_DATE_RE" src/app/timelog-types.ts
+ *  src/app/timelog-actuals-store.ts`. */
 function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
   const d: unknown = e.daily;
   // Anything that is not a plain object is left for the read path to strip.

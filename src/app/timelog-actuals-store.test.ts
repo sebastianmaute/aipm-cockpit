@@ -507,15 +507,21 @@ describe("ActualsCacheEntry.daily size bound", () => {
 
   // ★★ Reachable shape for "nothing survives": every key unusable — every key
   // here lacks the `|` separator, so `parseDailyKey` rejects all of them.
-  // ★★ A single oversized cell is NO LONGER CONSTRUCTIBLE, and the history is
-  // worth keeping because this comment has now been wrong in both directions.
-  // It first claimed the shape was impossible on the strength of the userId
-  // half of the check — true only via `Number(...)` overflowing to Infinity at
-  // roughly 309 digits, a mechanism it never stated. It was then corrected to
-  // say `parseDailyKey` never checks the DATE, which was true when written.
-  // `KEY_DATE_RE` now rejects a non-ISO date half, so `"7|" + "x".repeat(N)`
-  // does not parse. Many-unusable-keys remains the shape this test chose, and
-  // it still exercises the same survivor-run path.
+  // ★★ A single oversized cell is NOT CONSTRUCTIBLE, and the REASON is the whole
+  // of `parseDailyKey`'s guard set rather than any one member of it: the date
+  // half is capped at 10 characters by `KEY_DATE_RE`, the userId half must match
+  // `KEY_USER_RE` (so no whitespace pad, which `Number()` would have stripped),
+  // and `Number.isInteger` rejects the all-digit head that overflows to
+  // `Infinity` past roughly 309 digits. A key therefore cannot exceed about 320
+  // characters.
+  // ★★★ DISTRUST THE NEXT CONFIDENT CLAIM HERE — this comment has been wrong in
+  // more than one direction, and each wrong version read as settled. Whatever
+  // the state of the code, measure rather than read: build the single cell you
+  // think is oversized, check `JSON.stringify` of it against
+  // `MAX_DAILY_ROLL_CHARS`, and confirm `parseDailyKey` returns null for its key.
+  // Nothing short of that settles it.
+  // ★ Many-unusable-keys remains the shape this test chose, and it still
+  // exercises the same survivor-run path.
   // ★★ Losing the roll must never cost the rest of the entry — the aggregates
   // are what the network round trip bought.
   it("drops daily AND dailyWindow together when nothing survives, keeping the rest", () => {
@@ -556,6 +562,16 @@ describe("ActualsCacheEntry.daily size bound", () => {
   // become the new `from`. `"zzz"` is chosen because it sorts ABOVE every ISO
   // date lexicographically and `"0000-00-00"` below every real one, so a trim
   // that failed to exclude them would visibly move `from` to a non-date.
+  // ★★★ THAT DESCRIBES AN EXCLUSION THIS FIXTURE NO LONGER REACHES. `withBoundedDaily`
+  // excludes a key on `!parsed || !ISO_DATE_RE.test(parsed.date)`, and all three
+  // keys below now die on the FIRST clause: `parseDailyKey` rejects `"no-pipe"`
+  // on its separator, and `"7|zzz"` / `"7|0000-00-00x"` on `KEY_DATE_RE`. So this
+  // test pins the first clause three times and the second not at all — and no
+  // input can reach the second clause by construction, since `KEY_DATE_RE` and
+  // this file's `ISO_DATE_RE` are byte-identical. The second clause is kept as
+  // deliberate defence-in-depth, not because anything here exercises it; see
+  // `withBoundedDaily`'s own docstring. Do not manufacture a fixture that
+  // "reaches" it — none exists, and one that appeared to would be a lie.
   it("drops unparseable and non-ISO keys during a trim without letting them set from", () => {
     const mixed: Record<string, typeof CELL> = { ...rollOf(OVER_DAYS), "no-pipe": { ...CELL }, "7|zzz": { ...CELL }, "7|0000-00-00x": { ...CELL } };
     expect(() =>

@@ -135,21 +135,55 @@ export function dailyKey(userId: number, date: string): string {
  *  the reconcile then compares those against a roll window with plain string
  *  comparison; a key like `"7|tomorrow"` orders against ISO dates arbitrarily
  *  and still reaches both bounds.
- *  ★★★ THIS IS A KEY RULE AND IS DELIBERATELY NOT THE WINDOW RULE that
- *  `timelog-actuals-store.ts` declares under the same shape, nor the one in
- *  `sanitize-core.ts`. They answer different questions — "is this key usable?"
- *  versus "is this stored window usable?" — and sharing one constant would
- *  couple two independent decisions. The store's own docstring argues the same
- *  split from the other side, explaining why validating keys is not its job.
+ *  ★★★ THIS IS A KEY RULE AND IS DELIBERATELY NOT A WINDOW RULE. The identical
+ *  `^\d{4}-\d{2}-\d{2}$` shape is declared in several other modules — the
+ *  nearest being the one `timelog-actuals-store.ts` gates its `dailyWindow` on —
+ *  and each answers a DIFFERENT question: "is this key usable?" versus "is this
+ *  stored window usable?" versus whatever its own caller is asking. Sharing one
+ *  constant across them would couple decisions that are free to move apart. The
+ *  store's own docstring argues the same split from the other side, explaining
+ *  why validating keys is not its job.
+ *  ★★ NO FILE LIST AND NO COUNT IS QUOTED, deliberately: an earlier revision
+ *  named one arbitrary sibling as if it were the whole set, which was stale the
+ *  moment another landed. Enumerate today's with
+ *  `grep -rn "d{4}-.d{2}-.d{2}" src --include=*.ts --include=*.tsx | grep -v "\.test\."`
+ *  — the hits include unanchored variants and this docstring itself.
  *  See open-followups §367. */
 const KEY_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** The userId half. `dailyKey` is `${userId}|${date}` over a `number`, so the
+ *  only heads it can produce are optionally signed digit strings.
+ *  ★★ `-?` IS LOAD-BEARING. `dailyKey(-7, d)` genuinely emits `"-7|…"`, so a
+ *  bare `/^\d+$/` would start rejecting a key the app's own writer can make.
+ *  With the sign, this still rejects everything `Number()` would have coerced
+ *  and `dailyKey` cannot emit: `"0x10"` (→16), `"1e3"` (→1000), `"+7"` (→7),
+ *  and — the one §367 is named for — a whitespace-PADDED head, since `Number()`
+ *  strips leading and trailing whitespace before parsing. */
+const KEY_USER_RE = /^-?\d+$/;
+
+/** ★★★ THE TWO GUARDS BELOW CLOSE ONE HOLE TOGETHER AND NEITHER DOES ALONE — do
+ *  not delete `Number.isInteger` on the grounds that the regex "already
+ *  validates" the head. `KEY_USER_RE` admits a 600,000-DIGIT head quite happily;
+ *  `Number()` of that is `Infinity`, and only `Number.isInteger` rejects it.
+ *  Conversely the integer check alone admits a 600,000-SPACE PAD, because
+ *  `Number()` strips leading and trailing whitespace: a padded `"       7"`
+ *  reads as a clean `7`, and a head that is nothing BUT whitespace reads as `0`.
+ *  With BOTH, a key caps at 309 digits (`Number` of 310 is `Infinity` —
+ *  measured, since `MAX_VALUE` is 1.797e308 and the boundary depends on the
+ *  leading digit) plus `|` plus the 10 characters `KEY_DATE_RE` allows, so about
+ *  320 — one cell can no longer exceed `MAX_DAILY_ROLL_CHARS` on its own, which
+ *  is the oversized-cell shape open-followups §367 is named for.
+ *  ★ SHAPE BEFORE COERCION: both halves are tested against their rule before
+ *  `Number()` is called, so a coercion this function does not want cannot
+ *  happen at all rather than being unpicked afterwards. */
 export function parseDailyKey(key: string): { userId: number; date: string } | null {
   const i = key.indexOf("|");
   if (i <= 0) return null;
-  const userId = Number(key.slice(0, i));
+  const head = key.slice(0, i);
   const date = key.slice(i + 1);
-  if (!Number.isInteger(userId) || !KEY_DATE_RE.test(date)) return null;
+  if (!KEY_USER_RE.test(head) || !KEY_DATE_RE.test(date)) return null;
+  const userId = Number(head);
+  if (!Number.isInteger(userId)) return null;
   return { userId, date };
 }
 

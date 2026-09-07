@@ -530,7 +530,13 @@ describe("evaluateTimelogPolicy", () => {
   // is how a test can express what the type forbids — that is the whole point.
   // ★★ The VALID cell beside the malformed one is load-bearing: without it a
   // guard that skipped the whole ROLL (or returned EMPTY) would pass too.
-  it("skips a malformed cell and still evaluates the valid one beside it", () => {
+  // ★★★ THIS TEST USED TO ASSERT `evaluated` HELD THE RULE, and that was the
+  // unsafe half: a skipped cell now costs the rule its authority to certify a
+  // clean, so the rule is WITHHELD from `evaluated` and its accumulated
+  // violations go with it. The cell-level skip itself is unchanged and is what
+  // this fixture still proves — user 9's ARRAY cell and user 7's `null` cell
+  // are rejected without throwing, which is why the loop reaches user 8 at all.
+  it("skips a malformed cell without throwing and withholds the rule", () => {
     const daily = {
       [dailyKey(7, TUE)]: null,
       [dailyKey(9, TUE)]: [12, 12, 1],
@@ -542,13 +548,8 @@ describe("evaluateTimelogPolicy", () => {
       holidaySet: NO_HOLIDAYS, holidaysReady: true,
       userLinks: [], shifts: [],
     });
-    expect(res.evaluated).toEqual(["timelogCapPerDay"]);
-    // User 8 only: 7 is `null` and 9 is an ARRAY — `Array.isArray` rejects the
-    // latter even though its indices would not have thrown, which is the
-    // difference between a shape check and a null check.
-    expect(res.violations).toEqual([
-      { rule: "timelogCapPerDay", timelogUserId: 8, resourceId: null, count: 1, worstHours: 12, threshold: 8, firstViolationDate: TUE, lastViolationDate: TUE },
-    ]);
+    expect(res.evaluated).toEqual([]);
+    expect(res.violations).toEqual([]);
   });
 
   it("does not throw when every cell in the roll is malformed", () => {
@@ -559,10 +560,12 @@ describe("evaluateTimelogPolicy", () => {
       holidaySet: NO_HOLIDAYS, holidaysReady: true,
       userLinks: [], shifts: [],
     });
-    // Still EVALUATED: the rule could have produced a true answer, and did —
-    // "no violations". Only an unreadable INPUT darkens a rule, not unreadable
-    // data within one.
-    expect(res.evaluated).toEqual(["timelogCapPerDay"]);
+    // ★★★ WITHHELD, and this assertion used to read `["timelogCapPerDay"]` under
+    // the doctrine "only an unreadable INPUT darkens a rule, not unreadable data
+    // within one". That doctrine was wrong in the unrecoverable direction: a
+    // rule that skipped every cell in the roll certified itself evaluated, and
+    // `reconcileInsights` reads membership of `evaluated` as licence to CLEAR.
+    expect(res.evaluated).toEqual([]);
     expect(res.violations).toEqual([]);
   });
 
@@ -574,21 +577,61 @@ describe("evaluateTimelogPolicy", () => {
   // downstream window comparison in the reconcile then fails against that bound
   // and the insight FREEZES — the safe direction, which is why this was filed
   // as a latent shape rather than a live defect.
+  // ★★ THE ASSERTION MOVED UP A LAYER. It used to check that the surviving
+  // violation's bounds excluded the malformed day; a rejected key now costs the
+  // whole rule its evaluation, so there is no surviving violation to inspect and
+  // the guarantee is strictly stronger — nothing about "tomorrow" reaches any
+  // consumer, and the rule freezes rather than certifying a clean.
   // ★ The malformed cell books 99h, far above the 8h threshold, so if it were
   // still admitted it could only show up as a violation — never as an innocent
   // day that happens not to breach.
-  it("keeps a malformed-date cell out of the violation bounds", () => {
+  it("withholds the rule when a malformed-date key is skipped", () => {
     const res = evaluateTimelogPolicy({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1], "7|tomorrow": [99, 99, 1] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [link(7, 1)], shifts: [],
     });
-    const v = res.violations.find((x) => x.rule === "timelogCapPerDay");
-    expect(v).toBeDefined();
-    expect(v!.firstViolationDate).toBe(TUE);
-    expect(v!.lastViolationDate).toBe(TUE);
-    expect(v!.worstHours).toBe(12);
-    expect(v!.count).toBe(1);
+    expect(res.evaluated).toEqual([]);
+    expect(res.violations).toEqual([]);
+  });
+
+  // ★★★ THE ANTI-VACUITY CONTROL FOR EVERY WITHHELD-RULE TEST ABOVE. Each of
+  // them asserts an EMPTY `evaluated`, and an empty set is exactly what a
+  // `skipped` flag stuck permanently true would also produce — so without a
+  // fixture that skips NOTHING, the whole group passes against a guard that
+  // darkens every rule unconditionally and the feature is dead.
+  // ★ Same 12h-over-8h breach as the fixtures above, so a green here is the
+  // rule working, not the booking being innocent.
+  it("evaluates the rule and reports its violation when no cell is skipped", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
+      policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [link(7, 1)], shifts: [],
+    });
+    expect(res.evaluated).toEqual(["timelogCapPerDay"]);
+    expect(res.violations).toEqual([
+      { rule: "timelogCapPerDay", timelogUserId: 7, resourceId: 1, count: 1, worstHours: 12, threshold: 8, firstViolationDate: TUE, lastViolationDate: TUE },
+    ]);
+  });
+
+  // ★★★ THE SKIP IS PER-ROLL, NOT PER-RULE, and that is deliberate rather than a
+  // shortcut: a cell that could not be read might have violated ANY of the four
+  // rules, so none of them can honestly answer "no violation" for the person
+  // that cell belonged to. Pinned with three rules enabled at once so a
+  // per-rule `skipped` — which would leave the two rules the cell could not have
+  // reached still certifying — turns this red.
+  it("withholds EVERY enabled rule when one cell is skipped", () => {
+    const res = evaluateTimelogPolicy({
+      daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1], "no-pipe": [99, 99, 1] }),
+      policy: {
+        timelogCapPerEntry: { enabled: true, threshold: 8 },
+        timelogCapPerDay: { enabled: true, threshold: 8 },
+        timelogNonWorkingDay: { enabled: true },
+      },
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, userLinks: [link(7, 1)], shifts: [],
+    });
+    expect(res.evaluated).toEqual([]);
+    expect(res.violations).toEqual([]);
   });
 });
 
