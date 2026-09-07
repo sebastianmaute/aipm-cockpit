@@ -76,38 +76,32 @@ export function useReportsArrangement({
    * effect, and StrictMode double-invokes a lazy initialiser besides. The
    * setting is simply left where it is; nothing reads it after this.
    *
-   * ★★★ "ONE-TIME" IS A PROPERTY OF STORAGE, NOT OF THIS FUNCTION, AND THE GAP
-   * IS REAL. The marker is that `loadArrangement` returned something USABLE for
-   * this project, and it cannot distinguish a MISSING key from a REJECTED one —
-   * `use-arrangement.ts` reads `stored ?? seed?.() ?? null`. So a blob written
-   * by a future `v: 2` build, or a hand-corrupted one, re-runs this migration.
-   * ★★ IT IS WORSE HERE THAN ON THE DASHBOARD, AND THAT IS TODAY'S BEHAVIOUR.
-   * The Dashboard reverts to a DEFAULT — a whole arrangement, which a user
-   * notices and can attribute. Reports reverts to a STALE SETTING, frozen at
-   * whatever `settings.reports.extra` held when the panel stopped writing it,
-   * losing exactly the reports the user had restored from the shelf — which
-   * reads as the app quietly forgetting a few choices rather than as a reset.
-   * ★★★ PRESENT TENSE, NOT A FUTURE RISK, and this block asserted the opposite
-   * for as long as it took the binding to land on the same branch: it read
-   * "TODAY THE GAP IS MILDER, because `reports.tsx` still WRITES
-   * `settings.reports.extra` … It becomes the described failure at the moment
-   * Task 12 stops writing the field." It stopped. There is no milder reading
-   * left. `docs/open-followups.md` §427 carries the severity and the two
-   * candidate fixes; NOTHING is closed here, and closing it is a structural
-   * decision rather than a docstring edit.
-   * Pinned either way by `use-reports-arrangement.test.tsx`'s "RE-RUNS the seed
-   * when the stored blob is REJECTED", so the behaviour is recorded rather than
-   * assumed.
-   *
-   * ★★ TWO WAYS TO CLOSE IT, AND THE CHEAPER ONE IS NOT THE OBVIOUS ONE. A
-   * second marker key is new storage surface for a case `arrangement-store.ts`
-   * already accepts losing, and it would close this gap only. The cheaper fix is
-   * one layer down: `loadArrangement` collapses MISSING and REJECTED into a
-   * single `null`, and it KNOWS which case it is at that boundary. Distinguishing
-   * them there would let `use-arrangement.ts` offer the seed on MISSING alone —
-   * zero new storage surface, and it would close the Dashboard's accepted
-   * downgrade trade at the same time. Neither call is made here; recorded so the
-   * marker key does not become the only remembered option.
+   * ★★★ "ONE-TIME" IS A PROPERTY OF STORAGE, NOT OF THIS FUNCTION — AND THE GAP
+   * THAT USED TO FOLLOW FROM THAT IS NOW CLOSED (open-followups §427). The
+   * marker is that the read returned something USABLE for this project. It used
+   * to be unable to distinguish a MISSING key from a REJECTED one, because
+   * `loadArrangement` collapsed both into `null` and `use-arrangement.ts` read
+   * `stored ?? seed?.() ?? null` — so a blob written by a future `v: 2` build,
+   * or a hand-corrupted one, re-ran this migration.
+   * ★★ WHY THAT MATTERED MORE HERE THAN ON THE DASHBOARD, kept because it is
+   * the reason the fix was worth making rather than accepting: the Dashboard
+   * reverts to a DEFAULT — a whole arrangement, which a user notices and can
+   * attribute. Reports reverted to a STALE SETTING, frozen at whatever
+   * `settings.reports.extra` held when the panel stopped writing it, losing
+   * exactly the reports the user had restored from the shelf — which reads as
+   * the app quietly forgetting a few choices rather than as a reset.
+   * ★★ THE FIX IS THE CHEAPER OF THE TWO THIS BLOCK USED TO LIST, and it is one
+   * layer down rather than a second marker key here: `readArrangement`
+   * (`arrangement-store.ts`) reports `missing` | `rejected` | `ok`, and
+   * `useArrangement` offers the seed on `missing` ALONE. Zero new storage
+   * surface, and it closed the Dashboard's accepted downgrade trade at the same
+   * time. A rejected blob now falls through to the surface's own fallback.
+   * ★ A marker key here would have closed this gap only, and is still the wrong
+   * option — recorded so it does not get re-derived as the obvious one.
+   * Pinned by `use-reports-arrangement.test.tsx`'s "does NOT re-run the seed
+   * when the stored blob is REJECTED" and its "DOES run the seed when nothing is
+   * stored" sibling; the pair is mutation-proved (relaxing the `missing` test to
+   * `!== "ok"` turns exactly those two red).
    *
    * ★ The result is reconciled like any stored blob, so a stale or malformed
    * setting cannot corrupt the board: this names only addable ids, so every

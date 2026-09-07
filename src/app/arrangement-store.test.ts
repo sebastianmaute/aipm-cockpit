@@ -3,6 +3,7 @@ import {
   MAX_PROJECTS,
   isArrangementLayout,
   loadArrangement,
+  readArrangement,
   saveArrangement,
 } from "./arrangement-store";
 import type { ArrangementLayout } from "./arrangement-layout";
@@ -100,5 +101,61 @@ describe("arrangement-store", () => {
       localStorage.setItem(KEY_A, JSON.stringify({ p1: blob }));
       expect(loadArrangement(KEY_A, "p1"), label).toBeNull();
     }
+  });
+});
+
+/**
+ * ★★★ THE REASON A READ FAILED, WHICH `loadArrangement` DELIBERATELY DISCARDS.
+ * Both a missing key and a rejected blob are `null` there, and callers that only
+ * want a layout are right not to care. `useArrangement` is not one of them: it
+ * offers a legacy-preference SEED when the read yields nothing, and offering it
+ * on a REJECTED blob silently reverts a user who downgraded from a future build
+ * (open-followups §427). This is the boundary that knows the difference, so this
+ * is where it is reported.
+ *
+ * ★★ `loadArrangement` is now a THIN WRAPPER over this, deliberately: the
+ * predicate exists once, so the two entry points cannot drift into disagreeing
+ * about what "usable" means. The tests above still exercise the wrapper, which
+ * is what keeps that equivalence honest.
+ */
+describe("readArrangement — missing vs rejected", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("reports a stored layout as ok, with the layout attached", () => {
+    saveArrangement(KEY_A, "p1", L);
+    expect(readArrangement(KEY_A, "p1")).toEqual({ status: "ok", layout: L });
+  });
+
+  it("reports an absent project as missing", () => {
+    saveArrangement(KEY_A, "p1", L);
+    expect(readArrangement(KEY_A, "p2")).toEqual({ status: "missing" });
+  });
+
+  it("reports an absent KEY as missing, not rejected", () => {
+    expect(readArrangement(KEY_B, "p1")).toEqual({ status: "missing" });
+  });
+
+  // ★ A corrupt map is not a corrupt ENTRY: nothing is stored for this project,
+  // so a seed is the right thing to offer and this must read MISSING.
+  it("reports an unparseable map as missing", () => {
+    localStorage.setItem(KEY_A, "{not json");
+    expect(readArrangement(KEY_A, "p1")).toEqual({ status: "missing" });
+  });
+
+  // ★★ THE ROW THAT CARRIES §427: every one of these is PRESENT and unusable,
+  // which is exactly the case that must NOT reach a legacy seed. The
+  // `v: 9` row is the realistic one — a downgrade from a future build.
+  it("reports every hostile stored entry as rejected, never missing", () => {
+    for (const [label, blob] of HOSTILE) {
+      localStorage.setItem(KEY_A, JSON.stringify({ p1: blob }));
+      expect(readArrangement(KEY_A, "p1"), label).toEqual({ status: "rejected" });
+    }
+  });
+
+  // ★ A JSON null is a present entry too, and it is what a NaN span serialises
+  // to — so it must be rejected rather than read as nothing stored.
+  it("reports a null entry as rejected", () => {
+    localStorage.setItem(KEY_A, JSON.stringify({ p1: null }));
+    expect(readArrangement(KEY_A, "p1")).toEqual({ status: "rejected" });
   });
 });

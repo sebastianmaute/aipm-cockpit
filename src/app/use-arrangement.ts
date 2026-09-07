@@ -4,7 +4,7 @@ import {
   hideBlock, moveBlock, reconcile, resizeBlock, restoreBlock,
   type ArrangementLayout, type BlockSpec,
 } from "./arrangement-layout";
-import { loadArrangement, saveArrangement } from "./arrangement-store";
+import { readArrangement, saveArrangement, type ArrangementRead } from "./arrangement-store";
 
 /** Debounce before writing to localStorage, so a drag that reflows repeatedly
  *  does not write on every frame.
@@ -85,25 +85,31 @@ export interface ArrangementOptions<Id extends string> {
    */
   readOnly?: boolean;
   /**
-   * ★ Optional seed, consulted when storage holds nothing USABLE for this
-   * project. A surface supplies it to carry a pre-existing preference forward —
-   * Reports builds one from `settings.reports.extra`, putting every addable
-   * report absent from that list into `hidden`; the Dashboard passes nothing. It
-   * is reconciled like any stored blob, so a stale or malformed seed cannot
+   * ★ Optional seed, consulted when NOTHING IS STORED for this project. A
+   * surface supplies it to carry a pre-existing preference forward — Reports
+   * builds one from `settings.reports.extra`, putting every addable report
+   * absent from that list into `hidden`; the Dashboard passes nothing. It is
+   * reconciled like any stored blob, so a stale or malformed seed cannot
    * corrupt the board.
    *
-   * ★★★ "NOTHING USABLE" IS MORE THAN A MISSING KEY, and an earlier revision of
-   * this line said "ONLY when storage holds nothing for this project", which is
-   * measurably false. `loadArrangement` returns `null` for a missing key and for
-   * a blob `isArrangementLayout` REJECTS alike — it cannot distinguish them —
-   * and `readLayout`'s `stored ?? seed?.() ?? null` therefore reaches the seed in
-   * both. Pinned by "runs the seed when the stored blob is REJECTED".
-   * ★★ THE CONSEQUENCE IS A DOWNGRADE ROUND TRIP, compounding the one
-   * `arrangement-store.ts` already documents: a user on a future `v: 2` build who
-   * downgrades has their blob rejected, so a legacy-preference seed runs AGAIN
-   * and silently reverts them to the migrated legacy layout — and the next
-   * mutation writes `v: 1` over the `v: 2` blob. A seed that must not do that has
-   * to carry its own marker rather than lean on this `??`.
+   * ★★★ "NOTHING STORED" IS NARROWER THAN "NOTHING USABLE", AND THAT IS THE
+   * FIX FOR open-followups §427. This block used to record the opposite as a
+   * measured fact, and it was one: `loadArrangement` returned `null` for a
+   * missing key and for a REJECTED blob alike, so `readLayout`'s
+   * `stored ?? seed?.() ?? null` reached the seed in both. The read now
+   * carries its reason (`readArrangement` → `missing` | `rejected` | `ok`),
+   * and the seed is offered on `missing` ALONE.
+   * ★★ WHAT THAT BUYS is the downgrade round trip, which used to compound the
+   * one `arrangement-store.ts` documents: a user on a future `v: 2` build who
+   * downgrades has their blob REJECTED, and a legacy-preference seed then ran
+   * AGAIN and silently reverted them to the migrated legacy layout. It now
+   * falls through to the surface's own `fallback` — still a reset, but the
+   * visible whole-board one the Dashboard always had, not a quiet partial
+   * revert to a setting nothing writes any more. Pinned by `use-arrangement`
+   * — "does NOT run the seed when the stored blob is REJECTED".
+   * ★ The `v: 1`-over-`v: 2` overwrite on the next mutation is UNCHANGED and
+   * still accepted — see that file's own downgrade block. Only the seed half
+   * moved.
    *
    * ★★★ IT RUNS DURING RENDER, SO IT MUST BE PURE. Both `readLayout` call sites
    * are the lazy `useState` initialiser and the render-body project-switch
@@ -118,7 +124,8 @@ export interface ArrangementOptions<Id extends string> {
    * difference is visible: `readLayout` consults the seed on BOTH reads, so a
    * project the user switches INTO with nothing stored is seeded too. What makes
    * it run once PER PROJECT is that the first mutation writes the key, after
-   * which `loadArrangement` wins the `??`. Measured call counts: 1 on mount, 1
+   * which the read reports `ok` and the seed is never consulted. Measured call
+   * counts: 1 on mount, 1
    * still after a same-project re-render, 2 after a project switch — once per
    * READ, never per render, pinned by "consults the seed once per READ". A seed
    * that must run at most once globally has to carry that condition itself.
@@ -163,7 +170,7 @@ export interface ArrangementOptions<Id extends string> {
  * ★★★ THERE IS A SECOND STORAGE READ AND IT IS IN THE **RENDER BODY** — this
  * paragraph used to end "a lazy initialiser is the one shape that satisfies both
  * that rule and the purity rule", which the project-switch reconcile below
- * falsifies: it calls `readLayout(projectId)` → `loadArrangement` →
+ * falsifies: it calls `readLayout(projectId)` → `readArrangement` →
  * `localStorage` straight from render. That is ACCEPTED here, deliberately, and
  * the argument is not "no gate complains" — `eslint-plugin-react-hooks` (7.1.1
  * here; check with
@@ -240,7 +247,7 @@ export function useArrangement<Id extends string>({
    * `reconcile` is what makes the narrowing true, because it drops every id the
    * catalogue does not know. So the cast must stay on THIS side of `reconcile`,
    * never be pushed into the store.
-   * ★★★ `loadArrangement` MUST STAY THE READ PATH. It is what applies
+   * ★★★ `readArrangement` MUST STAY THE READ PATH. It is what applies
    * `isArrangementLayout`, and `reconcile` validates nothing (its own ★★★
    * precondition block says so): a hand-edited blob reaches it as `board: null`
    * or `board: [null]` and THROWS. Both call sites here are a lazy `useState`
@@ -249,8 +256,18 @@ export function useArrangement<Id extends string>({
    */
   const readLayout = (pid: string): ArrangementLayout<Id> => {
     if (typeof window === "undefined") return fallback;
-    const stored = loadArrangement(storageKey, pid) as ArrangementLayout<Id> | null;
-    return reconcile(catalogue, stored ?? seed?.() ?? null, fallback);
+    // ★★★ THE SEED IS OFFERED ON `missing` ALONE, AND THAT IS THE WHOLE FIX FOR
+    // open-followups §427. This used to be `stored ?? seed?.() ?? null` over a
+    // `loadArrangement` that returned `null` for BOTH an absent entry and a
+    // rejected one, so a blob this build cannot read — a future `v`, a truncated
+    // write — re-ran the surface's legacy-preference seed and silently reverted
+    // the user. A `rejected` read now falls through to `fallback`, which is the
+    // surface's own default: the same thing the Dashboard already did, and a
+    // visible reset rather than a quiet partial one.
+    const read = readArrangement(storageKey, pid) as ArrangementRead<Id>;
+    const stored = read.status === "ok" ? read.layout : null;
+    const seeded = read.status === "missing" ? (seed?.() ?? null) : null;
+    return reconcile(catalogue, stored ?? seeded, fallback);
   };
 
   // ★★ `dirty` IS STATE, NOT A REF, and it lives INSIDE this object rather than

@@ -651,7 +651,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | closed 2026-09-07 |
 | [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
-| [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--open) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | open |
+| [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | closed 2026-09-07 |
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
 <!-- INDEX:END -->
 
@@ -31337,17 +31337,31 @@ of the seven floored blocks and of one `h: 4` embedded report is reproducible, r
 can be re-run by the next person, where "it looked fine" cannot. That is not a substitute for the
 print check, which still needs eyes.
 
-## 427. The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting — OPEN
+## 427. The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting — CLOSED 2026-09-07
 
 
-**Status:** open, recorded 2026-09-07. Verified by two commands actually run:
-`grep -n "stored ?? seed" src/app/use-arrangement.ts` (the seed is offered whenever the store
-returns `null`) and `grep -c "onChangeExtraReports(" src/app/reports.tsx` → **0**, which is the fact
-that changed the severity — the panel declares that prop and never calls it. ★ The BEHAVIOUR is
-already pinned by `use-reports-arrangement.test.tsx`'s "RE-RUNS the seed when the stored blob is
-REJECTED", so this entry records a known, tested behaviour whose CONSEQUENCE got worse, not a
-suspected bug. (The extension is `.tsx`, not `.ts` — the source docstring's own reference omits it
-and a `grep` for the `.ts` spelling returns "No such file".)
+**Status:** CLOSED 2026-09-07 by the cheaper of the two fixes this entry described — the one it
+warned must not be forgotten in favour of a marker key. `readArrangement` (`arrangement-store.ts`)
+now returns `{ status: "ok" | "missing" | "rejected" }`, and `useArrangement` offers the seed on
+`missing` ALONE; a rejected blob falls through to the surface's own fallback. `loadArrangement`
+is now a thin wrapper over it, so the "is this usable" predicate exists once and the two entry
+points cannot drift. Zero new storage surface, and the Dashboard's accepted downgrade trade is
+closed by the same change.
+
+**Verified by mutation, not asserted.** The two tests that used to pin the DEFECT were inverted
+(`use-arrangement.test.tsx` "does NOT run the seed when the stored blob is REJECTED";
+`use-reports-arrangement.test.tsx` "does NOT re-run the seed when the stored blob is REJECTED"),
+each gained a `DOES run … when nothing is stored` sibling so the seed cannot be silently switched
+off wholesale, and each pins the DISCRIMINATOR itself (`readArrangement(...) === { status: "rejected" }`)
+because reporting `missing` there is the one wrong answer that would reintroduce this. Relaxing the
+guard to `read.status !== "ok"` — i.e. restoring the old behaviour — turns exactly those two red:
+**2 failed / 41 passed (43)**, the sum matching the two files' runtime counts (28 + 15).
+`arrangement-store.test.ts` covers the boundary directly (14 passed), including that an unparseable
+map reads MISSING while a present-but-hostile entry reads REJECTED.
+
+★ The source docstrings in `use-arrangement.ts` and `use-reports-arrangement.ts` were corrected in
+the same commit — both asserted the conflation as present-tense fact, and the second was the
+tense-flip this entry was opened to record.
 
 **The gap.** `useReportsArrangement` carries a one-time migration off `settings.reports.extra`. Its
 "one-time" marker is that `loadArrangement` returned something USABLE for this project —
