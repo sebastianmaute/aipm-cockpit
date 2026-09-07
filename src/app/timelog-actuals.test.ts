@@ -180,7 +180,16 @@ describe("aggregateActuals", () => {
     );
     expect(out.unattributed).toEqual({ hours: 11, billableHours: 11 });
     expect(out.undated).toEqual({ hours: 3, billableHours: 3 });
-    // Subset, stated as arithmetic so a future widening cannot pass by luck.
+    // ★ A FIXTURE PROPERTY, NOT THE INVARIANT — this line claimed to state the
+    // subset "as arithmetic" and cannot. Subset-by-ROW does not imply the
+    // inequality once hours can be negative, and this very commit relies on
+    // negatives being real: undated +10 against a link-broken -20 gives
+    // undated.hours > unattributed.hours with the subset perfectly intact. It
+    // earns its place by killing the realistic mutant (widening the inner
+    // predicate breaks this AND the two toEqual assertions above), not by
+    // expressing the invariant. The invariant is structural: `!dated` is a
+    // disjunct of the outer condition, so nothing can reach `undated` without
+    // having been added to `unattributed` first.
     expect(out.undated!.hours).toBeLessThan(out.unattributed.hours);
   });
 

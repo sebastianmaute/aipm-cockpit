@@ -31873,9 +31873,25 @@ remain. Without the extra term the whole notice suppresses and the new line is u
 precisely the case it exists for. Gating either new string on `unattributed` instead of `undated`
 dies (1 failed / 13 passed of 14, and 1 failed / 69 passed of 70).
 
-★ Both new keys are read defensively (`typeof … === "number" && Number.isFinite`), because the field
-is OPTIONAL and a cache entry written before it existed simply has no key. Absent ⇒ 0 ⇒ the extra
-line stays away, which is the honest reading: such an entry cannot tell us either way.
+★★ THE TWO SURFACES READ THE FIELD DIFFERENTLY, and this entry claimed they did not. It said "both
+new keys are read defensively (`typeof … === "number" && Number.isFinite`)"; that is true of
+`budget-unapplied-notice.tsx` ALONE. `timelog-panel.tsx` reads `syncAggregates?.undated ?? { hours:
+0, billableHours: 0 }` and gates on `.hours > 0`, with no finite check anywhere. Benign in effect —
+`NaN > 0` is false and that string takes no placeholder, so no NaN can be printed — but the reason
+the two are safe is DIFFERENT on each surface, and a reader who believes the old sentence will
+assume one mechanism guards both.
+
+★ What IS true of both: the field is OPTIONAL, so a cache entry written before it existed has no
+key, which reads as 0 and keeps the extra line away. That is the honest reading — such an entry
+cannot tell us either way.
+
+★★ THE GATES ALSO DIFFER, and the case they diverge on is the one this entry turns on: the notice
+tests `undated !== 0` while the panel tests `undated.hours > 0`. With net-NEGATIVE undated hours the
+notice opens and offers "Go to Time bookings", and the panel then shows NEITHER hint, because its
+`unattributed.hours > 0` is false too when the total nets to zero — reproducing the circle §432
+exists to break, by way of the guard added to prevent it. The split is inherited (`unattributed` has
+the same one) and is left as is rather than widened in a release round; recorded here because the
+justification for the early-return term rests precisely on the negative case.
 
 ## 433. A phantom period key made an empty allocation read as populated — CLOSED 2026-09-07
 
@@ -31905,9 +31921,29 @@ hours that do not exist.
 value-based, because a cell with no non-zero hours is nothing to lose, which is what the warning
 actually asks. Reverting it to `Object.keys(...).length > 0` dies (1 failed / 31 passed of 32).
 
-★★ `budgetHours` KEEPS THE KEY COUNT, deliberately, and the asymmetry is the point rather than an
-oversight: it is user-entered and cannot acquire a phantom key, while `actualHours` is
-machine-written from fetched data. Do not "make them consistent".
+★★★ `budgetHours` KEEPS THE KEY COUNT, and the reason is WHICH WRITERS EACH FIELD HAS — not
+"user-entered versus machine-written", which is what this entry and the code comment both said
+until a cold review refuted them on 2026-09-07. `actualHours` is BOTH: apply writes it, and a user
+types into the same period cells (`budget-panel.tsx` wires `onActual` → `setCell(..., "actualHours",
+v)`), which `timelog-apply.ts` states in its own words — "`actualHours` is a user-editable input".
+What actually separates them is that `budgetHours` has ONE writer, always keyed by a generated
+`p.key`, so it cannot acquire a phantom key; `actualHours` has the extra machine writer that could.
+The asymmetry is right and its stated reason was wrong — do not "make them consistent".
+
+★★ THE TRADE, so it is not rediscovered as a bug: asking for a non-zero VALUE fixes the phantom-key
+false positive and buys a false NEGATIVE on a cell a user explicitly typed `0` into, which now
+switches planning mode with no confirmation where the key count warned. Accepted because the value
+lost is a zero, the next apply overwrites a typed `0` regardless, and the warning promises to
+discard "the hours entered per role". NOTHING PINS EITHER DIRECTION — `budget-bucket-modal.test.tsx`
+has no `{"2026-01": 0}`-alone case, so a future change here is unguarded.
+
+★★ REACHABILITY IS BACKEND-DEPENDENT, which anyone trying to reproduce this needs and neither the
+entry nor the code said. `coercePeriodMap` filters on `PERIOD_KEY_RE` (`sanitize-entities.ts`), and
+all three phantom keys fail it while real ones pass — so the JSON, CSV, Markdown, Turso and template
+load paths all strip them. `browser-backend.ts` assigns `budgets` from IndexedDB with no sanitize,
+so IndexedDB is where they DURABLY survive a reload; everywhere else the window is
+same-session-after-Apply-before-reload. That supports the fix rather than undermining it — the state
+is reachable — but a probe on the wrong backend will find nothing and conclude wrongly.
 
 ★ The junk keys already in workspaces stay where they are, inert. If a future slice does want them
 gone, the constraint from this entry stands: count what you remove and show it — a load path that

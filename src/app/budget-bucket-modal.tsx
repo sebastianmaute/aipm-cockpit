@@ -135,16 +135,29 @@ export function BudgetBucketModal({
     }));
 
   const isBlended = draft.planningMode === "blended";
-  // ★★ THE TWO HALVES ARE ASYMMETRIC ON PURPOSE (§433). `budgetHours` is
-  // USER-ENTERED through the period cells, so a key exists only because someone
-  // typed in that cell — a key count is the right question and an explicitly
-  // zeroed cell is still their work. `actualHours` is MACHINE-WRITTEN from
-  // fetched TimeLog data, and before `aggregateActuals` guarded the booking date
-  // it minted phantom period keys ("", "05/01/2", "NaN-WNaN") that apply then
-  // persisted. Those keys are still in existing workspaces, so a key count reads
-  // an EMPTY allocation as populated and the planning-mode switch warns about
-  // losing hours that do not exist. Asking for a non-zero VALUE is exactly the
-  // question: a cell with no hours is nothing to lose.
+  // ★★ THE TWO HALVES ARE ASYMMETRIC ON PURPOSE (§433), and the reason is which
+  // writers each field has — NOT "user-entered versus machine-written", which is
+  // what this comment said until a cold review refuted it. `actualHours` is
+  // BOTH: apply writes it (`writeAllocations`), and a user types into the very
+  // same period cells (`budget-panel.tsx` wires `onActual` → `setCell(...,
+  // "actualHours", v)`), which `timelog-apply.ts` states in its own words —
+  // "`actualHours` is a user-editable input".
+  // `budgetHours` has ONE writer, `setCell`/`setDisciplineCell`, always keyed by
+  // a GENERATED `p.key`, so it cannot acquire a phantom key and a key count is
+  // the right question there — an explicitly zeroed cell is still someone's
+  // work. `actualHours` has the extra machine writer, and before
+  // `aggregateActuals` guarded the booking date that writer minted phantom keys
+  // ("", "05/01/2", "NaN-WNaN") which apply then persisted. Those are still in
+  // existing workspaces, so a key count reads an EMPTY allocation as populated
+  // and the planning-mode switch warns about losing hours that do not exist.
+  // ★★ THE TRADE, STATED SO IT IS NOT REDISCOVERED AS A BUG: asking for a
+  // non-zero VALUE fixes the phantom-key false positive and buys a false
+  // NEGATIVE on a cell a user explicitly typed `0` into — that one now switches
+  // mode without a confirmation where the key count warned. Judged acceptable
+  // because the value lost is a zero, the next apply overwrites a typed `0`
+  // anyway, and the warning itself promises to discard "the hours entered per
+  // role". Nothing pins this either way; `budget-bucket-modal.test.tsx` has no
+  // `{"2026-01": 0}`-alone case.
   // ★ NO load-time migration and no rewrite of stored data — considered and
   // deliberately rejected. A phantom key is inert everywhere else (every numeric
   // reader sums by GENERATED period key, so it is never read), and this
