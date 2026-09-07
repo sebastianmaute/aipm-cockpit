@@ -702,7 +702,7 @@ export async function runTool(
       return d.listKnowledgeItems();
 
     case "list_calendar_events":
-      return d.listCalendarEvents();
+      return withRowTokens("calendarEvent", d.listCalendarEvents(), (id) => d.getCalendarEventRow(id));
 
     case "list_budget_buckets":
       return d.listBudgetBuckets();
@@ -851,8 +851,16 @@ export async function runTool(
       return { deleted: id };
     }
 
+    // ★★★ THE WRAP IS WHAT MAKES `update_absence` REACHABLE AT ALL, and its
+    // absence is not a missing optimisation but a DEAD WRITE PATH. There is no
+    // `get_absence` tool, and `AbsenceSummary` carries no token, so this list is
+    // the ONLY place a model can obtain one — and `requireToken` throws on
+    // absence. A lone `update_absence` is one write, so `shouldStage` returns
+    // false and nothing stamps it either: "move Ada's holiday to the 12th" —
+    // the common case — failed outright. Pinned by the `absence` ROUND_TRIP row
+    // in `chat-tools.test.ts`; see the list_calendar_events twin below.
     case "list_absences":
-      return d.listAbsences();
+      return withRowTokens("absence", d.listAbsences(), (id) => d.getAbsenceRow(id));
 
     case "create_absence":
       return d.createAbsence(input as AbsenceInput);
