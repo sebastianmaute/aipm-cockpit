@@ -171,7 +171,7 @@ const calendarEventFields = {
   sendInvitations: {
     type: "boolean" as const,
     description:
-      "If true, EMAILS every attendee an invitation. This is the one effect here that leaves the app — never set it without the user explicitly asking to send invites.",
+      "If true, marks the meeting to email every attendee an invitation. Nothing sends mail yet — the flag is stored and the Outlook push that acts on it is unbuilt — but it is the one field here whose effect will leave the app, so never set it without the user explicitly asking to send invites.",
   },
   recurrence: {
     type: "object" as const,

@@ -1004,10 +1004,20 @@ export function dropUnacceptedAbsenceFields<T extends object>(patch: T): T {
 
 /** Which model-supplied calendar-event fields survive the merge.
  *
- *  ★★★ `sendInvitations` IS DELIBERATELY PRESENT. It mails attendees — the one
- *   effect here that leaves the building — and the user's scope decision was to
- *   allow it and force any such call through the staged review card
- *   (`shouldStage`). Dropping it here would make that staging rule unreachable.
+ *  ★★★ `sendInvitations` IS DELIBERATELY PRESENT. Once the Outlook push lands it
+ *   would mail attendees — the one effect here that leaves the building — and the
+ *   user's scope decision was to allow the model to set it and force any such
+ *   call through the staged review card (`shouldStage`). Dropping it here would
+ *   make that staging rule unreachable.
+ *
+ *  ★★ PRESENT TENSE WOULD BE FALSE TODAY, and three comments across this slice
+ *   used it. The flag is persisted and INERT: no consumer outside the codecs,
+ *   this table, the tool schema and the review descriptor reads it, and the push
+ *   slice is unstarted (`calendar-event-modal.tsx` says the field stays on the
+ *   model with no UI). Reproduce with
+ *   `grep -rln sendInvitations src --include=*.ts --include=*.tsx | grep -v test`.
+ *   KEEP the staging rule regardless — it is cheap, it is correct the day the
+ *   push lands, and arming it later is the edit most likely to be forgotten.
  *
  *  ★★ `exceptions` is ABSENT on purpose: per-occurrence skip/move bookkeeping
  *   the UI writes when a user edits one instance. There is no phrasing a model

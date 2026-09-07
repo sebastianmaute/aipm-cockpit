@@ -63,6 +63,23 @@ type Weekday = (typeof WEEKDAYS)[number];
 // Mirrors ISO_DATE in calendar-event.ts (also not exported).
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Mirrors `isoDateOrUndefined` in calendar-event.ts, WHICH IS TWO LEGS, NOT
+ *  ONE. Both call sites below used to test `ISO_DATE` alone, so `"2026-13-01"`
+ *  — regex-shaped, unparseable — was treated as a valid date HERE while the
+ *  write rejects it. On `rangeSuffix` that meant `{until: "2026-13-01", count:
+ *  5}` printing "until 2026-13-01" against a write that stores "5 times": the
+ *  card naming a terminator the write discards, which is the false-claim shape
+ *  this module's header forbids.
+ *
+ *  ★★ HAND-COPIED RATHER THAN IMPORTED, deliberately and on this module's own
+ *   standing rule: a VALUE import from `calendar-event.ts` pulls in that
+ *   module's `./sanitize` barrel at runtime, which the header says this module
+ *   avoids. The differential tests against the REAL `sanitizeCalendarEvent` are
+ *   what keep the copy honest — that is the whole arrangement, not a shortcut. */
+function isValidIsoDate(v: string): boolean {
+  return ISO_DATE.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
+}
+
 const FREQ_UNIT: Readonly<Record<string, [string, string]>> = {
   daily: ["day", "days"],
   weekly: ["week", "weeks"],
@@ -123,7 +140,11 @@ function validWeekdays(raw: unknown): Weekday[] {
 // compute the write's day-of-month fallback, so this returns `undefined`
 // rather than a guess.
 function fallbackDayOfMonth(startDate: string | undefined): number | undefined {
-  return typeof startDate === "string" && ISO_DATE.test(startDate)
+  // ★ `isValidIsoDate`, not the bare regex: the write derives this fallback from
+  //  a start that has ALREADY been through `isoDateOrUndefined`, so a
+  //  regex-shaped but unparseable start reaches the write as no event at all.
+  //  "Omit, don't guess" is the honest answer here, not a day number.
+  return typeof startDate === "string" && isValidIsoDate(startDate)
     ? Number(startDate.slice(8, 10))
     : undefined;
 }
@@ -156,7 +177,11 @@ function validCount(v: unknown): number | undefined {
 // favour of `until`, and printing `until` could show one the write rejects
 // in favour of `count`. Both are false-claim shapes the header forbids.
 function rangeSuffix(r: { until?: unknown; count?: unknown }, startDate: string | undefined): string {
-  const until = typeof r.until === "string" && ISO_DATE.test(r.until) ? r.until : undefined;
+  // ★★ `isValidIsoDate`, not the bare regex. `sanitizeRecurrence` runs
+  //  `isoDateOrUndefined` here, so a regex-shaped but UNPARSEABLE `until`
+  //  ("2026-13-01") is known-rejected by the write and must fall through to
+  //  `count` — printing it named a terminator the write discards.
+  const until = typeof r.until === "string" && isValidIsoDate(r.until) ? r.until : undefined;
   if (until) {
     if (startDate === undefined) return "";
     if (until >= startDate) return ` until ${until}`;

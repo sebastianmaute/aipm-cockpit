@@ -636,7 +636,7 @@ export function describeEntityCalls(
         //  so seven of the eight descriptors want the default and must keep it.
         //  `sanitizeCalendarEvent` calls `isoDateOrUndefined` instead (regex +
         //  `Date.parse`, NO year bound, against the default's regex + 1900–2100
-        //  and NO calendar check), and the two disagree in BOTH directions:
+        //  and nothing else), and the two disagree in BOTH directions:
         //  `startDate: "2026-01-32"` previewed as an accepted change and then
         //  made the sanitizer return null, which `updateCalendarEvent` throws
         //  on — costing the WHOLE patch — while `"1899-12-31"` previewed as
@@ -718,6 +718,38 @@ export function describeEntityCalls(
         const def = defaultEnumFor(d.entity, f, effective);
         if (def === undefined || def === cur) continue;
         plan.updates.push({ entity: d.entity, field: f, before: cur, after: def });
+      }
+      // ★★★ SANITIZER-INDUCED CROSS-FIELD REWRITES. The enum block above is the
+      //  same idea one field at a time; this is the WHOLE-ROW case, which no
+      //  per-field entry can express. `sanitizeAbsence` SWAPS the date pair when
+      //  `endDate < startDate` rather than rejecting it, so
+      //  `update_absence({startDate})` past the stored `endDate` previewed ONE
+      //  change and wrote TWO, both different from what the card said.
+      //
+      //  ★★★ A REJECTION WOULD BE THE WRONG FIX, and it was the first option on
+      //   the table. The write SUCCEEDS — and the two REPLAYING consumers
+      //   (`chat-proposal-apply.ts`, `use-insight-recommendations.ts`) resend the
+      //   original tool input and never read this plan, so a "refused" card sits
+      //   in front of a write that lands: the §384 shape this module exists to
+      //   prevent, reintroduced by the fix. Disclosing the swap is the only
+      //   answer that is true for BOTH consumer kinds.
+      //
+      //  ★ `raw` is set to the corrected value too, so the REBUILDING consumer's
+      //   patch carries the already-ordered pair — which the sanitizer then
+      //   stores unchanged, i.e. the same row the replaying consumers produce.
+      const stored = d.crossFieldRewrite?.({ ...item, ...applied });
+      for (const [f, finalValue] of Object.entries(stored ?? {})) {
+        const before = str(item[f]);
+        const at = plan.updates.findIndex((u) => u.entity === d.entity && u.field === f);
+        if (at >= 0) {
+          // The swap can land a field back on its stored value, which must not
+          // render as a `before === after` row.
+          if (finalValue === before) plan.updates.splice(at, 1);
+          else plan.updates[at] = { ...plan.updates[at], after: finalValue, raw: finalValue };
+        } else if (finalValue !== before) {
+          plan.updates.push({ entity: d.entity, field: f, before, after: finalValue, raw: finalValue });
+        }
+        applied[f] = finalValue;
       }
       continue;
     }

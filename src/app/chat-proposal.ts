@@ -284,17 +284,29 @@ const DESTRUCTIVE_DOC_OPS: ReadonlySet<string> = new Set(["replaceAll"]);
  *
  *  ★★★ A PAYLOAD TEST, NOT A NAME TEST, and the precedent is `isDestructiveCall`
  *   above: the tool NAME cannot answer it, because the same tool is harmless
- *   without this one field. Sending an invitation is the only effect in the app
- *   that leaves the building and that the undo engine cannot reverse, so it is
- *   forced through the review card however few writes the turn carries.
+ *   without this one field. Sending an invitation would be the only effect in
+ *   the app that leaves the building and that the undo engine cannot reverse, so
+ *   it is forced through the review card however few writes the turn carries.
+ *
+ *  ★★ CONDITIONAL ON PURPOSE: NOTHING MAILS ANYONE TODAY. The flag is persisted
+ *   and inert — the Outlook push slice is unstarted — so a present-tense claim
+ *   here (which is what this said for a release) overstates what the gate is
+ *   currently protecting against. The rule STAYS: it costs one predicate, it is
+ *   correct the day the push lands, and arming it then is the edit most likely
+ *   to be forgotten. `CALENDAR_EVENT_FIELD_GUARDS` carries the same note and the
+ *   reproduce command.
  *
  *  ★★ NOT added to `DESTRUCTIVE_TOOLS`: that set drives the card's destructive
  *   LABELLING, and an invitation is not a deletion. Conflating them would
  *   mislabel the row.
  *
- *  ★ Malformed input must never throw and must never false-positive: `input` is
- *   model output, so `sendInvitations` may be absent, a string, or anything
- *   else — only a strict `=== true` counts. */
+ *  ★ Malformed input must never false-positive: `input` is model output, so
+ *   `sendInvitations` may be absent, a string, or anything else — only a strict
+ *   `=== true` counts.
+ *  ★ "Never throws" would be too strong: a `null` `input` throws on the property
+ *   read. Unreachable through the API, which builds `ProposedCall.input` from a
+ *   tool_use block — the same exposure `isDestructiveCall` above carries — so
+ *   this is a wording correction, not a missing guard. */
 function sendsInvitations(call: ProposedCall): boolean {
   if (call.name !== "create_calendar_event" && call.name !== "update_calendar_event") return false;
   return (call.input as { sendInvitations?: unknown }).sendInvitations === true;

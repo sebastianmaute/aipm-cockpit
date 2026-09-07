@@ -217,8 +217,8 @@ export interface EntityDescriptor {
    *  writer does NOT use `sanitizeIsoDate`.
    *
    *  ★★★ ONE ENTITY NEEDS IT AND IT DIVERGED IN BOTH DIRECTIONS. The default
-   *   is `sanitizeIsoDate(v) === v` — regex + a 1900–2100 year bound, NO
-   *   calendar check — which is exactly what `sanitizeAbsence` calls, so
+   *   is `sanitizeIsoDate(v) === v` — regex + a 1900–2100 year bound and
+   *   nothing else — which is exactly what `sanitizeAbsence` calls, so
    *   absence (and every register entity) is already in parity and must keep
    *   the default. `sanitizeCalendarEvent` instead calls its own
    *   `isoDateOrUndefined`: regex + `Date.parse`, NO year bound. Measured, both
@@ -235,6 +235,25 @@ export interface EntityDescriptor {
    *   eight descriptors want. Do not point a new entity here without reading
    *   its sanitizer's actual date call first. */
   acceptsDate?: (v: string) => boolean;
+  /** Fields the writer rewrites by a WHOLE-ROW rule, given the merged row.
+   *  Returns field → the value that will actually be STORED, for the fields it
+   *  corrects, and `{}` (or undefined) when the row needs no correction.
+   *
+   *  ★★★ IT EXISTS FOR CROSS-FIELD SANITIZER BEHAVIOUR, which `fieldSanitizers`
+   *   structurally cannot see — those entries get one field at a time.
+   *   `sanitizeAbsence` SWAPS `startDate`/`endDate` when the pair is reversed
+   *   rather than rejecting it, so `update_absence({startDate})` past the
+   *   stored `endDate` previewed ONE field and wrote TWO, both differently.
+   *
+   *  ★★★ THE HONEST PROJECTION IS THE SWAP, NOT A REJECTION. The write
+   *   SUCCEEDS, and the two REPLAYING consumers resend the original tool input
+   *   without reading the plan — so refusing here would put "declined" on the
+   *   card in front of a write that lands (§384's shape). Disclose, do not
+   *   refuse, whenever the writer's rule is a REWRITE rather than a DROP.
+   *
+   *  ★ Values are the RENDERED strings a `FieldDiff` carries, not raw types —
+   *   `describeEntityCalls` puts them straight into `after`/`raw`. */
+  crossFieldRewrite?: (merged: Record<string, unknown>) => Record<string, string>;
   /** Enum fields → the valid-set resolver (constant for most; category-scoped for RAID status). */
   enumFields: Record<string, EnumResolver>;
   /** For an enum field whose valid-set depends on ANOTHER field (RAID status
@@ -732,15 +751,33 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
       assigneeEmail: sanitizeEmail,
       note: sanitizeAbsenceNote,
     },
-    // ★★★ KNOWN GAP, STATED RATHER THAN MODELLED: `sanitizeAbsence` SWAPS the
-    //  pair when `endDate < startDate` instead of rejecting it, so
-    //  `update_absence({startDate})` past the stored `endDate` previews the new
-    //  start and stores it as the new END. No per-field entry can express a
-    //  cross-field swap — `fieldSanitizers` sees one field at a time — and the
-    //  probe sweep cannot reach it either (its date probes are all malformed,
-    //  so the date guard refuses them before any swap could happen). Closing it
-    //  needs a whole-row rule; do not read the green differential as covering
-    //  it.
+    // ★★★ THE WHOLE-ROW RULE `fieldSanitizers` CANNOT EXPRESS. `sanitizeAbsence`
+    //  SWAPS the pair when `endDate < startDate` instead of rejecting it, so
+    //  `update_absence({startDate})` past the stored `endDate` previewed the new
+    //  start and stored it as the new END — ONE field shown, TWO written, both
+    //  differently. This was a stated-not-modelled gap for a release; a per-field
+    //  entry sees one field at a time, so `crossFieldRewrite` is what closes it.
+    //  ★★ IT DISCLOSES THE SWAP RATHER THAN REFUSING THE WRITE — see the member's
+    //   own docstring for why a rejection would be the WORSE answer here.
+    //  ★★ THE STRICT `<` MIRRORS THE WRITER, BUT IT IS AN EQUIVALENT-MUTANT
+    //   BOUNDARY, NOT A LIVE ONE, and an earlier version of this comment claimed
+    //   otherwise ("strict so a same-day absence is not swapped for no reason").
+    //   Measured: a loose `<=` swaps an EQUAL pair to `{start: X, end: X}` — the
+    //   same two values — so nothing downstream can tell the spellings apart, and
+    //   the mutant survives the suite by being equivalent rather than untested.
+    //   Keep the `<` for fidelity to `sanitizeAbsence`; do not add a test for it.
+    //   Both values are already the merged row's, which is what the writer
+    //   sanitizes. A non-string on either side cannot reach here: both fields are
+    //   `requiredNonEmpty` AND in `ABSENCE_FIELD_GUARDS`, so `str()` is enough.
+    //  ★ The probe sweep in `plan.sanitizer-parity.test.ts` still cannot reach
+    //   this — its date probes are all malformed, so the date guard refuses them
+    //   before any swap could happen. The cases in `plan.test.ts` are the cover.
+    crossFieldRewrite: (merged): Record<string, string> => {
+      const start = str(merged.startDate);
+      const end = str(merged.endDate);
+      if (!start || !end || end >= start) return {};
+      return { startDate: end, endDate: start };
+    },
     linkFields: {
       // ★★ `resourceId: null` is the model's UNLINK and `fkIdOrUndefined`
       //  normalises it to `undefined`, which renders here as the empty list —

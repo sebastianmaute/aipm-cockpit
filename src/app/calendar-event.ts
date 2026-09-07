@@ -48,6 +48,22 @@ const DEFAULT_DURATION = 60;
 const DURATION_MIN = 5;
 const DURATION_MAX = 1440;
 
+/** ★★★ THE `Date.parse` LEG IS A FIELD-RANGE CHECK, NOT A CALENDAR CHECK, and
+ *  three comments across this slice called it the latter before it was
+ *  measured. On an ISO date-ONLY string the spec's Date Time String Format
+ *  requires MM in 01–12 and DD in 01–31, so `"2026-13-01"` and `"2026-01-32"`
+ *  are NaN — but a day that overflows its own MONTH is accepted and silently
+ *  rolled over: `"2026-02-30"` parses (to Mar 2) and `"2026-04-31"` parses (to
+ *  May 1). This function returns the INPUT `v`, never the parsed date, so such
+ *  a value is stored verbatim as written.
+ *  ★★ THAT MATTERS TO ANYONE WRITING A TEST HERE: a case built on `2026-02-30`
+ *   is VACUOUS, because both this rule and a bare regex accept it. One was
+ *   written that way in `calendar-recurrence-text.test.ts` and survived the
+ *   mutant meant to kill it. Reproduce:
+ *   `node -e "for (const d of ['2026-01-32','2026-02-30','2026-13-01']) console.log(d, Date.parse(d+'T00:00:00Z'))"`
+ *  ★ Closing the month-overflow hole would change what is STORED, and this
+ *   sanitizer runs on every LOAD — an existing row would start being dropped.
+ *   Stated, not fixed. */
 function isoDateOrUndefined(v: unknown): string | undefined {
   return typeof v === "string" && ISO_DATE.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))
     ? v : undefined;
@@ -200,8 +216,8 @@ export function acceptsEventDuration(v: unknown): boolean {
  *  ★★★ IT EXISTS BECAUSE THE PREVIEW'S DEFAULT DATE RULE AND THIS MODULE'S
  *   DISAGREE IN BOTH DIRECTIONS, and each direction is its own defect.
  *   `sanitizeIsoDate` (sanitize-core.ts) is regex + a 1900–2100 year bound and
- *   NO calendar check; `isoDateOrUndefined` here is regex + `Date.parse` and NO
- *   year bound. So `"2026-01-32"` previewed as an accepted change and then made
+ *   nothing else; `isoDateOrUndefined` here is regex + `Date.parse` and NO year
+ *   bound. So `"2026-01-32"` previewed as an accepted change and then made
  *   `sanitizeCalendarEvent` return null — which `updateCalendarEvent` throws on,
  *   costing the WHOLE patch — while `"1899-12-31"` previewed as REJECTED and
  *   landed. `INLINE_DESCRIPTORS.calendarEvent.acceptsDate` points here so the

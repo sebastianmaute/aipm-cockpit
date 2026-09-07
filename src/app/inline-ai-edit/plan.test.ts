@@ -1576,3 +1576,76 @@ describe("a date is judged by its own writer's rule", () => {
     expect(plan.updates[0].after).toBe("2026-01-32");
   });
 });
+
+// (I2) THE WHOLE-ROW SWAP. `sanitizeAbsence` reorders a reversed date pair
+//  rather than rejecting it, so a `startDate` moved past the stored `endDate`
+//  previewed ONE change and wrote TWO, both different from what the card said.
+//  It is DISCLOSED, not refused: the write succeeds, and the two REPLAYING
+//  consumers resend the original input without reading this plan, so a
+//  rejection would put "declined" in front of a write that lands.
+describe("a reversed absence date pair previews the swap the writer performs", () => {
+  const holiday = { id: 50, assignee: "Ada Lovelace", startDate: "2026-03-01", endDate: "2026-03-05" };
+  const absWs = wsWith({ absences: [holiday] as never });
+
+  function planFor(input: Record<string, unknown>) {
+    return describeEntityCalls([{ type: "tool_use", name: "update_absence", input }], {
+      descriptor: INLINE_DESCRIPTORS.absence, item: holiday as never, ws: absWs,
+    });
+  }
+
+  it("shows BOTH fields moving when a new start passes the stored end", () => {
+    // The writer stores { startDate: "2026-03-05", endDate: "2026-04-01" }.
+    const plan = planFor({ id: 50, startDate: "2026-04-01" });
+    expect(plan.updates).toEqual([
+      { entity: "absence", field: "startDate", before: "2026-03-01", after: "2026-03-05", raw: "2026-03-05" },
+      { entity: "absence", field: "endDate", before: "2026-03-05", after: "2026-04-01", raw: "2026-04-01" },
+    ]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("shows BOTH fields moving when a new end precedes the stored start", () => {
+    // The mirror case, which the single-field fixture above cannot reach: the
+    // model sends `endDate`, so it is the SENT field whose row gets rewritten
+    // and `startDate` that gains one.
+    const plan = planFor({ id: 50, endDate: "2026-02-01" });
+    expect(plan.updates).toEqual([
+      { entity: "absence", field: "endDate", before: "2026-03-05", after: "2026-03-01", raw: "2026-03-01" },
+      { entity: "absence", field: "startDate", before: "2026-03-01", after: "2026-02-01", raw: "2026-02-01" },
+    ]);
+  });
+
+  it("drops a row the swap lands back on its stored value", () => {
+    // Sending BOTH, reversed, puts each field back where it started: the write
+    // is a no-op, so the card must show nothing rather than two before===after
+    // rows.
+    const plan = planFor({ id: 50, startDate: "2026-03-05", endDate: "2026-03-01" });
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  // ANTI-VACUITY: an ordered pair, and an equal one, must still preview as the
+  // single change they are — otherwise every assertion above would also pass
+  // against a rewrite that fires unconditionally.
+  //
+  // NOT a test of the strict `<`. Measured: a loose `<=` swaps an EQUAL pair to
+  // `{start: X, end: X}`, the same two values, so no observable behaviour
+  // separates the spellings and that mutant is EQUIVALENT, not uncaught. Said
+  // here because the obvious reading of the case below is that it pins the
+  // boundary, and it cannot.
+  it("leaves an ordered pair, and an equal pair, previewing one change", () => {
+    expect(planFor({ id: 50, endDate: "2026-03-09" }).updates).toEqual([
+      { entity: "absence", field: "endDate", before: "2026-03-05", after: "2026-03-09", raw: "2026-03-09" },
+    ]);
+    expect(planFor({ id: 50, startDate: "2026-03-05" }).updates).toEqual([
+      { entity: "absence", field: "startDate", before: "2026-03-01", after: "2026-03-05", raw: "2026-03-05" },
+    ]);
+  });
+
+  // A REJECTED date must not reach the swap: `applied` never gains it, so the
+  // merged row keeps the stored (ordered) pair and no rewrite is due.
+  it("does not swap on the strength of a date the preview rejected", () => {
+    const plan = planFor({ id: 50, startDate: "1899-12-31" });
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected[0].detail).toBe("startDate=1899-12-31");
+  });
+});

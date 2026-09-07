@@ -312,4 +312,36 @@ describe("recurrenceText matches sanitizeCalendarEvent (differential)", () => {
     const raw = { freq: "hourly", interval: 1 };
     expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
   });
+
+  // (I1) THE `Date.parse` LEG. Both sites here tested `ISO_DATE` alone, so a
+  //  regex-SHAPED but unparseable date read as valid on this side and as
+  //  rejected on the write's. Added to the DIFFERENTIAL rather than asserted
+  //  against a literal string, because a literal is a second hand-copy of the
+  //  very rule the hand-copy already got wrong — the point of this block.
+  it("agrees that an unparseable until falls through to count", () => {
+    const raw = { freq: "daily", interval: 1, until: "2026-13-01", count: 5 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  // MEASURED, NOT CHOSEN BY EYE: this case first used "2026-02-30", which
+  //  PARSES — `Date.parse` on an ISO date-only string checks the FIELD RANGES
+  //  (MM 01-12, DD 01-31) and rolls an out-of-month day over (Feb 30 -> Mar 2),
+  //  so both sides agreed with or without the fix and the mutant left it green.
+  //  A month field out of range is what the leg actually catches.
+  it("agrees that an unparseable until with no count leaves no terminator", () => {
+    const raw = { freq: "weekly", interval: 2, until: "2026-13-01" };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  // The `fallbackDayOfMonth` half. An unparseable START makes the write reject
+  // the whole event, so a day number derived from it is a guess about a write
+  // that never happens — "omit, don't guess" is the rule this module states.
+  it("omits the byMonthDay fallback when the startDate itself is unparseable", () => {
+    const raw = { freq: "monthly", interval: 1, byMonthDay: 999 };
+    expect(recurrenceText(raw, "2026-13-01")).toBe("Every month");
+    // Anti-vacuity: with a REAL startDate the same rule still prints the day,
+    // so the assertion above is about the parse leg and not about the branch
+    // being dead.
+    expect(recurrenceText(raw, "2026-07-08")).toBe("Every month on day 8");
+  });
 });
