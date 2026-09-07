@@ -239,10 +239,23 @@ export function ReportsPanel({
   // anchored to; Restore is pressed on a chip that the same click removes. The
   // shelf disclosure is the destination for both: it is the one node in that
   // subtree that never unmounts, it is where the hidden block now lives, and it
-  // is the route back. Carried from `dashboard-panel.tsx`, including the reason
-  // `PopoverPanel`'s own focus restore does not cover it — calling this FIRST
-  // inside Hide moves focus outside the panel, which the panel's `focusout`
-  // records, so the primitive correctly declines.
+  // is the route back. Carried from `dashboard-panel.tsx`.
+  //
+  // ★★ WHY `PopoverPanel`'S OWN RESTORE DOES NOT COVER THE HIDE, and it is NOT
+  // an ordering property — an earlier revision of this comment said it was.
+  // The primitive restores focus to its anchor only when it unmounts with focus
+  // still INSIDE it, decided by a `focusInsideRef` its own `focusout` maintains
+  // from a non-null `relatedTarget`. Focusing the shelf disclosure fires exactly
+  // that focusout with a target outside the panel, so the ref reads false and
+  // the primitive declines — and it would anyway, since the anchor it would
+  // restore to is the ⋮ trigger that hiding unmounts.
+  // ★★★ ORDER WITHIN THE HANDLER IS IMMATERIAL, so do not "fix" either surface
+  // to match the other. `arrangement.hide` is a plain `setState` (`use-arrangement.ts`'s
+  // `mutate`), batched and flushed only after the handler returns, while
+  // `focus()` is synchronous DOM — so focus leaves the panel before the
+  // unmounting commit whichever line runs first. `dashboard-panel.tsx` calls
+  // `focusShelfToggle()` LAST and its own test passes; this file calls it first.
+  // Both are correct.
   const shelfToggleRef = useRef<HTMLButtonElement | null>(null);
   const focusShelfToggle = () => shelfToggleRef.current?.focus();
 
@@ -687,9 +700,11 @@ export function ReportsPanel({
             }}
             onMove={(delta) => moveByDelta(menu.id, delta)}
             onHide={() => {
-              // ★★ Focus FIRST, then hide: this moves focus outside the popover
-              // before the block unmounts, which is what makes `PopoverPanel`'s
-              // own restore correctly decline.
+              // ★ The destination is the shelf disclosure because it is the one
+              // node here that never unmounts. The ORDER of these three lines is
+              // not load-bearing — see the `focusShelfToggle` declaration for the
+              // measurement, and for why `dashboard-panel.tsx` doing it last is
+              // equally correct.
               focusShelfToggle();
               arrangement.hide(menu.id);
               setAnnouncement(t(lang, "dashboardTileHidden", t(lang, menuSpec.labelKey)));
