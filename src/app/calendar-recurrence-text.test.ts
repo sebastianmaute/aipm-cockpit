@@ -267,8 +267,19 @@ describe("recurrenceText matches sanitizeCalendarEvent (differential)", () => {
     expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
   });
 
+  // ★★★ `byMonthDay: 20` MUST NOT equal START_DATE's day-of-month (15).
+  // Measured, not assumed: at 15 this case stayed GREEN against the C1
+  // precedence mutant (byMonthDay checked before byDay) because BOTH sides
+  // land on "day 15" for different reasons — the mutant's byMonthDay-first
+  // read sees 15 directly, while the correctly-sanitized RHS drops
+  // byMonthDay (byDay won) and falls through to the startDate-derived
+  // fallback, which is ALSO 15. That is a fixture collision, not the mutant
+  // surviving on its merits — 1 failed/38 passed before this fix, 2
+  // failed/37 passed after (both sums 39). Picking a value that cannot equal
+  // the fallback is what makes this case load-bearing; "tidying" it back to
+  // a number matching START_DATE's day silently unpins it again.
   it("agrees that a valid ordinal weekday wins over a co-present byMonthDay (C1)", () => {
-    const raw = { freq: "monthly", interval: 1, byMonthDay: 15, byDay: { ordinal: 2, day: "TU" } };
+    const raw = { freq: "monthly", interval: 1, byMonthDay: 20, byDay: { ordinal: 2, day: "TU" } };
     expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
   });
 
