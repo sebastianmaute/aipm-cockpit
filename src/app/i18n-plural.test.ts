@@ -125,41 +125,58 @@ describe("plural key pairing", () => {
   it("routes every paired base key through tPlural, outside a documented exception", () => {
     // Each entry is a base key that legitimately reaches `t()` today.
     // ★ Keep the REASON beside the key — this list is the thing that rots.
+    // ★★★ KEYED PER key@FILE, NOT PER KEY. A per-KEY allowlist exempts a base
+    // key EVERYWHERE: with `storageConvertConfirm` exempted for the `confirmKey`
+    // ternary, a brand-new file calling `t(lang, "storageConvertConfirm", n)`
+    // stays green. 13 of the 42 pairs were globally exempt before this. The
+    // file is the right granularity — a line number rots on any insertion.
+    // ★ Keep the REASON beside each entry; this list is the thing that rots.
     const EXCEPTIONS: Record<string, string> = {
-      // §415 exception A — the next-actions providers are i18n-free ENGINES with
-      // no `Lang` in scope, so they emit a KEY plus params for a surface to
-      // render and pick the form with a `count === 1` ternary over the two key
-      // names. Converting them would mean threading a language into the engines.
-      actionChangeAggTitle: "next-actions provider: i18n-free engine, emits a key",
-      actionCommitteeInfoWhy: "next-actions provider: i18n-free engine, emits a key",
-      actionRaidWhyReviewStale: "next-actions provider: i18n-free engine, emits a key",
-      actionWorkloadWhyOverload: "next-actions provider: i18n-free engine, emits a key",
-      // §415 exception B — the singulars exist but nothing reads them: both keys
-      // are reached through `ACTIVITY_KIND_KEY`, a Record routed to a generic
-      // `t()` renderer. The activity log still says "AI planned 1 allocation
-      // cells" and the entry is OPEN.
-      activityAiAllocationPlan: "ACTIVITY_KIND_KEY map -> generic t() renderer (§415 B, OPEN)",
-      activityAiRaciSuggest: "ACTIVITY_KIND_KEY map -> generic t() renderer (§415 B, OPEN)",
-      // Variable-base call: `seg(n, base)` calls tPlural correctly one line up,
-      // so only the bare key literal is visible on these lines.
-      diagnosticsUnitError: "variable-base seg() helper, tPlural on the helper's own line",
-      diagnosticsUnitWarn: "variable-base seg() helper, tPlural on the helper's own line",
-      // Union + map: the skip reasons are a `SkipMessageKey` union rendered
-      // through a lookup, same shape as the activity-log map above.
-      raciSuggestSkipped: "SkipMessageKey union + map",
-      raciSuggestSkippedAccountable: "SkipMessageKey union + map",
-      raciSuggestSkippedInvalidRole: "SkipMessageKey union + map",
-      // `confirmKey` ternary picks the base, then tPlural renders it.
-      storageConvertConfirm: "confirmKey ternary, tPlural on the next line",
-      storageTursoLeaveWarn: "confirmKey ternary, tPlural on the next line",
+      // §415 exception A — i18n-free ENGINES with no `Lang` in scope. They emit
+      // `{key, params}` for a surface to render much later, and pick the form
+      // with a `count === 1` ternary over the two key NAMES.
+      "actionChangeAggTitle@src/app/next-actions/providers/change-pending.ts": "i18n-free engine emits a key",
+      "actionCommitteeInfoWhy@src/app/next-actions/providers/committee-info.ts": "i18n-free engine emits a key",
+      "actionRaidWhyReviewStale@src/app/next-actions/providers/raid.ts": "i18n-free engine emits a key",
+      "actionWorkloadWhyOverload@src/app/next-actions/providers/workload.ts": "i18n-free engine emits a key",
+      // ★★★ THESE TWO ARE LIVE DEFECTS, NOT DESIGN EXCEPTIONS, and calling the
+      // whole list "documented exceptions" obscured that. The singulars are
+      // authored in both languages and NOTHING selects them: both keys are
+      // reached through `ACTIVITY_KIND_KEY`, a Record routed to a generic `t()`
+      // renderer, so the activity log still says "AI planned 1 allocation
+      // cells". Tracked OPEN as §415 exception B. They are listed here because
+      // the scan cannot fix them, not because they are acceptable.
+      "activityAiAllocationPlan@src/app/activity-log.ts": "LIVE DEFECT (§415 B, OPEN) — map-routed, generic t() renderer",
+      "activityAiRaciSuggest@src/app/activity-log.ts": "LIVE DEFECT (§415 B, OPEN) — map-routed, generic t() renderer",
+      // Variable-base helper: `seg(n, base)` calls tPlural one line above, so
+      // only the bare key literal is visible on these lines.
+      "diagnosticsUnitError@src/app/diagnostics-panel.tsx": "variable-base seg() helper",
+      "diagnosticsUnitWarn@src/app/diagnostics-panel.tsx": "variable-base seg() helper",
+      // Union + Record, rendered through tPlural at the lookup site.
+      "raciSuggestSkipped@src/app/raci-suggest-modal.tsx": "SkipMessageKey union + SKIP_REASON_KEY map",
+      "raciSuggestSkippedAccountable@src/app/raci-suggest-modal.tsx": "SkipMessageKey union + map",
+      "raciSuggestSkippedInvalidRole@src/app/raci-suggest-modal.tsx": "SkipMessageKey union + map",
+      // `confirmKey` ternary picks the base; tPlural renders it on the next line.
+      "storageConvertConfirm@src/app/use-storage-file-ops.ts": "confirmKey ternary",
+      "storageTursoLeaveWarn@src/app/use-storage-file-ops.ts": "confirmKey ternary",
     };
 
     const bases = keys
       .filter((k) => k.endsWith("One"))
       .map((k) => k.slice(0, -3))
       .filter((b) => keys.includes(b));
-    // Non-vacuity: the scan below is meaningless over an empty key set.
     expect(bases.length).toBeGreaterThan(30);
+
+    // ★★ TWO MATCHERS, and only one of them takes exemptions.
+    //  - CALL FORM `t(<lang>, "base")` is exception D itself: a paired key
+    //    rendered through plain `t()`. It is ALWAYS a defect, so it has NO
+    //    allowlist and must be empty.
+    //  - BARE LITERAL is the wider net: unions, Records, key-picking ternaries.
+    //    Those are mostly legitimate, so they carry the per-site allowlist —
+    //    but the net is kept because it is the only thing that keeps §415 B's
+    //    two live defects visible.
+    const callForm = (b: string) =>
+      new RegExp(String.raw`\bt\(\s*[A-Za-z_$][\w.$]*\s*,\s*"` + b + `"`);
 
     const files: string[] = [];
     const walk = (dir: string) => {
@@ -176,37 +193,55 @@ describe("plural key pairing", () => {
       }
     };
     walk("src/app");
-    // Non-vacuity: a broken walk would scan nothing and pass.
     expect(files.length).toBeGreaterThan(500);
 
-    const offenders = new Map<string, string[]>();
+    // ★★★ POSITIVE CONTROLS, RUN BEFORE THE MEASUREMENT. A scan that matches
+    // nothing passes everything, and both floors above only prove the scan READ
+    // something — not that the matcher can still fire. Assert each matcher on a
+    // synthetic line, and assert the call-form one does NOT fire on a mention.
+    const probeKey = bases[0];
+    expect(callForm(probeKey).test(`const s = t(lang, "${probeKey}", n);`)).toBe(true);
+    expect(callForm(probeKey).test(`const K = { a: "${probeKey}" } as const;`)).toBe(false);
+
+    const bareOffenders = new Map<string, string[]>();
+    const callOffenders = new Map<string, string[]>();
     for (const f of files) {
+      const rel = f.split(path.sep).join("/");
       readFileSync(f, "utf8")
         .split(/\r?\n/)
         .forEach((line, i) => {
           if (line.includes("tPlural")) return;
           for (const b of bases) {
             if (line.includes(`"${b}"`)) {
-              const at = `${f.split(path.sep).join("/")}:${i + 1}`;
-              offenders.set(b, [...(offenders.get(b) ?? []), at]);
+              const k = `${b}@${rel}`;
+              bareOffenders.set(k, [...(bareOffenders.get(k) ?? []), `${rel}:${i + 1}`]);
+            }
+            if (callForm(b).test(line)) {
+              callOffenders.set(`${b}@${rel}`, [...(callOffenders.get(`${b}@${rel}`) ?? []), `${rel}:${i + 1}`]);
             }
           }
         });
     }
 
-    const undocumented = [...offenders].filter(([b]) => !(b in EXCEPTIONS));
+    // Exception D itself. No exemptions, ever.
     expect(
-      undocumented.map(([b, at]) => `${b} @ ${at.join(", ")}`),
-      "a key with a singular sibling is still rendered through plain t() — " +
-        "convert the call site to tPlural, or add it to EXCEPTIONS with the reason",
+      [...callOffenders].map(([k, at]) => `${k} @ ${at.join(", ")}`),
+      "a paired key is rendered through plain t() — convert the call site to tPlural",
     ).toEqual([]);
 
-    // ★★ The other direction: a stale exemption is a hole, not clutter.
-    const stale = Object.keys(EXCEPTIONS).filter((b) => !offenders.has(b));
+    const undocumented = [...bareOffenders].filter(([k]) => !(k in EXCEPTIONS));
+    expect(
+      undocumented.map(([k, at]) => `${k} @ ${at.join(", ")}`),
+      "a key with a singular sibling is named outside tPlural in a file that is " +
+        "not exempted — convert it, or add `key@file` to EXCEPTIONS with the reason",
+    ).toEqual([]);
+
+    // ★★ The other direction: a stale exemption is a HOLE, not clutter.
+    const stale = Object.keys(EXCEPTIONS).filter((k) => !bareOffenders.has(k));
     expect(
       stale,
-      "these keys no longer reach t() anywhere — drop them from EXCEPTIONS, " +
-        "or the next call site to use one is silently exempt",
+      "these key@file pairs no longer name the key — drop them from EXCEPTIONS, " +
+        "or the next call site in that file is silently exempt",
     ).toEqual([]);
   });
 });

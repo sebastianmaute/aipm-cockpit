@@ -30354,8 +30354,8 @@ conversion slice reintroduces this", AND THAT WAS REFUTED BY A COLD REVIEWER ON 
 COMMAND.** The detector now exists: `i18n-plural.test.ts`'s "routes every paired base key through
 tPlural, outside a documented exception" walks `src/app` (non-test), and for every base key with a
 `…One` sibling flags any line that mentions the quoted base key WITHOUT `tPlural`. Measured today:
-975 files, 42 pairs, **13 base keys across 17 lines**, every one of them a documented exception —
-the four provider ternaries (A), the two dead map entries (B), the `raciSuggestSkipped*` union+map,
+976 files, 42 pairs, **13 base keys across 17 lines**, all of them allowlisted —
+the four provider ternaries (A), the `raciSuggestSkipped*` union+map,
 the `confirmKey` ternary, and the variable-base `seg(n, base)` helper in `diagnostics-panel.tsx`.
 ★★ It WOULD have caught this instance: at `525313da~1`, `activityEntriesLoggedOne` and
 `timelogTestOkOne` already existed while both call sites still called plain `t()`.
@@ -31386,9 +31386,9 @@ the right thing with the input it is given. The defect is that a rejected blob i
 from an absent one, and any fix that leaves that conflation in place will be re-derived as a bug by
 the next person who reads `loadArrangement`.
 
-## 429. A CLOSED entry's `**Status:**` line is the least-gated line in the register, and closing is when a fabricated verification is most tempting — OPEN
+## 429. A closed entry's `**Status:**` line is the least-gated line in the register, and closing is when a fabricated verification is most tempting — OPEN
 
-**Status:** OPEN 2026-09-07 — measured, not reasoned. Reproduce with `node scripts/check-followup-status.mjs` (exit 0 today, "203 open entries scanned" — it never looks at the 210 closed ones), and read the filter itself with `grep -n "filter((e) => !isClosed" scripts/check-followup-status.mjs`. The 67/210 figure below came from applying the gate's own `statusViolations()` to the closed set.
+**Status:** OPEN 2026-09-07 — measured, not reasoned. Reproduce with `node scripts/check-followup-status.mjs` (exit 0 today, "203 open entries scanned" — it never looks at the 211 closed ones), and read the filter itself with `grep -n "filter((e) => !isClosed" scripts/check-followup-status.mjs`. The 67/210 figure below came from applying the gate's own `statusViolations()` to the closed set.
 
 **The gate's universe excludes exactly the entries most likely to lie.** `check-followup-status.mjs`
 opens with `parseEntries(src).filter((e) => !isClosed(e.title))`. Every OPEN entry must carry a
@@ -31401,15 +31401,29 @@ whoever wants it done, at the moment they want to stop — and it is the one Sta
 gate cannot read. The register's own preamble already says a closure falsifies sentences elsewhere
 and nothing gates that; this is the same hole one level down, on the closure's own evidence line.
 
-**Measured 2026-09-07 on this branch:** of 210 closed entries, **67 name no executed verification**
-(`NO_VERIFICATION`), and 1 carries no ISO date. Reproduce by importing `statusViolations` from
-`scripts/followup-status-lib.mjs` and running it over the entries `isClosed` filters out.
+**Measured 2026-09-07 on this branch:** of 211 closed entries, **124 name no executed
+verification** — 67 that carry a `**Status:**` line naming none (`NO_VERIFICATION`), plus 57 that
+carry no Status line AT ALL (`MISSING`). 1 carries no ISO date. Reproduce by importing
+`statusViolations` from `scripts/followup-status-lib.mjs` and running it over the entries
+`isClosed` filters out.
+
+★★★ **67 WAS THE FIRST NUMBER WRITTEN HERE AND IT UNDERCOUNTS THE FINDING BY ROUGHLY HALF.**
+`statusViolations` EARLY-RETURNS `["MISSING"]` when there is no Status block, so those 57 entries
+never reach the `NO_VERIFICATION` test at all — they are absent from that bucket because they are
+worse, not because they are better. Treating `MISSING` as an open-only CONTRACT rule is defensible;
+treating it as outside the FINDING is not, and it understates the remedy's cost by about 2x. Caught
+by cold review the same day this entry was written.
 
 ★★★ **DO NOT READ THAT AS "192 OF 206 ARE BROKEN", AND THE CATEGORY ERROR IS THE POINT.**
 `statusViolations` emits four codes, and two of them — `SAYS_CLOSED` and `MISSING` — are contract
-rules written FOR OPEN ENTRIES. A closed entry trips `SAYS_CLOSED` **by construction**, because its
-Status line says CLOSED, which is correct there and forbidden in an open one. Counting every code
-gives 196 on this tree and is noise dressed as a finding. Only `NO_VERIFICATION` and `NO_DATE` mean
+rules written FOR OPEN ENTRIES. A closed entry whose Status line says CLOSED trips `SAYS_CLOSED`,
+which is correct there and forbidden in an open one. Counting every code gives 196 entries on this
+tree (258 code instances) and is noise dressed as a finding.
+★★ **"BY CONSTRUCTION" IS WHAT THIS SENTENCE USED TO SAY AND IT IS FALSE** — `SAYS_CLOSED` tests the
+Status BLOCK, not the heading, so it fires only where the author happened to repeat the word.
+Measured: `{"MISSING":57,"SAYS_CLOSED":133,"NO_VERIFICATION":67,"NO_DATE":1}` over 211 closed
+entries — 133 of 211, not all of them. Convention, not construction. The distinction matters because
+"by construction" was the justification for discarding the code entirely. Only `NO_VERIFICATION` and `NO_DATE` mean
 the same thing in both universes. ★★ A peer session hit this first, reported "192 of 206", and
 retracted it — worth recording because the wrong number is the one that looks alarming enough to act
 on.
@@ -31421,8 +31435,8 @@ control, because the number above it still looks measured. Working pair, asserte
 a Status citing only a backticked FILENAME returns `["SAYS_CLOSED","NO_VERIFICATION"]`; one citing a
 real command returns `["SAYS_CLOSED"]` alone. Predicate can both fail and pass.
 
-★★ **THE FIX IS NOT "SCAN CLOSED ENTRIES TOO".** Widening the filter lights up 67 historical entries
-at once, so it is a ratchet-and-baseline problem, not a one-line change — and a closure's Status
+★★ **THE FIX IS NOT "SCAN CLOSED ENTRIES TOO".** Widening the filter lights up 124 historical
+entries at once, so it is a ratchet-and-baseline problem, not a one-line change — and a closure's Status
 legitimately READS differently from an open one's, so the contract itself would need restating per
 universe (`SAYS_CLOSED` inverts: required when closed, forbidden when open). Plausible shapes, none
 chosen: a baselined ratchet like `doc-claims-check`; or checking only entries closed AFTER a cutoff
@@ -31432,6 +31446,19 @@ date, so new closures are gated and history is left alone.
 §407, §411, §412, §421, §423, none of them among the 67. That is the audit that found the gap, not
 evidence the gap is harmless: it was done deliberately BECAUSE the gate could not do it, and the
 next author has no reason to think of it.
+
+★★★ **THIS ENTRY'S OWN FIRST HEADING SPELLED THE WORD IN CAPITALS AND WAS THEREFORE CLASSIFIED AS
+CLOSED — the entry about closed entries escaping the gate escaped the gate.** `isClosed` is
+`/\bCLOSED\b/.test(title) || title.includes("~~")` (`scripts/followup-claims-lib.mjs`), it reads the
+TITLE, and it is case-SENSITIVE. So `## 429. A CLOSED entry's …— OPEN` parsed as closed: the status
+gate's universe dropped from 204 to 203 and this Status line became ungated, while the closed count
+it quotes went 210 → 211 and stopped reproducing from its own command. Fixed by lowercasing the
+word. ★ The anchor did NOT move and the index row needed no edit — slug derivation lowercases
+anyway, so the two slugs are byte-identical. That is asserted rather than assumed: the fix script's
+first version demanded they DIFFER and aborted, which is how it was settled. Found by cold review
+within the hour. ★★ The lesson is not "avoid the word" — it is that a register entry ABOUT a
+classifier is itself classified, and the demonstration costs nothing to run: `isClosed` on your own
+new title, before you commit it.
 
 ★ Found by a peer's `followups-status-check` red on their own branch: a Status citing a backticked
 `e2e/…spec.ts` FILENAME was rejected with "names no executed verification". A backticked filename is

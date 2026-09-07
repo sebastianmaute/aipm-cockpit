@@ -74,8 +74,13 @@ describe("dropdown active-row ring is visible in every shipped scheme", () => {
       if (r < NON_TEXT_AA) failures.push(`${scheme.id}=${r.toFixed(2)}`);
     }
     // All three built-in light schemes must appear — if this ever comes back
-    // empty, the premise changed and the comment in entity-link-picker.tsx
+    // empty, the premise changed and the comment in entity-combobox-list.tsx
     // explaining the choice needs rewriting rather than quietly rotting.
+    // ★ That file, NOT entity-link-picker.tsx: the option-row rationale moved
+    // there when both pickers were folded onto one shared list on 2026-09-07.
+    // A citation like this one does not follow an extraction — it is the exact
+    // class AGENTS.md warns about, and it was caught by cold review, not by any
+    // gate. Verify with `grep -n "ring-foreground" src/app/entity-combobox-list.tsx`.
     expect(failures).toHaveLength(BUILTIN_SCHEMES.length);
   });
 });

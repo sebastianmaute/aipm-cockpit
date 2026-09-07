@@ -72,7 +72,7 @@ export function indexTableBounds(lines) {
  * Compare the register's `## <n>.` headings against its index table.
  *
  * @param {string} src Raw register text.
- * @returns {{missingRows: number[], orphanRows: number[], headingCount: number, rowCount: number}}
+ * @returns {{missingRows: number[], orphanRows: number[], duplicateHeadings: number[], duplicateRows: number[], headingCount: number, rowCount: number}}
  *   `missingRows` = headings with no index row (write the row).
  *   `orphanRows`  = index rows with no heading (the row points at nothing).
  *   `duplicateHeadings` / `duplicateRows` = numbers appearing twice on that axis.
