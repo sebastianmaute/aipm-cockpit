@@ -701,7 +701,12 @@ describe("reconcileInsights — reserved non-guardrail capacity", () => {
    *  nothing is handed back and the guardrail budget is observable on its own.
    *  ★★★ IT IS BLIND TO THE CONSTANT'S VALUE, AND DELIBERATELY SO — BOTH sides
    *  of both assertions derive from `RESERVED_NON_GUARDRAIL`, so it passes at
-   *  any value INCLUDING 0. Measured, not reasoned: it passed under a `= 0`
+   *  any value THE FIXTURE CAN OVER-SUBSCRIBE, including 0. That range is
+   *  `≤ 120`, the core array's literal length, and NOT "any value": at 121 the
+   *  core can no longer fill the reserve, pass two tops the list up with
+   *  deferred guardrails, and both assertions go red (measured at 130 — 80
+   *  guardrails against an expected 70 — and at 200 — 80 against an expected 0).
+   *  Measured, not reasoned: it passed under a `= 0`
    *  mutant. The reservation being non-zero is pinned BEHAVIOURALLY by the
    *  singleton test above, which is the only thing that can pin it; this one
    *  pins the SHAPE (a family budget, not a one-row exemption). ★★ The 120 is a
@@ -742,5 +747,52 @@ describe("reconcileInsights — reserved non-guardrail capacity", () => {
     expect(out).toHaveLength(MAX_INSIGHTS);
     const ranks = out.map((i) => INSIGHT_SEVERITY_RANK[i.severity]);
     expect([...ranks].sort((a, b) => a - b)).toEqual(ranks);
+  });
+
+  /** A guardrail flood, `n` other non-guardrail rows, and the `low` singleton
+   *  last. The other rows are `medium` so they sort STRICTLY ahead of the
+   *  singleton — a `low` core would tie with it and make the fixture depend on
+   *  the comparator's stable-order fallback rather than on the reservation. */
+  const floodWithCore = (n: number): DetectedInsight[] => [
+    ...guardrails(MAX_INSIGHTS + 50),
+    ...Array.from({ length: n }, (_, i) =>
+      detected(`raidAging:${i}`, { type: "raidAging", severity: "medium" }),
+    ),
+    detected("overdueTrend", { type: "overdueTrend", severity: "low" }),
+  ];
+
+  /** ★★★ THE LIMIT OF THE RESERVATION, PINNED AS A PAIR — the singleton test
+   *  above shows only that the reservation WORKS, never where it stops. Pass one
+   *  admits non-guardrails unconditionally and stops at `admitted ===
+   *  MAX_INSIGHTS`, so against a flood of at least the guardrail budget the
+   *  last-sorting row survives IF AND ONLY IF the OTHER non-guardrail rows
+   *  number fewer than `RESERVED_NON_GUARDRAIL`. `overdueTrend` is the app's
+   *  only `low` detector, so it is always that last row; `milestoneSlip` and
+   *  `raidAging` are one row per overdue milestone / aging RAID item and are
+   *  bounded by nothing, so a real project CAN cross this line.
+   *  ★★ BOTH SIDES DERIVE FROM THE CONSTANT, SO THIS PAIR IS DELIBERATELY BLIND
+   *  TO ITS VALUE: it pins the SHAPE of the boundary — one row either side of it
+   *  — and never that 60 is the right number. It does incidentally require
+   *  `RESERVED_NON_GUARDRAIL ≥ 1` (at 0 the two fixtures coincide and the
+   *  survives-half goes red), but that is a side effect, not the pin: the
+   *  reservation being NON-ZERO is pinned behaviourally by "keeps a low-severity
+   *  singleton alive" above, and by nothing else. */
+  it("evicts the low-severity singleton once other rows have claimed the whole reserve", () => {
+    const out = reconcileInsights([], floodWithCore(RESERVED_NON_GUARDRAIL), "2026-02-01", ALL_EVALUATED);
+    expect(out).toHaveLength(MAX_INSIGHTS);
+    expect(out.some((i) => i.key === "overdueTrend")).toBe(false);
+  });
+
+  /** The other half of the pair above — one fewer competing row, and the
+   *  singleton lives. Read the two together or neither says anything. */
+  it("keeps the low-severity singleton while one reserved slot is still free", () => {
+    const out = reconcileInsights(
+      [],
+      floodWithCore(RESERVED_NON_GUARDRAIL - 1),
+      "2026-02-01",
+      ALL_EVALUATED,
+    );
+    expect(out).toHaveLength(MAX_INSIGHTS);
+    expect(out.some((i) => i.key === "overdueTrend")).toBe(true);
   });
 });
