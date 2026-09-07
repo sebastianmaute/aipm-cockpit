@@ -8,7 +8,11 @@ import type { TimelogProjectRef } from "./timelog-match";
 import { isDailyCell, parseDailyKey, type TimelogDailyRoll, type TimelogUser } from "./timelog-types";
 
 export const TIMELOG_ACTUALS_KEY = "aipm-cockpit:timelog-actuals";
-const MAX_PROJECTS = 50;
+/** How many projects the cache keeps, oldest `fetchedAt` evicted first.
+ *  ★ Exported for the SAME reason the two size bounds are: a test asserting the
+ *  cap holds must read the cap, not restate it. A restated `50` goes on passing
+ *  after the constant moves. */
+export const MAX_PROJECTS = 50;
 
 // The matching-UI inputs (`users`/`projectRefs`) are cached ALONGSIDE the
 // aggregates so the People/Projects tables survive a view remount instead of
@@ -240,19 +244,81 @@ export function clearActualsCache(projectId: string): void {
  *  UTF-16 units anyway, so this is if anything the more honest measure.
  *  ★★★ WHAT IT DOES NOT PROTECT AGAINST, stated plainly: this is a PER-ENTRY
  *  bound, so 50 entries (`MAX_PROJECTS`) each sitting just under it is ~25 MB
- *  and blows the origin quota exactly as before. Only projects actually
- *  fetched carry a roll at all, so reaching it needs 50 fetched projects; how
- *  often that happens has not been measured. It is a real hole, and the
- *  map-level bound remains
- *  `MAX_PROJECTS` eviction ALONE, which counts entries and never measures them.
+ *  and would blow the origin quota exactly as before. That case is now closed
+ *  one level up by `MAX_ACTUALS_TOTAL_CHARS`, which measures the whole
+ *  serialised map on every save; this bound alone never did, and the map-level
+ *  bound it left behind was `MAX_PROJECTS` eviction ALONE, which counts entries
+ *  and never measures them. ★★ "Closed" covers the MANY-ENTRIES case only — a
+ *  single entry whose own `users` list blows the budget is still written over
+ *  it, for the reason stated on `MAX_ACTUALS_TOTAL_CHARS`. See open-followups
+ *  §361 for the case this closed and §430 for the single-entry one it did not.
  *  ★ Per-entry was chosen over a whole-map budget because a whole-map trim
  *  would have to shrink some OTHER project's roll during a save for THIS one,
  *  and every trim rewrites a `dailyWindow` — a coverage CLAIM the insights
  *  reconcile trusts. A save for project A silently narrowing project B's claim
- *  is a worse failure than the quota headroom it would buy. `MAX_PROJECTS`
- *  eviction is the safe map-level lever precisely because it drops entries
- *  WHOLE: an absent entry reads as "unknown", which FREEZES insights. */
+ *  is a worse failure than the quota headroom it would buy. That reasoning is
+ *  unchanged by the map budget above, and is what shapes it: a map-level lever
+ *  is safe precisely when it acts WHOLE — `MAX_PROJECTS` eviction and every one
+ *  of `saveActualsCache`'s shedding stages do, an absent entry and a
+ *  roll-shed one alike read as "unknown", and unknown FREEZES insights. A
+ *  whole-map TRIM is still forbidden. */
 export const MAX_DAILY_ROLL_CHARS = 512 * 1024;
+
+/** Budget for the serialised cache map as a whole, rather than for one entry.
+ *  ★★★ READ "AS A WHOLE" AS "ACROSS ENTRIES", NOT AS A GUARANTEE. What this
+ *  closes is the MANY-ENTRIES case. It does NOT bound a SINGLE entry: `users`
+ *  is unbounded, every shedding stage skips the entry being saved, and shedding
+ *  that one is the silent-discard bug `saveActualsCache` exists to prevent — so
+ *  one oversized entry is still written over budget and may still be lost to the
+ *  quota error `writeDeviceJson` swallows. Bounding `users` would close it.
+ *  That residual is open-followups §430 — NOT §361, which this bound closed.
+ *  ★★★ WHY A SECOND BOUND EXISTS. `MAX_DAILY_ROLL_CHARS` is per-entry, so 50
+ *  entries (`MAX_PROJECTS`) each sitting just under it is ~25 MB against a
+ *  localStorage origin quota of roughly 5 MB shared with every other
+ *  `aipm-cockpit:*` key — and `writeDeviceJson` swallows the resulting quota
+ *  error, so the ENTIRE save is lost silently, `aggregates` included. Before
+ *  this, the map-level bound was `MAX_PROJECTS` eviction ALONE, which counts
+ *  entries and never measures them. See open-followups §361.
+ *  ★ 2 MiB is ~40% of that quota, leaving ~3 MB for every other device key.
+ *  ★★ IT ADMITS THREE FULL-SIZE ROLLS, NOT FOUR, and this line said four. Four
+ *  times `MAX_DAILY_ROLL_CHARS` is 2,097,152 — the budget EXACTLY — so a fourth
+ *  entry has nothing left for its own key, `fetchedAt`, `aggregates`, window or
+ *  the map braces. Measured, not reasoned: four entries each carrying a roll
+ *  trimmed to just under the per-entry cap serialise to 2,098,213 chars, over by
+ *  1,061; three come to 1,573,660 and leave ~511 KiB of headroom. Reproduce by
+ *  building the entries and reading `JSON.stringify(map).length` — the figures
+ *  move with the non-roll fields, so re-measure rather than quoting these.
+ *  ★★ Measured with `JSON.stringify(...).length`, matching the per-entry bound.
+ *  That counts UTF-16 code units rather than bytes, which is the right unit
+ *  because browsers bill localStorage in UTF-16 units. ★ Do NOT carry over the
+ *  per-entry docstring's "for a real roll the two are equal" clause: it is true
+ *  of a ROLL (ASCII keys, numeric values) and false of what THIS bound measures,
+ *  since the map also carries `users[].firstName`/`lastName`/`email` free text —
+ *  and in a German-locale product a `ü` is one UTF-16 unit and two UTF-8 bytes. */
+export const MAX_ACTUALS_TOTAL_CHARS = 2 * 1024 * 1024;
+
+/** What `writeDeviceJson` will actually put in the key — it stringifies the
+ *  value verbatim, so this is the stored length and not an estimate of it. */
+function mapSize(map: CacheMap): number {
+  return JSON.stringify(map).length;
+}
+
+/** Shedding order: oldest `fetchedAt` first, and NEVER the entry just saved.
+ *  ★★★ EXCLUDING `keep` IS LOAD-BEARING. Without it an entry can be stripped or
+ *  dropped by its OWN save, so a network round trip is discarded and nothing
+ *  anywhere reports it — `writeDeviceJson` swallows every failure, which is the
+ *  same silence §361 is about.
+ *  ★ The id breaks a tie so two entries written in the same millisecond shed in
+ *  a stable order rather than whatever `Object.keys` happens to yield. */
+function shedOrder(map: CacheMap, keep: string): string[] {
+  return Object.keys(map)
+    .filter((k) => k !== keep)
+    .sort((a, b) =>
+      map[a].fetchedAt === map[b].fetchedAt
+        ? a.localeCompare(b)
+        : map[a].fetchedAt.localeCompare(map[b].fetchedAt),
+    );
+}
 
 /** Bound one entry's `daily` roll to `MAX_DAILY_ROLL_CHARS` by dropping the
  *  OLDEST dates first, and narrow `dailyWindow.from` to the earliest FULLY
@@ -283,10 +349,19 @@ export const MAX_DAILY_ROLL_CHARS = 512 * 1024;
  *  is deliberately not this store's job (`withCheckedDaily` says why). During a
  *  TRIM such a key is dropped instead — it cannot be ordered against the
  *  others, so there is no honest way to call it old or new, and it must not
- *  become the new `from`. The same goes for a key `parseDailyKey` accepts whose
- *  date is not ISO-shaped: `ISO_DATE_RE` is this file's own WINDOW rule, not a
- *  second key rule, and gating retention and `from` on one set keeps them from
- *  drifting apart. */
+ *  become the new `from`.
+ *  ★★★ THE SECOND CLAUSE OF THAT EXCLUSION (`!ISO_DATE_RE.test(parsed.date)`)
+ *  IS UNREACHABLE TODAY, and this docstring used to describe it in the present
+ *  tense as though a key could land in it. It cannot: `ISO_DATE_RE` here and
+ *  `KEY_DATE_RE` in `timelog-types.ts` are byte-identical, so any date half
+ *  `parseDailyKey` returns has already passed the same shape. It stays anyway,
+ *  and deliberately — this file calls `parseDailyKey` directly, `ISO_DATE_RE` is
+ *  this file's own WINDOW rule rather than a second key rule, and the day the
+ *  key rule loosens (a longer date form, a timestamp suffix) the clause is what
+ *  keeps retention and `from` gated on ONE set. Verify before relying on either
+ *  half — the `^const` anchor keeps this docstring out of its own output:
+ *  `grep -rn "^const .*_DATE_RE" src/app/timelog-types.ts
+ *  src/app/timelog-actuals-store.ts`. */
 function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
   const d: unknown = e.daily;
   // Anything that is not a plain object is left for the read path to strip.
@@ -365,16 +440,119 @@ function withBoundedDaily(e: ActualsCacheEntry): ActualsCacheEntry {
   return copy;
 }
 
+/** ★★★ FOUR STAGES, IN INCREASING ORDER OF WHAT THEY COST THE USER.
+ *  1. Count eviction (`MAX_PROJECTS`), newest `fetchedAt` first.
+ *  2. Shed `daily` + `dailyWindow` + `dailyUsers` TOGETHER from the oldest
+ *     entries.
+ *  3. Shed `users` + `projectRefs` from the oldest entries.
+ *  4. Drop whole entries, oldest first — the only stage that costs `aggregates`.
+ *  ★★★ THE ORDER IS THE DESIGN, AND `aggregates` IS WHAT IT PROTECTS.
+ *  `withBoundedDaily`'s docstring states the rule: losing the roll must never
+ *  cost the `aggregates` beside it, because the aggregates are what the network
+ *  round trip bought and every KPI reads them. So each stage sheds the field
+ *  whose loss is cheapest to repair, and only stage 4 — reached when there is
+ *  nothing else left to give — throws aggregates away.
+ *  ★★ STAGE 3 EXISTS BECAUSE STAGES 2 AND 4 ALONE INVERT THAT RULE. A map whose
+ *  bulk is `users` (a large org directory, no roll) skips stage 2 entirely and
+ *  lands in stage 4, which drops aggregates to reclaim space held by a
+ *  display-only field. Shedding `users`/`projectRefs` is cheap: both are read
+ *  ONLY as lazy initial state with `?? []` (`use-timelog-sync.ts`), so the cost
+ *  is an empty People/Projects table until the next fetch — byte-identical to
+ *  the state on a device that has never fetched, which is already a supported
+ *  one. Nothing derives a WRITE from a shed entry's copy.
+ *  ★★★ EVERY STAGE SHEDS WHOLE FIELDS. NONE OF THEM TRIMS. Narrowing another
+ *  project's `dailyWindow` during a save for THIS one rewrites a coverage CLAIM
+ *  the insights reconcile trusts; the insight would then read as covered, find
+ *  no violation in the trimmed roll, and resolve as a fabricated "improved"
+ *  into shared, exported data. Shedding the three roll fields TOGETHER claims
+ *  nothing instead: `rollWindow === undefined` makes the reconcile predicate
+ *  return false FOR A GUARDRAIL INSIGHT (`overdueTrend`, `budgetVariance` and
+ *  the `CORE_INSIGHT_TYPES` members return earlier and are not roll-derived),
+ *  so it FREEZES — the recoverable direction. Shed whole or leave alone.
+ *  ★★★ WHAT IS STILL NOT CLOSED: a SINGLE entry that alone exceeds the budget.
+ *  `users` is unbounded and stages 2-4 all skip `projectId`, so such a save is
+ *  written over budget and may still be lost to the quota error
+ *  `writeDeviceJson` swallows. That is deliberate and cannot be fixed here — the
+ *  only remaining candidate is the entry the caller just fetched, and shedding
+ *  it is the silent-discard bug this function exists to prevent. What §361
+ *  closed is the MANY-ENTRIES case. Bounding `users` would close the rest.
+ *  ★ `size` is hoisted and recomputed ONLY after a stage actually rewrites
+ *  `out`. `mapSize` is a full `JSON.stringify` — measured at 12.6 ms over a
+ *  2.7 MB map on Node, and a browser main thread is typically slower — and this
+ *  runs synchronously on the post-fetch write path, so re-measuring per
+ *  CANDIDATE rather than per MUTATION cost ~150 serialisations (~1.9 s) on a
+ *  full map whose stages mostly `continue`. */
 export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): void {
   const map = readMap();
   map[projectId] = withBoundedDaily(entry);
+
+  // Stage 1 — count eviction, newest first.
+  let out: CacheMap = map;
   const entries = Object.entries(map);
   if (entries.length > MAX_PROJECTS) {
     entries.sort((a, b) => b[1].fetchedAt.localeCompare(a[1].fetchedAt));
     const kept: CacheMap = {};
     for (const [k, v] of entries.slice(0, MAX_PROJECTS)) kept[k] = v;
-    writeDeviceJson(TIMELOG_ACTUALS_KEY, kept);
-    return;
+    // ★ A caller may hand over an OLD `fetchedAt` (a replayed or backfilled
+    // fetch), which would sort the entry being saved out of its own save. Swap
+    // it for the oldest survivor rather than lose the write — or grow past the
+    // cap, which is the other way this could have gone and is not one.
+    if (kept[projectId] === undefined) {
+      delete kept[entries[MAX_PROJECTS - 1][0]];
+      kept[projectId] = map[projectId];
+    }
+    out = kept;
   }
-  writeDeviceJson(TIMELOG_ACTUALS_KEY, map);
+
+  // ★★ The three outer `size > …` guards below are REDUNDANT with each loop's
+  // own leading break, so each is an EQUIVALENT mutant and NONE of them is
+  // pinned by a test — do not read a green suite as covering them. Measured,
+  // not reasoned: replacing stage 2's guard with a bare block leaves all 50
+  // tests in `timelog-actuals-store.test.ts` green. They are a fast path, not
+  // logic — they skip building `shedOrder` (keys + filter + sort over the whole
+  // map) on the overwhelmingly common under-budget save. The IN-LOOP breaks are
+  // the load-bearing checks, and those are pinned.
+  let size = mapSize(out);
+
+  // Stage 2 — shed rolls, oldest first.
+  if (size > MAX_ACTUALS_TOTAL_CHARS) {
+    for (const k of shedOrder(out, projectId)) {
+      if (size <= MAX_ACTUALS_TOTAL_CHARS) break;
+      const e = out[k];
+      if (e.daily === undefined && e.dailyWindow === undefined && e.dailyUsers === undefined) continue;
+      const shed = { ...e };
+      delete shed.daily;
+      delete shed.dailyWindow;
+      delete shed.dailyUsers;
+      out = { ...out, [k]: shed };
+      size = mapSize(out);
+    }
+  }
+
+  // Stage 3 — shed the matching-UI inputs, oldest first, aggregates kept.
+  if (size > MAX_ACTUALS_TOTAL_CHARS) {
+    for (const k of shedOrder(out, projectId)) {
+      if (size <= MAX_ACTUALS_TOTAL_CHARS) break;
+      const e = out[k];
+      if (e.users === undefined && e.projectRefs === undefined) continue;
+      const shed = { ...e };
+      delete shed.users;
+      delete shed.projectRefs;
+      out = { ...out, [k]: shed };
+      size = mapSize(out);
+    }
+  }
+
+  // Stage 4 — drop whole entries, oldest first. Costs `aggregates`; last resort.
+  if (size > MAX_ACTUALS_TOTAL_CHARS) {
+    for (const k of shedOrder(out, projectId)) {
+      if (size <= MAX_ACTUALS_TOTAL_CHARS) break;
+      const next = { ...out };
+      delete next[k];
+      out = next;
+      size = mapSize(out);
+    }
+  }
+
+  writeDeviceJson(TIMELOG_ACTUALS_KEY, out);
 }

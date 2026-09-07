@@ -1619,6 +1619,8 @@ export const de: Record<TranslationKey, string> = {
   timelogUnattributed: "Nicht zugeordnet: {0} h",
   timelogAttributionHint:
     "Die Stunden einer Ressource werden nur als gebucht angezeigt, wenn ihr Timelog-Benutzer mit dieser Ressource verknüpft ist und das Projekt der Buchung mit einem Budget-Bucket verknüpft ist.",
+  timelogUndatedHint:
+    "Einige abgerufene Stunden tragen kein verwendbares Buchungsdatum und lassen sich deshalb keiner Periode zuordnen. Anders als eine fehlende Verknüpfung lässt sich das hier nicht beheben, auch nicht durch einen erneuten Abruf — korrigieren Sie das Datum der betroffenen Buchungen in TimeLog.",
   timelogApply: "Auf Budget anwenden",
   timelogApplyConfirm: "{0} Bucket-Änderungen auf die Ist-Stunden des Budgets anwenden?",
   timelogApplyConfirmOne: "1 Bucket-Änderung auf die Ist-Stunden des Budgets anwenden?",
@@ -3294,6 +3296,8 @@ export const de: Record<TranslationKey, string> = {
     "Abgerufene TimeLog-Buchungen warten darauf, auf {0} Budgetblock/Budgetblöcke angewendet zu werden — die Ist-Stunden dieser Blöcke ändern sich erst, wenn Sie sie unter Zeitbuchungen anwenden.",
   budgetUnattributedActuals:
     "{0} Stunden aus abgerufenen TimeLog-Buchungen konnten beim Abruf keiner Budgetzeile zugeordnet werden. Die Zuordnung entsteht beim Abruf, daher stellt eine jetzt korrigierte Personen- oder Projektverknüpfung sie NICHT wieder her — die Buchungen müssen erneut abgerufen werden.",
+  budgetUndatedActuals:
+    "Von den nicht zuordenbaren Buchungen tragen {0} Stunden kein verwendbares Buchungsdatum. Das liegt an den abgerufenen Daten selbst und nicht an einer Verknüpfung — ein erneuter Abruf liefert dieselben Buchungen, die Datumsangaben müssen also zuerst in TimeLog korrigiert werden.",
   budgetUnappliedActualsGo: "Zeitbuchungen öffnen",
   budgetReportColWinLossHint: "Differenz zwischen Erlös und Kosten in EUR; negativ bedeutet, dass der Bucket mit Verlust läuft.",
   budgetWinLossHint: "Stunden über oder unter Plan.",

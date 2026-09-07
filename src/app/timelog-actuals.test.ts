@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { aggregateActuals, buildDailyRoll } from "./timelog-actuals";
 import { periodKeyForDate, generatePeriods } from "./resource-capacity";
+import { parseDailyKey } from "./timelog-types";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
 // timeRegistrationId/taskId are ignored scaffolding — the engine keys only on userId/projectId/date/hours.
@@ -112,6 +113,115 @@ describe("aggregateActuals", () => {
     expect(out.byBucket[7]["2026-06"]).toBeUndefined();
   });
 
+  // `timelog-api.ts` coerces `Date` through `dateOnly = s(v).slice(0, 10)`, and
+  // `s` returns "" for anything non-string — so an absent, null or numeric Date
+  // arrives as `date: ""`, and a regionally formatted "05/01/2026" is exactly
+  // ten characters and survives the slice intact. `periodKeyForDate` then mints
+  // a key no rendered column matches (measured: month "" and "05/01/2", week
+  // "NaN-WNaN" for both), so real hours vanish from the Budget view with no
+  // diagnostic. Unattributable to a period ⇒ `unattributed`, like an unlinked row.
+  it("routes a malformed-date row to unattributed instead of a phantom month key", () => {
+    const out = aggregateActuals(
+      [item(5, 9, "2026-06-10", 4), item(5, 9, "", 3), item(5, 9, "05/01/2026", 2)],
+      links,
+      "month",
+    );
+    expect(out.unattributed).toEqual({ hours: 5, billableHours: 5 });
+    // The junk keys `periodKeyForDate` would have minted must not exist at all.
+    expect(Object.keys(out.byBucket[7])).toEqual(["2026-06"]);
+    expect(out.byBucket[7][""]).toBeUndefined();
+    expect(out.byBucket[7]["05/01/2"]).toBeUndefined();
+  });
+
+  // ★★ THE DOUBLE-COUNT GUARD. `byResource[resourceId] = add(...)` is written
+  // BEFORE `periodKeyForDate` is reached, so a date guard placed after that
+  // write counts the same hours in `byResource` AND in `unattributed` — a
+  // silent inflation of every per-resource total. The good row alongside is
+  // what makes the assertion say "only the good hours", not merely "non-zero".
+  it("does not double-count a malformed-date row into byResource", () => {
+    const out = aggregateActuals(
+      [item(5, 9, "2026-06-10", 4), item(5, 9, "", 3)],
+      links,
+      "month",
+    );
+    expect(out.unattributed).toEqual({ hours: 3, billableHours: 3 });
+    expect(out.byResource[2]).toEqual({ hours: 4, billableHours: 4 });
+  });
+
+  it("week granularity: a malformed date does not mint the NaN-WNaN key", () => {
+    const good = periodKeyForDate("2026-06-10", "week");
+    const out = aggregateActuals(
+      [item(5, 9, "2026-06-10", 4), item(5, 9, "", 3), item(5, 9, "05/01/2026", 2)],
+      links,
+      "week",
+    );
+    expect(Object.keys(out.byBucket[7])).toEqual([good]);
+    expect(out.byBucket[7]["NaN-WNaN"]).toBeUndefined();
+    expect(out.unattributed.hours).toBe(5);
+  });
+
+  // ★★★ THE SUBSET INVARIANT, and it is the whole safety of the `undated` split.
+  // `undated` is a SUBSET of `unattributed`, never a sibling — every existing
+  // reader of `unattributed` stays correct precisely because the set of rows
+  // reaching it did not change. A fixture carrying BOTH kinds of unattributable
+  // row is what makes that a claim: a link-broken row (healthy date, no user
+  // link) must land in `unattributed` ALONE, while the malformed-date row lands
+  // in BOTH. Written as a test rather than a comment because a comment cannot
+  // fail: widen `undated` to take the link-broken rows too and this dies.
+  it("reports undated hours as a strict subset of unattributed", () => {
+    const out = aggregateActuals(
+      [
+        item(5, 9, "2026-06-10", 4), // fully attributable
+        item(5, 9, "", 3), // malformed date, links healthy → BOTH
+        item(99, 9, "2026-06-11", 8), // unlinked user, date healthy → unattributed ONLY
+      ],
+      links,
+      "month",
+    );
+    expect(out.unattributed).toEqual({ hours: 11, billableHours: 11 });
+    expect(out.undated).toEqual({ hours: 3, billableHours: 3 });
+    // ★ A FIXTURE PROPERTY, NOT THE INVARIANT — this line claimed to state the
+    // subset "as arithmetic" and cannot. Subset-by-ROW does not imply the
+    // inequality once hours can be negative, and this very commit relies on
+    // negatives being real: undated +10 against a link-broken -20 gives
+    // undated.hours > unattributed.hours with the subset perfectly intact. It
+    // earns its place by killing the realistic mutant (widening the inner
+    // predicate breaks this AND the two toEqual assertions above), not by
+    // expressing the invariant. The invariant is structural: `!dated` is a
+    // disjunct of the outer condition, so nothing can reach `undated` without
+    // having been added to `unattributed` first.
+    expect(out.undated!.hours).toBeLessThan(out.unattributed.hours);
+  });
+
+  // Anti-vacuity control for the split: a guard that fired unconditionally, or
+  // an `undated` fed from the same predicate as `unattributed`, would satisfy
+  // the assertions above. Nothing malformed ⇒ nothing undated AND nothing
+  // unattributed. Absent is as good as zero — the field is optional so a
+  // pre-split cache entry still deserializes.
+  it("leaves undated at zero when every row carries a usable date", () => {
+    const out = aggregateActuals(
+      [item(5, 9, "2026-06-10", 4), item(99, 9, "2026-06-11", 8)],
+      links,
+      "month",
+    );
+    expect(out.undated?.hours ?? 0).toBe(0);
+    expect(out.undated?.billableHours ?? 0).toBe(0);
+    // The link-broken row still reaches `unattributed` — proving the zero above
+    // is not merely an empty fixture.
+    expect(out.unattributed).toEqual({ hours: 8, billableHours: 8 });
+  });
+
+  // Anti-vacuity control: a guard that fired unconditionally would satisfy every
+  // assertion above. A wholly well-formed fixture must still attribute in full,
+  // with nothing diverted.
+  it("leaves a wholly well-formed fixture fully attributed", () => {
+    const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-07-01", 3)], links, "month");
+    expect(out.unattributed).toEqual({ hours: 0, billableHours: 0 });
+    expect(out.byBucket[7]["2026-06"].hours).toBe(4);
+    expect(out.byBucket[7]["2026-07"].hours).toBe(3);
+    expect(out.byResource[2]).toEqual({ hours: 7, billableHours: 7 });
+  });
+
   it("week granularity: items in different weeks get distinct keys", () => {
     // 2026-06-10 (Wed, W24) and 2026-06-15 (Mon, W25)
     const keyW24 = periodKeyForDate("2026-06-10", "week");
@@ -174,6 +284,43 @@ describe("buildDailyRoll", () => {
     // The identified booker is untouched — the filter must not widen past the sentinel.
     expect(roll["7|2026-09-01"]).toEqual({ hours: 6, maxEntryHours: 6, entryCount: 1 });
     expect(Object.keys(roll)).toEqual(["7|2026-09-01"]);
+  });
+
+  // ★★★ THESE TWO PIN A KEY THAT LOOKS LIKE A BUG AND IS THE SAFETY PROPERTY.
+  // A malformed date must reach the roll as an UNPARSEABLE KEY, because that key
+  // is the only production signal that the roll is not fully readable:
+  // `parseDailyKey` rejects it → `evaluateTimelogPolicy` sets its per-roll
+  // `skipped` flag → the guardrail rules are withheld from `evaluated` →
+  // `reconcileInsights` freezes instead of resolving. Filtering these rows out
+  // makes the rules certify a clean day for hours nobody could place, and the
+  // reconcile then writes a fabricated "improved" into exported data. That
+  // filter was written, shipped and reverted on 2026-09-07 (open-followups
+  // §431); these tests exist so it cannot come back quietly.
+  // ★ `parseDailyKey` is asserted directly rather than trusting the key's shape:
+  // the claim is "the policy engine cannot read this", and that predicate IS the
+  // policy engine's reader. Asserting only `roll["7|"]` would still pass if the
+  // parser were later loosened to accept it.
+  it("keeps a blank-date row as an unparseable key, so the roll reads as incomplete", () => {
+    const roll = buildDailyRoll([
+      item(7, "", 8),
+      item(7, "2026-09-01", 6),
+    ]);
+    expect(roll["7|"]).toEqual({ hours: 8, maxEntryHours: 8, entryCount: 1 });
+    expect(parseDailyKey("7|")).toBeNull();
+    // The good row still rolls up normally — the bad key must not cost it.
+    expect(roll["7|2026-09-01"]).toEqual({ hours: 6, maxEntryHours: 6, entryCount: 1 });
+  });
+
+  // The ten-character regional case: `dateOnly`'s `.slice(0, 10)` is a no-op on
+  // it, so it reaches the roll looking like a date and is not one.
+  it("keeps a regionally formatted date as an unparseable key", () => {
+    const roll = buildDailyRoll([
+      item(7, "05/01/2026", 8),
+      item(7, "2026-09-01", 6),
+    ]);
+    expect(roll["7|05/01/2026"]).toEqual({ hours: 8, maxEntryHours: 8, entryCount: 1 });
+    expect(parseDailyKey("7|05/01/2026")).toBeNull();
+    expect(roll["7|2026-09-01"]).toEqual({ hours: 6, maxEntryHours: 6, entryCount: 1 });
   });
 
   it("returns an empty roll for no items", () => {

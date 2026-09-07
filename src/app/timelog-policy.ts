@@ -239,18 +239,77 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   // `DEFAULT_WEEK_HOURS` when no shift resolves — so it belongs in here too.
   const linked = new Set<number>(userLinks.map((l) => l.timelogUserId));
 
+  // ★★★ SET BY ANY CELL THE LOOP COULD NOT READ, AND IT COSTS EVERY ENABLED RULE
+  // ITS EVALUATION — see the withholding loop at the bottom. This is the same
+  // readiness rule as `doNonWorking`'s holiday floor and `doWorking`'s link
+  // floor, applied to the roll's own contents: a rule reports itself evaluated
+  // only when it COULD have produced a true answer, and a partial read cannot
+  // honestly answer "no violation".
+  // ★★★ IT COSTS THE RULE ITS `evaluated` MEMBERSHIP AND NOTHING ELSE — the
+  // violations it did accumulate are still REPORTED. `evaluated` means precisely
+  // one thing: "this rule may certify a clean", because it is what
+  // `reconcileInsights` reads as licence to CLEAR a stored insight. A partial
+  // read can still be RIGHT that a violation exists — it OBSERVED one — and can
+  // never be right that none does. So a positive finding needs no certification
+  // and goes out; only the authority to say "no violation" is withheld, and the
+  // rule's stored insights FREEZE rather than resolving as a fabricated
+  // "improved" in shared, exported `Workspace.insights`.
+  // ★★★ THE COST OF THIS DIRECTION, STATED SO IT IS NOT REDISCOVERED AS A BUG:
+  // a violation reported while the rule is NOT evaluated mints an insight that
+  // `reconcileInsights` cannot clear for as long as the unreadable cell persists.
+  // That is a FREEZE, which is this module's own recoverable direction, and it
+  // lifts the moment the roll becomes readable.
+  // ★★★ THE ALTERNATIVE WAS SUPPRESSING THE VIOLATIONS TOO, AND ITS COST IS WHAT
+  // DECIDED THIS. Under that shape ONE malformed key blinds every enabled
+  // guardrail for the whole fetch, so a genuine 12-hour-day breach on a
+  // perfectly good day never reaches the user at all. That is exactly what the
+  // "one bad day must not cost the other days" comment below existed to prevent:
+  // its INSTINCT was right and only its conclusion about `evaluated` was wrong.
+  // Both halves were weighed; do not re-derive one of them and flip this back.
+  // ★★ PER-ROLL, NOT PER-RULE, deliberately: an unreadable cell might have
+  // violated ANY of the four, so none of them can certify.
+  // ★★★ AND PER-ROLL MEANS EVERY PERSON, NOT JUST THE ONE THE CELL BELONGED TO.
+  // This comment read "so none of them can certify for the person it belonged
+  // to", which understates the blast radius by the width of the whole roll:
+  // `skipped` is a single flag over one `evaluateTimelogPolicy` call, so one
+  // unreadable cell withholds `evaluated` for all four rules across EVERY user
+  // in that roll. On the `!isDailyCell` branch the person is in fact
+  // identifiable (`parseDailyKey` succeeded), so a narrower per-user withholding
+  // is CONSTRUCTIBLE there — it is not built because the `parsed === null`
+  // branch cannot identify anyone, and two withholding widths in one loop is a
+  // second rule free to drift from this one. Widening is the safe direction:
+  // over-withholding FREEZES rows, under-withholding fabricates `"improved"`.
+  let skipped = false;
   for (const [key, cell] of Object.entries(daily)) {
     const parsed = parseDailyKey(key);
-    if (parsed === null) continue;
+    if (parsed === null) {
+      skipped = true;
+      continue;
+    }
     // ★★ Defense in depth, and the reason it is not redundant with the cache's
     // own per-cell strip: `daily` is typed `TimelogDailyRoll | null`, and a TYPE
     // is a promise the CALLER makes. `loadActualsCache` keeps that promise; any
     // future caller handing over an unvalidated roll — a structured clone, an
     // in-memory hand-off, a freshly computed roll — does not, and this loop runs
     // inside a debounced effect with no try/catch, so a `null` cell here is an
-    // uncaught throw that kills the whole insights reconcile. Skip the cell, not
-    // the roll: one bad day must not cost the other days their evaluation.
-    if (!isDailyCell(cell)) continue;
+    // uncaught throw that kills the whole insights reconcile. The cell is still
+    // SKIPPED rather than thrown on, and that throw-safety argument is unchanged.
+    // ★★★ WHAT CHANGED IS THE COST, AND ONLY HALF OF IT. This used to read "one
+    // bad day must not cost the other days their evaluation". The instinct was
+    // right — the other days are still measured, and any violation among them is
+    // still REPORTED — but the conclusion about `evaluated` was a safety
+    // regression: the cell vanished silently while the rule went on certifying
+    // itself evaluated, so a real over-cap booking on an unreadable day let
+    // `reconcileInsights` resolve a stored guardrail insight as a fabricated
+    // "improved". A skipped cell now costs the rule its authority to certify a
+    // clean, and nothing more.
+    // ★★ This closes a PRE-EXISTING hole as well as the one the date-shape check
+    // widened: an unparseable key and a non-cell value both fell into the same
+    // silent skip before either guard existed.
+    if (!isDailyCell(cell)) {
+      skipped = true;
+      continue;
+    }
     const { userId, date } = parsed;
     const resourceId = userToResource.get(userId) ?? null;
     const shift = resourceId === null ? undefined : resourceToShift.get(resourceId);
@@ -292,7 +351,12 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   for (const rule of TIMELOG_RULE_IDS) {
     const { on, acc } = byRule[rule];
     if (!on) continue;
-    evaluated.push(rule);
+    // ★★★ THE VIOLATIONS ARE REPORTED EITHER WAY; ONLY THE CERTIFICATION IS
+    // WITHHELD. `skipped` is the roll-contents readiness floor — see its
+    // declaration for what it costs and why. The asymmetry is the whole point: a
+    // partial read can still be RIGHT that a violation exists, because it
+    // OBSERVED one, and it can never be right that none does.
+    if (!skipped) evaluated.push(rule);
     violations.push(...drain(rule, acc));
   }
   return { violations, evaluated, linkedUsers: [...linked] };

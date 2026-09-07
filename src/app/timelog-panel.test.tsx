@@ -277,6 +277,51 @@ describe("TimelogPanel", () => {
     });
   });
 
+  // §432. The attribution hint explains LINK state, and for an undated row the
+  // links are healthy — so on its own it offers a remedy (fix the link, fetch
+  // again) that cannot work. `undated` is a subset of `unattributed`, so the
+  // existing hint keeps rendering; the new line says what the other one cannot.
+  describe("undated hours hint (§432)", () => {
+    it("adds the undated hint when the aggregate reports undated hours", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue({
+        ...defaultSyncReturn(),
+        aggregates: {
+          ...defaultSyncReturn().aggregates,
+          unattributed: { hours: 2, billableHours: 0 },
+          undated: { hours: 2, billableHours: 0 },
+        },
+      } as unknown as ReturnType<typeof useTimelogSync>);
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      expect(screen.getByText(t("en-US", "timelogUndatedHint"))).toBeInTheDocument();
+      // The link hint is NOT replaced — undated rows are unattributed rows too.
+      expect(screen.getByText(t("en-US", "timelogAttributionHint"))).toBeInTheDocument();
+    });
+
+    // Positive control: unattributed hours exist (defaultSyncReturn carries 2h)
+    // but none of them are undated, so ONLY the link hint may render. Without
+    // this, a hint rendered unconditionally would satisfy the test above.
+    it("omits the undated hint when unattributed hours all carry a date", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      expect(screen.queryByText(t("en-US", "timelogUndatedHint"))).toBeNull();
+      expect(screen.getByText(t("en-US", "timelogAttributionHint"))).toBeInTheDocument();
+    });
+  });
+
   // ★★★ §74's module exists so ONE contract serves both the handler and the
   // button — but until these tests nothing pinned the BUTTON half. Deleting
   // `isMisconfigured` from a toolbar/table argument object makes the button

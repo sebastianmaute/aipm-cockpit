@@ -8,6 +8,44 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.292.0] - 2026-09-07 "Yoshimoto"
+
+### Fixed
+- An insight about the project's overdue trend is no longer crowded off the
+  Insights list by a run of time-booking guardrail findings. The list holds a
+  fixed number of entries, and nothing limited how many guardrail findings one
+  fetch could produce, so they could fill it entirely and hide the single
+  insight that reports a trend across the whole project. Part of the list is
+  now held back for findings that are not guardrails.
+- Booked hours that carry no usable date no longer vanish from the Budget view.
+  They were being filed under a period that does not exist, so they appeared in
+  no column at all — and applying the bookings to the budget then wrote that
+  non-existent period onto every role line of the bucket.
+- Hours that could not be placed on a budget line are now given the remedy that
+  actually works. The existing note tells you to correct a person or project
+  link and fetch again, which is right when a link is missing and wrong when
+  the booking's own date is unusable, because fetching returns the same date.
+  Those hours are now reported separately, with the instruction to correct the
+  date in TimeLog.
+- Switching a bucket between detailed and blended planning no longer warns that
+  entered hours will be discarded when the bucket holds none. A booking period
+  that could not be read left an empty allocation looking as though it carried
+  data.
+- The per-device store of fetched bookings is now limited by how much it
+  actually holds rather than by a count of projects. Fifty projects each just
+  under the per-project limit could exceed the browser's storage quota, and the
+  failure was silent — the whole save was lost, including figures already
+  applied to the budget.
+- A daily-roll key is now checked for shape before it is read, so a malformed
+  one is rejected rather than being read as a date the project never had.
+
+### Changed
+- Time-booking guardrail findings now hold their previous state when the day's
+  booking data cannot be read, instead of being reported as resolved. A finding
+  that clears is recorded as an improvement, so a run that could not read a
+  day would otherwise have claimed an improvement nobody made — in data that is
+  exported and read back by the assistant.
+
 ## [0.291.1] - 2026-09-07 "Hoban"
 
 ### Fixed

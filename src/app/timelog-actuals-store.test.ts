@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { isDailyCell, loadActualsCache, MAX_DAILY_ROLL_CHARS, saveActualsCache, TIMELOG_ACTUALS_KEY } from "./timelog-actuals-store";
+import { isDailyCell, loadActualsCache, MAX_ACTUALS_TOTAL_CHARS, MAX_DAILY_ROLL_CHARS, MAX_PROJECTS, saveActualsCache, TIMELOG_ACTUALS_KEY } from "./timelog-actuals-store";
 import { writeDeviceJson } from "./device-store";
 
 afterEach(() => window.localStorage.clear());
@@ -507,10 +507,21 @@ describe("ActualsCacheEntry.daily size bound", () => {
 
   // ★★ Reachable shape for "nothing survives": every key unusable — every key
   // here lacks the `|` separator, so `parseDailyKey` rejects all of them.
-  // ★ It is NOT true that a single oversized cell cannot be constructed, which
-  // is what this comment used to claim: `parseDailyKey` never checks the DATE
-  // beyond non-emptiness, so `"7|" + "x".repeat(600000)` parses and is exactly
-  // that. Many-unusable-keys is simply the shape this test chose.
+  // ★★ A single oversized cell is NOT CONSTRUCTIBLE, and the REASON is the whole
+  // of `parseDailyKey`'s guard set rather than any one member of it: the date
+  // half is capped at 10 characters by `KEY_DATE_RE`, the userId half must match
+  // `KEY_USER_RE` (so no whitespace pad, which `Number()` would have stripped),
+  // and `Number.isInteger` rejects the all-digit head that overflows to
+  // `Infinity` past roughly 309 digits. A key therefore cannot exceed about 320
+  // characters.
+  // ★★★ DISTRUST THE NEXT CONFIDENT CLAIM HERE — this comment has been wrong in
+  // more than one direction, and each wrong version read as settled. Whatever
+  // the state of the code, measure rather than read: build the single cell you
+  // think is oversized, check `JSON.stringify` of it against
+  // `MAX_DAILY_ROLL_CHARS`, and confirm `parseDailyKey` returns null for its key.
+  // Nothing short of that settles it.
+  // ★ Many-unusable-keys remains the shape this test chose, and it still
+  // exercises the same survivor-run path.
   // ★★ Losing the roll must never cost the rest of the entry — the aggregates
   // are what the network round trip bought.
   it("drops daily AND dailyWindow together when nothing survives, keeping the rest", () => {
@@ -551,6 +562,16 @@ describe("ActualsCacheEntry.daily size bound", () => {
   // become the new `from`. `"zzz"` is chosen because it sorts ABOVE every ISO
   // date lexicographically and `"0000-00-00"` below every real one, so a trim
   // that failed to exclude them would visibly move `from` to a non-date.
+  // ★★★ THAT DESCRIBES AN EXCLUSION THIS FIXTURE NO LONGER REACHES. `withBoundedDaily`
+  // excludes a key on `!parsed || !ISO_DATE_RE.test(parsed.date)`, and all three
+  // keys below now die on the FIRST clause: `parseDailyKey` rejects `"no-pipe"`
+  // on its separator, and `"7|zzz"` / `"7|0000-00-00x"` on `KEY_DATE_RE`. So this
+  // test pins the first clause three times and the second not at all — and no
+  // input can reach the second clause by construction, since `KEY_DATE_RE` and
+  // this file's `ISO_DATE_RE` are byte-identical. The second clause is kept as
+  // deliberate defence-in-depth, not because anything here exercises it; see
+  // `withBoundedDaily`'s own docstring. Do not manufacture a fixture that
+  // "reaches" it — none exists, and one that appeared to would be a lie.
   it("drops unparseable and non-ISO keys during a trim without letting them set from", () => {
     const mixed: Record<string, typeof CELL> = { ...rollOf(OVER_DAYS), "no-pipe": { ...CELL }, "7|zzz": { ...CELL }, "7|0000-00-00x": { ...CELL } };
     expect(() =>
@@ -567,5 +588,255 @@ describe("ActualsCacheEntry.daily size bound", () => {
     expect(keys).not.toContain("7|0000-00-00x");
     expect(e?.dailyWindow?.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(e?.dailyWindow?.from).toBe(datesOf(e?.daily)[0]);
+  });
+});
+
+describe("timelog actuals cache — map-level size budget", () => {
+  const DAY_MS = 86_400_000;
+  const isoDay = (i: number) => new Date(Date.UTC(2000, 0, 1) + i * DAY_MS).toISOString().slice(0, 10);
+  const CELL = { hours: 8, maxEntryHours: 8, entryCount: 1 };
+
+  /** `days` consecutive dated cells for one booker, oldest at index 0. */
+  const bigRoll = (days: number): Record<string, typeof CELL> => {
+    const out: Record<string, typeof CELL> = {};
+    for (let i = 0; i < days; i += 1) out[`7|${isoDay(i)}`] = { ...CELL };
+    return out;
+  };
+
+  // ★ 20k cells is ~1.2 MB against the 512 KiB PER-ENTRY bound, so
+  // `withBoundedDaily` trims each entry to just under that — which is a QUARTER
+  // of the 2 MiB map budget. Five such entries therefore exceed the map budget
+  // while NONE of them is individually over the per-entry one, which is the
+  // exact shape §361 describes and the only shape that can distinguish the two
+  // bounds.
+  const BIG_DAYS = 20_000;
+
+  const bigEntry = (fetchedAt: string) => ({
+    fetchedAt,
+    aggregates: agg(3),
+    daily: bigRoll(BIG_DAYS),
+    dailyWindow: { from: isoDay(0), to: isoDay(BIG_DAYS - 1) },
+    dailyUsers: [7],
+  });
+
+  const storedLength = () => (window.localStorage.getItem(TIMELOG_ACTUALS_KEY) ?? "").length;
+
+  /** ★★★ STAGE 2 IS THE POINT: the old entry loses its roll and KEEPS its
+   *  aggregates. `withBoundedDaily`'s own docstring states the rule — losing the
+   *  roll must never cost the aggregates beside it — and the count-based
+   *  eviction it replaces violated exactly that.
+   *  ★★ The three roll fields must go TOGETHER. A stripped entry with a window
+   *  but no roll is a coverage CLAIM about data that is gone: the reconcile
+   *  would read it as covered, find no violation in a roll that no longer
+   *  exists, and resolve the insight as a fabricated "improved". */
+  it("strips old rolls before dropping any entry, keeping their aggregates", () => {
+    for (let i = 0; i < 5; i += 1) {
+      saveActualsCache(`p${i}`, bigEntry(`2026-09-0${i + 1}T00:00:00.000Z`));
+    }
+    // ★ The `> 0` half is not decoration: a missing key reads as length 0 and
+    // would satisfy the budget assertion below without anything having been
+    // written at all.
+    expect(storedLength()).toBeGreaterThan(0);
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+
+    const oldest = loadActualsCache("p0");
+    expect(oldest).toBeDefined();
+    expect(oldest?.aggregates?.unattributed.hours).toBe(3);
+    expect(oldest?.daily).toBeUndefined();
+    expect(oldest?.dailyWindow).toBeUndefined();
+    expect(oldest?.dailyUsers).toBeUndefined();
+
+    expect(loadActualsCache("p4")?.daily).toBeDefined();
+  });
+
+  /** ★★★ THE ENTRY BEING SAVED IS NEVER A CANDIDATE, or a save silently does
+   *  nothing — a network round trip discarded with no error anywhere, since
+   *  `writeDeviceJson` swallows every failure.
+   *  ★★★ THE SAVED ENTRY HAS TO BE THE OLDEST HERE. Saving ONE big entry alone
+   *  and asserting it survived is VACUOUS: the per-entry roll cap is a quarter
+   *  of the map budget, so a lone entry can never exceed it and NEITHER stage
+   *  runs — the assertion passes with the `keep` exclusion deleted. Writing the
+   *  oldest `fetchedAt` LAST puts that entry first in the shed order, so only
+   *  the exclusion can save it. */
+  it("never sheds the entry being saved, even when it is the oldest", () => {
+    for (let i = 0; i < 4; i += 1) {
+      saveActualsCache(`n${i}`, bigEntry(`2026-09-0${i + 2}T00:00:00.000Z`));
+    }
+    saveActualsCache("oldest", bigEntry("2026-09-01T00:00:00.000Z"));
+    expect(storedLength()).toBeGreaterThan(0);
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+    const e = loadActualsCache("oldest");
+    expect(e).toBeDefined();
+    expect(e?.aggregates?.unattributed.hours).toBe(3);
+    expect(e?.daily).toBeDefined();
+    expect(e?.dailyWindow).toBeDefined();
+    expect(e?.dailyUsers).toEqual([7]);
+  });
+
+  /** A directory-heavy entry: no roll, bulk in `users`. This is the shape that
+   *  used to skip stage 2 and land straight in the whole-entry drop, spending
+   *  `aggregates` to reclaim space held by a display-only field. */
+  const fatUser = (userId: number) => ({
+    userId,
+    firstName: "x".repeat(400_000),
+    lastName: "L",
+    initials: "L",
+    email: "a@b.c",
+    isActive: true,
+  });
+  const directoryEntry = (fetchedAt: string, userId: number) => ({
+    fetchedAt,
+    aggregates: agg(1),
+    users: [fatUser(userId)],
+    projectRefs: [{ id: userId, name: "P", no: "P-1" }],
+  });
+
+  /** ★★★ STAGE 3 IS WHY THE `aggregates` RATIONALE IS TRUE RATHER THAN
+   *  ASPIRATIONAL. Without it this fixture skips stage 2 (no roll to shed) and
+   *  falls into the whole-entry drop, which throws away `aggregates` — what the
+   *  network round trip bought, and what every KPI reads — in order to reclaim
+   *  space held by `users`, which the file header says is cached only so the
+   *  People/Projects tables survive a remount "while the KPIs still show". */
+  it("sheds cached users and projectRefs before dropping an entry, keeping their aggregates", () => {
+    for (let i = 0; i < 6; i += 1) {
+      saveActualsCache(`d${i}`, directoryEntry(`2026-09-0${i + 1}T00:00:00.000Z`, i));
+    }
+    expect(storedLength()).toBeGreaterThan(0);
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+
+    const oldest = loadActualsCache("d0");
+    expect(oldest).toBeDefined();
+    expect(oldest?.aggregates?.unattributed.hours).toBe(1);
+    expect(oldest?.users).toBeUndefined();
+    expect(oldest?.projectRefs).toBeUndefined();
+
+    expect(loadActualsCache("d5")?.users).toBeDefined();
+  });
+
+  /** The stage-3 half of the keep exclusion, and it needs its own fixture for
+   *  the reason the stage-2 one does: the saved entry has to be the OLDEST or
+   *  it is last in the shed order anyway and the exclusion never does any work.
+   */
+  it("never sheds the saved entry's users, even when it is the oldest", () => {
+    for (let i = 0; i < 5; i += 1) {
+      saveActualsCache(`u${i}`, directoryEntry(`2026-09-0${i + 2}T00:00:00.000Z`, i));
+    }
+    saveActualsCache("oldest-dir", directoryEntry("2026-09-01T00:00:00.000Z", 9));
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+    const e = loadActualsCache("oldest-dir");
+    expect(e?.users?.[0].userId).toBe(9);
+    expect(e?.projectRefs).toBeDefined();
+  });
+
+  /** ★★ Stage 4 runs only once stages 2 AND 3 have nothing left to give, so the
+   *  bulk has to sit in a field no earlier stage sheds — `aggregates` itself,
+   *  which is exactly right: it is the thing stage 4 exists to sacrifice last.
+   *  ★ A `users`-heavy fixture CANNOT reach stage 4 any more; using one is what
+   *  made the previous version of this test pass against the missing stage 3. */
+  const bigAgg = (periods: number) => {
+    const byPeriod: Record<string, { hours: number; billableHours: number }> = {};
+    for (let i = 0; i < periods; i += 1) {
+      byPeriod[`${2000 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`] = { hours: 8, billableHours: 8 };
+    }
+    return { byBucket: { 7: byPeriod }, byResource: {}, unattributed: { hours: 1, billableHours: 0 } };
+  };
+  const heavyAggEntry = (fetchedAt: string) => ({ fetchedAt, aggregates: bigAgg(10_000) });
+
+  it("drops whole entries once there is nothing cheaper left to shed", () => {
+    for (let i = 0; i < 6; i += 1) {
+      saveActualsCache(`q${i}`, heavyAggEntry(`2026-09-0${i + 1}T00:00:00.000Z`));
+    }
+    expect(storedLength()).toBeGreaterThan(0);
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+    expect(loadActualsCache("q0")).toBeUndefined();
+    expect(loadActualsCache("q5")).toBeDefined();
+  });
+
+  /** ★★★ THE STAGE-4 HALF OF THE KEEP EXCLUSION, WHICH THE FIRST ROUND LEFT
+   *  UNPINNED. Mutating both `shedOrder(out, projectId)` call sites at once
+   *  looked like it proved the exclusion; applied to the DROP stage alone it
+   *  survived, because in the drop fixture above the saved entry is newest and
+   *  therefore last in the shed order regardless. Saving the OLDEST last is the
+   *  only shape where the exclusion is what saves it. */
+  it("never drops the entry being saved, even when it is the oldest", () => {
+    for (let i = 0; i < 5; i += 1) {
+      saveActualsCache(`r${i}`, heavyAggEntry(`2026-09-0${i + 2}T00:00:00.000Z`));
+    }
+    saveActualsCache("oldest-agg", heavyAggEntry("2026-09-01T00:00:00.000Z"));
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+    expect(loadActualsCache("oldest-agg")).toBeDefined();
+    expect(loadActualsCache("oldest-agg")?.aggregates?.byBucket[7]["2000-01"].hours).toBe(8);
+  });
+
+  /** ★★★ THE STAGE-1 RESTORE BRANCH, WHICH HAD NO COVERAGE AT ALL. The existing
+   *  cap test saves with monotonically INCREASING `fetchedAt`, so the saved
+   *  entry is always newest, always inside `entries.slice(0, MAX_PROJECTS)`, and
+   *  `if (kept[projectId] === undefined)` is never entered — deleting the whole
+   *  branch left it green. A back-dated save (a replayed or backfilled fetch)
+   *  is the only thing that reaches it.
+   *  ★★ BOTH assertions are load-bearing and they fail to DIFFERENT mutants:
+   *  without the branch the write is silently discarded; without its `delete`
+   *  the write lands but the map grows to `MAX_PROJECTS + 1`. */
+  it("keeps a back-dated save at the project cap without exceeding it", () => {
+    for (let i = 0; i < MAX_PROJECTS; i += 1) {
+      saveActualsCache(`c-${i}`, { fetchedAt: `2026-09-01T00:00:${String(i).padStart(2, "0")}.000Z`, aggregates: agg(i) });
+    }
+    saveActualsCache("backdated", { fetchedAt: "2000-01-01T00:00:00.000Z", aggregates: agg(77) });
+    expect(loadActualsCache("backdated")?.aggregates?.unattributed.hours).toBe(77);
+    const stored = JSON.parse(window.localStorage.getItem(TIMELOG_ACTUALS_KEY) ?? "{}") as Record<string, unknown>;
+    expect(Object.keys(stored)).toHaveLength(MAX_PROJECTS);
+  });
+
+  /** ★★ `shedOrder`'s `a.localeCompare(b)` tie-break, which every other fixture
+   *  here leaves unpinned by using distinct `fetchedAt`. Two entries share a
+   *  timestamp and are INSERTED in reverse lexicographic order, so insertion
+   *  order and id order disagree: `Array.prototype.sort` is stable, so a
+   *  comparator returning 0 on the tie sheds `"zz"` first and this test goes
+   *  red. Without the reversal the two orders coincide and the assertion is
+   *  vacuous. */
+  /** ★★ THE MARGIN HERE IS 844 CHARACTERS AND THAT IS THE WHOLE FIXTURE, so read
+   *  a red on this test as "the fixture moved" before reading it as "the shedder
+   *  broke". Measured 2026-09-07: `bigRoll(20_000)` serialises to 1,200,001 and
+   *  `withBoundedDaily` trims it to 8,738 cells / 524,281 chars, so THESE four
+   *  entries come to 2,097,996 against `MAX_ACTUALS_TOTAL_CHARS` = 2,097,152 —
+   *  over by 844, i.e. 0.04%. These three come to 1,573,496, well under.
+   *  ★★★ "THESE" IS LOAD-BEARING AND THIS COMMENT FIRST SHIPPED WITHOUT IT,
+   *  quoting 837 / 2,097,989 / 1,573,492 — which are the figures for the CAP
+   *  test's `p0..p4` ids, not this test's `zz`/`aa`/`newest`/`newer`. The whole
+   *  delta is map-key length: 15 characters of ids here against 8 there, and
+   *  2,097,989 + 7 = 2,097,996. So the margin is smaller than the ids are, and a
+   *  reader who renames these four entries moves it. That is the real warning,
+   *  and it is why the numbers are quoted per-fixture rather than once.
+   *  ★ It is BRITTLE, not vacuous, and the direction is what makes that
+   *  acceptable at the extremes: drift UNDER budget sheds nothing and line 1
+   *  goes red, drift far enough OVER sheds a second entry and line 2 goes red.
+   *  ★★ NOT "no silent pass in either direction", which is what this said and is
+   *  false for the band between: any overshoot short of roughly another trimmed
+   *  entry (~524 KiB) still sheds exactly one and still passes, at a margin
+   *  nobody re-measures. Do not "give it headroom" by enlarging the rolls. */
+  it("breaks a fetchedAt tie by project id, not by insertion order", () => {
+    saveActualsCache("zz", bigEntry("2026-09-02T00:00:00.000Z"));
+    saveActualsCache("aa", bigEntry("2026-09-02T00:00:00.000Z"));
+    saveActualsCache("newest", bigEntry("2026-09-03T00:00:00.000Z"));
+    saveActualsCache("newer", bigEntry("2026-09-04T00:00:00.000Z"));
+    expect(loadActualsCache("aa")?.daily).toBeUndefined();
+    expect(loadActualsCache("zz")?.daily).toBeDefined();
+  });
+
+  /** ★★★ THE CONTROL, and without it every assertion above passes against a
+   *  shedder that fires unconditionally. It carries every field the three
+   *  shedding stages can take, so it fails whichever one of them misfires. */
+  it("leaves a map within budget completely untouched", () => {
+    const smallWindow = { from: isoDay(0), to: isoDay(9) };
+    const users = [{ userId: 7, firstName: "Ada", lastName: "Lovelace", initials: "AL", email: "ada@example.com", isActive: true }];
+    const projectRefs = [{ id: 1, name: "P", no: "P-1" }];
+    saveActualsCache("s1", { fetchedAt: "2026-09-01T00:00:00.000Z", aggregates: agg(1), users, projectRefs, daily: bigRoll(10), dailyWindow: smallWindow, dailyUsers: [7] });
+    saveActualsCache("s2", { fetchedAt: "2026-09-02T00:00:00.000Z", aggregates: agg(2), users, projectRefs, daily: bigRoll(10), dailyWindow: smallWindow, dailyUsers: [7] });
+    expect(loadActualsCache("s1")?.daily).toEqual(bigRoll(10));
+    expect(loadActualsCache("s1")?.dailyWindow).toEqual(smallWindow);
+    expect(loadActualsCache("s1")?.dailyUsers).toEqual([7]);
+    expect(loadActualsCache("s1")?.users).toEqual(users);
+    expect(loadActualsCache("s1")?.projectRefs).toEqual(projectRefs);
+    expect(loadActualsCache("s2")?.daily).toEqual(bigRoll(10));
   });
 });

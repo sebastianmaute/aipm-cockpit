@@ -1685,6 +1685,8 @@ const enUS = {
   timelogUnattributed: "Unattributed: {0} h",
   timelogAttributionHint:
     "A resource's hours show as booked only when its Timelog user is linked to that resource and the booking's project is linked to a bucket.",
+  timelogUndatedHint:
+    "Some fetched hours carry no usable booking date, so no period could be found for them. Unlike a missing link, this cannot be repaired here or by fetching again — correct the date on those bookings in TimeLog.",
   timelogApply: "Apply to budget",
   timelogApplyConfirmOne: "Apply 1 bucket change to budget actual hours?",
   timelogApplyConfirm: "Apply {0} bucket changes to budget actual hours?",
@@ -3457,6 +3459,8 @@ const enUS = {
     "Fetched TimeLog bookings are waiting to be applied to {0} budget bucket(s) — those buckets' actual hours will not change until you apply them in Time bookings.",
   budgetUnattributedActuals:
     "{0}h of fetched TimeLog bookings could not be placed on any budget line when they were fetched. Attribution is decided at fetch time, so correcting a person or project link now will NOT recover them — the bookings have to be fetched again.",
+  budgetUndatedActuals:
+    "Of the bookings that could not be placed, {0}h carry no usable booking date. That is a fault in the fetched data rather than in a link — fetching again returns the same bookings, so the dates have to be corrected in TimeLog first.",
   budgetUnappliedActualsGo: "Open Time bookings",
   budgetReportColWinLossHint: "Difference between revenue and cost in EUR; negative means the bucket runs at a loss.",
   budgetWinLossHint: "Hours won or lost versus plan.",

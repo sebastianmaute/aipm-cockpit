@@ -105,6 +105,32 @@ describe("BudgetUnappliedNotice", () => {
     expect(screen.queryByText(/budget bucket/i)).toBeNull();
   });
 
+  // §432. `budgetUnattributedActuals` tells the user to fetch again. For a row
+  // whose date is unusable that remedy is false — the links are healthy and a
+  // re-fetch returns the same junk — so the undated SUBSET gets its own line.
+  test("names the undated subset alongside the unattributed total", () => {
+    seed(aggregate({
+      byBucket: {},
+      unattributed: { hours: 12, billableHours: 12 },
+      undated: { hours: 5, billableHours: 5 },
+    }));
+    render(<BudgetUnappliedNotice {...props} />);
+    expect(screen.getByText(t("en-US", "budgetUndatedActuals", "5"))).toBeInTheDocument();
+    // Subset, not replacement: the unattributed line still names the full 12h.
+    expect(screen.getByText(t("en-US", "budgetUnattributedActuals", "12"))).toBeInTheDocument();
+  });
+
+  // Positive control. Unattributed hours exist but none are undated, so only the
+  // original line may render — a line rendered unconditionally, or one keyed off
+  // `unattributed` instead of `undated`, dies here.
+  test("says nothing about undated hours when the cache reports none", () => {
+    seed(aggregate({ byBucket: {}, unattributed: { hours: 12, billableHours: 12 } }));
+    render(<BudgetUnappliedNotice {...props} />);
+    expect(screen.queryByText(t("en-US", "budgetUndatedActuals", "12"))).toBeNull();
+    expect(screen.queryByText(/usable booking date/i)).toBeNull();
+    expect(screen.getByText(t("en-US", "budgetUnattributedActuals", "12"))).toBeInTheDocument();
+  });
+
   test("renders both signals together when the cache carries both", () => {
     seed(aggregate({
       byBucket: { 1: { "2026-01": cell(1, 10) } },
