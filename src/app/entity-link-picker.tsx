@@ -24,8 +24,7 @@
 // is deliberately NOT the substrate here — read it before concluding the app
 // has two combobox cores by accident.
 import { entityOptionId, useEntityCombobox } from "./entity-combobox";
-import { Input } from "./form-controls";
-import { ClearableSearchInput } from "./clearable-search-input";
+import { EntityComboboxSearch } from "./entity-combobox-search";
 import { INTERACTIVE } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
@@ -199,40 +198,22 @@ export function EntityLinkPicker({
         ))}
       </div>
       <div className="relative">
-        {/* Wrapped INSIDE this `relative` div, not around it: the listbox below
+        {/* Rendered INSIDE this `relative` div, not around it: the listbox below
             is positioned against this same box, so wrapping outside would put
             the ✕ over the option list instead of over the field. */}
-        <ClearableSearchInput
-          value={query}
-          onClear={() => onQueryChange("")}
+        <EntityComboboxSearch
+          listId={listId}
+          open={open}
+          active={active}
+          onKeyDown={onKeyDown}
+          reopen={reopen}
+          query={query}
+          onQueryChange={onQueryChange}
+          searchLabel={searchLabel}
+          placeholder={placeholder}
           clearLabel={clearLabel}
-        >
-          <Input
-            type="text"
-            role="combobox"
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            // ★ onCLICK, not onFocus — see `reopen`'s own docblock for why.
-            // ArrowDown/Up also reopen (the APG affordance), so a keyboard user
-            // is never stuck behind an Escape either.
-            onClick={reopen}
-            onKeyDown={onKeyDown}
-            aria-label={searchLabel}
-            aria-expanded={open}
-            aria-controls={open ? listId : undefined}
-            aria-activedescendant={
-              open && active >= 0 ? entityOptionId(listId, active) : undefined
-            }
-            aria-autocomplete="list"
-            placeholder={placeholder}
-            size={inputSize}
-            // ★ pr-8 reserves room for the overlaid ✕ and therefore rides the
-            //   same condition the ✕ does — unconditionally it would shave ~2rem
-            //   off the visible placeholder in the (common) empty state. Same
-            //   rule as TableFilter and PaneSearchInput.
-            className={`w-full${query ? " pr-8" : ""}`}
-          />
-        </ClearableSearchInput>
+          inputSize={inputSize}
+        />
         {open && (
           <ul
             id={listId}

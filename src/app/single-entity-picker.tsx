@@ -25,8 +25,7 @@
 // translated, so this file takes no `lang` and calls no `t()` — same contract as
 // EntityLinkPicker.
 import { entityOptionId, useEntityCombobox } from "./entity-combobox";
-import { Input } from "./form-controls";
-import { ClearableSearchInput } from "./clearable-search-input";
+import { EntityComboboxSearch } from "./entity-combobox-search";
 
 /** One selectable entity, flattened to what the picker renders. */
 export interface SingleEntityOption {
@@ -135,38 +134,22 @@ export function SingleEntityPicker({
         )}
       </div>
       <div className="relative">
-        {/* Wrapped INSIDE this `relative` div, not around it: the listbox below
+        {/* Rendered INSIDE this `relative` div, not around it: the listbox below
             is positioned against this same box, so wrapping outside would put
             the ✕ over the option list instead of over the field. */}
-        <ClearableSearchInput
-          value={query}
-          onClear={() => onQueryChange("")}
+        <EntityComboboxSearch
+          listId={listId}
+          open={open}
+          active={active}
+          onKeyDown={onKeyDown}
+          reopen={reopen}
+          query={query}
+          onQueryChange={onQueryChange}
+          searchLabel={searchLabel}
+          placeholder={placeholder}
           clearLabel={clearLabel}
-        >
-          <Input
-            type="text"
-            role="combobox"
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            // ★ onCLICK, not onFocus. Escape must STICK: with an onFocus reopen,
-            // tabbing away and back reopens the list over the rest of the form.
-            onClick={reopen}
-            onKeyDown={onKeyDown}
-            aria-label={searchLabel}
-            aria-expanded={open}
-            aria-controls={open ? listId : undefined}
-            aria-activedescendant={
-              open && active >= 0 ? entityOptionId(listId, active) : undefined
-            }
-            aria-autocomplete="list"
-            placeholder={placeholder}
-            size={inputSize}
-            // ★ pr-8 reserves room for the overlaid ✕ and therefore rides the
-            //   same condition the ✕ does — unconditionally it would shave ~2rem
-            //   off the visible placeholder in the (common) empty state.
-            className={`w-full${query ? " pr-8" : ""}`}
-          />
-        </ClearableSearchInput>
+          inputSize={inputSize}
+        />
         {open && (
           <ul
             id={listId}
