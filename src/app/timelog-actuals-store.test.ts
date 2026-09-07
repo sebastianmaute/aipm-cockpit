@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { isDailyCell, loadActualsCache, MAX_ACTUALS_TOTAL_CHARS, MAX_DAILY_ROLL_CHARS, saveActualsCache, TIMELOG_ACTUALS_KEY } from "./timelog-actuals-store";
+import { isDailyCell, loadActualsCache, MAX_ACTUALS_TOTAL_CHARS, MAX_DAILY_ROLL_CHARS, MAX_PROJECTS, saveActualsCache, TIMELOG_ACTUALS_KEY } from "./timelog-actuals-store";
 import { writeDeviceJson } from "./device-store";
 
 afterEach(() => window.localStorage.clear());
@@ -673,17 +673,78 @@ describe("timelog actuals cache — map-level size budget", () => {
     expect(e?.dailyUsers).toEqual([7]);
   });
 
-  /** ★★ Stage 3 only runs once stage 2 has nothing left to give — these entries
-   *  carry no roll at all, so the strip pass is a no-op and the drop pass is the
-   *  only thing that can bring the map under budget. */
-  it("drops whole entries once there are no rolls left to strip", () => {
-    const filler = "x".repeat(400_000);
+  /** A directory-heavy entry: no roll, bulk in `users`. This is the shape that
+   *  used to skip stage 2 and land straight in the whole-entry drop, spending
+   *  `aggregates` to reclaim space held by a display-only field. */
+  const fatUser = (userId: number) => ({
+    userId,
+    firstName: "x".repeat(400_000),
+    lastName: "L",
+    initials: "L",
+    email: "a@b.c",
+    isActive: true,
+  });
+  const directoryEntry = (fetchedAt: string, userId: number) => ({
+    fetchedAt,
+    aggregates: agg(1),
+    users: [fatUser(userId)],
+    projectRefs: [{ id: userId, name: "P", no: "P-1" }],
+  });
+
+  /** ★★★ STAGE 3 IS WHY THE `aggregates` RATIONALE IS TRUE RATHER THAN
+   *  ASPIRATIONAL. Without it this fixture skips stage 2 (no roll to shed) and
+   *  falls into the whole-entry drop, which throws away `aggregates` — what the
+   *  network round trip bought, and what every KPI reads — in order to reclaim
+   *  space held by `users`, which the file header says is cached only so the
+   *  People/Projects tables survive a remount "while the KPIs still show". */
+  it("sheds cached users and projectRefs before dropping an entry, keeping their aggregates", () => {
     for (let i = 0; i < 6; i += 1) {
-      saveActualsCache(`q${i}`, {
-        fetchedAt: `2026-09-0${i + 1}T00:00:00.000Z`,
-        aggregates: agg(1),
-        users: [{ userId: i, firstName: filler, lastName: "L", initials: "L", email: "a@b.c", isActive: true }],
-      });
+      saveActualsCache(`d${i}`, directoryEntry(`2026-09-0${i + 1}T00:00:00.000Z`, i));
+    }
+    expect(storedLength()).toBeGreaterThan(0);
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+
+    const oldest = loadActualsCache("d0");
+    expect(oldest).toBeDefined();
+    expect(oldest?.aggregates?.unattributed.hours).toBe(1);
+    expect(oldest?.users).toBeUndefined();
+    expect(oldest?.projectRefs).toBeUndefined();
+
+    expect(loadActualsCache("d5")?.users).toBeDefined();
+  });
+
+  /** The stage-3 half of the keep exclusion, and it needs its own fixture for
+   *  the reason the stage-2 one does: the saved entry has to be the OLDEST or
+   *  it is last in the shed order anyway and the exclusion never does any work.
+   */
+  it("never sheds the saved entry's users, even when it is the oldest", () => {
+    for (let i = 0; i < 5; i += 1) {
+      saveActualsCache(`u${i}`, directoryEntry(`2026-09-0${i + 2}T00:00:00.000Z`, i));
+    }
+    saveActualsCache("oldest-dir", directoryEntry("2026-09-01T00:00:00.000Z", 9));
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+    const e = loadActualsCache("oldest-dir");
+    expect(e?.users?.[0].userId).toBe(9);
+    expect(e?.projectRefs).toBeDefined();
+  });
+
+  /** ★★ Stage 4 runs only once stages 2 AND 3 have nothing left to give, so the
+   *  bulk has to sit in a field no earlier stage sheds — `aggregates` itself,
+   *  which is exactly right: it is the thing stage 4 exists to sacrifice last.
+   *  ★ A `users`-heavy fixture CANNOT reach stage 4 any more; using one is what
+   *  made the previous version of this test pass against the missing stage 3. */
+  const bigAgg = (periods: number) => {
+    const byPeriod: Record<string, { hours: number; billableHours: number }> = {};
+    for (let i = 0; i < periods; i += 1) {
+      byPeriod[`${2000 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`] = { hours: 8, billableHours: 8 };
+    }
+    return { byBucket: { 7: byPeriod }, byResource: {}, unattributed: { hours: 1, billableHours: 0 } };
+  };
+  const heavyAggEntry = (fetchedAt: string) => ({ fetchedAt, aggregates: bigAgg(10_000) });
+
+  it("drops whole entries once there is nothing cheaper left to shed", () => {
+    for (let i = 0; i < 6; i += 1) {
+      saveActualsCache(`q${i}`, heavyAggEntry(`2026-09-0${i + 1}T00:00:00.000Z`));
     }
     expect(storedLength()).toBeGreaterThan(0);
     expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
@@ -691,15 +752,71 @@ describe("timelog actuals cache — map-level size budget", () => {
     expect(loadActualsCache("q5")).toBeDefined();
   });
 
+  /** ★★★ THE STAGE-4 HALF OF THE KEEP EXCLUSION, WHICH THE FIRST ROUND LEFT
+   *  UNPINNED. Mutating both `shedOrder(out, projectId)` call sites at once
+   *  looked like it proved the exclusion; applied to the DROP stage alone it
+   *  survived, because in the drop fixture above the saved entry is newest and
+   *  therefore last in the shed order regardless. Saving the OLDEST last is the
+   *  only shape where the exclusion is what saves it. */
+  it("never drops the entry being saved, even when it is the oldest", () => {
+    for (let i = 0; i < 5; i += 1) {
+      saveActualsCache(`r${i}`, heavyAggEntry(`2026-09-0${i + 2}T00:00:00.000Z`));
+    }
+    saveActualsCache("oldest-agg", heavyAggEntry("2026-09-01T00:00:00.000Z"));
+    expect(storedLength()).toBeLessThanOrEqual(MAX_ACTUALS_TOTAL_CHARS);
+    expect(loadActualsCache("oldest-agg")).toBeDefined();
+    expect(loadActualsCache("oldest-agg")?.aggregates?.byBucket[7]["2000-01"].hours).toBe(8);
+  });
+
+  /** ★★★ THE STAGE-1 RESTORE BRANCH, WHICH HAD NO COVERAGE AT ALL. The existing
+   *  cap test saves with monotonically INCREASING `fetchedAt`, so the saved
+   *  entry is always newest, always inside `entries.slice(0, MAX_PROJECTS)`, and
+   *  `if (kept[projectId] === undefined)` is never entered — deleting the whole
+   *  branch left it green. A back-dated save (a replayed or backfilled fetch)
+   *  is the only thing that reaches it.
+   *  ★★ BOTH assertions are load-bearing and they fail to DIFFERENT mutants:
+   *  without the branch the write is silently discarded; without its `delete`
+   *  the write lands but the map grows to `MAX_PROJECTS + 1`. */
+  it("keeps a back-dated save at the project cap without exceeding it", () => {
+    for (let i = 0; i < MAX_PROJECTS; i += 1) {
+      saveActualsCache(`c-${i}`, { fetchedAt: `2026-09-01T00:00:${String(i).padStart(2, "0")}.000Z`, aggregates: agg(i) });
+    }
+    saveActualsCache("backdated", { fetchedAt: "2000-01-01T00:00:00.000Z", aggregates: agg(77) });
+    expect(loadActualsCache("backdated")?.aggregates?.unattributed.hours).toBe(77);
+    const stored = JSON.parse(window.localStorage.getItem(TIMELOG_ACTUALS_KEY) ?? "{}") as Record<string, unknown>;
+    expect(Object.keys(stored)).toHaveLength(MAX_PROJECTS);
+  });
+
+  /** ★★ `shedOrder`'s `a.localeCompare(b)` tie-break, which every other fixture
+   *  here leaves unpinned by using distinct `fetchedAt`. Two entries share a
+   *  timestamp and are INSERTED in reverse lexicographic order, so insertion
+   *  order and id order disagree: `Array.prototype.sort` is stable, so a
+   *  comparator returning 0 on the tie sheds `"zz"` first and this test goes
+   *  red. Without the reversal the two orders coincide and the assertion is
+   *  vacuous. */
+  it("breaks a fetchedAt tie by project id, not by insertion order", () => {
+    saveActualsCache("zz", bigEntry("2026-09-02T00:00:00.000Z"));
+    saveActualsCache("aa", bigEntry("2026-09-02T00:00:00.000Z"));
+    saveActualsCache("newest", bigEntry("2026-09-03T00:00:00.000Z"));
+    saveActualsCache("newer", bigEntry("2026-09-04T00:00:00.000Z"));
+    expect(loadActualsCache("aa")?.daily).toBeUndefined();
+    expect(loadActualsCache("zz")?.daily).toBeDefined();
+  });
+
   /** ★★★ THE CONTROL, and without it every assertion above passes against a
-   *  shedder that fires unconditionally. */
+   *  shedder that fires unconditionally. It carries every field the three
+   *  shedding stages can take, so it fails whichever one of them misfires. */
   it("leaves a map within budget completely untouched", () => {
     const smallWindow = { from: isoDay(0), to: isoDay(9) };
-    saveActualsCache("s1", { fetchedAt: "2026-09-01T00:00:00.000Z", aggregates: agg(1), daily: bigRoll(10), dailyWindow: smallWindow, dailyUsers: [7] });
-    saveActualsCache("s2", { fetchedAt: "2026-09-02T00:00:00.000Z", aggregates: agg(2), daily: bigRoll(10), dailyWindow: smallWindow, dailyUsers: [7] });
+    const users = [{ userId: 7, firstName: "Ada", lastName: "Lovelace", initials: "AL", email: "ada@example.com", isActive: true }];
+    const projectRefs = [{ id: 1, name: "P", no: "P-1" }];
+    saveActualsCache("s1", { fetchedAt: "2026-09-01T00:00:00.000Z", aggregates: agg(1), users, projectRefs, daily: bigRoll(10), dailyWindow: smallWindow, dailyUsers: [7] });
+    saveActualsCache("s2", { fetchedAt: "2026-09-02T00:00:00.000Z", aggregates: agg(2), users, projectRefs, daily: bigRoll(10), dailyWindow: smallWindow, dailyUsers: [7] });
     expect(loadActualsCache("s1")?.daily).toEqual(bigRoll(10));
     expect(loadActualsCache("s1")?.dailyWindow).toEqual(smallWindow);
     expect(loadActualsCache("s1")?.dailyUsers).toEqual([7]);
+    expect(loadActualsCache("s1")?.users).toEqual(users);
+    expect(loadActualsCache("s1")?.projectRefs).toEqual(projectRefs);
     expect(loadActualsCache("s2")?.daily).toEqual(bigRoll(10));
   });
 });
