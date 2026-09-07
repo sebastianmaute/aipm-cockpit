@@ -182,17 +182,22 @@ export function useEntityCombobox<T>({
       : -1;
 
   function move(delta: 1 | -1) {
-    // ★★★ THE EMPTY-LIST GUARD IS LOAD-BEARING FOR THE API, NOT FOR TODAY'S
-    // CALLERS. `onKeyDown` returns early on an empty list, so no shipped path
-    // reaches the throw — but `move` is a RETURNED member, and both arms crash
-    // without this line: `cur` is -1, so `delta === 1` gives `next = 0` and
-    // `delta === -1` gives `next = options.length - 1 = -1`, and either way
-    // `identity(options[next])` dereferences `undefined`. `combobox-shared.tsx`
-    // — the sibling core this file's header catalogues four differences from —
-    // guards exactly this in `moveHighlight` (`totalItems === 0 ? -1 : …`), and
-    // that is a fifth difference the header did not list. The obvious next
-    // consumer is a chevron affordance, clickable precisely when the list is
-    // empty. Found by cold review, 2026-09-07.
+    // ★★ EMPTY-LIST GUARD ONLY. `onKeyDown` returns early on an empty list, so
+    // no shipped path reaches it — but both arms crash without it: `cur` is -1,
+    // so `delta === 1` gives `next = 0` and `delta === -1` gives
+    // `next = options.length - 1 = -1`, and either way `identity(options[next])`
+    // dereferences `undefined`. `combobox-shared.tsx` — the sibling core this
+    // file's header catalogues four differences from — guards exactly this in
+    // `moveHighlight` (`totalItems === 0 ? -1 : …`), and that is a fifth
+    // difference the header did not list. Added after cold review, 2026-09-07.
+    // ★★★ IT DOES NOT MAKE `move` SAFE FOR AN ARBITRARY EXTERNAL CALLER, and an
+    // earlier revision of this comment implied it did by naming a chevron
+    // affordance as the next consumer. The `active` read below is only correct
+    // because `onKeyDown` is the sole caller (see the ★ beneath); a caller
+    // reaching `move` from anywhere else can read a STALE `active` and arm the
+    // wrong row — which the guard does not address, because it does not crash.
+    // Widening the caller set means moving that read into a `setHighlight`
+    // updater first.
     if (options.length === 0) return;
     // ★ `next` is computed OUTSIDE the updater and the scroll scheduled beside
     // it: a setState updater must be PURE, and React StrictMode double-invokes
@@ -210,9 +215,10 @@ export function useEntityCombobox<T>({
           : cur - 1;
     setHighlight(next);
     // ★ Armed against the OPTION, so a later render whose `options` shifted
-    // under this index disarms it (see `active`). `move` is only reached from
-    // `onKeyDown`, which returns early on an empty list, so `options[next]`
-    // always exists.
+    // under this index disarms it (see `active`). `options[next]` always exists
+    // here — the empty-list guard at the top of this function is what makes
+    // that true now; it used to rest on `onKeyDown` being the only caller,
+    // which was the same premise stated twice and is now stated once.
     setArmedKey(identity(options[next]));
     // ★ The lists are `max-h-60 overflow-auto` (~8 rows) and the keyboard path
     // is aria-activedescendant, which browsers do NOT auto-scroll — focus never
