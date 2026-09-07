@@ -830,6 +830,150 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     expect(screen.getByTestId("report-block-byPriority")).toBeInTheDocument();
   });
 
+  /**
+   * ★★★ THE FOUR TESTS BELOW WERE PORTED FROM `dashboard-panel.test.tsx`, WHERE
+   * THEY ALREADY EXISTED, because the wiring they guard was carried onto this
+   * surface and the tests were not. Every one of them maps onto a ★★/★★★ comment
+   * in `reports.tsx` that was otherwise backed by nothing here: delete
+   * `focusShelfToggle()` from either handler, or `reorder.endDrag()` from the
+   * shelf drop, and all of this file's other tests stay green while a keyboard
+   * user is dropped on `<body>` at the top of the document.
+   *
+   * ★★★ THREE OF THE FOUR ARE MUTATION-PROVED; THE MOVE ONE IS NOT, AND THE
+   * MUTANT SURVIVES. Measured 2026-09-07, one mutant per test, whole file each
+   * time (47 tests):
+   *   - delete `focusShelfToggle()` from `onHide`     → 1 failed / 46 passed
+   *   - delete `focusShelfToggle()` from `onRestore`  → 1 failed / 46 passed
+   *   - delete `reorder.endDrag()` from the shelf drop → 1 failed / 46 passed
+   *   - delete `setFocusAfterMove({ id })`            → **47 passed, GREEN**
+   *
+   * ★★★ SO THE MOVE TEST BELOW DOES NOT GUARD `focusAfterMove` / `triggerRefs`,
+   * and must not be cited as if it did. It is not merely "unable to distinguish
+   * the naive version" — under jsdom the whole mechanism is redundant, so its
+   * DELETION is invisible too. The reason is upstream: `PopoverPanel` restores
+   * focus to its anchor when it unmounts with focus still inside it, and here the
+   * anchor is the very ⋮ trigger the move machinery aims at. React reorders a
+   * keyed list by MOVING the existing DOM nodes rather than recreating them, so
+   * in jsdom that captured anchor is still live and connected and the primitive's
+   * own restore lands it. What jsdom cannot reproduce is the browser behaviour
+   * the machinery exists for — moving a focused element BLURS it — which is what
+   * makes the primitive's restore insufficient in a real browser.
+   *
+   * ★★ It is kept because it pins a real OUTCOME (after a move, focus is on that
+   * block's trigger, by whichever route) and because deleting it would delete
+   * this measurement with it. It is NOT coverage for the machinery: only a
+   * Playwright probe can be, and one is owed. Do not read a green run here as
+   * licence to simplify `focusAfterMove` away.
+   * The two shelf-focus tests and the drop test have no such gap — nothing in
+   * them depends on the blur-on-move behaviour, and each killed its mutant.
+   */
+  /**
+   * The shelf disclosure, by its count-bearing name. ★★★ RESOLVED BY PATTERN,
+   * NEVER BY AN EXPECTED COUNT, and that is the whole reason these ports needed
+   * rewriting: the Dashboard's originals name the shelf `dashboardShelfCount(0)`
+   * / `(1)` because its fixture starts with nothing hidden. THIS surface does
+   * not — `renderReports(tasks)` opens with **2** blocks already on the shelf
+   * (measured by probe, not assumed: the button reads "▸ 2 hidden" on first
+   * render, because the reconciled layout shelves the blocks this fixture cannot
+   * render). Every count carried over from the Dashboard was therefore off by
+   * two, and all three tests failed on a missing element while the wiring they
+   * were written to guard was working perfectly. A pattern query has no such
+   * coupling. `getByRole` is singular, so this still throws if a second
+   * "… hidden" button ever appears.
+   */
+  const shelfToggle = () => screen.getByRole("button", { name: /hidden/i });
+
+  it("lands focus on the shelf disclosure after hiding, instead of dropping it on <body>", async () => {
+    // ★★★ HIDING DESTROYS THE CONTROL THAT WAS PRESSED. Hide lives inside the ⋮
+    // popover, anchored to the block's own ⋮ trigger — hiding unmounts BOTH.
+    // Without a destination, focus falls to `<body>` and a keyboard user who
+    // has just shelved a block is stranded at the top of the document with no
+    // route back to it.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    const hiddenBefore = shelfToggle().textContent;
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+
+    // …the trigger really did unmount and the block really did reach the shelf,
+    // or the focus assertion below could pass over a no-op.
+    expect(screen.queryByTestId("report-block-byPriority")).toBeNull();
+    expect(shelfToggle().textContent).not.toBe(hiddenBefore);
+    expect(document.activeElement).toBe(shelfToggle());
+  });
+
+  it("lands focus back on the shelf disclosure after restoring a block", async () => {
+    // ★★ THE MIRROR CASE, and the chip is the wrong destination for it: the
+    // Restore button the user pressed is removed by that very click and the
+    // remaining chips shift underneath them. The disclosure is the one node in
+    // the shelf that survives both directions.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(shelfToggle());                       // open the tray
+    await user.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+      }),
+    );
+
+    expect(screen.getByTestId("report-block-byPriority")).toBeInTheDocument();
+    expect(document.activeElement).toBe(shelfToggle());
+  });
+
+  it("returns focus to the moved block's own ⋮ trigger, so the next move needs no re-navigation", async () => {
+    // ★★★ THE ⋮ MENU IS THIS SURFACE'S ENTIRE KEYBOARD REORDER PATH — the drag
+    // primitive's arrow-key option is off here — so where focus lands after a
+    // move IS the feature. Every move command closes the popover, and with no
+    // destination focus falls to `<body>`, forcing a keyboard user to navigate
+    // ★★★ READ THE BLOCK COMMENT ABOVE BEFORE TRUSTING THIS TEST: its mutant
+    // SURVIVES. Deleting `setFocusAfterMove({ id })` from `reports.tsx` leaves
+    // this green, because `PopoverPanel`'s own anchor restore covers the jsdom
+    // case. This pins the outcome, not the mechanism.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    const ids = () => screen.getAllByTestId(/^report-block-/).map((n) => n.getAttribute("data-testid"));
+    const before = ids();
+    // Never index 0 — "Move earlier" is disabled there.
+    const target = before[2]!.replace("report-block-", "");
+    const title = t("en-US", REPORT_BLOCKS.find((b) => b.id === target)!.labelKey);
+
+    await openMenuFor(user, title);
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") }));
+
+    // Resolved by BLOCK IDENTITY, not by a node captured before the reorder.
+    expect(ids().indexOf(`report-block-${target}`)).toBe(1);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: `${t("en-US", "actionMoreActions")} – ${title}` }),
+    );
+  });
+
+  it("ends the drag when a block is dropped onto the shelf", () => {
+    // ★★★ Hiding UNMOUNTS the block whose grip owns `onDragEnd`, and a detached
+    // node's events never reach React's root container — so nothing would reset
+    // the hook's `dragId` and it would stay set for the rest of the session.
+    // The observable is the shelf's own `isDragging` guard: with the drag stuck
+    // true, a stray `dragEnter` pops the tray open.
+    // ★★ This is the drop-to-hide path's ONLY test on this surface — the
+    // reorder test earlier in the file is tile-to-tile and never touches the
+    // shelf.
+    renderReports(tasks);
+    fireEvent.dragStart(
+      screen.getByRole("button", {
+        name: `${t("en-US", "reorderHandleDragOnly")} – ${t("en-US", "reportsByPriority")}`,
+      }),
+    );
+    fireEvent.drop(shelfToggle());
+    // …the grip really did unmount, or the guard below proves nothing.
+    expect(screen.queryByTestId("report-block-byPriority")).toBeNull();
+
+    const shelf = shelfToggle();
+    expect(shelf).toHaveAttribute("aria-expanded", "false");
+    fireEvent.dragEnter(shelf);
+    expect(shelf).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("moves a block through the menu, over the VISIBLE order", async () => {
     // ★★ The menu speaks in deltas and the engine in target ids. Indexing the
     // STORED board rather than the visible one would let "Move earlier" swap
