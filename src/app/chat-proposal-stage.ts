@@ -107,7 +107,14 @@ const NO_DESCRIPTOR_LIST: Readonly<Record<string, keyof Workspace>> = {
  *   the descriptor already states each entity's `createTool` beside its
  *   `wsKey`, so a renamed tool or a moved slice cannot leave a stale copy here.
  *   This is the same derivation `CREATE_MINT_KIND`'s docstring records for its
- *   own six values, applied to the other half of the same fact.
+ *   own descriptor-backed values, applied to the other half of the same fact.
+ *   (It said "its own six values"; the union has grown twice since.)
+ *
+ *  ★★ `create_absence` / `create_calendar_event` REACH THIS DERIVATION NOW and
+ *   did not before they had descriptors: with no `TOOL_ENTITY` entry and no
+ *   `NO_DESCRIPTOR_LIST` row, both fell through to the `[]` fallback below and
+ *   were minted against the session mark alone. That was never WRONG — see the
+ *   `max(sessionMark, listMax)` note — but it is no longer the path they take.
  *
  *  ★ An unknown tool yields `[]` rather than throwing. `mintIds` takes
  *   `max(sessionMark, listMax)`, so an empty list is not a wrong answer — it is

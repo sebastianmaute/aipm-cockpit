@@ -219,14 +219,24 @@ export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
  *
  *  ★★★ MEMBERSHIP IS NOT ENOUGH — A WRONG KIND IS A WRONG SEQUENCE, and that is
  *   the failure `TARGET_MINTED_BY`'s own drift test cannot see for its table.
- *   Six of the nine VALUES here are therefore pinned per row against an
- *   INDEPENDENT source: `INLINE_DESCRIPTORS` already states each entity's
- *   `createTool` beside its `entity`, and the six `InlineEntity` spellings are
- *   exactly six of the `MintKind` spellings the live minters use. `create_document`,
- *   `create_absence` and `create_calendar_event` have no descriptor and are each
- *   pinned against a literal alone — read those as the three unguarded rows, not
- *   as covered. Re-derive the live minters with
- *   `grep -rn 'mintId("' src/app --include=*.ts --include=*.tsx`. */
+ *   Every value here but `create_document`'s is therefore pinned per row against
+ *   an INDEPENDENT source: `INLINE_DESCRIPTORS` already states each entity's
+ *   `createTool` beside its `entity`, and those `InlineEntity` spellings are
+ *   exactly the `MintKind` spellings the live minters use. `create_document` has
+ *   no descriptor and is pinned against a literal alone — read that ONE row as
+ *   unguarded, not as covered. Re-derive the live minters with
+ *   `grep -rn 'mintId("' src/app --include=*.ts --include=*.tsx`.
+ *
+ *  ★★ THIS USED TO NAME `create_absence` AND `create_calendar_event` AS TWO
+ *   FURTHER UNGUARDED ROWS, and that rotted the moment both entities gained
+ *   `INLINE_DESCRIPTORS` entries — the loop in `chat-proposal.test.ts` now
+ *   derives their kinds like any other. It was not harmless prose: two tests
+ *   existed downstream pinning those two literals, justified BY this sentence,
+ *   and the sentence going stale is what made them redundant. Mutation-proved
+ *   rather than reasoned — mapping `create_absence` to `"task"` reds that loop
+ *   with `expected 'task' to be 'absence'`.
+ *  ★★ NO COUNT IS QUOTED. This said "six of the nine" and "six `InlineEntity`
+ *   spellings"; both were arithmetic over a union that grows. */
 export const CREATE_MINT_KIND: Readonly<Record<string, MintKind>> = {
   create_task: "task",
   create_raid_item: "raid",

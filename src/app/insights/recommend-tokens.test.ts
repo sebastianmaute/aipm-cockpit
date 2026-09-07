@@ -200,9 +200,43 @@ describe("UPDATE_TARGET is derived from the guarded set, never hand-listed", () 
     expect(guarded.size).toBeGreaterThanOrEqual(7);
     const unstampable = [...guarded].filter((t) => !(t in UPDATE_TARGET)).sort();
     // EXACT, not a subset, so it bites in both directions: a new guarded tool
-    // added without a row is red, and so is closing the `update_resource` gap
-    // (by widening `RecommendPlanWorkspace`) while leaving the comment in
-    // `recommend-tokens.ts` claiming it is still open.
-    expect(unstampable).toEqual(["update_resource"]);
+    // added without a row is red, and so is closing any of these gaps (by
+    // widening `RecommendPlanWorkspace`) while leaving the comment in
+    // `recommend-tokens.ts` claiming they are still open.
+    //
+    // ★★★ THREE ENTRIES, AND EACH NEEDS ITS REASON — a name added here to make a
+    //  red run green is the failure this whole file exists to prevent.
+    //  `update_resource` is the original: `UPDATE_TARGET`'s value type is
+    //  `key: keyof RecommendPlanWorkspace`, and that Pick (`recommend-plan.ts`)
+    //  covers tasks · raid · changes · milestones · stakeholders with no
+    //  `"resources"`, so the row cannot be EXPRESSED without widening a type
+    //  `recommend-tokens.ts` does not own.
+    //
+    //  ★★ `update_absence` and `update_calendar_event` joined it when Task 4/5
+    //  gave both tools an `expectedToken` schema field. They fail for that same
+    //  structural reason — the Pick has no `"absences"` and no
+    //  `"calendarEvents"` — AND for a second one `update_resource` does not
+    //  have: neither is in `ALLOWED_REC_TOOLS` (`insights/insight.ts`, ten
+    //  tools: create/update for task · raid · milestone · change · stakeholder),
+    //  so no recommendation can propose them and a row here would be
+    //  unreachable code. Widening the Pick to add two rows nothing can reach is
+    //  the inverse of what this assertion is for.
+    //
+    //  ★★★ THE CONSEQUENCE, stated because a silent one is how this rots: a
+    //  recommendation call for any of the three carries ONLY the model's own
+    //  token, so one arriving without it can never be applied on the REPLAY
+    //  path. ★ The CHAT path is unaffected — `TOKEN_ROW_SOURCE`
+    //  (`chat-proposal-apply.ts`) carries `update_absence` and
+    //  `update_calendar_event` rows, so `applyProposal` resolves their tokens
+    //  normally. The gap is this table's, not the feature's.
+    //
+    //  ★ Read a red naming one of these three as "the gap CLOSED" — go delete
+    //  the entry and the matching note in `recommend-tokens.ts`. Read a red
+    //  naming a FOURTH tool as an unclassified guarded write.
+    expect(unstampable).toEqual([
+      "update_absence",
+      "update_calendar_event",
+      "update_resource",
+    ]);
   });
 });

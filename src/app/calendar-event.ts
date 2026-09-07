@@ -179,7 +179,18 @@ export function normalizeEventStartTime(v: unknown): string {
  *   out of range, so a card that previewed the model's `3` would show a change
  *   the write does not make. Composed from the REAL `intInRange` with a
  *   fallback that can never equal its input (`NaN === v` is false for every
- *   `v`), so the bounds have one spelling rather than two. */
+ *   `v`), so the bounds have one spelling rather than two.
+ *
+ *  ★★★ IT MUST STAY A `function` DECLARATION — DO NOT TIDY IT INTO A `const`
+ *   ARROW. `sanitize-records.ts` imports it to build `CALENDAR_EVENT_FIELD_
+ *   GUARDS`, a module-level const, and this module imports the `./sanitize`
+ *   barrel that re-exports that file: a CYCLE. A function declaration is
+ *   hoisted, so its binding is initialised before either module body runs and
+ *   the read resolves whichever side is evaluated first. A `const` arrow is not
+ *   — it puts that read in the TDZ and throws at import time, in ONE evaluation
+ *   order only. That is intermittent, load-order dependent, and invisible to
+ *   both tsc and lint. The same applies to `isSendInvitationsFlag` if it is
+ *   ever imported the same way. */
 export function acceptsEventDuration(v: unknown): boolean {
   return intInRange(v, DURATION_MIN, DURATION_MAX, Number.NaN) === v;
 }

@@ -67,17 +67,35 @@ import type { RecommendPlanWorkspace } from "./recommend-plan";
  *  advertises (`expectedTokenField`), never by the `update_*` name, and never by
  *  which set one caller happens to filter on.
  *
- *  ★★ `update_resource` IS GUARDED AND HAS NO ROW, and that omission is
- *  STRUCTURAL rather than an oversight — do not "complete the pattern" by
- *  adding one. The value type below is `key: keyof RecommendPlanWorkspace`, and
- *  that Pick (`recommend-plan.ts`) covers tasks · raid · changes · milestones ·
- *  stakeholders with no `"resources"`, so the row cannot be expressed without
- *  widening a type this file does not own. Consequence, which is the part worth
- *  knowing: a resource call carries ONLY the model's own token, so one arriving
- *  without it can never be applied. `chat-proposal-describe.test.ts` pins that
- *  half; the drift test in `recommend-tokens.test.ts` pins this table's gap
- *  against the schemas as EXACTLY that one tool, so closing it there turns the
- *  test red rather than leaving this note to rot. */
+ *  ★★ THREE GUARDED TOOLS HAVE NO ROW, and every omission is STRUCTURAL rather
+ *  than an oversight — do not "complete the pattern" by adding one. The value
+ *  type below is `key: keyof RecommendPlanWorkspace`, and that Pick
+ *  (`recommend-plan.ts`) covers tasks · raid · changes · milestones ·
+ *  stakeholders — with no `"resources"`, no `"absences"` and no
+ *  `"calendarEvents"` — so none of the three rows can be EXPRESSED without
+ *  widening a type this file does not own.
+ *
+ *  ★★★ THIS SAID "`update_resource` IS GUARDED AND HAS NO ROW" IN THE SINGULAR
+ *  and named it "the one structural exception". `update_absence` and
+ *  `update_calendar_event` joined it when both tools gained an `expectedToken`
+ *  schema field, and the drift test went red naming them — which is the test
+ *  working. Do not read the singular back into this note.
+ *
+ *  ★★ THE TWO NEWCOMERS CARRY A SECOND REASON `update_resource` DOES NOT, and
+ *  it is the one that makes widening the Pick actively wrong rather than merely
+ *  unnecessary: neither is in `ALLOWED_REC_TOOLS` (`insights/insight.ts`), so
+ *  no recommendation can propose them and a row here would be unreachable code.
+ *
+ *  Consequence, which is the part worth knowing: a call for any of the three
+ *  carries ONLY the model's own token, so one arriving without it can never be
+ *  applied on the REPLAY path. ★ The CHAT path is unaffected —
+ *  `TOKEN_ROW_SOURCE` (`chat-proposal-apply.ts`) carries `update_absence` and
+ *  `update_calendar_event` rows, so `applyProposal` resolves their tokens
+ *  normally; the gap is this table's, not the feature's.
+ *  `chat-proposal-describe.test.ts` pins the resource half; the drift test in
+ *  `recommend-tokens.test.ts` pins this table's gap against the schemas as
+ *  EXACTLY those three tools, so closing any of them there turns the test red
+ *  rather than leaving this note to rot. */
 /** ★ EXPORTED FOR ITS DRIFT TEST, not for use as a tool allow-list. The test in
  *  `recommend-tokens.test.ts` asserts that every tool which is BOTH in
  *  `ALLOWED_REC_TOOLS` and token-guarded has a row here — the invariant the
