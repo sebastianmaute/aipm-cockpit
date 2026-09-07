@@ -795,7 +795,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               on Turso, or no project to move, there is nothing to migrate and a
               permanently disabled control is noise. The CONFIRMED-connection
               condition rides `disabled` instead, because it is a state the user
-              can act on. */}
+              can act on.
+              ★★★ `disabled` HERE IS THE AFFORDANCE, NOT THE GATE. The gate is
+              the probe inside `migrateCurrentProjectToTurso`
+              (`use-storage-turso-ops.ts`), because `projects-panel.tsx` binds a
+              SECOND button to this same handler and this surface cannot see it.
+              Do not read the `disabled` attribute as making a handler-level
+              guard redundant. */}
           {canMoveToTurso && (
             <div className="mt-2 border-t border-line pt-2">
               {/* ★★ Same wrapper contract as `projects-panel.tsx`'s disabled

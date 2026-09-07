@@ -41,9 +41,14 @@ describe("IntegrationsSection snapshot controls", () => {
   // the assertion went to 0 calls. Asserting DISABLED keeps exactly the
   // coverage this file uniquely provides — nothing else here exercises the
   // render gate — without duplicating the enable/re-disable matrix, which lives
-  // in `settings-sections/integrations-section.test.tsx` (seven tests, with the
-  // probe mocked). Driving a probe here would mean mocking `turso-pipeline` in
-  // this file to re-test what that file already pins.
+  // in `settings-sections/integrations-section.test.tsx`, with the probe
+  // mocked. Driving a probe here would mean mocking `turso-pipeline` in this
+  // file to re-test what that file already pins.
+  // ★★ THE CLICK IS NOT LOST, it moved: that file now clicks the ENABLED
+  // button and asserts one handler call ("invokes the migration handler once
+  // when clicked after a passing probe"). Between this file's `toBeDisabled()`
+  // and that file's `toBeEnabled()`, deleting the button's `onClick` was for a
+  // time invisible to both.
   it("shows 'Move to Turso' when configured + callback provided (file mode), disabled until the connection is confirmed", () => {
     const onMigrateToTurso = vi.fn();
     const settings = {

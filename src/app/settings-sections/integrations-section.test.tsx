@@ -664,8 +664,14 @@ describe("§408 — Move to Turso is gated on a confirmed connection", () => {
   // ★★★ ASSERT THE DISABLED STATE, NEVER A CLICK. A `disabled` element
   // dispatches no events, so "click Move and assert nothing happened" does not
   // fail — it TIMES OUT at 15 s (`vitest.setup.ts` `asyncUtilTimeout`), which
-  // reads like a broken suite rather than a red test. The same fact is why a
-  // handler guard duplicating this predicate would be dead code.
+  // reads like a broken suite rather than a red test.
+  // ★★★ THAT IS AN ARGUMENT ABOUT THIS TEST, NOT ABOUT THE PRODUCT. An earlier
+  // version of this comment went on to conclude that a handler guard
+  // duplicating this predicate would be dead code. It is not: `disabled` is the
+  // AFFORDANCE on this surface, and the real gate is the connection probe
+  // inside `migrateCurrentProjectToTurso` (`use-storage-turso-ops.ts`), which
+  // also covers the second button bound to that handler in
+  // `projects-panel.tsx`. Nothing here can see that call site.
   //
   // ★★ CONTROLLED, for the same reason the wrapper above the previous block
   // exists — read that comment for why an uncontrolled render makes an editing
@@ -710,6 +716,24 @@ describe("§408 — Move to Turso is gated on a confirmed connection", () => {
     render(<ControlledMove onMigrateToTurso={vi.fn()} />);
     await passingProbe();
     expect(moveButton()).toBeEnabled();
+  });
+
+  // ★★★ THE ENABLED BRANCH, AND NOTHING ELSE COVERS IT. The exemption stated
+  // at the top of this block is about the DISABLED branch alone — this test
+  // clicks a control that really is enabled, so it can and does fail.
+  // `integrations-snapshots.test.tsx` used to be the only test that clicked
+  // this button and asserted one call; §408's gate made it disabled by default
+  // and that assertion became `toBeDisabled()`. With neither, deleting
+  // `onClick={onMigrateToTurso}` from the button left BOTH files green.
+  it("invokes the migration handler once when clicked after a passing probe", async () => {
+    const onMigrateToTurso = vi.fn();
+    render(<ControlledMove onMigrateToTurso={onMigrateToTurso} />);
+    const user = await passingProbe();
+    expect(moveButton()).toBeEnabled(); // control: the click below is a real one
+
+    await user.click(moveButton());
+
+    expect(onMigrateToTurso).toHaveBeenCalledTimes(1);
   });
 
   it("stays disabled when the probe fails", async () => {
