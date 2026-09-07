@@ -1456,7 +1456,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   above. It is pinned by `expectButtonOrder` with `contiguous: true` in `dashboard-panel.test.tsx`, and that
   assertion is mutation-proved — reordering the two resets turns it red. ★ It is also the one member carrying its
   own `!arrangement.readOnly` guard, because the stack around it is gated only on `print:hidden`; a popout is
-  read-only by design and would otherwise gain a working reset. Drift has
+  read-only by design and would otherwise gain a working reset.
+  ★★★ **A PANE WITH BOTH IS FOUR MEMBERS: Print · reset-columns · reset-layout · reset-size.** Reports is the
+  first (0.290.x); the two above are the three-member SPECIAL CASES of it. The order is not arbitrary — it
+  contains BOTH of them as SUBSEQUENCES, so neither existing convention breaks, and it keeps the two CONTENT
+  resets together ahead of the BOX reset. ★★ `contiguous: true` catches a control inserted BETWEEN members but
+  cannot adjudicate the ORDER itself, which is why it is written here rather than inferred from a green test —
+  and it cannot see a member wrongly PRESENT in a popout either, so the `readOnly` guard needs its own test.
+  ★ `ReportCard` emits the group for its seven consumers; `onResetCols` and `onResetLayout` are both OPTIONAL and
+  rendered only when passed, so a pane with no engine for one gets nothing. Drift has
   been caught and fixed more than once: Outlook once sat between the two resets in Resources; Clear once sat
   after them in Activity; Open Points had the worst case — Print/reset-size/reset-columns sat BEFORE the
   destructive Clear-all AND the two resets were in the wrong relative order (reset-size before reset-columns),

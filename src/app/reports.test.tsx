@@ -525,7 +525,7 @@ describe("ReportsPanel — sortable headers are unique across the sibling tables
       // all thirteen ⋮ and five grips would still leave 27 uniquely-named
       // controls and this test would go GREEN. Re-measured by probe (set it to
       // 999 and read the helper's own error): the scope renders 45.
-      minControls: 46,
+      minControls: 47,
       scope: container,
       roles: ["button"],
     });
@@ -660,7 +660,7 @@ describe("ReportsPanel — the arrangement grid", () => {
       // under the true count cannot tell a silently-empty render from a full
       // one. Measured by the same probe: this fixture renders 47, two more than
       // the 45 above because it adds the RAID report block (one grip, one ⋮).
-      minControls: 48,
+      minControls: 49,
       scope: container,
     });
   });
@@ -698,8 +698,37 @@ describe("ReportsPanel — toolbar order", () => {
    * matches zero or several buttons, where a hand-rolled `findIndex` silently
    * takes the first and can pin the wrong control.
    */
-  it("ends with the contiguous Print · reset-columns · reset-size group", () => {
+  it("ends with the contiguous Print · reset-columns · reset-layout · reset-size group", () => {
+    // ★★★ FOUR MEMBERS — Reports is the first surface with BOTH a
+    // reset-columns and a reset-layout, and AGENTS.md documented only three.
+    // The canonical order contains both existing conventions as SUBSEQUENCES:
+    // the documented Print · reset-columns · reset-size, and the Dashboard’s
+    // Print · reset-layout · reset-size. So no surface’s convention breaks, and
+    // reset-columns and reset-layout both restore CONTENT arrangement while
+    // reset-size restores the BOX.
+    //
+    // ★★ WHAT THIS CANNOT DO: `contiguous` catches a control inserted OUTSIDE
+    // the group, but it cannot adjudicate whether the chosen ORDER is right —
+    // that is a convention, which is why it is written down in AGENTS.md rather
+    // than inferred from a passing test. It also cannot see a member wrongly
+    // PRESENT in a popout; only the popout test below can.
     renderReports([makeTask({ id: 1, assignee: "Ann" })]);
+    expectButtonOrder(
+      ["printHint", "colResetWidthsHint", "dashboardResetLayout", "tableResetSizeHint"],
+      { contiguous: true },
+    );
+  });
+
+  it("offers NO reset-layout in a popout", () => {
+    // ★★★ THE ONLY DETECTOR FOR THIS. `ReportCard`’s trailing group is gated on
+    // `print:hidden` ALONE, so the guard has to be the caller’s — and neither
+    // `contiguous` nor `print:hidden` would notice a reset wrongly rendered
+    // here. A popout has no grips, no ⋮ and no shelf by design; a working reset
+    // on it is the defect `dashboard-panel.tsx` records as a ★★★.
+    renderReports([makeTask({ id: 1, assignee: "Ann" })], { isPopout: true });
+    expect(screen.queryByRole("button", { name: t("en-US", "dashboardResetLayout") })).toBeNull();
+    // …and the other three are still there, so this is not passing because the
+    // whole toolbar vanished.
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], {
       contiguous: true,
     });

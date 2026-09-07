@@ -557,7 +557,25 @@ export function ReportsPanel({
   const menuSize = menu ? sizeById.get(menu.id) : undefined;
 
   return (
-    <ReportCard lang={lang} sizeRef={reportsRef} contentRef={cardsScrollRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} leading={addReportControl} toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}>
+    <ReportCard
+      lang={lang}
+      sizeRef={reportsRef}
+      contentRef={cardsScrollRef}
+      onResetSize={resetReportsSize}
+      onResetCols={resetAllReports}
+      /* ★★★ THE READ-ONLY GUARD IS THE CALLER'S, AND IT IS LOAD-BEARING.
+         `ReportCard`'s trailing group is gated on `print:hidden` ALONE, so
+         passing this unconditionally hands a POPOUT a working reset — a surface
+         that by design has no grips, no ⋮ menu and no shelf. `dashboard-panel.tsx`
+         records the identical trap as a ★★★ and guards at its own site; this
+         mirrors it. Neither `print:hidden` nor `expectButtonOrder`'s
+         `contiguous` can catch a regression here — `contiguous` only orders the
+         buttons that ARE rendered, so a reset wrongly present in a popout
+         satisfies it perfectly. The popout test is the only detector. */
+      onResetLayout={arrangement.readOnly ? undefined : arrangement.reset}
+      leading={addReportControl}
+      toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}
+    >
       {/* ★★★ `auto-rows-[120px]` and `gap-4` are WHOLE LITERAL STRINGS. Tailwind
           v4 scans source for class candidates, so an interpolated value emits no
           CSS at all — and jsdom has no layout, so no unit test can see the
