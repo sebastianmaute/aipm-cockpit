@@ -991,6 +991,59 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     expect(ids()[0]).toBe(`report-block-${target}`);
   });
 
+  it("moves a block LATER, the direction 'Move to start' can never exercise", async () => {
+    // ★★★ `moveByDelta`'s ±1 BRANCH WAS UNEXECUTED. Every move assertion in this
+    // file went through `"first"`, which takes `j = 0` and never reads `delta` —
+    // so `i + delta` was covered by nothing, on the surface where the ⋮ menu is
+    // the ONLY keyboard reorder path. `arrangement.move` → `moveBlock` →
+    // `reorderIds` is direction-sensitive by construction, so a sign error there
+    // would have shipped: "Move later" moving a block EARLIER is a wrong answer,
+    // not a crash, and nothing was looking.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    const ids = () => screen.getAllByTestId(/^report-block-/).map((n) => n.getAttribute("data-testid"));
+    const before = ids();
+    expect(before.length).toBeGreaterThan(2);
+    const target = before[0]!.replace("report-block-", "");   // index 0: "Move later" is enabled, "earlier" is not
+    const title = t("en-US", REPORT_BLOCKS.find((b) => b.id === target)!.labelKey);
+
+    await openMenuFor(user, title);
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") }));
+
+    expect(ids().indexOf(`report-block-${target}`)).toBe(1);
+    expect(ids()).toHaveLength(before.length);               // a move, not a drop
+    expect(screen.getAllByRole("status").map((el) => el.textContent)).toContain(
+      t("en-US", "dashboardTileMoved", title, "2", String(before.length)),
+    );
+  });
+
+  it("disables the move command that would run off the end, at BOTH ends", async () => {
+    // ★★ `moveByDelta`'s `j < 0 || j >= visibleIds.length` guard is NOT reachable
+    // through this surface — `ArrangementBlockMenu` disables "Move earlier"/"Move
+    // to start" at `index === 0` and "Move later" at `index >= count - 1`, so the
+    // handler's own bounds check is defence in depth behind the UI, and no click
+    // can express it. What IS reachable, and what a keyboard user actually meets,
+    // is the disabled state — so that is what this pins. ★ A `disabled` button
+    // dispatches no click at all, which is why asserting "nothing moved" after
+    // clicking one would pass whether or not the guard existed.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    const ids = () => screen.getAllByTestId(/^report-block-/).map((n) => n.getAttribute("data-testid"));
+    const all = ids();
+    const titleAt = (i: number) =>
+      t("en-US", REPORT_BLOCKS.find((b) => b.id === all[i]!.replace("report-block-", ""))!.labelKey);
+
+    await openMenuFor(user, titleAt(0));
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveFirst") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") })).toBeEnabled();
+    await user.keyboard("{Escape}");
+
+    await openMenuFor(user, titleAt(all.length - 1));
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") })).toBeEnabled();
+  });
+
   it("announces a hide to assistive technology", async () => {
     // ★ The ⋮ IS the keyboard reorder path here (`keyboard: false` on the drag
     // hook), so without a live region a keyboard user gets no feedback at all.
