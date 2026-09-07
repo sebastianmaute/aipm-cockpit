@@ -75,9 +75,24 @@ describe("ArrangementTile — accessible names", () => {
   // comparing an accessible name against the handlers actually bound, and jsdom
   // dispatches a keydown onto a listener-less grip without complaint, so the
   // missing reorder is unobservable from a test. Only the NAME is observable.
-  // ★ Literal expectations, not `t(...)`: re-deriving through the same key the
-  // component reads would assert it agrees with itself, which cannot fail. What
-  // must not regress is WHICH key it picks.
+  // ★★ LITERALS PIN THE VALUE AS WELL AS THE KEY, WHICH IS THE WHOLE REASON —
+  // and NOT the reason a first cut of this comment gave. It claimed a `t(...)`
+  // expectation "would assert the component agrees with itself, which cannot
+  // fail". That is false: the key here would be FIXED
+  // (`t(EN, "reorderHandleDragOnly")`), so flipping the ternary at
+  // `arrangement-tile.tsx`'s `moveKey` would render the other string and the
+  // expectation WOULD go red. Both forms pin which key is picked. Only a
+  // literal also pins what that key SAYS — so an i18n edit that reintroduced an
+  // arrow-key promise into `reorderHandleDragOnly`'s value would sail past a
+  // `t(...)` form, which follows the value wherever it goes. That is the exact
+  // regression this test exists to prevent, so the literal is load-bearing.
+  // ★★ THE NEGATIVE HALF LEANS ON A CONTROL IT DOES NOT NAME. Its expected-
+  // absent string is asserted PRESENT by "qualifies BOTH the grip and the ⋮
+  // with the tile title" above, for this same "Alpha board" fixture — so a typo
+  // in the literal below cannot make it pass for the wrong reason while that
+  // test is green. Delete or retitle that test and this guarantee evaporates
+  // silently. (The `getByRole` on the line above is the other half: it THROWS
+  // before the negative runs, so an empty render cannot satisfy this either.)
   it("names the grip for the drag alone when the surface has no keyboard reorder", () => {
     render(
       <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={false}

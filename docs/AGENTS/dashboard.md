@@ -44,9 +44,23 @@ got that wrong in different ways.** The first said `reconcile`'s "ONE production
 left the COUNT attached to a function that no longer has one. Both were false: since the hook was
 extracted, `use-arrangement.ts` calls the ENGINE's `reconcile` (`arrangement-layout.ts`) directly and
 bypasses this wrapper entirely, and `dashboard-panel.tsx` never called any of the five. The Dashboard
-binding is retained under the Phase F export-stability rule — every `dashboard-*` module keeps its
-current export signature so no Dashboard test needs editing — and its fate is a Phase F close-out
-decision, not something to tidy away here. `DEFAULT_LAYOUT` and the `PlacedTile` / `DashboardLayout`
+binding is retained under the Phase F export-stability rule, and its fate is a Phase F close-out
+decision, not something to tidy away here.
+
+★★★ **THE RULE IS RETIRED, AND §425 BROKE THE PROPERTY DELIBERATELY — this paragraph used to state
+it as live ("every `dashboard-*` module keeps its current export signature so no Dashboard test
+needs editing") and BOTH halves are now false.** `DashboardTile` is typed
+`Omit<ArrangementTileProps, "testIdPrefix"> & { id: DashboardTileId }`, so making `keyboardReorder`
+REQUIRED on the generic props added a required prop to the Dashboard adapter's own exported
+signature — which is exactly what forced three call-site edits in `dashboard-grid.test.tsx`, plus
+the `grip()` helper in `dashboard-panel.test.tsx`. That was the right trade (a required prop is
+what puts the whole mislabelled-grip class out of reach rather than its two instances), but it IS
+an export-stability break and is recorded here rather than only in §425.
+★★ No gate can see any of this: `DashboardTile`, `ArrangementTileProps` and `reorderHandle` all
+still resolve, and "Phase F" is not a backticked symbol, so `docs:symbols:check` is silent.
+Enumerate what still asserts the rule with `grep -rn "Phase F" src/app docs/AGENTS` and read the
+hits — several are justifications that remain correct in their conclusion while resting on a rule
+that no longer holds. `DEFAULT_LAYOUT` and the `PlacedTile` / `DashboardLayout`
 types ARE still live.
 
 ★★ Enumerate the consumers rather than the call sites, because a call-site grep matches this very

@@ -30645,9 +30645,23 @@ enumeration was complete: a missed site is now a compile error, not a silent ove
 
 Mutation-proved, not asserted: flipping `keyboardReorder={false}` to `{true}` in
 `dashboard-panel.tsx` and running `npx vitest run --maxWorkers=1 src/app/dashboard-panel.test.tsx`
-gives **3 failed | 70 passed (73)**. ★ §425 predicted "five test names"; five is the count of
-`grip()` CALL SITES, and they land in THREE tests — call sites and tests are not the same tally,
-and this entry made that conflation itself.
+gives **3 failed | 70 passed (73)**.
+
+★★★ **THREE DIFFERENT TALLIES, AND THIS ENTRY HAS NOW BOTCHED THE SAME DISTINCTION TWICE.** The
+original prediction of "five test names" counted `grip()` CALL SITES (five). They sit in FOUR
+tests. Only THREE are mutation-sensitive. The closure's first wording said "THREE tests", derived
+from the mutation count — i.e. it corrected a call-sites-vs-tests conflation and committed a
+tests-vs-failures one in the same sentence. Caught by cold review, not by any gate. Derive them,
+never quote them:
+`grep -nE '^\s*(it|test)\(|grip\("' src/app/dashboard-panel.test.tsx`
+
+★★ **Why the sum check cannot catch it:** `73 = 3 + 70` matches the file's real runtime count, so
+the scorecard looks self-consistent while the sentence beside it is wrong. The fourth enclosing
+test is "renders no grip, menu, shelf or reset in a popout (read-only)", which asserts
+`queryByRole(...)` is NULL — and `arrangement-tile.tsx` renders the grip behind `{!readOnly && …}`,
+so in a popout no grip exists and that assertion holds whether the name is right, renamed, or
+misspelt. It is name-INSENSITIVE by construction: correct for what it tests, worthless as a name
+pin, and invisible to any tally that counts tests rather than assertions.
 
 ★ Read the original recipe's warning as still standing for anyone re-deriving this: every string
 here appears in the comments that discuss it as well as in code, so `grep -c` overstates
@@ -30677,9 +30691,20 @@ other surface.
 that `dashboard-panel.tsx` is never edited and every Dashboard test passes unmodified, with two
 already-sanctioned exceptions; this would have been a third. The fix was therefore built as a
 shared, opt-out-able capability, and only Reports opted in. ★ That rule was lifted deliberately to
-close this entry, making the Dashboard edit a third sanctioned exception — recorded here because
-the rule is stated in seven adapter docstrings and a reader meeting one of them needs to know it
-was retired on purpose rather than forgotten.
+close this entry, so a reader meeting it needs to know it was retired on purpose, not forgotten.
+
+★★★ **AND CLOSING THIS BROKE PHASE F EXPORT-STABILITY, WHICH IS MORE THAN THE RULE BEING RETIRED.**
+`dashboard-tile.tsx` types the adapter `Omit<ArrangementTileProps, "testIdPrefix"> & { id:
+DashboardTileId }`, so making `keyboardReorder` REQUIRED added a required prop to `DashboardTile`'s
+own exported signature — which is what forced the three `dashboard-grid.test.tsx` call sites and the
+`grip()` helper. The trade is right (a required prop retires the CLASS, not two instances) but it is
+a real break, so it is recorded in `docs/AGENTS/dashboard.md` where the rule lives as well as here.
+★★ NO GATE SEES IT: `DashboardTile`, `ArrangementTileProps` and `reorderHandle` all still resolve,
+and "Phase F" is not backticked, so `docs:symbols:check` is silent on every one of these statements.
+★ NO COUNT OF THEM IS QUOTED — a first cut of this line said "seven adapter docstrings" and a cold
+review measured six statements, five of them in code, with several being justifications that stay
+correct in their conclusion while resting on a retired rule. Enumerate and READ the hits:
+`grep -rn "Phase F" src/app docs/AGENTS`
 
 **What shipped.** All three steps, including step 3 — which this entry predicted would be skipped.
 
@@ -30691,9 +30716,13 @@ was retired on purpose rather than forgotten.
 3. **The default is GONE and `keyboardReorder` is REQUIRED.** Both consumers now pass it, so the
    default had nobody left to protect. This is what takes the CLASS out of reach rather than the two
    instances: a new surface cannot acquire an arrow-key promise by saying nothing, and the compiler
-   asks the one question that matters. It forced the prop onto nine call sites, six of them in
-   `arrangement-tile.test.tsx` and three in `dashboard-grid.test.tsx` — cheap, and each now states
-   which capability it is testing.
+   asks the one question that matters. It forced the prop onto existing call sites in
+   `arrangement-tile.test.tsx` and `dashboard-grid.test.tsx` — cheap, and each now states which
+   capability it is testing. ★ NO TALLY IS QUOTED, because the obvious recipe cannot reproduce one:
+   `grep -c keyboardReorder` over those two files returns 7 and 3, and the 7th is the NEW
+   drag-only test's own `keyboardReorder={false}` — new code, not a site the change forced. A
+   reader deriving "how much did required cost" gets 10 and a reader counting forced sites gets 9,
+   from the same command.
 
 Also closed a gap the primitive had all along: `arrangement-tile.test.tsx` covered only the
 arrow-key branch, so nothing unit-tested the `false` naming at the component that decides it.

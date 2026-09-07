@@ -814,10 +814,21 @@ const EN = "en-US" as const;
 // `keyboard: false` to `useListReorderDnd`, so its grips carry no `onKeyDown`
 // and the arrow-key half of `reorderHandle`'s name was a promise nothing kept.
 // Every expected grip name is built here, which is why closing §425 was a
-// one-line change in this file. ★ §425 predicted "five test names"; that is the
-// count of `grip()` CALL SITES, and they land in THREE tests — measured by
-// flipping `keyboardReorder` to `true` in `dashboard-panel.tsx`, which gives
-// `3 failed | 70 passed (73)`. Call sites and tests are not the same tally.
+// one-line change in this file.
+// ★★★ THREE DIFFERENT TALLIES LIVE HERE AND THEY ARE 5, 4 AND 3. §425 predicted
+// "five test names": five is the count of `grip()` CALL SITES. They sit in FOUR
+// tests. Only THREE of those are mutation-sensitive — flipping
+// `keyboardReorder` to `true` in `dashboard-panel.tsx` gives
+// `3 failed | 70 passed (73)`.
+// ★★ THE FOURTH IS WHY THE SUM CHECK CANNOT CATCH THIS: "renders no grip, menu,
+// shelf or reset in a popout (read-only)" asserts `queryByRole(...)` is NULL,
+// and `arrangement-tile.tsx` renders the grip behind `{!readOnly && …}` — so in
+// a popout there is no grip AT ALL and that assertion passes whether the name is
+// right, renamed, or misspelt in this helper. It is name-INSENSITIVE by
+// construction, which is correct for what it tests and useless as a name pin.
+// ★ A first cut of this comment said "THREE tests", derived from the mutation
+// count — the same call-sites-vs-tests conflation it was written to warn about.
+// Count the enclosing `it(` blocks, not the failures and not the call sites.
 const grip = (title: string) => `${t(EN, "reorderHandleDragOnly")} – ${title}`;
 const kebab = (title: string) => `${t(EN, "actionMoreActions")} – ${title}`;
 

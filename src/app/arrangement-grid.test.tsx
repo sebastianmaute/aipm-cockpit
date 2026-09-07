@@ -32,8 +32,11 @@ describe("span class tables", () => {
  * assertion can reach.
  *
  * ★★★ WHY THIS BLOCK LIVES HERE AND NOT IN `dashboard-grid.test.tsx`, WHERE IT
- * WAS WRITTEN. It is the ONE sanctioned exception to Phase F's "every Dashboard
- * test passes unmodified" rule, and it was moved rather than deleted. This is
+ * WAS WRITTEN. It was the FIRST sanctioned exception to Phase F's "every
+ * Dashboard test passes unmodified" rule, and it was moved rather than deleted.
+ * ★★ It said "the ONE sanctioned exception" until §425 retired that rule and
+ * edited two more Dashboard test files; the reason below is what justifies THIS
+ * move and is unaffected. This is
  * the only test in the extraction that asserts on the BYTES OF A FILE AT A PATH
  * rather than on behaviour through an API: it needs the literal text
  * `export const W_CLASS` and a matching object literal in the file it reads. No

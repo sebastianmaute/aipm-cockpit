@@ -343,7 +343,12 @@
   `reorderHandle` string; axe cannot see that at any seed size, in a view it scans. The unit test
   asserting the names are DISTINCT is the only detector — and note every other test in that file finds its
   handles by the shared prefix and indexes `[0]`/`[1]`, so they all stay green when the qualifier is lost.
-  ★ That key is deliberately FEATURE-NEUTRAL and is shared by Reports and both Settings reference lists.
+  ★ That key is deliberately FEATURE-NEUTRAL. ★★ It is NO LONGER shared with Reports — §425 moved that
+  surface (and the Dashboard) onto the drag-only twin `reorderHandleDragOnly`, because both pass
+  `keyboard: false` and their grips never took arrow keys. Today only the two Settings reference lists
+  read it, and they leave `keyboard` at its default `true`, so its arrow-key wording is true wherever it
+  is still read. The neutrality rule below still stands and matters more, not less, now that one key
+  names the capability rather than the surface.
   It was named after Reports until the roles-editor adopted it, which made "tighten the Reports wording"
   a silent rewrite of two unrelated Settings surfaces; the old Reports-specific spelling was renamed away
   and must not come back. Its German says *verschieben*, never *sortieren* — the rate-card grip sits

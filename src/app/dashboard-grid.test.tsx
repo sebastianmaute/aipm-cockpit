@@ -34,9 +34,16 @@ describe("span class tables", () => {
 });
 
 /**
- * ★★★ THE SOURCE-FORM SCAN MOVED TO `arrangement-grid.test.tsx`. It is the ONE
- * sanctioned exception to Phase F's "every Dashboard test passes unmodified"
- * rule — moved, not deleted, and it is the only block in this file that changed.
+ * ★★★ THE SOURCE-FORM SCAN MOVED TO `arrangement-grid.test.tsx` — moved, not
+ * deleted. It was the first sanctioned exception to Phase F's "every Dashboard
+ * test passes unmodified" rule.
+ * ★★ THAT RULE IS RETIRED AND THIS FILE HAS CHANGED TWICE. The sentence here
+ * used to end "and it is the only block in this file that changed", which §425
+ * falsified: making `keyboardReorder` REQUIRED added a required prop to
+ * `DashboardTile`'s exported signature, so all three of this file's tile call
+ * sites now pass `keyboardReorder={false}` — matching the real Dashboard, which
+ * passes `keyboard: false` to `useListReorderDnd`. Read the hunks rather than
+ * this sentence: `git log -p --follow -- src/app/dashboard-grid.test.tsx`.
  *
  * It was the only test here asserting on the BYTES OF A FILE AT A PATH rather
  * than on behaviour through an API: it required the literal text
