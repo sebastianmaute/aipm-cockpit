@@ -818,7 +818,7 @@ npx vitest run --maxWorkers=1 src/app/inline-ai-edit/plan.sanitizer-parity.test.
 grep -E "Test Files|Tests |×" "$SP/t8.log"
 ```
 
-★★★ That sweep enumerates over `INLINE_DESCRIPTORS`, so both new entities are covered the moment they are declared — no list to extend. A red run here means a `fieldSanitizers` entry disagrees with the real sanitizer, which is a REAL defect in this task's own work, not a test to adjust.
+★★★ **CORRECTED — THIS SENTENCE WAS FALSE.** That sweep does NOT enumerate `INLINE_DESCRIPTORS`; its `CASES` is a hardcoded array whose floors are computed FROM `CASES`, so an absent entity shrinks the denominator with it and nothing reds. Both entities needed rows added by hand, which landed in `e38c0719` along with a completeness assertion against `Object.keys(INLINE_DESCRIPTORS)` so the NEXT entity reds by name. A red run here means a `fieldSanitizers` entry disagrees with the real sanitizer, which is a REAL defect in this task's own work, not a test to adjust.
 
 - [ ] **Step 5: Commit.** Subject: `feat(calendar): describe staged absence and event writes`.
 

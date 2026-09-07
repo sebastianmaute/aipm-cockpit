@@ -142,8 +142,15 @@ destructive set for the same reason every other delete does.
 - **Recurrence projection**: one case per `freq`, plus `until` and `count`, plus the nested monthly
   `byDay`. Pure function, no DOM.
 - **Descriptors**: both entities join the existing `plan.sanitizer-parity.test.ts` sweep automatically
-  — it enumerates over `INLINE_DESCRIPTORS`, so the new entries are covered the moment they are
-  declared. That is the point of enumerating rather than listing.
+  — ★★★ **CORRECTED 2026-09-07: THIS WAS FALSE AND IT WAS THE MOST EXPENSIVE ERROR IN THIS
+  SPEC.** That file does NOT enumerate `INLINE_DESCRIPTORS`. Its `CASES` is a hardcoded array with
+  a per-entity `StoredReader`, and — this is the part that makes it dangerous — **its floors are
+  computed FROM `CASES`**, so an absent entity shrinks the denominator along with it and NOTHING
+  goes red. Both new entities would have had ZERO differential coverage with every gate green. The
+  claim was written here, carried into the plan, and repeated in three implementer briefs before an
+  agent read the file and refuted it. Rows for both entities, readers composing the real merge-site
+  guards, and an assertion comparing `CASES` against `Object.keys(INLINE_DESCRIPTORS)` all landed in
+  `e38c0719`; that file's own header made the same false claim and was corrected there too.
 
 Every behavioural claim is mutation-proved, recorded as `N failed / M passed` with the sum equal to
 the file's runtime test count, and each mutant reverted by an anchored inverse write.
