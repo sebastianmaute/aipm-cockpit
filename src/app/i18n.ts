@@ -1822,6 +1822,8 @@ const enUS = {
   calendarEventStartTime: "Start time",
   calendarEventDuration: "Duration (minutes)",
   calendarEventLocation: "Location",
+  calendarEventAttendees: "Attendees",
+  calendarEventSendInvitations: "Send invitations",
   calendarEventRepeat: "Repeat",
   calendarEventExceptionsDiscarded: "Turning repeat off discards {0} adjusted occurrence(s); undo restores them.",
   calendarEventRepeatNever: "Never",

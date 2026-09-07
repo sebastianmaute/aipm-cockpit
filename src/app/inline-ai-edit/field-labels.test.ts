@@ -83,6 +83,23 @@ describe("fieldLabel", () => {
     expect(fieldLabel("de", "task", "somethingNew")).toBe("somethingNew");
   });
 
+  // Task 3 (absence + calendarEvent field labels) lands before Task 8 gives
+  // `calendarEvent` an `INLINE_DESCRIPTORS` entry, so `calendarEvent` is not
+  // yet a valid `InlineEntity` and `fieldLabel`'s typed `entity` parameter
+  // cannot take that literal — this asserts directly against the map + `t()`
+  // instead. An EN-only check cannot prove the map entry is wired: if the
+  // English string happened to equal the raw field name it would pass whether
+  // or not `FIELD_LABEL_KEY` carried the entry, via the raw-name fallback.
+  it("labels a calendarEvent field key in German, ahead of Task 8's descriptor", async () => {
+    await loadI18n("de");
+    const key = FIELD_LABEL_KEY["calendarEvent.durationMinutes"];
+    expect(key).toBeDefined();
+    const de = t("de", key);
+    const en = t("en-US", key);
+    expect(de).not.toBe(en);
+    expect(de).not.toBe("durationMinutes");
+  });
+
   // §406 — `set_task_dependencies` has no create/update/delete triple, so it is
   // absent from `TOOL_ENTITY` and the card renders its rows with `entity`
   // undefined. That branch used to return the raw name unconditionally, so the

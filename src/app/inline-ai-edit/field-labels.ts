@@ -23,8 +23,9 @@ import { type InlineEntity } from "./entity-descriptor";
  *
  *  ★ Most entries REUSE a key the entity forms already ship in EN and DE —
  *   preferring the key that entity's OWN form shows, so a preview line reads
- *   the way the edit modal does. Only three names had no label anywhere
- *   (`fieldAssigneeEmail`, `fieldOwnerEmail`, `fieldClosedDate`); a label map
+ *   the way the edit modal does. Only five names had no label anywhere
+ *   (`fieldAssigneeEmail`, `fieldOwnerEmail`, `fieldClosedDate`,
+ *   `calendarEventAttendees`, `calendarEventSendInvitations`); a label map
  *   is not a reason to duplicate strings that already exist.
  *
  *  ★★ COMPLETENESS IS NOT ENFORCED BY THE TYPE. `Record<string, …>` accepts a
@@ -113,6 +114,35 @@ export const FIELD_LABEL_KEY: Record<string, TranslationKey> = {
   "resource.notes": "resourceNotes",
   "resource.emails": "resourceEmailsLabel",
   "resource.roleId": "role",
+
+  // absence — reuses the absence edit modal's own labels wherever one exists;
+  // `assigneeEmail` reuses task's minted `fieldAssigneeEmail` ("Assignee
+  // email") rather than the modal's own `absenceAssigneeEmail` ("Email"),
+  // which reads as ambiguous alone on a preview row.
+  "absence.assignee": "assignee",
+  "absence.assigneeEmail": "fieldAssigneeEmail",
+  "absence.startDate": "absenceStart",
+  "absence.endDate": "absenceEnd",
+  "absence.type": "absenceType",
+  "absence.note": "absenceNote",
+
+  // calendarEvent — reuses the calendar-event edit modal's own labels. ★
+  // `startDate` reuses `calendarEventFirstOccurrence` ("First occurrence"),
+  // NOT the generic `startDate` ("Start date") that fits the raw field name
+  // more literally — the modal binds this exact field to that label because a
+  // recurring event's `startDate` is its first occurrence, and a preview line
+  // is meant to read the way the edit modal does. `attendeeResourceIds` and
+  // `sendInvitations` have no modal field yet (the modal deliberately omits
+  // attendees UI — see calendar-event-modal.tsx), so both are minted here.
+  "calendarEvent.title": "calendarEventTitle",
+  "calendarEvent.startDate": "calendarEventFirstOccurrence",
+  "calendarEvent.startTime": "calendarEventStartTime",
+  "calendarEvent.durationMinutes": "calendarEventDuration",
+  "calendarEvent.location": "calendarEventLocation",
+  "calendarEvent.notes": "notes",
+  "calendarEvent.attendeeResourceIds": "calendarEventAttendees",
+  "calendarEvent.sendInvitations": "calendarEventSendInvitations",
+  "calendarEvent.recurrence": "calendarEventRepeat",
 };
 
 /** Field names that are translatable WITHOUT an entity to qualify them.

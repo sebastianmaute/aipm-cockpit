@@ -1748,6 +1748,8 @@ export const de: Record<TranslationKey, string> = {
   calendarEventStartTime: "Startzeit",
   calendarEventDuration: "Dauer (Minuten)",
   calendarEventLocation: "Ort",
+  calendarEventAttendees: "Teilnehmer",
+  calendarEventSendInvitations: "Einladungen senden",
   calendarEventRepeat: "Wiederholung",
   calendarEventRepeatNever: "Nie",
   calendarEventExceptionsDiscarded: "Das Ausschalten der Wiederholung verwirft {0} angepasste(n) Termin(e); mit Rückgängig lassen sie sich wiederherstellen.",
