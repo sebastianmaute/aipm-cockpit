@@ -1332,3 +1332,81 @@ describe("a create's link line names the row it belongs to (§420)", () => {
     expect("subject" in createLink).toBe(false);
   });
 });
+
+// ★★★ THE FOURTH RIPPLE SITE FOR A NEW `InlineEntity` MEMBER, and the only one
+//  that degrades the review card (`docs/open-followups.md` §434 enumerates the
+//  other three). `TOOL_ENTITY`/`toolOp` are DERIVED from `INLINE_DESCRIPTORS`,
+//  so a descriptor alone ROUTES a `create_*`/`delete_*` into
+//  `describeEntityCalls`; `CREATE_TOOLS`/`DELETE_TOOLS` are hand-maintained, so
+//  a name missing from them falls through to an EMPTY plan. That plan still
+//  renders as a row — ticked by default, titled, named after its tool, with no
+//  detail list — behind an `Apply` the user is invited to press.
+//
+//  ★★ THE ENUMERATION IS THE POINT. A hardcoded four-row list would cover the
+//   calendar entities and go on being green for the SEVENTH; deriving the cases
+//   from `INLINE_DESCRIPTORS` is what makes a future member fail here without
+//   anyone remembering to add it. Both directions are asserted: the second case
+//   is what stops the sweep passing over an empty set.
+describe("every descriptor's create/delete tool is describable (§434)", () => {
+  const descriptors = Object.values(INLINE_DESCRIPTORS);
+
+  it("covers at least the entities the descriptor record declares", () => {
+    // Anti-vacuity: without this, a sweep over an accidentally-empty record
+    // passes every assertion below by never running one.
+    expect(descriptors.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it.each(descriptors.map((d) => ({ entity: d.entity, tool: d.createTool })))(
+    "$entity: $tool produces a create row, not an empty plan",
+    ({ entity, tool }) => {
+      const plan = describeEntityCalls([block(tool, { title: "X", name: "X", taskName: "X", assignee: "X" })], {
+        descriptor: INLINE_DESCRIPTORS.task,
+        item: task,
+        ws,
+      });
+      expect(plan.creates.map((c) => c.entity)).toEqual([entity]);
+      expect(isEmptyPlan(plan)).toBe(false);
+    },
+  );
+
+  // ★ Seeded with a row the delete can actually find: an unknown id is a
+  //  LEGITIMATE `rejected` row, so a fixture without one cannot tell a missing
+  //  table entry (falls through, plan empty) from a real unknown-id rejection.
+  // ★★ The id is the OPEN ROW'S, not an arbitrary one: an entity may delete any
+  //  row but its OWN, where `name === d.deleteTool` restricts it to `item.id`.
+  //  A different id therefore rejects the `task` case as "unsupported" — real
+  //  behaviour, wrong question for this sweep.
+  it.each(descriptors.map((d) => ({ entity: d.entity, tool: d.deleteTool, wsKey: d.wsKey })))(
+    "$entity: $tool produces a delete row, not an empty plan",
+    ({ entity, tool, wsKey }) => {
+      const seeded = {
+        ...ws,
+        [wsKey]: [{ id: task.id, title: "Row", name: "Row", taskName: "Row", assignee: "Row", firstName: "Row", lastName: "" }],
+      } as unknown as Workspace;
+      const plan = describeEntityCalls([block(tool, { id: task.id })], {
+        descriptor: INLINE_DESCRIPTORS.task,
+        item: task,
+        ws: seeded,
+      });
+      expect(plan.deletes.map((d) => d.entity)).toEqual([entity]);
+      expect(plan.rejected).toEqual([]);
+      expect(isEmptyPlan(plan)).toBe(false);
+    },
+  );
+
+  // ★★ The absence-specific half, and it is NOT covered by the sweep above:
+  //  every case there seeds `title`/`name`, so `titleOf`'s chain never reaches
+  //  its last leg. An `Absence` declares none of those four, so without the
+  //  `assignee` leg a create row is titled with the literal word "absence" and
+  //  a delete row with its bare numeric id — on the card whose whole job is
+  //  saying WHOSE holiday is about to go.
+  it("names an absence row by its assignee, in both directions", () => {
+    const seeded = { ...ws, absences: [{ id: 50, assignee: "Ada Lovelace" }] } as unknown as Workspace;
+    const plan = describeEntityCalls(
+      [block("create_absence", { assignee: "Grace Hopper" }), block("delete_absence", { id: 50 })],
+      { descriptor: INLINE_DESCRIPTORS.task, item: task, ws: seeded },
+    );
+    expect(plan.creates[0].title).toBe("Grace Hopper");
+    expect(plan.deletes[0].label).toBe("Ada Lovelace");
+  });
+});

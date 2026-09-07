@@ -159,10 +159,33 @@ export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: D
 //  `INLINE_DESCRIPTORS` with it. Widening it back makes that lookup `any` under
 //  a `Record<string, …>` index — the descriptor a create's links are projected
 //  through would then be unchecked.
+//
+// ★★★ THESE TWO TABLES ARE A FOURTH RIPPLE SITE FOR A NEW `InlineEntity`
+//  MEMBER (`docs/open-followups.md` §434 enumerates three), AND THE ONLY ONE
+//  THAT DEGRADES THE REVIEW CARD. They are NOT derived from
+//  `INLINE_DESCRIPTORS`, but `TOOL_ENTITY`/`toolOp` (chat-proposal-describe.ts)
+//  ARE — so a descriptor entry alone is enough to ROUTE a `create_*`/`delete_*`
+//  call into `describeEntityCalls`, where a name missing from both tables
+//  matches neither `d.updateTool` nor either lookup, falls through, and leaves
+//  an EMPTY plan. `describeProposal` still pushes one row per call
+//  unconditionally, `proposalCardRows` maps 1:1 and filters nothing, and
+//  `isEmptyPlan` is never consulted on the chat path — it only suppresses
+//  `PlanDetail`'s `<ul>` in `chat-proposal-block.tsx`. The result is a row that
+//  renders TICKED BY DEFAULT, with a title and a tool name and no detail list,
+//  behind an `Apply` gated only on `busy || selectedCount === 0`: the user is
+//  invited to approve a write whose contents are not shown. That is exactly
+//  what the four calendar tools did when their descriptors landed here and
+//  these tables did not.
+//  ★ Deliberately not folded into the descriptor record: `DELETE_TOOLS` needs a
+//   `wsKey` for label resolution and `CREATE_TOOLS` does not, and six of the
+//   eight rows predate the descriptors. The cheap guard is a test that
+//   enumerates over `INLINE_DESCRIPTORS` and asserts every `createTool` /
+//   `deleteTool` appears here.
 const CREATE_TOOLS: Record<string, InlineEntity> = {
   create_raid_item: "raid", create_change: "change",
   create_milestone: "milestone", create_stakeholder: "stakeholder", create_task: "task",
   create_resource: "resource",
+  create_absence: "absence", create_calendar_event: "calendarEvent",
 };
 const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> = {
   delete_task: { entity: "task", wsKey: "tasks" },
@@ -171,6 +194,11 @@ const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> =
   delete_milestone: { entity: "milestone", wsKey: "milestones" },
   delete_stakeholder: { entity: "stakeholder", wsKey: "stakeholders" },
   delete_resource: { entity: "resource", wsKey: "resources" },
+  delete_absence: { entity: "absence", wsKey: "absences" },
+  // ★ `calendarEvents` is an OPTIONAL slice, so the delete branch's own
+  //  `Array.isArray` guard on `ws[wsKey]` is load-bearing for this row — an
+  //  absent slice yields `unknown-id`, which is the right answer.
+  delete_calendar_event: { entity: "calendarEvent", wsKey: "calendarEvents" },
 };
 
 // Fields stored as rich HTML, keyed `${entity}.${field}`. Only the PREVIEW
@@ -295,9 +323,17 @@ export function previewNormalizerFor(
  *  one. */
 const PERSON_ENTITIES: ReadonlySet<string> = new Set(["resource", "stakeholder"]);
 
+// ★★ `assignee` SITS LAST IN BOTH CHAINS, and the position is what makes it
+//  safe to add. An `Absence` declares none of the four names ahead of it, so
+//  without this a `create_absence` row is titled with the literal string
+//  "absence" and a `delete_absence` row with its numeric id — on the card whose
+//  whole job is telling the user WHOSE holiday is about to go. `Task` also
+//  carries `assignee`, but `taskName` precedes it, so a task only reaches this
+//  leg when it has no name at all — a degenerate input where the assignee is
+//  still the better label than the word "task".
 function titleOf(entity: string, input: Record<string, unknown>): string {
   if (PERSON_ENTITIES.has(entity)) return personName(input) || entity;
-  return str(input.title ?? input.taskName ?? input.name ?? input.description ?? entity);
+  return str(input.title ?? input.taskName ?? input.name ?? input.description ?? input.assignee ?? entity);
 }
 
 interface EntityItem { id: number; [k: string]: unknown }
@@ -701,7 +737,7 @@ export function describeEntityCalls(
         plan.rejected.push({ toolName: name, reason: "unsupported", detail: str(input.id) });
         continue;
       }
-      const rows = ws[wsKey] as ReadonlyArray<{ id: number; title?: string; taskName?: string; name?: string }>;
+      const rows = ws[wsKey] as ReadonlyArray<{ id: number; title?: string; taskName?: string; name?: string; assignee?: string }>;
       const found = Array.isArray(rows) ? rows.find((r) => r.id === id) : undefined;
       if (!found) { plan.rejected.push({ toolName: name, reason: "unknown-id", detail: str(input.id) }); continue; }
       // ★★★ Same job-title collision as `titleOf` above, on the stored ROW
@@ -710,9 +746,12 @@ export function describeEntityCalls(
       // carries `title` ("Engineer") and no `name`; a stakeholder carries both,
       // and `title` wins the generic chain. Either way the user is offered a
       // deletion named after a job rather than the person.
+      // `assignee` last, for the same reason and with the same safety as in
+      // `titleOf` above — it is an `Absence`'s only human-readable field, and
+      // every other entity here reaches a name before it.
       const label = PERSON_ENTITIES.has(entity)
         ? personName(found as Record<string, unknown>) || str(id)
-        : str(found.title ?? found.taskName ?? found.name ?? id);
+        : str(found.title ?? found.taskName ?? found.name ?? found.assignee ?? id);
       plan.deletes.push({ entity, label, toolName: name, id });
       continue;
     }

@@ -658,7 +658,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§431](#431-one-malformed-api-date-reached-the-budget-aggregates-as-a-phantom-period-key--closed-2026-09-07) | One malformed API date reached the budget aggregates as a phantom period key | found 2026-09-07 in cold review of the guardrail-bounds branch; the first-party path §367 said had not been probed | S-M — one row rule at ONE consumer; the roll deliberately keeps its unparseable key | **CLOSED** 2026-09-07 |
 | [§432](#432-two-surfaces-tell-the-user-to-re-fetch-hours-that-a-re-fetch-cannot-repair--closed-2026-09-07) | Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S-M — an `undated` subset of `unattributed`, plus one string each | **CLOSED** 2026-09-07 |
 | [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
-| [§434](#434-adding-an-inlineentity-member-has-three-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--open) | Adding an `InlineEntity` member has three ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, two are silent | open |
+| [§434](#434-adding-an-inlineentity-member-has-four-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--open) | Adding an `InlineEntity` member has four ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, three are silent (one now fixed) | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -31950,9 +31950,10 @@ is reachable — but a probe on the wrong backend will find nothing and conclude
 gone, the constraint from this entry stands: count what you remove and show it — a load path that
 silently deletes stored numbers is the shape §148 and the six-write-paths rule exist to prevent.
 
-## 434. Adding an `InlineEntity` member has three ripple sites, one a hard build break, and nothing enumerates them — OPEN
+## 434. Adding an `InlineEntity` member has four ripple sites, one a hard build break, and nothing enumerates them — OPEN
 
-**Status:** OPEN 2026-09-07 — never fixed.
+**Status:** OPEN 2026-09-07 — one of the four sites fixed and pinned (`npx vitest run src/app/inline-ai-edit/plan.test.ts -t "describable"`); the other three never fixed.
+★ **THE HEADING SAID "three" UNTIL 2026-09-07**, when a cold review found a fourth site and this entry's own count rotted — the exact failure its sub-finding below records about `descriptor-drift.test.ts`, one level up. The title and its index row were both retitled; `git log -S` on the old wording finds the change. Read that as the argument for the remedy at the foot of this entry, not merely as bookkeeping.
 ★ **Filed as §430 and renumbered to §434 on 2026-09-07.** A peer branch minted §430 for an unrelated cache-shedding defect and reached `origin/main` first, so that number is theirs under the reservation rule (a §number is reserved only once it is ON `origin/main`). The commit that filed this entry, `73971d52`, still says §430 in its subject and cannot be amended in a shared worktree — if you arrived from it, this is the entry it meant.
  The three sites were located by grep on this branch, not inferred. Reproduce with `grep -rn "Record<InlineEntity" src/app` (two hits: the descriptor record itself and `ENTITY_LABEL_KEY`), `grep -n "only five with a surface" src/app/help-content.ts` (one hit, a count in prose), and `grep -n "^const CASES" -A 7 src/app/inline-ai-edit/descriptor-drift.test.ts` (five hardcoded rows, no enumeration over the descriptor record).
 
@@ -31966,6 +31967,19 @@ of the three announces itself.**
 | `use-entity-inline-ai-edit.tsx` `ENTITY_LABEL_KEY: Record<InlineEntity, TranslationKey>` | exhaustive record — a missing member is a **tsc error**, and satisfying it needs a `TranslationKey` decision (mint EN+DE, or reuse) | `npx tsc --noEmit`, loudly |
 | `help-content.ts` — "Six `InlineEntity` members, only five with a surface" | a COUNT in a comment, restated as the reason `relatedViews` lists five | nothing. No gate reads a count, and `docs:symbols:check` does not scan `src/` at all |
 | `descriptor-drift.test.ts` `CASES` | a hardcoded five-row array, NOT an enumeration over `INLINE_DESCRIPTORS` — a new entity is silently outside "descriptor diffFields are dispatcher-writable" | nothing. The suite stays green and one entity fewer is covered |
+| `inline-ai-edit/plan.ts` `CREATE_TOOLS` / `DELETE_TOOLS` | hand-maintained tables, NOT derived — while `TOOL_ENTITY`/`toolOp` (`chat-proposal-describe.ts`) ARE. So a descriptor entry alone ROUTES a `create_*`/`delete_*` into `describeEntityCalls`, where a name missing from both tables matches nothing and returns `emptyPlan()` | nothing, until it was found by cold review. **This is the one that degrades the review card**, and the heading's "three" is now four |
+
+★★★ **THE FOURTH SITE IS THE WORST OF THEM, and it was live for the calendar slice.** An empty plan
+is not an empty ROW: `describeProposal` pushes one row per call unconditionally (its docstring says a
+call it cannot diff still gets a row), `proposalCardRows` maps 1:1 and filters nothing, and
+`isEmptyPlan` is never consulted on the chat path — in `chat-proposal-block.tsx` it only suppresses
+`PlanDetail`'s `<ul>`. So all four calendar create/delete tools rendered a row **ticked by default**,
+carrying a title and a tool name and no detail list, behind an `Apply` gated only on `busy ||
+selectedCount === 0`: the user was invited to approve a write whose contents were not shown. Fixed on
+`feat/preview-write-path-parity-sweep` by adding the four rows, and pinned by an enumerating sweep in
+`plan.test.ts` ("every descriptor's create/delete tool is describable") that derives its cases from
+`INLINE_DESCRIPTORS` and asserts in both directions, so a SEVENTH member fails there without anyone
+remembering to. The other three sites remain open.
 
 ★★★ **THE TWO SILENT ONES ARE THE POINT, AND THEY FAIL IN OPPOSITE DIRECTIONS.** The
 `help-content.ts` count becomes a false claim that reads as verified. `descriptor-drift.test.ts`
