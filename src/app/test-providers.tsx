@@ -32,7 +32,12 @@ export interface TestSeed {
    *  `Workspace.calendarEvents` is `readonly CalendarEvent[] | undefined` and
    *  `undefined` means "the slice is ABSENT", which is not the same claim as
    *  "this project has no meetings" — the context maintains that distinction
-   *  deliberately and the write path is pinned on it. So an unseeded slice must
+   *  deliberately and the write path is pinned on it.
+   *  ★★ IT IS AN IN-MEMORY DISTINCTION, NOT A PERSISTED ONE. `workspaceToJson`
+   *   emits the `calendarEvents` key only when the array is non-empty, so `[]`
+   *   and `undefined` produce identical JSON — seeding `[]` here would therefore
+   *   NOT be caught by any round-trip test, which is exactly why the rule has to
+   *   be written down. So an unseeded slice must
    *  stay `undefined`, which the `?.length` guard below already delivers; never
    *  default it to `[]` here or in the `Seeder`. */
   calendarEvents?: CalendarEvent[];

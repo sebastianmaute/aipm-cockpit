@@ -49,9 +49,16 @@ type ProposalOp = "create" | "update" | "delete";
 /** Tool name → the descriptor entity it addresses, and which operation it is.
  *
  *  ★★ DERIVED FROM `INLINE_DESCRIPTORS`, never hand-typed. Each descriptor
- *   already names its own `createTool`/`updateTool`/`deleteTool`, so the 18
- *   strings have exactly one definition and a renamed tool cannot leave a stale
- *   copy here. `chat-proposal-describe.test.ts` cross-checks the derived key set
+ *   already names its own `createTool`/`updateTool`/`deleteTool`, so every one
+ *   of those strings has exactly one definition and a renamed tool cannot leave
+ *   a stale copy here.
+ *  ★ NO COUNT IS QUOTED, deliberately: this said "the 18 strings" and was
+ *   already 24 by the time anyone read it, because the number is three times
+ *   the size of a union that grows. It is the derivation, not the total, that
+ *   is the claim. If a number is ever needed, derive it from the union rather
+ *   than restating one: `grep -c "^  | \"" src/app/inline-ai-edit/entity-descriptor.ts`
+ *   is NOT it either — read `InlineEntity`'s own declaration and multiply by
+ *   three. A placeholder command here would be worse than no command. `chat-proposal-describe.test.ts` cross-checks the derived key set
  *   against the gate's own `isEntityWriteTool`, in both directions. */
 const toolEntity: Record<string, InlineEntity> = {};
 const toolOp: Record<string, ProposalOp> = {};

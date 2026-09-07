@@ -644,9 +644,16 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       listAbsences: () => absencesRef.current.map(toAbsenceSummary),
       // ★★ `?? []` AT THE READ SITE, never a normalising write. A `list` on a
       // project that has never had a meeting must answer "none" WITHOUT
-      // turning the absent slice into an empty one — that write would be
-      // indistinguishable from the user having deleted every meeting, and the
-      // six persistence paths carry the difference.
+      // turning the absent slice into an empty one.
+      // ★★★ THE REASON IS NOT PERSISTENCE, AND THIS COMMENT SAID IT WAS ("the six
+      //  persistence paths carry the difference"). They do not: `workspaceToJson`
+      //  emits the key only when `ws.calendarEvents.length` is truthy, so `[]`
+      //  and `undefined` serialise to the SAME bytes — and JSON is one of the six.
+      //  What the distinction is really worth is IN MEMORY: `undefined` means
+      //  "never had a meeting" and `[]` means "the user emptied it", the context
+      //  maintains that split, and the delete path deliberately leaves `[]`. A
+      //  normalising write here would also dirty the workspace on a plain READ.
+      //  The `?? []` is still exactly right; only the justification was wrong.
       listCalendarEvents: () => (calendarEventsRef.current ?? []).map(toCalendarEventSummary),
 
       // FULL rows, for the concurrency token only — never a model-facing read;
