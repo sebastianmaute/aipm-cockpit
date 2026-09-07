@@ -81,8 +81,13 @@ describe("arrangement-layout properties", () => {
   // particular that `hidden` ever holds a DUPLICATE, which is the only input
   // that exercises the `hiddenSet` de-duplication. That is answered
   // EMPIRICALLY rather than by a guard: reverting the de-duplication turns the
-  // property below red (measured, 2 failed / 10 passed with the unit test), so
-  // the generator demonstrably reaches the shape. ★ Do NOT "strengthen" this
+  // property below RED (measured), so the generator demonstrably reaches the
+  // shape. ★★ THE SCORECARD'S DENOMINATOR IS DELIBERATELY GONE. It read
+  // "2 failed / 10 passed with the unit test" and was stale before the branch
+  // that measured it ended, because a sibling commit added tests to the files it
+  // counted. WHICH mutant died is durable; a pass/fail total rots the moment
+  // either file gains a test, and a stale one reads as a fresh measurement.
+  // Re-run the mutant if you need numbers. ★ Do NOT "strengthen" this
   // into a fraction-based anti-vacuity guard at a raised `numRuns` — raising
   // runs at the same failure fraction makes such a guard WEAKER, not stronger.
   it("reconcile emits every catalogue block exactly once, inside its own limits", () => {

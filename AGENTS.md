@@ -1458,7 +1458,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   own `!arrangement.readOnly` guard, because the stack around it is gated only on `print:hidden`; a popout is
   read-only by design and would otherwise gain a working reset.
   ★★★ **A PANE WITH BOTH IS FOUR MEMBERS: Print · reset-columns · reset-layout · reset-size.** Reports is the
-  first (0.290.x); the two above are the three-member SPECIAL CASES of it. The order is not arbitrary — it
+  first pane to carry all four; the two above are the three-member SPECIAL CASES of it. ★ NO VERSION IS
+  QUOTED, and adding one back is a regression twice over: this said "(0.290.x)" while `version.ts` read
+  0.289.0 and the branch introducing the fourth member bumped nothing, so the number was ASPIRATIONAL —
+  and the preamble to this whole section already says version/MR provenance lives in git + CHANGELOG,
+  not here. The order is not arbitrary — it
   contains BOTH of them as SUBSEQUENCES, so neither existing convention breaks, and it keeps the two CONTENT
   resets together ahead of the BOX reset. ★★ `contiguous: true` catches a control inserted BETWEEN members but
   cannot adjudicate the ORDER itself, which is why it is written here rather than inferred from a green test —

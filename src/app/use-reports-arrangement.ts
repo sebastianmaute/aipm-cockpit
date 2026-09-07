@@ -8,18 +8,23 @@
  * id-and-layout-as-one-state fix, the separate flush effect, and the full `seed`
  * contract. Read them there before changing anything here.
  *
- * ★★★ `settings.reports.extra` RETIRES AS THE OWNER OF ORDER AND VISIBILITY —
- * AS AN OBLIGATION ON TASK 12, NOT AS A DESCRIPTION OF TODAY. An earlier
- * revision of this block stated it in the present tense ("the field is read by
- * nothing, and nothing writes it"), which was measurably false: `reports.tsx`
- * still reads the prop and still writes the field through
- * `onChangeExtraReports` at four sites, and nothing calls this hook yet.
- * Reproduce both halves:
- *   `grep -n "onChangeExtraReports" src/app/reports.tsx`
- *   `grep -rn "useReportsArrangement" src/`
- * Task 12 must stop writing the field when it binds this hook. The field then
- * stays on the Settings type because removing it is a separate change with its
- * own storage surface.
+ * ★★★ `settings.reports.extra` HAS RETIRED AS THE OWNER OF ORDER AND VISIBILITY.
+ * `reports.tsx` binds this hook and no longer WRITES the field — the arrangement
+ * owns order and visibility for every block, built-in and addable alike. The
+ * field is still READ, for one purpose only: it is the input to the one-time
+ * migration seed below. Reproduce:
+ *   `grep -n "onChangeExtraReports(" src/app/reports.tsx`  → no call at all; the
+ *     surviving mentions are the prop TYPE and a comment saying the write is gone
+ *   `grep -rn "useReportsArrangement" src/`                → bound in `reports.tsx`
+ * ★★ THIS BLOCK HAS NOW BEEN WRONG IN BOTH DIRECTIONS, WHICH IS THE LESSON. It
+ * first stated the retirement in the present tense while the write was still
+ * live; the correction pushed it into the future ("an obligation on Task 12, not
+ * a description of today"), and that correction was itself re-staled when Task 12
+ * landed later ON THIS SAME BRANCH. A correction is a NEW claim and inherits none
+ * of the verification of the thing it corrects — re-run the greps rather than
+ * trusting this paragraph's tense.
+ * ★ The field stays on the `Settings` type: the migration seed still needs it, and
+ * removing it is a separate change with its own storage surface.
  *
  * ★★ CALLER CONTRACT — `extraReports` MAY BE A FRESH ARRAY EACH RENDER. The
  * seed closes over it and nothing memoises on its identity, so a literal is
@@ -41,7 +46,22 @@ export function useReportsArrangement({
   isPopout = false,
 }: {
   projectId: string;
-  /** `resolveExtraReports(settings.reports?.extra)` — the retiring setting. */
+  /**
+   * The retired setting, read only to seed the migration below.
+   *
+   * ★★ NOT SANITISED AT THIS BOUNDARY, and an earlier revision of this line
+   * documented it as `resolveExtraReports(settings.reports?.extra)`, which names
+   * a call that does not happen here. What `workspace-section.tsx` actually
+   * passes is `settings.reports?.extra ?? DEFAULT_EXTRA_REPORTS`, and
+   * `reports.tsx` substitutes its own module-level `EMPTY_EXTRA_REPORTS` when
+   * the prop is absent. `resolveExtraReports` DOES run — in `use-settings.ts`,
+   * at LOAD — so the value is normally clean, but that is a property of the
+   * load path, not a guarantee this signature can make.
+   * ★ The seed is safe regardless, and for a reason worth naming rather than
+   * assuming: it iterates `ADDABLE_REPORTS` and only ASKS whether each id is in
+   * the incoming set, so an unknown or malformed entry can at worst fail to
+   * match. Nothing here trusts the input's contents.
+   */
   extraReports: readonly AddableReportId[];
   isPopout?: boolean;
 }): ArrangementApi<ReportBlockId> {
@@ -61,17 +81,23 @@ export function useReportsArrangement({
    * this project, and it cannot distinguish a MISSING key from a REJECTED one —
    * `use-arrangement.ts` reads `stored ?? seed?.() ?? null`. So a blob written
    * by a future `v: 2` build, or a hand-corrupted one, re-runs this migration.
-   * ★★ THAT WILL BE WORSE HERE THAN ON THE DASHBOARD ONCE TASK 12 LANDS, and
-   * the tense matters. The Dashboard reverts to a DEFAULT — a whole arrangement,
-   * which a user notices and can attribute. Reports will revert to a STALE
-   * SETTING frozen at its pre-migration value, losing exactly the reports the
-   * user had restored from the shelf, which reads as the app quietly forgetting
-   * a few choices. ★★★ TODAY THE GAP IS MILDER, because `reports.tsx` still
-   * WRITES `settings.reports.extra` (see the file header's reproduce), so a
-   * re-run seed restores from a CURRENT setting rather than a frozen one. It
-   * becomes the described failure at the moment Task 12 stops writing the field.
-   * Pinned either way by "RE-RUNS the seed when the stored blob is REJECTED", so
-   * the behaviour is recorded rather than assumed.
+   * ★★ IT IS WORSE HERE THAN ON THE DASHBOARD, AND THAT IS TODAY'S BEHAVIOUR.
+   * The Dashboard reverts to a DEFAULT — a whole arrangement, which a user
+   * notices and can attribute. Reports reverts to a STALE SETTING, frozen at
+   * whatever `settings.reports.extra` held when the panel stopped writing it,
+   * losing exactly the reports the user had restored from the shelf — which
+   * reads as the app quietly forgetting a few choices rather than as a reset.
+   * ★★★ PRESENT TENSE, NOT A FUTURE RISK, and this block asserted the opposite
+   * for as long as it took the binding to land on the same branch: it read
+   * "TODAY THE GAP IS MILDER, because `reports.tsx` still WRITES
+   * `settings.reports.extra` … It becomes the described failure at the moment
+   * Task 12 stops writing the field." It stopped. There is no milder reading
+   * left. `docs/open-followups.md` §427 carries the severity and the two
+   * candidate fixes; NOTHING is closed here, and closing it is a structural
+   * decision rather than a docstring edit.
+   * Pinned either way by `use-reports-arrangement.test.tsx`'s "RE-RUNS the seed
+   * when the stored blob is REJECTED", so the behaviour is recorded rather than
+   * assumed.
    *
    * ★★ TWO WAYS TO CLOSE IT, AND THE CHEAPER ONE IS NOT THE OBVIOUS ONE. A
    * second marker key is new storage surface for a case `arrangement-store.ts`

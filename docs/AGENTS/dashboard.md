@@ -57,8 +57,15 @@ grep -rn 'from "./dashboard-layout"' src/app --include=*.ts --include=*.tsx | gr
 Three non-test importers today: `dashboard-layout-store.ts` and `dashboard-panel.tsx` take a TYPE
 only, and `use-dashboard-layout.ts` takes `DEFAULT_LAYOUT` only. None imports an operation. ★ A
 recipe matching its own text is a real hazard here and was shipped once already: the replacement
-`grep -rn "reconcile(\|reconcileWith(" …` returned nine hits, of which two were calls, six were prose,
-and one was a source comment quoting that grep. ★★ A user therefore CANNOT
+`grep -rn "reconcile(\|reconcileWith(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'`
+returns a large majority of PROSE hits — source comments quoting the grep, this paragraph's own
+siblings — around the two real calls, which are `dashboard-layout.ts` and `use-arrangement.ts`. ★★ NO
+TALLY IS QUOTED HERE AND RESTORING ONE IS A REGRESSION: this spot carried "nine hits, of which two were
+calls, six were prose, and one was a source comment quoting that grep", and it was stale before the
+branch that measured it ended — every prose mention added anywhere moves it, this sentence included.
+Name the CALL SITES, which a reader can check, never the total.
+
+★★ DENSE PACKING IS WHY AN ORDERED LIST SUFFICES, and a user therefore CANNOT
 leave a deliberate hole: `dense` backfills it with the next tile that fits. ★★ That is also why the
 panel renders the reorder hook's `previewOrder` rather than the stored board and draws NO edge drop
 indicator — dense re-places everything after a move, so an edge marker would routinely point at a slot
@@ -190,7 +197,16 @@ axe-scanned view for as long as the false premise stood.
 six write paths change and no codec, DDL or golden fixture is touched. ★★ THE STORE IS SHARED AND
 `dashboard-layout-store.ts` IS NOW A THIN ADAPTER — it keeps no map, applies no cap, validates
 nothing and does not import `device-store` at all; it holds `DASHBOARD_LAYOUT_KEY`, re-exports
-`MAX_PROJECTS`, and casts down to `DashboardLayout`. The map itself lives in `arrangement-store.ts`
+`MAX_PROJECTS`, and casts down to `DashboardLayout`. ★★★ ONLY THE FIRST OF THOSE THREE HAS A
+PRODUCTION CONSUMER, and reading that sentence as a description of live plumbing is the mistake:
+`use-dashboard-layout.ts` imports `DASHBOARD_LAYOUT_KEY` and nothing else from here, the
+`MAX_PROJECTS` re-export is imported by NOTHING, and the casting wrappers `loadLayout`/`saveLayout`
+are exercised only by `dashboard-layout-store.test.ts` and `use-dashboard-layout.test.tsx`. That is
+the same test-only status the five `dashboard-layout.ts` operations carry above, arrived at the same
+way — the hook extraction routed production through `useArrangement` →
+`loadArrangement`/`saveArrangement`, leaving both wrappers orphaned. Enumerate rather than trust this
+paragraph: `grep -rn "dashboard-layout-store" src/app e2e --include=*.ts --include=*.tsx`. The map
+itself lives in `arrangement-store.ts`
 (`loadArrangement`/`saveArrangement`), which keeps one `{[projectId]: layout}` map PER KEY, capped at
 `MAX_PROJECTS` with insertion-order recency, over `device-store.ts`'s `readDeviceJson`/`writeDeviceJson`
 envelope — the same shape as `landing-state.ts`, so `clearAppConfig`'s `aipm-cockpit:*` sweep already

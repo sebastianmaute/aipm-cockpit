@@ -28,8 +28,12 @@ const HOSTILE: Array<[string, unknown]> = [
   // ★ NaN and ±Infinity ARE `typeof "number"`, so a `typeof` test admits them and
   // `clampSpan` then yields NaN — the exact silent-reset failure above. They cannot
   // arrive through `loadArrangement` (JSON has no literal for either, and both
-  // serialise as `null`, which is rejected anyway), so these two rows are the ONLY
-  // detector: the through-the-store test below passes on them either way.
+  // serialise as `null`, which is rejected anyway), so the NaN, +Infinity and
+  // -Infinity rows immediately below are the ONLY detector: the through-the-store
+  // test passes on them either way. ★★ MEMBERS, NOT A TALLY — this sentence said
+  // "these two rows" while annotating three, the -Infinity row having arrived in the
+  // same commit as the comment. Read the rows, and if you add another, name it here
+  // rather than incrementing anything.
   ["a NaN span", { v: 1, board: [{ id: "x", w: NaN, h: 1 }], hidden: [] }],
   ["an infinite span", { v: 1, board: [{ id: "x", w: 1, h: Infinity }], hidden: [] }],
   ["a negatively infinite span", { v: 1, board: [{ id: "x", w: -Infinity, h: 1 }], hidden: [] }],

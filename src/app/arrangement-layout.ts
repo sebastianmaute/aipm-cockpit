@@ -53,9 +53,16 @@
  * that binds the engine, and each binds under its own local name:
  * `grep -rn "reconcile(\|reconcileWith(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'`
  * ★ That grep matches PROSE too, this docstring included, so read the hits and
- * do not count them. At the time of writing the only CODE hits are the
- * Dashboard adapter's `reconcileWith(...)` and `readLayout` in
- * `use-dashboard-layout.ts`; Reports adds a third when it binds.
+ * do not count them — prose is the MAJORITY of them. The CODE hits are the
+ * Dashboard adapter's `reconcileWith(...)` in `dashboard-layout.ts`, and
+ * `reconcile(...)` inside `readLayout` in `use-arrangement.ts`.
+ * ★★ TWO CLAIMS THAT SAT HERE WERE FALSE, both re-staled by later commits on
+ * the branch that wrote them. The second call site was attributed to
+ * `use-dashboard-layout.ts`, which has held no `readLayout` since the hook was
+ * extracted; and "Reports adds a third when it binds" did not happen — Reports
+ * binds through the shared `use-arrangement.ts`, so a new surface adds NO call
+ * site here, which is the point of the shared hook. Expect that set to stay at
+ * two however many surfaces bind.
  * A persist-skip built on `next !== stored` would fire on every load, so do not
  * build one, and do not read the mutators' contract as covering it.
  *

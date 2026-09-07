@@ -13,13 +13,20 @@ import { useEffect, useState } from "react";
  *  pane. The docstring on `document-editor.tsx` claimed pane width for a
  *  viewport query for the whole of the S3b slice.
  *
- * ★★★ THIS IS THE REPO'S FIRST ResizeObserver. The only other mention is
- *  `arrangement-grid.tsx`'s, which exists only to say that grid deliberately
- *  has none (its responsive clamp is pure Tailwind) — so there is no in-repo
- *  shape to copy and both guards below had to be reasoned rather than
- *  inherited. ★ That mention was in `dashboard-grid.tsx` until the grid was
- *  extracted for Reports; re-derive rather than trusting the file name here:
- *  `grep -rn "ResizeObserver" src/app --include=*.ts --include=*.tsx | grep -v test`
+ * ★★★ THIS IS THE REPO'S ONLY `new ResizeObserver` — the construction below is
+ *  the single one in the tree, so there was no in-repo shape to copy and both
+ *  guards below had to be reasoned rather than inherited.
+ * ★★ THE OTHER MENTIONS ARE PROSE, AND THERE IS MORE THAN ONE OF THEM. An
+ *  earlier revision of this line said "the only other mention is
+ *  `arrangement-grid.tsx`'s", which its own recipe refutes: `document-editor.tsx`
+ *  names this hook's observer, and `e2e/dashboard-grid.spec.ts` records that the
+ *  grid has none. Only `arrangement-grid.tsx`'s says what that sentence meant —
+ *  that the grid deliberately has no observer, its responsive clamp being pure
+ *  Tailwind. ★ It sat in `dashboard-grid.tsx` until the grid was extracted for
+ *  Reports, so re-derive rather than trusting any file name here, and widen the
+ *  scope past `src/app` when you do — the original recipe could not see the e2e
+ *  mention at all:
+ *  `grep -rn "ResizeObserver" src e2e --include=*.ts --include=*.tsx | grep -v test`
  *
  *  1. FEATURE GUARD. jsdom provides no `ResizeObserver` and `vitest.setup.ts`
  *     installs no polyfill, so an unguarded `new ResizeObserver(...)` throws in
