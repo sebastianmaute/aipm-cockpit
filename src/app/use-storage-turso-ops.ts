@@ -20,6 +20,7 @@ import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-wor
 import { resetMintState, snapshotMintState, restoreMintState } from "./id-mint-session";
 import { saveCurrentTursoProjectId, savePortfolioMode } from "./portfolio-mode";
 import { TursoBackend } from "./turso-backend";
+import { testTursoConnection } from "./turso-pipeline";
 import {
   createProject as portfolioCreate,
   archiveProject as portfolioArchive,
@@ -162,6 +163,31 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     // case `refuseWrite` exists for, and migrate was the one caller with such a
     // side effect that did not use it.
     if (deps.truncationOps.wouldRefuseWrite()) { deps.truncationOps.refuseWrite(); return; }
+    // ★★★ THE CONNECTION GATE LIVES HERE, NOT ON A BUTTON. `guardTurso` above
+    // resolves a CONFIG, never a CONNECTION — a URL/token pair that has never
+    // been reached passes it. Settings disables its "Move to Turso" until a
+    // Test connection has passed and is still current, but that is one of TWO
+    // controls bound to this handler: `projects-panel.tsx` renders a second one
+    // gated only on `tursoConfigured`, and the Projects view is reachable on a
+    // file backend (`projects` is absent from `TURSO_ONLY_VIEWS`). A probe in
+    // the ops layer covers both, and any caller added later.
+    // ★★★ AND IT SITS WITH THE OTHER DECLINES, ABOVE `portfolioCreate`, for the
+    // reason the §103 comment directly above spells out: that call inserts a live,
+    // non-archived row into the SHARED portfolio DB, so a refusal after it
+    // leaves a phantom project. A probe placed after it would reintroduce
+    // exactly that.
+    // ★ NOTHING FROM THE THROW REACHES THE TOAST — the same
+    // classify-never-interpolate rule `runTursoTest` documents in
+    // `settings-sections/integrations-section.tsx`. Every message reachable
+    // here is untranslated English and may carry the URL or the token;
+    // `projectsTursoUnreachable` is the fixed key `guardTurso` already raises
+    // for the sibling "Turso is not usable" decline, and it names both fields.
+    try {
+      await testTursoConnection(cfg);
+    } catch {
+      deps.showToast("error", t(deps.langRef.current, "projectsTursoUnreachable"));
+      return;
+    }
     // Flush the current file project before copying it.
     await flushOutgoing();
     const id = crypto.randomUUID();
