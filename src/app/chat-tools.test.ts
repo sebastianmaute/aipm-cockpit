@@ -197,6 +197,38 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       id === 40 ? { id: 40, name: "S", category: "Other", influence: "Medium", interest: "Medium" } : null,
     ),
     deleteStakeholder: vi.fn((id: number) => id === 40),
+    // Absences and meetings: the same "throw a named error" convention the
+    // unstubbed readers below use. No test in this file drives them — their
+    // dispatch cases do not exist yet — so a stub returning a plausible row
+    // would be a stand-in nothing checks. A test that starts driving one
+    // overrides it and gets a named failure if it forgets.
+    getAbsenceRow: vi.fn(() => {
+      throw new Error("getAbsenceRow not stubbed");
+    }),
+    listAbsences: vi.fn(() => {
+      throw new Error("listAbsences not stubbed");
+    }),
+    createAbsence: vi.fn(() => {
+      throw new Error("createAbsence not stubbed");
+    }),
+    updateAbsence: vi.fn(() => {
+      throw new Error("updateAbsence not stubbed");
+    }),
+    deleteAbsence: vi.fn(() => {
+      throw new Error("deleteAbsence not stubbed");
+    }),
+    getCalendarEventRow: vi.fn(() => {
+      throw new Error("getCalendarEventRow not stubbed");
+    }),
+    createCalendarEvent: vi.fn(() => {
+      throw new Error("createCalendarEvent not stubbed");
+    }),
+    updateCalendarEvent: vi.fn(() => {
+      throw new Error("updateCalendarEvent not stubbed");
+    }),
+    deleteCalendarEvent: vi.fn(() => {
+      throw new Error("deleteCalendarEvent not stubbed");
+    }),
     updateSettings: vi.fn((patch) => ({ ...(patch as Record<string, unknown>) })),
     listResources: vi.fn(() => [
       { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" },

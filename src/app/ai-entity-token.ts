@@ -30,14 +30,18 @@ import {
   CHANGES_CSV_COLUMNS, changeFieldToString,
   STAKEHOLDERS_CSV_COLUMNS, stakeholderFieldToString,
   RESOURCES_CSV_COLUMNS, resourceFieldToString,
+  ABSENCES_CSV_COLUMNS, absenceFieldToString,
+  EVENTS_CSV_COLUMNS, calendarEventFieldToString,
 } from "./csv-codecs-core";
 import type {
-  ChangeItem, Milestone, RaidItem, Resource, Stakeholder, Task,
+  Absence, ChangeItem, Milestone, RaidItem, Resource, Stakeholder, Task,
 } from "./types";
+import type { CalendarEvent } from "./calendar-event";
 import { hash } from "./token-hash";
 
 export type TokenEntity =
-  | "task" | "raid" | "milestone" | "change" | "stakeholder" | "resource";
+  | "task" | "raid" | "milestone" | "change" | "stakeholder" | "resource"
+  | "absence" | "calendarEvent";
 
 /** Columns deliberately OUTSIDE the token, per entity.
  *
@@ -97,6 +101,14 @@ export const TOKEN_EXCLUDED: Readonly<Record<TokenEntity, readonly string[]>> = 
   change: ["localModifiedAt", "outlookEventId", "noteLog"],
   stakeholder: ["localModifiedAt"],
   resource: ["localModifiedAt"],
+  // ★★ Both rows are legitimate ONLY because the two merge-site guards
+  // (`dropUnacceptedAbsenceFields` / `dropUnacceptedCalendarEventFields`) drop
+  // these fields from every model patch, so the model cannot choose either
+  // value — the app stamps `localModifiedAt` itself and the Outlook push owns
+  // `outlookEventId`. Weaken either guard and these exclusions become the false
+  // PERMIT the rule above describes.
+  absence: ["localModifiedAt", "outlookEventId"],
+  calendarEvent: ["localModifiedAt", "outlookEventId"],
 };
 
 /** A column list and a renderer BOUND TO THE SAME ENTITY TYPE.
@@ -153,6 +165,8 @@ const PROJECTORS: Readonly<Record<TokenEntity, ErasedProjector>> = {
   change: projector<ChangeItem>({ columns: CHANGES_CSV_COLUMNS, render: changeFieldToString }),
   stakeholder: projector<Stakeholder>({ columns: STAKEHOLDERS_CSV_COLUMNS, render: stakeholderFieldToString }),
   resource: projector<Resource>({ columns: RESOURCES_CSV_COLUMNS, render: resourceFieldToString }),
+  absence: projector<Absence>({ columns: ABSENCES_CSV_COLUMNS, render: absenceFieldToString }),
+  calendarEvent: projector<CalendarEvent>({ columns: EVENTS_CSV_COLUMNS, render: calendarEventFieldToString }),
 };
 
 /** ★★★ EVERY DECLARED FIELD OF EVERY TOKENED ENTITY MUST BE IN THAT ENTITY'S
@@ -235,6 +249,8 @@ type ProjectedRows = {
   change: Assert<Projected<ChangeItem, typeof CHANGES_CSV_COLUMNS>>;
   stakeholder: Assert<Projected<Stakeholder, typeof STAKEHOLDERS_CSV_COLUMNS>>;
   resource: Assert<Projected<Resource, typeof RESOURCES_CSV_COLUMNS>>;
+  absence: Assert<Projected<Absence, typeof ABSENCES_CSV_COLUMNS>>;
+  calendarEvent: Assert<Projected<CalendarEvent, typeof EVENTS_CSV_COLUMNS>>;
 };
 
 /** Fails compilation unless every `TokenEntity`'s declared fields are all

@@ -1,6 +1,20 @@
-// src/app/use-register-tools.ts — the sixteen register-CRUD tools the AI chat
-// calls through ToolDispatcher: RAID, changes, milestones and stakeholders
-// (list/create/update/delete each). Extracted from use-chat-dispatcher.ts,
+// src/app/use-register-tools.ts — the register-CRUD tools the AI chat calls
+// through ToolDispatcher: RAID, changes, milestones, stakeholders, absences and
+// calendar events (list/create/update/delete each, plus a full-row getter for
+// the concurrency token). Derive today's count from the `Pick` below rather than
+// quoting one here — it moved from sixteen the moment absences landed.
+//
+// ★★★ `listCalendarEvents` LIVES HERE, NOT IN use-chat-dispatcher.ts, AND THE
+// PLACEMENT IS LOAD-BEARING. It used to sit beside the other `list*` readers
+// there, reading THAT hook's own `calendarEventsRef`. Once the meeting WRITERS
+// landed here, two refs would have tracked one slice: a `create_calendar_event`
+// followed by a `list_calendar_events` in the SAME turn would have read the
+// pre-create ref, because a ref only catches up in an effect on the next
+// render. Moving the reader next to the writers gives the slice exactly one ref
+// again. Do not move it back, and do not add a second `calendarEventsRef`
+// anywhere — a slice's reader and its writers must share one.
+//
+// Extracted from use-chat-dispatcher.ts,
 // which sat one line under the 800-line ratchet, verbatim apart from the
 // dropped `args.` prefix (24 lines); the bodies, their comments and their
 // order are unchanged.
@@ -24,24 +38,30 @@
 // false: every update and delete below captures. The RULE is unchanged; a
 // popout owns no undo stack of its own, so a write reaching a setter there
 // would still be unrecoverable in that window.
-import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { AI_RICH_FIELDS, withAiRichFields } from "./ai-rich-text";
+import { sanitizeCalendarEvent, type CalendarEvent } from "./calendar-event";
 import { applyChangeStatus, applyModelChangeStatus, withStoredNoteLog } from "./change-log";
 import {
   type ToolDispatcher,
+  toAbsenceSummary,
   toRaidSummary,
   toChangeSummary,
   toMilestoneSummary,
   toStakeholderSummary,
+  toCalendarEventSummary,
 } from "./chat-tools";
 import { t } from "./i18n";
 import { mintId } from "./id-mint-session";
 import {
+  dropUnacceptedAbsenceFields,
+  dropUnacceptedCalendarEventFields,
   dropUnacceptedChangeFields,
   dropUnacceptedMilestoneFields,
   dropUnacceptedRaidFields,
   dropUnacceptedStakeholderFields,
+  sanitizeAbsence,
   sanitizeIsoDate,
   sanitizeRaidItem,
   sanitizeChangeItem,
@@ -79,6 +99,16 @@ export type RegisterToolDispatcher = Pick<
   | "createStakeholder"
   | "updateStakeholder"
   | "deleteStakeholder"
+  | "getAbsenceRow"
+  | "listAbsences"
+  | "createAbsence"
+  | "updateAbsence"
+  | "deleteAbsence"
+  | "getCalendarEventRow"
+  | "listCalendarEvents"
+  | "createCalendarEvent"
+  | "updateCalendarEvent"
+  | "deleteCalendarEvent"
 >;
 
 export interface RegisterToolsDeps {
@@ -124,6 +154,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
     setMilestones,
     stakeholders,
     setStakeholders,
+    absences,
+    setAbsences,
+    calendarEvents,
+    setCalendarEvents,
   } = useWorkspace();
 
   // Refs, so this object's identity stays stable across register edits and so
@@ -133,6 +167,14 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
   const changesRef = useRef(changes);
   const milestonesRef = useRef(milestones);
   const stakeholdersRef = useRef(stakeholders);
+  const absencesRef = useRef(absences);
+  // ★★ `calendarEvents` is `readonly CalendarEvent[] | undefined` and the ref
+  // keeps that EXACTLY — `undefined` means "the slice is absent", which is not
+  // the same claim as "the project has no meetings", and every backend
+  // round-trips the distinction. Reads below default with `?? []` at the READ
+  // SITE; nothing here ever writes `[]`. Creating the first event moves the
+  // slice from absent to `[item]`, which is the only correct transition.
+  const calendarEventsRef = useRef(calendarEvents);
   useEffect(() => {
     raidRef.current = raid;
   }, [raid]);
@@ -145,6 +187,24 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
   useEffect(() => {
     stakeholdersRef.current = stakeholders;
   }, [stakeholders]);
+  useEffect(() => {
+    absencesRef.current = absences;
+  }, [absences]);
+  useEffect(() => {
+    calendarEventsRef.current = calendarEvents;
+  }, [calendarEvents]);
+
+  // The undo stack's setter type is non-optional (`readonly T[]`) while the
+  // meetings slice is `readonly CalendarEvent[] | undefined`. Adapt rather than
+  // cast — the same adapter `use-calendar-events.ts` already carries for the
+  // panel's own captures, for the same reason: an undo restoring a meeting
+  // necessarily runs against a list that exists.
+  const setEventsForUndo = useCallback<Dispatch<SetStateAction<readonly CalendarEvent[]>>>(
+    (action) => {
+      setCalendarEvents((prev) => (typeof action === "function" ? action(prev ?? []) : action));
+    },
+    [setCalendarEvents],
+  );
 
   // Shared read-only refusal for the write tools (popout/mirror windows).
   // ★ useCallback, unlike the plain arrow this was in use-chat-dispatcher: a
@@ -580,6 +640,171 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         allowDestructiveSave?.();
         return true;
       },
+
+      listAbsences: () => absencesRef.current.map(toAbsenceSummary),
+      // ★★ `?? []` AT THE READ SITE, never a normalising write. A `list` on a
+      // project that has never had a meeting must answer "none" WITHOUT
+      // turning the absent slice into an empty one — that write would be
+      // indistinguishable from the user having deleted every meeting, and the
+      // six persistence paths carry the difference.
+      listCalendarEvents: () => (calendarEventsRef.current ?? []).map(toCalendarEventSummary),
+
+      // FULL rows, for the concurrency token only — never a model-facing read;
+      // the two summaries above drop `localModifiedAt`/`outlookEventId`, which
+      // are exactly this entity's `TOKEN_EXCLUDED` fields. Same reasoning as
+      // `getRaidRow` and its three siblings.
+      getAbsenceRow: (id: number) => absencesRef.current.find((a) => a.id === id) ?? null,
+      getCalendarEventRow: (id: number) =>
+        (calendarEventsRef.current ?? []).find((e) => e.id === id) ?? null,
+
+      // ★★★ NO UNDO CAPTURE ON EITHER CREATE — the same rule the four register
+      // creates above carry, for the same measured reason: the undo direction
+      // never removes, so a create captured as a `removed` image splices in a
+      // SECOND copy at undo time.
+      createAbsence: (input) => {
+        if (isReadOnly) throw readOnlyError();
+        const id = mintId("absence", absencesRef.current);
+        // `sanitizeAbsence` returns null without an assignee or with an
+        // unparseable date pair; it silently RESETS an unrecognised `type` to
+        // the "other" fallback, which is why the merge-site guard drops one on
+        // update rather than letting a refused value demote the row.
+        const item = sanitizeAbsence({ ...input, id });
+        if (!item) throw new Error("invalid absence: assignee, startDate and endDate are required");
+        const next = [...absencesRef.current, item];
+        absencesRef.current = next;
+        setAbsences(next);
+        // ★★ FOUR args — "Absence #{0} created for {1}: {2} – {3}", the same
+        // arity `use-resource-planner.ts` logs from the panel's own save.
+        logActivityAs?.("ai", "absence.created", item.id, item.assignee, item.startDate, item.endDate);
+        return toAbsenceSummary(item);
+      },
+      updateAbsence: (id, patch) => {
+        if (isReadOnly) throw readOnlyError();
+        const existing = absencesRef.current.find((a) => a.id === id);
+        if (!existing) return null;
+        const merged = sanitizeAbsence({
+          ...existing,
+          ...dropUnacceptedAbsenceFields(patch),
+          id,
+          localModifiedAt: new Date().toISOString(),
+        });
+        if (!merged) throw new Error("invalid absence update");
+        const next = absencesRef.current.map((a) => (a.id === id ? merged : a));
+        undoRef.current?.captureComposite({
+          kind: "absence.updated",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setAbsences,
+            edited: [existing], // STORED row, not `merged` — see updateRaid
+            fromArray: absencesRef.current, // pre-op — reassignment is below
+            isPrimary: true,
+          })],
+          name: existing.assignee,
+          entityKey: "absence",
+        });
+        absencesRef.current = next;
+        setAbsences(next);
+        logActivityAs?.("ai", "absence.updated", merged.id, merged.assignee, merged.startDate, merged.endDate);
+        return toAbsenceSummary(merged);
+      },
+      deleteAbsence: (id) => {
+        if (isReadOnly) throw readOnlyError();
+        const doomed = absencesRef.current.find((a) => a.id === id);
+        if (!doomed) return false;
+        const next = absencesRef.current.filter((a) => a.id !== id);
+        undoRef.current?.captureComposite({
+          kind: "absence.deleted",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setAbsences,
+            removed: [doomed],
+            fromArray: absencesRef.current, // pre-op — keeps its own index
+            isPrimary: true,
+          })],
+          name: doomed.assignee,
+          entityKey: "absence",
+        });
+        absencesRef.current = next;
+        setAbsences(next);
+        // ★★ TWO args here, not four — "Absence #{0} deleted for {1}". The
+        // arity is NOT uniform across this entity's three kinds.
+        logActivityAs?.("ai", "absence.deleted", doomed.id, doomed.assignee);
+        allowDestructiveSave?.();
+        return true;
+      },
+
+      createCalendarEvent: (input) => {
+        if (isReadOnly) throw readOnlyError();
+        // ★★★ `mintId` REDUCES over the list it is given and THROWS on
+        // `undefined`, so the default is mandatory here, not defensive style.
+        const id = mintId("calendarEvent", calendarEventsRef.current ?? []);
+        const item = sanitizeCalendarEvent({ ...input, id });
+        if (!item) throw new Error("invalid meeting: title and a valid startDate are required");
+        // The absent → `[item]` transition, which is the only correct way this
+        // slice becomes present. Nothing here ever writes a bare `[]`.
+        const next = [...(calendarEventsRef.current ?? []), item];
+        calendarEventsRef.current = next;
+        setCalendarEvents(next);
+        logActivityAs?.("ai", "calendarEvent.created", item.id, item.title);
+        return toCalendarEventSummary(item);
+      },
+      updateCalendarEvent: (id, patch) => {
+        if (isReadOnly) throw readOnlyError();
+        const events = calendarEventsRef.current ?? [];
+        const existing = events.find((e) => e.id === id);
+        if (!existing) return null;
+        const merged = sanitizeCalendarEvent({
+          ...existing,
+          ...dropUnacceptedCalendarEventFields(patch),
+          id,
+          localModifiedAt: new Date().toISOString(),
+        });
+        if (!merged) throw new Error("invalid meeting update");
+        const next = events.map((e) => (e.id === id ? merged : e));
+        undoRef.current?.captureComposite({
+          kind: "calendarEvent.updated",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setEventsForUndo, // the optional-slice adapter, not setCalendarEvents
+            edited: [existing], // STORED row, not `merged` — see updateRaid
+            fromArray: events, // pre-op — reassignment is below
+            isPrimary: true,
+          })],
+          name: existing.title,
+          entityKey: "calendarEvent",
+        });
+        calendarEventsRef.current = next;
+        setCalendarEvents(next);
+        logActivityAs?.("ai", "calendarEvent.updated", merged.id, merged.title);
+        return toCalendarEventSummary(merged);
+      },
+      deleteCalendarEvent: (id) => {
+        if (isReadOnly) throw readOnlyError();
+        const events = calendarEventsRef.current ?? [];
+        const doomed = events.find((e) => e.id === id);
+        if (!doomed) return false;
+        // Deleting the last meeting leaves `[]`, NOT `undefined`: the slice was
+        // present and the user emptied it, which is a different fact from a
+        // project that never had one.
+        const next = events.filter((e) => e.id !== id);
+        undoRef.current?.captureComposite({
+          kind: "calendarEvent.deleted",
+          primaryCount: 1,
+          parts: [capturePart({
+            setter: setEventsForUndo,
+            removed: [doomed],
+            fromArray: events, // pre-op — keeps its own index
+            isPrimary: true,
+          })],
+          name: doomed.title,
+          entityKey: "calendarEvent",
+        });
+        calendarEventsRef.current = next;
+        setCalendarEvents(next);
+        logActivityAs?.("ai", "calendarEvent.deleted", doomed.id, doomed.title);
+        allowDestructiveSave?.();
+        return true;
+      },
     }),
     // ★★ EXHAUSTIVE ON PURPOSE — no escape hatch, unlike use-chat-dispatcher's
     // own memo. The register data is read through the four refs above, so a
@@ -627,6 +852,13 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       setChanges,
       setMilestones,
       setStakeholders,
+      setAbsences,
+      setCalendarEvents,
+      // ★ The optional-slice undo adapter — a `useCallback` over
+      // `setCalendarEvents`, so its identity moves only when that setter does
+      // (i.e. never, for the life of the provider). Listed for the same
+      // "no escape hatch" reason as the refs above.
+      setEventsForUndo,
     ],
   );
 }
