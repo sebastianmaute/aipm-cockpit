@@ -656,8 +656,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
 | [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--open) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `ebca2553`, documented rather than fixed | S-M — bound `users` at write time; do NOT shed the saved entry | open |
 | [§431](#431-one-malformed-api-date-reached-the-budget-aggregates-as-a-phantom-period-key--closed-2026-09-07) | One malformed API date reached the budget aggregates as a phantom period key | found 2026-09-07 in cold review of the guardrail-bounds branch; the first-party path §367 said had not been probed | S-M — one row rule at ONE consumer; the roll deliberately keeps its unparseable key | **CLOSED** 2026-09-07 |
-| [§432](#432-two-surfaces-tell-the-user-to-re-fetch-hours-that-a-re-fetch-cannot-repair--open) | Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S-M — an optional `undated` cell beside `unattributed`, or reword both strings | open |
-| [§433](#433-phantom-period-keys-already-written-into-workspaces-by-apply-are-not-cleaned-up--open) | Phantom period keys already written into workspaces by Apply are not cleaned up | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | M — a counted load-time drop, never a silent one | open |
+| [§432](#432-two-surfaces-tell-the-user-to-re-fetch-hours-that-a-re-fetch-cannot-repair--closed-2026-09-07) | Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S-M — an `undated` subset of `unattributed`, plus one string each | **CLOSED** 2026-09-07 |
+| [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -31792,7 +31792,10 @@ placed beside the call whose output is junk sits BELOW that write and counts the
 `resourceId`/`bucketId` condition, which makes correct placement structural — there is no separate
 statement left to nudge. Pinned by "does not double-count a malformed-date row into byResource" and
 by that test ALONE: the MOVE mutant scored 1 failed / 19 passed, the DELETE mutant 3 failed / 17
-passed to a disjoint set. Two different mutants; deleting either test reopens one.
+passed to a disjoint set. ★ BOTH SCORECARDS SUM TO 20 OVER A TWO-FILE UNIVERSE — 19 in
+`timelog-actuals.test.ts` plus 1 in `timelog-actuals.property.test.ts` — which the Status line's
+one-file run of 19 does not state, so a reader had to infer it. Named here because a scorecard
+whose sum cannot be checked against a stated universe is not a proof, it is a pair of numbers. Two different mutants; deleting either test reopens one.
 
 ★★★ **THE SAME GUARD WAS APPLIED TO `buildDailyRoll`, SHIPPED, AND REVERTED THE SAME DAY. Do not
 re-apply it.** `ISO_DAY_RE` sits at the top of `timelog-actuals.ts` and it reads like an oversight
@@ -31830,62 +31833,83 @@ which has no clamp. And `TimelogTimeItem[]` has FIVE consumers, not two; the thi
 derivation — is what makes the freeze chain above bite.
 
 ★ Related: §367 bound the PARSE (closed) · §430 the single-oversized-entry store residual (open) ·
-§432 the remedy text `unattributed` now carries (open) · §433 the already-persisted phantom keys
-(open).
+§432 the remedy text `unattributed` now carries (CLOSED 2026-09-07) · §433 the phantom key's only
+live consequence (CLOSED 2026-09-07; the stored keys themselves are deliberately left inert).
 
-## 432. Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair — OPEN
+## 432. Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair — CLOSED 2026-09-07
 
-**Status:** OPEN. Filed 2026-09-07. Verified by reading, 2026-09-07:
-`grep -n "budgetUnattributedActuals\|timelogAttributionHint" src/app/i18n.ts` returns both strings,
-and `grep -n "unattributed" src/app/budget-unapplied-notice.tsx src/app/timelog-panel.tsx` returns
-the gates that render them.
+**Status:** CLOSED 2026-09-07 by `89ce59dc`. Reproduce:
+`npx vitest run src/app/budget-unapplied-notice.test.tsx src/app/timelog-panel.test.tsx`, and
+`grep -n "budgetUndatedActuals\|timelogUndatedHint" src/app/i18n.ts src/app/i18n.de.ts` returns one
+definition of each per file.
 
-`budgetUnattributedActuals` tells the user the hours "could not be placed on any budget line when
-they were fetched. Attribution is decided at fetch time, so correcting a person or project link now
-will NOT recover them — the bookings have to be fetched again." `timelogAttributionHint` (gated on
-`unattributed.hours > 0`) explains link state only.
+`budgetUnattributedActuals` told the user the hours "could not be placed on any budget line when
+they were fetched … correcting a person or project link now will NOT recover them — the bookings
+have to be fetched again", and `timelogAttributionHint` explained link state only. Both were written
+for the population `unattributed` used to hold: rows whose person or project link was missing. §431
+added a second one — rows whose DATE is unusable, whose links are healthy and for which a re-fetch
+returns the same rows, because the defect is in the source data. The number was right and the
+remedy sent the user in a circle.
 
-Both were written for the population `unattributed` used to hold: rows whose person or project link
-was missing. §431 added a second population — rows whose DATE is unusable — whose links are healthy
-and for which a re-fetch returns the same junk, because the malformation is in the source data. The
-number is right and the prescribed remedy cannot work, so the user follows it in a circle.
+**What shipped.** `ActualsAggregate` gains `undated?: HourCell`, and both surfaces name it with its
+own remedy: correct the date in TimeLog, since neither a link fix nor a re-fetch will do it.
 
-★★ THE BUCKET IS RIGHT AND THE LABEL IS WRONG. `unattributed` is the honest home for hours that
-cannot be placed; what it cannot do is say WHY, and the two populations have different remedies (fix
-the link vs fix the source). Proposed closure, from the review that found it: an optional
-`undated?: HourCell` beside `unattributed` in `ActualsAggregate`, routed from the same guard.
-Back-compat by the existing precedent — `BucketPeriodCell.byResource?` is optional for exactly this
-reason and the cache guard only shallow-checks `aggregates`, so an older entry deserializes fine.
-Both surfaces would then read `unattributed + undated` for the total and name the right remedy for
-each. ★ The minimum, if the cache shape is not to be touched, is to stop the notice prescribing a
-re-fetch it cannot back.
+★★★ **`undated` IS A SUBSET OF `unattributed`, NOT A SIBLING, and that is the whole design.** Every
+row counted in `undated` is ALSO counted in `unattributed`, so no existing reader changed meaning
+and none had to be touched — the totals at `timelog-panel.tsx` and its KPI tile keep saying what
+they always said. The entry as FILED proposed the sibling shape, and it would have silently drained
+those hours out of both. Pinned by "reports undated hours as a strict subset of unattributed";
+widening the predicate so link-broken rows also enter `undated` kills that test and the
+anti-vacuity control together (2 failed / 19 passed of 21).
 
-★ NOT INTRODUCED BY §431 SO MUCH AS EXPOSED BY IT: the strings were already incomplete for any
-future population added to `unattributed`. §431 is simply the first one.
+★★ The inner check is deliberately NOT an `else` on the link tests: a row can fail both and is
+still undated. The invariant is "everything undated is also unattributed", never "the two partition
+the unattributable rows".
 
-## 433. Phantom period keys already written into workspaces by Apply are not cleaned up — OPEN
+★★ **`undated` JOINS THE NOTICE'S EARLY-RETURN GUARD, and the reason is not symmetry.** A subset by
+ROW is not a subset by MAGNITUDE: hours can be negative — the notice's own `+40/-40` credit-
+correction comment predates this entry — so `unattributed` can net to exactly 0 while undated hours
+remain. Without the extra term the whole notice suppresses and the new line is unreachable in
+precisely the case it exists for. Gating either new string on `unattributed` instead of `undated`
+dies (1 failed / 13 passed of 14, and 1 failed / 69 passed of 70).
 
-**Status:** OPEN. Filed 2026-09-07. Verified by reading, 2026-09-07:
-`grep -n "routedPeriods\|nextActual\[period\]" src/app/timelog-apply.ts` returns the routing loop
-and the write, and `grep -n "actualHours).length" src/app/budget-bucket-modal.tsx` returns the
-has-data predicate that a junk key satisfies.
+★ Both new keys are read defensively (`typeof … === "number" && Number.isFinite`), because the field
+is OPTIONAL and a cache entry written before it existed simply has no key. Absent ⇒ 0 ⇒ the extra
+line stays away, which is the honest reading: such an entry cannot tell us either way.
 
-Before §431, `aggregateActuals` could mint period keys of `""`, `"05/01/2"` or `"NaN-WNaN"`.
-`routeBucket` iterates `Object.entries(periods)` unconditionally, so such a key was routed and
-added to `routedPeriods`, and `writeAllocations` does `nextActual[period] = rec?.[period] ?? 0`
-for every routed period — so an Apply persisted the junk key into `actualHours` on every allocation
-line of that bucket.
+## 433. A phantom period key made an empty allocation read as populated — CLOSED 2026-09-07
 
-§431 stops NEW ones. It does nothing about workspaces that already ran an Apply against a fetch
-containing a malformed date, and nothing reports them.
+**Status:** CLOSED 2026-09-07 by `89ce59dc`. Reproduce:
+`npx vitest run src/app/budget-bucket-modal.test.tsx`.
 
-★★ THE VISIBLE CONSEQUENCE IS A FALSE POSITIVE, not a wrong total. `budget-bucket-modal.tsx` uses
-`Object.keys(a.actualHours).length > 0` as its has-data predicate, so a junk key makes an EMPTY
-allocation read as populated. The EVM and totals paths are unaffected — `budget-report.ts` and
-`budget-panel-totals.tsx` both sum over GENERATED period keys only, so a phantom key was never read
-into a number.
+Before §431, `aggregateActuals` could mint period keys of `""`, `"05/01/2"` or `"NaN-WNaN"`, and
+`timelog-apply.ts` persisted them into `actualHours` on Apply — `routeBucket` iterates
+`Object.entries(periods)` unconditionally and `writeAllocations` writes every routed period. Those
+keys are still in existing workspaces. §431 stopped new ones.
 
-★ Closure is a migration question, and the cheap honest version is a load-time drop of any
-`actualHours` key that is not a well-formed period key for the plan's granularity. ★★ Do NOT write
-that as a silent repair without counting what it removed — a load path that quietly deletes stored
-numbers is the shape §148 and the six-write-paths rule exist to make people think twice about.
+★★★ **CLOSED WITHOUT TOUCHING THE STORED DATA, and the entry as FILED proposed the opposite.** It
+called for "a load-time drop of any `actualHours` key that is not a well-formed period key". That
+was rejected: it mutates workspace data at load, which this repo deliberately does not do
+(`docs/AGENTS/task-status.md` — load does NOT repair a split pair), and it cannot be undone if the
+classifier is wrong.
+
+**It was not needed.** Every NUMERIC reader is already immune, verified at all five sites:
+`budget-panel.tsx` uses `sumPeriods(a.actualHours, periods)` twice, `budget-burndown.ts` and
+`budget-panel-totals.tsx` index by a generated `p.key`, and `budget-report.ts` sums through
+`sumPeriodMap` with the keys always supplied. A phantom key was never read into a number. The ONLY
+harm was `budget-bucket-modal.tsx`'s has-data predicate, which counted KEYS — so a junk key holding
+zero made an EMPTY allocation read as populated and the planning-mode switch warned about losing
+hours that do not exist.
+
+**What shipped** is the read side alone: the `actualHours` half of that predicate is now
+value-based, because a cell with no non-zero hours is nothing to lose, which is what the warning
+actually asks. Reverting it to `Object.keys(...).length > 0` dies (1 failed / 31 passed of 32).
+
+★★ `budgetHours` KEEPS THE KEY COUNT, deliberately, and the asymmetry is the point rather than an
+oversight: it is user-entered and cannot acquire a phantom key, while `actualHours` is
+machine-written from fetched data. Do not "make them consistent".
+
+★ The junk keys already in workspaces stay where they are, inert. If a future slice does want them
+gone, the constraint from this entry stands: count what you remove and show it — a load path that
+silently deletes stored numbers is the shape §148 and the six-write-paths rule exist to prevent.
+
