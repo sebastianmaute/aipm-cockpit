@@ -6,7 +6,7 @@
 
 import { useMemo, useState } from "react";
 import { ArrowDownTrayIcon, ArrowRightIcon, DocumentTextIcon } from "./icons";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { downloadDocument, reportDownloadFailure, type DocFormat } from "./document-download";
@@ -281,9 +281,7 @@ function DocumentCardNotices({
     <div data-doc-notices="" className="border-t border-line pt-2 text-xs text-muted-foreground">
       {removed > 0 && (
         <p className="font-medium text-foreground">
-          {removed === 1
-            ? t(lang, "documentsCardRemovedOne")
-            : t(lang, "documentsCardRemoved", removed)}
+          {tPlural(lang, "documentsCardRemoved", removed, removed)}
         </p>
       )}
       {rejected.length > 0 && (

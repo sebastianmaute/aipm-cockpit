@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { type Lang, t, localeFor } from "./i18n";
+import { type Lang, t, tPlural, localeFor } from "./i18n";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { VIEW_PANE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
@@ -118,7 +118,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
   const gapSet = new Set(gaps);
   const locale = localeFor(lang);
   const currency = props.latest?.currency || "EUR";
-  const gapLabel = gaps.length > 0 ? t(lang, gaps.length === 1 ? "trendsGapOne" : "trendsGapMany", gaps.length) : undefined;
+  const gapLabel = gaps.length > 0 ? tPlural(lang, "trendsGap", gaps.length, gaps.length) : undefined;
 
   const captureButton = (
     <Button

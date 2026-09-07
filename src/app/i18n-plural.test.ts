@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, beforeAll } from "vitest";
 import { loadI18n, tPlural } from "./i18n";
 
@@ -26,15 +27,38 @@ describe("tPlural", () => {
     expect(tPlural("de", "activityEntriesLogged", 2, 2)).toBe("2 Einträge protokolliert");
   });
 
-  it("uses the en-US dictionary for en-GB, matching t()", () => {
+  // ★ This does NOT pin dictionary choice — `enGB` is `{ ...enUS }` with no
+  // overrides, so it cannot distinguish "read enUS" from "read enGB and got
+  // the same string". It pins that tPlural's form-selection works for the
+  // "en-GB" locale tag.
+  it("selects correctly for en-GB, which renders the same strings as en-US today", () => {
     expect(tPlural("en-GB", "activityEntriesLogged", 1, 1)).toBe("1 entry logged");
   });
 
-  // ★ The count is NOT injected as {0}. Three of the converted keys carry the
+  // ★ The count is NOT injected as {0}. Two of the converted keys carry the
   // count in another slot, so args are forwarded verbatim and the call site
   // passes the number wherever it belongs.
   it("forwards args verbatim rather than injecting the count", () => {
     expect(tPlural("en-US", "timelogTestOk", 1, 1, "read")).toBe("Connected — 1 user, scope: read");
     expect(tPlural("en-US", "timelogTestOk", 3, 3, "read")).toBe("Connected — 3 users, scope: read");
+  });
+});
+
+describe("plural key pairing", () => {
+  // ★ Source scan, not a dictionary import: the assertion is about the KEY SET
+  // as written, and reading it off the module would make a stranded singular
+  // indistinguishable from a live one.
+  const src = readFileSync("src/app/i18n.ts", "utf8");
+  const keys = [...src.matchAll(/^ {2}([a-zA-Z0-9]+):/gm)].map((m) => m[1]);
+
+  it("gives every singular key a plural sibling", () => {
+    const singulars = keys.filter((k) => k.endsWith("One"));
+    // Non-vacuity control: if this scan ever returns an empty set the test
+    // below passes over nothing, so assert the population first.
+    // FLOOR IS PROVISIONAL: raise to 30 in Task A7, once all 41 pairs exist.
+    // A floor below the real population is a weakened non-vacuity control.
+    expect(singulars.length).toBeGreaterThan(11);
+    const stranded = singulars.filter((k) => !keys.includes(k.slice(0, -3)));
+    expect(stranded).toEqual([]);
   });
 });

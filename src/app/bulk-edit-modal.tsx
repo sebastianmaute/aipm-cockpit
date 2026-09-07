@@ -3,7 +3,7 @@
 import { cloneElement, isValidElement, type ReactElement } from "react";
 import { ComboInput } from "./combo-input";
 import { fieldClass } from "./form-controls";
-import { type Lang, priorityLabel, t } from "./i18n";
+import { type Lang, priorityLabel, t, tPlural } from "./i18n";
 import { LabelsInput } from "./labels-input";
 import {
   ASSIGNEE_MAX,
@@ -51,9 +51,7 @@ export function BulkEditModal({
   return (
     <div className="mb-4 rounded-xl border border-line bg-surface p-6">
       <h3 className="mb-4 text-lg font-medium text-foreground">
-        {selectedIds.size === 1
-          ? t(lang, "bulkEditTitleOne")
-          : t(lang, "bulkEditTitleMany", selectedIds.size)}
+        {tPlural(lang, "bulkEditTitle", selectedIds.size, selectedIds.size)}
       </h3>
 
       <div data-bulk-fields className="max-h-[60vh] space-y-4 overflow-y-auto pr-2">
@@ -373,9 +371,7 @@ export function BulkEditModal({
             {t(lang, "cancel")}
           </Button>
           <Button variant="primary" size="sm" onClick={onApply}>
-            {selectedIds.size === 1
-              ? t(lang, "bulkApplyOne")
-              : t(lang, "bulkApplyMany", selectedIds.size)}
+            {tPlural(lang, "bulkApply", selectedIds.size, selectedIds.size)}
           </Button>
         </div>
       </div>

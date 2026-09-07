@@ -26,7 +26,7 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
-import { type Lang, t, type TranslationKey } from "./i18n";
+import { type Lang, t, tPlural, type TranslationKey } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import type { DocumentAsset } from "./document-asset";
 import type { TursoConfig } from "./turso-config";
@@ -352,10 +352,7 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws, assetAccess }
     };
   }, [previewHtml, assetTursoConfig, assetProjectId, assetList, assetRepairGeneration]);
 
-  const blockCount =
-    v.blocks.length === 1
-      ? t(lang, "documentsVersionBlocksOne")
-      : t(lang, "documentsVersionBlocks", String(v.blocks.length));
+  const blockCount = tPlural(lang, "documentsVersionBlocks", v.blocks.length, String(v.blocks.length));
 
   // ★★★ ROW-UNIQUE BY CONSTRUCTION, the same construction the Restore button
   // below uses and for the same measured reason: two mutations landing in one

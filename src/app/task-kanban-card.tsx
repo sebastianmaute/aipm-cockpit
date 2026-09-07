@@ -4,7 +4,7 @@
 // Jira/RAID/change badges) but laid out for a narrow column. The status
 // <select> and badges are shared with the row via TaskStatusSelect / RaidBadge.
 import { SparklesIcon } from "./icons";
-import { type Lang, priorityLabel, t } from "./i18n";
+import { type Lang, priorityLabel, t, tPlural } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { RagDot } from "./rag-dot";
@@ -89,9 +89,7 @@ export function TaskKanbanCard({
   const priorityClass = priorityStyle[task.priority] ?? priorityStyle.Medium;
   const changesLabel =
     changeRefs && changeRefs.length > 0
-      ? changeRefs.length === 1
-        ? t(lang, "taskRowChangesBadgeOne")
-        : t(lang, "taskRowChangesBadge", changeRefs.length)
+      ? tPlural(lang, "taskRowChangesBadge", changeRefs.length, changeRefs.length)
       : "";
 
   return (

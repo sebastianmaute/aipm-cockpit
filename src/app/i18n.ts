@@ -257,9 +257,9 @@ const enUS = {
   diagnosticsColCode: "Code",
   diagnosticsColDetails: "Details",
   diagnosticsUnitErrorOne: "error",
-  diagnosticsUnitErrorMany: "errors",
+  diagnosticsUnitError: "errors",
   diagnosticsUnitWarnOne: "warning",
-  diagnosticsUnitWarnMany: "warnings",
+  diagnosticsUnitWarn: "warnings",
   diagnosticsUnitInfo: "info",
   diagnosticsSplitPairs: "Tasks with inconsistent completion data: {0}",
   diagnosticsNewestError: "newest error {0}",
@@ -533,16 +533,16 @@ const enUS = {
   bulkSendInquiries: "Send inquiries",
   bulkEdit: "Bulk edit",
   bulkEditTitleOne: "Bulk edit (1 task)",
-  bulkEditTitleMany: "Bulk edit ({0} tasks)",
+  bulkEditTitle: "Bulk edit ({0} tasks)",
   bulkApplyOne: "Apply to 1 task",
-  bulkApplyMany: "Apply to {0} tasks",
+  bulkApply: "Apply to {0} tasks",
   selectItem: "Select {0}",
   selectAllVisibleRows: "Select all visible rows",
   bulkEditCount: "Bulk edit ({0})",
   bulkApplyCount: "Apply to {0}",
   bulkEditNoFields: "Tick at least one field to update.",
   bulkEditDoneOne: "Updated 1 task.",
-  bulkEditDoneMany: "Updated {0} tasks.",
+  bulkEditDone: "Updated {0} tasks.",
   // The apply wrote nothing because there was nothing to write. Same reasoning
   // as `bulkEditHiddenSkipped` below: the modal closes and the selection clears
   // either way, so an unannounced no-op reads as a swallowed error.
@@ -764,7 +764,7 @@ const enUS = {
   chatAttachmentReadFailed: "Could not read {0}",
   chatAttachmentEncrypted: "{0} is password-protected — save it without protection and try again",
   chatAttachmentSummaryOne: "{0} — 1 attachment",
-  chatAttachmentSummaryMany: "{0} — {1} attachments",
+  chatAttachmentSummary: "{0} — {1} attachments",
   chatAttachmentSummarySkipped: "{0} — {1} attachments, {2} skipped",
   chatAttachmentHint: "Attach PDF, image (PNG/JPG/GIF/WebP), or text (TXT/MD/CSV) files — up to 20 MB each.",
   chatToolCall: "Used {0}",
@@ -2743,7 +2743,7 @@ const enUS = {
   trendsNoSnapshots: "No snapshots yet. The first one is captured automatically, or use Capture snapshot now.",
   trendsNotEnough: "Not enough snapshots yet to draw a trend.",
   trendsGapOne: "{0} gap",
-  trendsGapMany: "{0} gaps",
+  trendsGap: "{0} gaps",
   trendsCaptureNow: "Capture snapshot now",
   trendsSetBaseline: "Set as baseline",
   trendsDeleteSnapshot: "Delete",
@@ -4505,12 +4505,15 @@ export type PluralBaseKey = {
  * one helper instead of a ternary at each call site — so the rule is kept and
  * the duplication is not.
  *
- * ★★ `count` is NOT injected into the args. Three converted keys carry the
+ * ★★ `count` is NOT injected into the args. Two converted keys carry the
  * count in a slot other than `{0}` (`actionCommitteeInfoWhy` at `{2}`,
- * `chatAttachmentSummarySkipped` at `{1}`), so the caller passes the number in
- * whatever position the string uses and `count` is used ONLY to select the
- * form. Injecting it would have worked for 28 of the 31 keys, which is exactly
- * the kind of convenience that reads as correct until the 29th.
+ * `chatAttachmentSummarySkipped` at `{1}`) — a third key, `dashboardGreetingSummary`,
+ * carries two INDEPENDENT counts and is SPLIT into separate keys rather than
+ * converted to `tPlural`, so it is not a member of the 31 either. The caller
+ * passes the number in whatever position the string uses and `count` is used
+ * ONLY to select the form. Injecting it would have worked for 29 of the 31
+ * keys, which is exactly the kind of convenience that reads as correct until
+ * the 30th.
  *
  * ★ Written against Intl's CATEGORIES rather than `count === 1` so a future
  * language with a `few`/`many` category is a dictionary change rather than a

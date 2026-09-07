@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
-import type { Lang, TranslationKey } from "./i18n";
-import { t } from "./i18n";
+import type { Lang, PluralBaseKey } from "./i18n";
+import { t, tPlural } from "./i18n";
 import { readDiagLog, clearDiagLog, buildDiagnosticBundle } from "./diagnostics";
 import type { DiagLevel } from "./diagnostics";
 import { filterDiag, summarizeDiag } from "./diagnostics-filter";
@@ -20,11 +20,11 @@ export function DiagnosticsPanel({ lang, splitPairs }: { lang: Lang; splitPairs?
   const [query, setQuery] = useState("");
   const summary = summarizeDiag(events);
   const shown = filterDiag(events, levels, query);
-  const seg = (n: number, one: TranslationKey, many: TranslationKey) => `${n} ${t(lang, n === 1 ? one : many)}`;
+  const seg = (n: number, base: PluralBaseKey) => `${n} ${tPlural(lang, base, n, n)}`;
   const summaryText =
     [
-      seg(summary.error, "diagnosticsUnitErrorOne", "diagnosticsUnitErrorMany"),
-      seg(summary.warn, "diagnosticsUnitWarnOne", "diagnosticsUnitWarnMany"),
+      seg(summary.error, "diagnosticsUnitError"),
+      seg(summary.warn, "diagnosticsUnitWarn"),
       `${summary.info} ${t(lang, "diagnosticsUnitInfo")}`,
     ].join(" · ") +
     (summary.newestErrorAt ? ` · ${t(lang, "diagnosticsNewestError", String(summary.newestErrorAt).slice(11, 19))}` : "");
