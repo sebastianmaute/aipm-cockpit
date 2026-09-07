@@ -587,13 +587,13 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§358](#358-the-ingest-breadth-plan-document-contradicts-the-shipped-code-in-roughly-23-places--open) | The ingest-breadth plan document contradicts the shipped code in roughly 23 places | found 2026-09-03 in the ingest-breadth review | M | open |
 | [§359](#359-no-whole-batch-ingest-ceiling-newly-reachable-since-the-walked-tree-reaches-the-model--open) | No whole-batch ingest ceiling, newly reachable since the walked tree reaches the model | found 2026-09-03 in the ingest-breadth review | S | open |
 | [§360](#360-a-guardrail-insight-names-a-resource-but-its-ai-recommendation-gets-no-entity-digest--open) | A guardrail insight names a resource but its AI recommendation gets no entity digest | found 2026-09-04 in the §347 guardrails review | S | open |
-| [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--open) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§361](#361-the-daily-roll-budget-is-per-entry-so-nothing-bounds-total-device-storage--closed-2026-09-07) | The daily-roll budget is per-entry, so nothing bounds total device storage | found 2026-09-04 in the §347 guardrails review | S | closed 2026-09-07 |
 | [§362](#362-a-guardrail-insights-deep-link-arms-pendingopen-with-no-consumer--open) | A guardrail insight's deep link arms `pendingOpen` with no consumer | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§363](#363-the-reconcile-freeze-guarantee-is-not-absolute--max_insights-can-drop-a-frozen-row--open) | The reconcile freeze guarantee is not absolute — `MAX_INSIGHTS` can drop a frozen row | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§364](#364-an-older-build-prunes-the-four-guardrail-insight-types-on-load-and-can-write-the-pruned-list-back--open) | An older build prunes the four guardrail insight types on load, and can write the pruned list back | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§365](#365-the-threshold-fields-min1-understates-the-window-the-writer-engine-and-sanitiser-share--open) | The threshold field's `min={1}` understates the window the writer, engine and sanitiser share | found 2026-09-04 in the §347 guardrails review | S | open |
 | [§366](#366-project-scope-timelog-fetches-can-never-certify-a-guardrail-clean-so-those-insights-freeze-until-another-scope-runs--open) | Project-scope TimeLog fetches can never certify a guardrail clean, so those insights freeze until another scope runs | found 2026-09-04 in the §347 guardrails review | S | open |
-| [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--open) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | open |
+| [§367](#367-parsedailykey-never-validates-the-date-so-a-malformed-one-reaches-the-rules-and-a-single-oversized-cell-is-constructible--closed-2026-09-07) | `parseDailyKey` never validates the date, so a malformed one reaches the rules and a single oversized cell is constructible | found 2026-09-04 in the §347 guardrails review | S | closed 2026-09-07 |
 | [§370](#370-redo-of-an-ai-captured-delete-is-unproved--closed-2026-09-05) | ~~Redo of an AI-captured delete is unproved~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (a redo leg added to the existing AI `deleteTask` round trip in `use-chat-dispatcher.undo.test.tsx`, asserting the row is gone again after `redo()`) |
 | [§371](#371-a-stakeholder-deletion-offers-to-delete-their-job-title-not-the-person--closed-2026-09-04) | ~~A stakeholder deletion offers to delete their job title, not the person~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-04 (one shared `PERSON_ENTITIES` set now names both person entities by `personName`, at the create label AND the delete label; mutation-proved by reverting the set to `["resource"]` alone) |
 | [§372](#372-an-update_resource-rename-sent-as-the-name-alias-previews-an-empty-plan--closed-2026-09-05) | ~~An update_resource rename sent as the name alias previews an empty plan~~ | found 2026-09-04 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (`describeEntityCalls` projects an alias-only `update_resource({name})` onto `firstName`/`lastName` via the dispatcher's own `splitName` before diffing) |
@@ -654,6 +654,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | closed 2026-09-07 |
 | [§428](#428-focusaftermove--triggerrefs-has-no-detector-at-any-layer-and-the-playwright-probe-that-was-owed-refuted-its-own-premise--open) | `focusAfterMove` / `triggerRefs` has no detector at any layer | found 2026-09-07 writing the probe the reports-arrangement slice owed | NONE — a decision, not a defect; do not re-owe the probe | open |
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
+| [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--open) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `70300a1d`, documented rather than fixed | S-M — bound `users` at write time; do NOT shed the saved entry | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27940,10 +27941,11 @@ introduced the budget. Verified by command, 2026-09-07:
 `grep -n "MAX_ACTUALS_TOTAL_CHARS\|shedOrder" src/app/timelog-actuals-store.ts` returns the exported
 constant, the `shedOrder` helper, and the two shedding loops in `saveActualsCache`.
 
-`withBoundedDaily` bounds ONE entry's roll to `MAX_DAILY_ROLL_CHARS` (512 KiB). The map-level bound
-is still `MAX_PROJECTS` (50) eviction, which counts entries and never measures them — so 50 entries
-each just under budget is ~25 MB against a ~5 MB shared origin quota, and `writeDeviceJson` swallows
-the resulting quota error whole.
+`withBoundedDaily` bounds ONE entry's roll to `MAX_DAILY_ROLL_CHARS` (512 KiB). AS FILED, the
+map-level bound was `MAX_PROJECTS` (50) eviction ALONE, which counts entries and never measures
+them — so 50 entries each just under budget was ~25 MB against a ~5 MB shared origin quota, and
+`writeDeviceJson` swallows the resulting quota error whole. `MAX_ACTUALS_TOTAL_CHARS` is the
+map-level MEASURE that was missing; see the closure note below.
 
 ★ Why per-entry was chosen anyway: a whole-map trim would have to rewrite ANOTHER project's
 `dailyWindow` during a save for this one, and that window is a coverage claim `reconcileInsights`
@@ -27954,19 +27956,33 @@ same reason and was left undone deliberately.
 
 ★★★ THE CLOSURE TAKEN IS NOT THE ONE THIS ENTRY NAMED. The natural closure proposed above — making
 `MAX_PROJECTS` eviction size-based — keeps whole-entry drops as the only lever. What shipped is
-`MAX_ACTUALS_TOTAL_CHARS` (2 MiB) measured over the serialised map, shed in three stages: stage 1 is
-the pre-existing count eviction, stage 2 STRIPS `daily` + `dailyWindow` + `dailyUsers` together from
-the oldest entries while keeping their `aggregates`, and only stage 3 drops entries whole. Stripping
-comes first because the `MAX_DAILY_ROLL_CHARS` docstring already forbids the cheaper option — losing
-the roll must never cost the `aggregates` beside it, and whole-entry eviction throws away exactly
-what the network round trip bought. Stripping is safe for the same reason this entry gives for
-whole-entry eviction: the three fields go together, so a stripped entry claims no coverage and the
-reconcile freezes rather than clears.
+`MAX_ACTUALS_TOTAL_CHARS` (2 MiB) measured over the serialised map, shed in FOUR stages, each acting
+on the oldest entries first and each skipping the entry being saved: stage 1 is the pre-existing
+count eviction, stage 2 sheds `daily` + `dailyWindow` + `dailyUsers` together while keeping
+`aggregates`, stage 3 sheds `users` + `projectRefs`, and only stage 4 drops entries whole. Shedding
+precedes dropping because the `MAX_DAILY_ROLL_CHARS` docstring already forbids the cheaper option —
+losing the roll must never cost the `aggregates` beside it, and whole-entry eviction throws away
+exactly what the network round trip bought. Shedding is safe for the same reason this entry gives
+for whole-entry eviction: the three roll fields go together, so a shed entry claims no coverage and
+the reconcile freezes rather than clears.
 
-★★★ IT IS A STRIP AND NEVER A TRIM. Narrowing another project's `dailyWindow` during this project's
+★★ STAGE 3 WAS ADDED IN REVIEW (`70300a1d`), because without it the rationale above was
+aspirational. A map whose bulk is `users` — a large directory with little or no roll — skipped the
+roll stage entirely and landed in the whole-entry drop, spending `aggregates` to reclaim space held
+by a display-only field, which is the exact priority the file header states in reverse. `users` and
+`projectRefs` are read at exactly TWO sites, both `?? []` lazy initialisers in `use-timelog-sync.ts`,
+so shedding them costs an empty table until the next fetch and nothing else — byte-identical to a
+device that has never fetched. Every other reference to `projectRefs` reads the hook's STATE, not
+the cache, so it is downstream of those two initialisers rather than a third consumer.
+
+★★★ IT IS A SHED AND NEVER A TRIM. Narrowing another project's `dailyWindow` during this project's
 save stays forbidden, exactly as the paragraph above says — that falsifies a coverage claim and
 fabricates an `"improved"` outcome. The shedder removes the three fields outright or leaves them
 alone; it never rewrites the window's bounds.
+
+★ WHAT THIS CLOSED IS THE MANY-ENTRIES CASE. A SINGLE entry whose own `users` list exceeds the
+budget is still written over it, because every stage skips the entry being saved — tracked as §430,
+which is a different defect with a different cause, not a re-opening of this one.
 
 ## 362. A guardrail insight's deep link arms `pendingOpen` with no consumer — OPEN
 
@@ -31644,3 +31660,38 @@ new title, before you commit it.
 ★ Found by a peer's `followups-status-check` red on their own branch: a Status citing a backticked
 `e2e/…spec.ts` FILENAME was rejected with "names no executed verification". A backticked filename is
 not a verification — the gate reads for an INVOCATION. That distinction is what prompted this audit.
+
+## 430. A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved — OPEN
+
+**Status:** OPEN 2026-09-07 — `never machine-verified`. A save large enough to trigger this has not
+been constructed, so the entry is reasoned from the source and from `70300a1d`'s own docstrings, not
+from a probe. Nothing below should be read as measured.
+
+`MAX_ACTUALS_TOTAL_CHARS` (2 MiB) bounds the serialised cache map, but all four of
+`saveActualsCache`'s shedding stages `keep`-exclude the entry being saved. That exclusion is
+deliberate and right: shedding the entry the caller just fetched discards the network round trip
+that produced it, and `writeDeviceJson` swallows the failure, so nothing anywhere would report the
+loss. The consequence is that when the SAVED entry ALONE exceeds the budget, all four stages exhaust
+their candidates without ever reaching the entry that is over, the map is written over budget
+anyway, `setItem` throws `QuotaExceededError`, the empty `catch` swallows it, and the ENTIRE save is
+lost silently — the exact failure §361 exists to close, in the one shape §361's fix cannot reach.
+
+★ WHY IT IS REACHABLE. `withBoundedDaily` bounds `daily` and nothing else. `users`, `projectRefs`
+and `aggregates` are all unbounded, so the plausible route is a large org-scope `users` directory on
+an entry carrying little or no roll — the same shape that motivated stage 3.
+
+★★ NOT A RE-OPENING OF §361. What §361 named — a map-level bound that counted entries without ever
+measuring them — is genuinely closed, and the many-entries case with it. This is a different defect
+with a different cause, which is why it is tracked here rather than by reviving a closed entry.
+
+★★★ DELIBERATELY NOT FIXED, and this is the paragraph to read before "completing the pattern".
+Closing it means shedding fields off the entry the caller just fetched, which is the one thing every
+stage is built to avoid — doing that reintroduces the silent-discard bug `saveActualsCache` exists to
+prevent. Do NOT close this by adding the saved entry to `shedOrder`. Bounding `users` at write time
+is the closure that does not cross that line.
+
+★★ THE TWO DOCSTRINGS USED TO OVERSTATE THIS AND NO LONGER DO. `MAX_ACTUALS_TOTAL_CHARS`'s "bounds
+the whole serialised map" and `MAX_DAILY_ROLL_CHARS`'s "that hole is now closed" each claimed more
+than was true; `70300a1d` corrected both in the source, so each now scopes its claim to the
+MANY-ENTRIES case and points at this entry. Register and code state the same residual — a reader who
+finds only one of them is reading a stale copy of the other.
