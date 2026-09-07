@@ -152,7 +152,17 @@ export function dailyKey(userId: number, date: string): string {
 const KEY_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The userId half. `dailyKey` is `${userId}|${date}` over a `number`, so the
- *  only heads it can produce are optionally signed digit strings.
+ *  heads it can produce are optionally signed digit strings — for every id this
+ *  app can hold.
+ *  ★★ NOT FOR EVERY `number`, and the unqualified claim was here until
+ *  2026-09-07: template interpolation is `String(n)`, which switches to
+ *  exponential notation at 1e21, so `dailyKey(1e21, d)` emits `"1e+21|…"` and
+ *  THIS REGEX REJECTS A KEY `dailyKey` ITSELF WROTE. Measured:
+ *  `node -e 'console.log(String(1e21), /^-?\d+$/.test(String(1e21)))'` → `1e+21 false`.
+ *  Unreachable in practice — a TimeLog `UserID` is a small positive integer, and
+ *  the surrounding code drops `userId <= 0` before keying — so the guard stays
+ *  as written; what is corrected is the ABSOLUTE claim, since a reader deriving
+ *  "the regex can never reject our own output" from it would be wrong.
  *  ★★ `-?` IS LOAD-BEARING. `dailyKey(-7, d)` genuinely emits `"-7|…"`, so a
  *  bare `/^\d+$/` would start rejecting a key the app's own writer can make.
  *  With the sign, this still rejects everything `Number()` would have coerced
@@ -170,8 +180,10 @@ const KEY_USER_RE = /^-?\d+$/;
  *  reads as a clean `7`, and a head that is nothing BUT whitespace reads as `0`.
  *  With BOTH, a key caps at 309 digits (`Number` of 310 is `Infinity` —
  *  measured, since `MAX_VALUE` is 1.797e308 and the boundary depends on the
- *  leading digit) plus `|` plus the 10 characters `KEY_DATE_RE` allows, so about
- *  320 — one cell can no longer exceed `MAX_DAILY_ROLL_CHARS` on its own, which
+ *  leading digit) plus `|` plus the 10 characters `KEY_DATE_RE` allows, so 320 —
+ *  or 321 with the leading `-` the rule three lines up calls load-bearing, which
+ *  is the number to quote, since the worst case is the bound that matters. One
+ *  cell can therefore no longer exceed `MAX_DAILY_ROLL_CHARS` on its own, which
  *  is the oversized-cell shape open-followups §367 is named for.
  *  ★ SHAPE BEFORE COERCION: both halves are tested against their rule before
  *  `Number()` is called, so a coercion this function does not want cannot

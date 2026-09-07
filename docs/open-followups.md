@@ -655,6 +655,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§428](#428-focusaftermove--triggerrefs-has-no-detector-at-any-layer-and-the-playwright-probe-that-was-owed-refuted-its-own-premise--open) | `focusAfterMove` / `triggerRefs` has no detector at any layer | found 2026-09-07 writing the probe the reports-arrangement slice owed | NONE — a decision, not a defect; do not re-owe the probe | open |
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
 | [§430](#430-a-single-cache-entry-over-the-map-budget-is-still-written-over-it-because-every-shedding-stage-skips-the-entry-being-saved--open) | A single cache entry over the map budget is still written over it, because every shedding stage skips the entry being saved | found 2026-09-07 in review of `70300a1d`, documented rather than fixed | S-M — bound `users` at write time; do NOT shed the saved entry | open |
+| [§431](#431-one-malformed-api-date-withholds-evaluation-from-the-whole-roll-not-just-its-own-cell--open) | One malformed API date withholds evaluation from the whole roll, not just its own cell | found 2026-09-07 in cold review of the guardrail-bounds branch; the first-party path §367 said had not been probed | S-M — an unpicked fork: drop the row, narrow the withholding, or reject at the mapper | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -27939,7 +27940,11 @@ invisible from either file alone and will read as an oversight to whoever finds 
 **Status:** Fixed by the guardrail-bounds slice, 2026-09-07. Filed 2026-09-04 with the fix that
 introduced the budget. Verified by command, 2026-09-07:
 `grep -n "MAX_ACTUALS_TOTAL_CHARS\|shedOrder" src/app/timelog-actuals-store.ts` returns the exported
-constant, the `shedOrder` helper, and the two shedding loops in `saveActualsCache`.
+constant, the `shedOrder` helper, and the THREE `shedOrder` loops in `saveActualsCache` — stages 2,
+3 and 4. ★ THIS LINE SAID "the two shedding loops" until 2026-09-07 and the command it prescribes
+refuted it: stage 3 (`users` + `projectRefs`) was added after the Status line was written and
+nothing re-ran the grep. Count the loops, do not count the stages — stage 1 is the pre-existing
+`MAX_PROJECTS` count eviction and uses no `shedOrder`.
 
 `withBoundedDaily` bounds ONE entry's roll to `MAX_DAILY_ROLL_CHARS` (512 KiB). AS FILED, the
 map-level bound was `MAX_PROJECTS` (50) eviction ALONE, which counts entries and never measures
@@ -28126,9 +28131,27 @@ string, so the working-hours and weekend halves skip it while the value still fl
 `firstViolationDate` / `lastViolationDate`. The downstream window comparison then fails and the
 insight FREEZES, which is the safe direction — this is recorded as a latent shape, not a live defect.
 
-★ Reachability is the open question and is deliberately not asserted here. Every key the app itself
+★★★ REACHABILITY WAS ASSERTED HERE AND WAS WRONG. This paragraph read: "Every key the app itself
 writes comes from `dailyKey(userId, it.date)` over API-supplied dates. The paths that could carry a
-hostile key are a hand-edited `localStorage` blob and a future writer; neither has been probed.
+hostile key are a hand-edited `localStorage` blob and a future writer; neither has been probed." It
+named the two exotic paths and missed the FIRST-PARTY one, which needs no hostility at all.
+`timelog-api.ts` is `const s = (v: unknown): string => (typeof v === "string" ? v : "")` with
+`const dateOnly = (v: unknown): string => s(v).slice(0, 10)`, so an API row whose `Date` is absent,
+null or numeric yields `date: ""`. `buildDailyRoll` (`timelog-actuals.ts`) filters the
+unidentified-booker sentinel (`it.userId <= 0`) and NOTHING else, so that row mints the key `"7|"`,
+which `parseDailyKey` rejects. A regionally-formatted date (`"05/01/2026"`) is exactly ten
+characters and survives the slice intact, reaching `KEY_DATE_RE` as a well-formed non-ISO string.
+Reproduce the shape without a network:
+`grep -n "const s = \|dateOnly" src/app/timelog-api.ts` and `grep -n "userId <= 0" src/app/timelog-actuals.ts`.
+
+★★ AND POINT 4 BELOW MADE THAT PATH EXPENSIVE, which is why the correction matters rather than
+merely being tidy. `parseDailyKey("7|")` was already null BEFORE this slice — the pre-existing guard
+was `if (!Number.isInteger(userId) || !date) return null` and `""` is falsy — but a null then cost
+nothing, because the rule went on certifying itself `evaluated`. With the `skipped` flag, one such
+row withholds `evaluated` from all four rules for EVERY person in that roll until the next clean
+fetch. That is still the safe direction (a FREEZE, never a fabricated `"improved"`), and it is a
+wider blast radius than "a hand-edited blob" prepares a reader for. The live residual is tracked as
+§431; this entry stays closed, because the parse bound it was named for is bound.
 
 ★★★ THIS ENTRY WAS WRONG ABOUT ITS OWN SCOPE, in four ways worth recording.
 
@@ -28146,8 +28169,14 @@ to `{userId: 7, …}` — a single cell of 600,012 characters RAW against a 524,
 `MAX_DAILY_ROLL_CHARS`, which is exactly the oversized cell this entry is named for, still
 constructible after the date was locked down. ★ MIND THE MEASURE: `withBoundedDaily` applies that
 bound as `JSON.stringify(roll).length`, so what it actually sees is larger still — 600,014 for the
-quoted key, 600,028 for the one-cell roll — and the raw length quoted here is the conservative side
-of the comparison, not the one the code performs. `KEY_USER_RE` (`/^-?\d+$/`) closes it.
+quoted key, 600,061 for the one-cell roll — and the raw length quoted here is the conservative side
+of the comparison, not the one the code performs. ★★ THAT LAST FIGURE READ 600,028 UNTIL 2026-09-07,
+which is the length over a `{"hours":8}` cell — a partial shape `isDailyCell` REJECTS. Measure over
+the real three-field cell, or the number describes a roll the store cannot hold:
+`node -e 'const k=" ".repeat(600000)+"7|2026-09-01";console.log(JSON.stringify({[k]:{hours:8,maxEntryHours:8,entryCount:1}}).length)'`
+→ `600061`. The conclusion is unaffected in direction — every figure here is far past 524,288, and
+the larger one makes the point more strongly — but this entry exists because a reader landed on a
+figure the register did not contain. `KEY_USER_RE` (`/^-?\d+$/`) closes it.
 ★★★ `Number.isInteger` IS RETAINED BESIDE IT AND BOTH ARE LOAD-BEARING: the regex happily admits a
 600,000-DIGIT head, `Number()` of which is `Infinity`, and only the integer check rejects that. A
 future reader who sees a regex that "already validates" the head and deletes the integer check
@@ -31693,5 +31722,60 @@ is the closure that does not cross that line.
 ★★ THE TWO DOCSTRINGS USED TO OVERSTATE THIS AND NO LONGER DO. `MAX_ACTUALS_TOTAL_CHARS`'s "bounds
 the whole serialised map" and `MAX_DAILY_ROLL_CHARS`'s "that hole is now closed" each claimed more
 than was true; `70300a1d` corrected both in the source, so each now scopes its claim to the
-MANY-ENTRIES case and points at this entry. Register and code state the same residual — a reader who
-finds only one of them is reading a stale copy of the other.
+MANY-ENTRIES case. Register and code state the same residual — a reader who finds only one of them is
+reading a stale copy of the other.
+
+★★★ THE POINTER HALF OF THAT WAS FALSE WHEN WRITTEN AND IS TRUE ONLY NOW. This paragraph claimed
+both docstrings "point at this entry", which was chronologically impossible: §430 was minted in
+`2622e09c`, a docs-only commit, AFTER the `70300a1d` that scoped them, and `grep -rn "430" src/`
+returned nothing. The citations were added in the review round that caught it. Verify rather than
+trusting this sentence — the same grep is the check either way:
+`grep -n "§430" src/app/timelog-actuals-store.ts` → two hits, one per docstring. ★★ The failure
+inverts the audit it was meant to support: a reader checking the code for a §430 pointer, finding
+none, concludes the REGISTER is the stale copy. A cross-reference is a claim about ANOTHER file, so
+it is only ever verified by opening that file.
+
+## 431. One malformed API date withholds evaluation from the whole roll, not just its own cell — OPEN
+
+**Status:** OPEN. Filed 2026-09-07. Verified by command, 2026-09-07:
+`grep -n "const s = \|dateOnly" src/app/timelog-api.ts` returns the two coercions, and
+`grep -n "userId <= 0" src/app/timelog-actuals.ts` returns the roll's ONLY row filter.
+
+`timelog-api.ts` coerces every API field through `const s = (v: unknown): string => (typeof v ===
+"string" ? v : "")`, and `dateOnly` is `s(v).slice(0, 10)`. So a time-registration row whose
+`Date` is absent, null or numeric arrives as `date: ""`. `buildDailyRoll` drops the
+unidentified-booker sentinel (`it.userId <= 0`) and applies no other filter, so that row mints the
+key `"7|"`, which `parseDailyKey` rejects.
+
+Since the guardrail-bounds slice, a rejected key sets `evaluateTimelogPolicy`'s per-roll
+`skipped` flag, which withholds all four rules from `evaluated`. `reconcileInsights` then
+FREEZES every guardrail insight for **every user in that roll** — not just the booker whose row was
+malformed — until a fetch returns a clean roll.
+
+★★★ THIS IS THE SAFE DIRECTION AND IS NOT A REGRESSION. Before the slice the same row produced the
+same null parse (the pre-existing guard was `!Number.isInteger(userId) || !date`, and `""` is
+falsy) — but the rule went on certifying itself `evaluated`, so a stale violation resolved as a
+fabricated `"improved"` in shared, exported `Workspace.insights`. Freezing is recoverable and
+lifts by itself; a fabricated win is not and does not. What is new is the BLAST RADIUS, and that is
+what this entry records.
+
+★★ REACHABILITY IS FIRST-PARTY, which is why this is filed rather than left as a latent shape. It
+needs no hand-edited blob and no hostile input — one API row with a missing `Date`. A
+regionally-formatted date (`"05/01/2026"`) is exactly ten characters, survives the slice intact and
+reaches `KEY_DATE_RE` as a well-formed non-ISO string, which is the same outcome by a second route.
+Neither route has been observed against the live TimeLog API; what IS measured is that nothing
+between the API and the key rejects them.
+
+★★★ THE FIX IS A FORK AND IS DELIBERATELY NOT PICKED HERE. Dropping the malformed row at
+`buildDailyRoll` keeps the roll evaluable but silently UNDER-COUNTS that person's hours, so a real
+cap breach can go unreported — a miss rather than a fabrication, but still a wrong answer delivered
+confidently. Narrowing the withholding to the affected user is constructible on the
+`!isDailyCell` branch (the person is identifiable there) and NOT on the `parseDailyKey` branch,
+which is why the current code withholds at one width rather than two — see the comment above
+`let skipped = false` in `timelog-policy.ts`. Rejecting the row at the API mapper moves the
+decision to where the shape is known, but discards data before any consumer sees it. Pick one
+deliberately; do not "complete the pattern" from whichever site you happen to be editing.
+
+★ Related, and not the same: §367 bound the PARSE (closed) and §430 records the single-oversized-entry
+residual in the store (open). This entry is about what a rejected key COSTS, which is a policy
+question rather than a parsing or a storage one.

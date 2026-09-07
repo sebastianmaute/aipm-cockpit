@@ -267,8 +267,18 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
   // its INSTINCT was right and only its conclusion about `evaluated` was wrong.
   // Both halves were weighed; do not re-derive one of them and flip this back.
   // ★★ PER-ROLL, NOT PER-RULE, deliberately: an unreadable cell might have
-  // violated ANY of the four, so none of them can certify for the person it
-  // belonged to.
+  // violated ANY of the four, so none of them can certify.
+  // ★★★ AND PER-ROLL MEANS EVERY PERSON, NOT JUST THE ONE THE CELL BELONGED TO.
+  // This comment read "so none of them can certify for the person it belonged
+  // to", which understates the blast radius by the width of the whole roll:
+  // `skipped` is a single flag over one `evaluateTimelogPolicy` call, so one
+  // unreadable cell withholds `evaluated` for all four rules across EVERY user
+  // in that roll. On the `!isDailyCell` branch the person is in fact
+  // identifiable (`parseDailyKey` succeeded), so a narrower per-user withholding
+  // is CONSTRUCTIBLE there — it is not built because the `parsed === null`
+  // branch cannot identify anyone, and two withholding widths in one loop is a
+  // second rule free to drift from this one. Widening is the safe direction:
+  // over-withholding FREEZES rows, under-withholding fabricates `"improved"`.
   let skipped = false;
   for (const [key, cell] of Object.entries(daily)) {
     const parsed = parseDailyKey(key);

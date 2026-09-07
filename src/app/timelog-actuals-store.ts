@@ -251,7 +251,7 @@ export function clearActualsCache(projectId: string): void {
  *  and never measures them. ★★ "Closed" covers the MANY-ENTRIES case only — a
  *  single entry whose own `users` list blows the budget is still written over
  *  it, for the reason stated on `MAX_ACTUALS_TOTAL_CHARS`. See open-followups
- *  §361.
+ *  §361 for the case this closed and §430 for the single-entry one it did not.
  *  ★ Per-entry was chosen over a whole-map budget because a whole-map trim
  *  would have to shrink some OTHER project's roll during a save for THIS one,
  *  and every trim rewrites a `dailyWindow` — a coverage CLAIM the insights
@@ -271,6 +271,7 @@ export const MAX_DAILY_ROLL_CHARS = 512 * 1024;
  *  that one is the silent-discard bug `saveActualsCache` exists to prevent — so
  *  one oversized entry is still written over budget and may still be lost to the
  *  quota error `writeDeviceJson` swallows. Bounding `users` would close it.
+ *  That residual is open-followups §430 — NOT §361, which this bound closed.
  *  ★★★ WHY A SECOND BOUND EXISTS. `MAX_DAILY_ROLL_CHARS` is per-entry, so 50
  *  entries (`MAX_PROJECTS`) each sitting just under it is ~25 MB against a
  *  localStorage origin quota of roughly 5 MB shared with every other

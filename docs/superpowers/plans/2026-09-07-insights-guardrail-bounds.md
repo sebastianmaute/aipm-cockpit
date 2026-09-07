@@ -1135,9 +1135,16 @@ No version bump and no CHANGELOG entry are part of this plan — the release ste
 
 ## Corrections found during execution (2026-09-07)
 
-The plan body above is left exactly as written. Four of its claims were falsified while executing it;
+The plan body above is left exactly as written. Its claims below were falsified while executing it;
 each is recorded here with what shipped instead. Read this section before treating any assertion,
 comment or fixture in the plan as a specification.
+
+★★★ THIS SECTION ONCE SAID "FOUR OF ITS CLAIMS", AND A COUNT WAS THE WRONG SHAPE FOR IT. It was
+written at `010f1b54`, which precedes `70300a1d` — the commit that added a whole shedding stage — so
+the list was closed before execution was. Four more clusters (items 5-8) were found by cold review
+afterwards. A checklist item that is a SET must not carry a number: the number tells a reader when to
+stop, and the only honest stopping rule for a set is an enumeration someone actually ran. Treat the
+list as open.
 
 **1. Task 2, test 1's third assertion was wrong, and it contradicted the plan's own test 2.** It
 asserted the surviving guardrail count as `MAX_INSIGHTS - RESERVED_NON_GUARDRAIL` (140). The true
@@ -1170,3 +1177,33 @@ the `keep` exclusion can save it. Separately: the plan's stage-1 restore grew th
 breaking the `MAX_PROJECTS` cap it sits inside (shipped swapping out the oldest survivor instead),
 and its hardcoded `to: "2054-09-08"` was wrong by roughly 25 days (shipped derived from the day
 constant rather than written by hand).
+
+**5. THE PLAN DESCRIBES THREE SHEDDING STAGES AND FOUR SHIPPED.** A stage shedding `users` +
+`projectRefs` was inserted ahead of the whole-entry drop, so the plan's numbering is off by one from
+its own stage 3 onward. ★★★ THE WORST INSTANCE IS A CODE COMMENT: the plan carries
+`// Stage 3 — drop whole entries, oldest first.`, and in the shipped code that is Stage 4 — Stage 3
+sheds `users` + `projectRefs`. An engineer implementing the plan literally writes a map that spends
+`aggregates` on a `users`-heavy entry without ever trying the cheaper shed, which is exactly the
+inversion `70300a1d` exists to fix. The same off-by-one is in the spec. Read the stage list off
+`saveActualsCache` itself, never off either document.
+
+**6. "Admits four full-size rolls" is wrong; it admits three.** Four times `MAX_DAILY_ROLL_CHARS` is
+2,097,152 — the budget EXACTLY — so a fourth entry has nothing left for its own key, `fetchedAt`,
+`aggregates`, window or the map braces. Measured: four such entries serialise to 2,098,213, over by
+1,061. The shipped `MAX_ACTUALS_TOTAL_CHARS` docstring self-corrects this in capitals; the plan and
+spec were never updated.
+
+**7. The UTF-16 "for a real roll the two are equal" clause is misscoped onto the MAP budget.** It is
+true of a ROLL (ASCII keys, numeric values) and false of the map, which also carries
+`users[].firstName` / `lastName` / `email` free text — and in a German-locale product a `ü` is one
+UTF-16 unit and two UTF-8 bytes. The shipped docstring says so explicitly and tells the reader NOT to
+carry the clause over; the plan and spec still carry it.
+
+**8. "The reconcile predicate returns false" is stated unqualified and needs its scope.** It is
+qualified to guardrail insights — `70300a1d`'s own commit message says so. Unqualified, it reads as a
+claim about every insight type, which is not what the predicate does.
+
+★ Items 5-8 were found by a cold reviewer reading the plan against the shipped tree on 2026-09-07,
+after the branch was otherwise finished. None of them affects the shipped code — every one is a
+defect in this document, which is the failure mode this repository keeps paying for: a plan that
+reads as authoritative while being wrong outlives the work it planned.
