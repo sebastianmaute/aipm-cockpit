@@ -41,4 +41,16 @@ describe("dropUnacceptedCalendarEventFields", () => {
       dropUnacceptedCalendarEventFields({ exceptions: [{ date: "2026-06-02", kind: "skip" }] }),
     ).toEqual({});
   });
+
+  it("keeps a real recurrence rule object", () => {
+    const recurrence = { freq: "weekly", interval: 1, byDay: ["MO"] };
+    expect(dropUnacceptedCalendarEventFields({ recurrence })).toEqual({ recurrence });
+  });
+
+  // ★★★ `typeof [] === "object" && [] !== null` is true, so a hand-rolled
+  // guard would let an array through even though `RecurrenceRule` is always a
+  // plain object. The guard must use `isPlainObject`, which excludes arrays.
+  it("drops an array recurrence rather than let it through as a plain object", () => {
+    expect(dropUnacceptedCalendarEventFields({ recurrence: [1, 2] })).toEqual({});
+  });
 });

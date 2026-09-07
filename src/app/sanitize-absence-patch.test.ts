@@ -30,4 +30,14 @@ describe("dropUnacceptedAbsenceFields", () => {
     expect(dropUnacceptedAbsenceFields({ type: "sabbatical" })).toEqual({});
     expect(dropUnacceptedAbsenceFields({ type: "sick" })).toEqual({ type: "sick" });
   });
+
+  // ★★★ `null` IS THE UNLINK SIGNAL, not a value to refuse. `sanitizeAbsence`
+  // feeds resourceId through `fkIdOrUndefined`, which turns `null` into
+  // `undefined` — the clear. A string is refused even though the same
+  // `fkIdOrUndefined` would coerce it, because the guard is deliberately
+  // stricter: the review card must never show a link the model spelled as text.
+  it("keeps resourceId: null as the unlink signal, but drops a stringly-typed id", () => {
+    expect(dropUnacceptedAbsenceFields({ resourceId: null })).toEqual({ resourceId: null });
+    expect(dropUnacceptedAbsenceFields({ resourceId: "5" })).toEqual({});
+  });
 });

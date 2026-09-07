@@ -949,7 +949,19 @@ export function dropUnacceptedStakeholderFields<T extends object>(patch: T): T {
  *  ★★ `type` is dropped rather than corrected when unrecognised. `sanitizeAbsence`
  *   RESETS an unknown type to a fallback, and a reset is invisible on the review
  *   card — the same silent-demotion shape `dropUnacceptedStakeholderFields`
- *   exists for. */
+ *   exists for.
+ *
+ *  ★★★ `resourceId: null` IS THE MODEL'S ONLY WAY TO UNLINK A RESOURCE, not a
+ *   dead branch — `Absence.resourceId` is typed `number | undefined` because
+ *   `null` is a WIRE value the sanitizer normalises away, never a stored one.
+ *   `sanitizeAbsence` (sanitize-entities.ts) feeds `raw.resourceId` through
+ *   `fkIdOrUndefined` (sanitize-core.ts), which is `toNumber` gated on
+ *   `Number.isFinite(n) && n > 0`; `toNumber(null)` is `NaN`, so `null` comes
+ *   out the other side as `undefined` — the clear. Dropping this branch would
+ *   silently remove the unlink capability. A STRING is refused on purpose even
+ *   though `fkIdOrUndefined` itself would accept one (`toNumber("5")` is a
+ *   real number): this guard is stricter so the review card cannot show a
+ *   link the model spelled as text. */
 const ABSENCE_FIELD_GUARDS: Readonly<Record<string, (v: unknown) => boolean>> = {
   assignee: (v) => typeof v === "string",
   assigneeEmail: (v) => typeof v === "string",
@@ -978,7 +990,14 @@ export function dropUnacceptedAbsenceFields<T extends object>(patch: T): T {
  *
  *  ★★ `exceptions` is ABSENT on purpose: per-occurrence skip/move bookkeeping
  *   the UI writes when a user edits one instance. There is no phrasing a model
- *   could use for it that a reviewer could check at a glance. */
+ *   could use for it that a reviewer could check at a glance.
+ *
+ *  ★★ `recurrence` uses `isPlainObject`, NOT a hand-rolled `typeof v ===
+ *   "object" && v !== null` — that looser form is also true of an ARRAY, and
+ *   `RecurrenceRule` (calendar-event.ts) is a union of plain objects, never an
+ *   array. `isPlainObject` (sanitize-core.ts) already excludes `Array.isArray`;
+ *   re-deriving the check here would just be a second spelling to drift from
+ *   the first. */
 const CALENDAR_EVENT_FIELD_GUARDS: Readonly<Record<string, (v: unknown) => boolean>> = {
   title: (v) => typeof v === "string",
   startDate: (v) => typeof v === "string",
@@ -988,7 +1007,7 @@ const CALENDAR_EVENT_FIELD_GUARDS: Readonly<Record<string, (v: unknown) => boole
   notes: (v) => typeof v === "string",
   attendeeResourceIds: (v) => Array.isArray(v) && v.every((n) => typeof n === "number"),
   sendInvitations: (v) => typeof v === "boolean",
-  recurrence: (v) => typeof v === "object" && v !== null,
+  recurrence: (v) => isPlainObject(v),
 };
 
 export function dropUnacceptedCalendarEventFields<T extends object>(patch: T): T {
