@@ -24,6 +24,26 @@ export type ActualsAggregate = {
   byBucket: ActualsByBucket;
   byResource: ActualsByResource;
   unattributed: HourCell;
+  /** The hours inside `unattributed` that failed the DATE check specifically.
+   *
+   *  ★★★ A SUBSET OF `unattributed`, NEVER A SIBLING. Every row counted here is
+   *  ALSO counted there, so no existing reader of `unattributed` changes meaning
+   *  and none had to be touched. Pinned by a test ("reports undated hours as a
+   *  strict subset of unattributed") rather than left to this comment, because a
+   *  comment cannot fail when someone widens the predicate.
+   *
+   *  It exists because the two causes carry OPPOSITE remedies and the surfaces
+   *  were offering only one. A link-broken row is repaired by fixing the link
+   *  and re-fetching; a row whose `date` is not a calendar day (see ISO_DAY_RE)
+   *  has healthy links and a re-fetch returns the same junk — the defect is in
+   *  the source data, so telling that user to re-fetch sends them in a circle.
+   *
+   *  OPTIONAL on purpose, exactly like `BucketPeriodCell.byResource` and for the
+   *  same reason: the actuals cache (`aipm-cockpit:timelog-actuals`) is persisted
+   *  per-device and its guard only shallow-checks `aggregates`, so an entry
+   *  written before this field existed deserializes without it. Aggregation
+   *  always writes it; readers must tolerate its absence. */
+  undated?: HourCell;
 };
 
 /** Can this row be attributed to a PERIOD? Used by `aggregateActuals` ALONE.
@@ -72,6 +92,9 @@ export function aggregateActuals(
   const byBucket: ActualsByBucket = {};
   const byResource: ActualsByResource = {};
   let unattributed: HourCell = { hours: 0, billableHours: 0 };
+  // The DATE-failure subset of `unattributed` — see the field's docstring for
+  // why it is a subset and not a fourth bucket.
+  let undated: HourCell = { hours: 0, billableHours: 0 };
 
   for (const it of items) {
     const resourceId = userToRes.get(it.userId);
@@ -86,8 +109,13 @@ export function aggregateActuals(
     // ISO_DAY_RE docstring lists: month keys "" and "05/01/2", week key
     // "NaN-WNaN" for both — phantom buckets matching no rendered column, so the
     // hours silently disappear from the Budget view rather than being surfaced.
-    if (resourceId === undefined || bucketId === undefined || bucketId === null || !ISO_DAY_RE.test(it.date)) {
+    const dated = ISO_DAY_RE.test(it.date);
+    if (resourceId === undefined || bucketId === undefined || bucketId === null || !dated) {
       unattributed = add(unattributed, it);
+      // Deliberately NOT an `else` on the link checks: a row can fail both, and
+      // it is still undated. The subset invariant is "everything undated is also
+      // unattributed", not "the two partition the unattributable rows".
+      if (!dated) undated = add(undated, it);
       continue;
     }
     byResource[resourceId] = add(byResource[resourceId], it);
@@ -101,7 +129,7 @@ export function aggregateActuals(
       byResource: { ...cur?.byResource, [resourceId]: add(cur?.byResource?.[resourceId], it) },
     };
   }
-  return { byBucket, byResource, unattributed };
+  return { byBucket, byResource, unattributed, undated };
 }
 
 /**

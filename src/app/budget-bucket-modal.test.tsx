@@ -263,6 +263,55 @@ describe("BudgetBucketModal", () => {
     expect(saved.allocations[0].budgetHours).toEqual({ "2026-01": 40 });
   });
 
+  // §432/§433. Before `aggregateActuals` guarded the date, apply persisted
+  // phantom period keys ("", "05/01/2", "NaN-WNaN") into `actualHours`, and they
+  // are still sitting in existing workspaces. A key-COUNT predicate reads such an
+  // allocation as populated, so switching planning mode warns about losing hours
+  // that do not exist — and the user, believing them real, backs out.
+  // `confirmMock.result = false` is the observable: if the guard fires, the
+  // cancelled confirm keeps detailed mode; if it does not, the switch goes
+  // through unasked.
+  test("a phantom actualHours key with zero hours does not count as hours to lose", async () => {
+    confirmMock.result = false;
+    const { onSave } = setup({
+      disciplines,
+      bucket: {
+        ...baseBucket,
+        planningMode: "detailed",
+        allocations: [{ roleId: 3, resourceIds: [], budgetHours: {}, actualHours: { "": 0, "NaN-WNaN": 0 } }],
+      },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    const saved = onSave.mock.calls[0][0] as BudgetBucket;
+    expect(saved.planningMode).toBe("blended");
+  });
+
+  // Positive control for the test above: the same shape carrying a REAL non-zero
+  // value must still warn, so the predicate cannot be satisfied by always
+  // reporting "no hours". Note the key is a phantom one too — what decides is the
+  // VALUE, not whether the key looks well formed.
+  test("a non-zero actualHours value still warns before clearing", async () => {
+    confirmMock.result = false;
+    const { onSave } = setup({
+      disciplines,
+      bucket: {
+        ...baseBucket,
+        planningMode: "detailed",
+        allocations: [{ roleId: 3, resourceIds: [], budgetHours: {}, actualHours: { "": 0, "2026-01": 12 } }],
+      },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    const saved = onSave.mock.calls[0][0] as BudgetBucket;
+    expect(saved.planningMode).toBe("detailed");
+    expect(saved.allocations[0].actualHours).toEqual({ "": 0, "2026-01": 12 });
+  });
+
   test("turning ON detailed planning with entered discipline hours warns and clears them on confirm", async () => {
     confirmMock.result = true;
     const { onSave } = setup({

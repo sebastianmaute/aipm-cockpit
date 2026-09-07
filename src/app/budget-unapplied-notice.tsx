@@ -116,7 +116,19 @@ export function BudgetUnappliedNotice({
     ? rawUnattributed
     : 0;
 
-  if (!partial && affected === 0 && unattributed === 0 && withheld === 0 && missing === 0) return null;
+  // The DATE-failure SUBSET of the total above (§432). Read with the same
+  // defensiveness for the same reason, plus one of its own: `undated` is
+  // OPTIONAL on `ActualsAggregate`, so a cache entry written before the field
+  // existed simply has no key here. Absent ⇒ 0 ⇒ the extra line stays away,
+  // which is the correct reading — such an entry cannot tell us either way.
+  const rawUndated = aggregates?.undated?.hours;
+  const undated = typeof rawUndated === "number" && Number.isFinite(rawUndated) ? rawUndated : 0;
+
+  // `undated` is a SUBSET of `unattributed`, so it cannot open the notice on its
+  // own in any realistic cache — but the two are gated independently below
+  // because a credit correction can net `unattributed` to exactly 0 while
+  // undated hours remain. Adding it here keeps that case reportable.
+  if (!partial && affected === 0 && unattributed === 0 && undated === 0 && withheld === 0 && missing === 0) return null;
 
   return (
     <div className="mb-2 flex shrink-0 items-start gap-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs print:hidden">
@@ -143,6 +155,16 @@ export function BudgetUnappliedNotice({
         {!partial && unattributed !== 0 && (
           <p className="text-muted-foreground">
             {t(lang, "budgetUnattributedActuals", formatHours(unattributed))}
+          </p>
+        )}
+        {!partial && undated !== 0 && (
+          // The line above tells the user to fetch again. For these hours that
+          // remedy is FALSE — the person and project links are healthy and the
+          // booking's own date is not a calendar day, so a re-fetch returns the
+          // same rows. Naming the subset is what stops the user going in a
+          // circle. Gated on `undated`, never on `unattributed`.
+          <p className="text-muted-foreground">
+            {t(lang, "budgetUndatedActuals", formatHours(undated))}
           </p>
         )}
       </div>

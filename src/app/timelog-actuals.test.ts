@@ -160,6 +160,48 @@ describe("aggregateActuals", () => {
     expect(out.unattributed.hours).toBe(5);
   });
 
+  // ★★★ THE SUBSET INVARIANT, and it is the whole safety of the `undated` split.
+  // `undated` is a SUBSET of `unattributed`, never a sibling — every existing
+  // reader of `unattributed` stays correct precisely because the set of rows
+  // reaching it did not change. A fixture carrying BOTH kinds of unattributable
+  // row is what makes that a claim: a link-broken row (healthy date, no user
+  // link) must land in `unattributed` ALONE, while the malformed-date row lands
+  // in BOTH. Written as a test rather than a comment because a comment cannot
+  // fail: widen `undated` to take the link-broken rows too and this dies.
+  it("reports undated hours as a strict subset of unattributed", () => {
+    const out = aggregateActuals(
+      [
+        item(5, 9, "2026-06-10", 4), // fully attributable
+        item(5, 9, "", 3), // malformed date, links healthy → BOTH
+        item(99, 9, "2026-06-11", 8), // unlinked user, date healthy → unattributed ONLY
+      ],
+      links,
+      "month",
+    );
+    expect(out.unattributed).toEqual({ hours: 11, billableHours: 11 });
+    expect(out.undated).toEqual({ hours: 3, billableHours: 3 });
+    // Subset, stated as arithmetic so a future widening cannot pass by luck.
+    expect(out.undated!.hours).toBeLessThan(out.unattributed.hours);
+  });
+
+  // Anti-vacuity control for the split: a guard that fired unconditionally, or
+  // an `undated` fed from the same predicate as `unattributed`, would satisfy
+  // the assertions above. Nothing malformed ⇒ nothing undated AND nothing
+  // unattributed. Absent is as good as zero — the field is optional so a
+  // pre-split cache entry still deserializes.
+  it("leaves undated at zero when every row carries a usable date", () => {
+    const out = aggregateActuals(
+      [item(5, 9, "2026-06-10", 4), item(99, 9, "2026-06-11", 8)],
+      links,
+      "month",
+    );
+    expect(out.undated?.hours ?? 0).toBe(0);
+    expect(out.undated?.billableHours ?? 0).toBe(0);
+    // The link-broken row still reaches `unattributed` — proving the zero above
+    // is not merely an empty fixture.
+    expect(out.unattributed).toEqual({ hours: 8, billableHours: 8 });
+  });
+
   // Anti-vacuity control: a guard that fired unconditionally would satisfy every
   // assertion above. A wholly well-formed fixture must still attribute in full,
   // with nothing diverted.

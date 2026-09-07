@@ -240,6 +240,15 @@ export function TimelogPanel({
     () => syncAggregates?.unattributed ?? { hours: 0, billableHours: 0 },
     [syncAggregates],
   );
+  // The DATE-failure SUBSET of `unattributed` (§432) — NOT a fourth total.
+  // Deliberately unused by the totals line and the KPI tile: those already
+  // count these hours via `unattributed` and are correct as they stand. It
+  // drives one extra hint only. Optional on the type, so an aggregate written
+  // before the field existed reads as zero and the hint stays away.
+  const undated = useMemo(
+    () => syncAggregates?.undated ?? { hours: 0, billableHours: 0 },
+    [syncAggregates],
+  );
 
   const bookedHours = useMemo(
     () => Object.values(byResource).reduce((s, c) => s + c.hours, 0),
@@ -656,6 +665,17 @@ export function TimelogPanel({
         {unattributed.hours > 0 && (
           <p className="mb-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
             {t(lang, "timelogAttributionHint")}
+          </p>
+        )}
+        {/* The hint above explains LINK state, which for these rows is healthy:
+            the booking's own date is not a calendar day, so no period exists to
+            place it on and fetching again returns the same row. Rendered
+            ALONGSIDE, not instead — undated hours are unattributed hours too, so
+            both explanations apply and the reader needs the second one to know
+            the first one's remedy will not work here (§432). */}
+        {undated.hours > 0 && (
+          <p className="mb-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
+            {t(lang, "timelogUndatedHint")}
           </p>
         )}
         {fetchedUsers.length === 0 ? (

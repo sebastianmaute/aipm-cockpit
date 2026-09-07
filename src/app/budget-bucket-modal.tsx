@@ -135,12 +135,24 @@ export function BudgetBucketModal({
     }));
 
   const isBlended = draft.planningMode === "blended";
-  const hasDetailedHours = draft.allocations.some(
-    (a) => Object.keys(a.budgetHours).length > 0 || Object.keys(a.actualHours).length > 0,
-  );
-  const hasBlendedHours = (draft.disciplineAllocations ?? []).some(
-    (a) => Object.keys(a.budgetHours).length > 0 || Object.keys(a.actualHours).length > 0,
-  );
+  // ★★ THE TWO HALVES ARE ASYMMETRIC ON PURPOSE (§433). `budgetHours` is
+  // USER-ENTERED through the period cells, so a key exists only because someone
+  // typed in that cell — a key count is the right question and an explicitly
+  // zeroed cell is still their work. `actualHours` is MACHINE-WRITTEN from
+  // fetched TimeLog data, and before `aggregateActuals` guarded the booking date
+  // it minted phantom period keys ("", "05/01/2", "NaN-WNaN") that apply then
+  // persisted. Those keys are still in existing workspaces, so a key count reads
+  // an EMPTY allocation as populated and the planning-mode switch warns about
+  // losing hours that do not exist. Asking for a non-zero VALUE is exactly the
+  // question: a cell with no hours is nothing to lose.
+  // ★ NO load-time migration and no rewrite of stored data — considered and
+  // deliberately rejected. A phantom key is inert everywhere else (every numeric
+  // reader sums by GENERATED period key, so it is never read), and this
+  // predicate is the only place it did harm.
+  const hasHours = (budgetHours: Record<string, number>, actualHours: Record<string, number>): boolean =>
+    Object.keys(budgetHours).length > 0 || Object.values(actualHours).some((h) => h !== 0);
+  const hasDetailedHours = draft.allocations.some((a) => hasHours(a.budgetHours, a.actualHours));
+  const hasBlendedHours = (draft.disciplineAllocations ?? []).some((a) => hasHours(a.budgetHours, a.actualHours));
 
   const togglePlanningMode = async () => {
     if (!isBlended) {
