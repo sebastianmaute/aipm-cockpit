@@ -851,6 +851,47 @@ export async function runTool(
       return { deleted: id };
     }
 
+    case "list_absences":
+      return d.listAbsences();
+
+    case "create_absence":
+      return d.createAbsence(input as AbsenceInput);
+
+    case "update_absence": {
+      const id = requireId(input);
+      const current = d.getAbsenceRow(id);
+      if (!current) throw new Error(`absence #${id} not found`);
+      requireToken("absence", current, input, `absence #${id}`);
+      const updated = d.updateAbsence(id, patchWithoutId(input, "absence"));
+      if (!updated) throw new Error(`absence #${id} not found`);
+      return updated;
+    }
+
+    case "delete_absence": {
+      const id = requireId(input);
+      if (!d.deleteAbsence(id)) throw new Error(`absence #${id} not found`);
+      return { deleted: id };
+    }
+
+    case "create_calendar_event":
+      return d.createCalendarEvent(input as CalendarEventInput);
+
+    case "update_calendar_event": {
+      const id = requireId(input);
+      const current = d.getCalendarEventRow(id);
+      if (!current) throw new Error(`calendar event #${id} not found`);
+      requireToken("calendarEvent", current, input, `calendar event #${id}`);
+      const updated = d.updateCalendarEvent(id, patchWithoutId(input, "calendarEvent"));
+      if (!updated) throw new Error(`calendar event #${id} not found`);
+      return updated;
+    }
+
+    case "delete_calendar_event": {
+      const id = requireId(input);
+      if (!d.deleteCalendarEvent(id)) throw new Error(`calendar event #${id} not found`);
+      return { deleted: id };
+    }
+
     case "update_settings": {
       const applied = d.updateSettings(input as SettingsUpdateInput);
       if (Object.keys(applied).length === 0) {

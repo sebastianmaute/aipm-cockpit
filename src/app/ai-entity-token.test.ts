@@ -54,6 +54,8 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
     update_change: "change",
     update_stakeholder: "stakeholder",
     update_resource: "resource",
+    update_absence: "absence",
+    update_calendar_event: "calendarEvent",
   };
 
   /** `update_*` tools deliberately outside the token, each because the thing it

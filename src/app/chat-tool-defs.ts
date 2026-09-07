@@ -3,6 +3,7 @@
 // that build it. Pure data; the dispatcher contract + `runTool` routing +
 // arg-coercion live in chat-tools.ts (which re-exports `TOOL_DEFS`).
 import {
+  ABSENCE_TYPES,
   ASSUMPTION_STATUSES,
   CHANGE_STATUSES,
   CHANGE_TYPES,
@@ -140,6 +141,43 @@ const stakeholderFields = {
     description: "Interest level. Defaults to Medium.",
   },
   notes: { type: "string" as const, description: "Free-form notes" },
+};
+
+const absenceFields = {
+  assignee: { type: "string" as const, description: "Person the absence is for (name or email)" },
+  startDate: { type: "string" as const, description: "Start date YYYY-MM-DD, inclusive" },
+  endDate: { type: "string" as const, description: "End date YYYY-MM-DD, inclusive; must be >= startDate" },
+  assigneeEmail: { type: "string" as const, description: "Email address for the assignee" },
+  type: {
+    type: "string" as const,
+    enum: ABSENCE_TYPES as unknown as string[],
+    description: "Absence type. Defaults to other.",
+  },
+  note: { type: "string" as const, description: "Free-text note" },
+  resourceId: {
+    type: "number" as const,
+    description: "Resource-directory id to link this absence to a specific person",
+  },
+};
+
+const calendarEventFields = {
+  title: { type: "string" as const, description: "Meeting title" },
+  startDate: { type: "string" as const, description: "Start date YYYY-MM-DD" },
+  startTime: { type: "string" as const, description: "Start time HH:MM (24h)" },
+  durationMinutes: { type: "number" as const, description: "Duration in minutes" },
+  location: { type: "string" as const, description: "Location" },
+  notes: { type: "string" as const, description: "Free-text notes" },
+  attendeeResourceIds: idList("Resource-directory ids of attendees"),
+  sendInvitations: {
+    type: "boolean" as const,
+    description:
+      "If true, EMAILS every attendee an invitation. This is the one effect here that leaves the app — never set it without the user explicitly asking to send invites.",
+  },
+  recurrence: {
+    type: "object" as const,
+    description:
+      "Recurrence rule for a repeating series (daily/weekly/monthly, interval, optional until/count). Omit for a one-off meeting.",
+  },
 };
 
 const resourceFields = {
@@ -725,6 +763,68 @@ export const TOOL_DEFS = [
   {
     name: "delete_stakeholder",
     description: "Delete a stakeholder by ID.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "list_absences",
+    description:
+      "List time-off/absence entries with id, assignee, startDate, endDate, type, and note. Read-only.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "create_absence",
+    description: "Create an absence (time off) entry. Required: assignee, startDate, endDate.",
+    input_schema: {
+      type: "object",
+      properties: absenceFields,
+      required: ["assignee", "startDate", "endDate"],
+    },
+  },
+  {
+    name: "update_absence",
+    description: "Update fields on an existing absence. Only the fields you pass change.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" }, ...expectedTokenField, ...absenceFields },
+      required: ["id", "expectedToken"],
+    },
+  },
+  {
+    name: "delete_absence",
+    description: "Delete an absence by ID.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "create_calendar_event",
+    description:
+      "Create a resource-calendar meeting. Required: title, startDate. Set sendInvitations only when the user explicitly asks to email attendees.",
+    input_schema: {
+      type: "object",
+      properties: calendarEventFields,
+      required: ["title", "startDate"],
+    },
+  },
+  {
+    name: "update_calendar_event",
+    description:
+      "Update fields on an existing calendar event. Only the fields you pass change. Set sendInvitations only when the user explicitly asks to email attendees.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" }, ...expectedTokenField, ...calendarEventFields },
+      required: ["id", "expectedToken"],
+    },
+  },
+  {
+    name: "delete_calendar_event",
+    description: "Delete a calendar event by ID.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },

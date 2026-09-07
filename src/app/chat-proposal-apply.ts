@@ -216,15 +216,8 @@ export const TOKEN_ROW_SOURCE: Readonly<
   update_milestone: { kind: "milestone", getRow: (d, id) => d.getMilestoneRow(id) },
   update_resource: { kind: "resource", getRow: (d, id) => d.getResourceRow(id) },
   update_stakeholder: { kind: "stakeholder", getRow: (d, id) => d.getStakeholderRow(id) },
-  // ★★ `update_absence` / `update_calendar_event` belong here and land WITH
-  // their tool schemas, not before them. `TOKEN_REQUIRED_TOOLS` is DERIVED from
-  // the advertised defs, and the two cases below this table assert the key sets
-  // match in BOTH directions — so a row naming a tool that is not yet
-  // advertised fails "names no tool that is not token-guarded". The row would
-  // also be inert: `applyProposal` looks this table up BY CALL NAME, and no
-  // call can carry a name no schema advertises. Add both rows in the same
-  // commit as the schemas, alongside the `getAbsenceRow`/`getCalendarEventRow`
-  // resolvers that already exist on the dispatcher for them.
+  update_absence: { kind: "absence", getRow: (d, id) => d.getAbsenceRow(id) },
+  update_calendar_event: { kind: "calendarEvent", getRow: (d, id) => d.getCalendarEventRow(id) },
 };
 
 /** `requireToken`'s OWN predicate for "a usable token", mirrored so this refusal
