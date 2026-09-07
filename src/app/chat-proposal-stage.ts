@@ -35,7 +35,36 @@ import type { Workspace } from "./workspace";
 export const STAGED_TOOL_RESULT =
   "This write was staged for the user to review and has NOT been applied. " +
   "Do not call this tool again for the same change. Tell the user the proposed " +
-  "changes are waiting for their approval in the review card.";
+  "changes are waiting for their approval.";
+
+/**
+ * What the model is told once the user has approved a staged batch.
+ *
+ * ★★★ WITHOUT THIS THE MODEL NEVER LEARNS THE BATCH LANDED. `STAGED_TOOL_RESULT`
+ *  says "has NOT been applied" and nothing ever superseded it, so a later turn
+ *  read a transcript in which the writes were still pending — and the model
+ *  correctly, and wrongly, reminded the user to go and approve batches it had
+ *  already applied. Reported from the running app; the writes HAD landed.
+ *
+ * ★★ IT MUST NAME THE COUNTS, not merely say "approved". A partial apply is
+ *  normal — a row whose entity changed since the preview is refused and stays
+ *  selected for a retry — so a bare "the user approved it" would make the model
+ *  report every row as done when some were not.
+ *
+ * ★ ENGLISH AND NOT TRANSLATED, exactly like `STAGED_TOOL_RESULT` and
+ *  `INTERRUPTED_TOOL_RESULT`: nothing here reaches the user's screen.
+ */
+export function appliedProposalNotice(applied: number, failed: number): string {
+  const head =
+    `The user reviewed the staged changes and approved them. ${applied} ` +
+    `${applied === 1 ? "write was" : "writes were"} applied and ${applied === 1 ? "is" : "are"} ` +
+    "now committed. Do not propose them again and do not tell the user they are still waiting.";
+  if (failed === 0) return head;
+  return (
+    `${head} ${failed} ${failed === 1 ? "row was" : "rows were"} NOT applied and ` +
+    "remain selected for the user to retry; re-read the affected records before saying anything about them."
+  );
+}
 
 /** The `tool_result` body for one staged call.
  *

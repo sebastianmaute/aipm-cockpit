@@ -82,12 +82,28 @@ export interface ChatProposalBlockProps {
   readonly rows: readonly ProposalCardRow[];
   readonly selected: ReadonlySet<number>;
   readonly onToggleRow: (index: number) => void;
+  /** Select every selectable row, or clear the selection.
+   *
+   *  ★★ OPTIONAL, so the card still renders for a caller that has no such
+   *   handler — the control simply does not appear. It is NOT given a no-op
+   *   default: a checkbox that draws and does nothing is the false affordance
+   *   this codebase already rejects for the resize grip. */
+  readonly onToggleAll?: (next: boolean) => void;
   readonly onApply: () => void;
   readonly onDiscard: () => void;
   /** Override the disclosure threshold. Tests pass a small number. */
   readonly collapseAfter?: number;
   /** Apply is in flight — both actions go inert without unmounting the card. */
   readonly busy?: boolean;
+  /** Rows committed by the last Apply, or `null` before any Apply on this card.
+   *
+   *  ★★★ SUCCESS WAS THE ONE OUTCOME WITH NO STRING. Four failure kinds each had
+   *   one; a clean Apply merely emptied the selection and disabled the button,
+   *   which is what a dead button looks like — a user reported the click as
+   *   never having fired, on a batch that had in fact been written. `0` and
+   *   `null` are different states and must stay so: nothing applied yet, versus
+   *   an Apply that committed nothing. */
+  readonly applied?: number | null;
 }
 
 /**
@@ -265,10 +281,12 @@ export function ChatProposalBlock({
   rows,
   selected,
   onToggleRow,
+  onToggleAll,
   onApply,
   onDiscard,
   collapseAfter = PROPOSAL_COLLAPSE_AFTER,
   busy = false,
+  applied = null,
 }: ChatProposalBlockProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -283,6 +301,13 @@ export function ChatProposalBlock({
   const collapsed = !expanded && rows.length > collapseAfter;
   const visible = collapsed ? rows.slice(0, collapseAfter) : rows;
   const selectedCount = rows.filter((r) => selected.has(r.index)).length;
+  // ★★ MEASURED AGAINST EVERY ROW, cascaded ones included. A select-all selects
+  //  the whole plan, which makes no row cascaded — cascading is a function of
+  //  the selection, and every dependency is another row of this same plan — so
+  //  the all-checked state is always reachable. An earlier cut excluded
+  //  cascaded rows here to pair with a handler that skipped them, and that
+  //  handler was itself the bug.
+  const totalCount = rows.length;
 
   return (
     <section
@@ -295,6 +320,30 @@ export function ChatProposalBlock({
           {t(lang, "chatProposalCount", rows.length)}
         </span>
       </header>
+
+      {/* ★★ THE CHECKED STATE IS "EVERY ROW", cascaded ones included — see the
+          note on `totalCount`. While a create is refused its dependent shows as
+          cascaded and unticked, so the box reads unchecked; ticking it selects
+          the whole plan, which resolves the cascade rather than fighting it.
+          ★ An empty card disables it: with no rows, both directions are no-ops. */}
+      {onToggleAll && (
+        <div className="border-b border-line px-3 pb-2">
+          {/* Same wrapper shape as a row: the first labelable descendant IS the
+              checkbox, and its own aria-label wins the accessible name while
+              the visible text is contained in it (2.5.3). */}
+          <label className="flex cursor-pointer items-center gap-2">
+            <Checkbox
+              checked={totalCount > 0 && selectedCount === totalCount}
+              disabled={busy || totalCount === 0}
+              onChange={(e) => onToggleAll(e.target.checked)}
+              aria-label={t(lang, "chatProposalSelectAll")}
+            />
+            <span className="text-xs font-medium text-foreground">
+              {t(lang, "chatProposalSelectAll")}
+            </span>
+          </label>
+        </div>
+      )}
 
       <ul>
         {visible.map((row) => (
@@ -320,6 +369,21 @@ export function ChatProposalBlock({
           >
             {t(lang, "chatProposalShowMore")}
           </Button>
+        </div>
+      )}
+
+      {/* ★★ `role="status"` so the outcome is ANNOUNCED, not merely drawn: the
+          Apply that produced it is a click, so a sighted user sees the card
+          change while a screen-reader user would otherwise get nothing at all —
+          the button simply stops being pressable.
+          ★ Rendered whenever an Apply has run, INCLUDING a zero. "0 applied"
+          beside the failure rows is the honest reading of a batch that was
+          entirely refused; suppressing it would restore the silence this closes. */}
+      {applied !== null && (
+        <div className="border-t border-line px-3 py-2" role="status">
+          <p className="text-xs font-medium text-ui-green-strong">
+            {t(lang, "chatProposalApplied", applied)}
+          </p>
         </div>
       )}
 

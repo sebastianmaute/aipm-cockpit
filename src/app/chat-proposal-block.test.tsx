@@ -84,9 +84,11 @@ describe("ChatProposalBlock", () => {
   //
   // `minControls` is MEASURED, not rounded — the explicit querySelectorAll
   // below is that measurement, kept in the test so the floor cannot drift away
-  // from what the fixture actually renders. Four rows, one checkbox each, and
-  // the card renders no other checkbox anywhere. A loose floor would let a
-  // silently narrowed `roles` array back in.
+  // from what the fixture actually renders. Four rows, one checkbox each.
+  // ★★ THE CARD CAN RENDER A FIFTH CHECKBOX — the select-all — but only when a
+  // caller passes `onToggleAll`, and `renderCard` does not. Keep it that way
+  // here: this floor is about ROW controls, and sweeping a header control into
+  // it would make the number stop describing the rows.
   it("gives every row control a row-unique accessible name", () => {
     const { container } = renderCard();
 
@@ -460,5 +462,78 @@ describe("proposalRowTitle", () => {
     expect(proposalRowTitle(call("update_task", { id: 4, status: "Done" }), emptyPlan())).toBe(
       "update_task",
     );
+  });
+});
+
+describe("ChatProposalBlock — select all", () => {
+  const selectAll = () => screen.getByRole("checkbox", { name: t("en-US", "chatProposalSelectAll") });
+
+  // ★ The negative control. An optional handler with no no-op default means the
+  // control's ABSENCE is a real state, and asserting the presence case alone
+  // would pass even if the guard were dropped and it always rendered.
+  it("renders no select-all when the caller passes no handler", () => {
+    renderCard();
+    expect(
+      screen.queryByRole("checkbox", { name: t("en-US", "chatProposalSelectAll") }),
+    ).toBeNull();
+  });
+
+  it("asks to select everything when some rows are unticked", async () => {
+    const user = userEvent.setup();
+    const onToggleAll = vi.fn();
+    renderCard(ROWS, { onToggleAll, selected: new Set([0]) });
+    expect(selectAll()).not.toBeChecked();
+    await user.click(selectAll());
+    expect(onToggleAll).toHaveBeenCalledWith(true);
+  });
+
+  it("asks to clear when every selectable row is already ticked", async () => {
+    const user = userEvent.setup();
+    const onToggleAll = vi.fn();
+    renderCard(ROWS, { onToggleAll, selected: new Set([0, 1, 2, 3]) });
+    expect(selectAll()).toBeChecked();
+    await user.click(selectAll());
+    expect(onToggleAll).toHaveBeenCalledWith(false);
+  });
+
+  // ★★★ A CASCADED ROW STILL COUNTS. The box means "the whole plan is
+  // selected", so while a create is refused and its dependent shows as
+  // cascaded, it reads unchecked — and ticking it selects everything, which
+  // resolves the cascade instead of stepping around it. An earlier cut measured
+  // this against the SELECTABLE rows so it would read checked here; that paired
+  // with a handler which skipped cascaded rows, and the pair left a row
+  // stranded unticked after a select-all.
+  it("reads as unchecked while a cascaded row is unticked", () => {
+    const rows = [
+      ROWS[0],
+      { ...ROWS[1], cascaded: true },
+      ROWS[2],
+      ROWS[3],
+    ] as ProposalCardRow[];
+    renderCard(rows, { onToggleAll: vi.fn(), selected: new Set([0, 2, 3]) });
+    expect(selectAll()).not.toBeChecked();
+  });
+});
+
+describe("ChatProposalBlock — the applied notice", () => {
+  const appliedText = (n: number) => t("en-US", "chatProposalApplied", n);
+
+  it("says nothing before an Apply", () => {
+    renderCard();
+    expect(screen.queryByText(appliedText(0))).toBeNull();
+    expect(screen.queryByText(appliedText(4))).toBeNull();
+  });
+
+  it("reports what landed once an Apply has run", () => {
+    renderCard(ROWS, { applied: 3 });
+    expect(screen.getByText(appliedText(3))).toBeInTheDocument();
+  });
+
+  // ★★ `0` AND `null` ARE DIFFERENT STATES. An Apply that committed nothing must
+  // still say so beside its failure rows — collapsing the two would restore the
+  // silence that made a working Apply read as a dead button.
+  it("reports a zero rather than falling silent", () => {
+    renderCard(ROWS, { applied: 0 });
+    expect(screen.getByText(appliedText(0))).toBeInTheDocument();
   });
 });

@@ -4277,6 +4277,8 @@ export const de: Record<TranslationKey, string> = {
   chatProposalShowMore: "Alle anzeigen",
   chatProposalRowToggle: "Einbeziehen",
   chatProposalCascaded: "Benötigt eine von Ihnen abgelehnte Änderung",
+  chatProposalSelectAll: "Alle auswählen",
+  chatProposalApplied: "{0} übernommen",
   chatProposalFailed: "Nicht übernommen – seit Ihrer Prüfung geändert",
   chatProposalFailedDependency: "Nicht übernommen – ein Eintrag, den diese Änderung benötigt, wurde nicht erstellt",
   chatProposalFailedUnreadable: "Nicht übernommen – das Ziel konnte nicht erneut gelesen werden",

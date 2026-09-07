@@ -4504,6 +4504,8 @@ const enUS = {
   chatProposalShowMore: "Show all",
   chatProposalRowToggle: "Include",
   chatProposalCascaded: "Needs a change you rejected",
+  chatProposalSelectAll: "Select all",
+  chatProposalApplied: "{0} applied",
   chatProposalFailed: "Not applied — changed since you reviewed",
   chatProposalFailedDependency: "Not applied — a row it depends on was not created",
   chatProposalFailedUnreadable: "Not applied — its target could not be read back",
