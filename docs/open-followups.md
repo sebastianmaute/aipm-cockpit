@@ -642,6 +642,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--open) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit | S | open |
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--open) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | open |
+| [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
+| [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--open) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -30695,3 +30697,101 @@ consumer that turns the option off — rather than trusting this paragraph:
 that pattern matches this defect's own explanatory comments in `arrangement-tile.tsx`,
 `reports.tsx` and `reports.test.tsx` as well as the two real call sites, so the tally overstates
 the consumer set by roughly a factor of three.
+
+## 426. Four Reports-arrangement checks that only an eye can make are unrun — OPEN
+
+
+**Status:** open, **never machine-verified**, recorded 2026-09-07 at the close of the
+Reports-arrangement slice. That phrase is the honest answer here and not a placeholder: all four
+items below are visual judgements about a rendered browser layout, jsdom has no layout engine, and
+the axe gate answers a different question. Do not replace this line with a command until someone has
+actually looked.
+
+**Why none of these is coverable by a gate.** jsdom computes no geometry whatsoever, so the entire
+unit suite is blind to width, height, wrapping and overflow — the tests that exist here pin the
+CLASS STRINGS and the arithmetic behind them, never the pixels. axe checks contrast and
+name/role/value, not whether a table is legible in the box it was given. Both were green throughout
+this slice while every question below stayed open.
+
+**1. The seven `minW: 4` blocks at the `xl` breakpoint.** Those blocks carry column-resizable tables
+or an embedded report panel and are floored at full width so they cannot be squeezed into an
+unreadable column. Verify they are readable at `xl` and that nothing lets them render narrower.
+★ Seven is a DERIVED number, not a typed list — three literal rows (`byAssignee`, `byGroup`,
+`byLabel`) plus one per member of `ADDABLE_REPORTS`, spread in by a `map`. A fifth addable report
+makes it eight and no gate will say so. Re-derive rather than trusting this paragraph:
+`grep -c "minW: 4" src/app/report-blocks.ts` overstates it (the file's own docstring matches), so
+read the hits.
+
+**2. The 120px row unit.** `ArrangementGrid` is given `rowClass="auto-rows-[120px]"` here against
+the Dashboard's 80px, because `BlockSpan` caps at 4 and 4 × 80px would put a whole embedded report
+panel in a 320px box. Verify that an embedded report at `h: 4` is actually usable at 120px — this is
+the number the whole grid's vertical rhythm rides on, and nothing but an eye can price it.
+★ The class is a WHOLE LITERAL STRING for Tailwind's scanner; the unit test asserting it is the only
+guard that the literal survives an edit, and it says nothing about whether 120 is the right number.
+
+**3. Printing.** `ReportCard` roots the pane in `print-root print-landscape`. Verify Reports still
+prints sanely now that the pane is a dense arrangeable grid rather than a stack of sections — the
+print stylesheet strips scroll containers, and this surface gained several.
+
+**4. The four-member trailing group is not crowded.** The toolbar's trailing group went from three
+icons to four (Print · reset-columns · reset-layout · reset-size). ★★ It is in this list because it
+is the SAME class as the other three, not because it is a suspicion: the order is pinned by
+`expectButtonOrder` with `contiguous: true`, which proves nothing sits BETWEEN the members and
+cannot see that four glyphs are now visually indistinguishable or that they wrap on a narrow pane.
+`AGENTS.md` already records a case where two adjacent resets wore the same glyph and became
+impossible to tell apart, so the risk is a known one.
+
+**How to close it.** Open Reports on a real project at `xl`, at a narrow pane, and in the browser's
+print preview. ★★ Prefer a seeded Playwright probe that MEASURES over a look — a bounding-box read
+of the seven floored blocks and of one `h: 4` embedded report is reproducible, records a number, and
+can be re-run by the next person, where "it looked fine" cannot. That is not a substitute for the
+print check, which still needs eyes.
+
+## 427. The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting — OPEN
+
+
+**Status:** open, recorded 2026-09-07. Verified by two commands actually run:
+`grep -n "stored ?? seed" src/app/use-arrangement.ts` (the seed is offered whenever the store
+returns `null`) and `grep -c "onChangeExtraReports(" src/app/reports.tsx` → **0**, which is the fact
+that changed the severity — the panel declares that prop and never calls it. ★ The BEHAVIOUR is
+already pinned by `use-reports-arrangement.test.tsx`'s "RE-RUNS the seed when the stored blob is
+REJECTED", so this entry records a known, tested behaviour whose CONSEQUENCE got worse, not a
+suspected bug. (The extension is `.tsx`, not `.ts` — the source docstring's own reference omits it
+and a `grep` for the `.ts` spelling returns "No such file".)
+
+**The gap.** `useReportsArrangement` carries a one-time migration off `settings.reports.extra`. Its
+"one-time" marker is that `loadArrangement` returned something USABLE for this project —
+`use-arrangement.ts` reads `stored ?? seed?.() ?? null` — and `loadArrangement` collapses a MISSING
+key and a REJECTED blob into the same `null`. So the migration re-runs whenever the stored
+arrangement fails `isArrangementLayout`: a blob written by a future build with a bumped `v`, a blob
+truncated by a quota failure, a hand-corrupted one. It is not "first ever load"; it is "nothing
+usable in storage".
+
+**Why it is worse here than on the Dashboard.** The Dashboard's seed reverts to a DEFAULT — a whole
+arrangement, which a user notices at once and can attribute to something. Reports reverts to
+`settings.reports.extra`, and since Task 12 that field is **frozen**: `reports.tsx` no longer writes
+it (Add is `arrangement.restore`, remove is the ⋮ hide, reorder is `arrangement.move`), so it still
+holds whatever it held before the migration. The user therefore loses exactly the reports they had
+restored from the shelf since, and gets back ones they had hidden — which reads as the app quietly
+forgetting a few choices rather than as a reset. ★★ The source docstring in
+`use-reports-arrangement.ts` predicted this in the FUTURE tense ("becomes the described failure at
+the moment Task 12 stops writing the field"). Task 12 has landed. Read that paragraph as present
+tense; it has not been rewritten, so this entry is the record that the tense flipped.
+
+**Severity: LOW-MEDIUM.** It was LOW while the setting stayed current. It needs a rejected blob to
+trigger, which today means a corruption or a downgrade from a future build — neither routine, both
+possible, and the second becomes likelier the moment anyone bumps the layout version.
+
+**The cheaper closure, and it is not the obvious one.** A second "migration done" marker key is the
+reflex, and it is the worse option: new storage surface for a case `arrangement-store.ts` already
+accepts losing, closing this one gap only. `loadArrangement` collapses MISSING and REJECTED into one
+`null` **while knowing which is which at that boundary**. Distinguishing them there — returning the
+reason, or splitting the entry point — would let `use-arrangement.ts` offer the seed on MISSING
+alone. Zero new storage surface, and it closes the Dashboard's accepted downgrade trade at the same
+time. Neither call is made here; this is recorded so the marker key does not become the only
+remembered option.
+
+★ **Do NOT close this by making the seed idempotent instead.** The seed is not the problem — it does
+the right thing with the input it is given. The defect is that a rejected blob is indistinguishable
+from an absent one, and any fix that leaves that conflation in place will be re-derived as a bug by
+the next person who reads `loadArrangement`.
