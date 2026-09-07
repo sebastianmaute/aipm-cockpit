@@ -524,7 +524,11 @@ describe("ReportsPanel — sortable headers are unique across the sibling tables
       // its pre-restructure 27 — eighteen below the truth. A regression dropping
       // all thirteen ⋮ and five grips would still leave 27 uniquely-named
       // controls and this test would go GREEN. Re-measured by probe (set it to
-      // 999 and read the helper's own error): the scope renders 45.
+      // 999 and read the helper's own error): the scope renders 47, so the
+      // floor below is EXACT. ★★ This prose said 45 while the floor beside it
+      // was already right, so a reader auditing whether the floor was exact
+      // would have concluded it was two TOO HIGH and lowered it — the one
+      // direction this comment forbids. Re-probe, never reason from the prose.
       minControls: 47,
       scope: container,
       roles: ["button"],
@@ -661,8 +665,8 @@ describe("ReportsPanel — the arrangement grid", () => {
       // ★★ EXACT, NOT "well below". An earlier revision of this line set 12 and
       // said so openly — honest, but it forgoes the guard by choice: a floor
       // under the true count cannot tell a silently-empty render from a full
-      // one. Measured by the same probe: this fixture renders 47, two more than
-      // the 45 above because it adds the RAID report block (one grip, one ⋮).
+      // one. Measured by the same probe: this fixture renders 49, two more than
+      // the 47 above because it adds the RAID report block (one grip, one ⋮).
       minControls: 49,
       scope: container,
     });
@@ -840,12 +844,14 @@ describe("ReportsPanel — the shelf and the block menu", () => {
    * user is dropped on `<body>` at the top of the document.
    *
    * ★★★ THREE OF THE FOUR ARE MUTATION-PROVED; THE MOVE ONE IS NOT, AND THE
-   * MUTANT SURVIVES. Measured 2026-09-07, one mutant per test, whole file each
-   * time (47 tests):
-   *   - delete `focusShelfToggle()` from `onHide`     → 1 failed / 46 passed
-   *   - delete `focusShelfToggle()` from `onRestore`  → 1 failed / 46 passed
-   *   - delete `reorder.endDrag()` from the shelf drop → 1 failed / 46 passed
-   *   - delete `setFocusAfterMove({ id })`            → **47 passed, GREEN**
+   * MUTANT SURVIVES. Measured 2026-09-07, one mutant per test, the whole file
+   * each time. ★★ NO TOTALS ARE QUOTED — this said "47 tests" and "1 failed /
+   * 46 passed" while the file already held 49, and every test added anywhere in
+   * the file re-stales them. The DIRECTION is the durable claim:
+   *   - delete `focusShelfToggle()` from `onHide`      → exactly its own test RED
+   *   - delete `focusShelfToggle()` from `onRestore`   → exactly its own test RED
+   *   - delete `reorder.endDrag()` from the shelf drop → exactly its own test RED
+   *   - delete `setFocusAfterMove({ id })`             → **whole file GREEN**
    *
    * ★★★ SO THE MOVE TEST BELOW DOES NOT GUARD `focusAfterMove` / `triggerRefs`,
    * and must not be cited as if it did. It is not merely "unable to distinguish
@@ -1058,11 +1064,43 @@ describe("ReportsPanel — the shelf and the block menu", () => {
   it("offers NO arrangement controls in a popout", () => {
     // ★★ A popout is read-only by design: no grips, no ⋮, no shelf. The tile
     // chrome drops its own two on `readOnly`; the shelf is guarded at its site.
-    renderReports(tasks, { isPopout: true });
+    const popout = renderReports(tasks, { isPopout: true });
     expect(screen.queryByRole("button", { name: /drag to reorder/i })).toBeNull();
     expect(screen.queryByRole("button", { name: new RegExp(t("en-US", "actionMoreActions"), "i") })).toBeNull();
     expect(screen.queryByRole("button", { name: /hidden/i })).toBeNull();
     // …and the blocks themselves still render, or this would pass vacuously.
     expect(screen.getByTestId("report-block-byPriority")).toBeInTheDocument();
+
+    // ★★★ AND THE "Add report" SELECT, WHICH THE THREE QUERIES ABOVE CANNOT
+    // SEE. It is `leading` on `ReportCard` — outside the tile chrome, so no
+    // `readOnly` in `ArrangementTile` reaches it — and every query above asks
+    // for role `button`. Before its own guard at the `leading={…}` site it
+    // rendered here, was operable, and `arrangement.restore` painted the block
+    // with no ⋮ and no shelf to undo it and no persist to keep it. Its
+    // accessible name is the `aria-label`, so an OPTION reading "+ Add report"
+    // cannot satisfy this query; the role is what separates them.
+    expect(screen.queryByRole("combobox", { name: t("en-US", "reportsAddReport") })).toBeNull();
+
+    // POSITIVE CONTROL, mutating the FIXTURE rather than the subject: the very
+    // same query FINDS the select once `isPopout` is off. Without this a
+    // mistyped key, a changed role or a silently-empty render would make the
+    // assertion above pass against BOTH the fixed and the unfixed code. Bound
+    // queries, not `screen` — this second tree is in the document too, which is
+    // why it is rendered AFTER every document-scoped assertion above.
+    const normal = renderReports(tasks);
+    expect(
+      normal.getByRole("combobox", { name: t("en-US", "reportsAddReport") }),
+    ).toBeInTheDocument();
+    // ★★★ `within(popout.container)`, NEVER `popout.queryByRole`. RTL binds a
+    // render's returned queries to `baseElement` — `document.body` — NOT to its
+    // own `container`, so `popout.queryByRole` searches BOTH trees and finds
+    // the select belonging to `normal`, two lines above. That is a defect in
+    // the assertion, not in the guard: this exact query passed as
+    // `screen.queryByRole` earlier in this test, while the popout was the only
+    // tree in the document. Measured — it failed with the received node being
+    // `normal`'s `<select aria-label="Add report">`.
+    expect(
+      within(popout.container).queryByRole("combobox", { name: t("en-US", "reportsAddReport") }),
+    ).toBeNull();
   });
 });

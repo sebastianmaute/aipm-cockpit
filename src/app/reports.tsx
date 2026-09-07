@@ -586,7 +586,18 @@ export function ReportsPanel({
          buttons that ARE rendered, so a reset wrongly present in a popout
          satisfies it perfectly. The popout test is the only detector. */
       onResetLayout={arrangement.readOnly ? undefined : arrangement.reset}
-      leading={addReportControl}
+      /* ★★★ THE SAME GUARD, AND THIS ONE IS THE HARSHER FAILURE OF THE TWO. A
+         stray reset merely works where it should not; an unguarded "Add report"
+         RESTORES a block into a surface that has no ⋮ menu and no shelf, so
+         there is nothing the user can press to put it back — and `mutate` in
+         `use-arrangement.ts` carries no `readOnly` check (only the PERSIST
+         effect does), so the block paints, survives until the window closes,
+         and is then discarded unexplained. Rendering NOTHING beats rendering it
+         `disabled`: no action available on this surface could ever enable it,
+         so a disabled control is pure noise. `ReportCard`'s `leading` is
+         optional and its header drops the whole left group when it is absent,
+         so `undefined` really does render nothing. */
+      leading={arrangement.readOnly ? undefined : addReportControl}
       toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}
     >
       {/* ★★★ `auto-rows-[120px]` and `gap-4` are WHOLE LITERAL STRINGS. Tailwind
