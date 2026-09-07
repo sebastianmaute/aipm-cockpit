@@ -100,8 +100,15 @@ export function useReportsArrangement({
    * option — recorded so it does not get re-derived as the obvious one.
    * Pinned by `use-reports-arrangement.test.tsx`'s "does NOT re-run the seed
    * when the stored blob is REJECTED" and its "DOES run the seed when nothing is
-   * stored" sibling; the pair is mutation-proved (relaxing the `missing` test to
-   * `!== "ok"` turns exactly those two red).
+   * stored" sibling.
+   * ★★ THE MUTANT REDDENS ONE TEST PER FILE, NOT THIS PAIR, and an earlier
+   * wording here said "the pair is mutation-proved … turns exactly those two
+   * red", whose only antecedent was the pair just named. Relaxing
+   * `use-arrangement.ts`'s `read.status === "missing"` to `!== "ok"` reddens the
+   * two REJECTED tests, one here and one in `use-arrangement.test.tsx`. The
+   * DOES-run sibling CANNOT redden under it — `missing` satisfies `!== "ok"`
+   * identically — which is the point of having it: it guards against the seed
+   * being switched off wholesale, a different mutant.
    *
    * ★ The result is reconciled like any stored blob, so a stale or malformed
    * setting cannot corrupt the board: this names only addable ids, so every

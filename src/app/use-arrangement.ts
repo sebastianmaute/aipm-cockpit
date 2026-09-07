@@ -125,8 +125,8 @@ export interface ArrangementOptions<Id extends string> {
    * project the user switches INTO with nothing stored is seeded too. What makes
    * it run once PER PROJECT is that the first mutation writes the key, after
    * which the read reports `ok` and the seed is never consulted. Measured call
-   * counts: 1 on mount, 1
-   * still after a same-project re-render, 2 after a project switch — once per
+   * counts: 1 on mount, 1 still after a same-project re-render, 2 after a
+   * project switch — once per
    * READ, never per render, pinned by "consults the seed once per READ". A seed
    * that must run at most once globally has to carry that condition itself.
    */

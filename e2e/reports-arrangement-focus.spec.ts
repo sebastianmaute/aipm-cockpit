@@ -2,10 +2,18 @@ import { test, expect, gotoApp, openView } from "./seed";
 import { REPORTS_LAYOUT_KEY } from "../src/app/report-blocks";
 
 /**
- * The `focusAfterMove` / `triggerRefs` probe that `docs/open-followups.md` owed
- * — and the measurement that REFUTES the reason it was owed.
+ * The `focusAfterMove` / `triggerRefs` probe that was owed — and the
+ * measurement that REFUTES the reason it was owed.
  *
- * ★★★ THE REGISTER SAID "only a Playwright probe could cover it". IT DOES NOT.
+ * ★★★ THE OWED ITEM LIVED IN A SOURCE COMMENT, NOT IN THE REGISTER, and an
+ * earlier revision of this block said "THE REGISTER SAID" and put a paraphrase
+ * in quote marks. Both were wrong:
+ * `git show <base>:docs/open-followups.md | grep -c "only a Playwright probe"`
+ * returns 0. The sentence is `reports.test.tsx`'s, and verbatim it reads "only
+ * a Playwright probe can be, and one is owed". A reader who greps the register
+ * for a citation that was never there cannot tell an invented one from a moved
+ * one, which is why this is spelled out rather than quietly corrected.
+ * IT DOES NOT COVER IT.
  * Measured 2026-09-07 in Chromium against a live dev server, one mutant at a
  * time, whole file each run:
  *   - clean tree                                    → 1 passed
@@ -41,9 +49,20 @@ import { REPORTS_LAYOUT_KEY } from "../src/app/report-blocks";
  *
  * ★★ WHY IT IS KEPT ANYWAY: it pins a real OUTCOME that nothing else pins in a
  * browser — after a KEYBOARD move, focus is on the moved block's own ⋮ trigger
- * at its new position rather than on `<body>` — and the positive control proves
- * that assertion is non-vacuous about the outcome. That is worth having; it is
- * simply not the mechanism guard the register asked for.
+ * at its new position rather than on `<body>`. That is worth having; it is
+ * simply not the mechanism guard that was asked for.
+ *
+ * ★★★ THE POSITIVE CONTROL DOES NOT CERTIFY THE FOCUS ASSERTION, and an earlier
+ * revision of this paragraph claimed it did. The control deletes
+ * `arrangement.move` and the run fails AT THE ORDER POLL, which sits BEFORE the
+ * focus assertions; a Playwright `expect` failure aborts the test, so
+ * `expect(active.label)` is never executed under it. What the control actually
+ * proves is that the edit reached the served bundle and that the ORDER
+ * assertion is non-vacuous. The focus assertion stands on its own: it is a
+ * plain value comparison on `document.activeElement`, which cannot pass over an
+ * empty set the way a locator query can. This is the repo's own
+ * early-mutant-cannot-certify-a-later-assertion trap, walked into while
+ * documenting a different one.
  *
  * ★★ THE ASSERTION IS ON `document.activeElement`, NOT A LOCATOR-SCOPED
  * `toBeFocused()`, and the difference is load-bearing. The failure mode is focus
@@ -61,8 +80,14 @@ const XL = 1600;
  *
  * ★ All three are BUILT-IN blocks, which `isRenderable` never gates — they read
  * from `tasks`, which the seed always provides. An addable report (raid/budget/
- * resource/stakeholder) depends on `settings.reports.extra` and would render an
- * empty board here.
+ * resource/stakeholder) is gated by `isRenderable` on the FEATURE MODULES
+ * (`enabledReportIds`, built from `visibleReports(…, features)`) and on its
+ * embedded panel having data, so it can drop off the board and change the order
+ * this test asserts.
+ * ★★ NOT on `settings.reports.extra`, which an earlier revision of this line
+ * claimed: that field is read for ONE purpose now, the migration seed — and
+ * this spec pre-seeds the layout through `addInitScript`, so the read is `ok`
+ * and the seed is never consulted at all.
  * ★★ Every other catalogue id is HIDDEN, not merely omitted: `reconcile`
  * re-inserts any catalogue block absent from BOTH lists, next to its nearest
  * present neighbour, which would silently rewrite this order. The four addable

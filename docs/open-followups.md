@@ -31367,6 +31367,10 @@ map reads MISSING while a present-but-hostile entry reads REJECTED.
 the same commit — both asserted the conflation as present-tense fact, and the second was the
 tense-flip this entry was opened to record.
 
+★ **The paragraphs below record the state when this was opened on 2026-09-07 and are kept
+unrewritten; the fix is described in the Status block above.** They are present tense about a
+behaviour that no longer exists — read them as the record, not as the current tree.
+
 **The gap.** `useReportsArrangement` carries a one-time migration off `settings.reports.extra`. Its
 "one-time" marker is that `loadArrangement` returned something USABLE for this project —
 `use-arrangement.ts` reads `stored ?? seed?.() ?? null` — and `loadArrangement` collapses a MISSING
@@ -31383,8 +31387,11 @@ holds whatever it held before the migration. The user therefore loses exactly th
 restored from the shelf since, and gets back ones they had hidden — which reads as the app quietly
 forgetting a few choices rather than as a reset. ★★ The source docstring in
 `use-reports-arrangement.ts` predicted this in the FUTURE tense ("becomes the described failure at
-the moment Task 12 stops writing the field"). Task 12 has landed. Read that paragraph as present
-tense; it has not been rewritten, so this entry is the record that the tense flipped.
+the moment Task 12 stops writing the field"). Task 12 landed, and this entry was opened to record
+that the tense had flipped. ★★ THAT DOCSTRING HAS SINCE BEEN REWRITTEN, in the same commit that
+closed this, so the sentence that used to sit here — "it has not been rewritten" — was falsified by
+a later commit in the same range and is corrected rather than deleted, because the sequence is the
+point: a claim about another file's contents is stale the moment that file is touched.
 
 **Severity: LOW-MEDIUM.** It was LOW while the setting stayed current. It needs a rejected blob to
 trigger, which today means a corruption or a downgrade from a future build — neither routine, both
@@ -31419,8 +31426,11 @@ delete arrangement.move(id, visibleIds[j])    -> 1 failed, at the order poll
 ```
 
 ★★★ **THE PROBE THIS ENTRY EXISTS FOR IS ALREADY WRITTEN. DO NOT RE-OWE IT.** The reports-arrangement
-slice shipped with an owed item reading "the mutant survives under jsdom; only a Playwright probe
-could cover it". The probe was written (`d835a12f`) and it does **not** cover it either. Writing a
+slice shipped with an owed item, and it lived in a SOURCE COMMENT — `src/app/reports.test.tsx` —
+never in this register. Verbatim: "only a Playwright probe can be, and one is owed". ★★ An earlier
+revision of this entry attributed it to the register and paraphrased it inside quote marks; `git show
+<base>:docs/open-followups.md | grep -c "only a Playwright probe"` returns 0, so a reader chasing the
+citation would have found nothing and been unable to tell an invented one from a moved one. The probe was written (`d835a12f`) and it does **not** cover it either. Writing a
 second one will produce the same result.
 
 **Why the prediction failed.** The reasoning recorded in `reports.test.tsx` runs: `PopoverPanel`
@@ -31456,14 +31466,25 @@ ref map.
 the machinery aims at is what actually happens, by whichever route. This is unproven code and an
 unanswered question, recorded so neither is rediscovered from scratch.
 
-★ The spec is KEPT regardless. It pins a real outcome nothing else pins in a browser (after a
+★ The spec is KEPT regardless. It pins a real outcome nothing else pins in a browser: after a
 keyboard move, focus is on the moved block's own ⋮ trigger at its new position rather than on
-`<body>`), and the positive control proves that assertion is non-vacuous about the outcome. It is
-simply not a guard for the mechanism, and its own docstring says so.
+`<body>`. It is simply not a guard for the mechanism, and its own docstring says so.
 
-★ Number coordinated with the parallel worktree before minting: that branch adds zero headings
-against the merge-base (`comm -13` over the two heading sets returns empty), so 428 is not double-
-minted. This repo has had two branches mint the same number before.
+★★★ **THE POSITIVE CONTROL DOES NOT CERTIFY THE FOCUS ASSERTION**, and an earlier revision of this
+entry said it did. The control's run fails AT THE ORDER POLL, which sits before the focus
+assertions, and a Playwright `expect` failure aborts the test — so the focus assertion is never
+executed under it. What the control proves is that the edit reached the served bundle and that the
+ORDER assertion is non-vacuous. This is the early-mutant-cannot-certify-a-later-assertion trap,
+walked into inside an entry whose whole subject is a mutant that proves less than it appears to.
+
+★ Number coordinated with the parallel worktree before minting: **at the time 428 was minted** that
+branch held no heading above 423 against the merge-base, so 428 was free. This repo has had two
+branches mint the same number before, which is why it was checked rather than assumed.
+★★ THE ORIGINAL EVIDENCE SENTENCE HERE IS NOW FALSE AND IS REPLACED: it read "`comm -13` over the
+two heading sets returns empty", and that branch minted 429 seven minutes later, so re-running the
+command today prints `## 429.`. The CONCLUSION survives — 429 is not 428, and the coordination is
+what produced that — but a reproduce command beside a claim can refute it within the hour. Pin the
+state a check was made against, never the command's output alone.
 ## 429. A closed entry's `**Status:**` line is the least-gated line in the register, and closing is when a fabricated verification is most tempting — OPEN
 
 **Status:** OPEN 2026-09-07 — measured, not reasoned. Reproduce with `node scripts/check-followup-status.mjs` (exit 0 today, "203 open entries scanned" — it never looks at the 211 closed ones), and read the filter itself with `grep -n "filter((e) => !isClosed" scripts/check-followup-status.mjs`. The 67/210 figure below came from applying the gate's own `statusViolations()` to the closed set.

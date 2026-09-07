@@ -7,7 +7,8 @@ import { join } from "node:path";
  *
  * ★★★ WHY THIS IS A TEST AND NOT A CONVENTION. `arrangement-*` renders BOTH the
  * Dashboard and Reports, and every string it read was called
- * `dashboardTile*` / `dashboardShelf*` — thirteen keys. Nothing was broken by
+ * `dashboardTile*` / `dashboardShelf*` — thirteen keys, which were renamed to
+ * the `arrangement*` spellings used today. Nothing was broken by
  * that, which is exactly the problem: someone reasonably editing a
  * "Dashboard-local" wording would have silently retitled Reports, in both
  * languages, with every gate green. tsc sees a valid key, the axe gate sees a
@@ -61,7 +62,8 @@ function sharedModules(): string[] {
  * BROADER than `t()` call sites, so a key reached indirectly is still scanned.
  *
  * ★★ IT IS ALSO NARROWER THAN `t()` IN THE OTHER DIRECTION, and an earlier
- * revision of this docstring claimed it was exactly `t(..., "someKey")`, which
+ * revision of this docstring claimed it matched exactly the key literals passed
+ * to `t()`, which
  * is wrong both ways. It matches className fragments, test ids and prop values
  * too (harmless — they are not surface-prefixed), and it CANNOT see a key
  * passed as a variable or built from a template. The over-match is the safe
@@ -119,8 +121,9 @@ describe("the shared arrangement engine is surface-neutral in i18n", () => {
   /**
    * ★★★ THE SCAN ABOVE IS NARROWER THAN THE DEFECT, WHICH A COLD REVIEW HAD TO
    * TELL ME. `sharedModules()` sees only `arrangement-*`, and THREE of the
-   * thirteen keys renamed in this slice — `arrangementTileHidden`, `…Moved`,
-   * `…Resized` — are read by the SURFACES directly, not by the engine. Reverting
+   * thirteen keys renamed in this slice — `arrangementTileHidden`,
+   * `arrangementTileMoved` and `arrangementTileResized` — are read by the
+   * SURFACES directly, not by the engine. Reverting
    * exactly those three to `dashboardTile*` left the sweep above GREEN.
    *
    * This closes that: a key read by BOTH surfaces must not name either of them.
