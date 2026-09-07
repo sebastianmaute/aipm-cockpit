@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { recurrenceText } from "./calendar-recurrence-text";
+import { sanitizeCalendarEvent } from "./calendar-event";
 
 describe("recurrenceText", () => {
   it("describes a plain daily rule", () => {
@@ -28,10 +29,15 @@ describe("recurrenceText", () => {
     ).toBe("Every month on the last FR");
   });
 
+  // ★ Needs a `startDate` now: `until` is validated against it (C2), so a call
+  // with no startDate is genuinely ambiguous and OMITS the clause (see the
+  // "omit, don't guess" tests below) rather than printing it unconditionally
+  // as the pre-fix code did. `startDate` here precedes the until date, so the
+  // range check passes and this is the "as before" case.
   it("appends an until date", () => {
-    expect(recurrenceText({ freq: "daily", interval: 1, until: "2026-12-01" })).toBe(
-      "Every day until 2026-12-01",
-    );
+    expect(
+      recurrenceText({ freq: "daily", interval: 1, until: "2026-12-01" }, "2026-01-01"),
+    ).toBe("Every day until 2026-12-01");
   });
 
   it("appends an occurrence count", () => {
@@ -49,6 +55,11 @@ describe("recurrenceText", () => {
     expect(recurrenceText(undefined)).toBe("");
     expect(recurrenceText({ freq: "hourly", interval: 1 } as never)).toBe("");
     expect(recurrenceText({ interval: 2 } as never)).toBe("");
+    // I2: a freq that collides with an Object.prototype member must not walk
+    // the prototype chain and pass as a "valid" freq — `in` would accept it
+    // and then crash destructuring FREQ_UNIT["toString"] as [one, many].
+    expect(recurrenceText({ freq: "toString", interval: 1 } as never)).toBe("");
+    expect(recurrenceText({ freq: "constructor", interval: 1 } as never)).toBe("");
   });
 
   // ★★★ PREVIEW⟺WRITE PARITY. `sanitizeRecurrence` (calendar-event.ts) runs
@@ -76,23 +87,218 @@ describe("recurrenceText", () => {
     expect(recurrenceText({ freq: "weekly", interval: 53 })).toBe("Every week");
   });
 
-  // ★★★ OMIT, DON'T GUESS. Out of range, the write stores a day derived from
-  // the event's startDate (`intInRange(r.byMonthDay, 1, 31, fallbackDom)` in
-  // calendar-event.ts's sanitizeRecurrence) — a value this module has no way
-  // to see (`forPreview` hands a field projection only the value, never the
-  // entity). Printing a guessed day would be a false claim about the write;
-  // omitting the clause is a true but incomplete one, and that is the safe
-  // direction. The "recurrence" field itself still shows on the card either
-  // way — only the day-of-month clause is dropped.
-  it("omits the day clause for a byMonthDay over the valid range", () => {
+  // I1: `intInRange` coerces via `toNumber`, which accepts strings and
+  // booleans — a model emitting a quoted number is not exotic, and the old
+  // `typeof === "number"` gate rejected it outright (silently clamping to 1
+  // while the write stored the real value).
+  it("accepts a string-typed interval, same coercion as the write path", () => {
+    expect(recurrenceText({ freq: "daily", interval: "3" })).toBe("Every 3 days");
+  });
+
+  // ★★★ OMIT, DON'T GUESS (byMonthDay). Out of range, the write stores a day
+  // derived from the event's startDate (`intInRange(r.byMonthDay, 1, 31,
+  // fallbackDom)` in calendar-event.ts's sanitizeRecurrence) — a value this
+  // module has no way to see without the caller passing `startDate`.
+  // Printing a guessed day would be a false claim about the write; omitting
+  // the clause is a true but incomplete one, and that is the safe direction.
+  // The "recurrence" field itself still shows on the card either way — only
+  // the day-of-month clause is dropped. DO NOT "complete" this with a guessed
+  // fallback day.
+  it("omits the day clause for a byMonthDay over the valid range (no startDate)", () => {
     expect(recurrenceText({ freq: "monthly", interval: 1, byMonthDay: 99 })).toBe("Every month");
   });
 
-  it("omits the day clause for a byMonthDay of 0", () => {
+  it("omits the day clause for a byMonthDay of 0 (no startDate)", () => {
     expect(recurrenceText({ freq: "monthly", interval: 1, byMonthDay: 0 })).toBe("Every month");
   });
 
-  it("omits the day clause for a non-integer byMonthDay", () => {
+  it("omits the day clause for a non-integer byMonthDay (no startDate)", () => {
     expect(recurrenceText({ freq: "monthly", interval: 1, byMonthDay: 15.5 })).toBe("Every month");
+  });
+
+  // With `startDate` supplied, the fallback becomes exactly computable — same
+  // formula as `sanitizeRecurrence`'s `fallbackDom`.
+  it("resolves the byMonthDay fallback exactly when startDate is given", () => {
+    expect(
+      recurrenceText({ freq: "monthly", interval: 1, byMonthDay: 99 }, "2026-01-15"),
+    ).toBe("Every month on day 15");
+  });
+
+  // C1: byDay wins over byMonthDay — mirrors sanitizeRecurrence's own comment
+  // on this precedence. The old code checked byMonthDay FIRST, so a
+  // co-present valid ordinal-weekday was never reached; the write stores the
+  // ordinal rule and drops byMonthDay entirely.
+  it("prefers a valid ordinal weekday over a co-present byMonthDay", () => {
+    expect(
+      recurrenceText({
+        freq: "monthly",
+        interval: 1,
+        byMonthDay: 15,
+        byDay: { ordinal: 2, day: "TU" },
+      }),
+    ).toBe("Every month on the 2 TU");
+  });
+
+  // C4: an invalid ordinal or a non-weekday `day` rejects the WHOLE byDay
+  // shape (never partially honoured), falling through to byMonthDay exactly
+  // as sanitizeRecurrence does.
+  it("falls back to byMonthDay when the ordinal is out of the valid set", () => {
+    expect(
+      recurrenceText({
+        freq: "monthly",
+        interval: 1,
+        byDay: { ordinal: 7, day: "MO" },
+        byMonthDay: 20,
+      }),
+    ).toBe("Every month on day 20");
+  });
+
+  it("falls back to byMonthDay when the weekday is not real", () => {
+    expect(
+      recurrenceText({
+        freq: "monthly",
+        interval: 1,
+        byDay: { ordinal: 1, day: "ZZ" },
+        byMonthDay: 5,
+      }),
+    ).toBe("Every month on day 5");
+  });
+
+  // C5: the weekly byDay list is filtered to real weekdays, DEDUPED, and
+  // reordered into canonical MO..SU order — exactly what
+  // `WEEKDAYS.filter((d) => raw.some(...))` produces. Echoing the raw array's
+  // order/duplicates/invalid entries would describe a series the write does
+  // not produce.
+  it("filters, dedupes and canonically orders a weekly byDay list", () => {
+    expect(
+      recurrenceText({ freq: "weekly", interval: 1, byDay: ["XX", "WE", "MO", "MO"] }),
+    ).toBe("Every week on MO, WE");
+  });
+
+  // C3: count is clamped to an integer 1..500, count's own exact twin of the
+  // interval fix — the same class we already fixed once and left here.
+  it("drops a count over the valid range instead of overstating it", () => {
+    expect(recurrenceText({ freq: "daily", interval: 1, count: 1000 })).toBe("Every day");
+  });
+
+  // C2: a rejected `until` (out of range against startDate) lets `count`
+  // survive — mirrors sanitizeRecurrence's "at most one range terminator"
+  // rule exactly, including which one wins.
+  it("falls back to count when until is before startDate", () => {
+    expect(
+      recurrenceText(
+        { freq: "daily", interval: 1, until: "2020-01-01", count: 5 },
+        "2026-01-01",
+      ),
+    ).toBe("Every day, 5 times");
+  });
+
+  it("prefers a valid until at or after startDate over a co-present count", () => {
+    expect(
+      recurrenceText(
+        { freq: "daily", interval: 1, until: "2026-12-01", count: 5 },
+        "2026-01-01",
+      ),
+    ).toBe("Every day until 2026-12-01");
+  });
+
+  // The date-FORMAT half of the until check needs no startDate: a
+  // syntactically bad until is known-rejected either way.
+  it("falls back to count when until is not a parseable ISO date", () => {
+    expect(
+      recurrenceText({ freq: "daily", interval: 1, until: "not-a-date", count: 7 }),
+    ).toBe("Every day, 7 times");
+  });
+
+  // ★★★ OMIT, DON'T GUESS (until/count precedence). A syntactically valid
+  // `until` with NO startDate is genuinely ambiguous — it might survive the
+  // write, might not — so the entire range clause is dropped rather than
+  // guessing which of until/count would win.
+  it("omits the whole range clause for an ambiguous until with no startDate", () => {
+    expect(
+      recurrenceText({ freq: "daily", interval: 1, until: "2026-12-01", count: 5 }),
+    ).toBe("Every day");
+  });
+});
+
+// ★★★ THE FIX THAT MATTERS MOST. Composed against the REAL, exported
+// `sanitizeCalendarEvent` (calendar-event.ts:138) rather than a second
+// hand-copy of the sanitizer's rules — a differential built on a hand-copy
+// would excuse exactly the class of defect this file exists to catch, since
+// the hand-copy and the projection could drift together. `startDate` is
+// passed identically on both sides: the LHS is what the review card would
+// show once Task 8 wires `startDate` through; the RHS is what
+// `recurrenceText` renders for the value the write path ACTUALLY stored.
+describe("recurrenceText matches sanitizeCalendarEvent (differential)", () => {
+  const START_DATE = "2026-01-15"; // day-of-month 15, used by the byMonthDay-fallback cases
+
+  function writtenRecurrenceText(raw: unknown, startDate: string): string {
+    const event = sanitizeCalendarEvent({
+      id: 1,
+      title: "Standup",
+      startDate,
+      recurrence: raw,
+    });
+    return recurrenceText(event?.recurrence, startDate);
+  }
+
+  it("agrees on a plain daily rule", () => {
+    const raw = { freq: "daily", interval: 5 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  it("agrees on a string-typed interval (I1)", () => {
+    const raw = { freq: "daily", interval: "12" };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  it("agrees on an out-of-range interval clamping to 1", () => {
+    const raw = { freq: "daily", interval: 100 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  it("agrees on a weekly rule with an unsorted, invalid, duplicate-laden byDay (C5)", () => {
+    const raw = { freq: "weekly", interval: 1, byDay: ["SU", "XX", "MO", "MO", "FR"] };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  it("agrees on a weekly rule with an absent byDay", () => {
+    const raw = { freq: "weekly", interval: 2 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  it("agrees that a valid ordinal weekday wins over a co-present byMonthDay (C1)", () => {
+    const raw = { freq: "monthly", interval: 1, byMonthDay: 15, byDay: { ordinal: 2, day: "TU" } };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  it("agrees on an invalid ordinal falling back to a valid byMonthDay (C4)", () => {
+    const raw = { freq: "monthly", interval: 1, byDay: { ordinal: 9, day: "MO" }, byMonthDay: 20 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  it("agrees on an invalid ordinal AND an invalid byMonthDay falling back to startDate", () => {
+    const raw = { freq: "monthly", interval: 1, byDay: { ordinal: 9, day: "MO" }, byMonthDay: 999 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  it("agrees that a valid until at or after startDate wins over count", () => {
+    const raw = { freq: "daily", interval: 1, until: "2026-12-01", count: 5 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  it("agrees that an until before startDate is rejected in favour of count (C2)", () => {
+    const raw = { freq: "daily", interval: 1, until: "2020-01-01", count: 5 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  it("agrees that a count over the valid range is dropped (C3)", () => {
+    const raw = { freq: "daily", interval: 1, count: 600 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
+  });
+
+  it("agrees that an unrecognized freq renders as nothing on both sides", () => {
+    const raw = { freq: "hourly", interval: 1 };
+    expect(recurrenceText(raw, START_DATE)).toBe(writtenRecurrenceText(raw, START_DATE));
   });
 });
