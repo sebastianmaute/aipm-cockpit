@@ -876,9 +876,9 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // assertion would read as coverage while pinning nothing. The accessible
     // name is the only observable that survives the icon-only form.
     expect(
-      screen.queryByRole("button", { name: t(EN, "dashboardResetLayout") }),
+      screen.queryByRole("button", { name: t(EN, "arrangementResetLayout") }),
     ).toBeNull();
-    expect(screen.queryByRole("button", { name: t(EN, "dashboardShelfCount", 0) })).toBeNull();
+    expect(screen.queryByRole("button", { name: t(EN, "arrangementShelfCount", 0) })).toBeNull();
   });
 
   it("hides a tile from the ⋮ menu onto the shelf, announces it, and restores it", async () => {
@@ -887,14 +887,14 @@ describe("DashboardPanel arrangeable tile grid", () => {
     await user.click(screen.getByRole("button", { name: kebab("Progress") }));
     // PopoverPanel owns the dismissal protocol and portals the panel to <body>.
     const menu = screen.getByRole("dialog", { name: kebab("Progress") });
-    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
 
     expect(screen.queryByTestId("tile-progress")).toBeNull();
     const announced = screen.getAllByRole("status").map((el) => el.textContent);
-    expect(announced).toContain(t(EN, "dashboardTileHidden", "Progress"));
+    expect(announced).toContain(t(EN, "arrangementTileHidden", "Progress"));
 
-    await user.click(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) }));
-    await user.click(screen.getByRole("button", { name: `${t(EN, "dashboardTileRestore")} – Progress` }));
+    await user.click(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
     expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
   });
 
@@ -909,10 +909,10 @@ describe("DashboardPanel arrangeable tile grid", () => {
     render(<DashboardPanel {...fullProps} projectId="p-grid-hide-focus" />, { wrapper });
     await user.click(screen.getByRole("button", { name: kebab("Progress") }));
     const menu = screen.getByRole("dialog", { name: kebab("Progress") });
-    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
 
     expect(screen.queryByTestId("tile-progress")).toBeNull();      // the trigger really did unmount
-    const shelf = screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) });
+    const shelf = screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) });
     expect(document.activeElement).toBe(shelf);
   });
 
@@ -925,13 +925,13 @@ describe("DashboardPanel arrangeable tile grid", () => {
     render(<DashboardPanel {...fullProps} projectId="p-grid-restore-focus" />, { wrapper });
     await user.click(screen.getByRole("button", { name: kebab("Progress") }));
     const menu = screen.getByRole("dialog", { name: kebab("Progress") });
-    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
 
-    await user.click(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) }));
-    await user.click(screen.getByRole("button", { name: `${t(EN, "dashboardTileRestore")} – Progress` }));
+    await user.click(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: `${t(EN, "arrangementTileRestore")} – Progress` }));
     expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
     expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) }),
+      screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) }),
     );
   });
 
@@ -945,14 +945,14 @@ describe("DashboardPanel arrangeable tile grid", () => {
 
     await user.click(screen.getByRole("button", { name: kebab(title) }));
     const menu = screen.getByRole("dialog", { name: kebab(title) });
-    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileMoveEarlier") }));
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileMoveEarlier") }));
 
     const after = Array.from(document.querySelectorAll('[data-testid^="tile-"]'))
       .map((el) => el.getAttribute("data-testid"));
     expect(after.indexOf(target)).toBe(1);
     expect(after).toHaveLength(before.length);
     const announced = screen.getAllByRole("status").map((el) => el.textContent);
-    expect(announced).toContain(t(EN, "dashboardTileMoved", title, "2", String(before.length)));
+    expect(announced).toContain(t(EN, "arrangementTileMoved", title, "2", String(before.length)));
   });
 
   it("returns focus to the moved tile's own ⋮ trigger, so the next move needs no re-navigation", async () => {
@@ -971,7 +971,7 @@ describe("DashboardPanel arrangeable tile grid", () => {
 
     await user.click(screen.getByRole("button", { name: kebab(title) }));
     const menu = screen.getByRole("dialog", { name: kebab(title) });
-    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileMoveEarlier") }));
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileMoveEarlier") }));
 
     // The tile survives a move — only the popover goes — so the destination is
     // the trigger the user opened, found by TILE IDENTITY rather than by a node
@@ -1008,10 +1008,10 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // pointer wanders in with nothing being dragged" test pins at the component.
     render(<DashboardPanel {...fullProps} projectId="p-grid-shelfdrop" />, { wrapper });
     fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
-    fireEvent.drop(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) }));
+    fireEvent.drop(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) }));
     expect(screen.queryByTestId("tile-progress")).toBeNull();     // the grip really did unmount
 
-    const shelf = screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) });
+    const shelf = screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) });
     expect(shelf).toHaveAttribute("aria-expanded", "false");
     fireEvent.dragEnter(shelf);
     expect(shelf).toHaveAttribute("aria-expanded", "false");
@@ -1023,7 +1023,7 @@ describe("DashboardPanel arrangeable tile grid", () => {
     // against a shelf whose guard was broken shut.
     render(<DashboardPanel {...fullProps} projectId="p-grid-shelfopen" />, { wrapper });
     fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
-    const shelf = screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) });
+    const shelf = screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) });
     fireEvent.dragEnter(shelf);
     expect(shelf).toHaveAttribute("aria-expanded", "true");
   });
@@ -1040,14 +1040,14 @@ describe("DashboardPanel arrangeable tile grid", () => {
       <DashboardPanel {...fullProps} projectId="p-grid-gate" />, { wrapper });
     await user.click(screen.getByRole("button", { name: kebab("Budget burn") }));
     const menu = screen.getByRole("dialog", { name: kebab("Budget burn") });
-    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
-    await user.click(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) }));
-    const chip = `${t(EN, "dashboardTileRestore")} – Budget burn`;
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
+    await user.click(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 1) }));
+    const chip = `${t(EN, "arrangementTileRestore")} – Budget burn`;
     expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
 
     rerender(<DashboardPanel {...fullProps} projectId="p-grid-gate" showBudget={false} />);
     expect(screen.queryByRole("button", { name: chip })).toBeNull();
-    expect(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t(EN, "arrangementShelfCount", 0) })).toBeInTheDocument();
 
     rerender(<DashboardPanel {...fullProps} projectId="p-grid-gate" />);
     expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
@@ -1069,7 +1069,7 @@ describe("DashboardPanel reset-layout control", () => {
   it("renders the reset button in the top control stack", () => {
     render(<DashboardPanel {...fullProps} projectId="p-reset-present" />, { wrapper });
     expect(
-      screen.getByRole("button", { name: t(EN, "dashboardResetLayout") }),
+      screen.getByRole("button", { name: t(EN, "arrangementResetLayout") }),
     ).toBeInTheDocument();
   });
 
@@ -1079,7 +1079,7 @@ describe("DashboardPanel reset-layout control", () => {
   // between them.
   it("orders the stack Print, Reset layout, Reset size", () => {
     render(<DashboardPanel {...fullProps} projectId="p-reset-order" />, { wrapper });
-    expectButtonOrder(["printHint", "dashboardResetLayout", "tableResetSizeHint"], {
+    expectButtonOrder(["printHint", "arrangementResetLayout", "tableResetSizeHint"], {
       contiguous: true,
     });
   });
@@ -1089,10 +1089,10 @@ describe("DashboardPanel reset-layout control", () => {
     render(<DashboardPanel {...fullProps} projectId="p-reset-click" />, { wrapper });
     await user.click(screen.getByRole("button", { name: kebab("Progress") }));
     const menu = screen.getByRole("dialog", { name: kebab("Progress") });
-    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
     expect(screen.queryByTestId("tile-progress")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: t(EN, "dashboardResetLayout") }));
+    await user.click(screen.getByRole("button", { name: t(EN, "arrangementResetLayout") }));
     expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
   });
 });

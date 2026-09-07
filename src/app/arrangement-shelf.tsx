@@ -71,7 +71,7 @@ export function ArrangementShelf({
   trayId: string;
 }) {
   const [open, setOpen] = useState(false);
-  const restore = t(lang, "dashboardTileRestore");
+  const restore = t(lang, "arrangementTileRestore");
   /**
    * ★★★ THE SHELF IS THE LIST OWNER, SO THE TOKEN MAP IS BUILT HERE — the repo's
    * standing rule (`row-tokens.ts`, and AGENTS.md's "a per-item component cannot
@@ -120,7 +120,7 @@ export function ArrangementShelf({
         {...dropProps}
         className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
       >
-        <span aria-hidden>{open ? "▾" : "▸"}</span> {t(lang, "dashboardShelfCount", hidden.length)}
+        <span aria-hidden>{open ? "▾" : "▸"}</span> {t(lang, "arrangementShelfCount", hidden.length)}
       </button>
       <div
         id={trayId}
@@ -129,7 +129,7 @@ export function ArrangementShelf({
         className="mt-1 w-full rounded-md border border-dashed border-line bg-surface-muted p-2"
       >
         {hidden.length === 0 ? (
-          <p className="text-xs italic text-muted-foreground">{t(lang, "dashboardShelfEmpty")}</p>
+          <p className="text-xs italic text-muted-foreground">{t(lang, "arrangementShelfEmpty")}</p>
         ) : (
           <ul className="flex flex-wrap gap-2">
             {hidden.map((h) => (

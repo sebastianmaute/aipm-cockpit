@@ -209,7 +209,7 @@ export function ResetSizeButton({
  *  ★★ Its accessible name MUST differ from `ResetSizeButton`'s. Two adjacent
  *  reset buttons sharing a name is a WCAG 2.4.6 failure that axe cannot see —
  *  a name merely existing satisfies every rule the gate runs. Here
- *  `dashboardResetLayout` ("Reset layout") and `tableResetSizeHint` ("Reset
+ *  `arrangementResetLayout` ("Reset layout") and `tableResetSizeHint` ("Reset
  *  back to the default size.") are distinct, and must stay so. */
 export function ResetLayoutButton({
   onClick,
@@ -223,8 +223,8 @@ export function ResetLayoutButton({
       variant="bordered"
       size="md"
       onClick={onClick}
-      label={t(lang, "dashboardResetLayout")}
-      title={t(lang, "dashboardResetLayout")}
+      label={t(lang, "arrangementResetLayout")}
+      title={t(lang, "arrangementResetLayout")}
     >
       <ResetLayoutIcon />
     </IconButton>

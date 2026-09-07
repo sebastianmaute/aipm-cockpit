@@ -2469,27 +2469,27 @@ const enUS = {
   dashboardInsights: "Insights",
   dashboardRaidRegister: "RAID register",
   dashboardTrends: "Trends",
-  dashboardTileWidth: "Width",
-  dashboardTileHeight: "Height",
-  dashboardTileFixedAt: "Fixed at {0}",
-  dashboardTileMoveEarlier: "Move earlier",
-  dashboardTileMoveLater: "Move later",
-  dashboardTileMoveFirst: "Move to start",
+  arrangementTileWidth: "Width",
+  arrangementTileHeight: "Height",
+  arrangementTileFixedAt: "Fixed at {0}",
+  arrangementTileMoveEarlier: "Move earlier",
+  arrangementTileMoveLater: "Move later",
+  arrangementTileMoveFirst: "Move to start",
   // ★★ NOUN-FREE ON PURPOSE. The `dashboard*` key PREFIX is historical — this
   // menu is shared by the Dashboard's tiles and the Reports board's blocks — and
   // "Hide tile" was the only string in it that leaked the Dashboard's noun onto
   // Reports, where it offered "Hide tile" on a report block. Every sibling
-  // (`dashboardTileRestore`, `dashboardShelfCount`, `dashboardShelfEmpty`,
-  // `dashboardTileHidden`, the two move commands) already reads without one.
+  // (`arrangementTileRestore`, `arrangementShelfCount`, `arrangementShelfEmpty`,
+  // `arrangementTileHidden`, the two move commands) already reads without one.
   // Nothing is lost: the block's title is in the enclosing dialog's own name.
-  dashboardTileHide: "Hide",
-  dashboardTileRestore: "Restore",
-  dashboardShelfCount: "{0} hidden",
-  dashboardShelfEmpty: "Nothing hidden",
-  dashboardResetLayout: "Reset layout",
-  dashboardTileMoved: "{0} moved to position {1} of {2}",
-  dashboardTileHidden: "{0} is now hidden",
-  dashboardTileResized: "{0} resized to {1} by {2}",
+  arrangementTileHide: "Hide",
+  arrangementTileRestore: "Restore",
+  arrangementShelfCount: "{0} hidden",
+  arrangementShelfEmpty: "Nothing hidden",
+  arrangementResetLayout: "Reset layout",
+  arrangementTileMoved: "{0} moved to position {1} of {2}",
+  arrangementTileHidden: "{0} is now hidden",
+  arrangementTileResized: "{0} resized to {1} by {2}",
   dashboardProgress: "Progress",
   dashboardPercentComplete: "{0}% complete",
   dashboardCompletedOf: "{0} of {1} complete",

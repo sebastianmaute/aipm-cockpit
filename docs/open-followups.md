@@ -651,7 +651,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | closed 2026-09-07 |
 | [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
-| [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--open) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | open |
+| [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | closed 2026-09-07 |
+| [§428](#428-focusaftermove--triggerrefs-has-no-detector-at-any-layer-and-the-playwright-probe-that-was-owed-refuted-its-own-premise--open) | `focusAfterMove` / `triggerRefs` has no detector at any layer | found 2026-09-07 writing the probe the reports-arrangement slice owed | NONE — a decision, not a defect; do not re-owe the probe | open |
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
 <!-- INDEX:END -->
 
@@ -31337,17 +31338,38 @@ of the seven floored blocks and of one `h: 4` embedded report is reproducible, r
 can be re-run by the next person, where "it looked fine" cannot. That is not a substitute for the
 print check, which still needs eyes.
 
-## 427. The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting — OPEN
+## 427. The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting — CLOSED 2026-09-07
 
 
-**Status:** open, recorded 2026-09-07. Verified by two commands actually run:
-`grep -n "stored ?? seed" src/app/use-arrangement.ts` (the seed is offered whenever the store
-returns `null`) and `grep -c "onChangeExtraReports(" src/app/reports.tsx` → **0**, which is the fact
-that changed the severity — the panel declares that prop and never calls it. ★ The BEHAVIOUR is
-already pinned by `use-reports-arrangement.test.tsx`'s "RE-RUNS the seed when the stored blob is
-REJECTED", so this entry records a known, tested behaviour whose CONSEQUENCE got worse, not a
-suspected bug. (The extension is `.tsx`, not `.ts` — the source docstring's own reference omits it
-and a `grep` for the `.ts` spelling returns "No such file".)
+**Status:** CLOSED 2026-09-07, verified by
+`npx vitest run --maxWorkers=1 src/app/arrangement-store.test.ts src/app/use-arrangement.test.tsx src/app/use-reports-arrangement.test.tsx src/app/dashboard-layout-store.test.ts`
+(4 files, 63 passed) plus the mutation run below. Closed by the cheaper of the two fixes this entry
+described — the one it
+warned must not be forgotten in favour of a marker key. `readArrangement` (`arrangement-store.ts`)
+now returns `{ status: "ok" | "missing" | "rejected" }`, and `useArrangement` offers the seed on
+`missing` ALONE; a rejected blob falls through to the surface's own fallback. `loadArrangement`
+is now a thin wrapper over it, so the "is this usable" predicate exists once and the two entry
+points cannot drift. Zero new storage surface, and the Dashboard's accepted downgrade trade is
+closed by the same change.
+
+**Verified by mutation, not asserted.** The two tests that used to pin the DEFECT were inverted
+(`use-arrangement.test.tsx` "does NOT run the seed when the stored blob is REJECTED";
+`use-reports-arrangement.test.tsx` "does NOT re-run the seed when the stored blob is REJECTED"),
+each gained a `DOES run … when nothing is stored` sibling so the seed cannot be silently switched
+off wholesale, and each pins the DISCRIMINATOR itself (`readArrangement(...) === { status: "rejected" }`)
+because reporting `missing` there is the one wrong answer that would reintroduce this. Relaxing the
+guard to `read.status !== "ok"` — i.e. restoring the old behaviour — turns exactly those two red:
+**2 failed / 41 passed (43)**, the sum matching the two files' runtime counts (28 + 15).
+`arrangement-store.test.ts` covers the boundary directly (14 passed), including that an unparseable
+map reads MISSING while a present-but-hostile entry reads REJECTED.
+
+★ The source docstrings in `use-arrangement.ts` and `use-reports-arrangement.ts` were corrected in
+the same commit — both asserted the conflation as present-tense fact, and the second was the
+tense-flip this entry was opened to record.
+
+★ **The paragraphs below record the state when this was opened on 2026-09-07 and are kept
+unrewritten; the fix is described in the Status block above.** They are present tense about a
+behaviour that no longer exists — read them as the record, not as the current tree.
 
 **The gap.** `useReportsArrangement` carries a one-time migration off `settings.reports.extra`. Its
 "one-time" marker is that `loadArrangement` returned something USABLE for this project —
@@ -31365,8 +31387,11 @@ holds whatever it held before the migration. The user therefore loses exactly th
 restored from the shelf since, and gets back ones they had hidden — which reads as the app quietly
 forgetting a few choices rather than as a reset. ★★ The source docstring in
 `use-reports-arrangement.ts` predicted this in the FUTURE tense ("becomes the described failure at
-the moment Task 12 stops writing the field"). Task 12 has landed. Read that paragraph as present
-tense; it has not been rewritten, so this entry is the record that the tense flipped.
+the moment Task 12 stops writing the field"). Task 12 landed, and this entry was opened to record
+that the tense had flipped. ★★ THAT DOCSTRING HAS SINCE BEEN REWRITTEN, in the same commit that
+closed this, so the sentence that used to sit here — "it has not been rewritten" — was falsified by
+a later commit in the same range and is corrected rather than deleted, because the sequence is the
+point: a claim about another file's contents is stale the moment that file is touched.
 
 **Severity: LOW-MEDIUM.** It was LOW while the setting stayed current. It needs a rejected blob to
 trigger, which today means a corruption or a downgrade from a future build — neither routine, both
@@ -31386,6 +31411,80 @@ the right thing with the input it is given. The defect is that a rejected blob i
 from an absent one, and any fix that leaves that conflation in place will be re-derived as a bug by
 the next person who reads `loadArrangement`.
 
+## 428. `focusAfterMove` / `triggerRefs` has no detector at any layer, and the Playwright probe that was owed refuted its own premise — OPEN
+
+
+**Status:** open as a DECISION, not as a defect — nothing is broken and nothing is owed. Recorded
+2026-09-07, verified by three runs of
+`npx playwright test e2e/reports-arrangement-focus.spec.ts --project=chromium --workers=1`
+in Chromium against a live dev server, one mutant at a time:
+
+```
+clean tree                                    -> 1 passed
+delete setFocusAfterMove({ id })              -> 1 passed   <- SURVIVES
+delete arrangement.move(id, visibleIds[j])    -> 1 failed, at the order poll
+```
+
+★★★ **THE PROBE THIS ENTRY EXISTS FOR IS ALREADY WRITTEN. DO NOT RE-OWE IT.** The reports-arrangement
+slice shipped with an owed item, and it lived in a SOURCE COMMENT — `src/app/reports.test.tsx` —
+never in this register. Verbatim: "only a Playwright probe can be, and one is owed". ★★ An earlier
+revision of this entry attributed it to the register and paraphrased it inside quote marks; `git show
+<base>:docs/open-followups.md | grep -c "only a Playwright probe"` returns 0, so a reader chasing the
+citation would have found nothing and been unable to tell an invented one from a moved one. The probe was written (`d835a12f`) and it does **not** cover it either. Writing a
+second one will produce the same result.
+
+**Why the prediction failed.** The reasoning recorded in `reports.test.tsx` runs: `PopoverPanel`
+restores focus to its anchor on unmount; React reorders a keyed list by MOVING the existing DOM
+nodes rather than recreating them; so under jsdom the anchor is still connected and the primitive's
+own restore lands it, making the machinery redundant there. All three clauses hold. The conclusion
+drawn from them — that a real browser BLURS a moved element and so the restore would be
+insufficient — does not: whatever the blur does, it happens before the restore runs, and the
+restore then re-focuses a node that is live and correctly positioned.
+
+**The third run is what makes the second believable**, and it is the part to copy rather than the
+finding. A surviving mutant and a stale `.next` serving pre-mutation output are indistinguishable
+from a green run alone. Deleting `arrangement.move` turns the spec red at its order assertion, which
+proves an edit to `reports.tsx` actually reaches the served bundle. Without that control the whole
+measurement would have been a plumbing failure wearing the gate's name.
+
+**The decision that is actually open.** A surviving mutant is a QUESTION: "equivalent mutant" and
+"missing test" look identical from the harness, and separating them needs an input neither suite
+has. Today `moveByDelta` has no caller that leaves focus anywhere but the popover, so the popover's
+own restore covers every path that exists. Either:
+
+- a path is added where the popover is NOT the focus owner (a keyboard shortcut that moves a block
+  without opening the menu, a drag committed from the grip), which would make the machinery
+  load-bearing and testable — at which point pin it; or
+- it is established that no such path will exist, and the machinery can go.
+
+★★★ **DO NOT DELETE IT ON THE STRENGTH OF THE SURVIVING MUTANT ALONE.** That is the reading this
+entry exists to prevent. "No test fails when I remove it" is exactly as consistent with "nothing
+exercises the path it guards" as with "it does nothing", and the code costs one `useState` and a
+ref map.
+
+**Severity: NONE as a defect.** No user-visible behaviour is wrong in either surface — the outcome
+the machinery aims at is what actually happens, by whichever route. This is unproven code and an
+unanswered question, recorded so neither is rediscovered from scratch.
+
+★ The spec is KEPT regardless. It pins a real outcome nothing else pins in a browser: after a
+keyboard move, focus is on the moved block's own ⋮ trigger at its new position rather than on
+`<body>`. It is simply not a guard for the mechanism, and its own docstring says so.
+
+★★★ **THE POSITIVE CONTROL DOES NOT CERTIFY THE FOCUS ASSERTION**, and an earlier revision of this
+entry said it did. The control's run fails AT THE ORDER POLL, which sits before the focus
+assertions, and a Playwright `expect` failure aborts the test — so the focus assertion is never
+executed under it. What the control proves is that the edit reached the served bundle and that the
+ORDER assertion is non-vacuous. This is the early-mutant-cannot-certify-a-later-assertion trap,
+walked into inside an entry whose whole subject is a mutant that proves less than it appears to.
+
+★ Number coordinated with the parallel worktree before minting: **at the time 428 was minted** that
+branch held no heading above 423 against the merge-base, so 428 was free. This repo has had two
+branches mint the same number before, which is why it was checked rather than assumed.
+★★ THE ORIGINAL EVIDENCE SENTENCE HERE IS NOW FALSE AND IS REPLACED: it read "`comm -13` over the
+two heading sets returns empty", and that branch minted 429 seven minutes later, so re-running the
+command today prints `## 429.`. The CONCLUSION survives — 429 is not 428, and the coordination is
+what produced that — but a reproduce command beside a claim can refute it within the hour. Pin the
+state a check was made against, never the command's output alone.
 ## 429. A closed entry's `**Status:**` line is the least-gated line in the register, and closing is when a fabricated verification is most tempting — OPEN
 
 **Status:** OPEN 2026-09-07 — measured, not reasoned. Reproduce with `node scripts/check-followup-status.mjs` (exit 0 today, "203 open entries scanned" — it never looks at the 211 closed ones), and read the filter itself with `grep -n "filter((e) => !isClosed" scripts/check-followup-status.mjs`. The 67/210 figure below came from applying the gate's own `statusViolations()` to the closed set.

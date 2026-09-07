@@ -748,7 +748,7 @@ describe("ReportsPanel — toolbar order", () => {
     // PRESENT in a popout; only the popout test below can.
     renderReports([makeTask({ id: 1, assignee: "Ann" })]);
     expectButtonOrder(
-      ["printHint", "colResetWidthsHint", "dashboardResetLayout", "tableResetSizeHint"],
+      ["printHint", "colResetWidthsHint", "arrangementResetLayout", "tableResetSizeHint"],
       { contiguous: true },
     );
   });
@@ -760,7 +760,7 @@ describe("ReportsPanel — toolbar order", () => {
     // here. A popout has no grips, no ⋮ and no shelf by design; a working reset
     // on it is the defect `dashboard-panel.tsx` records as a ★★★.
     renderReports([makeTask({ id: 1, assignee: "Ann" })], { isPopout: true });
-    expect(screen.queryByRole("button", { name: t("en-US", "dashboardResetLayout") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "arrangementResetLayout") })).toBeNull();
     // …and the other three are still there, so this is not passing because the
     // whole toolbar vanished.
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], {
@@ -809,13 +809,13 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const user = userEvent.setup();
     renderReports(tasks);
     await openMenuFor(user, t("en-US", "reportsByPriority"));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileHide") }));
 
     expect(screen.queryByTestId("report-block-byPriority")).toBeNull();
     await user.click(screen.getByRole("button", { name: /hidden/i }));
     expect(
       screen.getByRole("button", {
-        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+        name: `${t("en-US", "arrangementTileRestore")} – ${t("en-US", "reportsByPriority")}`,
       }),
     ).toBeInTheDocument();
   });
@@ -824,11 +824,11 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const user = userEvent.setup();
     renderReports(tasks);
     await openMenuFor(user, t("en-US", "reportsByPriority"));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileHide") }));
     await user.click(screen.getByRole("button", { name: /hidden/i }));
     await user.click(
       screen.getByRole("button", {
-        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+        name: `${t("en-US", "arrangementTileRestore")} – ${t("en-US", "reportsByPriority")}`,
       }),
     );
     expect(screen.getByTestId("report-block-byPriority")).toBeInTheDocument();
@@ -861,22 +861,34 @@ describe("ReportsPanel — the shelf and the block menu", () => {
    * anchor is the very ⋮ trigger the move machinery aims at. React reorders a
    * keyed list by MOVING the existing DOM nodes rather than recreating them, so
    * in jsdom that captured anchor is still live and connected and the primitive's
-   * own restore lands it. What jsdom cannot reproduce is the browser behaviour
-   * the machinery exists for — moving a focused element BLURS it — which is what
-   * makes the primitive's restore insufficient in a real browser.
+   * own restore lands it.
+   *
+   * ★★★ THE PREDICTION THAT A REAL BROWSER WOULD TELL THEM APART WAS WRONG, AND
+   * THIS BLOCK USED TO MAKE IT. It read: what jsdom cannot reproduce is that
+   * moving a focused element BLURS it, which makes the primitive's restore
+   * insufficient in a real browser. Refuted by measurement on 2026-09-07 —
+   * `e2e/reports-arrangement-focus.spec.ts` drives the keyboard move in
+   * Chromium and STILL PASSES with `setFocusAfterMove({ id })` deleted. A
+   * positive control in the same file (deleting `arrangement.move`) turns it
+   * red, so the survival is a real absence of a detector and not a stale
+   * bundle. Whatever the blur does, it happens before that restore runs.
    *
    * ★★ It is kept because it pins a real OUTCOME (after a move, focus is on that
    * block's trigger, by whichever route) and because deleting it would delete
-   * this measurement with it. It is NOT coverage for the machinery: only a
-   * Playwright probe can be, and one is owed. Do not read a green run here as
-   * licence to simplify `focusAfterMove` away.
+   * this measurement with it. It is NOT coverage for the machinery — and
+   * NOTHING IS, at any layer: the owed Playwright probe was written and cannot
+   * see it either. Do not read a green run here, or there, as licence to
+   * simplify `focusAfterMove` away: a surviving mutant is a QUESTION, and
+   * separating "equivalent mutant" from "missing test" needs an input neither
+   * suite has — no caller of `moveByDelta` today leaves focus anywhere but the
+   * popover.
    * The two shelf-focus tests and the drop test have no such gap — nothing in
    * them depends on the blur-on-move behaviour, and each killed its mutant.
    */
   /**
    * The shelf disclosure, by its count-bearing name. ★★★ RESOLVED BY PATTERN,
    * NEVER BY AN EXPECTED COUNT, and that is the whole reason these ports needed
-   * rewriting: the Dashboard's originals name the shelf `dashboardShelfCount(0)`
+   * rewriting: the Dashboard's originals name the shelf `arrangementShelfCount(0)`
    * / `(1)` because its fixture starts with nothing hidden. THIS surface does
    * not — `renderReports(tasks)` opens with **2** blocks already on the shelf
    * (measured by probe, not assumed: the button reads "▸ 2 hidden" on first
@@ -899,7 +911,7 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     renderReports(tasks);
     const hiddenBefore = shelfToggle().textContent;
     await openMenuFor(user, t("en-US", "reportsByPriority"));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileHide") }));
 
     // …the trigger really did unmount and the block really did reach the shelf,
     // or the focus assertion below could pass over a no-op.
@@ -916,11 +928,11 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const user = userEvent.setup();
     renderReports(tasks);
     await openMenuFor(user, t("en-US", "reportsByPriority"));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileHide") }));
     await user.click(shelfToggle());                       // open the tray
     await user.click(
       screen.getByRole("button", {
-        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+        name: `${t("en-US", "arrangementTileRestore")} – ${t("en-US", "reportsByPriority")}`,
       }),
     );
 
@@ -946,7 +958,7 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const title = t("en-US", REPORT_BLOCKS.find((b) => b.id === target)!.labelKey);
 
     await openMenuFor(user, title);
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveEarlier") }));
 
     // Resolved by BLOCK IDENTITY, not by a node captured before the reorder.
     expect(ids().indexOf(`report-block-${target}`)).toBe(1);
@@ -993,7 +1005,7 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const spec = REPORT_BLOCKS.find((b) => b.id === target)!;
 
     await openMenuFor(user, t("en-US", spec.labelKey));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveFirst") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveFirst") }));
     expect(ids()[0]).toBe(`report-block-${target}`);
   });
 
@@ -1014,12 +1026,12 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const title = t("en-US", REPORT_BLOCKS.find((b) => b.id === target)!.labelKey);
 
     await openMenuFor(user, title);
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveLater") }));
 
     expect(ids().indexOf(`report-block-${target}`)).toBe(1);
     expect(ids()).toHaveLength(before.length);               // a move, not a drop
     expect(screen.getAllByRole("status").map((el) => el.textContent)).toContain(
-      t("en-US", "dashboardTileMoved", title, "2", String(before.length)),
+      t("en-US", "arrangementTileMoved", title, "2", String(before.length)),
     );
   });
 
@@ -1040,14 +1052,14 @@ describe("ReportsPanel — the shelf and the block menu", () => {
       t("en-US", REPORT_BLOCKS.find((b) => b.id === all[i]!.replace("report-block-", ""))!.labelKey);
 
     await openMenuFor(user, titleAt(0));
-    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") })).toBeDisabled();
-    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveFirst") })).toBeDisabled();
-    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") })).toBeEnabled();
+    expect(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveEarlier") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveFirst") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveLater") })).toBeEnabled();
     await user.keyboard("{Escape}");
 
     await openMenuFor(user, titleAt(all.length - 1));
-    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") })).toBeDisabled();
-    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") })).toBeEnabled();
+    expect(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveLater") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveEarlier") })).toBeEnabled();
   });
 
   it("announces a hide to assistive technology", async () => {
@@ -1056,7 +1068,7 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const user = userEvent.setup();
     const { container } = renderReports(tasks);
     await openMenuFor(user, t("en-US", "reportsByPriority"));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileHide") }));
     const live = container.querySelector('[role="status"][aria-live="polite"]');
     expect(live?.textContent).toContain(t("en-US", "reportsByPriority"));
   });

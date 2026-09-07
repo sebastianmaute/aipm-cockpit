@@ -4,6 +4,7 @@ import { useReportsArrangement } from "./use-reports-arrangement";
 import { REPORTS_DEFAULT_LAYOUT, REPORTS_LAYOUT_KEY } from "./report-blocks";
 import { ADDABLE_REPORTS, type AddableReportId } from "./addable-reports";
 import { LAYOUT_PERSIST_MS } from "./use-arrangement";
+import { readArrangement } from "./arrangement-store";
 
 const ALL_ADDABLE = ADDABLE_REPORTS.map((r) => r.id);
 
@@ -133,27 +134,49 @@ describe("useReportsArrangement — the one-time migration", () => {
   });
 });
 
-describe("useReportsArrangement — what the marker cannot cover", () => {
-  it("RE-RUNS the seed when the stored blob is REJECTED, reverting a later arrangement", () => {
-    // ★★★ THE HONEST LIMITATION, pinned rather than described. The marker is
-    // "storage holds something usable", and `loadArrangement` cannot tell a
-    // MISSING key from a REJECTED one — so a blob written by a future `v: 2`
-    // build, or a hand-corrupted one, re-runs the migration.
+describe("useReportsArrangement — the marker and a rejected blob", () => {
+  it("does NOT re-run the seed when the stored blob is REJECTED", () => {
+    // ★★★ THIS TEST USED TO PIN THE DEFECT AND NOW PINS THE FIX (§427, CLOSED).
+    // It was titled "RE-RUNS the seed when the stored blob is REJECTED" and
+    // asserted the revert, because the marker is "storage holds something
+    // usable" and `loadArrangement` could not tell a MISSING key from a
+    // REJECTED one — so a blob written by a future `v: 2` build, or a
+    // hand-corrupted one, re-ran the migration.
     //
-    // ★★ THE REPORTS CASE IS WORSE THAN THE DASHBOARD'S ACCEPTED TRADE, and
-    // that is why this is pinned and reported rather than waved through. The
-    // Dashboard reverts to a DEFAULT; Reports reverts to a STALE SETTING —
-    // `settings.reports.extra` is frozen at its pre-migration value because
-    // nothing writes it any more, so a user who has since RESTORED reports from
-    // the shelf loses exactly those restorations.
+    // ★★ WHY IT WAS WORSE HERE THAN ON THE DASHBOARD, which is what raised the
+    // severity: the Dashboard reverts to a DEFAULT, while Reports reverted to a
+    // STALE SETTING — `settings.reports.extra` is frozen at its pre-migration
+    // value because nothing writes it any more, so a user who had since RESTORED
+    // reports from the shelf lost exactly those restorations, which reads as the
+    // app quietly forgetting a few choices rather than as a reset.
+    //
+    // ★ The fix is one layer down and deliberately not a marker key:
+    // `readArrangement` reports `missing` | `rejected` | `ok`, and
+    // `useArrangement` offers the seed on `missing` alone.
     localStorage.setItem(
       REPORTS_LAYOUT_KEY,
       JSON.stringify({ p1: { v: 9, board: [], hidden: [] } }),
     );
     // Non-vacuity: the entry IS present, so this cannot pass for the ordinary
-    // missing-key reason.
+    // missing-key reason — which is also the one wrong answer that would
+    // reintroduce the defect, so the discriminator itself is pinned too.
     expect(JSON.parse(localStorage.getItem(REPORTS_LAYOUT_KEY)!).p1.v).toBe(9);
+    expect(readArrangement(REPORTS_LAYOUT_KEY, "p1")).toEqual({ status: "rejected" });
 
+    const { result } = mount({ extraReports: ["raid-report"] });
+    // ★★ ASSERTED POSITIVELY, not as two exclusions. `REPORTS_DEFAULT_LAYOUT` is
+    // deliberately everything-visible (`defaultLayout` returns `hidden: []`), so
+    // the fallback hides NOTHING — that is the whole outcome, and pinning it
+    // beats excluding one wrong shape. An earlier cut used `.not.toEqual` plus
+    // `.not.toContain`, which would also have passed for a third, unrelated
+    // arrangement.
+    expect(result.current.layout.hidden).toEqual([]);
+  });
+
+  // ★ The other half of the discriminator: the migration must still happen for
+  // a user who has simply never arranged Reports, which is its whole purpose.
+  it("DOES run the seed when nothing is stored for the project", () => {
+    expect(readArrangement(REPORTS_LAYOUT_KEY, "p1")).toEqual({ status: "missing" });
     const { result } = mount({ extraReports: ["raid-report"] });
     expect([...result.current.layout.hidden].sort())
       .toEqual(ALL_ADDABLE.filter((id) => id !== "raid-report").sort());

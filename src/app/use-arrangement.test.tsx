@@ -5,7 +5,7 @@ import { LAYOUT_PERSIST_MS, useArrangement } from "./use-arrangement";
 import {
   defaultLayout, type ArrangementLayout, type BlockSpec,
 } from "./arrangement-layout";
-import { loadArrangement, saveArrangement } from "./arrangement-store";
+import { loadArrangement, readArrangement, saveArrangement } from "./arrangement-store";
 
 type TestId = "a" | "b" | "c";
 
@@ -342,24 +342,39 @@ describe("useArrangement — the optional seed", () => {
     expect(screen.getByTestId("is-fallback").textContent).toBe("true");
   });
 
-  it("runs the seed when the stored blob is REJECTED, not only when the key is absent", () => {
-    // ★★★ The contract is "nothing USABLE", not "nothing stored", and this is
-    // the measurement behind that wording. `loadArrangement` returns `null` for
-    // a missing key and for a blob `isArrangementLayout` rejects alike, so the
-    // `stored ?? seed?.()` in `readLayout` cannot tell them apart. Written
-    // through raw localStorage because `saveArrangement` takes a well-typed
-    // layout and so cannot produce this state.
-    // The consequence is a downgrade round trip: a `v: 2` blob written by a
-    // future build is rejected here, so a legacy-preference seed runs AGAIN and
-    // silently reverts the user's arrangement.
+  it("does NOT run the seed when the stored blob is REJECTED", () => {
+    // ★★★ THE CONTRACT IS "NOTHING STORED", NOT "NOTHING USABLE", AND THIS TEST
+    // USED TO PIN THE OPPOSITE. open-followups §427: `loadArrangement` returned
+    // `null` for a missing key and for a rejected blob alike, so `readLayout`'s
+    // `stored ?? seed?.()` could not tell them apart and a legacy-preference seed
+    // ran AGAIN on a blob this build cannot read — silently reverting a user who
+    // downgraded from a future build. `readArrangement` now reports WHICH case it
+    // is and the seed is offered on `missing` alone.
+    // Written through raw localStorage because `saveArrangement` takes a
+    // well-typed layout and so cannot produce this state.
     localStorage.setItem(KEY, JSON.stringify({ p1: { v: 9, board: [], hidden: [] } }));
-    // ★★ THE TWO LINES BELOW ARE WHAT STOP THIS BEING VACUOUS. Without them a
-    // typo in the raw write leaves the key EMPTY, the test reads the seed for
-    // the ordinary missing-key reason, and it passes while proving nothing about
-    // rejection. So: the entry IS there, and the guard DOES reject it.
+    // ★★ THE THREE LINES BELOW ARE WHAT STOP THIS BEING VACUOUS, and the third
+    // is new. Without the first two a typo in the raw write leaves the key EMPTY,
+    // the read is MISSING for the ordinary reason, the seed runs and the
+    // assertion below fails for the wrong reason. The third pins the DISCRIMINATOR
+    // itself: without it this test would also pass if `readArrangement` reported
+    // "missing" here, which is the one wrong answer that would reintroduce §427.
     expect(JSON.parse(localStorage.getItem(KEY)!).p1).toEqual({ v: 9, board: [], hidden: [] });
     expect(loadArrangement(KEY, "p1")).toBeNull();
+    expect(readArrangement(KEY, "p1")).toEqual({ status: "rejected" });
 
+    render(<Harness seed={() => SEEDED} />);
+    // The surface's own fallback, NOT the seed: a visible whole-board reset,
+    // which is what the Dashboard has always done for an unreadable blob.
+    expect(screen.getByTestId("is-fallback").textContent).toBe("true");
+    expect(screen.getByTestId("hidden").textContent).not.toBe("a");
+  });
+
+  // ★ The other half of the same discriminator, and the reason the seed still
+  // exists at all. Kept adjacent so a future edit cannot silently turn the seed
+  // off entirely and still read as green above.
+  it("DOES run the seed when nothing is stored for the project", () => {
+    expect(readArrangement(KEY, "p1")).toEqual({ status: "missing" });
     render(<Harness seed={() => SEEDED} />);
     expect(screen.getByTestId("hidden").textContent).toBe("a");
   });

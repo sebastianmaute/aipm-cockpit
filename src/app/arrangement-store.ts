@@ -137,9 +137,62 @@ function readMap(key: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
+/**
+ * The outcome of a read, WITH the reason it yielded nothing.
+ *
+ * ★★★ THE DISTINCTION EXISTS FOR ONE CALLER AND ONE DEFECT. `useArrangement`
+ * offers a surface's legacy-preference SEED when storage holds nothing usable.
+ * Collapsing MISSING and REJECTED — which `loadArrangement` did, and still does
+ * for callers that only want a layout — makes that seed run again on a blob this
+ * build cannot read, silently reverting the user to a migrated legacy layout
+ * (open-followups §427). This boundary knows which case it is; nothing above it
+ * can recover the difference, so it is reported rather than discarded.
+ */
+export type ArrangementRead<Id extends string = string> =
+  | { status: "ok"; layout: ArrangementLayout<Id> }
+  | { status: "missing" }
+  | { status: "rejected" };
+
+/**
+ * ★★ "MISSING" IS ABOUT THE ENTRY, NOT THE STORAGE. An absent key, an absent
+ * project and an unparseable map all mean nothing is stored FOR THIS PROJECT, so
+ * all three are `missing` and a seed is the right thing to offer. `rejected` is
+ * narrower and is the load-bearing half: an entry is PRESENT and this build
+ * cannot use it — a future `v`, a truncated write, a hand-corrupted blob. A
+ * JSON `null` entry is present too — an entry whose whole value was
+ * `NaN`/`undefined`.
+ * ★★ NOT "what a NaN span serialises to", which is what this line said. A NaN
+ * SPAN yields a null FIELD inside a present object entry (measured with
+ * `JSON.stringify`), and that is rejected one layer down by
+ * `isArrangementLayout`'s finite check, not here.
+ */
+export function readArrangement(key: string, projectId: string): ArrangementRead {
+  const map = readMap(key);
+  if (!Object.prototype.hasOwnProperty.call(map, projectId)) return { status: "missing" };
+  const entry = map[projectId];
+  return isArrangementLayout(entry) ? { status: "ok", layout: entry } : { status: "rejected" };
+}
+
+/**
+ * ★ A THIN WRAPPER over `readArrangement`, deliberately — the "is this usable"
+ * predicate lives in exactly one place, so the two entry points cannot drift
+ * into disagreeing. Callers that do not care WHY a read failed keep this shape —
+ * today that is `loadLayout` in `dashboard-layout-store.ts`.
+ *
+ * ★★ AN EARLIER REVISION OF THIS LINE NAMED A FUNCTION THAT does not exist
+ * (`loadDashboardLayout`, a name that does not exist), and it did damage before
+ * review caught it: it was
+ * copied verbatim into a review brief, so a
+ * reviewer spent effort on a caller that was never there. Nothing gates this —
+ * `docs:symbols:check` reads only AGENTS.md and `docs/AGENTS/*.md`, so an
+ * invented identifier in a source comment is ungated forever. `npm run
+ * src:symbols:check` is the report that catches it (exit 0 — read the output).
+ * ★ "Public" was wrong too: `loadLayout`'s own file records that it has no
+ * production caller and exists for tests.
+ */
 export function loadArrangement(key: string, projectId: string): ArrangementLayout<string> | null {
-  const entry = readMap(key)[projectId];
-  return isArrangementLayout(entry) ? entry : null;
+  const read = readArrangement(key, projectId);
+  return read.status === "ok" ? read.layout : null;
 }
 
 export function saveArrangement(

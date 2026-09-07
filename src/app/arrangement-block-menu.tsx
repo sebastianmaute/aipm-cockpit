@@ -74,12 +74,12 @@ export function AxisGroup({
   hi: BlockSpan;
   onPick: (v: BlockSpan) => void;
 }) {
-  const label = t(lang, axis === "w" ? "dashboardTileWidth" : "dashboardTileHeight");
+  const label = t(lang, axis === "w" ? "arrangementTileWidth" : "arrangementTileHeight");
   return (
     <div className="px-2 py-1">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
       {lo === hi ? (
-        <p className="text-xs text-muted-foreground">{t(lang, "dashboardTileFixedAt", lo)}</p>
+        <p className="text-xs text-muted-foreground">{t(lang, "arrangementTileFixedAt", lo)}</p>
       ) : (
         <SegmentedControl<SpanValue>
           value={String(value) as SpanValue}
@@ -144,14 +144,14 @@ export function ArrangementBlockMenu({
         lo={minH} hi={maxH} onPick={(v) => onResize("h", v)} />
       <hr className="my-1 border-line" />
       <Button variant="ghost" size="xs" className={command} disabled={index === 0}
-        onClick={() => { onMove(-1); onClose(); }}>{t(lang, "dashboardTileMoveEarlier")}</Button>
+        onClick={() => { onMove(-1); onClose(); }}>{t(lang, "arrangementTileMoveEarlier")}</Button>
       <Button variant="ghost" size="xs" className={command} disabled={index >= count - 1}
-        onClick={() => { onMove(1); onClose(); }}>{t(lang, "dashboardTileMoveLater")}</Button>
+        onClick={() => { onMove(1); onClose(); }}>{t(lang, "arrangementTileMoveLater")}</Button>
       <Button variant="ghost" size="xs" className={command} disabled={index === 0}
-        onClick={() => { onMove("first"); onClose(); }}>{t(lang, "dashboardTileMoveFirst")}</Button>
+        onClick={() => { onMove("first"); onClose(); }}>{t(lang, "arrangementTileMoveFirst")}</Button>
       <hr className="my-1 border-line" />
       <Button variant="ghost" size="xs" className={command}
-        onClick={() => { onHide(); onClose(); }}>{t(lang, "dashboardTileHide")}</Button>
+        onClick={() => { onHide(); onClose(); }}>{t(lang, "arrangementTileHide")}</Button>
     </div>
   );
 }
