@@ -861,15 +861,27 @@ describe("ReportsPanel — the shelf and the block menu", () => {
    * anchor is the very ⋮ trigger the move machinery aims at. React reorders a
    * keyed list by MOVING the existing DOM nodes rather than recreating them, so
    * in jsdom that captured anchor is still live and connected and the primitive's
-   * own restore lands it. What jsdom cannot reproduce is the browser behaviour
-   * the machinery exists for — moving a focused element BLURS it — which is what
-   * makes the primitive's restore insufficient in a real browser.
+   * own restore lands it.
+   *
+   * ★★★ THE PREDICTION THAT A REAL BROWSER WOULD TELL THEM APART WAS WRONG, AND
+   * THIS BLOCK USED TO MAKE IT. It read: what jsdom cannot reproduce is that
+   * moving a focused element BLURS it, which makes the primitive's restore
+   * insufficient in a real browser. Refuted by measurement on 2026-09-07 —
+   * `e2e/reports-arrangement-focus.spec.ts` drives the keyboard move in
+   * Chromium and STILL PASSES with `setFocusAfterMove({ id })` deleted. A
+   * positive control in the same file (deleting `arrangement.move`) turns it
+   * red, so the survival is a real absence of a detector and not a stale
+   * bundle. Whatever the blur does, it happens before that restore runs.
    *
    * ★★ It is kept because it pins a real OUTCOME (after a move, focus is on that
    * block's trigger, by whichever route) and because deleting it would delete
-   * this measurement with it. It is NOT coverage for the machinery: only a
-   * Playwright probe can be, and one is owed. Do not read a green run here as
-   * licence to simplify `focusAfterMove` away.
+   * this measurement with it. It is NOT coverage for the machinery — and
+   * NOTHING IS, at any layer: the owed Playwright probe was written and cannot
+   * see it either. Do not read a green run here, or there, as licence to
+   * simplify `focusAfterMove` away: a surviving mutant is a QUESTION, and
+   * separating "equivalent mutant" from "missing test" needs an input neither
+   * suite has — no caller of `moveByDelta` today leaves focus anywhere but the
+   * popover.
    * The two shelf-focus tests and the drop test have no such gap — nothing in
    * them depends on the blur-on-move behaviour, and each killed its mutant.
    */
