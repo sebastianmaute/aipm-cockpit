@@ -31341,7 +31341,10 @@ print check, which still needs eyes.
 ## 427. The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting — CLOSED 2026-09-07
 
 
-**Status:** CLOSED 2026-09-07 by the cheaper of the two fixes this entry described — the one it
+**Status:** CLOSED 2026-09-07, verified by
+`npx vitest run --maxWorkers=1 src/app/arrangement-store.test.ts src/app/use-arrangement.test.tsx src/app/use-reports-arrangement.test.tsx src/app/dashboard-layout-store.test.ts`
+(4 files, 63 passed) plus the mutation run below. Closed by the cheaper of the two fixes this entry
+described — the one it
 warned must not be forgotten in favour of a marker key. `readArrangement` (`arrangement-store.ts`)
 now returns `{ status: "ok" | "missing" | "rejected" }`, and `useArrangement` offers the seed on
 `missing` ALONE; a rejected blob falls through to the surface's own fallback. `loadArrangement`
