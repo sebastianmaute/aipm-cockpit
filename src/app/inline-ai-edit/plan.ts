@@ -323,6 +323,12 @@ export function previewNormalizerFor(
  *  one. */
 const PERSON_ENTITIES: ReadonlySet<string> = new Set(["resource", "stakeholder"]);
 
+/** The date rule a descriptor gets when it declares no `acceptsDate`: exactly
+ *  `sanitizeIsoDate`'s round-trip, which is what `sanitizeAbsence` and every
+ *  register sanitizer actually call. Named rather than inlined so the override
+ *  and the default read as two answers to one question. */
+const defaultAcceptsDate = (v: string): boolean => sanitizeIsoDate(v) === v;
+
 // ★★ `assignee` SITS LAST IN BOTH CHAINS, and the position is what makes it
 //  safe to add. An `Absence` declares none of the four names ahead of it, so
 //  without this a `create_absence` row is titled with the literal string
@@ -402,9 +408,41 @@ function pushLinkDiffs(
    *   The conditional spread below is what holds that even if a caller passes
    *   `""` anyway. */
   subject?: string,
+  /** The tool this input came from, so a merge-site refusal below can be
+   *  DISCLOSED as a `rejected` row rather than silently omitted. Optional only
+   *  because the create branch has nothing to reject — see the guard. */
+  toolName?: string,
 ): void {
   for (const [f, link] of Object.entries(d.linkFields)) {
     if (!(f in input)) continue;
+    // ★★★ THE MERGE-SITE GUARD, ON LINK FIELDS TOO. `rawTypeGuards` models an
+    //  ALLOW-LIST merge site, and the update branch already consults it for
+    //  every `diffFields` member — but a LINK field is not in `diffFields`, so
+    //  until now `attendeeResourceIds` and `absence.resourceId` bypassed it
+    //  entirely. `CALENDAR_EVENT_FIELD_GUARDS.attendeeResourceIds` refuses any
+    //  array with a non-number member, so `[7, "9"]` previewed "attendees:
+    //  Ada → Ada, Grace" against a write that stores neither; a bare `"7,9"`
+    //  was worse still — `sanitizeAttendees` answers `undefined` for a
+    //  non-array, so the card promised the attendee list CLEARED on a write
+    //  that leaves it untouched. `absence.resourceId`'s own docstring records
+    //  the same shape as a "known misrender"; this is what closes it, because
+    //  `plan.rejected` IS the way to spell "unchanged" that comment says
+    //  `pushLinkDiffs` lacks.
+    //
+    //  ★★★ `target === "row"` IS LOAD-BEARING AND THE BRIEF THAT SPECIFIED
+    //   THIS FIX OMITTED IT. `dropUnacceptedAbsenceFields` /
+    //   `dropUnacceptedCalendarEventFields` are called ONLY from `updateAbsence`
+    //   / `updateCalendarEvent` (`use-register-tools.ts`); both CREATES hand
+    //   `input` straight to their sanitizer. On a create, therefore, this
+    //   module's `link.sanitize` — the writer's own `sanitizeAttendees` — is
+    //   EXACTLY what the write stores, and applying the guard there would
+    //   invent a rejection for a value that lands. Same divergence, opposite
+    //   direction. Verified by reading both write paths, not inferred.
+    const guard = target === "row" ? d.rawTypeGuards?.[f] : undefined;
+    if (guard && !guard(input[f])) {
+      if (toolName) plan.rejected.push({ toolName, reason: "bad-input", detail: `${f}=${str(input[f])}` });
+      continue;
+    }
     const beforeIds = link.sanitize(prior[f]);
     const afterIds = link.sanitize(input[f]);
     const before = resolveLinkTitles(beforeIds, link, ws);
@@ -593,7 +631,17 @@ export function describeEntityCalls(
         // Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range
         // (1900-2100), returning the input verbatim when valid and "" otherwise,
         // so a previewed date can never diverge from what apply persists.
-        if (d.dateFields.has(f) && after !== "" && sanitizeIsoDate(after) !== after) { bad(`${f}=${after}`); continue; }
+        // ★★★ THE ENTITY'S OWN DATE RULE, defaulting to `sanitizeIsoDate` —
+        //  which is what `sanitizeAbsence` and every register sanitizer call,
+        //  so seven of the eight descriptors want the default and must keep it.
+        //  `sanitizeCalendarEvent` calls `isoDateOrUndefined` instead (regex +
+        //  `Date.parse`, NO year bound, against the default's regex + 1900–2100
+        //  and NO calendar check), and the two disagree in BOTH directions:
+        //  `startDate: "2026-01-32"` previewed as an accepted change and then
+        //  made the sanitizer return null, which `updateCalendarEvent` throws
+        //  on — costing the WHOLE patch — while `"1899-12-31"` previewed as
+        //  REJECTED and landed. See `EntityDescriptor.acceptsDate`.
+        if (d.dateFields.has(f) && after !== "" && !(d.acceptsDate ?? defaultAcceptsDate)(after)) { bad(`${f}=${after}`); continue; }
         // ★★ A THROW ON APPLY COSTS THE WHOLE PATCH, not just this field.
         // `buildTaskCleanPatch` throws "assigneeEmail is invalid" for an address
         // `isValidEmail` rejects, and the dispatcher surfaces that as a failed
@@ -652,7 +700,9 @@ export function describeEntityCalls(
       // that comparison costs — lives on `pushLinkDiffs`, which the create
       // branch below calls too. Do not restate it here; one spelling is the
       // point (§405).
-      pushLinkDiffs(plan, d, input, item, ws, "row");
+      // ★ `name` is threaded so a merge-site refusal on a LINK field lands in
+      //  `plan.rejected` beside the `bad()` rows above, rather than vanishing.
+      pushLinkDiffs(plan, d, input, item, ws, "row", undefined, name);
       // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)
       // changed, whose current value is no longer valid for the item as patched,
       // is silently reset by the sanitizer to the field's default (RAID status

@@ -195,6 +195,32 @@ export function acceptsEventDuration(v: unknown): boolean {
   return intInRange(v, DURATION_MIN, DURATION_MAX, Number.NaN) === v;
 }
 
+/** Whether `sanitizeCalendarEvent` would ACCEPT this value as `startDate`.
+ *
+ *  ★★★ IT EXISTS BECAUSE THE PREVIEW'S DEFAULT DATE RULE AND THIS MODULE'S
+ *   DISAGREE IN BOTH DIRECTIONS, and each direction is its own defect.
+ *   `sanitizeIsoDate` (sanitize-core.ts) is regex + a 1900–2100 year bound and
+ *   NO calendar check; `isoDateOrUndefined` here is regex + `Date.parse` and NO
+ *   year bound. So `"2026-01-32"` previewed as an accepted change and then made
+ *   `sanitizeCalendarEvent` return null — which `updateCalendarEvent` throws on,
+ *   costing the WHOLE patch — while `"1899-12-31"` previewed as REJECTED and
+ *   landed. `INLINE_DESCRIPTORS.calendarEvent.acceptsDate` points here so the
+ *   card asks the writer's own question (§405), rather than a second spelling
+ *   of a similar one.
+ *
+ *  ★★ THE FIX IS ON THE PREVIEW SIDE ON PURPOSE. Adding a year bound to
+ *   `isoDateOrUndefined` would close the same gap by CHANGING WHAT IS STORED —
+ *   and this sanitizer runs on every LOAD, so an existing out-of-range row
+ *   would start returning null and drop the meeting. Parity, not policy.
+ *
+ *  ★★★ A HOISTED `function` DECLARATION, for exactly the reason spelled out on
+ *   `acceptsEventDuration` above: an importer building a module-level const off
+ *   it across this module's `./sanitize` barrel cycle reads the binding before
+ *   either body runs. Do not tidy it into a `const` arrow. */
+export function acceptsEventDate(v: unknown): boolean {
+  return isoDateOrUndefined(v) !== undefined;
+}
+
 /** The stored shape of `sendInvitations`: PRESENT-ONLY-WHEN-TRUE, exactly like
  *  `Resource.isExternal`. A row that does not invite carries no key at all, so
  *  a preview comparing `undefined` against an incoming `false` would render a

@@ -38,6 +38,7 @@ import {
   toNumber,
 } from "../sanitize-core";
 import {
+  acceptsEventDate,
   acceptsEventDuration,
   isSendInvitationsFlag,
   normalizeEventStartTime,
@@ -212,6 +213,28 @@ export interface EntityDescriptor {
    *   `stringOnlyFields` and for the same reason: `after` has already been
    *   normalised, so a boolean has become "true" and a number "1" by then. */
   rawTypeGuards?: Readonly<Record<string, (v: unknown) => boolean>>;
+  /** This entity's own acceptance test for a `dateFields` member, when its
+   *  writer does NOT use `sanitizeIsoDate`.
+   *
+   *  ★★★ ONE ENTITY NEEDS IT AND IT DIVERGED IN BOTH DIRECTIONS. The default
+   *   is `sanitizeIsoDate(v) === v` — regex + a 1900–2100 year bound, NO
+   *   calendar check — which is exactly what `sanitizeAbsence` calls, so
+   *   absence (and every register entity) is already in parity and must keep
+   *   the default. `sanitizeCalendarEvent` instead calls its own
+   *   `isoDateOrUndefined`: regex + `Date.parse`, NO year bound. Measured, both
+   *   ways: `startDate: "2026-01-32"` previewed as an accepted change and then
+   *   made the sanitizer return null, which `updateCalendarEvent` throws on —
+   *   costing the whole patch, every other field in the edit with it; and
+   *   `"1899-12-31"` previewed as REJECTED and landed.
+   *
+   *  ★★ THE WRITER'S OWN PREDICATE, IMPORTED, never a re-spelling (§405) — same
+   *   contract as `numericFields`' `acceptsEventDuration` beside it, and the
+   *   reason `acceptsEventDate` is a hoisted `function` in `calendar-event.ts`.
+   *
+   *  ★ Undefined means "use `sanitizeIsoDate`", which is what seven of the
+   *   eight descriptors want. Do not point a new entity here without reading
+   *   its sanitizer's actual date call first. */
+  acceptsDate?: (v: string) => boolean;
   /** Enum fields → the valid-set resolver (constant for most; category-scoped for RAID status). */
   enumFields: Record<string, EnumResolver>;
   /** For an enum field whose valid-set depends on ANOTHER field (RAID status
@@ -756,6 +779,11 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     requiredNonEmpty: new Set(["title", "startDate"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(["startDate"]),
+    // See `acceptsDate`. ★★ THE ONE ENTITY THAT NEEDS IT: this sanitizer calls
+    // `isoDateOrUndefined` (regex + `Date.parse`, no year bound), NOT the
+    // `sanitizeIsoDate` (regex + 1900–2100, no calendar check) the preview
+    // defaults to — and the two disagree in BOTH directions.
+    acceptsDate: acceptsEventDate,
     // ★★ AN ACCEPTANCE PREDICATE OVER THE RAW VALUE, and the reason it is not
     //  merely a range: the writer CLAMPS rather than refuses — `intInRange`
     //  substitutes the 60-minute default for anything outside [5,1440] — so a

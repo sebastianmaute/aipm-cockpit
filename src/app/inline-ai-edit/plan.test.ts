@@ -1410,3 +1410,169 @@ describe("every descriptor's create/delete tool is describable (§434)", () => {
     expect(plan.deletes[0].label).toBe("Ada Lovelace");
   });
 });
+
+// (C3) THE MERGE-SITE GUARD ON LINK FIELDS, AND THE `target` SPLIT THAT MAKES
+//  IT CORRECT. `rawTypeGuards` models an ALLOW-LIST merge site, and the update
+//  branch consults it for every `diffFields` member — but a LINK field is not
+//  in `diffFields`, so `attendeeResourceIds` and `absence.resourceId` bypassed
+//  it entirely.
+//
+//  THE CREATE CONTROL IS THE HALF AN UNCONDITIONAL FIX MISSES, and without it
+//   every other case here passes with the gate deleted. `dropUnaccepted*Fields`
+//   is called ONLY from `updateAbsence`/`updateCalendarEvent`
+//   (`use-register-tools.ts`); both CREATES hand `input` straight to their
+//   sanitizer, so on a create `sanitizeAttendees` IS what lands and a rejection
+//   would be the preview inventing a rule the write does not have.
+describe("link fields honour the merge-site guard on the ROW path only", () => {
+  const people = [
+    { id: 7, firstName: "Ada", lastName: "Lovelace" },
+    { id: 9, firstName: "Grace", lastName: "Hopper" },
+  ];
+  const meeting = { id: 60, title: "Steering committee", startDate: "2026-07-08", attendeeResourceIds: [7] };
+  const holiday = { id: 50, assignee: "Ada Lovelace", startDate: "2026-07-06", endDate: "2026-07-10", resourceId: 7 };
+  const calWs = wsWith({ resources: people as never, calendarEvents: [meeting] as never, absences: [holiday] as never });
+
+  function planFor(name: string, input: Record<string, unknown>, entity: "calendarEvent" | "absence") {
+    const isEvent = entity === "calendarEvent";
+    return describeEntityCalls([{ type: "tool_use", name, input }], {
+      descriptor: isEvent ? INLINE_DESCRIPTORS.calendarEvent : INLINE_DESCRIPTORS.absence,
+      item: (isEvent ? meeting : holiday) as never,
+      ws: calWs,
+    });
+  }
+
+  // ANTI-VACUITY, and it must come first: every refusal case below asserts an
+  //  EMPTY `links` array, which an unconditionally-broken projection would also
+  //  produce. This is what proves the accepted shape still previews.
+  it("still previews an attendee change the write accepts", () => {
+    const plan = planFor("update_calendar_event", { id: 60, attendeeResourceIds: [9] }, "calendarEvent");
+    expect(plan.links).toEqual([
+      { entity: "calendarEvent", target: "row", field: "attendeeResourceIds", before: "Ada Lovelace", after: "Grace Hopper", rawIds: [9] },
+    ]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  // `CALENDAR_EVENT_FIELD_GUARDS.attendeeResourceIds` refuses any array with a
+  // non-number member, so the field never reaches the sanitizer and the stored
+  // list survives — while `sanitizeAttendees([7, "9"])` coerces to [7, 9].
+  it("refuses a mixed-type id array instead of previewing the coercion", () => {
+    const plan = planFor("update_calendar_event", { id: 60, attendeeResourceIds: [7, "9"] }, "calendarEvent");
+    expect(plan.links).toEqual([]);
+    expect(plan.rejected).toEqual([
+      // ★ `str` joins an array with ", " — the detail is for a HUMAN reading the
+      //  card, so it is the rendered value, not the raw JSON.
+      { toolName: "update_calendar_event", reason: "bad-input", detail: "attendeeResourceIds=7, 9" },
+    ]);
+  });
+
+  // THE WORST SHAPE, and the reason this is Critical rather than cosmetic:
+  //  `sanitizeAttendees` answers `undefined` for a NON-ARRAY, which `?? []`
+  //  renders as the empty list — so the card promised the whole attendee list
+  //  CLEARED on a write that leaves it untouched.
+  it("refuses a comma-string instead of previewing a phantom CLEAR", () => {
+    const plan = planFor("update_calendar_event", { id: 60, attendeeResourceIds: "7,9" }, "calendarEvent");
+    expect(plan.links).toEqual([]);
+    expect(plan.rejected[0].reason).toBe("bad-input");
+  });
+
+  // The same shape one register over: `ABSENCE_FIELD_GUARDS.resourceId` accepts
+  // a number or an explicit `null` (the model's unlink) and refuses a STRING id,
+  // which `fkIdOrUndefined` would happily coerce. The descriptor's own docstring
+  // recorded this as a "known misrender"; `plan.rejected` is the way to spell
+  // "unchanged" it said `pushLinkDiffs` lacked.
+  it("refuses a string FK on an absence instead of previewing a clear", () => {
+    const plan = planFor("update_absence", { id: 50, resourceId: "9" }, "absence");
+    expect(plan.links).toEqual([]);
+    expect(plan.rejected[0]).toEqual({ toolName: "update_absence", reason: "bad-input", detail: "resourceId=9" });
+  });
+
+  it("still previews an explicit null unlink, which the guard accepts", () => {
+    const plan = planFor("update_absence", { id: 50, resourceId: null }, "absence");
+    expect(plan.links).toEqual([
+      { entity: "absence", target: "row", field: "resourceId", before: "Ada Lovelace", after: "", rawIds: [] },
+    ]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  // THE `target` GATE. A CREATE never passes through
+  //  `dropUnacceptedCalendarEventFields`, so `sanitizeAttendees([7, "9"])` is
+  //  exactly what the write stores and the card must DISCLOSE it. Delete the
+  //  `target === "row"` condition and this goes red while every case above
+  //  stays green — which is the whole reason it is here.
+  it("does NOT apply the guard to a create, whose write never sees it", () => {
+    const plan = planFor("create_calendar_event", { title: "Kickoff", attendeeResourceIds: [7, "9"] }, "calendarEvent");
+    expect(plan.rejected).toEqual([]);
+    expect(plan.links).toEqual([
+      { entity: "calendarEvent", target: "create", subject: "Kickoff", field: "attendeeResourceIds", before: "", after: "Ada Lovelace, Grace Hopper", rawIds: [7, 9] },
+    ]);
+  });
+});
+
+// (C4) THE PER-ENTITY DATE VALIDATOR. The preview defaulted to
+//  `sanitizeIsoDate` (regex + 1900-2100, NO calendar check) for every entity,
+//  but `sanitizeCalendarEvent` calls `isoDateOrUndefined` (regex + `Date.parse`,
+//  NO year bound). The two disagree in BOTH directions, and each direction is a
+//  distinct defect — so each gets its own case.
+describe("a date is judged by its own writer's rule", () => {
+  const meeting = { id: 60, title: "Steering committee", startDate: "2026-07-08" };
+  const holiday = { id: 50, assignee: "Ada Lovelace", startDate: "2026-07-06", endDate: "2026-07-10" };
+  const calWs = wsWith({ calendarEvents: [meeting] as never, absences: [holiday] as never });
+
+  it("rejects an impossible calendar day the write would throw on", () => {
+    // `isoDateOrUndefined` returns undefined -> `sanitizeCalendarEvent` returns
+    // null -> `updateCalendarEvent` throws "invalid meeting update", which costs
+    // the WHOLE patch. Previewing it as an accepted change was the worse half.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_calendar_event", input: { id: 60, startDate: "2026-01-32" } }],
+      { descriptor: INLINE_DESCRIPTORS.calendarEvent, item: meeting as never, ws: calWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([
+      { toolName: "update_calendar_event", reason: "bad-input", detail: "startDate=2026-01-32" },
+    ]);
+  });
+
+  it("accepts a pre-1900 date the write stores", () => {
+    // The other direction: `sanitizeIsoDate`'s year bound rejected this in the
+    // preview while `isoDateOrUndefined` has none, so the write landed it behind
+    // a card that said it would not.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_calendar_event", input: { id: 60, startDate: "1899-12-31" } }],
+      { descriptor: INLINE_DESCRIPTORS.calendarEvent, item: meeting as never, ws: calWs },
+    );
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates).toEqual([
+      { entity: "calendarEvent", field: "startDate", before: "2026-07-08", after: "1899-12-31", raw: "1899-12-31" },
+    ]);
+  });
+
+  // THE CONTROL THAT PINS THE DEFAULT, and without it the override could be
+  //  applied to all eight descriptors with every case above still green.
+  //  `sanitizeAbsence` calls `sanitizeIsoDate` — the SAME function the preview
+  //  defaults to — so absence was already in parity and must STAY on the year
+  //  bound. Both directions asserted.
+  // SPLIT INTO TWO `it`s ON PURPOSE. A spec aborts at its first hard `expect`,
+  //  so as one case the second direction stayed UNEXECUTED under the very
+  //  mutant meant to prove it (pointing absence at `acceptsEventDate` fails the
+  //  first assertion and never reaches the second). Two cases, two kills.
+  it("keeps absence on the year bound its own writer applies", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_absence", input: { id: 50, startDate: "1899-12-31" } }],
+      { descriptor: INLINE_DESCRIPTORS.absence, item: holiday as never, ws: calWs },
+    );
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected[0].detail).toBe("startDate=1899-12-31");
+  });
+
+  it("keeps absence free of the calendar check its own writer lacks", () => {
+    // `sanitizeAbsence` calls `sanitizeIsoDate`, which has no `Date.parse` leg,
+    // so an impossible day IS stored. Parity with a lax writer is still parity;
+    // refusing it here would be the preview inventing a rule.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_absence", input: { id: 50, startDate: "2026-01-32" } }],
+      { descriptor: INLINE_DESCRIPTORS.absence, item: holiday as never, ws: calWs },
+    );
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates[0].after).toBe("2026-01-32");
+  });
+});
