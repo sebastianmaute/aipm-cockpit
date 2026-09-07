@@ -1052,6 +1052,7 @@ const enUS = {
   scheduledJobLastRun: "Last run: {0}",
   scheduledJobNeverRun: "Never run",
   scheduledJobActionsN: "{0} suggestions",
+  scheduledJobActionsNOne: "1 suggestion",
   scheduledJobFailed: "Run failed ({0})",
   scheduledJobNotifyTitle: "Scheduled analysis: {0}",
   scheduledJobNotifyBody: "{0}",
@@ -2396,8 +2397,11 @@ const enUS = {
   raciSuggestNoProposal: "Claude proposed no assignments.",
   raciSuggestError: "Could not generate RACI suggestions.",
   raciSuggestSkipped: "{0} proposed assignments were refused because they did not match this project.",
+  raciSuggestSkippedOne: "1 proposed assignment was refused because it did not match this project.",
   raciSuggestSkippedAccountable:
     "{0} proposed assignments were refused because that milestone already has an Accountable.",
+  raciSuggestSkippedAccountableOne:
+    "1 proposed assignment was refused because that milestone already has an Accountable.",
   raciSuggestTruncated: "The proposal was capped; some assignments were not returned.",
   raciSuggestContextTruncated:
     "This project is large, so Claude was shown only some of its stakeholders and milestones. Anyone left out has no proposal here.",
@@ -2406,7 +2410,10 @@ const enUS = {
     "Every assignment Claude proposed is already in place. Nothing needs to change.",
   raciSuggestSkippedInvalidRole:
     "{0} proposed assignments were refused because the role letter was not one of R, A, C or I.",
+  raciSuggestSkippedInvalidRoleOne:
+    "1 proposed assignment was refused because the role letter was not one of R, A, C or I.",
   activityAiRaciSuggest: "Applied {0} AI-proposed RACI assignments",
+  activityAiRaciSuggestOne: "Applied 1 AI-proposed RACI assignment",
   integrationsTursoTooltip: "Store your workspace in a Turso (libSQL) database.",
   integrationsTursoUrlTooltip: "Cloud database: use the libsql:// URL (or https://) from `turso db show <db>`. Local/self-hosted server: http:// on localhost only (127.0.0.1/::1), which needs no token.",
   integrationsTursoTokenTooltip: "Auth token for the Turso database. Leave empty for a local token-less server.",
@@ -4356,6 +4363,7 @@ const enUS = {
   allocPlanNoChanges: "No allocation changes were proposed.",
   allocPlanError: "Could not plan allocations.",
   allocPlanApplied: "Applied {0} allocation changes.",
+  allocPlanAppliedOne: "Applied 1 allocation change.",
   allocPlanClamped: "trimmed to the maximum",
   allocPlanHoursOfCapacity: "{0}h of {1}h",
   allocPlanTruncated: "Some proposed changes were not shown — the plan was too large.",
@@ -4369,6 +4377,7 @@ const enUS = {
   allocPlanSkipBelowResolution: "no change to the stored value",
   allocPlanSkipAlreadySet: "already at that value",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
+  activityAiAllocationPlanOne: "AI planned 1 allocation cell",
   activityAiDocumentWrite: "Assistant edited a document",
 
   // Asset library (S3c-1 — document images)

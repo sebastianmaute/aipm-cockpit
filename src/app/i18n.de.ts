@@ -989,6 +989,7 @@ export const de: Record<TranslationKey, string> = {
   scheduledJobLastRun: "Letzter Lauf: {0}",
   scheduledJobNeverRun: "Nie ausgeführt",
   scheduledJobActionsN: "{0} Vorschläge",
+  scheduledJobActionsNOne: "1 Vorschlag",
   scheduledJobFailed: "Lauf fehlgeschlagen ({0})",
   scheduledJobNotifyTitle: "Geplante Analyse: {0}",
   scheduledJobNotifyBody: "{0}",
@@ -2289,8 +2290,10 @@ export const de: Record<TranslationKey, string> = {
   raciSuggestNoProposal: "Claude hat keine Zuordnungen vorgeschlagen.",
   raciSuggestError: "RACI-Vorschläge konnten nicht erstellt werden.",
   raciSuggestSkipped: "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da sie nicht zu diesem Projekt passen.",
+  raciSuggestSkippedOne: "1 vorgeschlagene Zuordnung wurde abgelehnt, da sie nicht zu diesem Projekt passt.",
   raciSuggestSkippedAccountable:
     "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da dieser Meilenstein bereits einen Rechenschaftspflichtigen hat.",
+  raciSuggestSkippedAccountableOne: "1 vorgeschlagene Zuordnung wurde abgelehnt, da dieser Meilenstein bereits einen Rechenschaftspflichtigen hat.",
   raciSuggestTruncated: "Der Vorschlag wurde gekürzt; einige Zuordnungen fehlen.",
   raciSuggestContextTruncated:
     "Dieses Projekt ist groß, daher wurden Claude nur einige Stakeholder und Meilensteine gezeigt. Für alle übrigen gibt es hier keinen Vorschlag.",
@@ -2299,7 +2302,9 @@ export const de: Record<TranslationKey, string> = {
     "Alle von Claude vorgeschlagenen Zuordnungen sind bereits vorhanden. Es muss nichts geändert werden.",
   raciSuggestSkippedInvalidRole:
     "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da der Rollenbuchstabe nicht R, A, C oder I war.",
+  raciSuggestSkippedInvalidRoleOne: "1 vorgeschlagene Zuordnung wurde abgelehnt, da der Rollenbuchstabe nicht R, A, C oder I war.",
   activityAiRaciSuggest: "{0} von der KI vorgeschlagene RACI-Zuordnungen übernommen",
+  activityAiRaciSuggestOne: "1 von der KI vorgeschlagene RACI-Zuordnung übernommen",
   calendarSyncAuto: "Automatisch synchron halten",
   integrationsTursoTooltip: "Workspace in einer Turso-(libSQL-)Datenbank speichern.",
   integrationsTursoUrlTooltip: "Cloud-Datenbank: die libsql://-URL (oder https://) aus `turso db show <db>` verwenden. Lokaler/selbst gehosteter Server: http:// nur auf localhost (127.0.0.1/::1), ganz ohne Token.",
@@ -4189,6 +4194,7 @@ export const de: Record<TranslationKey, string> = {
   allocPlanNoChanges: "Es wurden keine Änderungen an der Planung vorgeschlagen.",
   allocPlanError: "Planung konnte nicht erstellt werden.",
   allocPlanApplied: "{0} Planungsänderungen angewendet.",
+  allocPlanAppliedOne: "1 Planungsänderung angewendet.",
   allocPlanClamped: "auf das Maximum gekürzt",
   allocPlanHoursOfCapacity: "{0}h von {1}h",
   allocPlanTruncated: "Einige vorgeschlagene Änderungen wurden nicht angezeigt — der Plan war zu groß.",
@@ -4202,6 +4208,7 @@ export const de: Record<TranslationKey, string> = {
   allocPlanSkipBelowResolution: "keine Änderung am gespeicherten Wert",
   allocPlanSkipAlreadySet: "bereits auf diesem Wert",
   activityAiAllocationPlan: "KI hat {0} Planungszellen geplant",
+  activityAiAllocationPlanOne: "KI hat 1 Planungszelle geplant",
   activityAiDocumentWrite: "Assistent hat ein Dokument bearbeitet",
 
   // Asset library (S3c-1 — document images)

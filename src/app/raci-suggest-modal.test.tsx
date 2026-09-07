@@ -6,7 +6,7 @@ import {
   SKIP_KEY_RANK,
   SKIP_REASON_KEY,
 } from "./raci-suggest-modal";
-import { t } from "./i18n";
+import { t, tPlural } from "./i18n";
 import type { GroundedRaciCell, SkippedRaciCell } from "./raci-suggest/raci-suggest";
 
 const cell = (
@@ -152,8 +152,8 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
     // under the generic string tells the user the cell "did not match this
     // project", which is false and hides the only skip they can act on.
     renderSkipped([skip("duplicate-accountable")]);
-    expect(screen.getByText(t("en-US", "raciSuggestSkippedAccountable", 1))).toBeInTheDocument();
-    expect(screen.queryByText(t("en-US", "raciSuggestSkipped", 1))).not.toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedAccountable", 1, 1))).toBeInTheDocument();
+    expect(screen.queryByText(tPlural("en-US", "raciSuggestSkipped", 1, 1))).not.toBeInTheDocument();
   });
 
   it("reports a capped CONTEXT separately from a capped response", () => {
@@ -188,8 +188,8 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
     // exists to remove. Without this test, mapping invalid-role back into the
     // catch-all is a one-character revert that leaves the suite green.
     renderSkipped([skip("invalid-role")]);
-    expect(screen.getByText(t("en-US", "raciSuggestSkippedInvalidRole", 1))).toBeInTheDocument();
-    expect(screen.queryByText(t("en-US", "raciSuggestSkipped", 1))).not.toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedInvalidRole", 1, 1))).toBeInTheDocument();
+    expect(screen.queryByText(tPlural("en-US", "raciSuggestSkipped", 1, 1))).not.toBeInTheDocument();
   });
 
   it("lists the buckets in a FIXED order regardless of the order skips arrive", () => {
@@ -202,9 +202,9 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
         .map((p) => p.textContent ?? "")
         .filter((s) =>
           [
-            t("en-US", "raciSuggestSkipped", 1),
-            t("en-US", "raciSuggestSkippedInvalidRole", 1),
-            t("en-US", "raciSuggestSkippedAccountable", 1),
+            tPlural("en-US", "raciSuggestSkipped", 1, 1),
+            tPlural("en-US", "raciSuggestSkippedInvalidRole", 1, 1),
+            tPlural("en-US", "raciSuggestSkippedAccountable", 1, 1),
           ].includes(s),
         );
 
@@ -233,8 +233,8 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
       skip("unknown-milestone"),
       skip("duplicate-accountable"),
     ]);
-    expect(screen.getByText(t("en-US", "raciSuggestSkipped", 2))).toBeInTheDocument();
-    expect(screen.getByText(t("en-US", "raciSuggestSkippedAccountable", 1))).toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "raciSuggestSkipped", 2, 2))).toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedAccountable", 1, 1))).toBeInTheDocument();
   });
 });
 

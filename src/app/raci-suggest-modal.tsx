@@ -13,7 +13,7 @@
 // current and proposed role and can be individually deselected before Apply.
 
 import { useMemo } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
 import { Checkbox } from "./form-controls";
@@ -238,7 +238,7 @@ export function RaciSuggestModal({
           {skippedRows.length > 0 && (
             <div className="mt-4 space-y-1 border-t border-line pt-3 text-xs text-muted-foreground">
               {skippedRows.map(([key, n]) => (
-                <p key={key}>{t(lang, key, n)}</p>
+                <p key={key}>{tPlural(lang, key, n, n)}</p>
               ))}
             </div>
           )}
