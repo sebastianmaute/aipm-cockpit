@@ -24,7 +24,7 @@
 // Presentational and entity-agnostic. Every user-facing string arrives already
 // translated, so this file takes no `lang` and calls no `t()` — same contract as
 // EntityLinkPicker.
-import { useEntityCombobox } from "./entity-combobox";
+import { entityOptionId, useEntityCombobox } from "./entity-combobox";
 import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 
@@ -156,7 +156,7 @@ export function SingleEntityPicker({
             aria-expanded={open}
             aria-controls={open ? listId : undefined}
             aria-activedescendant={
-              open && active >= 0 ? `${listId}-opt-${active}` : undefined
+              open && active >= 0 ? entityOptionId(listId, active) : undefined
             }
             aria-autocomplete="list"
             placeholder={placeholder}
@@ -180,7 +180,7 @@ export function SingleEntityPicker({
               // violation, and the keyboard path is aria-activedescendant.
               <li
                 key={entry.value}
-                id={`${listId}-opt-${i}`}
+                id={entityOptionId(listId, i)}
                 role="option"
                 aria-selected={i === active}
                 // Keeps focus in the input so commit-on-blur hosts don't close

@@ -239,6 +239,35 @@ describe("EntityLinkPicker", () => {
       expect(onAdd).toHaveBeenCalledWith(entry(4, "Issue#4", "Late sign-off"));
     });
 
+    // ★ A SEAM TEST CANNOT SEE A BREAK ABOVE IT. `entity-combobox.test.tsx`
+    // proves `useEntityCombobox` is correct and can say nothing about whether
+    // this component calls it — a local re-implementation of the same
+    // mechanics would keep that file just as green.
+    //
+    // ★ Overlaps "adds the active option on Enter" above deliberately, and the
+    // two are NOT interchangeable: that one pins the BEHAVIOUR (Enter commits
+    // the armed entry) from synthesised React events, while this one drives a
+    // real focus + keyboard sequence and asserts the intermediate
+    // `aria-activedescendant` the hook alone drives — so a red here names the
+    // seam rather than the key. Delete neither for the other.
+    //
+    // ★ TWO ArrowDowns, not one: a test committing the FIRST option passes
+    // against an implementation where ArrowDown does nothing at all.
+    it("routes the keyboard path through the shared combobox hook", async () => {
+      const user = userEvent.setup();
+      const onAdd = vi.fn();
+      renderPicker({ options, query: "s", onAdd });
+      const box = screen.getByRole("combobox");
+      box.focus();
+      await user.keyboard("{ArrowDown}{ArrowDown}");
+      expect(box).toHaveAttribute("aria-activedescendant", screen.getAllByRole("option")[1].id);
+      await user.keyboard("{Enter}");
+      // ★ This picker commits the WHOLE entry, not a value string — which is
+      // why the hook hands the option back rather than unwrapping a field of
+      // it, and why `onCommit` is `onAdd` directly.
+      expect(onAdd).toHaveBeenCalledWith(entry(4, "Issue#4", "Late sign-off"));
+    });
+
     // ★ These pickers live inside <form> edit modals, where a bare Enter
     // submits. Swallowing Enter whenever the list happens to be open would
     // silently break submitting from this field; only an ARMED option claims it.
@@ -337,6 +366,46 @@ describe("EntityLinkPicker", () => {
       rerender(<EntityLinkPicker {...props} options={[options[0]]} query="s" />);
       expect(input).not.toHaveAttribute("aria-activedescendant");
       expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "false");
+    });
+
+    // ★★ THE IDENTITY THREADING, and nothing else in this file pinned it. The
+    // hook keys the armed option by whatever `identity` its caller passes, and
+    // this picker must pass `entryKey`: a picker spanning several entity kinds
+    // has COLLIDING ids, so `String(entry.id)` reads a task#7 and a raid#7 as
+    // the same entity. "distinguishes two entries that share an id but not a
+    // key" at the bottom of this file covers the CHIPS (React keys and remove
+    // names) and never reaches the option list, so it passes against either
+    // identity — measured, by mutating `identity: entryKey` to
+    // `identity: (o) => String(o.id)` and watching all 29 tests stay green.
+    //
+    // ★ The query is deliberately UNCHANGED across the rerender, and the list
+    // keeps its length: a query change would let the render-time reconcile
+    // clear the highlight on its own and a shrink would let the range clamp do
+    // it, and either way the test would pass whichever identity is threaded.
+    it("arms the highlight against the entry key, not the id it shares with another kind", () => {
+      const onAdd = vi.fn();
+      const before = [
+        { key: "task:7", id: 7, code: "#7", label: "Kickoff" },
+        { key: "raid:9", id: 9, code: "R#9", label: "Scope creep" },
+      ];
+      const after = [
+        { key: "raid:7", id: 7, code: "R#7", label: "Vendor delay" },
+        { key: "raid:9", id: 9, code: "R#9", label: "Scope creep" },
+      ];
+      const { rerender, props } = renderPicker({ options: before, query: "s", onAdd });
+      const input = screen.getByRole("combobox");
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+      expect(input).toHaveAttribute("aria-activedescendant");
+
+      // Same id at the same index, a DIFFERENT entity.
+      rerender(<EntityLinkPicker {...props} options={after} query="s" />);
+      expect(input).not.toHaveAttribute("aria-activedescendant");
+
+      // The data-correctness half, and the reason this is not cosmetic: under
+      // an id-keyed identity the highlight survives the swap and Enter adds the
+      // RAID item the user never arrowed to.
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(onAdd).not.toHaveBeenCalled();
     });
 
     // ★★ The case NEITHER of the other two guards can see: the list GROWS under

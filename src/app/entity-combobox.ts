@@ -39,6 +39,22 @@
 // Entity-agnostic and i18n-free: this file takes no `lang` and calls no `t()`.
 import { useId, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 
+/** The id of one rendered option row.
+ *
+ *  ★★ ONE source for a string that was spelled THREE times — this hook's own
+ *  `scrollIntoView` query and each picker's `id=` / `aria-activedescendant`
+ *  markup — with nothing enforcing that they agreed. A mismatch fails SILENTLY:
+ *  the query selector simply finds nothing, so the highlight stops scrolling
+ *  into view with no error and no failing test. Both pickers and the query
+ *  below derive from here.
+ *
+ *  ★ The rendered string is unchanged from the three hand-spelled copies. This
+ *  is a de-duplication, not a rename — the id is what `aria-activedescendant`
+ *  points at, and tests assert on it. */
+export function entityOptionId(listId: string, index: number): string {
+  return `${listId}-opt-${index}`;
+}
+
 export interface EntityComboboxInput<T> {
   /** The live search text. Owned by the caller; drives the reconcile below. */
   query: string;
@@ -64,7 +80,8 @@ export interface EntityComboboxInput<T> {
 }
 
 export interface EntityCombobox {
-  /** `useId` value the caller builds `${listId}-opt-${i}` row ids from. */
+  /** `useId` value the caller builds row ids from — via `entityOptionId`, never
+   *  by re-spelling the template. */
   listId: string;
   /** Attach to the `<ul role="listbox">`; `move` scrolls through it. */
   listRef: RefObject<HTMLUListElement | null>;
@@ -192,7 +209,7 @@ export function useEntityCombobox<T>({
     // carrying the new index has rendered.
     requestAnimationFrame(() => {
       listRef.current
-        ?.querySelector(`#${CSS.escape(`${listId}-opt-${next}`)}`)
+        ?.querySelector(`#${CSS.escape(entityOptionId(listId, next))}`)
         ?.scrollIntoView({ block: "nearest" });
     });
   }
