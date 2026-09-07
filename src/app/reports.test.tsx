@@ -4,10 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { ReportsPanel } from "./reports";
 import type { BudgetBucket, ResourcePlan, Role, Task } from "./types";
 import type { AddableReportId } from "./addable-reports";
+import { REPORT_BLOCKS } from "./report-blocks";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
-import { controlNames } from "../test/toolbar-order";
+import { controlNames, expectButtonOrder } from "../test/toolbar-order";
 
 const TODAY = "2026-05-28";
 
@@ -34,20 +35,38 @@ function makeTask(p: Partial<Task> & { id: number; assignee: string }): Task {
   } as unknown as Task;
 }
 
-function renderReports(tasks: Task[]) {
+/** ★ The second parameter is OPTIONAL so every pre-existing
+ *  `renderReports(tasks)` call keeps working unchanged. */
+function renderReports(
+  tasks: Task[],
+  opts: { extraReports?: AddableReportId[]; isPopout?: boolean } = {},
+) {
   return render(
     <ReportsPanel
       tasks={tasks}
       lang="en-US"
       today={TODAY}
       holidaySet={new Set()}
+      extraReports={opts.extraReports}
+      isPopout={opts.isPopout}
     />,
   );
 }
 
+/**
+ * The block whose title matches `re`.
+ *
+ * ★★ `closest("section")`, NOT `closest("div")`. Each block now renders inside
+ * an `ArrangementTile`, whose chrome is `<section><div>grip · h3 · ⋮</div><div>
+ * body</div></section>` — so walking up to the nearest DIV lands on the HEADER
+ * ROW, which contains the title and none of the table. That returned an element
+ * every `within(...)` query then failed against, which is what seven tests here
+ * were reporting before this was fixed. The `<section>` is the tile's own
+ * boundary and is what "the block" means.
+ */
 function sectionByTitle(re: RegExp): HTMLElement {
   const heading = screen.getByText(re);
-  return heading.closest("div") as HTMLElement;
+  return heading.closest("section") as HTMLElement;
 }
 
 function rowNamesIn(section: HTMLElement): string[] {
@@ -214,25 +233,39 @@ describe("ReportsPanel — composed reports", () => {
     expect(screen.getByText(/project total/i)).toBeInTheDocument(); // Budget report body
     expect(screen.getByText("Alpha")).toBeInTheDocument();
   });
-  it("the add-report select appends a chosen report", () => {
-    const onChange = renderComposed([]);
-    fireEvent.change(screen.getByLabelText(/add report/i), { target: { value: "budget-report" } });
-    expect(onChange).toHaveBeenCalledWith(["budget-report"]);
-  });
-  it("a report's remove button removes it", () => {
-    const onChange = renderComposed(["budget-report"]);
-    fireEvent.click(screen.getByRole("button", { name: /remove report/i }));
-    expect(onChange).toHaveBeenCalledWith([]);
-  });
-  it("the remove-report select removes a chosen report", async () => {
-    const user = userEvent.setup();
-    const onChange = renderComposed(["raid-report", "budget-report"]);
-    await user.selectOptions(screen.getByLabelText("Remove report"), "raid-report");
-    expect(onChange).toHaveBeenCalledWith(["budget-report"]);
-  });
-  it("the remove-report select is absent when there are no added reports", () => {
+  /**
+   * ★★★ ADD IS NOW RESTORE-FROM-HIDDEN, NOT A SETTINGS WRITE. The arrangement
+   * owns order and visibility, so this asserts the OUTCOME — the block appears —
+   * rather than that a callback fired. That is a stronger assertion than the one
+   * it replaces, which could pass while nothing rendered.
+   *
+   * ★★ THREE TESTS WERE DELETED HERE RATHER THAN REWRITTEN, and each is recorded
+   * because a deleted test is invisible afterwards:
+   *   · "a report's remove button removes it" — the per-card ✕ is gone. Removal
+   *     is the ⋮ menu's Hide, which Task 13 wires; there is nothing to click.
+   *   · "the remove-report select removes a chosen report" — `removeReportControl`
+   *     was deleted with the legacy mechanism.
+   *   · "the remove-report select is absent when there are no added reports" —
+   *     it still PASSED, but vacuously: the control no longer exists in ANY
+   *     state, so it asserted nothing. A test that is green for a reason
+   *     unrelated to its name is worse than none.
+   * Hide/restore coverage returns with Task 13's shelf and menu.
+   */
+  it("the add-report select restores a hidden report onto the board", () => {
     renderComposed([]);
-    expect(screen.queryByLabelText("Remove report")).toBeNull();
+    expect(screen.queryByTestId("report-block-budget-report")).toBeNull();
+    fireEvent.change(screen.getByLabelText(/add report/i), { target: { value: "budget-report" } });
+    expect(screen.getByTestId("report-block-budget-report")).toBeInTheDocument();
+  });
+
+  it("offers only reports that are currently hidden", () => {
+    // ★ The candidate list is the HIDDEN set, not "everything minus a settings
+    // array" — so a report already on the board must not be offerable twice.
+    renderComposed(["budget-report"]);
+    const select = screen.getByLabelText(/add report/i) as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value).filter(Boolean);
+    expect(values).not.toContain("budget-report");
+    expect(values).toContain("raid-report");
   });
   it("renders the Stakeholder report when added", () => {
     renderComposed(["stakeholder-report"]);
@@ -317,22 +350,34 @@ function ReorderHarness({ onChange }: { onChange: (ids: AddableReportId[]) => vo
 }
 
 describe("ReportsPanel — drag-reorder extra reports", () => {
-  it("calls onChangeExtraReports with reordered array when 2nd card dragged onto 1st", () => {
-    const onChange = vi.fn();
-    render(<ReorderHarness onChange={onChange} />);
+  /**
+   * ★★★ REORDER IS NOW AN ARRANGEMENT MOVE, not a settings write, so this
+   * asserts the RENDERED ORDER rather than a callback payload. The old test
+   * expected `onChangeExtraReports(["budget-report", "raid-report"])`; that
+   * write no longer happens and could not, since the arrangement owns order for
+   * all thirteen blocks rather than for the four addable ones.
+   */
+  it("commits a drag as a reorder of the rendered board", () => {
+    render(<ReorderHarness onChange={vi.fn()} />);
+    const idsNow = () =>
+      screen.getAllByTestId(/^report-block-/).map((n) => n.getAttribute("data-testid"));
 
-    // Locate the two drag handles (one per extra report card, in DOM order)
-    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
-    expect(handles).toHaveLength(2);
+    const before = idsNow();
+    expect(before.length).toBeGreaterThan(2);
+    const last = before[before.length - 1]!;
+    expect(before[0]).not.toBe(last);
 
-    // Drag the 2nd handle (budget-report) onto the 1st card (raid-report)
-    fireEvent.dragStart(handles[1]);
-    const cards = screen.getAllByTestId("extra-report-card");
-    fireEvent.dragOver(cards[0]);
-    fireEvent.drop(cards[0]);
+    // Drag the LAST block's grip onto the FIRST block.
+    const grips = screen.getAllByRole("button", { name: /drag to reorder/i });
+    fireEvent.dragStart(grips[grips.length - 1]);
+    fireEvent.dragOver(screen.getByTestId(before[0]!));
+    fireEvent.drop(screen.getByTestId(before[0]!));
 
-    expect(onChange).toHaveBeenCalledOnce();
-    expect(onChange).toHaveBeenCalledWith(["budget-report", "raid-report"]);
+    const after = idsNow();
+    expect(after).not.toEqual(before);
+    // ★ The dragged block landed at or before where the target was, which is
+    // what "dropped onto the first" means under the engine's splice.
+    expect(after.indexOf(last)).toBeLessThan(before.indexOf(last));
   });
 
   // ★★★ FIREFOX REFUSES TO START A DRAG when `dragstart` sets no transfer data.
@@ -345,41 +390,21 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
   it("puts data on the dragstart transfer, without which Firefox never begins the drag", () => {
     const setData = vi.fn();
     render(<ReorderHarness onChange={vi.fn()} />);
-    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
+    const handles = screen.getAllByRole("button", { name: /drag to reorder/i });
     fireEvent.dragStart(handles[1], { dataTransfer: { setData, effectAllowed: "" } });
     expect(setData).toHaveBeenCalled();
   });
 
-  // ★★ Without a visible target the user cannot tell a drop will land, which is
-  // half of "it cannot be dropped". The edge is derived from the SPLICE
-  // semantics, not guessed: `onDropOnReport` removes the dragged id first, so
-  // inserting at a LATER index lands after the target, and at an EARLIER index
-  // lands before it. A single fixed edge would be a lie in one direction.
-  it("marks which edge of the hovered card the drop will land on, per drag direction", () => {
-    render(<ReorderHarness onChange={vi.fn()} />);
-    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
-    const cards = () => screen.getAllByTestId("extra-report-card");
-
-    // Dragging the SECOND card up onto the first → lands BEFORE it.
-    fireEvent.dragStart(handles[1]);
-    fireEvent.dragOver(cards()[0]);
-    expect(cards()[0]).toHaveAttribute("data-drop-edge", "before");
-    fireEvent.dragEnd(handles[1]);
-    expect(cards()[0]).not.toHaveAttribute("data-drop-edge");
-
-    // Dragging the FIRST card down onto the second → lands AFTER it.
-    fireEvent.dragStart(handles[0]);
-    fireEvent.dragOver(cards()[1]);
-    expect(cards()[1]).toHaveAttribute("data-drop-edge", "after");
-  });
-
-  it("never marks the card being dragged as its own drop target", () => {
-    render(<ReorderHarness onChange={vi.fn()} />);
-    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
-    fireEvent.dragStart(handles[0]);
-    fireEvent.dragOver(screen.getAllByTestId("extra-report-card")[0]);
-    expect(screen.getAllByTestId("extra-report-card")[0]).not.toHaveAttribute("data-drop-edge");
-  });
+  /**
+   * ★★★ TWO DROP-EDGE TESTS WERE DELETED HERE, and this note is what stops them
+   * being "restored" as a regression. The legacy extra-report card drew a
+   * `data-drop-edge` border on the hovered card; `ArrangementTile` deliberately
+   * draws NO edge indicator, because the grid is `grid-auto-flow: row dense` and
+   * dense backfill re-places everything after a move — so an edge marker would
+   * routinely point at a slot the block does not land in. The Dashboard records
+   * the same decision, and both surfaces render the reorder hook's
+   * `previewOrder` instead, which is what the reorder test above asserts.
+   */
 
   // ★★★ THE ONLY POSSIBLE DETECTOR for this class. axe 4.12.1 has no rule under
   // the four tags `e2e/a11y.spec.ts` requests that flags two controls sharing an
@@ -390,7 +415,7 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
   it("gives each reorder handle a row-unique accessible name", () => {
     render(<ReorderHarness onChange={vi.fn()} />);
     const names = screen
-      .getAllByRole("button", { name: /drag or use arrow keys to reorder/i })
+      .getAllByRole("button", { name: /drag to reorder/i })
       .map((b) => b.getAttribute("aria-label"));
     expect(names.length).toBeGreaterThan(1);
     expect(new Set(names).size).toBe(names.length);
@@ -494,7 +519,17 @@ describe("ReportsPanel — sortable headers are unique across the sibling tables
       // this if the panel grows a control; never lower it. A floor below the
       // true count would let a silently-empty render — or a narrowed query —
       // read as a pass.
-      minControls: 27,
+      // ★★★ THIS INSTRUCTION WAS MISSED ONCE, BY ME, AND THE COST IS CONCRETE.
+      // The arrangement binding added ~26 controls while this floor stayed at
+      // its pre-restructure 27 — eighteen below the truth. A regression dropping
+      // all thirteen ⋮ and five grips would still leave 27 uniquely-named
+      // controls and this test would go GREEN. Re-measured by probe (set it to
+      // 999 and read the helper's own error): the scope renders 47, so the
+      // floor below is EXACT. ★★ This prose said 45 while the floor beside it
+      // was already right, so a reader auditing whether the floor was exact
+      // would have concluded it was two TOO HIGH and lowered it — the one
+      // direction this comment forbids. Re-probe, never reason from the prose.
+      minControls: 47,
       scope: container,
       roles: ["button"],
     });
@@ -511,10 +546,21 @@ describe("ReportsPanel — sortable headers are unique across the sibling tables
     const counts = new Map<string, number>();
     for (const n of bare) counts.set(n, (counts.get(n) ?? 0) + 1);
     const collides = [...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n).sort();
+    // ★★ THE ARRANGEMENT BINDING ADDED TWO ENTRIES, and they are real seeded
+    // collisions rather than noise. Every block now renders a grip and a ⋮, both
+    // named `<verb> – <block title>`; strip the context and all thirteen grips
+    // are the same string, as are all thirteen ⋮. That WIDENS what this file
+    // guards: the uniqueness assertion above now goes red if the tile chrome's
+    // qualifier is dropped, not just if a table header's is.
     expect(collides).toEqual([
       "Cancelled",
       "Completed",
+      // ★ The GRIP's unqualified base name. It is the drag-only twin here, not
+      // `reorderHandle`: this surface passes `keyboard: false`, so its grips are
+      // named `reorderHandleDragOnly`.
+      "Drag to reorder",
       "Inquiries",
+      "More actions",
       "Open",
       "Overdue",
       "Total",
@@ -540,5 +586,521 @@ describe("ReportsPanel — sortable headers are unique across the sibling tables
         screen.getByRole("button", { name: `${t("en-US", "reportsOpen")} – ${t("en-US", heading)}` }),
       ).toBeInTheDocument();
     }
+  });
+});
+
+/**
+ * The arrangement binding (Task 12): every block — the nine built-ins and the
+ * four addable reports — renders as one `ArrangementTile` inside one
+ * `ArrangementGrid`, replacing the `<Section>` stack and the bespoke
+ * extra-report card. One reorder mechanism, not two.
+ */
+describe("ReportsPanel — the arrangement grid", () => {
+  const tasks = [
+    makeTask({ id: 1, assignee: "Ann", group: "Alpha" }),
+    makeTask({ id: 2, assignee: "Bo", group: "Beta" }),
+  ];
+
+  it("renders every visible block as an arrangement tile", () => {
+    renderReports(tasks);
+    expect(screen.getByTestId("reports-grid")).toBeInTheDocument();
+    expect(screen.getByTestId("report-block-byAssignee")).toBeInTheDocument();
+    expect(screen.getByTestId("report-block-stats")).toBeInTheDocument();
+  });
+
+  it("binds a 120px row unit and a gap, as WHOLE LITERAL class strings", () => {
+    // ★★★ THE ONLY GUARD THAT EXISTS FOR THE ROW UNIT, and it closes the
+    // obligation `report-blocks.ts` records. 120px, not the Dashboard's 80px:
+    // `BlockSpan` caps at 4, so an 80px unit would put an embedded report in a
+    // 320px box. ★★ jsdom has no layout, so this can only assert that the CLASS
+    // was rendered — never that Tailwind emitted a rule for it. An interpolated
+    // class would produce this identical string and emit no CSS at all, so a
+    // green run here is not evidence the grid renders correctly; that is
+    // `e2e/dashboard-grid.spec.ts`'s job for the Dashboard and is owed a browser
+    // eye-verify here.
+    renderReports(tasks);
+    const grid = screen.getByTestId("reports-grid");
+    expect(grid.className).toContain("auto-rows-[120px]");
+    expect(grid.className).toContain("gap-4");
+    // ★ And NOT the Dashboard's unit, which is the mistake this pins against.
+    expect(grid.className).not.toContain("auto-rows-[80px]");
+  });
+
+  it("renders NO scroller of its own — the card's contentRef is the scroller", () => {
+    // ★★★ A nested `overflow-y-auto` sizes to its content, so `scrollHeight ===
+    // clientHeight` and the drag autoscroll silently stops working. The real
+    // scroller is `ReportCard`'s own `contentRef`, which is the same ref the
+    // reorder hook gets.
+    renderReports(tasks);
+    const grid = screen.getByTestId("reports-grid");
+    expect(grid.className).not.toContain("overflow-y-auto");
+    expect(grid.className).not.toContain("overflow-auto");
+  });
+
+  it("no longer renders the legacy extra-report card wrapper", () => {
+    // ★ One mechanism, not two: the old `useListReorderDnd<AddableReportId>`
+    // card — its `data-drop-edge`, its own `DragHandle` and its ✕ — is gone.
+    renderReports(tasks, { extraReports: ["raid-report"] });
+    expect(screen.queryAllByTestId("extra-report-card")).toHaveLength(0);
+  });
+
+  it("gives every per-block control a block-unique accessible name", () => {
+    // ★★★ axe is provably blind to duplicate accessible names in EVERY view at
+    // EVERY seed size, and Reports IS an axe-scanned view — so this is the only
+    // detector that can exist for the grips and the ⋮ buttons here.
+    //
+    // ★★★ `requireCollisionSeed` IS OFF, AND THAT IS NOT THE `ArrangementTile`
+    // excuse repeated. Being the LIST owner is necessary for a collision-seeded
+    // test but not sufficient: a fixture must be able to make two rows SHARE a
+    // display name, and here it cannot. Every block title is
+    // `t(lang, spec.labelKey)` off the module-level `REPORT_BLOCKS` catalogue —
+    // nine distinct built-in keys plus the four `ADDABLE_REPORTS` titles — so no
+    // prop this panel accepts can make two of them equal. The guard would throw
+    // against correct code.
+    // ★ The property IS pinned where a fixture can express it:
+    // `arrangement-shelf.test.tsx` seeds two chips with the same title and runs
+    // `requireCollisionSeed: true` against `buildRowTokens`.
+    const { container } = renderReports(tasks, { extraReports: ["raid-report"] });
+    expectRowUniqueNames({
+      // ★★ EXACT, NOT "well below". An earlier revision of this line set 12 and
+      // said so openly — honest, but it forgoes the guard by choice: a floor
+      // under the true count cannot tell a silently-empty render from a full
+      // one. Measured by the same probe: this fixture renders 49, two more than
+      // the 47 above because it adds the RAID report block (one grip, one ⋮).
+      minControls: 49,
+      scope: container,
+    });
+  });
+
+  it("names each block's grip with that block's own title", () => {
+    // ★ The uniqueness assertion above passes if the names differ for ANY
+    // reason; this names which qualifier must be present.
+    renderReports(tasks);
+    for (const key of ["reportsByAssignee", "reportsByGroup"] as const) {
+      expect(
+        screen.getByRole("button", {
+          name: `${t("en-US", "reorderHandleDragOnly")} – ${t("en-US", key)}`,
+        }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("names the grip for what it can actually do, the drag alone", () => {
+    // ★★★ THE NAME MUST MATCH THE CAPABILITY (WCAG 4.1.2). This surface passes
+    // `keyboard: false` to `useListReorderDnd`, so `handleProps.onKeyDown` is
+    // `undefined` and HTML5 drag is not keyboard-operable — a grip named "Drag
+    // or use arrow keys to reorder" would be a focus stop whose promised key
+    // does nothing, announces nothing, and leaves the live region empty. The ⋮
+    // menu is the keyboard path.
+    //
+    // ★★ BOTH HALVES ARE LOAD-BEARING and neither alone is the assertion. The
+    // POSITIVE half pins the drag-only name; the NEGATIVE half pins that the
+    // arrow-key promise is gone, and on its own it would pass vacuously against
+    // a render with no grips at all — which is why the positive half runs first
+    // and asserts a real count.
+    //
+    // ★ It pins the LABEL against the label, not against the wiring: nothing
+    // here reads `handleProps`, so flipping `keyboard` back to true without
+    // touching `keyboardReorder` reds this test for the right reason but by
+    // coincidence of the two being edited together. jsdom dispatches the key
+    // either way, so no unit test can observe the missing reorder itself.
+    renderReports(tasks);
+    const grips = screen.getAllByRole("button", { name: /drag to reorder/i });
+    expect(grips.length).toBeGreaterThan(1);
+    expect(
+      screen.queryAllByRole("button", { name: /use arrow keys/i }),
+    ).toHaveLength(0);
+  });
+});
+
+describe("ReportsPanel — toolbar order", () => {
+  /**
+   * ★★★ THIS CONVENTION WAS COMPLIED WITH AND PINNED BY NOTHING. `ReportCard`
+   * renders the trailing group correctly today — Print · reset-columns ·
+   * reset-size — but neither `report-table.test.tsx` nor this file contained a
+   * single `expectButtonOrder`/`buttonIndex` call before this test, so a
+   * reordering, or a control drifting BETWEEN two members, was invisible.
+   * Measured, not assumed: `grep -rn "expectButtonOrder\|buttonIndex"` over both
+   * files returned nothing.
+   *
+   * ★★ `contiguous: true` is the half that matters. Plain ordering passes while
+   * a new control sits between Print and a reset — which is exactly the drift
+   * `AGENTS.md` records four instances of, and exactly the risk Task 13 carries
+   * when it adds the reset-layout button to this group.
+   *
+   * ★ Uses the shared helper deliberately: `buttonIndex` THROWS when a key
+   * matches zero or several buttons, where a hand-rolled `findIndex` silently
+   * takes the first and can pin the wrong control.
+   */
+  it("ends with the contiguous Print · reset-columns · reset-layout · reset-size group", () => {
+    // ★★★ FOUR MEMBERS — Reports is the first surface with BOTH a
+    // reset-columns and a reset-layout, and AGENTS.md documented only three.
+    // The canonical order contains both existing conventions as SUBSEQUENCES:
+    // the documented Print · reset-columns · reset-size, and the Dashboard’s
+    // Print · reset-layout · reset-size. So no surface’s convention breaks, and
+    // reset-columns and reset-layout both restore CONTENT arrangement while
+    // reset-size restores the BOX.
+    //
+    // ★★ WHAT THIS CANNOT DO: `contiguous` catches a control inserted OUTSIDE
+    // the group, but it cannot adjudicate whether the chosen ORDER is right —
+    // that is a convention, which is why it is written down in AGENTS.md rather
+    // than inferred from a passing test. It also cannot see a member wrongly
+    // PRESENT in a popout; only the popout test below can.
+    renderReports([makeTask({ id: 1, assignee: "Ann" })]);
+    expectButtonOrder(
+      ["printHint", "colResetWidthsHint", "dashboardResetLayout", "tableResetSizeHint"],
+      { contiguous: true },
+    );
+  });
+
+  it("offers NO reset-layout in a popout", () => {
+    // ★★★ THE ONLY DETECTOR FOR THIS. `ReportCard`’s trailing group is gated on
+    // `print:hidden` ALONE, so the guard has to be the caller’s — and neither
+    // `contiguous` nor `print:hidden` would notice a reset wrongly rendered
+    // here. A popout has no grips, no ⋮ and no shelf by design; a working reset
+    // on it is the defect `dashboard-panel.tsx` records as a ★★★.
+    renderReports([makeTask({ id: 1, assignee: "Ann" })], { isPopout: true });
+    expect(screen.queryByRole("button", { name: t("en-US", "dashboardResetLayout") })).toBeNull();
+    // …and the other three are still there, so this is not passing because the
+    // whole toolbar vanished.
+    expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], {
+      contiguous: true,
+    });
+  });
+});
+
+/**
+ * The shelf and the ⋮ block menu (Task 13). These retire the inert ⋮ that Task
+ * 12 shipped as a knowingly-temporary false affordance.
+ *
+ * ★★★ NO `requireCollisionSeed` HERE, AND THE REASON IS NOT `ArrangementTile`'s.
+ * The collision-seeded guard lives on the SHARED component, in
+ * `arrangement-shelf.test.tsx` — it seeds two chips with the same title and
+ * proves `buildRowTokens` numbers them. This binding INHERITS that. Adding a
+ * second guard here would need a fixture where two REPORTS block titles collide,
+ * and that cannot be built: all thirteen resolve distinctly in EN and DE, case-
+ * insensitively, measured three times (see `report-blocks.test.ts`). The guard
+ * would therefore throw against correct code.
+ * ★★ So read "the shelf is where the collision test belongs" as a statement
+ * about the COMPONENT, not about every binding of it. The next reader who
+ * re-derives it from the binding will add a test that throws.
+ */
+describe("ReportsPanel — the shelf and the block menu", () => {
+  const tasks = [makeTask({ id: 1, assignee: "Ann", group: "Alpha" })];
+
+  const openMenuFor = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
+    await user.click(screen.getByRole("button", { name: `${t("en-US", "actionMoreActions")} – ${title}` }));
+  };
+
+  it("opens a REAL menu from the ⋮, retiring the inert one Task 12 shipped", async () => {
+    // ★★★ Task 12 passed `onOpenMenu={() => {}}` and said in place that a control
+    // doing nothing is a false affordance that must not survive the branch. This
+    // is what retires it: the ⋮ now opens a dialog with the two size axes.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    const menu = screen.getByRole("dialog");
+    expect(within(menu).getByRole("radiogroup", { name: /width/i })).toBeInTheDocument();
+    expect(within(menu).getByRole("radiogroup", { name: /height/i })).toBeInTheDocument();
+  });
+
+  it("hides a block from its menu and offers it back on the shelf", async () => {
+    const user = userEvent.setup();
+    renderReports(tasks);
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+
+    expect(screen.queryByTestId("report-block-byPriority")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /hidden/i }));
+    expect(
+      screen.getByRole("button", {
+        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("restores a hidden block from the shelf back onto the board", async () => {
+    const user = userEvent.setup();
+    renderReports(tasks);
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: /hidden/i }));
+    await user.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+      }),
+    );
+    expect(screen.getByTestId("report-block-byPriority")).toBeInTheDocument();
+  });
+
+  /**
+   * ★★★ THE FOUR TESTS BELOW WERE PORTED FROM `dashboard-panel.test.tsx`, WHERE
+   * THEY ALREADY EXISTED, because the wiring they guard was carried onto this
+   * surface and the tests were not. Every one of them maps onto a ★★/★★★ comment
+   * in `reports.tsx` that was otherwise backed by nothing here: delete
+   * `focusShelfToggle()` from either handler, or `reorder.endDrag()` from the
+   * shelf drop, and all of this file's other tests stay green while a keyboard
+   * user is dropped on `<body>` at the top of the document.
+   *
+   * ★★★ THREE OF THE FOUR ARE MUTATION-PROVED; THE MOVE ONE IS NOT, AND THE
+   * MUTANT SURVIVES. Measured 2026-09-07, one mutant per test, the whole file
+   * each time. ★★ NO TOTALS ARE QUOTED — this said "47 tests" and "1 failed /
+   * 46 passed" while the file already held 49, and every test added anywhere in
+   * the file re-stales them. The DIRECTION is the durable claim:
+   *   - delete `focusShelfToggle()` from `onHide`      → exactly its own test RED
+   *   - delete `focusShelfToggle()` from `onRestore`   → exactly its own test RED
+   *   - delete `reorder.endDrag()` from the shelf drop → exactly its own test RED
+   *   - delete `setFocusAfterMove({ id })`             → **whole file GREEN**
+   *
+   * ★★★ SO THE MOVE TEST BELOW DOES NOT GUARD `focusAfterMove` / `triggerRefs`,
+   * and must not be cited as if it did. It is not merely "unable to distinguish
+   * the naive version" — under jsdom the whole mechanism is redundant, so its
+   * DELETION is invisible too. The reason is upstream: `PopoverPanel` restores
+   * focus to its anchor when it unmounts with focus still inside it, and here the
+   * anchor is the very ⋮ trigger the move machinery aims at. React reorders a
+   * keyed list by MOVING the existing DOM nodes rather than recreating them, so
+   * in jsdom that captured anchor is still live and connected and the primitive's
+   * own restore lands it. What jsdom cannot reproduce is the browser behaviour
+   * the machinery exists for — moving a focused element BLURS it — which is what
+   * makes the primitive's restore insufficient in a real browser.
+   *
+   * ★★ It is kept because it pins a real OUTCOME (after a move, focus is on that
+   * block's trigger, by whichever route) and because deleting it would delete
+   * this measurement with it. It is NOT coverage for the machinery: only a
+   * Playwright probe can be, and one is owed. Do not read a green run here as
+   * licence to simplify `focusAfterMove` away.
+   * The two shelf-focus tests and the drop test have no such gap — nothing in
+   * them depends on the blur-on-move behaviour, and each killed its mutant.
+   */
+  /**
+   * The shelf disclosure, by its count-bearing name. ★★★ RESOLVED BY PATTERN,
+   * NEVER BY AN EXPECTED COUNT, and that is the whole reason these ports needed
+   * rewriting: the Dashboard's originals name the shelf `dashboardShelfCount(0)`
+   * / `(1)` because its fixture starts with nothing hidden. THIS surface does
+   * not — `renderReports(tasks)` opens with **2** blocks already on the shelf
+   * (measured by probe, not assumed: the button reads "▸ 2 hidden" on first
+   * render, because the reconciled layout shelves the blocks this fixture cannot
+   * render). Every count carried over from the Dashboard was therefore off by
+   * two, and all three tests failed on a missing element while the wiring they
+   * were written to guard was working perfectly. A pattern query has no such
+   * coupling. `getByRole` is singular, so this still throws if a second
+   * "… hidden" button ever appears.
+   */
+  const shelfToggle = () => screen.getByRole("button", { name: /hidden/i });
+
+  it("lands focus on the shelf disclosure after hiding, instead of dropping it on <body>", async () => {
+    // ★★★ HIDING DESTROYS THE CONTROL THAT WAS PRESSED. Hide lives inside the ⋮
+    // popover, anchored to the block's own ⋮ trigger — hiding unmounts BOTH.
+    // Without a destination, focus falls to `<body>` and a keyboard user who
+    // has just shelved a block is stranded at the top of the document with no
+    // route back to it.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    const hiddenBefore = shelfToggle().textContent;
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+
+    // …the trigger really did unmount and the block really did reach the shelf,
+    // or the focus assertion below could pass over a no-op.
+    expect(screen.queryByTestId("report-block-byPriority")).toBeNull();
+    expect(shelfToggle().textContent).not.toBe(hiddenBefore);
+    expect(document.activeElement).toBe(shelfToggle());
+  });
+
+  it("lands focus back on the shelf disclosure after restoring a block", async () => {
+    // ★★ THE MIRROR CASE, and the chip is the wrong destination for it: the
+    // Restore button the user pressed is removed by that very click and the
+    // remaining chips shift underneath them. The disclosure is the one node in
+    // the shelf that survives both directions.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(shelfToggle());                       // open the tray
+    await user.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+      }),
+    );
+
+    expect(screen.getByTestId("report-block-byPriority")).toBeInTheDocument();
+    expect(document.activeElement).toBe(shelfToggle());
+  });
+
+  it("returns focus to the moved block's own ⋮ trigger, so the next move needs no re-navigation", async () => {
+    // ★★★ THE ⋮ MENU IS THIS SURFACE'S ENTIRE KEYBOARD REORDER PATH — the drag
+    // primitive's arrow-key option is off here — so where focus lands after a
+    // move IS the feature. Every move command closes the popover, and with no
+    // destination focus falls to `<body>`, forcing a keyboard user to navigate
+    // ★★★ READ THE BLOCK COMMENT ABOVE BEFORE TRUSTING THIS TEST: its mutant
+    // SURVIVES. Deleting `setFocusAfterMove({ id })` from `reports.tsx` leaves
+    // this green, because `PopoverPanel`'s own anchor restore covers the jsdom
+    // case. This pins the outcome, not the mechanism.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    const ids = () => screen.getAllByTestId(/^report-block-/).map((n) => n.getAttribute("data-testid"));
+    const before = ids();
+    // Never index 0 — "Move earlier" is disabled there.
+    const target = before[2]!.replace("report-block-", "");
+    const title = t("en-US", REPORT_BLOCKS.find((b) => b.id === target)!.labelKey);
+
+    await openMenuFor(user, title);
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") }));
+
+    // Resolved by BLOCK IDENTITY, not by a node captured before the reorder.
+    expect(ids().indexOf(`report-block-${target}`)).toBe(1);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: `${t("en-US", "actionMoreActions")} – ${title}` }),
+    );
+  });
+
+  it("ends the drag when a block is dropped onto the shelf", () => {
+    // ★★★ Hiding UNMOUNTS the block whose grip owns `onDragEnd`, and a detached
+    // node's events never reach React's root container — so nothing would reset
+    // the hook's `dragId` and it would stay set for the rest of the session.
+    // The observable is the shelf's own `isDragging` guard: with the drag stuck
+    // true, a stray `dragEnter` pops the tray open.
+    // ★★ This is the drop-to-hide path's ONLY test on this surface — the
+    // reorder test earlier in the file is tile-to-tile and never touches the
+    // shelf.
+    renderReports(tasks);
+    fireEvent.dragStart(
+      screen.getByRole("button", {
+        name: `${t("en-US", "reorderHandleDragOnly")} – ${t("en-US", "reportsByPriority")}`,
+      }),
+    );
+    fireEvent.drop(shelfToggle());
+    // …the grip really did unmount, or the guard below proves nothing.
+    expect(screen.queryByTestId("report-block-byPriority")).toBeNull();
+
+    const shelf = shelfToggle();
+    expect(shelf).toHaveAttribute("aria-expanded", "false");
+    fireEvent.dragEnter(shelf);
+    expect(shelf).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("moves a block through the menu, over the VISIBLE order", async () => {
+    // ★★ The menu speaks in deltas and the engine in target ids. Indexing the
+    // STORED board rather than the visible one would let "Move earlier" swap
+    // with a gated-off block — no visible change at all. That was a measured
+    // defect on the Dashboard.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    const ids = () => screen.getAllByTestId(/^report-block-/).map((n) => n.getAttribute("data-testid"));
+    const before = ids();
+    const target = before[2]!.replace("report-block-", "");
+    const spec = REPORT_BLOCKS.find((b) => b.id === target)!;
+
+    await openMenuFor(user, t("en-US", spec.labelKey));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveFirst") }));
+    expect(ids()[0]).toBe(`report-block-${target}`);
+  });
+
+  it("moves a block LATER, the direction 'Move to start' can never exercise", async () => {
+    // ★★★ `moveByDelta`'s ±1 BRANCH WAS UNEXECUTED. Every move assertion in this
+    // file went through `"first"`, which takes `j = 0` and never reads `delta` —
+    // so `i + delta` was covered by nothing, on the surface where the ⋮ menu is
+    // the ONLY keyboard reorder path. `arrangement.move` → `moveBlock` →
+    // `reorderIds` is direction-sensitive by construction, so a sign error there
+    // would have shipped: "Move later" moving a block EARLIER is a wrong answer,
+    // not a crash, and nothing was looking.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    const ids = () => screen.getAllByTestId(/^report-block-/).map((n) => n.getAttribute("data-testid"));
+    const before = ids();
+    expect(before.length).toBeGreaterThan(2);
+    const target = before[0]!.replace("report-block-", "");   // index 0: "Move later" is enabled, "earlier" is not
+    const title = t("en-US", REPORT_BLOCKS.find((b) => b.id === target)!.labelKey);
+
+    await openMenuFor(user, title);
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") }));
+
+    expect(ids().indexOf(`report-block-${target}`)).toBe(1);
+    expect(ids()).toHaveLength(before.length);               // a move, not a drop
+    expect(screen.getAllByRole("status").map((el) => el.textContent)).toContain(
+      t("en-US", "dashboardTileMoved", title, "2", String(before.length)),
+    );
+  });
+
+  it("disables the move command that would run off the end, at BOTH ends", async () => {
+    // ★★ `moveByDelta`'s `j < 0 || j >= visibleIds.length` guard is NOT reachable
+    // through this surface — `ArrangementBlockMenu` disables "Move earlier"/"Move
+    // to start" at `index === 0` and "Move later" at `index >= count - 1`, so the
+    // handler's own bounds check is defence in depth behind the UI, and no click
+    // can express it. What IS reachable, and what a keyboard user actually meets,
+    // is the disabled state — so that is what this pins. ★ A `disabled` button
+    // dispatches no click at all, which is why asserting "nothing moved" after
+    // clicking one would pass whether or not the guard existed.
+    const user = userEvent.setup();
+    renderReports(tasks);
+    const ids = () => screen.getAllByTestId(/^report-block-/).map((n) => n.getAttribute("data-testid"));
+    const all = ids();
+    const titleAt = (i: number) =>
+      t("en-US", REPORT_BLOCKS.find((b) => b.id === all[i]!.replace("report-block-", ""))!.labelKey);
+
+    await openMenuFor(user, titleAt(0));
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveFirst") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") })).toBeEnabled();
+    await user.keyboard("{Escape}");
+
+    await openMenuFor(user, titleAt(all.length - 1));
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") })).toBeEnabled();
+  });
+
+  it("announces a hide to assistive technology", async () => {
+    // ★ The ⋮ IS the keyboard reorder path here (`keyboard: false` on the drag
+    // hook), so without a live region a keyboard user gets no feedback at all.
+    const user = userEvent.setup();
+    const { container } = renderReports(tasks);
+    await openMenuFor(user, t("en-US", "reportsByPriority"));
+    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    const live = container.querySelector('[role="status"][aria-live="polite"]');
+    expect(live?.textContent).toContain(t("en-US", "reportsByPriority"));
+  });
+
+  it("offers NO arrangement controls in a popout", () => {
+    // ★★ A popout is read-only by design: no grips, no ⋮, no shelf. The tile
+    // chrome drops its own two on `readOnly`; the shelf is guarded at its site.
+    const popout = renderReports(tasks, { isPopout: true });
+    expect(screen.queryByRole("button", { name: /drag to reorder/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: new RegExp(t("en-US", "actionMoreActions"), "i") })).toBeNull();
+    expect(screen.queryByRole("button", { name: /hidden/i })).toBeNull();
+    // …and the blocks themselves still render, or this would pass vacuously.
+    expect(screen.getByTestId("report-block-byPriority")).toBeInTheDocument();
+
+    // ★★★ AND THE "Add report" SELECT, WHICH THE THREE QUERIES ABOVE CANNOT
+    // SEE. It is `leading` on `ReportCard` — outside the tile chrome, so no
+    // `readOnly` in `ArrangementTile` reaches it — and every query above asks
+    // for role `button`. Before its own guard at the `leading={…}` site it
+    // rendered here, was operable, and `arrangement.restore` painted the block
+    // with no ⋮ and no shelf to undo it and no persist to keep it. Its
+    // accessible name is the `aria-label`, so an OPTION reading "+ Add report"
+    // cannot satisfy this query; the role is what separates them.
+    expect(screen.queryByRole("combobox", { name: t("en-US", "reportsAddReport") })).toBeNull();
+
+    // POSITIVE CONTROL, mutating the FIXTURE rather than the subject: the very
+    // same query FINDS the select once `isPopout` is off. Without this a
+    // mistyped key, a changed role or a silently-empty render would make the
+    // assertion above pass against BOTH the fixed and the unfixed code. Bound
+    // queries, not `screen` — this second tree is in the document too, which is
+    // why it is rendered AFTER every document-scoped assertion above.
+    const normal = renderReports(tasks);
+    expect(
+      normal.getByRole("combobox", { name: t("en-US", "reportsAddReport") }),
+    ).toBeInTheDocument();
+    // ★★★ `within(popout.container)`, NEVER `popout.queryByRole`. RTL binds a
+    // render's returned queries to `baseElement` — `document.body` — NOT to its
+    // own `container`, so `popout.queryByRole` searches BOTH trees and finds
+    // the select belonging to `normal`, two lines above. That is a defect in
+    // the assertion, not in the guard: this exact query passed as
+    // `screen.queryByRole` earlier in this test, while the popout was the only
+    // tree in the document. Measured — it failed with the received node being
+    // `normal`'s `<select aria-label="Add report">`.
+    expect(
+      within(popout.container).queryByRole("combobox", { name: t("en-US", "reportsAddReport") }),
+    ).toBeNull();
   });
 });

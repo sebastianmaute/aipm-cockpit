@@ -591,9 +591,27 @@ const enUS = {
   budgetRemoveBucket: "Remove bucket",
   budgetRemoveBucketConfirm: "Remove this budget bucket? Calculations based on it will reset to 0.",
   budgetReorderHandle: "Reorder bucket — drag, or focus and use the up/down arrow keys",
-  // Feature-NEUTRAL on purpose: shared by the Reports cards and both Settings
-  // reference lists. Do not re-name it after any one surface.
+  // Feature-NEUTRAL on purpose. Do not re-name it after any one surface — it
+  // was named after Reports once, and the roles-editor adopting it turned
+  // "tighten the Reports wording" into a silent rewrite of two unrelated
+  // Settings surfaces.
+  // ★★ ITS CONSUMER SET SHRANK IN §425 AND THIS COMMENT SAID "the Reports cards
+  // and both Settings reference lists". Reports no longer uses it: that surface
+  // passes `keyboard: false`, so its grips take the drag-only twin below.
+  // Today the only consumers are the roles-editor's two reference lists, whose
+  // grips leave `useListReorderDnd`'s `keyboard` at its default `true` — so the
+  // arrow-key promise in this value is TRUE wherever it is still read.
+  // Re-derive rather than trusting this: the `moveKey` ternary in
+  // `arrangement-tile.tsx` picks between the two, so
+  // `grep -rn '"reorderHandle"' src/app --include=*.tsx | grep -v i18n`
+  // returns that ternary plus the real call sites.
   reorderHandle: "Drag or use arrow keys to reorder",
+  // ★★ THE DRAG-ONLY TWIN of the key above, for a grip whose consumer passed
+  // `keyboard: false` to `useListReorderDnd`. Naming a key path the surface has
+  // switched off is a WCAG 4.1.2 defect, not a cosmetic one: the user tabs to
+  // the grip, presses ArrowUp, and nothing moves and nothing is announced.
+  // Pick between the two by CAPABILITY, never by surface.
+  reorderHandleDragOnly: "Drag to reorder",
   snapshotSelectRow: "Select snapshot {0}",
   budgetEditBucket: "Edit bucket",
   budgetStartDate: "Start date",
@@ -1218,6 +1236,7 @@ const enUS = {
   healthDriverCancelled: "cancelled",
   healthDriverOnTrack: "on track",
   healthTooltip: "{0}: {1}",
+  reportsHeadline: "Headline",
   reportsGroupHealth: "Group health",
   reportsUngrouped: "Ungrouped",
   reportsGroupCounts: "{0} red · {1} amber · {2} green",
@@ -2145,6 +2164,12 @@ const enUS = {
   integrationsTursoTestUnreachable: "Could not reach the database. Check the URL and your network.",
   integrationsTursoTestAuth: "The auth token was rejected. Check the token.",
   integrationsTursoTestFailGeneric: "Connection failed.",
+  // ★ ONE key, not two. The CONFIRMED branch reuses the existing
+  // `projectMigrateToTursoHint`, which already describes what the action does —
+  // a second "connection confirmed" string would be read by nothing and a dead
+  // i18n key is invisible to every gate in this repo.
+  integrationsTursoMoveNeedsTest:
+    "Run Test connection first — Move to Turso stays disabled until the connection is confirmed.",
   integrationsTursoToken: "Auth token",
   integrationsTursoTokenPlaceholder: "Turso database token",
   integrationsTursoTokenFromEnv:
@@ -2434,7 +2459,14 @@ const enUS = {
   dashboardTileMoveEarlier: "Move earlier",
   dashboardTileMoveLater: "Move later",
   dashboardTileMoveFirst: "Move to start",
-  dashboardTileHide: "Hide tile",
+  // ★★ NOUN-FREE ON PURPOSE. The `dashboard*` key PREFIX is historical — this
+  // menu is shared by the Dashboard's tiles and the Reports board's blocks — and
+  // "Hide tile" was the only string in it that leaked the Dashboard's noun onto
+  // Reports, where it offered "Hide tile" on a report block. Every sibling
+  // (`dashboardTileRestore`, `dashboardShelfCount`, `dashboardShelfEmpty`,
+  // `dashboardTileHidden`, the two move commands) already reads without one.
+  // Nothing is lost: the block's title is in the enclosing dialog's own name.
+  dashboardTileHide: "Hide",
   dashboardTileRestore: "Restore",
   dashboardShelfCount: "{0} hidden",
   dashboardShelfEmpty: "Nothing hidden",

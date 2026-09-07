@@ -29,7 +29,21 @@ const SWEPT_FILES = [
   "jira-conflicts-modal.tsx",
   "roles-editor.tsx",
   "budget-panel.tsx",
-  "reports.tsx",
+  // The report tables moved to reports-blocks.tsx when the arrangement slice
+  // extracted the block bodies; reports.tsx is now the header-less orchestrator
+  // and holds no `<th`, no TABLE_HEAD_CLASS and no `<DataTable` at all — so it
+  // could no longer satisfy this sweep and was correctly dropped, exactly like
+  // raid-panel.tsx and resources-panel.tsx above.
+  // ★★ THIS IS A LIST OF PATHS AND IT DOES NOT FOLLOW A MOVE. The extraction
+  // turned this test red in CI while every local gate was green, because the
+  // assertion reads BYTES AT A PATH rather than behaviour through an API —
+  // the same shape as the source-form scan that had to move in this slice.
+  // When a table moves file, repoint the entry; never relax the assertion.
+  "reports-blocks.tsx",
+  // Its sibling, holding the shared table components the blocks render. Never
+  // listed before and compliant on its own (it routes through <DataTable>);
+  // added here so the same drift cannot go unnoticed on this half.
+  "reports-tables.tsx",
   "resource-calendar.tsx",
 ];
 

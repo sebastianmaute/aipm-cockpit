@@ -583,3 +583,73 @@ describe("SortResizeTh nameContext", () => {
     expect(tip.getAttribute("aria-label")).toBe("Hours still to book");
   });
 });
+
+/**
+ * `ReportCard`'s trailing toolbar group, and the contract its optional members
+ * carry.
+ *
+ * ★★★ THE ABSENT-PROP CASE IS THE ONE THAT NEEDS PINNING, and it is pinned HERE
+ * rather than on a consumer because the contract belongs to this component. Six
+ * of `ReportCard`'s seven consumers pass no `onResetLayout` at all, so "it is
+ * optional and renders nothing when absent" is a guarantee those six rely on —
+ * and without an assertion it is a claim, not a fact.
+ *
+ * ★★★ DO NOT WRITE THIS AGAINST `dashboard-panel`. It IS a `ReportCard`
+ * consumer, but its trailing group is HAND-ROLLED in its own card body — it
+ * imports `PrintButton`/`ResetLayoutButton`/`ResetSizeButton` directly and
+ * renders them itself. An assertion there would measure the Dashboard's own
+ * stack and pass whatever `ReportCard` did: vacuous-but-green.
+ */
+function ToolbarHarness({ withLayout }: { withLayout?: boolean }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  return (
+    <ReportCard
+      lang="en-US"
+      sizeRef={ref}
+      onResetSize={() => {}}
+      onResetCols={() => {}}
+      onResetLayout={withLayout ? () => {} : undefined}
+    >
+      <p>body</p>
+    </ReportCard>
+  );
+}
+
+describe("ReportCard — the trailing toolbar group", () => {
+  const names = () =>
+    screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent ?? "");
+
+  it("renders exactly Print · reset-columns · reset-size when onResetLayout is ABSENT", () => {
+    render(<ToolbarHarness />);
+    expect(names()).toEqual([
+      t("en-US", "printHint"),
+      t("en-US", "colResetWidthsHint"),
+      t("en-US", "tableResetSizeHint"),
+    ]);
+    // ★ The reset-layout control is not merely last — it is not there at all.
+    expect(screen.queryByRole("button", { name: t("en-US", "dashboardResetLayout") })).toBeNull();
+  });
+
+  it("inserts reset-layout BETWEEN reset-columns and reset-size when passed", () => {
+    // ★★ That slot is the whole reason this is a prop rather than `toolbarExtra`,
+    // which renders BEFORE Print. The order contains both existing conventions
+    // as subsequences: the documented Print · reset-columns · reset-size, and
+    // the Dashboard's Print · reset-layout · reset-size.
+    render(<ToolbarHarness withLayout />);
+    expect(names()).toEqual([
+      t("en-US", "printHint"),
+      t("en-US", "colResetWidthsHint"),
+      t("en-US", "dashboardResetLayout"),
+      t("en-US", "tableResetSizeHint"),
+    ]);
+  });
+
+  it("omits reset-columns too when ITS prop is absent", () => {
+    // ★ The positive control for the optionality claim: both optional members
+    // behave the same way, so the first test above is not passing because
+    // something unrelated suppresses buttons.
+    const ref = { current: null };
+    render(<ReportCard lang="en-US" sizeRef={ref} onResetSize={() => {}}><p>body</p></ReportCard>);
+    expect(names()).toEqual([t("en-US", "printHint"), t("en-US", "tableResetSizeHint")]);
+  });
+});

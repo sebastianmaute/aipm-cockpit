@@ -58,8 +58,10 @@ test.describe("dashboard grid geometry", () => {
     expect(m.tracks).toHaveLength(4);
     // ★★★ THE EQUAL-WIDTH LOOP IS THE ONLY ASSERTION IN THIS TEST THAT CATCHES A
     // MISSING `xl:grid-cols-4`, AND NEITHER OF THE OTHER TWO HELPS. Measured, not
-    // reasoned — delete `xl:grid-cols-4` from `dashboard-grid.tsx`, restart the
-    // dev server so Tailwind cannot serve a stale sheet, and read the computed
+    // reasoned — delete `xl:grid-cols-4` from `arrangement-grid.tsx` (it moved
+    // there with the grid extraction; `dashboard-grid.tsx`, which this recipe
+    // used to name, is now a thin adapter and contains no such class), restart
+    // the dev server so Tailwind cannot serve a stale sheet, and read the computed
     // style: `gridTemplateColumns` is "19.3594px 19.3594px 575.641px 575.641px".
     // FOUR entries, so `toHaveLength(4)` PASSES. The template does not collapse
     // to one track, because the w:4 tile's own `xl:col-span-4` spans past the two

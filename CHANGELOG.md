@@ -8,6 +8,52 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.290.0] - 2026-09-07 "Holdstock"
+
+The Reports view becomes arrangeable, on the same engine the Dashboard already
+used; "Move to Turso" stops trusting a connection nobody has tested; and a drag
+handle stops promising a key it never listened for.
+
+### Added
+
+- **Report blocks can be rearranged, hidden and resized.** Reports rendered a
+  fixed run of sections. You can now drag a block into a new order, change how
+  many columns and rows it occupies, put one away on a shelf and bring it back,
+  and reset the whole thing — with the arrangement remembered per project. The
+  toolbar gains a "Reset layout" button beside "Reset column widths".
+- **The Dashboard's arrangement machinery is now shared.** The tile grid,
+  ordering, hidden-block shelf, block menu and per-project storage were
+  generalised so any surface can adopt them. The Dashboard binds through the
+  same engine and behaves exactly as before — same stored layouts, same
+  defaults, same reset behaviour.
+
+### Changed
+
+- **"Move to Turso" now refuses until a connection test has reached the
+  database.** The action was available whether or not anyone had proved the
+  database answers, so a migration could be started against a database that was
+  unreachable or wrongly configured. The Settings button stays disabled until a
+  test passes, and re-enables only while the tested URL and token still match
+  what is in the fields — editing either closes the gate again.
+- **The refusal now covers every button that offers the migration**, not just
+  the one in Settings. The check moved to the migration itself, so the Projects
+  panel's button is covered too, and it declines before creating anything
+  rather than after.
+
+### Fixed
+
+- **A drag handle no longer offers arrow keys on a surface that ignores them.**
+  The Dashboard's tile handles were announced as "Drag or use arrow keys to
+  reorder" while that view listens for no keys at all — a keyboard user could
+  reach the handle, press an arrow and get nothing, with no explanation. They
+  now read "Drag to reorder"; the ⋮ menu remains the keyboard way to move a
+  tile, and it announces the result. (WCAG 4.1.2.)
+- **A popped-out Reports window can no longer add a block it cannot remove.**
+  The "Add report" control still appeared in a popout, where there is no block
+  menu and no shelf, so an added block could not be put back and was discarded
+  when the window closed. Popouts are read-only, and the control is now absent
+  there.
+
 ## [0.289.0] - 2026-09-06 "Mirrlees"
 
 Second pass over preview/apply parity: for every field the assistant can write,

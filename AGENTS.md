@@ -1074,7 +1074,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `globals.css` rule on `.lucide`; that file is unlayered, so overriding it needs `stroke-[2]!`.
   ★★ **A stale `.next` makes `/icon-gallery` 404 in dev, and it is the only route that can show
   this.** The page is the repo's sole `if (process.env.NODE_ENV === "production") notFound();`
-  guard (`grep -rn NODE_ENV src --include=*.ts --include=*.tsx` — the other two hits are `!==`), so
+  guard (`grep -rn NODE_ENV src --include=*.ts --include=*.tsx` — read the hits; ★★ do NOT count
+  them, and do NOT read "sole" as "the only `=== "production"` test". `use-arrangement.ts` has one
+  too, as an early return guarding a dev-only `console.warn`; what is unique here is the pairing with
+  `notFound()`, which is what makes the ROUTE disappear. An earlier revision said "the other two hits
+  are `!==`", which was already loose — one of them is a `vi.stubEnv` in a test, not a comparison —
+  and went stale the moment a fourth site landed), so
   a dev server serving anything stale for that route 404s while every sibling route is fine. It
   reaches the gallery/visual e2e specs as `toHaveCount` "Received: 0", which reads like a broken
   selector. Remedy is the one this file already gives for a corrupted dev cache: stop the server,
@@ -1451,7 +1456,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   above. It is pinned by `expectButtonOrder` with `contiguous: true` in `dashboard-panel.test.tsx`, and that
   assertion is mutation-proved — reordering the two resets turns it red. ★ It is also the one member carrying its
   own `!arrangement.readOnly` guard, because the stack around it is gated only on `print:hidden`; a popout is
-  read-only by design and would otherwise gain a working reset. Drift has
+  read-only by design and would otherwise gain a working reset.
+  ★★★ **A PANE WITH BOTH IS FOUR MEMBERS: Print · reset-columns · reset-layout · reset-size.** Reports is the
+  first pane to carry all four; the two above are the three-member SPECIAL CASES of it. ★ NO VERSION IS
+  QUOTED, and adding one back is a regression twice over: this said "(0.290.x)" while `version.ts` read
+  0.289.0 and the branch introducing the fourth member bumped nothing, so the number was ASPIRATIONAL —
+  and the preamble to this whole section already says version/MR provenance lives in git + CHANGELOG,
+  not here. The order is not arbitrary — it
+  contains BOTH of them as SUBSEQUENCES, so neither existing convention breaks, and it keeps the two CONTENT
+  resets together ahead of the BOX reset. ★★ `contiguous: true` catches a control inserted BETWEEN members but
+  cannot adjudicate the ORDER itself, which is why it is written here rather than inferred from a green test —
+  and it cannot see a member wrongly PRESENT in a popout either, so the `readOnly` guard needs its own test.
+  ★ `ReportCard` emits the group for its seven consumers; `onResetCols` and `onResetLayout` are both OPTIONAL and
+  rendered only when passed, so a pane with no engine for one gets nothing. Drift has
   been caught and fixed more than once: Outlook once sat between the two resets in Resources; Clear once sat
   after them in Activity; Open Points had the worst case — Print/reset-size/reset-columns sat BEFORE the
   destructive Clear-all AND the two resets were in the wrong relative order (reset-size before reset-columns),

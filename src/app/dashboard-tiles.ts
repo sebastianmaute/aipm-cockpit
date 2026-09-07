@@ -32,8 +32,14 @@
 // import is erased at compile time, so nothing here pulls the dictionaries into
 // a bare node process. A VALUE import from `./i18n` would break that.
 import type { TranslationKey } from "./i18n";
+import { specById, type BlockSpan } from "./arrangement-layout";
 
-export type TileSpan = 1 | 2 | 3 | 4;
+/** ★ AN ALIAS OF THE ENGINE'S `BlockSpan`, NOT A SECOND DECLARATION. The two
+ *  were briefly independent spellings of the same closed union, which is how a
+ *  widened engine and an un-widened catalogue could have disagreed in silence.
+ *  The NAME stays because it has 20+ call sites across the Dashboard's own
+ *  components — this is a rename-free collapse, not an export change. */
+export type TileSpan = BlockSpan;
 
 export type DashboardTileId =
   | "kpi" | "topActions" | "insights" | "raid" | "upcoming"
@@ -94,6 +100,9 @@ export const DASHBOARD_TILES: readonly TileSpec[] = [
   { id: "completionTrend", labelKey: "dashboardCompletionTrend", w: 2, h: 1, minW: 2, maxW: 4, minH: 1, maxH: 2, gate: (g) => g.hasCompletionTrend },
 ];
 
+/** ★ DELEGATES to the engine's `specById` rather than re-implementing the find.
+ *  The return type stays `TileSpec | undefined`, NOT `BlockSpec | undefined` —
+ *  callers here read `spec.gate`, which the engine's spec deliberately lacks. */
 export function tileById(id: DashboardTileId): TileSpec | undefined {
-  return DASHBOARD_TILES.find((t) => t.id === id);
+  return specById(DASHBOARD_TILES, id);
 }

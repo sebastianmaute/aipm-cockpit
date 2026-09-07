@@ -10,12 +10,30 @@
 // carries a REAL `useLoadTruncation` guard here, not a stub — the flush skip
 // and the reporting are two faces of one state machine, and a stub would let
 // each pass while the machine itself was wrong.
+//
+// And the §408 half: `migrateCurrentProjectToTurso` probes the CONNECTION
+// before it migrates. That gate cannot live on the Settings button, because a
+// second button in `projects-panel.tsx` is bound to the same handler — so this
+// file, not `integrations-section.test.tsx`, is where it is pinned.
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTursoProjectOps, type TursoProjectOpsDeps } from "./use-storage-turso-ops";
 import { useLoadTruncation } from "./use-load-truncation";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 import { emptyWorkspace } from "./workspace";
+
+// `migrateCurrentProjectToTurso` probes the connection before it migrates, so
+// the real one would reach the network here. Spread the actual module rather
+// than replacing it wholesale — nothing else in this graph needs the pipeline
+// today, and a bare factory would break silently the moment something does.
+// ★ The default RESOLVES, so every pre-existing test in this file sees the
+// probe pass and its behaviour is unchanged; the failing case opts in with
+// `mockRejectedValueOnce`.
+import { testTursoConnection } from "./turso-pipeline";
+vi.mock("./turso-pipeline", async (importActual) => ({
+  ...(await importActual<typeof import("./turso-pipeline")>()),
+  testTursoConnection: vi.fn(async () => {}),
+}));
 
 const loadMock = vi.fn(async () => emptyWorkspace());
 const saveMock = vi.fn(async () => {});
@@ -98,6 +116,7 @@ beforeEach(() => {
   saveMock.mockClear();
   tursoTruncation.current = undefined;
   vi.mocked(logDiag).mockClear();
+  vi.mocked(testTursoConnection).mockClear();
 });
 
 describe("useTursoProjectOps — outgoing flush failure", () => {
@@ -228,6 +247,55 @@ describe("useTursoProjectOps — §103 truncation", () => {
 
     await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
 
+    expect(portfolioCreate).toHaveBeenCalledTimes(1);
+    expect(saveMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useTursoProjectOps — §408 connection gate on migrate", () => {
+  // ★★★ THE KILL LINE FOR THE SECOND CALL SITE. Settings disables its "Move to
+  // Turso" until a Test connection has passed, and `integrations-section.test.tsx`
+  // pins that affordance — but `projects-panel.tsx` binds a SECOND button to
+  // this same handler gated only on `tursoConfigured`, and the Projects view is
+  // reachable on a file backend. `guardTurso` resolves a CONFIG, never a
+  // CONNECTION, so before the probe below a never-reachable URL/token pair got
+  // all the way to `portfolioCreate` from that button.
+  //
+  // The assertion is on `portfolioCreate` for the same reason as the truncation
+  // test above: it is the irreversible step — a live, non-archived row in the
+  // SHARED portfolio DB — so a decline placed after it leaves a phantom project
+  // named after the user's, opening empty forever.
+  it("declines BEFORE creating the portfolio row when the connection probe fails", async () => {
+    vi.mocked(testTursoConnection).mockRejectedValueOnce(new Error("host unreachable"));
+    // ★ Nothing is truncated here (the beforeEach clears it), so the §103
+    // refusal cannot be what declines — the toast assertion below names WHICH
+    // decline fired, which is the half that separates the two.
+    const { result } = renderWithRealGuard(async () => {}, { currentWorkspace: wsWithProject });
+    vi.mocked(portfolioCreate).mockClear();
+    saveMock.mockClear();
+
+    await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
+
+    expect(portfolioCreate).not.toHaveBeenCalled(); // no phantom row
+    expect(saveMock).not.toHaveBeenCalled();        // and nothing written
+    expect(result.current.showToast).toHaveBeenCalledWith(
+      "error",
+      t("en-US", "projectsTursoUnreachable"),
+    );
+  });
+
+  // ★ The control: without it, "not called" above is equally satisfied by a
+  // migrate that never runs at all. It also pins that the probe is CONSULTED —
+  // deleting the `await testTursoConnection(cfg)` line leaves this green but
+  // turns the test above red, which is the split that makes the pair a proof.
+  it("probes the connection once, and proceeds when it passes", async () => {
+    const { result } = renderWithRealGuard(async () => {}, { currentWorkspace: wsWithProject });
+    vi.mocked(portfolioCreate).mockClear();
+    saveMock.mockClear();
+
+    await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
+
+    expect(testTursoConnection).toHaveBeenCalledTimes(1);
     expect(portfolioCreate).toHaveBeenCalledTimes(1);
     expect(saveMock).toHaveBeenCalledTimes(1);
   });

@@ -102,6 +102,18 @@ const tursoInstances = vi.hoisted(() => [] as { save: ReturnType<typeof vi.fn> }
 //   does resets it in `afterEach`, because these are plain PROPERTIES and a leak
 //   would surface under the shuffled seed as an unrelated failure.
 const tursoImportDiag = vi.hoisted(() => ({}) as { dropped?: number; unterminated?: boolean });
+// §408: `migrateCurrentProjectToTurso` now probes the CONNECTION before it
+// migrates, so the two tests here that really invoke it would otherwise reach
+// the network against a fixture URL — a slow, non-deterministic failure that
+// looks nothing like its cause. Spread the actual module rather than replacing
+// it wholesale, so nothing else this graph reaches from the pipeline silently
+// becomes undefined. ★ The default RESOLVES, so every test in this file keeps
+// its pre-§408 behaviour; the DECLINE path is owned by
+// `use-storage-turso-ops.test.ts`, which is where the gate itself is pinned.
+vi.mock("./turso-pipeline", async (importActual) => ({
+  ...(await importActual<typeof import("./turso-pipeline")>()),
+  testTursoConnection: vi.fn(async () => {}),
+}));
 vi.mock("./turso-backend", () => ({
   TursoBackend: class {
     kind = "turso" as const;

@@ -1,58 +1,33 @@
 "use client";
+/**
+ * The Dashboard's binding of the shared arrangement grid.
+ *
+ * ★★ THIS FILE IS AN ADAPTER, NOT A GRID. Every landmine that used to live here
+ * now lives in `arrangement-grid.tsx` — the whole-literal span tables, the
+ * order-is-the-placement-model note, the four-column assumption, and the
+ * ★★★ renders-no-scroller-of-its-own block. Read them there before changing
+ * anything here. What stays is the Dashboard-specific binding: its density
+ * classes and its `data-testid`.
+ *
+ * ★ The exported names are UNCHANGED on purpose — `dashboard-panel.tsx`,
+ * `dashboard-tile.tsx` and the Dashboard's own tests keep compiling and passing
+ * untouched. If a Dashboard test needs editing to accommodate a change here, the
+ * change is wrong.
+ */
 import type { ReactNode } from "react";
+import { ArrangementGrid } from "./arrangement-grid";
 import type { DensityClasses } from "./dashboard-density";
-import type { TileSpan } from "./dashboard-tiles";
 
-/**
- * ★★★ THESE MUST STAY WHOLE LITERAL STRINGS. Tailwind v4 builds its stylesheet
- * by scanning source for class-name candidates, so an interpolated
- * `col-span-${w}` emits NO CSS — the tile would silently render one column wide
- * with nothing in any test able to see it, because jsdom has no layout.
- *
- * ★ The WIDTH table carries the entire responsive clamp, which is why the
- * narrow-screen behaviour needs no JavaScript: no width measurement, no
- * ResizeObserver. Height does not clamp — a tall tile stays tall.
- */
-export const W_CLASS: Record<TileSpan, string> = {
-  1: "col-span-1",
-  2: "col-span-1 lg:col-span-2",
-  3: "col-span-1 lg:col-span-2 xl:col-span-3",
-  4: "col-span-1 lg:col-span-2 xl:col-span-4",
-};
+export { W_CLASS, H_CLASS } from "./arrangement-grid";
 
-export const H_CLASS: Record<TileSpan, string> = {
-  1: "row-span-1",
-  2: "row-span-2",
-  3: "row-span-3",
-  4: "row-span-4",
-};
-
-/**
- * The arrangeable Dashboard tile grid.
- *
- * ★★ ORDER IS THE WHOLE PLACEMENT MODEL — `grid-flow-row-dense` resolves an
- * ordered list of spans into cells, so there are no coordinates to store, and
- * the column count changes with the breakpoint without any of it needing to
- * know. That also means a drop indicator drawn on one tile's EDGE would
- * routinely point at a slot the tile does not land in (dense backfill
- * re-places everything after the move) — consumers render the reorder hook's
- * `previewOrder` instead.
- *
- * ★ Spacing comes from the density classes, never from a literal `gap-*`: a
- * literal would ignore compact mode.
- *
- * ★★★ THIS RENDERS **NO SCROLLER OF ITS OWN**, and re-adding one is the defect
- * it used to have. It wrapped the grid in `min-h-0 overflow-y-auto` and handed
- * that div to `useListReorderDnd` as the drag `scrollRef` — but the wrapper is a
- * block-level child of a plain block, so it sizes to its content,
- * `scrollHeight === clientHeight`, and `useDragAutoscroll`'s `scrollTop +=`
- * could never move it. Dragging a tile toward the bottom of a long board did
- * nothing. The real scroller is the enclosing `ReportCard`'s own `contentRef`
- * (that prop's docstring says so, and `reports.tsx` wires it the same way), so
- * the panel passes ONE ref to both the card and the hook. Nesting a second
- * scroller here would not merely be redundant — it would take the drag
- * autoscroll back to the element that cannot scroll.
- */
+/* ★ THE ROW AND GAP CLASSES COME FROM THE DENSITY BAG, NEVER A LITERAL `gap-*`
+ * — a literal would ignore compact mode. That is the Dashboard's whole reason
+ * for the two injected class props; Reports has no density and passes fixed
+ * strings. ★★ The two density field names are deliberately NOT spelt out in
+ * this comment. `docs/AGENTS/dashboard.md` quotes a repo-wide grep for the gap
+ * field as returning ONE hit; a comment naming it would silently make that two,
+ * which is the self-matching-recipe trap this branch has already shipped once.
+ * The names are on the JSX below, where they are code rather than prose. */
 export function DashboardGrid({
   dc,
   children,
@@ -61,11 +36,8 @@ export function DashboardGrid({
   children: ReactNode;
 }) {
   return (
-    <div
-      data-testid="dashboard-grid"
-      className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 grid-flow-row-dense ${dc.tileRow} ${dc.sectionGap}`}
-    >
+    <ArrangementGrid rowClass={dc.tileRow} gapClass={dc.sectionGap} testId="dashboard-grid">
       {children}
-    </div>
+    </ArrangementGrid>
   );
 }

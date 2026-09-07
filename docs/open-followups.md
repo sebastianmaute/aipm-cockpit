@@ -640,6 +640,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--open) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | open |
 | [§422](#422-an-email-address-containing-a-comma-is-destroyed-by-a-no-op-round-trip-through-the-inline-editor--open) | An email address containing a comma is destroyed by a no-op round-trip through the inline editor | found 2026-09-06 in cold review of the preview/apply-parity branch | S | open |
 | [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--open) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit | S | open |
+| [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
+| [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | closed 2026-09-07 |
+| [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
+| [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--open) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -30564,3 +30568,280 @@ which ARE genuinely repo knowledge, and drop only the biographies, which are not
 **Not doing it here.** Cutting ~53 lines of prose other releases wrote is a refactor, and folding it
 into a release commit would ship it unreviewed — the precise failure this branch spent a whole round
 correcting.
+## 424. No window or modal offers a help icon, though the deep-link channel already exists — OPEN
+
+**Status:** open, recorded 2026-09-06 from a read of the tree at 3aef0e01. Nothing was fixed —
+this entry records a measured gap deliberately deferred out of the Reports-arrangement slice.
+Verified 2026-09-06 by two commands actually run:
+`grep -rn "QuestionMarkCircleIcon" src/app --include=*.ts --include=*.tsx | grep -v test`
+(5 hits across 3 files — exactly one help-opener BUTTON app-wide) and
+`grep -rn "requestHelpConcept" src/app --include=*.ts --include=*.tsx | grep -v test | wc -l`
+(26 — the deep-link channel exists, and every caller is a view callout).
+★ THOSE TWO COMMANDS DO NOT COVER THE MODAL/WINDOW COUNTS below (34 files / 36 sites / 20
+`ModalHeader`): those came from a separate multiline scan and are NOT re-derivable from the two
+greps above. Re-measure them as their own paragraph instructs before relying on them.
+
+**The ask.** Every window and modal should carry a question-mark icon opening its own Help entry,
+deep-linked — the Calendar window's icon opening the Calendar entry, the Edit Task modal's
+opening the Edit Task entry.
+
+**What already exists, and it is more than half the work.** The deep-link CHANNEL is built and in
+production use: `requestHelpConcept` → `pendingHelpConcept` → `HelpView`, which scrolls to
+`helpSectionId(id)` behind a sentinel-seeded remount-swallow guard of the shape AGENTS.md
+mandates. `HELP_ENTRIES` holds 66 entries addressed by a free-string `id`.
+Reproduce the caller set:
+`grep -rn "requestHelpConcept" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+→ 26 hits on 2026-09-06, every one feeding a `<ViewCallout onLearnMore={...}>`.
+
+**What does not exist.**
+
+1. **No modal or window renders a help opener.** The app has exactly ONE — the top-bar `HelpMenu`
+   trigger — plus the sidebar nav glyph, which is an icon on a nav row and not a button.
+   `grep -rn "QuestionMarkCircleIcon" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+   → 5 hits in 3 files: the `icons.ts` re-export, `help-menu.tsx` (import + render), `nav-icons.tsx`
+   (import + map row). ★ `InfoTooltip` is a HOVER HINT and opens nothing — do not count its ~50
+   call sites as prior art for this.
+2. **No surface→entry map for anything that is not a view.** `VIEW_CALLOUTS` is keyed by `AppView`,
+   which cannot name a modal, so a `MODAL_HELP` table has to be minted.
+3. **Nothing typechecks that a requested id exists.** `HelpEntry.id` is `string`, not a union, and
+   `HelpContentPane` resolves it with a `.find(...)` returning null on a miss. A typo in a new map
+   is silent at build time and at runtime.
+4. **The floating `HelpMenu` has no deep-link input at all** — it takes `{ lang }` and owns its
+   query locally, and `HelpContentPane`'s `scrollToSection` is private to that component. So
+   "open Help at entry X" is today possible ONLY via the in-pane Help VIEW.
+
+**The design fork that deferred it, and it is not a detail.** `requestHelpConcept` sets
+`activeTab = "help"`. Fired from a modal, the view switches BEHIND the still-open dialog. So a
+modal's help icon must either close the modal first, or the floating `HelpMenu` must gain the
+deep-link input it does not have. Neither is a small choice, and either wrong answer makes every
+modal's icon read as broken. Settle this BEFORE writing any icon.
+
+**Blast radius.** 34 non-test files render `Modal` across 36 sites, but only 20 use `ModalHeader`
+— so roughly 14 need bespoke placement, plus two non-modal floating windows (`help-menu`,
+`notes-window`) that hand-roll their own title bars via `useDraggableWindow`.
+★★ THE OBVIOUS GREP UNDERCOUNTS: several call sites break the `<Modal` tag across lines, so
+`grep -rl "<Modal"` misses them. The 34/36 figures came from a multiline scan of every non-test
+`.tsx` under `src/app`. Re-measure with a multiline scan rather than trusting either number here.
+`ModalHeader` already has a trailing-action slot — `headerExtra`, rendered before the voice mic,
+the reset-layout button and the ✕, and occupied at 5 call sites today. Composing into
+`headerExtra` per site works; a dedicated `helpConceptId?: string` prop is the only shape that
+reaches all 20 headers at once.
+
+**The a11y constraint it inherits.** `ModalHeader` already carries `closeLabel` and
+`hideVoiceCommand` precisely because stacked dialogs otherwise put two identically-named controls
+in one tree. An unqualified "Help" icon on a stacked modal is that same WCAG 2.4.6 class, and the
+axe gate cannot see it in any view at any seed size — no rule under the four tags
+`e2e/a11y.spec.ts` requests flags two controls sharing an accessible name. Qualify the name at
+write time and pin it with a unit test; nothing else can catch it.
+
+## 425. The Dashboard's reorder grip still promises an arrow-key path its own call site switched off — CLOSED 2026-09-07
+
+
+**Status:** CLOSED 2026-09-07. Verified by commands actually run:
+`grep -n "keyboardReorder=" src/app/dashboard-panel.tsx src/app/reports.tsx` → both consumers now
+pass `{false}` explicitly, and `keyboardReorder` is REQUIRED on `ArrangementTileProps`, so there is
+no default left to inherit. `npx tsc --noEmit` → exit 0, which is also what proves the call-site
+enumeration was complete: a missed site is now a compile error, not a silent overstatement.
+
+Mutation-proved, not asserted: flipping `keyboardReorder={false}` to `{true}` in
+`dashboard-panel.tsx` and running `npx vitest run --maxWorkers=1 src/app/dashboard-panel.test.tsx`
+gives **3 failed | 70 passed (73)**.
+
+★★★ **THREE DIFFERENT TALLIES, AND THIS ENTRY HAS NOW BOTCHED THE SAME DISTINCTION TWICE.** The
+original prediction of "five test names" counted `grip()` CALL SITES (five). They sit in FOUR
+tests. Only THREE are mutation-sensitive. The closure's first wording said "THREE tests", derived
+from the mutation count — i.e. it corrected a call-sites-vs-tests conflation and committed a
+tests-vs-failures one in the same sentence. Caught by cold review, not by any gate. Derive them,
+never quote them:
+`grep -nE '^\s*(it|test)\(|grip\("' src/app/dashboard-panel.test.tsx`
+
+★★ **Why the sum check cannot catch it:** `73 = 3 + 70` matches the file's real runtime count, so
+the scorecard looks self-consistent while the sentence beside it is wrong. The fourth enclosing
+test is "renders no grip, menu, shelf or reset in a popout (read-only)", which asserts
+`queryByRole(...)` is NULL — and `arrangement-tile.tsx` renders the grip behind `{!readOnly && …}`,
+so in a popout no grip exists and that assertion holds whether the name is right, renamed, or
+misspelt. It is name-INSENSITIVE by construction: correct for what it tests, worthless as a name
+pin, and invisible to any tally that counts tests rather than assertions.
+
+★ Read the original recipe's warning as still standing for anyone re-deriving this: every string
+here appears in the comments that discuss it as well as in code, so `grep -c` overstates
+everywhere. Look at the hits.
+
+**The defect.** `dashboard-panel.tsx` passes `keyboard: false` to `useListReorderDnd`, so the
+`handleProps` it spreads onto every tile grip carry no `onKeyDown`. `ArrangementTile` nevertheless
+names that grip from `reorderHandle` — EN "Drag or use arrow keys to reorder", DE "Ziehen oder mit
+den Pfeiltasten ↑/↓ verschieben". HTML5 drag is not keyboard-operable, so the grip is a focus stop
+with no keyboard action whatsoever, wearing a name that says otherwise: a keyboard user tabs to
+"Drag or use arrow keys to reorder – Progress", presses ArrowUp, and nothing moves, nothing is
+announced, and the live region stays empty. That is WCAG 4.1.2 (name/role/value), not a wording
+nit — the accessible name is the only thing telling that user the key exists.
+
+★ **The `keyboard: false` DECISION is right and is not what this entry asks to change.** The ⋮
+menu is the surface's keyboard reorder path and the only one that can also announce the result; a
+second keyboard path for one action is worse, not better. It is the LABEL that is false.
+
+★★ **No gate can see this, in either layer.** axe 4.12.1 has no rule that compares a control's
+accessible name against the handlers actually bound to it, and jsdom dispatches a `keydown` onto a
+grip with no listener without complaint — so a unit test cannot observe the missing reorder either.
+Only a test asserting the NAME against the known capability catches it, which is what
+`reports.test.tsx`'s "names the grip for what it can actually do, the drag alone" now does for the
+other surface.
+
+**Why it was not fixed when first filed.** The Reports-arrangement branch carried a governing rule
+that `dashboard-panel.tsx` is never edited and every Dashboard test passes unmodified, with two
+already-sanctioned exceptions; this would have been a third. The fix was therefore built as a
+shared, opt-out-able capability, and only Reports opted in. ★ That rule was lifted deliberately to
+close this entry, so a reader meeting it needs to know it was retired on purpose, not forgotten.
+
+★★★ **AND CLOSING THIS BROKE PHASE F EXPORT-STABILITY, WHICH IS MORE THAN THE RULE BEING RETIRED.**
+`dashboard-tile.tsx` types the adapter `Omit<ArrangementTileProps, "testIdPrefix"> & { id:
+DashboardTileId }`, so making `keyboardReorder` REQUIRED added a required prop to `DashboardTile`'s
+own exported signature — which is what forced the three `dashboard-grid.test.tsx` call sites and the
+`grip()` helper. The trade is right (a required prop retires the CLASS, not two instances) but it is
+a real break, so it is recorded in `docs/AGENTS/dashboard.md` where the rule lives as well as here.
+★★ NO GATE SEES IT: `DashboardTile`, `ArrangementTileProps` and `reorderHandle` all still resolve,
+and "Phase F" is not backticked, so `docs:symbols:check` is silent on every one of these statements.
+★ NO COUNT OF THEM IS QUOTED — a first cut of this line said "seven adapter docstrings" and a cold
+review measured six statements, five of them in code, with several being justifications that stay
+correct in their conclusion while resting on a retired rule. Enumerate and READ the hits:
+`grep -rn "Phase F" src/app docs/AGENTS`
+
+**What shipped.** All three steps, including step 3 — which this entry predicted would be skipped.
+
+1. `keyboardReorder={false}` at the `<DashboardTile>` call site in `dashboard-panel.tsx`, with a
+   comment tying it to the `keyboard: false` on the `useListReorderDnd` call in the SAME file. ★ The
+   co-location is the point: putting the label in `dashboard-tile.tsx` instead would have split the
+   capability from its name across two files, which is how this defect is built.
+2. The `grip()` helper in `dashboard-panel.test.tsx` repointed at `reorderHandleDragOnly`.
+3. **The default is GONE and `keyboardReorder` is REQUIRED.** Both consumers now pass it, so the
+   default had nobody left to protect. This is what takes the CLASS out of reach rather than the two
+   instances: a new surface cannot acquire an arrow-key promise by saying nothing, and the compiler
+   asks the one question that matters. It forced the prop onto existing call sites in
+   `arrangement-tile.test.tsx` and `dashboard-grid.test.tsx` — cheap, and each now states which
+   capability it is testing. ★ NO TALLY IS QUOTED, because the obvious recipe cannot reproduce one:
+   `grep -c keyboardReorder` over those two files returns 7 and 3, and the 7th is the NEW
+   drag-only test's own `keyboardReorder={false}` — new code, not a site the change forced. A
+   reader deriving "how much did required cost" gets 10 and a reader counting forced sites gets 9,
+   from the same command.
+
+Also closed a gap the primitive had all along: `arrangement-tile.test.tsx` covered only the
+arrow-key branch, so nothing unit-tested the `false` naming at the component that decides it.
+"names the grip for the drag alone when the surface has no keyboard reorder" now pins both halves —
+the drag-only name PRESENT and the arrow-key name ABSENT, since a grip carrying both would still
+mislead.
+
+★★ **`e2e/seed-content.spec.ts` asserted the old name and is the reason to grep `e2e/` on any
+label change** — two assertions, one of them `exact: true`. No unit run and no typecheck could have
+caught it; only the e2e job would have, after a push. ★ Playwright's `name` defaults to
+`exact: false` (a case-insensitive SUBSTRING) and here that cuts the right way: "Drag or use arrow
+keys to reorder" does not CONTAIN "Drag to reorder", so a tile left on the old name makes the
+`toHaveCount` come up short rather than passing.
+
+★ **`roles-editor.tsx` is NOT affected and must not be "fixed" alongside it.** Its two grips leave
+`useListReorderDnd`'s `keyboard` at its default `true`, so `reorderHandle`'s arrow-key promise is
+true there and repointing it would be a regression. Re-derive the set that IS affected — every
+consumer that turns the option off — rather than trusting this paragraph:
+`grep -rn "keyboard: false" src/app --include=*.tsx`. ★★★ READ the hits; NO RATIO IS QUOTED HERE,
+and restoring one is a regression. This entry said "roughly a factor of three", a cold review
+measured 4.5, and closing it made the true figure 6 — because the pattern matches this defect's own
+explanatory comments, and every round of writing about it adds more. The number describes how much
+has been WRITTEN about the defect, not how many surfaces have it; only two hits are code
+(`dashboard-panel.tsx` and `reports.tsx`, each an option on a `useListReorderDnd` call).
+
+## 426. Four Reports-arrangement checks that only an eye can make are unrun — OPEN
+
+
+**Status:** open, **never machine-verified**, recorded 2026-09-07 at the close of the
+Reports-arrangement slice. That phrase is the honest answer here and not a placeholder: all four
+items below are visual judgements about a rendered browser layout, jsdom has no layout engine, and
+the axe gate answers a different question. Do not replace this line with a command until someone has
+actually looked.
+
+**Why none of these is coverable by a gate.** jsdom computes no geometry whatsoever, so the entire
+unit suite is blind to width, height, wrapping and overflow — the tests that exist here pin the
+CLASS STRINGS and the arithmetic behind them, never the pixels. axe checks contrast and
+name/role/value, not whether a table is legible in the box it was given. Both were green throughout
+this slice while every question below stayed open.
+
+**1. The seven `minW: 4` blocks at the `xl` breakpoint.** Those blocks carry column-resizable tables
+or an embedded report panel and are floored at full width so they cannot be squeezed into an
+unreadable column. Verify they are readable at `xl` and that nothing lets them render narrower.
+★ Seven is a DERIVED number, not a typed list — three literal rows (`byAssignee`, `byGroup`,
+`byLabel`) plus one per member of `ADDABLE_REPORTS`, spread in by a `map`. A fifth addable report
+makes it eight and no gate will say so. Re-derive rather than trusting this paragraph:
+`grep -c "minW: 4" src/app/report-blocks.ts` overstates it (the file's own docstring matches), so
+read the hits.
+
+**2. The 120px row unit.** `ArrangementGrid` is given `rowClass="auto-rows-[120px]"` here against
+the Dashboard's 80px, because `BlockSpan` caps at 4 and 4 × 80px would put a whole embedded report
+panel in a 320px box. Verify that an embedded report at `h: 4` is actually usable at 120px — this is
+the number the whole grid's vertical rhythm rides on, and nothing but an eye can price it.
+★ The class is a WHOLE LITERAL STRING for Tailwind's scanner; the unit test asserting it is the only
+guard that the literal survives an edit, and it says nothing about whether 120 is the right number.
+
+**3. Printing.** `ReportCard` roots the pane in `print-root print-landscape`. Verify Reports still
+prints sanely now that the pane is a dense arrangeable grid rather than a stack of sections — the
+print stylesheet strips scroll containers, and this surface gained several.
+
+**4. The four-member trailing group is not crowded.** The toolbar's trailing group went from three
+icons to four (Print · reset-columns · reset-layout · reset-size). ★★ It is in this list because it
+is the SAME class as the other three, not because it is a suspicion: the order is pinned by
+`expectButtonOrder` with `contiguous: true`, which proves nothing sits BETWEEN the members and
+cannot see that four glyphs are now visually indistinguishable or that they wrap on a narrow pane.
+`AGENTS.md` already records a case where two adjacent resets wore the same glyph and became
+impossible to tell apart, so the risk is a known one.
+
+**How to close it.** Open Reports on a real project at `xl`, at a narrow pane, and in the browser's
+print preview. ★★ Prefer a seeded Playwright probe that MEASURES over a look — a bounding-box read
+of the seven floored blocks and of one `h: 4` embedded report is reproducible, records a number, and
+can be re-run by the next person, where "it looked fine" cannot. That is not a substitute for the
+print check, which still needs eyes.
+
+## 427. The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting — OPEN
+
+
+**Status:** open, recorded 2026-09-07. Verified by two commands actually run:
+`grep -n "stored ?? seed" src/app/use-arrangement.ts` (the seed is offered whenever the store
+returns `null`) and `grep -c "onChangeExtraReports(" src/app/reports.tsx` → **0**, which is the fact
+that changed the severity — the panel declares that prop and never calls it. ★ The BEHAVIOUR is
+already pinned by `use-reports-arrangement.test.tsx`'s "RE-RUNS the seed when the stored blob is
+REJECTED", so this entry records a known, tested behaviour whose CONSEQUENCE got worse, not a
+suspected bug. (The extension is `.tsx`, not `.ts` — the source docstring's own reference omits it
+and a `grep` for the `.ts` spelling returns "No such file".)
+
+**The gap.** `useReportsArrangement` carries a one-time migration off `settings.reports.extra`. Its
+"one-time" marker is that `loadArrangement` returned something USABLE for this project —
+`use-arrangement.ts` reads `stored ?? seed?.() ?? null` — and `loadArrangement` collapses a MISSING
+key and a REJECTED blob into the same `null`. So the migration re-runs whenever the stored
+arrangement fails `isArrangementLayout`: a blob written by a future build with a bumped `v`, a blob
+truncated by a quota failure, a hand-corrupted one. It is not "first ever load"; it is "nothing
+usable in storage".
+
+**Why it is worse here than on the Dashboard.** The Dashboard's seed reverts to a DEFAULT — a whole
+arrangement, which a user notices at once and can attribute to something. Reports reverts to
+`settings.reports.extra`, and since Task 12 that field is **frozen**: `reports.tsx` no longer writes
+it (Add is `arrangement.restore`, remove is the ⋮ hide, reorder is `arrangement.move`), so it still
+holds whatever it held before the migration. The user therefore loses exactly the reports they had
+restored from the shelf since, and gets back ones they had hidden — which reads as the app quietly
+forgetting a few choices rather than as a reset. ★★ The source docstring in
+`use-reports-arrangement.ts` predicted this in the FUTURE tense ("becomes the described failure at
+the moment Task 12 stops writing the field"). Task 12 has landed. Read that paragraph as present
+tense; it has not been rewritten, so this entry is the record that the tense flipped.
+
+**Severity: LOW-MEDIUM.** It was LOW while the setting stayed current. It needs a rejected blob to
+trigger, which today means a corruption or a downgrade from a future build — neither routine, both
+possible, and the second becomes likelier the moment anyone bumps the layout version.
+
+**The cheaper closure, and it is not the obvious one.** A second "migration done" marker key is the
+reflex, and it is the worse option: new storage surface for a case `arrangement-store.ts` already
+accepts losing, closing this one gap only. `loadArrangement` collapses MISSING and REJECTED into one
+`null` **while knowing which is which at that boundary**. Distinguishing them there — returning the
+reason, or splitting the entry point — would let `use-arrangement.ts` offer the seed on MISSING
+alone. Zero new storage surface, and it closes the Dashboard's accepted downgrade trade at the same
+time. Neither call is made here; this is recorded so the marker key does not become the only
+remembered option.
+
+★ **Do NOT close this by making the seed idempotent instead.** The seed is not the problem — it does
+the right thing with the input it is given. The defect is that a rejected blob is indistinguishable
+from an absent one, and any fix that leaves that conflation in place will be re-derived as a bug by
+the next person who reads `loadArrangement`.

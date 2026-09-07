@@ -1,10 +1,11 @@
 import "fake-indexeddb/auto";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IntegrationsSection } from "./integrations-section";
 import { ConfirmProvider } from "../confirm-dialog";
-import { t, loadI18n } from "../i18n";
+import { t, loadI18n, type Lang } from "../i18n";
 import { StorageNotReadyError } from "../storage";
 import {
   defaultSettings,
@@ -12,6 +13,7 @@ import {
   defaultM365Integrations,
   defaultTursoIntegrations,
   defaultJiraConfig,
+  type Settings,
 } from "../settings-types";
 import { defaultTimelogConfig } from "../timelog-types";
 import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
@@ -531,6 +533,335 @@ describe("§408 — Turso test connection", () => {
     expect(btn).toBeDisabled();
     release?.();
     await waitFor(() => expect(btn).toBeEnabled());
+  });
+
+  // ★★ THIS SECTION IS FULLY CONTROLLED — `turso` is derived from the
+  // `settings` prop — so the rest of this file's `onChange={() => {}}` renders
+  // CANNOT move the URL or the token. Every test below THAT MOVES A FIELD
+  // therefore needs this wrapper, which feeds the edit back in so the fields
+  // the fingerprint is compared against really move. ★ That qualifier is
+  // measured, not hedging: making the wrapper uncontrolled reds the two
+  // editing tests and leaves the language and fail-probe tests GREEN, because
+  // neither of those edits anything. A non-editing test added here does not
+  // need the wrapper.
+  // ★★ A typing test written against an UNCONTROLLED render is UNSATISFIABLE,
+  // not vacuous, and the difference decides what a red means. Vacuous would
+  // mean it silently PASSES; in fact it FAILS even against a correct
+  // implementation, because the field's value never changes, so the
+  // fingerprint still matches, so nothing invalidates the verdict and the
+  // message stays on screen. Measured against the shipped component by
+  // swapping this wrapper for `<IntegrationsSection … onChange={() => {}} />`
+  // in one test: THAT test alone went red, every other test in the file stayed
+  // green. (The pass TOTAL is deliberately not quoted — it moves with every
+  // test added to this file, and a rotted number invites re-measuring the
+  // wrong thing.)
+  // ★★ SO THE TWO REDS MEAN OPPOSITE THINGS, and only the first is a harness
+  // artefact. A red from THAT SWAP (an uncontrolled render) means the harness
+  // cannot express the behaviour — do not go looking for a bug. A red from any
+  // test BELOW, all of which use this wrapper, is a genuine regression: the
+  // invalidation really is broken. Nothing here licenses dismissing those.
+  function ControlledIntegrations({ lang = "en-US" }: { lang?: Lang }) {
+    const [settings, setSettings] = useState<Settings>(tursoSettings("fake"));
+    return <IntegrationsSection lang={lang} settings={settings} onChange={setSettings} />;
+  }
+
+  it("drops the confirmed result when the URL is edited after a passing test", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+    render(<ControlledIntegrations />);
+
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
+
+    await user.type(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")),
+      "x",
+    );
+
+    expect(screen.queryByText(t("en-US", "integrationsTursoTestOk"))).toBeNull();
+  });
+
+  // ★★ THE TOKEN HALF NEEDS ITS OWN TEST — the URL one above cannot cover it.
+  // The freshness derivation is a conjunction, so a test that only ever moves
+  // the URL leaves the `token` comparison unpinned: deleting it keeps the
+  // suite green while a pasted-over token silently inherits the old verdict.
+  // Mutation-proved by deleting that comparison — this test alone goes red.
+  it("drops the confirmed result when the auth token is edited after a passing test", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+    render(<ControlledIntegrations />);
+
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
+
+    await user.type(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")),
+      "2",
+    );
+
+    expect(screen.queryByText(t("en-US", "integrationsTursoTestOk"))).toBeNull();
+  });
+
+  // ★★ THE VERDICT MUST FOLLOW `lang`, WHICH IS WHY THE RECORD HOLDS AN I18N
+  // KEY AND NOT A RENDERED STRING. `LocalizationSection` and this section mount
+  // in the SAME panel, so the language can change with a verdict on screen; a
+  // message frozen at probe time leaves an English sentence inside a German
+  // panel — the exact defect the CLASSIFY-NEVER-INTERPOLATE comment on
+  // `runTursoTest` exists to prevent, reintroduced one layer up.
+  it("re-renders the verdict in the new language when lang changes", async () => {
+    await loadI18n("de");
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+    const { rerender } = render(<ControlledIntegrations lang="en-US" />);
+
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
+
+    // Same component type, so the verdict state survives the re-render — this
+    // is a language switch under a live verdict, not a fresh probe.
+    rerender(<ControlledIntegrations lang="de" />);
+
+    // ★★ THIS ASSERTION CARRIES A SECOND PROPERTY, and it is the stronger of
+    // the two: asserting the DE message IS PRESENT proves POSITIVELY that a
+    // language change does NOT invalidate the verdict — `lang` is not part of
+    // the fingerprint, and must never become part of it. An absence-only test
+    // ("the EN string is gone") would pass just as well if the verdict had
+    // been dropped entirely, which is the opposite of the intended behaviour.
+    // Keep both halves if this test is ever rewritten.
+    expect(screen.getByText(t("de", "integrationsTursoTestOk"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "integrationsTursoTestOk"))).toBeNull();
+  });
+
+  // ★ An INDIRECT pin on the discriminator, and no longer the only one. All
+  // this test can observe is the rendered message: with the union, a `kind` of
+  // "ok" selects the success key, so a catch branch mis-tagged "ok" surfaces
+  // here as a success sentence. The DIRECT assertion an earlier version of this
+  // comment asked a future author to add now exists — "stays disabled when the
+  // probe fails", in the Move-to-Turso block below, reads the confirmed state
+  // through the gated button itself rather than through a string.
+  // ★★ AND THIS ONE IS REDUNDANT — do not read it as independent coverage.
+  // A catch branch mis-tagged "ok" fails "reports a localized unreachable
+  // message when the probe rejects" (above) FIRST, and review could not
+  // construct a mutant that kills this test ALONE. Its value is documentary:
+  // it states, in the place someone will look for it, the property the
+  // Move-to-Turso gate depends on. Deleting it loses no detection today.
+  it("never reports a confirmed connection when the probe failed", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockRejectedValueOnce(
+      new StorageNotReadyError("storage-unreachable"),
+    );
+    render(<ControlledIntegrations />);
+
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(
+      await screen.findByText(t("en-US", "integrationsTursoTestUnreachable")),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "integrationsTursoTestOk"))).toBeNull();
+  });
+});
+
+describe("§408 — Move to Turso is gated on a confirmed connection", () => {
+  // ★★★ ASSERT THE DISABLED STATE, NEVER A CLICK. A `disabled` element
+  // dispatches no events, so "click Move and assert nothing happened" does not
+  // fail — it TIMES OUT at 15 s (`vitest.setup.ts` `asyncUtilTimeout`), which
+  // reads like a broken suite rather than a red test.
+  // ★★★ THAT IS AN ARGUMENT ABOUT THIS TEST, NOT ABOUT THE PRODUCT. An earlier
+  // version of this comment went on to conclude that a handler guard
+  // duplicating this predicate would be dead code. It is not: `disabled` is the
+  // AFFORDANCE on this surface, and the real gate is the connection probe
+  // inside `migrateCurrentProjectToTurso` (`use-storage-turso-ops.ts`), which
+  // also covers the second button bound to that handler in
+  // `projects-panel.tsx`. Nothing here can see that call site.
+  //
+  // ★★ CONTROLLED, for the same reason the wrapper above the previous block
+  // exists — read that comment for why an uncontrolled render makes an editing
+  // test UNSATISFIABLE rather than vacuous. This one additionally supplies
+  // `onMigrateToTurso`, without which `canMoveToTurso` renders no button at
+  // all and every assertion here would fail on a missing element instead of on
+  // the gate.
+  function ControlledMove({ onMigrateToTurso }: { onMigrateToTurso: () => void }) {
+    const [settings, setSettings] = useState<Settings>(tursoSettings("fake"));
+    return (
+      <IntegrationsSection
+        lang="en-US"
+        settings={settings}
+        onChange={setSettings}
+        onMigrateToTurso={onMigrateToTurso}
+      />
+    );
+  }
+
+  const moveButton = () =>
+    screen.getByRole("button", { name: t("en-US", "projectMigrateToTurso") });
+
+  async function passingProbe() {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoTestOk"))).toBeInTheDocument();
+    return user;
+  }
+
+  // ★ NO TEST HERE ASSERTS "disabled ⇒ onMigrateToTurso was not called", and
+  // that is deliberate rather than an omission: nothing can click a disabled
+  // control, so such an assertion cannot fail and would read as coverage of a
+  // property it never exercises. The `disabled` attribute IS the assertable
+  // proxy — the browser's own suppression of the click is not ours to test.
+  it("is disabled before any test has run", () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    expect(moveButton()).toBeDisabled();
+  });
+
+  it("is enabled once the probe confirms the connection", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    await passingProbe();
+    expect(moveButton()).toBeEnabled();
+  });
+
+  // ★★★ THE ENABLED BRANCH, AND NOTHING ELSE COVERS IT. The exemption stated
+  // at the top of this block is about the DISABLED branch alone — this test
+  // clicks a control that really is enabled, so it can and does fail.
+  // `integrations-snapshots.test.tsx` used to be the only test that clicked
+  // this button and asserted one call; §408's gate made it disabled by default
+  // and that assertion became `toBeDisabled()`. With neither, deleting
+  // `onClick={onMigrateToTurso}` from the button left BOTH files green.
+  it("invokes the migration handler once when clicked after a passing probe", async () => {
+    const onMigrateToTurso = vi.fn();
+    render(<ControlledMove onMigrateToTurso={onMigrateToTurso} />);
+    const user = await passingProbe();
+    expect(moveButton()).toBeEnabled(); // control: the click below is a real one
+
+    await user.click(moveButton());
+
+    expect(onMigrateToTurso).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays disabled when the probe fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockRejectedValueOnce(
+      new StorageNotReadyError("storage-unreachable"),
+    );
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    expect(
+      await screen.findByText(t("en-US", "integrationsTursoTestUnreachable")),
+    ).toBeInTheDocument();
+
+    // ★ The DIRECT pin on the discriminator the block above could only reach
+    // indirectly, through the rendered message: a `fail` verdict mis-tagged
+    // "ok" is FRESH either way, so only this assertion separates the two.
+    expect(moveButton()).toBeDisabled();
+  });
+
+  // ★★ THE FINGERPRINT NEEDS BOTH HALVES PINNED. Freshness is a conjunction
+  // over the URL and the token, so a test that only ever edits one leaves the
+  // other comparison unpinned — see the equivalent pair in the block above.
+  it("re-disables when the URL is edited after a pass", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    const user = await passingProbe();
+    expect(moveButton()).toBeEnabled();
+
+    await user.type(screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")), "x");
+
+    expect(moveButton()).toBeDisabled();
+  });
+
+  it("re-disables when the auth token is edited after a pass", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    const user = await passingProbe();
+    expect(moveButton()).toBeEnabled();
+
+    await user.type(
+      screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")),
+      "2",
+    );
+
+    expect(moveButton()).toBeDisabled();
+  });
+
+  // ★★ WHY THE HINT CANNOT RIDE THE BUTTON'S `title` ALONE: a disabled control
+  // is not focusable, so `title` has no keyboard route and none on touch,
+  // while `aria-describedby` IS exposed on a disabled control and OUTRANKS
+  // `title` as the accessible description. The sr-only node is what reaches
+  // AT; the wrapper's `title` serves the sighted mouse user. Same contract as
+  // `projects-panel.tsx` — jsdom has no layout, so these assertions pin the
+  // wiring and the classes only; the hover behaviour is owed a browser
+  // eye-verify there and here alike.
+  it("describes why it is disabled, where AT can reach it", () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    const btn = moveButton();
+    expect(btn).toHaveAccessibleDescription(t("en-US", "integrationsTursoMoveNeedsTest"));
+    expect(btn.className).toContain("disabled:pointer-events-none");
+    expect(btn.parentElement!.className).toContain("cursor-not-allowed");
+    expect(btn.parentElement).toHaveAttribute("title", t("en-US", "integrationsTursoMoveNeedsTest"));
+  });
+
+  // ★★ `title` MUST BE GONE WHEN CONFIRMED, and the reason is not hit-testing.
+  // `title` is INHERITED for tooltip purposes, so one left on the wrapper still
+  // fires a tooltip on the ENABLED button — reading out the same sentence the
+  // visible `FieldHint` renders below it, which is the double announcement
+  // fixed on the describedby channel repeated on the pointer channel.
+  // ★ SPEC-DERIVED, NOT MEASURED: jsdom renders no native tooltips, so this
+  // pins the ATTRIBUTE's absence and can never observe the tooltip itself.
+  // ★ `parentElement`, not `closest("[title]")` — with the attribute correctly
+  // gone there is no `[title]` ancestor to find, so the old locator would
+  // return null and this test would throw instead of asserting.
+  it("swaps the description for the action's own hint once confirmed", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    await passingProbe();
+    const btn = moveButton();
+    expect(btn).toHaveAccessibleDescription(t("en-US", "projectMigrateToTursoHint"));
+    expect(btn.parentElement!.className).not.toContain("cursor-not-allowed");
+    expect(btn.parentElement).not.toHaveAttribute("title");
+  });
+
+  // ★★ ONE DESCRIPTION PER STATE, AND `toHaveAccessibleDescription` ALONE DOES
+  // NOT PIN IT — the matcher compares the COMPUTED description, so it says
+  // nothing about how many nodes produced it or whether the same sentence also
+  // sits on screen. This test reads the reference itself. The shape it rules
+  // out shipped in the first cut of this block: `aria-describedby` pointed at
+  // the sr-only node in BOTH states, and in the confirmed state that node and
+  // the visible `FieldHint` below it carried the SAME string, so a screen
+  // reader announced the hint twice. The sr-only node is not the problem and
+  // must not be deleted — it is the only thing that reaches AT while the button
+  // is disabled and therefore unfocusable. It is simply not needed once the
+  // button is enabled and the visible hint can be reached on its own.
+  it("announces exactly one description in each state", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+
+    const describedNodes = (btn: HTMLElement) =>
+      (btn.getAttribute("aria-describedby") ?? "")
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((id) => document.getElementById(id));
+
+    const gated = describedNodes(moveButton());
+    expect(gated).toHaveLength(1);
+    expect(gated[0]).not.toBeNull();
+    expect(gated[0]!.textContent).toBe(t("en-US", "integrationsTursoMoveNeedsTest"));
+    // Disabled ⇒ unfocusable, so the hidden node is the only route AT has.
+    expect(gated[0]!.className).toContain("sr-only");
+    expect(screen.getAllByText(t("en-US", "projectMigrateToTursoHint"))).toHaveLength(1);
+
+    await passingProbe();
+
+    const confirmed = describedNodes(moveButton());
+    expect(confirmed).toHaveLength(1);
+    expect(confirmed[0]).not.toBeNull();
+    expect(confirmed[0]!.textContent).toBe(t("en-US", "projectMigrateToTursoHint"));
+    // ★ The two assertions that actually kill the duplicate: the description
+    // now comes from the VISIBLE hint, and that sentence exists exactly once in
+    // the document — a hidden copy would make this two.
+    expect(confirmed[0]!.className).not.toContain("sr-only");
+    expect(screen.getAllByText(t("en-US", "projectMigrateToTursoHint"))).toHaveLength(1);
+    // ★★ THE RENDER GUARD, NOT JUST THE REFERENCE. Dropping `!tursoTestConfirmed
+    // &&` from the sr-only node leaves every assertion above green — the
+    // description still resolves to the visible hint — while a confirmed
+    // screen-reader user meets a stranded "Run Test connection first…" beside
+    // an ENABLED button. Mutation-proved: without this line that mutant
+    // survives 44/44.
+    expect(screen.queryAllByText(t("en-US", "integrationsTursoMoveNeedsTest"))).toHaveLength(0);
   });
 });
 

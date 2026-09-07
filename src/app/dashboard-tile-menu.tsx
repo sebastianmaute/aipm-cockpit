@@ -1,87 +1,31 @@
 "use client";
-import { Button } from "./button";
-import { SegmentedControl } from "./segmented-control";
+/**
+ * The Dashboard's binding of the shared arrangement block menu.
+ *
+ * ★★ THIS FILE IS AN ADAPTER, NOT A MENU. Every landmine that used to live here
+ * now lives in `arrangement-block-menu.tsx` — the two-independent-axes rule, the
+ * `min === max` static line, why out-of-range values are not rendered at all
+ * (`SegmentedControl` has no per-option `disabled`), the `optionAriaLabel` WCAG
+ * 2.4.6 note, and the reminder that `PopoverPanel` owns the Escape/Tab dismissal
+ * protocol. Read them there before changing anything here.
+ *
+ * ★ The exported names are UNCHANGED on purpose — `dashboard-panel.tsx` and the
+ * Dashboard's own tests keep compiling and passing untouched. If a Dashboard
+ * test needs editing to accommodate a change here, the change is wrong.
+ */
+import { ArrangementBlockMenu, AxisGroup } from "./arrangement-block-menu";
 import { tileById, type DashboardTileId, type TileSpan } from "./dashboard-tiles";
-import { t, type Lang } from "./i18n";
+import type { Lang } from "./i18n";
 
-/**
- * The ⋮ menu's CONTENT: two independent size axes plus the keyboard move
- * commands and Hide. The caller wraps this in `PopoverPanel`, which owns the
- * shared Escape/Tab dismissal protocol (`use-dismissable.ts` →
- * `dismissal-stack.ts`) — nothing here improvises one, and nothing here
- * portals.
- *
- * ★★★ THE TWO AXES ARE INDEPENDENT CONTROLS, never one named-preset list. A
- * single preset list cannot express "taller, same width" at every width, which
- * is why that design was rejected.
- *
- * ★★ AN AXIS WHERE min === max RENDERS NO CHOOSER — a static "fixed at N" line
- * instead. A row of values with all but one disabled is indistinguishable from
- * a broken control, and was read as exactly that during design review.
- *
- * ★★ VALUES OUTSIDE THE TILE'S OWN LIMITS ARE NOT RENDERED AT ALL, and this
- * DEPARTS FROM THE PLAN, which asked for them disabled. The selection is a
- * `SegmentedControl` (the repo's radio-style primitive) and it has no per-option
- * `disabled` — only a whole-control one. Forking it to add one was not on the
- * table, and hand-rolling `aria-checked` buttons would lose the APG roving, the
- * sole-tab-stop and the non-colour selected state the primitive carries.
- *
- * ★ The menu's own name reuses `actionMoreActions` rather than a dedicated
- * `dashboardTileOptions` key, matching the ⋮ trigger in `dashboard-tile.tsx`
- * and `task-row.tsx`'s existing convention. Same for the grip's `reorderHandle`.
- *
- * ★ The move commands are the Dashboard's keyboard reorder path. The drag
- * primitive's own arrow-key option stays off here — a second keyboard path for
- * one action is redundant.
- */
-
-/** `SegmentedControl` is generic over a STRING union, so spans cross as text. */
-type SpanValue = "1" | "2" | "3" | "4";
-
-function spansBetween(lo: TileSpan, hi: TileSpan): TileSpan[] {
-  const out: TileSpan[] = [];
-  for (let n = lo; n <= hi; n += 1) out.push(n as TileSpan);
-  return out;
-}
-
-/**
- * One axis. Exported for its own test: no tile in the catalogue pins an axis
- * today, so the `lo === hi` branch is unreachable through `DashboardTileMenu`
- * and can only be exercised here.
- */
-export function TileAxisGroup({
-  lang, axis, tileTitle, value, lo, hi, onPick,
-}: {
-  lang: Lang;
-  axis: "w" | "h";
-  tileTitle: string;
-  value: TileSpan;
-  lo: TileSpan;
-  hi: TileSpan;
-  onPick: (v: TileSpan) => void;
-}) {
-  const label = t(lang, axis === "w" ? "dashboardTileWidth" : "dashboardTileHeight");
-  return (
-    <div className="px-2 py-1">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      {lo === hi ? (
-        <p className="text-xs text-muted-foreground">{t(lang, "dashboardTileFixedAt", lo)}</p>
-      ) : (
-        <SegmentedControl<SpanValue>
-          value={String(value) as SpanValue}
-          options={spansBetween(lo, hi).map((n) => ({ value: String(n) as SpanValue, label: String(n) }))}
-          onChange={(v) => onPick(Number(v) as TileSpan)}
-          ariaLabel={`${label} – ${tileTitle}`}
-          // ★★ Both axes offer a value labelled "2", so the visible label alone
-          // is a WCAG 2.4.6 collision INSIDE one menu. The axis and the tile
-          // both have to be in the name.
-          optionAriaLabel={(v) => `${label} ${v} – ${tileTitle}`}
-        />
-      )}
-    </div>
-  );
-}
-
+/* ★★★ THE CATALOGUE LOOKUP LIVES HERE NOW, AND THAT IS THE POINT OF THE TASK.
+ * The generic menu takes its four bounds as props; only the surface that OWNS a
+ * catalogue should be resolving an id against it. Keeping the lookup and its
+ * `return null` at this boundary means the generic component can no longer
+ * silently render nothing — a failure mode indistinguishable from a menu that
+ * failed to open — while `dashboard-panel.tsx`'s call site stays byte-identical.
+ * ★ The null branch is retained rather than dropped: `tileById` is a `find`, so
+ * an id outside the catalogue really can miss, and this is where that is now a
+ * Dashboard fact rather than everyone's. */
 export function DashboardTileMenu({
   lang, tileId, title, w, h, index, count, onResize, onMove, onHide, onClose,
 }: {
@@ -100,30 +44,44 @@ export function DashboardTileMenu({
 }) {
   const spec = tileById(tileId);
   if (!spec) return null;
-  const command = "w-full justify-start text-left";
   return (
-    // ★★ NO `aria-label` HERE. This div has no role, so it maps to `generic`,
-    // on which ARIA PROHIBITS a name — and the name it carried was a duplicate
-    // anyway: `dashboard-panel.tsx` passes the identical string to
-    // `PopoverPanel`'s `ariaLabel`, which lands on the `role="dialog"` wrapping
-    // this content. ★ No gate can see the prohibited attribute: axe 4.12.1's
-    // `aria-prohibited-attr` is `wcag2a`, but a div WITH content lands in
-    // `incomplete`, and `e2e/a11y.spec.ts` reads `results.violations` only.
-    <div className="flex min-w-52 flex-col">
-      <TileAxisGroup lang={lang} axis="w" tileTitle={title} value={w}
-        lo={spec.minW} hi={spec.maxW} onPick={(v) => onResize("w", v)} />
-      <TileAxisGroup lang={lang} axis="h" tileTitle={title} value={h}
-        lo={spec.minH} hi={spec.maxH} onPick={(v) => onResize("h", v)} />
-      <hr className="my-1 border-line" />
-      <Button variant="ghost" size="xs" className={command} disabled={index === 0}
-        onClick={() => { onMove(-1); onClose(); }}>{t(lang, "dashboardTileMoveEarlier")}</Button>
-      <Button variant="ghost" size="xs" className={command} disabled={index >= count - 1}
-        onClick={() => { onMove(1); onClose(); }}>{t(lang, "dashboardTileMoveLater")}</Button>
-      <Button variant="ghost" size="xs" className={command} disabled={index === 0}
-        onClick={() => { onMove("first"); onClose(); }}>{t(lang, "dashboardTileMoveFirst")}</Button>
-      <hr className="my-1 border-line" />
-      <Button variant="ghost" size="xs" className={command}
-        onClick={() => { onHide(); onClose(); }}>{t(lang, "dashboardTileHide")}</Button>
-    </div>
+    <ArrangementBlockMenu
+      lang={lang}
+      title={title}
+      w={w}
+      h={h}
+      minW={spec.minW}
+      maxW={spec.maxW}
+      minH={spec.minH}
+      maxH={spec.maxH}
+      index={index}
+      count={count}
+      onResize={onResize}
+      onMove={onMove}
+      onHide={onHide}
+      onClose={onClose}
+    />
+  );
+}
+
+/* ★ A WRAPPER, NOT A RE-EXPORT, and only because of ONE prop name. The generic
+ * component speaks the engine's vocabulary (`blockTitle`), while this file's
+ * public prop has always been `tileTitle` and `dashboard-grid.test.tsx` renders
+ * it directly with that spelling. A bare `export { AxisGroup as TileAxisGroup }`
+ * would rename the COMPONENT and not the PROP, so the Dashboard test would break
+ * — which the Phase F rule forbids. Everything else passes straight through. */
+export function TileAxisGroup({
+  lang, axis, tileTitle, value, lo, hi, onPick,
+}: {
+  lang: Lang;
+  axis: "w" | "h";
+  tileTitle: string;
+  value: TileSpan;
+  lo: TileSpan;
+  hi: TileSpan;
+  onPick: (v: TileSpan) => void;
+}) {
+  return (
+    <AxisGroup lang={lang} axis={axis} blockTitle={tileTitle} value={value} lo={lo} hi={hi} onPick={onPick} />
   );
 }

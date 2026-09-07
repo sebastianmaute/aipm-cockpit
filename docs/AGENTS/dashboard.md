@@ -34,14 +34,52 @@ and there are no coordinates to store — every operation in `dashboard-layout.t
 `hideTile` · `restoreTile` · `resizeTile` · `reconcile`) is an array operation. ★★ THE FIRST FOUR
 return the SAME object reference on a no-op, so a caller can skip a persist cheaply; **`reconcile` DOES
 NOT** and never did — it allocates a fresh `{v, board, hidden}` on every non-null input, identical
-content or not. Harmless today, because its ONE production call site is a load — `readLayout` in
-`use-dashboard-layout.ts` — but a persist-skip written against `next !== stored` would fire on every
-load. This sentence used to lump all five together, which is exactly the claim someone would build that
-skip on. ★ It then said "both of its call sites are loads": the TWO call sites are `readLayout`'s (the
-lazy `useState` initialiser and the project-switch render reconcile), not `reconcile`'s, and a reader
-goes hunting for a second caller that does not exist —
-`grep -rn "reconcile(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'` returns the
-declaration plus one call (measured 2026-08-15). ★★ A user therefore CANNOT
+content or not. A persist-skip written against `next !== stored` would therefore fire on every load.
+This sentence used to lump all five together, which is exactly the claim someone would build that skip
+on.
+
+★★★ **ALL FIVE OF THOSE WRAPPERS ARE NOW TEST-ONLY, and two successive revisions of this paragraph
+got that wrong in different ways.** The first said `reconcile`'s "ONE production call site is a load —
+`readLayout` in `use-dashboard-layout.ts`"; the second moved `readLayout` to `use-arrangement.ts` and
+left the COUNT attached to a function that no longer has one. Both were false: since the hook was
+extracted, `use-arrangement.ts` calls the ENGINE's `reconcile` (`arrangement-layout.ts`) directly and
+bypasses this wrapper entirely, and `dashboard-panel.tsx` never called any of the five. The Dashboard
+binding is retained under the Phase F export-stability rule, and its fate is a Phase F close-out
+decision, not something to tidy away here.
+
+★★★ **THE RULE IS RETIRED, AND §425 BROKE THE PROPERTY DELIBERATELY — this paragraph used to state
+it as live ("every `dashboard-*` module keeps its current export signature so no Dashboard test
+needs editing") and BOTH halves are now false.** `DashboardTile` is typed
+`Omit<ArrangementTileProps, "testIdPrefix"> & { id: DashboardTileId }`, so making `keyboardReorder`
+REQUIRED on the generic props added a required prop to the Dashboard adapter's own exported
+signature — which is exactly what forced three call-site edits in `dashboard-grid.test.tsx`, plus
+the `grip()` helper in `dashboard-panel.test.tsx`. That was the right trade (a required prop is
+what puts the whole mislabelled-grip class out of reach rather than its two instances), but it IS
+an export-stability break and is recorded here rather than only in §425.
+★★ No gate can see any of this: `DashboardTile`, `ArrangementTileProps` and `reorderHandle` all
+still resolve, and "Phase F" is not a backticked symbol, so `docs:symbols:check` is silent.
+Enumerate what still asserts the rule with `grep -rn "Phase F" src/app docs/AGENTS` and read the
+hits — several are justifications that remain correct in their conclusion while resting on a rule
+that no longer holds. `DEFAULT_LAYOUT` and the `PlacedTile` / `DashboardLayout`
+types ARE still live.
+
+★★ Enumerate the consumers rather than the call sites, because a call-site grep matches this very
+paragraph and every other doc that mentions the word:
+```
+grep -rn 'from "./dashboard-layout"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+```
+Three non-test importers today: `dashboard-layout-store.ts` and `dashboard-panel.tsx` take a TYPE
+only, and `use-dashboard-layout.ts` takes `DEFAULT_LAYOUT` only. None imports an operation. ★ A
+recipe matching its own text is a real hazard here and was shipped once already: the replacement
+`grep -rn "reconcile(\|reconcileWith(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'`
+returns a large majority of PROSE hits — source comments quoting the grep, this paragraph's own
+siblings — around the two real calls, which are `dashboard-layout.ts` and `use-arrangement.ts`. ★★ NO
+TALLY IS QUOTED HERE AND RESTORING ONE IS A REGRESSION: this spot carried "nine hits, of which two were
+calls, six were prose, and one was a source comment quoting that grep", and it was stale before the
+branch that measured it ended — every prose mention added anywhere moves it, this sentence included.
+Name the CALL SITES, which a reader can check, never the total.
+
+★★ DENSE PACKING IS WHY AN ORDERED LIST SUFFICES, and a user therefore CANNOT
 leave a deliberate hole: `dense` backfills it with the next tile that fits. ★★ That is also why the
 panel renders the reorder hook's `previewOrder` rather than the stored board and draws NO edge drop
 indicator — dense re-places everything after a move, so an edge marker would routinely point at a slot
@@ -49,13 +87,27 @@ the tile does not land in. Drag comes from the shared `useListReorderDnd` primit
 commands are this surface's keyboard path (the primitive's own arrow-key option is off — `keyboard:
 false`).
 
-★★★ **`W_CLASS`/`H_CLASS` (`dashboard-grid.tsx`) MUST STAY WHOLE LITERAL STRINGS, AND NO UNIT TEST CAN
-SEE A VIOLATION.** Tailwind v4 builds its stylesheet by scanning source for class-name candidates, so an
+★★★ **`W_CLASS`/`H_CLASS` MUST STAY WHOLE LITERAL STRINGS, AND NO *RENDERED* ASSERTION CAN SEE A
+VIOLATION.** Tailwind v4 builds its stylesheet by scanning source for class-name candidates, so an
 interpolated `col-span-${w}` emits NO CSS and every tile silently renders one column wide. jsdom has no
-layout engine, so `dashboard-grid.test.tsx` can only assert that a class STRING was rendered, never that
-Tailwind emitted a rule for it. `e2e/dashboard-grid.spec.ts` is the ONLY detector in the repo — it reads
-computed geometry (`getComputedStyle` on the container, `getBoundingClientRect` on real tiles) and
-deliberately makes no class-string assertion at all.
+layout engine, so a rendered assertion can only say that a class STRING was produced, never that
+Tailwind emitted a rule for it — and the interpolated form produces a byte-identical string.
+
+★★★ **THEY LIVE IN `arrangement-grid.tsx` NOW, NOT `dashboard-grid.tsx`**, which is a thin adapter
+re-exporting them. Two claims here were wrong and are corrected together. The tables moved when the grid
+was extracted for Reports; and "NO UNIT TEST CAN SEE A VIOLATION" was false even before that, because a
+SOURCE SCAN can see exactly this — `arrangement-grid.test.tsx`'s "span class tables (source form)"
+describe reads the file back, strips comments and scans the two table bodies. It is the unit-layer
+detector, and it moved with the tables for a measured reason: under a
+`` 2: `col-span-1 lg:col-span-${2}` `` mutant in `arrangement-grid.tsx`, **the relocated scan goes RED
+while `dashboard-grid.test.tsx` stays GREEN** — so a scan left pointed at the adapter would pass forever
+regardless of what the real tables did, while still reading as coverage. ★ Direction, not totals, is
+deliberate here: both files' test counts move the moment either gains a test. Re-run the mutant if you
+need numbers.
+★ `e2e/dashboard-grid.spec.ts` remains the only detector of the *emitted CSS* — it reads computed
+geometry (`getComputedStyle` on the container, `getBoundingClientRect` on real tiles) and deliberately
+makes no class-string assertion at all. The two layers catch the same defect by different means; neither
+is redundant, and calling either one "the ONLY detector" is what went stale here.
 
 ★ **The responsive clamp lives ENTIRELY in the width table** — `W_CLASS`'s literal `lg:`/`xl:` variants
 plus the container's own `lg:grid-cols-2 xl:grid-cols-4`. No width measurement, no `ResizeObserver`, no
@@ -72,7 +124,8 @@ measurement of every tile at 64/72/80/88. `dashboard-density.ts`'s own test carr
 the two rejected alternatives — read it before moving either value.
 
 ★★★ **DO NOT READ A SCROLLBAR ON A COMPACT TILE AS A ROW-UNIT DEFECT.** The tile body is
-`min-h-0 flex-1 overflow-auto p-2` (`dashboard-tile.tsx`), so nothing ever clips or spills — over-tall
+`min-h-0 flex-1 overflow-auto p-2` (`arrangement-tile.tsx` since the chrome was extracted;
+`dashboard-tile.tsx` is a thin adapter), so nothing ever clips or spills — over-tall
 content becomes an inner scroll container. And **6 of 9 rendering tiles already overflow at the
 shipped comfortable/80** (measured, default catalogue board, 1600px, e2e seed: `burn` 507px over,
 `insights` 239, `upcoming` 133). Inner scrolling is this design's normal mode, not something compact
@@ -109,7 +162,7 @@ who widens `burn` to w:2, hides it and restores it gets w:1 back. `dashboard-lay
 ("appends a hidden tile to the board at its catalogue default size"), so a change of mind has to go
 through that test rather than sliding in. ★ Preserving it would mean shelving the `PlacedTile` instead
 of the id, which changes the stored shape (`hidden: DashboardTileId[]`) and therefore
-`dashboard-layout-store.ts`'s validation, `reconcile`'s de-duplication and every stored blob in the
+`arrangement-store.ts`'s validation, `reconcile`'s de-duplication and every stored blob in the
 field. Not worth it for a lost span — but say so out loud, because "I resized that and it came back
 wrong" reads as a bug to whoever hits it.
 
@@ -142,8 +195,9 @@ returns 10 against 11 keys (measured 2026-08-15). It is KEPT as the other half o
 — a body that turns conditional without its gate following would otherwise render empty tile chrome —
 but NOTHING enforces the redundancy, so a new tile still has to get its gate right.
 
-★★ **THE TILE CHROME OWNS THE FRAME AND THE TITLE** — `dashboard-tile.tsx` draws the bordered
-`<section>` and renders the `<h3>` — so a body in `dashboard-tile-bodies.tsx` must be UNBOXED and
+★★ **THE TILE CHROME OWNS THE FRAME AND THE TITLE** — `arrangement-tile.tsx` draws the bordered
+`<section>` and renders the `<h3>` (`dashboard-tile.tsx` is now a thin adapter that only binds
+`testIdPrefix="tile"` and the Dashboard's id union) — so a body in `dashboard-tile-bodies.tsx` must be UNBOXED and
 UN-TITLED, or it stacks two borders and two identical headings. The catalogue's `labelKey`s were chosen
 to match the headings these cards used to carry themselves. ★★ THE TEST IS THE TEXT, NOT THE COMPONENT:
 `RaidRegisterCard` keeps its `Section` heading because "Top open RAID" DIFFERS from its chrome title
@@ -154,11 +208,25 @@ renders its own list and merely shares the `insightsCardTitle` string — and th
 axe-scanned view for as long as the false premise stood.
 
 ★★ **THE ARRANGEMENT IS PER-DEVICE, PER-PROJECT localStorage — NOT a `Workspace` field**, so none of the
-six write paths change and no codec, DDL or golden fixture is touched. `dashboard-layout-store.ts` keeps
-one `{[projectId]: layout}` map under `DASHBOARD_LAYOUT_KEY`, capped at `MAX_PROJECTS` with
-insertion-order recency, over `device-store.ts`'s `readDeviceJson`/`writeDeviceJson` envelope — the same
-shape as `landing-state.ts`, so `clearAppConfig`'s `aipm-cockpit:*` sweep already clears it. A write
-failure (quota, private mode) is swallowed on purpose: the arrangement is a preference, not data.
+six write paths change and no codec, DDL or golden fixture is touched. ★★ THE STORE IS SHARED AND
+`dashboard-layout-store.ts` IS NOW A THIN ADAPTER — it keeps no map, applies no cap, validates
+nothing and does not import `device-store` at all; it holds `DASHBOARD_LAYOUT_KEY`, re-exports
+`MAX_PROJECTS`, and casts down to `DashboardLayout`. ★★★ ONLY THE FIRST OF THOSE THREE HAS A
+PRODUCTION CONSUMER, and reading that sentence as a description of live plumbing is the mistake:
+`use-dashboard-layout.ts` imports `DASHBOARD_LAYOUT_KEY` and nothing else from here, the
+`MAX_PROJECTS` re-export is imported by NOTHING, and the casting wrappers `loadLayout`/`saveLayout`
+are exercised only by `dashboard-layout-store.test.ts` and `use-dashboard-layout.test.tsx`. That is
+the same test-only status the five `dashboard-layout.ts` operations carry above, arrived at the same
+way — the hook extraction routed production through `useArrangement` →
+`loadArrangement`/`saveArrangement`, leaving both wrappers orphaned. Enumerate rather than trust this
+paragraph: `grep -rn "dashboard-layout-store" src/app e2e --include=*.ts --include=*.tsx`. The map
+itself lives in `arrangement-store.ts`
+(`loadArrangement`/`saveArrangement`), which keeps one `{[projectId]: layout}` map PER KEY, capped at
+`MAX_PROJECTS` with insertion-order recency, over `device-store.ts`'s `readDeviceJson`/`writeDeviceJson`
+envelope — the same shape as `landing-state.ts`, so `clearAppConfig`'s `aipm-cockpit:*` sweep already
+clears it. Validation is its exported `isArrangementLayout`, which is what `reconcile`'s ★★★
+precondition demands and which no longer has a Dashboard-only copy. A write failure (quota, private
+mode) is swallowed on purpose: the arrangement is a preference, not data.
 ★ Popout is READ-ONLY (`readOnly` from `useDashboardLayout`) — no grips, no ⋮, no shelf, no persist.
 
 ★★ **PER-TILE CONTROL NAMES MUST BE TILE-UNIQUE, AND THE AXE GATE CANNOT SEE A COLLISION AT ANY SEED
@@ -188,6 +256,15 @@ primitive's own arrow keys are off here, `keyboard: false`). Three cases, each m
   BEFORE the reorder, and focusing a stale node is a silent no-op, i.e. the same defect one level down.
   ★★★ jsdom CANNOT TELL THE TWO APART: the synchronous version passes the unit test. Measured, so do not
   "simplify" it back on the strength of a green suite.
+★★ **THE ⋮ MENU AND THE SHELF ARE GENERIC NOW, and the names below are the Dashboard's ADAPTERS.**
+`ArrangementBlockMenu` / `AxisGroup` (`arrangement-block-menu.tsx`) and `ArrangementShelf`
+(`arrangement-shelf.tsx`) hold the behaviour; `dashboard-tile-menu.tsx` and `dashboard-shelf.tsx` keep
+`DashboardTileMenu` / `TileAxisGroup` / `DashboardShelf` as thin bindings, so every claim below is still
+true of the Dashboard — read it in the generic file before changing it. ★★★ The one real design change:
+the menu takes its four span BOUNDS as props and no longer calls `tileById` itself. That lookup and its
+`return null` moved to the Dashboard adapter, so the shared component can no longer render NOTHING —
+a state indistinguishable from a menu that failed to open.
+
 ★★ **RESIZE IS NOT IN THAT LIST AND MUST NOT BE ADDED TO IT.** `TileAxisGroup`'s `onPick` calls
 `onResize` and nothing else, so the size radios do NOT close the popover; the pressed control stays
 mounted and keeps focus by itself, and the panel is portaled so the tile re-rendering at its new span

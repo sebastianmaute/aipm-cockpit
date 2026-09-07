@@ -7,6 +7,7 @@ import {
   ColumnResizeHandle,
   PrintButton,
   ResetColWidthsButton,
+  ResetLayoutButton,
   ResetSizeButton,
 } from "./task-manager-ui";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -556,6 +557,7 @@ export function ReportCard({
   sizeRef,
   onResetSize,
   onResetCols,
+  onResetLayout,
   toolbarExtra,
   leading,
   title,
@@ -567,6 +569,22 @@ export function ReportCard({
   sizeRef: React.RefObject<HTMLDivElement | null>;
   onResetSize: () => void;
   onResetCols?: () => void;
+  /**
+   * Restores the pane’s BLOCK ARRANGEMENT. Optional, and rendered only when
+   * passed — exactly like `onResetCols` above, which is this file’s own
+   * established pattern for a trailing-group member not every consumer has an
+   * engine for. Six of the seven consumers pass nothing and gain nothing.
+   *
+   * ★★ THE CALLER OWNS THE READ-ONLY GUARD, not this component. A popout has no
+   * grips, no ⋮ menu and no shelf by design, and the trailing group below is
+   * gated on `print:hidden` ALONE — so a consumer that passes this
+   * unconditionally hands a popout a working reset. `dashboard-panel.tsx`
+   * records that as a ★★★ and guards at its own site; Reports mirrors it with
+   * `onResetLayout={arrangement.readOnly ? undefined : arrangement.reset}`.
+   * Putting the guard in here would give `ReportCard` a notion of read-only for
+   * one task’s benefit, across seven consumers.
+   */
+  onResetLayout?: () => void;
   toolbarExtra?: React.ReactNode;
   /** Controls pinned to the LEFT of the toolbar (e.g. add/remove report). */
   leading?: React.ReactNode;
@@ -596,6 +614,13 @@ export function ReportCard({
             {toolbarExtra}
             <PrintButton lang={lang} />
             {onResetCols && <ResetColWidthsButton onClick={onResetCols} lang={lang} />}
+            {/* ★★ ORDER: Print · reset-columns · reset-layout · reset-size. That
+                sequence contains BOTH existing conventions as subsequences — the
+                documented three (Print · reset-columns · reset-size) and the
+                Dashboard’s (Print · reset-layout · reset-size) — so no surface’s
+                convention breaks, and reset-columns and reset-layout both restore
+                CONTENT arrangement while reset-size restores the BOX. */}
+            {onResetLayout && <ResetLayoutButton onClick={onResetLayout} lang={lang} />}
             <ResetSizeButton onClick={onResetSize} lang={lang} />
           </div>
         </div>

@@ -574,6 +574,7 @@ export const de: Record<TranslationKey, string> = {
   budgetRemoveBucketConfirm: "Diesen Budget-Topf entfernen? Berechnungen, die darauf basieren, werden auf 0 zurückgesetzt.",
   budgetReorderHandle: "Topf umsortieren — ziehen oder mit den Pfeiltasten ↑/↓ verschieben",
   reorderHandle: "Ziehen oder mit den Pfeiltasten ↑/↓ verschieben",
+  reorderHandleDragOnly: "Zum Umsortieren ziehen",
   snapshotSelectRow: "Snapshot {0} auswählen",
   budgetEditBucket: "Budget-Topf bearbeiten",
   budgetStartDate: "Startdatum",
@@ -1181,6 +1182,7 @@ export const de: Record<TranslationKey, string> = {
   healthDriverCancelled: "abgebrochen",
   healthDriverOnTrack: "im Plan",
   healthTooltip: "{0}: {1}",
+  reportsHeadline: "Überblick",
   reportsGroupHealth: "Status nach Gruppe",
   reportsUngrouped: "Ohne Gruppe",
   reportsGroupCounts: "{0} rot · {1} gelb · {2} grün",
@@ -2071,6 +2073,8 @@ export const de: Record<TranslationKey, string> = {
     "Datenbank nicht erreichbar. Bitte URL und Netzwerkverbindung prüfen.",
   integrationsTursoTestAuth: "Das Auth-Token wurde abgelehnt. Bitte Token prüfen.",
   integrationsTursoTestFailGeneric: "Verbindung fehlgeschlagen.",
+  integrationsTursoMoveNeedsTest:
+    "Zuerst Verbindung testen — Zu Turso verschieben bleibt deaktiviert, bis die Verbindung bestätigt ist.",
   integrationsTursoToken: "Auth-Token",
   integrationsTursoTokenPlaceholder: "Turso-Datenbank-Token",
   integrationsTursoTokenFromEnv:
@@ -2349,7 +2353,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardTileMoveEarlier: "Nach vorne verschieben",
   dashboardTileMoveLater: "Nach hinten verschieben",
   dashboardTileMoveFirst: "An den Anfang verschieben",
-  dashboardTileHide: "Kachel ausblenden",
+  dashboardTileHide: "Ausblenden",
   dashboardTileRestore: "Wiederherstellen",
   dashboardShelfCount: "{0} ausgeblendet",
   dashboardShelfEmpty: "Nichts ausgeblendet",

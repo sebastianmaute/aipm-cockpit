@@ -42,6 +42,15 @@ import { useToastContext } from "../toast-context";
 import { reportSilentFailure } from "../guard-feedback";
 import { useConfirm } from "../confirm-dialog";
 
+/** Turso probe failure reason → the i18n key its message is rendered from.
+ *  ★ Keys, not strings: the verdict outlives the probe, so it must be
+ *  translated at RENDER time or it freezes the language it was obtained in. */
+const TURSO_TEST_FAIL_KEYS = {
+  auth: "integrationsTursoTestAuth",
+  unreachable: "integrationsTursoTestUnreachable",
+  generic: "integrationsTursoTestFailGeneric",
+} as const;
+
 interface IntegrationsSectionProps {
   lang: Lang;
   settings: Settings;
@@ -223,11 +232,62 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // ★ The env-unusable notice is a DESCRIPTION, not part of the field's name —
   // see the render site for why it sits outside the <label>.
   const tursoUrlEnvNoticeId = `${useId()}-turso-url-env`;
+  // ★★ TWO ids, because the two states have DIFFERENT descriptions and each
+  // must be announced exactly once — see the render site. `tursoMoveHintId`
+  // labels the VISIBLE hint, which is reachable on its own; the sr-only node
+  // exists ONLY for the gated state, where the control is not focusable.
+  const tursoMoveHintId = `${useId()}-turso-move`;
+  const tursoMoveNeedsTestId = `${useId()}-turso-move-needs-test`;
   const [tursoTesting, setTursoTesting] = useState(false);
+  // ★★ FINGERPRINTED, and the fingerprint is the whole point. This holds the
+  // URL and token the verdict was obtained FOR, so "is the test still valid?"
+  // is DERIVED below rather than written by an invalidation handler. A written
+  // invalidation has to be remembered at every edit path, including ones added
+  // later; a derived one cannot be forgotten, and the stale-confirmed state is
+  // simply unrepresentable.
   // ★ TRANSIENT BY DESIGN — resets on reload, exactly like the Jira and
   // Timelog test results. Persisting it would be a new Settings field and
   // therefore the six-write-paths case (open-followups §408).
-  const [tursoTestResult, setTursoTestResult] = useState<string | null>(null);
+  // ★ The URL and token are already in component state; holding a copy here
+  // adds no exposure. Neither is ever rendered, logged or thrown.
+  // ★ `url`/`token` are `string | undefined` because the SETTINGS fields are,
+  // and they are stored RAW — the very expressions handed to `getTursoConfig`.
+  // Normalising them (`?? ""`) here would put a second transformation between
+  // the write and the comparison below, which is exactly the kind of drift the
+  // derived shape exists to rule out. They are also NON-OPTIONAL on both arms:
+  // a third write site added later that forgets the fingerprint is then a
+  // COMPILE error rather than a silently stale "still confirmed".
+  // ★★ A KEY, NEVER A RENDERED STRING. An earlier cut stored `t(lang, …)` at
+  // probe time, which froze the verdict's language: this section and
+  // `LocalizationSection` mount in the same panel, so switching to Deutsch left
+  // an English "Connected." inside a German panel. That is the very defect the
+  // CLASSIFY-NEVER-INTERPOLATE block on `runTursoTest` exists to prevent, one
+  // layer up. `reason` lives on the fail arm ALONE because a success has none —
+  // which is also what makes `kind` load-bearing at the render site rather than
+  // written-and-never-read.
+  const [tursoTest, setTursoTest] = useState<
+    | { kind: "ok"; url: string | undefined; token: string | undefined }
+    | {
+        kind: "fail";
+        reason: "auth" | "unreachable" | "generic";
+        url: string | undefined;
+        token: string | undefined;
+      }
+    | null
+  >(null);
+
+  // ★★ DERIVED, never written. An edit to either field moves the comparison,
+  // so no edit path — including one added later — has to remember to clear a
+  // flag.
+  const tursoTestFresh =
+    tursoTest !== null &&
+    tursoTest.url === turso.databaseUrl &&
+    tursoTest.token === turso.authToken;
+  // ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null` and TS narrows
+  // through the aliased const, so an optional chain would only paper over a
+  // broken invariant: it would render the gate CLOSED (safe-looking) instead of
+  // failing, hiding the bug. Same reasoning as the verdict's render site below.
+  const tursoTestConfirmed = tursoTestFresh && tursoTest.kind === "ok";
 
   async function runTursoTest() {
     // ★★★ CLASSIFY, NEVER INTERPOLATE THE THROWN MESSAGE. The first cut of this
@@ -247,24 +307,28 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // dispatches no click at all. Measured: a test that clicked it and awaited
     // a message timed out at 15 s rather than failing an assertion.
     setTursoTesting(true);
-    setTursoTestResult(null);
+    setTursoTest(null);
     try {
       await testTursoConnection(getTursoConfig(turso.databaseUrl, turso.authToken));
-      setTursoTestResult(t(lang, "integrationsTursoTestOk"));
+      setTursoTest({ kind: "ok", url: turso.databaseUrl, token: turso.authToken });
     } catch (e) {
       // ★ A kind, never the config and never a raw message — nothing thrown
       // here may carry the URL or token into the DOM.
       const kind = tursoErrorKind(e);
-      setTursoTestResult(
-        t(
-          lang,
-          kind === "auth"
-            ? "integrationsTursoTestAuth"
-            : kind === "unreachable"
-              ? "integrationsTursoTestUnreachable"
-              : "integrationsTursoTestFailGeneric",
-        ),
-      );
+      setTursoTest({
+        kind: "fail",
+        // ★★ `?? "generic"` RATHER THAN A TERNARY CHAIN, and the difference is
+        // a compile error. `reason` mirrors `StorageErrorKind` exactly, so the
+        // two are equivalent TODAY — but a chain ending in a `:` fallback
+        // absorbs any FUTURE member of that union into "generic" with no
+        // diagnostic, so a new storage kind with its own banner would leave
+        // this probe quietly reporting "Connection failed." The nullish
+        // coalesce only fills in `tursoErrorKind`'s `null` (unrecognised), and
+        // widening the union makes it TS2322 — the author has to decide.
+        reason: kind ?? "generic",
+        url: turso.databaseUrl,
+        token: turso.authToken,
+      });
     } finally {
       setTursoTesting(false);
     }
@@ -713,14 +777,94 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           >
             {t(lang, "integrationsTursoTest")}
           </button>
-          <p role="status" className="text-xs text-muted-foreground">{tursoTestResult}</p>
-          {/* Primary action: carry the current project into Turso. */}
+          <p role="status" className="text-xs text-muted-foreground">
+            {/* ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null`, and
+                TS narrows through the aliased const, so the optional chain would
+                only paper over a broken invariant by rendering nothing. */}
+            {tursoTestFresh
+              ? t(
+                  lang,
+                  tursoTest.kind === "ok"
+                    ? "integrationsTursoTestOk"
+                    : TURSO_TEST_FAIL_KEYS[tursoTest.reason],
+                )
+              : null}
+          </p>
+          {/* Primary action: carry the current project into Turso.
+              ★ `canMoveToTurso` stays a RENDER gate — with the portfolio already
+              on Turso, or no project to move, there is nothing to migrate and a
+              permanently disabled control is noise. The CONFIRMED-connection
+              condition rides `disabled` instead, because it is a state the user
+              can act on.
+              ★★★ `disabled` HERE IS THE AFFORDANCE, NOT THE GATE. The gate is
+              the probe inside `migrateCurrentProjectToTurso`
+              (`use-storage-turso-ops.ts`), because `projects-panel.tsx` binds a
+              SECOND button to this same handler and this surface cannot see it.
+              Do not read the `disabled` attribute as making a handler-level
+              guard redundant. */}
           {canMoveToTurso && (
             <div className="mt-2 border-t border-line pt-2">
-              <Button size="sm" onClick={onMigrateToTurso}>
-                {t(lang, "projectMigrateToTurso")}
-              </Button>
-              <FieldHint className="mt-1">{t(lang, "projectMigrateToTursoHint")}</FieldHint>
+              {/* ★★ Same wrapper contract as `projects-panel.tsx`'s disabled
+                  Turso buttons — read the block comment there. The short of it:
+                  a disabled control is NOT focusable, so `title` is unreachable
+                  by keyboard and on touch, while `aria-describedby` IS exposed
+                  on a disabled control AND OUTRANKS `title` as the accessible
+                  description. WHILE DISABLED the sr-only node is what actually
+                  reaches AT; the `title` stays for the sighted mouse user, and
+                  it only lands reliably because `disabled:pointer-events-none`
+                  drops the button out of hit-testing so the pointer falls
+                  through to this span. `button.tsx`'s BASE_CLASS does set
+                  `disabled:cursor-not-allowed`, but a subtree with no pointer
+                  events cannot style a cursor either, so that rule goes INERT
+                  here and the wrapper must carry the cursor itself — the change
+                  belongs HERE, never in the shared primitive that every other
+                  disabled button rides.
+                  ★★★ THE `title` IS GATED-STATE ONLY, and NOT because the
+                  enabled button stops the pointer reaching the span. `title` is
+                  INHERITED for tooltip purposes (HTML Living Standard: an
+                  element with no `title` of its own takes the nearest
+                  ancestor's), so a `title` left on this span would still fire a
+                  tooltip on the ENABLED button — reading out the very sentence
+                  the visible `FieldHint` renders directly below it. That is the
+                  double announcement fixed on the describedby channel, one
+                  channel over. `undefined` when confirmed is what closes it.
+                  ★ Spec-derived, NOT measured: jsdom renders no native
+                  tooltips, so `integrations-section.test.tsx` can only pin the
+                  ATTRIBUTE's presence and absence, never the tooltip itself.
+                  ★★★ The hint cannot be gated on interacting with the button:
+                  a disabled element dispatches no events, so "click it and find
+                  out why" is an unreachable path.
+                  ★★ THE sr-only NODE IS FOR THE GATED STATE ALONE, and that is
+                  what keeps each state to ONE description. The invented node is
+                  only needed while the button is unfocusable; once it is
+                  ENABLED the VISIBLE hint below is reachable on its own, so
+                  `aria-describedby` points THERE and the sr-only node is not
+                  rendered at all. Pointing at the sr-only node in both states —
+                  the shape this replaced — made a confirmed user hear
+                  `projectMigrateToTursoHint` twice, once from the hidden node
+                  and once from the visible one. */}
+              <span
+                className={`inline-flex${tursoTestConfirmed ? "" : " cursor-not-allowed"}`}
+                title={tursoTestConfirmed ? undefined : t(lang, "integrationsTursoMoveNeedsTest")}
+              >
+                <Button
+                  size="sm"
+                  disabled={!tursoTestConfirmed}
+                  onClick={onMigrateToTurso}
+                  aria-describedby={tursoTestConfirmed ? tursoMoveHintId : tursoMoveNeedsTestId}
+                  className="disabled:pointer-events-none"
+                >
+                  {t(lang, "projectMigrateToTurso")}
+                </Button>
+                {!tursoTestConfirmed && (
+                  <span id={tursoMoveNeedsTestId} className="sr-only">
+                    {t(lang, "integrationsTursoMoveNeedsTest")}
+                  </span>
+                )}
+              </span>
+              <FieldHint id={tursoMoveHintId} className="mt-1">
+                {t(lang, "projectMigrateToTursoHint")}
+              </FieldHint>
             </div>
           )}
           <div className="mt-2 border-t border-line pt-2">
