@@ -34,7 +34,8 @@ try {
   process.exit(2);
 }
 
-const { missingRows, orphanRows, headingCount, rowCount } = result;
+const { missingRows, orphanRows, duplicateHeadings, duplicateRows, headingCount, rowCount } =
+  result;
 
 /** ★★★ THE FLOOR IS 50, NOT 0, AND THE DIFFERENCE IS THE WHOLE GUARD. The lib
  *  refuses at zero — that is the guard a unit test can reach — but a zero-only
@@ -58,6 +59,27 @@ if (headingCount < MIN_ENTRIES || rowCount < MIN_ENTRIES) {
 // Printed on EVERY path, including the green one: a caller reading only the
 // summary can still prove both sets were non-empty and which two were compared.
 console.log(`Follow-up index — ${headingCount} headings compared against ${rowCount} index rows\n`);
+
+/** ★★ A DUPLICATE IS DRIFT (exit 1), NOT AN UNSCANNABLE FILE (exit 2). The
+ *  parser understood the register perfectly; the register is what is wrong, and
+ *  the fix is an ordinary edit. It is reported ahead of the two set differences
+ *  because a duplicate makes BOTH of those empty while the counts disagree —
+ *  so the summary line above is the only other tell, and nothing reads it. */
+if (duplicateHeadings.length > 0 || duplicateRows.length > 0) {
+  if (duplicateHeadings.length > 0) {
+    console.log(`  §numbers used by more than one heading: ${duplicateHeadings.join(" ")}`);
+  }
+  if (duplicateRows.length > 0) {
+    console.log(`  §numbers carrying more than one index row: ${duplicateRows.join(" ")}`);
+  }
+  console.log(
+    "\nA follow-up number is a permanent handle other docs cite, so two entries\n" +
+      "sharing one makes every cross-reference to it ambiguous. Give the newer\n" +
+      "entry the next free number; delete the duplicated row rather than the row\n" +
+      "whose anchor other docs already link to.",
+  );
+  process.exit(1);
+}
 
 if (missingRows.length === 0 && orphanRows.length === 0) {
   console.log("Every entry has an index row, and every index row has an entry.");

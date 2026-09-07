@@ -366,6 +366,24 @@ npm run followups:check     # REPORT, not a gate — it runs in NO CI job and ex
                             # ago. It rules claims OUT, never IN, and a verdict routes work to a probe
                             # rather than closing anything. `--run-repro` also executes the allowlisted
                             # reproduce commands; `--json <out>` writes a snapshot.
+npm run followups:index:check # heading ⟺ index-row GATE over docs/open-followups.md (BLOCKING in CI)
+                            # ★★ Exit 1 = DRIFT (a heading with no row, a row with no heading, or a
+                            # §number used twice); exit 2 = the gate COULD NOT SCAN (markers missing or
+                            # duplicated, either set empty, or under the 50-per-axis floor its two sibling
+                            # followup gates already use). A scan that reads nothing passes everything, so
+                            # 2 is the load-bearing code and demands the opposite response to 1.
+                            # ★★★ THE MARKER MATCH IS WHOLE-LINE AND THAT IS LOAD-BEARING. Both marker
+                            # strings occur FOUR times in the register — twice inside a fenced code sample
+                            # showing a reader how to slice the table, twice as the real markers hundreds
+                            # of lines below. `src.indexOf(INDEX_BEGIN)` slices the SAMPLE, which holds 0
+                            # rows, and the gate then calls every heading missing. Still reproducible
+                            # today; pinned by a regression test in `followup-index-lib.test.mjs`.
+                            # ★★ It compares SETS, so it is blind to a duplicate on its own — a pasted row
+                            # leaves both differences empty while the counts disagree. That is why the
+                            # duplicate axes are reported separately; do not "simplify" them away.
+                            # ★ Parsing is pure (`followup-index-lib.mjs`, unit-tested, NO shebang — a `#!`
+                            # on an imported .mjs makes vitest throw naming the WRONG file); the CLI
+                            # `check-followup-index.mjs` owns the I/O and the exit codes.
 npm run src:symbols:check   # REPORT, not a gate — backticked names cited in `src/` COMMENTS that resolve
                             # nowhere in the CODE. ★★★ IT COVERS THE HALF `docs:symbols:check` CANNOT SEE:
                             # that gate reads AGENTS.md + `docs/AGENTS/*.md` and NOTHING else, so an
@@ -757,7 +775,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   run by inventing a verification — `never machine-verified` is a CONFORMING answer and is the
   honest one for an entry nobody has probed. ★ The check is command-SHAPED, not merely backticked:
   a backticked filename is not a verification, and accepting one was measured to admit 10 entries
-  that named none] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  that named none] ·
+  **followups-index-check** BLOCKING [`npm run followups:index:check` — every `## <n>.` heading in
+  `docs/open-followups.md` must carry a row in the index table between `<!-- INDEX:BEGIN -->` and
+  `<!-- INDEX:END -->`, and every row must point at a heading that exists. Nothing compared the two
+  sets before it, and they disagreed on the day it landed. ★★ SAME TWO-EXIT-CODE SPLIT as its two
+  siblings above: **1 is DRIFT** (write the missing rows, delete the orphaned ones, or renumber a
+  duplicate), **2 is the gate unable to scan** — markers missing, markers DUPLICATED, or either set
+  empty. ★★★ It also reports a §number used TWICE on either axis, which the set difference it is
+  built on is structurally BLIND to: paste one index row and both differences come back empty while
+  the two counts disagree. ★ DO NOT satisfy a red run by renumbering an entry — a follow-up number
+  is a permanent handle other docs cite] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
   false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
@@ -787,7 +815,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
   in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
   `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `version-sync-check`,
-  `doc-claims-check`, `followups-status-check`, `unit-tests`,
+  `doc-claims-check`, `followups-status-check`, `followups-index-check`, `unit-tests`,
   `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
   `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a

@@ -30,8 +30,11 @@ export const INDEX_ROW_RE = /^\|\s*\[§(\d+)\]\(#/;
  *  several hundred lines below. A `src.indexOf(INDEX_BEGIN)` therefore slices
  *  the two-line code sample, which holds ZERO rows — and the gate then reports
  *  every heading in the file as missing an index row. Measured against the real
- *  register, not reasoned: the sample span contains 0 rows and the real span
- *  contains 405.
+ *  register, not reasoned: the sample span contains 0 rows, against 405 in the
+ *  real span at merge-base 9219cbda. ★ The 405 is anchored to that sha on
+ *  purpose — the live figure moves on every entry filed or closed, so a bare
+ *  present-tense number here would be wrong by the next commit. Read today's
+ *  off the gate's own summary line.
  *
  *  ★★ Several whole-line matches is a SCAN FAILURE, never a pick-the-first: a
  *  second pair of real markers means the file's shape is not what this parser
@@ -72,9 +75,21 @@ export function indexTableBounds(lines) {
  * @returns {{missingRows: number[], orphanRows: number[], headingCount: number, rowCount: number}}
  *   `missingRows` = headings with no index row (write the row).
  *   `orphanRows`  = index rows with no heading (the row points at nothing).
- *   Both numerically sorted. The two counts are the sets that were COMPARED, so
+ *   `duplicateHeadings` / `duplicateRows` = numbers appearing twice on that axis.
+ *   All numerically sorted. The two counts are the sets that were COMPARED, so
  *   a caller can prove neither side was empty.
  * @throws when the file cannot be scanned — see the vacuity guard below.
+ *
+ * ★★★ THE SET DIFFERENCE ALONE IS BLIND TO A DUPLICATE, WHICH IS WHY BOTH
+ * DUPLICATE AXES ARE REPORTED SEPARATELY. Paste one index row twice and the
+ * difference is empty on both sides while `rowCount` and `headingCount`
+ * disagree — so without this the gate exits 0 and quietly prints two different
+ * numbers that nothing compares. That is not hypothetical for this file: the
+ * eight rows that closed the original 413-vs-405 gap were hand-authored, and
+ * hand-authoring is the input that produces a paste twice. A duplicate HEADING
+ * is the worse half — two entries sharing a permanent §number that other docs
+ * cite, so a cross-reference silently resolves to whichever renders first.
+ * Added after cold review, 2026-09-07; there were none at the time.
  */
 export function diffHeadingsAgainstIndex(src) {
   const lines = src.split(/\r?\n/);
@@ -112,9 +127,23 @@ export function diffHeadingsAgainstIndex(src) {
   const rowSet = new Set(rows);
   const asc = (a, b) => a - b;
 
+  /** Numbers that appear more than once on one axis. Derived from the ARRAYS,
+   *  never the Sets — the Sets are exactly what erases this. */
+  const duplicatesIn = (nums) => {
+    const seen = new Set();
+    const dup = new Set();
+    for (const n of nums) {
+      if (seen.has(n)) dup.add(n);
+      else seen.add(n);
+    }
+    return [...dup].sort(asc);
+  };
+
   return {
     missingRows: [...headingSet].filter((n) => !rowSet.has(n)).sort(asc),
     orphanRows: [...rowSet].filter((n) => !headingSet.has(n)).sort(asc),
+    duplicateHeadings: duplicatesIn(headings),
+    duplicateRows: duplicatesIn(rows),
     headingCount: headings.length,
     rowCount: rows.length,
   };

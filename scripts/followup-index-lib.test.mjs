@@ -43,6 +43,41 @@ describe("diffHeadingsAgainstIndex", () => {
     expect(out.rowCount).toBe(2);
   });
 
+  /** ★★★ THE SET DIFFERENCE CANNOT SEE A DUPLICATE — BOTH LISTS COME BACK
+   *  EMPTY. That is the whole reason these three tests exist: without them the
+   *  gate exits 0 on a register whose two halves are visibly different lengths,
+   *  and the only tell is a summary line printing two numbers nothing compares.
+   *  A pasted row is the realistic input — the eight rows that closed this
+   *  register's original gap were hand-authored. */
+  it("names a §number carrying two index rows, which the set difference cannot", () => {
+    const out = diffHeadingsAgainstIndex(register({ headings: [1, 2], rows: [1, 2, 2] }));
+    expect(out.duplicateRows).toEqual([2]);
+    // The negative control, and the point of the test: the differences are
+    // BLIND here, so asserting them empty is what proves the new check is
+    // carrying the detection rather than riding on an existing one.
+    expect(out.missingRows).toEqual([]);
+    expect(out.orphanRows).toEqual([]);
+  });
+
+  it("names a §number used by two headings", () => {
+    const out = diffHeadingsAgainstIndex(register({ headings: [1, 2, 2], rows: [1, 2] }));
+    expect(out.duplicateHeadings).toEqual([2]);
+    expect(out.duplicateRows).toEqual([]);
+    expect(out.missingRows).toEqual([]);
+    expect(out.orphanRows).toEqual([]);
+  });
+
+  /** ★★ The dup-free fixture in "reports both counts" above cannot tell
+   *  `headings.length` from `headingSet.size`, so a mutant swapping one for the
+   *  other survives it — and that mutant is exactly what makes the counts stop
+   *  reporting the disagreement a duplicate creates. This fixture separates
+   *  them: 3 headings, 2 distinct. */
+  it("counts every heading and row, not every distinct one", () => {
+    const out = diffHeadingsAgainstIndex(register({ headings: [1, 2, 2], rows: [1, 2] }));
+    expect(out.headingCount).toBe(3);
+    expect(out.rowCount).toBe(2);
+  });
+
   it("sorts both lists numerically, not lexicographically", () => {
     const out = diffHeadingsAgainstIndex(register({ headings: [2, 9, 10, 11], rows: [2, 3, 30] }));
     expect(out.missingRows).toEqual([9, 10, 11]);

@@ -29924,9 +29924,19 @@ on extracting a THIRD hook from what are now two near-identical implementations 
 `useEntityPickerCombobox({ query, optionCount })` returning `{ open, active, onKeyDown, listRef }`
 with the commit handed in as a callback, leaving each component only its own chrome.
 
-★★ Doing this would also collapse §411: the three mechanisms unpinned in `SingleEntityPicker` are
-already pinned in `entity-link-picker.test.tsx`, so one suite over the shared hook would cover both
-components instead of two suites that have to be kept in step the same way the comments do.
+★★ Doing this would now MERGE two suites rather than close a gap, and the sentence that stood here
+said the opposite. It read: "the three mechanisms unpinned in `SingleEntityPicker` are already
+pinned in `entity-link-picker.test.tsx`, so one suite over the shared hook would cover both". That
+was true when filed and was falsified by §411's own closure on 2026-09-07 — §411 is CLOSED and those
+mechanisms are pinned in `single-entity-picker.test.tsx` too. The extraction landed as
+`useEntityCombobox` (`src/app/entity-combobox.ts`), so the remaining prize is smaller and
+different: one suite over the shared hook instead of the same mechanism asserted in two component
+suites that must be kept in step.
+★★★ THE SWEEP THAT SHOULD HAVE CAUGHT THIS IS THE ONE THIS REGISTER STATES IN ITS OWN PREAMBLE — a
+closure falsifies sentences inside OTHER entries, and nothing gates that. §412's and §421's
+cross-references were swept in the same slice; this one was not, and it was found by a cold reviewer
+rather than by the closing agent. A closure's blast radius includes every entry that cites the closed
+one as LEVERAGE, not only those that cite it as a duplicate.
 
 ## 411. Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test — CLOSED 2026-09-07
 
@@ -30789,14 +30799,18 @@ not know that tool; `pushLinkDiffs` sets it for a row that does not exist yet. T
 `LinkDiff.subject` carries the split.
 
 ★★★ **Filed and cited on this branch as §407 for nine commits, and §407 was already taken** — by
-"Task-row changes badge renders '1 changes' for a single linked change", an unrelated still-OPEN
-entry inherited from `origin/main` and legitimately cited by `task-row.tsx` and
-`task-row.test.tsx`. One number meant two things. Renumbered to §420 on 2026-09-06 across the
+"Task-row changes badge renders '1 changes' for a single linked change", an unrelated entry inherited from
+`origin/main` and legitimately cited by `task-row.tsx` and `task-row.test.tsx` — still-OPEN when
+this was written, CLOSED 2026-09-07. One number meant two things. Renumbered to §420 on 2026-09-06 across the
 inline-ai-edit files; the three `task-row` citations were left alone. ★ No tally is given, because
 the obvious check refutes any: the same commit ALSO added new §420 citations, so a `grep -rn "§420" src`
 today returns more than were renumbered, and a reader would read the difference as an error. The slip's
-cause is worth more than the fix: §407–414 are headings with NO index-table rows, so an index grep
-misses them entirely. Mint a number from the HEADING scan, against BOTH trees, because a number is
+cause is worth more than the fix: §407–414 were headings with NO index-table rows, so an index grep
+missed them entirely. ★★ THAT HOLE IS NOW CLOSED AND THE SENTENCE IS LEFT IN THE PAST TENSE
+DELIBERATELY — the rows were written on 2026-09-07 and `npm run followups:index:check` is a BLOCKING
+gate that fails when a heading has no row, so the specific trap that produced this renumber cannot
+recur silently. The minting recipe below is still right, and is still the one to use: the gate proves
+a row EXISTS, never that the number you are about to mint is free on both trees. Mint a number from the HEADING scan, against BOTH trees, because a number is
 reserved only once it is on `origin/main`:
 `grep -oE "^## [0-9]+\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1` and
 `git show origin/main:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1`
