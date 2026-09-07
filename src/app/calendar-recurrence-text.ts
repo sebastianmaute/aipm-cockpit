@@ -24,6 +24,18 @@ function isRule(v: unknown): v is RecurrenceRule {
   return typeof freq === "string" && freq in FREQ_UNIT;
 }
 
+// Mirrors `intInRange(r.interval, 1, 52, 1)` in `calendar-event.ts`'s
+// `sanitizeRecurrence` — the ONLY thing that decides what actually gets
+// written. Anything that is not an integer in 1..52 is clamped to 1 there,
+// so this projection clamps identically: a non-integer, sub-1 or over-52
+// value from a model patch must render as "Every day", never as the raw
+// value, or the review card overstates what the write will store. A literal
+// mirror, not an import — the sanitizer pulls in more than this pure,
+// DOM-free module needs.
+function clampInterval(v: unknown): number {
+  return typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 52 ? v : 1;
+}
+
 /** `Every day` · `Every 2 weeks on MO, WE` · `Every month on the last FR`,
  *  with an optional ` until <date>` or `, N times` tail. "" for a non-rule. */
 export function recurrenceText(rule: unknown): string {
@@ -34,7 +46,7 @@ export function recurrenceText(rule: unknown): string {
     until?: unknown;
     count?: unknown;
   };
-  const interval = typeof r.interval === "number" && r.interval > 1 ? r.interval : 1;
+  const interval = clampInterval(r.interval);
   const [one, many] = FREQ_UNIT[r.freq];
   let out = interval === 1 ? `Every ${one}` : `Every ${interval} ${many}`;
 

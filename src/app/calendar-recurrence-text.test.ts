@@ -50,4 +50,29 @@ describe("recurrenceText", () => {
     expect(recurrenceText({ freq: "hourly", interval: 1 } as never)).toBe("");
     expect(recurrenceText({ interval: 2 } as never)).toBe("");
   });
+
+  // ★★★ PREVIEW⟺WRITE PARITY. `sanitizeRecurrence` (calendar-event.ts) runs
+  // `interval` through `intInRange(r.interval, 1, 52, 1)`: only an integer in
+  // 1..52 survives, everything else is clamped to 1. A model patch is
+  // pre-sanitize, so this projection must clamp identically or the review
+  // card can show a value the write will not actually store.
+  it("clamps a non-integer interval to 1, same as the write path", () => {
+    expect(recurrenceText({ freq: "daily", interval: 0.5 })).toBe("Every day");
+  });
+
+  it("clamps an interval over 52 to 1, same as the write path", () => {
+    expect(recurrenceText({ freq: "daily", interval: 60 })).toBe("Every day");
+  });
+
+  it("clamps a fractional interval over 1 to 1, same as the write path", () => {
+    expect(recurrenceText({ freq: "daily", interval: 2.5 })).toBe("Every day");
+  });
+
+  it("accepts 52 as the top of the valid interval range", () => {
+    expect(recurrenceText({ freq: "weekly", interval: 52 })).toBe("Every 52 weeks");
+  });
+
+  it("clamps 53 (one past the valid range) to 1", () => {
+    expect(recurrenceText({ freq: "weekly", interval: 53 })).toBe("Every week");
+  });
 });
