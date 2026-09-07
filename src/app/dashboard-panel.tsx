@@ -419,7 +419,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     const spec = tileById(id);
     if (!spec) return;
     setAnnouncement(
-      t(lang, "dashboardTileMoved", t(lang, spec.labelKey), String(j + 1), String(visibleIds.length)),
+      t(lang, "arrangementTileMoved", t(lang, spec.labelKey), String(j + 1), String(visibleIds.length)),
     );
   };
 
@@ -442,7 +442,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
           // breaks.
           reorder.endDrag();
           const spec = tileById(dragged);
-          if (spec) setAnnouncement(t(lang, "dashboardTileHidden", t(lang, spec.labelKey)));
+          if (spec) setAnnouncement(t(lang, "arrangementTileHidden", t(lang, spec.labelKey)));
         },
       };
 
@@ -614,7 +614,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 arrangement.resize(menu.id, axis, v);
                 // `menuSize` is this render's value, so the axis NOT being set
                 // reads correctly as its current one.
-                setAnnouncement(t(lang, "dashboardTileResized",
+                setAnnouncement(t(lang, "arrangementTileResized",
                   t(lang, menuSpec.labelKey),
                   String(axis === "w" ? v : menuSize.w),
                   String(axis === "h" ? v : menuSize.h)));
@@ -622,7 +622,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
               onMove={(delta) => moveByDelta(menu.id, delta)}
               onHide={() => {
                 arrangement.hide(menu.id);
-                setAnnouncement(t(lang, "dashboardTileHidden", t(lang, menuSpec.labelKey)));
+                setAnnouncement(t(lang, "arrangementTileHidden", t(lang, menuSpec.labelKey)));
                 focusShelfToggle();
               }}
               onClose={closeMenu}

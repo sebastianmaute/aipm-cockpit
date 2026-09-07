@@ -809,13 +809,13 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const user = userEvent.setup();
     renderReports(tasks);
     await openMenuFor(user, t("en-US", "reportsByPriority"));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileHide") }));
 
     expect(screen.queryByTestId("report-block-byPriority")).toBeNull();
     await user.click(screen.getByRole("button", { name: /hidden/i }));
     expect(
       screen.getByRole("button", {
-        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+        name: `${t("en-US", "arrangementTileRestore")} – ${t("en-US", "reportsByPriority")}`,
       }),
     ).toBeInTheDocument();
   });
@@ -824,11 +824,11 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const user = userEvent.setup();
     renderReports(tasks);
     await openMenuFor(user, t("en-US", "reportsByPriority"));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileHide") }));
     await user.click(screen.getByRole("button", { name: /hidden/i }));
     await user.click(
       screen.getByRole("button", {
-        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+        name: `${t("en-US", "arrangementTileRestore")} – ${t("en-US", "reportsByPriority")}`,
       }),
     );
     expect(screen.getByTestId("report-block-byPriority")).toBeInTheDocument();
@@ -888,7 +888,7 @@ describe("ReportsPanel — the shelf and the block menu", () => {
   /**
    * The shelf disclosure, by its count-bearing name. ★★★ RESOLVED BY PATTERN,
    * NEVER BY AN EXPECTED COUNT, and that is the whole reason these ports needed
-   * rewriting: the Dashboard's originals name the shelf `dashboardShelfCount(0)`
+   * rewriting: the Dashboard's originals name the shelf `arrangementShelfCount(0)`
    * / `(1)` because its fixture starts with nothing hidden. THIS surface does
    * not — `renderReports(tasks)` opens with **2** blocks already on the shelf
    * (measured by probe, not assumed: the button reads "▸ 2 hidden" on first
@@ -911,7 +911,7 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     renderReports(tasks);
     const hiddenBefore = shelfToggle().textContent;
     await openMenuFor(user, t("en-US", "reportsByPriority"));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileHide") }));
 
     // …the trigger really did unmount and the block really did reach the shelf,
     // or the focus assertion below could pass over a no-op.
@@ -928,11 +928,11 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const user = userEvent.setup();
     renderReports(tasks);
     await openMenuFor(user, t("en-US", "reportsByPriority"));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileHide") }));
     await user.click(shelfToggle());                       // open the tray
     await user.click(
       screen.getByRole("button", {
-        name: `${t("en-US", "dashboardTileRestore")} – ${t("en-US", "reportsByPriority")}`,
+        name: `${t("en-US", "arrangementTileRestore")} – ${t("en-US", "reportsByPriority")}`,
       }),
     );
 
@@ -958,7 +958,7 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const title = t("en-US", REPORT_BLOCKS.find((b) => b.id === target)!.labelKey);
 
     await openMenuFor(user, title);
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveEarlier") }));
 
     // Resolved by BLOCK IDENTITY, not by a node captured before the reorder.
     expect(ids().indexOf(`report-block-${target}`)).toBe(1);
@@ -1005,7 +1005,7 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const spec = REPORT_BLOCKS.find((b) => b.id === target)!;
 
     await openMenuFor(user, t("en-US", spec.labelKey));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveFirst") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveFirst") }));
     expect(ids()[0]).toBe(`report-block-${target}`);
   });
 
@@ -1026,12 +1026,12 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const title = t("en-US", REPORT_BLOCKS.find((b) => b.id === target)!.labelKey);
 
     await openMenuFor(user, title);
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveLater") }));
 
     expect(ids().indexOf(`report-block-${target}`)).toBe(1);
     expect(ids()).toHaveLength(before.length);               // a move, not a drop
     expect(screen.getAllByRole("status").map((el) => el.textContent)).toContain(
-      t("en-US", "dashboardTileMoved", title, "2", String(before.length)),
+      t("en-US", "arrangementTileMoved", title, "2", String(before.length)),
     );
   });
 
@@ -1052,14 +1052,14 @@ describe("ReportsPanel — the shelf and the block menu", () => {
       t("en-US", REPORT_BLOCKS.find((b) => b.id === all[i]!.replace("report-block-", ""))!.labelKey);
 
     await openMenuFor(user, titleAt(0));
-    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") })).toBeDisabled();
-    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveFirst") })).toBeDisabled();
-    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") })).toBeEnabled();
+    expect(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveEarlier") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveFirst") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveLater") })).toBeEnabled();
     await user.keyboard("{Escape}");
 
     await openMenuFor(user, titleAt(all.length - 1));
-    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveLater") })).toBeDisabled();
-    expect(screen.getByRole("button", { name: t("en-US", "dashboardTileMoveEarlier") })).toBeEnabled();
+    expect(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveLater") })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("en-US", "arrangementTileMoveEarlier") })).toBeEnabled();
   });
 
   it("announces a hide to assistive technology", async () => {
@@ -1068,7 +1068,7 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     const user = userEvent.setup();
     const { container } = renderReports(tasks);
     await openMenuFor(user, t("en-US", "reportsByPriority"));
-    await user.click(screen.getByRole("button", { name: t("en-US", "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "arrangementTileHide") }));
     const live = container.querySelector('[role="status"][aria-live="polite"]');
     expect(live?.textContent).toContain(t("en-US", "reportsByPriority"));
   });
