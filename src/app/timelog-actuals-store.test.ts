@@ -794,6 +794,17 @@ describe("timelog actuals cache — map-level size budget", () => {
    *  comparator returning 0 on the tie sheds `"zz"` first and this test goes
    *  red. Without the reversal the two orders coincide and the assertion is
    *  vacuous. */
+  /** ★★ THE MARGIN HERE IS 837 CHARACTERS AND THAT IS THE WHOLE FIXTURE, so read
+   *  a red on this test as "the fixture moved" before reading it as "the shedder
+   *  broke". Measured 2026-09-07: `bigRoll(20_000)` serialises to 1,200,001 and
+   *  `withBoundedDaily` trims it to 8,738 cells / 524,281 chars, so four such
+   *  entries come to 2,097,989 against `MAX_ACTUALS_TOTAL_CHARS` = 2,097,152 —
+   *  over by 837, i.e. 0.04%. Three come to 1,573,492, well under.
+   *  ★ It is BRITTLE, not vacuous, and the direction is what makes that
+   *  acceptable: drift UNDER budget sheds nothing and line 1 goes red, drift far
+   *  enough OVER sheds a second entry and line 2 goes red. There is no silent
+   *  pass in either direction. Do not "give it headroom" by enlarging the rolls
+   *  without re-measuring — a fifth entry's worth of slack sheds twice. */
   it("breaks a fetchedAt tie by project id, not by insertion order", () => {
     saveActualsCache("zz", bigEntry("2026-09-02T00:00:00.000Z"));
     saveActualsCache("aa", bigEntry("2026-09-02T00:00:00.000Z"));
