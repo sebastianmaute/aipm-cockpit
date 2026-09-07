@@ -636,7 +636,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§409](#409-collapsing-an-open-documents-body-can-commit-a-pending-unblurred-edit-and-mint-a-version--open) | Collapsing an open document's body can commit a pending unblurred edit and mint a version | found 2026-09-05 by the control-defects batch; browser-measured 2026-09-06, which refuted the attempted fix | S — priority low; no ordinary gesture reaches the state | open |
 | [§410](#410-singleentitypicker-duplicates-entitylinkpickers-combobox-mechanics-almost-line-for-line--open) | `SingleEntityPicker` duplicates `EntityLinkPicker`'s combobox mechanics almost line-for-line | found 2026-09-06 by the control-defects batch | M — extract a third shared hook; would collapse §411 with it | open |
 | [§411](#411-three-singleentitypicker-mechanisms-carry-a-stated-design-rationale-and-no-test--closed-2026-09-07) | Three `SingleEntityPicker` mechanisms carry a stated design rationale and no test | found 2026-09-06 by the control-defects batch | S | **CLOSED** 2026-09-07 |
-| [§412](#412-tasklinkpicker-has-no-direct-test-suite--coverage-is-real-but-indirect--open) | `TaskLinkPicker` has no direct test suite — coverage is real but indirect | found 2026-09-06 by the control-defects batch, when a batch vitest run named ten paths and ran nine | S | open |
+| [§412](#412-tasklinkpicker-has-no-direct-test-suite--coverage-is-real-but-indirect--closed-2026-09-07) | `TaskLinkPicker` has no direct test suite — coverage is real but indirect | found 2026-09-06 by the control-defects batch, when a batch vitest run named ten paths and ran nine | S | **CLOSED** 2026-09-07 |
 | [§413](#413-the-raid-badges-raid-breakdown-is-mouse-hover-only-for-sighted-users--accepted-cost) | The RAID badge's R/A/I/D breakdown is mouse-hover-only for sighted users | decided 2026-09-06 by the control-defects batch | — a recorded decision, not a defect | open |
 | [§414](#414-the-browser-eye-verify-owed-by-the-control-defects-batch--open) | The browser eye-verify owed by the control-defects batch | deferred 2026-09-06 by the control-defects batch | M — six items; 1–4 now automated by a spec, 5–6 unmeasured | open |
 | [§415](#415-the-plural-agreement-defect-407-named-once-is-a-repeated-class-across-at-least-31-keys-and-the-count-itself-is-disputed--open) | The plural-agreement defect §407 named once is a repeated class across at least 31 keys, and the count itself is disputed | found 2026-09-06 generalising §407 | L — 31+ keys, three grep traps, a disputed count | open |
@@ -29905,7 +29905,41 @@ it never covered this), the single `requestAnimationFrame` per `move` under Stri
 deferred `scrollIntoView` (two halves, two mutants — deleting the rAF wrapper and deleting the whole
 block fail on different assertions).
 
-## 412. `TaskLinkPicker` has no direct test suite — coverage is real but indirect — OPEN
+## 412. `TaskLinkPicker` has no direct test suite — coverage is real but indirect — CLOSED 2026-09-07
+
+**Status:** CLOSED 2026-09-07 by `src/app/task-link-picker.test.tsx` — six tests over the seam the
+component actually owns. Verified here by reading the file and its subject, not by running them
+(another agent held vitest on this branch, so the suite was NOT re-run in this session — that is
+weaker evidence than a green run and is stated as such, following §407's precedent). The commands
+that were run: `grep -cE "^  it\(" src/app/task-link-picker.test.tsx` → **6**, and
+`grep -n "useTaskPickerOptions\|clearLabel\|code:" src/app/task-link-picker.tsx` → the
+`useTaskPickerOptions` import and call, the `` code: `#${id}` `` mapping and the interpolated
+`clearLabel`, i.e. the three seams the tests name. Reproduce the suite with
+`npx vitest run --maxWorkers=1 src/app/task-link-picker.test.tsx`.
+
+**What the six tests pin**, each a property of `TaskLinkPicker`'s OWN wiring rather than of the
+shared picker beneath it: options come from `useTaskPickerOptions` rather than the raw `tasks`
+array; `onAdd`/`onRemove` receive the bare task id, not the `LinkPickerEntry` the shared picker
+hands back; the component clears its own query after a commit; two chips for same-named tasks keep
+row-unique accessible names; `clearLabel` stays qualified with the caller's `label` so two pickers
+on one surface do not both announce "Clear" (asserted with a two-picker fixture, which is the only
+shape that can see it); and a `selectedId` whose task is gone still renders an unlinkable chip —
+the dangling-link behaviour the source documented and nothing pinned. The implementing agent
+reports each behaviour mutation-proved against the minimal revert of the line it guards, with every
+scorecard summing to the file's six runtime tests; that scorecard is its measurement, not one
+re-taken here.
+
+★★ **`requireCollisionSeed: true` IS UNUSABLE ON THIS SURFACE AND THROWS AGAINST CORRECT CODE**,
+which is worth recording because the row-unique-names rule otherwise reads as "always turn it on"
+for a collision test. The helper strips only the ` (N)` occurrence suffix `buildRowTokens` mints,
+while `TaskLinkPicker` disambiguates the other way — a LEADING `#<id>` from `LinkPickerEntry.code`
+(`` code: `#${id}` `` in `task-link-picker.tsx`; `entity-link-picker.tsx` composes the unlink name as
+`` `${removeLabel} ${entry.code} ${entry.label}` ``), so two tasks named "Deploy" render
+`Unlink #41 Deploy` / `Unlink #42 Deploy`. Distinct names, and the guard reds anyway. The flag is
+OFF with that measurement recorded at the call site. Same class as
+`documents-deleted-section.tsx`'s ` · #id`, which is opted out for the same reason.
+
+_Original finding, as written 2026-09-06. Preserved as the dated record of what was believed._
 
 **Status:** OPEN. Verified 2026-09-06: `ls src/app/task-link-picker.test.tsx` fails (no such
 file); `grep -rn "TaskLinkPicker" src --include=*.tsx --include=*.ts` finds it referenced only in
