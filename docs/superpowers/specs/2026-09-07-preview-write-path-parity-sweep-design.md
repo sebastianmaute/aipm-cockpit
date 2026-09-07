@@ -3,9 +3,19 @@
 **Date:** 2026-09-07
 **Branch:** `feat/preview-write-path-parity-sweep`, based at `origin/main` = `08bab65b` (0.291.1 "Hoban")
 **Closes:** open-followups §394, §418. **Tail:** §405 (narrowed residue only).
-**Ships no user-visible behaviour change.** This is detector work: every user-facing defect in the
-preview/apply cluster (§383 · §384 · §390 · §392 · §393 · §395–§404 · §406) was closed on 2026-09-06
-by two slices. What is left is the class of defect neither of the two existing detectors can see.
+**The sweep itself ships no user-visible behaviour change.** It is detector work: every user-facing
+defect in the preview/apply cluster (§383 · §384 · §390 · §392 · §393 · §395–§404 · §406) was closed
+on 2026-09-06 by two slices. What is left is the class of defect neither of the two existing
+detectors can see.
+
+★ **Two unrelated user-reported fixes were folded into this branch** at the user's instruction, ahead
+of the sweep, each in its own commit — they share no code with the design below and are recorded here
+only so the branch's contents match this document:
+- `721580ad` — the chat attachment hint disclosed three fewer families than the picker accepts
+  (HTML, Office, mail) and quoted only the flat-file cap, not `MAX_MAIL_BYTES`. Guarded by a test
+  deriving the families from the classifier's own extension sets.
+- `1bb16135` — the sidebar's "New chat" label wrapped to two lines, because `Button`'s `BASE_CLASS`
+  declares no display and the call site's `justify-center gap-1.5` were therefore inert.
 
 ---
 
