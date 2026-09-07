@@ -1629,6 +1629,7 @@ const enUS = {
   // ★ Qualified accessible name — see jiraTestLabel.
   timelogTestLabel: "Test connection – Timelog",
   timelogTestOk: "Connected — {0} users, scope: {1}",
+  timelogTestOkOne: "Connected — 1 user, scope: {1}",
   timelogTestFail: "Connection failed (HTTP {0})",
   timelogTokenInvalid: "Token was rejected. Re-enter it.",
   timelogGuardrailsTitle: "Booking guardrails",
@@ -1701,6 +1702,7 @@ const enUS = {
   activityClear: "Clear log",
   activityCount: "{0} entries",
   activityEntriesLogged: "{0} entries logged",
+  activityEntriesLoggedOne: "1 entry logged",
   activityTaskCreated: "Task #{0} created: {1}",
   activityTaskUpdated: "Task #{0} updated: {1}",
   activityTaskDeleted: "Task #{0} deleted: {1}",
@@ -4476,6 +4478,56 @@ export function t(
     s = s.replace(`{${i}}`, String(a));
   });
   return s;
+}
+
+/**
+ * The base keys `tPlural` accepts: every key whose `…One` sibling also exists.
+ *
+ * ★★★ THIS TYPE IS THE GATE. A `tPlural(lang, "foo", n)` whose `fooOne` key is
+ * missing is a TYPE ERROR, not a runtime fallback — which is stronger than any
+ * source-scanning test could be, and it is why no test in this repo asserts the
+ * forward direction. The REVERSE direction (a `…One` key with no plural
+ * sibling, i.e. a stranded singular) is invisible to the type system and IS
+ * covered by a source test in `i18n-plural.test.ts`.
+ */
+export type PluralBaseKey = {
+  [K in TranslationKey]: `${K}One` extends TranslationKey ? K : never;
+}[TranslationKey];
+
+/**
+ * Count-aware lookup: renders `<baseKey>One` when the language's plural rules
+ * put `count` in the `one` category, and `<baseKey>` otherwise.
+ *
+ * ★★★ THE TWO FORMS ARE INDEPENDENTLY AUTHORED COMPLETE STRINGS, never a stem
+ * plus a suffix. That is the substance of the house rule this helper replaced:
+ * German breaks on noun AND adjective AND verb agreement at once, so a singular
+ * is a re-worded sentence. What changed is only WHERE the count test lives —
+ * one helper instead of a ternary at each call site — so the rule is kept and
+ * the duplication is not.
+ *
+ * ★★ `count` is NOT injected into the args. Three converted keys carry the
+ * count in a slot other than `{0}` (`actionCommitteeInfoWhy` at `{2}`,
+ * `chatAttachmentSummarySkipped` at `{1}`), so the caller passes the number in
+ * whatever position the string uses and `count` is used ONLY to select the
+ * form. Injecting it would have worked for 28 of the 31 keys, which is exactly
+ * the kind of convenience that reads as correct until the 29th.
+ *
+ * ★ Written against Intl's CATEGORIES rather than `count === 1` so a future
+ * language with a `few`/`many` category is a dictionary change rather than a
+ * code change. en-US, en-GB and de all resolve to `one`/`other` today, so the
+ * behaviour is identical to the ternary it replaced — including for ZERO,
+ * which is `other` in all three and was the case a `count > 1` spelling would
+ * have got wrong.
+ */
+export function tPlural(
+  lang: Lang,
+  baseKey: PluralBaseKey,
+  count: number,
+  ...args: (string | number)[]
+): string {
+  const category = new Intl.PluralRules(localeFor(lang)).select(count);
+  const key = (category === "one" ? `${baseKey}One` : baseKey) as TranslationKey;
+  return t(lang, key, ...args);
 }
 
 export function migrateLang(value: unknown): Lang {
