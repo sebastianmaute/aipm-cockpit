@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { t, type Lang } from "./i18n";
+import { t, tPlural, type Lang } from "./i18n";
 import { FieldNotice } from "./field-feedback";
 import { Banner } from "./banner";
 import type {
@@ -59,7 +59,7 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
             ? "org"
             : "self"
           : config.scopeMode;
-      setTestResult(t(lang, "timelogTestOk", String(users.length), scope));
+      setTestResult(tPlural(lang, "timelogTestOk", users.length, String(users.length), scope));
       set({ tokenInvalidAt: undefined });
     } catch (e) {
       const status =

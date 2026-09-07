@@ -26,7 +26,7 @@ import {
   activityMessageKey,
   humanizeFieldName,
 } from "./activity-log";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { useDisplayTimezone } from "./display-timezone-context";
 import { formatDisplayTimestamp } from "./tz-display";
 import { SegmentedControl } from "./segmented-control";
@@ -354,7 +354,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <span className="mr-auto text-sm text-muted-foreground">
           {visible.length === entries.length
-            ? t(lang, "activityEntriesLogged", entries.length)
+            ? tPlural(lang, "activityEntriesLogged", entries.length, entries.length)
             : t(lang, "tasksCountFiltered", visible.length, entries.length)}
         </span>
         <div className="flex items-center gap-2 print:hidden">
