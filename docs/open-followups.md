@@ -603,7 +603,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§376](#376-a-staged-document-row-cannot-be-named-in-the-review-card--closed-2026-09-05) | ~~A staged document row cannot be named in the review card~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`liveRowTitle` resolves an `update_document`/`delete_document` row's title from `ws.documents` by `input.id`; the plan beside it stays empty by design) |
 | [§377](#377-the-staging-gate-the-review-card-and-the-apply-path-have-no-production-caller--closed-2026-09-05) | ~~The staging gate, the review card and the apply path have no production caller~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`chat-panel.tsx` now consults `shouldStage`, mints, describes, mounts the card and applies inside `useUndoBatch`; the entry's own reproduce command returns real call sites) |
 | [§378](#378-a-staged-creates-provisional-id-is-not-reconciled-with-the-id-apply-mints--closed-2026-09-05) | ~~A staged create's provisional id is not reconciled with the id Apply mints~~ | found 2026-09-04 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`DescribedRow.mintedId` + `remapStagedCall`; landed BEFORE the wiring commit, so it was never reachable in a shipped product) |
-| [§379](#379-the-registers-index_matches-recipe-compares-two-sequences-while-its-prose-claims-membership--open) | The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership | found 2026-09-04, reproduced independently by two sessions across four tree states | S | open |
+| [§379](#379-the-registers-index_matches-recipe-compares-two-sequences-while-its-prose-claims-membership--closed-2026-09-07) | The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership | found 2026-09-04, reproduced independently by two sessions across four tree states | S | **CLOSED** 2026-09-07 |
 | [§380](#380-a-staged-plan-cannot-update-a-row-it-created-in-the-same-plan--closed-2026-09-05) | ~~A staged plan cannot update a row it created in the same plan~~ | found 2026-09-05 in the AI bulk-write-safety slice | M | **CLOSED** 2026-09-05 (`applyProposal` stamps a real concurrency token at apply time via `TOKEN_ROW_SOURCE`'s six full-row resolvers, already on `ToolDispatcher`) |
 | [§381](#381-a-row-refused-for-a-capability-gap-is-labelled-as-a-conflict--closed-2026-09-05) | ~~A row refused for a capability gap is labelled as a conflict~~ | found 2026-09-05 in the AI bulk-write-safety slice | S | **CLOSED** 2026-09-05 (`failed` now carries a `failedKind` — conflict/dependency/unreadable/error — classified by `failureKindOf`, with four EN/DE strings) |
 | [§382](#382-the-registers-own-index-rebuild-is-lossy-and-calls-itself-idempotent--open) | The register's own index rebuild is lossy, and calls itself idempotent | found 2026-09-05 while closing 377 and 378 | S | open |
@@ -645,9 +645,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§418](#418-only-update_task-has-a-source-enumerable-input-surface-so-the-coverage-gate-can-cover-one-tool-of-six--open) | Only `update_task` has a source-enumerable input surface, so the coverage gate can cover one tool of six | found 2026-09-06 by the preview/apply-parity round-2 slice | M | open |
 | [§419](#419-a-legacy-over-cap-costimpact-is-silently-clamped-to-amount_max-on-load--closed-2026-09-06) | A legacy over-cap `costImpact` is silently clamped to `AMOUNT_MAX` on LOAD | found 2026-09-06 by the preview/apply-parity round-2 register sweep | S | **CLOSED** 2026-09-06 |
 | [§420](#420-a-creates-link-line-rendered-with-a-bare-field-label-indistinguishable-from-the-open-rows--closed-2026-09-06) | A create's link line rendered with a bare field label, indistinguishable from the open row's | found 2026-09-06 in cold review of the preview/apply-parity branch | S | **CLOSED** 2026-09-06 |
-| [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--open) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | open |
+| [§421](#421-the-registers-own-index-table-cannot-see-eight-of-its-entries--closed-2026-09-07) | The register's own index table cannot see eight of its entries | found 2026-09-06 after it caused the §407 number collision | S | **CLOSED** 2026-09-07 |
 | [§422](#422-a-comma-bearing-email-address-is-destroyed-when-an-inline-edit-names-emails-with-a-changed-value--open) | A comma-bearing email address is destroyed when an inline edit names emails with a changed value | found 2026-09-06 in cold review of the preview/apply-parity branch; trigger claim refuted by probe 2026-09-07 | S | open |
-| [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--open) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit | S | open |
+| [§423](#423-the-codename-ledger-in-versionts-is-duplicated-data-that-has-rotted-three-times--closed-2026-09-07) | The codename ledger in `version.ts` is duplicated data that has rotted three times | found 2026-09-07 in deletion-biased review of the 0.289.0 release commit; it had rotted FOUR times and was incomplete besides | S | **CLOSED** 2026-09-07 |
 | [§424](#424-no-window-or-modal-offers-a-help-icon-though-the-deep-link-channel-already-exists--open) | No window or modal offers a help icon, though the deep-link channel already exists | found 2026-09-06 scoping the reports-arrangement slice | L — ~36 modal sites, 2 windows, and an unresolved UX fork | open |
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | closed 2026-09-07 |
 | [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
@@ -656,7 +656,18 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
 agree by construction, so this proves only that the rebuild was RUN — a heading added, retitled or
-closed without one leaves the table a row short or an anchor stale, and nothing else will say so:
+closed without one leaves the table a row short or an anchor stale.
+
+★★★ **MEMBERSHIP IS NOW GATED; THIS RECIPE'S SURVIVING JOB IS ORDER, AND SAYING OTHERWISE IS THE
+DEFECT §379 RECORDED.** `npm run followups:index:check` (`scripts/check-followup-index.mjs`, BLOCKING
+in CI as `followups-index-check`) compares the two sets — `Set` difference in
+`scripts/followup-index-lib.mjs`, so it is order-INSENSITIVE — and reports a heading with no row or
+a row with no heading. Run it for that question. The recipe below `diff`s two SEQUENCES, so it is
+order-SENSITIVE by construction: it is the only thing that checks the register's numeric-ordering
+property, and a pure misorder reports in it in the same shape a missing row would. Read a red here
+as "either ordering or membership" and let the gate tell you which. ★★ NEITHER checks that a row's
+ANCHOR still resolves to its heading — a retitle leaves both green with a dead link. That one is
+hand-run; derive every slug programmatically, never by typing it.
 
 ```bash
 TABLE=$(sed -n '/^<!-- INDEX:BEGIN/,/^<!-- INDEX:END/p' docs/open-followups.md | grep -oE '^\| \[§[0-9]+' | grep -oE '[0-9]+')
@@ -670,8 +681,11 @@ RC=$?
 echo "INDEX_MATCHES=$RC  rows=$(echo "$TABLE" | grep -c .)  headings=$(echo "$BODY" | grep -c .)"
 ```
 
-★★★ **Nothing GATES this, and the paragraph that stood here is the argument for generating the table
-rather than warning about it.** That paragraph hand-transcribed the table's coverage — a range, a row
+★★★ **Something GATES the membership half now — see the paragraph above; everything else here is
+still ungated, and the paragraph that stood here is the argument for generating the table rather
+than warning about it.** (Written when nothing gated any of it, and left standing because its
+argument is about prose that restates a machine-checkable fact, which no gate has ever fixed.)
+That paragraph hand-transcribed the table's coverage — a range, a row
 count and a missing count — so every row added above it falsified all three at once. It happened
 three times, the last in a commit whose author had read the warning sitting directly beneath the row
 being added, and a cold review caught it each time rather than the instruction did. An instruction a
@@ -28513,7 +28527,46 @@ create-then-update plan applies. The refusal survives only for a row that cannot
 AFTER §380 WAS CLOSED IN THE SAME BRANCH. §375 and §377 were swept for exactly this and §378 was
 missed — a closure falsifies sentences inside OTHER entries, and nothing gates that.
 
-## 379. The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership — OPEN
+## 379. The register's INDEX_MATCHES recipe compares two sequences while its prose claims membership — CLOSED 2026-09-07
+
+**Status:** CLOSED 2026-09-07, both halves, and they closed by different means. Verified 2026-09-07:
+`grep -nE '^## (320|321|322|323)\.' docs/open-followups.md` now prints the four headings in numeric
+order (the 2026-09-04 reproduce above no longer reproduces), and the recipe itself run unpiped
+prints `INDEX_MATCHES=0  rows=413  headings=413` — the two populations beside the verdict being the
+vacuity control this entry added, since `RC=0` over two empty sets is a defeated check.
+
+**Half A — the standing red.** §322's section sat above §321's. Fixed by moving §321's 29-line
+section above §322's, byte-identical, which is the fix this entry's own ★ prescribed and prefers:
+it costs one edit and KEEPS the ordering property, where relaxing the recipe with `sort -n` would
+have made the red go away and silently dropped a property the command enforces.
+
+**Half B — the command/claim mismatch, which is what this entry is actually about.** The recipe
+still `diff`s two SEQUENCES; that has not changed and should not. What changed is the prose beside
+it, which now says so. `followups:index:check` (`scripts/check-followup-index.mjs`, BLOCKING in CI
+as `followups-index-check`) took over the MEMBERSHIP question with a `Set` difference, so the recipe
+no longer has to carry a claim it never implemented: the paragraph above it now names the gate for
+membership and the recipe for ORDER, and states that a pure misorder reports in the same shape a
+missing row would. That is the same remedy this entry prescribed for the opposite direction — "if
+the recipe is ever relaxed, the prose must say that ordering is no longer checked" — applied to the
+half that actually moved.
+
+★★ **THE GATE DOES NOT SUPERSEDE THE RECIPE, and closing this entry as "superseded" would have been
+wrong.** The gate is order-INSENSITIVE by construction, so the register's numeric-ordering property
+— the one §321's misorder violated — is checked by NOTHING except this recipe, run by hand. It
+survives as the ordering check, not as a redundant copy of the gate. ★ Both are still blind to a
+STALE ANCHOR: a retitle that leaves the row in place passes the gate and the recipe alike while the
+link is dead. That is not this entry's subject and is not filed as a defect here; it is stated so
+the next reader does not infer coverage from two green checks.
+
+★ **The ★★★ below — a standing red hides the next one — is the part worth carrying forward, and a
+blocking gate changes its calculus rather than retiring it.** Six entries were once filed with no
+index rows while this was red, and both defects landed in one `diff` with nothing to say which was
+which. A missing row can no longer hide that way: it now fails its own named job in CI, separately
+from anything the recipe reports. What CAN still hide behind a standing red here is another
+ORDERING fault, since the recipe reports every misorder in one undifferentiated `diff`. Fix an
+ordering red promptly for that reason, not for tidiness.
+
+_Original finding, as filed 2026-09-04. Preserved as the dated record of what was believed._
 
 **Status:** OPEN. Filed 2026-09-04, never previously recorded — the red was known to two sessions
 and written down by neither. Last executed verification 2026-09-04:
@@ -30738,7 +30791,27 @@ reserved only once it is on `origin/main`:
 `git show origin/main:docs/open-followups.md | grep -oE "^## [0-9]+\." | grep -oE "[0-9]+" | sort -n | tail -1`
 → 419 and 417 on 2026-09-06, so 420.
 
-## 421. The register's own index table cannot see eight of its entries — OPEN
+## 421. The register's own index table cannot see eight of its entries — CLOSED 2026-09-07
+
+**Status:** CLOSED 2026-09-07 in two halves — the eight rows, and a gate so the gap cannot re-open
+silently. The rows for §407–§414 were written by hand (summary, provenance and size cells authored,
+not `— | —` placeholders), and §321's section was moved above §322's in the body, a byte-identical
+29-line move. The durable half is `scripts/check-followup-index.mjs` over the pure
+`scripts/followup-index-lib.mjs`, wired as `npm run followups:index:check` and as the BLOCKING
+GitLab job `followups-index-check` (stage `quality`, `needs: []`). Verified 2026-09-07:
+`node scripts/check-followup-index.mjs` → exit 0, printing
+`Follow-up index — 413 headings compared against 413 index rows`. The two counts are the
+non-vacuity control the gate prints for exactly the reason this entry's own Status line gave: a
+verdict with no populations beside it reads green over two empty sets.
+
+★★ **THE GATE COMPARES SETS, SO IT IS SILENT ON TWO THINGS THIS ENTRY MIGHT BE READ AS COVERING.**
+`missingRows`/`orphanRows` are computed by `Set` difference (`followup-index-lib.mjs`), so it says
+nothing about ORDER — §379 owns that — and nothing about whether a row's ANCHOR still resolves to
+its heading, which is a separate hand-run check and still ungated. A green run proves membership
+and only membership.
+
+_Original finding, as filed 2026-09-06. Preserved as the dated record, with the two claims the fix
+falsified corrected in place below and marked as corrections._
 
 **Status:** OPEN. Filed 2026-09-06 after it caused a real defect (§420 was minted as §407, a number
 already taken, and shipped in nine commits before anyone noticed). Last executed verification
@@ -30747,7 +30820,9 @@ already taken, and shipped in nine commits before anyone noticed). Last executed
 `grep -cE "^## (40[7-9]|41[0-4])\." docs/open-followups.md` → **8** headings. The second count is the
 non-vacuity control: a 0 from the first alone would also be what a broken pattern returns.
 **No gate was run to confirm this is ungated** — the claim below is reasoned from the three gates'
-own scopes rather than probed.
+own scopes rather than probed. ★ CORRECTION 2026-09-07: the reasoning was RIGHT. No gate compared
+the two sets on 2026-09-06, and the one that does now was written by the closure above; the
+unprobed hedge was warranted caution, not an error.
 
 ★ NO TOTAL IS QUOTED HERE, DELIBERATELY. A first draft of this Status line gave the heading and row
 counts as absolute numbers; both moved by two the moment §421 and §422 were appended — this entry is
@@ -30758,10 +30833,31 @@ the stable claim, and the per-number loop above is the only form that cannot rot
 §407–414 exist as headings with no index-table row. They arrived on `origin/main`, so this is not a
 merge loss on any one branch; a `§321` ordering discrepancy sits in the same table.
 
+★★★ **CORRECTION 2026-09-07 — THE `§321` DISCREPANCY WAS NEVER IN THE TABLE, AND SAYING SO SENT THIS
+SLICE'S COORDINATOR TO BRIEF THE WRONG FIX.** It was in the BODY: the sections ran 320, **322, 321**,
+323 while the table listed every number in correct numeric order. Measured at this branch's
+merge-base `9219cbda`, not reasoned — over that revision, the table held **405** rows with **zero**
+out-of-order pairs and **zero** duplicates, against **413** headings with exactly **one**
+out-of-order pair, `322 -> 321`. The zero-pairs result is the vacuity control for the other: a
+scanner that found no disorder anywhere would report the same thing over the body, and it did not.
+§379 was already the entry that owned the misorder and said so correctly; only this sentence
+misattributed it.
+
 ★★★ **NO GATE CAN SEE THIS, AND THAT IS THE WHOLE COST.** `followups:status:check` reads `**Status:**`
 lines, `docs:claims:check` reads `path:LINE` citations and `docs:symbols:check` reads backticked
 names — none of the three compares the heading set against the index set. So the table can drift
 arbitrarily far from the entries while every pipeline stays green.
+
+★★★ **CORRECTION 2026-09-07 — THAT PARAGRAPH WAS TRUE WHEN WRITTEN AND IS NOW FALSE, WHICH IS WHY IT
+IS CORRECTED HERE RATHER THAN DELETED.** Its enumeration of the three gates was accurate and its
+conclusion followed from it; what changed is the population, not the reasoning. There are now FOUR,
+and the fourth exists precisely to close this: `followups:index:check` compares the heading set
+against the index-row set and is BLOCKING in CI as `followups-index-check`. Drift no longer stays
+green. ★★ Do not read the correction wider than it goes — the new gate is a set comparison, so the
+sentence "the table can drift arbitrarily far" is now false for MEMBERSHIP and still true for
+ORDER and for a STALE ANCHOR, neither of which anything gates. A closed entry whose justification
+is left standing after the world moved is how a reader inherits a false enumeration as current;
+that is the failure this correction is avoiding, and it is the same class the entry itself is about.
 
 ★★ **THE FAILURE MODE IS MINTING A TAKEN NUMBER**, not a broken link, and it has now happened.
 The obvious way to find the next free number is to read the index table, which is exactly the
@@ -30866,7 +30962,48 @@ Whether the fix is validation at the boundary, or an array-preserving transport 
 never joins, is the open decision — they are different fixes with different blast radii, and picking
 one is not obvious enough to prescribe here.
 
-## 423. The codename ledger in `version.ts` is duplicated data that has rotted three times — OPEN
+## 423. The codename ledger in `version.ts` is duplicated data that has rotted three times — CLOSED 2026-09-07
+
+**Status:** CLOSED 2026-09-07. The ledger was cut from `APP_MILESTONE`'s docstring and
+`src/app/version.ts` went from 505 lines to 396. Verified 2026-09-07:
+`grep -cE '^ \*  0\.[0-9]+\.x was' src/app/version.ts` → **0**, against the same pattern over the
+merge-base copy (`git show 9219cbda:src/app/version.ts`) → **53**, which is the non-vacuity control
+— a 0 from the new file alone is also what a broken pattern returns.
+
+**What was KEPT, because it is repo knowledge `CHANGELOG.md` cannot hold**: the per-minor-line
+uniqueness rule and why a bare name grep misleads in BOTH directions; the enumerate-today's-reuses
+command; the two anchor axes (the em-dash/hyphen split, and headers putting the codename before the
+date) that have each reported a taken name as free; the prove-the-zero and sweep-a-BATCH notes; the
+stale-spare-list warning; the dead 0.224.0 number; and the near-collision note — 0.287.x "Tiptree"
+and 0.236.x "Sheldon" are one person, a relationship between two entries rather than a property of
+either, which is exactly why no grep over `CHANGELOG.md` can find it. What was DROPPED is the
+per-line biographies. ★ The docstring prescribes **TWO** uniqueness commands, not one — `grep -ic
+<name> CHANGELOG.md` and a dash-agnostic header pattern — and running only the second is one of the
+two ways a taken name has already read as free.
+
+★★ **THE ENTRY UNDERSTATED ITSELF THREE WAYS, and each strengthens its own case for the cut.**
+
+- **A FOURTH ROT, not three.** The docstring's own ★★★ warning against trusting a prior bump's
+  spare-name list read "The 0.284.x note below banked `barnhill`, `sladek` and `malzberg` as spare"
+  — and the 0.284.x entry it named contained no such list. Measured over the merge-base copy:
+  `grep -n -i "barnhill\|sladek\|malzberg"` returns the warning itself and the two ledger lines for
+  0.285.x/0.286.x, and `malzberg` appears NOWHERE else in the file. So a note about a list going
+  stale was pointing at a list that had been edited away underneath it.
+- **INCOMPLETE, not merely stale.** The ledger recorded SIX reuses — Cadigan, Gibson, Tchaikovsky,
+  VanderMeer, Nagata, Okorafor. The authoritative record holds **eleven**: the same six plus Bujold,
+  Hopkinson, Le Guin, Leckie and Tiptree. Reproduce with the command the surviving docstring now
+  prescribes:
+  `grep -oE '^## \[0\.[0-9]+\.[0-9]+\][^"]*"[^"]+"' CHANGELOG.md | sed -E 's/^## \[(0\.[0-9]+)\.[0-9]+\][^"]*"([^"]+)"$/\2|\1/' | sort -u | cut -d'|' -f1 | uniq -d`
+  A hand-maintained second copy was not just behind the record; it disagreed with it on a property
+  the record can be asked for directly.
+- **"TIPTREE" IS ITSELF ONE OF THE ELEVEN**, and the ledger recorded it as a fresh name with a
+  biography: `grep -n 'Tiptree' CHANGELOG.md` returns `## [0.287.0] - 2026-09-06 "Tiptree"` AND
+  `## [0.20.0] — 2026-05-28 "Tiptree"` — note the two different dashes, which is the first anchor
+  axis above, live. 0.287.x is therefore BOTH a permitted cross-minor-line reuse the ledger missed
+  AND the same person as 0.236.x "Sheldon". The preserved near-collision note is the more
+  interesting for it, and the surviving docstring says so.
+
+_Original finding, as filed 2026-09-07. Preserved as the dated record of what was believed._
 
 **Status:** OPEN. Filed 2026-09-07 from a deletion-biased review of the 0.289.0 release commit. Last
 executed verification 2026-09-07 —
