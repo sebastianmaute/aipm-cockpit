@@ -157,6 +157,31 @@ describe("report-blocks — label keys in DE", () => {
     //
     // ★ Same class as the shelf defect found in Task 8 — a collision nothing
     // could produce from the catalogue in front of you, until it could.
+    //
+    // ★★ THE MEASUREMENT, so nobody re-litigates this from the prop argument
+    // alone. Derived from `labelKey:` in `report-blocks.ts` plus `titleKey:` in
+    // `addable-reports.ts` (13 keys), resolved through both dictionaries:
+    //   EN: Headline · Group health · Open tasks by status · Completion
+    //       outcomes · Status inquiries · By assignee · By priority · By group ·
+    //       By label · RAID Report · Budget Report · Resource report ·
+    //       Stakeholder Report
+    //   DE: Überblick · Status nach Gruppe · Offene Aufgaben nach Status ·
+    //       Erledigungsergebnisse · Statusabfragen · Nach Zugewiesenem · Nach
+    //       Priorität · Nach Gruppe · Nach Label · RAID-Report · Budgetbericht ·
+    //       Ressourcen-Bericht · Stakeholder-Bericht
+    // 13 unique of 13 in each. That is why `reports.test.tsx` leaves
+    // `requireCollisionSeed` OFF — the claim rests on this check, not on the
+    // prop signature.
+    //
+    // ★★★ ONE NEAR-MISS, AND IT IS THE SHAPE THAT WOULD BITE. In DE,
+    // `reportsGroupHealth` is "Status nach Gruppe" and `reportsByGroup` is
+    // "Nach Gruppe" — distinct, so nothing is wrong today, but they are ONE WORD
+    // apart. A retranslation shortening the first collides in GERMAN ONLY, where
+    // no other check in this repo would see it: tsc enforces key parity, the
+    // i18n-encoding gate scans for mojibake and escapes, and axe is blind to
+    // duplicate accessible names in every view at every seed size. That is the
+    // concrete reason to re-run this whenever a title changes, rather than
+    // treating today's answer as settling it forever.
     for (const lang of ["en-US", "de"] as const) {
       const titles = REPORT_BLOCKS.map((b) => t(lang, b.labelKey));
       const seen = new Map<string, string[]>();
