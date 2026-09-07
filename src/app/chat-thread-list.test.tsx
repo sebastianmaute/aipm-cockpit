@@ -310,4 +310,29 @@ describe("ChatThreadList", () => {
     expect(screen.getByRole("button", { name: 'Delete "Untitled chat"' })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 7 });
   });
+
+  /** ★★ PLUMBING ONLY, AND THE LIMIT IS THE POINT: jsdom has no layout, so
+   *  NOTHING here can observe the two-line wrap this pins the fix for. What it
+   *  can see is the cause — `Button`'s `BASE_CLASS` declares no display, so the
+   *  `justify-center gap-1.5` this call site already carried were INERT and the
+   *  glyph and label laid out as inline content. Read a green run as "the flex
+   *  row is still declared", never as "the label fits". The wrap itself is an
+   *  eye-verify at the sidebar's `min-w-[10rem]`. */
+  it("lays the New chat control out as a nowrap flex row", () => {
+    render(
+      <ChatThreadList
+        threads={[]}
+        activeThreadId={null}
+        lang="en-US"
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const cls = screen.getByRole("button", { name: "New chat" }).className;
+    for (const token of ["flex", "items-center", "whitespace-nowrap"]) {
+      expect(cls.split(/\s+/)).toContain(token);
+    }
+  });
 });
