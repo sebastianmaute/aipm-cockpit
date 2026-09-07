@@ -652,6 +652,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§425](#425-the-dashboards-reorder-grip-still-promises-an-arrow-key-path-its-own-call-site-switched-off--closed-2026-09-07) | The Dashboard's reorder grip promises an arrow-key path its own call site switched off | found 2026-09-07 fixing the Reports half of the same defect | S — one prop at the call site, one test helper, one default flip | closed 2026-09-07 |
 | [§426](#426-four-reports-arrangement-checks-that-only-an-eye-can-make-are-unrun--open) | Four Reports-arrangement checks that only an eye can make are unrun | found 2026-09-07 closing the reports-arrangement slice | S — one browser session at three widths, plus print preview | open |
 | [§427](#427-the-reports-migration-seed-re-runs-on-a-rejected-blob-and-now-reverts-to-a-stale-setting--closed-2026-09-07) | The Reports migration seed re-runs on a rejected blob, and now reverts to a STALE setting | found 2026-09-07 when Task 12 stopped writing `settings.reports.extra` | S-M — distinguish MISSING from REJECTED in `loadArrangement` | closed 2026-09-07 |
+| [§428](#428-focusaftermove--triggerrefs-has-no-detector-at-any-layer-and-the-playwright-probe-that-was-owed-refuted-its-own-premise--open) | `focusAfterMove` / `triggerRefs` has no detector at any layer | found 2026-09-07 writing the probe the reports-arrangement slice owed | NONE — a decision, not a defect; do not re-owe the probe | open |
 | [§429](#429-a-closed-entrys-status-line-is-the-least-gated-line-in-the-register-and-closing-is-when-a-fabricated-verification-is-most-tempting--open) | A CLOSED entry's `**Status:**` line is ungated — `followups-status-check` filters closed entries OUT | found 2026-09-07 while auditing this branch's own six closures, after a peer's status-gate red | M | open |
 <!-- INDEX:END -->
 
@@ -31400,6 +31401,66 @@ the right thing with the input it is given. The defect is that a rejected blob i
 from an absent one, and any fix that leaves that conflation in place will be re-derived as a bug by
 the next person who reads `loadArrangement`.
 
+## 428. `focusAfterMove` / `triggerRefs` has no detector at any layer, and the Playwright probe that was owed refuted its own premise — OPEN
+
+
+**Status:** open as a DECISION, not as a defect — nothing is broken and nothing is owed. Recorded
+2026-09-07, verified by three runs of
+`npx playwright test e2e/reports-arrangement-focus.spec.ts --project=chromium --workers=1`
+in Chromium against a live dev server, one mutant at a time:
+
+```
+clean tree                                    -> 1 passed
+delete setFocusAfterMove({ id })              -> 1 passed   <- SURVIVES
+delete arrangement.move(id, visibleIds[j])    -> 1 failed, at the order poll
+```
+
+★★★ **THE PROBE THIS ENTRY EXISTS FOR IS ALREADY WRITTEN. DO NOT RE-OWE IT.** The reports-arrangement
+slice shipped with an owed item reading "the mutant survives under jsdom; only a Playwright probe
+could cover it". The probe was written (`d835a12f`) and it does **not** cover it either. Writing a
+second one will produce the same result.
+
+**Why the prediction failed.** The reasoning recorded in `reports.test.tsx` runs: `PopoverPanel`
+restores focus to its anchor on unmount; React reorders a keyed list by MOVING the existing DOM
+nodes rather than recreating them; so under jsdom the anchor is still connected and the primitive's
+own restore lands it, making the machinery redundant there. All three clauses hold. The conclusion
+drawn from them — that a real browser BLURS a moved element and so the restore would be
+insufficient — does not: whatever the blur does, it happens before the restore runs, and the
+restore then re-focuses a node that is live and correctly positioned.
+
+**The third run is what makes the second believable**, and it is the part to copy rather than the
+finding. A surviving mutant and a stale `.next` serving pre-mutation output are indistinguishable
+from a green run alone. Deleting `arrangement.move` turns the spec red at its order assertion, which
+proves an edit to `reports.tsx` actually reaches the served bundle. Without that control the whole
+measurement would have been a plumbing failure wearing the gate's name.
+
+**The decision that is actually open.** A surviving mutant is a QUESTION: "equivalent mutant" and
+"missing test" look identical from the harness, and separating them needs an input neither suite
+has. Today `moveByDelta` has no caller that leaves focus anywhere but the popover, so the popover's
+own restore covers every path that exists. Either:
+
+- a path is added where the popover is NOT the focus owner (a keyboard shortcut that moves a block
+  without opening the menu, a drag committed from the grip), which would make the machinery
+  load-bearing and testable — at which point pin it; or
+- it is established that no such path will exist, and the machinery can go.
+
+★★★ **DO NOT DELETE IT ON THE STRENGTH OF THE SURVIVING MUTANT ALONE.** That is the reading this
+entry exists to prevent. "No test fails when I remove it" is exactly as consistent with "nothing
+exercises the path it guards" as with "it does nothing", and the code costs one `useState` and a
+ref map.
+
+**Severity: NONE as a defect.** No user-visible behaviour is wrong in either surface — the outcome
+the machinery aims at is what actually happens, by whichever route. This is unproven code and an
+unanswered question, recorded so neither is rediscovered from scratch.
+
+★ The spec is KEPT regardless. It pins a real outcome nothing else pins in a browser (after a
+keyboard move, focus is on the moved block's own ⋮ trigger at its new position rather than on
+`<body>`), and the positive control proves that assertion is non-vacuous about the outcome. It is
+simply not a guard for the mechanism, and its own docstring says so.
+
+★ Number coordinated with the parallel worktree before minting: that branch adds zero headings
+against the merge-base (`comm -13` over the two heading sets returns empty), so 428 is not double-
+minted. This repo has had two branches mint the same number before.
 ## 429. A closed entry's `**Status:**` line is the least-gated line in the register, and closing is when a fabricated verification is most tempting — OPEN
 
 **Status:** OPEN 2026-09-07 — measured, not reasoned. Reproduce with `node scripts/check-followup-status.mjs` (exit 0 today, "203 open entries scanned" — it never looks at the 211 closed ones), and read the filter itself with `grep -n "filter((e) => !isClosed" scripts/check-followup-status.mjs`. The 67/210 figure below came from applying the gate's own `statusViolations()` to the closed set.

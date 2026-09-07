@@ -24,6 +24,22 @@ import { join } from "node:path";
  * ★ The cost is that renaming the PREFIX itself (or moving the engine to a
  * subdirectory) silently empties the scan, so the floor below is load-bearing:
  * an empty sweep passes every assertion and reports success.
+ *
+ * ★★★ IF YOU EVER ADD AN EXEMPTION HERE, ADD THE OPPOSITE ASSERTION WITH IT.
+ * This scan has ZERO allowlisted keys today, which is why the floors below are
+ * two separate, bolted-on guards. The moment an allowlist exists, assert BOTH
+ * directions — no undocumented offender, AND no allowlisted key that has
+ * stopped offending. The second is the one people skip, and skipping it is
+ * worse than clutter: a stale exemption is a HOLE, because the next call site
+ * to use that key is silently exempt for a reason that stopped being true. It
+ * also subsumes the vacuity floor for free — if the walk ever empties, every
+ * exemption reads as stale and the suite goes red on its own. That mechanism
+ * is not available to a zero-exemption scan, so until then the floors stay.
+ * ★ The pattern was measured independently, on the same day, by a plural-pairs
+ * detector on a parallel branch. That file is deliberately NOT named here: it
+ * does not exist in this tree and may never land, and a backticked name for a
+ * file nobody can grep is the invented-identifier trap this repo keeps paying
+ * for. The reasoning stands on its own.
  */
 
 const DIR = __dirname;
