@@ -35,6 +35,7 @@ import {
   type CommitteeMeeting,
   type InfoSchedule,
   type MeetingReport,
+  ABSENCE_TYPES,
 } from "./types";
 import {
   IDENTITY_TYPE_SET,
@@ -919,6 +920,84 @@ export function dropUnacceptedStakeholderFields<T extends object>(patch: T): T {
     delete out[field];
   }
   return (out ?? patch) as T;
+}
+
+// --- Absence + calendar event merge-site guards -----------------------------
+//
+// ★★★ THESE TWO ARE ALLOWLISTS, NOT DENYLISTS — the opposite shape from the
+// four guard tables above. `MILESTONE_FIELD_GUARDS` / `CHANGE_FIELD_GUARDS` /
+// `RAID_FIELD_GUARDS` / `STAKEHOLDER_FIELD_GUARDS` all iterate their OWN
+// entries and `delete` a field that fails its guard — a field with no entry in
+// the table is left alone, because those sanitizers already have a closed,
+// hand-enumerated set of writable fields elsewhere in the load/update path.
+// Absences and calendar events have no such enumeration: `patchWithoutId`
+// forwards whatever the model emitted, minus `id`/`expectedToken`/the token
+// exclusions (docs/open-followups.md §418), so a field this table does not
+// name is a field the model can write. Iterating the PATCH and keeping only
+// entries with a passing guard closes that gap — including against a field
+// invented by a future model or added to the entity after this table was
+// written, which a denylist here could not do.
+
+/** Which model-supplied absence fields survive the merge.
+ *
+ *  ★★★ IT EXISTS BECAUSE `patchWithoutId` FORWARDS EVERYTHING. The model's
+ *   patch reaches the writer with only `id`, `expectedToken` and the token
+ *   exclusions removed (open-followups §418), so any key absent from this table
+ *   is a key the model can write. `outlookEventId` and `localModifiedAt` are
+ *   owned by sync and are the reason this table is not optional.
+ *
+ *  ★★ `type` is dropped rather than corrected when unrecognised. `sanitizeAbsence`
+ *   RESETS an unknown type to a fallback, and a reset is invisible on the review
+ *   card — the same silent-demotion shape `dropUnacceptedStakeholderFields`
+ *   exists for. */
+const ABSENCE_FIELD_GUARDS: Readonly<Record<string, (v: unknown) => boolean>> = {
+  assignee: (v) => typeof v === "string",
+  assigneeEmail: (v) => typeof v === "string",
+  startDate: (v) => typeof v === "string",
+  endDate: (v) => typeof v === "string",
+  type: (v) => typeof v === "string" && (ABSENCE_TYPES as readonly string[]).includes(v),
+  note: (v) => typeof v === "string",
+  resourceId: (v) => typeof v === "number" || v === null,
+};
+
+export function dropUnacceptedAbsenceFields<T extends object>(patch: T): T {
+  const out: Record<string, unknown> = {};
+  for (const [field, value] of Object.entries(patch)) {
+    const accepts = ABSENCE_FIELD_GUARDS[field];
+    if (accepts && accepts(value)) out[field] = value;
+  }
+  return out as T;
+}
+
+/** Which model-supplied calendar-event fields survive the merge.
+ *
+ *  ★★★ `sendInvitations` IS DELIBERATELY PRESENT. It mails attendees — the one
+ *   effect here that leaves the building — and the user's scope decision was to
+ *   allow it and force any such call through the staged review card
+ *   (`shouldStage`). Dropping it here would make that staging rule unreachable.
+ *
+ *  ★★ `exceptions` is ABSENT on purpose: per-occurrence skip/move bookkeeping
+ *   the UI writes when a user edits one instance. There is no phrasing a model
+ *   could use for it that a reviewer could check at a glance. */
+const CALENDAR_EVENT_FIELD_GUARDS: Readonly<Record<string, (v: unknown) => boolean>> = {
+  title: (v) => typeof v === "string",
+  startDate: (v) => typeof v === "string",
+  startTime: (v) => typeof v === "string",
+  durationMinutes: (v) => typeof v === "number" && Number.isFinite(v),
+  location: (v) => typeof v === "string",
+  notes: (v) => typeof v === "string",
+  attendeeResourceIds: (v) => Array.isArray(v) && v.every((n) => typeof n === "number"),
+  sendInvitations: (v) => typeof v === "boolean",
+  recurrence: (v) => typeof v === "object" && v !== null,
+};
+
+export function dropUnacceptedCalendarEventFields<T extends object>(patch: T): T {
+  const out: Record<string, unknown> = {};
+  for (const [field, value] of Object.entries(patch)) {
+    const accepts = CALENDAR_EVENT_FIELD_GUARDS[field];
+    if (accepts && accepts(value)) out[field] = value;
+  }
+  return out as T;
 }
 
 export function sanitizeStakeholder(input: unknown): Stakeholder | null {
