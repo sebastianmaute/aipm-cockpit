@@ -51,12 +51,16 @@ export interface EntityComboboxInput<T> {
    *  array. Two options sharing one are indistinguishable here, and the
    *  identity check in `active` would then accept the wrong one. */
   identity: (option: T) => string;
-  /** Called on Enter with the ARMED option.
+  /** Called on Enter with the ARMED option — the whole option, not a field of
+   *  it, since `EntityLinkPicker` commits the entry itself while
+   *  `SingleEntityPicker` unwraps a `value`.
    *
-   *  ★ Optional only so a caller may mount the hook for its highlight state
-   *  alone. A picker that omits it has a dead Enter key and nothing will say
-   *  so — pass it. */
-  onCommit?: (option: T) => void;
+   *  ★ REQUIRED on purpose. Both consumers always have a handler, so
+   *  optionality bought nothing and spent the loud failure: `onKeyDown` calls
+   *  `preventDefault()` before committing, so a picker that forgot to pass one
+   *  would swallow Enter and then do nothing at all — a dead key no test above
+   *  this hook can see. Required makes that a compile error instead. */
+  onCommit: (option: T) => void;
 }
 
 export interface EntityCombobox {
@@ -208,7 +212,7 @@ export function useEntityCombobox<T>({
       // field.
       if (!open || active < 0) return;
       e.preventDefault();
-      onCommit?.(options[active]);
+      onCommit(options[active]);
       return;
     }
     if (e.key === "Escape") {
