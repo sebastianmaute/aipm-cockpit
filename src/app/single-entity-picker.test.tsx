@@ -61,6 +61,24 @@ describe("SingleEntityPicker", () => {
     expect(props.onSelect).toHaveBeenCalledWith("task:1");
   });
 
+  // ★★ THE WIRING ASSERTION. `entity-combobox.test.tsx` proves the shared hook
+  // is correct; it cannot prove THIS component calls it — a seam test cannot see
+  // a break above it. Without this, the hook call could be deleted and a local
+  // copy reinstated with every other test in this file still green.
+  // ★ TWO ArrowDowns, and the SECOND option is what must commit: a test that
+  // commits the FIRST passes against an implementation where ArrowDown does
+  // nothing at all.
+  it("routes the keyboard path through the shared combobox hook", async () => {
+    const user = userEvent.setup();
+    const { props } = renderPicker({ query: "a" });
+    const box = screen.getByRole("combobox");
+    box.focus();
+    await user.keyboard("{ArrowDown}{ArrowDown}");
+    expect(box).toHaveAttribute("aria-activedescendant", screen.getAllByRole("option")[1].id);
+    await user.keyboard("{Enter}");
+    expect(props.onSelect).toHaveBeenCalledWith("raid:2");
+  });
+
   // ★ Enter must NOT be swallowed unless an option is actually armed. This
   // control sits inside forms where a bare Enter submits; claiming Enter merely
   // because a dropdown is open would silently break submitting from this field.

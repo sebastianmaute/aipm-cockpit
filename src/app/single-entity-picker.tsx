@@ -11,33 +11,20 @@
 // shared component would put TaskLinkPicker and RaidCausedByField at risk for a
 // third caller's benefit.
 //
-// Why not `combobox-shared` either (`useCombobox` / `ComboboxChevron` /
-// `ComboboxOptions`, behind ComboInput, GlobalSearchBox and LabelsInput): all
-// three exports mismatch this control, each in a way that would have to be
-// undone rather than configured. `useCombobox` owns `open` as its OWN state,
-// with an outside-click effect to close it; `open` here is DERIVED
-// (`hasQuery && options.length > 0 && !dismissed`), so the caller's filtering
-// alone can close the list and there is no second source of truth to keep in
-// step. Its `moveHighlight` moves the highlight through a FUNCTION updater and
-// schedules no `scrollIntoView` — this `max-h-60` list needs one, and it cannot
-// be scheduled from inside a pure updater (see `move` below). `ComboboxOptions`
-// renders `filtered: string[]` plus an "add new" row, not `{value, code, label}`
-// triples with no add path. And `ComboboxChevron` takes a `lang` and calls
-// `t()`, which would break the i18n-free contract stated below.
-// Recorded rather than merely decided: `src/app` already carries several
-// `role="combobox"` controls over more than one substrate (enumerate with
-// `grep -rln 'role="combobox"' src/app --include=*.tsx`), and "use a shared
-// primitive or ASK" means the next author should not have to re-derive whether
-// the shared module was even considered.
+// The keyboard/highlight mechanics live in `useEntityCombobox`
+// (`entity-combobox.ts`), shared with EntityLinkPicker. That file's docblock
+// carries the four-point record of why `combobox-shared` (`useCombobox` /
+// `ComboboxChevron` / `ComboboxOptions`) is deliberately NOT the substrate here
+// — read it before concluding the app has two combobox cores by accident.
 //
-// What IS shared is the pure engine: callers filter with `filterPickerOptions`
-// (picker-filter.ts), which already layers `wildcardMatcher` over an `#id`
-// exact match. Nothing is reimplemented here.
+// What IS shared beyond it is the pure engine: callers filter with
+// `filterPickerOptions` (picker-filter.ts), which already layers
+// `wildcardMatcher` over an `#id` exact match. Nothing is reimplemented here.
 //
 // Presentational and entity-agnostic. Every user-facing string arrives already
 // translated, so this file takes no `lang` and calls no `t()` — same contract as
 // EntityLinkPicker.
-import { useId, useRef, useState } from "react";
+import { useEntityCombobox } from "./entity-combobox";
 import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 
@@ -127,126 +114,16 @@ export function SingleEntityPicker({
   emptyLabel,
   inputSize = "xs",
 }: SingleEntityPickerProps) {
-  const listId = useId();
-  const listRef = useRef<HTMLUListElement>(null);
-  // Active option index for the combobox. VIEW state, so it lives here even
-  // though `query` stays controlled by the caller.
-  const [highlight, setHighlight] = useState(-1);
-  // The OPTION the index was armed against, by the same `value` that keys the
-  // rendered rows — the interface documents it as unique in the list. Read
-  // with `highlight` below: an index whose option no longer matches is not
-  // armed.
-  const [armedValue, setArmedValue] = useState<string | null>(null);
-  // Escape closes the dropdown without touching the query. Reset whenever the
-  // query changes, so typing on reopens the list.
-  const [dismissed, setDismissed] = useState(false);
-  const [prevQuery, setPrevQuery] = useState(query);
-
-  // Render-time reconcile, NOT an effect — `react-hooks/set-state-in-effect` is
-  // fatal here. Keyed on the QUERY, not on the `options` identity: callers
-  // re-filter and hand a fresh array every render, so reconciling on identity
-  // would reset the highlight on every keystroke-free re-render.
-  if (prevQuery !== query) {
-    setPrevQuery(query);
-    setHighlight(-1);
-    setArmedValue(null);
-    setDismissed(false);
-  }
-
-  const hasQuery = query.trim() !== "";
-  const open = hasQuery && options.length > 0 && !dismissed;
-  // THREE conditions, and none of them subsumes another:
-  //   1. the RECONCILE above clears both pieces of state on a query change;
-  //   2. the RANGE clamp drops an index past the end of a shrunken list — it
-  //      stays load-bearing regardless of (3), because the identity read
-  //      itself indexes `options[highlight]`;
-  //   3. the IDENTITY check catches what neither can see — `options` GROWING
-  //      or being SWAPPED under a standing query, where the stale index is
-  //      still in range but now names a DIFFERENT option.
-  // Identity of the OPTION, not of the `options` ARRAY: callers hand a fresh
-  // array every render, so reconciling on the array would reset the highlight
-  // on every keystroke-free re-render. See the `options` prop's own block for
-  // the defect this closed on the sibling and what is still only a contract.
-  const active =
-    highlight >= 0 &&
-    highlight < options.length &&
-    options[highlight].value === armedValue
-      ? highlight
-      : -1;
-
-  function move(delta: 1 | -1) {
-    // ★ `next` is computed BEFORE the setState, rather than through the updater
-    // form `combobox-shared`'s `moveHighlight` uses: a setState updater must be
-    // PURE, and StrictMode double-invokes it, so scheduling the rAF from inside
-    // one would schedule it twice. `setHighlight` below therefore takes a plain
-    // value — there is no updater in this file.
-    const cur = active;
-    const next =
-      delta === 1
-        ? cur + 1 >= options.length
-          ? 0
-          : cur + 1
-        : cur <= 0
-          ? options.length - 1
-          : cur - 1;
-    setHighlight(next);
-    // ★ Armed against the OPTION, so a later render whose `options` shifted
-    // under this index disarms it (see `active`). `move` is only reached from
-    // `onKeyDown`, which returns early on an empty list, so `options[next]`
-    // always exists.
-    setArmedValue(options[next].value);
-    // ★ The keyboard path is aria-activedescendant, which browsers do NOT
-    // auto-scroll — focus never moves, so nothing brings the row into view.
-    // Deferred a frame so the row carrying the new index has rendered.
-    requestAnimationFrame(() => {
-      listRef.current
-        ?.querySelector(`#${CSS.escape(`${listId}-opt-${next}`)}`)
-        ?.scrollIntoView({ block: "nearest" });
+  // ★ The commit call stays at THIS call site: the hook hands back the whole
+  // option, because the multi-select sibling commits the entry itself while
+  // this control unwraps a `value`.
+  const { listId, listRef, open, active, onKeyDown, reopen } =
+    useEntityCombobox<SingleEntityOption>({
+      query,
+      options,
+      identity: (o) => o.value,
+      onCommit: (o) => onSelect(o.value),
     });
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!hasQuery || options.length === 0) return;
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.preventDefault();
-      setDismissed(false);
-      move(e.key === "ArrowDown" ? 1 : -1);
-      return;
-    }
-    if (e.key === "Enter") {
-      // ★ Only an ARMED option claims Enter. This control sits inside forms
-      // where a bare Enter submits, so swallowing it merely because a dropdown
-      // happens to be open would silently break submitting from this field.
-      if (!open || active < 0) return;
-      e.preventDefault();
-      onSelect(options[active].value);
-      return;
-    }
-    if (e.key === "Escape") {
-      // Only ours while the dropdown is actually open — otherwise Escape
-      // belongs to the enclosing modal.
-      if (!open) return;
-      // ★★ preventDefault is what actually contains this: the shared Modal's
-      // document-level Escape handler bails on `e.defaultPrevented`, which is
-      // the ONLY mechanism available. stopPropagation cannot do it — React 19
-      // delegates on `document`, the same node Modal listens on, and
-      // stopPropagation does not suppress a listener co-registered on the SAME
-      // node. It reads as though it works only because RTL renders into a div
-      // under body, a topology the real app never has.
-      e.preventDefault();
-      // ★ Kept as defence-in-depth for a host listening on an ANCESTOR or on
-      // `window` rather than on `document` — propagation to those genuinely is
-      // cut by this. The one host that ever needed it, the change edit modal's
-      // window-level Escape listener, has SINCE BEEN DELETED, so today
-      // `preventDefault` above is the real mechanism and this line is a backstop
-      // for a hypothetical. "No host needs this right now" is not the same as
-      // "no host can", which is why it stays — but do not read it as live.
-      e.stopPropagation();
-      setDismissed(true);
-      setHighlight(-1);
-      setArmedValue(null);
-    }
-  }
 
   return (
     <div>
@@ -273,7 +150,7 @@ export function SingleEntityPicker({
             onChange={(e) => onQueryChange(e.target.value)}
             // ★ onCLICK, not onFocus. Escape must STICK: with an onFocus reopen,
             // tabbing away and back reopens the list over the rest of the form.
-            onClick={() => setDismissed(false)}
+            onClick={reopen}
             onKeyDown={onKeyDown}
             aria-label={searchLabel}
             aria-expanded={open}
