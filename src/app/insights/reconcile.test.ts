@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { insightsMateriallyEqual, reconcileInsights } from "./reconcile";
 import type { DetectedInsight, Insight, InsightType } from "./insight";
 import { INSIGHT_SEVERITY_RANK, MAX_INSIGHTS, RESERVED_NON_GUARDRAIL } from "./insight";
+import { TIMELOG_RULE_IDS } from "../timelog-types";
 
 // Every pre-existing test in this file is about the ALWAYS-EVALUATED behaviour,
 // so each of its calls certifies every insight. A DISCRIMINATING predicate
@@ -794,5 +795,55 @@ describe("reconcileInsights — reserved non-guardrail capacity", () => {
     );
     expect(out).toHaveLength(MAX_INSIGHTS);
     expect(out.some((i) => i.key === "overdueTrend")).toBe(true);
+  });
+
+  /** ★★★ THE ONLY TEST ANYWHERE THAT EXERCISES MORE THAN ONE GUARDRAIL TYPE,
+   *  and it exists to kill one specific mutant: truncating the family to
+   *  `TIMELOG_RULE_IDS.slice(0, 3)` in `GUARDRAIL_INSIGHT_TYPES`. Every other
+   *  fixture in this file floods with `timelogCapPerDay` ALONE, so three of the
+   *  four members were exercised by nothing in the repo and that truncation
+   *  survived the whole insights suite (measured against 0298dda9: 0 failed /
+   *  248 passed). The reservation's contract is that ALL FOUR members are held
+   *  against the budget; this is the input that says so.
+   *  ★★★ THE FLOOD IS BUILT FROM `TIMELOG_RULE_IDS`, NOT FROM
+   *  `GUARDRAIL_INSIGHT_TYPES`, AND THAT CHOICE IS THE WHOLE TEST. Building it
+   *  from the set under test is a TAUTOLOGY — measured, not reasoned: a
+   *  truncated set yields a flood of only the three types it still holds, every
+   *  one of them recognised, so the admitted count lands on the budget and the
+   *  singleton survives, and the mutant passes exactly as it does today.
+   *  `TIMELOG_RULE_IDS` is the family's independent definition, so under the
+   *  mutant the `timelogWorkingHours` rows go UNRECOGNISED, are admitted as
+   *  non-guardrails, and crowd the singleton out of the cap.
+   *  ★★ THE GUARDRAIL COUNT IS BY EXCLUSION for the same reason. Counting rows
+   *  whose type is in `GUARDRAIL_INSIGHT_TYPES` would measure the mutant's own
+   *  view of the family and go quiet with it.
+   *  ★ Sizing: `RESERVED_NON_GUARDRAIL - 1` core rows leave exactly one reserved
+   *  slot for the singleton, so guardrails land ON the budget rather than on the
+   *  handed-back 199 of the singleton test above. */
+  it("holds every member of the guardrail family against the budget, not just one", () => {
+    const flood = Array.from({ length: MAX_INSIGHTS + 50 }, (_, i) =>
+      detected(`timelog:${i}`, {
+        type: TIMELOG_RULE_IDS[i % TIMELOG_RULE_IDS.length],
+        severity: "medium",
+      }),
+    );
+    // Anti-vacuity, on the INPUT: a future edit collapsing the flood back to a
+    // single type would leave every assertion below passing for the old reason.
+    expect(new Set(flood.map((f) => f.type)).size).toBeGreaterThan(1);
+    const core = Array.from({ length: RESERVED_NON_GUARDRAIL - 1 }, (_, i) =>
+      detected(`raidAging:${i}`, { type: "raidAging", severity: "medium" }),
+    );
+    const out = reconcileInsights(
+      [],
+      [...flood, ...core, detected("overdueTrend", { type: "overdueTrend", severity: "low" })],
+      "2026-02-01",
+      ALL_EVALUATED,
+    );
+    expect(out).toHaveLength(MAX_INSIGHTS);
+    expect(out.some((i) => i.key === "overdueTrend")).toBe(true);
+    expect(
+      out.filter((i) => i.type !== "raidAging" && i.type !== "overdueTrend"),
+    ).toHaveLength(MAX_INSIGHTS - RESERVED_NON_GUARDRAIL);
+    expect(out.filter((i) => i.type === "raidAging")).toHaveLength(RESERVED_NON_GUARDRAIL - 1);
   });
 });
