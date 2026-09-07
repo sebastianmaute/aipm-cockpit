@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.290.0";
-export const APP_BUILD_DATE = "2026-09-07"; // 0.290.0: the Reports view can be rearranged the way the Dashboard already could — drag a block into a new order, resize it, put one away on a shelf and bring it back, with the whole arrangement remembered per project; "Move to Turso" now refuses unless a connection test has actually reached the database, from every button that offers it; and a drag handle no longer offers arrow keys on a surface that never listened for them (Holdstock)
+export const APP_VERSION = "0.291.0";
+export const APP_BUILD_DATE = "2026-09-07"; // 0.291.0: a task or reminder that says "1 change" now says it in both languages and in every place it is counted, an overdue steering reminder no longer reads as if it were due tomorrow, a bulk edit of one row stops calling it "1 tasks", and a link to a task that has been deleted says so instead of showing a bare number (Hoban)
+// 0.290.0: the Reports view can be rearranged the way the Dashboard already could — drag a block into a new order, resize it, put one away on a shelf and bring it back, with the whole arrangement remembered per project; "Move to Turso" now refuses unless a connection test has actually reached the database, from every button that offers it; and a drag handle no longer offers arrow keys on a surface that never listened for them (Holdstock)
 // 0.289.0: the assistant's inline edit preview now matches what it will actually store — a field the assistant refuses is named instead of the edit reporting "no changes", a newly created item's links are shown and labelled with the row they belong to, an email list previews exactly as it will be saved, and cost and schedule figures you saved yourself are no longer quietly rounded or capped when the project loads (Mirrlees)
 // 0.288.0: Turso can be set up from Settings again when a deployment variable holds an unusable URL, a "Test connection" button proves the database answers before you commit to it, each of the three Test-connection buttons now says which service it tests and announces its result to a screen reader, a failed connection is described in your own language instead of an internal message, and a task's changes badge reads "1 change" rather than "1 changes" (Duchamp)
 // 0.287.0: controls that cannot act now say so instead of vanishing — the Turso buttons stay visible but disabled with a hint you can reach by pointer and by screen reader, the RAID badge shows a count with the breakdown in its tooltip, an asset's name opens its preview, an open document's body collapses when you click its name again, and the Knowledge "Attach to" field becomes a searchable picker that no longer hides most of your project (Tiptree)
@@ -14,7 +15,20 @@ export const APP_BUILD_DATE = "2026-09-07"; // 0.290.0: the Reports view can be 
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.290.x line is "Holdstock" (Robert Holdstock, British fantasy author of
+ *  0.291.x line is "Hoban" (Russell Hoban, American-British author of
+ *  "Riddley Walker", 1980, written in an invented post-collapse English).
+ *  Checked BEFORE the bump, by BOTH commands this docstring prescribes, in a
+ *  run whose controls fired: `grep -ic hoban CHANGELOG.md` returns 0 and the
+ *  dash-agnostic header pattern returns nothing, against POSITIVE controls
+ *  `delany` 1, `russ` 3, `butler` 1, `emshwiller` 1, `lessing` 1 and
+ *  `holdstock` 1 — the last being the line immediately below, so the pattern
+ *  demonstrably sees the newest header shape — and a NEGATIVE control
+ *  `zzznotaname` returning 0, so a zero here is a real absence.
+ *  ★★ `mchugh` and `gentle` were also clear in THIS run and are NOT spent.
+ *  Read that under the standing warning two paragraphs down: a prior bump's
+ *  spare list goes stale silently, and two of 0.284.x's three were spent
+ *  within two releases. Re-sweep every time.
+ *  0.290.x line was "Holdstock" (Robert Holdstock, British fantasy author of
  *  "Mythago Wood", 1984, World Fantasy Award).
  *  Checked BEFORE the bump, by BOTH commands this docstring prescribes.
  *  (1) The whole-file case-insensitive sweep: `grep -ic holdstock CHANGELOG.md`
@@ -131,7 +145,7 @@ export const APP_BUILD_DATE = "2026-09-07"; // 0.290.0: the Reports view can be 
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Holdstock";
+export const APP_MILESTONE = "Hoban";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
