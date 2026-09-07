@@ -2684,8 +2684,13 @@ file every other consumer inherits from kept it, untested, until 0.211.0.
 ★ **The direction of copying is asserted in-file, not established, and the sources disagree.**
 `combobox-shared.tsx:125-127` names itself the origin — which is the file claiming its own primacy,
 not corroboration. `global-search-box.tsx:288` says the opposite: *"Same fix as entity-link-picker
-(which copied this pattern from here)"*, naming itself as origin. `entity-link-picker.tsx:316-332`
-names no source at all. Neither of the other two even imports `ComboboxOptions` from
+(which copied this pattern from here)"*, naming itself as origin. `entity-link-picker.tsx` names no
+source **for the highlight treatment** — ★ re-verified 2026-09-07, and the qualifier is now
+load-bearing: its option row does carry a "Mirrors global-search-box" note, but that is about the
+row being the `role="option"` element rather than wrapping a button, not about the highlight. Read
+the comment block on the option's `className` ternary, not the one above the `<li>`. (This was a
+`:316-332` range cite until 2026-09-07; the range had drifted onto the remove button and then out of
+the file entirely.) Neither of the other two even imports `ComboboxOptions` from
 `combobox-shared`, so nothing inherits the markup — these are three hand-copies, and an earlier
 version of this entry stated the provenance as fact in the wrong direction. Mtimes are merely
 *consistent* with combobox-shared being first (2026-05-29 < 06-22 < 07-26); treat that as weak.
@@ -7515,7 +7520,9 @@ must keep non-BMP characters out of the pattern.
 ★★★ **Six source sites have their glyph pinned by a test assertion, not the two the plan names.**
 `report-table.tsx:148` (`report-table.test.tsx`, and again via `SortResizeTh` in
 `calendar-series-list.test.tsx`) were known. The four that were not: `task-status-glyph.tsx` 54/56 ·
-`dashboard-panel.tsx:364` · `entity-link-picker.tsx:222` · `milestone-horizon-strip.tsx:46`.
+`dashboard-panel.tsx:364` · `entity-link-picker.tsx` (its `↩`, pinned by the test's "Label-bleed
+guard"; cited by line until 2026-09-07, when a refactor stranded the number) ·
+`milestone-horizon-strip.tsx:46`.
 Distinguish them from the ~10 test files that merely mention a glyph in an `it(...)` title — the
 inventory lists both sets so the distinction is not re-derived.
 
