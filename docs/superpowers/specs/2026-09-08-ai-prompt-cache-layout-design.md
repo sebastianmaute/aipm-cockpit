@@ -299,6 +299,11 @@ first", and what each consumer owes under it differs because one has a transcrip
 
 ## 9. Out of scope (follow-ups)
 
+> Sequenced in `2026-09-08-ai-cost-roadmap-design.md` as slices **C** (opt-in cost controls)
+> and **H** (prompt-quality harness), in that order. Read the roadmap's C1 before writing any
+> history trim: the obvious per-turn implementation invalidates the cached prefix on every
+> send and is worse than not shipping this slice at all.
+
 1. **Guide placement** (§3). Settle with the meter: compare cache-write volume against view-switch
    frequency over a week of real use, then decide whether the guide belongs on the turn tail.
 2. **Opt-in lossy levers** — history budget, default row cap on the list tools, cheaper model for simple
