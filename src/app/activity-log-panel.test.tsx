@@ -1,10 +1,10 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeAll, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ActivityLogPanel } from "./activity-log-panel";
 import { ConfirmProvider } from "./confirm-dialog";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
 import { activityMessageKey, type ActivityEntry } from "./activity-log";
 
@@ -205,13 +205,23 @@ describe("ActivityLogPanel", () => {
     expect(order).toEqual(["alpha.kind", "mid.kind", "zeta.kind"]);
   });
 
-  // ★★★ AN `args` ELEMENT IS THE ONE HOSTILE SHAPE THE LOAD BOUNDARY LETS
-  // THROUGH, which is what separates it from every other row of
-  // `hostileEntries`. `sanitizeActivityEntry` DROPS an entry whose `kind` or
-  // `timestamp` is not a string and STRIPS a malformed `changes`, but for args
-  // it checks `Array.isArray(e.args)` and never looks at the ELEMENTS — so a
-  // hostile element arrives at the panel on a FULLY SANITIZED log, from every
-  // backend, not merely on a bypassed boundary.
+  // ★★★ THIS COMMENT USED TO SAY THE LOAD BOUNDARY LETS A HOSTILE `args`
+  // ELEMENT THROUGH — that `sanitizeActivityEntry` "checks
+  // `Array.isArray(e.args)` and never looks at the ELEMENTS, so a hostile
+  // element arrives at the panel on a FULLY SANITIZED log". THAT IS FALSE, and
+  // was false while the sanitizer's own comment described the opposite:
+  // `argsBad` inspects every element
+  // (`typeof a !== "string" && typeof a !== "number"`) and COERCES each
+  // offender to `""` in place, deliberately preserving arity because `args` is
+  // positional (§164). So a stored entry cannot carry `{toString: 1}`, and
+  // this fixture reaches the panel only by BYPASSING the boundary — which is
+  // still worth pinning, because `renderActivityEntry` runs inside `runTool`
+  // where a throw kills a chat turn.
+  // ★★ Corrected 2026-09-08 after a review used this comment to reason about
+  // whether the plural path could be handed a Symbol. A false claim about a
+  // GUARD is worse than none: it was about to be inherited into a second file
+  // as the premise of a risk assessment.
+  // Reproduce: grep -n "argsBad" src/app/activity-log.ts
   // `t()` interpolates with `String(a)`, and `String({toString: 1})` throws
   // "Cannot convert object to primitive value": a non-callable own `toString`
   // makes ToPrimitive fall through to `Object.prototype.valueOf`, which returns
@@ -918,5 +928,51 @@ describe("ActivityLogPanel sortable column headers", () => {
   it("renders the plural footer for a two-entry log", () => {
     renderPanel(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
     expect(screen.getByText("2 entries logged")).toBeInTheDocument();
+  });
+});
+
+/**
+ * §415 exception B, on the USER-VISIBLE renderer. `activity-prompt.ts` renders
+ * the same keys on a hardcoded "en-US", so it cannot produce a German defect at
+ * all — the DE case below is reachable from here and nowhere else.
+ */
+describe("ActivityLogPanel — count agreement on map-routed keys", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("renders the singular row message when the count is 1", () => {
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[entry({ id: "1", kind: "ai.allocationPlan", args: [1] })]}
+        onClear={() => {}}
+      />,
+    );
+    expect(screen.getByText("AI planned 1 allocation cell")).toBeInTheDocument();
+    expect(screen.queryByText("AI planned 1 allocation cells")).toBeNull();
+  });
+
+  it("renders the plural row message for any other count", () => {
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[entry({ id: "1", kind: "ai.raciSuggest", args: [4] })]}
+        onClear={() => {}}
+      />,
+    );
+    expect(screen.getByText("Applied 4 AI-proposed RACI assignments")).toBeInTheDocument();
+  });
+
+  it("agrees the German singular too", () => {
+    renderPanel(
+      <ActivityLogPanel
+        lang="de"
+        entries={[entry({ id: "1", kind: "ai.allocationPlan", args: [1] })]}
+        onClear={() => {}}
+      />,
+    );
+    expect(screen.getByText("KI hat 1 Planungszelle geplant")).toBeInTheDocument();
+    expect(screen.queryByText("KI hat 1 Planungszellen geplant")).toBeNull();
   });
 });
