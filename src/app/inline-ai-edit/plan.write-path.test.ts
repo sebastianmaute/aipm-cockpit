@@ -98,6 +98,46 @@ function seedTask(id: number, taskName: string): Task {
 
 const LINKED_TASKS: Task[] = [seedTask(1, "First"), seedTask(2, "Second"), seedTask(3, "Third")];
 
+/** ★★★ EVERY VALUE OFF ITS FALLBACK, AND EVERY `diffFields` MEMBER PRESENT —
+ *  the same rule as the `seedGuarded*` helpers below, applied to the one entity
+ *  that lacked one. `seedTask` is deliberately unchanged: the `CASES` above read
+ *  its exact values positionally, and it is also `LINKED_TASKS`, so widening it
+ *  would rewrite unrelated expectations.
+ *
+ *  The sweep cannot use it. `seedTask` sits ON the sanitizer's fallbacks
+ *  (`status` is `DEFAULT_TASK_STATUS`, `priority` is "Medium", and
+ *  `blockers`/`description`/`assigneeEmail` are all ""), so a REFUSED probe on
+ *  any of those reads back as the value already stored and the sweep scores
+ *  agreement — `docs/open-followups.md` §394's shape, and exactly what
+ *  `seedGuardedStakeholder` was written to escape.
+ *
+ *  ★★ `group` and `labels` are the sharper half: both are in the task
+ *  descriptor's `diffFields` and `seedTask` sets NEITHER, so a refused probe
+ *  there compares `undefined` against `undefined` and agrees. An absent field
+ *  and a correctly-refused one are indistinguishable unless the seed holds a
+ *  value to preserve.
+ *
+ *  ★ `status` is "In Progress" rather than "Done" on purpose — "Done" carries
+ *  the `status` ⟺ `completedDate` invariant (`docs/AGENTS/task-status.md`), and
+ *  a seed that violated it would make every finding on this entity arguable. */
+function seedGuardedTask(over: Partial<Task> = {}): Task {
+  return {
+    id: 1,
+    taskName: "Guarded task",
+    assignee: "M. Jordan",
+    assigneeEmail: "m.Jordan@example.com",
+    dueDate: "2026-09-30",
+    lastUpdateDate: "2026-05-19",
+    priority: "High",
+    status: "In Progress",
+    blockers: "Waiting on the vendor contract",
+    description: "<p>Original description.</p>",
+    group: "Workstream A",
+    labels: ["alpha", "beta"],
+    ...over,
+  };
+}
+
 function seedRaid(over: Partial<RaidItem> = {}): RaidItem {
   return {
     id: 10,
@@ -117,7 +157,13 @@ function seedRaid(over: Partial<RaidItem> = {}): RaidItem {
  *  preserved value: `category: "A"` is not `RAID_CATEGORIES[0]` and
  *  `status: "Validated"` is not `ASSUMPTION_STATUSES[0]`. A base row missing any
  *  of them would make the cases below pass for the wrong reason — a field that
- *  was already absent cannot be observed being cleared. */
+ *  was already absent cannot be observed being cleared.
+ *
+ *  ★★ The four FREE-TEXT fields carry values for the SWEEP's sake, and the rule
+ *  is the same one stated the other way round: `sanitizeRaidItem` stores each of
+ *  them SPARSELY (`if (owner) item.owner = owner`), so their fallback is an
+ *  ABSENT key — and a probe refused on a field the seed left absent compares
+ *  `undefined` against `undefined` and scores agreement. */
 function seedGuardedRaid(): RaidItem {
   return seedRaid({
     category: "A",
@@ -127,6 +173,10 @@ function seedGuardedRaid(): RaidItem {
     impact: 4,
     targetDate: "2026-06-30",
     closedDate: "2026-07-31",
+    description: "<p>The vendor SLA may slip past the cutover weekend.</p>",
+    mitigation: "<p>Weekly checkpoint with the vendor delivery lead.</p>",
+    owner: "K. Fischer",
+    ownerEmail: "k.fischer@example.com",
   });
 }
 
@@ -136,12 +186,24 @@ function seedGuardedRaid(): RaidItem {
  *  `decisionDate`, `scheduleImpactDays` and `costImpact` are all populated, so a
  *  cleared key is observable. `status: "Approved"` is likewise not the "Proposed"
  *  fallback — that half is `applyModelChangeStatus`'s and is pinned here as the
- *  boundary between the two guards. */
+ *  boundary between the two guards.
+ *
+ *  ★★ `description` is the SHARPEST of the free-text fields and the reason it is
+ *  no longer `""`. `sanitizeChangeItem` writes it UNCONDITIONALLY
+ *  (`description: sanitizeRichText(...)`, not the sparse `if (x)` shape the
+ *  other four take), so its fallback is a literal `""` — a refused probe
+ *  against a `""` seed reads back as the value already stored and the sweep
+ *  scores agreement. The other four fall back to an ABSENT key, which is the
+ *  same hole one shape over. */
 function seedGuardedChange(over: Partial<ChangeItem> = {}): ChangeItem {
   return {
     id: 20,
     title: "Move the cutover window",
-    description: "",
+    description: "<p>Shift the cutover to the following weekend.</p>",
+    impactDescription: "<p>Two extra days of vendor standby.</p>",
+    requestedBy: "L. Braun",
+    decisionBy: "S. Neumann",
+    resolutionNotes: "<p>Approved at the March steering committee.</p>",
     type: "Scope",
     status: "Approved",
     impact: "High",
@@ -158,13 +220,17 @@ function seedGuardedChange(over: Partial<ChangeItem> = {}): ChangeItem {
 
 /** ★ `achievedDate` is POPULATED on purpose. The parity sweep's `MILE_BASE`
  *  leaves it blank, which is exactly why this member of the class was invisible
- *  there: a clear of an empty field reads as agreement. */
+ *  there: a clear of an empty field reads as agreement.
+ *  ★ `description` is populated for the same reason, one field over — it is the
+ *  milestone descriptor's only other optional member, stored sparsely, so an
+ *  absent seed makes a refusal on it indistinguishable from a stored refusal. */
 function seedGuardedMilestone(over: Partial<Milestone> = {}): Milestone {
   return {
     id: 30,
     name: "GA",
     date: "2026-06-01",
     achievedDate: "2026-05-20",
+    description: "<p>Feature-complete and signed off by the sponsor.</p>",
     linkedTaskIds: [],
     ...over,
   };
@@ -174,7 +240,12 @@ function seedGuardedMilestone(over: Partial<Milestone> = {}): Milestone {
  *  defect survived four earlier tasks because the parity sweep's `STK_BASE`
  *  holds exactly the values `sanitizeStakeholder` resets to — so a refused value
  *  read back as the value already stored and the sweep saw agreement. "Sponsor"
- *  is not the "Other" fallback and "High"/"Low" are not "Medium". */
+ *  is not the "Other" fallback and "High"/"Low" are not "Medium".
+ *  ★★ The four free-text members are here for the SWEEP, and `notes` is the one
+ *  worth reading twice: it is `sanitizeText`, NOT the multiline or rich shape
+ *  three neighbouring "notes" fields take (`sanitizeAbsenceNote` is
+ *  `sanitizeMultiline`, `Resource.notes` is `optMultiline`, and the change
+ *  register's `resolutionNotes` is rich HTML), so it is seeded as plain text. */
 function seedGuardedStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
   return {
     id: 40,
@@ -182,6 +253,10 @@ function seedGuardedStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
     category: "Sponsor",
     influence: "High",
     interest: "Low",
+    organization: "Contoso AG",
+    title: "Head of Operations",
+    email: "ada.lovelace@contoso.example",
+    notes: "Prefers a written summary the day before each steering call.",
     raci: {},
     ...over,
   };
@@ -192,7 +267,11 @@ function seedGuardedStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
  *  hardcoded `"other"` fallback and `note` is populated, so a reset and a
  *  cleared key are both observable — against a row already holding `"other"` and
  *  no note, a refused value reads back as the value already stored and the case
- *  would pass for the wrong reason. */
+ *  would pass for the wrong reason.
+ *  ★ `assigneeEmail` is populated for the SWEEP's sake — `sanitizeAbsence`
+ *  resolves it to `undefined` for anything non-string, so an absent seed makes
+ *  a refusal on it indistinguishable from a stored one. It repeats the task
+ *  seed's address deliberately: both rows name the same person, M. Jordan. */
 function seedGuardedAbsence(over: Partial<Absence> = {}): Absence {
   return {
     id: 50,
@@ -201,6 +280,7 @@ function seedGuardedAbsence(over: Partial<Absence> = {}): Absence {
     endDate: "2026-07-17",
     type: "vacation",
     note: "Booked with the team",
+    assigneeEmail: "m.Jordan@example.com",
     ...over,
   };
 }
@@ -210,7 +290,14 @@ function seedGuardedAbsence(over: Partial<Absence> = {}): Absence {
  *  `intInRange` default, and `sendInvitations: true` is the PRESENT state of a
  *  flag stored present-only-when-true. The flag matters most — it is the one
  *  write in the app that leaves the building, and a row that did not already
- *  invite could not show the clear. */
+ *  invite could not show the clear.
+ *
+ *  ★★ `recurrence` is the third, and it is a STRUCTURED value rather than a
+ *  scalar: `sanitizeRecurrence` returns `undefined` for anything that is not an
+ *  object with a recognised `freq`, so the whole field's fallback is an absent
+ *  key and an unseeded row cannot show a refusal. `interval: 2` is off its own
+ *  `intInRange(..., 1)` default for the same reason `durationMinutes` is 90, and
+ *  "WE" is the weekday `startDate` actually falls on. */
 function seedGuardedCalendarEvent(over: Partial<CalendarEvent> = {}): CalendarEvent {
   return {
     id: 60,
@@ -221,10 +308,26 @@ function seedGuardedCalendarEvent(over: Partial<CalendarEvent> = {}): CalendarEv
     location: "Room 1",
     notes: "Agenda in the shared drive",
     sendInvitations: true,
+    recurrence: { freq: "weekly", interval: 2, byDay: ["WE"] },
     ...over,
   };
 }
 
+/** ★★ EVERY OPTIONAL `diffField` POPULATED, for the SWEEP. `sanitizeResource`
+ *  stores all nine sparsely (`if (title) resource.title = title`), so an
+ *  unseeded one makes a refused probe compare `undefined` against `undefined`.
+ *
+ *  ★★★ `isExternal` is the one that cannot be seeded `false`, and it is the only
+ *  BOOLEAN any `diffFields` names. It is stored PRESENT-ONLY-WHEN-TRUE
+ *  (`if (isExternalFlag(input.isExternal)) resource.isExternal = true`), so
+ *  `false` and "refused" are the SAME stored shape — an absent key — and the
+ *  sweep could not tell them apart. `true` is the only distinguishable state,
+ *  exactly as `sendInvitations` is on the meeting seed.
+ *
+ *  ★ `emails` must not contain the primary: `sanitizeEmailList` drops any entry
+ *  case-insensitively equal to it, so seeding `email` twice would store a list
+ *  the seed does not hold and the sweep's read-back would start from a value no
+ *  one wrote. */
 function seedResource(over: Partial<Resource> = {}): Resource {
   return {
     id: 4,
@@ -233,6 +336,15 @@ function seedResource(over: Partial<Resource> = {}): Resource {
     roleId: null,
     utilizationMode: "percent",
     utilization: {},
+    title: "Delivery Lead",
+    email: "cher.bono@example.com",
+    emails: ["c.bono@partner.example"],
+    department: "Programme Delivery",
+    company: "Contoso AG",
+    location: "Munich",
+    businessPhone: "+49 89 123456",
+    isExternal: true,
+    notes: "Works Tuesday to Friday.",
     ...over,
   };
 }
@@ -819,7 +931,7 @@ interface SweepEntity {
 }
 
 const SWEEP: SweepEntity[] = [
-  { entity: "task", id: 1, seed: { tasks: [seedTask(1, "First")] } },
+  { entity: "task", id: 1, seed: { tasks: [seedGuardedTask()] } },
   { entity: "raid", id: 10, seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS } },
   { entity: "change", id: 20, seed: { changes: [seedGuardedChange()], tasks: LINKED_TASKS } },
   { entity: "milestone", id: 30, seed: { milestones: [seedGuardedMilestone()], tasks: LINKED_TASKS } },
@@ -874,6 +986,30 @@ describe("the sweep's own coverage", () => {
     // Anti-vacuity: prove the check above ran over a non-empty set, so a seed
     // shape change that silently emptied SWEEP could not read as agreement.
     expect(SWEEP.length).toBe(Object.keys(INLINE_DESCRIPTORS).length);
+  });
+
+  // ★★★ THE GENERAL FORM OF THE SEED HOLE, across all eight entities. A probe
+  //  on a field the seed left absent or blank compares the refusal against
+  //  nothing and scores AGREEMENT — the sweep would certify the very divergence
+  //  it exists to find. `seedGuardedTask` was written because the task row had
+  //  this hole in `group` and `labels`; this assertion is what stops the next
+  //  entity from acquiring it silently.
+  //  ★ An empty ARRAY is fine and deliberately allowed: a link list that starts
+  //  empty still distinguishes "refused" from "stored", because a successful
+  //  write makes it non-empty. Only `undefined`/`null`/`""` are indistinguishable.
+  it("seeds a distinguishable value for every diffField", () => {
+    const holes: string[] = [];
+    for (const s of SWEEP) {
+      const { wsKey } = sweepPlumbing(s.entity);
+      const rows = (s.seed as Record<string, readonly Record<string, unknown>[] | undefined>)[wsKey];
+      const row = rows?.find((r) => r.id === s.id);
+      if (!row) continue; // the seeded-row test above owns that failure
+      for (const field of INLINE_DESCRIPTORS[s.entity].diffFields) {
+        const v = row[field];
+        if (v === undefined || v === null || v === "") holes.push(`${s.entity}.${field}`);
+      }
+    }
+    expect(holes).toEqual([]);
   });
 
   // Every entity must be REPLAYABLE. `sweepPlumbing` throws on a tool with no
