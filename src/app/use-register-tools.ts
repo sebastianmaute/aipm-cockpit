@@ -248,7 +248,22 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const id = mintId("raid", raidRef.current);
         const sanitized = sanitizeRaidItem({
-          ...withAiRichFields(input, AI_RICH_FIELDS.raid),
+          // ★★★ THE SAME GUARD THE UPDATE PATH USES, and it belongs here for
+          //  the same reason. A guard on update alone means a field the model
+          //  is refused when EDITING is accepted when CREATING — measured, not
+          //  reasoned: `knowledgeLinks` landed verbatim through this call site
+          //  while `dropUnacceptedRaidFields` refused it one handler below.
+          //  §438.
+          //  ★★ `{ category: "R" }` is not a placeholder. The guard resolves a
+          //  category to pick the legal status set, preferring the patch's own
+          //  when valid and falling back to the STORED row's — and a create has
+          //  no stored row. "R" is exactly `sanitizeRaidItem`'s own fallback
+          //  for an absent or invalid category, so the guard and the sanitizer
+          //  agree on the same default instead of disagreeing silently.
+          //  ★ Guard INSIDE, rich OUTSIDE — the ordering the update site uses.
+          //  Reversing it would run the rich-field pass over fields the guard
+          //  is about to delete.
+          ...withAiRichFields(dropUnacceptedRaidFields(input, { category: "R" }), AI_RICH_FIELDS.raid),
           id,
           raisedDate: input.raisedDate || clockRef.current.today,
           linkedTaskIds: input.linkedTaskIds ?? [],
@@ -360,7 +375,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // card makes no per-field promise to contradict — `plan.creates` carries
         // no `numericFields` check and renders as entity + title alone.
         const sanitized = sanitizeModelChangeItem({
-          ...withAiRichFields(input, AI_RICH_FIELDS.change),
+          // The update path's guard, applied on create too — §438. Measured:
+          // `knowledgeLinks` was stored verbatim through this call site while
+          // refused one handler below. Guard inside, rich outside.
+          ...withAiRichFields(dropUnacceptedChangeFields(input), AI_RICH_FIELDS.change),
           id: mintId("change", changesRef.current),
           // Defaulted BEFORE the sanitizer, so an unparseable date lands on today rather than on the empty string the sanitizer stores for one.
           raisedDate: sanitizeIsoDate(input.raisedDate) || clockRef.current.today,
@@ -470,7 +488,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         if (isReadOnly) throw readOnlyError();
         const id = mintId("milestone", milestonesRef.current);
         const item = sanitizeMilestone({
-          ...withAiRichFields(input, AI_RICH_FIELDS.milestone),
+          // The update path's guard, applied on create too — §438. Measured:
+          // `knowledgeLinks` was stored verbatim through this call site while
+          // refused one handler below. Guard inside, rich outside.
+          ...withAiRichFields(dropUnacceptedMilestoneFields(input), AI_RICH_FIELDS.milestone),
           id,
           linkedTaskIds: input.linkedTaskIds ?? [],
         });
@@ -576,7 +597,15 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       createStakeholder: (input) => {
         if (isReadOnly) throw readOnlyError();
         const id = mintId("stakeholder", stakeholdersRef.current);
-        const item = sanitizeStakeholder({ ...input, id, raci: {} });
+        // ★★★ `resourceId` is the reason this line changed. `9c230204` guarded
+        //  it on UPDATE and left it writable here — a half-fix, and exactly the
+        //  asymmetry that made the field hard to see in the first place.
+        //  Measured on the pre-fix tree: `create_stakeholder {resourceId: 9}`
+        //  stored 9. §438.
+        //  ★ `raci: {}` stays AFTER the spread: the guard refuses a
+        //  model-supplied `raci`, and this call site then sets the empty map a
+        //  new stakeholder is supposed to start with. Two different jobs.
+        const item = sanitizeStakeholder({ ...dropUnacceptedStakeholderFields(input), id, raci: {} });
         if (!item) throw new Error("invalid stakeholder: name is required");
         const next = [...stakeholdersRef.current, item];
         stakeholdersRef.current = next;
@@ -675,7 +704,13 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // unparseable date pair; it silently RESETS an unrecognised `type` to
         // the "other" fallback, which is why the merge-site guard drops one on
         // update rather than letting a refused value demote the row.
-        const item = sanitizeAbsence({ ...input, id });
+        // ★★ ALLOWLIST ON A CREATE, and it refuses nothing legitimate: the
+        //  table's seven keys are exactly `absenceFields`' seven schema keys,
+        //  so every field the create tool advertises survives and only the
+        //  undisclosed extras are dropped. Verify before adding a schema field
+        //  — an allowlist silently drops anything it does not name, which on
+        //  create means the field never lands at all. §438.
+        const item = sanitizeAbsence({ ...dropUnacceptedAbsenceFields(input), id });
         if (!item) throw new Error("invalid absence: assignee, startDate and endDate are required");
         const next = [...absencesRef.current, item];
         absencesRef.current = next;
@@ -745,7 +780,21 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // ★★★ `mintId` REDUCES over the list it is given and THROWS on
         // `undefined`, so the default is mandatory here, not defensive style.
         const id = mintId("calendarEvent", calendarEventsRef.current ?? []);
-        const item = sanitizeCalendarEvent({ ...input, id });
+        // ★★★ THIS IS THE ONE THAT WAS A LIVE UNDISCLOSED WRITE. `exceptions`
+        //  — per-occurrence skip/move bookkeeping — reached storage through
+        //  this call site with nothing to refuse it, and the model had been
+        //  TAUGHT the exact shape by the read tool's own description on
+        //  `list_calendar_events` ("kind 'skip' … 'move' … toDate/toTime").
+        //  Advertised nowhere as writable, disclosed by no card. Measured:
+        //  `create_calendar_event` with a recurrence stored
+        //  `[{"date":"2026-06-08","kind":"skip"}]`.
+        //  ★★ A test of mine EXEMPTED this field on the claim that the
+        //  allowlist drops it "by construction" — true of update, false here,
+        //  because this was the one calendar-event write the allowlist never
+        //  reached. It does now.
+        //  ★ Refuses nothing legitimate: the table's nine keys are exactly
+        //  `calendarEventFields`' nine schema keys.
+        const item = sanitizeCalendarEvent({ ...dropUnacceptedCalendarEventFields(input), id });
         if (!item) throw new Error("invalid meeting: title and a valid startDate are required");
         // The absent → `[item]` transition, which is the only correct way this
         // slice becomes present. Nothing here ever writes a bare `[]`.

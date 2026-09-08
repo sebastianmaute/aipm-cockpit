@@ -9,6 +9,7 @@
 // `buildPatch` only because it calls them — keeping them in `chat-tools.ts`
 // would make this module import from its own importer.
 import { entityToken, TOKEN_EXCLUDED, type TokenEntity } from "./ai-entity-token";
+import { rendersAsClear } from "./sanitize-records";
 import { sanitizeGroup, sanitizeLabels } from "./sanitize";
 import { PRIORITIES, type Priority, type Task } from "./types";
 
@@ -29,8 +30,31 @@ export function buildPatch(input: Record<string, unknown>): Partial<Task> {
   if (input.assigneeEmail !== undefined)
     patch.assigneeEmail = asString(input.assigneeEmail) ?? "";
   if (input.dueDate !== undefined) patch.dueDate = asString(input.dueDate) ?? "";
-  if (input.lastUpdateDate !== undefined)
-    patch.lastUpdateDate = asString(input.lastUpdateDate) ?? "";
+  // ★★★ A MALFORMED VALUE MUST NOT COLLAPSE INTO A CLEAR, and the `?? ""` this
+  //  replaces did exactly that. `buildTaskCleanPatch` classifies this field into
+  //  THREE outcomes — blank is an intended clear stored as "", malformed is
+  //  refused with the stored value kept, valid is stored — but it can only see
+  //  what arrives here. Collapsing every non-string to "" destroyed that
+  //  distinction one layer early: `lastUpdateDate: 42` reached it as "", read as
+  //  an intended clear, and WIPED a stored date the user never asked to clear.
+  //  ★★ The preview refused the same input, so the card said "rejected" while
+  //  the write cleared the field — a refusal in the card that is not a refusal
+  //  in the write, which is this defect class's original shape. Measured by
+  //  `plan.write-path-sweep.test.ts`; it was that sweep's only relation-2
+  //  violation.
+  //  ★ `rendersAsClear` rather than a `=== null` test: the preview renders
+  //  `null`, `undefined`, `""` and `[]` all as "" and discloses each as a clear,
+  //  so all four must still clear here or the guard inverts the defect. It is
+  //  the SAME predicate the four merge-site guards use, imported rather than
+  //  re-spelled so they cannot drift on what counts as a clear.
+  if (input.lastUpdateDate !== undefined) {
+    const raw = input.lastUpdateDate;
+    const s = asString(raw);
+    if (s !== undefined) patch.lastUpdateDate = s;
+    else if (rendersAsClear(raw)) patch.lastUpdateDate = "";
+    // else: a malformed non-string. The key is DROPPED, so the stored value
+    // survives the merge — the outcome the card promised.
+  }
   if (input.priority !== undefined) {
     const p = asPriority(input.priority);
     if (p) patch.priority = p;

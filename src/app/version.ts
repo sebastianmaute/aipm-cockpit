@@ -24,6 +24,15 @@ export const APP_BUILD_DATE = "2026-09-08"; // 0.295.0: the AI assistant's chat 
  *  and "The Garden of Forking Paths"). A PATCH release keeps its minor line's
  *  name, as 0.293.1 kept "Vandermeer" like 0.293.0, exactly as 0.291.1 kept
  *  "Hoban". Only a MINOR bump needs the sweep below.
+ *  ★★ Updated at the 0.294.0 bump. This sentence is the trap the paragraph
+ *  below describes, and it has now been left stale THREE times; it is ungated,
+ *  so nothing but a reader will ever catch it. "Jimenez" (Simon Jimenez,
+ *  American author of "The Vanished Birds", 2020) was swept against the FULL
+ *  history before use: 285 distinct codenames across 388 named version headers,
+ *  matched with `"[^"]+"` at ANY position — an end-of-line anchor cannot see
+ *  the headers that put the codename before the date, and an `[A-Za-z]+` class
+ *  silently drops "Le Guin", "Nevala-Lee" and "García". Positive controls
+ *  Vandermeer, Chiang, Banks and Le Guin all read TAKEN in the same run.
  *  ★★ This lead sentence still opened "The 0.291.x line is Hoban" through
  *  0.292.0 and 0.293.0 — two minor bumps that moved the constant and left the
  *  prose, which is the ungated-lead-sentence trap this docstring warns about

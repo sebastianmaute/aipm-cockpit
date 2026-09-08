@@ -41,6 +41,37 @@ longer carries its own changelog comment.
   comparison against a cap is always false — silently disabling the user's
   configured cap with no error anywhere.
 
+## [0.294.0] - 2026-09-08 "Jimenez"
+
+### Fixed
+
+- **The assistant can no longer change fields it was never offered.** Eight of
+  them had no place in any tool the assistant is given, appeared on no review
+  card, and were written anyway. Among them: the resource a stakeholder is
+  linked to, a person's birthday, their working-time and availability settings,
+  and the RACI assignments held against a stakeholder. Approving a card that
+  mentioned only a note change could quietly repoint that stakeholder to a
+  different person, or unlink them entirely, with nothing on screen saying so.
+- **A meeting created by the assistant no longer arrives with occurrences
+  already cancelled or moved.** The field recording those per-occurrence changes
+  is offered by no tool, yet a newly created meeting accepted whatever the
+  assistant put there, so a recurring series could be created with dates
+  silently skipped or relocated.
+- **Creating something is now held to the same rules as editing it.** Every
+  field the assistant is refused when it edits a risk, change, milestone,
+  stakeholder, resource, absence or meeting was accepted when it created one
+  instead. That included a new resource arriving already archived and therefore
+  hidden from the directory, and attached-document links being set on records
+  that never offer them. The checks existed; they covered half the paths.
+- **A refused resource edit now leaves the stored value alone** instead of
+  clearing it, which is what the review card already promised.
+
+### Changed
+
+- The rules deciding which risk fields may be written are now spelled once and
+  shared between the two places that need them, rather than written twice and
+  able to drift apart. No visible change on its own.
+
 ## [0.293.1] - 2026-09-08 "Vandermeer"
 
 ### Fixed
