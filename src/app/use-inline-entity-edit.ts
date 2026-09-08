@@ -15,6 +15,7 @@ import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { type AiConfig, isAiEnabled } from "./settings-types";
 import { type OperatingGuide } from "./operating-guide";
 import { callInlineEdit } from "./inline-ai-edit-call";
+import { type ApiUsage } from "./chat-api";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { describeEntityCalls, isEmptyPlan, type EditPlan, type LinkDiff } from "./inline-ai-edit/plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
@@ -32,7 +33,7 @@ export interface InlineEntityEditDeps {
   showToast: (kind: "info" | "error", text: string) => void;
   ws: Workspace;
   guides: readonly OperatingGuide[];
-  recordUsage?: (u: { input_tokens: number; output_tokens: number }) => void;
+  recordUsage?: (u: ApiUsage) => void;
   /** Extra per-entity enable clause (task: !jiraKey). MUST be a stable
    *  reference (useCallback / module fn): it feeds the `aiEditEnabled`/`openFor`
    *  useCallbacks, which a caller threads into the task row context value — an

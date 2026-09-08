@@ -22,6 +22,7 @@ import { saveSealed } from "./secrets-store";
 import { sealPassphrase } from "./secrets";
 import { peekMintId } from "./id-mint-session";
 import type { ChatConversation } from "./workspace-tab-context";
+import { useAiUsageContext } from "./ai-usage-context";
 
 // Force the dictation mic to be "supported" so useDictationMic renders the
 // button (mirrors note-log-panel.test.tsx / task-form-fields.dictation.test.tsx
@@ -31,6 +32,20 @@ vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
   saveThread: vi.fn(async () => undefined),
   deleteThread: vi.fn(async () => undefined),
+}));
+
+// Default double of the shared usage context — a no-op record, matching the
+// real context's own default value (chat-panel is rendered directly in this
+// file with no <AiUsageProvider>, so it was already reading that default).
+// Individual tests override the return value to spy on `record`.
+vi.mock("./ai-usage-context", () => ({
+  useAiUsageContext: vi.fn(() => ({
+    sessionTotal: 0,
+    sessionUsage: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 },
+    weekTotal: 0,
+    nextReset: new Date(),
+    record: vi.fn(),
+  })),
 }));
 
 vi.mock("./use-push-to-talk", () => ({
@@ -2542,5 +2557,73 @@ describe("staged tool calls (the review card)", () => {
     );
     expect(screen.getByText("This proposal is no longer active.")).toBeInTheDocument();
     expect(screen.queryByRole("region", CARD)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cache-token usage recording (AI-cost roadmap, Task 4): the meter must sum
+// cache_read/cache_creation tokens across every turn of a send, not just the
+// last one. `record` is the observable here (not the request body — this
+// asserts what gets RECORDED, not what gets SENT), so a spy on the usage
+// context is the right seam, per the file's own request-body convention for
+// send-side assertions elsewhere.
+// ---------------------------------------------------------------------------
+describe("cache-token usage recording", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("records cache tokens from every turn of a send", async () => {
+    const recordSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      sessionTotal: 0,
+      sessionUsage: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 },
+      weekTotal: 0,
+      nextReset: new Date(),
+      record: recordSpy,
+    });
+
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      call += 1;
+      // Turn 1: a real (non-destructive) tool call, so the round-trip loop
+      // executes it and continues. Turn 2: the final answer. Both turns carry
+      // the SAME cache_read figure — a per-turn accumulator that overwrites
+      // instead of sums would report 1000, not 2000.
+      const body =
+        call === 1
+          ? {
+              content: [{ type: "tool_use", id: "t1", name: "list_tasks", input: {} }],
+              stop_reason: "tool_use",
+              usage: {
+                input_tokens: 10, output_tokens: 5,
+                cache_creation_input_tokens: 0, cache_read_input_tokens: 1000,
+              },
+            }
+          : {
+              content: [{ type: "text", text: "done" }],
+              stop_reason: "end_turn",
+              usage: {
+                input_tokens: 10, output_tokens: 5,
+                cache_creation_input_tokens: 0, cache_read_input_tokens: 1000,
+              },
+            };
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () => Promise.resolve(body),
+      } as unknown as Response);
+    });
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "hi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
+
+    expect(recordSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ cacheRead: 2000 }),
+    );
   });
 });

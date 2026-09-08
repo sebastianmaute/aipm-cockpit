@@ -527,6 +527,8 @@ function ChatPanelInner({
       // Accumulate token usage across all turns for this send.
       let totalInput = 0;
       let totalOutput = 0;
+      let totalCacheWrite = 0;
+      let totalCacheRead = 0;
       // When the previous turn was a max_tokens continuation, the next turn's
       // text is appended to the SAME bubble (a split mid code-fence/table would
       // otherwise render as two broken blocks). `completed` distinguishes a clean
@@ -555,6 +557,8 @@ function ChatPanelInner({
         if (stale()) break;
         totalInput += response.usage.input_tokens;
         totalOutput += response.usage.output_tokens;
+        totalCacheWrite += response.usage.cache_creation_input_tokens;
+        totalCacheRead += response.usage.cache_read_input_tokens;
 
         const assistantMsg: ApiMessage = {
           role: "assistant",
@@ -735,7 +739,12 @@ function ChatPanelInner({
       if (!cancelledRef.current) {
         // Record summed token usage for the entire send (all turns combined).
         // Skipped on cancel — no complete turn to bill.
-        recordUsage({ input: totalInput, output: totalOutput });
+        recordUsage({
+          input: totalInput,
+          output: totalOutput,
+          cacheWrite: totalCacheWrite,
+          cacheRead: totalCacheRead,
+        });
       }
 
       // Persist a valid history: a max_tokens truncation or a mid-turn Stop can
