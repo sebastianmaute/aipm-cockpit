@@ -49,7 +49,7 @@ describe("AiUsageProvider", () => {
     expect(result.current.weekTotal).toBe(150);
   });
 
-  it("normalises a pre-0.294 stored blob instead of casting it", async () => {
+  it("normalises a legacy stored blob (input/output only) instead of casting it", async () => {
     // ★★★ THE SEED DAY MUST NOT BE TODAY. addToBuckets (ai-usage.ts) rebuilds
     // ONLY today's bucket ({ ...b, [k]: … }) and spreads every OTHER day's
     // bucket through byte-for-byte, exactly as loadBuckets returned it. A
@@ -280,8 +280,9 @@ describe("AiUsageProvider", () => {
     const noticeText = t("en-US", "aiUsageCapBasisChanged");
 
     // This scenario is an UPGRADING user, not a fresh install: they already
-    // carried a (pre-0.294) usage blob before this mount, so the "warnings
-    // now arrive earlier" explanation is true for them and must fire. A
+    // carried a legacy usage blob (input/output only) before this mount, so
+    // the "warnings now arrive earlier" explanation is true for them and
+    // must fire. A
     // fresh-install user (no blob at all) must NEVER see it — that is its
     // own test below.
     const other = "2000-01-01";

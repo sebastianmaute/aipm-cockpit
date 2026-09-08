@@ -32,9 +32,10 @@ it("counts every billed field in the week total", () => {
   expect(weekToDate(b, now)).toBe(15);
 });
 
-// ★ THE UPGRADE CASE. A bucket persisted before 0.294.0 has only input/output.
-// Adding to it must not produce NaN — NaN defeats every cap comparison silently.
-it("treats a pre-0.294 bucket's missing cache fields as zero", () => {
+// ★ THE UPGRADE CASE. A legacy bucket persisted before the cache fields
+// existed has only input/output. Adding to it must not produce NaN — NaN
+// defeats every cap comparison silently.
+it("treats a legacy bucket's missing cache fields as zero", () => {
   const legacy = { "2026-09-08": { input: 5, output: 5 } } as unknown as UsageBuckets;
   const b = addToBuckets(legacy, new Date(2026, 8, 8), { input: 1, output: 1, cacheWrite: 1, cacheRead: 1 });
   expect(b["2026-09-08"]).toEqual({ input: 6, output: 6, cacheWrite: 1, cacheRead: 1 });
@@ -45,7 +46,7 @@ it("treats a pre-0.294 bucket's missing cache fields as zero", () => {
 // without ever passing through addToBuckets, so weekToDate must do its own
 // defaulting. Feeding it an addToBuckets OUTPUT cannot prove that — the value
 // is already complete by then.
-it("defaults a raw pre-0.294 bucket's missing fields when totalling the week", () => {
+it("defaults a raw legacy bucket's missing fields when totalling the week", () => {
   const legacy = { "2026-09-08": { input: 5, output: 5 } } as unknown as UsageBuckets;
   expect(weekToDate(legacy, new Date(2026, 8, 8))).toBe(10);
 });
