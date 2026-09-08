@@ -373,10 +373,20 @@ field, which would burn a fix cycle on a non-defect.
      `create_calendar_event` / `update_calendar_event` call carries a strict
      `sendInvitations === true`. That is a different code path from every other
      probe in the sweep.
-   - It is **token-excluded** for `calendarEvent` (`TOKEN_EXCLUDED`,
-     `ai-entity-token.ts`), so `patchWithoutId` strips it before the merge. A
-     probe on it is therefore expected NOT to move the stored row via the normal
-     path, and the sweep must not read that as an undisclosed refusal.
+   - ★★★ **IT IS NOT TOKEN-EXCLUDED, AND AN EARLIER REVISION OF THIS BULLET SAID IT
+     WAS.** That claim was false in both halves and it was mine: `TOKEN_EXCLUDED`
+     (`ai-entity-token.ts`) gives `calendarEvent: ["localModifiedAt", "outlookEventId"]`
+     — `sendInvitations` is absent — and `CALENDAR_EVENT_FIELD_GUARDS`
+     (`sanitize-records.ts`) actively ACCEPTS it (`(v) => typeof v === "boolean"`).
+     So `patchWithoutId` does not strip it, the allow-list merge admits it, and a probe
+     on it **DOES** move the stored row. Reproduce before trusting this correction:
+     `grep -n "calendarEvent: \[" src/app/ai-entity-token.ts` and
+     `grep -n "sendInvitations:" src/app/sanitize-records.ts`.
+     ★★ Consequence for Task 4/5: `sendInvitations` is a LIVE probe target, not an
+     expected no-op. And because `sanitizeCalendarEvent` stores it present-only-when-true,
+     `false` is indistinguishable from refused — only `true` is a usable probe, which is
+     exactly the value that also trips `shouldStage` and is the one write in this file
+     with a real-world side effect. Confirm hazard 4 below before driving it.
 
 2. **Token-excluded fields are a class, not a special case.** `TOKEN_EXCLUDED`
    lists per-entity fields `patchWithoutId` removes from every model patch —
