@@ -217,10 +217,16 @@ describe("plural key pairing", () => {
 
     // ★★★ PRECOMPUTED PER BASE, NOT PER LINE — AND INLINING THIS BACK INTO THE
     // LOOP REINTRODUCES A TIMEOUT, not merely a slower test. The scan is
-    // O(files x lines x bases): ~500 source files against ~40 paired bases, so
-    // constructing the RegExp and the quoted needle inside the innermost loop
-    // cost on the order of FOUR MILLION `new RegExp` calls per run. That ate
-    // most of the 20s budget. MEASURED on 2026-09-08, in isolation:
+    // O(scanned lines x bases). MEASURED 2026-09-08: 989 files, 187,767
+    // scanned lines, 42 paired bases — so constructing the RegExp and the
+    // quoted needle inside the innermost loop cost ~7.9 MILLION `new RegExp`
+    // calls per run. That ate most of the 20s budget.
+    // ★★ DO NOT read the `> 500` floor above as the file COUNT — an earlier
+    // revision of this comment did exactly that and understated the work by
+    // ~2x ("~500 files … four million"). It is an anti-vacuity floor, not a
+    // measurement. Re-derive both with:
+    //   node -e "const fs=require('fs'),p=require('path');const f=[];const w=d=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){const q=p.join(d,e.name);if(e.isDirectory())w(q);else if(/\.tsx?$/.test(e.name)&&!/\.test\.tsx?$/.test(e.name)&&!/^i18n(\.de)?\.ts$/.test(e.name))f.push(q)}};w('src/app');let n=0;for(const x of f)n+=fs.readFileSync(x,'utf8').split(/\r?\n/).length;console.log(f.length,n)"
+    // MEASURED on 2026-09-08, in isolation:
     //   before  tests 6.58s  (total 7.81s)
     //   after   tests 1.42s  (total 2.99s)
     // Reproduce either number with:
