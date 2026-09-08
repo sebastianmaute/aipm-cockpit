@@ -119,6 +119,12 @@ describe("AiUsagePanel", () => {
     expect(screen.getByText(/9,000/)).toBeInTheDocument();
     // 9000 / (9000 + 1000 + 500) = 85.71...% → rounds to 86%.
     expect(screen.getByText(/86%/)).toBeInTheDocument();
+    // ★ Pins the FOLLOW-UP fix: UsageBar's own `used`/`cap` figures now take
+    //   the same `locale` prop as the breakdown below it, rather than calling
+    //   bare `.toLocaleString()` (host-default locale). Session total is
+    //   1000+100+500+9000=10600; sessionCap=100000 (11%), weeklyCap=500000 (2%).
+    expect(screen.getByText(/10,600 \/ 100,000/)).toBeInTheDocument();
+    expect(screen.getByText(/10,600 \/ 500,000/)).toBeInTheDocument();
   });
 
   describe("in German", () => {
@@ -137,6 +143,10 @@ describe("AiUsagePanel", () => {
       // German grouping uses "." — 9000 renders as "9.000" under "de-DE".
       expect(screen.getByText(/9\.000/)).toBeInTheDocument();
       expect(screen.getByText(/86 %/)).toBeInTheDocument();
+      // ★ Same follow-up pin as the "en-US" test above, in the German
+      //   direction: the bar figures must use dot grouping under "de".
+      expect(screen.getByText(/10\.600 \/ 100\.000/)).toBeInTheDocument();
+      expect(screen.getByText(/10\.600 \/ 500\.000/)).toBeInTheDocument();
     });
   });
 });

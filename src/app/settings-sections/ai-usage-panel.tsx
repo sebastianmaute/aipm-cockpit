@@ -21,9 +21,10 @@ type UsageBarProps = {
   label: string;
   used: number;
   cap: number;
+  locale: string;
 };
 
-function UsageBar({ label, used, cap }: UsageBarProps) {
+function UsageBar({ label, used, cap, locale }: UsageBarProps) {
   const safeCap = cap > 0 ? cap : 1;
   const ratio = Math.min(used / safeCap, 1);
   const pct = Math.round(ratio * 100);
@@ -33,7 +34,7 @@ function UsageBar({ label, used, cap }: UsageBarProps) {
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <span className="text-xs font-medium text-foreground">{label}</span>
         <span className="shrink-0 text-xs text-muted-foreground">
-          {used.toLocaleString()} / {cap.toLocaleString()} ({pct}%)
+          {used.toLocaleString(locale)} / {cap.toLocaleString(locale)} ({pct}%)
         </span>
       </div>
       <ProgressTrack height="h-3">
@@ -81,11 +82,13 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps)
         label={t(lang, "aiUsageSession")}
         used={sessionTotal}
         cap={effectiveSessionCap}
+        locale={locale}
       />
       <UsageBar
         label={t(lang, "aiUsageWeek")}
         used={weekTotal}
         cap={effectiveWeeklyCap}
+        locale={locale}
       />
       <p className="mt-1 text-xs text-muted-foreground">
         {t(lang, "aiUsageResetAt", resetLabel)}
