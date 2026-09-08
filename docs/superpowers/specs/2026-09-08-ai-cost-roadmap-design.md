@@ -1,12 +1,18 @@
 # AI cost roadmap — cache layout · opt-in cost controls · prompt-quality harness (B · C · H)
 
 Date: 2026-09-08
-Status: **B specced and approved, unimplemented. C and H outlined only.**
-Baseline: 0.293.1 "Vandermeer", `main` @ `3a690305`
+Status: **B SHIPPED (0.295.0 "Borges"). G specced. G2 specced but eval-gated. C and H outlined only.**
+Baseline at writing: 0.293.1 "Vandermeer", `main` @ `3a690305`
 
-> B's full design is `2026-09-08-ai-prompt-cache-layout-design.md`. This file owns the
-> ORDER, the dependencies between the three, and the interactions that only appear when
-> you look at them together. It does not restate B.
+> B's full design is `2026-09-08-ai-prompt-cache-layout-design.md`; G and G2 are in
+> `2026-09-08-ai-guide-block-cache-split-design.md`. This file owns the ORDER, the
+> dependencies between the slices, and the interactions that only appear when you look at
+> them together. It does not restate any of them.
+>
+> ★★ The title still names three slices (B · C · H) because that is what this roadmap was
+> written to sequence. G and G2 were found by measuring B's own prompt after B shipped, and
+> are sequenced in the table below rather than renamed into the title — the title is a
+> dated record of the original framing, and C4 shows why that framing mattered.
 
 ## Problem
 
@@ -28,9 +34,11 @@ The levers that remain are ones it could not see without the code:
 
 | | Slice | Blocked by | Why this position |
 |---|---|---|---|
-| **B** | Cache layout + honest meter | — | Nothing downstream can be measured or priced until the meter counts cache reads and writes. It is also the only slice that saves money without asking the user for anything. |
+| **B** | Cache layout + honest meter | — | Nothing downstream can be measured or priced until the meter counts cache reads and writes. It is also the only slice that saves money without asking the user for anything. **SHIPPED** — 0.295.0 "Borges". |
+| **G** | Guide-block cache split | — | Same shape as B and independent of C: no behaviour change, no user-facing setting, no eval needed. Stops a view switch re-writing ~9.9k tokens of guide text that did not change. Specced in `2026-09-08-ai-guide-block-cache-split-design.md`. |
+| **G2** | Move the view-scoped guide onto the turn tail | G, **and the answer-quality eval** | The successor to G's ceiling, and what C4 below turns into once measured. Moves instruction text from `system` into a `user` message — the same role change as B, so it ships BEHIND the eval, never ahead of it. |
 | **C** | Opt-in cost controls | B's meter | Every control in C is a trade the user has to price. Shipping the settings first means shipping numbers we cannot compute. |
-| **H** | Prompt-quality harness | — technically; C in practice | Turns B's owed manual eval into a gate, and is what makes C's defaults safe to tune. |
+| **H** | Prompt-quality harness | — technically; C in practice | Turns B's owed manual eval into a gate, and is what makes C's defaults safe to tune. B's eval has since been RUN once by hand (5 probes × 2 arms × 3 reps, no regression, ceiling recorded in `docs/AGENTS/ai-assistant.md`), which is a data point, not a harness — G2 needs it repeatable. |
 
 **The ordering has a real cost and it should be stated rather than discovered.** H is
 sequenced last by choice, so B's relocation ships behind a manual eval and C's defaults
@@ -53,10 +61,16 @@ and output, bucketed by day. C's settings are unpriceable without it.
 
 **Two open questions B deliberately leaves to measurement**, both of which land in C's lap:
 
-1. **Guide placement.** `stableText` holds the operating guides and is view-dependent
-   (22 of 23 built-in feature guides are view-scoped), so a mid-conversation view switch
-   still re-caches everything behind it. Whether to move the guide onto the turn tail
-   depends on how often real users switch view mid-conversation, which B's meter measures.
+1. **Guide placement.** *(ANSWERED 2026-09-08 — see C4 below and slices G / G2. The premise
+   here is wrong and is kept as written for the record.)* `stableText` holds the operating
+   guides and is view-dependent (22 of 23 built-in FEATURE guides are view-scoped), so a
+   mid-conversation view switch still re-caches everything behind it. Whether to move the
+   guide onto the turn tail depends on how often real users switch view mid-conversation,
+   which B's meter measures.
+   ★★ The 22-of-23 figure is correct about `BUILTIN_FEATURE_GUIDES` and misleading about the
+   prompt: `builtinSeeds()` returns **24**, and the extra one — the leadership guide, ~9,164
+   tokens, unscoped — outweighs the whole feature-guide corpus about 3:1. The view-dependence
+   this bullet reasons from is real but marginal, and no meter data was needed to see that.
 2. **`tokenMultiplier` vs per-field billing weights.** A uniform 5× margin and a real
    per-field weighting cover overlapping ground. B keeps the multiplier's semantics exactly
    and uses weights for display only.
@@ -104,8 +118,29 @@ refuted by B unless the measurement says the transcript is small enough not to m
 
 ### C4 — guide placement (from B's open question 1)
 
-Decide with a week of B's meter data: compare cache-write volume against view-switch
-frequency. If switches are common, move the guide to the turn tail; if rare, leave it.
+**★★★ SUPERSEDED 2026-09-08 by slices G and G2 — and the premise below was wrong.** Left as
+written because it is a dated record; read G's spec
+(`2026-09-08-ai-guide-block-cache-split-design.md`) instead of acting on this.
+
+The original text: *decide with a week of B's meter data — compare cache-write volume against
+view-switch frequency; if switches are common, move the guide to the turn tail; if rare, leave it.*
+
+What measurement showed instead: **the dominant guide is not view-scoped at all.** The Project
+Leadership Operating Guide is ~9,164 tokens with `scope: {}`, against ~65–1,140 tokens for the
+current view's feature guide. So a view switch was never mostly paying for content that changed —
+it was re-writing ~9.9k tokens of byte-identical text, because `assembleGuideBlock`'s header
+embeds a guide COUNT that varies by view and sits ahead of everything (longest common prefix
+across all 34 views: **9 characters**).
+
+That splits the one question into two, and they have different answers and different risk:
+- **G** — separate the always-on guides from the view-scoped ones so the unchanged part keeps its
+  cache entry. No behaviour change, no eval, no breakpoint spent. Do this first.
+- **G2** — move the remaining view-scoped guide onto the turn tail. Break-even is ~1 view switch
+  per 46 turns, i.e. effectively always worth it, but it is a `system`→`user` role change and
+  therefore gated on the eval.
+
+★ No meter data was needed to answer this, which is the part worth remembering: the question was
+posed as an empirical one about user behaviour and was settled by measuring the PROMPT.
 
 ---
 
