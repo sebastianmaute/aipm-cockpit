@@ -8,6 +8,39 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.293.0] - 2026-09-08 "Vandermeer"
+
+### Added
+- The AI assistant can now write resource absences and calendar meetings, not
+  only read them. Ask it to book a holiday, move a meeting or remove one that is
+  no longer happening, and it proposes the change the same way it proposes a
+  task edit. Seven new tools cover listing, creating, updating and deleting for
+  both registers.
+- A staged calendar change is now described field by field on the review card
+  before it is applied, including its recurrence rule, which is rendered as a
+  sentence ("Every 2 weeks on MO, WE until 2026-12-01") rather than as raw data.
+- Any write that would email the attendees of a meeting is forced through the
+  review card, however small the turn. Every other single write applies without
+  staging; an invitation cannot be withdrawn once sent, so it does not get that
+  treatment. The flag is stored today and no mail is sent yet — the push to
+  Outlook is a separate, unstarted slice — but the rule is in place before it.
+
+### Fixed
+- What the review card says a calendar or absence write will do now matches what
+  the write actually stores. The card and the writer validated values by
+  different rules in several places, so a change could be shown as accepted and
+  then silently dropped, or shown as refused and then applied: an interval or
+  month-day outside its stored range, a malformed end date, an occurrence count
+  over the limit, an unrecognised weekday, and a numeric field supplied as text
+  all diverged. Each is now checked against the rule the writer uses.
+- Absence and meeting rows on the review card are no longer offered for approval
+  with nothing shown. Creating or deleting either produced a row that was ticked
+  by default, carried a title and a tool name, and listed no changes at all —
+  so the user was asked to approve a write whose contents were not displayed.
+- Updating an absence or a meeting outside a staged batch no longer fails. The
+  update required a concurrency token that no read could hand out, so a single
+  "move Ada's holiday to the 12th" was refused every time.
+
 ## [0.292.0] - 2026-09-07 "Yoshimoto"
 
 ### Fixed
