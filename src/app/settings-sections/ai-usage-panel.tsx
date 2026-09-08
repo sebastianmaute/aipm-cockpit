@@ -58,15 +58,22 @@ type AiUsagePanelProps = {
 };
 
 export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps) {
-  const { sessionTotal, weekTotal, nextReset } = useAiUsageContext();
+  const { sessionTotal, weekTotal, nextReset, sessionUsage } = useAiUsageContext();
 
   const effectiveSessionCap = sessionCap > 0 ? sessionCap : DEFAULT_SESSION_TOKEN_CAP;
   const effectiveWeeklyCap = weeklyCap > 0 ? weeklyCap : DEFAULT_WEEKLY_TOKEN_CAP;
 
-  const resetLabel = nextReset.toLocaleString(localeFor(lang), {
+  const locale = localeFor(lang);
+  const resetLabel = nextReset.toLocaleString(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   });
+
+  // ★ Denominator is every INPUT-side class, not the grand total: output tokens
+  //   are never cacheable, so including them would report a hit rate that can
+  //   never reach 100% even on a perfectly cached conversation.
+  const inputSide = sessionUsage.input + sessionUsage.cacheRead + sessionUsage.cacheWrite;
+  const hitRatePct = inputSide === 0 ? 0 : Math.round((sessionUsage.cacheRead / inputSide) * 100);
 
   return (
     <div className="mt-3 space-y-1">
@@ -82,6 +89,23 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps)
       />
       <p className="mt-1 text-xs text-muted-foreground">
         {t(lang, "aiUsageResetAt", resetLabel)}
+      </p>
+      <dl className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+        <div className="flex justify-between gap-2">
+          <dt>{t(lang, "aiUsageUncachedInput")}</dt>
+          <dd className="tabular-nums">{sessionUsage.input.toLocaleString(locale)}</dd>
+        </div>
+        <div className="flex justify-between gap-2">
+          <dt>{t(lang, "aiUsageCacheRead")}</dt>
+          <dd className="tabular-nums">{sessionUsage.cacheRead.toLocaleString(locale)}</dd>
+        </div>
+        <div className="flex justify-between gap-2">
+          <dt>{t(lang, "aiUsageCacheWrite")}</dt>
+          <dd className="tabular-nums">{sessionUsage.cacheWrite.toLocaleString(locale)}</dd>
+        </div>
+      </dl>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {t(lang, "aiUsageCacheHitRate", String(hitRatePct))}
       </p>
     </div>
   );
