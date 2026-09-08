@@ -357,6 +357,52 @@ Claude-Session: https://[session link removed]
 
 ---
 
+### Hazards carried into Tasks 4-5 — read before writing a probe
+
+Found while executing Tasks 2-3, not present when this plan was drafted. Each is a
+way for the sweep to report a PARITY FINDING that is really a property of the
+field, which would burn a fix cycle on a non-defect.
+
+1. **`sendInvitations` carries three separate behaviours at once**, and only the
+   first is a normal field.
+   - It is **present-only-when-true** (`calendar-event.ts`, `sanitizeCalendarEvent`
+     stores `true` or `undefined`, never `false`). So `false` and "refused" are the
+     SAME stored shape — the same rule that governs `resource.isExternal`. A probe
+     setting it `false` can never be distinguished from a rejection.
+   - It **drives staging**: `shouldStage` in `chat-proposal.ts` returns true when a
+     `create_calendar_event` / `update_calendar_event` call carries a strict
+     `sendInvitations === true`. That is a different code path from every other
+     probe in the sweep.
+   - It is **token-excluded** for `calendarEvent` (`TOKEN_EXCLUDED`,
+     `ai-entity-token.ts`), so `patchWithoutId` strips it before the merge. A
+     probe on it is therefore expected NOT to move the stored row via the normal
+     path, and the sweep must not read that as an undisclosed refusal.
+
+2. **Token-excluded fields are a class, not a special case.** `TOKEN_EXCLUDED`
+   lists per-entity fields `patchWithoutId` removes from every model patch —
+   `localModifiedAt` and `outlookEventId` on most entities, plus `noteLog`,
+   `inquiriesSent` and `lastSyncedAt` on some. They will appear in
+   `Object.keys(storedRow)` and therefore enter the axis via the §418 half, but
+   the writer cannot move them by construction. **Decide deliberately whether the
+   sweep excludes them from the axis or asserts they never move** — asserting they
+   never move is the stronger claim and is probably right, since it pins the
+   exclusion rather than assuming it. What must not happen is discovering them one
+   at a time as apparent findings.
+
+3. **UNVERIFIED, inherited from the seed task and still open.** Whether a
+   `recurrence` value interacts with `exceptions` or with the invitation path on
+   `update_calendar_event`. The recurrence SHAPE was confirmed directly against the
+   `RecurrenceRule` union; the interaction was not. No current test drives that row
+   against a recurring event, so today's green says nothing about it. Check it
+   before trusting a calendarEvent finding.
+
+4. **No mail is believed to be sent by a unit-test replay** — the dispatcher stores
+   a flag and the send lives outside it. **This was not verified**, and it is the
+   one write in this file with a real-world side effect, so confirm it before
+   driving `sendInvitations: true` through the sweep rather than assuming it.
+
+---
+
 ### Task 4: The probe set and the single-field replay helper
 
 **Files:**
