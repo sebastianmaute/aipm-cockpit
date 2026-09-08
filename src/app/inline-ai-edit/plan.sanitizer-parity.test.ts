@@ -935,6 +935,30 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
    *  compose `resourceReader` the way `raidReader` and `changeReader` are
    *  composed — not to re-anchor this assertion.
    *
+   *  ★★★ "RE-ANCHOR" MEANS THE `indexOf` BOUNDS, NOT WHAT THIS PINS, and the
+   *  clause is kept in its original wording above because it is the text that
+   *  AUTHORISED the 2026-09-08 inversion — dating it would be rewriting the
+   *  record. Read literally, though, it forbids the very change it asked for:
+   *  once the guard landed, leaving the assertion untouched leaves a
+   *  permanently RED test, so "change nothing" is not a reachable state. The
+   *  sound reading is the narrow one — do not move the slice boundaries to make
+   *  a failure go away — and a future reviewer should not cite the sentence to
+   *  block a legitimate flip. Flagged by cold review, which found both readings.
+   *
+   *  ★★★ THE NAMED MUTANT FOR THE LIMITATION BELOW, because an abstract
+   *  admission that this is "a mirror, not the call site" is not something a
+   *  reader can check. Concretely: move the guarded spread ABOVE `...existing`
+   *  — `sanitizeResource({ ...dropUnacceptedResourceFields(patch), ...existing,
+   *  … })`. This assertion stays GREEN (the guard is present, no raw spread
+   *  survives) and `resourceReader` stays green too, because it hardcodes its
+   *  own order and cannot see the writer's. The real writer becomes a silent
+   *  no-op: `existing` overwrites every model-supplied field, so every
+   *  `update_resource` reports success to the model and changes nothing.
+   *  ★★ `plan.write-path-sweep.test.ts` DOES catch it — the card discloses a
+   *  change the row never made — which is the whole argument for keeping the
+   *  sweep as the detector and this file as the shape pin. Neither replaces the
+   *  other; measured by cold review, not reasoned.
+   *
    *  ★★ SLICED TO ONE WRITER, never matched over the whole file: `createResource`
    *  a few lines up calls `sanitizeResource` too, and a whole-file regex would
    *  pass on ITS unguarded spread while `updateResource` grew a guard — a
@@ -960,15 +984,38 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
 
       // The POSITIVE shape: the model's patch reaches the sanitizer only
       // through the guard. Named exactly, so a DIFFERENT entity's guard pasted
-      // here by mistake does not satisfy it.
-      expect(body).toContain("...dropUnacceptedResourceFields(patch),");
+      // here by mistake does not satisfy it (mutation-proved: swapping in
+      // `dropUnacceptedStakeholderFields` reds this).
+      //
+      // ★★ ANCHORED TO A WHOLE LINE, not merely `toContain`. A bare substring
+      //  test is satisfied by the string appearing in a COMMENT — measured, not
+      //  theorised: replacing the guard with `// was: ...dropUnaccepted…` and
+      //  adding a raw spread back left the old form GREEN. That is this repo's
+      //  `self-referential-grep-in-a-comment` landmine wearing a test's clothes.
+      //  Requiring the line to START with only whitespace excludes the
+      //  commented-out form without hand-rolling a comment stripper.
+      const guarded = body.match(/^[ \t]*\.\.\.dropUnacceptedResourceFields\(patch\),$/m) ?? [];
+      expect(guarded).toHaveLength(1);
+
       // And the NEGATIVE: no RAW patch spread survives anywhere in this writer.
-      // This is the half that fires if someone re-adds `...patch,` alongside the
-      // guarded spread — which would restore the defect in full while the
-      // positive assertion above still passed.
-      // ★ `patch.name` / `patch.firstName` reads are untouched by this pattern;
-      // it matches the SPREAD form only.
-      const rawSpread = body.match(/\.\.\.patch,/g) ?? [];
+      // This is the half that fires if someone re-adds a raw `...patch` spread
+      // alongside the guarded one — which restores the defect in full while the
+      // positive assertion above still passes.
+      //
+      // ★★★ THE OBVIOUS SPELLING OF THIS DOES NOT DO WHAT IT CLAIMS, and the
+      //  first cut of this line shipped claiming it. `/\.\.\.patch,/` requires
+      //  a TRAILING COMMA, so it misses `...patch` appended as the object's
+      //  LAST property — and last-wins is the worst case, in which every
+      //  guarded field rides the raw spread and the tripwire stays green.
+      //  Nothing auto-corrects that spelling either: there is no `comma-dangle`
+      //  rule in `eslint.config.mjs` and no prettier config in the repo, so it
+      //  survives lint. `[,}]` closes the trailing-property form and `\s*`
+      //  closes `...patch ,`. Found by cold review, by simulating the
+      //  predicate rather than by reading it.
+      //  ★ `patch.name` / `patch.firstName` reads stay untouched — the pattern
+      //  matches the SPREAD form only, since a property read is followed by an
+      //  identifier character rather than `,` or `}`.
+      const rawSpread = body.match(/\.\.\.\s*patch\s*[,}]/g) ?? [];
       expect(rawSpread).toHaveLength(0);
     });
   });
