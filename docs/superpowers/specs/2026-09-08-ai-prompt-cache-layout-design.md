@@ -168,8 +168,19 @@ absent field must read as 0 and never as a parse failure.
 **Domain type.** `Usage` goes from `{ input, output }` to `{ input, output, cacheWrite, cacheRead }`.
 `addToBuckets` and `weekToDate` (`ai-usage.ts`) follow.
 
-**Persistence.** `aipm-cockpit:ai-usage` holds `Record<YYYY-MM-DD, Usage>`. A blob written by an older
-build has only `input`/`output`; the reader defaults the two new fields to 0. No migration is written —
+**Persistence, and the trap in it.** `aipm-cockpit:ai-usage` holds `Record<YYYY-MM-DD, Usage>`, and
+`loadBuckets` currently casts the parsed JSON straight to `UsageBuckets` with no per-field check. A blob
+written by an older build has only `input`/`output`, so the two new fields read as `undefined` — and
+`undefined + n` is `NaN`, which propagates through `addToBuckets` into `weekToDate` and **silently
+disables every cap**, because `NaN < threshold` and `NaN >= threshold` are both false. `crossed80` and
+`crossed100` would then never fire again for that user, with no error anywhere.
+
+So the reader must NORMALISE, not cast: every bucket is rebuilt field by field with a numeric default,
+and a non-finite stored value is coerced to 0. This gets its own test with a hand-written pre-0.294 blob
+as the fixture — the upgrade path is the case that will actually occur, and a fixture written in the new
+shape cannot see this bug at all.
+
+The two new fields default to 0. No migration is written —
 historic buckets genuinely did not measure these, and back-filling them with a guess would fabricate the
 very number the slice exists to measure. A newer blob read by an older build loses the extra keys
 harmlessly.
@@ -274,7 +285,11 @@ first", and what each consumer owes under it differs because one has a transcrip
   corrects the stale "20 of the 21 `BUILTIN_FEATURE_GUIDES`" count in `withCacheBreakpoint`'s docstring
   to the measured 22 of 23, and replaces the number with the reproduce command from §3 — a bare count
   in a comment is ungated and this one had already rotted.
-- `src/app/diagnostics-panel.tsx` — the cache line (reads, writes, uncached input, session hit rate).
+- `src/app/settings-sections/ai-usage-panel.tsx` — the cache line (reads, writes, uncached input,
+  session hit rate) beside the two existing `UsageBar`s. **Not** `diagnostics-panel.tsx`: an earlier
+  draft of this list said diagnostics, and the usage surface is the settings panel that already renders
+  `aiUsageSession` / `aiUsageWeek`. Verify with
+  `grep -rln "aiUsageSession" src/app --include=*.tsx | grep -v test`.
 - `src/app/chat-panel.tsx` — build wire messages via the new module; accumulate four usage fields.
 - `src/app/inline-ai-edit-call.ts` — call both builders, join into `system` (behaviour unchanged).
 - `src/app/ai-usage.ts` — `Usage` gains `cacheWrite`/`cacheRead`; `addToBuckets`, `weekToDate`.
