@@ -47,10 +47,19 @@ import { type Lang, type PluralBaseKey, t, tPlural } from "./i18n";
  * check — so `ACTIVITY_PLURAL[kind]` is only ever reached with a genuine own
  * key of `ACTIVITY_KIND_TO_KEY`, none of which is an `Object.prototype`
  * member. A local `hasOwnProperty` here would be unreachable, i.e. exactly the
- * inert-but-load-bearing-looking guard this file deleted one commit ago. If a
- * future `ActivityKind` is ever named `toString`, the early return is the line
- * that stops it, and `activity-message.test.ts`'s prototype-member test is
- * what pins that.
+ * inert-but-load-bearing-looking guard the `Number.isFinite` deletion removed.
+ *
+ * ★★★ THE SAFETY IS ABOUT TODAY'S KEY SET, NOT ABOUT THE HYPOTHETICAL, and a
+ * first cut of this paragraph got the hypothetical exactly backwards — it
+ * claimed the early return would stop a kind named `toString`. It would NOT:
+ * if `toString` were a real own key of `ACTIVITY_KIND_TO_KEY`,
+ * `hasOwnProperty` returns TRUE, so the early return does not fire, and the
+ * bare index then resolves `Object.prototype.toString` — a truthy FUNCTION —
+ * putting `base` and `slot` both `undefined` into the plural branch. The
+ * existing prototype-member test covers `toString` NOT being in the map, which
+ * is a different case and does not pin that one. Adding such a kind means
+ * adding a guard here; until then this is safe because no current kind is a
+ * prototype member, which is a fact about the data, not a guarantee.
  */
 const ACTIVITY_PLURAL: Partial<Record<ActivityKind, { base: PluralBaseKey; slot: number }>> = {
   "ai.allocationPlan": { base: "activityAiAllocationPlan", slot: 0 },

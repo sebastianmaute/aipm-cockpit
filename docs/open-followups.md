@@ -660,7 +660,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
 | [§434](#434-adding-an-inlineentity-member-has-four-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--closed-2026-09-08) | Adding an `InlineEntity` member has four ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, three were silent, all four now pinned | closed 2026-09-08 |
 | [§450](#450-keys-in-both-dictionaries-dodge-plural-agreement-with-a-parenthetical-plural-and-every-detector-for-this-class-is-blind-to-them-by-construction--open) | Keys in both dictionaries dodge plural agreement with a parenthetical plural, invisible to every detector for the class | found 2026-09-08 while measuring §415's disputed count | M-L — tier it: 8 activity keys, then the sentence keys, then the multi-count and unit-label cases; add a value-axis detector | **OPEN** |
-| [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s `testTimeout`, so it reds under load and the red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — one-pass rewrite of the scan; do NOT raise the global timeout | **OPEN** |
+| [§451](#451-a-tree-scanning-i18n-test-sits-at-25s-against-the-20s-testtimeout-so-it-reds-under-load-and-its-red-looks-like-a-content-failure--open) | A tree-scanning i18n test sits at ~25s against the 20s `testTimeout`, so it reds under load and the red looks like a content failure | found 2026-09-08 in the pre-merge gate run for the §415 B fix | S — hoist the per-base regexes out of the line loop; do NOT raise the global timeout | **OPEN** |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -30418,9 +30418,8 @@ predicted by the plan:**
 
 1. **The count is not always slot `{0}`.** `actionCommitteeInfoWhy` (`"Due {0} — {1} ({2} days)"`)
    carries it at `{2}`, and `chatAttachmentSummarySkipped` (`"{0} — {1} attachments, {2} skipped"`)
-   at `{1}`. ★ A THIRD was FOUND 2026-09-08 — not added; it pre-dates this work and
-   `chatAttachmentSummary.ts` is untouched by the branch that corrected this line —
-   `chatAttachmentSummary`, the non-skipped sibling, also
+   at `{1}`. ★ A THIRD was FOUND 2026-09-08 — not added; it pre-dates this
+   work — `chatAttachmentSummary`, the non-skipped sibling, also
    at `{1}`. The original pair was a pair of EXAMPLES and was later read as a total — say "three,
    enumerated at the call sites" rather than naming two, because the slot is fixed by argument order
    at the call and no scan over the STRINGS can recover it. `tPlural` therefore takes `count` as a SELECTOR only and never injects it into the
@@ -30566,8 +30565,11 @@ COMMAND.** The detector now exists: `i18n-plural.test.ts`'s "routes every paired
 tPlural, outside a documented exception" walks `src/app` (non-test), and for every base key with a
 `…One` sibling flags any line that mentions the quoted base key WITHOUT `tPlural`. Measured today:
 988 files, 42 pairs, **13 base keys across 19 lines**, all of them allowlisted —
-★★ RE-MEASURED 2026-09-08. It read "976 files … across 17 lines", measured 2026-09-07, and THIS
-BRANCH invalidated it: §415 B's fix added two `key@FILE` allowlist rows (`activity-message.ts`'s
+★★ RE-MEASURED 2026-09-08. It read "976 files … across 17 lines", measured 2026-09-07. THIS BRANCH
+moved the LINE count and only that: 17 -> 19. ★ The file count is NOT this branch's doing — the scan
+reports 987 at the merge base against the 976 the sentence claimed, so that half was already wrong
+before anything here touched it, and reading the whole figure as branch-caused would bury a pre-existing
+error inside a correction. The line half: §415 B's fix added two `key@FILE` allowlist rows (`activity-message.ts`'s
 `ACTIVITY_PLURAL` table), which B's own paragraph below states in as many words. A retained line the
 diff never touches can still be falsified BY that diff — re-check the numbers a fix moves, not only
 the sentences it edits. Reproduce by replicating the scan (counting the allowlist gives 15
@@ -32241,8 +32243,8 @@ FAILS with `Test timed out in 20000ms`; the same command with `--testTimeout=180
 is not the contention shape.
 
 Found 2026-09-08 during the pre-merge gate run for the §415 exception B fix. `i18n-plural.test.ts`'s
-"routes every paired base key through tPlural, outside a documented exception" walks the whole `src/`
-tree and regex-matches every paired base key against every source file. On this machine that takes
+"routes every paired base key through tPlural, outside a documented exception" walks `src/app`
+(non-test, both dictionaries excluded) and regex-matches every paired base key against every file it finds. On this machine that takes
 ~25s against `vitest.config.ts`'s 20s `testTimeout`, so it fails on TIME, having asserted nothing.
 
 **Why it is worth an entry rather than a shrug.** The failure prints as a red test with the test's own
@@ -32257,11 +32259,17 @@ same 20s timeout, and a shared runner is slower than an idle laptop. Nothing abo
 `--sequence.shuffle`; `unit-tests` is exposed identically.
 
 **Not caused by the branch that found it.** `git diff 960b639e..HEAD -- src/app/i18n-plural.test.ts`
-changed comments and grew one allowlist from two rows to four. The branch added exactly one file to the
-scanned tree.
+changed comments, and grew the ACTIVITY sub-group of the EXCEPTIONS list from two rows to four while the
+list as a whole went 13 -> 15. The branch added exactly one file to the scanned tree.
 
-**Fix, in preference order.** (1) Make the scan cheap: it re-reads and re-scans the tree per key; read
-each file ONCE and test all keys against it, which is a one-pass rewrite of the same assertion. (2) Failing
+**Fix, in preference order.** (1) Make the scan cheap — and NOT the way an earlier draft of this entry
+said. It claimed the scan "re-reads and re-scans the tree per key"; it does not. The file loop is already
+outer and each file is read exactly once. The cost is `callForm(b)`, which builds a FRESH RegExp per line
+per base key. Hoist the base regexes above the loop. Measured 2026-09-08 with the file reads outside the
+timer, so this is the scan cost alone: 5591ms -> 973ms, a 5.7x cut, with the hit count unchanged at 19
+both ways — that invariance is the part to re-check, because a faster scan that finds less is not a fix.
+★ An entry prescribing a cause the code does not have is worse than one prescribing nothing: someone
+follows it, changes nothing, and concludes the measurement was wrong. (2) Failing
 that, give this one `it` an explicit generous timeout as its LAST argument, with a comment saying the
 number is a scan budget and not a behavioural claim. ★ Do NOT raise the GLOBAL `testTimeout` — it is
 already 20s precisely to catch load-starved property suites, and raising it to accommodate one slow scan

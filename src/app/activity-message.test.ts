@@ -44,10 +44,10 @@ describe("activityMessage", () => {
    * trap. It would fire (the new base key sits as a bare literal in
    * `activity-log.ts`'s Record, so it lands in `bareOffenders`), but its own
    * failure message offers "convert it, OR add `key@file` to EXCEPTIONS with
-   * the reason" — and this branch added four exception rows, modelling exactly
-   * the resolution that leaves the defect in place. A developer following that
-   * message can turn the gate green without touching `ACTIVITY_PLURAL`. This
-   * test is the one that cannot be satisfied that way.
+   * the reason", modelling exactly the resolution that leaves the defect in
+   * place. A developer following that message can turn the gate green without
+   * touching `ACTIVITY_PLURAL`. This test is the one that cannot be satisfied
+   * that way.
    *
    * ★ Reads the dictionary from SOURCE rather than importing it, because the
    * EN key set is a compile-time type (`keyof typeof enUS`) with no runtime

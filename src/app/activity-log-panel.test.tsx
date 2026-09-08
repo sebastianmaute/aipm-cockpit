@@ -209,8 +209,8 @@ describe("ActivityLogPanel", () => {
   // ELEMENT THROUGH — that `sanitizeActivityEntry` "checks
   // `Array.isArray(e.args)` and never looks at the ELEMENTS, so a hostile
   // element arrives at the panel on a FULLY SANITIZED log". THAT IS FALSE, and
-  // was false while the sanitizer's own comment three lines from the code
-  // described the opposite: `argsBad` inspects every element
+  // was false while the sanitizer's own comment described the opposite:
+  // `argsBad` inspects every element
   // (`typeof a !== "string" && typeof a !== "number"`) and COERCES each
   // offender to `""` in place, deliberately preserving arity because `args` is
   // positional (§164). So a stored entry cannot carry `{toString: 1}`, and
