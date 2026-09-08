@@ -25,13 +25,15 @@
 // conversation grows" — a marker that moves every turn is the RECOMMENDED
 // shape, not a defect to eliminate.
 //
-// ★ THAT FACT IS DOCUMENTED, NOT MEASURED HERE. It comes from Anthropic's
-// bundled reference (`shared/prompt-caching.md`), not from a live call against
-// this account. The plan's Task 11 Step 4 owes the actual measurement: send
-// two consecutive messages in a real conversation and read
-// `cache_read_input_tokens` off the second response — non-zero and roughly
-// the transcript size is what would confirm it. Until that runs, treat the
-// citation above as the source, not as something this file has verified.
+// ★ THAT FACT IS NOW MEASURED, NOT ONLY DOCUMENTED. A live run against a real
+// Anthropic account (2026-09-08, model claude-sonnet-5) confirmed the moving-
+// marker behaviour above: `cache_read_input_tokens` grows turn over turn under
+// this layout while it stays flat under the old system-array one, whose
+// `input_tokens` grows instead. The result is NOT a flat win — a short
+// conversation costs MORE under this layout before a per-turn crossover. Full
+// trajectory, the crossover turn, and the measurement's limits are recorded in
+// `docs/AGENTS/ai-assistant.md`'s cache-boundary section; read that before
+// citing this file's ordering claim as validated at every conversation length.
 //
 
 // ★★★ THIS FILE ALREADY GOT THAT BACKWARDS ONCE — do not repeat it. An

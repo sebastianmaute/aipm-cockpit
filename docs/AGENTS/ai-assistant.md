@@ -1028,17 +1028,39 @@
   ★★★ **A `cache_control` MARKER IS WRITE-POSITION METADATA, NOT PART OF THE BYTES THE CACHE MATCHES
   AGAINST.** Moving a marker off a message does NOT invalidate the cache entry that message sits inside —
   this is Anthropic's own stated behaviour ("strip `cache_control` markers before diffing: the moving
-  marker always differs between adjacent requests and is not an invalidator"), **documented here, not
-  measured against a live Anthropic account** — sending two consecutive messages and reading
-  `cache_read_input_tokens` off the second response is still owed. **Getting this backwards cost the
-  slice a wrong rewrite once**: an earlier pass measured a marker-inclusive byte diff, concluded the
-  cache was thrashing, and replaced the correct moving-boundary breakpoint with power-of-two bucket
-  quantization to "fix" a cost that was never real — itself expensive (coverage between doubling points
-  converges to ln 2 ≈ 0.69 average / 0.50 worst case vs ~0.11× for a boundary that moves every turn,
-  roughly 3.4× more spent on history than necessary, plus a write point that could leave a short
-  conversation under a model's minimum cacheable prefix and cache nothing, silently). `chat-cache-
-  layout.ts`'s `stripCacheControl` test helper exists so nobody re-derives that same wrong conclusion
-  from the same wrong assertion shape again.
+  marker always differs between adjacent requests and is not an invalidator"), and is now **measured
+  against a live account, not only documented** — see the dedicated bullet below for the run. **Getting
+  this backwards cost the slice a wrong rewrite once**: an earlier pass measured a marker-inclusive byte
+  diff, concluded the cache was thrashing, and replaced the correct moving-boundary breakpoint with
+  power-of-two bucket quantization to "fix" a cost that was never real — itself expensive (coverage
+  between doubling points converges to ln 2 ≈ 0.69 average / 0.50 worst case vs ~0.11× for a boundary
+  that moves every turn, roughly 3.4× more spent on history than necessary, plus a write point that
+  could leave a short conversation under a model's minimum cacheable prefix and cache nothing,
+  silently). `chat-cache-layout.ts`'s `stripCacheControl` test helper exists so nobody re-derives that
+  same wrong conclusion from the same wrong assertion shape again.
+  ★★★ **THE LIVE MEASUREMENT, RUN 2026-09-08.** Model `claude-sonnet-5`, one process, two arms of four
+  turns each: OLD = the pre-slice layout (volatile block inside `system`, plain message array), NEW =
+  this layout (`buildWireMessages` appending turn context to the last user message). Turn 1 is excluded
+  from every cross-arm comparison — both arms share a byte-identical tools+system prefix, so whichever
+  arm runs first pays the cache WRITE (1.25×) on it and the second merely READS it (0.1×); that
+  asymmetry is turn ordering, not layout. From turn 2 on: OLD's `input_tokens` grows every turn (2480 →
+  2683 → 2872) because the transcript is re-billed fresh each time, while NEW's stays flat (304 → 304 →
+  304) because the transcript left full-price input; OLD's `cache_read_input_tokens` stays flat (18740
+  flat) while NEW's grows (18740 → 21305 → 21487) as the transcript itself joins the cached prefix.
+  NEW's `cache_creation_input_tokens` is 2565 on turn 2 (the transcript so far), then 182 and 182 —
+  only that turn's incremental exchange. **The crossover is turn 3, and turn 2 alone is ~24% MORE
+  expensive under the new layout** — token-equivalents at fresh×1.0 / write×1.25 / read×0.1: turn 2 OLD
+  4354.0 vs NEW 5384.3; turn 3 OLD 4557.0 vs NEW 2662.0 (~42% cheaper); turn 4 OLD 4746.0 vs NEW 2680.2
+  (~44% cheaper); cumulative turns 2–4 OLD 13657.0 vs NEW 10726.5 (~21% cheaper). A conversation that
+  ends by turn 2 costs MORE under this layout; a longer one costs progressively less, and the gap widens
+  because OLD's fresh input grows ~196 tokens/turn while NEW's stays flat. **Limits, read before
+  generalising:** one model, one hand-built workspace snapshot (not a real one — `jsonToWorkspace` needs
+  a DOM the harness didn't provide), one short follow-up conversation shape, and turn 1 excluded as
+  arm-order contaminated. It says nothing about longer conversations, other models, or a real snapshot's
+  volatility. **The harness that produced this is NOT in this repo** — it takes a live API key and lives
+  in a session scratchpad, so this bullet is the only durable trace of the run; no path to it is
+  recorded here on purpose, since a scratchpad path is machine- and session-specific and would rot
+  immediately.
   ★★★ **`CACHED_TOOLS` (`chat-api.ts`) closes the FIRST segment of the prefix** — the LAST tool carries
   `cache_control`, so a per-view guide swap inside `system` re-caches only the smaller system slice after
   it, never the whole `tools` payload. Without it the cached prefix is `tools` + `stableText`, and the
