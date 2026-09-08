@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { asTimeZoneForTests } from "./timezone";
 import {
   buildSystemPrompt,
+  callClaude,
   closeDanglingToolUses,
   maxOutputTokensFor,
   toolsFor,
@@ -412,5 +413,44 @@ describe("tool variants", () => {
     expect(toolNamesFor(NO_HISTORY).has("search_chats")).toBe(true);
     expect(toolNamesFor(NO_CHAT).has("search_history")).toBe(true);
     expect(toolNamesFor(NEITHER).has("search_chats")).toBe(false);
+  });
+});
+
+describe("callClaude", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("carries the cache token fields off the response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        content: [{ type: "text", text: "hi" }],
+        stop_reason: "end_turn",
+        usage: {
+          input_tokens: 10,
+          output_tokens: 5,
+          cache_creation_input_tokens: 700,
+          cache_read_input_tokens: 6000,
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await callClaude("k", "claude-sonnet-5", [], [], {});
+    expect(res.usage.cache_creation_input_tokens).toBe(700);
+    expect(res.usage.cache_read_input_tokens).toBe(6000);
+  });
+
+  it("defaults the cache token fields to 0 when the API omits them", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        content: [],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 10, output_tokens: 5 },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await callClaude("k", "claude-sonnet-5", [], [], {});
+    expect(res.usage.cache_creation_input_tokens).toBe(0);
+    expect(res.usage.cache_read_input_tokens).toBe(0);
   });
 });

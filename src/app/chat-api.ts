@@ -74,7 +74,39 @@ export type DisplayItem =
    */
   | { kind: "proposal"; id: string; count: number };
 
-export type ApiUsage = { input_tokens: number; output_tokens: number };
+/** ★★★ FOUR FIELDS, NOT TWO, AND `input_tokens` IS NOT THE TOTAL.
+ *  Anthropic bills cached input separately and EXCLUDES it from `input_tokens`:
+ *  `cache_creation_input_tokens` is a cache WRITE (billed at 1.25x base) and
+ *  `cache_read_input_tokens` is a cache READ (0.1x). Counting only the first two
+ *  fields — which this type did before the cache-token widening — makes every
+ *  cached token invisible to the session and weekly caps in `ai-usage-context.tsx`,
+ *  so the under-count grows with exactly how well the cache is working.
+ *  ★ Both cache fields are ABSENT from the response when no breakpoint was sent,
+ *  so they are optional on the wire and defaulted to 0 at the parse. Downstream
+ *  code must never see `undefined` here: `undefined + n` is NaN, and NaN defeats
+ *  every threshold comparison silently. */
+export type ApiUsage = {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+};
+
+/** The same shape as it arrives on the wire — both cache fields optional. */
+type WireUsage = Partial<ApiUsage>;
+
+/** Normalise a raw API `usage` object into the fully-populated `ApiUsage`
+ *  shape, defaulting any absent/non-finite field to 0 rather than leaving it
+ *  `undefined` (see the `ApiUsage` doc comment for why that matters). */
+export function normalizeApiUsage(raw: WireUsage | undefined): ApiUsage {
+  const n = (v: number | undefined): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  return {
+    input_tokens: n(raw?.input_tokens),
+    output_tokens: n(raw?.output_tokens),
+    cache_creation_input_tokens: n(raw?.cache_creation_input_tokens),
+    cache_read_input_tokens: n(raw?.cache_read_input_tokens),
+  };
+}
 
 export const ANTHROPIC_VERSION = "2023-06-01";
 
@@ -459,11 +491,11 @@ export async function callClaude(
     }
     throw new AiHttpError(res.status, errorType, safeMessage);
   }
-  const json = await res.json() as { content: ContentBlock[]; stop_reason: string; usage?: ApiUsage };
+  const json = await res.json() as { content: ContentBlock[]; stop_reason: string; usage?: WireUsage };
   return {
     content: json.content,
     stop_reason: json.stop_reason,
-    usage: json.usage ?? { input_tokens: 0, output_tokens: 0 },
+    usage: normalizeApiUsage(json.usage),
   };
 }
 
