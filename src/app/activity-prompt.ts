@@ -32,9 +32,8 @@ import {
   type ActivityActor,
   type ActivityEntry,
   MAX_FIELD_CHANGES,
-  activityMessageKey,
 } from "./activity-log";
-import { t } from "./i18n";
+import { activityMessage } from "./activity-message";
 
 export interface RenderedActivity {
   /** The entry's ISO timestamp, verbatim. */
@@ -92,10 +91,9 @@ function knownActor(raw: unknown): ActivityActor | undefined {
 }
 
 export function renderActivityEntry(entry: ActivityEntry): RenderedActivity {
-  const key = activityMessageKey(entry.kind);
-  const summary = key
-    ? t("en-US", key, ...entry.args)
-    : t("en-US", "activityUnknownKind", entry.kind);
+  // ★ One arg list here, unlike the panel: this renderer does no formatting,
+  //   so the values it renders are the values that select the plural form.
+  const summary = activityMessage("en-US", entry.kind, entry.args);
 
   // ★ Conditional spread, mirroring `appendActivityEntry`: `{ actor }` with an
   //   undefined value puts an `actor: undefined` KEY on every rendered entry,

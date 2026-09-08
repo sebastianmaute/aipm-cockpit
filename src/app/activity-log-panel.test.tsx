@@ -1,10 +1,10 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeAll, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ActivityLogPanel } from "./activity-log-panel";
 import { ConfirmProvider } from "./confirm-dialog";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
 import { activityMessageKey, type ActivityEntry } from "./activity-log";
 
@@ -918,5 +918,51 @@ describe("ActivityLogPanel sortable column headers", () => {
   it("renders the plural footer for a two-entry log", () => {
     renderPanel(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
     expect(screen.getByText("2 entries logged")).toBeInTheDocument();
+  });
+});
+
+/**
+ * §415 exception B, on the USER-VISIBLE renderer. `activity-prompt.ts` renders
+ * the same keys on a hardcoded "en-US", so it cannot produce a German defect at
+ * all — the DE case below is reachable from here and nowhere else.
+ */
+describe("ActivityLogPanel — count agreement on map-routed keys", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("renders the singular row message when the count is 1", () => {
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[entry({ id: "1", kind: "ai.allocationPlan", args: [1] })]}
+        onClear={() => {}}
+      />,
+    );
+    expect(screen.getByText("AI planned 1 allocation cell")).toBeInTheDocument();
+    expect(screen.queryByText("AI planned 1 allocation cells")).toBeNull();
+  });
+
+  it("renders the plural row message for any other count", () => {
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[entry({ id: "1", kind: "ai.raciSuggest", args: [4] })]}
+        onClear={() => {}}
+      />,
+    );
+    expect(screen.getByText("Applied 4 AI-proposed RACI assignments")).toBeInTheDocument();
+  });
+
+  it("agrees the German singular too", () => {
+    renderPanel(
+      <ActivityLogPanel
+        lang="de"
+        entries={[entry({ id: "1", kind: "ai.allocationPlan", args: [1] })]}
+        onClear={() => {}}
+      />,
+    );
+    expect(screen.getByText("KI hat 1 Planungszelle geplant")).toBeInTheDocument();
+    expect(screen.queryByText("KI hat 1 Planungszellen geplant")).toBeNull();
   });
 });

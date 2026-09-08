@@ -139,15 +139,23 @@ describe("plural key pairing", () => {
       "actionCommitteeInfoWhy@src/app/next-actions/providers/committee-info.ts": "i18n-free engine emits a key",
       "actionRaidWhyReviewStale@src/app/next-actions/providers/raid.ts": "i18n-free engine emits a key",
       "actionWorkloadWhyOverload@src/app/next-actions/providers/workload.ts": "i18n-free engine emits a key",
-      // ★★★ THESE TWO ARE LIVE DEFECTS, NOT DESIGN EXCEPTIONS, and calling the
-      // whole list "documented exceptions" obscured that. The singulars are
-      // authored in both languages and NOTHING selects them: both keys are
-      // reached through `ACTIVITY_KIND_KEY`, a Record routed to a generic `t()`
-      // renderer, so the activity log still says "AI planned 1 allocation
-      // cells". Tracked OPEN as §415 exception B. They are listed here because
-      // the scan cannot fix them, not because they are acceptable.
-      "activityAiAllocationPlan@src/app/activity-log.ts": "LIVE DEFECT (§415 B, OPEN) — map-routed, generic t() renderer",
-      "activityAiRaciSuggest@src/app/activity-log.ts": "LIVE DEFECT (§415 B, OPEN) — map-routed, generic t() renderer",
+      // §415 exception B — FIXED. These four entries were two, both labelled
+      // LIVE DEFECT: the singulars were authored in both languages and nothing
+      // selected them, because each key is reached through
+      // `ACTIVITY_KIND_TO_KEY` — a Record handed to a generic `t()` renderer —
+      // and the activity log rendered "AI planned 1 allocation cells".
+      // ★★ THE ENTRIES DID NOT GO AWAY WITH THE DEFECT, AND THAT IS THE POINT
+      // OF A key@FILE LIST. Both keys still appear as bare literals in two
+      // dispatch tables that cannot call `tPlural` on their own line: the
+      // kind→key Record here, and `ACTIVITY_PLURAL` in `activity-message.ts`,
+      // which is where the selection now happens. Same class as the
+      // `SKIP_REASON_KEY` and `seg()` entries below — a table, not a call.
+      // ★ What proves the defect is fixed is `activity-message.test.ts`, not
+      // this list. A shorter allowlist would have been the WRONG signal here.
+      "activityAiAllocationPlan@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityAiRaciSuggest@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityAiAllocationPlan@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
+      "activityAiRaciSuggest@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
       // Variable-base helper: `seg(n, base)` calls tPlural one line above, so
       // only the bare key literal is visible on these lines.
       "diagnosticsUnitError@src/app/diagnostics-panel.tsx": "variable-base seg() helper",
