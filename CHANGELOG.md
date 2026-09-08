@@ -8,6 +8,20 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.293.1] - 2026-09-08 "Vandermeer"
+
+### Fixed
+- The activity log no longer reports "AI planned 1 allocation cells". When the
+  assistant plans exactly one allocation cell, or applies exactly one RACI
+  suggestion, the entry now reads in the singular — in English and in German.
+  Both singular wordings had been written and translated all along; nothing ever
+  asked for them, because these two entries are rendered from a lookup table
+  rather than from a call site that could choose a form.
+- The same wording is now used by the two places that render an activity entry —
+  the Activity panel and the summary the assistant reads back through
+  `search_history` — so a count worded one way for the user cannot be worded
+  another way for the model.
+
 ## [0.293.0] - 2026-09-08 "Vandermeer"
 
 ### Added
