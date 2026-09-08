@@ -76,7 +76,7 @@ import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
 import { emptyWorkspace, type Workspace } from "../workspace";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
-import { describeEntityCalls, type EditPlan } from "./plan";
+import { describeEntityCalls, RICH_FIELDS, type EditPlan } from "./plan";
 
 /** A minimal VALID `Task`, mirroring `chat-proposal-apply.test.tsx`'s rule:
  *  every non-optional field of the type and nothing more, so a write is refused
@@ -958,6 +958,79 @@ function sweepPlumbing(entity: InlineEntity): { tool: string; kind: TokenEntity;
   return { tool, kind: source.kind, wsKey: INLINE_DESCRIPTORS[entity].wsKey as WsKey };
 }
 
+/** A key no schema declares. The non-vacuity control: it must be DROPPED on
+ *  every entity. If it lands, that is a finding; if the assertion cannot tell
+ *  "dropped" from "never probed", the sweep proves nothing. */
+const JUNK_KEY = "zzzNotASchemaFieldAnywhere";
+
+/** The fields swept for one entity: what the preview DECLARES, unioned with
+ *  what the writer can actually MOVE.
+ *
+ *  ★★★ `Object.keys(storedRow)` IS THE §418 HALF AND IT IS NOT INTERCHANGEABLE
+ *  WITH THE DESCRIPTOR. Seven of the eight update tools route through
+ *  `patchWithoutId(input, kind)`, whose whole body is `{ ...input }` minus `id`,
+ *  `expectedToken` and `TOKEN_EXCLUDED[kind]` — so the accepted surface is the
+ *  ROW, not the descriptor, and the code never names the fields for a regex to
+ *  find. Only `update_task` has a whitelist (`buildPatch`).
+ *
+ *  ★★ THE GUARD TABLES WOULD HAVE BEEN THE NATURAL SOURCE AND ARE THE WRONG
+ *  ONE. Two of the six are exported now, so availability does not decide it —
+ *  a guard table is one LAYER of the merge, and this sweep exists to see
+ *  divergence at layers a table cannot show. Sourcing the axis from a table
+ *  would narrow the sweep to the thing it is trying to get underneath.
+ *
+ *  ★ Rich fields are excluded: they route through `sanitizeRichText` and are
+ *  swept by `plan.sanitizer-parity.test.ts`, which owns that comparison. `id` is
+ *  excluded because it addresses the row rather than being written to it. */
+function sweptFields(entity: InlineEntity, before: Record<string, unknown>): string[] {
+  const declared = INLINE_DESCRIPTORS[entity].diffFields.filter(
+    (f) => !RICH_FIELDS.has(`${entity}.${f}`),
+  );
+  const stored = Object.keys(before).filter(
+    (f) => f !== "id" && !RICH_FIELDS.has(`${entity}.${f}`),
+  );
+  return [...new Set([...declared, ...stored])];
+}
+
+/** Each entity's axis width AS MEASURED on 2026-09-08, and the floor it must
+ *  hold from now on.
+ *
+ *  ★★★ A RATCHET, NOT A TALLY, AND NOT A FLAT FLOOR. The plan specified one
+ *  global `>= 4`; the eight measured widths are 10 / 14 / 13 / 4 / 9 / 14 / 6 /
+ *  8, so a flat 4 is exactly calibrated for `milestone` and nearly INERT for
+ *  the rest — `raid` and `resource` could each lose ten of their fourteen
+ *  fields and the "anti-vacuity" guard would still be green. A guard that
+ *  cannot fire is the shape this repo has shipped before, and it reads as
+ *  protection while being none.
+ *
+ *  ★★ The ratchet keeps the property a flat floor was reaching for: GROWTH IS
+ *  FREE. A descriptor or a seed row gaining a field raises the real width and
+ *  nothing here objects, so this is not a number that gets "fixed" by lowering
+ *  it on every ordinary change. Only a SHRINKING axis is red — which is the one
+ *  event worth a human look, because a narrowed axis silently un-sweeps fields.
+ *  Lower an entry only alongside the deliberate removal that justifies it.
+ *
+ *  ★ `Record<InlineEntity, number>` is load-bearing: a NEW entity fails tsc here
+ *  until it is given a floor, so it cannot join the sweep unmeasured.
+ *
+ *  ★ Reproduce the real widths rather than trusting these numbers. Do it with a
+ *  temporary `appendFileSync` to a scratch path inside the `it.each` below, run
+ *  it, read the file, then remove the line. NOT with `console.log`: measured
+ *  2026-09-08, a log added there printed NOTHING under
+ *  `npx vitest run --maxWorkers=1 <this file> -t "sweeps a non-empty field axis"`,
+ *  and the cause was never established — so a silent log here reads as a
+ *  measurement that ran and found nothing, which is the wrong answer twice. */
+const AXIS_FLOOR: Record<InlineEntity, number> = {
+  task: 10,
+  raid: 14,
+  change: 13,
+  milestone: 4,
+  stakeholder: 9,
+  resource: 14,
+  absence: 6,
+  calendarEvent: 8,
+};
+
 describe("the sweep's own coverage", () => {
   // ★★ THE ONE MAINTAINED THING IN THE SWEEP, AND ITS GUARD. A new FIELD is
   //  covered the moment it exists, because the axis is derived at runtime. A new
@@ -1022,5 +1095,25 @@ describe("the sweep's own coverage", () => {
       expect(wsKey).toBe(INLINE_DESCRIPTORS[s.entity].wsKey);
       expect(TOKEN_ROW_SOURCE[tool].kind).toBe(kind);
     }
+  });
+
+  // ★★ WHAT THIS FORBIDS IS A SWEEP OVER A STARVED AXIS, which passes
+  //  everything it does not run. The floors are PER ENTITY so one rich entity
+  //  cannot carry a narrowed one, and each is the measured width rather than a
+  //  round number — see `AXIS_FLOOR` for why a flat floor was rejected.
+  it.each(SWEEP)("$entity sweeps a non-empty field axis", ({ entity, id, seed }) => {
+    // `wsKey` is DERIVED — it is not a field on SweepEntity. See sweepPlumbing.
+    const { wsKey } = sweepPlumbing(entity);
+    const ws = { ...emptyWorkspace(), ...seed } as unknown as Workspace;
+    const rows = ws[wsKey] as ReadonlyArray<{ id: number }> | undefined;
+    const before = rows?.find((r) => r.id === id);
+    expect(before, `fixture did not seed ${wsKey} #${id}`).toBeDefined();
+    const fields = sweptFields(entity, before as unknown as Record<string, unknown>);
+    expect(
+      fields.length,
+      `${entity} swept ${fields.length} fields, floor ${AXIS_FLOOR[entity]} — a SHRINKING axis un-sweeps fields silently`,
+    ).toBeGreaterThanOrEqual(AXIS_FLOOR[entity]);
+    expect(fields).not.toContain("id");
+    expect(fields).not.toContain(JUNK_KEY);
   });
 });
