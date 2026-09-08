@@ -46,13 +46,19 @@ anyway, on every switch, because of the count.
 counted header in front leaves block 1 differing per view over a single digit, and buys **nothing**.
 Anyone implementing this must fix the header or the slice is inert while looking complete.
 
-★★ It is also why the existing docs undersell the cost. `BUILTIN_FEATURE_GUIDES` really is 22-of-23
-view-scoped, and that figure is quoted correctly in several places — but `builtinSeeds()` returns
-**24** guides: the leadership guide is added separately, is unscoped, and alone outweighs the entire
-feature-guide corpus roughly 3:1. View scoping therefore saves far less than the 22-of-23 ratio
+★★ It is also why the existing docs undersell the cost, though not for the reason an earlier
+revision of this paragraph gave. `BUILTIN_FEATURE_GUIDES` really is 22-of-23 view-scoped, and that
+figure is quoted correctly in several places — but `builtinSeeds()` returns **24** guides: the
+leadership guide is added separately and is unscoped. It does NOT outweigh the entire feature-guide
+corpus 3:1 — measured 2026-09-09, the 22 view-scoped guides total 28,977 chars against leadership's
+32,989 (plus App overview's 2,799), a ratio of **1.14x**, not 3x. The corpus total is the wrong
+comparison anyway: the corpus is never sent — only ONE view-scoped guide is ever active per
+request — so what actually matters is that leadership alone dwarfs the single active view guide on
+every request (~8x the largest one, 4,103 chars). That leadership and the corpus are comparable IN
+TOTAL (1.14x) is precisely why view scoping saves far less than the 22-of-23 guide-count ratio
 suggests. Reproduce:
-`npx vite-node` a script importing `builtinSeeds` and summing `content.length` grouped on
-`scope.views == null`.
+`npx vite-node` a script importing `builtinSeeds` from `use-operating-guides` and summing
+`content.length` grouped on whether `scope.views` is empty-or-absent.
 
 ## Approach
 
@@ -74,8 +80,10 @@ maximum. This slice **spends none**: the system marker moves from the end of one
 the first of two. That is the property that makes this approach cheap, and any variant that wants a
 marker on block 2 as well must first free one — which is a different design (see slice G2).
 
-Block 2 is still cached, by the message-level breakpoints whose prefix contains it. It simply has no
-read point of its own.
+Block 2 still sits inside whatever a LATER marker covers, so it is not necessarily uncached, merely
+never the boundary of a cache lookup by itself — whether it actually lands inside a message-level
+cache segment depends on where `chat-cache-layout.ts` places its two breakpoints, which is not
+guaranteed. It simply has no read point of its own.
 
 ### The header, restated as a requirement
 

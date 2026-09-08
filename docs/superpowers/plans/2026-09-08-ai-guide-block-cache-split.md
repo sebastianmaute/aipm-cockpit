@@ -538,15 +538,24 @@ Add to the cache-boundary section of `docs/AGENTS/ai-assistant.md`, adjacent to 
 ```markdown
   ★★★ **`buildStableSystemBlocks` RETURNS TWO BLOCKS AND ONLY THE FIRST CARRIES A MARKER.** Block 0
   is the instructions plus every always-on guide; block 1 is the current view's guide alone. The
-  split exists because the guide payload is dominated by content that does NOT vary by view — the
-  leadership guide is unscoped and roughly 3x the whole feature-guide corpus — while
-  `assembleGuideBlocks`' predecessor put a varying guide COUNT in a single shared header ahead of
+  split exists because the guide payload is dominated by content that does NOT vary by view — and
+  the comparison that matters is per-REQUEST, never against the whole feature-guide corpus, because
+  only ONE view-scoped guide is ever active at a time: the unscoped leadership guide alone runs
+  ~8x the largest single view guide, even though the 22 view-scoped guides are comparable to
+  leadership IN TOTAL (1.14x) — which is exactly why view scoping saves far less than the 22-of-23
+  guide-count ratio suggests. Measured 2026-09-09 via a `vite-node` script importing `builtinSeeds`
+  from `use-operating-guides` and summing `content.length` grouped on whether `scope.views` is
+  empty-or-absent: always-on (leadership + App overview) = 35,788 chars ≈ 9.9k tokens; the 22
+  view-scoped guides total 28,977 chars, largest single guide 4,103 chars — re-run rather than trust
+  these numbers. Meanwhile `assembleGuideBlocks`' predecessor put a varying guide COUNT in a single
+  shared header ahead of
   all of it, so a view switch re-wrote ~9.9k tokens of byte-identical text at 1.25x. Measured before
   the change: the longest common prefix of the assembled block across the 34 nav-reachable views
   (of 35 `AppView` members — `learning-insights` is deep-link-only) was 9 characters.
   ★★ Block 1 has no marker ON PURPOSE — all four breakpoints are already committed (tools 1,
-  system 1, messages 2) — and it is cached anyway by the message-level breakpoints whose prefix
-  contains it. Adding a fifth is an API error, not a silent no-op.
+  system 1, messages 2) — and it still sits inside whatever a LATER marker covers, so it is not
+  necessarily uncached, merely never the boundary of a cache lookup by itself. Adding a fifth is an
+  API error, not a silent no-op.
   ★★ THE HISTORY IS STILL RE-WRITTEN ON A VIEW SWITCH, because block 1 precedes the messages in the
   prefix. That is this slice's ceiling, not an oversight; the successor that removes it (moving the
   view-scoped guide onto the turn tail) is slice G2 in

@@ -1130,9 +1130,17 @@
   estimate, not a measurement.
   ★★★ **`buildStableSystemBlocks` RETURNS TWO BLOCKS AND ONLY THE FIRST CARRIES A MARKER.** Block 0
   is the instructions plus every always-on guide; block 1 is the current view's guides alone. The
-  split exists because the guide payload is dominated by content that does NOT vary by view — the
-  leadership guide is unscoped and roughly 3x the whole feature-guide corpus — while
-  `assembleGuideBlocks`' predecessor put a varying guide COUNT in a single shared header ahead of
+  split exists because the guide payload is dominated by content that does NOT vary by view — and
+  the comparison that matters is per-REQUEST, never against the whole feature-guide corpus, because
+  only ONE view-scoped guide is ever active at a time: the unscoped leadership guide alone runs
+  ~8x the largest single view guide, even though the 22 view-scoped guides are comparable to
+  leadership IN TOTAL (1.14x) — which is exactly why view scoping saves far less than the 22-of-23
+  guide-count ratio below suggests. Measured 2026-09-09 via a `vite-node` script importing
+  `builtinSeeds` from `use-operating-guides` and summing `content.length` grouped on whether
+  `scope.views` is empty-or-absent: always-on (leadership + App overview) = 35,788 chars ≈ 9.9k
+  tokens; the 22 view-scoped guides total 28,977 chars, largest single guide 4,103 chars — re-run
+  rather than trust these numbers. Meanwhile `assembleGuideBlocks`' predecessor put a varying guide
+  COUNT in a single shared header ahead of
   all of it, so a view switch re-wrote ~9.9k tokens of byte-identical text at 1.25x. Measured before
   the change: the longest common prefix of the assembled block across all 34 nav-reachable views was
   9 characters (`AppView` has 35 members; `learning-insights` is deep-link-only and was not probed —
@@ -1170,8 +1178,10 @@
   answer-quality eval (see that bullet above for what "gated" means in practice). The tradeoff this
   bullet used to pose as unresolved — cheap for a user who never switches views mid-conversation vs.
   fresh-every-send for everyone — is G2's to weigh, not a guess to make here. Settle it with the usage
-  meter below (cache-write volume vs view-switch frequency); recorded as an open follow-up alongside
-  the measurement that would close it.
+  meter below (cache-write volume vs view-switch frequency) — that measurement is what slice G2
+  (named above) needs before it can be built, not a separate `docs/open-followups.md` entry; none
+  exists for this and none should be minted on a branch (a follow-up number is reserved only once
+  merged to `origin/main`).
   ★★ **A head-trim of history would destroy the whole property.** Dropping the oldest turns changes the
   first message, invalidating the entire prefix on every send and paying a cache WRITE (1.25×) each
   time — worse than not caching at all. Any future history budget must be coarse and hysteretic;
