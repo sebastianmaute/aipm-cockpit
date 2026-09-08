@@ -215,15 +215,31 @@ describe("plural key pairing", () => {
     expect(callForm(probeKey).test(`const s = t(lang, "${probeKey}", n);`)).toBe(true);
     expect(callForm(probeKey).test(`const K = { a: "${probeKey}" } as const;`)).toBe(false);
 
-    // ★★★ PRECOMPUTED PER BASE, NOT PER LINE. The scan is O(files x lines x
-    // bases) — ~500 files against ~40 bases — and building the RegExp and the
-    // quoted needle inside the innermost loop made that ~4M RegExp
-    // constructions per run. It cost the test roughly its whole budget: it
-    // passed in isolation (~7s) and TIMED OUT at the 20s ceiling under
-    // full-suite parallel load, on two consecutive runs, which reads as a
-    // flake and is not one. Hoisting both out of the loop changes no
-    // behaviour — same matchers, same inputs — and the positive controls above
-    // still prove each matcher can fire. Do not inline these back.
+    // ★★★ PRECOMPUTED PER BASE, NOT PER LINE — AND INLINING THIS BACK INTO THE
+    // LOOP REINTRODUCES A TIMEOUT, not merely a slower test. The scan is
+    // O(files x lines x bases): ~500 source files against ~40 paired bases, so
+    // constructing the RegExp and the quoted needle inside the innermost loop
+    // cost on the order of FOUR MILLION `new RegExp` calls per run. That ate
+    // most of the 20s budget. MEASURED on 2026-09-08, in isolation:
+    //   before  tests 6.58s  (total 7.81s)
+    //   after   tests 1.42s  (total 2.99s)
+    // Reproduce either number with:
+    //   npx vitest run src/app/i18n-plural.test.ts --reporter=dot
+    // and read the `Duration` line's `tests` figure.
+    // ★★ IT READ AS A FLAKE AND WAS NOT ONE. Before the hoist this test hit
+    // `Test timed out in 20000ms` on THREE consecutive full-suite runs — twice
+    // under `test:run`, once under `test:shuffle` — while passing in isolation
+    // every time. Two of those three runs had nothing else competing for the
+    // machine, which is what rules out contention: ~4M constructions is a
+    // CAUSE, not a load symptom, and a faster runner only moves it back under
+    // the line rather than removing it. A timeout also prints no assertion
+    // text, so it reads like a broken suite rather than a slow one.
+    // ★★ Hoisting changes no behaviour — same regexes, same needles, same
+    // inputs — and the positive controls above still prove each matcher can
+    // fire. That pairing is load-bearing: a hoist that quietly stopped the
+    // scan matching would be strictly worse than the timeout it fixes, so it
+    // was mutation-proved by injecting `t(lang, "bulkEditTitle", n)` into a
+    // source file and confirming this test goes red naming that file and line.
     const matchers = bases.map((b) => ({ base: b, needle: `"${b}"`, re: callForm(b) }));
 
     const bareOffenders = new Map<string, string[]>();
