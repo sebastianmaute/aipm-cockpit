@@ -2,7 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type ReactNode } from "react";
-import { AiUsageProvider, useAiUsageContext } from "./ai-usage-context";
+import { AI_USAGE_KEY, AiUsageProvider, useAiUsageContext } from "./ai-usage-context";
 import { defaultAiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
 import { t } from "./i18n";
@@ -42,11 +42,33 @@ describe("AiUsageProvider", () => {
     await act(async () => {});
 
     act(() => {
-      result.current.record({ input: 100, output: 50 });
+      result.current.record({ input: 100, output: 50, cacheWrite: 0, cacheRead: 0 });
     });
 
     expect(result.current.sessionTotal).toBe(150);
     expect(result.current.weekTotal).toBe(150);
+  });
+
+  it("normalises a pre-0.294 stored blob instead of casting it", async () => {
+    // A blob written before the cache-token widening carries only
+    // input/output — loadBuckets must normalise it field-wise rather than
+    // casting, or a later NaN-widening in weekToDate silently disables the
+    // weekly cap (crossed80/crossed100 are permanently false against NaN).
+    localStorage.setItem(
+      AI_USAGE_KEY,
+      JSON.stringify({ "2026-09-08": { input: 100, output: 50 } }),
+    );
+    const { result } = renderHook(() => useAiUsageContext(), {
+      wrapper: makeWrapper(vi.fn()),
+    });
+    await act(async () => {});
+
+    // Reading must not yield undefined fields downstream: record then read back.
+    act(() => {
+      result.current.record({ input: 0, output: 0, cacheWrite: 0, cacheRead: 0 });
+    });
+
+    expect(Number.isNaN(result.current.weekTotal)).toBe(false);
   });
 
   it("multiplies counted tokens by tokenMultiplier (5) toward sessionTotal", async () => {
@@ -61,7 +83,7 @@ describe("AiUsageProvider", () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
-    act(() => { result.current.record({ input: 100, output: 100 }); });
+    act(() => { result.current.record({ input: 100, output: 100, cacheWrite: 0, cacheRead: 0 }); });
 
     // The multiplier applies to BOTH the session total AND the weekly buckets,
     // so the two caps are compared against the same (multiplied) scale.
@@ -81,9 +103,28 @@ describe("AiUsageProvider", () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
-    act(() => { result.current.record({ input: 100, output: 100 }); });
+    act(() => { result.current.record({ input: 100, output: 100, cacheWrite: 0, cacheRead: 0 }); });
 
     expect(result.current.sessionTotal).toBe(200);
+  });
+
+  it("applies tokenMultiplier to the cache fields exactly as to input and output", async () => {
+    const ai = { ...defaultAiConfig, tokenMultiplier: 2 };
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <AiUsageProvider lang="en-US" ai={ai} showToast={vi.fn()}>
+          {children}
+        </AiUsageProvider>
+      );
+    }
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    await act(async () => {});
+
+    act(() => {
+      result.current.record({ input: 1, output: 1, cacheWrite: 1, cacheRead: 1 });
+    });
+
+    expect(result.current.sessionTotal).toBe(8); // 4 fields x 1 token x 2
   });
 
   it("fires showToast once when session usage crosses 80 % of sessionTokenCap", async () => {
@@ -105,7 +146,7 @@ describe("AiUsageProvider", () => {
     await act(async () => {});
 
     act(() => {
-      result.current.record({ input: 900, output: 0 });
+      result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
     });
 
     expect(showToast).toHaveBeenCalledTimes(1);
@@ -130,9 +171,9 @@ describe("AiUsageProvider", () => {
     await act(async () => {});
 
     // First record crosses 80 %.
-    act(() => { result.current.record({ input: 900, output: 0 }); });
+    act(() => { result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 }); });
     // Second record stays above 80 %.
-    act(() => { result.current.record({ input: 50, output: 0 }); });
+    act(() => { result.current.record({ input: 50, output: 0, cacheWrite: 0, cacheRead: 0 }); });
 
     expect(showToast).toHaveBeenCalledTimes(1);
   });
@@ -159,7 +200,7 @@ describe("AiUsageProvider", () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
-    act(() => { result.current.record({ input: 900, output: 0 }); });
+    act(() => { result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 }); });
 
     expect(showToast).toHaveBeenCalledTimes(1);
   });
@@ -183,11 +224,11 @@ describe("AiUsageProvider", () => {
     const selfLimitText = t("en-US", "aiSelfLimitReached");
 
     // 850 crosses 80 % (fires usage80Toast) but NOT 100 %.
-    act(() => { result.current.record({ input: 850, output: 0 }); });
+    act(() => { result.current.record({ input: 850, output: 0, cacheWrite: 0, cacheRead: 0 }); });
     expect(showToast.mock.calls.some((c) => c[1] === selfLimitText)).toBe(false);
 
     // 850 + 200 = 1050 crosses 100 % → the self-limit notice fires once.
-    act(() => { result.current.record({ input: 200, output: 0 }); });
+    act(() => { result.current.record({ input: 200, output: 0, cacheWrite: 0, cacheRead: 0 }); });
     const afterCross = showToast.mock.calls.filter((c) => c[1] === selfLimitText).length;
     expect(afterCross).toBe(1);
 
@@ -195,7 +236,7 @@ describe("AiUsageProvider", () => {
     expect(result.current.sessionTotal).toBe(1050);
 
     // A further record above 100 % does NOT re-fire the notice.
-    act(() => { result.current.record({ input: 100, output: 0 }); });
+    act(() => { result.current.record({ input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
     expect(showToast.mock.calls.filter((c) => c[1] === selfLimitText).length).toBe(1);
     expect(result.current.sessionTotal).toBe(1150);
   });
@@ -206,9 +247,9 @@ describe("AiUsageProvider", () => {
     });
     await act(async () => {});
 
-    act(() => { result.current.record({ input: 300, output: 100 }); });
+    act(() => { result.current.record({ input: 300, output: 100, cacheWrite: 0, cacheRead: 0 }); });
 
-    const raw = localStorage.getItem("aipm-cockpit:ai-usage");
+    const raw = localStorage.getItem(AI_USAGE_KEY);
     expect(raw).not.toBeNull();
     const buckets = JSON.parse(raw!) as Record<string, { input: number; output: number }>;
     const values = Object.values(buckets);
