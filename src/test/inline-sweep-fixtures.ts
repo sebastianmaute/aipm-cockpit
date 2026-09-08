@@ -28,6 +28,8 @@ import { INLINE_DESCRIPTORS, type InlineEntity } from "../app/inline-ai-edit/ent
 import { RICH_FIELDS } from "../app/inline-ai-edit/plan";
 import { type TestSeed } from "../app/test-providers";
 import { type Absence, type ChangeItem, DEFAULT_TASK_STATUS, type Milestone, type RaidItem, type Resource, type Stakeholder, type Task } from "../app/types";
+import { type useWorkspace } from "../app/workspace-context";
+import { emptyWorkspace, type Workspace } from "../app/workspace";
 
 /** A minimal VALID `Task`, mirroring `chat-proposal-apply.test.tsx`'s rule:
  *  every non-optional field of the type and nothing more, so a write is refused
@@ -396,6 +398,59 @@ export function seedResource(over: Partial<Resource> = {}): Resource {
 export type WsKey = "tasks" | "raid" | "resources" | "changes" | "milestones" | "stakeholders" | "absences" | "calendarEvents";
 
 export type Row = Record<string, unknown> & { id: number };
+
+/** The live provider state as a `Workspace`, which is what `describeEntityCalls`
+ *  takes. Read from `useWorkspace()` rather than rebuilt from the seed on
+ *  purpose: a mirror fixture can drift from what the provider holds, and a
+ *  preview grounded against a drifted workspace is not the preview production
+ *  would render.
+ *
+ *  ★★★ IT LIVES HERE BECAUSE THE DRIFT IT WOULD SUFFER AS TWO COPIES IS SILENT
+ *  IN THE PASSING DIRECTION, which is the only reason a shared helper is worth
+ *  the indirection. It was duplicated in `plan.write-path.test.ts` and
+ *  `plan.write-path-sweep.test.ts` — forced at the time, because a test file
+ *  importing another test file re-registers that file's `describe`s and every
+ *  case runs a second time under the wrong name. This function ENUMERATES the
+ *  workspace slices, so a slice added to one copy and not the other leaves the
+ *  other suite previewing against a workspace MISSING it. That does not surface
+ *  as an error: it surfaces as "the preview disclosed nothing", i.e. as a parity
+ *  FINDING — a fabricated defect in production code, produced by a fixture. A
+ *  reader would go looking in the write path, which is exactly where it is not.
+ *
+ *  ★★ THE ABSENT SLICE IS CARRIED THROUGH AS ABSENT. `calendarEvents` is
+ *  `readonly CalendarEvent[] | undefined` and `undefined` means "the slice is
+ *  not there", never "there are no meetings" — copying it as `[]` would hand
+ *  `describeEntityCalls` a workspace claiming a presence the provider does not,
+ *  which is the very distinction the calendar write path holds.
+ *
+ *  ★ A NEW SLICE BELONGS HERE, in this one body. That is the whole point of the
+ *  move; do not reintroduce a local copy in either suite. */
+export function snapshot(ws: ReturnType<typeof useWorkspace>): Workspace {
+  return {
+    ...emptyWorkspace(),
+    tasks: [...ws.tasks],
+    raid: [...ws.raid],
+    resources: [...ws.resources],
+    roles: [...ws.roles],
+    disciplines: [...ws.disciplines],
+    grades: [...ws.grades],
+    stakeholders: [...ws.stakeholders],
+    milestones: [...ws.milestones],
+    changes: [...ws.changes],
+    absences: [...ws.absences],
+    calendarEvents: ws.calendarEvents ? [...ws.calendarEvents] : undefined,
+  };
+}
+
+/** Structural equality by JSON, shared by both write-path suites for the same
+ *  reason `snapshot` is: it was a duplicated one-liner, and a one-liner that
+ *  drifts is harder to notice than a block that does.
+ *
+ *  ★ `JSON.stringify` is key-ORDER sensitive, which is sound for these callers
+ *  and would not be in general: every comparison here is a field's value against
+ *  the same field read back through one sanitizer, not two independently-built
+ *  objects. */
+export const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 // --- the mechanical sweep's own fixture -------------------------------------
 

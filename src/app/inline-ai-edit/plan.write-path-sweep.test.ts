@@ -41,6 +41,8 @@ import {
   AXIS_FIELDS,
   JUNK_KEY,
   type Row,
+  same,
+  snapshot,
   SWEEP,
   type SweepEntity,
   sweepPlumbing,
@@ -182,48 +184,6 @@ describe("the sweep's own coverage", () => {
 });
 
 // --- the probe layer --------------------------------------------------------
-
-/** The live provider state as a `Workspace`, which is what `describeEntityCalls`
- *  takes. Read from `useWorkspace()` rather than rebuilt from the seed on
- *  purpose: a mirror fixture can drift from what the provider holds, and a
- *  preview grounded against a drifted workspace is not the preview production
- *  would render.
- *
- *  ★★ A COPY OF THE HELPER OF THE SAME NAME IN `plan.write-path.test.ts`, and
- *  the duplication is forced rather than chosen: a test file importing another
- *  test file re-registers that file's `describe`s, so every one of its cases
- *  would run a second time under this file's name. The two copies CAN drift, and
- *  the drift is silent in the dangerous direction — a workspace slice added
- *  there and not here leaves this sweep previewing against a workspace missing
- *  it, which reads as "the preview disclosed nothing" rather than as an error.
- *  The real fix is to move it into `src/test/inline-sweep-fixtures.ts` and
- *  delete both copies; that touches the sibling file, so it is left for whoever
- *  next has both open.
- *
- *  ★★ THE ABSENT SLICE IS CARRIED THROUGH AS ABSENT. `calendarEvents` is
- *  `readonly CalendarEvent[] | undefined` and `undefined` means "the slice is
- *  not there", never "there are no meetings" — copying it as `[]` would hand
- *  `describeEntityCalls` a workspace claiming a presence the provider does not,
- *  which is the very distinction the calendar write path holds. */
-function snapshot(ws: ReturnType<typeof useWorkspace>): Workspace {
-  return {
-    ...emptyWorkspace(),
-    tasks: [...ws.tasks],
-    raid: [...ws.raid],
-    resources: [...ws.resources],
-    roles: [...ws.roles],
-    disciplines: [...ws.disciplines],
-    grades: [...ws.grades],
-    stakeholders: [...ws.stakeholders],
-    milestones: [...ws.milestones],
-    changes: [...ws.changes],
-    absences: [...ws.absences],
-    calendarEvents: ws.calendarEvents ? [...ws.calendarEvents] : undefined,
-  };
-}
-
-/** Copied from `plan.write-path.test.ts` for the same reason as `snapshot`. */
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /** The seeded row exactly as the fixture LITERAL declares it — before any
  *  sanitizer has touched it.
@@ -417,6 +377,58 @@ describe("the probe layer", () => {
     );
   });
 
+  // ★★★ THE ONE PROBE VALUE IN THIS FILE WITH A REAL-WORLD SIDE EFFECT, AND THE
+  //  ASSERTION THAT KEEPS IT UNSENT. `calendarEvent.sendInvitations` is a LIVE
+  //  target of the replay loop below: it is NOT token-excluded
+  //  (`TOKEN_EXCLUDED.calendarEvent` is `localModifiedAt` and `outlookEventId`
+  //  only) and `CALENDAR_EVENT_FIELD_GUARDS` actively accepts it, so that loop's
+  //  skip does not cover it. A strict `true` is what trips `shouldStage` in
+  //  `chat-proposal.ts`, which in production mails the attendees. Whether a
+  //  unit-test replay can actually send that mail has NEVER BEEN ESTABLISHED —
+  //  it is UNKNOWN, not known-safe, and this guard exists because the difference
+  //  is not worth finding out by accident.
+  //
+  //  ★★★ IT WAS CONTINGENT ON A SEED VALUE AND IS NOW ENFORCED, which is the
+  //   whole reason this test exists rather than a comment. `probesFor` derives
+  //   the boolean branch as `!current`, and `seedGuardedCalendarEvent` happens to
+  //   hold `sendInvitations: true` — so the probe is `false` and the wrong-type
+  //   probe is the string `"yes"`, which the guard rejects. Flip that seed to
+  //   `false` and the same loop drives `true` through the real dispatcher. That
+  //   is a one-token edit in another file, made for reasons having nothing to do
+  //   with mail, and nothing would have gone red.
+  //
+  //  ★★ IT IS SITED OUTSIDE THE REPLAY LOOP DELIBERATELY. That loop `break`s at
+  //   the first field that moves, so on a good day it never reaches this field
+  //   at all — a guard placed inside it would protect only the runs that did not
+  //   need protecting.
+  //
+  //  ★ Do NOT make a red run here green by narrowing `probesFor` for this field.
+  //   That un-sweeps it, trading a loud question for a silent hole. Settle the
+  //   mail question instead.
+  it("no probe drives calendarEvent.sendInvitations true — the one write that leaves the building", () => {
+    const s = SWEEP.find((e) => e.entity === "calendarEvent");
+    if (!s) throw new Error("the sweep no longer carries a calendarEvent entity, so this guard protects nothing");
+    const row = seedRowOf(s);
+    // Non-vacuity: the guard means something only while the field is still on
+    // the axis the replay loop walks. A field that left the axis is the event
+    // worth a human look, so it is RED here rather than quietly unguarded.
+    expect(
+      sweptFields("calendarEvent", row),
+      "`sendInvitations` left the swept axis — either it is genuinely unwritable now, or the axis narrowed and this guard has gone vacuous",
+    ).toContain("sendInvitations");
+    const drives = probesFor(row.sendInvitations)
+      .filter((p) => p.value === true)
+      .map((p) => p.label);
+    expect(
+      drives,
+      `a probe would drive calendarEvent.sendInvitations TRUE through the real dispatcher (${drives.join(", ")}). ` +
+        "That is the one write in this file with a real-world side effect — `true` trips `shouldStage` and mails the " +
+        "attendees in production — and whether a unit-test replay can send that mail has never been established. " +
+        "The safety was previously CONTINGENT on `seedGuardedCalendarEvent` holding `true` rather than enforced, " +
+        "which is what this assertion replaced; if that seed just changed, that is why you are reading this.",
+    ).toEqual([]);
+  });
+
   // ★★★ THE FLOOR THE WHOLE SWEEP RESTS ON. Everything Task 5 relates —
   //  "previewed ⇒ stored", "rejected ⇒ unchanged" — is satisfied by a replay
   //  that writes NOTHING. A missing `expectedToken`, a renamed tool, a wrapper
@@ -434,19 +446,14 @@ describe("the probe layer", () => {
   //   all eight entities and this floor would certify a sweep that writes
   //   nothing, which is precisely the failure it exists to prevent.
   //
-  //  ★★★ `calendarEvent.sendInvitations` IS A LIVE PROBE TARGET, AND IT IS THE
-  //   ONE FIELD IN THIS LOOP WITH A REAL-WORLD SIDE EFFECT. It is NOT
-  //   token-excluded — `TOKEN_EXCLUDED.calendarEvent` is `localModifiedAt` and
-  //   `outlookEventId` only, and `CALENDAR_EVENT_FIELD_GUARDS` actively accepts
-  //   it — so the skip above does not cover it. A strict `true` is what trips
-  //   `shouldStage`, and whether a unit-test replay can actually send mail is
-  //   recorded as UNVERIFIED in this slice's plan.
-  //   Nothing here drives `true` today, and that is CONTINGENT rather than
-  //   guarded: the seed holds `true`, so the boolean branch's `!current` sends
-  //   `false`, and the wrong-type probe is the string `"yes"`, which the guard
-  //   rejects. FLIP THAT SEED TO `false` AND THIS LOOP DRIVES `true` THROUGH THE
-  //   REAL DISPATCHER. Settle the mail question before doing so — and do not
-  //   narrow the probe to dodge it, which would un-sweep the field instead.
+  //  ★★★ `calendarEvent.sendInvitations` IS A LIVE PROBE TARGET OF THIS LOOP,
+  //   AND IT IS THE ONE FIELD HERE WITH A REAL-WORLD SIDE EFFECT — the skip
+  //   above does not cover it. What keeps this loop from driving the mailing
+  //   value is the test IMMEDIATELY ABOVE ("no probe drives
+  //   calendarEvent.sendInvitations true"), not anything in this block and no
+  //   longer a seed value that happens to cooperate. Read that test's comment
+  //   before changing `probesFor`, this loop's field order, or the calendar
+  //   seed.
   //
   //  ★★ THE JUNK-KEY HALF IS AN ABSENCE CLAIM AND IS DELIBERATELY IN THE SAME
   //   TEST AS THE POSITIVE ONE. "a key no schema declares never lands" passes

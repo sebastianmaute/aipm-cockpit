@@ -74,6 +74,7 @@ import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispa
 import {
   LINKED_TASKS,
   type Row,
+  same,
   seedGuardedAbsence,
   seedGuardedCalendarEvent,
   seedGuardedChange,
@@ -83,6 +84,7 @@ import {
   seedRaid,
   seedResource,
   seedTask,
+  snapshot,
   type WsKey,
 } from "../../test/inline-sweep-fixtures";
 import { entityToken, type TokenEntity } from "../ai-entity-token";
@@ -92,7 +94,7 @@ import { type TestSeed } from "../test-providers";
 import { type Task } from "../types";
 import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
-import { emptyWorkspace, type Workspace } from "../workspace";
+import { type Workspace } from "../workspace";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import { describeEntityCalls, type EditPlan } from "./plan";
 
@@ -435,33 +437,6 @@ const CASES: WriteCase[] = [
   },
 ];
 
-/** The live provider state as a `Workspace`, which is what `describeEntityCalls`
- *  takes. Read from `useWorkspace()` rather than rebuilt from the seed on
- *  purpose: a mirror fixture can drift from what the provider holds, and a
- *  preview grounded against a drifted workspace is not the preview production
- *  would render. */
-function snapshot(ws: ReturnType<typeof useWorkspace>): Workspace {
-  return {
-    ...emptyWorkspace(),
-    tasks: [...ws.tasks],
-    raid: [...ws.raid],
-    resources: [...ws.resources],
-    roles: [...ws.roles],
-    disciplines: [...ws.disciplines],
-    grades: [...ws.grades],
-    stakeholders: [...ws.stakeholders],
-    milestones: [...ws.milestones],
-    changes: [...ws.changes],
-    absences: [...ws.absences],
-    // ★★ THE ABSENT SLICE IS CARRIED THROUGH AS ABSENT. `calendarEvents` is
-    // `readonly CalendarEvent[] | undefined` and `undefined` means "the slice
-    // is not there", never "there are no meetings" — copying it as `[]` would
-    // hand `describeEntityCalls` a workspace claiming a presence the provider
-    // does not, which is the very distinction the calendar write path holds.
-    calendarEvents: ws.calendarEvents ? [...ws.calendarEvents] : undefined,
-  };
-}
-
 function rowOf(ws: Workspace, c: WriteCase): Row {
   // `| undefined` because `calendarEvents` is an OPTIONAL slice: an unseeded
   // one is absent rather than empty, and `rows?.find` turns that into the same
@@ -517,8 +492,6 @@ function rejectedFields(plan: EditPlan): string[] {
     return eq <= 0 ? [] : r.detail.slice(0, eq).split("+");
   });
 }
-
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 beforeEach(() => {
   // The minter is module-scoped; nothing here creates, but resetting keeps this
