@@ -706,13 +706,24 @@ describe("buildSystemPrompt app-context + guides", () => {
 
   it("caches the stable prefix (incl. guide) and leaves volatile state uncached", () => {
     const blocks = buildSystemPrompt("en-US", snap, [guide], true, {});
-    // Block 0 = cached stable prefix, contains the guide text.
+    // Three blocks: [0] cached always-on stable prefix, [1] uncached
+    // view-scoped guide half, [2] uncached volatile turn-context suffix. This
+    // assertion must go red if the split collapses back to two blocks.
+    expect(blocks).toHaveLength(3);
+    // Block 0 = cached stable prefix, contains the guide text (`guide` here
+    // has `scope: {}`, i.e. it is always-on).
     expect(blocks[0].cache_control?.type).toBe("ephemeral");
     expect(blocks[0].text).toContain("Be decisive.");
-    // Block 1 = uncached volatile suffix, contains the APP CONTEXT + state.
+    // Block 1 = the view-scoped guide half. `guide` is always-on for this
+    // fixture, so nothing is view-scoped and this block is empty — assert
+    // that positively rather than skipping it, so a guide silently leaking
+    // into the wrong half would be caught.
     expect(blocks[1].cache_control).toBeUndefined();
-    expect(blocks[1].text).toContain("APP CONTEXT");
-    expect(blocks[1].text).toContain("Current view: milestones");
+    expect(blocks[1].text).toBe("");
+    // Block 2 = uncached volatile suffix, contains the APP CONTEXT + state.
+    expect(blocks[2].cache_control).toBeUndefined();
+    expect(blocks[2].text).toContain("APP CONTEXT");
+    expect(blocks[2].text).toContain("Current view: milestones");
   });
 });
 

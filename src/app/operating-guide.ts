@@ -51,7 +51,8 @@ export function selectActiveGuides(
  *  both — a guide scoped `views: []` really does apply everywhere, and
  *  misfiling it as view-scoped moves ~KB of stable text into the half that
  *  changes on navigation, silently costing the cache hit this split exists to
- *  protect. Pinned by "treats an EMPTY views list as always-on". */
+ *  protect. Pinned by "treats an EMPTY views list as always-on, not
+ *  view-scoped". */
 function isAlwaysOn(g: OperatingGuide): boolean {
   return !g.scope.views || g.scope.views.length === 0;
 }
@@ -78,6 +79,14 @@ function guideParts(guides: readonly OperatingGuide[], startIndex: number): stri
   );
 }
 
+/** "operating guide" pluralised on `count`, with no i18n dependency (this file
+ *  stays i18n-free by contract). Extracted because the three header strings
+ *  below spelled the same ternary independently — nothing enforced them
+ *  staying consistent. */
+function pluralGuideWord(count: number): string {
+  return count === 1 ? "operating guide" : "operating guides";
+}
+
 /** Assemble the active guides as TWO prompt segments.
  *
  *  ★★★ THE ALWAYS-ON HEADER COUNTS ONLY THE ALWAYS-ON GUIDES, and that is the
@@ -86,7 +95,11 @@ function guideParts(guides: readonly OperatingGuide[], startIndex: number): stri
  *  2 to 3 to 4 as the user navigated — putting a varying digit ahead of ~9.9k
  *  tokens of identical text and breaking the cache prefix on every view
  *  switch. Measured before this change: the longest common prefix of the
- *  assembled block across all 34 views was 9 characters.
+ *  assembled block across the 34 nav-reachable views (of 35 `AppView`
+ *  members — `learning-insights` is deep-link-only) was 9 characters.
+ *  Including it could not have raised that figure: a common prefix only
+ *  shrinks as strings are added, and 9 (`"You have "`) is already the floor
+ *  once the digit varies.
  *
  *  Numbering continues across the two segments so they cannot disagree about
  *  which guide is "GUIDE 3". */
@@ -100,7 +113,7 @@ export function assembleGuideBlocks(active: readonly OperatingGuide[]): {
     alwaysOn.length === 0
       ? ""
       : [
-          `You have ${alwaysOn.length} operating guide${alwaysOn.length === 1 ? "" : "s"} that apply on every screen, in priority order. ${CONFLICT_RULE}`,
+          `You have ${alwaysOn.length} ${pluralGuideWord(alwaysOn.length)} that apply on every screen, in priority order. ${CONFLICT_RULE}`,
           ...guideParts(alwaysOn, 1),
         ].join("\n\n");
 
@@ -109,8 +122,8 @@ export function assembleGuideBlocks(active: readonly OperatingGuide[]): {
   // to the plain header and numbers from 1.
   const viewHeader =
     alwaysOn.length === 0
-      ? `You have ${viewScoped.length} operating guide${viewScoped.length === 1 ? "" : "s"}, in priority order. ${CONFLICT_RULE}`
-      : `${viewScoped.length} additional operating guide${viewScoped.length === 1 ? "" : "s"} apply to the current screen, continuing the same priority order.`;
+      ? `You have ${viewScoped.length} ${pluralGuideWord(viewScoped.length)}, in priority order. ${CONFLICT_RULE}`
+      : `${viewScoped.length} additional ${pluralGuideWord(viewScoped.length)} apply to the current screen, continuing the same priority order.`;
 
   const viewScopedText =
     viewScoped.length === 0

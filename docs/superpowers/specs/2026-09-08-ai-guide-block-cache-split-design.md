@@ -35,9 +35,12 @@ So a request carries roughly **23k tokens of fixed prefix**, of which the guide 
 view.** Because the prompt cache matches a byte-identical prefix from the start, that digit sits
 ahead of everything and invalidates all of it.
 
-**Measured: the longest common prefix of the assembled guide block across all 34 views is 9
-characters** (`"You have "`). The ~9.9k tokens of always-on guide text below it are byte-identical
-on every view and are re-written at 1.25× anyway, on every switch, because of the count.
+**Measured: the longest common prefix of the assembled guide block across the 34 nav-reachable
+views is 9 characters** (`"You have "`). (`AppView` has 35 members; `learning-insights` is
+deep-link-only and unreachable from the nav tree, so it was not probed — including it could not
+have raised the figure, since a common prefix only shrinks as strings are added.) The ~9.9k tokens
+of always-on guide text below it are byte-identical on every view and are re-written at 1.25×
+anyway, on every switch, because of the count.
 
 ★★★ This is why the split alone is not the fix. Partitioning the array while leaving one shared
 counted header in front leaves block 1 differing per view over a single digit, and buys **nothing**.

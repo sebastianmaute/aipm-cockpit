@@ -107,6 +107,20 @@ describe("assembleGuideBlocks", () => {
     expect(r.viewScoped).toContain("You have 1 operating guide");
     expect(r.viewScoped).not.toContain("additional");
   });
+
+  // ★ The path where `viewHeader` is computed and then discarded: with zero
+  //   view-scoped guides, `viewScopedText` short-circuits to "" regardless of
+  //   what `viewHeader` says.
+  it("leaves viewScoped empty and numbers both always-on guides when nothing is view-scoped", () => {
+    const r = assembleGuideBlocks([
+      base({ id: "a", name: "Always A", content: "AAA", scope: {} }),
+      base({ id: "b", name: "Always B", content: "BBB", scope: {} }),
+    ]);
+    expect(r.viewScoped).toBe("");
+    expect(r.alwaysOn).toContain("You have 2 operating guides");
+    expect(r.alwaysOn).toContain('=== GUIDE 1 (priority 10) — "Always A" ===');
+    expect(r.alwaysOn).toContain('=== GUIDE 2 (priority 10) — "Always B" ===');
+  });
 });
 
 describe("guidesCharCount", () => {

@@ -17,7 +17,9 @@
 ★★★ **The header count is the whole defect, not the split.** `assembleGuideBlock` opens with
 `You have N operating guides, in priority order.` and N varies by view (2, 3 or 4). That digit sits
 ahead of ~9.9k tokens of byte-identical guide text, so the cache prefix breaks on every view switch.
-The longest common prefix of the assembled block across all 34 views is **9 characters**. If you
+The longest common prefix of the assembled block across the 34 nav-reachable views is **9
+characters** (`AppView` has 35 members; `learning-insights` is deep-link-only and not nav-reachable,
+and including it could not raise the figure). If you
 split the array and leave one shared counted header in front, block 1 still differs per view and
 this slice saves NOTHING while every test but the sweep passes. Task 3 is the gate.
 
@@ -204,7 +206,11 @@ function guideParts(guides: readonly OperatingGuide[], startIndex: number): stri
  *  2 to 3 to 4 as the user navigated — putting a varying digit ahead of ~9.9k
  *  tokens of identical text and breaking the cache prefix on every view
  *  switch. Measured before this change: the longest common prefix of the
- *  assembled block across all 34 views was 9 characters.
+ *  assembled block across the 34 nav-reachable views (of 35 `AppView`
+ *  members — `learning-insights` is deep-link-only) was 9 characters.
+ *  Including it could not have raised that figure: a common prefix only
+ *  shrinks as strings are added, and 9 (`"You have "`) is already the floor
+ *  once the digit varies.
  *
  *  Numbering continues across the two segments so they cannot disagree about
  *  which guide is "GUIDE 3". */
@@ -536,7 +542,8 @@ Add to the cache-boundary section of `docs/AGENTS/ai-assistant.md`, adjacent to 
   leadership guide is unscoped and roughly 3x the whole feature-guide corpus — while
   `assembleGuideBlocks`' predecessor put a varying guide COUNT in a single shared header ahead of
   all of it, so a view switch re-wrote ~9.9k tokens of byte-identical text at 1.25x. Measured before
-  the change: the longest common prefix of the assembled block across all 34 views was 9 characters.
+  the change: the longest common prefix of the assembled block across the 34 nav-reachable views
+  (of 35 `AppView` members — `learning-insights` is deep-link-only) was 9 characters.
   ★★ Block 1 has no marker ON PURPOSE — all four breakpoints are already committed (tools 1,
   system 1, messages 2) — and it is cached anyway by the message-level breakpoints whose prefix
   contains it. Adding a fifth is an API error, not a silent no-op.
