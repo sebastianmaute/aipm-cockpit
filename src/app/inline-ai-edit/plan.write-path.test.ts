@@ -794,9 +794,12 @@ describe("write-path differential — a preview refusal is a WRITE refusal", () 
 // divergence at a layer the sanitizer cannot show, in a field nobody wrote a
 // case for — which is `docs/open-followups.md` §394 and §418.
 
-/** One entity's sweep fixture. `updateTool` and `wsKey` are NOT here for the
- *  tool — `INLINE_DESCRIPTORS[entity]` already declares what the preview needs;
- *  this carries only what the REPLAY needs that no descriptor knows. */
+/** One entity's sweep fixture, carrying ONLY what the REPLAY needs and no
+ *  descriptor knows. `INLINE_DESCRIPTORS[entity]` already declares everything
+ *  the PREVIEW side needs, its own `updateTool` included, so nothing here
+ *  restates it: `tool` is the wire name the model emits, `kind` is how the
+ *  replaying consumers stamp the concurrency token, and `wsKey`/`id` are how
+ *  the stored row is read back out of the workspace afterwards. */
 interface SweepEntity {
   entity: InlineEntity;
   /** The chat write tool, exactly as the model would emit it. */
