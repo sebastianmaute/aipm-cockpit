@@ -30418,7 +30418,9 @@ predicted by the plan:**
 
 1. **The count is not always slot `{0}`.** `actionCommitteeInfoWhy` (`"Due {0} — {1} ({2} days)"`)
    carries it at `{2}`, and `chatAttachmentSummarySkipped` (`"{0} — {1} attachments, {2} skipped"`)
-   at `{1}`. ★ A THIRD was added 2026-09-08: `chatAttachmentSummary`, the non-skipped sibling, also
+   at `{1}`. ★ A THIRD was FOUND 2026-09-08 — not added; it pre-dates this work and
+   `chatAttachmentSummary.ts` is untouched by the branch that corrected this line —
+   `chatAttachmentSummary`, the non-skipped sibling, also
    at `{1}`. The original pair was a pair of EXAMPLES and was later read as a total — say "three,
    enumerated at the call sites" rather than naming two, because the slot is fixed by argument order
    at the call and no scan over the STRINGS can recover it. `tPlural` therefore takes `count` as a SELECTOR only and never injects it into the
@@ -30563,7 +30565,13 @@ conversion slice reintroduces this", AND THAT WAS REFUTED BY A COLD REVIEWER ON 
 COMMAND.** The detector now exists: `i18n-plural.test.ts`'s "routes every paired base key through
 tPlural, outside a documented exception" walks `src/app` (non-test), and for every base key with a
 `…One` sibling flags any line that mentions the quoted base key WITHOUT `tPlural`. Measured today:
-976 files, 42 pairs, **13 base keys across 17 lines**, all of them allowlisted —
+988 files, 42 pairs, **13 base keys across 19 lines**, all of them allowlisted —
+★★ RE-MEASURED 2026-09-08. It read "976 files … across 17 lines", measured 2026-09-07, and THIS
+BRANCH invalidated it: §415 B's fix added two `key@FILE` allowlist rows (`activity-message.ts`'s
+`ACTIVITY_PLURAL` table), which B's own paragraph below states in as many words. A retained line the
+diff never touches can still be falsified BY that diff — re-check the numbers a fix moves, not only
+the sentences it edits. Reproduce by replicating the scan (counting the allowlist gives 15
+`key@FILE`, a different quantity from the 19 LINES) —
 the four provider ternaries (A), the `raciSuggestSkipped*` union+map,
 the `confirmKey` ternary, and the variable-base `seg(n, base)` helper in `diagnostics-panel.tsx`.
 ★★ It WOULD have caught this instance: at `525313da~1`, `activityEntriesLoggedOne` and
@@ -32145,16 +32153,47 @@ and umlauts and cannot see this either. ★★ Say that in as many words to whoe
 entry that reads "N keys use `task(s)`" lands as a formatting preference, and the reason it is not
 one is that nothing in the repo can tell you when N changes.
 
-**The EN/DE gap is 72 vs 62, and number-invariance explains only a minority of it.** Nine keys escape
-in EN where DE does not, and only two of the nine are the clean story — `guardTimelogPartialFetch`
-(`"{0} employee(s)"` against `"{0} Mitarbeiter"`) and `reportSentToast` (`"Empfänger"`) — where the
-German noun is invariant in the plural and there was nothing to escape. ★★★ **DO NOT GENERALISE THAT
-INTO "DE IS IN BETTER SHAPE", WHICH IS WHAT THE FIRST CUT DID.** Three of the nine are BARE German
-plurals that are ungrammatical at a count of one, i.e. worse than an escape rather than better:
+**The EN/DE gap is 72 vs 62, and number-invariance explains only a minority of it.** ELEVEN keys
+escape in EN where DE does not, and ONE — `aiPromptRaciOverloadBody`, DE
+`"… als Rechenschaftspflichtige(n) einsetzen …"` — escapes in DE where EN does not. That second
+number is what makes the gap 10 rather than 11, and omitting it is how the first cut of this
+paragraph got here.
+
+★★★ **THIS SENTENCE SAID "NINE" AND WAS REFUTED BY ITS OWN NEIGHBOURING NUMBER — corrected
+2026-09-08 by a cold reviewer.** The paragraph asserted a gap of 10 and an EN-only count of 9 within
+two lines of each other, and 9 cannot produce 10 without a DE-only key the text never mentioned. No
+new measurement was needed to catch it: the two figures were inconsistent as written. ★★ It is also
+the ONLY figure in this entry with no reproduce command beside it — every number that carried one
+(72, 62, 58, 9, 4) checked out. That is the entry's own rule failing inside the entry whose subject
+IS uncounted keys, and it is the second time this class has bitten §450. Reproduce, wrapped-aware
+and set-differencing both dictionaries:
+
+```bash
+node -e 'const fs=require("fs");const RE=/\([sne]+\)/;
+function map(f){const L=fs.readFileSync(f,"utf8").split(/\r?\n/);const m=new Map();
+for(let i=0;i<L.length;i++){const x=L[i].match(/^  ([A-Za-z0-9_]+):\s*(.*)$/);if(!x)continue;
+let v=x[2],j=i;while(j+1<L.length&&!/^  [A-Za-z0-9_]+:/.test(L[j+1])&&!/,\s*$/.test(v.trim())){j++;v+=" "+L[j];}
+m.set(x[1],v.trim());i=j;}return m;}
+const en=map("src/app/i18n.ts"),de=map("src/app/i18n.de.ts");
+const enE=[...en].filter(([,v])=>RE.test(v)).map(([k])=>k);
+const deE=[...de].filter(([,v])=>RE.test(v)).map(([k])=>k),deS=new Set(deE);
+console.log("EN-only",enE.filter(k=>!deS.has(k)).length,"DE-only",deE.filter(k=>!RE.test(en.get(k)||"")).length);'
+```
+→ `EN-only 11 DE-only 1` (2026-09-08).
+
+Only two of the eleven are the clean story — `guardTimelogPartialFetch` (`"{0} employee(s)"` against
+`"{0} Mitarbeiter"`) and `reportSentToast` (`"Empfänger"`) — where the German noun is invariant in
+the plural and there was nothing to escape. ★★★ **DO NOT GENERALISE THAT INTO "DE IS IN BETTER
+SHAPE", WHICH IS WHAT THE FIRST CUT DID.** Three of the eleven are BARE German plurals that are
+ungrammatical at a count of one, i.e. worse than an escape rather than better:
 `tasksDeleteSelectedDialogMessage` renders "die 1 ausgewählten Aufgaben" and
-`birthdayBannerTitle` / `birthdayToast` render "1 bevorstehende Geburtstage". The rest are the slash
-and `(er)` shapes above, which the counting regex cannot see at all. [The three ungrammatical
-readings are REASONED from German agreement, not rendered.]
+`birthdayBannerTitle` / `birthdayToast` render "1 bevorstehende Geburtstage". The remaining SIX are
+the slash and `(er)` shapes above, which the counting regex cannot see at all —
+`raidReferencedBy`, `raidCausedThisCount` (`"Verursacht {0} Eintrag/Einträge"`), `jiraSyncDone`,
+`jiraSyncDoneFull` (`"{0} Vorgang/Vorgänge synchronisiert: …"`), `budgetUnappliedActuals`
+(`"… auf {0} Budgetblock/Budgetblöcke …"`) and `fieldsAdjusted`. ★ Three of those six were unnamed
+anywhere in this entry until 2026-09-08, which is why "the rest" read as a smaller set than it is.
+[The three ungrammatical readings are REASONED from German agreement, not rendered.]
 
 **Not one class, but three, and only the first is mechanical.** Of the 58 the single-line grep does
 see, **54** interpolate a count into a SENTENCE and are the same defect `tPlural` exists for. **Four**
