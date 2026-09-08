@@ -2218,6 +2218,15 @@ describe("staged tool calls (the review card)", () => {
     );
   }
 
+  /** The RAW, unfiltered content of the same message `resultsIn` reads —
+   *  needed wherever a test cares about the message's exact SHAPE, not just
+   *  its tool_result blocks. `resultsIn` filters to `type === "tool_result"`,
+   *  which would make a shape check against its output tautological. */
+  function rawContentIn(body: string): { type: string }[] {
+    const sent = JSON.parse(body) as { messages: { role: string; content: unknown }[] };
+    return sent.messages[sent.messages.length - 1].content as { type: string }[];
+  }
+
   it("a NON-destructive single write still runs immediately — the unchanged path", async () => {
     // ★ THE CONTROL FOR THE WHOLE FEATURE. `shouldStage` is false for one
     //   non-destructive entity write, and that turn must behave exactly as it
@@ -2276,8 +2285,20 @@ describe("staged tool calls (the review card)", () => {
     expect(dispatcher.deleteAllTasks).not.toHaveBeenCalled();
     expect(dispatcher.createTask).not.toHaveBeenCalled();
 
+    // ★ Restores the bite of the pre-Task-7 `results.every((b) => b.type ===
+    //   "tool_result")).toBe(true)` line, which `resultsIn`'s new filter made
+    //   tautological (it can now only ever return tool_result blocks). Read
+    //   against the RAW, unfiltered content instead: the staged-proposal
+    //   tool_result message must carry exactly the two tool_result blocks
+    //   (in order) plus the trailing turn-context text block
+    //   `buildWireMessages` appends — nothing else.
+    expect(rawContentIn(bodies[1]).map((b) => b.type)).toEqual([
+      "tool_result",
+      "tool_result",
+      "text",
+    ]);
+
     const results = resultsIn(bodies[1]);
-    expect(results.every((b) => b.type === "tool_result")).toBe(true);
     expect(results.map((b) => b.tool_use_id).sort()).toEqual(["t1", "t2"]);
     expect(results[0].content).toContain("has NOT been applied");
   });
