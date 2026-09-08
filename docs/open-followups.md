@@ -659,6 +659,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§432](#432-two-surfaces-tell-the-user-to-re-fetch-hours-that-a-re-fetch-cannot-repair--closed-2026-09-07) | Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S-M — an `undated` subset of `unattributed`, plus one string each | **CLOSED** 2026-09-07 |
 | [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
 | [§434](#434-adding-an-inlineentity-member-has-four-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--closed-2026-09-08) | Adding an `InlineEntity` member has four ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, three were silent, all four now pinned | closed 2026-09-08 |
+| [§435](#435-seven-model-writable-fields-have-no-descriptor-entry-so-the-card-cannot-disclose-what-the-write-does--open) | Seven model-writable fields have no descriptor entry, so the card cannot disclose the write | found 2026-09-08 by the inline-AI parity sweep's first discovery run | M — a per-field decision (declare vs guard), not one repair | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -32022,3 +32023,54 @@ allowlist must assert in BOTH directions: a discovery sweep is only better than 
 replaces while it cannot pass over an EMPTY set, and a one-directional allowlist is exactly how it
 learns to. Then delete the count from `help-content.ts` in favour of a reproduce grep. That leaves
 `ENTITY_LABEL_KEY` as the one ripple site, which is the one that already fails loudly. S-M.
+
+## 435. Seven model-writable fields have no descriptor entry, so the card cannot disclose what the write does — OPEN
+
+**Status:** OPEN 2026-09-08 — measured, not reasoned. `npx vitest run --maxWorkers=1
+src/app/inline-ai-edit/plan.write-path-sweep.test.ts` reports these as 20 relation-3 violations
+across 3 of its 8 entity tests. Every line below is a sweep output, not a source reading.
+
+The inline-AI parity sweep drives every swept field of every `INLINE_DESCRIPTORS` entity through the
+real dispatcher and compares what the review card disclosed against what the writer stored. Its third
+relation is "the write moved a field the preview never mentioned". Twenty violations remain after the
+two fixes that shipped with it (`task.lastUpdateDate`, and `knowledgeLinks` on four registers):
+
+| entity | field | probes that moved it |
+|---|---|---|
+| raid | `ownerResourceId` | 3 — becomes 5, 7, or `undefined` |
+| stakeholder | `raci` | 3 — `{"30":"A"}` -> `{}` |
+| resource | `utilizationMode` | 3 — `"hours"` -> `"percent"` |
+| resource | `utilization` | 3 — `{"2026-07":120}` -> `{}` |
+| resource | `birthday` | 3 — cleared to `undefined` |
+| resource | `absenceOverride` | 3 — cleared to `undefined` |
+| resource | `active` | 2 — `false` -> `undefined` |
+
+★★★ ONE MECHANISM, NOT SEVEN DEFECTS. Each field is reachable because `patchWithoutId` has no
+whitelist — it forwards whatever the model emits minus `id`, `expectedToken` and `TOKEN_EXCLUDED` —
+and undisclosable because it appears in neither the entity's `diffFields` nor its `linkFields`, which
+is the only vocabulary `describeEntityCalls` has for saying what a write will do. So the card is
+silent by construction, not by omission. This is the same shape as the `knowledgeLinks` cluster fixed
+alongside it; those four were separated out because they destroy stored user data, and these seven
+mostly reset a field to its own default.
+
+★★ DELIBERATELY NOT FIXED, and the reason is that the obvious fix is a behaviour change wearing a
+guard's clothes. Two routes exist and they are not equivalent:
+
+- DECLARE the fields, so the preview can disclose them. That widens what the card shows and changes
+  what a user is approving — a product decision, not a defect repair.
+- GUARD the fields, so the model cannot write them at all. That is what shipped for
+  `knowledgeLinks`, and it was justified there because the field is in no tool schema. **These seven
+  are not all in that position** — the schema surface has to be checked per field before assuming a
+  guard is free, and `active` in particular is a soft-archive flag whose write may be intentional.
+
+Fixing them without deciding which route each field takes would close the sweep by narrowing what it
+looks at, which is the failure this whole slice exists to prevent.
+
+★ NOT A DUPLICATE OF §418. That entry names the gap in the abstract — no source scan can enumerate a
+pass-through tool's accepted surface. This entry is the measured instance list, produced by the
+detector §418 asked for.
+
+★★ THE SWEEP IS RED ON THESE AND IS MEANT TO BE. Do not make it green by adding an exception set: the
+red run IS the record of what is still open, and an exception list would turn this entry into a claim
+nobody can re-derive.
+
