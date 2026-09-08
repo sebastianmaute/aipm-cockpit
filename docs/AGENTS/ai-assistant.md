@@ -1061,21 +1061,39 @@
   in a session scratchpad, so this bullet is the only durable trace of the run; no path to it is
   recorded here on purpose, since a scratchpad path is machine- and session-specific and would rot
   immediately.
-  ★★★ **THE ANSWER-QUALITY EVAL THIS SAME SLICE OWES IS STILL OWED, NOT RUN — as of 2026-09-08, the
-  same date as the measurement above.** The plan's Task 11 Step 5 and the spec's §6 both call for a
-  five-prompt eval comparing OLD vs NEW layouts by inspecting the model's ANSWERS. Nobody has done it.
-  Do not read the live measurement bullet above as covering it — that run counts tokens and cache
-  flags and never once opens or compares an answer, so it validates the COST claim alone and says
-  nothing about quality. The two are separate verifications and only one has been discharged; `never
-  machine-verified` is the honest status for the other until it actually runs.
+  ★★★ **THE ANSWER-QUALITY EVAL WAS RUN 2026-09-08 (`claude-sonnet-5`, 5 probes × 2 arms × 3 reps =
+  30 live requests) AND FOUND NO REGRESSION — 30/30 hits under BOTH layouts, zero tool reaches.**
+  The plan's Task 11 Step 5 and the spec's §6 call for a five-prompt eval comparing OLD vs NEW by
+  inspecting the model's ANSWERS, which is a SEPARATE verification from the cost measurement above —
+  that run counts tokens and cache flags and never once opens an answer. Each of the five moved
+  blocks (today's date, view scope, insights, the activity recap, the chat pointer) carried a
+  planted nonsense token no other part of the prompt can emit, so a hit is proof the block was read
+  rather than a prose judgement. ★★★ **READ THE RESULT AS A CEILING, NOT A CLEAN BILL: OLD scored
+  3/3 on every probe, so the eval had NO HEADROOM and can only ever have detected a LARGE
+  regression** — a block the model stopped reading outright. At 3 reps a one-hit difference is
+  inside noise, and nothing here speaks to subtler degradation. ★★ The harness is NOT in this repo
+  and deliberately so (it takes a live key); it refuses to spend unless it first proves each planted
+  token is present in BOTH arms and in the structurally different place each arm puts it — OLD
+  inside `system`, NEW absent from `system` and present on the turn. A probe missing from the prompt
+  would otherwise report a confident "no regression" while measuring nothing.
+  ★★ **ONE REAL DIFFERENCE DID SHOW, and it is not a content loss: NEW is less terse.** On the
+  insight probe — whose prompt says "exactly as written" — OLD answered with the bare token in all
+  three reps and NEW answered with a full elaborated sentence in all three. A clean 3–0 split, not
+  noise. Content accuracy was identical; what shifted is adherence to a terseness instruction, which
+  is consistent with the role change below (tail-position content reads more like conversational
+  material to discuss than a system instruction to obey). It costs OUTPUT tokens, billed at 5×. Not
+  filed as a defect — the sample is one probe — but do not cite "30/30" as evidence that nothing
+  about the answers changed.
   ★★ **And "no change to the bytes the model receives — only their position" (the spec's own framing)
   undersells what moved.** The bytes are byte-identical, but they moved from a `system` block into a
   trailing text block of the last `user` message — that changes the ROLE under which the model reads
   ~1–3 KB of instruction text (today's date, task count, view scope/state, insights, the activity
-  recap), not merely its offset in the prefix. Nothing measured in this repo bears on whether that
-  role change affects answer quality — that is exactly what the owed eval above exists to catch. The
-  spec already names the fallback if it goes badly: keep the view-scope block's output in `system` and
-  take the smaller cache win instead of the full one, rather than assume the larger one is free.
+  recap), not merely its offset in the prefix. The eval above is what bears on it, and within that
+  eval's stated ceiling the role change cost no CONTENT — every moved block was still read under
+  both layouts — while measurably costing some terseness on the one probe that asked for it. The
+  spec already names the fallback if a future eval goes badly: keep the view-scope block's output in
+  `system` and take the smaller cache win instead of the full one, rather than assume the larger one
+  is free. That fallback is NOT needed on this evidence and remains available.
   ★★★ **`CACHED_TOOLS` (`chat-api.ts`) closes the FIRST segment of the prefix** — the LAST tool carries
   `cache_control`, so a per-view guide swap inside `system` re-caches only the smaller system slice after
   it, never the whole `tools` payload. Without it the cached prefix is `tools` + `stableText`, and the
@@ -1122,7 +1140,7 @@
   or is cancelled, after earlier turns in the same multi-turn loop already burned billed tokens records
   NOTHING for that send. Pre-existing control flow, deliberately unchanged by this slice — read this
   before citing "the meter is now honest" as unconditional.
-  ★★ **`ai-usage-context.tsx`'s `loadBuckets` normalizes each field (via `ai-usage.ts`'s
+  ★★ **`ai-usage-context.tsx`'s `loadBucketsAndSeedCapBasisNotice` normalizes each field (via `ai-usage.ts`'s
   `normalizeUsage`) instead of casting, and that closes a real trap.** A usage blob persisted before this
   slice has no `cacheWrite`/`cacheRead`; `undefined + n` is `NaN`; and `NaN < threshold` and
   `NaN >= threshold` are BOTH false — so a cap fed an un-normalized legacy bucket would silently stop
