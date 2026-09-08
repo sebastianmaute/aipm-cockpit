@@ -601,7 +601,18 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const id = mintId("resource", resourcesRef.current);
         // sanitizeResource fills roleId/utilization defaults; returns null with
         // no first/last name (or splittable full name).
-        const item = sanitizeResource({ ...input, id });
+        // ★★★ THE SAME GUARD `updateResource` USES, below. Without it the five
+        //  fields refused on edit — `utilizationMode`, `utilization`,
+        //  `birthday`, `absenceOverride`, `active` — were all accepted here,
+        //  which is worse than it sounds for `active`: it defaults to true when
+        //  absent, so `create_resource {active: false}` produced a resource
+        //  soft-archived on arrival, behind a create card with no vocabulary
+        //  for the field. `utilization` and `absenceOverride` feed capacity and
+        //  budget maths. §438.
+        //  ★ A create has no stored row, so a refused field is simply dropped
+        //  and `sanitizeResource`'s own default applies — which is the outcome
+        //  the card promises, since the card never mentioned the field.
+        const item = sanitizeResource({ ...dropUnacceptedResourceFields(input), id });
         if (!item) throw new Error("invalid resource: first or last name is required");
         const next = [...resourcesRef.current, item];
         // ★★★ NO undo capture, deliberately — same reasoning as `createTask`
