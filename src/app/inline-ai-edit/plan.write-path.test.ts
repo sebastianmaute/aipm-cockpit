@@ -239,7 +239,7 @@ function seedResource(over: Partial<Resource> = {}): Resource {
 /** The workspace slices this file writes to, and the key each case reads back
  *  through. Deliberately narrow — a case needing another slice adds it here so
  *  the read-back stays a lookup rather than a per-case cast. */
-type WsKey = "raid" | "resources" | "changes" | "milestones" | "stakeholders" | "absences" | "calendarEvents";
+type WsKey = "tasks" | "raid" | "resources" | "changes" | "milestones" | "stakeholders" | "absences" | "calendarEvents";
 
 interface WriteCase {
   name: string;
@@ -777,5 +777,63 @@ describe("write-path differential — a preview refusal is a WRITE refusal", () 
     const stored = taskRow(snapshot(result.current.ws));
     expect(stored.taskName).toBe("First");
     expect(stored.priority).toBe(before.priority);
+  });
+});
+
+// --- the mechanical sweep ---------------------------------------------------
+//
+// ★★★ THE SECOND LAYER, DELIBERATELY NOT MERGED WITH `CASES` ABOVE. Each of
+// those names a specific defect, and that name is what a red run tells you.
+// This sweep names nothing and enumerates everything. Merging them would trade
+// a legible failure for a uniform one.
+//
+// It exists for the gap between the two detectors that already exist:
+// `plan.sanitizer-parity.test.ts` is exhaustive and shallow (it compares the
+// preview against each field's SANITIZER, so it cannot see a merge-site guard
+// it does not compose), and the `CASES` above are narrow and deep. The gap is a
+// divergence at a layer the sanitizer cannot show, in a field nobody wrote a
+// case for — which is `docs/open-followups.md` §394 and §418.
+
+/** One entity's sweep fixture. `updateTool` and `wsKey` are NOT here for the
+ *  tool — `INLINE_DESCRIPTORS[entity]` already declares what the preview needs;
+ *  this carries only what the REPLAY needs that no descriptor knows. */
+interface SweepEntity {
+  entity: InlineEntity;
+  /** The chat write tool, exactly as the model would emit it. */
+  tool: string;
+  /** The `entityToken` kind — how the REPLAYING consumers stamp the token. */
+  kind: TokenEntity;
+  wsKey: WsKey;
+  id: number;
+  seed: TestSeed;
+}
+
+const SWEEP: SweepEntity[] = [
+  { entity: "task", tool: "update_task", kind: "task", wsKey: "tasks", id: 1,
+    seed: { tasks: [seedTask(1, "First")] } },
+  { entity: "raid", tool: "update_raid_item", kind: "raid", wsKey: "raid", id: 10,
+    seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS } },
+  { entity: "change", tool: "update_change", kind: "change", wsKey: "changes", id: 20,
+    seed: { changes: [seedGuardedChange()], tasks: LINKED_TASKS } },
+  { entity: "milestone", tool: "update_milestone", kind: "milestone", wsKey: "milestones", id: 30,
+    seed: { milestones: [seedGuardedMilestone()], tasks: LINKED_TASKS } },
+  { entity: "stakeholder", tool: "update_stakeholder", kind: "stakeholder", wsKey: "stakeholders", id: 40,
+    seed: { stakeholders: [seedGuardedStakeholder()], tasks: LINKED_TASKS } },
+  { entity: "resource", tool: "update_resource", kind: "resource", wsKey: "resources", id: 7,
+    seed: { resources: [seedResource()] } },
+  { entity: "absence", tool: "update_absence", kind: "absence", wsKey: "absences", id: 50,
+    seed: { absences: [seedGuardedAbsence()] } },
+  { entity: "calendarEvent", tool: "update_calendar_event", kind: "calendarEvent", wsKey: "calendarEvents", id: 60,
+    seed: { calendarEvents: [seedGuardedCalendarEvent()] } },
+];
+
+describe("the sweep's own coverage", () => {
+  // ★★ THE ONE MAINTAINED THING IN THE SWEEP, AND ITS GUARD. A new FIELD is
+  //  covered the moment it exists, because the axis is derived at runtime. A new
+  //  ENTITY is not — nothing would enumerate it — so the table is asserted exact
+  //  rather than merely non-empty. `plan.sanitizer-parity.test.ts` uses the same
+  //  trick on its own CASES; copying it is deliberate.
+  it("has a row for every INLINE_DESCRIPTORS entity, and no others", () => {
+    expect(SWEEP.map((s) => s.entity).sort()).toEqual(Object.keys(INLINE_DESCRIPTORS).sort());
   });
 });
