@@ -21,8 +21,8 @@ import { type TimelogConfig, defaultTimelogConfig } from "./timelog-types";
  *  the Settings → AI dropdown all derive from this array, so they can't drift
  *  apart. `id` is the Anthropic model id sent to the API; `label` is the UI text. */
 export const CHAT_MODELS = [
-  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-  { id: "claude-opus-4-8", label: "Claude Opus 4.8" },
+  { id: "claude-sonnet-5", label: "Claude Sonnet 5" },
+  { id: "claude-opus-5", label: "Claude Opus 5" },
   { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
 ] as const;
 

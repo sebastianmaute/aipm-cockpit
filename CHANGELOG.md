@@ -25,6 +25,9 @@ longer carries its own changelog comment.
   time it would otherwise be a surprise: caps now count cached tokens too, so
   a warning can arrive earlier than before even though nothing you configured
   has changed.
+- The Settings AI model picker now offers the current Claude 5 models
+  (Sonnet 5, Opus 5) alongside Haiku 4.5, replacing the retired 4.6/4.8
+  entries.
 
 ### Fixed
 - The usage meter now counts every token class Anthropic actually bills, not
