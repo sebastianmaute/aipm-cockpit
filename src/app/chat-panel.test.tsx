@@ -2786,11 +2786,11 @@ describe("cache-token usage recording", () => {
   // be undone in afterEach so nothing outside this block can ever observe it.
   beforeEach(() => {
     vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
-    // DEFAULT_AI_USAGE_CONTEXT.record is a plain vi.fn() created ONCE at
-    // module scope (see the vi.hoisted() block above) — vi.restoreAllMocks()
-    // in afterEach does not clear its call history, so calls would otherwise
-    // accumulate across every test file-wide. Clear it here too.
-    DEFAULT_AI_USAGE_CONTEXT.record.mockClear();
+    // No DEFAULT_AI_USAGE_CONTEXT.record.mockClear() here: the single test in
+    // this describe overrides useAiUsageContext with its own local
+    // recordSpy before rendering, so it never calls DEFAULT_AI_USAGE_CONTEXT's
+    // record at all — nothing anywhere in this file asserts on that mock's
+    // call history (verified via `grep -n "DEFAULT_AI_USAGE_CONTEXT"`).
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -2810,7 +2810,12 @@ describe("cache-token usage recording", () => {
       // Turn 1: a real (non-destructive) tool call, so the round-trip loop
       // executes it and continues. Turn 2: the final answer. Both turns carry
       // the SAME cache_read figure — a per-turn accumulator that overwrites
-      // instead of sums would report 1000, not 2000.
+      // instead of sums would report 1000, not 2000. The two turns carry
+      // DISTINCT non-zero cache_creation_input_tokens (150 / 350, summing to
+      // 500) so a totalCacheWrite accumulator that overwrites instead of
+      // summing, or drops the field entirely, is caught the same way — 150,
+      // 350, 500, 1000 and 2000 are all mutually distinct, so no assertion
+      // below can pass by reading the wrong field or the wrong turn.
       const body =
         call === 1
           ? {
@@ -2818,7 +2823,7 @@ describe("cache-token usage recording", () => {
               stop_reason: "tool_use",
               usage: {
                 input_tokens: 10, output_tokens: 5,
-                cache_creation_input_tokens: 0, cache_read_input_tokens: 1000,
+                cache_creation_input_tokens: 150, cache_read_input_tokens: 1000,
               },
             }
           : {
@@ -2826,7 +2831,7 @@ describe("cache-token usage recording", () => {
               stop_reason: "end_turn",
               usage: {
                 input_tokens: 10, output_tokens: 5,
-                cache_creation_input_tokens: 0, cache_read_input_tokens: 1000,
+                cache_creation_input_tokens: 350, cache_read_input_tokens: 1000,
               },
             };
       return Promise.resolve({
@@ -2846,7 +2851,7 @@ describe("cache-token usage recording", () => {
     await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
 
     expect(recordSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ cacheRead: 2000 }),
+      expect.objectContaining({ cacheRead: 2000, cacheWrite: 500 }),
     );
   });
 });

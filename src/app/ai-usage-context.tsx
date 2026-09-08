@@ -50,7 +50,16 @@ const AiUsageContext = createContext<AiUsageContextValue>({
   record: () => {},
 });
 
-function loadBuckets(): UsageBuckets {
+// ★ Named to surface its side effect at the call site (a lazy useState
+//   initializer below) — despite the "load" shape this ALSO WRITES the
+//   AI_CAP_BASIS_NOTICE_KEY seed on a genuinely fresh install (see the
+//   raw === null branch). Kept as a synchronous write inside the lazy
+//   initializer rather than moved to a mount effect: an effect only runs
+//   AFTER the first commit, so it would open a window between mount and
+//   effect-run where the flag is not yet seeded, changing the current
+//   before-first-paint timing for no benefit — the write is idempotent, so
+//   there is nothing to gain from deferring it.
+function loadBucketsAndSeedCapBasisNotice(): UsageBuckets {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(AI_USAGE_KEY);
@@ -114,7 +123,7 @@ type AiUsageProviderProps = {
 };
 
 export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProviderProps) {
-  const [buckets, setBuckets] = useState<UsageBuckets>(() => loadBuckets());
+  const [buckets, setBuckets] = useState<UsageBuckets>(() => loadBucketsAndSeedCapBasisNotice());
   const [sessionTotal, setSessionTotal] = useState(0);
   const [sessionUsage, setSessionUsage] = useState<Usage>(EMPTY_SESSION_USAGE);
 

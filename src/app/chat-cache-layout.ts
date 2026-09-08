@@ -72,8 +72,9 @@ import type { ApiMessage, ContentBlock, TextBlock } from "./chat-api";
 /** At most two message breakpoints: Anthropic allows four in total and `tools`
  *  and `system` already claim one each (`shared/prompt-caching.md`'s "Max 4
  *  `cache_control` breakpoints per request"). `checkpointMarks` never exceeds
- *  this by construction — it returns the current bucket boundary plus the
- *  previous one, deduplicated to one entry when they coincide — so this is
+ *  this by construction — it returns the moving BOUNDARY (`cachedPrefixLength
+ *  - 1`) plus the power-of-two ANCHOR (`largestPowerOfTwoAtMost(cachedPrefixLength)
+ *  - 1`), deduplicated to one entry when they coincide — so this is
  *  asserted across a full length sweep in `chat-cache-layout.test.ts` rather
  *  than enforced by a runtime check here. An earlier revision threw at
  *  runtime on this exact invariant; that branch was permanently unreachable
@@ -110,8 +111,10 @@ function largestPowerOfTwoAtMost(n: number): number {
  *    multi-turn conversations.
  *  - ANCHOR (`largestPowerOfTwoAtMost(cachedPrefixLength) - 1`) buys
  *    something the boundary alone cannot: a position that is FIXED for an
- *    entire power-of-two range, found at a small, bounded distance from the
- *    start of the message array. `shared/prompt-caching.md`'s § 20-block
+ *    entire power-of-two range, found at a bounded distance — ZERO, within a
+ *    bucket — from the PREVIOUS REQUEST's anchor, not from the start of the
+ *    message array (at length 1000 the anchor sits at index 511, about half
+ *    the array). `shared/prompt-caching.md`'s § 20-block
  *    lookback window caps how far back a breakpoint walks to find a prior
  *    entry (20 positions) — a single turn that appends more than 20 positions
  *    of sequential content (a long tool loop, not the parallel-call case,

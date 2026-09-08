@@ -217,14 +217,29 @@ describe("buildSystemPrompt insight block placement", () => {
   });
 });
 
-// ★★★ TASK 5 — the equivalence pin for the stable/turn-context split.
-// `buildSystemPrompt` is kept ONLY as a thin composition of
-// `buildStableSystemBlocks` + `buildTurnContext`; this changes no output at
-// all (the relocation happens in Task 7). The fixture is deliberately NOT
-// the file's minimal `snapshot()` default — an empty snapshot with no guides
-// would let both new builders return near-empty text and the equivalence
-// check would prove almost nothing. Every field that lands text in either
-// half is populated here.
+// ★★★ TASK 5 — pins `buildSystemPrompt` as a thin composition, NOT a
+// byte-identity check against anything. `buildSystemPrompt`'s entire body IS
+// `[...buildStableSystemBlocks(...args), { type: "text", text:
+// buildTurnContext(...args) }]` — the test below builds `composed` the same
+// way, over the same `args` tuple, so `expect(composed).toEqual(legacy)` is a
+// TAUTOLOGY: it compares that expression to itself and cannot go red for any
+// change inside either builder (verified by mutation — deleting the "Known
+// groups: …" line from `buildTurnContext`'s return array changes both sides
+// identically and the test stays green). The property this once checked —
+// that the split is byte-identical to the PRE-SPLIT, single-function
+// `buildSystemPrompt` — was only ever checkable against that pre-split code,
+// which no longer exists in the tree; it is not reconstructable here, and a
+// hand-written golden string for the whole prompt would buy brittleness for a
+// property the per-block placement tests above (staged-write / view-scoping /
+// insight-placement) already cover piecewise. What the test below DOES still
+// pin, and is worth pinning: that `buildSystemPrompt` stays a two-block
+// composition, stable half first, one turn-context text block last — a
+// regression that inlined new logic into `buildSystemPrompt` itself, or
+// reordered the two halves, or dropped one, would turn it red. The fixture is
+// deliberately NOT the file's minimal `snapshot()` default — an empty
+// snapshot with no guides would let both new builders return near-empty text
+// and the composition check would prove almost nothing. Every field that
+// lands text in either half is populated here.
 describe("buildSystemPrompt split into buildStableSystemBlocks + buildTurnContext", () => {
   const guides: OperatingGuide[] = [
     {
@@ -269,7 +284,7 @@ describe("buildSystemPrompt split into buildStableSystemBlocks + buildTurnContex
     },
   });
 
-  it("composes byte-identically from the two new builders", () => {
+  it("keeps buildSystemPrompt a thin two-block composition of the split halves", () => {
     const args = ["en-US", richSnapshot, guides, true, {}] as const;
     const legacy = buildSystemPrompt(...args);
     const composed = [
@@ -279,9 +294,11 @@ describe("buildSystemPrompt split into buildStableSystemBlocks + buildTurnContex
     expect(composed).toEqual(legacy);
   });
 
-  // Anti-vacuity for the equivalence check above: a fixture that produces
+  // Anti-vacuity for the composition check above: a fixture that produces
   // empty text on either side would let `toEqual` pass trivially. Both
-  // halves must carry real content.
+  // halves must carry real content — and this is also the ONLY place that
+  // pins the actual substance of `buildTurnContext`'s output, since the
+  // composition check above cannot fail on a change inside either builder.
   it("gives the fixture real, non-empty text on both sides of the split", () => {
     const [stable, volatile] = buildSystemPrompt("en-US", richSnapshot, guides, true, {});
     expect(stable.text.length).toBeGreaterThan(0);
@@ -291,5 +308,14 @@ describe("buildSystemPrompt split into buildStableSystemBlocks + buildTurnContex
     expect(volatile.text).toContain("SPLITPROBE");
     expect(volatile.text).toContain("3 people over capacity");
     expect(volatile.text).toContain("budget review");
+    // Fixed (non-fixture-derived) content `buildTurnContext` always emits,
+    // read off its actual return array rather than guessed: the "Today
+    // is …"/"Known groups: …" lines and the APP CONTEXT header. NOTE:
+    // "Active language code: …" is deliberately NOT asserted here — it is
+    // emitted by `buildStableSystemBlocks`'s `stableInstructions`, not by
+    // `buildTurnContext`, so it lands in `stable.text`, not `volatile.text`.
+    expect(volatile.text).toContain("Today is");
+    expect(volatile.text).toContain("Known groups");
+    expect(volatile.text).toContain("APP CONTEXT");
   });
 });

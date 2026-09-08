@@ -173,12 +173,20 @@ describe("checkpointMarks (observed through buildWireMessages, not exported)", (
   };
 
   // ★★★ THIS TABLE IS THE MUTATION-PROOF DETECTOR for both halves of
-  // `checkpointMarks`. Dropping the BOUNDARY half loses the second entry of
-  // every "distinct" row (3, 5, 6, 7, 9, 10). Dropping the ANCHOR half loses
-  // the FIRST entry of every row — including every "coincide" row (1, 2, 4,
-  // 8), which then marks NOTHING at all. Either mutation turns at least one
-  // row of this table red; see the mutation-proof step in the commit history
-  // / task report for the actual mutate-run-restore cycle.
+  // `checkpointMarks`, but the two mutants are caught by DIFFERENT rows, and
+  // neither mutant is caught by all of them. On the "distinct" rows (3, 5, 6,
+  // 7, 9, 10) anchor and boundary land on different indices: dropping the
+  // BOUNDARY half loses the row's second entry there, and dropping the ANCHOR
+  // half loses its first — each mutation turns every one of those six rows
+  // red. On the "coincide" rows (1, 2, 4, 8) anchor and boundary are the SAME
+  // index (verified by hand-simulation, not just asserted): dropping either
+  // half still leaves that one shared index marked, so those four rows catch
+  // NEITHER mutant. Consequently the distinct rows are load-bearing for BOTH
+  // mutants and must not be trimmed as redundant with the coincide rows; the
+  // coincide rows instead pin the DEDUPLICATION (that the wire carries one
+  // marker, not two) and are load-bearing for that. See the mutation-proof
+  // step in the commit history / task report for the actual mutate-run-restore
+  // cycle.
   it.each<[number, number[]]>([
     [0, []],
     [1, [0]],

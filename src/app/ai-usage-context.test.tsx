@@ -52,9 +52,9 @@ describe("AiUsageProvider", () => {
   it("normalises a legacy stored blob (input/output only) instead of casting it", async () => {
     // ★★★ THE SEED DAY MUST NOT BE TODAY. addToBuckets (ai-usage.ts) rebuilds
     // ONLY today's bucket ({ ...b, [k]: … }) and spreads every OTHER day's
-    // bucket through byte-for-byte, exactly as loadBuckets returned it. A
-    // fixture seeded on today's key is therefore normalised by addToBuckets
-    // on the way past regardless of what loadBuckets does, and cannot tell
+    // bucket through byte-for-byte, exactly as the loading read returned it.
+    // A fixture seeded on today's key is therefore normalised by addToBuckets
+    // on the way past regardless of what that read does, and cannot tell
     // the normalising read apart from a raw `as UsageBuckets` cast — that
     // shape was measured vacuous against the cast mutant. A day far in the
     // past guarantees it is never "today", however long this fixture lives.
@@ -71,7 +71,7 @@ describe("AiUsageProvider", () => {
     // Record today's usage (untouched, unrelated day) then read the WHOLE
     // persisted blob back — record()'s save persists prevBuckets spread
     // through unchanged, so the legacy day's shape survives the round-trip
-    // exactly as loadBuckets produced it.
+    // exactly as loadBucketsAndSeedCapBasisNotice produced it.
     act(() => {
       result.current.record({ input: 1, output: 1, cacheWrite: 1, cacheRead: 1 });
     });

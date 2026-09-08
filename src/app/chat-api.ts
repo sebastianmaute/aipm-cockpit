@@ -135,7 +135,11 @@ export const CONTINUE_NUDGE =
 /** The STABLE half of the system prompt (cached): fixed instructions that
  *  never interpolate per-call state, plus the (large) guide text. Anthropic
  *  prompt-cache is prefix-based, so this must come FIRST in the request and
- *  contain only call-invariant content.
+ *  contain only call-invariant content — EXCEPT for the guide block, which is
+ *  call-invariant per VIEW, not per call: `groundInGuides` defaults true and
+ *  most builtin guides are view-scoped, so this half changes on every view
+ *  switch out of the box. See `CACHED_TOOLS`'s doc comment below (the same
+ *  fact, argued in full) rather than re-deriving it here.
  *
  *  ★★ Split out of `buildSystemPrompt` (Task 5 of the prompt-cache-layout
  *  slice) so the layout engine (Task 6) and the relocation (Task 7) can each

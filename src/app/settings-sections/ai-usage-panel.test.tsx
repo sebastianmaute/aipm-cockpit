@@ -127,6 +127,28 @@ describe("AiUsagePanel", () => {
     expect(screen.getByText(/10,600 \/ 500,000/)).toBeInTheDocument();
   });
 
+  it("orders the session cache breakdown and hit-rate between the session and weekly bars", () => {
+    render(
+      <AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />,
+      { wrapper: seededWrapper("en-US", CACHE_USAGE) },
+    );
+    // Every session-scoped figure (the breakdown + hit-rate) belongs next to
+    // the session bar it describes, not stranded under the weekly bar/reset
+    // line — assert DOM order directly so a future reorder that puts them
+    // back under the weekly heading fails here, not just by inspection.
+    const sessionLabel = screen.getByText(t("en-US", "aiUsageSession"));
+    const hitRate = screen.getByText(t("en-US", "aiUsageCacheHitRate", "86"));
+    const weekLabel = screen.getByText(t("en-US", "aiUsageWeek"));
+    // aiUsageResetAt interpolates a locale-formatted date via {0}; match on
+    // the fixed "Resets " prefix rather than the full string.
+    const resetLine = screen.getByText(/^Resets /);
+
+    const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(sessionLabel.compareDocumentPosition(hitRate) & FOLLOWING).toBeTruthy();
+    expect(hitRate.compareDocumentPosition(weekLabel) & FOLLOWING).toBeTruthy();
+    expect(weekLabel.compareDocumentPosition(resetLine) & FOLLOWING).toBeTruthy();
+  });
+
   describe("in German", () => {
     beforeAll(async () => {
       await loadI18n("de");

@@ -84,15 +84,6 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps)
         cap={effectiveSessionCap}
         locale={locale}
       />
-      <UsageBar
-        label={t(lang, "aiUsageWeek")}
-        used={weekTotal}
-        cap={effectiveWeeklyCap}
-        locale={locale}
-      />
-      <p className="mt-1 text-xs text-muted-foreground">
-        {t(lang, "aiUsageResetAt", resetLabel)}
-      </p>
       <dl className="mt-2 space-y-0.5 text-xs text-muted-foreground">
         <div className="flex justify-between gap-2">
           <dt>{t(lang, "aiUsageUncachedInput")}</dt>
@@ -107,8 +98,19 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps)
           <dd className="tabular-nums">{sessionUsage.cacheWrite.toLocaleString(locale)}</dd>
         </div>
       </dl>
+      {inputSide > 0 && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t(lang, "aiUsageCacheHitRate", String(hitRatePct))}
+        </p>
+      )}
+      <UsageBar
+        label={t(lang, "aiUsageWeek")}
+        used={weekTotal}
+        cap={effectiveWeeklyCap}
+        locale={locale}
+      />
       <p className="mt-1 text-xs text-muted-foreground">
-        {t(lang, "aiUsageCacheHitRate", String(hitRatePct))}
+        {t(lang, "aiUsageResetAt", resetLabel)}
       </p>
     </div>
   );
