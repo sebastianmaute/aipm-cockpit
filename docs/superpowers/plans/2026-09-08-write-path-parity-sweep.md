@@ -137,38 +137,52 @@ Then append:
 // divergence at a layer the sanitizer cannot show, in a field nobody wrote a
 // case for — which is `docs/open-followups.md` §394 and §418.
 
-/** One entity's sweep fixture. `updateTool` and `wsKey` are NOT here for the
- *  tool — `INLINE_DESCRIPTORS[entity]` already declares what the preview needs;
- *  this carries only what the REPLAY needs that no descriptor knows. */
+/** One entity's sweep fixture: the two things no production code declares —
+ *  WHICH row to drive, and the workspace to drive it against.
+ *
+ *  ★★★ `tool`, `wsKey` AND `kind` ARE DELIBERATELY ABSENT, and restoring any of
+ *  them is a regression. Each is already declared by production code this file
+ *  can read — `INLINE_DESCRIPTORS[entity].updateTool` / `.wsKey`, and
+ *  `TOKEN_ROW_SOURCE[tool].kind`, which is the SAME map the replaying consumers
+ *  read. The first cut of this table hand-copied all three per row: 24 restated
+ *  cells, one of which was already wrong before anything consumed it (the
+ *  resource row carried `id: 7` against a seed that mints 4, so that entity's
+ *  entire sweep would have reported agreement over a row that was never
+ *  written — a fabricated clean across one of eight entities). `sweepPlumbing`
+ *  derives them instead, so a renamed tool or a moved workspace slice reaches
+ *  the sweep as a type error or a loud throw rather than as silent agreement. */
 interface SweepEntity {
   entity: InlineEntity;
-  /** The chat write tool, exactly as the model would emit it. */
-  tool: string;
-  /** The `entityToken` kind — how the REPLAYING consumers stamp the token. */
-  kind: TokenEntity;
-  wsKey: WsKey;
+  /** The id this entity's own seed mints — the one value no production code
+   *  knows, and therefore the only one still worth asserting by hand. */
   id: number;
   seed: TestSeed;
 }
 
 const SWEEP: SweepEntity[] = [
-  { entity: "task", tool: "update_task", kind: "task", wsKey: "tasks", id: 1,
-    seed: { tasks: [seedTask(1, "First")] } },
-  { entity: "raid", tool: "update_raid_item", kind: "raid", wsKey: "raid", id: 10,
-    seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS } },
-  { entity: "change", tool: "update_change", kind: "change", wsKey: "changes", id: 20,
-    seed: { changes: [seedGuardedChange()], tasks: LINKED_TASKS } },
-  { entity: "milestone", tool: "update_milestone", kind: "milestone", wsKey: "milestones", id: 30,
-    seed: { milestones: [seedGuardedMilestone()], tasks: LINKED_TASKS } },
-  { entity: "stakeholder", tool: "update_stakeholder", kind: "stakeholder", wsKey: "stakeholders", id: 40,
-    seed: { stakeholders: [seedGuardedStakeholder()], tasks: LINKED_TASKS } },
-  { entity: "resource", tool: "update_resource", kind: "resource", wsKey: "resources", id: 7,
-    seed: { resources: [seedResource()] } },
-  { entity: "absence", tool: "update_absence", kind: "absence", wsKey: "absences", id: 50,
-    seed: { absences: [seedGuardedAbsence()] } },
-  { entity: "calendarEvent", tool: "update_calendar_event", kind: "calendarEvent", wsKey: "calendarEvents", id: 60,
-    seed: { calendarEvents: [seedGuardedCalendarEvent()] } },
+  { entity: "task", id: 1, seed: { tasks: [seedTask(1, "First")] } },
+  { entity: "raid", id: 10, seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS } },
+  { entity: "change", id: 20, seed: { changes: [seedGuardedChange()], tasks: LINKED_TASKS } },
+  { entity: "milestone", id: 30, seed: { milestones: [seedGuardedMilestone()], tasks: LINKED_TASKS } },
+  { entity: "stakeholder", id: 40, seed: { stakeholders: [seedGuardedStakeholder()], tasks: LINKED_TASKS } },
+  { entity: "resource", id: 4, seed: { resources: [seedResource()] } },
+  { entity: "absence", id: 50, seed: { absences: [seedGuardedAbsence()] } },
+  { entity: "calendarEvent", id: 60, seed: { calendarEvents: [seedGuardedCalendarEvent()] } },
 ];
+
+/** What the REPLAY needs, read from the same production declarations the
+ *  replaying consumers themselves read. THROWS rather than returning a partial
+ *  answer: a tool with no `TOKEN_ROW_SOURCE` entry cannot be replayed at all,
+ *  and a sweep that skipped such an entity would report the same thing as a
+ *  sweep that found no divergence — silence. */
+function sweepPlumbing(entity: InlineEntity): { tool: string; kind: TokenEntity; wsKey: WsKey } {
+  const tool = INLINE_DESCRIPTORS[entity].updateTool;
+  const source = TOKEN_ROW_SOURCE[tool];
+  if (!source) {
+    throw new Error(`sweep: no TOKEN_ROW_SOURCE entry for "${tool}" (entity "${entity}") — it cannot be replayed`);
+  }
+  return { tool, kind: source.kind, wsKey: INLINE_DESCRIPTORS[entity].wsKey as WsKey };
+}
 
 describe("the sweep's own coverage", () => {
   // ★★ THE ONE MAINTAINED THING IN THE SWEEP, AND ITS GUARD. A new FIELD is
@@ -417,27 +431,31 @@ async function replayOneField(
     { wrapper: dispatcherWrapperWith(s.seed) },
   );
 
+  // `tool`, `kind` and `wsKey` are DERIVED, never fields on `s` — see the
+  // `sweepPlumbing` docstring in Task 2 for why hand-copying them is banned.
+  const { tool, kind, wsKey } = sweepPlumbing(s.entity);
+
   const wsBefore = snapshot(result.current.ws);
-  const rowsBefore = wsBefore[s.wsKey] as ReadonlyArray<{ id: number }> | undefined;
+  const rowsBefore = wsBefore[wsKey] as ReadonlyArray<{ id: number }> | undefined;
   const before = rowsBefore?.find((r) => r.id === s.id) as Row | undefined;
-  if (!before) throw new Error(`fixture did not seed ${s.wsKey} #${s.id}`);
+  if (!before) throw new Error(`fixture did not seed ${wsKey} #${s.id}`);
 
   const input: Record<string, unknown> = { id: s.id, [field]: probe };
 
-  const plan = describeEntityCalls([{ type: "tool_use", name: s.tool, input }], {
+  const plan = describeEntityCalls([{ type: "tool_use", name: tool, input }], {
     descriptor: INLINE_DESCRIPTORS[s.entity],
     item: before,
     ws: wsBefore,
   });
 
   await act(async () => {
-    await runTool(result.current.d, s.tool, { ...input, expectedToken: entityToken(s.kind, before) });
+    await runTool(result.current.d, tool, { ...input, expectedToken: entityToken(kind, before) });
   });
 
   const wsAfter = snapshot(result.current.ws);
-  const rowsAfter = wsAfter[s.wsKey] as ReadonlyArray<{ id: number }> | undefined;
+  const rowsAfter = wsAfter[wsKey] as ReadonlyArray<{ id: number }> | undefined;
   const stored = rowsAfter?.find((r) => r.id === s.id) as Row | undefined;
-  if (!stored) throw new Error(`${s.wsKey} #${s.id} vanished during the replay`);
+  if (!stored) throw new Error(`${wsKey} #${s.id} vanished during the replay`);
 
   return { plan, before, stored };
 }
@@ -528,10 +546,11 @@ function shownForStored(entity: InlineEntity, field: string, stored: Row): strin
 
 describe.each(SWEEP)("write-path parity sweep — $entity", (s) => {
   it("every field: the card and the writer agree", async () => {
+    const { wsKey } = sweepPlumbing(s.entity);
     const seedWs = { ...emptyWorkspace(), ...s.seed } as unknown as Workspace;
-    const seedRows = seedWs[s.wsKey] as ReadonlyArray<{ id: number }> | undefined;
+    const seedRows = seedWs[wsKey] as ReadonlyArray<{ id: number }> | undefined;
     const seedRow = seedRows?.find((r) => r.id === s.id) as Row | undefined;
-    if (!seedRow) throw new Error(`fixture did not seed ${s.wsKey} #${s.id}`);
+    if (!seedRow) throw new Error(`fixture did not seed ${wsKey} #${s.id}`);
 
     const violations: string[] = [];
     let moved = 0;
