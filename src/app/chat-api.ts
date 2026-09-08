@@ -417,9 +417,14 @@ export function appendUserNote(messages: ApiMessage[], note: string): ApiMessage
  *  ★★★ AND `stableText` IS VIEW-DEPENDENT BY DEFAULT — this was mis-analysed
  *  once and the wrong conclusion nearly shipped. `settings.ai.groundInGuides`
  *  defaults to TRUE (`settings-types.ts`, and a missing key reads as true), and
- *  20 of the 21 `BUILTIN_FEATURE_GUIDES` are view-scoped (mean ~1 KB, Open
- *  Points ~2.9 KB), so `selectActiveGuides` swaps a multi-KB guide in and out of
- *  `guideBlock` on EVERY view switch, for every user, out of the box. Moving the
+ *  most `BUILTIN_FEATURE_GUIDES` are view-scoped (mean ~1 KB, Open Points
+ *  ~2.9 KB) — do not trust a number here, it has already rotted once;
+ *  reproduce it instead:
+ *  `node -e "const s=require('fs').readFileSync('src/app/operating-guide-builtin.generated.ts','utf8');const b=s.slice(s.indexOf('BUILTIN_FEATURE_GUIDES'));console.log((b.match(/\"name\":/g)||[]).length,(b.match(/\"views\":/g)||[]).length)"`
+ *  (a bare `grep -c scope` answers 27 and is worthless — the guide prose
+ *  discusses project scope). So `selectActiveGuides` swaps a multi-KB guide in
+ *  and out of `guideBlock` on EVERY view switch, for every user, out of the
+ *  box. Moving the
  *  ~100-token view-scope block into the volatile suffix therefore never bought a
  *  cache read on its own; only this breakpoint does, by closing a segment at the
  *  end of `tools` so the guide swap re-caches only the smaller system slice.

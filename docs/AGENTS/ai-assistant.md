@@ -21,12 +21,19 @@
   Step0ImportPanel (`readAttachmentData` used to live in `chat-api.ts`; it was retired when that
   pipeline was unified). Calls Anthropic directly (browser,
   `anthropic-dangerous-direct-browser-access`). `buildSystemPrompt` returns `SystemBlock[]`, NOT a string.
-  ★★ Anthropic prompt caching is PREFIX-based: stable/cacheable content (instructions + operating-guide text)
-  MUST come FIRST with `cache_control:{type:"ephemeral"}` breakpoint after it, and volatile data (today, task
-  count, current view/mode) MUST come AFTER — mixing volatile data into the cached block (or putting the big
-  guide block last) means the cache never hits. Operating guides live in a global store (`operating_guides`,
-  out of TABLE_NAMES) surfaced by ONE `useOperatingGuides` instance in task-manager, threaded to both
-  ChatPanel (chat) and AiSection (editor).
+  ★★ Anthropic checks the prompt-cache prefix in the fixed order **`tools` → `system` → `messages`**, and an
+  entry is reusable only while the prefix is byte-identical from the very start — so per-turn content placed
+  ANYWHERE before `messages` makes the WHOLE transcript uncacheable, not merely the one segment it sits in.
+  `buildSystemPrompt` is now a thin composition of two builders: `buildStableSystemBlocks` (the cached half —
+  fixed instructions + the operating-guide text, `cache_control`-terminated) and `buildTurnContext` (the
+  volatile half — today, task count, current view/mode, … — returned as a plain string). `chat-panel.tsx`
+  calls the two separately and sends the volatile half riding the OUTGOING turn's last message, never
+  `system`, via `chat-cache-layout.ts`'s `buildWireMessages`; `buildSystemPrompt` itself (both halves in
+  `system`) survives only for `inline-ai-edit-call.ts`, a one-shot call with no transcript to protect. See the
+  "**THE CACHE BOUNDARY**" bullet under "View-scoped AI prompts" below for the full shape, and
+  `chat-cache-layout.ts`'s own header for the Anthropic reference citations this rule rests on. Operating
+  guides live in a global store (`operating_guides`, out of TABLE_NAMES) surfaced by ONE `useOperatingGuides`
+  instance in task-manager, threaded to both ChatPanel (chat) and AiSection (editor).
 - **App-feature guide:** view-scoped built-in operating guides that teach the assistant the APP's features
   (so it answers "how do I …?"). Source `lib/app-feature-guide.md` = `## Overview` (no marker → always-on) +
   per-view `## Title` each followed by `<!-- views: <AppView ids> -->`, each ending with a truthful `AI:` line
@@ -560,10 +567,13 @@
   either slice by hoisting `useChatThreads`.
 - **Ambient activity recap + the two recall toggles (B2b):** `buildActivityRecapBlock` (`activity-recap.ts`)
   emits ONE sentence — "Recent project activity: N changes in the last D days (…; latest YYYY-MM-DD). Use
-  search_history to read them." — appended to `buildSystemPrompt`'s VOLATILE suffix beside the `Today is …`
-  line, never the cached prefix. ★★ That placement is the whole design: the counts change on every turn, so
-  in the cached prefix they would invalidate the Anthropic prompt-cache breakpoint on every message, which
-  costs far more than the ~20 tokens the block spends. `chat-api.ts` carries the reasoning at the call.
+  search_history to read them." — inside `buildTurnContext`'s output, beside the `Today is …` line, never
+  `buildStableSystemBlocks`'s cached half. ★★ That placement is the whole design: the counts change on every
+  turn, and for the chat panel `buildTurnContext`'s string never enters `system` at all — it rides the
+  outgoing turn's last message via `chat-cache-layout.ts`'s `buildWireMessages`. Putting per-turn content
+  like this ahead of `messages` would not just cost one cache segment, it would make the ENTIRE transcript
+  uncacheable on every send — see the CACHE BOUNDARY bullet under "View-scoped AI prompts" below.
+  `chat-api.ts` carries the reasoning at the call.
   ★ It is a COUNT, not a recap of content — `search_history` fetches content when the model wants it — and
   the actor split ("9 by the user, 3 by the AI assistant") is load-bearing rather than decorative: it is what
   stops the model reading its OWN writes back as new user information and acting on them twice.
@@ -706,10 +716,14 @@
   breakpoint is RECOMPUTED per variant, never assumed to sit where it sits in the full list: removing a tool
   that precedes it does not move it today, but a tool appended after it later would make that assumption
   silently wrong, and a lost breakpoint is invisible except as a bill.
-  ★★★ **THE POINTER RIDES THE VOLATILE (UNCACHED) SUFFIX AND MUST NEVER ENTER THE CACHED PREFIX.** Thread
-  state changes on every turn, so in `stableText` it would invalidate the prompt-cache breakpoint on every
-  message — the same argument as the activity recap, and worth more than the block's own tokens many times
-  over. Same suppression contract too: the closing "Use search_chats to read them." is emitted ONLY when
+  ★★★ **THE POINTER RIDES `buildTurnContext`'s OUTPUT AND MUST NEVER ENTER `buildStableSystemBlocks`'S
+  CACHED HALF.** Thread state changes on every turn, so inside `stableText` it would not merely invalidate
+  one breakpoint — for the chat panel `buildTurnContext` never touches `system` at all, it rides the
+  outgoing turn's last message via `chat-cache-layout.ts`'s `buildWireMessages`, and per-turn content placed
+  ahead of `messages` instead makes the WHOLE transcript uncacheable (see the CACHE BOUNDARY bullet under
+  "View-scoped AI prompts" below) — the same argument as the activity recap, and worth more than the block's
+  own tokens many times over. Same suppression contract too: the closing "Use search_chats to read them." is
+  emitted ONLY when
   `offeredTools` (`toolNamesFor(toolFlags)`) holds the name, so the recap's shipped lie — naming a tool the
   request did not carry — cannot recur here. ★ `inline-ai-edit-call.ts` blanks `chatPointer` out of the
   snapshot it forwards, alongside `viewDigest` and `activitySummary`: that path passes `NO_RECALL_TOOLS`, so
@@ -985,67 +999,113 @@
   `builtIn` flag that makes routing built-ins through the guide store look natural — the whole guide
   block is gated by that one user preference, so doing that would let a user setting silently switch off
   shipped product behavior. `VIEW_AI_SCOPE`/`VIEW_AI_DIGEST` stay their own registries.
-  ★★★ **THE CACHE BOUNDARY — BOTH BLOCKS ARE VOLATILE, and an earlier revision of this bullet said the
-  opposite.** It claimed the scope block belonged in the cached prefix because it is "invariant per
-  view". **Per-view invariance is not the property prompt caching rewards; per-CONVERSATION invariance
-  is.** ★★★ **AND THE FIRST CORRECTION WAS ALSO WRONG — read this before repricing anything here.** It
-  argued the move BOUGHT a cache read. It did not: `stableText` is `[stableInstructions, guideBlock]`,
-  and `guideBlock` is view-filtered by `selectActiveGuides`. `settings.ai.groundInGuides` defaults to
-  **true** (`settings-types.ts`, and a missing key reads as true), and **20 of the 21
-  `BUILTIN_FEATURE_GUIDES` are view-scoped** (mean ~1 KB; Open Points ~2.9 KB), all seeded `enabled:
-  true` and undeletable. So the cached prefix ALREADY changed on every view switch, by default, for
-  every user — through a block an order of magnitude larger than the one being moved. Moving a
-  ~100-token block out of a prefix that churns anyway saves nothing and costs ~100 tokens/message.
-  ★★★ **`CACHED_TOOLS` (`chat-api.ts`) is what actually fixes it** — the LAST tool carries
-  `cache_control`, closing a cache segment at the end of `tools` so the per-view guide swap re-caches
-  only the smaller system slice after it. Without it the cached prefix is tools + `stableText` and that
-  guide swap rewrites the whole tool payload on every view switch. ★ Measure the SERIALIZED payload,
-  not the file:
-  `JSON.stringify(TOOL_DEFS)` is ~37 KB across **45** tools (2026-08-18; the line said **43** and ~32 KB
-  for two features longer than that was true).
-  ★★ **THE COUNT IS COMPOSED FROM TWO ARRAYS, and that half needs no runtime at all.**
-  `chat-tool-defs.ts`'s own literal holds **40** and spreads `DOCUMENT_TOOL_DEFS` (**5**) as its last
-  element, so `TOOL_DEFS.length` is their sum. Re-derive with
-  `grep -c '^    name: "' src/app/chat-tool-defs.ts src/app/chat-tool-defs-documents.ts` → `40` and `5`.
-  A grep total that disagrees with the runtime one means a tool was declared at some other indentation —
-  then the command is what needs fixing, not the number.
-  ★ Reproduce the SIZE by writing a two-line
-  script that imports `TOOL_DEFS` and logging `TOOL_DEFS.length, JSON.stringify(TOOL_DEFS).length`, then
-  `npx vite-node <file>` → `45 37468` (2026-08-18; was `43 32657` on 2026-08-07 and `38 25942` on
-  2026-08-05, before the five document tools).
-  ★★ **THE 2026-08-18 FIGURE WAS NOT TAKEN WITH THAT COMMAND, AND A NUMBER IS WORTH ITS INSTRUMENT.**
-  Runtime gates were off-limits in the session that corrected it, so it came from a pure-`node` evaluation
-  of the two schema files with their imported enum arrays inlined — validated by reproducing `43 32657`
-  byte-for-byte against the tree at commit `6dd19f2f`, the commit that first recorded it. Two instruments
-  agreeing on one historical value is the only reason to trust the second on a new one; if you have
-  `vite-node` to hand, prefer it and say so here.
-  **`vite-node` has NO `-e` flag** — an earlier revision of this line gave a one-liner
-  using it, which prints the help text and exits 1. ★★ It also cannot load a script from OUTSIDE the project
-  root (`ERR_LOAD_URL`), so the temp file has to sit in the repo — write it, run it, delete it, and never
-  `git add` it.
-  ★★ The token figure here is DERIVED, not measured: the 2026-08-05 revision paired 25942 bytes with
-  "~6.5k tokens" (≈4 bytes/token), which scales to **~9k tokens** at 37468 bytes. Nothing in this repo counts
-  tokens, so treat it as an estimate of that shape and do not quote it as measured.
-  ★★ **A coincidence this bullet used to rest on is now BROKEN.** It read "`chat-tool-defs.ts` on disk is
-  ~24.8 KB — the two land close by coincidence". On 2026-08-18 the file is ~36 KB, its document sibling
-  ~8.8 KB and the serialized payload ~37 KB — three numbers that no longer approximate one another in any
-  direction (`node -e "for (const f of ['src/app/chat-tool-defs.ts','src/app/chat-tool-defs-documents.ts']) console.log(f, require('fs').statSync(f).size)"`).
-  Comparing the payload against one defs file stopped meaning anything the day the five document schemas
-  moved to `chat-tool-defs-documents.ts` — measure `TOOL_DEFS` itself, which is what actually ships.
-  Both `buildViewScopeBlock` and `buildViewStateBlock` output sit in the **volatile, uncached suffix**,
-  scope before state — which is now a readability choice (what the surface IS, then what is on it), not
-  a cost one, since the tools breakpoint is where the saving comes from.
-  ★★ Three things would silently raise cost and break **nothing visible**, so they are the ones to
-  guard: dropping `CACHED_TOOLS` back to a bare `TOOL_DEFS`; moving either block into `stableText`; or
-  putting anything view-dependent AHEAD of the tools breakpoint. `chat-api.system-prompt.test.ts`
+  ★★★ **THE CACHE BOUNDARY, REWRITTEN FOR THE PROMPT-CACHE-LAYOUT SLICE.** This bullet used to argue
+  cache placement per block — "invariant per view" vs "invariant per conversation", each block priced
+  against the last. That whole framing was too narrow, and the narrowness was itself the bug it never
+  found: Anthropic checks the prefix in the fixed order **`tools` → `system` → `messages`**, and a cache
+  entry is reusable only while the prefix is byte-identical from the very start. So per-turn content
+  placed ANYWHERE before `messages` makes the WHOLE transcript uncacheable, however many breakpoints the
+  messages themselves carry — not merely the one prefix segment each earlier revision here argued about.
+  That is what every volatile block below was doing while `buildSystemPrompt` put both halves in
+  `system`: every message of every conversation was billed as fresh input on every turn. The full
+  ordering argument and the Anthropic reference citations it rests on live in `chat-cache-layout.ts`'s
+  file header — read that before reasoning about any of this from scratch again; this bullet only
+  summarises the shape.
+  ★★★ **THE FIX: `buildSystemPrompt` split in two, and the chat panel stopped putting the volatile half
+  in `system` at all.** `buildStableSystemBlocks` returns the cached half only — `stableInstructions` +
+  the guide block, `cache_control`-terminated — and is call-invariant except for the model's language.
+  `buildTurnContext` returns the volatile half as a plain **string** (today, task count, app context,
+  view scope/state, insights, the activity recap, the chat pointer) and is never followed by its own
+  breakpoint. `chat-panel.tsx` sends `system: buildStableSystemBlocks(...)` and hands the turn-context
+  string to `chat-cache-layout.ts`'s `buildWireMessages(messages, turnContext)`, which appends it as a
+  trailing text block on the OUTGOING COPY of the last user message — after any `tool_result` blocks,
+  which the API requires to lead — and never touches the persisted `messages` array (persisting it would
+  leave stale "Today is …" lines down the transcript AND rewrite history's tail on every send, destroying
+  the byte-identical prefix the next send depends on). `buildSystemPrompt` still exists as a thin
+  composition of both halves in `system`, kept ONLY for `inline-ai-edit-call.ts` — a one-shot forced tool
+  call with no transcript to protect, where relocating the volatile block would tune a working prompt for
+  zero gain (see that file's own comment).
+  ★★★ **A `cache_control` MARKER IS WRITE-POSITION METADATA, NOT PART OF THE BYTES THE CACHE MATCHES
+  AGAINST.** Moving a marker off a message does NOT invalidate the cache entry that message sits inside —
+  this is Anthropic's own stated behaviour ("strip `cache_control` markers before diffing: the moving
+  marker always differs between adjacent requests and is not an invalidator"), **documented here, not
+  measured against a live Anthropic account** — sending two consecutive messages and reading
+  `cache_read_input_tokens` off the second response is still owed. **Getting this backwards cost the
+  slice a wrong rewrite once**: an earlier pass measured a marker-inclusive byte diff, concluded the
+  cache was thrashing, and replaced the correct moving-boundary breakpoint with power-of-two bucket
+  quantization to "fix" a cost that was never real — itself expensive (coverage between doubling points
+  converges to ln 2 ≈ 0.69 average / 0.50 worst case vs ~0.11× for a boundary that moves every turn,
+  roughly 3.4× more spent on history than necessary, plus a write point that could leave a short
+  conversation under a model's minimum cacheable prefix and cache nothing, silently). `chat-cache-
+  layout.ts`'s `stripCacheControl` test helper exists so nobody re-derives that same wrong conclusion
+  from the same wrong assertion shape again.
+  ★★★ **`CACHED_TOOLS` (`chat-api.ts`) closes the FIRST segment of the prefix** — the LAST tool carries
+  `cache_control`, so a per-view guide swap inside `system` re-caches only the smaller system slice after
+  it, never the whole `tools` payload. Without it the cached prefix is `tools` + `stableText`, and the
+  guide swap would rewrite the entire tool payload on every view switch. `chat-cache-layout.ts`'s
+  `buildWireMessages` adds up to `MAX_MESSAGE_BREAKPOINTS` (2) more breakpoints inside the message
+  history itself: a moving BOUNDARY (the last message before the turn-context tail — this is what buys
+  most of the coverage, and a moving marker is the cheap, recommended shape per the fact above, not a
+  defect) plus a fixed ANCHOR at the largest power-of-two prefix length (bounded distance from the start,
+  so it survives Anthropic's 20-block breakpoint lookback window even after a long tool loop pushes the
+  boundary mark out of range). Four breakpoints total is Anthropic's own per-request cap; `tools` and
+  `system` already claim one each, which is why the message layer is capped at two.
+  ★ **Measure the SERIALIZED tool payload, not a file on disk.** `JSON.stringify(TOOL_DEFS)` is ~45 KB
+  across **52** tools (2026-09-08; `chat-tool-defs.ts`'s own literal holds **47** and spreads
+  `DOCUMENT_TOOL_DEFS` (**5**) from `chat-tool-defs-documents.ts` as its last element — re-derive with
+  `grep -c '^    name: "' src/app/chat-tool-defs.ts src/app/chat-tool-defs-documents.ts`, and the byte
+  figure with a two-line `vite-node` script importing `TOOL_DEFS` and logging
+  `TOOL_DEFS.length, JSON.stringify(TOOL_DEFS).length` — `vite-node` has NO `-e` flag and cannot load a
+  script from outside the repo root, so write the temp file inside the repo, run it, delete it, never
+  `git add` it). Both counts have grown before and will again; re-run rather than trust either number
+  here. Nothing in this repo counts tokens — any token figure quoted near this is a ~4-bytes/token
+  estimate, not a measurement.
+  ★★★ **THE GUIDE STAYS IN `system` DELIBERATELY, AND THAT IS A DECISION WITH AN OPEN QUESTION, NOT AN
+  OVERSIGHT.** `buildStableSystemBlocks`'s `stableText` is still view-dependent: `settings.ai.groundInGuides`
+  defaults to **true** (`settings-types.ts`, a missing key reads as true), and most `BUILTIN_FEATURE_GUIDES`
+  are view-scoped — **22 of 23** measured 2026-09-08, corrected from a stale "20 of the 21" that had
+  rotted by two; don't trust either number, re-run it:
+  `node -e "const s=require('fs').readFileSync('src/app/operating-guide-builtin.generated.ts','utf8');const b=s.slice(s.indexOf('BUILTIN_FEATURE_GUIDES'));console.log((b.match(/\"name\":/g)||[]).length,(b.match(/\"views\":/g)||[]).length)"`
+  (a bare `grep -c scope` answers 27 and is worthless — the guide prose discusses project scope). So
+  `selectActiveGuides` still swaps a 1–3 KB block on every view switch, and under the new layout **a
+  mid-conversation view switch still invalidates the transcript cache**, because `system` precedes
+  `messages` in the checked order above. Moving the guide onto the turn tail too was considered and
+  deliberately NOT done: today it is read from cache at a fraction of cost for any user who does not
+  switch views mid-conversation, and moving it makes it fresh on every send for every user instead — the
+  cheaper option depends entirely on how often real users switch views mid-conversation, a number nobody
+  has yet. Settle it with the usage meter below (cache-write volume vs view-switch frequency), not a
+  guess; recorded as an open follow-up alongside the measurement that would close it.
+  ★★ **A head-trim of history would destroy the whole property.** Dropping the oldest turns changes the
+  first message, invalidating the entire prefix on every send and paying a cache WRITE (1.25×) each
+  time — worse than not caching at all. Any future history budget must be coarse and hysteretic;
+  `chat-cache-layout.ts`'s header carries the reasoning.
+  ★★ **The usage meter this slice made honest is not honest on every path, and that is known, not an
+  oversight.** `chat-panel.tsx`'s `recordUsage` call is skipped entirely on the `catch` path (an aborted
+  or errored send) and gated behind `!cancelledRef.current` on the success path — so a send that errors,
+  or is cancelled, after earlier turns in the same multi-turn loop already burned billed tokens records
+  NOTHING for that send. Pre-existing control flow, deliberately unchanged by this slice — read this
+  before citing "the meter is now honest" as unconditional.
+  ★★ **`ai-usage-context.tsx`'s `loadBuckets` normalizes each field (via `ai-usage.ts`'s
+  `normalizeUsage`) instead of casting, and that closes a real trap.** A usage blob persisted before this
+  slice has no `cacheWrite`/`cacheRead`; `undefined + n` is `NaN`; and `NaN < threshold` and
+  `NaN >= threshold` are BOTH false — so a cap fed an un-normalized legacy bucket would silently stop
+  firing forever, with no error anywhere. Never replace the per-field normalize with a plain object cast.
+  ★ `buildViewScopeBlock` and `buildViewStateBlock` output both sit inside `buildTurnContext`, scope
+  before state — a readability choice (what the surface IS, then what is on it), not a cost one, since
+  the tools breakpoint plus the message-level breakpoints above are where the saving comes from.
+  ★★ Things that would silently raise cost and break **nothing visible**, so they are what to guard:
+  dropping `CACHED_TOOLS` back to a bare `TOOL_DEFS`; moving `buildTurnContext`'s output into `system` (or
+  anywhere ahead of `messages`) for a consumer that has a transcript to protect; reintroducing a per-turn
+  history trim; or persisting the turn-context string onto `messages`. `chat-api.system-prompt.test.ts`
   ("marks exactly the LAST tool…", "puts the view scope in the UNCACHED block…", "puts the digest in the
-  UNCACHED block…") is the only thing that would catch any of them.
-  ★★ **This bullet has now been wrong twice in opposite directions** — first asserting the scope block
-  belonged in the cached prefix, then asserting that moving it out bought a read. Both were reasoned
-  from arithmetic that was internally correct and priced against a baseline nobody checked. Before
-  changing anything here, verify what `stableText` actually contains AT RUNTIME for a default install;
-  this file already said "view change re-caches that slice" (in the operating-guides bullet
-  above) throughout both errors.
+  UNCACHED block…", "buildSystemPrompt split into buildStableSystemBlocks + buildTurnContext") and
+  `chat-cache-layout.test.ts` ("appends the turn context to the final user message", "never places more
+  than two breakpoints on the messages") are what would catch each.
+  ★★ **This bullet was wrong twice before this rewrite, in opposite directions** — first asserting the
+  scope block belonged in the cached prefix, then asserting that moving it out bought a read. Both were
+  reasoned from arithmetic that was internally correct and priced against a baseline nobody checked.
+  Before changing anything here, verify what `buildStableSystemBlocks` and `buildTurnContext` actually
+  produce AT RUNTIME for a default install — do not reason from this prose alone.
   ★ `view-ai-digest.ts`'s `VIEW_AI_DIGEST` is a **`Partial<Record<AppView, DigestFn>>`** on purpose,
   covering exactly four views (`open-points`, `workload`, `gantt`, `budget`) fed through
   `getSnapshot().viewDigest` in `use-chat-dispatcher.ts` — the other 30 views cost nothing and nobody
