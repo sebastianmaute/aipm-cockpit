@@ -215,6 +215,17 @@ describe("plural key pairing", () => {
     expect(callForm(probeKey).test(`const s = t(lang, "${probeKey}", n);`)).toBe(true);
     expect(callForm(probeKey).test(`const K = { a: "${probeKey}" } as const;`)).toBe(false);
 
+    // ★★★ PRECOMPUTED PER BASE, NOT PER LINE. The scan is O(files x lines x
+    // bases) — ~500 files against ~40 bases — and building the RegExp and the
+    // quoted needle inside the innermost loop made that ~4M RegExp
+    // constructions per run. It cost the test roughly its whole budget: it
+    // passed in isolation (~7s) and TIMED OUT at the 20s ceiling under
+    // full-suite parallel load, on two consecutive runs, which reads as a
+    // flake and is not one. Hoisting both out of the loop changes no
+    // behaviour — same matchers, same inputs — and the positive controls above
+    // still prove each matcher can fire. Do not inline these back.
+    const matchers = bases.map((b) => ({ base: b, needle: `"${b}"`, re: callForm(b) }));
+
     const bareOffenders = new Map<string, string[]>();
     const callOffenders = new Map<string, string[]>();
     for (const f of files) {
@@ -223,12 +234,12 @@ describe("plural key pairing", () => {
         .split(/\r?\n/)
         .forEach((line, i) => {
           if (line.includes("tPlural")) return;
-          for (const b of bases) {
-            if (line.includes(`"${b}"`)) {
+          for (const { base: b, needle, re } of matchers) {
+            if (line.includes(needle)) {
               const k = `${b}@${rel}`;
               bareOffenders.set(k, [...(bareOffenders.get(k) ?? []), `${rel}:${i + 1}`]);
             }
-            if (callForm(b).test(line)) {
+            if (re.test(line)) {
               callOffenders.set(`${b}@${rel}`, [...(callOffenders.get(`${b}@${rel}`) ?? []), `${rel}:${i + 1}`]);
             }
           }
