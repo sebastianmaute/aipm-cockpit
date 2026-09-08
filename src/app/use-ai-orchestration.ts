@@ -83,7 +83,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
   // loop). Reuses the live in-memory key; surfaced via the aiAnalysisBundle prop.
   const actionAnalysis = useActionAnalysis({
     apiKey: aiKeyIfEnabled(settings.ai),
-    model: settings.ai?.model ?? "claude-sonnet-4-6",
+    model: settings.ai?.model ?? "claude-sonnet-5",
   });
   // Hoisted member reads (exhaustive-deps rejects `obj.member` deps; the hook
   // returns a fresh object each render so depending on the whole thing defeats
@@ -191,7 +191,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     jobs: scheduledJobs.jobs,
     recordRun: scheduledJobs.recordRun,
     buildContext: buildAiContext,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5" },
     notify: notifyScheduledJob,
   });
 

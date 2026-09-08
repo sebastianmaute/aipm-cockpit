@@ -154,7 +154,7 @@ export function CreateProjectWizard({
   const aiEnabled = aiKey.length > 0;
   const { generate, busy: aiBusy, error: aiError, reset: resetAi } = useProjectProposal({
     apiKey: aiKey,
-    model: settings.ai?.model ?? "claude-sonnet-4-6",
+    model: settings.ai?.model ?? "claude-sonnet-5",
   });
   const [step, setStep] = useState<Step>(aiEnabled ? 0 : 1);
   const [draftPatch, setDraftPatch] = useState<Partial<ProjectFormDraft> | undefined>(undefined);

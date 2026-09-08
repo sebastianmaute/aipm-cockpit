@@ -33,7 +33,7 @@ describe("callInlineEdit", () => {
         { type: "tool_use", id: "b1", name: "update_task", input: { id: 42, status: "Done" } },
       ],
       stop_reason: "tool_use",
-      usage: { input_tokens: 10, output_tokens: 5 },
+      usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
     };
     vi.spyOn(chatApi, "callClaude").mockResolvedValue(response);
     const r = await callInlineEdit({
@@ -42,14 +42,14 @@ describe("callInlineEdit", () => {
     });
     expect(r.blocks.map((b) => b.name)).toEqual(["update_task"]);
     expect(r.text).toContain("Sure");
-    expect(r.usage).toEqual({ input_tokens: 10, output_tokens: 5 });
+    expect(r.usage).toEqual({ input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 });
   });
 
   it("propagates the api key + model to callClaude and never returns them", async () => {
     const response: Awaited<ReturnType<typeof chatApi.callClaude>> = {
       content: [],
       stop_reason: "end_turn",
-      usage: { input_tokens: 0, output_tokens: 0 },
+      usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
     };
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(response);
     await callInlineEdit({ apiKey: "sk-ant-secret000000000000", model: "claude-y", lang: "en-US", entity: "task", item, itemLabel: "x", instruction: "x", snapshot, guides: [], groundInGuides: false });
@@ -66,7 +66,7 @@ describe("callInlineEdit", () => {
     const response: Awaited<ReturnType<typeof chatApi.callClaude>> = {
       content: [],
       stop_reason: "end_turn",
-      usage: { input_tokens: 0, output_tokens: 0 },
+      usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
     };
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(response);
     await callInlineEdit({
@@ -104,7 +104,7 @@ describe("callInlineEdit", () => {
     const emptyResponse: Awaited<ReturnType<typeof chatApi.callClaude>> = {
       content: [],
       stop_reason: "end_turn",
-      usage: { input_tokens: 0, output_tokens: 0 },
+      usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
     };
     const withActivity = {
       ...snapshot,
@@ -183,7 +183,7 @@ describe("callInlineEdit", () => {
     const emptyResponse: Awaited<ReturnType<typeof chatApi.callClaude>> = {
       content: [],
       stop_reason: "end_turn",
-      usage: { input_tokens: 0, output_tokens: 0 },
+      usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
     };
     const withPointer = {
       ...snapshot,

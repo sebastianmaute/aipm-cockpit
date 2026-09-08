@@ -16,7 +16,15 @@ import { chatSearchEnabled, historySearchEnabled, type AiConfig } from "./settin
 // Re-export so chat consumers can catch the typed HTTP failure without a second import.
 export { AiHttpError } from "./ai-errors";
 
-export type TextBlock = { type: "text"; text: string };
+/** ★ `cache_control` is optional on both — it is set only by
+ *  `chat-cache-layout.ts`'s message-level breakpoints (never by anything that
+ *  builds these blocks for a fresh, unmarked turn). Added so that file marks a
+ *  block by producing a plain, statically-typed object rather than casting
+ *  through `unknown`; mirrors `SystemBlock` below, which already carries the
+ *  same field for the system-level breakpoint. `ToolUseBlock`/`AttachmentBlock`
+ *  do NOT get it — Anthropic breakpoints only land on `text`/`tool_result`
+ *  content, and nothing in this codebase ever marks the other two. */
+export type TextBlock = { type: "text"; text: string; cache_control?: { type: "ephemeral" } };
 export type ToolUseBlock = {
   type: "tool_use";
   id: string;
@@ -28,6 +36,7 @@ export type ToolResultBlock = {
   tool_use_id: string;
   content: string;
   is_error?: boolean;
+  cache_control?: { type: "ephemeral" };
 };
 export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | AttachmentBlock;
 
@@ -74,7 +83,39 @@ export type DisplayItem =
    */
   | { kind: "proposal"; id: string; count: number };
 
-export type ApiUsage = { input_tokens: number; output_tokens: number };
+/** ★★★ FOUR FIELDS, NOT TWO, AND `input_tokens` IS NOT THE TOTAL.
+ *  Anthropic bills cached input separately and EXCLUDES it from `input_tokens`:
+ *  `cache_creation_input_tokens` is a cache WRITE (billed at 1.25x base) and
+ *  `cache_read_input_tokens` is a cache READ (0.1x). Counting only the first two
+ *  fields — which this type did before the cache-token widening — makes every
+ *  cached token invisible to the session and weekly caps in `ai-usage-context.tsx`,
+ *  so the under-count grows with exactly how well the cache is working.
+ *  ★ Both cache fields are ABSENT from the response when no breakpoint was sent,
+ *  so they are optional on the wire and defaulted to 0 at the parse. Downstream
+ *  code must never see `undefined` here: `undefined + n` is NaN, and NaN defeats
+ *  every threshold comparison silently. */
+export type ApiUsage = {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+};
+
+/** The same shape as it arrives on the wire — both cache fields optional. */
+type WireUsage = Partial<ApiUsage>;
+
+/** Normalise a raw API `usage` object into the fully-populated `ApiUsage`
+ *  shape, defaulting any absent/non-finite field to 0 rather than leaving it
+ *  `undefined` (see the `ApiUsage` doc comment for why that matters). */
+export function normalizeApiUsage(raw: WireUsage | undefined): ApiUsage {
+  const n = (v: number | undefined): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  return {
+    input_tokens: n(raw?.input_tokens),
+    output_tokens: n(raw?.output_tokens),
+    cache_creation_input_tokens: n(raw?.cache_creation_input_tokens),
+    cache_read_input_tokens: n(raw?.cache_read_input_tokens),
+  };
+}
 
 export const ANTHROPIC_VERSION = "2023-06-01";
 
@@ -91,7 +132,31 @@ export function maxOutputTokensFor(model: string): number {
 export const CONTINUE_NUDGE =
   "Your previous message was cut off at the length limit. Continue exactly where you left off — do not repeat anything you already wrote.";
 
-export function buildSystemPrompt(
+/** The STABLE half of the system prompt (cached): fixed instructions that
+ *  never interpolate per-call state, plus the (large) guide text. Anthropic
+ *  prompt-cache is prefix-based, so this must come FIRST in the request and
+ *  contain only call-invariant content — EXCEPT for the guide block, which is
+ *  call-invariant per VIEW, not per call: `groundInGuides` defaults true and
+ *  most builtin guides are view-scoped, so this half changes on every view
+ *  switch out of the box. See `CACHED_TOOLS`'s doc comment below (the same
+ *  fact, argued in full) rather than re-deriving it here.
+ *
+ *  ★★ Split out of `buildSystemPrompt` (Task 5 of the prompt-cache-layout
+ *  slice) so the layout engine (Task 6) and the relocation (Task 7) can each
+ *  address the two halves independently. `buildSystemPrompt` below is kept
+ *  as a thin composition of this and `buildTurnContext` — nothing about
+ *  which text lands in which half changed here.
+ *
+ *  ★★★ `toolFlags` CANNOT MOVE A BYTE OF THIS OUTPUT — measured, not assumed
+ *  (a differential probe holding every other input fixed and flipping
+ *  `historySearch`/`chatSearch` found this half byte-identical while
+ *  `buildTurnContext`'s output changed). The tool-advertising blocks
+ *  `toolFlags` gates (view scope, activity recap, chat pointer) all live in
+ *  the volatile half; it is accepted here only so both halves share one
+ *  param list. This is what makes the block genuinely STABLE across a
+ *  conversation's turns even when a setting toggle changes mid-thread — see
+ *  Task 7, which depends on it. */
+export function buildStableSystemBlocks(
   lang: Lang,
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
   guides: readonly OperatingGuide[],
@@ -101,14 +166,16 @@ export function buildSystemPrompt(
    *  `toolNamesFor`; only an explicit false drops one. */
   toolFlags: ToolFlags,
 ): SystemBlock[] {
-  // ★★ Resolved ONCE and shared by both advertising surfaces below. Two
-  //    independent reads of the setting is how they drifted apart before.
-  const offeredTools = toolNamesFor(toolFlags);
-  const groups = (snapshot.knownGroups ?? []).join(", ") || "(none)";
-  const labels = (snapshot.knownLabels ?? []).join(", ") || "(none)";
-  // STABLE prefix (cached): fixed instructions that never interpolate per-call
-  // state, plus the (large) guide text. Anthropic prompt-cache is prefix-based,
-  // so this must come FIRST and contain only call-invariant content.
+  // `toolFlags` is unused HERE — the tool-advertising blocks it drives
+  // (view scope / activity recap / chat pointer) all live in the volatile
+  // half. Kept on the signature anyway so both halves take the IDENTICAL
+  // param list `buildSystemPrompt` composes them from unchanged.
+  void toolFlags;
+  // STABLE prefix (cached): fixed instructions plus the (large) guide text.
+  // Anthropic prompt-cache is prefix-based, so this must come FIRST. For what
+  // "stable" does and does NOT mean here — the guide block is invariant per
+  // VIEW, not per call — see this function's docstring above; do not restate
+  // the rule here, this copy is how the two drifted apart.
   const stableInstructions = [
     "You are an assistant embedded in AI PM Cockpit, an AI-assisted project management app for tracking open project items (tasks, RAID, changes, milestones, budget).",
     "The user is a project lead tracking open tasks. Each task has: id, taskName, assignee, assigneeEmail, dueDate (YYYY-MM-DD), lastUpdateDate, priority (Low/Medium/High/Urgent), status (To Do/In Progress/On Hold/In Review/Cancelled/Done), blockers, notes, group (single optional category), labels (zero or more tags).",
@@ -139,6 +206,35 @@ export function buildSystemPrompt(
       }))
     : "";
   const stableText = [stableInstructions, guideBlock].filter(Boolean).join("\n\n");
+
+  return [{ type: "text", text: stableText, cache_control: { type: "ephemeral" } }];
+}
+
+/** The VOLATILE half of the system prompt (uncached): per-call state — the
+ *  APP CONTEXT block, view scope/digest, insights, the activity recap and
+ *  chat pointer. Rebuilt every turn, so it must sit AFTER the cached prefix
+ *  or it would invalidate the prompt cache on every message.
+ *
+ *  ★★ Split out of `buildSystemPrompt` alongside `buildStableSystemBlocks`
+ *  (see that function's doc comment) — same param list, same call-site
+ *  contract, just the second half of the same text. Returns the string, not
+ *  a `SystemBlock[]`: unlike the stable half this one is never followed by
+ *  its own `cache_control` breakpoint. */
+export function buildTurnContext(
+  lang: Lang,
+  snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
+  guides: readonly OperatingGuide[],
+  groundInGuides: boolean,
+  /** `settings.ai`'s tool flags — the SAME value `callClaude` is given, so the
+   *  prompt advertises exactly the tools the request carries. See
+   *  `toolNamesFor`; only an explicit false drops one. */
+  toolFlags: ToolFlags,
+): string {
+  // ★★ Resolved ONCE and shared by both advertising surfaces below. Two
+  //    independent reads of the setting is how they drifted apart before.
+  const offeredTools = toolNamesFor(toolFlags);
+  const groups = (snapshot.knownGroups ?? []).join(", ") || "(none)";
+  const labels = (snapshot.knownLabels ?? []).join(", ") || "(none)";
 
   // VOLATILE suffix (uncached): per-call state + the APP CONTEXT block. Placed
   // AFTER the cached prefix so it never invalidates the cache.
@@ -177,7 +273,7 @@ export function buildSystemPrompt(
   // suffix — in the cached prefix it would invalidate the prompt cache on every
   // message, which costs far more than the ~40 tokens it saves.
   const chatBlock = buildChatPointerBlock(snapshot.chatPointer ?? null, offeredTools);
-  const volatileText = [
+  return [
     `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
     appContext,
@@ -189,10 +285,26 @@ export function buildSystemPrompt(
   ]
     .filter(Boolean)
     .join("\n");
+}
 
+/** ★★ KEPT AS A COMPOSITION, not deleted. `inline-ai-edit-call.ts` genuinely
+ *  wants both halves in the system array (it has no transcript to cache, so
+ *  relocating its volatile block would change a tuned one-shot prompt for zero
+ *  gain — see the spec's per-consumer split). The chat panel calls the two
+ *  builders separately instead. */
+export function buildSystemPrompt(
+  lang: Lang,
+  snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
+  guides: readonly OperatingGuide[],
+  groundInGuides: boolean,
+  /** `settings.ai`'s tool flags — the SAME value `callClaude` is given, so the
+   *  prompt advertises exactly the tools the request carries. See
+   *  `toolNamesFor`; only an explicit false drops one. */
+  toolFlags: ToolFlags,
+): SystemBlock[] {
   return [
-    { type: "text", text: stableText, cache_control: { type: "ephemeral" } },
-    { type: "text", text: volatileText },
+    ...buildStableSystemBlocks(lang, snapshot, guides, groundInGuides, toolFlags),
+    { type: "text", text: buildTurnContext(lang, snapshot, guides, groundInGuides, toolFlags) },
   ];
 }
 
@@ -311,9 +423,14 @@ export function appendUserNote(messages: ApiMessage[], note: string): ApiMessage
  *  ★★★ AND `stableText` IS VIEW-DEPENDENT BY DEFAULT — this was mis-analysed
  *  once and the wrong conclusion nearly shipped. `settings.ai.groundInGuides`
  *  defaults to TRUE (`settings-types.ts`, and a missing key reads as true), and
- *  20 of the 21 `BUILTIN_FEATURE_GUIDES` are view-scoped (mean ~1 KB, Open
- *  Points ~2.9 KB), so `selectActiveGuides` swaps a multi-KB guide in and out of
- *  `guideBlock` on EVERY view switch, for every user, out of the box. Moving the
+ *  most `BUILTIN_FEATURE_GUIDES` are view-scoped (mean ~1 KB, Open Points
+ *  ~2.9 KB) — do not trust a number here, it has already rotted once;
+ *  reproduce it instead:
+ *  `node -e "const s=require('fs').readFileSync('src/app/operating-guide-builtin.generated.ts','utf8');const b=s.slice(s.indexOf('BUILTIN_FEATURE_GUIDES'));console.log((b.match(/\"name\":/g)||[]).length,(b.match(/\"views\":/g)||[]).length)"`
+ *  (a bare `grep -c scope` answers 27 and is worthless — the guide prose
+ *  discusses project scope). So `selectActiveGuides` swaps a multi-KB guide in
+ *  and out of `guideBlock` on EVERY view switch, for every user, out of the
+ *  box. Moving the
  *  ~100-token view-scope block into the volatile suffix therefore never bought a
  *  cache read on its own; only this breakpoint does, by closing a segment at the
  *  end of `tools` so the guide swap re-caches only the smaller system slice.
@@ -459,11 +576,11 @@ export async function callClaude(
     }
     throw new AiHttpError(res.status, errorType, safeMessage);
   }
-  const json = await res.json() as { content: ContentBlock[]; stop_reason: string; usage?: ApiUsage };
+  const json = await res.json() as { content: ContentBlock[]; stop_reason: string; usage?: WireUsage };
   return {
     content: json.content,
     stop_reason: json.stop_reason,
-    usage: json.usage ?? { input_tokens: 0, output_tokens: 0 },
+    usage: normalizeApiUsage(json.usage),
   };
 }
 

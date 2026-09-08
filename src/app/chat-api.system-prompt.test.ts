@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildSystemPrompt, CACHED_TOOLS } from "./chat-api";
+import { buildSystemPrompt, buildStableSystemBlocks, buildTurnContext, CACHED_TOOLS } from "./chat-api";
 import { TOOL_DEFS } from "./chat-tool-defs";
 import type { Insight } from "./insights/insight";
+import type { OperatingGuide } from "./operating-guide";
 
 function snapshot(over: Record<string, unknown> = {}) {
   return {
@@ -22,8 +23,11 @@ function snapshot(over: Record<string, unknown> = {}) {
 
 // ★★★ The tools breakpoint is the ONLY thing keeping ~6.5k tokens of tool
 // schemas out of the per-view cache churn. `stableText` changes on every view
-// switch by default (groundInGuides defaults true; 20 of 21 builtin feature
-// guides are view-scoped), so without a segment closing at the end of `tools`,
+// switch by default (groundInGuides defaults true; most builtin feature guides
+// are view-scoped — measured 23 guides / 22 view-scoped on 2026-09-08 by the
+// reproduce command in `withCacheBreakpoint`'s docstring in chat-api.ts; this
+// line said "20 of 21" for several releases, so run it rather than trusting
+// any number here), so without a segment closing at the end of `tools`,
 // that guide swap rewrites the schemas too. Deleting it breaks NOTHING visible.
 describe("tools cache breakpoint", () => {
   it("marks exactly the LAST tool and leaves TOOL_DEFS itself unmutated", () => {
@@ -213,5 +217,108 @@ describe("buildSystemPrompt insight block placement", () => {
     expect(volatile.text).toContain("CACHEPROBE");
     expect(volatile.text).toContain("Recent outcomes");
     expect(volatile.text).toContain("4242 tasks stalled");
+  });
+});
+
+// ★★★ TASK 5 — pins `buildSystemPrompt` as a thin composition, NOT a
+// byte-identity check against anything. `buildSystemPrompt`'s entire body IS
+// `[...buildStableSystemBlocks(...args), { type: "text", text:
+// buildTurnContext(...args) }]` — the test below builds `composed` the same
+// way, over the same `args` tuple, so `expect(composed).toEqual(legacy)` is a
+// TAUTOLOGY: it compares that expression to itself and cannot go red for any
+// change inside either builder (verified by mutation — renaming the "Known
+// groups: …" line in `buildTurnContext`'s return array changes both sides
+// identically and THIS test stays green; the anti-vacuity test below is what
+// turns the FILE red on that mutant, and it was added for exactly that
+// reason). The property this once checked —
+// that the split is byte-identical to the PRE-SPLIT, single-function
+// `buildSystemPrompt` — was only ever checkable against that pre-split code,
+// which no longer exists in the tree, so it is not reconstructable here.
+// What the test below DOES still pin, and is worth pinning: that
+// `buildSystemPrompt` stays a two-block
+// composition, stable half first, one turn-context text block last — a
+// regression that inlined new logic into `buildSystemPrompt` itself, or
+// reordered the two halves, or dropped one, would turn it red. The fixture is
+// deliberately NOT the file's minimal `snapshot()` default — an empty
+// snapshot with no guides would let both new builders return near-empty text
+// and the composition check would prove almost nothing. Every field that
+// lands text in either half is populated here.
+describe("buildSystemPrompt split into buildStableSystemBlocks + buildTurnContext", () => {
+  const guides: OperatingGuide[] = [
+    {
+      id: "g1",
+      name: "Budget guide",
+      content: "Always double-check budget totals against the plan before reporting them.",
+      enabled: true,
+      priority: 1,
+      scope: {},
+      builtIn: true,
+    },
+  ];
+
+  const insights: Insight[] = [
+    {
+      id: 1,
+      key: "k1",
+      type: "milestoneSlip",
+      severity: "high",
+      data: { name: "SPLITPROBE", daysOverdue: 5 },
+      status: "active",
+      firstSeenAt: "2026-08-01",
+      lastSeenAt: "2026-08-05",
+      occurrences: 1,
+    },
+  ];
+
+  const richSnapshot = snapshot({
+    knownGroups: ["Migration", "Onboarding"],
+    knownLabels: ["urgent", "blocked"],
+    insights,
+    viewDigest: "3 people over capacity",
+    activitySummary: {
+      total: 3,
+      byActor: { user: 2, ai: 1, integration: 0, unknown: 0 },
+      latestAt: "2026-08-05T09:00:00.000Z",
+      days: 14,
+    },
+    chatPointer: {
+      count: 2,
+      recent: [{ title: "budget review", at: "2026-08-04T10:00:00Z" }],
+    },
+  });
+
+  it("keeps buildSystemPrompt a thin two-block composition of the split halves", () => {
+    const args = ["en-US", richSnapshot, guides, true, {}] as const;
+    const legacy = buildSystemPrompt(...args);
+    const composed = [
+      ...buildStableSystemBlocks(...args),
+      { type: "text" as const, text: buildTurnContext(...args) },
+    ];
+    expect(composed).toEqual(legacy);
+  });
+
+  // Anti-vacuity for the composition check above: a fixture that produces
+  // empty text on either side would let `toEqual` pass trivially. Both
+  // halves must carry real content — and this is also the ONLY place that
+  // pins the actual substance of `buildTurnContext`'s output, since the
+  // composition check above cannot fail on a change inside either builder.
+  it("gives the fixture real, non-empty text on both sides of the split", () => {
+    const [stable, volatile] = buildSystemPrompt("en-US", richSnapshot, guides, true, {});
+    expect(stable.text.length).toBeGreaterThan(0);
+    expect(volatile.text.length).toBeGreaterThan(0);
+    // Confirm the enriched fields actually landed, not just SOME text.
+    expect(stable.text).toContain("Budget guide");
+    expect(volatile.text).toContain("SPLITPROBE");
+    expect(volatile.text).toContain("3 people over capacity");
+    expect(volatile.text).toContain("budget review");
+    // Fixed (non-fixture-derived) content `buildTurnContext` always emits,
+    // read off its actual return array rather than guessed: the "Today
+    // is …"/"Known groups: …" lines and the APP CONTEXT header. NOTE:
+    // "Active language code: …" is deliberately NOT asserted here — it is
+    // emitted by `buildStableSystemBlocks`'s `stableInstructions`, not by
+    // `buildTurnContext`, so it lands in `stable.text`, not `volatile.text`.
+    expect(volatile.text).toContain("Today is");
+    expect(volatile.text).toContain("Known groups");
+    expect(volatile.text).toContain("APP CONTEXT");
   });
 });

@@ -3791,6 +3791,8 @@ const enUS = {
   fieldsAdjusted: "Saved — {0} field(s) adjusted to fit limits",
 
   usage80Toast: "You've used 80% of your token budget",
+  aiUsageCapBasisChanged:
+    "Token counts now include cached input, which Anthropic bills separately. Your caps are unchanged, so warnings arrive earlier than before.",
   aiUsageLimitReached:
     "Claude usage limit reached — this is Anthropic's own rate/usage limit. Please wait and try again after it resets.",
   aiSelfLimitReached:
@@ -3798,6 +3800,10 @@ const enUS = {
   aiUsageSession: "Current session",
   aiUsageWeek: "Current week (all models)",
   aiUsageResetAt: "Resets {0}",
+  aiUsageCacheRead: "Cached input (counted tokens)",
+  aiUsageCacheWrite: "Cache writes (counted tokens)",
+  aiUsageUncachedInput: "Uncached input (counted tokens)",
+  aiUsageCacheHitRate: "Cache hit rate: {0}%",
   aiSessionCap: "Session token cap",
   aiWeeklyCap: "Weekly token cap",
   aiSessionCapHint: "Your own advisory per-session token limit. You'll see a notice near and at the limit; calls are never blocked. Resets each session.",

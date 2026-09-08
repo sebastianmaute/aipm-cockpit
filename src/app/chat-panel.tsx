@@ -31,7 +31,8 @@ import { type AttachmentBlock, ATTACHMENT_ACCEPT } from "./chat-attachments";
 import { flattenIngestBlocks, ingestFile } from "./attachment-ingest";
 import { buildAttachmentSummary } from "./chat-attachment-summary";
 import {
-  buildSystemPrompt,
+  buildStableSystemBlocks,
+  buildTurnContext,
   callClaude,
   appendUserNote,
   closeDanglingToolUses,
@@ -44,6 +45,7 @@ import {
   type ApiMessage,
   type DisplayItem,
 } from "./chat-api";
+import { buildWireMessages } from "./chat-cache-layout";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
@@ -520,13 +522,21 @@ function ChatPanelInner({
     const stale = () =>
       cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
 
-    const system = buildSystemPrompt(lang, dispatcher.getSnapshot(), guides, ai.groundInGuides, ai);
+    const snapshot = dispatcher.getSnapshot();
+    const system = buildStableSystemBlocks(lang, snapshot, guides, ai.groundInGuides, ai);
+    const turnContext = buildTurnContext(lang, snapshot, guides, ai.groundInGuides, ai);
+    // ★★★ WIRE-ONLY. `messages` stays the PERSISTED history; the turn context is
+    //     injected into the outgoing copy alone. Persisting it would leave stale
+    //     "Today is ..." down the transcript AND rewrite history's tail on every
+    //     send, which destroys the byte-identical prefix the cache depends on.
     const messages = newHistory.slice();
 
     try {
       // Accumulate token usage across all turns for this send.
       let totalInput = 0;
       let totalOutput = 0;
+      let totalCacheWrite = 0;
+      let totalCacheRead = 0;
       // When the previous turn was a max_tokens continuation, the next turn's
       // text is appended to the SAME bubble (a split mid code-fence/table would
       // otherwise render as two broken blocks). `completed` distinguishes a clean
@@ -547,7 +557,7 @@ function ChatPanelInner({
           effectiveApiKey,
           ai.model,
           system,
-          messages,
+          buildWireMessages(messages, turnContext).messages,
           ai, controller.signal,
         );
         // A cancel or a project switch may have landed while awaiting — bail
@@ -555,6 +565,8 @@ function ChatPanelInner({
         if (stale()) break;
         totalInput += response.usage.input_tokens;
         totalOutput += response.usage.output_tokens;
+        totalCacheWrite += response.usage.cache_creation_input_tokens;
+        totalCacheRead += response.usage.cache_read_input_tokens;
 
         const assistantMsg: ApiMessage = {
           role: "assistant",
@@ -735,7 +747,12 @@ function ChatPanelInner({
       if (!cancelledRef.current) {
         // Record summed token usage for the entire send (all turns combined).
         // Skipped on cancel — no complete turn to bill.
-        recordUsage({ input: totalInput, output: totalOutput });
+        recordUsage({
+          input: totalInput,
+          output: totalOutput,
+          cacheWrite: totalCacheWrite,
+          cacheRead: totalCacheRead,
+        });
       }
 
       // Persist a valid history: a max_tokens truncation or a mid-turn Stop can

@@ -215,6 +215,39 @@ describe("plural key pairing", () => {
     expect(callForm(probeKey).test(`const s = t(lang, "${probeKey}", n);`)).toBe(true);
     expect(callForm(probeKey).test(`const K = { a: "${probeKey}" } as const;`)).toBe(false);
 
+    // ★★★ PRECOMPUTED PER BASE, NOT PER LINE — AND INLINING THIS BACK INTO THE
+    // LOOP REINTRODUCES A TIMEOUT, not merely a slower test. The scan is
+    // O(scanned lines x bases). MEASURED 2026-09-08: 989 files, 187,767
+    // scanned lines, 42 paired bases — so constructing the RegExp and the
+    // quoted needle inside the innermost loop cost ~7.9 MILLION `new RegExp`
+    // calls per run. That ate most of the 20s budget.
+    // ★★ DO NOT read the `> 500` floor above as the file COUNT — an earlier
+    // revision of this comment did exactly that and understated the work by
+    // ~2x ("~500 files … four million"). It is an anti-vacuity floor, not a
+    // measurement. Re-derive both with:
+    //   node -e "const fs=require('fs'),p=require('path');const f=[];const w=d=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){const q=p.join(d,e.name);if(e.isDirectory())w(q);else if(/\.tsx?$/.test(e.name)&&!/\.test\.tsx?$/.test(e.name)&&!/^i18n(\.de)?\.ts$/.test(e.name))f.push(q)}};w('src/app');let n=0;for(const x of f)n+=fs.readFileSync(x,'utf8').split(/\r?\n/).length;console.log(f.length,n)"
+    // MEASURED on 2026-09-08, in isolation:
+    //   before  tests 6.58s  (total 7.81s)
+    //   after   tests 1.42s  (total 2.99s)
+    // Reproduce either number with:
+    //   npx vitest run src/app/i18n-plural.test.ts --reporter=dot
+    // and read the `Duration` line's `tests` figure.
+    // ★★ IT READ AS A FLAKE AND WAS NOT ONE. Before the hoist this test hit
+    // `Test timed out in 20000ms` on THREE consecutive full-suite runs — twice
+    // under `test:run`, once under `test:shuffle` — while passing in isolation
+    // every time. Two of those three runs had nothing else competing for the
+    // machine, which is what rules out contention: ~4M constructions is a
+    // CAUSE, not a load symptom, and a faster runner only moves it back under
+    // the line rather than removing it. A timeout also prints no assertion
+    // text, so it reads like a broken suite rather than a slow one.
+    // ★★ Hoisting changes no behaviour — same regexes, same needles, same
+    // inputs — and the positive controls above still prove each matcher can
+    // fire. That pairing is load-bearing: a hoist that quietly stopped the
+    // scan matching would be strictly worse than the timeout it fixes, so it
+    // was mutation-proved by injecting `t(lang, "bulkEditTitle", n)` into a
+    // source file and confirming this test goes red naming that file and line.
+    const matchers = bases.map((b) => ({ base: b, needle: `"${b}"`, re: callForm(b) }));
+
     const bareOffenders = new Map<string, string[]>();
     const callOffenders = new Map<string, string[]>();
     for (const f of files) {
@@ -223,12 +256,12 @@ describe("plural key pairing", () => {
         .split(/\r?\n/)
         .forEach((line, i) => {
           if (line.includes("tPlural")) return;
-          for (const b of bases) {
-            if (line.includes(`"${b}"`)) {
+          for (const { base: b, needle, re } of matchers) {
+            if (line.includes(needle)) {
               const k = `${b}@${rel}`;
               bareOffenders.set(k, [...(bareOffenders.get(k) ?? []), `${rel}:${i + 1}`]);
             }
-            if (callForm(b).test(line)) {
+            if (re.test(line)) {
               callOffenders.set(`${b}@${rel}`, [...(callOffenders.get(`${b}@${rel}`) ?? []), `${rel}:${i + 1}`]);
             }
           }

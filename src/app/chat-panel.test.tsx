@@ -22,6 +22,7 @@ import { saveSealed } from "./secrets-store";
 import { sealPassphrase } from "./secrets";
 import { peekMintId } from "./id-mint-session";
 import type { ChatConversation } from "./workspace-tab-context";
+import { useAiUsageContext } from "./ai-usage-context";
 
 // Force the dictation mic to be "supported" so useDictationMic renders the
 // button (mirrors note-log-panel.test.tsx / task-form-fields.dictation.test.tsx
@@ -31,6 +32,31 @@ vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
   saveThread: vi.fn(async () => undefined),
   deleteThread: vi.fn(async () => undefined),
+}));
+
+// Default double of the shared usage context — a no-op record, matching the
+// real context's own default value (chat-panel is rendered directly in this
+// file with no <AiUsageProvider>, so it was already reading that default).
+// Individual tests override the return value to spy on `record`.
+//
+// Hoisted (vi.hoisted) so this object can be shared between the factory below
+// and the per-test beforeEach in the "cache-token usage recording" describe
+// block: vi.mock(...) calls are hoisted above ordinary top-level statements,
+// so a factory referencing a plain module-scope `const` declared later in
+// this file would hit it before that const is initialized (a TDZ
+// ReferenceError) — vi.hoisted() is vitest's sanctioned way around that.
+const { DEFAULT_AI_USAGE_CONTEXT } = vi.hoisted(() => ({
+  DEFAULT_AI_USAGE_CONTEXT: {
+    sessionTotal: 0,
+    sessionUsage: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 },
+    weekTotal: 0,
+    nextReset: new Date(),
+    record: vi.fn(),
+  },
+}));
+
+vi.mock("./ai-usage-context", () => ({
+  useAiUsageContext: vi.fn(() => DEFAULT_AI_USAGE_CONTEXT),
 }));
 
 vi.mock("./use-push-to-talk", () => ({
@@ -698,7 +724,13 @@ describe("prompt caching", () => {
     vi.restoreAllMocks();
   });
 
-  it("sends system as a cache-controlled content block", async () => {
+  // ★★★ `system` is now ONE block, not two — Task 7 (the prompt-cache-layout
+  //   slice) moved the volatile half (APP CONTEXT et al.) off the `system`
+  //   array and onto the current user turn, via `buildWireMessages`, so the
+  //   `system` array sent over the wire is only ever `buildStableSystemBlocks`'
+  //   single cached block. See the "prompt cache layout wiring" describe block
+  //   below for where the relocated volatile half is now asserted.
+  it("sends system as a single cache-controlled content block", async () => {
     let rejectFetch!: (reason: unknown) => void;
     const pending = new Promise<Response>((_res, rej) => { rejectFetch = rej; });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
@@ -725,12 +757,155 @@ describe("prompt caching", () => {
     expect(fetchSpy.mock.calls.length).toBeGreaterThan(0);
     const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
     expect(Array.isArray(body.system)).toBe(true);
+    expect(body.system).toHaveLength(1);
     expect(body.system[0].cache_control.type).toBe("ephemeral");
-    expect(body.system[1].cache_control).toBeUndefined();
 
     // Clean up pending fetch.
     const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });
     rejectFetch(abortError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Prompt cache layout wiring (Task 7 of the prompt-cache-layout slice) — the
+// volatile turn context moves off `system` and onto the current user turn's
+// wire copy, so the transcript sits inside a byte-identical, cacheable prefix.
+// ---------------------------------------------------------------------------
+describe("prompt cache layout wiring", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function okResponse(text = "ok") {
+    return Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    } as unknown as Response);
+  }
+
+  // ★★★ If this ever goes green while the turn context IS persisted, the only
+  //     symptom in production is a larger bill. Nothing else changes.
+  // ★★ Captured via `saveThread` (the SAME seam the Turso-persistence describe
+  //   block above already uses): `saveThread`'s LAST call, fired by the
+  //   busy-persist effect once the turn settles, carries the exact `history`
+  //   `chat-panel.tsx` committed via `setHistory` — i.e. the persisted array —
+  //   so this is the one place that array can be inspected without reaching
+  //   into component internals.
+  it("never writes the turn context into persisted history", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => okResponse());
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+        tursoMode={true}
+        tursoConfig={{} as never}
+      />,
+    );
+    await waitFor(() => expect(loadThreads).toHaveBeenCalledTimes(1));
+    await (loadThreads as unknown as ReturnType<typeof vi.fn>).mock.results[0]!.value;
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), {
+      target: { value: "hi" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    // ★ TWO calls, not one: `ensureThreadForSend` saves a minimal row the
+    //   instant the send starts (user turn only, before any turn context
+    //   exists) and the busy-persist effect saves again once the turn
+    //   SETTLES. Waiting for merely "called" reads the FIRST of the two —
+    //   which trivially satisfies the assertions below either way — and
+    //   would leave this test unable to see the mutation Step 5 proves it
+    //   catches. Wait for the second, settled save specifically.
+    await waitFor(() => expect(saveThread).toHaveBeenCalledTimes(2));
+
+    const saved = (saveThread as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1] as ChatThread;
+    // Positive observable that this really is the settled save, not a false
+    // pass off an unrelated empty array (see the repo's absence-tests rule).
+    expect(JSON.stringify(saved.history)).toContain("ok");
+    const persisted = JSON.stringify(saved.history);
+    expect(persisted).not.toContain("APP CONTEXT");
+    expect(persisted).not.toContain("Today is");
+  });
+
+  // ★★ ASSERTED ON THE REQUEST BODY, NOT A `callClaude` SPY — this file's
+  //   established convention (see the "historySearch reaches the request
+  //   body" describe block's own comment for the reason): the body is what the
+  //   API actually receives, so the assertion cannot pass while the wrong
+  //   thing still ships, and it survives a refactor of how the panel reaches
+  //   the network.
+  it("sends a system array of exactly one block, with the context on the turn", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => okResponse());
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), {
+      target: { value: "hi" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.system).toHaveLength(1);
+    expect(JSON.stringify(body.system)).not.toContain("APP CONTEXT");
+    // …and it did not simply vanish: it must be on the final user message.
+    // ★★ THIS IS WHAT STOPS THE ASSERTIONS ABOVE PASSING VACUOUSLY — dropping
+    //   the turn context entirely (rather than relocating it) would also
+    //   satisfy a one-block `system` and the `not.toContain` above, and would
+    //   be a far worse bug than the one being fixed: the model would lose
+    //   today's date, the current view and the insight list on every turn.
+    expect(JSON.stringify(body.messages[body.messages.length - 1])).toContain("APP CONTEXT");
+  });
+
+  // The "one extra check" from the task brief: the API requires a user
+  // message's tool_result blocks to LEAD its content, and buildWireMessages
+  // appends the turn context AFTER existing blocks for exactly that reason —
+  // confirm that holds on a REAL tool-call round trip's second request, not
+  // just on `buildWireMessages`'s own unit tests.
+  it("keeps tool_result blocks leading and the turn context trailing on the tool-result turn", async () => {
+    type Block = { type: string; id?: string; name?: string; input?: unknown; text?: string };
+    const usage = { input_tokens: 1, output_tokens: 1 };
+    const bodies: string[] = [];
+    let call = 0;
+    const turns = [
+      { content: [{ type: "tool_use", id: "t1", name: "list_tasks", input: {} }] as Block[], stop_reason: "tool_use", usage },
+      { content: [{ type: "text", text: "done" }] as Block[], stop_reason: "end_turn", usage },
+    ];
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ""));
+      const body = turns[Math.min(call, turns.length - 1)];
+      call += 1;
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () => Promise.resolve(body),
+      } as unknown as Response);
+    });
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), {
+      target: { value: "list my tasks" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
+
+    expect(bodies).toHaveLength(2);
+    const secondBody = JSON.parse(bodies[1]) as { messages: { role: string; content: Block[] }[] };
+    const toolResultMsg = secondBody.messages[secondBody.messages.length - 1];
+    expect(toolResultMsg.content[0].type).toBe("tool_result");
+    const last = toolResultMsg.content[toolResultMsg.content.length - 1];
+    expect(last.type).toBe("text");
+    expect(last.text).toContain("APP CONTEXT");
   });
 });
 
@@ -1846,10 +2021,16 @@ describe("historySearch reaches the request body", () => {
     } as unknown as Response);
   }
 
-  /** Both halves of the ONE request body: the tool schema list and the system
-   *  prompt text. `system` is `SystemBlock[]` (`{type:"text", text}`), joined
-   *  here because the block SPLIT (cached prefix / volatile suffix) is a
-   *  caching decision no assertion below should depend on. */
+  /** Both halves of the ONE request body: the tool schema list and the full
+   *  prompt text the model reads this turn. `system` is `SystemBlock[]`
+   *  (`{type:"text", text}`), joined with the volatile turn context — since
+   *  Task 7 of the prompt-cache-layout slice, that context is no longer a
+   *  `system` block at all; `buildWireMessages` appends it as a trailing text
+   *  block on the final user message instead (see chat-cache-layout.ts), which
+   *  is where `buildViewScopeBlock`'s tool advertisement now lives. Joining
+   *  the two here keeps this describe block's assertions about what the model
+   *  reads, not about which array a given block happens to sit in — a caching
+   *  decision no assertion below should depend on. */
   async function requestBodyFor(ai: typeof AI_WITH_KEY) {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(okResponse);
     const view = render(
@@ -1868,12 +2049,17 @@ describe("historySearch reaches the request body", () => {
     const body = JSON.parse(String(init.body)) as {
       tools: { name: string }[];
       system: { text: string }[];
+      messages: { role: string; content: { type: string; text?: string }[] | string }[];
     };
     view.unmount();
     fetchSpy.mockRestore();
+    const lastMsg = body.messages[body.messages.length - 1];
+    const lastMsgText = Array.isArray(lastMsg.content)
+      ? lastMsg.content.map((b) => b.text ?? "").join("\n")
+      : String(lastMsg.content);
     return {
       tools: body.tools.map((tool) => tool.name),
-      system: body.system.map((block) => block.text).join("\n"),
+      system: [...body.system.map((block) => block.text), lastMsgText].join("\n"),
     };
   }
 
@@ -2017,11 +2203,28 @@ describe("staged tool calls (the review card)", () => {
   const rowBoxes = (card: HTMLElement): HTMLInputElement[] =>
     Array.from(card.querySelectorAll('[data-proposal-row] input[type="checkbox"]'));
 
-  /** The `tool_result` blocks the SECOND request carries back to the model. */
+  /** The `tool_result` blocks the SECOND request carries back to the model.
+   *  ★ Filtered to `type === "tool_result"`: since Task 7 of the
+   *  prompt-cache-layout slice, `buildWireMessages` appends the volatile turn
+   *  context as a trailing text block on this same message (after the
+   *  tool_result blocks, per the API's ordering requirement — see the
+   *  "prompt cache layout wiring" describe block's ordering test), so the raw
+   *  content array is no longer tool_result blocks alone. */
   function resultsIn(body: string): { type: string; tool_use_id: string; content: string }[] {
     const sent = JSON.parse(body) as { messages: { role: string; content: unknown }[] };
     const last = sent.messages[sent.messages.length - 1];
-    return last.content as { type: string; tool_use_id: string; content: string }[];
+    return (last.content as { type: string; tool_use_id: string; content: string }[]).filter(
+      (b) => b.type === "tool_result",
+    );
+  }
+
+  /** The RAW, unfiltered content of the same message `resultsIn` reads —
+   *  needed wherever a test cares about the message's exact SHAPE, not just
+   *  its tool_result blocks. `resultsIn` filters to `type === "tool_result"`,
+   *  which would make a shape check against its output tautological. */
+  function rawContentIn(body: string): { type: string }[] {
+    const sent = JSON.parse(body) as { messages: { role: string; content: unknown }[] };
+    return sent.messages[sent.messages.length - 1].content as { type: string }[];
   }
 
   it("a NON-destructive single write still runs immediately — the unchanged path", async () => {
@@ -2082,8 +2285,20 @@ describe("staged tool calls (the review card)", () => {
     expect(dispatcher.deleteAllTasks).not.toHaveBeenCalled();
     expect(dispatcher.createTask).not.toHaveBeenCalled();
 
+    // ★ Restores the bite of the pre-Task-7 `results.every((b) => b.type ===
+    //   "tool_result")).toBe(true)` line, which `resultsIn`'s new filter made
+    //   tautological (it can now only ever return tool_result blocks). Read
+    //   against the RAW, unfiltered content instead: the staged-proposal
+    //   tool_result message must carry exactly the two tool_result blocks
+    //   (in order) plus the trailing turn-context text block
+    //   `buildWireMessages` appends — nothing else.
+    expect(rawContentIn(bodies[1]).map((b) => b.type)).toEqual([
+      "tool_result",
+      "tool_result",
+      "text",
+    ]);
+
     const results = resultsIn(bodies[1]);
-    expect(results.every((b) => b.type === "tool_result")).toBe(true);
     expect(results.map((b) => b.tool_use_id).sort()).toEqual(["t1", "t2"]);
     expect(results[0].content).toContain("has NOT been applied");
   });
@@ -2542,5 +2757,96 @@ describe("staged tool calls (the review card)", () => {
     );
     expect(screen.getByText("This proposal is no longer active.")).toBeInTheDocument();
     expect(screen.queryByRole("region", CARD)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cache-token usage recording (AI-cost roadmap, Task 4): the meter must sum
+// cache_read/cache_creation tokens across every turn of a send, not just the
+// last one. `record` is the observable here (not the request body — this
+// asserts what gets RECORDED, not what gets SENT), so a spy on the usage
+// context is the right seam, per the file's own request-body convention for
+// send-side assertions elsewhere.
+// ---------------------------------------------------------------------------
+describe("cache-token usage recording", () => {
+  // ★★ RE-APPLY THE DEFAULT BOTH BEFORE AND AFTER EACH TEST. vi.restoreAllMocks()
+  // restores only vi.spyOn spies — it does NOT undo a mockReturnValue() set on
+  // a plain vi.fn() created inside a vi.mock factory. Left unguarded, this
+  // block's override of useAiUsageContext() would survive into whatever runs
+  // next in this file, and unit-tests-shuffled reorders tests WITHIN a file
+  // (not just across files) — so under some seed, a later test reading the
+  // default stub would inherit this block's captured recordSpy instead. Same
+  // hazard this file already documents for call history, not implementation,
+  // above the chat-threads-store vi.mock (see its "does NOT clear call
+  // history" comment).
+  // ★★★ beforeEach ALONE IS NOT ENOUGH — measured, not theorised. It resets
+  // the mock only before the NEXT test INSIDE this describe; a sibling
+  // describe further down the file (which has no beforeEach of its own) still
+  // reads whatever this block's last test left behind. The override must also
+  // be undone in afterEach so nothing outside this block can ever observe it.
+  beforeEach(() => {
+    vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
+  });
+
+  it("records cache tokens from every turn of a send", async () => {
+    const recordSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      record: recordSpy,
+    });
+
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      call += 1;
+      // Turn 1: a real (non-destructive) tool call, so the round-trip loop
+      // executes it and continues. Turn 2: the final answer. Both turns carry
+      // the SAME cache_read figure — a per-turn accumulator that overwrites
+      // instead of sums would report 1000, not 2000. The two turns carry
+      // DISTINCT non-zero cache_creation_input_tokens (150 / 350, summing to
+      // 500) so a totalCacheWrite accumulator that overwrites instead of
+      // summing, or drops the field entirely, is caught the same way — 150,
+      // 350, 500, 1000 and 2000 are all mutually distinct, so no assertion
+      // below can pass by reading the wrong field or the wrong turn.
+      const body =
+        call === 1
+          ? {
+              content: [{ type: "tool_use", id: "t1", name: "list_tasks", input: {} }],
+              stop_reason: "tool_use",
+              usage: {
+                input_tokens: 10, output_tokens: 5,
+                cache_creation_input_tokens: 150, cache_read_input_tokens: 1000,
+              },
+            }
+          : {
+              content: [{ type: "text", text: "done" }],
+              stop_reason: "end_turn",
+              usage: {
+                input_tokens: 10, output_tokens: 5,
+                cache_creation_input_tokens: 350, cache_read_input_tokens: 1000,
+              },
+            };
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () => Promise.resolve(body),
+      } as unknown as Response);
+    });
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "hi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
+
+    expect(recordSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ cacheRead: 2000, cacheWrite: 500 }),
+    );
   });
 });

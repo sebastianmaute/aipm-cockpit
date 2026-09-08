@@ -199,7 +199,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     cancel: cancelInsightRecommendation,
   } = useInsightRecommend({
     insights: insights ?? [],
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5" },
     today,
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
@@ -212,7 +212,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   useInsightRecommendRunner({
     enabled: isAiEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout,
     insights: insights ?? [],
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5" },
     today,
     intervalMinutes: settings.ai.insightRecommendationIntervalMinutes ?? DEFAULT_INSIGHT_REC_INTERVAL_MIN,
     buildIndex: buildInsightGroundingIndex,

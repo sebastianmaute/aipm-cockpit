@@ -3606,12 +3606,18 @@ export const de: Record<TranslationKey, string> = {
   fieldsAdjusted: "Gespeichert — {0} Feld(er) auf Grenzwerte angepasst",
 
   usage80Toast: "Sie haben 80 % Ihres Token-Budgets verbraucht",
+  aiUsageCapBasisChanged:
+    "Die Token-Zählung umfasst jetzt zwischengespeicherte Eingaben, die Anthropic separat abrechnet. Ihre Obergrenzen bleiben unverändert, daher erscheinen Warnungen früher als bisher.",
   aiUsageLimitReached:
     "Claude-Nutzungslimit erreicht — dies ist Anthropics eigenes Raten-/Nutzungslimit. Bitte warten Sie und versuchen Sie es nach dem Zurücksetzen erneut.",
   aiSelfLimitReached:
     "Sie haben Ihr eigenes Token-Limit erreicht. Dies ist nur ein Hinweis — der Assistent arbeitet weiter. Sie können das Limit in den Einstellungen anpassen.",
   aiUsageSession: "Aktuelle Sitzung",
   aiUsageWeek: "Aktuelle Woche (alle Modelle)",
+  aiUsageCacheRead: "Zwischengespeicherte Eingabe (gezählte Tokens)",
+  aiUsageCacheWrite: "Cache-Schreibvorgänge (gezählte Tokens)",
+  aiUsageUncachedInput: "Nicht zwischengespeicherte Eingabe (gezählte Tokens)",
+  aiUsageCacheHitRate: "Cache-Trefferquote: {0} %",
   aiUsageResetAt: "Zurückgesetzt {0}",
   aiSessionCap: "Sitzungs-Token-Limit",
   aiWeeklyCap: "Wöchentliches Token-Limit",

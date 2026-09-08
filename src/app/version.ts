@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.294.0";
-export const APP_BUILD_DATE = "2026-09-08"; // 0.294.0: the assistant can no longer write fields it was never given — eight undisclosed writes closed, and every create tool now runs through the same guard its edit path already used (Jimenez)
+export const APP_VERSION = "0.295.0";
+export const APP_BUILD_DATE = "2026-09-08"; // 0.295.0: the AI assistant's chat transcript is now sent as a stable cacheable prefix instead of being rebuilt every turn, the usage meter counts every token class Anthropic bills — including cached reads and writes — instead of only input and output, Settings shows the session's cache breakdown and hit rate, and a one-time toast explains why a usage-cap warning may now arrive earlier with no setting changed (Borges)
+// 0.294.0: the assistant can no longer write fields it was never given — eight undisclosed writes closed, and every create tool now runs through the same guard its edit path already used (Jimenez)
 // 0.293.1: the activity log no longer says "AI planned 1 allocation cells" — the two AI planning entries pick the singular wording at a count of one, in both languages (Vandermeer)
 // 0.293.0: the AI assistant can now read and write resource absences and calendar meetings, every staged write is described on the review card before it lands, and any write that would email attendees is forced through that card however small the turn (Vandermeer)
 // 0.292.0: an overdue-trend insight is no longer crowded out of the list by a run of time-booking guardrail findings, booked hours that carry no usable date are named separately and given the one remedy that works, switching a bucket between planning modes stops warning about hours that are not there, and the per-device booking cache is now bounded by what it actually stores (Yoshimoto)
@@ -20,8 +21,9 @@ export const APP_BUILD_DATE = "2026-09-08"; // 0.294.0: the assistant can no lon
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.294.x line is "Jimenez", and a PATCH release keeps its minor line's
- *  name — 0.293.1 was "Vandermeer" like 0.293.0, exactly as 0.291.1 kept
+ *  0.295.x line is "Borges" (Jorge Luis Borges, Argentine author of "Ficciones"
+ *  and "The Garden of Forking Paths"). A PATCH release keeps its minor line's
+ *  name, as 0.293.1 kept "Vandermeer" like 0.293.0, exactly as 0.291.1 kept
  *  "Hoban". Only a MINOR bump needs the sweep below.
  *  ★★ Updated at the 0.294.0 bump. This sentence is the trap the paragraph
  *  below describes, and it has now been left stale THREE times; it is ungated,
@@ -32,11 +34,39 @@ export const APP_BUILD_DATE = "2026-09-08"; // 0.294.0: the assistant can no lon
  *  the headers that put the codename before the date, and an `[A-Za-z]+` class
  *  silently drops "Le Guin", "Nevala-Lee" and "García". Positive controls
  *  Vandermeer, Chiang, Banks and Le Guin all read TAKEN in the same run.
- *  ★ 0.295.0 "Borges" is claimed by a concurrent branch — do not spend it.
  *  ★★ This lead sentence still opened "The 0.291.x line is Hoban" through
  *  0.292.0 and 0.293.0 — two minor bumps that moved the constant and left the
  *  prose, which is the ungated-lead-sentence trap this docstring warns about
- *  further down, recurring twice after being written up. Corrected 2026-09-08.
+ *  further down, recurring twice after being written up. Corrected again at
+ *  the 0.295.0 bump (2026-09-08) — update this sentence IN THE SAME COMMIT as
+ *  the constant, every time.
+ *  ★★★ 0.295.0 SHIPPED ONCE ALREADY AS "Chiang" AND WAS RENAMED WITHIN THE
+ *  SAME DAY, and the rename is the useful part of this record — not the name.
+ *  "Chiang" passed the LEGALITY check below (uniqueness is per-minor-line, and
+ *  its one prior use at 0.120.0 is an unrelated line, so it was not a
+ *  collision) but was rejected anyway on DESIRABILITY: this docstring's own
+ *  ★★ note a few paragraphs down says the repo *prefers* a name unused
+ *  anywhere in the history and has rejected a legal reuse ("Banks") on that
+ *  ground alone. A brief that pre-authorised "don't worry about reuse in
+ *  unrelated minor lines" was WRONG to do so — legality is not the same
+ *  question as desirability, and only the second one is what this repo
+ *  actually enforces by convention. Passing the per-minor-line uniqueness
+ *  grep is necessary, not sufficient: also grep for an EXACT, case-sensitive,
+ *  zero-hit absence before treating a candidate as clear.
+ *  0.295.x sweep for "Borges", checked BEFORE the (re-)bump, by BOTH commands
+ *  this docstring prescribes: `grep -ic borges CHANGELOG.md` returned 0 — a
+ *  true zero-anywhere absence, which is the stronger DESIRABILITY bar, not
+ *  merely the per-minor-line LEGALITY one. Positive controls fired in the
+ *  same run (`"Chiang"` 2 — the 0.120.0 header plus this line's own now-
+ *  renamed 0.295.0 header — and `"Moorcock"` 1) and the negative control
+ *  `zzznotaname` returned 0, so the zero above is real and not a broken
+ *  pattern. The dash-agnostic header pattern for `borges` also returned no
+ *  match. "Borges" is a single ASCII word, so it is not at risk of the
+ *  `[^"]+` vs `[A-Za-z]+` character-class trap this docstring warns about
+ *  further down (a name with a space, hyphen or non-ASCII character can
+ *  silently fail the class-restricted variant of this check).
+ *  0.293.x line was "Vandermeer" (Jeff VanderMeer, American author of the
+ *  "Southern Reach" trilogy, 2014).
  *  0.291.x line was "Hoban" (Russell Hoban, American-British author of
  *  "Riddley Walker", 1980, written in an invented post-collapse English).
  *  Checked BEFORE the bump, by BOTH commands this docstring prescribes, in a
@@ -167,7 +197,7 @@ export const APP_BUILD_DATE = "2026-09-08"; // 0.294.0: the assistant can no lon
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Jimenez";
+export const APP_MILESTONE = "Borges";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

@@ -75,7 +75,12 @@ export function useEntityInlineAiEdit(entity: InlineEntity, deps: EntityInlineAi
     showToast,
     ws,
     guides: [],
-    recordUsage: (u) => record({ input: u.input_tokens, output: u.output_tokens }),
+    recordUsage: (u) => record({
+      input: u.input_tokens,
+      output: u.output_tokens,
+      cacheWrite: u.cache_creation_input_tokens,
+      cacheRead: u.cache_read_input_tokens,
+    }),
     active: deps.active,
   });
   // Hoisted locals (not `edit.member`) so the caller's useMemo dep arrays stay
