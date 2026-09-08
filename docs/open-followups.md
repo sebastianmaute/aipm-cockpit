@@ -661,6 +661,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§434](#434-adding-an-inlineentity-member-has-four-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--closed-2026-09-08) | Adding an `InlineEntity` member has four ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, three were silent, all four now pinned | closed 2026-09-08 |
 | [§435](#435-seven-model-writable-fields-have-no-descriptor-entry-so-the-card-cannot-disclose-what-the-write-does--closed-2026-09-08) | Seven model-writable fields have no descriptor entry, so the card cannot disclose the write | found 2026-09-08 by the inline-AI parity sweep's first discovery run | M — a per-field decision (declare vs guard), not one repair | **CLOSED** 2026-09-08 |
 | [§436](#436-the-parity-sweep-cannot-see-a-guard-table-narrowed-because-the-preview-reads-the-same-table--open) | The parity sweep cannot see a guard TABLE narrowed, because the preview reads the same table | found 2026-09-08 as the negative control for §418's acceptance mutants | M — needs a different detector, not a second spelling of the rule | open |
+| [§437](#437-stakeholder-resourceid-was-an-eighth-undisclosed-model-write-the-sweep-could-not-see--closed-2026-09-08) | Stakeholder resourceId was an eighth undisclosed model write the sweep could not see | found 2026-09-08 by a cold review extending the type-minus-axis subtraction past its brief | S — one guard, one seed, plus the ratchet that closes the class | **CLOSED** 2026-09-08 |
+| [§438](#438-create_resource-and-create_stakeholder-bypass-every-merge-site-guard--open) | create_resource and create_stakeholder bypass every merge-site guard | found 2026-09-08 by cold review of cd71c77b; pre-existing, not a regression | M — needs a create-path relation in the sweep before the guards are worth adding | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -29402,7 +29404,13 @@ sanitizer's fallback, deliberately and with a docstring at each one
 task `status: "In Progress"` / `priority: "High"`. So a refused value no longer reads back as the
 value already held.
 
-★★ WHAT IS NOT CLOSED IS THE SWEEP'S OWN FINDINGS. It is RED on 20 of them by design — see §435. A
+★★ WHAT IS NOT CLOSED IS THE SWEEP'S OWN FINDINGS. ★★★ UPDATE 2026-09-08: §435 IS NOW CLOSED and the
+sweep is GREEN — read the rest of this paragraph as the state on the day §394 closed, not as today's.
+Leaving it in the present tense was itself a defect: a CLOSED entry asserting a live red teaches a
+reader either to "fix" a green sweep or to distrust a genuine green run, which is the exact inversion
+§418's own dated note exists to prevent. Found by cold review, which also caught that the identical
+staleness in §405 was left undated while §418's was fixed — one class, three instances, inconsistent
+treatment. As written on the day: it was RED on 20 of them by design — see §435. A
 detector that had to be made green to be accepted would be this entry's failure one layer up.
 
 **As filed, kept as the record:** OPEN. Filed 2026-09-06. Last executed verification 2026-09-06 — moved all four BASE
@@ -29797,7 +29805,10 @@ CALLED BY the sanitizer rather than restating it, exactly as `acceptsRiskScale` 
 executed verification 2026-09-08 — `grep -c "RAID_CATEGORY_SET" src/app/sanitize-records.ts` → 2 (the
 declaration and the one predicate), same for `RAID_SEVERITY_SET`; regression over the 13 files that
 touch the RAID sanitizer and guards, `Test Files 13` asserted against a list of 13,
-`Tests 3 failed | 759 passed (762)` — the three are §435's known-open sweep findings.
+`Tests 3 failed | 759 passed (762)` — the three are §435's sweep findings, OPEN when this was
+measured. ★★ UPDATE 2026-09-08: §435 is CLOSED and those three are fixed, so this command is now
+expected to run GREEN. The figure stays as the dated measurement it was; only the present-tense
+"known-open" needed correcting. Same class as §394's note above and §418's.
 
 ★★ THE CLOSING MEASUREMENT NARROWS THIS FILING RATHER THAN CONFIRMING IT, and it is worth more than
 the fix. A one-sided drift was NOT invisible: restoring an inline restatement in the sanitizer alone,
@@ -32141,6 +32152,41 @@ as a test loosened to accommodate a change.
 raid `ownerResourceId` removed → raid 3 violations; stakeholder `raci` removed → stakeholder 3;
 the resource call site unguarded → resource 14 **and** the inverted §394 tripwire red.
 
+★★★ **THREE CORRECTIONS TO THIS ENTRY'S OWN JUSTIFICATIONS, from a cold review of the commit that
+closed it (2026-09-08).** The entry's central answer is right — all seven fields really are absent from
+every tool schema, re-measured independently under bare-substring, word-boundary AND case-insensitive
+patterns, and confirmed on a second surface this entry never cited (`ResourceInput` in
+`chat-tools.ts` declares thirteen fields, none of them these). What was wrong is the REASONING beside
+it, which is the same shape as the claim this entry retracts:
+
+1. **The non-vacuity control does not cover the file the claim spans.** "`title` 19, `name` 66,
+   `status` 14, `category` 11" reproduces only as `grep -c` LINE counts over `chat-tool-defs.ts`
+   ALONE, while the 0-claim spans that file AND `chat-tool-defs-documents.ts`. Had the pattern
+   silently skipped the second file, this control could not have caught it — precisely the failure a
+   control exists for. (The second file does carry live controls: `title` on 4 lines, `name` on 7.)
+   Also "appear 0 times" describes occurrences while the control counts LINES; `title` occurs 24
+   times on 19 lines. ★ And `name` is 67, not 66, at the commit that quoted it — a number sitting
+   beside its own reproduce command that the command refutes, which is the trap `AGENTS.md` names.
+   The conclusion is untouched: 0 against 67 is as non-vacuous as 0 against 66.
+2. **"no schema offers it" was checked against 2 of 13 `input_schema`-bearing files, and one of the
+   other 11 refutes it as stated.** `alloc-plan/alloc-plan.ts` carries an `input_schema` and DOES
+   write `Resource.utilization`. The conclusion survives, but not for the reason given: that writer
+   never passes the guarded merge site — `dropUnacceptedResourceFields` has exactly one production
+   call site, `updateResource`. The honest justification is "the alloc-plan writer does not route
+   through this merge site", not "no schema offers it". For `active` the flat claim does survive
+   across all 13 files.
+3. **The mutation paragraph names a command that cannot reproduce one of its three claims.** The
+   third mutant's effect includes "the inverted §394 tripwire red", but that tripwire lives in
+   `plan.sanitizer-parity.test.ts`, which the quoted sweep command does not run. Both paths are
+   needed to re-run the claim as written.
+
+★★★ **AND THE HEADLINE NUMBER IN THIS ENTRY'S TITLE IS WRONG: THERE WERE EIGHT, NOT SEVEN.** "Seven"
+was the SWEEP's count, not the defect's. `Stakeholder.resourceId` is an eighth field of exactly this
+class and the sweep was structurally incapable of reporting it — see §437, which carries the
+measurement and the ratchet that now closes the class. This entry's own Status line saying the sweep
+is "GREEN on its own terms" was true and bounded nothing: a green sweep reports what it looked at,
+never what exists.
+
 **As filed:** OPEN 2026-09-08 — measured, not reasoned. `npx vitest run --maxWorkers=1
 src/app/inline-ai-edit/plan.write-path-sweep.test.ts` reports these as 20 relation-3 violations
 across 3 of its 8 entity tests. Every line below is a sweep output, not a source reading.
@@ -32229,6 +32275,108 @@ two-copies problem §405 spent five commits removing, and a restated copy drifts
 wants a different detector — something that asserts each allow-list still ADMITS the fields the tool
 schema advertises — not a second spelling of the rule.
 
-★ Scope: `absence` and `calendarEvent` only. The other six entities' merge-site guards are denylist
-tables the preview does not read, so a table narrowing there does show up as a divergence.
+★ Scope: `absence` and `calendarEvent` only. ★★ THE OTHER SIX ARE NOT SIX OF A KIND, and an earlier
+wording here said they were — it read "the other six entities' merge-site guards are denylist tables
+the preview does not read", which is FALSE for `task`: task has no merge-site guard table at all
+(`grep -rn "TASK_FIELD_GUARDS|dropUnacceptedTask" src` → 0 hits; the seven `dropUnaccepted*Fields`
+production call sites are raid, change, milestone, stakeholder, absence and calendarEvent in
+`use-register-tools.ts` plus resource in `use-chat-dispatcher.ts` — no task). So the reassurance that
+followed was VACUOUS for task: there is no table there to narrow. Corrected 2026-09-08 by cold review.
 
+Read it as: FIVE entities (raid, change, milestone, stakeholder, resource) carry denylist tables the
+preview does not read, so a table narrowing there does show up as a divergence. `task` is outside the
+blind spot for a different reason — `update_task` goes through `buildPatch`
+(`chat-tools-updates.ts`), a genuine whitelist that names each field it copies, so there is no
+forwarding to narrow. Do not tick task off as "covered by the same argument"; it is covered by a
+different one.
+
+
+## 437. Stakeholder resourceId was an eighth undisclosed model write the sweep could not see — CLOSED 2026-09-08
+
+**Status:** CLOSED 2026-09-08. Fixed in `9c230204`. Reproduce the defect on the pre-fix tree by seeding
+`resourceId: 4` into `seedGuardedStakeholder` (`src/test/inline-sweep-fixtures.ts`) and running
+`npx vitest run --maxWorkers=1 src/app/inline-ai-edit/plan.write-path-sweep.test.ts`; the ratchet that
+now prevents the class is `npx vitest run --maxWorkers=1 src/app/inline-ai-edit/plan.model-writable-surface.test.ts`.
+
+`Stakeholder.resourceId` — the FK linking a stakeholder to a Resource — was model-writable and
+disclosed by nothing. It is in NO tool schema (`stakeholderFields` in `chat-tool-defs.ts` has eight
+keys, none of them this one; the single `resourceId` in that file belongs to `absenceFields`), it is
+NOT in `TOKEN_EXCLUDED.stakeholder` (`["localModifiedAt"]` alone), it had no entry in
+`STAKEHOLDER_FIELD_GUARDS`, and `sanitizeStakeholder` stores it — `toNumber` coerces, so `"7"` lands
+as 7. The card is silent because the stakeholder descriptor's `linkFields` is `{}`.
+
+★★ The repo's own doctrine already said this was wrong, in the ABSENCE descriptor's comment: a
+writable FK must be disclosed through `linkFields`, "by the same rule as `resource.roleId`".
+`absence.resourceId` is disclosed. `resource.roleId` is disclosed. This one was not.
+
+★★★ **WHY NO GATE SAW IT, AND THIS IS THE DURABLE PART.** `plan.write-path-sweep.test.ts` derives its
+field axis from the entity descriptor UNION the seed row's stored keys (`sweptFields`). This field
+was in NEITHER, so the sweep passed over it in silence and reported `Tests 37 passed (37)` while the
+defect was live. **A green sweep bounds what it looked at, never what exists.** §435 was closed on
+that green, and its "the sweep is GREEN on its own terms" read as completeness when it was only
+coverage. Found by a cold reviewer extending the type-minus-axis subtraction ONE ENTITY BEYOND its
+brief — the only reason it surfaced at all.
+
+Measured, seeding the field on the otherwise untouched tree — EXIT=1, `Tests 1 failed | 36 passed
+(37)`, three violations:
+
+| probe | write | preview |
+|---|---|---|
+| one more than the stored number | `4 -> 5` | no line |
+| a negative number | `4 -> undefined` | no line |
+| a numeric string | `4 -> 7` | no line |
+
+★★ The middle row is the damaging direction and the easiest for a model to hit: the store is sparse
+(`if (rid > 0)`) and `sanitizeStakeholder` rebuilds the record, so `null`/`0`/`-1` DROPS the key and
+SILENTLY UNLINKS the stakeholder from its resource — behind a card that mentioned nothing.
+
+**What shipped** (`9c230204`): `resourceId: () => false` on `STAKEHOLDER_FIELD_GUARDS`; the field
+seeded NON-ZERO on `seedGuardedStakeholder` and added to `AXIS_FIELDS.stakeholder` so the sweep
+covers it permanently (a 0 seed would make the clearing probes read as "no change" and hide the
+unlink direction); and `plan.model-writable-surface.test.ts`, which asserts per entity that every
+PERSISTED column is swept, token-excluded, rich, or recorded as unswept by design. Its source is the
+CSV column arrays, chosen because `ai-entity-token.ts`'s `ProjectedRows` already makes tsc prove each
+array covers its entity type — so a newly persisted field cannot fail to appear and must then be
+decided about. A SET ratchet, not a count: a count is blind to substitution.
+
+★ Mutation-proved, each mutant asserted to have LANDED before its red was believed. Guard removed →
+sweep `1 failed | 36 passed (37)`, the three rows above. `resourceId` dropped from the axis → ratchet
+`1 failed | 23 passed (24)`, `expected [ 'resourceId' ] to deeply equal []`. The second is the
+load-bearing one: it shows the ratchet catches the original shape AND names the field.
+
+★★ The full subtraction over all eight entities found exactly this one gap, so the finding is bounded
+— `task` is clean because `buildPatch` is a genuine whitelist, `absence` and `calendarEvent` are
+clean by ALLOWLIST shape, and raid/change/milestone/resource have no leftover. What is NOT bounded is
+the structural cause: the denylist shape means every field added to `Resource`/`Stakeholder`/
+`RaidItem` in future is model-writable BY DEFAULT. The ratchet is the answer to that, not the
+subtraction.
+
+## 438. create_resource and create_stakeholder bypass every merge-site guard — OPEN
+
+**Status:** OPEN 2026-09-08 — never machine-verified as a live user-visible defect; found by source
+tracing during the cold review of `cd71c77b`, and deliberately NOT fixed in that slice (scope call by
+the user). Reproduce the shape with `sed -n '805,810p' src/app/chat-tools.ts` beside
+`grep -n "sanitizeResource({" src/app/use-chat-dispatcher.ts`.
+
+`create_resource` and `create_stakeholder` pass the model's raw `input` straight to the sanitizer —
+no `patchWithoutId`, no `dropUnaccepted*Fields`. So **the same fields that are refused on update are
+accepted on create**, for both entities.
+
+Concretely: `create_resource {firstName:"Grace", lastName:"Hopper", active:false}` creates a resource
+that is soft-archived on arrival — `active` is treated as true when absent, so `false` is the state
+that hides it — behind a create card with no vocabulary for the field. `utilization` and
+`absenceOverride` land the same way and feed capacity and budget maths. `create_stakeholder` takes
+`raci` and `resourceId` on the same shape.
+
+★★ NOT A REGRESSION from the §435/§437 work, and it must not be read as one: it predates both, and
+those guards were always scoped to the UPDATE path. What the fix round DID do is widen the asymmetry
+— every field guarded on update is now a field that create still accepts.
+
+★★★ It needs its own slice rather than a one-line fix, and the reason is the detector, not the
+change. `plan.write-path-sweep.test.ts` has no create-path relation at all: every probe drives an
+`update_*` tool against a seeded row and compares the card to the moved row. A create has no stored
+"before", so the preview⟺write relation has to be defined before it can be swept — otherwise the fix
+ships with the same "guarded but unwatched" property that let §437 hide behind a green sweep.
+
+★ `plan.model-writable-surface.test.ts` does NOT cover this either, and cannot: it reasons about
+which fields are accounted for, not about which WRITER accepts them.
