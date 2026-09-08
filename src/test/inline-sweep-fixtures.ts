@@ -25,7 +25,7 @@ import { type TokenEntity } from "../app/ai-entity-token";
 import { type CalendarEvent } from "../app/calendar-event";
 import { TOKEN_ROW_SOURCE } from "../app/chat-proposal-apply";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "../app/inline-ai-edit/entity-descriptor";
-import { RICH_FIELDS } from "../app/inline-ai-edit/plan";
+import { type EditPlan, RICH_FIELDS } from "../app/inline-ai-edit/plan";
 import { type TestSeed } from "../app/test-providers";
 import { type Absence, type ChangeItem, DEFAULT_TASK_STATUS, type Milestone, type RaidItem, type Resource, type Stakeholder, type Task } from "../app/types";
 import { type useWorkspace } from "../app/workspace-context";
@@ -683,3 +683,21 @@ export const AXIS_FIELDS: Record<InlineEntity, readonly string[]> = {
   absence: ["assignee", "assigneeEmail", "endDate", "note", "resourceId", "startDate", "type"],
   calendarEvent: ["attendeeResourceIds", "durationMinutes", "location", "notes", "recurrence", "sendInvitations", "startDate", "startTime", "title"],
 };
+
+/** Every field name a `Rejected` entry blames.
+ *
+ *  ★★ SHARED RATHER THAN COPIED, for the same reason `snapshot` is. Both write-
+ *  path suites need it, and the parse is format-sensitive: `detail` is
+ *  `${field}=${value}` for a single field and `${a}+${b}=empty` for a joint
+ *  `requiredNonEmptyGroups` refusal, so the names are the `+`-split of
+ *  everything left of the FIRST `=` (a rejected value may itself contain one —
+ *  an email, a date). A second copy that missed the group spelling would not
+ *  read as "no outcome": it would read as the preview ACCEPTING what it
+ *  refused, which is the silent direction and the one this sweep exists to
+ *  catch. */
+export function rejectedFields(plan: EditPlan): string[] {
+  return plan.rejected.flatMap((r) => {
+    const eq = r.detail.indexOf("=");
+    return eq <= 0 ? [] : r.detail.slice(0, eq).split("+");
+  });
+}

@@ -40,6 +40,7 @@ import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispa
 import {
   AXIS_FIELDS,
   JUNK_KEY,
+  rejectedFields,
   type Row,
   same,
   snapshot,
@@ -55,8 +56,8 @@ import { resetMintState } from "../id-mint-session";
 import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
 import { emptyWorkspace, type Workspace } from "../workspace";
-import { INLINE_DESCRIPTORS } from "./entity-descriptor";
-import { describeEntityCalls, type EditPlan } from "./plan";
+import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
+import { describeEntityCalls, type EditPlan, previewNormalizerFor } from "./plan";
 
 describe("the sweep's own coverage", () => {
   // ★★ THE ONE MAINTAINED THING IN THE SWEEP, AND ITS GUARD. A new FIELD is
@@ -295,7 +296,7 @@ async function replayOneField(
   s: SweepEntity,
   field: string,
   probe: unknown,
-): Promise<{ plan: EditPlan; before: Row; stored: Row }> {
+): Promise<{ plan: EditPlan; before: Row; stored: Row; threw?: string }> {
   const { result } = renderHook(
     () => ({ d: useChatDispatcher(makeDispatcherArgs()), ws: useWorkspace() }),
     { wrapper: dispatcherWrapperWith(s.seed) },
@@ -318,8 +319,24 @@ async function replayOneField(
     ws: wsBefore,
   });
 
+  // ★★★ A THROW IS AN OUTCOME, NOT AN ERROR, and swallowing it here would be
+  //  wrong in the other direction. Several writers REFUSE a bad value loudly
+  //  rather than dropping it — `buildTaskCleanPatch` throws "taskName is
+  //  required", `updateRaid` throws "invalid RAID item update" — so a sweep that
+  //  let the exception escape would crash on the first such probe and never
+  //  reach the ~250 that follow. Seven of the eight entities died that way on the
+  //  first discovery run, reporting a stack trace where a finding list belonged.
+  //  ★★ Captured rather than ignored, because a throw still carries a parity
+  //  claim: the card either predicted the refusal or promised a write that never
+  //  happened. `threw` is what lets the relations tell those two apart; dropping
+  //  it would turn every loud refusal into silent agreement.
+  let threw: string | undefined;
   await act(async () => {
-    await runTool(result.current.d, tool, { ...input, expectedToken: entityToken(kind, before) });
+    try {
+      await runTool(result.current.d, tool, { ...input, expectedToken: entityToken(kind, before) });
+    } catch (e) {
+      threw = e instanceof Error ? e.message : String(e);
+    }
   });
 
   const wsAfter = snapshot(result.current.ws);
@@ -327,7 +344,7 @@ async function replayOneField(
   const stored = rowsAfter?.find((r) => r.id === s.id) as Row | undefined;
   if (!stored) throw new Error(`${wsKey} #${s.id} vanished during the replay`);
 
-  return { plan, before, stored };
+  return { plan, before, stored, threw };
 }
 
 beforeEach(() => {
@@ -497,4 +514,200 @@ describe("the probe layer", () => {
     // reports "the replay is not reaching the writer".
     60_000,
   );
+});
+
+/** What the preview said about one field: whether it was refused, and if not,
+ *  the diff line the card showed.
+ *
+ *  ★★ `rejectedFields` is REUSED from the fixtures module rather than
+ *  re-derived, and that matters: a rejection detail is not always
+ *  `${field}=${value}` — a joint `requiredNonEmptyGroups` refusal is spelled
+ *  `${a}+${b}=empty`, so a naive `startsWith(field + "=")` misses it. A MISSED
+ *  rejection does not read as "no outcome"; it reads as the preview ACCEPTING
+ *  what it refused, which is the silent direction. */
+function previewOutcome(plan: EditPlan, field: string) {
+  const rejected = rejectedFields(plan).includes(field);
+  const update = plan.updates.find((u) => u.field === field);
+  // ★★★ `target === "row"` IS LOAD-BEARING AND `entity` CANNOT SUBSTITUTE FOR
+  //  IT. A `"create"` LinkDiff is DISCLOSURE ONLY — projected off a `create_*`
+  //  call so the card can say what that create will write to its OWN row — so
+  //  counting one as a disclosure about THIS row is a data-loss shape read
+  //  backwards. This sweep emits only `update_*` tools, so every link diff here
+  //  should already be `"row"`; filtering anyway means a probe that later starts
+  //  emitting a create cannot silently pass for the wrong reason.
+  const link = plan.links.find((l) => l.field === field && l.target === "row");
+  return { rejected, update, link, disclosed: Boolean(update ?? link) };
+}
+
+/** The stored value rendered the way the card would render it, so an accepted
+ *  preview can be compared against what the writer actually stored.
+ *
+ *  ★ DELEGATED, not restated: `previewNormalizerFor` is the production
+ *  resolution order (descriptor entry -> numeric coercion -> verbatim), so a
+ *  field moving between those three cannot leave this behind. */
+function shownForStored(entity: InlineEntity, field: string, stored: Row): string {
+  const normalize = previewNormalizerFor(INLINE_DESCRIPTORS[entity], field);
+  return normalize
+    ? normalize(stored[field], stored as Record<string, unknown>)
+    : String(stored[field] ?? "");
+}
+
+/** ★★★ THE FIELDS RELATION 3 MUST NOT JUDGE, DERIVED RATHER THAN LISTED.
+ *
+ *  Relation 3 is "moved but never previewed => undisclosed write". For a field
+ *  in `TOKEN_EXCLUDED[kind]` that inference is unsound in BOTH of its steps:
+ *  `patchWithoutId` strips the field from every model patch, so the model
+ *  cannot have written it and the movement is the WRITER's own bookkeeping;
+ *  and the preview has nothing to diff, so it emits no line BY CONSTRUCTION
+ *  rather than by omission. `localModifiedAt` is the live instance — stamped
+ *  unconditionally by all eight writers and excluded on all eight — so without
+ *  this subtraction relation 3 fires on every probe of every entity and buries
+ *  every real finding underneath it.
+ *
+ *  ★★ IT IS DERIVED FROM `TOKEN_EXCLUDED` ON PURPOSE, not spelled as a literal
+ *  list. A hardcoded `["localModifiedAt"]` would go stale silently the day a
+ *  ninth field joined that table, and it would not track the per-kind
+ *  differences that already exist (`task` excludes five names, `stakeholder`
+ *  one).
+ *
+ *  ★★★ STATED LIMIT, and it is the price of the subtraction: THE SWEEP CANNOT
+ *  SEE AN UNDISCLOSED WRITE TO A TOKEN-EXCLUDED FIELD. It cannot, because it
+ *  cannot distinguish "the writer stamped this" from "something wrote it
+ *  undisclosed" — both present as movement with no preview line. That is a real
+ *  hole and it is accepted deliberately; do not read a green sweep as covering
+ *  those fields.
+ *
+ *  ★★ `task.completedDate` is NOT in this set and MUST NOT be added to it.
+ *  `applyStatusChange` derives it whenever the patch carries a valid status, and
+ *  it is in neither `diffFields` nor `TOKEN_EXCLUDED.task` — so a status probe
+ *  moves a user-visible completion date the card cannot mention. That is a
+ *  genuine parity gap of exactly the shape this file exists to find, not
+ *  bookkeeping, and folding it in here would hide a finding inside a
+ *  workaround. */
+function writerStampedFields(entity: InlineEntity): readonly string[] {
+  const { kind } = sweepPlumbing(entity);
+  return TOKEN_EXCLUDED[kind];
+}
+
+describe.each(SWEEP)("write-path parity sweep — $entity", (s) => {
+  it("every field: the card and the writer agree", async () => {
+    const seedRow = seedRowOf(s);
+    const stamped = writerStampedFields(s.entity);
+
+    const violations: string[] = [];
+    let moved = 0;
+
+    for (const field of sweptFields(s.entity, seedRow)) {
+      for (const { label, value } of probesFor(seedRow[field])) {
+        const { plan, before, stored, threw } = await replayOneField(s, field, value);
+        const key = `${s.entity}.${field} on ${label}`;
+        const changed = !same(before[field], stored[field]);
+        if (changed) moved += 1;
+        const { rejected, update, link, disclosed } = previewOutcome(plan, field);
+
+        // RELATION 2b — a LOUD refusal. Several writers throw rather than drop
+        // a bad value, and a throw carries a parity claim of its own:
+        //  • the card REJECTED it too  -> agreement, and the strongest kind;
+        //  • the card DISCLOSED a change -> divergence. The user approved a card
+        //    promising a stored value, and the write raised instead. That is the
+        //    same defect class as a silent drop, only louder, and it must not be
+        //    excused just because nothing was written;
+        //  • the card said NOTHING -> no claim was made, so there is nothing to
+        //    contradict. Not a violation, and deliberately not counted as one.
+        if (threw !== undefined) {
+          if (disclosed) {
+            const shown = update ? (update.raw ?? update.after) : link?.after;
+            violations.push(
+              `${key}: preview disclosed ${JSON.stringify(shown)} but the write THREW ${JSON.stringify(threw)}`,
+            );
+          }
+          continue;
+        }
+
+        // RELATION 2 — a refusal in the card must be a refusal in the write.
+        // Compared against the field's OWN before-value, never against "was
+        // anything written": a replay always writes, so the latter would flag
+        // every preview-only rejection.
+        if (rejected) {
+          if (changed) {
+            violations.push(
+              `${key}: preview REJECTS, write moved ${JSON.stringify(before[field])} -> ${JSON.stringify(stored[field])}`,
+            );
+          }
+          continue;
+        }
+
+        // RELATION 3 — an undisclosed write. Skipped for writer-stamped fields;
+        // see `writerStampedFields` for why the inference is unsound there and
+        // what that costs us.
+        if (changed && !disclosed) {
+          if (!stamped.includes(field)) {
+            violations.push(
+              `${key}: write moved ${JSON.stringify(before[field])} -> ${JSON.stringify(stored[field])} with NO preview line`,
+            );
+          }
+          continue;
+        }
+
+        // RELATION 1 — what the card showed must be what the writer stored.
+        //
+        // ★★★ THE TWO DIFF KINDS ARE COMPARED DIFFERENTLY AND MUST NOT BE
+        //  FLATTENED. A `FieldDiff` renders a VALUE, so it is compared against
+        //  the stored value pushed through the same normaliser the card used. A
+        //  `LinkDiff` renders RESOLVED TITLES (that is its entire purpose), so
+        //  comparing `link.after` against a normalised value would never match
+        //  and the sweep would report a violation on every correct link write.
+        //  Its raw ids are the comparable half. `LinkDiff` also has no `raw`
+        //  member, so `diff.raw ?? diff.after` does not typecheck over the union.
+        if (disclosed) {
+          if (!changed) {
+            const shown = update ? (update.raw ?? update.after) : link?.after;
+            violations.push(
+              `${key}: preview disclosed ${JSON.stringify(shown)} but the write stored nothing new`,
+            );
+            continue;
+          }
+          if (update) {
+            const shown = update.raw ?? update.after;
+            const actual = shownForStored(s.entity, field, stored);
+            if (shown !== actual) {
+              violations.push(`${key}: preview showed ${JSON.stringify(shown)} != stored ${JSON.stringify(actual)}`);
+            }
+          } else if (link) {
+            // ★★★ `rawIds` IS ALWAYS AN ARRAY; THE STORED SHAPE IS NOT, and the
+            //  first cut of this comparison ignored that and reported a
+            //  violation on every CORRECT single-FK write — 6 of 35 findings on
+            //  the discovery run were this bug, not the product. A `linkFields`
+            //  entry is either `kind: "id"` (one FK, stored as a scalar
+            //  `number | null | undefined`) or `kind: "list"` (stored as an id
+            //  array). The preview projects both as `rawIds`, so the comparison
+            //  has to project the STORED side back the same way rather than
+            //  comparing `[4]` against `4` and calling it a divergence.
+            //  ★★ `undefined` and `[]` are folded together for a list, and null
+            //  and undefined for an id: a sparse sanitizer omits the key where a
+            //  dense one writes the empty value, and that difference is a
+            //  storage detail the card never claimed anything about.
+            const linkKind = INLINE_DESCRIPTORS[s.entity].linkFields?.[field]?.kind;
+            const storedIds =
+              linkKind === "id"
+                ? (stored[field] ?? null)
+                : ((stored[field] as unknown[] | undefined) ?? []);
+            const shownIds = linkKind === "id" ? (link.rawIds[0] ?? null) : link.rawIds;
+            if (!same(shownIds, storedIds)) {
+              violations.push(
+                `${key}: preview linked ${JSON.stringify(shownIds)} != stored ${JSON.stringify(storedIds)}`,
+              );
+            }
+          }
+        }
+      }
+    }
+
+    // ★★★ ANTI-VACUITY, AND IT IS THE ASSERTION THIS WHOLE FILE TURNS ON. A
+    //  replay refused by a stale token leaves the row untouched and makes every
+    //  relation above trivially true — green, and proving nothing. If NOTHING
+    //  moved for an entire entity, the harness is broken, not the code.
+    expect(moved, `${s.entity}: no probe moved any field — the sweep is vacuous`).toBeGreaterThan(0);
+    expect(violations, `${violations.length} parity violations`).toEqual([]);
+  });
 });

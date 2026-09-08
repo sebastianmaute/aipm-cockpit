@@ -74,6 +74,7 @@ import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispa
 import {
   LINKED_TASKS,
   type Row,
+  rejectedFields,
   same,
   seedGuardedAbsence,
   seedGuardedCalendarEvent,
@@ -480,17 +481,6 @@ async function previewAndWrite(c: WriteCase): Promise<{ plan: EditPlan; before: 
 
   const stored = rowOf(snapshot(result.current.ws), c);
   return { plan, before, stored };
-}
-
-/** Every field name a `Rejected` entry blames. `detail` is `${field}=${value}`
- *  for a single field and `${a}+${b}=empty` for a group, so the names are the
- *  `+`-split of everything left of the FIRST `=` (a rejected value may itself
- *  contain one — an email, a date). */
-function rejectedFields(plan: EditPlan): string[] {
-  return plan.rejected.flatMap((r) => {
-    const eq = r.detail.indexOf("=");
-    return eq <= 0 ? [] : r.detail.slice(0, eq).split("+");
-  });
 }
 
 beforeEach(() => {
