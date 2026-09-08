@@ -66,6 +66,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
 import { entityToken, type TokenEntity } from "../ai-entity-token";
+import { TOKEN_ROW_SOURCE } from "../chat-proposal-apply";
 import { runTool } from "../chat-tools";
 import { resetMintState } from "../id-mint-session";
 import { type TestSeed } from "../test-providers";
@@ -794,41 +795,56 @@ describe("write-path differential — a preview refusal is a WRITE refusal", () 
 // divergence at a layer the sanitizer cannot show, in a field nobody wrote a
 // case for — which is `docs/open-followups.md` §394 and §418.
 
-/** One entity's sweep fixture, carrying ONLY what the REPLAY needs and no
- *  descriptor knows. `INLINE_DESCRIPTORS[entity]` already declares everything
- *  the PREVIEW side needs, its own `updateTool` included, so nothing here
- *  restates it: `tool` is the wire name the model emits, `kind` is how the
- *  replaying consumers stamp the concurrency token, and `wsKey`/`id` are how
- *  the stored row is read back out of the workspace afterwards. */
+/** One entity's sweep fixture: the two things no production code declares —
+ *  WHICH row to drive, and the workspace to drive it against.
+ *
+ *  ★★★ `tool`, `wsKey` AND `kind` ARE DELIBERATELY ABSENT, and restoring any of
+ *  them is a regression. Each is already declared by production code this file
+ *  can read — `INLINE_DESCRIPTORS[entity].updateTool` / `.wsKey`, and
+ *  `TOKEN_ROW_SOURCE[tool].kind`, which is the SAME map the replaying consumers
+ *  read. The first cut of this table hand-copied all three per row: 24 restated
+ *  cells, one of which was already wrong before anything consumed it (the
+ *  resource row carried `id: 7` against a seed that mints 4, so that entity's
+ *  entire sweep would have reported agreement over a row that was never
+ *  written — a fabricated clean across one of eight entities, and exactly the
+ *  failure mode this file exists to catch elsewhere). `sweepPlumbing` derives
+ *  them instead, so a renamed tool or a moved workspace slice reaches the sweep
+ *  as a type error or a loud throw rather than as silent agreement. */
 interface SweepEntity {
   entity: InlineEntity;
-  /** The chat write tool, exactly as the model would emit it. */
-  tool: string;
-  /** The `entityToken` kind — how the REPLAYING consumers stamp the token. */
-  kind: TokenEntity;
-  wsKey: WsKey;
+  /** The id this entity's own seed mints — the one value no production code
+   *  knows, and therefore the only one still worth asserting by hand. */
   id: number;
   seed: TestSeed;
 }
 
 const SWEEP: SweepEntity[] = [
-  { entity: "task", tool: "update_task", kind: "task", wsKey: "tasks", id: 1,
-    seed: { tasks: [seedTask(1, "First")] } },
-  { entity: "raid", tool: "update_raid_item", kind: "raid", wsKey: "raid", id: 10,
-    seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS } },
-  { entity: "change", tool: "update_change", kind: "change", wsKey: "changes", id: 20,
-    seed: { changes: [seedGuardedChange()], tasks: LINKED_TASKS } },
-  { entity: "milestone", tool: "update_milestone", kind: "milestone", wsKey: "milestones", id: 30,
-    seed: { milestones: [seedGuardedMilestone()], tasks: LINKED_TASKS } },
-  { entity: "stakeholder", tool: "update_stakeholder", kind: "stakeholder", wsKey: "stakeholders", id: 40,
-    seed: { stakeholders: [seedGuardedStakeholder()], tasks: LINKED_TASKS } },
-  { entity: "resource", tool: "update_resource", kind: "resource", wsKey: "resources", id: 7,
-    seed: { resources: [seedResource()] } },
-  { entity: "absence", tool: "update_absence", kind: "absence", wsKey: "absences", id: 50,
-    seed: { absences: [seedGuardedAbsence()] } },
-  { entity: "calendarEvent", tool: "update_calendar_event", kind: "calendarEvent", wsKey: "calendarEvents", id: 60,
-    seed: { calendarEvents: [seedGuardedCalendarEvent()] } },
+  { entity: "task", id: 1, seed: { tasks: [seedTask(1, "First")] } },
+  { entity: "raid", id: 10, seed: { raid: [seedGuardedRaid()], tasks: LINKED_TASKS } },
+  { entity: "change", id: 20, seed: { changes: [seedGuardedChange()], tasks: LINKED_TASKS } },
+  { entity: "milestone", id: 30, seed: { milestones: [seedGuardedMilestone()], tasks: LINKED_TASKS } },
+  { entity: "stakeholder", id: 40, seed: { stakeholders: [seedGuardedStakeholder()], tasks: LINKED_TASKS } },
+  { entity: "resource", id: 4, seed: { resources: [seedResource()] } },
+  { entity: "absence", id: 50, seed: { absences: [seedGuardedAbsence()] } },
+  { entity: "calendarEvent", id: 60, seed: { calendarEvents: [seedGuardedCalendarEvent()] } },
 ];
+
+/** What the REPLAY needs, read from the same production declarations the
+ *  replaying consumers themselves read.
+ *
+ *  ★★ It THROWS rather than returning a partial answer. A tool with no
+ *  `TOKEN_ROW_SOURCE` entry cannot be replayed at all, and a sweep that skipped
+ *  such an entity would report the same thing as a sweep that found no
+ *  divergence — silence. Absence of a finding has to be distinguishable from
+ *  absence of a run. */
+function sweepPlumbing(entity: InlineEntity): { tool: string; kind: TokenEntity; wsKey: WsKey } {
+  const tool = INLINE_DESCRIPTORS[entity].updateTool;
+  const source = TOKEN_ROW_SOURCE[tool];
+  if (!source) {
+    throw new Error(`sweep: no TOKEN_ROW_SOURCE entry for "${tool}" (entity "${entity}") — it cannot be replayed`);
+  }
+  return { tool, kind: source.kind, wsKey: INLINE_DESCRIPTORS[entity].wsKey as WsKey };
+}
 
 describe("the sweep's own coverage", () => {
   // ★★ THE ONE MAINTAINED THING IN THE SWEEP, AND ITS GUARD. A new FIELD is
@@ -838,5 +854,37 @@ describe("the sweep's own coverage", () => {
   //  trick on its own CASES; copying it is deliberate.
   it("has a row for every INLINE_DESCRIPTORS entity, and no others", () => {
     expect(SWEEP.map((s) => s.entity).sort()).toEqual(Object.keys(INLINE_DESCRIPTORS).sort());
+  });
+
+  // ★★★ THE GUARD AGAINST A FABRICATED CLEAN, and it is not hypothetical: the
+  //  first cut of this table carried `id: 7` for the resource row against a
+  //  seed that mints 4. Nothing consumed it yet, so every gate was green. Had
+  //  the sweep landed on top of it, that entity would have reported perfect
+  //  preview/write agreement over a row the fixture never wrote — the sweep
+  //  would have certified itself across one of eight entities.
+  //  An id is the ONE column production code cannot supply, so it is the one
+  //  that needs a positive observable rather than a derivation.
+  it("seeds the row each entity claims to drive", () => {
+    const missing = SWEEP.filter((s) => {
+      const { wsKey } = sweepPlumbing(s.entity);
+      const rows = (s.seed as Record<string, readonly { id: number }[] | undefined>)[wsKey];
+      return !rows?.some((r) => r.id === s.id);
+    }).map((s) => `${s.entity}#${s.id}`);
+    expect(missing).toEqual([]);
+    // Anti-vacuity: prove the check above ran over a non-empty set, so a seed
+    // shape change that silently emptied SWEEP could not read as agreement.
+    expect(SWEEP.length).toBe(Object.keys(INLINE_DESCRIPTORS).length);
+  });
+
+  // Every entity must be REPLAYABLE. `sweepPlumbing` throws on a tool with no
+  // TOKEN_ROW_SOURCE entry, so this is the assertion that turns "we never ran
+  // it" into a red rather than into silence.
+  it("derives replayable plumbing for every entity from production declarations", () => {
+    for (const s of SWEEP) {
+      const { tool, kind, wsKey } = sweepPlumbing(s.entity);
+      expect(tool).toBe(INLINE_DESCRIPTORS[s.entity].updateTool);
+      expect(wsKey).toBe(INLINE_DESCRIPTORS[s.entity].wsKey);
+      expect(TOKEN_ROW_SOURCE[tool].kind).toBe(kind);
+    }
   });
 });
