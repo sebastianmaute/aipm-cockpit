@@ -659,7 +659,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§432](#432-two-surfaces-tell-the-user-to-re-fetch-hours-that-a-re-fetch-cannot-repair--closed-2026-09-07) | Two surfaces tell the user to re-fetch hours that a re-fetch cannot repair | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S-M — an `undated` subset of `unattributed`, plus one string each | **CLOSED** 2026-09-07 |
 | [§433](#433-a-phantom-period-key-made-an-empty-allocation-read-as-populated--closed-2026-09-07) | A phantom period key made an empty allocation read as populated | found 2026-09-07 in pre-merge review of the guardrail-bounds branch | S — one read-side predicate; stored data deliberately untouched | **CLOSED** 2026-09-07 |
 | [§434](#434-adding-an-inlineentity-member-has-four-ripple-sites-one-a-hard-build-break-and-nothing-enumerates-them--closed-2026-09-08) | Adding an `InlineEntity` member has four ripple sites and nothing enumerates them | found 2026-09-07 reviewing the AI-calendar-writes plan for inline-edit write parity | S-M — one is a tsc break, three were silent, all four now pinned | closed 2026-09-08 |
-| [§435](#435-seven-model-writable-fields-have-no-descriptor-entry-so-the-card-cannot-disclose-what-the-write-does--open) | Seven model-writable fields have no descriptor entry, so the card cannot disclose the write | found 2026-09-08 by the inline-AI parity sweep's first discovery run | M — a per-field decision (declare vs guard), not one repair | open |
+| [§435](#435-seven-model-writable-fields-have-no-descriptor-entry-so-the-card-cannot-disclose-what-the-write-does--closed-2026-09-08) | Seven model-writable fields have no descriptor entry, so the card cannot disclose the write | found 2026-09-08 by the inline-AI parity sweep's first discovery run | M — a per-field decision (declare vs guard), not one repair | **CLOSED** 2026-09-08 |
 | [§436](#436-the-parity-sweep-cannot-see-a-guard-table-narrowed-because-the-preview-reads-the-same-table--open) | The parity sweep cannot see a guard TABLE narrowed, because the preview reads the same table | found 2026-09-08 as the negative control for §418's acceptance mutants | M — needs a different detector, not a second spelling of the rule | open |
 <!-- INDEX:END -->
 
@@ -30872,7 +30872,11 @@ raid 3 + stakeholder 3 + resource 14 = 20.
 | raid | 3 failed / 34 passed (37) | raid 3 to **24** violations, tally UNCHANGED |
 | stakeholder | 3 failed / 34 passed (37) | stakeholder 3 to **14** violations, tally UNCHANGED |
 
-★★★ THE LAST TWO ROWS ARE WHY THE TALLY IS NOT THE ACCEPTANCE METRIC. raid and stakeholder are
+★★★ THE LAST TWO ROWS ARE WHY THE TALLY IS NOT THE ACCEPTANCE METRIC. ★★ UPDATE 2026-09-08: §435 has
+since been FIXED, so the sweep is green and all six mutants would now move the tally. Read the table
+as the record of a measurement taken while the sweep was red — the lesson is what a deliberately-red
+detector does to a pass/fail acceptance metric, and that outlives the red. At the time of measuring,
+raid and stakeholder were
 already red on §435, so a mutant that adds violations to them leaves `3 failed | 34 passed` exactly
 as it was. Anyone accepting this sweep by its pass/fail line would have recorded two of six mutants
 as SURVIVING. Read the per-entity violation count.
@@ -32100,9 +32104,44 @@ replaces while it cannot pass over an EMPTY set, and a one-directional allowlist
 learns to. Then delete the count from `help-content.ts` in favour of a reproduce grep. That leaves
 `ENTITY_LABEL_KEY` as the one ripple site, which is the one that already fails loudly. S-M.
 
-## 435. Seven model-writable fields have no descriptor entry, so the card cannot disclose what the write does — OPEN
+## 435. Seven model-writable fields have no descriptor entry, so the card cannot disclose what the write does — CLOSED 2026-09-08
 
-**Status:** OPEN 2026-09-08 — measured, not reasoned. `npx vitest run --maxWorkers=1
+**Status:** CLOSED 2026-09-08. All twenty violations are fixed; the sweep is GREEN on its own terms —
+`npx vitest run --maxWorkers=1 src/app/inline-ai-edit/plan.write-path-sweep.test.ts` → EXIT=0,
+`Tests 37 passed (37)`, zero violations — rather than green because anything was excused.
+
+**★★★ THIS ENTRY'S CENTRAL CLAIM WAS WRONG, AND IT WAS MINE.** It said the seven needed a per-field
+declare-vs-guard decision, because "**these seven are not all in that position**" `knowledgeLinks`
+was in — i.e. that guarding one might cost a capability the tool schema advertises. I never ran the
+check that claim depends on. Run 2026-09-08: **all seven appear 0 times** across `chat-tool-defs.ts`
+and `chat-tool-defs-documents.ts`. Non-vacuity control on the same pattern — `title` 19, `name` 66,
+`status` 14, `category` 11 — so a bare 0 is not a broken regex. `entity-descriptor.ts` already said
+it for two of them in its own comments ("`birthday` — stored, but absent from `ResourceInput`: the
+tool cannot"; "`Stakeholder.raci` IS a relationship, but `stakeholderFields` does not"). There was
+no tradeoff to weigh. Guarding was free for all seven, exactly as for `knowledgeLinks`.
+
+★★ `active` is the field this entry hesitated over hardest, calling it "a soft-archive flag whose
+write may be intentional". It cannot be intentional: no schema offers it, so every write of it is a
+model guessing at a field it was never given.
+
+**What shipped** (`cd71c77b`): `ownerResourceId: () => false` on `RAID_FIELD_GUARDS`,
+`raci: () => false` on `STAKEHOLDER_FIELD_GUARDS`, and a new `RESOURCE_FIELD_GUARDS` +
+`dropUnacceptedResourceFields` wired at `updateResource` — resource had no merge-site guard at all,
+which is why five of the seven lived there. Denylist shape, so every resource field not named still
+reaches the sanitizer untouched.
+
+★★ **§394's armed alarm fired on this commit, and that is the alarm WORKING.**
+`plan.sanitizer-parity.test.ts` pinned the resource merge site as UNGUARDED precisely so that adding
+a guard would red and force `resourceReader` to be composed. It did. The reader is now composed and
+the assertion INVERTED to pin the guarded shape. `sanitizerReader` is deleted — with every entity
+guarded, a bare sanitizer call describes no real writer. Do not read that flip in the file's history
+as a test loosened to accommodate a change.
+
+★ Mutation-proved, three mutants, each asserted to have LANDED before its red was believed:
+raid `ownerResourceId` removed → raid 3 violations; stakeholder `raci` removed → stakeholder 3;
+the resource call site unguarded → resource 14 **and** the inverted §394 tripwire red.
+
+**As filed:** OPEN 2026-09-08 — measured, not reasoned. `npx vitest run --maxWorkers=1
 src/app/inline-ai-edit/plan.write-path-sweep.test.ts` reports these as 20 relation-3 violations
 across 3 of its 8 entity tests. Every line below is a sweep output, not a source reading.
 
