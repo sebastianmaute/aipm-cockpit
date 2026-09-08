@@ -180,6 +180,28 @@ type MilestoneFieldGuard = (value: unknown) => boolean;
  *    can reach them", which is the kind of false assurance that stops the next
  *    audit. Same shape on raid's `ownerResourceId`. */
 const MILESTONE_FIELD_GUARDS: Readonly<Record<string, MilestoneFieldGuard>> = {
+  knowledgeLinks: () => false,
+  // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
+  //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
+  //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
+  //  absence from the schema protects nothing by itself — the comment above this
+  //  table says so, and this field was the live instance of it.
+  //  ★★ WHAT IT COST: the sanitizer reads the merged `{...existing, ...patch}`,
+  //  so a patch value REPLACED the stored links before `sanitizeKnowledgeLinks`
+  //  ran; garbage reduced to `[]`, the sparse `if (dl.length)` then omitted the
+  //  key, and the stored links were GONE. The preview could not disclose any of
+  //  it — `knowledgeLinks` is neither a `diffField` nor a `linkField` — so the
+  //  card said nothing while the write destroyed user data.
+  //  ★★ MEASURED, not reasoned: `plan.write-path-sweep.test.ts` drove it on all
+  //  four registers that carry the field and reported the wipe on every one, for
+  //  both an empty array and a non-array string. It is the first thing that
+  //  demonstrated a defect this file had documented as a known risk since the
+  //  merge-site guards landed.
+  //  ★ `() => false` rather than a shape check ON PURPOSE. A predicate that
+  //  accepted a well-formed array would still let the model CLEAR the links (a
+  //  valid empty array is a legitimate shape), and the card still could not
+  //  disclose it. Nothing may reach this field from a model patch until the
+  //  descriptor can show what it does.
   // ★ The clear carve-out inside `acceptsPatchDate` is load-bearing: the
   //  preview's date rule is `after !== "" && sanitizeIsoDate(after) !== after`,
   //  so anything it RENDERS as "" is disclosed to the user as a clear. Refusing
@@ -599,6 +621,28 @@ export function sanitizeModelChangeItem(input: unknown): ChangeItem | null {
  *  key here would take that raw value away and turn "the model sent a status" into
  *  "the model sent nothing", skipping the transition. */
 const CHANGE_FIELD_GUARDS: Readonly<Record<string, ChangeFieldGuard>> = {
+  knowledgeLinks: () => false,
+  // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
+  //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
+  //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
+  //  absence from the schema protects nothing by itself — the comment above this
+  //  table says so, and this field was the live instance of it.
+  //  ★★ WHAT IT COST: the sanitizer reads the merged `{...existing, ...patch}`,
+  //  so a patch value REPLACED the stored links before `sanitizeKnowledgeLinks`
+  //  ran; garbage reduced to `[]`, the sparse `if (dl.length)` then omitted the
+  //  key, and the stored links were GONE. The preview could not disclose any of
+  //  it — `knowledgeLinks` is neither a `diffField` nor a `linkField` — so the
+  //  card said nothing while the write destroyed user data.
+  //  ★★ MEASURED, not reasoned: `plan.write-path-sweep.test.ts` drove it on all
+  //  four registers that carry the field and reported the wipe on every one, for
+  //  both an empty array and a non-array string. It is the first thing that
+  //  demonstrated a defect this file had documented as a known risk since the
+  //  merge-site guards landed.
+  //  ★ `() => false` rather than a shape check ON PURPOSE. A predicate that
+  //  accepted a well-formed array would still let the model CLEAR the links (a
+  //  valid empty array is a legitimate shape), and the card still could not
+  //  disclose it. Nothing may reach this field from a model patch until the
+  //  descriptor can show what it does.
   type: (v) => typeof v === "string" && CHANGE_TYPE_SET.has(v),
   impact: (v) => typeof v === "string" && CHANGE_IMPACT_SET.has(v),
   raisedDate: acceptsChangeDate,
@@ -777,6 +821,28 @@ export const acceptsRiskScale: RaidFieldGuard = (v) => {
 };
 
 const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
+  knowledgeLinks: () => false,
+  // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
+  //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
+  //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
+  //  absence from the schema protects nothing by itself — the comment above this
+  //  table says so, and this field was the live instance of it.
+  //  ★★ WHAT IT COST: the sanitizer reads the merged `{...existing, ...patch}`,
+  //  so a patch value REPLACED the stored links before `sanitizeKnowledgeLinks`
+  //  ran; garbage reduced to `[]`, the sparse `if (dl.length)` then omitted the
+  //  key, and the stored links were GONE. The preview could not disclose any of
+  //  it — `knowledgeLinks` is neither a `diffField` nor a `linkField` — so the
+  //  card said nothing while the write destroyed user data.
+  //  ★★ MEASURED, not reasoned: `plan.write-path-sweep.test.ts` drove it on all
+  //  four registers that carry the field and reported the wipe on every one, for
+  //  both an empty array and a non-array string. It is the first thing that
+  //  demonstrated a defect this file had documented as a known risk since the
+  //  merge-site guards landed.
+  //  ★ `() => false` rather than a shape check ON PURPOSE. A predicate that
+  //  accepted a well-formed array would still let the model CLEAR the links (a
+  //  valid empty array is a legitimate shape), and the card still could not
+  //  disclose it. Nothing may reach this field from a model patch until the
+  //  descriptor can show what it does.
   category: (v) => typeof v === "string" && RAID_CATEGORY_SET.has(v),
   status: (v, category) => typeof v === "string" && statusSetForCategory(category).set.has(v),
   severity: (v) => typeof v === "string" && RAID_SEVERITY_SET.has(v),
@@ -920,6 +986,28 @@ export const acceptsInfluenceInterest: StakeholderFieldGuard = (v) =>
   typeof v === "string" && INFLUENCE_INTEREST_SET.has(v);
 
 const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> = {
+  knowledgeLinks: () => false,
+  // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
+  //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
+  //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
+  //  absence from the schema protects nothing by itself — the comment above this
+  //  table says so, and this field was the live instance of it.
+  //  ★★ WHAT IT COST: the sanitizer reads the merged `{...existing, ...patch}`,
+  //  so a patch value REPLACED the stored links before `sanitizeKnowledgeLinks`
+  //  ran; garbage reduced to `[]`, the sparse `if (dl.length)` then omitted the
+  //  key, and the stored links were GONE. The preview could not disclose any of
+  //  it — `knowledgeLinks` is neither a `diffField` nor a `linkField` — so the
+  //  card said nothing while the write destroyed user data.
+  //  ★★ MEASURED, not reasoned: `plan.write-path-sweep.test.ts` drove it on all
+  //  four registers that carry the field and reported the wipe on every one, for
+  //  both an empty array and a non-array string. It is the first thing that
+  //  demonstrated a defect this file had documented as a known risk since the
+  //  merge-site guards landed.
+  //  ★ `() => false` rather than a shape check ON PURPOSE. A predicate that
+  //  accepted a well-formed array would still let the model CLEAR the links (a
+  //  valid empty array is a legitimate shape), and the card still could not
+  //  disclose it. Nothing may reach this field from a model patch until the
+  //  descriptor can show what it does.
   category: acceptsStakeholderCategory,
   influence: acceptsInfluenceInterest,
   interest: acceptsInfluenceInterest,
