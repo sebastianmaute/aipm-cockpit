@@ -3606,6 +3606,8 @@ export const de: Record<TranslationKey, string> = {
   fieldsAdjusted: "Gespeichert — {0} Feld(er) auf Grenzwerte angepasst",
 
   usage80Toast: "Sie haben 80 % Ihres Token-Budgets verbraucht",
+  aiUsageCapBasisChanged:
+    "Die Token-Zählung umfasst jetzt zwischengespeicherte Eingaben, die Anthropic separat abrechnet. Ihre Obergrenzen bleiben unverändert, daher erscheinen Warnungen früher als bisher.",
   aiUsageLimitReached:
     "Claude-Nutzungslimit erreicht — dies ist Anthropics eigenes Raten-/Nutzungslimit. Bitte warten Sie und versuchen Sie es nach dem Zurücksetzen erneut.",
   aiSelfLimitReached:

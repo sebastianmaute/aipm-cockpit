@@ -2,7 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type ReactNode } from "react";
-import { AI_USAGE_KEY, AiUsageProvider, useAiUsageContext } from "./ai-usage-context";
+import { AI_CAP_BASIS_NOTICE_KEY, AI_USAGE_KEY, AiUsageProvider, useAiUsageContext } from "./ai-usage-context";
 import { defaultAiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
 import { t } from "./i18n";
@@ -152,6 +152,11 @@ describe("AiUsageProvider", () => {
       );
     }
 
+    // The one-time cap-basis explanatory notice is covered by its own tests
+    // below — pre-seed its flag so it does not add a second showToast call
+    // here and this test stays scoped to the 80 % warning alone.
+    localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
+
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
@@ -176,6 +181,9 @@ describe("AiUsageProvider", () => {
         </AiUsageProvider>
       );
     }
+
+    // See the note above — this test is scoped to the 80 % warning alone.
+    localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
 
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
@@ -206,6 +214,9 @@ describe("AiUsageProvider", () => {
         </AiUsageProvider>
       );
     }
+
+    // See the note above — this test is scoped to the 80 % warning alone.
+    localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
 
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
@@ -249,6 +260,74 @@ describe("AiUsageProvider", () => {
     act(() => { result.current.record({ input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
     expect(showToast.mock.calls.filter((c) => c[1] === selfLimitText).length).toBe(1);
     expect(result.current.sessionTotal).toBe(1150);
+  });
+
+  it("explains the changed cap basis once when the first 80% warning fires, then never again on remount", async () => {
+    const showToast = vi.fn();
+    const cap = 1_000;
+    // Cap unchanged across the two mounts — only the notice's persistence
+    // (localStorage, not a per-instance ref) is under test here.
+    const ai = { ...defaultAiConfig, tokenMultiplier: 1, sessionTokenCap: cap, weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP };
+
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <AiUsageProvider lang="en-US" ai={ai} showToast={showToast}>
+          {children}
+        </AiUsageProvider>
+      );
+    }
+
+    const noticeText = t("en-US", "aiUsageCapBasisChanged");
+
+    const first = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    await act(async () => {});
+
+    // 900 crosses 80 % of the 1 000 session cap.
+    act(() => {
+      first.result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
+    });
+
+    expect(showToast.mock.calls.filter((c) => c[1] === noticeText)).toHaveLength(1);
+    expect(window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY)).toBe("1");
+    first.unmount();
+
+    // A FRESH provider mount (simulating a page reload after the upgrade)
+    // resets every in-memory "already warned" ref, but the notice must not
+    // repeat — it is keyed in localStorage precisely so it survives a reload.
+    const second = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    await act(async () => {});
+
+    act(() => {
+      second.result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
+    });
+
+    expect(showToast.mock.calls.filter((c) => c[1] === noticeText)).toHaveLength(1);
+  });
+
+  it("fires the cap-basis notice once globally even when session and weekly cross 80% together", async () => {
+    const showToast = vi.fn();
+    // Same cap for both scopes so a single record() crosses 80 % of BOTH at
+    // once — the notice must still appear exactly once, not once per scope.
+    const ai = { ...defaultAiConfig, tokenMultiplier: 1, sessionTokenCap: 1_000, weeklyTokenCap: 1_000 };
+
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <AiUsageProvider lang="en-US" ai={ai} showToast={showToast}>
+          {children}
+        </AiUsageProvider>
+      );
+    }
+
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    await act(async () => {});
+
+    const noticeText = t("en-US", "aiUsageCapBasisChanged");
+
+    act(() => {
+      result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
+    });
+
+    expect(showToast.mock.calls.filter((c) => c[1] === noticeText)).toHaveLength(1);
   });
 
   it("persists usage to localStorage", async () => {

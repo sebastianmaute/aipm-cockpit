@@ -3791,6 +3791,8 @@ const enUS = {
   fieldsAdjusted: "Saved — {0} field(s) adjusted to fit limits",
 
   usage80Toast: "You've used 80% of your token budget",
+  aiUsageCapBasisChanged:
+    "Token counts now include cached input, which Anthropic bills separately. Your caps are unchanged, so warnings arrive earlier than before.",
   aiUsageLimitReached:
     "Claude usage limit reached — this is Anthropic's own rate/usage limit. Please wait and try again after it resets.",
   aiSelfLimitReached:

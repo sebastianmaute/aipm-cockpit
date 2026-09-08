@@ -27,6 +27,10 @@ import type { AiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_TOKEN_MULTIPLIER } from "./settings-types";
 
 export const AI_USAGE_KEY = "aipm-cockpit:ai-usage";
+/** ★ One-time, and keyed in localStorage rather than a ref: the point is to
+ *  explain the change ACROSS the upgrade, so a per-session flag would re-fire
+ *  it on every reload and a ref would lose it on remount. */
+export const AI_CAP_BASIS_NOTICE_KEY = "aipm-cockpit:ai-cap-basis-notice";
 
 export type AiUsageContextValue = {
   sessionTotal: number;
@@ -66,6 +70,21 @@ function loadBuckets(): UsageBuckets {
   } catch {
     return {};
   }
+}
+
+// ★ Guards a localStorage read+write with a synchronous try/catch so the
+// flag is set BEFORE showToast is ever called — a second call in the same
+// tick (session and weekly crossing together) sees the flag already "1" and
+// stays silent, so the notice fires once GLOBALLY, not once per scope.
+function noteCapBasisOnce(showToast: (kind: "info" | "error", text: string) => void, lang: Lang): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY) === "1") return;
+    window.localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
+  } catch {
+    return; // storage unavailable: skip the notice rather than repeating it
+  }
+  showToast("info", t(lang, "aiUsageCapBasisChanged"));
 }
 
 function saveBuckets(buckets: UsageBuckets): void {
@@ -159,10 +178,12 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
 
       if (!warnedRef.current.session && crossed80(prevSession, nextSession, sessionCap)) {
         warnedRef.current.session = true;
+        noteCapBasisOnce(showToast, lang);
         showToast("error", t(lang, "usage80Toast"));
       }
       if (!warnedRef.current.week && crossed80(prevWeek, nextWeek, weeklyCap)) {
         warnedRef.current.week = true;
+        noteCapBasisOnce(showToast, lang);
         showToast("error", t(lang, "usage80Toast"));
       }
       // Crossing 100 % of a self-imposed cap: ADVISORY notice only — nothing is
