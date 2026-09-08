@@ -16,7 +16,15 @@ import { chatSearchEnabled, historySearchEnabled, type AiConfig } from "./settin
 // Re-export so chat consumers can catch the typed HTTP failure without a second import.
 export { AiHttpError } from "./ai-errors";
 
-export type TextBlock = { type: "text"; text: string };
+/** ★ `cache_control` is optional on both — it is set only by
+ *  `chat-cache-layout.ts`'s message-level breakpoints (never by anything that
+ *  builds these blocks for a fresh, unmarked turn). Added so that file marks a
+ *  block by producing a plain, statically-typed object rather than casting
+ *  through `unknown`; mirrors `SystemBlock` below, which already carries the
+ *  same field for the system-level breakpoint. `ToolUseBlock`/`AttachmentBlock`
+ *  do NOT get it — Anthropic breakpoints only land on `text`/`tool_result`
+ *  content, and nothing in this codebase ever marks the other two. */
+export type TextBlock = { type: "text"; text: string; cache_control?: { type: "ephemeral" } };
 export type ToolUseBlock = {
   type: "tool_use";
   id: string;
@@ -28,6 +36,7 @@ export type ToolResultBlock = {
   tool_use_id: string;
   content: string;
   is_error?: boolean;
+  cache_control?: { type: "ephemeral" };
 };
 export type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock | AttachmentBlock;
 
