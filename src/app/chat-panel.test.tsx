@@ -724,13 +724,18 @@ describe("prompt caching", () => {
     vi.restoreAllMocks();
   });
 
-  // ★★★ `system` is now ONE block, not two — Task 7 (the prompt-cache-layout
+  // ★★★ `system` is now TWO blocks, not one — Task 7 (the prompt-cache-layout
   //   slice) moved the volatile half (APP CONTEXT et al.) off the `system`
   //   array and onto the current user turn, via `buildWireMessages`, so the
   //   `system` array sent over the wire is only ever `buildStableSystemBlocks`'
-  //   single cached block. See the "prompt cache layout wiring" describe block
-  //   below for where the relocated volatile half is now asserted.
-  it("sends system as a single cache-controlled content block", async () => {
+  //   output. See the "prompt cache layout wiring" describe block below for
+  //   where the relocated volatile half is now asserted.
+  //   ★★ The guide-block cache split (Slice G) then split THAT array further:
+  //   block 0 is the view-invariant half and carries the sole `cache_control`
+  //   marker `system` gets; block 1 is the current view's guide text and
+  //   deliberately carries none, so a view switch cannot invalidate block 0's
+  //   cache entry. Two blocks is therefore the correct count, not a defect.
+  it("sends system as two blocks, only the first cache-controlled", async () => {
     let rejectFetch!: (reason: unknown) => void;
     const pending = new Promise<Response>((_res, rej) => { rejectFetch = rej; });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
@@ -757,8 +762,18 @@ describe("prompt caching", () => {
     expect(fetchSpy.mock.calls.length).toBeGreaterThan(0);
     const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
     expect(Array.isArray(body.system)).toBe(true);
-    expect(body.system).toHaveLength(1);
+    // Two blocks since the guide-block cache split: [0] is the view-invariant
+    // half and carries the cache marker, [1] is the current view's guide and
+    // deliberately carries none.
+    expect(body.system).toHaveLength(2);
     expect(body.system[0].cache_control.type).toBe("ephemeral");
+
+    // ★★ Anthropic allows FOUR cache_control breakpoints per request and this
+    //    app spends all four: tools 1, system 1, messages 2. Asserted on the
+    //    ASSEMBLED request rather than any one layer, because exceeding four
+    //    is an API error that no single layer can see coming.
+    const markerCount = (JSON.stringify(body).match(/"cache_control"/g) ?? []).length;
+    expect(markerCount).toBeLessThanOrEqual(4);
 
     // Clean up pending fetch.
     const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });
@@ -837,7 +852,7 @@ describe("prompt cache layout wiring", () => {
   //   API actually receives, so the assertion cannot pass while the wrong
   //   thing still ships, and it survives a refactor of how the panel reaches
   //   the network.
-  it("sends a system array of exactly one block, with the context on the turn", async () => {
+  it("sends a system array with the guide-cache split, and the context on the turn", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => okResponse());
     render(
       <ChatPanel
@@ -854,12 +869,15 @@ describe("prompt cache layout wiring", () => {
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
 
     const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
-    expect(body.system).toHaveLength(1);
+    // Two blocks since the guide-block cache split: [0] is the view-invariant
+    // half and carries the cache marker, [1] is the current view's guide and
+    // deliberately carries none.
+    expect(body.system).toHaveLength(2);
     expect(JSON.stringify(body.system)).not.toContain("APP CONTEXT");
     // …and it did not simply vanish: it must be on the final user message.
     // ★★ THIS IS WHAT STOPS THE ASSERTIONS ABOVE PASSING VACUOUSLY — dropping
     //   the turn context entirely (rather than relocating it) would also
-    //   satisfy a one-block `system` and the `not.toContain` above, and would
+    //   satisfy a two-block `system` and the `not.toContain` above, and would
     //   be a far worse bug than the one being fixed: the model would lose
     //   today's date, the current view and the insight list on every turn.
     expect(JSON.stringify(body.messages[body.messages.length - 1])).toContain("APP CONTEXT");
