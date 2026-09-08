@@ -180,7 +180,6 @@ type MilestoneFieldGuard = (value: unknown) => boolean;
  *    can reach them", which is the kind of false assurance that stops the next
  *    audit. Same shape on raid's `ownerResourceId`. */
 const MILESTONE_FIELD_GUARDS: Readonly<Record<string, MilestoneFieldGuard>> = {
-  knowledgeLinks: () => false,
   // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
   //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
   //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
@@ -202,6 +201,7 @@ const MILESTONE_FIELD_GUARDS: Readonly<Record<string, MilestoneFieldGuard>> = {
   //  valid empty array is a legitimate shape), and the card still could not
   //  disclose it. Nothing may reach this field from a model patch until the
   //  descriptor can show what it does.
+  knowledgeLinks: () => false,
   // ★ The clear carve-out inside `acceptsPatchDate` is load-bearing: the
   //  preview's date rule is `after !== "" && sanitizeIsoDate(after) !== after`,
   //  so anything it RENDERS as "" is disclosed to the user as a clear. Refusing
@@ -621,7 +621,6 @@ export function sanitizeModelChangeItem(input: unknown): ChangeItem | null {
  *  key here would take that raw value away and turn "the model sent a status" into
  *  "the model sent nothing", skipping the transition. */
 const CHANGE_FIELD_GUARDS: Readonly<Record<string, ChangeFieldGuard>> = {
-  knowledgeLinks: () => false,
   // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
   //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
   //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
@@ -643,6 +642,7 @@ const CHANGE_FIELD_GUARDS: Readonly<Record<string, ChangeFieldGuard>> = {
   //  valid empty array is a legitimate shape), and the card still could not
   //  disclose it. Nothing may reach this field from a model patch until the
   //  descriptor can show what it does.
+  knowledgeLinks: () => false,
   type: (v) => typeof v === "string" && CHANGE_TYPE_SET.has(v),
   impact: (v) => typeof v === "string" && CHANGE_IMPACT_SET.has(v),
   raisedDate: acceptsChangeDate,
@@ -821,7 +821,6 @@ export const acceptsRiskScale: RaidFieldGuard = (v) => {
 };
 
 const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
-  knowledgeLinks: () => false,
   // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
   //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
   //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
@@ -843,6 +842,7 @@ const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
   //  valid empty array is a legitimate shape), and the card still could not
   //  disclose it. Nothing may reach this field from a model patch until the
   //  descriptor can show what it does.
+  knowledgeLinks: () => false,
   category: (v) => typeof v === "string" && RAID_CATEGORY_SET.has(v),
   status: (v, category) => typeof v === "string" && statusSetForCategory(category).set.has(v),
   severity: (v) => typeof v === "string" && RAID_SEVERITY_SET.has(v),
@@ -986,7 +986,6 @@ export const acceptsInfluenceInterest: StakeholderFieldGuard = (v) =>
   typeof v === "string" && INFLUENCE_INTEREST_SET.has(v);
 
 const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> = {
-  knowledgeLinks: () => false,
   // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
   //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
   //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
@@ -1008,6 +1007,7 @@ const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> 
   //  valid empty array is a legitimate shape), and the card still could not
   //  disclose it. Nothing may reach this field from a model patch until the
   //  descriptor can show what it does.
+  knowledgeLinks: () => false,
   category: acceptsStakeholderCategory,
   influence: acceptsInfluenceInterest,
   interest: acceptsInfluenceInterest,
