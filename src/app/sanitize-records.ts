@@ -718,16 +718,19 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
   const title = sanitizeText(o.title, TASK_NAME_MAX);
   if (!title) return null;
 
-  const category: RaidCategory =
-    typeof o.category === "string" && RAID_CATEGORY_SET.has(o.category)
-      ? (o.category as RaidCategory)
-      : "R";
+  // ★★★ THESE THREE CALL THE MERGE-SITE GUARDS; THEY DO NOT RESTATE THEM
+  //  (open-followups §405). Until this commit `RAID_FIELD_GUARDS` and this
+  //  function each held its own copy of the category, status and severity
+  //  rules, ~120 lines apart, and no test could see them drift: every
+  //  `it.each` row asserts one chosen value against BOTH sides at once, so a
+  //  value the two disagree about is exactly the value nobody wrote a row for.
+  //  `probability`/`impact` were inverted first (`acceptsRiskScale`); these
+  //  are the tail that was left.
+  const category: RaidCategory = acceptsRaidCategory(o.category) ? (o.category as RaidCategory) : "R";
 
-  const { set: statusSet, statuses } = statusSetForCategory(category);
+  const { statuses } = statusSetForCategory(category);
   const status: RaidStatus =
-    typeof o.status === "string" && statusSet.has(o.status)
-      ? (o.status as RaidStatus)
-      : statuses[0];
+    acceptsRaidStatus(o.status, category) ? (o.status as RaidStatus) : statuses[0];
 
   const item: RaidItem = {
     id: Math.floor(id),
@@ -752,7 +755,7 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
   if (ownerResourceId !== undefined) item.ownerResourceId = ownerResourceId;
   else if (o.ownerResourceId === null) item.ownerResourceId = null;
 
-  if (typeof o.severity === "string" && RAID_SEVERITY_SET.has(o.severity)) {
+  if (acceptsRaidSeverity(o.severity)) {
     item.severity = o.severity as RaidSeverity;
   }
 
@@ -820,6 +823,33 @@ export const acceptsRiskScale: RaidFieldGuard = (v) => {
   return Number.isInteger(n) && n >= 1 && n <= 5;
 };
 
+/** The three RAID enum rules, each with ONE spelling.
+ *
+ *  ★★★ SAME DIRECTION AS `acceptsRiskScale` ABOVE, AND THE DIRECTION IS THE
+ *  POINT: `sanitizeRaidItem` calls these, rather than these restating what the
+ *  sanitizer does. A merge-site guard that merely AGREES with the sanitizer is
+ *  one edit away from disagreeing with it, and the disagreement is invisible —
+ *  the preview refuses a value the write accepts, or the reverse, and the card
+ *  then describes a write that did not happen.
+ *
+ *  ★★ THE FIRST TWO TAKE ONE ARGUMENT ON PURPOSE. `RaidFieldGuard` threads the
+ *  effective category because `status` is validated against it; `category` and
+ *  `severity` are category-INDEPENDENT, so they are typed 1-ary and stay
+ *  callable from the sanitizer with no meaningless second argument. A 1-ary
+ *  function is assignable to the 2-ary guard type, so the table below is
+ *  unaffected. */
+export const acceptsRaidCategory = (v: unknown): boolean =>
+  typeof v === "string" && RAID_CATEGORY_SET.has(v);
+
+export const acceptsRaidSeverity = (v: unknown): boolean =>
+  typeof v === "string" && RAID_SEVERITY_SET.has(v);
+
+/** ★ Category-DEPENDENT, so it keeps the full `RaidFieldGuard` shape: the
+ *  status vocabulary differs per category, and `sanitizeRaidItem` validates
+ *  against the category it just resolved. */
+export const acceptsRaidStatus: RaidFieldGuard = (v, category) =>
+  typeof v === "string" && statusSetForCategory(category).set.has(v);
+
 const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
   // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
   //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
@@ -843,9 +873,9 @@ const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
   //  disclose it. Nothing may reach this field from a model patch until the
   //  descriptor can show what it does.
   knowledgeLinks: () => false,
-  category: (v) => typeof v === "string" && RAID_CATEGORY_SET.has(v),
-  status: (v, category) => typeof v === "string" && statusSetForCategory(category).set.has(v),
-  severity: (v) => typeof v === "string" && RAID_SEVERITY_SET.has(v),
+  category: acceptsRaidCategory,
+  status: acceptsRaidStatus,
+  severity: acceptsRaidSeverity,
   probability: acceptsRiskScale,
   impact: acceptsRiskScale,
   raisedDate: acceptsRaidDate,
