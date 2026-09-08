@@ -662,7 +662,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§435](#435-seven-model-writable-fields-have-no-descriptor-entry-so-the-card-cannot-disclose-what-the-write-does--closed-2026-09-08) | Seven model-writable fields have no descriptor entry, so the card cannot disclose the write | found 2026-09-08 by the inline-AI parity sweep's first discovery run | M — a per-field decision (declare vs guard), not one repair | **CLOSED** 2026-09-08 |
 | [§436](#436-the-parity-sweep-cannot-see-a-guard-table-narrowed-because-the-preview-reads-the-same-table--open) | The parity sweep cannot see a guard TABLE narrowed, because the preview reads the same table | found 2026-09-08 as the negative control for §418's acceptance mutants | M — needs a different detector, not a second spelling of the rule | open |
 | [§437](#437-stakeholder-resourceid-was-an-eighth-undisclosed-model-write-the-sweep-could-not-see--closed-2026-09-08) | Stakeholder resourceId was an eighth undisclosed model write the sweep could not see | found 2026-09-08 by a cold review extending the type-minus-axis subtraction past its brief | S — one guard, one seed, plus the ratchet that closes the class | **CLOSED** 2026-09-08 |
-| [§438](#438-create_resource-and-create_stakeholder-bypass-every-merge-site-guard--open) | create_resource and create_stakeholder bypass every merge-site guard | found 2026-09-08 by cold review of cd71c77b; pre-existing, not a regression | M — needs a create-path relation in the sweep before the guards are worth adding | open |
+| [§438](#438-every-create-tool-but-create_task-bypassed-its-merge-site-guard--closed-2026-09-08) | Every create tool but create_task bypassed its merge-site guard | found 2026-09-08 by cold review of cd71c77b; pre-existing, not a regression | M — six call sites, plus a pin; the create-path RELATION is §439 | **CLOSED** 2026-09-08 |
+| [§439](#439-the-parity-sweep-has-no-create-path-relation-so-a-create-card-is-compared-against-nothing--open) | The parity sweep has no create-path relation, so a create card is compared against nothing | found 2026-09-08 — the structural reason §438 was invisible | L — needs a relation stated over a row that did not exist before | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -32344,19 +32345,70 @@ sweep `1 failed | 36 passed (37)`, the three rows above. `resourceId` dropped fr
 `1 failed | 23 passed (24)`, `expected [ 'resourceId' ] to deeply equal []`. The second is the
 load-bearing one: it shows the ratchet catches the original shape AND names the field.
 
-★★ The full subtraction over all eight entities found exactly this one gap, so the finding is bounded
+★★ The full subtraction over all eight entities found exactly this one gap ON THE UPDATE PATH — read
+that bound literally, because the unbounded version of the sentence was FALSE and sat here for one
+commit. A second gap existed the whole time on the CREATE path (`calendarEvent.exceptions`, §438),
+and this very entry's ratchet had it EXEMPTED on a justification that only held for update. The
+subtraction answers "which persisted fields does the update axis not cover"; it was never capable of
+answering "which fields can a model write". Corrected 2026-09-08 by cold review. So the finding is
+bounded
 — `task` is clean because `buildPatch` is a genuine whitelist, `absence` and `calendarEvent` are
 clean by ALLOWLIST shape, and raid/change/milestone/resource have no leftover. What is NOT bounded is
 the structural cause: the denylist shape means every field added to `Resource`/`Stakeholder`/
 `RaidItem` in future is model-writable BY DEFAULT. The ratchet is the answer to that, not the
 subtraction.
 
-## 438. create_resource and create_stakeholder bypass every merge-site guard — OPEN
+## 438. Every create tool but create_task bypassed its merge-site guard — CLOSED 2026-09-08
 
-**Status:** OPEN 2026-09-08 — never machine-verified as a live user-visible defect; found by source
+**Status:** CLOSED 2026-09-08. Fixed in `68486cd4`; pinned by
+`npx vitest run --maxWorkers=1 src/app/inline-ai-edit/plan.create-path-guards.test.ts` → EXIT=0,
+`Tests 14 passed (14)`.
+
+★★★ **THE TITLE UNDERSTATED IT BY FOUR ENTITIES and the first filing said "two tools".** Every
+`create_*` tool except `create_task` spread the model's raw input into its sanitizer — raid, change,
+milestone, stakeholder, resource, absence and calendarEvent. This is the repo's
+`register-names-one-instance-not-the-class` trap: the entry named the two instances that had been
+measured rather than the class, and a reader would have fixed two call sites and believed the job
+done. Retitled 2026-09-08 rather than renumbered.
+
+**What was actually landing**, measured on the pre-fix tree, not reasoned:
+
+| tool | field | stored |
+|---|---|---|
+| `create_raid_item` / `create_change` / `create_milestone` | `knowledgeLinks` | the full link array, verbatim |
+| `create_stakeholder` | `resourceId` | `9` |
+| `create_resource` | `active: false` | `false` — soft-archived on arrival |
+| `create_calendar_event` | `exceptions` | `[{"date":"2026-06-08","kind":"skip"}]` |
+
+★★★ The calendar-event row is the serious one and it was a LIVE UNDISCLOSED WRITE. `exceptions` is
+per-occurrence skip/move bookkeeping that no write schema advertises — while the READ tool's own
+description on `list_calendar_events` teaches the model its exact shape ("kind 'skip' … 'move' …
+toDate/toTime"). The model had been told how to build a value it was never told it could write, and
+no card disclosed it landing.
+
+★★ The stakeholder row is the one that shows why this class hides: `resourceId` was guarded on
+UPDATE by §437 and left open on CREATE, so that fix was half a fix. An asymmetric guard is harder to
+see than no guard at all, because the field looks handled.
+
+**The allowlist entities were the risk and they are clean.** Applying an allowlist on create refuses
+anything the table does not name, which on create means the field never lands. Checked before wiring:
+the absence table's seven keys are exactly `absenceFields`' seven schema keys, and the
+calendar-event table's nine are exactly `calendarEventFields`' nine.
+
+★ RAID needed one judgement: `dropUnacceptedRaidFields` resolves a category to choose the legal
+status set and falls back to the STORED row's, which a create does not have. `{ category: "R" }` is
+passed because that is `sanitizeRaidItem`'s own fallback, so guard and sanitizer share one default
+instead of disagreeing silently.
+
+★★ **What is NOT closed is the DETECTOR**, and it is filed separately as §439 rather than left
+implied. `plan.create-path-guards.test.ts` is a PIN — one refused field per entity, plus a positive
+control and an anti-vacuity check — not create-path parity. Reverting one create guard reds it
+(`expected [ Array(1) ] to deeply equal undefined`), so the guards cannot be quietly removed again;
+but nothing compares a create CARD against the created ROW.
+
+**As filed:** OPEN 2026-09-08 — never machine-verified as a live user-visible defect; found by source
 tracing during the cold review of `cd71c77b`, and deliberately NOT fixed in that slice (scope call by
-the user). Reproduce the shape with `sed -n '805,810p' src/app/chat-tools.ts` beside
-`grep -n "sanitizeResource({" src/app/use-chat-dispatcher.ts`.
+the user).
 
 `create_resource` and `create_stakeholder` pass the model's raw `input` straight to the sanitizer —
 no `patchWithoutId`, no `dropUnaccepted*Fields`. So **the same fields that are refused on update are
@@ -32380,3 +32432,36 @@ ships with the same "guarded but unwatched" property that let §437 hide behind 
 
 ★ `plan.model-writable-surface.test.ts` does NOT cover this either, and cannot: it reasons about
 which fields are accounted for, not about which WRITER accepts them.
+
+## 439. The parity sweep has no create-path relation, so a create card is compared against nothing — OPEN
+
+**Status:** OPEN 2026-09-08 — never machine-verified; established by reading the sweep's plumbing, and
+corroborated by §438 having been invisible to every existing detector until a person traced it.
+Reproduce with `grep -n "updateTool" src/test/inline-sweep-fixtures.ts` and
+`grep -n "create_" src/app/inline-ai-edit/plan.write-path-sweep.test.ts` — the only `create_` string
+in the sweep is a comment about a disclosure-only LinkDiff.
+
+`plan.write-path-sweep.test.ts` drives `update_*` tools ONLY. `sweepPlumbing` reads
+`INLINE_DESCRIPTORS[entity].updateTool`; there is no `createTool` to read. So the preview⟺write
+parity relation the sweep exists to enforce covers exactly half the write surface.
+
+★★★ **THIS IS THE REASON §438 COULD HAPPEN AT ALL, and the reason it is worth a number of its own
+rather than a line in §438.** Guards were added at merge sites, mutation-proved, and watched by a
+green sweep — and every one of them was a guard on EDITING, because the detector only ever asked
+about editing. Fixing the seven call sites closes the instances; it does not give the sweep the
+ability to have found them. The next create-path divergence will be just as invisible.
+
+★★ The hard part is that a create has no "before". Every existing relation is stated over a stored
+row and a moved value ("the card discloses X, the row moved to Y"). A create's relation has to be
+different in kind: the card promises a set of fields, and the created row must carry those and
+nothing else the model supplied. That is closer to §437's
+`plan.model-writable-surface.test.ts` subtraction than to the sweep's per-field probe, and it is why
+this is not a small change.
+
+★ `plan.create-path-guards.test.ts` does NOT close this and must not be read as closing it: it pins
+that seven specific guards are wired, one field each. It cannot see a field that no guard names, which
+is the entire class the sweep exists for.
+
+★ `plan.model-writable-surface.test.ts` does not close it either — it reasons about which fields are
+ACCOUNTED FOR, never about which WRITER accepts them, which is exactly how it came to carry an
+exemption (`calendarEvent.exceptions`) that was true of update and false of create.
