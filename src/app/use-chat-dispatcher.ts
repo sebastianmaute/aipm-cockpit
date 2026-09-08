@@ -36,6 +36,7 @@ import {
   sanitizePriority,
   sanitizeTaskName,
   sanitizeResource,
+  dropUnacceptedResourceFields,
 } from "./sanitize";
 import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
@@ -656,7 +657,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
             : null;
         const merged = sanitizeResource({
           ...existing,
-          ...patch,
+          // ★★★ GUARD BEFORE THE SPREAD. `sanitizeResource` rebuilds the whole
+          // record from the merged blob, so a field it refuses is CLEARED
+          // rather than left alone — the guard turns "refused" back into
+          // "unchanged", which is what the review card already promises.
+          // Nested OUTSIDE nothing here: unlike milestone/raid/change there is
+          // no rich-field pass to order against, so the plain call is correct
+          // and the ordering landmine those three carry does not apply.
+          // ★★ `renamed` is applied AFTER, deliberately: it is derived from
+          // `patch.name` by this call site, not supplied by the model, so it is
+          // not the guard's business and must not be filtered by it.
+          ...dropUnacceptedResourceFields(patch),
           ...(renamed ?? {}),
           id,
           localModifiedAt: new Date().toISOString(),

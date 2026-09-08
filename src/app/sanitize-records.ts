@@ -873,6 +873,20 @@ const RAID_FIELD_GUARDS: Readonly<Record<string, RaidFieldGuard>> = {
   //  disclose it. Nothing may reach this field from a model patch until the
   //  descriptor can show what it does.
   knowledgeLinks: () => false,
+  // ★★★ NOT MODEL-WRITABLE. `ownerResourceId` appears in NO tool schema
+  //  (`grep -c ownerResourceId src/app/chat-tool-defs.ts` -> 0, control on the
+  //  same pattern: `title` 19, `status` 14) — but `patchWithoutId` forwards
+  //  everything, so absence from the schema protects nothing on its own.
+  //  ★★ WHAT IT COST: `fkIdOrUndefined` accepts any finite positive number and
+  //  `null` clears the link, so a model patch REPOINTED a RAID item's owner to
+  //  a different resource, or unlinked it, with the card silent — the field is
+  //  neither a `diffField` nor a `linkField` on raid, so the preview has no
+  //  vocabulary for it. Measured by `plan.write-path-sweep.test.ts` as three
+  //  violations (4 -> 5, 4 -> undefined, "7" -> 7), filed as §435.
+  //  ★ `() => false` rather than a shape check: an accepted well-formed id is
+  //  still an owner reassignment the card cannot show. Nothing may reach this
+  //  field from a model patch until the descriptor can disclose it.
+  ownerResourceId: () => false,
   category: acceptsRaidCategory,
   status: acceptsRaidStatus,
   severity: acceptsRaidSeverity,
@@ -1016,6 +1030,18 @@ export const acceptsInfluenceInterest: StakeholderFieldGuard = (v) =>
   typeof v === "string" && INFLUENCE_INTEREST_SET.has(v);
 
 const STAKEHOLDER_FIELD_GUARDS: Readonly<Record<string, StakeholderFieldGuard>> = {
+  // ★★★ NOT MODEL-WRITABLE, and `entity-descriptor.ts` already says so at its
+  //  own `stakeholderFields` ("`Stakeholder.raci` IS a relationship, but
+  //  `stakeholderFields` does not …"). It appears in NO tool schema
+  //  (`grep -c raci src/app/chat-tool-defs.ts` -> 0). The descriptor knowing a
+  //  field is unwritable is not a guard — `patchWithoutId` still forwards it.
+  //  ★★ WHAT IT COST: `sanitizeStakeholder` rebuilds `raci` from the merged
+  //  blob, so ANY unrecognised patch value replaced the stored assignment map
+  //  and reduced it to `{}` — every RACI role on that stakeholder erased,
+  //  behind a card that showed nothing. Measured as three violations
+  //  ({"30":"A"} -> {} on a padded string, the empty string and the number 42),
+  //  filed as §435. Same destroy-user-data shape as `knowledgeLinks` below.
+  raci: () => false,
   // ★★★ NOT MODEL-WRITABLE, AND THE ONLY THING THAT MAKES THAT TRUE IS THIS
   //  ENTRY. `knowledgeLinks` appears in NO tool schema (`grep -c knowledgeLinks
   //  src/app/chat-tool-defs.ts` -> 0), but `patchWithoutId` has no whitelist, so
@@ -1047,6 +1073,65 @@ export function dropUnacceptedStakeholderFields<T extends object>(patch: T): T {
   const raw = patch as Record<string, unknown>;
   let out: Record<string, unknown> | null = null;
   for (const [field, accepts] of Object.entries(STAKEHOLDER_FIELD_GUARDS)) {
+    if (!(field in raw) || accepts(raw[field])) continue;
+    out ??= { ...raw };
+    delete out[field];
+  }
+  return (out ?? patch) as T;
+}
+
+// --- Resource merge-site guard ---------------------------------------------
+//
+// ★★★ THE FIFTH DENYLIST TABLE, AND THE REGISTER THAT HAD NONE. `updateResource`
+// merged the model's patch straight into `sanitizeResource` with nothing in
+// between, which is why FIVE of §435's seven undisclosed fields lived here.
+// open-followups §394 predicted this table's arrival and armed an alarm for it:
+// `plan.sanitizer-parity.test.ts`'s `resourceReader` carries a SOURCE ASSERTION
+// that reds the moment anything is inserted between the model's patch and
+// `sanitizeResource`. That assertion going red on this commit is the alarm
+// WORKING, not a regression — it means the reader must be recomposed to call
+// this guard, exactly as `changeReader` and `stakeholderReader` already do.
+//
+// ★★ DENYLIST, matching the four tables above rather than the two allowlists
+// below: it iterates the TABLE and deletes only refused fields, so every
+// resource field NOT named here still reaches the sanitizer untouched. An
+// allowlist here would silently drop every legitimately writable field the
+// table forgot to name.
+type ResourceFieldGuard = (value: unknown) => boolean;
+
+/** Resource fields a model patch may not write, because the card cannot
+ *  disclose them.
+ *
+ *  ★★★ ALL FIVE APPEAR 0 TIMES IN `chat-tool-defs.ts` AND
+ *  `chat-tool-defs-documents.ts`, measured 2026-09-08 with a non-vacuity
+ *  control on the same pattern (`title` 19, `name` 66, `status` 14,
+ *  `category` 11 — so a bare 0 is not a broken regex). Nothing advertises any
+ *  of them, so guarding costs no advertised capability. `entity-descriptor.ts`
+ *  says as much for `birthday` in its own comments: "stored, but absent from
+ *  `ResourceInput`: the tool cannot".
+ *
+ *  ★★ EACH WAS A REAL WRITE, not a theoretical reach — `plan.write-path-sweep`
+ *  drove all five through the real dispatcher and read the stored row back:
+ *  `utilizationMode` "hours" -> "percent", `utilization` and `absenceOverride`
+ *  and `birthday` cleared outright, `active` false -> undefined. Fourteen of
+ *  §435's twenty violations were these five.
+ *
+ *  ★ `active` was the one §435 hesitated over, on the grounds that a
+ *  soft-archive flag's write might be intentional. It is not reachable
+ *  intentionally: no schema declares it, so every write of it is a model
+ *  guessing at a field it was never offered. */
+const RESOURCE_FIELD_GUARDS: Readonly<Record<string, ResourceFieldGuard>> = {
+  utilizationMode: () => false,
+  utilization: () => false,
+  birthday: () => false,
+  absenceOverride: () => false,
+  active: () => false,
+};
+
+export function dropUnacceptedResourceFields<T extends object>(patch: T): T {
+  const raw = patch as Record<string, unknown>;
+  let out: Record<string, unknown> | null = null;
+  for (const [field, accepts] of Object.entries(RESOURCE_FIELD_GUARDS)) {
     if (!(field in raw) || accepts(raw[field])) continue;
     out ??= { ...raw };
     delete out[field];

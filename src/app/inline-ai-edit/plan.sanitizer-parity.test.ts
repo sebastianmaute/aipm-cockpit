@@ -9,6 +9,7 @@ import {
   dropUnacceptedChangeFields,
   dropUnacceptedMilestoneFields,
   dropUnacceptedRaidFields,
+  dropUnacceptedResourceFields,
   dropUnacceptedStakeholderFields,
   sanitizeAbsence,
   sanitizeChangeItem,
@@ -271,15 +272,14 @@ function readStored(out: Record<string, unknown>, field: string): string {
   return String(out[field] ?? "");
 }
 
-function sanitizerReader(
-  base: Record<string, unknown>,
-  sanitize: (input: unknown) => Record<string, unknown> | null,
-): StoredReader {
-  return (field, value) => {
-    const out = sanitize({ ...base, [field]: value });
-    return out ? readStored(out, field) : null;
-  };
-}
+// ★★★ `sanitizerReader` — a reader that called an entity's sanitizer with
+// NOTHING in between — was REMOVED on 2026-09-08 and must not be reintroduced.
+// Every entity now has a merge-site guard, so a bare sanitizer call no longer
+// describes any real writer: it would report a refused value as the sanitizer's
+// hardcoded fallback while the writer actually leaves the stored value alone.
+// That staleness is not hypothetical — `raid` and `change` both shipped it, and
+// `resource` was the last holdout until §435's fix. Compose the reader over the
+// entity's own `dropUnaccepted*Fields`, as all eight now are.
 
 /** The task apply path is NOT a full-record sanitizer — `use-chat-dispatcher.ts`
  *  composes `buildTaskCleanPatch` with `applyStatusChange`, guarded by
@@ -429,7 +429,28 @@ const changeReader: StoredReader = (field, value) => {
  *  longer existed. `change` repeated it with two. `resource` cannot repeat it
  *  silently — the moment anything filters the patch before `sanitizeResource`,
  *  that assertion reds and composing this reader is the fix. */
-const resourceReader: StoredReader = sanitizerReader(RES_BASE, sanitizeResource as never);
+/** The RESOURCE apply path, composed like its four siblings.
+ *
+ *  ★★★ THIS WAS THE LAST BARE `sanitizerReader(...)`, and it stopped being one
+ *  the moment `updateResource` grew a merge-site guard — which is exactly what
+ *  open-followups §394's tripwire below predicted and armed for. A raw-sanitizer
+ *  reader cannot SEE a guard, so it would go on reporting a refused
+ *  `utilizationMode` as a demotion to "percent" while the real writer now
+ *  leaves the stored value alone. `raid` and `change` both shipped that exact
+ *  staleness before anyone noticed.
+ *
+ *  ★★ IT IS STILL A MIRROR OF THE CALL SITE, NOT THE CALL SITE — the limitation
+ *  §394 names and this composition does not repair. Deleting
+ *  `dropUnacceptedResourceFields` from `use-chat-dispatcher.ts` leaves this
+ *  reader intact and this file green. What actually evaluates the real writer is
+ *  `plan.write-path-sweep.test.ts`, which drives the dispatcher and reads the
+ *  live workspace back; the source assertion below is what keeps the two from
+ *  drifting apart silently. */
+const resourceReader: StoredReader = (field, value) => {
+  const patch = dropUnacceptedResourceFields({ [field]: value });
+  const out = sanitizeResource({ ...RES_BASE, ...patch });
+  return out ? readStored(out as unknown as Record<string, unknown>, field) : null;
+};
 
 /** The ABSENCE apply path. `updateAbsence` (`use-register-tools.ts`) runs the
  *  model's patch through `dropUnacceptedAbsenceFields` before merging it over
@@ -886,8 +907,19 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
     expect(firedApplyOnly).toEqual([...APPLY_ONLY_REJECTS].sort());
   });
 
-  /** ★★★ THE TRIPWIRE UNDER `resourceReader`, and the reason that reader is
-   *  allowed to stay a bare sanitizer call.
+  /** ★★★ THE TRIPWIRE UNDER `resourceReader` — INVERTED 2026-09-08, because
+   *  the thing it was watching for HAPPENED.
+   *
+   *  It used to pin the resource merge site as UNGUARDED, so that adding a guard
+   *  would red and force this reader to be composed. §435's fix added
+   *  `dropUnacceptedResourceFields`, this assertion went red on that commit, and
+   *  the reader above was composed in response. **That red was the alarm
+   *  working, not a regression** — do not read the flip in this file's history
+   *  as a test being loosened to accommodate a change.
+   *
+   *  It now pins the opposite shape, for the same reason and with the same
+   *  force: the guard must STAY at that writer, and this reader must stay
+   *  composed over it. Deleting either reds.
    *
    *  A raw-sanitizer reader cannot SEE a merge-site guard, so the entity it
    *  reads goes quietly stale the moment one lands: `raid` proved it (the guard
@@ -907,8 +939,8 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
    *  a few lines up calls `sanitizeResource` too, and a whole-file regex would
    *  pass on ITS unguarded spread while `updateResource` grew a guard — a
    *  tripwire that reports success is worse than none. */
-  describe("the resource merge site stays unguarded, or this reader must be composed", () => {
-    it("hands sanitizeResource the model's patch with nothing in between", () => {
+  describe("the resource merge site stays guarded, and this reader stays composed over it", () => {
+    it("runs the model's patch through dropUnacceptedResourceFields before sanitizeResource", () => {
       // ★ Anchored to THIS file rather than the cwd, matching
       //  `tool-input-coverage.test.ts`. Use `join(import.meta.dirname, …)`, not
       //  `new URL(…, import.meta.url)` — under this vitest config the latter
@@ -926,16 +958,18 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
       const body = src.slice(start, end);
       expect(body).toContain("splitName(patch.name)");
 
-      // The POSITIVE shape: the stored row and the RAW patch spread straight
-      // into the sanitizer. Any filter — wrapping the spread, or pre-computing a
-      // guarded patch under another name — removes this and reds.
-      const raw = body.match(/sanitizeResource\(\{\s*\.\.\.existing,\s*\.\.\.patch,/g) ?? [];
-      expect(raw).toHaveLength(1);
-      // And the NEGATIVE, naming the thing: no `dropUnaccepted*Fields` sibling
-      // has reached this writer. Redundant with the line above today, on purpose
-      // — it is the half that still fires if the spread shape is refactored for
-      // an unrelated reason.
-      expect(body).not.toMatch(/dropUnaccepted\w*Fields/);
+      // The POSITIVE shape: the model's patch reaches the sanitizer only
+      // through the guard. Named exactly, so a DIFFERENT entity's guard pasted
+      // here by mistake does not satisfy it.
+      expect(body).toContain("...dropUnacceptedResourceFields(patch),");
+      // And the NEGATIVE: no RAW patch spread survives anywhere in this writer.
+      // This is the half that fires if someone re-adds `...patch,` alongside the
+      // guarded spread — which would restore the defect in full while the
+      // positive assertion above still passed.
+      // ★ `patch.name` / `patch.firstName` reads are untouched by this pattern;
+      // it matches the SPREAD form only.
+      const rawSpread = body.match(/\.\.\.patch,/g) ?? [];
+      expect(rawSpread).toHaveLength(0);
     });
   });
 });
