@@ -123,7 +123,17 @@ export function maxOutputTokensFor(model: string): number {
 export const CONTINUE_NUDGE =
   "Your previous message was cut off at the length limit. Continue exactly where you left off — do not repeat anything you already wrote.";
 
-export function buildSystemPrompt(
+/** The STABLE half of the system prompt (cached): fixed instructions that
+ *  never interpolate per-call state, plus the (large) guide text. Anthropic
+ *  prompt-cache is prefix-based, so this must come FIRST in the request and
+ *  contain only call-invariant content.
+ *
+ *  ★★ Split out of `buildSystemPrompt` (Task 5 of the prompt-cache-layout
+ *  slice) so the layout engine (Task 6) and the relocation (Task 7) can each
+ *  address the two halves independently. `buildSystemPrompt` below is kept
+ *  as a thin composition of this and `buildTurnContext` — nothing about
+ *  which text lands in which half changed here. */
+export function buildStableSystemBlocks(
   lang: Lang,
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
   guides: readonly OperatingGuide[],
@@ -133,11 +143,11 @@ export function buildSystemPrompt(
    *  `toolNamesFor`; only an explicit false drops one. */
   toolFlags: ToolFlags,
 ): SystemBlock[] {
-  // ★★ Resolved ONCE and shared by both advertising surfaces below. Two
-  //    independent reads of the setting is how they drifted apart before.
-  const offeredTools = toolNamesFor(toolFlags);
-  const groups = (snapshot.knownGroups ?? []).join(", ") || "(none)";
-  const labels = (snapshot.knownLabels ?? []).join(", ") || "(none)";
+  // `toolFlags` is unused HERE — the tool-advertising blocks it drives
+  // (view scope / activity recap / chat pointer) all live in the volatile
+  // half. Kept on the signature anyway so both halves take the IDENTICAL
+  // param list `buildSystemPrompt` composes them from unchanged.
+  void toolFlags;
   // STABLE prefix (cached): fixed instructions that never interpolate per-call
   // state, plus the (large) guide text. Anthropic prompt-cache is prefix-based,
   // so this must come FIRST and contain only call-invariant content.
@@ -171,6 +181,35 @@ export function buildSystemPrompt(
       }))
     : "";
   const stableText = [stableInstructions, guideBlock].filter(Boolean).join("\n\n");
+
+  return [{ type: "text", text: stableText, cache_control: { type: "ephemeral" } }];
+}
+
+/** The VOLATILE half of the system prompt (uncached): per-call state — the
+ *  APP CONTEXT block, view scope/digest, insights, the activity recap and
+ *  chat pointer. Rebuilt every turn, so it must sit AFTER the cached prefix
+ *  or it would invalidate the prompt cache on every message.
+ *
+ *  ★★ Split out of `buildSystemPrompt` alongside `buildStableSystemBlocks`
+ *  (see that function's doc comment) — same param list, same call-site
+ *  contract, just the second half of the same text. Returns the string, not
+ *  a `SystemBlock[]`: unlike the stable half this one is never followed by
+ *  its own `cache_control` breakpoint. */
+export function buildTurnContext(
+  lang: Lang,
+  snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
+  guides: readonly OperatingGuide[],
+  groundInGuides: boolean,
+  /** `settings.ai`'s tool flags — the SAME value `callClaude` is given, so the
+   *  prompt advertises exactly the tools the request carries. See
+   *  `toolNamesFor`; only an explicit false drops one. */
+  toolFlags: ToolFlags,
+): string {
+  // ★★ Resolved ONCE and shared by both advertising surfaces below. Two
+  //    independent reads of the setting is how they drifted apart before.
+  const offeredTools = toolNamesFor(toolFlags);
+  const groups = (snapshot.knownGroups ?? []).join(", ") || "(none)";
+  const labels = (snapshot.knownLabels ?? []).join(", ") || "(none)";
 
   // VOLATILE suffix (uncached): per-call state + the APP CONTEXT block. Placed
   // AFTER the cached prefix so it never invalidates the cache.
@@ -209,7 +248,7 @@ export function buildSystemPrompt(
   // suffix — in the cached prefix it would invalidate the prompt cache on every
   // message, which costs far more than the ~40 tokens it saves.
   const chatBlock = buildChatPointerBlock(snapshot.chatPointer ?? null, offeredTools);
-  const volatileText = [
+  return [
     `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
     appContext,
@@ -221,10 +260,26 @@ export function buildSystemPrompt(
   ]
     .filter(Boolean)
     .join("\n");
+}
 
+/** ★★ KEPT AS A COMPOSITION, not deleted. `inline-ai-edit-call.ts` genuinely
+ *  wants both halves in the system array (it has no transcript to cache, so
+ *  relocating its volatile block would change a tuned one-shot prompt for zero
+ *  gain — see the spec's per-consumer split). The chat panel calls the two
+ *  builders separately instead. */
+export function buildSystemPrompt(
+  lang: Lang,
+  snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
+  guides: readonly OperatingGuide[],
+  groundInGuides: boolean,
+  /** `settings.ai`'s tool flags — the SAME value `callClaude` is given, so the
+   *  prompt advertises exactly the tools the request carries. See
+   *  `toolNamesFor`; only an explicit false drops one. */
+  toolFlags: ToolFlags,
+): SystemBlock[] {
   return [
-    { type: "text", text: stableText, cache_control: { type: "ephemeral" } },
-    { type: "text", text: volatileText },
+    ...buildStableSystemBlocks(lang, snapshot, guides, groundInGuides, toolFlags),
+    { type: "text", text: buildTurnContext(lang, snapshot, guides, groundInGuides, toolFlags) },
   ];
 }
 

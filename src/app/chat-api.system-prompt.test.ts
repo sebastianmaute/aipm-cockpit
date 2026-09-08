@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildSystemPrompt, CACHED_TOOLS } from "./chat-api";
+import { buildSystemPrompt, buildStableSystemBlocks, buildTurnContext, CACHED_TOOLS } from "./chat-api";
 import { TOOL_DEFS } from "./chat-tool-defs";
 import type { Insight } from "./insights/insight";
+import type { OperatingGuide } from "./operating-guide";
 
 function snapshot(over: Record<string, unknown> = {}) {
   return {
@@ -213,5 +214,82 @@ describe("buildSystemPrompt insight block placement", () => {
     expect(volatile.text).toContain("CACHEPROBE");
     expect(volatile.text).toContain("Recent outcomes");
     expect(volatile.text).toContain("4242 tasks stalled");
+  });
+});
+
+// ★★★ TASK 5 — the equivalence pin for the stable/turn-context split.
+// `buildSystemPrompt` is kept ONLY as a thin composition of
+// `buildStableSystemBlocks` + `buildTurnContext`; this changes no output at
+// all (the relocation happens in Task 7). The fixture is deliberately NOT
+// the file's minimal `snapshot()` default — an empty snapshot with no guides
+// would let both new builders return near-empty text and the equivalence
+// check would prove almost nothing. Every field that lands text in either
+// half is populated here.
+describe("buildSystemPrompt split into buildStableSystemBlocks + buildTurnContext", () => {
+  const guides: OperatingGuide[] = [
+    {
+      id: "g1",
+      name: "Budget guide",
+      content: "Always double-check budget totals against the plan before reporting them.",
+      enabled: true,
+      priority: 1,
+      scope: {},
+      builtIn: true,
+    },
+  ];
+
+  const insights: Insight[] = [
+    {
+      id: 1,
+      key: "k1",
+      type: "milestoneSlip",
+      severity: "high",
+      data: { name: "SPLITPROBE", daysOverdue: 5 },
+      status: "active",
+      firstSeenAt: "2026-08-01",
+      lastSeenAt: "2026-08-05",
+      occurrences: 1,
+    },
+  ];
+
+  const richSnapshot = snapshot({
+    knownGroups: ["Migration", "Onboarding"],
+    knownLabels: ["urgent", "blocked"],
+    insights,
+    viewDigest: "3 people over capacity",
+    activitySummary: {
+      total: 3,
+      byActor: { user: 2, ai: 1, integration: 0, unknown: 0 },
+      latestAt: "2026-08-05T09:00:00.000Z",
+      days: 14,
+    },
+    chatPointer: {
+      count: 2,
+      recent: [{ title: "budget review", at: "2026-08-04T10:00:00Z" }],
+    },
+  });
+
+  it("composes byte-identically from the two new builders", () => {
+    const args = ["en-US", richSnapshot, guides, true, {}] as const;
+    const legacy = buildSystemPrompt(...args);
+    const composed = [
+      ...buildStableSystemBlocks(...args),
+      { type: "text" as const, text: buildTurnContext(...args) },
+    ];
+    expect(composed).toEqual(legacy);
+  });
+
+  // Anti-vacuity for the equivalence check above: a fixture that produces
+  // empty text on either side would let `toEqual` pass trivially. Both
+  // halves must carry real content.
+  it("gives the fixture real, non-empty text on both sides of the split", () => {
+    const [stable, volatile] = buildSystemPrompt("en-US", richSnapshot, guides, true, {});
+    expect(stable.text.length).toBeGreaterThan(0);
+    expect(volatile.text.length).toBeGreaterThan(0);
+    // Confirm the enriched fields actually landed, not just SOME text.
+    expect(stable.text).toContain("Budget guide");
+    expect(volatile.text).toContain("SPLITPROBE");
+    expect(volatile.text).toContain("3 people over capacity");
+    expect(volatile.text).toContain("budget review");
   });
 });
