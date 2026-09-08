@@ -41,6 +41,15 @@ it("treats a pre-0.294 bucket's missing cache fields as zero", () => {
   expect(weekToDate(b, new Date(2026, 8, 8))).toBe(14);
 });
 
+// ★ THE LOAD-BEARING CALL. A bucket read from storage reaches weekToDate
+// without ever passing through addToBuckets, so weekToDate must do its own
+// defaulting. Feeding it an addToBuckets OUTPUT cannot prove that — the value
+// is already complete by then.
+it("defaults a raw pre-0.294 bucket's missing fields when totalling the week", () => {
+  const legacy = { "2026-09-08": { input: 5, output: 5 } } as unknown as UsageBuckets;
+  expect(weekToDate(legacy, new Date(2026, 8, 8))).toBe(10);
+});
+
 test("nextWeekReset is next Monday 00:00 local", () => {
   const r = nextWeekReset(WED);
   expect(r.getDay()).toBe(1);
